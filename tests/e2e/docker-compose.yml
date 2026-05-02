@@ -1,0 +1,53 @@
+services:
+  data-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: metabase_test
+      POSTGRES_PASSWORD: metabase_test
+      POSTGRES_DB: warehouse
+    volumes:
+      - ./seed/postgres-init.sql:/docker-entrypoint-initdb.d/01-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U metabase_test -d warehouse"]
+      interval: 2s
+      retries: 30
+
+  metabase:
+    image: ${METABASE_E2E_IMAGE:-metabase/metabase-enterprise:latest}
+    depends_on:
+      data-db:
+        condition: service_healthy
+    ports:
+      - "13000:3000"
+    environment:
+      MB_DB_TYPE: h2
+      MB_DB_FILE: /metabase/metabase.db
+      MB_ENABLE_TEST_ENDPOINTS: "true"
+      MB_SITE_NAME: metabase-cli-e2e
+      JAVA_TIMEZONE: UTC
+      MB_PASSWORD_COMPLEXITY: weak
+      MB_DISABLE_SESSION_THROTTLE: "true"
+      MB_LOAD_SAMPLE_CONTENT: "false"
+      MB_CHECK_FOR_UPDATES: "false"
+      MB_ANON_TRACKING_ENABLED: "false"
+      # `dev` so Metabase honors METASTORE_DEV_SERVER_URL for token checks;
+      # the prod default is hard-pinned to https://token-check.metabase.com.
+      MB_RUN_MODE: dev
+      MB_PREMIUM_EMBEDDING_TOKEN: ${MB_PREMIUM_EMBEDDING_TOKEN:-}
+      METASTORE_DEV_SERVER_URL: ${METASTORE_DEV_SERVER_URL:-}
+    volumes:
+      - mb-app-db:/metabase
+      - ./snapshots:/e2e/snapshots
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >
+          curl -fsS http://localhost:3000/api/health
+          || wget -q -O- http://localhost:3000/api/health
+          || exit 1
+      interval: 3s
+      retries: 60
+      start_period: 30s
+
+volumes:
+  mb-app-db:

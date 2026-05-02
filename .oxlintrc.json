@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": ["dist/**", "node_modules/**", "coverage/**"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  },
+  "rules": {
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-await-in-loop": "off",
+    "no-console": "error",
+    "no-restricted-imports": ["error", { "paths": ["got", "axios", "node-fetch", "undici"] }],
+    "typescript/consistent-type-assertions": ["error", { "assertionStyle": "never" }],
+    "typescript/no-non-null-assertion": "error",
+    "curly": ["error", "all"],
+    "unicorn/switch-case-braces": ["error", "always"]
+  }
+}

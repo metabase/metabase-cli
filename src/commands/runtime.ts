@@ -1,0 +1,98 @@
+import { defineCommand } from "citty";
+import type { ArgsDef, CommandDef, CommandMeta, ParsedArgs } from "citty";
+import type { ZodType } from "zod";
+
+import { resolveConfig, type ConfigFlags } from "../core/config";
+import { createClient, type Client } from "../core/http/client";
+import { reportError } from "../output/error";
+import { setMetabaseAugment } from "../runtime/command-augment";
+
+import { resolveCommonFlags, type CommonArgs, type CommonContext } from "./context";
+
+export interface MetabaseCommandContext<A extends ArgsDef> {
+  args: ParsedArgs<A>;
+  ctx: CommonContext;
+  getClient: () => Promise<Client>;
+}
+
+export interface MetabaseCommandDef<A extends ArgsDef> {
+  meta: CommandMeta;
+  args: A;
+  examples?: readonly string[];
+  outputSchema?: ZodType;
+  run: (context: MetabaseCommandContext<A>) => Promise<void> | void;
+}
+
+export function defineMetabaseCommand<const A extends ArgsDef>(
+  def: MetabaseCommandDef<A>,
+): CommandDef<A> {
+  const cmd = defineCommand<A>({
+    meta: def.meta,
+    args: def.args,
+    async run({ args }) {
+      try {
+        const ctx = resolveCommonFlags(pickCommonArgs(args));
+        let cached: Client | null = null;
+        const getClient = async (): Promise<Client> => {
+          if (cached) {
+            return cached;
+          }
+          const resolved = await resolveConfig(buildConfigFlags(ctx));
+          cached = createClient({ url: resolved.url, apiKey: resolved.apiKey });
+          return cached;
+        };
+        await def.run({ args, ctx, getClient });
+      } catch (error) {
+        reportError(error);
+      }
+    },
+  });
+  setMetabaseAugment(cmd, {
+    examples: def.examples ?? [],
+    outputSchema: def.outputSchema ?? null,
+  });
+  return cmd;
+}
+
+function pickCommonArgs<A extends ArgsDef>(args: ParsedArgs<A>): CommonArgs {
+  const out: CommonArgs = {};
+  if (typeof args["format"] === "string") {
+    out.format = args["format"];
+  }
+  if (typeof args["json"] === "boolean") {
+    out.json = args["json"];
+  }
+  if (typeof args["detail"] === "string") {
+    out.detail = args["detail"];
+  }
+  if (typeof args["fields"] === "string") {
+    out.fields = args["fields"];
+  }
+  if (typeof args["maxBytes"] === "string") {
+    out.maxBytes = args["maxBytes"];
+  }
+  if (typeof args["profile"] === "string") {
+    out.profile = args["profile"];
+  }
+  if (typeof args["url"] === "string") {
+    out.url = args["url"];
+  }
+  if (typeof args["apiKey"] === "string") {
+    out.apiKey = args["apiKey"];
+  }
+  return out;
+}
+
+function buildConfigFlags(ctx: CommonContext): ConfigFlags {
+  const flags: ConfigFlags = {};
+  if (ctx.profile !== undefined) {
+    flags.profile = ctx.profile;
+  }
+  if (ctx.url !== undefined) {
+    flags.url = ctx.url;
+  }
+  if (ctx.apiKey !== undefined) {
+    flags.apiKey = ctx.apiKey;
+  }
+  return flags;
+}
