@@ -1,0 +1,51 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+      - run: bun run build
+
+      # The Metabase container runs the JVM as uid 2000; the bind-mounted
+      # snapshot dir is owned by the runner user, so without this Metabase
+      # cannot write `cli_default.sql` and bootstrap fails.
+      - name: Make snapshot dir writable by Metabase container
+        run: chmod 777 tests/e2e/snapshots
+
+      - name: Boot Metabase + Postgres via docker compose
+        run: bun run e2e:up
+
+      - name: Run e2e tests
+        run: bun run test:e2e
+
+      - name: Capture Metabase logs on failure
+        if: failure()
+        run: docker compose -f tests/e2e/docker-compose.yml logs metabase > metabase.log
+
+      - name: Upload Metabase logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: metabase-logs
+          path: metabase.log
+          if-no-files-found: ignore
+
+      - name: Tear down docker compose
+        if: always()
+        run: bun run e2e:down
