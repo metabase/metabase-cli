@@ -32,7 +32,7 @@ describe("listTruncationNotice", () => {
 describe("itemOversizeNotice", () => {
   it("names the byte count and the available knobs", () => {
     expect(itemOversizeNotice(4096)).toBe(
-      "… item is 4096 bytes (exceeds --max-bytes); narrow with --detail compact / --fields, or pass --max-bytes 0",
+      "… item is 4096 bytes (exceeds --max-bytes); narrow with --fields, or pass --max-bytes 0",
     );
   });
 });

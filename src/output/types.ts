@@ -1,7 +1,6 @@
 import { z, type ZodType } from "zod";
 
 export type Format = "json" | "text";
-export type Detail = "compact" | "full" | "fields";
 
 export const DEFAULT_MAX_BYTES = 65536;
 
@@ -39,7 +38,7 @@ export function wrapList<T>(items: T[]): ListEnvelope<T> {
 
 export interface RenderOptions {
   format: Format;
-  detail: Detail;
+  full: boolean;
   fields: string[] | undefined;
   maxBytes: number;
 }

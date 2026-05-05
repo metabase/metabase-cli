@@ -3,16 +3,13 @@ import { z } from "zod";
 import { TransformRun } from "../../domain/transform";
 import type { ResourceView } from "../../domain/view";
 import { renderItem } from "../../output/render";
-import { pollUntil } from "../../runtime/poll";
+import { DEFAULT_INTERVAL_MS, DEFAULT_TIMEOUT_MS, pollUntil } from "../../runtime/poll";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
 const RUN_TERMINAL_STATUSES = new Set(["succeeded", "failed", "timeout", "canceled"]);
 const RUN_FAILURE_STATUSES = new Set(["failed", "timeout", "canceled"]);
-
-const DEFAULT_WAIT_TIMEOUT_MS = 600_000;
-const DEFAULT_WAIT_INTERVAL_MS = 2_000;
 
 const TransformRunKickoff = z.object({
   message: z.string(),
@@ -48,12 +45,12 @@ export default defineMetabaseCommand({
     timeout: {
       type: "string",
       description: "Polling timeout in ms (used with --wait)",
-      default: String(DEFAULT_WAIT_TIMEOUT_MS),
+      default: String(DEFAULT_TIMEOUT_MS),
     },
     interval: {
       type: "string",
       description: "Polling interval in ms (used with --wait)",
-      default: String(DEFAULT_WAIT_INTERVAL_MS),
+      default: String(DEFAULT_INTERVAL_MS),
     },
     id: { type: "positional", description: "Transform id", required: true },
   },

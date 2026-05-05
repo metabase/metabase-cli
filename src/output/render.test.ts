@@ -24,7 +24,7 @@ const cardView: ResourceView<Card> = {
 
 const baseOpts: RenderOptions = {
   format: "json",
-  detail: "compact",
+  full: false,
   fields: undefined,
   maxBytes: 65536,
 };
@@ -78,18 +78,17 @@ describe("renderItem", () => {
     expect(parseJson(streams.stdout, CardCompact)).toEqual({ id: 1, name: "Sales" });
   });
 
-  it("emits the full item when detail=full", () => {
+  it("emits the full item when full=true", () => {
     renderItem({ id: 1, name: "Sales", archived: false }, cardView, {
       ...baseOpts,
-      detail: "full",
+      full: true,
     });
     expect(parseJson(streams.stdout, Card)).toEqual({ id: 1, name: "Sales", archived: false });
   });
 
-  it("emits a fields projection when detail=fields", () => {
+  it("emits a fields projection when fields is set", () => {
     renderItem({ id: 1, name: "Sales", archived: false }, cardView, {
       ...baseOpts,
-      detail: "fields",
       fields: ["id", "archived"],
     });
     expect(parseJson(streams.stdout, CardProjected)).toEqual({ id: 1, archived: false });
@@ -103,11 +102,11 @@ describe("renderItem", () => {
     expect(streams.stdout).toBe("ID    1\nName  Sales\n");
   });
 
-  it("includes every field in text mode when detail=full", () => {
+  it("includes every field in text mode when full=true", () => {
     renderItem({ id: 1, name: "Sales", archived: false }, cardView, {
       ...baseOpts,
       format: "text",
-      detail: "full",
+      full: true,
     });
     expect(streams.stdout).toBe("id        1\nname      Sales\narchived  false\n");
   });
@@ -117,13 +116,13 @@ describe("renderItem", () => {
     const item: Card = { id: 1, name: longName, archived: false };
     renderItem(item, cardView, {
       ...baseOpts,
-      detail: "full",
+      full: true,
       maxBytes: 50,
     });
     expect(parseJson(streams.stdout, Card)).toEqual(item);
     const expectedBytes = Buffer.byteLength(JSON.stringify(item, null, 2) + "\n", "utf8");
     expect(streams.stderr).toBe(
-      `… item is ${expectedBytes} bytes (exceeds --max-bytes); narrow with --detail compact / --fields, or pass --max-bytes 0\n`,
+      `… item is ${expectedBytes} bytes (exceeds --max-bytes); narrow with --fields, or pass --max-bytes 0\n`,
     );
   });
 
@@ -139,7 +138,7 @@ describe("renderItem", () => {
     const longName = "x".repeat(200);
     renderItem({ id: 1, name: longName, archived: false }, cardView, {
       ...baseOpts,
-      detail: "full",
+      full: true,
       maxBytes: 0,
     });
     expect(streams.stderr).toBe("");
@@ -227,7 +226,7 @@ describe("renderList — text format", () => {
     expect(streams.stdout).toBe("(no results)\n");
   });
 
-  it("falls back to JSON when detail=fields", () => {
+  it("falls back to JSON when fields is set even in text format", () => {
     renderList(
       {
         data: [
@@ -238,7 +237,7 @@ describe("renderList — text format", () => {
         total: 2,
       },
       cardView,
-      { ...baseOpts, format: "text", detail: "fields", fields: ["id", "archived"] },
+      { ...baseOpts, format: "text", fields: ["id", "archived"] },
     );
     expect(parseJson(streams.stdout, CardProjectedListEnvelope)).toEqual({
       data: [

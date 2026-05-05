@@ -1,6 +1,6 @@
 import { ConfigError } from "../core/errors";
 import { resolveFormat } from "../output/format";
-import { DEFAULT_MAX_BYTES, type Detail, type Format } from "../output/types";
+import { DEFAULT_MAX_BYTES, type Format } from "../output/types";
 import type { connectionFlags, outputFlags, profileFlag } from "./flags";
 
 type FlagValue<T> = T extends { type: "boolean" }
@@ -17,7 +17,7 @@ export type CommonArgs = {
 
 export interface CommonContext {
   format: Format;
-  detail: Detail;
+  full: boolean;
   fields: string[] | undefined;
   maxBytes: number;
   url: string | undefined;
@@ -33,23 +33,20 @@ const INTEGER_PATTERN = /^-?\d+$/;
 
 export function resolveCommonFlags(args: CommonArgs, options: ResolveOptions = {}): CommonContext {
   const isTty = options.isTty ?? Boolean(process.stdout.isTTY);
+  const fields = parseFields(args.fields);
+  const full = args.full === true;
+  if (full && fields !== undefined) {
+    throw new ConfigError("--full conflicts with --fields (use one or neither)");
+  }
   return {
     format: resolveFormat({ json: args.json, format: args.format, isTty }),
-    detail: resolveDetail(args.detail),
-    fields: parseFields(args.fields),
+    full,
+    fields,
     maxBytes: parseMaxBytes(args.maxBytes),
     url: args.url,
     apiKey: args.apiKey,
     profile: args.profile,
   };
-}
-
-function resolveDetail(detail: string | undefined): Detail {
-  const value = detail ?? "compact";
-  if (value === "compact" || value === "full" || value === "fields") {
-    return value;
-  }
-  throw new ConfigError(`invalid --detail value: "${value}" (expected: compact, full, fields)`);
 }
 
 function parseFields(value: string | undefined): string[] | undefined {

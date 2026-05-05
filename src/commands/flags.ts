@@ -3,10 +3,13 @@ import { DEFAULT_MAX_BYTES } from "../output/types";
 export const outputFlags = {
   format: { type: "string", description: "auto | json | text", default: "auto" },
   json: { type: "boolean", description: "Shorthand for --format json" },
-  detail: { type: "string", description: "compact | full | fields", default: "compact" },
+  full: {
+    type: "boolean",
+    description: "Return the full object (default: compact)",
+  },
   fields: {
     type: "string",
-    description: "Dot-paths, comma separated (with --detail fields)",
+    description: "Dot-paths, comma separated (mutually exclusive with --full)",
   },
   maxBytes: {
     type: "string",

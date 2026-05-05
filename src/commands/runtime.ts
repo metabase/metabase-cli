@@ -62,8 +62,8 @@ function pickCommonArgs<A extends ArgsDef>(args: ParsedArgs<A>): CommonArgs {
   if (typeof args["json"] === "boolean") {
     out.json = args["json"];
   }
-  if (typeof args["detail"] === "string") {
-    out.detail = args["detail"];
+  if (typeof args["full"] === "boolean") {
+    out.full = args["full"];
   }
   if (typeof args["fields"] === "string") {
     out.fields = args["fields"];

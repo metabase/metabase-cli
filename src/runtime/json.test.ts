@@ -1,3 +1,4 @@
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -163,3 +164,79 @@ describe("parseJsonResult on schema mismatch", () => {
     });
   });
 });
+
+describe("parseJson property tests", () => {
+  it("property: round-trips any JSON.stringify(value) through parseJson with z.unknown()", () => {
+    fc.assert(
+      fc.property(fc.jsonValue(), (value) => {
+        const serialized = JSON.stringify(value);
+        expect(parseJson(serialized, z.unknown())).toEqual(value);
+      }),
+    );
+  });
+
+  it("property: any string that JSON.parse rejects produces a ConfigError with the source prefix", () => {
+    fc.assert(
+      fc.property(fc.string(), (input) => {
+        let isValidJson = true;
+        try {
+          JSON.parse(input);
+        } catch {
+          isValidJson = false;
+        }
+        fc.pre(!isValidJson);
+        const result = parseJsonResult(input, z.unknown(), { source: "fixture" });
+        expect(result.ok).toBe(false);
+        if (result.ok) {
+          throw new Error("expected failure");
+        }
+        expect(result.error).toBeInstanceOf(ConfigError);
+        expect(result.error.message.startsWith("fixture: invalid JSON: ")).toBe(true);
+      }),
+    );
+  });
+
+  it("property: any value that does not match the schema produces a ValidationError carrying the source", () => {
+    fc.assert(
+      fc.property(fc.integer(), (value) => {
+        const serialized = JSON.stringify(value);
+        const result = parseJsonResult(serialized, z.string(), { source: "fixture" });
+        expect(result.ok).toBe(false);
+        if (result.ok) {
+          throw new Error("expected failure");
+        }
+        expect(result.error).toBeInstanceOf(ValidationError);
+        if (!(result.error instanceof ValidationError)) {
+          throw new Error("expected ValidationError");
+        }
+        expect(result.error.developerDetail.source).toBe("fixture");
+      }),
+    );
+  });
+
+  it("property: source prefix is omitted when no source is supplied", () => {
+    fc.assert(
+      fc.property(
+        fc.string({ minLength: 1 }).filter((value) => !isParseableJson(value)),
+        (input) => {
+          const result = parseJsonResult(input, z.unknown());
+          expect(result.ok).toBe(false);
+          if (result.ok) {
+            throw new Error("expected failure");
+          }
+          expect(result.error).toBeInstanceOf(ConfigError);
+          expect(result.error.message.startsWith("invalid JSON: ")).toBe(true);
+        },
+      ),
+    );
+  });
+});
+
+function isParseableJson(input: string): boolean {
+  try {
+    JSON.parse(input);
+    return true;
+  } catch {
+    return false;
+  }
+}

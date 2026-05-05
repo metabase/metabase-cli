@@ -2,14 +2,14 @@ import type { ColumnDef, ResourceView } from "../domain/view";
 
 import { capListEnvelope } from "./cap";
 import { itemOversizeNotice, listTruncationNotice, warn } from "./notice";
-import { applyDetail, isPlainObject } from "./projection";
+import { applyProjection, isPlainObject } from "./projection";
 import { formatCell, formatScalar, renderTable } from "./table";
 import type { ListEnvelope, RenderOptions } from "./types";
 
 type KeyValuePair = readonly [label: string, value: string];
 
 export function renderItem<T>(item: T, view: ResourceView<T>, opts: RenderOptions): void {
-  const projected = applyDetail(item, view, opts.detail, opts.fields);
+  const projected = applyProjection(item, view, opts.full, opts.fields);
   const body = renderItemBody(item, view, projected, opts) + "\n";
   process.stdout.write(body);
   emitItemOversizeNotice(body, opts.maxBytes);
@@ -20,7 +20,7 @@ export function renderList<T>(
   view: ResourceView<T>,
   opts: RenderOptions,
 ): void {
-  if (opts.format === "json" || opts.detail === "fields") {
+  if (opts.format === "json" || opts.fields !== undefined) {
     renderJsonEnvelope(envelope, view, opts);
     return;
   }
@@ -43,7 +43,7 @@ function renderJsonEnvelope<T>(
   opts: RenderOptions,
 ): void {
   const projectedItems = envelope.data.map((item) =>
-    applyDetail(item, view, opts.detail, opts.fields),
+    applyProjection(item, view, opts.full, opts.fields),
   );
   const projectedEnvelope: ListEnvelope<unknown> = { ...envelope, data: projectedItems };
   const capped = capListEnvelope(projectedEnvelope, opts.maxBytes);
@@ -59,10 +59,10 @@ function renderItemBody<T>(
   projected: unknown,
   opts: RenderOptions,
 ): string {
-  if (opts.format === "json" || opts.detail === "fields") {
+  if (opts.format === "json" || opts.fields !== undefined) {
     return JSON.stringify(projected, null, 2);
   }
-  if (opts.detail === "compact") {
+  if (!opts.full) {
     return renderKeyValueLines(columnPairs(item, view.tableColumns));
   }
   return renderKeyValueLines(objectPairs(projected));

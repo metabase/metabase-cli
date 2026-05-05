@@ -14,9 +14,9 @@ export interface PollOptions {
   signal?: AbortSignal;
 }
 
-const DEFAULT_INTERVAL_MS = 2_000;
-const DEFAULT_MAX_INTERVAL_MS = 30_000;
-const DEFAULT_TIMEOUT_MS = 600_000;
+export const DEFAULT_INTERVAL_MS = 2_000;
+export const DEFAULT_MAX_INTERVAL_MS = 30_000;
+export const DEFAULT_TIMEOUT_MS = 600_000;
 
 export async function pollUntil<T>(
   fn: (signal: AbortSignal) => Promise<T>,

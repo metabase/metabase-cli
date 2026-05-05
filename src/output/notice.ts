@@ -7,5 +7,5 @@ export function listTruncationNotice(bytes: number): string {
 }
 
 export function itemOversizeNotice(bytes: number): string {
-  return `… item is ${bytes} bytes (exceeds --max-bytes); narrow with --detail compact / --fields, or pass --max-bytes 0`;
+  return `… item is ${bytes} bytes (exceeds --max-bytes); narrow with --fields, or pass --max-bytes 0`;
 }

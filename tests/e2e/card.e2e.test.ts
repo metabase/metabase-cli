@@ -156,10 +156,10 @@ describe("card e2e", () => {
     expect(parseJson(result.stdout, CardCompact)).toEqual(ORDERS_BY_STATUS_COMPACT);
   });
 
-  it("get --detail full returns the full card with dataset_query and query_type", async () => {
+  it("get --full returns the full card with dataset_query and query_type", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["card", "get", String(E2E_CARDS.ORDERS_BY_STATUS), "--json", "--detail", "full"],
+      args: ["card", "get", String(E2E_CARDS.ORDERS_BY_STATUS), "--json", "--full"],
       configHome,
       env: authEnv(),
     });
@@ -257,13 +257,7 @@ describe("card e2e", () => {
   it("query --export-format csv streams a CSV with the expected header and rows", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: [
-        "card",
-        "query",
-        String(E2E_CARDS.ORDERS_BY_STATUS),
-        "--export-format",
-        "csv",
-      ],
+      args: ["card", "query", String(E2E_CARDS.ORDERS_BY_STATUS), "--export-format", "csv"],
       configHome,
       env: authEnv(),
     });
@@ -277,13 +271,7 @@ describe("card e2e", () => {
   it("query --export-format xlsx streams an XLSX file (zip magic bytes)", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: [
-        "card",
-        "query",
-        String(E2E_CARDS.ORDERS_BY_STATUS),
-        "--export-format",
-        "xlsx",
-      ],
+      args: ["card", "query", String(E2E_CARDS.ORDERS_BY_STATUS), "--export-format", "xlsx"],
       configHome,
       env: authEnv(),
     });
@@ -295,13 +283,7 @@ describe("card e2e", () => {
   it("query --export-format with an invalid value fails with ConfigError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: [
-        "card",
-        "query",
-        String(E2E_CARDS.ORDERS_BY_STATUS),
-        "--export-format",
-        "html",
-      ],
+      args: ["card", "query", String(E2E_CARDS.ORDERS_BY_STATUS), "--export-format", "html"],
       configHome,
       env: authEnv(),
     });

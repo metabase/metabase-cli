@@ -1,27 +1,26 @@
 import { ConfigError } from "../core/errors";
 import type { ResourceView } from "../domain/view";
-import type { Detail } from "./types";
 
-export function applyDetail<T>(
+export function applyProjection<T>(
   value: T,
   view: ResourceView<T>,
-  detail: Detail,
+  full: boolean,
   fields: string[] | undefined,
 ): unknown {
-  if (detail === "compact") {
-    const parsed = view.compactPick.safeParse(value);
-    if (parsed.success) {
-      return parsed.data;
+  if (fields !== undefined) {
+    if (fields.length === 0) {
+      throw new ConfigError("--fields requires at least one path");
     }
-    throw new ConfigError(`compact projection failed: ${parsed.error.message}`);
+    return projectFields(value, fields);
   }
-  if (detail === "full") {
+  if (full) {
     return value;
   }
-  if (fields === undefined || fields.length === 0) {
-    throw new ConfigError("--detail fields requires --fields");
+  const parsed = view.compactPick.safeParse(value);
+  if (parsed.success) {
+    return parsed.data;
   }
-  return projectFields(value, fields);
+  throw new ConfigError(`compact projection failed: ${parsed.error.message}`);
 }
 
 function projectFields(value: unknown, fields: string[]): Record<string, unknown> {

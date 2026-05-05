@@ -59,22 +59,31 @@ describe("resolveCommonFlags — format reconciliation", () => {
   });
 });
 
-describe("resolveCommonFlags — detail reconciliation", () => {
-  it("defaults to compact", () => {
+describe("resolveCommonFlags — full / fields reconciliation", () => {
+  it("defaults to compact (full=false, fields=undefined)", () => {
     const result = resolveCommonFlags({}, { isTty: true });
-    expect(result.detail).toBe("compact");
+    expect(result.full).toBe(false);
+    expect(result.fields).toBeUndefined();
   });
 
-  it("accepts compact, full, fields", () => {
-    expect(resolveCommonFlags({ detail: "compact" }, { isTty: true }).detail).toBe("compact");
-    expect(resolveCommonFlags({ detail: "full" }, { isTty: true }).detail).toBe("full");
-    expect(resolveCommonFlags({ detail: "fields" }, { isTty: true }).detail).toBe("fields");
+  it("--full sets full=true", () => {
+    expect(resolveCommonFlags({ full: true }, { isTty: true }).full).toBe(true);
   });
 
-  it("throws ConfigError on invalid --detail value", () => {
-    expect(() => resolveCommonFlags({ detail: "verbose" }, { isTty: true })).toThrow(
-      new ConfigError(`invalid --detail value: "verbose" (expected: compact, full, fields)`),
+  it("--fields populates fields and leaves full=false", () => {
+    const result = resolveCommonFlags({ fields: "id,name" }, { isTty: true });
+    expect(result.full).toBe(false);
+    expect(result.fields).toEqual(["id", "name"]);
+  });
+
+  it("throws ConfigError when --full and --fields are combined", () => {
+    expect(() => resolveCommonFlags({ full: true, fields: "id" }, { isTty: true })).toThrow(
+      new ConfigError("--full conflicts with --fields (use one or neither)"),
     );
+  });
+
+  it("treats --full=false as not set", () => {
+    expect(resolveCommonFlags({ full: false }, { isTty: true }).full).toBe(false);
   });
 });
 
@@ -133,7 +142,7 @@ describe("resolveCommonFlags — full result shape", () => {
   it("returns fully-defaulted context for empty args on a TTY", () => {
     expect(resolveCommonFlags({}, { isTty: true })).toEqual({
       format: "text",
-      detail: "compact",
+      full: false,
       fields: undefined,
       maxBytes: 65536,
       url: undefined,
@@ -149,7 +158,6 @@ describe("resolveCommonFlags — full result shape", () => {
         apiKey: "secret",
         profile: "prod",
         format: "text",
-        detail: "full",
         fields: "id,name",
         maxBytes: "1024",
       },
@@ -157,7 +165,7 @@ describe("resolveCommonFlags — full result shape", () => {
     );
     expect(result).toEqual({
       format: "text",
-      detail: "full",
+      full: false,
       fields: ["id", "name"],
       maxBytes: 1024,
       url: "https://m.example.com",
