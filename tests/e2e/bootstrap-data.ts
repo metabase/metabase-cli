@@ -19,6 +19,8 @@ export const Bootstrap = z.object({
   }),
   adminApiKey: z.string(),
   adminApiKeyEmail: z.string(),
+  limitedApiKey: z.string(),
+  limitedApiKeyEmail: z.string(),
 });
 
 export type E2EBootstrap = z.infer<typeof Bootstrap>;

@@ -7,8 +7,9 @@ import { z } from "zod";
 import { isNotFoundError } from "../../../src/core/errors";
 import { createClient, type Client } from "../../../src/core/http/client";
 import { HttpError } from "../../../src/core/http/errors";
+import { CardQueryResult } from "../../../src/domain/card";
 import { CurrentUser } from "../../../src/domain/user";
-import { parseJson } from "../../../src/runtime/json";
+import { parseJsonResult } from "../../../src/runtime/json";
 import { pollUntil } from "../../../src/runtime/poll";
 import { Bootstrap, BOOTSTRAP_FILE_PATH, type E2EBootstrap } from "../bootstrap-data";
 import { resolveE2EBaseUrl } from "../defaults";
@@ -50,6 +51,7 @@ const WAREHOUSE_CONNECTION = {
 const DEFAULT_COLLECTION_NAME = "E2E Default";
 const ORDERS_BY_STATUS_CARD_NAME = "Orders by status";
 const ORDERS_BY_STATUS_SQL = "SELECT status, COUNT(*) AS n FROM orders GROUP BY status";
+const LIMITED_GROUP_NAME = "E2E Limited";
 
 const BASE_URL = resolveE2EBaseUrl();
 
@@ -58,6 +60,10 @@ const SessionResponse = z.object({ id: z.string() });
 const ApiKeyResponse = z.object({ unmasked_key: z.string() }).loose();
 const EntityWithIdResponse = z.object({ id: z.number() }).loose();
 const DatabaseMetadataResponse = z.object({ tables: z.array(z.unknown()) }).loose();
+const PermissionsGroupResponse = z.object({ id: z.number().int().positive() }).loose();
+const CollectionGraphResponse = z
+  .object({ revision: z.number().int(), groups: z.record(z.string(), z.unknown()) })
+  .loose();
 
 async function main(): Promise<void> {
   await waitForHealth(BASE_URL, HEALTH_TIMEOUT_MS);
@@ -69,11 +75,19 @@ async function main(): Promise<void> {
   }
 
   const sessionId = await ensureAdminSessionId();
-  const adminApiKey = await mintAdminApiKey(sessionId);
+  const adminApiKey = await mintApiKey(sessionId, "e2e-admin-key", E2E_GROUPS.ADMIN);
   const client = createClient({ url: BASE_URL, apiKey: adminApiKey });
 
   const apiKeyUser = await client.requestParsed(CurrentUser, "/api/user/current");
   await seedContent(client);
+
+  const limitedGroupId = await createLimitedGroup(client);
+  await revokeDefaultCollectionAccess(client, limitedGroupId);
+  const limitedApiKey = await mintApiKey(sessionId, "e2e-limited-key", limitedGroupId);
+  const limitedClient = createClient({ url: BASE_URL, apiKey: limitedApiKey });
+  const limitedKeyUser = await limitedClient.requestParsed(CurrentUser, "/api/user/current");
+  await assertLimitedKeyCannotQueryOrdersCard(limitedClient);
+
   await captureSnapshot(client);
 
   await writeStoredBootstrap({
@@ -81,6 +95,8 @@ async function main(): Promise<void> {
     admin: { email: ADMIN.email, password: ADMIN.password },
     adminApiKey,
     adminApiKeyEmail: apiKeyUser.email,
+    limitedApiKey,
+    limitedApiKeyEmail: limitedKeyUser.email,
   });
   process.stdout.write(
     `bootstrap: wrote ${BOOTSTRAP_FILE_PATH} and captured snapshot ${E2E_SNAPSHOT_NAME}\n`,
@@ -131,19 +147,67 @@ async function ensureAdminSessionId(): Promise<string> {
   return after.id;
 }
 
-async function mintAdminApiKey(sessionId: string): Promise<string> {
+async function mintApiKey(sessionId: string, namePrefix: string, groupId: number): Promise<string> {
   const response = await fetch(`${BASE_URL}/api/api-key`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-metabase-session": sessionId },
     body: JSON.stringify({
-      name: `e2e-admin-key-${Date.now()}`,
-      group_id: E2E_GROUPS.ADMIN,
+      name: `${namePrefix}-${Date.now()}`,
+      group_id: groupId,
     }),
   });
   if (!response.ok) {
     throw new Error(`POST /api/api-key -> ${response.status}: ${await response.text()}`);
   }
   return ApiKeyResponse.parse(await response.json()).unmasked_key;
+}
+
+async function createLimitedGroup(client: Client): Promise<number> {
+  const created = await client.requestParsed(PermissionsGroupResponse, "/api/permissions/group", {
+    method: "POST",
+    body: { name: LIMITED_GROUP_NAME },
+  });
+  return created.id;
+}
+
+async function revokeDefaultCollectionAccess(
+  client: Client,
+  limitedGroupId: number,
+): Promise<void> {
+  const graph = await client.requestParsed(CollectionGraphResponse, "/api/collection/graph");
+  const denyDefaultCollection = {
+    [String(E2E_COLLECTIONS.DEFAULT)]: "none",
+  };
+  const updated = {
+    revision: graph.revision,
+    groups: {
+      ...graph.groups,
+      [String(E2E_GROUPS.ALL_USERS)]: denyDefaultCollection,
+      [String(limitedGroupId)]: denyDefaultCollection,
+    },
+  };
+  await client.requestParsed(CollectionGraphResponse, "/api/collection/graph", {
+    method: "PUT",
+    body: updated,
+    idempotent: true,
+  });
+}
+
+async function assertLimitedKeyCannotQueryOrdersCard(client: Client): Promise<void> {
+  try {
+    await client.requestParsed(CardQueryResult, `/api/card/${E2E_CARDS.ORDERS_BY_STATUS}/query`, {
+      method: "POST",
+      body: { parameters: [] },
+    });
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 403) {
+      return;
+    }
+    throw error;
+  }
+  throw new Error(
+    "bootstrap precondition failed: limited api key was able to query the orders-by-status card",
+  );
 }
 
 async function seedContent(client: Client): Promise<void> {
@@ -288,7 +352,14 @@ async function readStoredBootstrap(): Promise<E2EBootstrap | null> {
     }
     throw error;
   }
-  return parseJson(raw, Bootstrap, { source: BOOTSTRAP_FILE_PATH });
+  const parsed = parseJsonResult(raw, Bootstrap, { source: BOOTSTRAP_FILE_PATH });
+  if (!parsed.ok) {
+    process.stderr.write(
+      `bootstrap: ignoring stale ${BOOTSTRAP_FILE_PATH} (${parsed.error.message}); regenerating\n`,
+    );
+    return null;
+  }
+  return parsed.value;
 }
 
 async function writeStoredBootstrap(data: E2EBootstrap): Promise<void> {
