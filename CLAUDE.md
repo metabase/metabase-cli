@@ -20,7 +20,8 @@ Metabase CLI. TypeScript ESM. citty + native `fetch` + Zod + @clack/prompts. oxl
 - Eloquence: prefer the simplest realistic expression. Don't stack ceremony — repeated `override readonly` modifiers, generic gymnastics, intermediate abstract classes, or option-bag wrappers — when a plain field, an early return, or a non-generic shape is shorter and clearer. If two real-world engineers wouldn't both reach for the pattern, don't write it. Idiomatic > technically-pristine.
 - No big inline expressions. `if (a && b && (c.x?.y ?? 0) > Z || isFooBar(d))` is noise. Split into semantically-named locals (`const hasBudget = …; const isFresh = …; if (hasBudget && isFresh) …`). Same for ternary chains — flatten with early returns, guard clauses, or a small lookup. The conditional in an `if`/return should read as one phrase, not a puzzle.
 - We do not duplicate auth resolution for SOURCE/TARGET. Use profiles. Multi-instance commands take `--from-profile` / `--to-profile`, each routed through the same `resolveConfig`. There is no `METABASE_SOURCE_*` env-var family, no parallel `getSourceClient`, no shadow flag set. Inline reads of `process.env.METABASE_URL` / `METABASE_API_KEY` / `METABASE_LICENSE_TOKEN` belong in `core/config.ts` only.
-- Tests import production Zod schemas from `src/`; they never redeclare them. `LoginResult` (`src/commands/auth/login.ts`), `AuthStatus` (`src/commands/auth/status.ts`), and every `<Resource>` / `<Resource>Compact` in `src/domain/` is THE contract — copying the shape into a test creates silent drift the type-checker can't catch.
+- Tests import production Zod schemas from `src/`; they never redeclare them. `LoginResult` (`src/commands/auth/login.ts`), `AuthStatus` (`src/commands/auth/status.ts`), every `<Resource>` / `<Resource>Compact` in `src/domain/`, and every `<Resource>ListEnvelope` in `src/commands/<noun>/list.ts` is THE contract — copying the shape into a test creates silent drift the type-checker can't catch.
+- Compact projections MUST chain `.strip()` after `.pick()`: `<Resource>.pick({...}).strip()`. Zod 4's `.pick()` on a `.loose()` parent inherits the loose catchall — without `.strip()` the projection silently passes every API field through. The bug is invisible until you look at the rendered `--json` output and see fields you never picked. This applies to every `<Resource>Compact` in `src/domain/` and any other `pick()` derived from a `.loose()` schema.
 - Tests reuse `src/runtime/` and `src/core/errors` helpers (`parseJson`, `pollUntil`, `isNotFoundError`, `errorMessage`) instead of reimplementing `JSON.parse` + Zod, sleep+deadline loops, or ENOENT shape checks. Tests are code; the layering rules don't bite, but the duplication and drift rules do.
 
 ## Layout
@@ -53,12 +54,31 @@ Metabase CLI. TypeScript ESM. citty + native `fetch` + Zod + @clack/prompts. oxl
 Every Metabase API resource lives in `src/domain/<resource-singular>.ts` (`card.ts`, `dashboard.ts`, `database.ts`, …) and exports exactly three things per resource:
 
 1. **`<Resource>`** — `z.object({ ... }).loose()` for the full API shape; type aliased via `export type <Resource> = z.infer<typeof <Resource>>`. `.loose()` is the default so Metabase API additions don't break us; tighten over time. (Zod 4 — `.passthrough()` is deprecated.)
-2. **`<Resource>Compact`** — `<Resource>.pick({ ... })` projection for list output and agent-facing JSON; type aliased the same way. The compact view is the agent-facing contract.
+2. **`<Resource>Compact`** — `<Resource>.pick({ ... }).strip()` projection for list output and agent-facing JSON; type aliased the same way. The trailing `.strip()` is mandatory — without it the picked schema inherits the loose catchall and stops projecting. The compact view is the agent-facing contract.
 3. **`<resource>View`** — `ResourceView<T>` with `compactPick: <Resource>Compact` and `tableColumns: ColumnDef<T>[]`. Consumed by `src/output/render`; never inline a column list in a command.
+
+**Schema scope: trim to what the agent needs.** `src/domain/` is not a mirror of the frontend type — it's the agent-facing contract. Pick fields that drive query writing or content selection (id, name, FK targets, base/semantic types, descriptions). Drop sync flags, fingerprints, JSON-unfolding metadata, `last_analyzed`/`created_at`/`updated_at`, and other internal plumbing. `.loose()` keeps the door open for fields the agent doesn't read; the schema's job is to declare what's required and what's typed.
+
+**Pin closed enums.** When the frontend types a field as `string | null` but the backend enumerates it (Clojure `(derive :namespace/X :namespace/*)` hierarchies define the closed set), pin the schema to `z.enum([...])` over those values. Closed enums give agents a typed surface and make new server values land as a hard parse failure (a signal we can act on) rather than a silent string. To find the closed set, grep the backend for `derive` declarations under the resource's keyword namespace.
 
 Naming: `<Resource>` is PascalCase (`Card`, `CurrentUser`); `<Resource>Compact` follows; `<resource>View` is camelCase (`cardView`, `userView`). The token `<Resource>` is the resource name, not the file name — a single file may host multiple resources (e.g. `domain/user.ts` exports `CurrentUser`/`CurrentUserCompact`/`userView`), and the three-export contract holds per-resource.
 
-Adding a resource is purely additive: drop in `src/domain/<r>.ts`, add `tests/fixtures/<r>/sample.json`, add a unit test that runs `<R>.parse(<fixture>)` and asserts the parsed value. Never edit an existing command to wire schemas — commands import what they need.
+Adding a resource is purely additive: drop in `src/domain/<r>.ts`. Never edit an existing command to wire schemas — commands import what they need.
+
+**Don't write tautological schema-parse unit tests.** A test that does `expect(Schema.parse(fixture)).toEqual(fixture)` only proves Zod works — it has no signal about whether the schema matches a real Metabase response. The schema's correctness is a contract test, and the contract test lives in the e2e tier where `parseJson(stdout, Schema)` runs against output produced by the live API. If your domain file doesn't yet have an e2e command driving it, that's fine — land the schema additively and let the first command that consumes it pull it through e2e. Don't paper over the gap with a fixture round-trip.
+
+## List-output envelope
+
+List commands wrap their items in a `ListEnvelope<T>` (`{ data, returned, total?, limit?, truncated? }`) produced by `src/output/render.ts`. Each `src/commands/<noun>/list.ts` exports its envelope schema as a named const:
+
+```ts
+import { listEnvelopeSchema } from "../../output/types";
+import { DatabaseCompact } from "../../domain/database";
+
+export const DatabaseListEnvelope = listEnvelopeSchema(DatabaseCompact);
+```
+
+The export is consumed in two places: as the command's `outputSchema` (so the manifest documents the actual list shape, not just the per-item resource), and by the matching e2e test (`parseJson(stdout, DatabaseListEnvelope)` — never redeclared). The `listEnvelopeSchema` factory lives in `src/output/types.ts` next to the `ListEnvelope<T>` interface, with an explicit `ZodType<ListEnvelope<T>>` return type so the runtime type and parse schema can't drift.
 
 Forbidden in commands: typing a response as `Array<Record<string, unknown>>`, `any`, or any inline `as { ... }` shape cast on a nested API field. The Zod schema is the single source of truth; downstream code consumes `z.infer<typeof Schema>`.
 
@@ -68,9 +88,12 @@ Forbidden in commands: typing a response as `Array<Record<string, unknown>>`, `a
 - Layering & boundary rules in `tests/structure.test.ts` apply to production source only; `*.test.ts` files are exempt and may import across layers to construct realistic inputs (e.g. `output/help.test.ts` importing `defineMetabaseCommand` from `commands/runtime`).
 - Tests must verify real behavior. No tautologies. No tests that re-encode the implementation. No tests that pass regardless of the system under test.
 - Assertions must be full. Prefer `toEqual(<full object>)` / `toEqual(<full array>)` over poking individual properties. If you assert deep equality of a structure, that single assertion subsumes shape, length, and contents — don't add a separate length or property check before or after it.
+- Field-by-field `toBe(...)` against a parsed object is a code smell: it leaves untested fields invisible, and a regression that flips an unchecked field passes silently. The fix is `toEqual({ ...full expected... })`. The only legitimate exception is when one specific field is genuinely the only thing under test (e.g. asserting an idempotent retry didn't bump `updated_at`) — and then the test name should say so.
+- Exact exit codes only. `expect(result.exitCode).toBe(<n>)` — never `.not.toBe(0)`. The CLI's exit-code taxonomy is fixed (see `src/core/errors.ts`: `ConfigError`=2, `AbortError`=130, everything else=1); a test that says "non-zero" doesn't distinguish "the right error fired" from "any failure at all" and lets a `ConfigError` regression hide behind an `HttpError` test (or vice versa). If you don't know which code is right, look up the error class.
+- Exact error strings only. Prefer `toContain("<exact substring>")` or `toBe("<exact full string>")` over `toMatch(/.../i)`. Regexes hide which message actually fired and let a refactor that swaps "Not found." for "Endpoint missing" pass without notice. When the message contains a dynamic value (a byte count, a generated id, a path), build the expected string from the same source the production code used and assert with `toBe`/`toContain` — never paper over the dynamic part with `.*` or `\d+`. The narrow exception is asserting *absence* of a pattern (`expect(out).not.toMatch(/pattern/)`), where the regex is load-bearing.
 - One concept per test. Don't bundle unrelated assertions. Don't add belt-and-suspenders assertions that overlap.
 - No fixtures or mocks beyond what the test exercises. Fixture values used by zero assertions are noise — drop them or use a real value.
-- When asserting an error, assert the error type AND a meaningful slice of the message — not just "throws".
+- When asserting an error, assert the error type AND the exact message slice — not just "throws", not a regex match.
 - `vi.mock(...)` is a last resort, not a default. Module mocks substitute the implementation under test for one you wrote in the test file — the assertion collapses to "the mock returned what I configured." Prefer real values flowing through real imports: construct a real `ZodError` / `Error` / `HttpError` and pass it; build a real Zod schema and `.parse` against it. If a branch only fires on a third-party private symbol or live process state, do not unit-test the branch — cover it in the smoke/integration tier where the real path runs end-to-end. Acceptable uses of `vi.mock`: (a) hermetic isolation of side-effecting deps in integration tests where the real thing pollutes the host (e.g. `@napi-rs/keyring` writing to the real OS keychain), (b) test fixtures injected into a fully-exercised pipeline. Not acceptable: mocking a one-line wrapper to make it "testable in isolation" — that is a tautology dressed as a test.
 
 ## Test tiers

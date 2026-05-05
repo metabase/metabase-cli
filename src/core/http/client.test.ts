@@ -193,7 +193,7 @@ describe("createClient.requestParsed", () => {
     if (!(error instanceof ValidationError)) {
       throw new Error("expected ValidationError");
     }
-    expect(error.userMessage).toMatch(/schema/i);
+    expect(error.userMessage).toContain("value did not match expected schema");
   });
 
   it("throws HttpError on content-type mismatch with no silent downgrade", async () => {

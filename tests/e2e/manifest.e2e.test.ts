@@ -37,6 +37,11 @@ describe("__manifest e2e", () => {
       "license set",
       "license status",
       "license remove",
+      "db list",
+      "db get",
+      "table list",
+      "table get",
+      "field get",
     ]);
 
     for (const entry of manifest.commands) {

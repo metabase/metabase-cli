@@ -138,7 +138,7 @@ describe("readBody", () => {
     if (!(error instanceof ConfigError)) {
       throw new Error("expected ConfigError");
     }
-    expect(error.message).toMatch(/invalid JSON/i);
+    expect(error.message).toContain("invalid JSON: ");
   });
 
   it("uses caller-provided source label in error messages", async () => {

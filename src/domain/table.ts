@@ -1,0 +1,63 @@
+import { z } from "zod";
+
+import { Field } from "./field";
+import type { ResourceView } from "./view";
+
+const TableEntityType = z.enum([
+  "entity/GenericTable",
+  "entity/UserTable",
+  "entity/CompanyTable",
+  "entity/TransactionTable",
+  "entity/ProductTable",
+  "entity/SubscriptionTable",
+  "entity/EventTable",
+]);
+
+const TableVisibilityType = z.enum([
+  "details-only",
+  "hidden",
+  "normal",
+  "retired",
+  "sensitive",
+  "technical",
+  "cruft",
+]);
+
+export const Table = z
+  .object({
+    id: z.number().int(),
+    name: z.string(),
+    display_name: z.string(),
+    description: z.string().nullable(),
+    db_id: z.number().int(),
+    schema: z.string().nullable(),
+    entity_type: TableEntityType.nullable(),
+    visibility_type: TableVisibilityType.nullable(),
+    active: z.boolean(),
+    fields: z.array(Field).optional(),
+  })
+  .loose();
+export type Table = z.infer<typeof Table>;
+
+export const TableCompact = Table.pick({
+  id: true,
+  name: true,
+  display_name: true,
+  description: true,
+  db_id: true,
+  schema: true,
+  entity_type: true,
+}).strip();
+export type TableCompact = z.infer<typeof TableCompact>;
+
+export const tableView: ResourceView<Table> = {
+  compactPick: TableCompact,
+  tableColumns: [
+    { key: "id", label: "ID" },
+    { key: "db_id", label: "DB" },
+    { key: "schema", label: "Schema" },
+    { key: "name", label: "Name" },
+    { key: "display_name", label: "Display Name" },
+    { key: "description", label: "Description" },
+  ],
+};

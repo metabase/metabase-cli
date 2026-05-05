@@ -142,7 +142,7 @@ describe("credentials (file fallback when keychain is broken)", () => {
       throw new Error("expected ConfigError");
     }
     expect(error.message).toContain(path);
-    expect(error.message).toMatch(/invalid JSON/i);
+    expect(error.message).toContain("invalid JSON: ");
   });
 
   it("throws ValidationError when the credentials file contains a non-string value", async () => {

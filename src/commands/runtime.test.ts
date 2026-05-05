@@ -125,7 +125,7 @@ describe("defineMetabaseCommand", () => {
 
     await runCommand(cmd, { rawArgs: [] });
 
-    expect(stderr.join("")).toMatch(/url|profile/i);
+    expect(stderr.join("")).toContain('Not authenticated for profile "default"');
     expect(process.exitCode).toBe(2);
 
     process.exitCode = previousExitCode;
