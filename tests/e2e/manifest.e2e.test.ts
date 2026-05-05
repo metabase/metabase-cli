@@ -59,6 +59,7 @@ describe("__manifest e2e", () => {
       "transform-job create",
       "transform-job update",
       "transform-job delete",
+      "search",
     ]);
 
     for (const entry of manifest.commands) {

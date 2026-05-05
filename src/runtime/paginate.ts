@@ -1,13 +1,11 @@
 import { z, type ZodType } from "zod";
 
-import type { Client } from "../core/http/client";
+import type { Client, QueryValue } from "../core/http/client";
 
 export const DEFAULT_PAGE_SIZE = 50;
 
-export type PaginationQuery = Record<string, string | number | boolean | undefined>;
-
 export interface PaginateOptions {
-  query?: PaginationQuery;
+  query?: Record<string, QueryValue>;
   pageSize?: number;
   max?: number;
   signal?: AbortSignal;

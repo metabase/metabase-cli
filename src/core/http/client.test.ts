@@ -404,3 +404,22 @@ describe("createClient sanitization", () => {
     });
   });
 });
+
+describe("createClient query encoding", () => {
+  it("encodes array query values as repeated keys and skips undefined entries", async () => {
+    const fakeFetch = makeFakeFetch([jsonResponse({ id: 1, email: "a@b.com" })]);
+    const client = createClient(CONFIG, { fetchImpl: fakeFetch.fetch });
+
+    await client.requestParsed(PingResponse, "/api/search", {
+      query: {
+        models: ["card", "dashboard"],
+        q: "x",
+        archived: undefined,
+      },
+    });
+
+    expect(fakeFetch.calls[0]?.url).toBe(
+      "https://m.example.com/api/search?models=card&models=dashboard&q=x",
+    );
+  });
+});

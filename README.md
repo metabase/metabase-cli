@@ -283,6 +283,26 @@ metabase card archive 1
 metabase card archive 1 --json
 ```
 
+## Search
+
+### `metabase search [query]`
+
+Search Metabase content (cards, dashboards, collections, tables, …). Returns a `ListEnvelope` of compact search results by default; pass `--detail full` for the full per-row payload.
+
+```sh
+metabase search orders
+metabase search --models card,dashboard --limit 10 --json
+metabase search products --archived
+```
+
+| Flag             | Description                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--models`, `-m` | Comma-separated model filter: `card,dataset,metric,dashboard,collection,database,table,segment,measure,snippet,document,action,transform,indexed-entity`.   |
+| `--archived`     | Include archived items only.                                                                                                                                 |
+| `--limit`        | Max results to return (default `20`).                                                                                                                        |
+| `--table-db-id`  | Restrict to items on a given database id.                                                                                                                    |
+| `--verified`     | Only verified content.                                                                                                                                       |
+
 ## Environment variables
 
 | Variable                 | Effect                                                                         |
