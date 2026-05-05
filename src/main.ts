@@ -15,6 +15,7 @@ const main: CommandDef = defineCommand({
     db: () => import("./commands/db").then((mod) => mod.default),
     table: () => import("./commands/table").then((mod) => mod.default),
     field: () => import("./commands/field").then((mod) => mod.default),
+    card: () => import("./commands/card").then((mod) => mod.default),
     transform: () => import("./commands/transform").then((mod) => mod.default),
     "transform-job": () => import("./commands/transform-job").then((mod) => mod.default),
     __manifest: (): Promise<CommandDef> =>
