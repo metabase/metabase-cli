@@ -81,8 +81,8 @@ describe("auth e2e", () => {
       configHome,
     });
 
-    expect(login.exitCode).not.toBe(0);
-    expect(login.stderr).toMatch(/verification failed/i);
+    expect(login.exitCode).toBe(2);
+    expect(login.stderr).toContain("verification failed: Invalid or unauthorized API key");
   });
 
   it("logout clears stored credentials and status reflects the cleared profile", async () => {
@@ -154,7 +154,7 @@ describe("auth e2e", () => {
     });
 
     expect(logout.exitCode).toBe(2);
-    expect(logout.stderr).toMatch(/--yes required/i);
+    expect(logout.stderr).toContain("--yes required to clear credentials non-interactively");
     expect(logout.stdout).toBe("");
   });
 });

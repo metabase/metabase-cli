@@ -26,12 +26,14 @@ Whole-tree non-deterministic audit. Where `/review` checks the diff, this checks
 
 > Audit `src/` in the current repository for layering violations. Use ripgrep / file reads — read-only, no edits.
 >
+> Skip `*.test.ts` files entirely — per CLAUDE.md, "Layering & boundary rules in `tests/structure.test.ts` apply to production source only; `*.test.ts` files are exempt and may import across layers." Audit only production `.ts` files.
+>
 > Direction rule: `commands → core → domain`. Specifically:
 >
 > - `src/domain/**` may import only from `zod` and other `src/domain/**` files. Nothing from `src/commands/`, `src/core/`, `src/runtime/`, `src/output/`.
 > - `src/core/**` may import from `src/domain/**`, `src/runtime/**`, and other `src/core/**`. Never from `src/commands/`.
-> - `src/output/**` may import from `src/domain/**`, `src/runtime/**`. Never from `src/commands/` or `src/core/auth/`.
-> - `src/runtime/**` imports nothing from `src/commands/`, `src/core/`, `src/domain/`, `src/output/`.
+> - `src/output/**` may import from `src/domain/**`, `src/runtime/**`, and `src/core/**` except `src/core/auth/`. Never from `src/commands/` or `src/core/auth/`.
+> - `src/runtime/**` may import from `src/core/errors` (typed errors are the project's pattern: `runtime/json.ts` returns `ConfigError`/`ValidationError`, `runtime/poll.ts` throws `TimeoutError`, etc.) and from `src/core/http/client.ts` for the `Client` type only. It must not import from `src/commands/`, `src/domain/`, `src/output/`, or any other `src/core/` file.
 > - `src/commands/**` may import from any other `src/` location.
 >
 > For every violation, report `path:line: <import-stmt> — violates <rule>`. If zero violations, output the single line `(clean)`.
@@ -56,19 +58,20 @@ Whole-tree non-deterministic audit. Where `/review` checks the diff, this checks
 
 ## Subagent 3 — Boundary & process discipline
 
-> Audit `src/` in the current repository for boundary violations. Read-only.
+> Audit `src/` in the current repository for boundary violations. Read-only. Skip `*.test.ts` files entirely (production source only — tests are exempt).
 >
 > Forbidden outside their permitted homes:
 >
-> | Pattern                                                                                                    | Allowed only in               |
-> | ---------------------------------------------------------------------------------------------------------- | ----------------------------- |
-> | `process.exit(`                                                                                            | `src/cli.ts`                  |
-> | `process.stdout.write`, `process.stderr.write`                                                             | `src/cli.ts`, `src/output/**` |
-> | `console.{log,warn,error,info,debug}`                                                                      | `src/cli.ts`, `src/output/**` |
-> | `JSON.parse(`                                                                                              | `src/runtime/json.ts`         |
-> | bare `fetch(`, `globalThis.fetch`, third-party HTTP libs (`got`/`axios`/`node-fetch`/`undici`), `new URL(` | `src/core/http/**`            |
-> | `child_process` (`spawn`, `exec`, etc.)                                                                    | `src/runtime/process.ts`      |
-> | `setTimeout` inside an `await` polling loop                                                                | `src/runtime/poll.ts`         |
+> | Pattern                                                                                        | Allowed only in                                 |
+> | ---------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+> | `process.exit(`                                                                                | `src/cli.ts`                                    |
+> | `process.stdout.write`, `process.stderr.write`                                                 | `src/cli.ts`, `src/output/**`                   |
+> | `console.{log,warn,error,info,debug}`                                                          | `src/cli.ts`, `src/output/**`                   |
+> | `JSON.parse(`                                                                                  | `src/runtime/json.ts`                           |
+> | bare `fetch(`, `globalThis.fetch`, third-party HTTP libs (`got`/`axios`/`node-fetch`/`undici`) | `src/core/http/**`                              |
+> | `new URL(`                                                                                     | `src/core/http/**`, `src/core/url.ts`           |
+> | `child_process` (`spawn`, `exec`, etc.)                                                        | `src/runtime/process.ts`                        |
+> | `setTimeout` inside an `await` polling loop                                                    | `src/runtime/poll.ts`, `src/core/http/retry.ts` |
 >
 > For each violation, report `path:line: <rule>: <snippet>`. If zero violations, output `(clean)`.
 
@@ -78,12 +81,15 @@ Whole-tree non-deterministic audit. Where `/review` checks the diff, this checks
 
 > Audit pairing between `src/` and `tests/` in the current repository. Read-only.
 >
+> Test layout: this project uses two tiers — colocated unit tests at `src/**/*.test.ts` and end-to-end at `tests/e2e/<noun>.e2e.test.ts`. There are no `tests/integration/` or `tests/smoke/` directories.
+>
 > Required pairings:
 >
-> - For every `src/commands/<cmd>.ts`: both `tests/integration/<cmd>.test.ts` AND `tests/smoke/<cmd>.test.ts` must exist.
-> - For every `src/domain/<r>.ts`: `tests/fixtures/<r>/sample.json` must exist; a unit test referencing `<R>.parse(...)` (the schema) must exist somewhere under `tests/unit/`.
-> - For every pure helper file in `src/core/**`, `src/output/**`, `src/runtime/**` (excluding `index.ts` re-exports): a unit test imports from it.
-> - For every helper with infinite input space (URL parsing, JSON parsing, projection, byte capping, polling): a property test using `fast-check` must exist.
+> - For every leaf command at `src/commands/<noun>/<verb>.ts`: a `tests/e2e/<noun>.e2e.test.ts` exists and exercises that subcommand via `runCli`. Adding a new command without an e2e test is a missing pairing.
+> - For every leaf command at `src/commands/<noun>/<verb>.ts`: the literal `commandPaths` list in `tests/e2e/manifest.e2e.test.ts` must include `"<noun> <verb>"`.
+> - For every `src/domain/<r>.ts`: **no** fixture-and-parse-test pair is required (a unit test of the form `Schema.parse(fixture).toEqual(fixture)` is a tautology). The schema's contract is tested by the e2e tier when a command consuming it runs against the live API. Report a missing pairing only if no command consumes the schema AND no e2e test parses through it.
+> - For every pure helper file in `src/core/**`, `src/output/**`, `src/runtime/**` (excluding `index.ts` re-exports and types-only files): a colocated unit test (`<name>.test.ts` next to `<name>.ts`) exercises it.
+> - For every helper with infinite input space (URL parsing, JSON parsing, projection, byte capping, polling): a property test using `fast-check` should exist.
 >
 > For each missing pairing, report `<src-path> → expected <test-path>`. If all pairings are present, output `(clean)`.
 
@@ -95,8 +101,8 @@ Whole-tree non-deterministic audit. Where `/review` checks the diff, this checks
 >
 > **Domain contract** — for every `src/domain/<r>.ts`, verify it exports all of:
 >
-> 1. `<Resource>` — a `z.object(...)` for the full API shape, with type via `z.infer`.
-> 2. `<Resource>Compact` — a small projection schema (typically `<Resource>.pick({...})`) with inferred type.
+> 1. `<Resource>` — a `z.object({...}).loose()` for the full API shape, with type via `z.infer`. (Zod 4 — `.passthrough()` is deprecated; `.loose()` is the project standard.)
+> 2. `<Resource>Compact` — `<Resource>.pick({...}).strip()` with inferred type. The trailing `.strip()` is **mandatory**: `.pick()` on a `.loose()` parent inherits the loose catchall and silently leaks every API field through the projection at parse time. Report a Compact missing `.strip()` as `path:line: compact-missing-strip: <name>`.
 > 3. `<resource>View` — an object with `compactPick: <Resource>Compact` and `tableColumns: ColumnDef[]`.
 >
 > Report missing exports as `path: missing-export: <Name>`.

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { ResourceView } from "../domain/view";
 import { parseJson } from "../runtime/json";
+import { capListEnvelope } from "./cap";
 import { renderItem, renderList } from "./render";
 import type { ListEnvelope, RenderOptions } from "./types";
 
@@ -113,13 +114,17 @@ describe("renderItem", () => {
 
   it("emits a stderr notice when JSON output exceeds maxBytes", () => {
     const longName = "x".repeat(200);
-    renderItem({ id: 1, name: longName, archived: false }, cardView, {
+    const item: Card = { id: 1, name: longName, archived: false };
+    renderItem(item, cardView, {
       ...baseOpts,
       detail: "full",
       maxBytes: 50,
     });
-    expect(parseJson(streams.stdout, Card)).toEqual({ id: 1, name: longName, archived: false });
-    expect(streams.stderr).toMatch(/^… item is \d+ bytes \(exceeds --max-bytes\)/);
+    expect(parseJson(streams.stdout, Card)).toEqual(item);
+    const expectedBytes = Buffer.byteLength(JSON.stringify(item, null, 2) + "\n", "utf8");
+    expect(streams.stderr).toBe(
+      `… item is ${expectedBytes} bytes (exceeds --max-bytes); narrow with --detail compact / --fields, or pass --max-bytes 0\n`,
+    );
   });
 
   it("does not warn when item fits inside maxBytes", () => {
@@ -183,12 +188,20 @@ describe("renderList — JSON format", () => {
       total: items.length,
     };
     renderList(envelope, cardView, { ...baseOpts, maxBytes: 500 });
-    const parsed = parseJson(streams.stdout, TruncatedEnvelope);
-    expect(parsed.data.length).toBeGreaterThan(0);
-    expect(parsed.data.length).toBeLessThan(items.length);
-    expect(parsed.returned).toBe(parsed.data.length);
-    expect(parsed.truncated.bytes).toBeGreaterThan(500);
-    expect(streams.stderr).toMatch(/^… cut at \d+ bytes; rerun with --max-bytes 0\n$/);
+
+    const projectedItems = items.map(({ id, name }) => ({ id, name }));
+    const expectedCapped = capListEnvelope(
+      { data: projectedItems, returned: items.length, total: items.length },
+      500,
+    );
+    if (expectedCapped.truncated === undefined) {
+      throw new Error("fixture should produce truncation");
+    }
+
+    expect(parseJson(streams.stdout, TruncatedEnvelope)).toEqual(expectedCapped);
+    expect(streams.stderr).toBe(
+      `… cut at ${expectedCapped.truncated.bytes} bytes; rerun with --max-bytes 0\n`,
+    );
   });
 });
 
@@ -249,7 +262,14 @@ describe("renderList — text format", () => {
       total: items.length,
     };
     renderList(envelope, cardView, { ...baseOpts, format: "text", maxBytes: 500 });
+
+    const expectedCapped = capListEnvelope(envelope, 500);
+    if (expectedCapped.truncated === undefined) {
+      throw new Error("fixture should produce truncation");
+    }
     expect(streams.stdout).toContain("ID");
-    expect(streams.stderr).toMatch(/^… cut at \d+ bytes; rerun with --max-bytes 0\n$/);
+    expect(streams.stderr).toBe(
+      `… cut at ${expectedCapped.truncated.bytes} bytes; rerun with --max-bytes 0\n`,
+    );
   });
 });

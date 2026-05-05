@@ -26,8 +26,7 @@ describe("parseJson", () => {
     if (!(error instanceof ConfigError)) {
       throw new Error("expected ConfigError");
     }
-    expect(error.message).toContain("--body");
-    expect(error.message).toMatch(/invalid JSON/i);
+    expect(error.message).toContain("--body: invalid JSON: ");
   });
 
   it("throws ValidationError listing zod issues on shape mismatch", () => {
@@ -81,8 +80,7 @@ describe("parseJsonResult", () => {
       throw new Error("expected failure");
     }
     expect(result.error).toBeInstanceOf(ConfigError);
-    expect(result.error.message).toContain("--body");
-    expect(result.error.message).toMatch(/invalid JSON/i);
+    expect(result.error.message).toContain("--body: invalid JSON: ");
   });
 
   it("returns a ValidationError when the schema rejects the value", () => {
@@ -130,7 +128,7 @@ describe("parseJsonResult on non-JSON strings", () => {
         throw new Error("expected failure");
       }
       expect(result.error).toBeInstanceOf(ConfigError);
-      expect(result.error.message).toMatch(/^fixture: invalid JSON: /);
+      expect(result.error.message).toContain("fixture: invalid JSON: ");
     },
   );
 });

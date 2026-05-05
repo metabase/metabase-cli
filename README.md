@@ -114,6 +114,195 @@ metabase license remove --yes
 
 Common output flags (`--json`, `--format`, `--detail`, `--fields`, `--max-bytes`) are accepted; the result payload is rendered through the standard output layer.
 
+## Transforms
+
+CRUD on `/api/transform`. Bodies for `create` / `update` are JSON; resolution order: `--body` → `--file` → piped stdin (auto-detected when stdin is not a TTY).
+
+### `metabase transform list`
+
+```sh
+metabase transform list
+metabase transform list --json
+```
+
+### `metabase transform get <id>`
+
+```sh
+metabase transform get 1 --json
+```
+
+### `metabase transform create`
+
+```sh
+cat transform.json | metabase transform create
+metabase transform create --file transform.json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `metabase transform update <id>`
+
+```sh
+metabase transform update 1 --body '{"name":"renamed"}'
+```
+
+Same `--body` / `--file` resolution as `create`. Stdin is auto-detected when not a TTY.
+
+### `metabase transform delete <id>`
+
+```sh
+metabase transform delete 1 --yes
+```
+
+| Flag    | Description                             |
+| ------- | --------------------------------------- |
+| `--yes` | Skip confirmation. Required on non-TTY. |
+
+### `metabase transform run <id>`
+
+Trigger a manual run. Returns `{message, run_id}` and exits immediately. Pass `--wait` to poll until the run reaches a terminal status (`succeeded`, `failed`, `timeout`, `canceled`); the `final` field on the result holds the polled run state, and the command exits 1 if the final status is anything but `succeeded`.
+
+```sh
+metabase transform run 1
+metabase transform run 1 --wait --json
+```
+
+| Flag              | Description                                                 |
+| ----------------- | ----------------------------------------------------------- |
+| `--wait`          | Poll until the run reaches a terminal status.               |
+| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`. |
+| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.  |
+
+## Transform jobs
+
+CRUD on `/api/transform-job`. Bodies for `create` / `update` follow the same `--body` / `--file` / stdin pattern as transforms.
+
+### `metabase transform-job list`
+
+```sh
+metabase transform-job list --json
+```
+
+### `metabase transform-job get <id>`
+
+```sh
+metabase transform-job get 1 --json
+```
+
+### `metabase transform-job create`
+
+```sh
+metabase transform-job create --body '{"name":"daily","schedule":"0 0 0 * * ?"}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `metabase transform-job update <id>`
+
+```sh
+metabase transform-job update 1 --body '{"schedule":"0 0 6 * * ?"}'
+```
+
+### `metabase transform-job delete <id>`
+
+```sh
+metabase transform-job delete 1 --yes
+```
+
+| Flag    | Description                             |
+| ------- | --------------------------------------- |
+| `--yes` | Skip confirmation. Required on non-TTY. |
+
+## Cards
+
+CRUD plus query execution on `/api/card`. A "card" is a Metabase question, model, or metric. The `query` subcommand runs the card and either returns Metabase's JSON envelope or streams a raw CSV / XLSX export.
+
+### `metabase card list`
+
+```sh
+metabase card list
+metabase card list --filter archived --json
+metabase card list --filter using_model --model-id 42 --json
+```
+
+| Flag                | Description                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------ |
+| `--filter <preset>` | One of `all` (default), `mine`, `bookmarked`, `database`, `table`, `archived`, `using_model`, `using_segment`. |
+| `--model-id <id>`   | Required when `--filter` is `database`, `table`, `using_model`, or `using_segment`.        |
+
+### `metabase card get <id>`
+
+```sh
+metabase card get 1
+metabase card get 1 --json --detail full
+```
+
+### `metabase card query <id>`
+
+Run the card's query. Without `--export-format`, returns the Metabase JSON envelope (`status`, `row_count`, `data: { rows, cols }`, …). With `--export-format csv` or `--export-format xlsx`, the export bytes stream straight to stdout.
+
+```sh
+metabase card query 1 --json
+metabase card query 1 --json --limit 20
+metabase card query 1 --export-format csv > export.csv
+metabase card query 1 --export-format xlsx > export.xlsx
+metabase card query 1 --parameters '[{"type":"category","value":"A","target":["variable",["template-tag","c"]]}]'
+```
+
+| Flag                       | Description                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------------ |
+| `--export-format <fmt>`    | Stream the export instead of the JSON envelope. One of `csv`, `xlsx`.                      |
+| `--parameters <json>`      | JSON array of Metabase parameter objects (the same shape Metabase POSTs from a dashboard). |
+| `--limit <n>`              | Cap rows kept in the JSON envelope. No effect on `csv` / `xlsx` exports.                   |
+
+### `metabase card create`
+
+```sh
+cat card.json | metabase card create
+metabase card create --file card.json
+metabase card create --body '{"name":"x","display":"table","dataset_query":{...},"visualization_settings":{}}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `metabase card archive <id>`
+
+Soft-delete a card by setting `archived: true`. The archived card stays available via `card list --filter archived` and `card get <id>` until permanently deleted server-side.
+
+```sh
+metabase card archive 1
+metabase card archive 1 --json
+```
+
+## Search
+
+### `metabase search [query]`
+
+Search Metabase content (cards, dashboards, collections, tables, …). Returns a `ListEnvelope` of compact search results by default; pass `--detail full` for the full per-row payload.
+
+```sh
+metabase search orders
+metabase search --models card,dashboard --limit 10 --json
+metabase search products --archived
+```
+
+| Flag             | Description                                                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--models`, `-m` | Comma-separated model filter: `card,dataset,metric,dashboard,collection,database,table,segment,measure,snippet,document,action,transform,indexed-entity`.   |
+| `--archived`     | Include archived items only.                                                                                                                                 |
+| `--limit`        | Max results to return (default `20`).                                                                                                                        |
+| `--table-db-id`  | Restrict to items on a given database id.                                                                                                                    |
+| `--verified`     | Only verified content.                                                                                                                                       |
+
 ## Environment variables
 
 | Variable                 | Effect                                                                         |

@@ -10,7 +10,7 @@ export const CurrentUser = z
   .loose();
 export type CurrentUser = z.infer<typeof CurrentUser>;
 
-export const CurrentUserCompact = CurrentUser.pick({ id: true, email: true });
+export const CurrentUserCompact = CurrentUser.pick({ id: true, email: true }).strip();
 export type CurrentUserCompact = z.infer<typeof CurrentUserCompact>;
 
 export const userView: ResourceView<CurrentUser> = {

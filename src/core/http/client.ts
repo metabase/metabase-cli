@@ -20,9 +20,12 @@ const USER_AGENT = `metabase-cli/${packageJson.version}`;
 
 const IDEMPOTENT_METHODS: ReadonlySet<HttpMethod> = new Set(["GET", "HEAD", "OPTIONS"]);
 
+export type QueryPrimitive = string | number | boolean;
+export type QueryValue = QueryPrimitive | ReadonlyArray<QueryPrimitive> | undefined;
+
 export interface RequestOptions {
   method?: HttpMethod;
-  query?: Record<string, string | number | boolean | undefined>;
+  query?: Record<string, QueryValue>;
   body?: unknown;
   signal?: AbortSignal;
   timeoutMs?: number;
@@ -219,13 +222,20 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
 function buildUrl(
   baseUrl: string,
   path: string,
-  query: Record<string, string | number | boolean | undefined> | undefined,
+  query: Record<string, QueryValue> | undefined,
 ): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const target = new URL(baseUrl + normalizedPath);
   if (query) {
     for (const [key, value] of Object.entries(query)) {
-      if (value !== undefined) {
+      if (value === undefined) {
+        continue;
+      }
+      if (Array.isArray(value)) {
+        for (const entry of value) {
+          target.searchParams.append(key, String(entry));
+        }
+      } else {
         target.searchParams.append(key, String(value));
       }
     }
