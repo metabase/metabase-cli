@@ -6,13 +6,13 @@ import { readInput, type InputSources } from "./input";
 import { parseJson } from "./json";
 
 export interface BodySources extends InputSources {
-  source?: string;
+  source?: string | undefined;
 }
 
 export async function readBody<T>(sources: BodySources, schema: ZodType<T>): Promise<T> {
   assertSingleSource(sources);
   const raw = await readInput(sources);
-  return parseJson(raw, schema, { source: sources.source ?? "body" });
+  return parseJson(raw, schema, { source: sources.source ?? "request body" });
 }
 
 function assertSingleSource(sources: BodySources): void {

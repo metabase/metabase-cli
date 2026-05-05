@@ -114,6 +114,111 @@ metabase license remove --yes
 
 Common output flags (`--json`, `--format`, `--detail`, `--fields`, `--max-bytes`) are accepted; the result payload is rendered through the standard output layer.
 
+## Transforms
+
+CRUD on `/api/transform`. Bodies for `create` / `update` are JSON; resolution order: `--body` → `--file` → piped stdin (auto-detected when stdin is not a TTY).
+
+### `metabase transform list`
+
+```sh
+metabase transform list
+metabase transform list --json
+```
+
+### `metabase transform get <id>`
+
+```sh
+metabase transform get 1 --json
+```
+
+### `metabase transform create`
+
+```sh
+cat transform.json | metabase transform create
+metabase transform create --file transform.json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `metabase transform update <id>`
+
+```sh
+metabase transform update 1 --body '{"name":"renamed"}'
+```
+
+Same `--body` / `--file` resolution as `create`. Stdin is auto-detected when not a TTY.
+
+### `metabase transform delete <id>`
+
+```sh
+metabase transform delete 1 --yes
+```
+
+| Flag    | Description                             |
+| ------- | --------------------------------------- |
+| `--yes` | Skip confirmation. Required on non-TTY. |
+
+### `metabase transform run <id>`
+
+Trigger a manual run. Returns `{message, run_id}` and exits immediately. Pass `--wait` to poll until the run reaches a terminal status (`succeeded`, `failed`, `timeout`, `canceled`); the `final` field on the result holds the polled run state, and the command exits 1 if the final status is anything but `succeeded`.
+
+```sh
+metabase transform run 1
+metabase transform run 1 --wait --json
+```
+
+| Flag              | Description                                                 |
+| ----------------- | ----------------------------------------------------------- |
+| `--wait`          | Poll until the run reaches a terminal status.               |
+| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`. |
+| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.  |
+
+## Transform jobs
+
+CRUD on `/api/transform-job`. Bodies for `create` / `update` follow the same `--body` / `--file` / stdin pattern as transforms.
+
+### `metabase transform-job list`
+
+```sh
+metabase transform-job list --json
+```
+
+### `metabase transform-job get <id>`
+
+```sh
+metabase transform-job get 1 --json
+```
+
+### `metabase transform-job create`
+
+```sh
+metabase transform-job create --body '{"name":"daily","schedule":"0 0 0 * * ?"}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `metabase transform-job update <id>`
+
+```sh
+metabase transform-job update 1 --body '{"schedule":"0 0 6 * * ?"}'
+```
+
+### `metabase transform-job delete <id>`
+
+```sh
+metabase transform-job delete 1 --yes
+```
+
+| Flag    | Description                             |
+| ------- | --------------------------------------- |
+| `--yes` | Skip confirmation. Required on non-TTY. |
+
 ## Environment variables
 
 | Variable                 | Effect                                                                         |

@@ -2,13 +2,7 @@ import { z } from "zod";
 
 import type { ResourceView } from "./view";
 
-const FieldVisibilityType = z.enum([
-  "details-only",
-  "hidden",
-  "normal",
-  "retired",
-  "sensitive",
-]);
+const FieldVisibilityType = z.enum(["details-only", "hidden", "normal", "retired", "sensitive"]);
 
 const FieldValuesType = z.enum(["list", "search", "none"]);
 

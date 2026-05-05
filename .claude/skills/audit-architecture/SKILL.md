@@ -62,16 +62,16 @@ Whole-tree non-deterministic audit. Where `/review` checks the diff, this checks
 >
 > Forbidden outside their permitted homes:
 >
-> | Pattern                                                                                       | Allowed only in                                          |
-> | --------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-> | `process.exit(`                                                                               | `src/cli.ts`                                             |
-> | `process.stdout.write`, `process.stderr.write`                                                | `src/cli.ts`, `src/output/**`                            |
-> | `console.{log,warn,error,info,debug}`                                                         | `src/cli.ts`, `src/output/**`                            |
-> | `JSON.parse(`                                                                                 | `src/runtime/json.ts`                                    |
-> | bare `fetch(`, `globalThis.fetch`, third-party HTTP libs (`got`/`axios`/`node-fetch`/`undici`) | `src/core/http/**`                                       |
-> | `new URL(`                                                                                    | `src/core/http/**`, `src/core/url.ts`                    |
-> | `child_process` (`spawn`, `exec`, etc.)                                                       | `src/runtime/process.ts`                                 |
-> | `setTimeout` inside an `await` polling loop                                                   | `src/runtime/poll.ts`, `src/core/http/retry.ts`          |
+> | Pattern                                                                                        | Allowed only in                                 |
+> | ---------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+> | `process.exit(`                                                                                | `src/cli.ts`                                    |
+> | `process.stdout.write`, `process.stderr.write`                                                 | `src/cli.ts`, `src/output/**`                   |
+> | `console.{log,warn,error,info,debug}`                                                          | `src/cli.ts`, `src/output/**`                   |
+> | `JSON.parse(`                                                                                  | `src/runtime/json.ts`                           |
+> | bare `fetch(`, `globalThis.fetch`, third-party HTTP libs (`got`/`axios`/`node-fetch`/`undici`) | `src/core/http/**`                              |
+> | `new URL(`                                                                                     | `src/core/http/**`, `src/core/url.ts`           |
+> | `child_process` (`spawn`, `exec`, etc.)                                                        | `src/runtime/process.ts`                        |
+> | `setTimeout` inside an `await` polling loop                                                    | `src/runtime/poll.ts`, `src/core/http/retry.ts` |
 >
 > For each violation, report `path:line: <rule>: <snippet>`. If zero violations, output `(clean)`.
 

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { Table, TableCompact, tableView } from "../../domain/table";
 import { renderList } from "../../output/render";
-import { listEnvelopeSchema, type ListEnvelope } from "../../output/types";
+import { listEnvelopeSchema, wrapList } from "../../output/types";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
@@ -26,12 +26,6 @@ export default defineMetabaseCommand({
     const client = await getClient();
     const all = await client.requestParsed(TableApiList, "/api/table");
     const filtered = dbIdFilter === undefined ? all : all.filter((row) => row.db_id === dbIdFilter);
-
-    const envelope: ListEnvelope<Table> = {
-      data: filtered,
-      returned: filtered.length,
-      total: filtered.length,
-    };
-    renderList(envelope, tableView, ctx);
+    renderList(wrapList(filtered), tableView, ctx);
   },
 });

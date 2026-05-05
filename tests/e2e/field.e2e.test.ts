@@ -48,7 +48,16 @@ describe("field e2e", () => {
     }
 
     const get = await runCli({
-      args: ["table", "get", String(customers.id), "--json", "--detail", "full", "--max-bytes", "0"],
+      args: [
+        "table",
+        "get",
+        String(customers.id),
+        "--json",
+        "--detail",
+        "full",
+        "--max-bytes",
+        "0",
+      ],
       configHome,
       env: authEnv(),
     });

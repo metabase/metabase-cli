@@ -33,6 +33,10 @@ export function listEnvelopeSchema<T>(item: ZodType<T>): ZodType<ListEnvelope<T>
   });
 }
 
+export function wrapList<T>(items: T[]): ListEnvelope<T> {
+  return { data: items, returned: items.length, total: items.length };
+}
+
 export interface RenderOptions {
   format: Format;
   detail: Detail;

@@ -3,10 +3,10 @@ import { readFile } from "node:fs/promises";
 import { ConfigError, isNotFoundError } from "../core/errors";
 
 export interface InputSources {
-  flag?: string;
-  file?: string;
-  positional?: string;
-  required?: boolean;
+  flag?: string | undefined;
+  file?: string | undefined;
+  positional?: string | undefined;
+  required?: boolean | undefined;
 }
 
 const SOURCE_LIST = "flag, --file, stdin, or positional argument";

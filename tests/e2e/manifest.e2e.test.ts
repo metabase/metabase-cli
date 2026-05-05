@@ -42,6 +42,18 @@ describe("__manifest e2e", () => {
       "table list",
       "table get",
       "field get",
+      "transform list",
+      "transform get",
+      "transform create",
+      "transform update",
+      "transform delete",
+      "transform delete-table",
+      "transform run",
+      "transform-job list",
+      "transform-job get",
+      "transform-job create",
+      "transform-job update",
+      "transform-job delete",
     ]);
 
     for (const entry of manifest.commands) {

@@ -132,7 +132,7 @@ describe("table e2e", () => {
     const parsed = parseJson(result.stdout, TableListEnvelope);
     const summaries: SeededTableSummary[] = parsed.data
       .map(({ id: _id, ...rest }) => rest)
-      .sort((left, right) => left.name.localeCompare(right.name));
+      .toSorted((left, right) => left.name.localeCompare(right.name));
 
     expect({ returned: parsed.returned, total: parsed.total, summaries }).toEqual({
       returned: SEEDED_WAREHOUSE_TABLES.length,
@@ -158,14 +158,23 @@ describe("table e2e", () => {
     }
 
     const get = await runCli({
-      args: ["table", "get", String(customers.id), "--json", "--detail", "full", "--max-bytes", "0"],
+      args: [
+        "table",
+        "get",
+        String(customers.id),
+        "--json",
+        "--detail",
+        "full",
+        "--max-bytes",
+        "0",
+      ],
       configHome,
       env: authEnv(),
     });
 
     expect(get.exitCode, get.stderr).toBe(0);
     const parsed = parseJson(get.stdout, Table);
-    const fieldNames = (parsed.fields ?? []).map((field) => field.name).sort();
+    const fieldNames = (parsed.fields ?? []).map((field) => field.name).toSorted();
 
     expect({ compact: TableCompact.parse(parsed), fieldNames }).toEqual({
       compact: {

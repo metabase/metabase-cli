@@ -68,7 +68,7 @@ export const cardView: ResourceView<Card> = {
 Rules:
 
 - `.loose()` is the default — Metabase API additions must not break us. Tighten over time, never on first land. (Zod 4: `.passthrough()` is deprecated; use `.loose()`.)
-- **`.strip()` after `.pick()` is mandatory on the Compact**, not optional. `.pick({...})` on a `.loose()` parent inherits the loose catchall, and the picked schema then *passes every API field through unchanged at parse time* — your "compact" projection silently leaks the full payload into list output and `--detail compact` JSON. The bug is invisible until you eyeball the rendered output. Always end with `.strip()`.
+- **`.strip()` after `.pick()` is mandatory on the Compact**, not optional. `.pick({...})` on a `.loose()` parent inherits the loose catchall, and the picked schema then _passes every API field through unchanged at parse time_ — your "compact" projection silently leaks the full payload into list output and `--detail compact` JSON. The bug is invisible until you eyeball the rendered output. Always end with `.strip()`.
 - The compact projection is the **agent-facing contract** — it shows up in list output and `--detail compact` JSON. Pick the smallest set of fields that uniquely identifies + describes the resource for an LLM caller.
 - `tableColumns` keys must be valid keys of the **compact** type (the projection drives both JSON and text output).
 - Type aliases via `z.infer<typeof X>`. Never hand-write a parallel `interface` — it will drift silently.
@@ -139,7 +139,7 @@ export default defineMetabaseCommand({
 
 The `<Resource>ListEnvelope` export is **mandatory**. It is consumed by the manifest (via `outputSchema`) and by the matching e2e test (which imports it back to parse `--json` output). Do **not** redeclare a `z.object({ data, returned, total })` shape inline anywhere.
 
-The API response schema (`<Resource>ApiList` above) is the *server's* envelope shape (often `{ data: [...], total: N }` or a bare array) and is distinct from the *CLI's* envelope. Keep it private to the file.
+The API response schema (`<Resource>ApiList` above) is the _server's_ envelope shape (often `{ data: [...], total: N }` or a bare array) and is distinct from the _CLI's_ envelope. Keep it private to the file.
 
 **`src/commands/<r>/get.ts`** — positional id parsed via `parseId`:
 
@@ -196,7 +196,7 @@ Live under `tests/e2e/<r>.e2e.test.ts`. Drive the **built** `dist/cli.mjs` again
 
 A comprehensive suite for a typical list/get pair covers, at minimum:
 
-1. **List, default flags** — `exitCode === 0`, parsed via `<Resource>ListEnvelope` (imported from `src/commands/<r>/list.ts`), asserts the seeded items appear with the expected compact fields via a single `toEqual({ ...full envelope... })` when feasible. If the list is unbounded (paginated or non-deterministic order), assert the *shape* and the *presence* of stable items rather than the full array, and still spell out the expected items as full objects.
+1. **List, default flags** — `exitCode === 0`, parsed via `<Resource>ListEnvelope` (imported from `src/commands/<r>/list.ts`), asserts the seeded items appear with the expected compact fields via a single `toEqual({ ...full envelope... })` when feasible. If the list is unbounded (paginated or non-deterministic order), assert the _shape_ and the _presence_ of stable items rather than the full array, and still spell out the expected items as full objects.
 2. **List, a meaningful filter flag** (if the command has one) — `exitCode === 0`, asserts the filter narrowed the result and that every returned item satisfies the filter.
 3. **Get, success** — `exitCode === 0`, parsed via `<Resource>` (with `--detail full`) or `<Resource>Compact` (default). Assert the parsed object with one `toEqual({ ... })` over the full expected payload, **never** a sequence of `expect(parsed.id).toBe(...)`/`expect(parsed.name).toBe(...)` field pokes. Use a stable identifier from `tests/e2e/seed/ids.ts` if pinned, otherwise look up the id dynamically by listing first and filtering by a known name.
 4. **Get, invalid positional** (`abc`, empty, negative, zero) — `exitCode === 2` (`ConfigError`), `stderr.toContain('invalid id: "<value>" (expected integer)')` (the literal message from `src/commands/parse-id.ts`), stdout empty.
