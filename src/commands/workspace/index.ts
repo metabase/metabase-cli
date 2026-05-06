@@ -11,6 +11,7 @@ export default defineCommand({
     remove: () => import("./remove").then((mod) => mod.default),
     logs: () => import("./logs").then((mod) => mod.default),
     url: () => import("./url").then((mod) => mod.default),
+    credentials: () => import("./credentials").then((mod) => mod.default),
     ps: () => import("./ps").then((mod) => mod.default),
   },
 });

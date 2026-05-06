@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ProcessNotFoundError, runProcess, streamProcess } from "./process";
+import { ProcessNotFoundError, runProcess, runProcessBinary, streamProcess } from "./process";
 
 describe("runProcess", () => {
   it("captures stdout and exit code 0", async () => {
@@ -27,6 +27,26 @@ describe("runProcess", () => {
 
   it("throws ProcessNotFoundError when the binary does not exist", async () => {
     await expect(runProcess("metabase-no-such-binary-xyz", [])).rejects.toBeInstanceOf(
+      ProcessNotFoundError,
+    );
+  });
+});
+
+describe("runProcessBinary", () => {
+  it("captures stdout as bytes preserving non-UTF8 sequences", async () => {
+    const result = await runProcessBinary("node", [
+      "-e",
+      "process.stdout.write(Buffer.from([0,1,2,255,254,128,127]))",
+    ]);
+    expect(result).toEqual({
+      stdout: new Uint8Array([0, 1, 2, 255, 254, 128, 127]),
+      stderr: "",
+      exitCode: 0,
+    });
+  });
+
+  it("throws ProcessNotFoundError when the binary does not exist", async () => {
+    await expect(runProcessBinary("metabase-no-such-binary-xyz", [])).rejects.toBeInstanceOf(
       ProcessNotFoundError,
     );
   });

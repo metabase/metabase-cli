@@ -1,10 +1,16 @@
 import { z } from "zod";
 
 import { parseJson } from "../runtime/json";
-import { ProcessNotFoundError, runProcess, streamProcess } from "../runtime/process";
-import { buildTar, type TarEntry } from "../runtime/tar";
+import { pollUntil } from "../runtime/poll";
+import {
+  ProcessNotFoundError,
+  runProcess,
+  runProcessBinary,
+  streamProcess,
+} from "../runtime/process";
+import { buildTar, extractSingleFileFromTar, type TarEntry } from "../runtime/tar";
 
-import { errorMessage } from "./errors";
+import { ConfigError, errorMessage } from "./errors";
 
 const DOCKER_BIN = "docker";
 
@@ -24,6 +30,19 @@ const CONTAINER_CONFIG_DIR_BASENAME = CONTAINER_CONFIG_DIR.replace(/^\//, "");
 const CONTAINER_APP_DB_DIR = "/metabase-app-db";
 const CONFIG_FILENAME = "config.yml";
 const METADATA_FILENAME = "metadata.json";
+const CREDENTIALS_FILENAME = "credentials.json";
+
+// Log line emitted by the child once it finishes applying the workspace config block.
+// At that point the warehouse credentials in the file have been mirrored into the app
+// db and the file itself is safe to delete.
+const CONFIG_CONSUMED_MARKER = "Loaded workspace";
+// Treat this as a fatal signal and bail out of the wait early instead of timing out.
+const INIT_FAILED_MARKER = "Metabase Initialization FAILED";
+
+const CONFIG_CONSUMED_LOG_LINES = 500;
+const CONFIG_CONSUMED_INTERVAL_MS = 1_000;
+const CONFIG_CONSUMED_MAX_INTERVAL_MS = 3_000;
+const INIT_FAILED_TAIL_LINES = 25;
 // 0644 inside the container's namespace: files live only on the docker daemon's
 // overlay FS (root-only on the host). The Metabase image starts as root and drops
 // to a non-root user (uid 2000 by default, configurable via MUID), so the bytes
@@ -102,6 +121,7 @@ export interface WorkspaceContainerSpec {
   image: string;
   hostPort: number;
   configYaml: string;
+  credentialsJson: Uint8Array;
   metadataJson: Uint8Array | null;
   licenseToken: string;
 }
@@ -264,6 +284,61 @@ export async function scrubContainerConfig(workspaceId: number): Promise<void> {
   );
 }
 
+export async function waitForConfigConsumed(workspaceId: number, timeoutMs: number): Promise<void> {
+  const containerName = containerNameFor(workspaceId);
+  await pollUntil(
+    async () => {
+      const result = await dockerExec([
+        "logs",
+        "--tail",
+        String(CONFIG_CONSUMED_LOG_LINES),
+        containerName,
+      ]);
+      const haystack = `${result.stdout}\n${result.stderr}`;
+      if (haystack.includes(INIT_FAILED_MARKER)) {
+        const tail = haystack.split("\n").slice(-INIT_FAILED_TAIL_LINES).join("\n");
+        throw new DockerError(
+          `workspace ${workspaceId} container failed Metabase initialization`,
+          null,
+          tail,
+        );
+      }
+      return haystack.includes(CONFIG_CONSUMED_MARKER);
+    },
+    (consumed) => consumed,
+    {
+      intervalMs: CONFIG_CONSUMED_INTERVAL_MS,
+      maxIntervalMs: CONFIG_CONSUMED_MAX_INTERVAL_MS,
+      backoff: "exponential",
+      timeoutMs,
+    },
+  );
+}
+
+export async function readContainerCredentialsFile(workspaceId: number): Promise<Uint8Array> {
+  const containerName = containerNameFor(workspaceId);
+  const result = await runProcessBinary(DOCKER_BIN, [
+    "cp",
+    `${containerName}:${CONTAINER_CONFIG_DIR}/${CREDENTIALS_FILENAME}`,
+    "-",
+  ]);
+  if (result.exitCode !== 0) {
+    if (NO_SUCH_CONTAINER_PATTERN.test(result.stderr)) {
+      throw new DockerError(
+        `no container for workspace ${workspaceId}`,
+        result.exitCode,
+        result.stderr,
+      );
+    }
+    throw new DockerError(
+      `docker cp ${CREDENTIALS_FILENAME} from ${containerName} failed`,
+      result.exitCode,
+      result.stderr,
+    );
+  }
+  return extractSingleFileFromTar(result.stdout, CREDENTIALS_FILENAME);
+}
+
 function buildBootBundleTar(spec: WorkspaceContainerSpec): Uint8Array {
   const entries: TarEntry[] = [
     { type: "directory", name: CONTAINER_CONFIG_DIR_BASENAME },
@@ -271,6 +346,12 @@ function buildBootBundleTar(spec: WorkspaceContainerSpec): Uint8Array {
       type: "file",
       name: `${CONTAINER_CONFIG_DIR_BASENAME}/${CONFIG_FILENAME}`,
       content: spec.configYaml,
+      mode: BUNDLE_FILE_MODE,
+    },
+    {
+      type: "file",
+      name: `${CONTAINER_CONFIG_DIR_BASENAME}/${CREDENTIALS_FILENAME}`,
+      content: spec.credentialsJson,
       mode: BUNDLE_FILE_MODE,
     },
   ];
@@ -396,6 +477,29 @@ export async function inspectWorkspaceContainer(
   );
   const summaries = parseContainerLines(result.stdout);
   return summaries[0] ?? null;
+}
+
+export interface WorkspaceContainerLocation {
+  containerName: string;
+  hostPort: number;
+}
+
+export async function requireWorkspaceContainerLocation(
+  workspaceId: number,
+): Promise<WorkspaceContainerLocation> {
+  const containerName = containerNameFor(workspaceId);
+  const summary = await inspectWorkspaceContainer(containerName);
+  if (summary === null) {
+    throw new ConfigError(
+      `no container for workspace ${workspaceId} — run \`metabase workspace start ${workspaceId}\` first`,
+    );
+  }
+  if (summary.hostPort === null) {
+    throw new ConfigError(
+      `container ${containerName} is missing the host-port label — likely created by a different tool`,
+    );
+  }
+  return { containerName, hostPort: summary.hostPort };
 }
 
 export function streamLogs(

@@ -122,6 +122,51 @@ function resolveEntry(entry: TarEntry, fallbackMtime: number): ResolvedEntry {
   };
 }
 
+export class TarParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TarParseError";
+  }
+}
+
+const SIZE_FIELD_OFFSET = 124;
+const SIZE_FIELD_LENGTH = 12;
+
+const textDecoder = new TextDecoder("utf-8");
+
+function readNullTerminatedString(buffer: Uint8Array, offset: number, length: number): string {
+  const slice = buffer.subarray(offset, offset + length);
+  const nul = slice.indexOf(0);
+  const end = nul === -1 ? slice.length : nul;
+  return textDecoder.decode(slice.subarray(0, end));
+}
+
+// Extracts the first regular-file entry from a single-file ustar archive (the shape
+// `docker cp <container>:<path> -` produces). The expectedNameSuffix check defends
+// against accidental misuse — `docker cp` may include a leading directory in the name.
+export function extractSingleFileFromTar(tar: Uint8Array, expectedNameSuffix: string): Uint8Array {
+  if (tar.length < BLOCK_SIZE) {
+    throw new TarParseError(`tar is shorter than one block: ${tar.length} bytes`);
+  }
+  const nameField = readNullTerminatedString(tar, 0, NAME_FIELD_LENGTH);
+  if (!nameField.endsWith(expectedNameSuffix)) {
+    throw new TarParseError(
+      `unexpected tar entry ${JSON.stringify(nameField)}, expected to end with ${JSON.stringify(expectedNameSuffix)}`,
+    );
+  }
+  const sizeField = readNullTerminatedString(tar, SIZE_FIELD_OFFSET, SIZE_FIELD_LENGTH).trim();
+  const size = Number.parseInt(sizeField, 8);
+  if (!Number.isFinite(size) || size < 0) {
+    throw new TarParseError(`tar header has invalid size field: ${JSON.stringify(sizeField)}`);
+  }
+  if (tar.length < BLOCK_SIZE + size) {
+    throw new TarParseError(
+      `tar truncated: header reports ${size} content bytes but only ${tar.length - BLOCK_SIZE} bytes follow`,
+    );
+  }
+  return tar.subarray(BLOCK_SIZE, BLOCK_SIZE + size);
+}
+
 // Builds a POSIX ustar archive in memory. Single allocation, single pass: headers,
 // content, and inter-block padding are written directly into the output buffer
 // (Uint8Array is zero-initialized at allocation, so padding writes are no-ops).

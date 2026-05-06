@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { WorkspaceCredentialsResult } from "../../src/commands/workspace/credentials";
 import { LocalWorkspaceListEnvelope } from "../../src/commands/workspace/ps";
 import { RemoveResult } from "../../src/commands/workspace/remove";
 import { StartResult } from "../../src/commands/workspace/start";
@@ -195,10 +196,26 @@ describe.skipIf(skipReason !== null)("workspace local-runtime e2e", () => {
         url: `http://localhost:${TEST_HOST_PORT}`,
       });
 
-      // 5. The boot config dir on the host must be gone — secrets should not linger.
+      // 5. credentials surfaces the CLI-injected admin user + API key.
+      const credentialsOut = await runCli({
+        args: ["workspace", "credentials", String(FIRST_WORKSPACE_ID), "--full", "--json"],
+        configHome: await pushConfigHome(),
+        env: authEnv(),
+      });
+      expect(credentialsOut.exitCode, credentialsOut.stderr).toBe(0);
+      expect(parseJson(credentialsOut.stdout, WorkspaceCredentialsResult)).toEqual({
+        workspace_id: FIRST_WORKSPACE_ID,
+        url: `http://localhost:${TEST_HOST_PORT}`,
+        email: `workspace-${FIRST_WORKSPACE_ID}@workspace.local`,
+        password: expect.stringMatching(/^[A-Za-z0-9_-]+$/),
+        api_key_name: "Workspace API Key",
+        api_key: expect.stringMatching(/^mb_[A-Za-z0-9+/=]+$/),
+      });
+
+      // 6. The boot config dir on the host must be gone — secrets should not linger.
       expect(await listMetabaseTempDirs()).toEqual([]);
 
-      // 6. Stop, then verify ps reflects the new state.
+      // 7. Stop, then verify ps reflects the new state.
       const stop = await runCli({
         args: ["workspace", "stop", String(FIRST_WORKSPACE_ID), "--full", "--json"],
         configHome: await pushConfigHome(),
@@ -229,7 +246,7 @@ describe.skipIf(skipReason !== null)("workspace local-runtime e2e", () => {
         url: null,
       });
 
-      // 7. Remove tears down the container + the app-db volume.
+      // 8. Remove tears down the container + the app-db volume.
       const remove = await runCli({
         args: ["workspace", "remove", String(FIRST_WORKSPACE_ID), "--yes", "--full", "--json"],
         configHome: await pushConfigHome(),
@@ -246,7 +263,7 @@ describe.skipIf(skipReason !== null)("workspace local-runtime e2e", () => {
         removed_volume: true,
       });
 
-      // 8. ps should no longer list the workspace.
+      // 9. ps should no longer list the workspace.
       const psAfterRemove = await runCli({
         args: ["workspace", "ps", "--full", "--json"],
         configHome: await pushConfigHome(),

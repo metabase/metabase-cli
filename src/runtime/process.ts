@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
 
+import { isNotFoundError } from "../core/errors";
+
 export interface ProcessRunOptions {
   env?: NodeJS.ProcessEnv;
   cwd?: string;
@@ -9,6 +11,12 @@ export interface ProcessRunOptions {
 
 export interface ProcessResult {
   stdout: string;
+  stderr: string;
+  exitCode: number | null;
+}
+
+export interface ProcessBinaryResult {
+  stdout: Uint8Array;
   stderr: string;
   exitCode: number | null;
 }
@@ -33,11 +41,11 @@ export class ProcessTimeoutError extends Error {
   }
 }
 
-export function runProcess(
+function spawnAndCollect(
   command: string,
   args: readonly string[],
-  options: ProcessRunOptions = {},
-): Promise<ProcessResult> {
+  options: ProcessRunOptions,
+): Promise<ProcessBinaryResult> {
   const timeoutSignal =
     options.timeoutMs !== undefined && options.timeoutMs > 0
       ? AbortSignal.timeout(options.timeoutMs)
@@ -51,17 +59,17 @@ export function runProcess(
       ...(timeoutSignal !== undefined ? { signal: timeoutSignal, killSignal: "SIGKILL" } : {}),
     });
 
-    let stdout = "";
+    const stdoutChunks: Buffer[] = [];
     let stderr = "";
 
     child.stdout.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString("utf8");
+      stdoutChunks.push(chunk);
     });
     child.stderr.on("data", (chunk: Buffer) => {
       stderr += chunk.toString("utf8");
     });
-    child.on("error", (error: NodeJS.ErrnoException) => {
-      if (error.code === "ENOENT") {
+    child.on("error", (error: unknown) => {
+      if (isNotFoundError(error)) {
         reject(new ProcessNotFoundError(command));
         return;
       }
@@ -76,7 +84,12 @@ export function runProcess(
         reject(new ProcessTimeoutError(command, options.timeoutMs ?? 0));
         return;
       }
-      resolve({ stdout, stderr, exitCode: code });
+      const stdoutBuffer = Buffer.concat(stdoutChunks);
+      resolve({
+        stdout: new Uint8Array(stdoutBuffer.buffer, stdoutBuffer.byteOffset, stdoutBuffer.length),
+        stderr,
+        exitCode: code,
+      });
     });
 
     if (options.stdin === undefined) {
@@ -87,11 +100,34 @@ export function runProcess(
   });
 }
 
+const stdoutDecoder = new TextDecoder("utf-8");
+
+export async function runProcess(
+  command: string,
+  args: readonly string[],
+  options: ProcessRunOptions = {},
+): Promise<ProcessResult> {
+  const result = await spawnAndCollect(command, args, options);
+  return {
+    stdout: stdoutDecoder.decode(result.stdout),
+    stderr: result.stderr,
+    exitCode: result.exitCode,
+  };
+}
+
+export function runProcessBinary(
+  command: string,
+  args: readonly string[],
+  options: ProcessRunOptions = {},
+): Promise<ProcessBinaryResult> {
+  return spawnAndCollect(command, args, options);
+}
+
 export function streamProcess(command: string, args: readonly string[]): Promise<number | null> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: "inherit" });
-    child.on("error", (error: NodeJS.ErrnoException) => {
-      if (error.code === "ENOENT") {
+    child.on("error", (error: unknown) => {
+      if (isNotFoundError(error)) {
         reject(new ProcessNotFoundError(command));
         return;
       }

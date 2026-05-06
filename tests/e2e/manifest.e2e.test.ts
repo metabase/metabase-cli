@@ -91,6 +91,7 @@ describe("__manifest e2e", () => {
       "workspace remove",
       "workspace logs",
       "workspace url",
+      "workspace credentials",
       "workspace ps",
       "setup",
       "api-key create",

@@ -667,13 +667,15 @@ metabase workspace start 1 --force
 
 Resolves the parent via the active profile (or `--profile`/`--url`/`--api-key`) and the EE license via `resolveLicenseToken` (the same path `metabase license set` writes to). Refuses to start if the workspace has any database that isn't `status: "provisioned"`.
 
-By default `start` returns as soon as the container is started (`state: "starting"`); pass `--wait` to block until `/api/health` reports ready and the response reports `state: "running"`.
+The boot bundle (`config.yml`, `credentials.json`, optional `metadata.json`) is built in process memory and tar-streamed into the container's `/mw-config/` directory through `docker cp -`; no host-disk artifact is created. The CLI generates a per-workspace admin user + API key, injects them into the YAML before shipping, and stores the same values in `credentials.json` for later retrieval via `metabase workspace credentials`. Once the child logs that it has read `config.yml`, the CLI scrubs the in-container copy (`docker exec rm /mw-config/config.yml`) so the warehouse credentials in `details.password` no longer linger; `credentials.json` stays.
+
+By default `start` returns once the bundle has been consumed by the child (`state: "starting"`); pass `--wait` to also block until `/api/health` reports ready and the response reports `state: "running"`.
 
 | Flag             | Description                                                                  |
 | ---------------- | ---------------------------------------------------------------------------- |
 | `--port <n>`     | Host port (default: 3000; auto-shifts up to 100 ports if taken).             |
 | `--image <ref>`  | Docker image (default: `metabase/metabase-dev:feature-workspaces-v2`).       |
-| `--wait`         | Block until `/api/health` is ready. Default: return as soon as started.      |
+| `--wait`         | Block until `/api/health` is ready. Default: return as soon as consumed.     |
 | `--timeout <ms>` | Health check deadline (default: 180000). Used with `--wait`.                 |
 | `--no-pull`      | Skip `docker pull` (useful if the image is already present).                 |
 | `--no-metadata`  | Skip the warehouse metadata export.                                          |
@@ -725,6 +727,15 @@ metabase workspace url 1 --json
 ```
 
 Prints `http://localhost:<port>` for the workspace's container. Reads the host port from the container's `com.metabase.workspace.host-port` label.
+
+### `metabase workspace credentials <id>`
+
+```sh
+metabase workspace credentials 1
+metabase workspace credentials 1 --json
+```
+
+Reads the workspace child's admin credentials (email, password, admin API key) from `/mw-config/credentials.json` inside the container. The file is written by `workspace start` from CLI-generated, per-workspace values; the same values are injected into `config.yml`'s `:users` and `:api-keys` sections so they take effect on the child's first boot. Works against running and stopped containers (uses `docker cp`); errors clearly if no container exists for the given workspace id. Removing the container destroys the file — recover by `workspace start <id> --force`.
 
 ### `metabase workspace ps`
 

@@ -9,11 +9,17 @@ import {
   removeContainer,
   runWorkspaceContainer,
   scrubContainerConfig,
+  waitForConfigConsumed,
 } from "../../core/docker";
 import { ConfigError, errorMessage } from "../../core/errors";
 import type { Client } from "../../core/http/client";
 import { probeHealth } from "../../core/http/probe";
 import { localUrl } from "../../core/url";
+import {
+  buildCredentialsJson,
+  generateWorkspaceCredentials,
+  injectCredentialsIntoConfig,
+} from "../../core/workspace-credentials";
 import type { ResourceView } from "../../domain/view";
 import { Workspace } from "../../domain/workspace";
 import { warn } from "../../output/notice";
@@ -28,6 +34,7 @@ import { defineMetabaseCommand } from "../runtime";
 const DEFAULT_IMAGE = "metabase/metabase-dev:feature-workspaces-v2";
 const DEFAULT_HOST_PORT = 3000;
 const DEFAULT_HEALTH_TIMEOUT_MS = 180_000;
+const DEFAULT_CONFIG_CONSUMED_TIMEOUT_MS = 60_000;
 const HEALTH_INTERVAL_MS = 2_000;
 const HEALTH_MAX_INTERVAL_MS = 10_000;
 const HEALTH_PROBE_TIMEOUT_MS = 4_000;
@@ -80,7 +87,7 @@ export default defineMetabaseCommand({
     wait: {
       type: "boolean",
       description:
-        "Block until /api/health is ready, then scrub the in-container config.yml. Default: return as soon as the container is started.",
+        "Block until /api/health is ready before returning. Default: return as soon as the container has consumed config.yml.",
       default: false,
     },
     timeout: {
@@ -138,13 +145,18 @@ export default defineMetabaseCommand({
 
     const hostPort = await resolveHostPort(requestedPort);
 
-    // Boot bundle stays in process memory: no host-disk artifact for config.yml or
-    // metadata.json. The bytes are tar-streamed into the container by docker daemon
-    // and land on the container's overlay FS (root-only on the daemon host).
-    const [configYaml, metadataJson] = await Promise.all([
+    // Boot bundle stays in process memory: no host-disk artifact for config.yml,
+    // credentials.json, or metadata.json. The bytes are tar-streamed into the
+    // container by the docker daemon and land on the overlay FS (root-only on
+    // the daemon host).
+    const [parentConfigYaml, metadataJson] = await Promise.all([
       fetchConfigYaml(client, workspaceId),
       args.metadata ? fetchMetadataJson(client, workspaceId) : Promise.resolve(null),
     ]);
+
+    const credentials = generateWorkspaceCredentials(workspaceId);
+    const configYaml = injectCredentialsIntoConfig(parentConfigYaml, credentials);
+    const credentialsJson = buildCredentialsJson(credentials);
 
     await pullPromise;
 
@@ -156,21 +168,25 @@ export default defineMetabaseCommand({
       image: args.image,
       hostPort,
       configYaml,
+      credentialsJson,
       metadataJson,
       licenseToken,
     });
 
+    // The child reads config.yml during init; once it logs the consumed marker, the
+    // warehouse credentials inside that file are mirrored into its app db and the
+    // file itself is no longer needed. Scrubbing it here keeps the warehouse password
+    // out of the container's overlay FS for the rest of the instance's lifetime.
+    // credentials.json stays — `workspace credentials` reads it on demand.
+    await waitForConfigConsumed(workspaceId, DEFAULT_CONFIG_CONSUMED_TIMEOUT_MS);
+    try {
+      await scrubContainerConfig(workspaceId);
+    } catch (error) {
+      warn(`could not scrub in-container config.yml: ${errorMessage(error)}`);
+    }
+
     if (args.wait) {
       await waitForHealth(hostPort, healthTimeoutMs);
-      // After Metabase finishes its boot-time read of /mw-config/config.yml (signaled
-      // by /api/health going green), unlink the in-container copy too. The host
-      // never saw the file, so a scrub failure doesn't fail the start — but it's
-      // still surfaced to stderr so the operator knows the in-container copy lingered.
-      try {
-        await scrubContainerConfig(workspaceId);
-      } catch (error) {
-        warn(`could not scrub in-container config.yml: ${errorMessage(error)}`);
-      }
     }
 
     const result: StartResult = {
