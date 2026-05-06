@@ -147,6 +147,7 @@ describe.skipIf(skipReason !== null)("workspace local-runtime e2e", () => {
           TEST_IMAGE,
           "--no-pull",
           "--no-metadata",
+          "--wait",
           "--full",
           "--json",
         ],

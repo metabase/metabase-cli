@@ -223,68 +223,6 @@ describe("workspace e2e", () => {
     expect(after.databases ?? []).toEqual([]);
   });
 
-  it("config streams a non-empty YAML file for a fully-provisioned workspace", async () => {
-    await createWorkspace();
-    await provisionDatabase(FIRST_WORKSPACE_ID, [ANALYTICS_SCHEMA]);
-
-    const result = await runCli({
-      args: ["workspace", "config", String(FIRST_WORKSPACE_ID)],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.stdout.length).toBeGreaterThan(0);
-    // Workspace config carries the workspace's databases — the warehouse
-    // we just provisioned should appear by id.
-    expect(result.stdout).toContain(String(E2E_DATABASES.WAREHOUSE));
-  });
-
-  it("metadata-export streams JSON listing the warehouse database when --with-databases is on (default)", async () => {
-    await createWorkspace();
-    await provisionDatabase(FIRST_WORKSPACE_ID, [ANALYTICS_SCHEMA]);
-
-    const result = await runCli({
-      args: ["workspace", "metadata-export", String(FIRST_WORKSPACE_ID)],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-      timeoutMs: PROVISION_TIMEOUT_MS,
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.stdout.length).toBeGreaterThan(0);
-
-    // The export is JSON with a databases section when --with-databases is on.
-    // We don't pin the full schema (it's owned by the serdes module); just
-    // assert it parses as JSON (throws on malformed) and mentions our
-    // warehouse by its portable name (the export uses string ids).
-    JSON.parse(result.stdout);
-    expect(result.stdout).toContain(`"name":"Warehouse"`);
-  });
-
-  it("metadata-export with all sections off emits an effectively-empty payload", async () => {
-    await createWorkspace();
-    await provisionDatabase(FIRST_WORKSPACE_ID, [ANALYTICS_SCHEMA]);
-
-    const result = await runCli({
-      args: [
-        "workspace",
-        "metadata-export",
-        String(FIRST_WORKSPACE_ID),
-        "--no-with-databases",
-        "--no-with-tables",
-        "--no-with-fields",
-      ],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-      timeoutMs: PROVISION_TIMEOUT_MS,
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-    JSON.parse(result.stdout);
-    expect(result.stdout).not.toContain(`"name":"Warehouse"`);
-  });
-
   it("database update rejects --database-id smuggled in --body (backend's UpdateDatabaseParams is closed)", async () => {
     await createWorkspace();
     await provisionDatabase(FIRST_WORKSPACE_ID, [ANALYTICS_SCHEMA]);

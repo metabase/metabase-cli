@@ -598,30 +598,6 @@ metabase workspace create --file workspace.json
 | `--body <json>` | Inline JSON body.                                       |
 | `--file <path>` | Path to JSON body file.                                 |
 
-### `metabase workspace config <id>`
-
-Stream the workspace's config file (raw bytes) to stdout.
-
-```sh
-metabase workspace config 1 > config.yml
-metabase workspace config 1 | yq .
-```
-
-### `metabase workspace metadata-export <id>`
-
-Stream the workspace's table metadata export (JSON) to stdout. The backend defaults all sections off; the CLI flips them on so the export is non-empty by default.
-
-```sh
-metabase workspace metadata-export 1 > metadata.json
-metabase workspace metadata-export 1 --no-with-fields > metadata.json
-```
-
-| Flag               | Description                             |
-| ------------------ | --------------------------------------- |
-| `--with-databases` | Include database entries (default: on). |
-| `--with-tables`    | Include table entries (default: on).    |
-| `--with-fields`    | Include field entries (default: on).    |
-
 ### `metabase workspace database provision <workspace-id>`
 
 Provision a database into a workspace. The backend kicks off the work asynchronously and returns the workspace with the new entry in `status: "provisioning"`. Pass `--wait` to poll until the entry reaches `status: "provisioned"` and surface the polled state instead of the initial response.
@@ -679,26 +655,28 @@ metabase workspace database deprovision 1 5 --yes --wait
 
 These commands manage a Docker container that serves as the workspace's child Metabase instance. State lives in Docker labels and a named volume — there is no per-workspace local state directory. The container is named `metabase-workspace-<id>`; the app-db volume is `metabase-workspace-<id>-appdb`.
 
-`start` is the only command that talks to the parent: it fetches `config.yml` (and optionally the metadata export) into a 0700 temp directory, bind-mounts it read-only into the container, polls `/api/health`, and **scrubs the temp dir on exit (success or failure)** so the parent's connection credentials and the EE token don't linger on disk.
-
 ### `metabase workspace start <id>`
 
 ```sh
 metabase workspace start 1
+metabase workspace start 1 --wait
 metabase workspace start 1 --port 3100
 metabase workspace start 1 --image metabase/metabase-dev:feature-workspaces-v2 --no-pull
 metabase workspace start 1 --force
 ```
 
-Resolves the parent via the active profile (or `--profile`/`--url`/`--api-key`) and the EE license via `resolveLicenseToken` (the same path `metabase license set` writes to). The license is forwarded to the container as `MB_PREMIUM_EMBEDDING_TOKEN` via `-e KEY` (no value on argv). Refuses to start if the workspace has any database that isn't `status: "provisioned"`.
+Resolves the parent via the active profile (or `--profile`/`--url`/`--api-key`) and the EE license via `resolveLicenseToken` (the same path `metabase license set` writes to). Refuses to start if the workspace has any database that isn't `status: "provisioned"`.
+
+By default `start` returns as soon as the container is started (`state: "starting"`); pass `--wait` to block until `/api/health` reports ready and the response reports `state: "running"`.
 
 | Flag             | Description                                                                  |
 | ---------------- | ---------------------------------------------------------------------------- |
 | `--port <n>`     | Host port (default: 3000; auto-shifts up to 100 ports if taken).             |
 | `--image <ref>`  | Docker image (default: `metabase/metabase-dev:feature-workspaces-v2`).       |
-| `--timeout <ms>` | Health check deadline (default: 180000).                                     |
+| `--wait`         | Block until `/api/health` is ready. Default: return as soon as started.      |
+| `--timeout <ms>` | Health check deadline (default: 180000). Used with `--wait`.                 |
 | `--no-pull`      | Skip `docker pull` (useful if the image is already present).                 |
-| `--no-metadata`  | Skip the metadata export — only mount `config.yml`.                          |
+| `--no-metadata`  | Skip the warehouse metadata export.                                          |
 | `--force`        | If a container for this workspace already exists, remove it before starting. |
 
 ### `metabase workspace stop <id>`

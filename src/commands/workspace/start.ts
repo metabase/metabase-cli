@@ -1,33 +1,25 @@
-import { join } from "node:path";
-
 import { z } from "zod";
 
 import { resolveLicenseToken } from "../../core/config";
 import {
-  CONFIG_FILENAME,
-  METADATA_FILENAME,
   checkDockerReady,
   containerLifecycleStatus,
   containerNameFor,
   pullImage,
   removeContainer,
   runWorkspaceContainer,
+  scrubContainerConfig,
 } from "../../core/docker";
-import { ConfigError } from "../../core/errors";
+import { ConfigError, errorMessage } from "../../core/errors";
 import type { Client } from "../../core/http/client";
 import { probeHealth } from "../../core/http/probe";
 import { localUrl } from "../../core/url";
 import type { ResourceView } from "../../domain/view";
 import { Workspace } from "../../domain/workspace";
+import { warn } from "../../output/notice";
 import { renderItem } from "../../output/render";
 import { findFreePort, isPortFree } from "../../runtime/port";
 import { pollUntil } from "../../runtime/poll";
-import {
-  mkSecureTempDir,
-  removeTempDir,
-  streamToSecureFile,
-  writeSecureFile,
-} from "../../runtime/tempdir";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { parseInteger, parseOptionalInteger } from "../parse-integer";
@@ -44,7 +36,7 @@ export const StartResult = z.object({
   workspace_id: z.number().int().positive(),
   workspace_name: z.string(),
   container_name: z.string(),
-  state: z.literal("running"),
+  state: z.enum(["running", "starting"]),
   host_port: z.number().int().positive(),
   url: z.string(),
   image: z.string(),
@@ -85,9 +77,15 @@ export default defineMetabaseCommand({
       description: `Docker image to run (default: ${DEFAULT_IMAGE})`,
       default: DEFAULT_IMAGE,
     },
+    wait: {
+      type: "boolean",
+      description:
+        "Block until /api/health is ready, then scrub the in-container config.yml. Default: return as soon as the container is started.",
+      default: false,
+    },
     timeout: {
       type: "string",
-      description: `Health check deadline in ms (default: ${DEFAULT_HEALTH_TIMEOUT_MS})`,
+      description: `Health check deadline in ms (used with --wait; default: ${DEFAULT_HEALTH_TIMEOUT_MS})`,
       default: String(DEFAULT_HEALTH_TIMEOUT_MS),
     },
     pull: {
@@ -97,7 +95,7 @@ export default defineMetabaseCommand({
     },
     metadata: {
       type: "boolean",
-      description: "Fetch the workspace's warehouse metadata and mount it as metadata.json",
+      description: "Fetch the workspace's warehouse metadata and stage it inside the container",
       default: true,
     },
     force: {
@@ -109,6 +107,7 @@ export default defineMetabaseCommand({
   outputSchema: StartResult,
   examples: [
     "metabase workspace start 1",
+    "metabase workspace start 1 --wait",
     "metabase workspace start 1 --port 3100",
     "metabase workspace start 1 --image metabase/metabase-dev:feature-workspaces-v2 --no-pull",
     "metabase workspace start 1 --force",
@@ -129,7 +128,6 @@ export default defineMetabaseCommand({
     await checkDockerReady();
     await ensureNoExistingContainer(containerName, args.force);
 
-    // Kick off the image pull concurrently with the parent fetches; await before runContainer.
     const pullPromise = args.pull ? pullImage(args.image) : Promise.resolve();
 
     const workspace = await client.requestParsed(
@@ -140,41 +138,46 @@ export default defineMetabaseCommand({
 
     const hostPort = await resolveHostPort(requestedPort);
 
-    const tempDir = await mkSecureTempDir();
-    try {
-      await Promise.all([
-        writeConfigYaml(client, workspaceId, join(tempDir, CONFIG_FILENAME)),
-        args.metadata
-          ? streamMetadata(client, workspaceId, join(tempDir, METADATA_FILENAME))
-          : Promise.resolve(),
-      ]);
+    // Boot bundle stays in process memory: no host-disk artifact for config.yml or
+    // metadata.json. The bytes are tar-streamed into the container by docker daemon
+    // and land on the container's overlay FS (root-only on the daemon host).
+    const [configYaml, metadataJson] = await Promise.all([
+      fetchConfigYaml(client, workspaceId),
+      args.metadata ? fetchMetadataJson(client, workspaceId) : Promise.resolve(null),
+    ]);
 
-      await pullPromise;
+    await pullPromise;
 
-      await runWorkspaceContainer({
-        workspaceId,
-        workspaceName: workspace.name,
-        profile: resolved.profile,
-        parentUrl: resolved.url,
-        image: args.image,
-        hostPort,
-        bootConfigDir: tempDir,
-        licenseToken,
-        includeMetadata: args.metadata,
-      });
+    await runWorkspaceContainer({
+      workspaceId,
+      workspaceName: workspace.name,
+      profile: resolved.profile,
+      parentUrl: resolved.url,
+      image: args.image,
+      hostPort,
+      configYaml,
+      metadataJson,
+      licenseToken,
+    });
 
+    if (args.wait) {
       await waitForHealth(hostPort, healthTimeoutMs);
-    } finally {
-      // config.yml carries DB credentials and the license token; scrub on
-      // every exit so secrets don't linger on disk.
-      await removeTempDir(tempDir);
+      // After Metabase finishes its boot-time read of /mw-config/config.yml (signaled
+      // by /api/health going green), unlink the in-container copy too. The host
+      // never saw the file, so a scrub failure doesn't fail the start — but it's
+      // still surfaced to stderr so the operator knows the in-container copy lingered.
+      try {
+        await scrubContainerConfig(workspaceId);
+      } catch (error) {
+        warn(`could not scrub in-container config.yml: ${errorMessage(error)}`);
+      }
     }
 
     const result: StartResult = {
       workspace_id: workspaceId,
       workspace_name: workspace.name,
       container_name: containerName,
-      state: "running",
+      state: args.wait ? "running" : "starting",
       host_port: hostPort,
       url: localUrl(hostPort),
       image: args.image,
@@ -227,30 +230,19 @@ async function resolveHostPort(requested: number | null): Promise<number> {
   return findFreePort(DEFAULT_HOST_PORT + 1);
 }
 
-async function writeConfigYaml(
-  client: Client,
-  workspaceId: number,
-  destination: string,
-): Promise<void> {
-  // config.yml is small (one workspace + a handful of databases) — buffering is
-  // simpler than streaming and lets us write atomically through writeSecureFile.
+async function fetchConfigYaml(client: Client, workspaceId: number): Promise<string> {
   const response = await client.requestRaw(`/api/ee/workspace-manager/${workspaceId}/config`, {
     expectContentType: "binary",
   });
-  await writeSecureFile(destination, await response.text());
+  return response.text();
 }
 
-async function streamMetadata(
-  client: Client,
-  workspaceId: number,
-  destination: string,
-): Promise<void> {
-  // metadata.json can be tens of MB on a real warehouse; stream straight to disk
-  // instead of buffering twice (response.text + writeSecureFile).
-  const stream = await client.requestStream(
+async function fetchMetadataJson(client: Client, workspaceId: number): Promise<Uint8Array> {
+  const response = await client.requestRaw(
     `/api/ee/workspace-manager/${workspaceId}/metadata/export`,
+    { expectContentType: "binary" },
   );
-  await streamToSecureFile(stream, destination);
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 async function waitForHealth(hostPort: number, timeoutMs: number): Promise<void> {

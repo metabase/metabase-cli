@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { parseJson } from "../runtime/json";
 import { ProcessNotFoundError, runProcess, streamProcess } from "../runtime/process";
+import { buildTar, type TarEntry } from "../runtime/tar";
 
 import { errorMessage } from "./errors";
 
@@ -19,9 +20,15 @@ const LABEL_HOST_PORT = "com.metabase.workspace.host-port";
 
 export const WORKSPACE_CONTAINER_PORT = 3000;
 const CONTAINER_CONFIG_DIR = "/mw-config";
+const CONTAINER_CONFIG_DIR_BASENAME = CONTAINER_CONFIG_DIR.replace(/^\//, "");
 const CONTAINER_APP_DB_DIR = "/metabase-app-db";
-export const CONFIG_FILENAME = "config.yml";
-export const METADATA_FILENAME = "metadata.json";
+const CONFIG_FILENAME = "config.yml";
+const METADATA_FILENAME = "metadata.json";
+// 0644 inside the container's namespace: files live only on the docker daemon's
+// overlay FS (root-only on the host). The Metabase image starts as root and drops
+// to a non-root user (uid 2000 by default, configurable via MUID), so the bytes
+// must be world-readable for that user to read them. The host never sees them.
+const BUNDLE_FILE_MODE = 0o644;
 
 const NO_SUCH_CONTAINER_PATTERN = /no such container/i;
 const NO_SUCH_VOLUME_PATTERN = /no such volume/i;
@@ -68,12 +75,6 @@ export class DockerNotRunningError extends Error {
   }
 }
 
-export interface VolumeMount {
-  host: string;
-  container: string;
-  readOnly?: boolean;
-}
-
 export interface NamedVolumeMount {
   volume: string;
   container: string;
@@ -84,11 +85,10 @@ export interface PortMapping {
   containerPort: number;
 }
 
-export interface RunContainerOptions {
+export interface CreateContainerOptions {
   containerName: string;
   image: string;
   port: PortMapping;
-  bindMounts: readonly VolumeMount[];
   namedVolumes: readonly NamedVolumeMount[];
   envVars: Record<string, string>;
   labels: Record<string, string>;
@@ -101,9 +101,9 @@ export interface WorkspaceContainerSpec {
   parentUrl: string;
   image: string;
   hostPort: number;
-  bootConfigDir: string;
+  configYaml: string;
+  metadataJson: Uint8Array | null;
   licenseToken: string;
-  includeMetadata: boolean;
 }
 
 export interface LogStreamOptions {
@@ -148,18 +148,43 @@ interface DockerExecResult {
   exitCode: number | null;
 }
 
+interface DockerExecOptions {
+  env?: NodeJS.ProcessEnv;
+  stdin?: Uint8Array | string;
+}
+
+interface DockerRunOptions extends DockerExecOptions {
+  ignorePattern?: RegExp;
+}
+
 async function dockerExec(
   args: readonly string[],
-  env?: NodeJS.ProcessEnv,
+  options: DockerExecOptions = {},
 ): Promise<DockerExecResult> {
   try {
-    return await runProcess(DOCKER_BIN, args, env ? { env } : {});
+    return await runProcess(DOCKER_BIN, args, options);
   } catch (error) {
     if (error instanceof ProcessNotFoundError) {
       throw new DockerNotInstalledError();
     }
     throw error;
   }
+}
+
+async function runDocker(
+  args: readonly string[],
+  failureMessage: string,
+  options: DockerRunOptions = {},
+): Promise<DockerExecResult> {
+  const { ignorePattern, ...execOptions } = options;
+  const result = await dockerExec(args, execOptions);
+  if (result.exitCode === 0) {
+    return result;
+  }
+  if (ignorePattern?.test(result.stderr)) {
+    return result;
+  }
+  throw new DockerError(failureMessage, result.exitCode, result.stderr);
 }
 
 export async function checkDockerReady(): Promise<void> {
@@ -187,17 +212,10 @@ export async function pullImage(image: string): Promise<void> {
 export async function containerLifecycleStatus(
   containerName: string,
 ): Promise<ContainerLifecycleStatus> {
-  const result = await dockerExec([
-    "ps",
-    "-a",
-    "--filter",
-    `name=^${containerName}$`,
-    "--format",
-    "{{.State}}",
-  ]);
-  if (result.exitCode !== 0) {
-    throw new DockerError("docker ps failed", result.exitCode, result.stderr);
-  }
+  const result = await runDocker(
+    ["ps", "-a", "--filter", `name=^${containerName}$`, "--format", "{{.State}}"],
+    "docker ps failed",
+  );
   const trimmed = result.stdout.trim();
   if (trimmed.length === 0) {
     return "missing";
@@ -215,16 +233,56 @@ function parseContainerState(raw: string): ContainerState {
   throw new DockerError(`unknown docker container state: ${JSON.stringify(raw)}`, null, "");
 }
 
+// Boots without materializing the boot bundle on host disk: the tar streams through
+// `docker cp -` into the container's /mw-config, which lives on the daemon's overlay
+// FS (root-only on the docker host).
 export async function runWorkspaceContainer(spec: WorkspaceContainerSpec): Promise<void> {
-  await runContainer({
-    containerName: containerNameFor(spec.workspaceId),
+  const containerName = containerNameFor(spec.workspaceId);
+  await createContainer({
+    containerName,
     image: spec.image,
     port: { hostPort: spec.hostPort, containerPort: WORKSPACE_CONTAINER_PORT },
-    bindMounts: [{ host: spec.bootConfigDir, container: CONTAINER_CONFIG_DIR, readOnly: true }],
     namedVolumes: [{ volume: volumeNameFor(spec.workspaceId), container: CONTAINER_APP_DB_DIR }],
-    envVars: workspaceContainerEnv(spec.licenseToken, spec.includeMetadata),
+    envVars: workspaceContainerEnv(spec),
     labels: workspaceContainerLabels(spec),
   });
+  try {
+    await copyTarToContainer(containerName, "/", buildBootBundleTar(spec));
+    await startContainer(containerName);
+  } catch (error) {
+    // Reverse the create so the caller's `--force` path still finds a clean slate.
+    await removeContainer(containerName).catch(() => undefined);
+    throw error;
+  }
+}
+
+export async function scrubContainerConfig(workspaceId: number): Promise<void> {
+  const containerName = containerNameFor(workspaceId);
+  await runDocker(
+    ["exec", containerName, "rm", "-f", `${CONTAINER_CONFIG_DIR}/${CONFIG_FILENAME}`],
+    `docker exec rm config.yml failed for ${containerName}`,
+  );
+}
+
+function buildBootBundleTar(spec: WorkspaceContainerSpec): Uint8Array {
+  const entries: TarEntry[] = [
+    { type: "directory", name: CONTAINER_CONFIG_DIR_BASENAME },
+    {
+      type: "file",
+      name: `${CONTAINER_CONFIG_DIR_BASENAME}/${CONFIG_FILENAME}`,
+      content: spec.configYaml,
+      mode: BUNDLE_FILE_MODE,
+    },
+  ];
+  if (spec.metadataJson !== null) {
+    entries.push({
+      type: "file",
+      name: `${CONTAINER_CONFIG_DIR_BASENAME}/${METADATA_FILENAME}`,
+      content: spec.metadataJson,
+      mode: BUNDLE_FILE_MODE,
+    });
+  }
+  return buildTar(entries);
 }
 
 function workspaceContainerLabels(spec: WorkspaceContainerSpec): Record<string, string> {
@@ -238,26 +296,22 @@ function workspaceContainerLabels(spec: WorkspaceContainerSpec): Record<string, 
   };
 }
 
-function workspaceContainerEnv(
-  licenseToken: string,
-  includeMetadata: boolean,
-): Record<string, string> {
+function workspaceContainerEnv(spec: WorkspaceContainerSpec): Record<string, string> {
   const env: Record<string, string> = {
     MB_CONFIG_FILE_PATH: `${CONTAINER_CONFIG_DIR}/${CONFIG_FILENAME}`,
-    MB_PREMIUM_EMBEDDING_TOKEN: licenseToken,
+    MB_PREMIUM_EMBEDDING_TOKEN: spec.licenseToken,
     MB_DB_FILE: `${CONTAINER_APP_DB_DIR}/metabase.db`,
     JAVA_OPTS: "-Xmx2g",
   };
-  if (includeMetadata) {
+  if (spec.metadataJson !== null) {
     env["MB_DATABASE_METADATA_PATH"] = `${CONTAINER_CONFIG_DIR}/${METADATA_FILENAME}`;
   }
   return env;
 }
 
-export async function runContainer(options: RunContainerOptions): Promise<void> {
+async function createContainer(options: CreateContainerOptions): Promise<void> {
   const args: string[] = [
-    "run",
-    "-d",
+    "create",
     "--name",
     options.containerName,
     "-p",
@@ -265,10 +319,6 @@ export async function runContainer(options: RunContainerOptions): Promise<void> 
   ];
   for (const [key, value] of Object.entries(options.labels)) {
     args.push("--label", `${key}=${value}`);
-  }
-  for (const mount of options.bindMounts) {
-    const suffix = mount.readOnly ? ":ro" : "";
-    args.push("-v", `${mount.host}:${mount.container}${suffix}`);
   }
   for (const mount of options.namedVolumes) {
     args.push("-v", `${mount.volume}:${mount.container}`);
@@ -279,76 +329,71 @@ export async function runContainer(options: RunContainerOptions): Promise<void> 
   args.push(options.image);
 
   const env: NodeJS.ProcessEnv = { ...process.env, ...options.envVars };
-  const result = await dockerExec(args, env);
-  if (result.exitCode !== 0) {
-    throw new DockerError(
-      `docker run failed for ${options.containerName}`,
-      result.exitCode,
-      result.stderr,
-    );
-  }
+  await runDocker(args, `docker create failed for ${options.containerName}`, { env });
+}
+
+async function copyTarToContainer(
+  containerName: string,
+  destPath: string,
+  tarBytes: Uint8Array,
+): Promise<void> {
+  await runDocker(
+    ["cp", "-", `${containerName}:${destPath}`],
+    `docker cp into ${containerName}:${destPath} failed`,
+    { stdin: tarBytes },
+  );
+}
+
+async function startContainer(containerName: string): Promise<void> {
+  await runDocker(["start", containerName], `docker start failed for ${containerName}`);
 }
 
 export async function stopContainer(containerName: string): Promise<void> {
-  const result = await dockerExec(["stop", containerName]);
-  if (result.exitCode !== 0 && !NO_SUCH_CONTAINER_PATTERN.test(result.stderr)) {
-    throw new DockerError(`docker stop ${containerName} failed`, result.exitCode, result.stderr);
-  }
+  await runDocker(["stop", containerName], `docker stop ${containerName} failed`, {
+    ignorePattern: NO_SUCH_CONTAINER_PATTERN,
+  });
 }
 
 export async function removeContainer(containerName: string): Promise<boolean> {
-  const result = await dockerExec(["rm", "-f", containerName]);
-  if (result.exitCode === 0) {
-    return true;
-  }
-  if (NO_SUCH_CONTAINER_PATTERN.test(result.stderr)) {
-    return false;
-  }
-  throw new DockerError(`docker rm ${containerName} failed`, result.exitCode, result.stderr);
+  const result = await runDocker(["rm", "-f", containerName], `docker rm ${containerName} failed`, {
+    ignorePattern: NO_SUCH_CONTAINER_PATTERN,
+  });
+  return result.exitCode === 0;
 }
 
 export async function removeVolume(volumeName: string): Promise<boolean> {
-  const result = await dockerExec(["volume", "rm", volumeName]);
-  if (result.exitCode === 0) {
-    return true;
-  }
-  if (NO_SUCH_VOLUME_PATTERN.test(result.stderr)) {
-    return false;
-  }
-  throw new DockerError(`docker volume rm ${volumeName} failed`, result.exitCode, result.stderr);
+  const result = await runDocker(
+    ["volume", "rm", volumeName],
+    `docker volume rm ${volumeName} failed`,
+    { ignorePattern: NO_SUCH_VOLUME_PATTERN },
+  );
+  return result.exitCode === 0;
 }
 
 export async function listWorkspaceContainers(): Promise<WorkspaceContainerSummary[]> {
-  const result = await dockerExec([
-    "ps",
-    "-a",
-    "--filter",
-    `label=${LABEL_ID}`,
-    "--format",
-    "{{json .}}",
-  ]);
-  if (result.exitCode !== 0) {
-    throw new DockerError("docker ps failed", result.exitCode, result.stderr);
-  }
+  const result = await runDocker(
+    ["ps", "-a", "--filter", `label=${LABEL_ID}`, "--format", "{{json .}}"],
+    "docker ps failed",
+  );
   return parseContainerLines(result.stdout);
 }
 
 export async function inspectWorkspaceContainer(
   containerName: string,
 ): Promise<WorkspaceContainerSummary | null> {
-  const result = await dockerExec([
-    "ps",
-    "-a",
-    "--filter",
-    `name=^${containerName}$`,
-    "--filter",
-    `label=${LABEL_ID}`,
-    "--format",
-    "{{json .}}",
-  ]);
-  if (result.exitCode !== 0) {
-    throw new DockerError("docker ps failed", result.exitCode, result.stderr);
-  }
+  const result = await runDocker(
+    [
+      "ps",
+      "-a",
+      "--filter",
+      `name=^${containerName}$`,
+      "--filter",
+      `label=${LABEL_ID}`,
+      "--format",
+      "{{json .}}",
+    ],
+    "docker ps failed",
+  );
   const summaries = parseContainerLines(result.stdout);
   return summaries[0] ?? null;
 }

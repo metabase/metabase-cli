@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 export interface ProcessRunOptions {
   env?: NodeJS.ProcessEnv;
   cwd?: string;
-  stdin?: string;
+  stdin?: string | Uint8Array;
   timeoutMs?: number;
 }
 
@@ -79,10 +79,10 @@ export function runProcess(
       resolve({ stdout, stderr, exitCode: code });
     });
 
-    if (options.stdin !== undefined) {
-      child.stdin.end(options.stdin);
-    } else {
+    if (options.stdin === undefined) {
       child.stdin.end();
+    } else {
+      child.stdin.end(options.stdin);
     }
   });
 }

@@ -1,5 +1,4 @@
 import { promises as fs } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { Entry } from "@napi-rs/keyring";
@@ -7,6 +6,7 @@ import { z } from "zod";
 
 import { parseJson } from "../../runtime/json";
 import { isNotFoundError } from "../errors";
+import { configDir } from "../paths";
 
 const CredentialsFileSchema = z.record(z.string(), z.string());
 
@@ -45,15 +45,6 @@ export type CredentialLocation = KeyringLocation | FileLocation;
 export interface Profile {
   url: string;
   apiKey: string;
-}
-
-function configDir(): string {
-  if (process.platform === "win32") {
-    const appData = process.env["APPDATA"] ?? join(homedir(), "AppData", "Roaming");
-    return join(appData, "metabase-cli");
-  }
-  const xdg = process.env["XDG_CONFIG_HOME"] ?? join(homedir(), ".config");
-  return join(xdg, "metabase-cli");
 }
 
 export function fallbackFilePath(): string {
