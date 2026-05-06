@@ -166,11 +166,11 @@ describe("parseJsonResult on schema mismatch", () => {
 });
 
 describe("parseJson property tests", () => {
-  it("property: round-trips any JSON.stringify(value) through parseJson with z.unknown()", () => {
+  it("property: parseJson agrees with JSON.parse on any valid JSON text", () => {
     fc.assert(
       fc.property(fc.jsonValue(), (value) => {
         const serialized = JSON.stringify(value);
-        expect(parseJson(serialized, z.unknown())).toEqual(value);
+        expect(parseJson(serialized, z.unknown())).toEqual(JSON.parse(serialized));
       }),
     );
   });
