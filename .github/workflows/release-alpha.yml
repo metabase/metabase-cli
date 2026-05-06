@@ -43,7 +43,7 @@ jobs:
           TAG="alpha-${SLUG}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Will publish metabase-cli@$VERSION with dist-tag $TAG"
+          echo "Will publish @metabase/cli@$VERSION with dist-tag $TAG"
 
       - name: Set package version
         run: npm version --no-git-tag-version --allow-same-version "${{ steps.version.outputs.version }}"
@@ -52,7 +52,7 @@ jobs:
         run: bun run build
 
       - name: Publish to NPM
-        run: npm publish --tag "${{ steps.version.outputs.tag }}"
+        run: npm publish --tag "${{ steps.version.outputs.tag }}" --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_RELEASE_TOKEN }}
 
@@ -71,18 +71,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr comment "${{ github.event.pull_request.number }}" --body "Published \`metabase-cli@${{ steps.version.outputs.version }}\` with dist-tag \`${{ steps.version.outputs.tag }}\`.
+          gh pr comment "${{ github.event.pull_request.number }}" --body "Published \`@metabase/cli@${{ steps.version.outputs.version }}\` with dist-tag \`${{ steps.version.outputs.tag }}\`.
 
-          Install: \`npm install metabase-cli@${{ steps.version.outputs.tag }}\`"
+          Install: \`npm install @metabase/cli@${{ steps.version.outputs.tag }}\`"
 
       - name: Generate workflow summary
         if: always()
         run: |
           tee -a $GITHUB_STEP_SUMMARY << EOF
-          ## metabase-cli alpha publish
+          ## @metabase/cli alpha publish
 
           - **Branch**: ${{ github.event.pull_request.head.ref }}
           - **Version**: ${{ steps.version.outputs.version }}
           - **Dist-tag**: ${{ steps.version.outputs.tag }}
-          - **Install**: \`npm install metabase-cli@${{ steps.version.outputs.tag }}\`
+          - **Install**: \`npm install @metabase/cli@${{ steps.version.outputs.tag }}\`
           EOF

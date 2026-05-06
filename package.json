@@ -1,7 +1,12 @@
 {
-  "name": "metabase-cli",
+  "name": "@metabase/cli",
   "version": "0.1.0",
   "description": "Metabase CLI",
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/metabase/mb-cli.git"
+  },
   "bin": {
     "metabase": "./dist/cli.mjs"
   },
@@ -9,6 +14,9 @@
     "dist"
   ],
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",

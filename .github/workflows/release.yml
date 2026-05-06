@@ -30,31 +30,41 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Compare local and published versions
+      - name: Check whether local version was already published
         id: check
         run: |
           LOCAL=$(node -p "require('./package.json').version")
-          PUBLISHED=$(npm view metabase-cli version 2>/dev/null || echo "none")
+          LATEST=$(npm view @metabase/cli version 2>/dev/null || echo "none")
+          ALREADY_PUBLISHED=$(npm view @metabase/cli versions --json 2>/dev/null | node -e "
+            let raw = '';
+            process.stdin.on('data', (chunk) => { raw += chunk; });
+            process.stdin.on('end', () => {
+              if (raw.trim().length === 0) { console.log('false'); return; }
+              const versions = JSON.parse(raw);
+              const list = Array.isArray(versions) ? versions : [versions];
+              console.log(list.includes(process.argv[1]) ? 'true' : 'false');
+            });
+          " "$LOCAL")
           echo "local=$LOCAL" >> $GITHUB_OUTPUT
-          echo "published=$PUBLISHED" >> $GITHUB_OUTPUT
-          if [ "$LOCAL" != "$PUBLISHED" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-          else
+          echo "latest=$LATEST" >> $GITHUB_OUTPUT
+          if [ "$ALREADY_PUBLISHED" = "true" ]; then
             echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
           fi
 
       - name: Publish to NPM
         if: steps.check.outputs.changed == 'true'
-        run: npm publish --tag latest
+        run: npm publish --tag latest --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_RELEASE_TOKEN }}
 
       - name: Generate workflow summary
         run: |
           tee -a $GITHUB_STEP_SUMMARY << EOF
-          ## metabase-cli
+          ## @metabase/cli
 
           - **Local version**: ${{ steps.check.outputs.local }}
-          - **Published version**: ${{ steps.check.outputs.published }}
+          - **Current \`latest\` on npm**: ${{ steps.check.outputs.latest }}
           - **Published this run**: ${{ steps.check.outputs.changed }}
           EOF

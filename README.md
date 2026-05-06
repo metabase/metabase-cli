@@ -4,7 +4,12 @@ Command-line client for Metabase. Authenticates against an instance with an API 
 
 ## Install
 
-Not yet published. Build from source:
+```sh
+npm install -g @metabase/cli
+metabase --help
+```
+
+Or build from source:
 
 ```sh
 bun install
@@ -12,7 +17,7 @@ bun run build
 node dist/cli.mjs --help
 ```
 
-The published binary will be `metabase`. Examples below use that name.
+The binary is `metabase`. Examples below use that name.
 
 ## Quick start
 
