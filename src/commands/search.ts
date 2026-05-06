@@ -10,6 +10,7 @@ import {
 } from "../domain/search";
 import { renderList } from "../output/render";
 import { listEnvelopeSchema, type ListEnvelope } from "../output/types";
+import { parseCsv } from "../runtime/csv";
 
 import { connectionFlags, outputFlags, profileFlag } from "./flags";
 import { parseId } from "./parse-id";
@@ -112,10 +113,7 @@ function parseModels(raw: string | undefined): SearchModel[] | undefined {
   if (raw === undefined || raw === "") {
     return undefined;
   }
-  const parts = raw
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
+  const parts = parseCsv(raw);
   if (parts.length === 0) {
     return undefined;
   }

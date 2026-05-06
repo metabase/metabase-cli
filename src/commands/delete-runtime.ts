@@ -31,6 +31,7 @@ export interface ConfirmAndDeleteArgs {
   promptMessage: string;
   client: Client;
   ctx: CommonContext;
+  afterDelete?: () => Promise<void>;
 }
 
 export async function confirmAndDelete(args: ConfirmAndDeleteArgs): Promise<void> {
@@ -51,5 +52,8 @@ export async function confirmAndDelete(args: ConfirmAndDeleteArgs): Promise<void
     method: "DELETE",
     expectContentType: "binary",
   });
+  if (args.afterDelete) {
+    await args.afterDelete();
+  }
   renderItem({ deleted: true, aborted: false, id: args.id }, deleteResultView, args.ctx);
 }

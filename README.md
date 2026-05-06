@@ -573,6 +573,165 @@ metabase sync create-branch feat/dashboards
 metabase sync create-branch feat/x --json
 ```
 
+## Workspaces
+
+CRUD on `/api/ee/workspace-manager`. Run against the workspace-manager parent instance.
+
+### `metabase workspace list`
+
+```sh
+metabase workspace list
+metabase workspace list --json
+```
+
+### `metabase workspace create`
+
+```sh
+metabase workspace create --name analytics
+echo '{"name":"analytics"}' | metabase workspace create
+metabase workspace create --file workspace.json
+```
+
+| Flag            | Description                                             |
+| --------------- | ------------------------------------------------------- |
+| `--name <name>` | Workspace name. Shortcut for `--body '{"name":"<n>"}'`. |
+| `--body <json>` | Inline JSON body.                                       |
+| `--file <path>` | Path to JSON body file.                                 |
+
+### `metabase workspace config <id>`
+
+Stream the workspace's config file (raw bytes) to stdout.
+
+```sh
+metabase workspace config 1 > config.yml
+metabase workspace config 1 | yq .
+```
+
+### `metabase workspace metadata-export <id>`
+
+Stream the workspace's table metadata export (JSON) to stdout. The backend defaults all sections off; the CLI flips them on so the export is non-empty by default.
+
+```sh
+metabase workspace metadata-export 1 > metadata.json
+metabase workspace metadata-export 1 --no-with-fields > metadata.json
+```
+
+| Flag               | Description                             |
+| ------------------ | --------------------------------------- |
+| `--with-databases` | Include database entries (default: on). |
+| `--with-tables`    | Include table entries (default: on).    |
+| `--with-fields`    | Include field entries (default: on).    |
+
+### `metabase workspace database provision <workspace-id>`
+
+Provision a database into a workspace. The backend kicks off the work asynchronously and returns the workspace with the new entry in `status: "provisioning"`. Pass `--wait` to poll until the entry reaches `status: "provisioned"` and surface the polled state instead of the initial response.
+
+```sh
+metabase workspace database provision 1 --database-id 5 --schemas analytics,github
+metabase workspace database provision 1 --database-id 5 --schemas analytics --wait
+metabase workspace database provision 1 --file provision.json
+```
+
+| Flag                 | Description                                                    |
+| -------------------- | -------------------------------------------------------------- |
+| `--database-id <id>` | Database id (used with `--schemas`).                           |
+| `--schemas <csv>`    | Comma-separated input schemas (used with `--database-id`).     |
+| `--body <json>`      | Inline JSON body.                                              |
+| `--file <path>`      | Path to JSON body file.                                        |
+| `--wait`             | Poll until the database entry reaches `status: "provisioned"`. |
+| `--timeout <ms>`     | Polling timeout in ms (default 600000). Used with `--wait`.    |
+| `--interval <ms>`    | Polling interval in ms (default 2000). Used with `--wait`.     |
+
+### `metabase workspace database update <workspace-id> <db-id>`
+
+Update a workspace's provisioned database (server-side this is deprovision + provision). Body accepts only `input_schemas` — the database id comes from the URL.
+
+```sh
+metabase workspace database update 1 5 --schemas analytics,github
+metabase workspace database update 1 5 --schemas analytics --wait
+metabase workspace database update 1 5 --file update.json
+```
+
+| Flag              | Description                                                       |
+| ----------------- | ----------------------------------------------------------------- |
+| `--schemas <csv>` | Comma-separated input schemas. Shortcut for body.                 |
+| `--body <json>`   | Inline JSON body (`{"input_schemas":[...]}`).                     |
+| `--file <path>`   | Path to JSON body file.                                           |
+| `--wait`          | Poll until the database entry returns to `status: "provisioned"`. |
+| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`.       |
+| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.        |
+
+### `metabase workspace database deprovision <workspace-id> <db-id>`
+
+```sh
+metabase workspace database deprovision 1 5 --yes
+metabase workspace database deprovision 1 5 --yes --wait
+```
+
+| Flag              | Description                                                  |
+| ----------------- | ------------------------------------------------------------ |
+| `--yes`           | Skip confirmation. Required on non-TTY.                      |
+| `--wait`          | Poll until the database entry is removed from the workspace. |
+| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`.  |
+| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.   |
+
+## Instance setup
+
+Operations against a workspace-instance Metabase. The setup wizard and API key creation are distinct endpoints — there is no shared body schema.
+
+### `metabase setup`
+
+Complete the initial setup wizard (`POST /api/setup`). The body must include the setup token, the default user, and the `prefs` block (with `site_name`).
+
+```sh
+cat setup.json | metabase setup
+metabase setup --file setup.json
+metabase setup --body '{"token":"<setup-token>","user":{"email":"a@b.c","password":"..."},"prefs":{"site_name":"Acme"}}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `metabase api-key create`
+
+Create a new API key (`POST /api/api-key`). The unmasked key is returned on creation only; capture it from the output.
+
+```sh
+metabase api-key create --name deploy-bot --group-id 2
+echo '{"name":"k","group_id":2}' | metabase api-key create
+metabase api-key create --file key.json
+```
+
+| Flag              | Description                               |
+| ----------------- | ----------------------------------------- |
+| `--name <name>`   | API key name (used with `--group-id`).    |
+| `--group-id <id>` | Permission group id (used with `--name`). |
+| `--body <json>`   | Inline JSON body.                         |
+| `--file <path>`   | Path to JSON body file.                   |
+
+## Agent helpers
+
+Endpoints commonly used by agents driving the instance. `card query` and `transform run` are documented in their own sections; the helper below covers entity-id translation.
+
+### `metabase eid translate`
+
+Translate string entity ids (EIDs) to numeric ids (`POST /api/eid-translation/translate`).
+
+```sh
+metabase eid translate --model card --eids abc123XYZ,def456ABC
+metabase eid translate --file translate.json
+metabase eid translate --body '{"entity_ids":{"card":["abc123XYZ"]}}'
+```
+
+| Flag             | Description                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------ |
+| `--model <name>` | Entity model for the shortcut form (e.g. `card`, `dashboard`, `collection`). Used with `--eids`. |
+| `--eids <csv>`   | Comma-separated EIDs. Used with `--model`.                                                       |
+| `--body <json>`  | Inline JSON body.                                                                                |
+| `--file <path>`  | Path to JSON body file.                                                                          |
+
 ## Environment variables
 
 | Variable                 | Effect                                                                         |

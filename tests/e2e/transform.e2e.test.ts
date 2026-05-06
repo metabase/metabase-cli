@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { z } from "zod";
 
@@ -13,7 +13,6 @@ import { pollUntil } from "../../src/runtime/poll";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { E2E_DATABASES } from "./seed/ids";
-import { dropNonSeedWarehouseTables } from "./setup/warehouse";
 
 const FIRST_TRANSFORM_ID = 1;
 const TRANSFORM_NAME = "e2e_transform";
@@ -77,10 +76,6 @@ describe("transform e2e", () => {
   beforeAll(async () => {
     bootstrap = await readBootstrap();
     adminClient = createClient({ url: bootstrap.baseUrl, apiKey: bootstrap.adminApiKey });
-  });
-
-  beforeEach(async () => {
-    await dropNonSeedWarehouseTables();
   });
 
   afterEach(async () => {

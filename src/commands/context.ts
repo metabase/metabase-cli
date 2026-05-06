@@ -1,6 +1,7 @@
 import { ConfigError } from "../core/errors";
 import { resolveFormat } from "../output/format";
 import { DEFAULT_MAX_BYTES, type Format } from "../output/types";
+import { parseCsv } from "../runtime/csv";
 import type { connectionFlags, outputFlags, profileFlag } from "./flags";
 
 type FlagValue<T> = T extends { type: "boolean" }
@@ -53,10 +54,7 @@ function parseFields(value: string | undefined): string[] | undefined {
   if (value === undefined || value === "") {
     return undefined;
   }
-  const parts = value
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
+  const parts = parseCsv(value);
   return parts.length > 0 ? parts : undefined;
 }
 

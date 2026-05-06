@@ -22,6 +22,10 @@ const main: CommandDef = defineCommand({
     setting: () => import("./commands/setting").then((mod) => mod.default),
     search: () => import("./commands/search").then((mod) => mod.default),
     sync: () => import("./commands/sync").then((mod) => mod.default),
+    workspace: () => import("./commands/workspace").then((mod) => mod.default),
+    setup: () => import("./commands/setup").then((mod) => mod.default),
+    "api-key": () => import("./commands/api-key").then((mod) => mod.default),
+    eid: () => import("./commands/eid").then((mod) => mod.default),
     __manifest: (): Promise<CommandDef> =>
       import("./commands/manifest").then((mod) => mod.createManifestCommand(main)),
   },

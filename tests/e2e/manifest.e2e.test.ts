@@ -81,11 +81,27 @@ describe("__manifest e2e", () => {
       "sync stash",
       "sync branches",
       "sync create-branch",
+      "workspace list",
+      "workspace create",
+      "workspace config",
+      "workspace metadata-export",
+      "workspace database provision",
+      "workspace database update",
+      "workspace database deprovision",
+      "setup",
+      "api-key create",
+      "eid translate",
     ]);
+
+    // Streaming commands legitimately have no outputSchema — they pipe raw bytes
+    // (YAML / binary) to stdout rather than a typed JSON envelope.
+    const streamingCommands = new Set(["workspace config", "workspace metadata-export"]);
 
     for (const entry of manifest.commands) {
       expect(entry.examples.length, `missing examples for ${entry.command}`).toBeGreaterThan(0);
-      expect(entry.outputSchema, `missing outputSchema for ${entry.command}`).not.toBeNull();
+      if (!streamingCommands.has(entry.command)) {
+        expect(entry.outputSchema, `missing outputSchema for ${entry.command}`).not.toBeNull();
+      }
     }
   });
 });

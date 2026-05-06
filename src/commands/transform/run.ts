@@ -3,10 +3,11 @@ import { z } from "zod";
 import { TransformRun } from "../../domain/transform";
 import type { ResourceView } from "../../domain/view";
 import { renderItem } from "../../output/render";
-import { DEFAULT_INTERVAL_MS, DEFAULT_TIMEOUT_MS, pollUntil } from "../../runtime/poll";
+import { pollUntil } from "../../runtime/poll";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
+import { parseWaitFlags, waitFlags } from "../wait-flags";
 
 const RUN_TERMINAL_STATUSES = new Set(["succeeded", "failed", "timeout", "canceled"]);
 const RUN_FAILURE_STATUSES = new Set(["failed", "timeout", "canceled"]);
@@ -37,45 +38,30 @@ export default defineMetabaseCommand({
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
-    wait: {
-      type: "boolean",
-      description: "Poll until the run reaches a terminal status",
-      default: false,
-    },
-    timeout: {
-      type: "string",
-      description: "Polling timeout in ms (used with --wait)",
-      default: String(DEFAULT_TIMEOUT_MS),
-    },
-    interval: {
-      type: "string",
-      description: "Polling interval in ms (used with --wait)",
-      default: String(DEFAULT_INTERVAL_MS),
-    },
+    ...waitFlags,
     id: { type: "positional", description: "Transform id", required: true },
   },
   outputSchema: TransformRunResult,
   examples: ["metabase transform run 1", "metabase transform run 1 --wait --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
+    const wait = parseWaitFlags(args);
     const client = await getClient();
     const kickoff = await client.requestParsed(TransformRunKickoff, `/api/transform/${id}/run`, {
       method: "POST",
     });
 
-    if (!args.wait || kickoff.run_id === null) {
+    if (!wait.enabled || kickoff.run_id === null) {
       renderItem({ message: kickoff.message, run_id: kickoff.run_id }, transformRunView, ctx);
       return;
     }
 
-    const intervalMs = parseId(args.interval, "interval");
-    const timeoutMs = parseId(args.timeout, "timeout");
     const runId = kickoff.run_id;
 
     const final = await pollUntil(
       async () => client.requestParsed(TransformRun, `/api/transform/run/${runId}`),
       (run) => RUN_TERMINAL_STATUSES.has(run.status),
-      { intervalMs, timeoutMs },
+      wait.schedule,
     );
 
     renderItem({ message: kickoff.message, run_id: runId, final }, transformRunView, ctx);
