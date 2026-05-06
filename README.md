@@ -343,6 +343,151 @@ metabase search products --archived
 | `--table-db-id`  | Restrict to items on a given database id.                                                                                                                 |
 | `--verified`     | Only verified content.                                                                                                                                    |
 
+## Sync
+
+Drive Metabase Enterprise Remote Sync (`/api/ee/remote-sync`) — import / export Metabase content against a configured git remote, inspect dirty state, and manage branches. All sync commands require an active EE token and superuser credentials.
+
+### `metabase sync status`
+
+Roll up the current sync state in one call: configured branch, dirty flag, and the most recent sync task (or `null` if none has ever run).
+
+```sh
+metabase sync status
+metabase sync status --json
+```
+
+### `metabase sync is-dirty`
+
+Boolean check for whether any synced collection has unsynced local changes.
+
+```sh
+metabase sync is-dirty --json
+```
+
+### `metabase sync has-remote-changes`
+
+Compare the latest version on the remote branch against the version Metabase last imported. Cached for a short TTL server-side; pass `--force-refresh` to bypass.
+
+```sh
+metabase sync has-remote-changes
+metabase sync has-remote-changes --force-refresh --json
+```
+
+| Flag              | Description                                         |
+| ----------------- | --------------------------------------------------- |
+| `--force-refresh` | Bypass the in-memory cache and re-check the remote. |
+
+### `metabase sync dirty`
+
+List every object that has unsynced local changes (compact list envelope; `--full` for the per-row payload).
+
+```sh
+metabase sync dirty
+metabase sync dirty --json
+```
+
+### `metabase sync current-task`
+
+Fetch the most recent sync task. Renders `{ status: "idle" }` when no task has ever run, otherwise the full task with its hydrated `status`.
+
+```sh
+metabase sync current-task
+metabase sync current-task --json
+```
+
+### `metabase sync cancel-task`
+
+Cancel the currently running sync task. Fails with HTTP 400 if no task is running.
+
+```sh
+metabase sync cancel-task --json
+```
+
+### `metabase sync wait`
+
+Poll `/current-task` until it reaches a terminal status (`successful`, `errored`, `cancelled`, `timed-out`, `conflict`). Exits 0 on `successful` or `cancelled`; exits 1 on `errored` / `timed-out` / `conflict`. Returns immediately with `{ status: "idle" }` if no task is running.
+
+```sh
+metabase sync wait
+metabase sync wait --timeout 300000 --json
+```
+
+| Flag              | Description                             |
+| ----------------- | --------------------------------------- |
+| `--timeout <ms>`  | Polling timeout in ms (default 600000). |
+| `--interval <ms>` | Polling interval in ms (default 2000).  |
+
+### `metabase sync import`
+
+Import content from the configured git remote into Metabase (repo → Metabase). Auto-polls until the resulting task reaches a terminal status; pass `--no-wait` to return immediately after kickoff.
+
+```sh
+metabase sync import
+metabase sync import --branch main --json
+metabase sync import --force --no-wait
+```
+
+| Flag                    | Description                                                           |
+| ----------------------- | --------------------------------------------------------------------- |
+| `--branch <name>`, `-b` | Branch to import from (defaults to the `remote-sync-branch` setting). |
+| `--force`               | Discard local Metabase-side dirty changes before importing (LOSSY).   |
+| `--wait` / `--no-wait`  | Poll until the task reaches a terminal status (default: wait).        |
+| `--timeout <ms>`        | Polling timeout in ms (default 600000). Used with `--wait`.           |
+| `--interval <ms>`       | Polling interval in ms (default 2000). Used with `--wait`.            |
+
+### `metabase sync export`
+
+Export Metabase changes back to the configured git remote (Metabase → repo). Auto-polls by default.
+
+```sh
+metabase sync export -m "update dashboards"
+metabase sync export --branch main --json
+metabase sync export --no-wait
+```
+
+| Flag                    | Description                                                         |
+| ----------------------- | ------------------------------------------------------------------- |
+| `--branch <name>`, `-b` | Branch to export to (defaults to the `remote-sync-branch` setting). |
+| `--message <msg>`, `-m` | Commit message for the export.                                      |
+| `--force`               | Force-push / overwrite the remote branch.                           |
+| `--wait` / `--no-wait`  | Poll until the task reaches a terminal status (default: wait).      |
+| `--timeout <ms>`        | Polling timeout in ms (default 600000). Used with `--wait`.         |
+| `--interval <ms>`       | Polling interval in ms (default 2000). Used with `--wait`.          |
+
+### `metabase sync stash`
+
+Export the current Metabase state to a NEW branch on the remote and switch sync to it. Requires `remote-sync-type` to be `read-write`.
+
+```sh
+metabase sync stash --new-branch wip
+metabase sync stash --new-branch wip -m "work in progress" --json
+```
+
+| Flag                    | Description                                                    |
+| ----------------------- | -------------------------------------------------------------- |
+| `--new-branch <name>`   | Required. Branch to create and export to.                      |
+| `--message <msg>`, `-m` | Commit message (default `Stashed from metabase CLI`).          |
+| `--wait` / `--no-wait`  | Poll until the task reaches a terminal status (default: wait). |
+| `--timeout <ms>`        | Polling timeout in ms. Used with `--wait`.                     |
+| `--interval <ms>`       | Polling interval in ms. Used with `--wait`.                    |
+
+### `metabase sync branches`
+
+List branches available on the configured git remote.
+
+```sh
+metabase sync branches --json
+```
+
+### `metabase sync create-branch <name>`
+
+Create a new branch on the git remote (from the last imported version) and switch sync to it.
+
+```sh
+metabase sync create-branch feat/dashboards
+metabase sync create-branch feat/x --json
+```
+
 ## Environment variables
 
 | Variable                 | Effect                                                                         |

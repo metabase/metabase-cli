@@ -63,6 +63,18 @@ describe("__manifest e2e", () => {
       "setting get",
       "setting set",
       "search",
+      "sync status",
+      "sync is-dirty",
+      "sync has-remote-changes",
+      "sync dirty",
+      "sync current-task",
+      "sync cancel-task",
+      "sync wait",
+      "sync import",
+      "sync export",
+      "sync stash",
+      "sync branches",
+      "sync create-branch",
     ]);
 
     for (const entry of manifest.commands) {

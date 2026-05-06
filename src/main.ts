@@ -20,6 +20,7 @@ const main: CommandDef = defineCommand({
     "transform-job": () => import("./commands/transform-job").then((mod) => mod.default),
     setting: () => import("./commands/setting").then((mod) => mod.default),
     search: () => import("./commands/search").then((mod) => mod.default),
+    sync: () => import("./commands/sync").then((mod) => mod.default),
     __manifest: (): Promise<CommandDef> =>
       import("./commands/manifest").then((mod) => mod.createManifestCommand(main)),
   },
