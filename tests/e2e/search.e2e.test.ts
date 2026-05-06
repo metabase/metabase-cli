@@ -50,9 +50,12 @@ describe("search e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const envelope = parseJson(result.stdout, SearchListEnvelope);
-    expect(envelope.limit).toBe(10);
-    expect(envelope.data).toContainEqual(ORDERS_BY_STATUS_COMPACT);
+    expect(parseJson(result.stdout, SearchListEnvelope)).toEqual({
+      data: [ORDERS_BY_STATUS_COMPACT],
+      returned: 1,
+      total: 1,
+      limit: 10,
+    });
   });
 
   it("--models card narrows the result to the cards-only set", async () => {
@@ -64,10 +67,12 @@ describe("search e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const envelope = parseJson(result.stdout, SearchListEnvelope);
-    const distinctModels = Array.from(new Set(envelope.data.map((row) => row.model)));
-    expect(distinctModels).toEqual(["card"]);
-    expect(envelope.data).toContainEqual(ORDERS_BY_STATUS_COMPACT);
+    expect(parseJson(result.stdout, SearchListEnvelope)).toEqual({
+      data: [ORDERS_BY_STATUS_COMPACT],
+      returned: 1,
+      total: 1,
+      limit: 20,
+    });
   });
 
   it("--models with an unknown value rejects with ConfigError", async () => {

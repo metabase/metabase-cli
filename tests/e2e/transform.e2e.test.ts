@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { z } from "zod";
 
@@ -13,8 +13,11 @@ import { pollUntil } from "../../src/runtime/poll";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { E2E_DATABASES } from "./seed/ids";
+import { dropNonSeedWarehouseTables } from "./setup/warehouse";
 
-const RUN_NONCE = `${Date.now()}_${process.pid}`;
+const FIRST_TRANSFORM_ID = 1;
+const TRANSFORM_NAME = "e2e_transform";
+const TRANSFORM_TARGET_TABLE = "e2e_transform";
 
 interface NativeQuery {
   type: "native";
@@ -40,25 +43,31 @@ async function waitForRunComplete(client: Client, runId: number): Promise<void> 
   );
 }
 
-function makeTransformBody(slug: string): TransformBody {
-  return {
-    name: `e2e_transform_${slug}_${RUN_NONCE}`,
-    source: {
-      type: "query",
-      query: {
-        type: "native",
-        database: E2E_DATABASES.WAREHOUSE,
-        native: { query: "SELECT 1 AS one" },
-      },
-    },
-    target: {
-      type: "table",
+const TRANSFORM_BODY: TransformBody = {
+  name: TRANSFORM_NAME,
+  source: {
+    type: "query",
+    query: {
+      type: "native",
       database: E2E_DATABASES.WAREHOUSE,
-      schema: "public",
-      name: `e2e_transform_${slug}_${RUN_NONCE}`,
+      native: { query: "SELECT 1 AS one" },
     },
-  };
-}
+  },
+  target: {
+    type: "table",
+    database: E2E_DATABASES.WAREHOUSE,
+    schema: "public",
+    name: TRANSFORM_TARGET_TABLE,
+  },
+};
+
+const TRANSFORM_COMPACT = {
+  id: FIRST_TRANSFORM_ID,
+  name: TRANSFORM_NAME,
+  description: null,
+  source_type: "native",
+  target_db_id: E2E_DATABASES.WAREHOUSE,
+} as const;
 
 describe("transform e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -68,6 +77,10 @@ describe("transform e2e", () => {
   beforeAll(async () => {
     bootstrap = await readBootstrap();
     adminClient = createClient({ url: bootstrap.baseUrl, apiKey: bootstrap.adminApiKey });
+  });
+
+  beforeEach(async () => {
+    await dropNonSeedWarehouseTables();
   });
 
   afterEach(async () => {
@@ -87,147 +100,95 @@ describe("transform e2e", () => {
     };
   }
 
-  async function createTransform(slug: string): Promise<TransformCompact> {
-    const configHome = await makeIsolatedConfigHome();
+  async function createSeedTransform(): Promise<TransformCompact> {
     const result = await runCli({
       args: ["transform", "create", "--json"],
-      stdin: JSON.stringify(makeTransformBody(slug)),
-      configHome,
+      stdin: JSON.stringify(TRANSFORM_BODY),
+      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
     expect(result.exitCode, result.stderr).toBe(0);
-    return parseJson(result.stdout, TransformCompact);
+    const created = parseJson(result.stdout, TransformCompact);
+    expect(created).toEqual(TRANSFORM_COMPACT);
+    return created;
   }
 
-  async function deleteTransform(id: number): Promise<void> {
-    const configHome = await makeIsolatedConfigHome();
+  it("list returns the just-created transform as the only entry", async () => {
+    await createSeedTransform();
+
     const result = await runCli({
-      args: ["transform", "delete", String(id), "--yes", "--json"],
-      configHome,
+      args: ["transform", "list", "--json"],
+      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
-    expect(result.exitCode, result.stderr).toBe(0);
-  }
 
-  async function dropTransformOutputTable(id: number): Promise<void> {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["transform", "delete-table", String(id), "--yes", "--json"],
-      configHome,
-      env: authEnv(),
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TransformListEnvelope)).toEqual({
+      data: [TRANSFORM_COMPACT],
+      returned: 1,
+      total: 1,
     });
-    expect(result.exitCode, result.stderr).toBe(0);
-  }
-
-  it("list returns the current set of transforms parsed via the envelope", async () => {
-    const created = await createTransform("list");
-    try {
-      const configHome = await makeIsolatedConfigHome();
-      const result = await runCli({
-        args: ["transform", "list", "--json"],
-        configHome,
-        env: authEnv(),
-      });
-
-      expect(result.exitCode, result.stderr).toBe(0);
-      const envelope = parseJson(result.stdout, TransformListEnvelope);
-      expect(envelope.returned).toBe(envelope.data.length);
-      expect(envelope.total).toBe(envelope.data.length);
-      const ours = envelope.data.find((row) => row.id === created.id);
-      expect(ours).toEqual({
-        id: created.id,
-        name: created.name,
-        description: null,
-        source_type: "native",
-        target_db_id: E2E_DATABASES.WAREHOUSE,
-      });
-    } finally {
-      await deleteTransform(created.id);
-    }
   });
 
   it("create + get round-trip returns the same transform by id", async () => {
-    const created = await createTransform("getrt");
-    try {
-      const configHome = await makeIsolatedConfigHome();
-      const result = await runCli({
-        args: ["transform", "get", String(created.id), "--json"],
-        configHome,
-        env: authEnv(),
-      });
+    await createSeedTransform();
 
-      expect(result.exitCode, result.stderr).toBe(0);
-      expect(parseJson(result.stdout, TransformCompact)).toEqual({
-        id: created.id,
-        name: created.name,
-        description: null,
-        source_type: "native",
-        target_db_id: E2E_DATABASES.WAREHOUSE,
-      });
-    } finally {
-      await deleteTransform(created.id);
-    }
+    const result = await runCli({
+      args: ["transform", "get", String(FIRST_TRANSFORM_ID), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TransformCompact)).toEqual(TRANSFORM_COMPACT);
   });
 
   it("update changes the name and the change is visible via get", async () => {
-    const created = await createTransform("update");
-    const renamed = `${created.name}_renamed`;
-    try {
-      const updateConfigHome = await makeIsolatedConfigHome();
-      const updateResult = await runCli({
-        args: ["transform", "update", String(created.id), "--json"],
-        stdin: JSON.stringify({ name: renamed }),
-        configHome: updateConfigHome,
-        env: authEnv(),
-      });
-      expect(updateResult.exitCode, updateResult.stderr).toBe(0);
-      expect(parseJson(updateResult.stdout, TransformCompact)).toEqual({
-        id: created.id,
-        name: renamed,
-        description: null,
-        source_type: "native",
-        target_db_id: E2E_DATABASES.WAREHOUSE,
-      });
+    await createSeedTransform();
+    const renamed = `${TRANSFORM_NAME}_renamed`;
 
-      const getConfigHome = await makeIsolatedConfigHome();
-      const getResult = await runCli({
-        args: ["transform", "get", String(created.id), "--json"],
-        configHome: getConfigHome,
-        env: authEnv(),
-      });
-      expect(getResult.exitCode, getResult.stderr).toBe(0);
-      expect(parseJson(getResult.stdout, TransformCompact)).toEqual({
-        id: created.id,
-        name: renamed,
-        description: null,
-        source_type: "native",
-        target_db_id: E2E_DATABASES.WAREHOUSE,
-      });
-    } finally {
-      await deleteTransform(created.id);
-    }
+    const updateResult = await runCli({
+      args: ["transform", "update", String(FIRST_TRANSFORM_ID), "--json"],
+      stdin: JSON.stringify({ name: renamed }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(updateResult.exitCode, updateResult.stderr).toBe(0);
+    expect(parseJson(updateResult.stdout, TransformCompact)).toEqual({
+      ...TRANSFORM_COMPACT,
+      name: renamed,
+    });
+
+    const getResult = await runCli({
+      args: ["transform", "get", String(FIRST_TRANSFORM_ID), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(getResult.exitCode, getResult.stderr).toBe(0);
+    expect(parseJson(getResult.stdout, TransformCompact)).toEqual({
+      ...TRANSFORM_COMPACT,
+      name: renamed,
+    });
   });
 
   it("delete --yes removes the transform; subsequent get returns 404", async () => {
-    const created = await createTransform("delete");
+    await createSeedTransform();
 
-    const deleteConfigHome = await makeIsolatedConfigHome();
     const deleteResult = await runCli({
-      args: ["transform", "delete", String(created.id), "--yes", "--json"],
-      configHome: deleteConfigHome,
+      args: ["transform", "delete", String(FIRST_TRANSFORM_ID), "--yes", "--json"],
+      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
     expect(deleteResult.exitCode, deleteResult.stderr).toBe(0);
     expect(parseJson(deleteResult.stdout, DeleteResult)).toEqual({
       deleted: true,
       aborted: false,
-      id: created.id,
+      id: FIRST_TRANSFORM_ID,
     });
 
-    const getConfigHome = await makeIsolatedConfigHome();
     const getResult = await runCli({
-      args: ["transform", "get", String(created.id), "--json"],
-      configHome: getConfigHome,
+      args: ["transform", "get", String(FIRST_TRANSFORM_ID), "--json"],
+      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
     expect(getResult.exitCode).toBe(1);
@@ -235,103 +196,74 @@ describe("transform e2e", () => {
   });
 
   it("run --wait polls until the run reaches a terminal status and renders the final state", async () => {
-    const created = await createTransform("waitsucc");
-    let runId: number | null = null;
-    try {
-      const configHome = await makeIsolatedConfigHome();
-      const result = await runCli({
-        args: ["transform", "run", String(created.id), "--wait", "--json"],
-        configHome,
-        env: authEnv(),
-      });
-      expect(result.exitCode, result.stderr).toBe(0);
-      const parsed = parseJson(result.stdout, TransformRunResult);
-      expect(parsed.message).toBe("Transform run started");
-      expect(parsed.run_id).not.toBeNull();
-      expect(parsed.final).not.toBeNull();
-      expect(parsed.final?.status).toBe("succeeded");
-      runId = parsed.run_id;
-    } finally {
-      if (runId !== null) {
-        await dropTransformOutputTable(created.id);
-      }
-      await deleteTransform(created.id);
-    }
+    await createSeedTransform();
+
+    const result = await runCli({
+      args: ["transform", "run", String(FIRST_TRANSFORM_ID), "--wait", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    const parsed = parseJson(result.stdout, TransformRunResult);
+    expect(parsed.message).toBe("Transform run started");
+    expect(parsed.run_id).not.toBeNull();
+    expect(parsed.final?.status).toBe("succeeded");
   });
 
   it("run returns a run_id for the created transform", async () => {
-    const created = await createTransform("run");
-    let runId: number | null = null;
-    try {
-      const configHome = await makeIsolatedConfigHome();
-      const result = await runCli({
-        args: ["transform", "run", String(created.id), "--json"],
-        configHome,
-        env: authEnv(),
-      });
-      expect(result.exitCode, result.stderr).toBe(0);
-      const parsed = parseJson(result.stdout, TransformRunResult);
-      expect(parsed.message).toBe("Transform run started");
-      expect(parsed.run_id).not.toBeNull();
-      runId = parsed.run_id;
-    } finally {
-      if (runId !== null) {
-        await waitForRunComplete(adminClient, runId);
-        await dropTransformOutputTable(created.id);
-      }
-      await deleteTransform(created.id);
+    await createSeedTransform();
+
+    const result = await runCli({
+      args: ["transform", "run", String(FIRST_TRANSFORM_ID), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    const parsed = parseJson(result.stdout, TransformRunResult);
+    expect(parsed.message).toBe("Transform run started");
+    expect(parsed.run_id).not.toBeNull();
+
+    if (parsed.run_id !== null) {
+      await waitForRunComplete(adminClient, parsed.run_id);
     }
   });
 
   it("delete-table drops the output table while keeping the transform record", async () => {
-    const created = await createTransform("droptbl");
-    let tableExists = false;
-    try {
-      const runHome = await makeIsolatedConfigHome();
-      const runResult = await runCli({
-        args: ["transform", "run", String(created.id), "--wait", "--json"],
-        configHome: runHome,
-        env: authEnv(),
-      });
-      expect(runResult.exitCode, runResult.stderr).toBe(0);
-      tableExists = true;
+    await createSeedTransform();
 
-      const dropHome = await makeIsolatedConfigHome();
-      const dropResult = await runCli({
-        args: ["transform", "delete-table", String(created.id), "--yes", "--json"],
-        configHome: dropHome,
-        env: authEnv(),
-      });
-      expect(dropResult.exitCode, dropResult.stderr).toBe(0);
-      expect(parseJson(dropResult.stdout, DeleteResult)).toEqual({
-        deleted: true,
-        aborted: false,
-        id: created.id,
-      });
-      tableExists = false;
+    const runResult = await runCli({
+      args: ["transform", "run", String(FIRST_TRANSFORM_ID), "--wait", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(runResult.exitCode, runResult.stderr).toBe(0);
 
-      const getHome = await makeIsolatedConfigHome();
-      const getResult = await runCli({
-        args: ["transform", "get", String(created.id), "--json"],
-        configHome: getHome,
-        env: authEnv(),
-      });
-      expect(getResult.exitCode, getResult.stderr).toBe(0);
-      expect(parseJson(getResult.stdout, TransformCompact).id).toBe(created.id);
-    } finally {
-      if (tableExists) {
-        await dropTransformOutputTable(created.id);
-      }
-      await deleteTransform(created.id);
-    }
+    const dropResult = await runCli({
+      args: ["transform", "delete-table", String(FIRST_TRANSFORM_ID), "--yes", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(dropResult.exitCode, dropResult.stderr).toBe(0);
+    expect(parseJson(dropResult.stdout, DeleteResult)).toEqual({
+      deleted: true,
+      aborted: false,
+      id: FIRST_TRANSFORM_ID,
+    });
+
+    const getResult = await runCli({
+      args: ["transform", "get", String(FIRST_TRANSFORM_ID), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(getResult.exitCode, getResult.stderr).toBe(0);
+    expect(parseJson(getResult.stdout, TransformCompact)).toEqual(TRANSFORM_COMPACT);
   });
 
   it("create with body missing required fields fails on Zod validation", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["transform", "create", "--json"],
       stdin: JSON.stringify({ name: "missing-source-and-target" }),
-      configHome,
+      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
@@ -340,10 +272,9 @@ describe("transform e2e", () => {
   });
 
   it("get with a non-integer id fails fast with ConfigError", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["transform", "get", "abc", "--json"],
-      configHome,
+      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
@@ -352,10 +283,9 @@ describe("transform e2e", () => {
   });
 
   it("get against a missing id surfaces a 404 HttpError", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["transform", "get", "9999999", "--json"],
-      configHome,
+      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
@@ -363,11 +293,10 @@ describe("transform e2e", () => {
   });
 
   it("delete without --yes and without TTY stdin fails with ConfigError", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["transform", "delete", "1", "--json"],
       stdin: "",
-      configHome,
+      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);

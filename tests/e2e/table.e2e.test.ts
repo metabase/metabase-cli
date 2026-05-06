@@ -6,19 +6,11 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_DATABASES } from "./seed/ids";
+import { E2E_DATABASES, E2E_TABLES } from "./seed/ids";
 
-interface SeededTableSummary {
-  name: string;
-  display_name: string;
-  description: string | null;
-  db_id: number;
-  schema: string | null;
-  entity_type: string | null;
-}
-
-const SEEDED_WAREHOUSE_TABLES: SeededTableSummary[] = [
+const SEEDED_WAREHOUSE_TABLES = [
   {
+    id: E2E_TABLES.CUSTOMERS,
     name: "customers",
     display_name: "Customers",
     description: "Customer dimension; mixed types for sync coverage.",
@@ -27,6 +19,7 @@ const SEEDED_WAREHOUSE_TABLES: SeededTableSummary[] = [
     entity_type: "entity/GenericTable",
   },
   {
+    id: E2E_TABLES.DAILY_SALES,
     name: "daily_sales",
     display_name: "Daily Sales",
     description: null,
@@ -35,6 +28,7 @@ const SEEDED_WAREHOUSE_TABLES: SeededTableSummary[] = [
     entity_type: "entity/TransactionTable",
   },
   {
+    id: E2E_TABLES.ORDER_ITEMS,
     name: "order_items",
     display_name: "Order Items",
     description: null,
@@ -43,6 +37,7 @@ const SEEDED_WAREHOUSE_TABLES: SeededTableSummary[] = [
     entity_type: "entity/TransactionTable",
   },
   {
+    id: E2E_TABLES.ORDER_SUMMARY,
     name: "order_summary",
     display_name: "Order Summary",
     description: null,
@@ -51,6 +46,7 @@ const SEEDED_WAREHOUSE_TABLES: SeededTableSummary[] = [
     entity_type: "entity/TransactionTable",
   },
   {
+    id: E2E_TABLES.ORDERS,
     name: "orders",
     display_name: "Orders",
     description: null,
@@ -59,6 +55,7 @@ const SEEDED_WAREHOUSE_TABLES: SeededTableSummary[] = [
     entity_type: "entity/TransactionTable",
   },
   {
+    id: E2E_TABLES.PRODUCTS,
     name: "products",
     display_name: "Products",
     description: null,
@@ -67,6 +64,7 @@ const SEEDED_WAREHOUSE_TABLES: SeededTableSummary[] = [
     entity_type: "entity/ProductTable",
   },
   {
+    id: E2E_TABLES.REVIEWS,
     name: "reviews",
     display_name: "Reviews",
     description: null,
@@ -129,36 +127,25 @@ describe("table e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const parsed = parseJson(result.stdout, TableListEnvelope);
-    const summaries: SeededTableSummary[] = parsed.data
-      .map(({ id: _id, ...rest }) => rest)
-      .toSorted((left, right) => left.name.localeCompare(right.name));
-
-    expect({ returned: parsed.returned, total: parsed.total, summaries }).toEqual({
+    expect(parseJson(result.stdout, TableListEnvelope)).toEqual({
+      data: SEEDED_WAREHOUSE_TABLES,
       returned: SEEDED_WAREHOUSE_TABLES.length,
       total: SEEDED_WAREHOUSE_TABLES.length,
-      summaries: SEEDED_WAREHOUSE_TABLES,
     });
   });
 
   it("get returns a table with embedded fields when --full", async () => {
     const configHome = await makeIsolatedConfigHome();
-
-    const list = await runCli({
-      args: ["table", "list", "--db-id", String(E2E_DATABASES.WAREHOUSE), "--json"],
-      configHome,
-      env: authEnv(),
-    });
-    expect(list.exitCode, list.stderr).toBe(0);
-    const customers = parseJson(list.stdout, TableListEnvelope).data.find(
-      (row) => row.name === "customers",
-    );
-    if (customers === undefined) {
-      throw new Error("customers table missing from list output");
-    }
-
     const get = await runCli({
-      args: ["table", "get", String(customers.id), "--json", "--full", "--max-bytes", "0"],
+      args: [
+        "table",
+        "get",
+        String(E2E_TABLES.CUSTOMERS),
+        "--json",
+        "--full",
+        "--max-bytes",
+        "0",
+      ],
       configHome,
       env: authEnv(),
     });
@@ -169,7 +156,7 @@ describe("table e2e", () => {
 
     expect({ compact: TableCompact.parse(parsed), fieldNames }).toEqual({
       compact: {
-        id: customers.id,
+        id: E2E_TABLES.CUSTOMERS,
         name: "customers",
         display_name: "Customers",
         description: "Customer dimension; mixed types for sync coverage.",

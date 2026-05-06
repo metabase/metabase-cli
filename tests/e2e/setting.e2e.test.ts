@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { SettingListEnvelope } from "../../src/commands/setting/list";
 import { createClient, type Client } from "../../src/core/http/client";
@@ -21,12 +21,7 @@ describe("setting e2e", () => {
     adminClient = createClient({ url: bootstrap.baseUrl, apiKey: bootstrap.adminApiKey });
   });
 
-  beforeEach(async () => {
-    await writeMutableKey(null);
-  });
-
   afterEach(async () => {
-    await writeMutableKey(null);
     await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
   });
 
@@ -64,8 +59,7 @@ describe("setting e2e", () => {
     const envelope = parseJson(result.stdout, SettingListEnvelope);
     expect(envelope.returned).toBe(envelope.data.length);
     expect(envelope.total).toBe(envelope.data.length);
-    const ours = envelope.data.find((row) => row.key === MUTABLE_KEY);
-    expect(ours).toEqual({
+    expect(envelope.data.find((row) => row.key === MUTABLE_KEY)).toEqual({
       key: MUTABLE_KEY,
       value: false,
       is_env_setting: false,

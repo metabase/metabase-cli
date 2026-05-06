@@ -17,6 +17,7 @@ export default defineWorkspace([
         forks: { singleFork: true },
       },
       globalSetup: ["tests/e2e/setup/global-setup.ts"],
+      setupFiles: ["tests/e2e/setup/restore-each.ts"],
     },
   },
 ]);
