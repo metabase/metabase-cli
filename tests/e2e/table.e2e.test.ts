@@ -137,15 +137,7 @@ describe("table e2e", () => {
   it("get returns a table with embedded fields when --full", async () => {
     const configHome = await makeIsolatedConfigHome();
     const get = await runCli({
-      args: [
-        "table",
-        "get",
-        String(E2E_TABLES.CUSTOMERS),
-        "--json",
-        "--full",
-        "--max-bytes",
-        "0",
-      ],
+      args: ["table", "get", String(E2E_TABLES.CUSTOMERS), "--json", "--full", "--max-bytes", "0"],
       configHome,
       env: authEnv(),
     });

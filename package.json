@@ -26,7 +26,7 @@
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "prepublishOnly": "tsdown && publint && attw --pack ."
+    "prepublishOnly": "tsdown && publint"
   },
   "dependencies": {
     "@clack/prompts": "^0.8.2",
@@ -36,7 +36,6 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@arethetypeswrong/cli": "^0.17.0",
     "@types/node": "^22.10.0",
     "execa": "^9.5.2",
     "fast-check": "^4.7.0",
