@@ -1,0 +1,41 @@
+import { z } from "zod";
+
+import type { Client } from "../../core/http/client";
+import { SettingValue, settingValueView } from "../../domain/setting";
+import { renderItem } from "../../output/render";
+import { parseJson } from "../../runtime/json";
+import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { defineMetabaseCommand } from "../runtime";
+
+import { parseSettingKey } from "./key";
+
+export default defineMetabaseCommand({
+  meta: { name: "get", description: "Get a setting value by key" },
+  args: {
+    ...outputFlags,
+    ...profileFlag,
+    ...connectionFlags,
+    key: { type: "positional", description: "Setting key", required: true },
+  },
+  outputSchema: SettingValue,
+  examples: ["metabase setting get remote-sync-branch", "metabase setting get site-name --json"],
+  async run({ args, ctx, getClient }) {
+    const key = parseSettingKey(args.key);
+    const client = await getClient();
+    const value = await fetchSettingValue(client, key);
+    const item: SettingValue = { key, value };
+    renderItem(item, settingValueView, ctx);
+  },
+});
+
+async function fetchSettingValue(client: Client, key: string): Promise<unknown> {
+  const response = await client.requestRaw(`/api/setting/${encodeURIComponent(key)}`, {
+    method: "GET",
+    expectContentType: "binary",
+  });
+  if (response.status === 204) {
+    return null;
+  }
+  const text = await response.text();
+  return parseJson(text, z.unknown(), { source: response.url });
+}

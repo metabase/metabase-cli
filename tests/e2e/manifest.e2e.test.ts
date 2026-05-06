@@ -59,6 +59,9 @@ describe("__manifest e2e", () => {
       "transform-job create",
       "transform-job update",
       "transform-job delete",
+      "setting list",
+      "setting get",
+      "setting set",
       "search",
     ]);
 

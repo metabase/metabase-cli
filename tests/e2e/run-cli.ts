@@ -41,7 +41,7 @@ export async function runCli(opts: RunCliOptions): Promise<RunCliResult> {
     encoding: "utf8",
     stdout: "pipe",
     stderr: "pipe",
-    ...(opts.stdin === undefined ? {} : { input: opts.stdin }),
+    input: opts.stdin ?? "",
   });
 
   if (typeof result.exitCode !== "number") {

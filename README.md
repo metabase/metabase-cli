@@ -283,6 +283,46 @@ metabase card archive 1
 metabase card archive 1 --json
 ```
 
+## Settings
+
+Read and write Metabase instance settings via `/api/setting`. Listing all settings requires admin privileges; per-key reads/writes additionally enforce per-setting access. Setting values are always JSON — `"main"` is the string `main`, `42` is a number, `null` deletes the override and resets the value to its default.
+
+### `metabase setting list`
+
+```sh
+metabase setting list
+metabase setting list --json --max-bytes 0
+```
+
+Returns a `ListEnvelope` of compact entries (`key`, `value`, `is_env_setting`, `env_name`). Pass `--full` for the full per-row payload (also includes `description` and `default`). The full payload can exceed the default `--max-bytes` cap; pass `--max-bytes 0` to disable the cap.
+
+### `metabase setting get <key>`
+
+```sh
+metabase setting get site-name
+metabase setting get remote-sync-branch --json
+```
+
+Returns `{ key, value }` for a single setting. Settings whose stored value matches the default — or that come from an env var — surface as `value: null`.
+
+### `metabase setting set <key> [value]`
+
+Set or delete a setting. The value is parsed strictly as JSON: pass `'"main"'` for the string `main`, `true`/`42` for booleans/numbers, `null` to delete the stored override (resets to default).
+
+```sh
+metabase setting set remote-sync-branch '"main"'
+metabase setting set anon-tracking-enabled true
+echo '"main"' | metabase setting set remote-sync-branch
+metabase setting set remote-sync-branch --file value.json
+metabase setting set remote-sync-branch null
+```
+
+| Flag            | Description                                                              |
+| --------------- | ------------------------------------------------------------------------ |
+| `--file <path>` | Read the JSON value from a file (alternative to the positional / stdin). |
+
+Sources are resolved in this order: positional, `--file`, piped stdin. Provide exactly one; an unparseable value or a missing source fails fast with a `ConfigError`.
+
 ## Search
 
 ### `metabase search [query]`
