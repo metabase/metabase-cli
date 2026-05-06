@@ -675,6 +675,88 @@ metabase workspace database deprovision 1 5 --yes --wait
 | `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`.  |
 | `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.   |
 
+### Local runtime
+
+These commands manage a Docker container that serves as the workspace's child Metabase instance. State lives in Docker labels and a named volume — there is no per-workspace local state directory. The container is named `metabase-workspace-<id>`; the app-db volume is `metabase-workspace-<id>-appdb`.
+
+`start` is the only command that talks to the parent: it fetches `config.yml` (and optionally the metadata export) into a 0700 temp directory, bind-mounts it read-only into the container, polls `/api/health`, and **scrubs the temp dir on exit (success or failure)** so the parent's connection credentials and the EE token don't linger on disk.
+
+### `metabase workspace start <id>`
+
+```sh
+metabase workspace start 1
+metabase workspace start 1 --port 3100
+metabase workspace start 1 --image metabase/metabase-dev:feature-workspaces-v2 --no-pull
+metabase workspace start 1 --force
+```
+
+Resolves the parent via the active profile (or `--profile`/`--url`/`--api-key`) and the EE license via `resolveLicenseToken` (the same path `metabase license set` writes to). The license is forwarded to the container as `MB_PREMIUM_EMBEDDING_TOKEN` via `-e KEY` (no value on argv). Refuses to start if the workspace has any database that isn't `status: "provisioned"`.
+
+| Flag             | Description                                                                  |
+| ---------------- | ---------------------------------------------------------------------------- |
+| `--port <n>`     | Host port (default: 3000; auto-shifts up to 100 ports if taken).             |
+| `--image <ref>`  | Docker image (default: `metabase/metabase-dev:feature-workspaces-v2`).       |
+| `--timeout <ms>` | Health check deadline (default: 180000).                                     |
+| `--no-pull`      | Skip `docker pull` (useful if the image is already present).                 |
+| `--no-metadata`  | Skip the metadata export — only mount `config.yml`.                          |
+| `--force`        | If a container for this workspace already exists, remove it before starting. |
+
+### `metabase workspace stop <id>`
+
+```sh
+metabase workspace stop 1
+metabase workspace stop 1 --json
+```
+
+Stops the running container; no-ops if it's already exited or missing. Reports the prior state.
+
+### `metabase workspace remove <id>`
+
+```sh
+metabase workspace remove 1 --yes
+metabase workspace remove 1 --keep-volume --yes
+```
+
+Stops and removes the container. By default, also removes the app-db volume — pass `--keep-volume` to preserve it across rebuilds. **Does not affect the remote workspace** on the parent.
+
+| Flag            | Description                                                   |
+| --------------- | ------------------------------------------------------------- |
+| `--yes`         | Skip confirmation. Required on non-TTY.                       |
+| `--keep-volume` | Preserve the app-db volume (`metabase-workspace-<id>-appdb`). |
+
+### `metabase workspace logs <id>`
+
+```sh
+metabase workspace logs 1
+metabase workspace logs 1 --follow
+metabase workspace logs 1 --tail 500
+```
+
+Passthrough to `docker logs`. Output streams directly to your terminal; Ctrl-C terminates a follow.
+
+| Flag           | Description                                   |
+| -------------- | --------------------------------------------- |
+| `--follow, -f` | Stream indefinitely.                          |
+| `--tail <n>`   | Lines from the end of the logs (default 200). |
+
+### `metabase workspace url <id>`
+
+```sh
+metabase workspace url 1
+metabase workspace url 1 --json
+```
+
+Prints `http://localhost:<port>` for the workspace's container. Reads the host port from the container's `com.metabase.workspace.host-port` label.
+
+### `metabase workspace ps`
+
+```sh
+metabase workspace ps
+metabase workspace ps --json
+```
+
+Lists every container that carries the `com.metabase.workspace.id` label, running or stopped. The `--json` envelope is the canonical agent-facing shape and contains only `workspace_id`, `workspace_name`, `state`, and `url`; `--full --json` emits the wider record (image, profile, parent URL, container name, status string, host port).
+
 ## Instance setup
 
 Operations against a workspace-instance Metabase. The setup wizard and API key creation are distinct endpoints — there is no shared body schema.

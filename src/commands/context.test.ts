@@ -121,19 +121,19 @@ describe("resolveCommonFlags — maxBytes parsing", () => {
 
   it("throws ConfigError on negative value", () => {
     expect(() => resolveCommonFlags({ maxBytes: "-1" }, { isTty: true })).toThrow(
-      new ConfigError("invalid --max-bytes value: -1 (must be non-negative)"),
+      new ConfigError("invalid --max-bytes: -1 (must be ≥ 0)"),
     );
   });
 
   it("throws ConfigError on non-integer string", () => {
     expect(() => resolveCommonFlags({ maxBytes: "abc" }, { isTty: true })).toThrow(
-      new ConfigError(`invalid --max-bytes value: "abc" (expected non-negative integer)`),
+      new ConfigError(`invalid --max-bytes: "abc" (expected integer)`),
     );
   });
 
   it("throws ConfigError on float", () => {
     expect(() => resolveCommonFlags({ maxBytes: "1.5" }, { isTty: true })).toThrow(
-      new ConfigError(`invalid --max-bytes value: "1.5" (expected non-negative integer)`),
+      new ConfigError(`invalid --max-bytes: "1.5" (expected integer)`),
     );
   });
 });

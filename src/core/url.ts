@@ -12,3 +12,7 @@ export function originOnly(input: string): string {
   parsed.password = "";
   return parsed.origin;
 }
+
+export function localUrl(port: number): string {
+  return `http://localhost:${port}`;
+}

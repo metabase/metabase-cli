@@ -2,7 +2,9 @@ import { ConfigError } from "../core/errors";
 import { resolveFormat } from "../output/format";
 import { DEFAULT_MAX_BYTES, type Format } from "../output/types";
 import { parseCsv } from "../runtime/csv";
+
 import type { connectionFlags, outputFlags, profileFlag } from "./flags";
+import { parseInteger } from "./parse-integer";
 
 type FlagValue<T> = T extends { type: "boolean" }
   ? boolean
@@ -29,8 +31,6 @@ export interface CommonContext {
 export interface ResolveOptions {
   isTty?: boolean;
 }
-
-const INTEGER_PATTERN = /^-?\d+$/;
 
 export function resolveCommonFlags(args: CommonArgs, options: ResolveOptions = {}): CommonContext {
   const isTty = options.isTty ?? Boolean(process.stdout.isTTY);
@@ -59,13 +59,5 @@ function parseFields(value: string | undefined): string[] | undefined {
 }
 
 function parseMaxBytes(value: string | undefined): number {
-  const raw = value ?? String(DEFAULT_MAX_BYTES);
-  if (!INTEGER_PATTERN.test(raw)) {
-    throw new ConfigError(`invalid --max-bytes value: "${raw}" (expected non-negative integer)`);
-  }
-  const parsed = Number.parseInt(raw, 10);
-  if (parsed < 0) {
-    throw new ConfigError(`invalid --max-bytes value: ${parsed} (must be non-negative)`);
-  }
-  return parsed;
+  return parseInteger(value ?? String(DEFAULT_MAX_BYTES), { name: "--max-bytes", min: 0 });
 }

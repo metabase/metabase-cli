@@ -88,14 +88,24 @@ describe("__manifest e2e", () => {
       "workspace database provision",
       "workspace database update",
       "workspace database deprovision",
+      "workspace start",
+      "workspace stop",
+      "workspace remove",
+      "workspace logs",
+      "workspace url",
+      "workspace ps",
       "setup",
       "api-key create",
       "eid translate",
     ]);
 
     // Streaming commands legitimately have no outputSchema — they pipe raw bytes
-    // (YAML / binary) to stdout rather than a typed JSON envelope.
-    const streamingCommands = new Set(["workspace config", "workspace metadata-export"]);
+    // (YAML / binary / docker logs) to stdout rather than a typed JSON envelope.
+    const streamingCommands = new Set([
+      "workspace config",
+      "workspace metadata-export",
+      "workspace logs",
+    ]);
 
     for (const entry of manifest.commands) {
       expect(entry.examples.length, `missing examples for ${entry.command}`).toBeGreaterThan(0);

@@ -2,7 +2,7 @@ import { defineCommand } from "citty";
 import type { ArgsDef, CommandDef, CommandMeta, ParsedArgs } from "citty";
 import type { ZodType } from "zod";
 
-import { resolveConfig, type ConfigFlags } from "../core/config";
+import { resolveConfig, type ConfigFlags, type ResolvedConfig } from "../core/config";
 import { createClient, type Client } from "../core/http/client";
 import { reportError } from "../output/error";
 import { setMetabaseAugment } from "../runtime/command-augment";
@@ -13,6 +13,7 @@ export interface MetabaseCommandContext<A extends ArgsDef> {
   args: ParsedArgs<A>;
   ctx: CommonContext;
   getClient: () => Promise<Client>;
+  getResolvedConfig: () => Promise<ResolvedConfig>;
 }
 
 export interface MetabaseCommandDef<A extends ArgsDef> {
@@ -32,16 +33,22 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
     async run({ args }) {
       try {
         const ctx = resolveCommonFlags(pickCommonArgs(args));
-        let cached: Client | null = null;
-        const getClient = async (): Promise<Client> => {
-          if (cached) {
-            return cached;
+        let cachedConfig: ResolvedConfig | null = null;
+        let cachedClient: Client | null = null;
+        const getResolvedConfig = async (): Promise<ResolvedConfig> => {
+          if (cachedConfig === null) {
+            cachedConfig = await resolveConfig(buildConfigFlags(ctx));
           }
-          const resolved = await resolveConfig(buildConfigFlags(ctx));
-          cached = createClient({ url: resolved.url, apiKey: resolved.apiKey });
-          return cached;
+          return cachedConfig;
         };
-        await def.run({ args, ctx, getClient });
+        const getClient = async (): Promise<Client> => {
+          if (cachedClient === null) {
+            const resolved = await getResolvedConfig();
+            cachedClient = createClient({ url: resolved.url, apiKey: resolved.apiKey });
+          }
+          return cachedClient;
+        };
+        await def.run({ args, ctx, getClient, getResolvedConfig });
       } catch (error) {
         reportError(error);
       }
