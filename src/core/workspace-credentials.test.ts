@@ -10,6 +10,7 @@ import {
   buildCredentialsJson,
   generateWorkspaceCredentials,
   injectCredentialsIntoConfig,
+  injectRepoSettingsIntoConfig,
 } from "./workspace-credentials";
 
 const OVERWRITE_REFUSAL =
@@ -139,5 +140,84 @@ describe("injectCredentialsIntoConfig", () => {
       throw new Error("expected ConfigError");
     }
     expect(thrown.message).toBe(OVERWRITE_REFUSAL);
+  });
+});
+
+describe("injectRepoSettingsIntoConfig", () => {
+  const REPO = {
+    url: "file:///mnt/repo",
+    branch: "main",
+    mode: "read-write",
+  } as const;
+
+  it("adds the three remote-sync keys under config.settings while preserving the parent fields", () => {
+    const merged = injectRepoSettingsIntoConfig(PARENT_CONFIG_YAML, REPO);
+    const parsed = parseYaml(merged, z.unknown());
+    expect(parsed).toEqual({
+      version: 1,
+      config: {
+        databases: [
+          {
+            name: "neondb",
+            engine: "postgres",
+            details: {
+              host: "example.com",
+              password: "hunter2",
+              "schema-filters-patterns": "public",
+            },
+          },
+        ],
+        workspace: {
+          name: "my_ws",
+          databases: {
+            neondb: { input_schemas: ["public"], output_schema: "mb_ws_2" },
+          },
+        },
+        settings: {
+          "remote-sync-url": "file:///mnt/repo",
+          "remote-sync-branch": "main",
+          "remote-sync-type": "read-write",
+        },
+      },
+    });
+  });
+
+  it("merges into an existing settings block, leaving non-remote-sync keys alone", () => {
+    const yamlWithOtherSettings = `${PARENT_CONFIG_YAML}  settings:
+    site-name: My Workspace
+    admin-email: ops@example.com
+`;
+    const merged = injectRepoSettingsIntoConfig(yamlWithOtherSettings, REPO);
+    const parsed = parseYaml(
+      merged,
+      z.object({
+        config: z.object({
+          settings: z.record(z.string(), z.string()),
+        }),
+      }),
+    );
+    expect(parsed.config.settings).toEqual({
+      "site-name": "My Workspace",
+      "admin-email": "ops@example.com",
+      "remote-sync-url": "file:///mnt/repo",
+      "remote-sync-branch": "main",
+      "remote-sync-type": "read-write",
+    });
+  });
+
+  it.each<[string, string]>([
+    ["remote-sync-url", "remote-sync-url"],
+    ["remote-sync-branch", "remote-sync-branch"],
+    ["remote-sync-type", "remote-sync-type"],
+  ])("refuses to overwrite an existing %s", (_label, key) => {
+    const yamlWithRemoteSync = `${PARENT_CONFIG_YAML}  settings:
+    ${key}: existing-value
+`;
+    const thrown = captureThrown(() => injectRepoSettingsIntoConfig(yamlWithRemoteSync, REPO));
+    expect(thrown).toBeInstanceOf(ConfigError);
+    if (!(thrown instanceof ConfigError)) {
+      throw new Error("expected ConfigError");
+    }
+    expect(thrown.message).toContain(`already declares remote-sync settings (${key})`);
   });
 });

@@ -1,7 +1,12 @@
+import { stat } from "node:fs/promises";
+import { resolve as resolvePath } from "node:path";
+
 import { z } from "zod";
 
 import { resolveLicenseToken } from "../../core/config";
 import {
+  type BindMount,
+  CONTAINER_REPO_DIR,
   checkDockerReady,
   containerLifecycleStatus,
   containerNameFor,
@@ -16,9 +21,13 @@ import type { Client } from "../../core/http/client";
 import { probeHealth } from "../../core/http/probe";
 import { localUrl } from "../../core/url";
 import {
+  REPO_SYNC_MODES,
+  type RepoSettings,
+  RepoSyncMode,
   buildCredentialsJson,
   generateWorkspaceCredentials,
   injectCredentialsIntoConfig,
+  injectRepoSettingsIntoConfig,
 } from "../../core/workspace-credentials";
 import type { ResourceView } from "../../domain/view";
 import { Workspace } from "../../domain/workspace";
@@ -26,6 +35,7 @@ import { warn } from "../../output/notice";
 import { renderItem } from "../../output/render";
 import { findFreePort, isPortFree } from "../../runtime/port";
 import { pollUntil } from "../../runtime/poll";
+import { runProcess } from "../../runtime/process";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { parseInteger, parseOptionalInteger } from "../parse-integer";
@@ -38,6 +48,8 @@ const DEFAULT_CONFIG_CONSUMED_TIMEOUT_MS = 60_000;
 const HEALTH_INTERVAL_MS = 2_000;
 const HEALTH_MAX_INTERVAL_MS = 10_000;
 const HEALTH_PROBE_TIMEOUT_MS = 4_000;
+const DEFAULT_REPO_MODE: RepoSyncMode = "read-write";
+const REPO_FILE_URL = `file://${CONTAINER_REPO_DIR}`;
 
 export const StartResult = z.object({
   workspace_id: z.number().int().positive(),
@@ -110,6 +122,20 @@ export default defineMetabaseCommand({
       description: "If a container for this workspace already exists, remove it first",
       default: false,
     },
+    repo: {
+      type: "string",
+      description: `Bind-mount a host directory (typically a remote-sync git repo) into the container at ${CONTAINER_REPO_DIR}. Sets remote-sync-url=${REPO_FILE_URL} in the workspace config.yml so the child boots already wired to the repo.`,
+    },
+    "repo-branch": {
+      type: "string",
+      description:
+        "Branch to set as remote-sync-branch (default: the current branch of the host repo, read from HEAD)",
+    },
+    "repo-mode": {
+      type: "string",
+      description: "remote-sync-type: 'read-write' (default) or 'read-only'",
+      default: DEFAULT_REPO_MODE,
+    },
   },
   outputSchema: StartResult,
   examples: [
@@ -118,6 +144,8 @@ export default defineMetabaseCommand({
     "metabase workspace start 1 --port 3100",
     "metabase workspace start 1 --image metabase/metabase-dev:feature-workspaces-v2 --no-pull",
     "metabase workspace start 1 --force",
+    "metabase workspace start 1 --repo /path/to/sync-repo --wait",
+    "metabase workspace start 1 --repo /path/to/sync-repo --repo-branch dev --repo-mode read-only",
   ],
   async run({ args, ctx, getClient, getResolvedConfig }) {
     const workspaceId = parseId(args.id);
@@ -127,7 +155,6 @@ export default defineMetabaseCommand({
       name: "--timeout",
       min: 1000,
     });
-
     const client = await getClient();
     const resolved = await getResolvedConfig();
     const licenseToken = await resolveLicenseToken({});
@@ -148,14 +175,23 @@ export default defineMetabaseCommand({
     // Boot bundle stays in process memory: no host-disk artifact for config.yml,
     // credentials.json, or metadata.json. The bytes are tar-streamed into the
     // container by the docker daemon and land on the overlay FS (root-only on
-    // the daemon host).
-    const [parentConfigYaml, metadataJson] = await Promise.all([
+    // the daemon host). Repo resolution overlaps with the parent fetches.
+    const [parentConfigYaml, metadataJson, repoOptions] = await Promise.all([
       fetchConfigYaml(client, workspaceId),
       args.metadata ? fetchMetadataJson(client, workspaceId) : Promise.resolve(null),
+      resolveRepoOptions({
+        hostPath: args.repo,
+        branch: args["repo-branch"],
+        mode: args["repo-mode"],
+      }),
     ]);
 
     const credentials = generateWorkspaceCredentials(workspaceId);
-    const configYaml = injectCredentialsIntoConfig(parentConfigYaml, credentials);
+    const configWithCredentials = injectCredentialsIntoConfig(parentConfigYaml, credentials);
+    const configYaml =
+      repoOptions !== null
+        ? injectRepoSettingsIntoConfig(configWithCredentials, repoOptions.repo)
+        : configWithCredentials;
     const credentialsJson = buildCredentialsJson(credentials);
 
     await pullPromise;
@@ -171,6 +207,7 @@ export default defineMetabaseCommand({
       credentialsJson,
       metadataJson,
       licenseToken,
+      bindMounts: repoOptions === null ? [] : [repoOptions.bindMount],
     });
 
     // The child reads config.yml during init; once it logs the consumed marker, the
@@ -273,4 +310,71 @@ async function waitForHealth(hostPort: number, timeoutMs: number): Promise<void>
       timeoutMs,
     },
   );
+}
+
+interface ResolvedRepoOptions {
+  bindMount: BindMount;
+  repo: RepoSettings;
+}
+
+interface RepoOptionsInput {
+  hostPath: string | undefined;
+  branch: string | undefined;
+  mode: string | undefined;
+}
+
+async function resolveRepoOptions(input: RepoOptionsInput): Promise<ResolvedRepoOptions | null> {
+  if (input.hostPath === undefined || input.hostPath === "") {
+    const explicitBranch = input.branch !== undefined;
+    const explicitNonDefaultMode = input.mode !== undefined && input.mode !== DEFAULT_REPO_MODE;
+    if (explicitBranch || explicitNonDefaultMode) {
+      throw new ConfigError(
+        "--repo-branch and --repo-mode require --repo to point at a host repo path",
+      );
+    }
+    return null;
+  }
+  const hostPath = resolvePath(input.hostPath);
+  const stats = await stat(hostPath).catch(() => null);
+  if (stats === null || !stats.isDirectory()) {
+    throw new ConfigError(`--repo path does not exist or is not a directory: ${hostPath}`);
+  }
+  const mode = parseRepoMode(input.mode);
+  const branch = input.branch ?? (await detectBranch(hostPath));
+  return {
+    bindMount: { hostPath, containerPath: CONTAINER_REPO_DIR, readOnly: mode === "read-only" },
+    repo: { url: REPO_FILE_URL, branch, mode },
+  };
+}
+
+function parseRepoMode(raw: string | undefined): RepoSyncMode {
+  const result = RepoSyncMode.safeParse(raw ?? DEFAULT_REPO_MODE);
+  if (!result.success) {
+    throw new ConfigError(
+      `invalid --repo-mode: "${raw}" (expected one of: ${REPO_SYNC_MODES.join(", ")})`,
+    );
+  }
+  return result.data;
+}
+
+async function detectBranch(hostPath: string): Promise<string> {
+  const result = await runProcess("git", ["-C", hostPath, "symbolic-ref", "--short", "HEAD"]).catch(
+    (error: unknown) => {
+      throw new ConfigError(
+        `--repo-branch not provided and could not detect a branch at ${hostPath}: ${errorMessage(error)}`,
+      );
+    },
+  );
+  if (result.exitCode !== 0) {
+    throw new ConfigError(
+      `--repo-branch not provided and \`git symbolic-ref\` at ${hostPath} failed: ${result.stderr.trim() || "no output"}`,
+    );
+  }
+  const branch = result.stdout.trim();
+  if (branch === "") {
+    throw new ConfigError(
+      `--repo-branch not provided and HEAD at ${hostPath} resolved to an empty branch name`,
+    );
+  }
+  return branch;
 }

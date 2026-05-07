@@ -81,6 +81,53 @@ export function injectCredentialsIntoConfig(
   return stringifyYaml(merged);
 }
 
+export const REPO_SYNC_MODES = ["read-write", "read-only"] as const;
+export const RepoSyncMode = z.enum(REPO_SYNC_MODES);
+export type RepoSyncMode = z.infer<typeof RepoSyncMode>;
+
+export interface RepoSettings {
+  url: string;
+  branch: string;
+  mode: RepoSyncMode;
+}
+
+const ConfigEnvelopeWithSettingsShape = z
+  .object({
+    version: z.number().int(),
+    config: z
+      .object({
+        settings: z.looseObject({}).optional(),
+      })
+      .loose(),
+  })
+  .loose();
+
+const REMOTE_SYNC_KEYS = ["remote-sync-url", "remote-sync-branch", "remote-sync-type"] as const;
+
+export function injectRepoSettingsIntoConfig(yamlInput: string, repo: RepoSettings): string {
+  const envelope = parseYaml(yamlInput, ConfigEnvelopeWithSettingsShape, { source: "config.yml" });
+  const existingSettings = envelope.config.settings ?? {};
+  const conflicts = REMOTE_SYNC_KEYS.filter((key) => key in existingSettings);
+  if (conflicts.length > 0) {
+    throw new ConfigError(
+      `config.yml already declares remote-sync settings (${conflicts.join(", ")}) — refusing to overwrite parent-supplied values`,
+    );
+  }
+  const merged = {
+    ...envelope,
+    config: {
+      ...envelope.config,
+      settings: {
+        ...existingSettings,
+        "remote-sync-url": repo.url,
+        "remote-sync-branch": repo.branch,
+        "remote-sync-type": repo.mode,
+      },
+    },
+  };
+  return stringifyYaml(merged);
+}
+
 function randomBase64Url(byteLength: number): string {
   return randomBytes(byteLength).toString("base64url");
 }

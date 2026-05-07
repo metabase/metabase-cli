@@ -28,6 +28,7 @@ export const WORKSPACE_CONTAINER_PORT = 3000;
 const CONTAINER_CONFIG_DIR = "/mw-config";
 const CONTAINER_CONFIG_DIR_BASENAME = CONTAINER_CONFIG_DIR.replace(/^\//, "");
 const CONTAINER_APP_DB_DIR = "/metabase-app-db";
+export const CONTAINER_REPO_DIR = "/mnt/repo";
 const CONFIG_FILENAME = "config.yml";
 const METADATA_FILENAME = "metadata.json";
 const CREDENTIALS_FILENAME = "credentials.json";
@@ -99,6 +100,12 @@ export interface NamedVolumeMount {
   container: string;
 }
 
+export interface BindMount {
+  hostPath: string;
+  containerPath: string;
+  readOnly?: boolean;
+}
+
 export interface PortMapping {
   hostPort: number;
   containerPort: number;
@@ -109,6 +116,7 @@ export interface CreateContainerOptions {
   image: string;
   port: PortMapping;
   namedVolumes: readonly NamedVolumeMount[];
+  bindMounts: readonly BindMount[];
   envVars: Record<string, string>;
   labels: Record<string, string>;
 }
@@ -124,6 +132,7 @@ export interface WorkspaceContainerSpec {
   credentialsJson: Uint8Array;
   metadataJson: Uint8Array | null;
   licenseToken: string;
+  bindMounts: readonly BindMount[];
 }
 
 export interface LogStreamOptions {
@@ -263,6 +272,7 @@ export async function runWorkspaceContainer(spec: WorkspaceContainerSpec): Promi
     image: spec.image,
     port: { hostPort: spec.hostPort, containerPort: WORKSPACE_CONTAINER_PORT },
     namedVolumes: [{ volume: volumeNameFor(spec.workspaceId), container: CONTAINER_APP_DB_DIR }],
+    bindMounts: spec.bindMounts,
     envVars: workspaceContainerEnv(spec),
     labels: workspaceContainerLabels(spec),
   });
@@ -403,6 +413,9 @@ async function createContainer(options: CreateContainerOptions): Promise<void> {
   }
   for (const mount of options.namedVolumes) {
     args.push("-v", `${mount.volume}:${mount.container}`);
+  }
+  for (const bind of options.bindMounts) {
+    args.push("-v", `${bind.hostPath}:${bind.containerPath}:${bind.readOnly ? "ro" : "rw"}`);
   }
   for (const key of Object.keys(options.envVars)) {
     args.push("-e", key);
