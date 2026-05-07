@@ -288,6 +288,86 @@ metabase card archive 1
 metabase card archive 1 --json
 ```
 
+## Dashboards
+
+Read and write dashboards on `/api/dashboard`. A dashboard groups cards (questions, models, metrics) into a single layout. Each card on a dashboard is a "dashcard" — a placement record with its own id, position (`row`/`col`), and size (`size_x`/`size_y`). Dashcards live nested inside the parent dashboard's `dashcards` array; the API has no per-dashcard endpoint, so single-dashcard edits round-trip through `PUT /api/dashboard/:id`.
+
+### `metabase dashboard list`
+
+```sh
+metabase dashboard list
+metabase dashboard list --json
+metabase dashboard list --filter archived --json
+```
+
+| Flag                | Description                                 |
+| ------------------- | ------------------------------------------- |
+| `--filter <preset>` | One of `all` (default), `mine`, `archived`. |
+
+### `metabase dashboard get <id>`
+
+```sh
+metabase dashboard get 1
+metabase dashboard get 1 --json
+metabase dashboard get 1 --json --full
+```
+
+`--full` returns the full hydrated dashboard including the `dashcards` and `tabs` arrays. The default compact view returns only `id`, `name`, `description`, `archived`, and `collection_id`.
+
+### `metabase dashboard cards <id>`
+
+List the dashcards on a dashboard.
+
+```sh
+metabase dashboard cards 1
+metabase dashboard cards 1 --json
+```
+
+### `metabase dashboard create`
+
+```sh
+cat dashboard.json | metabase dashboard create
+metabase dashboard create --file dashboard.json
+metabase dashboard create --body '{"name":"My Dashboard","collection_id":4}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `metabase dashboard update <id>`
+
+Patch a dashboard. To edit the dashcard set, send the entire `dashcards` array — IDs not in the array get deleted, and a negative `id` indicates a new dashcard the server should create.
+
+```sh
+cat patch.json | metabase dashboard update 1
+metabase dashboard update 1 --file patch.json
+metabase dashboard update 1 --body '{"name":"renamed"}'
+metabase dashboard update 1 --body '{"dashcards":[{"id":-1,"card_id":42,"row":0,"col":0,"size_x":12,"size_y":6}]}'
+```
+
+### `metabase dashboard update-dashcard <dashboard-id> <dashcard-id>`
+
+Patch a single dashcard's layout or settings. The command does the round-trip for you: `GET /api/dashboard/:id`, merges the patch into the targeted dashcard while preserving every other dashcard verbatim, then `PUT`s the whole array back.
+
+```sh
+metabase dashboard update-dashcard 1 5 --body '{"row":2,"col":0}'
+metabase dashboard update-dashcard 1 5 --body '{"size_x":12,"size_y":4}'
+cat patch.json | metabase dashboard update-dashcard 1 5
+```
+
+| Patch field              | Type                               |
+| ------------------------ | ---------------------------------- |
+| `row`, `col`             | non-negative integer               |
+| `size_x`, `size_y`       | positive integer                   |
+| `dashboard_tab_id`       | integer or `null`                  |
+| `parameter_mappings`     | array of parameter-mapping objects |
+| `inline_parameters`      | array of strings                   |
+| `visualization_settings` | object                             |
+
+The patch must contain at least one field; an empty object is rejected before the network round-trip.
+
 ## Settings
 
 Read and write Metabase instance settings via `/api/setting`. Listing all settings requires admin privileges; per-key reads/writes additionally enforce per-setting access. Setting values are always JSON — `"main"` is the string `main`, `42` is a number, `null` deletes the override and resets the value to its default.

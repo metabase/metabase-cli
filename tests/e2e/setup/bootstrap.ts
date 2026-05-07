@@ -16,6 +16,8 @@ import { resolveE2EBaseUrl } from "../defaults";
 import {
   E2E_CARDS,
   E2E_COLLECTIONS,
+  E2E_DASHBOARDS,
+  E2E_DASHCARDS,
   E2E_DATABASES,
   E2E_GROUPS,
   E2E_SNAPSHOT_NAME,
@@ -51,6 +53,8 @@ const WAREHOUSE_CONNECTION = {
 const DEFAULT_COLLECTION_NAME = "E2E Default";
 const ORDERS_BY_STATUS_CARD_NAME = "Orders by status";
 const ORDERS_BY_STATUS_SQL = "SELECT status, COUNT(*) AS n FROM orders GROUP BY status";
+const ORDERS_OVERVIEW_DASHBOARD_NAME = "Orders Overview";
+const ORDERS_OVERVIEW_DASHBOARD_DESCRIPTION = "E2E seeded dashboard with one orders dashcard.";
 const LIMITED_GROUP_NAME = "E2E Limited";
 
 const BASE_URL = resolveE2EBaseUrl();
@@ -63,6 +67,12 @@ const DatabaseMetadataResponse = z.object({ tables: z.array(z.unknown()) }).loos
 const PermissionsGroupResponse = z.object({ id: z.number().int().positive() }).loose();
 const CollectionGraphResponse = z
   .object({ revision: z.number().int(), groups: z.record(z.string(), z.unknown()) })
+  .loose();
+const DashboardWithDashcardsResponse = z
+  .object({
+    id: z.number().int(),
+    dashcards: z.array(z.object({ id: z.number().int() }).loose()),
+  })
   .loose();
 
 async function main(): Promise<void> {
@@ -238,6 +248,41 @@ async function seedContent(client: Client): Promise<void> {
     },
   });
   assertPinnedId("orders-by-status card", cardId, E2E_CARDS.ORDERS_BY_STATUS);
+
+  const dashboardId = await createEntityId(client, "/api/dashboard", {
+    name: ORDERS_OVERVIEW_DASHBOARD_NAME,
+    description: ORDERS_OVERVIEW_DASHBOARD_DESCRIPTION,
+    collection_id: collectionId,
+  });
+  assertPinnedId("orders-overview dashboard", dashboardId, E2E_DASHBOARDS.ORDERS_OVERVIEW);
+
+  const updated = await client.requestParsed(
+    DashboardWithDashcardsResponse,
+    `/api/dashboard/${dashboardId}`,
+    {
+      method: "PUT",
+      body: {
+        dashcards: [
+          {
+            id: -1,
+            card_id: cardId,
+            row: 0,
+            col: 0,
+            size_x: 12,
+            size_y: 6,
+            parameter_mappings: [],
+            visualization_settings: {},
+          },
+        ],
+        tabs: [],
+      },
+    },
+  );
+  const dashcardId = updated.dashcards[0]?.id;
+  if (dashcardId === undefined) {
+    throw new Error("expected dashboard to have at least one dashcard after PUT");
+  }
+  assertPinnedId("orders-overview first dashcard", dashcardId, E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST);
 }
 
 async function createEntityId(client: Client, path: string, body: unknown): Promise<number> {

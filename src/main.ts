@@ -16,6 +16,7 @@ const main: CommandDef = defineCommand({
     table: () => import("./commands/table").then((mod) => mod.default),
     field: () => import("./commands/field").then((mod) => mod.default),
     card: () => import("./commands/card").then((mod) => mod.default),
+    dashboard: () => import("./commands/dashboard").then((mod) => mod.default),
     transform: () => import("./commands/transform").then((mod) => mod.default),
     "transform-job": () => import("./commands/transform-job").then((mod) => mod.default),
     setting: () => import("./commands/setting").then((mod) => mod.default),
