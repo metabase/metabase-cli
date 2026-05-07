@@ -99,7 +99,7 @@ describe("search e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain("invalid --limit: 0 (must be a positive integer)");
+    expect(result.stderr).toContain("invalid --limit: 0 (must be ≥ 1)");
     expect(result.stdout).toBe("");
   });
 

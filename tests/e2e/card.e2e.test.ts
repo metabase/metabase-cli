@@ -1,12 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { CardListEnvelope } from "../../src/commands/card/list";
+import { ValidationOutcome } from "../../src/core/schema/validate";
 import { Card, CardCompact, CardQueryResult } from "../../src/domain/card";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_CARDS, E2E_COLLECTIONS, E2E_DATABASES } from "./seed/ids";
+import { E2E_CARDS, E2E_COLLECTIONS, E2E_DATABASES, E2E_TABLES } from "./seed/ids";
 
 const FIRST_NEW_CARD_ID = 95;
 const NEW_CARD_NAME = "e2e_card_new";
@@ -312,6 +313,39 @@ describe("card e2e", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("request body: value did not match expected schema");
     expect(result.stdout).toBe("");
+  });
+
+  it("create with invalid MBQL 5 dataset_query fails pre-flight before sending", async () => {
+    const result = await runCli({
+      args: ["card", "create", "--json"],
+      stdin: JSON.stringify({
+        name: "preflight-fail",
+        display: "table",
+        visualization_settings: {},
+        collection_id: E2E_COLLECTIONS.DEFAULT,
+        dataset_query: {
+          "lib/type": "mbql/query",
+          database: "oops not an integer",
+          stages: [
+            {
+              "lib/type": "mbql.stage/mbql",
+              "source-table": E2E_TABLES.ORDERS,
+            },
+          ],
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/database", message: "must be integer" }],
+    });
+    expect(result.stderr).toContain(
+      "card.dataset_query validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+    );
   });
 
   it("archive with a non-integer id fails fast with ConfigError", async () => {

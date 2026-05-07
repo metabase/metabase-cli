@@ -1,13 +1,16 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import {
   getQuerySchemaBundle,
   QuerySchemaBundle,
   ValidationOutcome,
 } from "../../src/core/schema/validate";
+import { CardQueryResult } from "../../src/domain/card";
 import { parseJson } from "../../src/runtime/json";
 
+import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { E2E_DATABASES, E2E_TABLES } from "./seed/ids";
 
 const VALID_EXTERNAL = {
   "lib/type": "mbql/query",
@@ -38,7 +41,12 @@ const EMPTY_STAGES_QUERY = {
 };
 
 describe("query e2e", () => {
+  let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
+
+  beforeAll(async () => {
+    bootstrap = await readBootstrap();
+  });
 
   afterEach(async () => {
     await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
@@ -48,6 +56,13 @@ describe("query e2e", () => {
     const dir = await mkTempConfigHome();
     tempDirs.push(dir);
     return dir;
+  }
+
+  function authEnv(): Record<string, string> {
+    return {
+      METABASE_URL: bootstrap.baseUrl,
+      METABASE_API_KEY: bootstrap.adminApiKey,
+    };
   }
 
   it("--print-schema (default) emits the internal-mode bundle with all 4 common defs", async () => {
@@ -181,5 +196,33 @@ describe("query e2e", () => {
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain("request body: invalid JSON:");
     expect(result.stdout).toBe("");
+  });
+
+  it("run (default = internal) executes a valid MBQL 5 query against /api/dataset and returns rows", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["query", "--json"],
+      stdin: JSON.stringify({
+        "lib/type": "mbql/query",
+        database: E2E_DATABASES.WAREHOUSE,
+        stages: [
+          {
+            "lib/type": "mbql.stage/mbql",
+            "source-table": E2E_TABLES.ORDERS,
+            limit: 3,
+          },
+        ],
+      }),
+      configHome,
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const queryResult = parseJson(result.stdout, CardQueryResult);
+    expect(queryResult.status).toBe("completed");
+    if (queryResult.status === "completed") {
+      expect(queryResult.row_count).toBe(3);
+      expect(queryResult.data.rows).toHaveLength(3);
+    }
   });
 });

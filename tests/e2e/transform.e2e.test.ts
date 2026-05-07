@@ -6,13 +6,14 @@ import { DeleteResult } from "../../src/commands/delete-runtime";
 import { TransformListEnvelope } from "../../src/commands/transform/list";
 import { TransformRunResult } from "../../src/commands/transform/run";
 import { createClient, type Client } from "../../src/core/http/client";
+import { ValidationOutcome } from "../../src/core/schema/validate";
 import { TransformCompact } from "../../src/domain/transform";
 import { parseJson } from "../../src/runtime/json";
 import { pollUntil } from "../../src/runtime/poll";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_DATABASES } from "./seed/ids";
+import { E2E_DATABASES, E2E_TABLES } from "./seed/ids";
 
 const FIRST_TRANSFORM_ID = 1;
 const TRANSFORM_NAME = "e2e_transform";
@@ -285,6 +286,73 @@ describe("transform e2e", () => {
     });
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+  });
+
+  it("create with invalid MBQL 5 source.query fails pre-flight before sending", async () => {
+    const result = await runCli({
+      args: ["transform", "create", "--json"],
+      stdin: JSON.stringify({
+        name: "preflight-fail",
+        source: {
+          type: "query",
+          query: {
+            "lib/type": "mbql/query",
+            database: "oops not an integer",
+            stages: [
+              {
+                "lib/type": "mbql.stage/mbql",
+                "source-table": E2E_TABLES.ORDERS,
+              },
+            ],
+          },
+        },
+        target: {
+          type: "table",
+          database: E2E_DATABASES.WAREHOUSE,
+          schema: "public",
+          name: "preflight_fail_target",
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/database", message: "must be integer" }],
+    });
+    expect(result.stderr).toContain(
+      "transform.source.query validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+    );
+  });
+
+  it("update with invalid MBQL 5 source.query fails pre-flight before sending", async () => {
+    await createSeedTransform();
+    const result = await runCli({
+      args: ["transform", "update", String(FIRST_TRANSFORM_ID), "--json"],
+      stdin: JSON.stringify({
+        source: {
+          type: "query",
+          query: {
+            "lib/type": "mbql/query",
+            database: "oops",
+            stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 99 }],
+          },
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/database", message: "must be integer" }],
+    });
+    expect(result.stderr).toContain(
+      "transform.source.query validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+    );
   });
 
   it("delete without --yes and without TTY stdin fails with ConfigError", async () => {
