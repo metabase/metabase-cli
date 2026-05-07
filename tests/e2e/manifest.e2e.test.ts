@@ -96,6 +96,7 @@ describe("__manifest e2e", () => {
       "setup",
       "api-key create",
       "eid translate",
+      "query",
     ]);
 
     // Streaming commands legitimately have no outputSchema — they pipe raw bytes

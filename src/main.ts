@@ -26,6 +26,7 @@ const main: CommandDef = defineCommand({
     setup: () => import("./commands/setup").then((mod) => mod.default),
     "api-key": () => import("./commands/api-key").then((mod) => mod.default),
     eid: () => import("./commands/eid").then((mod) => mod.default),
+    query: () => import("./commands/query").then((mod) => mod.default),
     __manifest: (): Promise<CommandDef> =>
       import("./commands/manifest").then((mod) => mod.createManifestCommand(main)),
   },

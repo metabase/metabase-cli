@@ -810,6 +810,50 @@ metabase eid translate --body '{"entity_ids":{"card":["abc123XYZ"]}}'
 | `--body <json>`  | Inline JSON body.                                                                                |
 | `--file <path>`  | Path to JSON body file.                                                                          |
 
+## Query
+
+### `metabase query`
+
+Run an MBQL 5 query with built-in schema validation. Three modes — discover the schema (`--print-schema`), validate without sending (`--dry-run`), run.
+
+Two MBQL flavors:
+
+- **Internal MBQL** (default) — numeric IDs (`database: 1`, `source-table: 7`). POSTs to `/api/dataset`. This is what every existing Metabase API endpoint accepts.
+- **External MBQL** (`--external`) — string-id FKs (`database: "My DB"`, `source-table: ["My DB", null, "orders"]`). POSTs to `/api/dataset/external` (forward-looking representations endpoint).
+
+External and internal MBQL are structurally identical; only the ID types differ. The bundled query schema is synced from `@metabase/representations`; the internal validator overrides `id.yaml` to require positive integers for every ID `$def`.
+
+```sh
+metabase query --print-schema                     # internal JSON Schema bundle
+metabase query --print-schema --external          # string-FK variant
+cat q.json | metabase query --dry-run             # validate, no network
+metabase query --file q.json
+metabase query --file q.json --external
+```
+
+Body sources: `--file`, `--body`, or stdin (exactly one). Body is JSON.
+
+Exit codes:
+
+- `0` — valid (and the query ran successfully when not in dry-run).
+- `2` — validation failed, malformed body, or `ConfigError`.
+- `1` — server-side error after a valid pre-flight (network, HTTP 4xx/5xx).
+
+Output by mode:
+
+- `--print-schema` — `{ mode, schema, defs: { "id.yaml", "parameter.yaml", "ref.yaml", "temporal_bucketing.yaml" } }`. The query schema's `$ref`s point into the `defs` namespace by file path; an agent can either feed the bundle directly into Ajv (`addSchema(defs["id.yaml"], "id.yaml")` etc., then `compile(schema)`) or read it as documentation.
+- `--dry-run` — `{ ok: boolean, errors: { path: string, message: string }[] }`. `path` is a JSON Pointer into the body, `message` is the Ajv error string.
+- Run failure (no `--dry-run`) — same `{ ok, errors }` envelope on stdout, exit 2, no request made.
+- Run success — the streamed `CardQueryResult`.
+
+### MBQL 5 pre-flight in `card create` and `transform create`/`update`
+
+When the embedded query (`card.dataset_query`, or `transform.source.query` for `source.type: "query"`) is MBQL 5 (`lib/type: "mbql/query"`), it is pre-flight-validated against the same schema as `metabase query`. Validation failure: `{ ok, errors }` envelope on stdout, exit 2, request not made. MBQL 4 (legacy) bodies and Python transform sources skip validation — they're still accepted by the server and we don't ship a schema for them.
+
+Agent discovery path: `metabase __manifest` lists every command's args and description; the description for `card create` and `transform create`/`update` references `metabase query --print-schema` so an agent can fetch the validating schema directly.
+
+The bundled query schema is synced from a pinned `@metabase/representations` release via `bun run sync:representations`; CI guards against drift.
+
 ## Environment variables
 
 | Variable                 | Effect                                                                         |

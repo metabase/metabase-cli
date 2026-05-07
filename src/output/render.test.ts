@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { ResourceView } from "../domain/view";
 import { parseJson } from "../runtime/json";
 import { capListEnvelope } from "./cap";
-import { renderItem, renderList } from "./render";
+import { renderItem, renderList, writeJson, writeText } from "./render";
 import type { ListEnvelope, RenderOptions } from "./types";
 
 const Card = z.object({
@@ -270,5 +270,19 @@ describe("renderList — text format", () => {
     expect(streams.stderr).toBe(
       `… cut at ${expectedCapped.truncated.bytes} bytes; rerun with --max-bytes 0\n`,
     );
+  });
+});
+
+describe("writeJson", () => {
+  it("emits the value pretty-printed with a trailing newline", () => {
+    writeJson({ a: 1, b: ["x", "y"] });
+    expect(streams.stdout).toBe('{\n  "a": 1,\n  "b": [\n    "x",\n    "y"\n  ]\n}\n');
+  });
+});
+
+describe("writeText", () => {
+  it("appends a single trailing newline to the input", () => {
+    writeText("hello\nworld");
+    expect(streams.stdout).toBe("hello\nworld\n");
   });
 });

@@ -6,6 +6,14 @@ import { applyProjection, isPlainObject } from "./projection";
 import { formatCell, formatScalar, renderTable } from "./table";
 import type { ListEnvelope, RenderOptions } from "./types";
 
+export function writeJson(value: unknown): void {
+  process.stdout.write(JSON.stringify(value, null, 2) + "\n");
+}
+
+export function writeText(text: string): void {
+  process.stdout.write(text + "\n");
+}
+
 type KeyValuePair = readonly [label: string, value: string];
 
 export function renderItem<T>(item: T, view: ResourceView<T>, opts: RenderOptions): void {

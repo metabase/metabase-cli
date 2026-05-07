@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 import type { CommandDef } from "citty";
 
-import { writeManifest } from "../output/manifest";
+import { writeJson } from "../output/render";
 import { buildManifest } from "../runtime/manifest";
 
 export function createManifestCommand(root: CommandDef): CommandDef {
@@ -14,7 +14,7 @@ export function createManifestCommand(root: CommandDef): CommandDef {
     args: {},
     async run() {
       const manifest = await buildManifest(root);
-      writeManifest(manifest);
+      writeJson(manifest);
     },
   });
 }
