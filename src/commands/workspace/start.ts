@@ -293,7 +293,10 @@ async function fetchConfigYaml(client: Client, workspaceId: number): Promise<str
 async function fetchMetadataJson(client: Client, workspaceId: number): Promise<Uint8Array> {
   const response = await client.requestRaw(
     `/api/ee/workspace-manager/${workspaceId}/metadata/export`,
-    { expectContentType: "binary" },
+    {
+      expectContentType: "binary",
+      query: { "with-databases": true, "with-tables": true, "with-fields": true },
+    },
   );
   return new Uint8Array(await response.arrayBuffer());
 }

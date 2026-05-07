@@ -395,7 +395,7 @@ function workspaceContainerEnv(spec: WorkspaceContainerSpec): Record<string, str
     JAVA_OPTS: "-Xmx2g",
   };
   if (spec.metadataJson !== null) {
-    env["MB_DATABASE_METADATA_PATH"] = `${CONTAINER_CONFIG_DIR}/${METADATA_FILENAME}`;
+    env["MB_TABLE_METADATA_PATH"] = `${CONTAINER_CONFIG_DIR}/${METADATA_FILENAME}`;
   }
   return env;
 }
