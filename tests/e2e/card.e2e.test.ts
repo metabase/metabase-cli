@@ -348,6 +348,32 @@ describe("card e2e", () => {
     );
   });
 
+  it("create --skip-validate bypasses the MBQL 5 pre-flight (server is the authority)", async () => {
+    const result = await runCli({
+      args: ["card", "create", "--skip-validate", "--json"],
+      stdin: JSON.stringify({
+        name: "skip-validate-bypass",
+        display: "table",
+        visualization_settings: {},
+        collection_id: E2E_COLLECTIONS.DEFAULT,
+        dataset_query: {
+          "lib/type": "mbql/query",
+          database: "oops not an integer",
+          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": E2E_TABLES.ORDERS }],
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    // Pre-flight is bypassed; the server then rejects the malformed body with an HttpError (exit 1).
+    // The card-create endpoint surfaces the underlying app-DB constraint message via the response
+    // envelope; we assert a stable substring of that surfaced error.
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('NULL not allowed for column "DATABASE_ID"');
+    expect(result.stdout).toBe("");
+  });
+
   it("archive with a non-integer id fails fast with ConfigError", async () => {
     const result = await runCli({
       args: ["card", "archive", "abc", "--json"],

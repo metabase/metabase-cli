@@ -198,6 +198,35 @@ describe("query e2e", () => {
     expect(result.stdout).toBe("");
   });
 
+  it("--skip-validate combined with --dry-run is rejected with ConfigError", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["query", "--skip-validate", "--dry-run"],
+      stdin: JSON.stringify(VALID_INTERNAL),
+      configHome,
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("--skip-validate cannot be combined with --dry-run");
+    expect(result.stdout).toBe("");
+  });
+
+  it("--skip-validate sends an invalid body and surfaces the server-side error (HttpError, exit 1)", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    // External-shaped body in default (internal) mode would fail pre-flight; with --skip-validate the
+    // body reaches the server, which rejects it with an HTTP error.
+    const result = await runCli({
+      args: ["query", "--skip-validate", "--json"],
+      stdin: JSON.stringify(VALID_EXTERNAL),
+      configHome,
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Metabase returned 400");
+    expect(result.stdout).toBe("");
+  });
+
   it("run (default = internal) executes a valid MBQL 5 query against /api/dataset and returns rows", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({

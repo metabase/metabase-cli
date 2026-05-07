@@ -5,7 +5,7 @@ import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
-import { preflightInternalMbql5Query } from "../validate-query";
+import { preflightInternalMbql5Query, skipValidateFlag } from "../validate-query";
 
 export default defineMetabaseCommand({
   meta: {
@@ -19,18 +19,22 @@ export default defineMetabaseCommand({
     ...connectionFlags,
     ...bodyInputFlags,
     id: { type: "positional", description: "Transform id", required: true },
+    ...skipValidateFlag,
   },
   outputSchema: Transform,
   examples: [
     "cat patch.json | metabase transform update 1",
     "metabase transform update 1 --file patch.json",
     'metabase transform update 1 --body \'{"name":"renamed"}\'',
+    "metabase transform update 1 --file patch.json --skip-validate",
   ],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const body = await readBody({ flag: args.body, file: args.file }, TransformUpdateInput);
     if (body.source !== undefined && body.source.type === "query") {
-      preflightInternalMbql5Query(body.source.query, "transform.source.query validation failed");
+      preflightInternalMbql5Query(body.source.query, "transform.source.query validation failed", {
+        skip: args["skip-validate"] === true,
+      });
     }
     const client = await getClient();
     const updated = await client.requestParsed(Transform, `/api/transform/${id}`, {

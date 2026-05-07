@@ -13,6 +13,7 @@ import { readBody } from "../runtime/body";
 import { bodyInputFlags } from "./body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "./flags";
 import { defineMetabaseCommand } from "./runtime";
+import { skipValidateFlag } from "./validate-query";
 
 const QueryBody = z.unknown();
 
@@ -52,6 +53,7 @@ export default defineMetabaseCommand({
       description:
         "Emit the bundled MBQL 5 query JSON Schema (with --external for the string-FK variant) and exit; no body required",
     },
+    ...skipValidateFlag,
   },
   outputSchema: CardQueryResult,
   examples: [
@@ -60,6 +62,7 @@ export default defineMetabaseCommand({
     "cat q.json | metabase query --dry-run",
     "metabase query --file q.json",
     "metabase query --file q.json --external",
+    "metabase query --file q.json --skip-validate",
   ],
   async run({ args, ctx, getClient }) {
     const mode = args.external === true ? EXTERNAL : INTERNAL;
@@ -70,18 +73,24 @@ export default defineMetabaseCommand({
     }
 
     const dryRun = args["dry-run"] === true;
-    const body = await readBody({ flag: args.body, file: args.file }, QueryBody);
-    const outcome = mode.validate(body);
-
-    if (!outcome.ok) {
-      writeJson(outcome);
-      const hint = dryRun ? "" : " — pass --dry-run to validate without sending";
-      throw new ConfigError(`validation failed: ${outcome.errors.length} error(s)${hint}`);
+    const skipValidation = args["skip-validate"] === true;
+    if (dryRun && skipValidation) {
+      throw new ConfigError("--skip-validate cannot be combined with --dry-run");
     }
 
-    if (dryRun) {
-      writeJson(outcome);
-      return;
+    const body = await readBody({ flag: args.body, file: args.file }, QueryBody);
+
+    if (!skipValidation) {
+      const outcome = mode.validate(body);
+      if (!outcome.ok) {
+        writeJson(outcome);
+        const hint = dryRun ? "" : " — pass --dry-run to validate without sending";
+        throw new ConfigError(`validation failed: ${outcome.errors.length} error(s)${hint}`);
+      }
+      if (dryRun) {
+        writeJson(outcome);
+        return;
+      }
     }
 
     const client = await getClient();

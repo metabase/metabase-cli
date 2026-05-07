@@ -829,9 +829,12 @@ metabase query --print-schema --external          # string-FK variant
 cat q.json | metabase query --dry-run             # validate, no network
 metabase query --file q.json
 metabase query --file q.json --external
+metabase query --file q.json --skip-validate      # bypass pre-flight; let server reject
 ```
 
 Body sources: `--file`, `--body`, or stdin (exactly one). Body is JSON.
+
+`--skip-validate` is an escape hatch when the bundled schema disagrees with what the server actually accepts (drift, false negative, edge case). Validation is skipped entirely and the body is sent as-is. Mutually exclusive with `--dry-run` (which is itself the validation mode).
 
 Exit codes:
 
@@ -849,6 +852,8 @@ Output by mode:
 ### MBQL 5 pre-flight in `card create` and `transform create`/`update`
 
 When the embedded query (`card.dataset_query`, or `transform.source.query` for `source.type: "query"`) is MBQL 5 (`lib/type: "mbql/query"`), it is pre-flight-validated against the same schema as `metabase query`. Validation failure: `{ ok, errors }` envelope on stdout, exit 2, request not made. MBQL 4 (legacy) bodies and Python transform sources skip validation — they're still accepted by the server and we don't ship a schema for them.
+
+Pass `--skip-validate` to bypass the pre-flight on `card create`, `transform create`, or `transform update` — the body is sent as-is and the server is the authority. Same escape hatch as on `metabase query`; use only when the bundled schema disagrees with what the server actually accepts.
 
 Agent discovery path: `metabase __manifest` lists every command's args and description; the description for `card create` and `transform create`/`update` references `metabase query --print-schema` so an agent can fetch the validating schema directly.
 

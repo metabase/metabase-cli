@@ -34,15 +34,16 @@ describe("preflightInternalMbql5Query", () => {
     preflightInternalMbql5Query(
       { type: "query", database: 1, query: { "source-table": 5 } },
       "card.dataset_query validation failed",
+      { skip: false },
     );
     expect(streams.stdout).toBe("");
     expect(streams.stderr).toBe("");
   });
 
   it("returns silently when the body is undefined / null / non-object", () => {
-    preflightInternalMbql5Query(undefined, "x");
-    preflightInternalMbql5Query(null, "x");
-    preflightInternalMbql5Query("native sql", "x");
+    preflightInternalMbql5Query(undefined, "x", { skip: false });
+    preflightInternalMbql5Query(null, "x", { skip: false });
+    preflightInternalMbql5Query("native sql", "x", { skip: false });
     expect(streams.stdout).toBe("");
   });
 
@@ -54,6 +55,7 @@ describe("preflightInternalMbql5Query", () => {
         stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
       },
       "card.dataset_query validation failed",
+      { skip: false },
     );
     expect(streams.stdout).toBe("");
     expect(streams.stderr).toBe("");
@@ -68,6 +70,7 @@ describe("preflightInternalMbql5Query", () => {
           stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
         },
         "card.dataset_query validation failed",
+        { skip: false },
       ),
     ).toThrow(
       new ConfigError(
@@ -78,5 +81,19 @@ describe("preflightInternalMbql5Query", () => {
       ok: false,
       errors: [{ path: "/database", message: "must be integer" }],
     });
+  });
+
+  it("returns silently when skip is true, regardless of body validity", () => {
+    preflightInternalMbql5Query(
+      {
+        "lib/type": "mbql/query",
+        database: "oops",
+        stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
+      },
+      "card.dataset_query validation failed",
+      { skip: true },
+    );
+    expect(streams.stdout).toBe("");
+    expect(streams.stderr).toBe("");
   });
 });

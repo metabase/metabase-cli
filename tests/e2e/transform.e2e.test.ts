@@ -355,6 +355,35 @@ describe("transform e2e", () => {
     );
   });
 
+  it("create --skip-validate bypasses the MBQL 5 pre-flight (server is the authority)", async () => {
+    const result = await runCli({
+      args: ["transform", "create", "--skip-validate", "--json"],
+      stdin: JSON.stringify({
+        name: "skip-validate-bypass",
+        source: {
+          type: "query",
+          query: {
+            "lib/type": "mbql/query",
+            database: "oops",
+            stages: [{ "lib/type": "mbql.stage/mbql", "source-table": E2E_TABLES.ORDERS }],
+          },
+        },
+        target: {
+          type: "table",
+          database: E2E_DATABASES.WAREHOUSE,
+          schema: "public",
+          name: "skip_validate_bypass_target",
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Metabase returned 400");
+    expect(result.stdout).toBe("");
+  });
+
   it("delete without --yes and without TTY stdin fails with ConfigError", async () => {
     const result = await runCli({
       args: ["transform", "delete", "1", "--json"],
