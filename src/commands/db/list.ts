@@ -3,8 +3,11 @@ import { z } from "zod";
 import { Database, DatabaseCompact, databaseView } from "../../domain/database";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema, type ListEnvelope } from "../../output/types";
+import { parseEnum } from "../../runtime/csv";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
+
+const DatabaseListInclude = z.enum(["tables"]);
 
 const DatabaseApiList = z
   .object({
@@ -17,12 +20,33 @@ export const DatabaseListEnvelope = listEnvelopeSchema(DatabaseCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List databases" },
-  args: { ...outputFlags, ...profileFlag, ...connectionFlags },
+  args: {
+    ...outputFlags,
+    ...profileFlag,
+    ...connectionFlags,
+    include: {
+      type: "string",
+      description: `Hydrate related entities: ${DatabaseListInclude.options.join("|")}`,
+    },
+    saved: {
+      type: "boolean",
+      description: "Include the Saved Questions virtual database",
+    },
+  },
   outputSchema: DatabaseListEnvelope,
-  examples: ["metabase db list", "metabase db list --json"],
-  async run({ ctx, getClient }) {
+  examples: [
+    "metabase db list",
+    "metabase db list --json",
+    "metabase db list --include tables --json",
+    "metabase db list --saved --json",
+  ],
+  async run({ args, ctx, getClient }) {
+    const include = parseEnum(args.include, DatabaseListInclude, "--include");
+    const saved = args.saved ? true : undefined;
     const client = await getClient();
-    const response = await client.requestParsed(DatabaseApiList, "/api/database");
+    const response = await client.requestParsed(DatabaseApiList, "/api/database", {
+      query: { include, saved },
+    });
 
     const envelope: ListEnvelope<Database> = {
       data: response.data,

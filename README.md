@@ -269,6 +269,82 @@ metabase transform-job delete 1 --yes
 | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
+## Databases
+
+Read warehouse metadata from `/api/database`. The `db` group exposes the full database list, the per-database record, hydrated metadata (tables + fields rolled up in one response), schema and table inspection, and the two manual-sync triggers.
+
+`db` is aliased to `database`.
+
+### `metabase db list`
+
+```sh
+metabase db list
+metabase db list --json
+metabase db list --include tables --full --json
+metabase db list --saved --json
+```
+
+| Flag                | Description                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `--include <which>` | Hydrate related entities. Currently only `tables` is supported (each database is returned with its `tables`). |
+| `--saved`           | Include the Saved Questions virtual database in the list. The virtual db has id `-1337` and no `engine`.      |
+
+### `metabase db get <id>`
+
+```sh
+metabase db get 1
+metabase db get 1 --json
+metabase db get 1 --include tables.fields --full --json
+```
+
+| Flag                | Description                                                   |
+| ------------------- | ------------------------------------------------------------- |
+| `--include <which>` | Hydrate related entities. One of `tables` or `tables.fields`. |
+
+### `metabase db metadata <id>`
+
+Equivalent to `GET /api/database/:id/metadata`: a single database with all its tables and fields rolled up in one response. Use this when an agent needs a one-shot warehouse introspection rather than the per-table `metabase table get --full`.
+
+```sh
+metabase db metadata 1 --json --full --max-bytes 0
+```
+
+### `metabase db schemas <id>`
+
+List the schemas in a database. Schemas with no tables are excluded.
+
+```sh
+metabase db schemas 1
+metabase db schemas 1 --json
+```
+
+### `metabase db schema-tables <id> <schema>`
+
+List the tables in a given schema, sorted by display name.
+
+```sh
+metabase db schema-tables 1 public
+metabase db schema-tables 1 analytics --json
+```
+
+### `metabase db sync-schema <id>`
+
+Trigger a manual schema sync (`POST /api/database/:id/sync_schema`). Returns `{ id, status: "ok" }` once the sync has been queued; the actual work happens asynchronously on the server.
+
+```sh
+metabase db sync-schema 1
+metabase db sync-schema 1 --json
+```
+
+### `metabase db rescan-values <id>`
+
+Trigger a rescan of cached field values (`POST /api/database/:id/rescan_values`). Returns `{ id, status: "ok" }` once the rescan has been queued.
+
+```sh
+metabase db rescan-values 1
+metabase db rescan-values 1 --json
+```
+
 ## Cards
 
 CRUD plus query execution on `/api/card`. A "card" is a Metabase question, model, or metric. The `query` subcommand runs the card and either returns Metabase's JSON envelope or streams a raw CSV / XLSX export.
