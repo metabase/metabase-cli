@@ -510,8 +510,10 @@ describe("card e2e", () => {
       env: authEnv(),
     });
 
-    // Pre-flight is bypassed; the server then rejects the malformed body with an HttpError (exit 1).
-    expect(result.exitCode).toBe(1);
-    expect(result.stdout).toBe("");
+    // PUT /api/card/:id accepts dataset_query as an opaque map and does not validate its inner
+    // shape, so the bad `database` does not trigger a 400. Bypass is proven by exit 0 — without
+    // --skip-validate the prior test shows pre-flight rejects with exit 2.
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, CardCompact).id).toBe(E2E_CARDS.ORDERS_BY_STATUS);
   });
 });
