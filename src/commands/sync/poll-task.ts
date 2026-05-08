@@ -3,7 +3,7 @@ import { z, type ZodType } from "zod";
 import { SyncTask, type SyncTaskStatus } from "../../domain/remote-sync";
 import type { Client } from "../../core/http/client";
 import type { ResourceView } from "../../domain/view";
-import { parseJson } from "../../runtime/json";
+import { parseJsonOrPlain } from "../../runtime/json";
 import {
   DEFAULT_INTERVAL_MS,
   DEFAULT_TIMEOUT_MS,
@@ -81,7 +81,9 @@ export async function fetchOptionalParsed<T>(
     return null;
   }
   const text = await response.text();
-  return parseJson(text, schema, { source: response.url });
+  return parseJsonOrPlain(text, response.headers.get("content-type"), schema, {
+    source: response.url,
+  });
 }
 
 export async function fetchCurrentTask(client: Client): Promise<SyncTask | null> {

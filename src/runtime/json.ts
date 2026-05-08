@@ -45,3 +45,16 @@ export function parseJsonResult<T>(
   }
   return { ok: true, value: parsed.data };
 }
+
+const JSON_CONTENT_TYPE = "application/json";
+
+export function parseJsonOrPlain<T>(
+  text: string,
+  contentType: string | null,
+  schema: ZodType<T>,
+  opts: ParseJsonOptions = {},
+): T {
+  const isJson = contentType !== null && contentType.includes(JSON_CONTENT_TYPE);
+  const payload = isJson ? text : JSON.stringify(text);
+  return parseJson(payload, schema, opts);
+}

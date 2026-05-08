@@ -218,6 +218,37 @@ describe("setting e2e", () => {
     expect(result.stdout).toBe("");
   });
 
+  it("get --json on a string-valued setting wraps the bare server response", async () => {
+    const STRING_KEY = "site-name";
+    const ORIGINAL = "Metabase";
+    const TARGET = "metabase-cli e2e site name";
+    try {
+      await adminClient.requestRaw(`/api/setting/${STRING_KEY}`, {
+        method: "PUT",
+        body: { value: TARGET },
+        expectContentType: "binary",
+      });
+
+      const result = await runCli({
+        args: ["setting", "get", STRING_KEY, "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, SettingValue)).toEqual({
+        key: STRING_KEY,
+        value: TARGET,
+      });
+    } finally {
+      await adminClient.requestRaw(`/api/setting/${STRING_KEY}`, {
+        method: "PUT",
+        body: { value: ORIGINAL },
+        expectContentType: "binary",
+      });
+    }
+  });
+
   it("get with an invalid setting key (regex fail) fails with ConfigError", async () => {
     const result = await runCli({
       args: ["setting", "get", "..bad..", "--json"],
