@@ -26,6 +26,9 @@ const main: CommandDef = defineCommand({
     workspace: () => import("./commands/workspace").then((mod) => mod.default),
     setup: () => import("./commands/setup").then((mod) => mod.default),
     "api-key": () => import("./commands/api-key").then((mod) => mod.default),
+    snippet: () => import("./commands/snippet").then((mod) => mod.default),
+    segment: () => import("./commands/segment").then((mod) => mod.default),
+    measure: () => import("./commands/measure").then((mod) => mod.default),
     eid: () => import("./commands/eid").then((mod) => mod.default),
     query: () => import("./commands/query").then((mod) => mod.default),
     __manifest: (): Promise<CommandDef> =>

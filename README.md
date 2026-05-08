@@ -599,6 +599,189 @@ cat patch.json | metabase dashboard update-dashcard 1 5
 
 The patch must contain at least one field; an empty object is rejected before the network round-trip.
 
+## Snippets
+
+CRUD on `/api/native-query-snippet`. A snippet is a named, reusable piece of native (SQL) query text — referenced from cards via `{{snippet: Name}}`. The list endpoint returns either active or archived rows (mutually exclusive — pass `--archived` to swap).
+
+### `metabase snippet list`
+
+```sh
+metabase snippet list
+metabase snippet list --json
+metabase snippet list --archived --json
+```
+
+| Flag         | Description                                    |
+| ------------ | ---------------------------------------------- |
+| `--archived` | Show archived snippets instead of active ones. |
+
+### `metabase snippet get <id>`
+
+```sh
+metabase snippet get 1
+metabase snippet get 1 --json --full
+```
+
+### `metabase snippet create`
+
+```sh
+cat snippet.json | metabase snippet create
+metabase snippet create --file snippet.json
+metabase snippet create --body '{"name":"active","content":"WHERE active = true"}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+Body fields: `name` (required), `content` (required), `description` (optional), `collection_id` (optional positive integer).
+
+### `metabase snippet update <id>`
+
+Patch a snippet. Body is a partial subset of the create shape plus `archived`. Only the keys you send are touched.
+
+```sh
+cat patch.json | metabase snippet update 1
+metabase snippet update 1 --file patch.json
+metabase snippet update 1 --body '{"name":"renamed"}'
+metabase snippet update 1 --body '{"archived":true}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `metabase snippet archive <id>`
+
+Soft-delete a snippet by setting `archived: true`. To unarchive use `metabase snippet update <id> --body '{"archived":false}'`.
+
+```sh
+metabase snippet archive 1
+metabase snippet archive 1 --json
+```
+
+## Segments
+
+CRUD on `/api/segment`. A segment is a saved MBQL filter macro tied to a table — used in card filters to share a reusable predicate. Mutating endpoints require a `revision_message` for the audit log.
+
+### `metabase segment list`
+
+```sh
+metabase segment list
+metabase segment list --json
+```
+
+### `metabase segment get <id>`
+
+```sh
+metabase segment get 1
+metabase segment get 1 --json --full
+```
+
+### `metabase segment create`
+
+```sh
+cat segment.json | metabase segment create
+metabase segment create --file segment.json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+Body fields: `name` (required), `table_id` (required positive integer), `definition` (required MBQL filter object), `description` (optional).
+
+### `metabase segment update <id>`
+
+Patch a segment. The body MUST include `revision_message`. Other keys are partial: `name`, `definition`, `archived`, `description`, `caveats`, `points_of_interest`, `show_in_getting_started`.
+
+```sh
+cat patch.json | metabase segment update 1
+metabase segment update 1 --file patch.json
+metabase segment update 1 --body '{"name":"renamed","revision_message":"rename"}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `metabase segment archive <id>`
+
+Soft-delete a segment by setting `archived: true`. The default revision message is `"Archived via metabase CLI"`; override with `--revision-message`.
+
+```sh
+metabase segment archive 1
+metabase segment archive 1 --revision-message "deprecated"
+```
+
+| Flag                        | Description                                 |
+| --------------------------- | ------------------------------------------- |
+| `--revision-message <text>` | Audit-log message recorded with the change. |
+
+## Measures
+
+CRUD on `/api/measure`. A measure is a saved MBQL aggregation (a single `:aggregation` clause) tied to a table — referenced from cards and metrics to share a reusable computation. Mutating endpoints require a `revision_message` for the audit log.
+
+### `metabase measure list`
+
+```sh
+metabase measure list
+metabase measure list --json
+```
+
+### `metabase measure get <id>`
+
+```sh
+metabase measure get 1
+metabase measure get 1 --json --full
+```
+
+### `metabase measure create`
+
+```sh
+cat measure.json | metabase measure create
+metabase measure create --file measure.json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+Body fields: `name` (required), `table_id` (required positive integer), `definition` (required MBQL aggregation object), `description` (optional).
+
+### `metabase measure update <id>`
+
+Patch a measure. The body MUST include `revision_message`. Other keys are partial: `name`, `definition`, `archived`, `description`.
+
+```sh
+cat patch.json | metabase measure update 1
+metabase measure update 1 --file patch.json
+metabase measure update 1 --body '{"name":"renamed","revision_message":"rename"}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `metabase measure archive <id>`
+
+Soft-delete a measure by setting `archived: true`. The default revision message is `"Archived via metabase CLI"`; override with `--revision-message`.
+
+```sh
+metabase measure archive 1
+metabase measure archive 1 --revision-message "deprecated"
+```
+
+| Flag                        | Description                                 |
+| --------------------------- | ------------------------------------------- |
+| `--revision-message <text>` | Audit-log message recorded with the change. |
+
 ## Collections
 
 Read collections on `/api/collection`. Collections are the folders that contain cards, dashboards, and other collections. The list endpoint surfaces a virtual root collection (id `"root"`) alongside regular numeric ids; the get endpoint accepts only the numeric id.
