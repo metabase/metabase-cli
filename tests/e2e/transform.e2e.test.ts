@@ -250,9 +250,13 @@ describe("transform e2e", () => {
     expect(runResult.exitCode).toBe(1);
     const parsed = parseJson(runResult.stdout, TransformRunResult);
     const finalRun = parsed.final;
-    if (finalRun === null) throw new Error("expected final run to be populated when --wait is set");
+    if (finalRun === null) {
+      throw new Error("expected final run to be populated when --wait is set");
+    }
     const failureDetail = finalRun.message;
-    if (failureDetail === null) throw new Error("expected failed run to carry a message");
+    if (failureDetail === null) {
+      throw new Error("expected failed run to carry a message");
+    }
 
     expect(finalRun.status).toBe("failed");
     expect(runResult.stderr).toContain(`transform run ${parsed.run_id} failed`);
