@@ -6,6 +6,7 @@ export default defineCommand({
   subCommands: {
     login: () => import("./login").then((m) => m.default),
     status: () => import("./status").then((m) => m.default),
+    list: () => import("./list").then((m) => m.default),
     logout: () => import("./logout").then((m) => m.default),
   },
 });

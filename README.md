@@ -63,6 +63,19 @@ metabase auth status --profile staging
 | `--profile <name>` | Profile to inspect (default: `default`). |
 | `--json`           | Emit JSON. Auto-enabled on non-TTY.      |
 
+### `metabase auth list`
+
+List configured authentication profiles. The index is maintained at `<configDir>/profiles.json` and updated on every `auth login` / `auth logout`. Profiles whose URL/API key were stored in the OS keychain before the index existed are picked up by a one-time backfill from `credentials.json`; profiles that exist only in the keyring (no entry in `credentials.json`) appear after the next `auth login` or `auth logout` against them.
+
+```sh
+metabase auth list
+metabase auth list --json
+```
+
+| Flag     | Description                         |
+| -------- | ----------------------------------- |
+| `--json` | Emit JSON. Auto-enabled on non-TTY. |
+
 ### `metabase auth logout`
 
 Clear stored credentials for a profile.

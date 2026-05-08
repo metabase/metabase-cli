@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { AuthProfileListEnvelope } from "../../src/commands/auth/list";
 import { LoginResult } from "../../src/commands/auth/login";
 import { LogoutResult } from "../../src/commands/auth/logout";
 import { AuthStatus } from "../../src/commands/auth/status";
@@ -208,6 +209,57 @@ describe("profiles e2e", () => {
     expect(limitedQuery.exitCode).toBe(1);
     expect(limitedQuery.stderr).toContain("Invalid or unauthorized API key");
     expect(limitedQuery.stdout).toBe("");
+  });
+
+  it("auth list returns empty when no profiles are stored", async () => {
+    const configHome = await makeIsolatedConfigHome();
+
+    const result = await runCli({
+      args: ["auth", "list", "--json"],
+      configHome,
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, AuthProfileListEnvelope)).toEqual({
+      data: [],
+      returned: 0,
+      total: 0,
+    });
+  });
+
+  it("auth list reflects login and logout activity for the same config home", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await loginProfile(configHome, "staging");
+    await loginProfile(configHome, "prod");
+
+    const afterLogin = await runCli({
+      args: ["auth", "list", "--json"],
+      configHome,
+    });
+    expect(afterLogin.exitCode, afterLogin.stderr).toBe(0);
+    expect(parseJson(afterLogin.stdout, AuthProfileListEnvelope)).toEqual({
+      data: [
+        { profile: "prod", url: bootstrap.baseUrl, present: true },
+        { profile: "staging", url: bootstrap.baseUrl, present: true },
+      ],
+      returned: 2,
+      total: 2,
+    });
+
+    await runCli({
+      args: ["auth", "logout", "--profile", "prod", "--yes", "--json"],
+      configHome,
+    });
+
+    const afterLogout = await runCli({
+      args: ["auth", "list", "--json"],
+      configHome,
+    });
+    expect(afterLogout.exitCode, afterLogout.stderr).toBe(0);
+    expect(parseJson(afterLogout.stdout, AuthProfileListEnvelope)).toEqual({
+      data: [{ profile: "staging", url: bootstrap.baseUrl, present: true }],
+      returned: 1,
+      total: 1,
+    });
   });
 
   it("db list --profile pointing at an unknown profile fails with ConfigError", async () => {

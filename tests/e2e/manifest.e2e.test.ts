@@ -33,6 +33,7 @@ describe("__manifest e2e", () => {
     expect(commandPaths).toEqual([
       "auth login",
       "auth status",
+      "auth list",
       "auth logout",
       "license set",
       "license status",
