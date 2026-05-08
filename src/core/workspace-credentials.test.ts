@@ -38,8 +38,8 @@ config:
     name: my_ws
     databases:
       neondb:
-        input_schemas:
-          - public
+        input:
+          - schema: public
         output_schema: mb_ws_2
 `;
 
@@ -109,7 +109,7 @@ describe("injectCredentialsIntoConfig", () => {
         workspace: {
           name: "my_ws",
           databases: {
-            neondb: { input_schemas: ["public"], output_schema: "mb_ws_2" },
+            neondb: { input: [{ schema: "public" }], output_schema: "mb_ws_2" },
           },
         },
         users: [credentials.user],
@@ -170,7 +170,7 @@ describe("injectRepoSettingsIntoConfig", () => {
         workspace: {
           name: "my_ws",
           databases: {
-            neondb: { input_schemas: ["public"], output_schema: "mb_ws_2" },
+            neondb: { input: [{ schema: "public" }], output_schema: "mb_ws_2" },
           },
         },
         settings: {

@@ -747,7 +747,7 @@ metabase workspace database provision 1 --file provision.json
 
 ### `metabase workspace database update <workspace-id> <db-id>`
 
-Update a workspace's provisioned database (server-side this is deprovision + provision). Body accepts only `input_schemas` — the database id comes from the URL.
+Update a workspace's provisioned database (server-side this is deprovision + provision). Body accepts only `input` — the database id comes from the URL.
 
 ```sh
 metabase workspace database update 1 5 --schemas analytics,github
@@ -758,7 +758,7 @@ metabase workspace database update 1 5 --file update.json
 | Flag              | Description                                                       |
 | ----------------- | ----------------------------------------------------------------- |
 | `--schemas <csv>` | Comma-separated input schemas. Shortcut for body.                 |
-| `--body <json>`   | Inline JSON body (`{"input_schemas":[...]}`).                     |
+| `--body <json>`   | Inline JSON body (`{"input":[{"schema":"..."}]}`).                |
 | `--file <path>`   | Path to JSON body file.                                           |
 | `--wait`          | Poll until the database entry returns to `status: "provisioned"`. |
 | `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`.       |

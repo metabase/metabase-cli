@@ -2,13 +2,13 @@ import { Workspace, WorkspaceProvisionInput, workspaceView } from "../../../doma
 import { ConfigError } from "../../../core/errors";
 import { renderItem } from "../../../output/render";
 import { readBody } from "../../../runtime/body";
-import { parseCsv } from "../../../runtime/csv";
 import { bodyInputFlags } from "../../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../../flags";
 import { parseId } from "../../parse-id";
 import { defineMetabaseCommand } from "../../runtime";
 import { parseWaitFlags, waitFlags } from "../../wait-flags";
 
+import { parseSchemasCsv } from "./parse-schemas";
 import { waitForDatabaseProvisioned } from "./wait";
 
 export default defineMetabaseCommand({
@@ -44,8 +44,11 @@ export default defineMetabaseCommand({
     let body: WorkspaceProvisionInput;
     if (databaseIdFlag !== undefined && databaseIdFlag !== "") {
       const databaseId = parseId(databaseIdFlag, "--database-id");
-      const schemas = parseSchemas(schemasFlag);
-      body = WorkspaceProvisionInput.parse({ database_id: databaseId, input_schemas: schemas });
+      if (schemasFlag === undefined || schemasFlag === "") {
+        throw new ConfigError("--schemas is required when using --database-id");
+      }
+      const input = parseSchemasCsv(schemasFlag);
+      body = WorkspaceProvisionInput.parse({ database_id: databaseId, input });
     } else {
       body = await readBody({ flag: args.body, file: args.file }, WorkspaceProvisionInput);
     }
@@ -63,14 +66,3 @@ export default defineMetabaseCommand({
     renderItem(final, workspaceView, ctx);
   },
 });
-
-function parseSchemas(raw: string | undefined): string[] {
-  if (raw === undefined || raw === "") {
-    throw new ConfigError("--schemas is required when using --database-id");
-  }
-  const parts = parseCsv(raw);
-  if (parts.length === 0) {
-    throw new ConfigError("--schemas must contain at least one schema name");
-  }
-  return parts;
-}

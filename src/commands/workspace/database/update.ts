@@ -1,14 +1,13 @@
 import { Workspace, WorkspaceUpdateDatabaseInput, workspaceView } from "../../../domain/workspace";
-import { ConfigError } from "../../../core/errors";
 import { renderItem } from "../../../output/render";
 import { readBody } from "../../../runtime/body";
-import { parseCsv } from "../../../runtime/csv";
 import { bodyInputFlags } from "../../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../../flags";
 import { parseId } from "../../parse-id";
 import { defineMetabaseCommand } from "../../runtime";
 import { parseWaitFlags, waitFlags } from "../../wait-flags";
 
+import { parseSchemasCsv } from "./parse-schemas";
 import { waitForDatabaseProvisioned } from "./wait";
 
 export default defineMetabaseCommand({
@@ -44,8 +43,8 @@ export default defineMetabaseCommand({
 
     let body: WorkspaceUpdateDatabaseInput;
     if (schemasFlag !== undefined && schemasFlag !== "") {
-      const schemas = parseSchemas(schemasFlag);
-      body = WorkspaceUpdateDatabaseInput.parse({ input_schemas: schemas });
+      const input = parseSchemasCsv(schemasFlag);
+      body = WorkspaceUpdateDatabaseInput.parse({ input });
     } else {
       body = await readBody({ flag: args.body, file: args.file }, WorkspaceUpdateDatabaseInput);
     }
@@ -63,11 +62,3 @@ export default defineMetabaseCommand({
     renderItem(final, workspaceView, ctx);
   },
 });
-
-function parseSchemas(raw: string): string[] {
-  const parts = parseCsv(raw);
-  if (parts.length === 0) {
-    throw new ConfigError("--schemas must contain at least one schema name");
-  }
-  return parts;
-}

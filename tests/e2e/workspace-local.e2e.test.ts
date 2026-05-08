@@ -109,7 +109,7 @@ describe.skipIf(skipReason !== null)("workspace local-runtime e2e", () => {
     );
     expect(provisioned).toMatchObject({
       database_id: E2E_DATABASES.WAREHOUSE,
-      input_schemas: [ANALYTICS_SCHEMA],
+      input: [{ schema: ANALYTICS_SCHEMA }],
       status: "provisioned",
     });
   }
