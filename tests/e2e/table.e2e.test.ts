@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { FieldListEnvelope } from "../../src/commands/table/fields";
 import { TableListEnvelope } from "../../src/commands/table/list";
 import { Table, TableCompact } from "../../src/domain/table";
 import { parseJson } from "../../src/runtime/json";
@@ -119,10 +120,9 @@ describe("table e2e", () => {
   }
 
   it("list filtered by --db-id returns the seeded warehouse tables", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["table", "list", "--db-id", String(E2E_DATABASES.WAREHOUSE), "--json"],
-      configHome,
+      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -134,16 +134,67 @@ describe("table e2e", () => {
     });
   });
 
-  it("get returns a table with embedded fields when --full", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const get = await runCli({
-      args: ["table", "get", String(E2E_TABLES.CUSTOMERS), "--json", "--full", "--max-bytes", "0"],
-      configHome,
+  it("get returns the basic table without hydrating fields", async () => {
+    const result = await runCli({
+      args: ["table", "get", String(E2E_TABLES.CUSTOMERS), "--json"],
+      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
-    expect(get.exitCode, get.stderr).toBe(0);
-    const parsed = parseJson(get.stdout, Table);
+    expect(result.exitCode, result.stderr).toBe(0);
+    const parsed = parseJson(result.stdout, Table);
+    expect(parsed.fields).toBeUndefined();
+    expect(TableCompact.parse(parsed)).toEqual({
+      id: E2E_TABLES.CUSTOMERS,
+      name: "customers",
+      display_name: "Customers",
+      description: "Customer dimension; mixed types for sync coverage.",
+      db_id: E2E_DATABASES.WAREHOUSE,
+      schema: "public",
+      entity_type: "entity/GenericTable",
+    });
+  });
+
+  it("get with a non-integer id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["table", "get", "not-a-number", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('invalid id: "not-a-number" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("get against a missing table id surfaces a 404 HttpError", async () => {
+    const result = await runCli({
+      args: ["table", "get", "9999999", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+  });
+
+  it("metadata returns the table with hydrated fields", async () => {
+    const result = await runCli({
+      args: [
+        "table",
+        "metadata",
+        String(E2E_TABLES.CUSTOMERS),
+        "--json",
+        "--full",
+        "--max-bytes",
+        "0",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const parsed = parseJson(result.stdout, Table);
     const fieldNames = (parsed.fields ?? []).map((field) => field.name).toSorted();
 
     expect({ compact: TableCompact.parse(parsed), fieldNames }).toEqual({
@@ -160,16 +211,133 @@ describe("table e2e", () => {
     });
   });
 
-  it("get with a non-integer id fails fast with ConfigError", async () => {
-    const configHome = await makeIsolatedConfigHome();
+  it("metadata against a missing table id surfaces a 404 HttpError", async () => {
     const result = await runCli({
-      args: ["table", "get", "not-a-number", "--json"],
-      configHome,
+      args: ["table", "metadata", "9999999", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+  });
+
+  it("fields lists every field on the table in compact form", async () => {
+    const result = await runCli({
+      args: ["table", "fields", String(E2E_TABLES.CUSTOMERS), "--json", "--max-bytes", "0"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const envelope = parseJson(result.stdout, FieldListEnvelope);
+    const fieldNames = envelope.data.map((field) => field.name).toSorted();
+    expect({
+      returned: envelope.returned,
+      total: envelope.total,
+      fieldNames,
+      everyFieldHasCustomersTableId: envelope.data.every(
+        (field) => field.table_id === E2E_TABLES.CUSTOMERS,
+      ),
+    }).toEqual({
+      returned: CUSTOMERS_FIELD_NAMES.length,
+      total: CUSTOMERS_FIELD_NAMES.length,
+      fieldNames: CUSTOMERS_FIELD_NAMES,
+      everyFieldHasCustomersTableId: true,
+    });
+  });
+
+  it("fields with a non-integer id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["table", "fields", "abc", "--json"],
+      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "not-a-number" (expected integer)');
-    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+  });
+
+  it("update edits the table description and returns the updated row", async () => {
+    const newDescription = `e2e update marker ${Date.now()}`;
+    const update = await runCli({
+      args: [
+        "table",
+        "update",
+        String(E2E_TABLES.REVIEWS),
+        "--body",
+        JSON.stringify({ description: newDescription }),
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(update.exitCode, update.stderr).toBe(0);
+    expect(parseJson(update.stdout, Table).description).toBe(newDescription);
+
+    const restore = await runCli({
+      args: [
+        "table",
+        "update",
+        String(E2E_TABLES.REVIEWS),
+        "--body",
+        JSON.stringify({ description: null }),
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(restore.exitCode, restore.stderr).toBe(0);
+    expect(parseJson(restore.stdout, Table).description).toBeNull();
+  });
+
+  it("update rejects multiple body sources", async () => {
+    const result = await runCli({
+      args: [
+        "table",
+        "update",
+        String(E2E_TABLES.REVIEWS),
+        "--body",
+        '{"description":"x"}',
+        "--file",
+        "patch.json",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("multiple body sources given");
+  });
+
+  it("update with a non-integer id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["table", "update", "abc", "--body", '{"description":"x"}', "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+  });
+
+  it("update enforces the input schema when an unknown enum value is sent", async () => {
+    const result = await runCli({
+      args: [
+        "table",
+        "update",
+        String(E2E_TABLES.REVIEWS),
+        "--body",
+        JSON.stringify({ visibility_type: "not-a-real-value" }),
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("value did not match expected schema");
   });
 });

@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { FieldCompact } from "../../src/domain/field";
+import { Field, FieldCompact, FieldSummary, FieldValues } from "../../src/domain/field";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
@@ -75,5 +75,134 @@ describe("field e2e", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+  });
+
+  it("values returns the FieldValues envelope for the email field", async () => {
+    const result = await runCli({
+      args: ["field", "values", String(E2E_FIELDS.CUSTOMERS_EMAIL), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const parsed = parseJson(result.stdout, FieldValues);
+    expect(parsed.field_id).toBe(E2E_FIELDS.CUSTOMERS_EMAIL);
+  });
+
+  it("values with a non-integer id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["field", "values", "abc", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+  });
+
+  it("summary returns the count and distinct count for the email field", async () => {
+    const result = await runCli({
+      args: ["field", "summary", String(E2E_FIELDS.CUSTOMERS_EMAIL), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const parsed = parseJson(result.stdout, FieldSummary);
+    expect(parsed.field_id).toBe(E2E_FIELDS.CUSTOMERS_EMAIL);
+  });
+
+  it("summary against a missing field id surfaces a 404 HttpError", async () => {
+    const result = await runCli({
+      args: ["field", "summary", "9999999", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+  });
+
+  it("update edits the email field description and restores it", async () => {
+    const newDescription = `e2e field update marker ${Date.now()}`;
+    const update = await runCli({
+      args: [
+        "field",
+        "update",
+        String(E2E_FIELDS.CUSTOMERS_EMAIL),
+        "--body",
+        JSON.stringify({ description: newDescription }),
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(update.exitCode, update.stderr).toBe(0);
+    expect(parseJson(update.stdout, Field).description).toBe(newDescription);
+
+    const restore = await runCli({
+      args: [
+        "field",
+        "update",
+        String(E2E_FIELDS.CUSTOMERS_EMAIL),
+        "--body",
+        JSON.stringify({ description: null }),
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(restore.exitCode, restore.stderr).toBe(0);
+    expect(parseJson(restore.stdout, Field).description).toBeNull();
+  });
+
+  it("update rejects multiple body sources", async () => {
+    const result = await runCli({
+      args: [
+        "field",
+        "update",
+        String(E2E_FIELDS.CUSTOMERS_EMAIL),
+        "--body",
+        '{"description":"x"}',
+        "--file",
+        "patch.json",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("multiple body sources given");
+  });
+
+  it("update with a non-integer id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["field", "update", "abc", "--body", '{"description":"x"}', "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+  });
+
+  it("update enforces the input schema for an unknown enum value", async () => {
+    const result = await runCli({
+      args: [
+        "field",
+        "update",
+        String(E2E_FIELDS.CUSTOMERS_EMAIL),
+        "--body",
+        JSON.stringify({ visibility_type: "not-a-real-value" }),
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("value did not match expected schema");
   });
 });

@@ -23,6 +23,8 @@ const TableVisibilityType = z.enum([
   "cruft",
 ]);
 
+const TableFieldOrder = z.enum(["alphabetical", "custom", "database", "smart"]);
+
 export const Table = z
   .object({
     id: z.number().int(),
@@ -32,12 +34,17 @@ export const Table = z
     db_id: z.number().int(),
     schema: z.string().nullable(),
     entity_type: TableEntityType.nullable(),
-    visibility_type: TableVisibilityType.nullable(),
-    active: z.boolean(),
+    visibility_type: TableVisibilityType.nullable().optional(),
+    active: z.boolean().optional(),
     fields: z.array(Field).optional(),
   })
   .loose();
 export type Table = z.infer<typeof Table>;
+
+export const TableQueryMetadata = Table.extend({
+  fields: z.array(Field),
+});
+export type TableQueryMetadata = z.infer<typeof TableQueryMetadata>;
 
 export const TableCompact = Table.pick({
   id: true,
@@ -61,3 +68,17 @@ export const tableView: ResourceView<Table> = {
     { key: "description", label: "Description" },
   ],
 };
+
+export const TableUpdateInput = z
+  .object({
+    display_name: z.string().min(1).optional(),
+    entity_type: TableEntityType.nullable().optional(),
+    visibility_type: TableVisibilityType.nullable().optional(),
+    description: z.string().nullable().optional(),
+    caveats: z.string().nullable().optional(),
+    points_of_interest: z.string().nullable().optional(),
+    show_in_getting_started: z.boolean().optional(),
+    field_order: TableFieldOrder.optional(),
+  })
+  .loose();
+export type TableUpdateInput = z.infer<typeof TableUpdateInput>;

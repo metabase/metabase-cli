@@ -345,6 +345,94 @@ metabase db rescan-values 1
 metabase db rescan-values 1 --json
 ```
 
+## Tables
+
+Inspect and edit warehouse tables via `/api/table`.
+
+### `metabase table list`
+
+```sh
+metabase table list
+metabase table list --db-id 1 --json
+```
+
+| Flag           | Description                         |
+| -------------- | ----------------------------------- |
+| `--db-id <id>` | Filter tables by their database id. |
+
+### `metabase table get <id>`
+
+Returns the basic table record (no fields). Use `metabase table metadata <id>` when you want the rollup with fields/FKs/dimensions hydrated.
+
+```sh
+metabase table get 42
+metabase table get 42 --json
+```
+
+### `metabase table metadata <id>`
+
+`GET /api/table/:id/query_metadata`: the table with its fields, FKs, and dimensions hydrated. The agent-facing one-shot introspection for a single table.
+
+```sh
+metabase table metadata 42 --json --full --max-bytes 0
+```
+
+### `metabase table fields <id>`
+
+List the fields on a table (a thin projection over `query_metadata.fields`).
+
+```sh
+metabase table fields 42
+metabase table fields 42 --json
+```
+
+### `metabase table update <id>`
+
+Patch a table (`PUT /api/table/:id`). Body fields: `display_name`, `description`, `caveats`, `points_of_interest`, `entity_type`, `visibility_type`, `field_order`, `show_in_getting_started`. Pass the body via `--body`, `--file`, or stdin (exactly one).
+
+```sh
+metabase table update 42 --body '{"display_name":"Customers"}'
+metabase table update 42 --file patch.json
+echo '{"description":"Customer dimension"}' | metabase table update 42
+```
+
+## Fields
+
+Inspect and edit individual columns via `/api/field`.
+
+### `metabase field get <id>`
+
+```sh
+metabase field get 100
+metabase field get 100 --json
+```
+
+### `metabase field values <id>`
+
+Fetch the cached distinct values list (`GET /api/field/:id/values`). Returns the FieldValues envelope (`{ values, field_id, has_more_values }`); empty `values` on fields whose `has_field_values` is `none` or `search`.
+
+```sh
+metabase field values 100 --json
+```
+
+### `metabase field summary <id>`
+
+Row count and distinct count for the field (`GET /api/field/:id/summary`). Metabase returns this as an array-of-pairs; the CLI normalizes it to `{ field_id, count, distincts }`.
+
+```sh
+metabase field summary 100
+metabase field summary 100 --json
+```
+
+### `metabase field update <id>`
+
+Patch a field (`PUT /api/field/:id`). Body fields: `display_name`, `description`, `caveats`, `points_of_interest`, `semantic_type`, `coercion_strategy`, `fk_target_field_id`, `visibility_type`, `has_field_values`, `settings`, `nfc_path`, `json_unfolding`. Pass the body via `--body`, `--file`, or stdin.
+
+```sh
+metabase field update 100 --body '{"description":"customer email","semantic_type":"type/Email"}'
+metabase field update 100 --file patch.json
+```
+
 ## Cards
 
 CRUD plus query execution on `/api/card`. A "card" is a Metabase question, model, or metric. The `query` subcommand runs the card and either returns Metabase's JSON envelope or streams a raw CSV / XLSX export.
