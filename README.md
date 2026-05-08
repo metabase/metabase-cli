@@ -403,6 +403,78 @@ cat patch.json | metabase dashboard update-dashcard 1 5
 
 The patch must contain at least one field; an empty object is rejected before the network round-trip.
 
+## Collections
+
+Read collections on `/api/collection`. Collections are the folders that contain cards, dashboards, and other collections. The list endpoint surfaces a virtual root collection (id `"root"`) alongside regular numeric ids; the get endpoint accepts only the numeric id.
+
+### `metabase collection list`
+
+```sh
+metabase collection list
+metabase collection list --json
+metabase collection list --filter archived --json
+```
+
+| Flag                | Description                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `--filter <preset>` | One of `all` (default), `archived` (returns the trash collection only), `personal` (only personal collections). |
+
+### `metabase collection get <id>`
+
+`<id>` accepts any of: a positive integer collection id, the literal `root` (the virtual "Our analytics" root), the literal `trash` (the trash collection), or a 21-character entity id (NanoID). Anything else is rejected with a `ConfigError` before any HTTP call.
+
+```sh
+metabase collection get 4
+metabase collection get root --json
+metabase collection get trash --json
+metabase collection get voo1If9y8Sld0lXej6xl0 --json
+metabase collection get 4 --json --full
+```
+
+`--full` returns the full hydrated collection including `slug`, `entity_id`, `can_write`, `namespace`, and `personal_owner_id`. The default compact view returns `id`, `name`, `description`, `archived`, `location`, `parent_id`, `type`, `authority_level`, and `is_personal`. The root collection has a stripped-down shape — `archived`, `description`, `location`, `type`, etc. are absent rather than `null`.
+
+### `metabase collection items <id>`
+
+List the cards, dashboards, sub-collections, and other content stored inside a collection. The CLI drains all pages of `/api/collection/:id/items`; pass `--limit` to cap the result. `<id>` accepts the same forms as `collection get` — including `root` for top-level content (items there have `collection_id: null`).
+
+```sh
+metabase collection items 4
+metabase collection items root --json
+metabase collection items 4 --models card,dashboard --json
+metabase collection items 4 --pinned-state is_pinned --json
+```
+
+| Flag                     | Description                                                                                                        |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `--models <csv>`         | Restrict to one or more models (`card`, `dataset`, `metric`, `dashboard`, `snippet`, `collection`, `document`, …). |
+| `--archived`             | Return archived items instead of unarchived.                                                                       |
+| `--pinned-state <state>` | One of `all`, `is_pinned`, `is_not_pinned`.                                                                        |
+| `--limit <n>`            | Cap total items returned. Default: drain all pages.                                                                |
+
+### `metabase collection tree`
+
+Fetch the full collection hierarchy as a nested tree. Output is always JSON — the recursive structure does not render meaningfully as a key/value table.
+
+```sh
+metabase collection tree
+metabase collection tree --json
+```
+
+### `metabase collection create`
+
+Create a collection from a JSON spec. The body accepts the same fields as `POST /api/collection`: `name` (required), `description`, `parent_id` (omit or `null` for the root), `namespace`, and `authority_level`.
+
+```sh
+cat collection.json | metabase collection create
+metabase collection create --file collection.json
+metabase collection create --body '{"name":"My Collection","parent_id":4}'
+```
+
+| Flag            | Description                                         |
+| --------------- | --------------------------------------------------- |
+| `--body <json>` | Inline JSON body.                                   |
+| `--file <path>` | Path to JSON body file. Use `-` to read from stdin. |
+
 ## Settings
 
 Read and write Metabase instance settings via `/api/setting`. Listing all settings requires admin privileges; per-key reads/writes additionally enforce per-setting access. Setting values are always JSON — `"main"` is the string `main`, `42` is a number, `null` deletes the override and resets the value to its default.
