@@ -15,5 +15,7 @@ export default defineCommand({
     stash: () => import("./stash").then((mod) => mod.default),
     branches: () => import("./branches").then((mod) => mod.default),
     "create-branch": () => import("./create-branch").then((mod) => mod.default),
+    "add-collection": () => import("./add-collection").then((mod) => mod.default),
+    "remove-collection": () => import("./remove-collection").then((mod) => mod.default),
   },
 });

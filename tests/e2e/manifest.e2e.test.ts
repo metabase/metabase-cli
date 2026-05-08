@@ -88,6 +88,8 @@ describe("__manifest e2e", () => {
       "sync stash",
       "sync branches",
       "sync create-branch",
+      "sync add-collection",
+      "sync remove-collection",
       "workspace list",
       "workspace create",
       "workspace database provision",

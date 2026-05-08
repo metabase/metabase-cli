@@ -32,6 +32,7 @@ export const REMOTE_SYNC_PATHS = {
   stash: "/api/ee/remote-sync/stash",
   branches: "/api/ee/remote-sync/branches",
   createBranch: "/api/ee/remote-sync/create-branch",
+  settings: "/api/ee/remote-sync/settings",
 } as const;
 
 export const SyncTaskIdle = z.object({ status: z.literal("idle") });

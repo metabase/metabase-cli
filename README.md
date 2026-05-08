@@ -680,6 +680,26 @@ metabase sync create-branch feat/dashboards
 metabase sync create-branch feat/x --json
 ```
 
+### `metabase sync add-collection <id>`
+
+Mark a collection as remote-synced. The toggle cascades to every descendant by `location` prefix, so flagging a parent flags the whole subtree. Returns `{ success, task_id? }`; `task_id` only appears when the toggle triggers a follow-up task (e.g. a finalization import after switching to read-only mode).
+
+```sh
+metabase sync add-collection 12
+metabase sync add-collection 12 --json --profile prod
+```
+
+The server rejects toggles while `remote-sync-type` is `read-only` (the install default). Switch first with `metabase setting set remote-sync-type '"read-write"'`.
+
+### `metabase sync remove-collection <id>`
+
+Unmark a collection as remote-synced. Same cascade and same `read-only` precondition as `add-collection`.
+
+```sh
+metabase sync remove-collection 12
+metabase sync remove-collection 12 --json --profile prod
+```
+
 ## Workspaces
 
 CRUD on `/api/ee/workspace-manager`. Run against the workspace-manager parent instance.

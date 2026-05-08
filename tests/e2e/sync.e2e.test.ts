@@ -77,6 +77,39 @@ describe("sync arg validation e2e (no Metabase contact required)", () => {
     expect(result.stderr).toContain("invalid name: branch name must not be blank");
     expect(result.stdout).toBe("");
   });
+
+  it("add-collection with non-integer positional fails with ConfigError", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["sync", "add-collection", "abc", "--json"],
+      configHome,
+    });
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("add-collection with zero positional fails with ConfigError", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["sync", "add-collection", "0", "--json"],
+      configHome,
+    });
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("invalid id: 0 (must be ≥ 1)");
+    expect(result.stdout).toBe("");
+  });
+
+  it("remove-collection with negative positional fails with ConfigError", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["sync", "remove-collection", "--", "-3", "--json"],
+      configHome,
+    });
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain("invalid id: -3 (must be ≥ 1)");
+    expect(result.stdout).toBe("");
+  });
 });
 
 describe("sync e2e against EE remote-sync endpoints", () => {
@@ -231,5 +264,27 @@ describe("sync e2e against EE remote-sync endpoints", () => {
     });
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Failed to clone git repository");
+  });
+
+  it("add-collection surfaces a 400 HttpError in the default config (read-only or paywall)", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["sync", "add-collection", "1", "--json"],
+      configHome,
+      env: authEnv(),
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Metabase returned 400");
+  });
+
+  it("remove-collection surfaces a 400 HttpError in the default config (read-only or paywall)", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["sync", "remove-collection", "1", "--json"],
+      configHome,
+      env: authEnv(),
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Metabase returned 400");
   });
 });
