@@ -56,6 +56,11 @@ const TransformTarget = z.discriminatedUnion("type", [
   TransformTableIncrementalTarget,
 ]);
 
+const TransformTargetCompact = z.discriminatedUnion("type", [
+  TransformTableTarget.strip(),
+  TransformTableIncrementalTarget.strip(),
+]);
+
 const TransformLastRun = z
   .object({
     id: z.number().int(),
@@ -83,6 +88,30 @@ export const TransformRun = z
   })
   .loose();
 export type TransformRun = z.infer<typeof TransformRun>;
+
+export const TransformRunCompact = TransformRun.pick({
+  id: true,
+  transform_id: true,
+  status: true,
+  run_method: true,
+  start_time: true,
+  end_time: true,
+  message: true,
+}).strip();
+export type TransformRunCompact = z.infer<typeof TransformRunCompact>;
+
+export const transformRunView: ResourceView<TransformRun> = {
+  compactPick: TransformRunCompact,
+  tableColumns: [
+    { key: "id", label: "Run ID" },
+    { key: "transform_id", label: "Transform" },
+    { key: "status", label: "Status" },
+    { key: "run_method", label: "Method" },
+    { key: "start_time", label: "Started" },
+    { key: "end_time", label: "Ended" },
+    { key: "message", label: "Message" },
+  ],
+};
 
 export const Transform = z
   .object({
@@ -112,9 +141,10 @@ export const TransformCompact = Transform.pick({
   name: true,
   description: true,
   source_type: true,
-  target: true,
   target_db_id: true,
-}).strip();
+})
+  .strip()
+  .extend({ target: TransformTargetCompact });
 export type TransformCompact = z.infer<typeof TransformCompact>;
 
 export const transformView: ResourceView<Transform> = {

@@ -194,6 +194,38 @@ metabase transform run 1 --wait --json
 | `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`. |
 | `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.  |
 
+### `metabase transform cancel <id>`
+
+Cancel the currently-running run for a transform. Exits 0 with `{canceled: true, id}` on success; exits 1 with a 404 if the transform has no active run.
+
+```sh
+metabase transform cancel 1
+metabase transform cancel 1 --json
+```
+
+### `metabase transform get-run <run-id>`
+
+Fetch a single run by run id (not transform id). Same compact / `--full` projection convention as `transform get`.
+
+```sh
+metabase transform get-run 1 --json
+```
+
+### `metabase transform runs`
+
+List recent transform runs across all transforms, or filter to one. Drains all pages by default; pass `--limit` to cap.
+
+```sh
+metabase transform runs
+metabase transform runs --transform-id 1 --json
+metabase transform runs --limit 10 --json
+```
+
+| Flag                  | Description                                         |
+| --------------------- | --------------------------------------------------- |
+| `--transform-id <id>` | Filter to runs of a single transform id.            |
+| `--limit <n>`         | Cap total runs returned (default: drain all pages). |
+
 ## Transform jobs
 
 CRUD on `/api/transform-job`. Bodies for `create` / `update` follow the same `--body` / `--file` / stdin pattern as transforms.

@@ -9,7 +9,7 @@ import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 import { parseWaitFlags, waitFlags } from "../wait-flags";
 
-const RUN_TERMINAL_STATUSES = new Set(["succeeded", "failed", "timeout", "canceled"]);
+export const RUN_TERMINAL_STATUSES = new Set(["succeeded", "failed", "timeout", "canceled"]);
 const RUN_FAILURE_STATUSES = new Set(["failed", "timeout", "canceled"]);
 
 const TransformRunKickoff = z.object({
@@ -24,7 +24,7 @@ export const TransformRunResult = z.object({
 });
 export type TransformRunResultJson = z.infer<typeof TransformRunResult>;
 
-const transformRunView: ResourceView<TransformRunResultJson> = {
+const transformRunResultView: ResourceView<TransformRunResultJson> = {
   compactPick: TransformRunResult,
   tableColumns: [
     { key: "run_id", label: "Run ID" },
@@ -54,14 +54,18 @@ export default defineMetabaseCommand({
     if (!wait.enabled) {
       renderItem(
         { message: kickoff.message, run_id: kickoff.run_id, final: null },
-        transformRunView,
+        transformRunResultView,
         ctx,
       );
       return;
     }
 
     if (kickoff.run_id === null) {
-      renderItem({ message: kickoff.message, run_id: null, final: null }, transformRunView, ctx);
+      renderItem(
+        { message: kickoff.message, run_id: null, final: null },
+        transformRunResultView,
+        ctx,
+      );
       throw new Error(`transform run did not start: ${kickoff.message}`);
     }
 
@@ -73,7 +77,7 @@ export default defineMetabaseCommand({
       wait.schedule,
     );
 
-    renderItem({ message: kickoff.message, run_id: runId, final }, transformRunView, ctx);
+    renderItem({ message: kickoff.message, run_id: runId, final }, transformRunResultView, ctx);
 
     if (RUN_FAILURE_STATUSES.has(final.status)) {
       throw new Error(`transform run ${runId} ${final.status}`);

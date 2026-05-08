@@ -10,5 +10,8 @@ export default defineCommand({
     delete: () => import("./delete").then((mod) => mod.default),
     "delete-table": () => import("./delete-table").then((mod) => mod.default),
     run: () => import("./run").then((mod) => mod.default),
+    cancel: () => import("./cancel").then((mod) => mod.default),
+    "get-run": () => import("./get-run").then((mod) => mod.default),
+    runs: () => import("./runs").then((mod) => mod.default),
   },
 });
