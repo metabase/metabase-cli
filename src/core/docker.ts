@@ -10,7 +10,7 @@ import {
 } from "../runtime/process";
 import { buildTar, extractSingleFileFromTar, type TarEntry } from "../runtime/tar";
 
-import { ConfigError, errorMessage } from "./errors";
+import { ConfigError, errorMessage, MetabaseError } from "./errors";
 
 const DOCKER_BIN = "docker";
 
@@ -66,15 +66,39 @@ export type ContainerState = (typeof CONTAINER_STATES)[number];
 
 export type ContainerLifecycleStatus = ContainerState | "missing";
 
-export class DockerError extends Error {
-  readonly exitCode: number | null;
+export interface DockerErrorDetail {
+  dockerExitCode: number | null;
+  stderr: string;
+}
+
+export class DockerError extends MetabaseError {
+  readonly category = "docker";
+  readonly isRetryable = false;
+  readonly exitCode = 1;
+  readonly developerDetail: DockerErrorDetail;
   readonly stderr: string;
-  constructor(message: string, exitCode: number | null, stderr: string) {
+
+  constructor(message: string, dockerExitCode: number | null, stderr: string) {
     super(message);
     this.name = "DockerError";
-    this.exitCode = exitCode;
+    this.developerDetail = { dockerExitCode, stderr };
     this.stderr = stderr;
   }
+
+  override get userMessage(): string {
+    const trimmed = this.stderr.trim();
+    if (trimmed === "") {
+      return this.message;
+    }
+    return `${this.message}\n${indentLines(trimmed)}`;
+  }
+}
+
+function indentLines(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => `  ${line}`)
+    .join("\n");
 }
 
 export class DockerNotInstalledError extends Error {

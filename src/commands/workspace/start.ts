@@ -89,7 +89,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Workspace id", required: true },
     port: {
       type: "string",
-      description: `Host port to bind (default: ${DEFAULT_HOST_PORT}; auto-shifts up if taken)`,
+      description: `Host port to bind (default: ${DEFAULT_HOST_PORT}; auto-shifts up when this flag is omitted, fails on collision when set explicitly)`,
     },
     image: {
       type: "string",

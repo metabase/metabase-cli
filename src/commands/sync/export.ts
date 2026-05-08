@@ -92,18 +92,16 @@ export default defineMetabaseCommand({
     if (!args.wait) {
       const result: SyncExportResult = { message: kickoff.message, task_id: kickoff.task_id };
       renderItem(result, syncExportView, ctx);
-      emitRealignHint(ctx);
-      return;
+    } else {
+      const final = await pollSyncTask(client, { timeoutMs, intervalMs });
+      const result: SyncExportResult = {
+        message: kickoff.message,
+        task_id: kickoff.task_id,
+        final,
+      };
+      renderItem(result, syncExportView, ctx);
+      throwIfFailedTask(final, "export");
     }
-
-    const final = await pollSyncTask(client, { timeoutMs, intervalMs });
-    const result: SyncExportResult = {
-      message: kickoff.message,
-      task_id: kickoff.task_id,
-      final,
-    };
-    renderItem(result, syncExportView, ctx);
-    throwIfFailedTask(final, "export");
     emitRealignHint(ctx);
   },
 });

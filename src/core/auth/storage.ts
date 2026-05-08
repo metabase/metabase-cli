@@ -30,8 +30,7 @@ export const account = {
 } as const;
 
 const ProfileIndexSchema = z.array(z.string());
-const FILE_STORE_PROFILE_URL_PREFIX = "profile:";
-const FILE_STORE_PROFILE_URL_SUFFIX = ":url";
+const FILE_STORE_PROFILE_URL_PATTERN = /^profile:(.+):url$/;
 
 export interface KeyringLocation {
   backend: "keyring";
@@ -284,21 +283,12 @@ async function backfillProfileIndexFromFile(): Promise<string[]> {
   const store = await readFileStore();
   const names = new Set<string>();
   for (const key of Object.keys(store)) {
-    if (!key.startsWith(FILE_STORE_PROFILE_URL_PREFIX)) {
-      continue;
-    }
-    if (!key.endsWith(FILE_STORE_PROFILE_URL_SUFFIX)) {
-      continue;
-    }
-    const name = key.slice(
-      FILE_STORE_PROFILE_URL_PREFIX.length,
-      key.length - FILE_STORE_PROFILE_URL_SUFFIX.length,
-    );
-    if (name.length > 0) {
+    const name = FILE_STORE_PROFILE_URL_PATTERN.exec(key)?.[1];
+    if (name !== undefined) {
       names.add(name);
     }
   }
-  return [...names].toSorted();
+  return [...names];
 }
 
 export async function readLicense(): Promise<string | null> {

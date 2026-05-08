@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { containerNameFor, parseContainerLine, parseContainerLines, volumeNameFor } from "./docker";
+import {
+  containerNameFor,
+  DockerError,
+  parseContainerLine,
+  parseContainerLines,
+  volumeNameFor,
+} from "./docker";
+import { MetabaseError } from "./errors";
 
 describe("containerNameFor / volumeNameFor", () => {
   it("derives stable names from the workspace id", () => {
@@ -122,5 +129,30 @@ describe("parseContainerLines", () => {
     const stdout = `${a}\n\n${b}\n`;
     const summaries = parseContainerLines(stdout);
     expect(summaries.map((s) => s.workspaceId)).toEqual([1, 2]);
+  });
+});
+
+describe("DockerError", () => {
+  it("is a MetabaseError with category=docker, exitCode=1", () => {
+    const error = new DockerError("docker start failed for x", 125, "");
+    expect(error).toBeInstanceOf(MetabaseError);
+    expect(error.category).toBe("docker");
+    expect(error.exitCode).toBe(1);
+    expect(error.developerDetail).toEqual({ dockerExitCode: 125, stderr: "" });
+  });
+
+  it("userMessage falls back to the wrapper when stderr is empty", () => {
+    const error = new DockerError("docker start failed for x", 125, "");
+    expect(error.userMessage).toBe("docker start failed for x");
+  });
+
+  it("userMessage indents trimmed stderr beneath the wrapper", () => {
+    const stderr =
+      "docker: Error response from daemon: driver failed programming external connectivity: Bind for 0.0.0.0:3000 failed: port is already allocated.\n";
+    const error = new DockerError("docker create failed for metabase-workspace-1", 125, stderr);
+    expect(error.userMessage).toBe(
+      "docker create failed for metabase-workspace-1\n" +
+        "  docker: Error response from daemon: driver failed programming external connectivity: Bind for 0.0.0.0:3000 failed: port is already allocated.",
+    );
   });
 });

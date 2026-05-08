@@ -15,12 +15,12 @@ describe("isPortFree", () => {
     }
   });
 
-  it("returns true for an unbound localhost port", async () => {
+  it("returns true for an unbound port", async () => {
     const port = await pickFreePortViaOS();
     expect(await isPortFree(port)).toBe(true);
   });
 
-  it("returns false when a server is already bound to the port", async () => {
+  it("returns false when a server is already bound to the wildcard interface", async () => {
     const { port, server } = await bindServer();
     occupied = server;
     expect(await isPortFree(port)).toBe(false);
@@ -71,6 +71,6 @@ async function bindServer(): Promise<{ port: number; server: Server }> {
       }
       reject(new Error("server.address() did not return an object"));
     });
-    server.listen(0, "127.0.0.1");
+    server.listen(0, "0.0.0.0");
   });
 }

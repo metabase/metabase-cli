@@ -12,7 +12,10 @@ export function isPortFree(port: number): Promise<boolean> {
     server.once("listening", () => {
       server.close(() => resolve(true));
     });
-    server.listen(port, "127.0.0.1");
+    // 0.0.0.0 (not 127.0.0.1) — docker publishes container ports on the
+    // wildcard address, and a 127.0.0.1-only probe can return "free" while
+    // docker holds the port at 0.0.0.0.
+    server.listen(port, "0.0.0.0");
   });
 }
 

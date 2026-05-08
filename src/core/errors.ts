@@ -8,6 +8,7 @@ export type ErrorCategory =
   | "timeout"
   | "config"
   | "abort"
+  | "docker"
   | "unknown";
 
 export interface NetworkErrorDetail {
