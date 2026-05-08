@@ -66,6 +66,12 @@ const TRANSFORM_COMPACT = {
   name: TRANSFORM_NAME,
   description: null,
   source_type: "native",
+  target: {
+    type: "table",
+    database: E2E_DATABASES.WAREHOUSE,
+    schema: "public",
+    name: TRANSFORM_TARGET_TABLE,
+  },
   target_db_id: E2E_DATABASES.WAREHOUSE,
 } as const;
 
@@ -204,6 +210,53 @@ describe("transform e2e", () => {
     expect(parsed.message).toBe("Transform run started");
     expect(parsed.run_id).not.toBeNull();
     expect(parsed.final?.status).toBe("succeeded");
+  });
+
+  it("run --wait --json on a failing transform exits 1 with a stderr summary that does not duplicate final.message", async () => {
+    const failName = "e2e_transform_fail";
+    const failingBody: TransformBody = {
+      name: failName,
+      source: {
+        type: "query",
+        query: {
+          type: "native",
+          database: E2E_DATABASES.WAREHOUSE,
+          native: { query: "SELECT 1 FROM does_not_exist" },
+        },
+      },
+      target: {
+        type: "table",
+        database: E2E_DATABASES.WAREHOUSE,
+        schema: "public",
+        name: failName,
+      },
+    };
+
+    const createResult = await runCli({
+      args: ["transform", "create", "--json"],
+      stdin: JSON.stringify(failingBody),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(createResult.exitCode, createResult.stderr).toBe(0);
+    const created = parseJson(createResult.stdout, TransformCompact);
+
+    const runResult = await runCli({
+      args: ["transform", "run", String(created.id), "--wait", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(runResult.exitCode).toBe(1);
+    const parsed = parseJson(runResult.stdout, TransformRunResult);
+    const finalRun = parsed.final;
+    if (finalRun === null) throw new Error("expected final run to be populated when --wait is set");
+    const failureDetail = finalRun.message;
+    if (failureDetail === null) throw new Error("expected failed run to carry a message");
+
+    expect(finalRun.status).toBe("failed");
+    expect(runResult.stderr).toContain(`transform run ${parsed.run_id} failed`);
+    expect(runResult.stderr).not.toContain(failureDetail);
   });
 
   it("run returns a run_id for the created transform", async () => {

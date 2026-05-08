@@ -20,7 +20,7 @@ const TransformRunKickoff = z.object({
 export const TransformRunResult = z.object({
   message: z.string(),
   run_id: z.number().int().positive().nullable(),
-  final: TransformRun.nullable().optional(),
+  final: TransformRun.nullable(),
 });
 export type TransformRunResultJson = z.infer<typeof TransformRunResult>;
 
@@ -51,9 +51,18 @@ export default defineMetabaseCommand({
       method: "POST",
     });
 
-    if (!wait.enabled || kickoff.run_id === null) {
-      renderItem({ message: kickoff.message, run_id: kickoff.run_id }, transformRunView, ctx);
+    if (!wait.enabled) {
+      renderItem(
+        { message: kickoff.message, run_id: kickoff.run_id, final: null },
+        transformRunView,
+        ctx,
+      );
       return;
+    }
+
+    if (kickoff.run_id === null) {
+      renderItem({ message: kickoff.message, run_id: null, final: null }, transformRunView, ctx);
+      throw new Error(`transform run did not start: ${kickoff.message}`);
     }
 
     const runId = kickoff.run_id;
@@ -67,8 +76,7 @@ export default defineMetabaseCommand({
     renderItem({ message: kickoff.message, run_id: runId, final }, transformRunView, ctx);
 
     if (RUN_FAILURE_STATUSES.has(final.status)) {
-      const detail = final.message ? `: ${final.message}` : "";
-      throw new Error(`transform run ${runId} ${final.status}${detail}`);
+      throw new Error(`transform run ${runId} ${final.status}`);
     }
   },
 });

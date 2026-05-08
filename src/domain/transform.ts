@@ -112,6 +112,7 @@ export const TransformCompact = Transform.pick({
   name: true,
   description: true,
   source_type: true,
+  target: true,
   target_db_id: true,
 }).strip();
 export type TransformCompact = z.infer<typeof TransformCompact>;
@@ -122,10 +123,20 @@ export const transformView: ResourceView<Transform> = {
     { key: "id", label: "ID" },
     { key: "name", label: "Name" },
     { key: "source_type", label: "Source" },
+    { key: "target", label: "Target", format: (value) => formatTarget(value) },
     { key: "target_db_id", label: "Target DB" },
     { key: "description", label: "Description" },
   ],
 };
+
+function formatTarget(value: unknown): string {
+  const parsed = TransformTarget.safeParse(value);
+  if (!parsed.success) {
+    return "";
+  }
+  const { schema, name } = parsed.data;
+  return schema ? `${schema}.${name}` : name;
+}
 
 export const TransformCreateInput = z
   .object({
