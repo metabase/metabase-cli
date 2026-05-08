@@ -46,6 +46,7 @@ describe("__manifest e2e", () => {
       "card get",
       "card query",
       "card create",
+      "card update",
       "card archive",
       "dashboard list",
       "dashboard get",

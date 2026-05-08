@@ -69,6 +69,31 @@ export const CardCreateInput = z
   .loose();
 export type CardCreateInput = z.infer<typeof CardCreateInput>;
 
+export const CardUpdateInput = z
+  .object({
+    name: z.string().min(1).optional(),
+    type: CardType.optional(),
+    dataset_query: z.unknown().optional(),
+    display: z.string().min(1).optional(),
+    visualization_settings: z.unknown().optional(),
+    description: z.string().nullable().optional(),
+    archived: z.boolean().optional(),
+    enable_embedding: z.boolean().optional(),
+    embedding_type: z.string().optional(),
+    embedding_params: z.unknown().optional(),
+    collection_id: z.number().int().positive().nullable().optional(),
+    collection_position: z.number().int().positive().nullable().optional(),
+    collection_preview: z.boolean().optional(),
+    cache_ttl: z.number().int().positive().nullable().optional(),
+    dashboard_id: z.number().int().positive().nullable().optional(),
+    dashboard_tab_id: z.number().int().positive().nullable().optional(),
+    parameters: z.array(z.unknown()).optional(),
+    parameter_mappings: z.array(z.unknown()).optional(),
+    result_metadata: z.array(z.unknown()).nullable().optional(),
+  })
+  .loose();
+export type CardUpdateInput = z.infer<typeof CardUpdateInput>;
+
 const QueryColumn = z
   .object({
     name: z.string(),

@@ -385,4 +385,133 @@ describe("card e2e", () => {
     expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
+
+  it("update renames the card and the compact view reflects the new name", async () => {
+    const result = await runCli({
+      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      stdin: JSON.stringify({ name: "Orders by status (renamed)" }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, CardCompact)).toEqual({
+      ...ORDERS_BY_STATUS_COMPACT,
+      name: "Orders by status (renamed)",
+    });
+  });
+
+  it("update flips archived to true and the archived list reflects it", async () => {
+    const updateResult = await runCli({
+      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      stdin: JSON.stringify({ archived: true }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(updateResult.exitCode, updateResult.stderr).toBe(0);
+    expect(parseJson(updateResult.stdout, CardCompact)).toEqual({
+      ...ORDERS_BY_STATUS_COMPACT,
+      archived: true,
+    });
+
+    const archivedListResult = await runCli({
+      args: ["card", "list", "--filter", "archived", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(archivedListResult.exitCode, archivedListResult.stderr).toBe(0);
+    expect(parseJson(archivedListResult.stdout, CardListEnvelope)).toEqual({
+      data: [{ ...ORDERS_BY_STATUS_COMPACT, archived: true }],
+      returned: 1,
+      total: 1,
+    });
+  });
+
+  it("update changes display from table to bar without disturbing other fields", async () => {
+    const result = await runCli({
+      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      stdin: JSON.stringify({ display: "bar" }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, CardCompact)).toEqual({
+      ...ORDERS_BY_STATUS_COMPACT,
+      display: "bar",
+    });
+  });
+
+  it("update with a non-integer id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["card", "update", "abc", "--json"],
+      stdin: JSON.stringify({ name: "x" }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("update against a missing card id surfaces a 404 HttpError", async () => {
+    const result = await runCli({
+      args: ["card", "update", "9999999", "--json"],
+      stdin: JSON.stringify({ name: "x" }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+  });
+
+  it("update with invalid MBQL 5 dataset_query fails pre-flight before sending", async () => {
+    const result = await runCli({
+      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      stdin: JSON.stringify({
+        dataset_query: {
+          "lib/type": "mbql/query",
+          database: "oops not an integer",
+          stages: [
+            {
+              "lib/type": "mbql.stage/mbql",
+              "source-table": E2E_TABLES.ORDERS,
+            },
+          ],
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/database", message: "must be integer" }],
+    });
+    expect(result.stderr).toContain(
+      "card.dataset_query validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+    );
+  });
+
+  it("update --skip-validate bypasses the MBQL 5 pre-flight (server is the authority)", async () => {
+    const result = await runCli({
+      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--skip-validate", "--json"],
+      stdin: JSON.stringify({
+        dataset_query: {
+          "lib/type": "mbql/query",
+          database: "oops not an integer",
+          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": E2E_TABLES.ORDERS }],
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    // Pre-flight is bypassed; the server then rejects the malformed body with an HttpError (exit 1).
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+  });
 });
