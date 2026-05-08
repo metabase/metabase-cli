@@ -3,6 +3,8 @@ import addFormats from "ajv-formats";
 import type { ValidateFunction } from "ajv";
 import { z } from "zod";
 
+import { isPlainObject } from "../../runtime/predicates";
+
 import idSchema from "./data/schemas/common/id.json" with { type: "json" };
 import parameterSchema from "./data/schemas/common/parameter.json" with { type: "json" };
 import querySchema from "./data/schemas/common/query.json" with { type: "json" };
@@ -77,17 +79,84 @@ function runValidator(validator: ValidateFunction, value: unknown): ValidationOu
   if (validator(value)) {
     return { ok: true, errors: [] };
   }
+  const refHints = collectRefShapeHints(value);
   const issues = validator.errors ?? [];
   const errors = issues.map((issue) => {
     if (issue.message === undefined) {
       throw new Error(`Ajv issue at ${issue.instancePath} has no message`);
     }
-    return {
-      path: issue.instancePath === "" ? "/" : issue.instancePath,
-      message: issue.message,
-    };
+    const path = issue.instancePath === "" ? "/" : issue.instancePath;
+    const enrichedMessage = refHints.get(path);
+    return { path, message: enrichedMessage ?? issue.message };
   });
   return { ok: false, errors };
+}
+
+// Walks the candidate query and identifies ref-clause arrays whose third
+// element violates its kind-specific contract. Ajv reports these as bare
+// "must be string", which doesn't tell the caller *which* string is meant
+// (target aggregation's lib/uuid? expression's name?). We carry the kind in
+// from the parent so the swapped message names the contract directly.
+function collectRefShapeHints(root: unknown): Map<string, string> {
+  const hints = new Map<string, string>();
+  visit(root, "");
+  return hints;
+
+  function visit(node: unknown, path: string): void {
+    if (Array.isArray(node)) {
+      const refMessage = refShapeMessage(node);
+      if (refMessage !== null) {
+        hints.set(`${path}/2`, refMessage);
+      }
+      for (let index = 0; index < node.length; index += 1) {
+        visit(node[index], `${path}/${index}`);
+      }
+      return;
+    }
+    if (!isPlainObject(node)) {
+      return;
+    }
+    for (const key of Object.keys(node)) {
+      const segment = key.replace(/~/g, "~0").replace(/\//g, "~1");
+      visit(node[key], `${path}/${segment}`);
+    }
+  }
+}
+
+function refShapeMessage(clause: readonly unknown[]): string | null {
+  if (clause.length !== 3) {
+    return null;
+  }
+  const kind = clause[0];
+  if (typeof kind !== "string") {
+    return null;
+  }
+  const hint = refHintForKind(kind);
+  if (hint === null) {
+    return null;
+  }
+  if (typeof clause[2] === "string") {
+    return null;
+  }
+  return hint;
+}
+
+// Only `aggregation` and `expression` refs have unambiguously string-typed
+// third elements. `metric`, `measure`, and `segment` refs accept entity ids
+// that may be integer or string depending on the resource, so a "must be
+// string" rewrite for those would mislead — leave Ajv's bare message alone.
+function refHintForKind(kind: string): string | null {
+  switch (kind) {
+    case "aggregation": {
+      return "must be the target aggregation's lib/uuid (string), not a numeric position";
+    }
+    case "expression": {
+      return "must be the target expression's name (string), not a numeric position";
+    }
+    default: {
+      return null;
+    }
+  }
 }
 
 export function validateExternalQuery(value: unknown): ValidationOutcome {
@@ -103,6 +172,28 @@ export function isMbql5Query(value: unknown): boolean {
     return false;
   }
   return "lib/type" in value && value["lib/type"] === "mbql/query";
+}
+
+// Detects the double-wrap footgun: an MBQL 5 query (`{lib/type: "mbql/query", …}`)
+// nested inside a legacy MBQL 4 envelope (`{type: "query", database: N, query: {…}}`).
+// The server stores this without complaint and only fails at run time with
+// "Initial MBQL stage must have either :source-table or :source-card", because
+// the legacy normalizer descends into `query` expecting legacy shape.
+export function isLegacyEnvelopeWrappingMbql5(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  if (!("type" in value) || value["type"] !== "query") {
+    return false;
+  }
+  if (!("query" in value)) {
+    return false;
+  }
+  const inner = value["query"];
+  if (typeof inner !== "object" || inner === null || Array.isArray(inner)) {
+    return false;
+  }
+  return "lib/type" in inner && inner["lib/type"] === "mbql/query";
 }
 
 export const SchemaMode = z.enum(["external", "internal"]);

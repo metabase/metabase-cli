@@ -1,4 +1,9 @@
-import { Dashboard, DashboardCreateInput, dashboardView } from "../../domain/dashboard";
+import {
+  Dashboard,
+  DashboardCreateInput,
+  DashboardDetail,
+  dashboardView,
+} from "../../domain/dashboard";
 import { renderItem } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
@@ -13,14 +18,24 @@ export default defineMetabaseCommand({
     "cat dashboard.json | metabase dashboard create",
     "metabase dashboard create --file dashboard.json",
     'metabase dashboard create --body \'{"name":"My Dashboard","collection_id":4}\'',
+    'metabase dashboard create --body \'{"name":"D","dashcards":[{"id":-1,"card_id":42,"row":0,"col":0,"size_x":12,"size_y":6}]}\'',
   ],
   async run({ args, ctx, getClient }) {
     const body = await readBody({ flag: args.body, file: args.file }, DashboardCreateInput);
+    const { dashcards, tabs, ...createOnly } = body;
     const client = await getClient();
     const created = await client.requestParsed(Dashboard, "/api/dashboard", {
       method: "POST",
-      body,
+      body: createOnly,
     });
-    renderItem(created, dashboardView, ctx);
+    if (dashcards === undefined && tabs === undefined) {
+      renderItem(created, dashboardView, ctx);
+      return;
+    }
+    const updated = await client.requestParsed(DashboardDetail, `/api/dashboard/${created.id}`, {
+      method: "PUT",
+      body: { dashcards, tabs },
+    });
+    renderItem(updated, dashboardView, ctx);
   },
 });

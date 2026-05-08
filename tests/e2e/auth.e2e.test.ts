@@ -144,7 +144,7 @@ describe("auth e2e", () => {
     });
   });
 
-  it("logout fails with ConfigError exit code without --yes when stdin is not a TTY", async () => {
+  it("logout proceeds without --yes when stdin is not a TTY (non-interactive auto-confirm)", async () => {
     const configHome = await makeIsolatedConfigHome();
 
     const logout = await runCli({
@@ -153,8 +153,11 @@ describe("auth e2e", () => {
       stdin: "",
     });
 
-    expect(logout.exitCode).toBe(2);
-    expect(logout.stderr).toContain("--yes required to clear credentials non-interactively");
-    expect(logout.stdout).toBe("");
+    expect(logout.exitCode, logout.stderr).toBe(0);
+    expect(parseJson(logout.stdout, LogoutResult)).toEqual({
+      profile: "default",
+      cleared: false,
+      aborted: false,
+    });
   });
 });

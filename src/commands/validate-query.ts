@@ -1,5 +1,9 @@
 import { ConfigError } from "../core/errors";
-import { isMbql5Query, validateInternalQuery } from "../core/schema/validate";
+import {
+  isLegacyEnvelopeWrappingMbql5,
+  isMbql5Query,
+  validateInternalQuery,
+} from "../core/schema/validate";
 import { writeJson } from "../output/render";
 
 export const skipValidateFlag = {
@@ -23,6 +27,13 @@ export function preflightInternalMbql5Query(
 ): void {
   if (options.skip) {
     return;
+  }
+  if (isLegacyEnvelopeWrappingMbql5(query)) {
+    throw new ConfigError(
+      `${contextLabel}: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope. ` +
+        `For MBQL 5, dataset_query is the mbql/query value itself: ` +
+        `{"lib/type":"mbql/query", database:N, stages:[…]}.`,
+    );
   }
   if (!isMbql5Query(query)) {
     return;

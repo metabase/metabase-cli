@@ -96,4 +96,43 @@ describe("preflightInternalMbql5Query", () => {
     expect(streams.stdout).toBe("");
     expect(streams.stderr).toBe("");
   });
+
+  it("rejects MBQL 5 nested inside a legacy MBQL 4 envelope with a targeted message", () => {
+    const doubleWrapped = {
+      type: "query",
+      database: 2,
+      query: {
+        "lib/type": "mbql/query",
+        database: 2,
+        stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
+      },
+    };
+    expect(() =>
+      preflightInternalMbql5Query(doubleWrapped, "card.dataset_query validation failed", {
+        skip: false,
+      }),
+    ).toThrow(
+      new ConfigError(
+        'card.dataset_query validation failed: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope. ' +
+          "For MBQL 5, dataset_query is the mbql/query value itself: " +
+          '{"lib/type":"mbql/query", database:N, stages:[…]}.',
+      ),
+    );
+    expect(streams.stdout).toBe("");
+    expect(streams.stderr).toBe("");
+  });
+
+  it("legacy-envelope detection is bypassed by skip", () => {
+    preflightInternalMbql5Query(
+      {
+        type: "query",
+        database: 2,
+        query: { "lib/type": "mbql/query", database: 2, stages: [] },
+      },
+      "card.dataset_query validation failed",
+      { skip: true },
+    );
+    expect(streams.stdout).toBe("");
+    expect(streams.stderr).toBe("");
+  });
 });

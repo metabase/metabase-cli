@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { ConfigError } from "../core/errors";
 import type { Client } from "../core/http/client";
 import type { ResourceView } from "../domain/view";
 import { promptConfirm } from "../output/prompt";
@@ -35,10 +34,7 @@ export interface ConfirmAndDeleteArgs {
 }
 
 export async function confirmAndDelete(args: ConfirmAndDeleteArgs): Promise<void> {
-  if (!args.yes) {
-    if (!process.stdin.isTTY) {
-      throw new ConfigError("--yes required to delete non-interactively");
-    }
+  if (!args.yes && process.stdin.isTTY === true) {
     const ok = await promptConfirm({
       message: args.promptMessage,
       initialValue: false,

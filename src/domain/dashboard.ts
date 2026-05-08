@@ -112,6 +112,8 @@ export const DashboardCreateInput = z
     cache_ttl: z.number().int().positive().optional(),
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
+    dashcards: z.array(z.unknown()).optional(),
+    tabs: z.array(DashboardTab.partial()).optional(),
   })
   .loose();
 export type DashboardCreateInput = z.infer<typeof DashboardCreateInput>;

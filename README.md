@@ -72,10 +72,10 @@ metabase auth logout --yes
 metabase auth logout --profile staging --yes
 ```
 
-| Flag               | Description                             |
-| ------------------ | --------------------------------------- |
-| `--profile <name>` | Profile to clear (default: `default`).  |
-| `--yes`            | Skip confirmation. Required on non-TTY. |
+| Flag               | Description                                                                                                                       |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--profile <name>` | Profile to clear (default: `default`).                                                                                            |
+| `--yes`            | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
 ## License
 
@@ -113,9 +113,9 @@ Clear the stored license.
 metabase license remove --yes
 ```
 
-| Flag    | Description                             |
-| ------- | --------------------------------------- |
-| `--yes` | Skip confirmation. Required on non-TTY. |
+| Flag    | Description                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
 Common output flags (`--json`, `--format`, `--detail`, `--fields`, `--max-bytes`) are accepted; the result payload is rendered through the standard output layer.
 
@@ -162,9 +162,9 @@ Same `--body` / `--file` resolution as `create`. Stdin is auto-detected when not
 metabase transform delete 1 --yes
 ```
 
-| Flag    | Description                             |
-| ------- | --------------------------------------- |
-| `--yes` | Skip confirmation. Required on non-TTY. |
+| Flag    | Description                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
 ### `metabase transform run <id>`
 
@@ -220,9 +220,9 @@ metabase transform-job update 1 --body '{"schedule":"0 0 6 * * ?"}'
 metabase transform-job delete 1 --yes
 ```
 
-| Flag    | Description                             |
-| ------- | --------------------------------------- |
-| `--yes` | Skip confirmation. Required on non-TTY. |
+| Flag    | Description                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
 ## Cards
 
@@ -292,10 +292,10 @@ metabase card update 1 --body '{"archived":true}'
 metabase card update 1 --file patch.json --skip-validate
 ```
 
-| Flag              | Description                                                                                                          |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `--body <json>`   | Inline JSON body.                                                                                                    |
-| `--file <path>`   | Path to JSON body file.                                                                                              |
+| Flag              | Description                                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--body <json>`   | Inline JSON body.                                                                                                                                      |
+| `--file <path>`   | Path to JSON body file.                                                                                                                                |
 | `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
 ### `metabase card archive <id>`
@@ -344,16 +344,19 @@ metabase dashboard cards 1 --json
 
 ### `metabase dashboard create`
 
+The body accepts the same dashboard-level fields as the underlying `POST /api/dashboard` (`name`, `description`, `parameters`, `cache_ttl`, `collection_id`, `collection_position`). It also accepts optional `dashcards` and `tabs`: when either is present, the CLI chains a `PUT /api/dashboard/:id` after the create and returns the updated dashboard with its dashcards/tabs applied. Use a negative `id` on a dashcard to indicate one the server should newly create.
+
 ```sh
 cat dashboard.json | metabase dashboard create
 metabase dashboard create --file dashboard.json
 metabase dashboard create --body '{"name":"My Dashboard","collection_id":4}'
+metabase dashboard create --body '{"name":"D","dashcards":[{"id":-1,"card_id":42,"row":0,"col":0,"size_x":12,"size_y":6}]}'
 ```
 
-| Flag            | Description             |
-| --------------- | ----------------------- |
-| `--body <json>` | Inline JSON body.       |
-| `--file <path>` | Path to JSON body file. |
+| Flag            | Description                                         |
+| --------------- | --------------------------------------------------- |
+| `--body <json>` | Inline JSON body.                                   |
+| `--file <path>` | Path to JSON body file. Use `-` to read from stdin. |
 
 ### `metabase dashboard update <id>`
 
@@ -663,12 +666,12 @@ metabase workspace database deprovision 1 5 --yes
 metabase workspace database deprovision 1 5 --yes --wait
 ```
 
-| Flag              | Description                                                  |
-| ----------------- | ------------------------------------------------------------ |
-| `--yes`           | Skip confirmation. Required on non-TTY.                      |
-| `--wait`          | Poll until the database entry is removed from the workspace. |
-| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`.  |
-| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.   |
+| Flag              | Description                                                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--yes`           | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
+| `--wait`          | Poll until the database entry is removed from the workspace.                                                                      |
+| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`.                                                                       |
+| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.                                                                        |
 
 ### Local runtime
 
@@ -725,10 +728,10 @@ metabase workspace remove 1 --keep-volume --yes
 
 Stops and removes the container. By default, also removes the app-db volume — pass `--keep-volume` to preserve it across rebuilds. **Does not affect the remote workspace** on the parent.
 
-| Flag            | Description                                                   |
-| --------------- | ------------------------------------------------------------- |
-| `--yes`         | Skip confirmation. Required on non-TTY.                       |
-| `--keep-volume` | Preserve the app-db volume (`metabase-workspace-<id>-appdb`). |
+| Flag            | Description                                                                                                                       |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--yes`         | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
+| `--keep-volume` | Preserve the app-db volume (`metabase-workspace-<id>-appdb`).                                                                     |
 
 ### `metabase workspace logs <id>`
 

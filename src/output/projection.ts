@@ -1,5 +1,6 @@
 import { ConfigError } from "../core/errors";
 import type { ResourceView } from "../domain/view";
+import { isPlainObject } from "../runtime/predicates";
 
 export function applyProjection<T>(
   value: T,
@@ -68,6 +69,4 @@ function setPath(target: Record<string, unknown>, parts: string[], value: unknow
   }
 }
 
-export function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+export { isPlainObject };

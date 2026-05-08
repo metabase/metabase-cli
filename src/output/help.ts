@@ -19,7 +19,7 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
   const stripped = first === undefined ? "" : first.replace(BREADCRUMB_SUFFIX, "$1");
   const body = [stripped, ...rest].join("\n");
   const examples = getMetabaseAugment(cmd)?.examples ?? [];
-  process.stdout.write(body + renderExamples(examples) + "\n");
+  process.stdout.write(body + renderExamples(examples) + renderSchemaHint() + "\n");
 }
 
 function renderExamples(examples: readonly string[]): string {
@@ -31,4 +31,13 @@ function renderExamples(examples: readonly string[]): string {
     lines.push(`  ${example}`);
   }
   return lines.join("\n");
+}
+
+function renderSchemaHint(): string {
+  return [
+    "",
+    "SCHEMA",
+    "",
+    "  metabase __manifest      # machine-readable command tree (flags, output, examples)",
+  ].join("\n");
 }

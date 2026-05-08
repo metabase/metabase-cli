@@ -66,7 +66,7 @@ export default defineMetabaseCommand({
 
     await checkDockerReady();
 
-    if (!args.yes) {
+    if (!args.yes && process.stdin.isTTY === true) {
       const confirmed = await promptConfirm({
         message: shouldRemoveVolume
           ? `Remove container ${containerName} and its app-db volume ${volumeName}?`
