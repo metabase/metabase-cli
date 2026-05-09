@@ -43,8 +43,9 @@ import { defineMetabaseCommand } from "../runtime";
 
 const DEFAULT_IMAGE = "metabase/metabase-dev:feature-workspaces-v2";
 const DEFAULT_HOST_PORT = 3000;
-const DEFAULT_HEALTH_TIMEOUT_MS = 180_000;
-const DEFAULT_CONFIG_CONSUMED_TIMEOUT_MS = 60_000;
+// 240s: a cold boot (image pull + JVM classloading + initial app-db migrations)
+// can exceed three minutes on the first start.
+const DEFAULT_READY_TIMEOUT_MS = 240_000;
 const HEALTH_INTERVAL_MS = 2_000;
 const HEALTH_MAX_INTERVAL_MS = 10_000;
 const HEALTH_PROBE_TIMEOUT_MS = 4_000;
@@ -104,8 +105,8 @@ export default defineMetabaseCommand({
     },
     timeout: {
       type: "string",
-      description: `Health check deadline in ms (used with --wait; default: ${DEFAULT_HEALTH_TIMEOUT_MS})`,
-      default: String(DEFAULT_HEALTH_TIMEOUT_MS),
+      description: `Per-phase readiness deadline in ms — covers post-create config consumption and (with --wait) the /api/health probe. Default: ${DEFAULT_READY_TIMEOUT_MS}.`,
+      default: String(DEFAULT_READY_TIMEOUT_MS),
     },
     pull: {
       type: "boolean",
@@ -151,7 +152,7 @@ export default defineMetabaseCommand({
     const workspaceId = parseId(args.id);
     const containerName = containerNameFor(workspaceId);
     const requestedPort = parseOptionalInteger(args.port, { name: "--port", min: 1 });
-    const healthTimeoutMs = parseInteger(args.timeout ?? String(DEFAULT_HEALTH_TIMEOUT_MS), {
+    const readyTimeoutMs = parseInteger(args.timeout ?? String(DEFAULT_READY_TIMEOUT_MS), {
       name: "--timeout",
       min: 1000,
     });
@@ -215,7 +216,7 @@ export default defineMetabaseCommand({
     // file itself is no longer needed. Scrubbing it here keeps the warehouse password
     // out of the container's overlay FS for the rest of the instance's lifetime.
     // credentials.json stays — `workspace credentials` reads it on demand.
-    await waitForConfigConsumed(workspaceId, DEFAULT_CONFIG_CONSUMED_TIMEOUT_MS);
+    await waitForConfigConsumed(workspaceId, readyTimeoutMs);
     try {
       await scrubContainerConfig(workspaceId);
     } catch (error) {
@@ -223,7 +224,7 @@ export default defineMetabaseCommand({
     }
 
     if (args.wait) {
-      await waitForHealth(hostPort, healthTimeoutMs);
+      await waitForHealth(hostPort, readyTimeoutMs);
     }
 
     const result: StartResult = {
