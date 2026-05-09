@@ -10,6 +10,7 @@ vi.mock("@napi-rs/keyring", async () => {
   return createKeyringMockModule(hoisted);
 });
 
+import { recordRejection } from "./auth/rejection";
 import { writeProfile } from "./auth/storage";
 import { setupTempConfigHome, type TempConfigHome } from "./auth/temp-config-home";
 import { resolveConfig, resolveProfileName } from "./config";
@@ -143,6 +144,41 @@ describe("resolveConfig", () => {
     const error = await resolveConfig({}).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
     expect(error).toMatchObject({ message: expect.stringContaining("Not authenticated") });
+  });
+
+  it("surfaces a prior login rejection when nothing is configured", async () => {
+    await recordRejection("cohort_retention", {
+      reason: "Invalid or unauthorized API key",
+      url: "https://metabase.example.com/admin",
+    });
+    const error = await resolveConfig({ profile: "cohort_retention" }).catch(
+      (thrown: unknown) => thrown,
+    );
+    expect(error).toBeInstanceOf(ConfigError);
+    if (!(error instanceof ConfigError)) {
+      throw new Error("expected ConfigError");
+    }
+    expect(error.message).toBe(
+      'Last login for profile "cohort_retention" was rejected by https://metabase.example.com: Invalid or unauthorized API key. Re-run `metabase auth login --profile cohort_retention` with valid credentials.',
+    );
+  });
+
+  it("ignores the rejection record when stored credentials are still present", async () => {
+    await writeProfile(
+      { url: "https://saved.example.com", apiKey: "saved-key" },
+      "cohort_retention",
+    );
+    await recordRejection("cohort_retention", {
+      reason: "Invalid or unauthorized API key",
+      url: "https://saved.example.com",
+    });
+    const config = await resolveConfig({ profile: "cohort_retention" });
+    expect(config).toEqual({
+      url: "https://saved.example.com",
+      apiKey: "saved-key",
+      profile: "cohort_retention",
+      source: "stored",
+    });
   });
 });
 

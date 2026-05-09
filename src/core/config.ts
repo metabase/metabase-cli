@@ -1,6 +1,7 @@
+import { readRejection } from "./auth/rejection";
 import { DEFAULT_PROFILE, readLicense, readProfile } from "./auth/storage";
 import { ConfigError } from "./errors";
-import { normalizeUrl } from "./url";
+import { normalizeUrl, originOnly } from "./url";
 
 const ENV_URL = "METABASE_URL";
 const ENV_API_KEY = "METABASE_API_KEY";
@@ -64,6 +65,12 @@ export async function resolveConfig(flags: ConfigFlags): Promise<ResolvedConfig>
   const keyField = pickField(flagKey, env.apiKey, stored?.apiKey);
 
   if (urlField === null || keyField === null) {
+    const rejection = await readRejection(profile);
+    if (rejection !== null) {
+      throw new ConfigError(
+        `Last login for profile "${profile}" was rejected by ${originOnly(rejection.url)}: ${rejection.reason}. Re-run \`metabase auth login --profile ${profile}\` with valid credentials.`,
+      );
+    }
     throw new ConfigError(
       `Not authenticated for profile "${profile}". Run \`metabase auth login\`, set ${ENV_URL}/${ENV_API_KEY}, or pass --url/--api-key.`,
     );

@@ -1181,18 +1181,18 @@ By default `start` returns once the bundle has been consumed by the child (`stat
 
 When `--repo <host-path>` is passed, the CLI bind-mounts the host directory at `/mnt/repo` inside the container and injects three settings into the workspace's `config.yml` so the child boots already wired to the repo: `remote-sync-url=file:///mnt/repo`, `remote-sync-branch=<branch>` (defaults to the current branch of the host repo, read via `git -C <path> symbolic-ref --short HEAD`; override with `--repo-branch`), and `remote-sync-type=<mode>` (defaults to `read-write`; override with `--repo-mode read-only`, which also makes the bind mount read-only). The bind mount is set at container-create time only — to add or change it after the fact, run `start --force` again with the new flags. The host path must be an existing directory; the CLI does not create or `git init` it for you.
 
-| Flag                   | Description                                                                                               |
-| ---------------------- | --------------------------------------------------------------------------------------------------------- |
-| `--port <n>`           | Host port (default: 3000; auto-shifts up to 100 ports if taken).                                          |
-| `--image <ref>`        | Docker image (default: `metabase/metabase-dev:feature-workspaces-v2`).                                    |
-| `--wait`               | Block until `/api/health` is ready. Default: return as soon as consumed.                                  |
+| Flag                   | Description                                                                                                                        |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `--port <n>`           | Host port (default: 3000; auto-shifts up to 100 ports if taken).                                                                   |
+| `--image <ref>`        | Docker image (default: `metabase/metabase-dev:feature-workspaces-v2`).                                                             |
+| `--wait`               | Block until `/api/health` is ready. Default: return as soon as consumed.                                                           |
 | `--timeout <ms>`       | Per-phase readiness deadline (default: 240000). Covers post-create config consumption and (with `--wait`) the `/api/health` probe. |
-| `--no-pull`            | Skip `docker pull` (useful if the image is already present).                                              |
-| `--no-metadata`        | Skip the warehouse metadata export.                                                                       |
-| `--force`              | If a container for this workspace already exists, remove it before starting.                              |
-| `--repo <host-path>`   | Bind-mount a host directory at `/mnt/repo` and set `remote-sync-url=file:///mnt/repo` in `config.yml`.    |
-| `--repo-branch <name>` | `remote-sync-branch` value (default: current branch of the host repo).                                    |
-| `--repo-mode <mode>`   | `remote-sync-type`: `read-write` (default) or `read-only`. Read-only also makes the bind mount read-only. |
+| `--no-pull`            | Skip `docker pull` (useful if the image is already present).                                                                       |
+| `--no-metadata`        | Skip the warehouse metadata export.                                                                                                |
+| `--force`              | If a container for this workspace already exists, remove it before starting.                                                       |
+| `--repo <host-path>`   | Bind-mount a host directory at `/mnt/repo` and set `remote-sync-url=file:///mnt/repo` in `config.yml`.                             |
+| `--repo-branch <name>` | `remote-sync-branch` value (default: current branch of the host repo).                                                             |
+| `--repo-mode <mode>`   | `remote-sync-type`: `read-write` (default) or `read-only`. Read-only also makes the bind mount read-only.                          |
 
 ### `metabase workspace stop <id>`
 

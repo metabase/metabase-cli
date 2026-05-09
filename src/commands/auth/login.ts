@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { clearRejection, recordRejection } from "../../core/auth/rejection";
 import { writeProfile } from "../../core/auth/storage";
 import { verifyCredentials } from "../../core/auth/verify";
 import { readEnvCredentials, resolveProfileName } from "../../core/config";
@@ -67,13 +68,17 @@ export default defineMetabaseCommand({
     if (!args["skip-verify"]) {
       const result = await verifyCredentials(url, apiKey);
       if (!result.ok) {
-        throw new ConfigError(`verification failed: ${result.message}`);
+        await recordRejection(profileName, { reason: result.message, url });
+        throw new ConfigError(
+          `verification failed: ${result.message} — credentials were not saved for profile "${profileName}"`,
+        );
       }
       email = result.user.email;
       authenticated = true;
     }
 
     const location = await writeProfile({ url, apiKey }, profileName);
+    await clearRejection(profileName);
     if (location.backend === "file") {
       warn(`warning: OS keychain unavailable; credentials stored as plaintext at ${location.path}`);
     }
