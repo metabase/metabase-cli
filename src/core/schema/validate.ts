@@ -1,6 +1,6 @@
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
-import type { ValidateFunction } from "ajv";
+import type { ErrorObject, ValidateFunction } from "ajv";
 import { z } from "zod";
 
 import { isPlainObject } from "../../runtime/predicates";
@@ -75,38 +75,67 @@ function getInternalValidator(): ValidateFunction {
   return internalValidator;
 }
 
+export const UUID_HINT_MESSAGE =
+  "must be a UUID v4 (RFC 4122) — run `metabase uuid` (or `metabase uuid --count N`) to mint one. The MBQL 5 schema rejects placeholder strings (`a1`, `uuid-1`, etc.); agents must call the CLI for UUIDs rather than authoring them.";
+
+export const FIELD_SLOT1_HINT_MESSAGE =
+  'must be the field options object — MBQL 5 field refs are ["field", {options}, fieldId]; the legacy MBQL 4 shape ["field", id, opts] is not accepted here. (Tip: `metabase uuid` mints `lib/uuid` strings if you need them.)';
+
+export function clauseSlot1HintMessage(operator: string, slot1: unknown): string {
+  return `must be the clause options object — every MBQL 5 clause is ["${operator}", {options}, ...args]; got ${describeJsonValue(slot1)} at index 1`;
+}
+
+const FormatErrorParams = z.object({ format: z.string() });
+
+function isUuidFormatIssue(issue: ErrorObject): boolean {
+  if (issue.keyword !== "format") {
+    return false;
+  }
+  const parsed = FormatErrorParams.safeParse(issue.params);
+  return parsed.success && parsed.data.format === "uuid";
+}
+
 function runValidator(validator: ValidateFunction, value: unknown): ValidationOutcome {
   if (validator(value)) {
     return { ok: true, errors: [] };
   }
-  const refHints = collectRefShapeHints(value);
+  const overrides = collectMessageOverrides(value);
   const issues = validator.errors ?? [];
   const errors = issues.map((issue) => {
     if (issue.message === undefined) {
       throw new Error(`Ajv issue at ${issue.instancePath} has no message`);
     }
     const path = issue.instancePath === "" ? "/" : issue.instancePath;
-    const enrichedMessage = refHints.get(path);
-    return { path, message: enrichedMessage ?? issue.message };
+    if (isUuidFormatIssue(issue)) {
+      return { path, message: UUID_HINT_MESSAGE };
+    }
+    const overridden = overrides.get(path);
+    return { path, message: overridden ?? issue.message };
   });
   return { ok: false, errors };
 }
 
-// Walks the candidate query and identifies ref-clause arrays whose third
-// element violates its kind-specific contract. Ajv reports these as bare
-// "must be string", which doesn't tell the caller *which* string is meant
-// (target aggregation's lib/uuid? expression's name?). We carry the kind in
-// from the parent so the swapped message names the contract directly.
-function collectRefShapeHints(root: unknown): Map<string, string> {
-  const hints = new Map<string, string>();
+// Walks the candidate query and assembles per-path overrides for two common
+// hand-authoring traps. Index 1 of every clause must be an options object
+// (MBQL 5 puts opts second; the legacy MBQL 4 shape `[op, id, opts]` lands the
+// id in this slot — Ajv just says "must be object", which doesn't tell the
+// caller *why*). Index 2 of aggregation/expression refs must be a string
+// (the target's lib/uuid or name); a numeric position there is the legacy
+// position-index footgun.
+function collectMessageOverrides(root: unknown): Map<string, string> {
+  const overrides = new Map<string, string>();
   visit(root, "");
-  return hints;
+  return overrides;
 
   function visit(node: unknown, path: string): void {
     if (Array.isArray(node)) {
-      const refMessage = refShapeMessage(node);
-      if (refMessage !== null) {
-        hints.set(`${path}/2`, refMessage);
+      const slot1 = clauseSlot1Message(node);
+      if (slot1 !== null) {
+        overrides.set(`${path}/1`, slot1);
+      }
+      const slot2 = refSlot2Message(node);
+      if (slot2 !== null) {
+        overrides.set(`${path}/2`, slot2);
       }
       for (let index = 0; index < node.length; index += 1) {
         visit(node[index], `${path}/${index}`);
@@ -123,7 +152,25 @@ function collectRefShapeHints(root: unknown): Map<string, string> {
   }
 }
 
-function refShapeMessage(clause: readonly unknown[]): string | null {
+function clauseSlot1Message(clause: readonly unknown[]): string | null {
+  if (clause.length < 2) {
+    return null;
+  }
+  const operator = clause[0];
+  if (typeof operator !== "string") {
+    return null;
+  }
+  const slot1 = clause[1];
+  if (isPlainObject(slot1)) {
+    return null;
+  }
+  if (operator === "field") {
+    return FIELD_SLOT1_HINT_MESSAGE;
+  }
+  return clauseSlot1HintMessage(operator, slot1);
+}
+
+function refSlot2Message(clause: readonly unknown[]): string | null {
   if (clause.length !== 3) {
     return null;
   }
@@ -131,14 +178,10 @@ function refShapeMessage(clause: readonly unknown[]): string | null {
   if (typeof kind !== "string") {
     return null;
   }
-  const hint = refHintForKind(kind);
-  if (hint === null) {
-    return null;
-  }
   if (typeof clause[2] === "string") {
     return null;
   }
-  return hint;
+  return refHintForKind(kind);
 }
 
 // Only `aggregation` and `expression` refs have unambiguously string-typed
@@ -157,6 +200,22 @@ function refHintForKind(kind: string): string | null {
       return null;
     }
   }
+}
+
+function describeJsonValue(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+  if (Array.isArray(value)) {
+    return "array";
+  }
+  if (typeof value === "string") {
+    return `string ${JSON.stringify(value)}`;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return `${typeof value} ${String(value)}`;
+  }
+  return typeof value;
 }
 
 export function validateExternalQuery(value: unknown): ValidationOutcome {

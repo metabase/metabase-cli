@@ -31,6 +31,7 @@ const main: CommandDef = defineCommand({
     measure: () => import("./commands/measure").then((mod) => mod.default),
     eid: () => import("./commands/eid").then((mod) => mod.default),
     query: () => import("./commands/query").then((mod) => mod.default),
+    uuid: () => import("./commands/uuid").then((mod) => mod.default),
     __manifest: (): Promise<CommandDef> =>
       import("./commands/manifest").then((mod) => mod.createManifestCommand(main)),
   },

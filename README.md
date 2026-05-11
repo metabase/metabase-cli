@@ -1365,6 +1365,25 @@ Agent discovery path: `metabase __manifest` lists every command's args and descr
 
 The bundled query schema is synced from a pinned `@metabase/representations` release via `bun run sync:representations`; CI guards against drift.
 
+## UUIDs
+
+### `metabase uuid`
+
+Mint UUID v4 strings (Node `crypto.randomUUID`) for MBQL clause `lib/uuid` slots, native template-tag ids, and any other Metabase-side identifier whose schema enforces RFC 4122 format. Agents must call this command to obtain UUIDs rather than authoring them by hand: the bundled MBQL 5 schema rejects placeholder strings (`a1`, `uuid-1`, etc.) at `format: "uuid"` validation.
+
+```sh
+metabase uuid                          # one UUID
+metabase uuid --count 5                # five UUIDs, one per line (text mode in a TTY, JSON when piped)
+metabase uuid --count 5 --json         # explicit JSON: ["…", "…", "…", "…", "…"]
+metabase uuid --count 5 --format text  # explicit text: one UUID per line
+```
+
+Output: text mode prints one UUID per line; JSON mode prints a `string[]`. Default behavior follows the standard `--format auto` rule — JSON when stdout is a pipe, text when it's a TTY.
+
+`--count` accepts integers `1` through `10000`; outside that range exits 2 with a `ConfigError`.
+
+Exit codes: `0` success, `2` invalid `--count`.
+
 ## Environment variables
 
 | Variable                 | Effect                                                                         |

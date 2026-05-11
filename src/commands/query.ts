@@ -32,7 +32,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "query",
     description:
-      "Run an MBQL 5 query (validates against the bundled schema first); --print-schema emits the schema for agent discovery, --dry-run validates without sending. Default is internal MBQL (numeric IDs); pass --external for the representations / string-FK form.",
+      "Run an MBQL 5 query (validates against the bundled schema first); --print-schema emits the schema for agent discovery, --dry-run validates without sending. Default is internal MBQL (numeric IDs); pass --external for the representations / string-FK form. Every clause options object carries a `lib/uuid` (UUID v4); mint these via `metabase uuid` — never author them by hand.",
   },
   args: {
     ...outputFlags,

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  FIELD_SLOT1_HINT_MESSAGE,
+  UUID_HINT_MESSAGE,
+  clauseSlot1HintMessage,
   getQuerySchemaBundle,
   isLegacyEnvelopeWrappingMbql5,
   isMbql5Query,
@@ -223,6 +226,91 @@ describe("ref-clause error messages", () => {
       ok: false,
       errors: [{ path: "/database", message: "must be integer" }],
     });
+  });
+});
+
+describe("clause-shape error messages", () => {
+  it("rewrites 'must be object' at /1 of a `field` clause to call out the MBQL5 vs MBQL4 ordering trap", () => {
+    const outcome = validateInternalQuery({
+      "lib/type": "mbql/query",
+      database: 1,
+      stages: [
+        {
+          "lib/type": "mbql.stage/mbql",
+          "source-table": 7,
+          breakout: [
+            [
+              "field",
+              86,
+              { "lib/uuid": "55555555-5555-5555-5555-555555555555", "base-type": "type/Text" },
+            ],
+          ],
+        },
+      ],
+    });
+    expect(outcome.ok).toBe(false);
+    expect(outcome.errors).toContainEqual({
+      path: "/stages/0/breakout/0/1",
+      message: FIELD_SLOT1_HINT_MESSAGE,
+    });
+  });
+
+  it("rewrites 'must be object' at /1 of an arbitrary clause with a generic options-position message that names the operator and the offending value", () => {
+    const outcome = validateInternalQuery({
+      "lib/type": "mbql/query",
+      database: 1,
+      stages: [
+        {
+          "lib/type": "mbql.stage/mbql",
+          "source-table": 7,
+          aggregation: [["sum", "not-an-object", ["field", {}, 86]]],
+        },
+      ],
+    });
+    expect(outcome.ok).toBe(false);
+    expect(outcome.errors).toContainEqual({
+      path: "/stages/0/aggregation/0/1",
+      message: clauseSlot1HintMessage("sum", "not-an-object"),
+    });
+  });
+
+  it("does not override slot 1 when the operator is not a string (the array isn't a clause)", () => {
+    const outcome = validateInternalQuery({
+      "lib/type": "mbql/query",
+      database: 1,
+      stages: [{ "lib/type": "mbql.stage/mbql", "source-table": [1, 2, 3] }],
+    });
+    expect(outcome.ok).toBe(false);
+    for (const issue of outcome.errors) {
+      expect(issue.message).not.toContain("clause options object");
+      expect(issue.message).not.toContain("field options object");
+    }
+  });
+});
+
+describe("uuid-format error messages", () => {
+  it("replaces Ajv's bare 'must match format \"uuid\"' with a hint pointing at `metabase uuid`", () => {
+    const outcome = validateInternalQuery({
+      "lib/type": "mbql/query",
+      database: 1,
+      stages: [
+        {
+          "lib/type": "mbql.stage/mbql",
+          "source-table": 7,
+          aggregation: [["count", { "lib/uuid": "a1" }]],
+        },
+      ],
+    });
+    expect(outcome.ok).toBe(false);
+    expect(outcome.errors).toContainEqual({
+      path: "/stages/0/aggregation/0/1/lib~1uuid",
+      message: UUID_HINT_MESSAGE,
+    });
+  });
+
+  it("uuid hint string mentions `metabase uuid` and notes that placeholders are rejected", () => {
+    expect(UUID_HINT_MESSAGE).toContain("metabase uuid");
+    expect(UUID_HINT_MESSAGE).toContain("placeholder");
   });
 });
 
