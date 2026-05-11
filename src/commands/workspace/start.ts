@@ -116,8 +116,9 @@ export default defineMetabaseCommand({
     },
     pull: {
       type: "boolean",
-      description: "Pull the image before starting",
-      default: true,
+      description:
+        "Force a fresh pull of the image before starting. Default: use the locally cached image (docker auto-pulls only if it's missing).",
+      default: false,
     },
     metadata: {
       type: "boolean",
@@ -151,7 +152,7 @@ export default defineMetabaseCommand({
     "metabase workspace start 1",
     "metabase workspace start 1 --wait",
     "metabase workspace start 1 --port 3100",
-    "metabase workspace start 1 --image metabase/metabase-dev:feature-workspaces-v2 --no-pull",
+    "metabase workspace start 1 --image metabase/metabase-dev:feature-workspaces-v2 --pull",
     "metabase workspace start 1 --force",
     "metabase workspace start 1 --repo /path/to/sync-repo --wait",
     "metabase workspace start 1 --repo /path/to/sync-repo --repo-branch dev --repo-mode read-only",
