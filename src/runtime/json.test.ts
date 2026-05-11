@@ -261,12 +261,33 @@ describe("parseJsonOrPlain", () => {
     });
   });
 
-  it("rejects malformed JSON content with ConfigError", () => {
-    const error = captureThrown(() =>
-      parseJsonOrPlain("{ not json }", "application/json", Person, { source: "fixture" }),
+  it("falls back to a bare string when JSON parsing fails on application/json content", () => {
+    expect(parseJsonOrPlain("read-write", "application/json", z.string())).toBe("read-write");
+  });
+
+  it("falls back to a bare string when application/json carries a charset and the body is bare text", () => {
+    expect(parseJsonOrPlain("read-write", "application/json; charset=utf-8", z.string())).toBe(
+      "read-write",
     );
-    assert(error instanceof ConfigError, "expected ConfigError");
-    expect(error.message).toContain("fixture: invalid JSON: ");
+  });
+
+  it("surfaces the bare-string fallback through the schema when the shape disagrees", () => {
+    const error = captureThrown(() =>
+      parseJsonOrPlain("read-write", "application/json", Person, { source: "fixture" }),
+    );
+    assert(error instanceof ValidationError, "expected ValidationError");
+    expect(error.message).toBe("fixture: value did not match expected schema");
+    expect(error.developerDetail).toEqual({
+      source: "fixture",
+      zodIssues: [
+        {
+          code: "invalid_type",
+          expected: "object",
+          path: [],
+          message: "Invalid input: expected object, received string",
+        },
+      ],
+    });
   });
 
   it("rejects schema mismatches on plain-text content with ValidationError", () => {
