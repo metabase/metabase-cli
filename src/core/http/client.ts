@@ -14,6 +14,7 @@ export type ExpectedContentType = "json" | "text" | "binary";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const JSON_CONTENT_TYPE = "application/json";
+const OCTET_STREAM_CONTENT_TYPE = "application/octet-stream";
 const TEXT_CONTENT_TYPE_PREFIX = "text/";
 const ERROR_BODY_BYTE_CAP = 64 * 1024;
 const USER_AGENT = `metabase-cli/${packageJson.version}`;
@@ -158,6 +159,9 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
         body = opts.body;
       } else if (opts.body instanceof FormData || opts.body instanceof ReadableStream) {
         body = opts.body;
+      } else if (opts.body instanceof Uint8Array) {
+        body = opts.body;
+        headers.set("content-type", OCTET_STREAM_CONTENT_TYPE);
       } else {
         body = JSON.stringify(opts.body);
         headers.set("content-type", JSON_CONTENT_TYPE);

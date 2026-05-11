@@ -17,13 +17,14 @@ import {
   waitForConfigConsumed,
 } from "../../core/docker";
 import { ConfigError, errorMessage } from "../../core/errors";
-import type { Client } from "../../core/http/client";
+import { type Client, createClient } from "../../core/http/client";
 import { probeHealth } from "../../core/http/probe";
 import { localUrl } from "../../core/url";
 import {
   REPO_SYNC_MODES,
   type RepoSettings,
   RepoSyncMode,
+  type WorkspaceCredentials,
   buildCredentialsJson,
   generateWorkspaceCredentials,
   injectCredentialsIntoConfig,
@@ -51,6 +52,11 @@ const HEALTH_MAX_INTERVAL_MS = 10_000;
 const HEALTH_PROBE_TIMEOUT_MS = 4_000;
 const DEFAULT_REPO_MODE: RepoSyncMode = "read-write";
 const REPO_FILE_URL = `file://${CONTAINER_REPO_DIR}`;
+// Metadata can be multi-MB and the backend runs a 4-pass loader, so the per-
+// request HTTP timeout (30s default) is too tight. Reuse the readiness budget.
+const METADATA_IMPORT_TIMEOUT_MS = DEFAULT_READY_TIMEOUT_MS;
+
+const MetadataImportResult = z.object({ success: z.boolean() });
 
 export const StartResult = z.object({
   workspace_id: z.number().int().positive(),
@@ -100,7 +106,7 @@ export default defineMetabaseCommand({
     wait: {
       type: "boolean",
       description:
-        "Block until /api/health is ready before returning. Default: return as soon as the container has consumed config.yml.",
+        "Block until /api/health is ready before returning. Default: return as soon as the container has consumed config.yml. (Implied when --metadata is on, since the import requires a live API.)",
       default: false,
     },
     timeout: {
@@ -115,7 +121,8 @@ export default defineMetabaseCommand({
     },
     metadata: {
       type: "boolean",
-      description: "Fetch the workspace's warehouse metadata and stage it inside the container",
+      description:
+        "Fetch the workspace's warehouse metadata from the parent and POST it to the child instance once it is healthy",
       default: true,
     },
     force: {
@@ -174,10 +181,10 @@ export default defineMetabaseCommand({
 
     const hostPort = await resolveHostPort(requestedPort);
 
-    // Boot bundle stays in process memory: no host-disk artifact for config.yml,
-    // credentials.json, or metadata.json. The bytes are tar-streamed into the
-    // container by the docker daemon and land on the overlay FS (root-only on
-    // the daemon host). Repo resolution overlaps with the parent fetches.
+    // Boot bundle stays in process memory: no host-disk artifact for config.yml
+    // or credentials.json. The bytes are tar-streamed into the container by the
+    // docker daemon and land on the overlay FS (root-only on the daemon host).
+    // Repo resolution overlaps with the parent fetches.
     const [parentConfigYaml, metadataJson, repoOptions] = await Promise.all([
       fetchConfigYaml(client, workspaceId),
       args.metadata ? fetchMetadataJson(client, workspaceId) : Promise.resolve(null),
@@ -207,7 +214,6 @@ export default defineMetabaseCommand({
       hostPort,
       configYaml,
       credentialsJson,
-      metadataJson,
       licenseToken,
       bindMounts: repoOptions === null ? [] : [repoOptions.bindMount],
     });
@@ -224,15 +230,22 @@ export default defineMetabaseCommand({
       warn(`could not scrub in-container config.yml: ${errorMessage(error)}`);
     }
 
-    if (args.wait) {
+    // The metadata POST lands at the child's REST API, so the child must be
+    // health-ready before we can ship it. That implicitly upgrades --wait when
+    // --metadata is on.
+    const needsHealth = args.wait || metadataJson !== null;
+    if (needsHealth) {
       await waitForHealth(hostPort, readyTimeoutMs);
+    }
+    if (metadataJson !== null) {
+      await importMetadataIntoChild(hostPort, credentials, metadataJson);
     }
 
     const result: StartResult = {
       workspace_id: workspaceId,
       workspace_name: workspace.name,
       container_name: containerName,
-      state: args.wait ? "running" : "starting",
+      state: needsHealth ? "running" : "starting",
       host_port: hostPort,
       url: localUrl(hostPort),
       image: args.image,
@@ -328,6 +341,29 @@ async function waitForHealth(hostPort: number, timeoutMs: number): Promise<void>
       timeoutMs,
     },
   );
+}
+
+async function importMetadataIntoChild(
+  hostPort: number,
+  credentials: WorkspaceCredentials,
+  metadataJson: Uint8Array,
+): Promise<void> {
+  const childClient = createClient({
+    url: localUrl(hostPort),
+    apiKey: credentials.api_key.key,
+  });
+  const result = await childClient.requestParsed(
+    MetadataImportResult,
+    "/api/ee/serialization/metadata/import",
+    {
+      method: "POST",
+      body: metadataJson,
+      timeoutMs: METADATA_IMPORT_TIMEOUT_MS,
+    },
+  );
+  if (!result.success) {
+    throw new ConfigError("workspace child rejected the metadata import (returned success=false)");
+  }
 }
 
 interface ResolvedRepoOptions {

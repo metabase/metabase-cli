@@ -30,7 +30,6 @@ const CONTAINER_CONFIG_DIR_BASENAME = CONTAINER_CONFIG_DIR.replace(/^\//, "");
 const CONTAINER_APP_DB_DIR = "/metabase-app-db";
 export const CONTAINER_REPO_DIR = "/mnt/repo";
 const CONFIG_FILENAME = "config.yml";
-const METADATA_FILENAME = "metadata.json";
 const CREDENTIALS_FILENAME = "credentials.json";
 
 // Log line emitted by the child once it finishes applying the workspace config block.
@@ -154,7 +153,6 @@ export interface WorkspaceContainerSpec {
   hostPort: number;
   configYaml: string;
   credentialsJson: Uint8Array;
-  metadataJson: Uint8Array | null;
   licenseToken: string;
   bindMounts: readonly BindMount[];
 }
@@ -389,14 +387,6 @@ function buildBootBundleTar(spec: WorkspaceContainerSpec): Uint8Array {
       mode: BUNDLE_FILE_MODE,
     },
   ];
-  if (spec.metadataJson !== null) {
-    entries.push({
-      type: "file",
-      name: `${CONTAINER_CONFIG_DIR_BASENAME}/${METADATA_FILENAME}`,
-      content: spec.metadataJson,
-      mode: BUNDLE_FILE_MODE,
-    });
-  }
   return buildTar(entries);
 }
 
@@ -412,16 +402,12 @@ function workspaceContainerLabels(spec: WorkspaceContainerSpec): Record<string, 
 }
 
 function workspaceContainerEnv(spec: WorkspaceContainerSpec): Record<string, string> {
-  const env: Record<string, string> = {
+  return {
     MB_CONFIG_FILE_PATH: `${CONTAINER_CONFIG_DIR}/${CONFIG_FILENAME}`,
     MB_PREMIUM_EMBEDDING_TOKEN: spec.licenseToken,
     MB_DB_FILE: `${CONTAINER_APP_DB_DIR}/metabase.db`,
     JAVA_OPTS: "-Xmx2g",
   };
-  if (spec.metadataJson !== null) {
-    env["MB_TABLE_METADATA_PATH"] = `${CONTAINER_CONFIG_DIR}/${METADATA_FILENAME}`;
-  }
-  return env;
 }
 
 async function createContainer(options: CreateContainerOptions): Promise<void> {
