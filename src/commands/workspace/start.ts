@@ -120,7 +120,8 @@ export default defineMetabaseCommand({
     },
     force: {
       type: "boolean",
-      description: "If a container for this workspace already exists, remove it first",
+      description:
+        "Remove and recreate the container even if it is running. Stopped containers (exited/created/dead) are recreated automatically without this flag.",
       default: false,
     },
     repo: {
@@ -161,7 +162,7 @@ export default defineMetabaseCommand({
     const licenseToken = await resolveLicenseToken({});
 
     await checkDockerReady();
-    await ensureNoExistingContainer(containerName, args.force);
+    await ensureNoExistingContainer(workspaceId, containerName, args.force);
 
     const pullPromise = args.pull ? pullImage(args.image) : Promise.resolve();
 
@@ -258,17 +259,30 @@ function assertAllDatabasesProvisioned(workspace: Workspace): void {
   }
 }
 
-async function ensureNoExistingContainer(containerName: string, force: boolean): Promise<void> {
-  if (!force) {
-    const status = await containerLifecycleStatus(containerName);
-    if (status !== "missing") {
-      throw new ConfigError(
-        `container ${containerName} already exists (state=${status}). Use --force to recreate, or stop/remove it first.`,
-      );
-    }
+async function ensureNoExistingContainer(
+  workspaceId: number,
+  containerName: string,
+  force: boolean,
+): Promise<void> {
+  if (force) {
+    await removeContainer(containerName);
     return;
   }
-  await removeContainer(containerName);
+  const status = await containerLifecycleStatus(containerName);
+  if (status === "missing") {
+    return;
+  }
+  // The container exists but isn't running — the workspace is unused, so recreate
+  // transparently. The named app-db volume persists across rm/create, so workspace
+  // state is preserved; recreating also picks up any new flags (--port, --image,
+  // --repo) and refreshes the boot bundle.
+  if (status === "exited" || status === "created" || status === "dead") {
+    await removeContainer(containerName);
+    return;
+  }
+  throw new ConfigError(
+    `container ${containerName} is currently ${status}. Run \`metabase workspace stop ${workspaceId}\` first, or use --force to recreate it.`,
+  );
 }
 
 async function resolveHostPort(requested: number | null): Promise<number> {

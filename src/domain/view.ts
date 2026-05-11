@@ -7,7 +7,14 @@ export interface ColumnDef<T> {
   format?: (value: unknown) => string;
 }
 
+export type DeepPartial<T> =
+  T extends ReadonlyArray<infer U>
+    ? ReadonlyArray<DeepPartial<U>>
+    : T extends object
+      ? { [K in keyof T]?: DeepPartial<T[K]> }
+      : T;
+
 export interface ResourceView<T> {
-  compactPick: ZodType<Partial<T>>;
+  compactPick: ZodType<DeepPartial<T>>;
   tableColumns: ColumnDef<T>[];
 }

@@ -26,6 +26,23 @@ const ORDERS_OVERVIEW_COMPACT = {
   collection_id: E2E_COLLECTIONS.DEFAULT,
 } as const;
 
+const ORDERS_OVERVIEW_FIRST_DASHCARD_COMPACT = {
+  id: E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST,
+  dashboard_id: E2E_DASHBOARDS.ORDERS_OVERVIEW,
+  card_id: E2E_CARDS.ORDERS_BY_STATUS,
+  dashboard_tab_id: null,
+  row: 0,
+  col: 0,
+  size_x: 12,
+  size_y: 6,
+} as const;
+
+const ORDERS_OVERVIEW_DETAIL_COMPACT = {
+  ...ORDERS_OVERVIEW_COMPACT,
+  dashcards: [ORDERS_OVERVIEW_FIRST_DASHCARD_COMPACT],
+  tabs: [],
+} as const;
+
 describe("dashboard e2e", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
@@ -89,7 +106,7 @@ describe("dashboard e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, DashboardCompact)).toEqual(ORDERS_OVERVIEW_COMPACT);
+    expect(parseJson(result.stdout, DashboardCompact)).toEqual(ORDERS_OVERVIEW_DETAIL_COMPACT);
   });
 
   it("get --full hydrates dashcards, tabs, and width on the seeded dashboard", async () => {
@@ -237,6 +254,8 @@ describe("dashboard e2e", () => {
       description: "created in test",
       archived: false,
       collection_id: E2E_COLLECTIONS.DEFAULT,
+      dashcards: [],
+      tabs: [],
     });
 
     const addCardResult = await runCli({
@@ -279,6 +298,56 @@ describe("dashboard e2e", () => {
       col: 0,
       size_x: 8,
       size_y: 4,
+    });
+  });
+
+  it("create with dashcards in the body chains a PUT and surfaces them in compact output", async () => {
+    const result = await runCli({
+      args: ["dashboard", "create", "--json"],
+      stdin: JSON.stringify({
+        name: "e2e_dashboard_with_dashcards",
+        collection_id: E2E_COLLECTIONS.DEFAULT,
+        dashcards: [
+          {
+            id: -1,
+            card_id: E2E_CARDS.ORDERS_BY_STATUS,
+            row: 0,
+            col: 0,
+            size_x: 12,
+            size_y: 6,
+            parameter_mappings: [],
+            visualization_settings: {},
+          },
+        ],
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    const compact = parseJson(result.stdout, DashboardCompact);
+    const firstDashcard = compact.dashcards?.[0];
+    if (firstDashcard === undefined || compact.dashcards?.length !== 1) {
+      throw new Error(`expected exactly 1 dashcard, got ${JSON.stringify(compact.dashcards)}`);
+    }
+    expect(compact).toEqual({
+      id: compact.id,
+      name: "e2e_dashboard_with_dashcards",
+      description: null,
+      archived: false,
+      collection_id: E2E_COLLECTIONS.DEFAULT,
+      tabs: [],
+      dashcards: [
+        {
+          id: firstDashcard.id,
+          dashboard_id: compact.id,
+          card_id: E2E_CARDS.ORDERS_BY_STATUS,
+          dashboard_tab_id: null,
+          row: 0,
+          col: 0,
+          size_x: 12,
+          size_y: 6,
+        },
+      ],
     });
   });
 
@@ -534,7 +603,7 @@ describe("dashboard e2e", () => {
     });
     expect(archiveResult.exitCode, archiveResult.stderr).toBe(0);
     expect(parseJson(archiveResult.stdout, DashboardCompact)).toEqual({
-      ...ORDERS_OVERVIEW_COMPACT,
+      ...ORDERS_OVERVIEW_DETAIL_COMPACT,
       archived: true,
     });
 

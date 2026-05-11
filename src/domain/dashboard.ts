@@ -58,6 +58,14 @@ export const DashboardTab = z
   .loose();
 export type DashboardTab = z.infer<typeof DashboardTab>;
 
+export const DashboardTabCompact = DashboardTab.pick({
+  id: true,
+  dashboard_id: true,
+  name: true,
+  position: true,
+}).strip();
+export type DashboardTabCompact = z.infer<typeof DashboardTabCompact>;
+
 export const Dashboard = z
   .object({
     id: z.number().int(),
@@ -91,7 +99,12 @@ export const DashboardCompact = Dashboard.pick({
   description: true,
   archived: true,
   collection_id: true,
-}).strip();
+})
+  .strip()
+  .extend({
+    dashcards: z.array(DashcardCompact).optional(),
+    tabs: z.array(DashboardTabCompact).optional(),
+  });
 export type DashboardCompact = z.infer<typeof DashboardCompact>;
 
 export const dashboardView: ResourceView<Dashboard> = {
