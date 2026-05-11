@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { AbortError, ConfigError, MetabaseError, toMetabaseError, UnknownError } from "./errors";
+import {
+  AbortError,
+  ConfigError,
+  formatZodIssue,
+  MetabaseError,
+  toMetabaseError,
+  UnknownError,
+  ValidationError,
+} from "./errors";
 import { HttpError } from "./http/errors";
 
 describe("toMetabaseError", () => {
@@ -93,5 +101,98 @@ describe("MetabaseError contract", () => {
     expect(error.category).toBe("config");
     expect(error.exitCode).toBe(2);
     expect(error.userMessage).toBe("missing TTY");
+  });
+});
+
+describe("formatZodIssue", () => {
+  it("formats nested object/array paths with dot and bracket syntax", () => {
+    const schema = z.object({
+      data: z.array(z.object({ archived: z.boolean() })),
+    });
+    const result = schema.safeParse({ data: [{ archived: true }, { archived: null }] });
+    if (result.success) {
+      throw new Error("expected zod failure");
+    }
+    expect(result.error.issues.map(formatZodIssue)).toEqual([
+      "data[1].archived: Invalid input: expected boolean, received null",
+    ]);
+  });
+
+  it("returns just the message when the issue path is empty (top-level mismatch)", () => {
+    const schema = z.string();
+    const result = schema.safeParse(42);
+    if (result.success) {
+      throw new Error("expected zod failure");
+    }
+    const firstIssue = result.error.issues[0];
+    if (firstIssue === undefined) {
+      throw new Error("expected at least one issue");
+    }
+    expect(formatZodIssue(firstIssue)).toBe("Invalid input: expected string, received number");
+  });
+});
+
+describe("ValidationError.userMessage", () => {
+  it("appends one bullet per zod issue with the offending path and the verbose hint", () => {
+    const error = new ValidationError(
+      "https://mb.example/api/collection/8/items: value did not match expected schema",
+      {
+        source: "https://mb.example/api/collection/8/items",
+        zodIssues: [
+          {
+            code: "invalid_type",
+            expected: "boolean",
+            path: ["data", 3, "archived"],
+            message: "Expected boolean, received null",
+            input: null,
+          },
+          {
+            code: "invalid_type",
+            expected: "string",
+            path: ["data", 7, "display"],
+            message: "Expected string, received null",
+            input: null,
+          },
+        ],
+      },
+    );
+    expect(error.userMessage).toBe(
+      "https://mb.example/api/collection/8/items: value did not match expected schema (2 issues)\n" +
+        "  - data[3].archived: Expected boolean, received null\n" +
+        "  - data[7].display: Expected string, received null\n" +
+        "  Set METABASE_VERBOSE=1 for the full developer detail.",
+    );
+  });
+
+  it("caps the inline issue preview at 5 and reports the overflow count", () => {
+    const zodIssues = Array.from({ length: 7 }, (_unused, index) => ({
+      code: "invalid_type" as const,
+      expected: "boolean" as const,
+      path: ["data", index, "archived"],
+      message: "Expected boolean, received null",
+      input: null,
+    }));
+    const error = new ValidationError("source: value did not match expected schema", {
+      source: "source",
+      zodIssues,
+    });
+    expect(error.userMessage).toBe(
+      "source: value did not match expected schema (7 issues)\n" +
+        "  - data[0].archived: Expected boolean, received null\n" +
+        "  - data[1].archived: Expected boolean, received null\n" +
+        "  - data[2].archived: Expected boolean, received null\n" +
+        "  - data[3].archived: Expected boolean, received null\n" +
+        "  - data[4].archived: Expected boolean, received null\n" +
+        "  …and 2 more\n" +
+        "  Set METABASE_VERBOSE=1 for the full developer detail.",
+    );
+  });
+
+  it("falls back to the plain message when developerDetail carries no issues", () => {
+    const error = new ValidationError("file: malformed", {
+      source: "file",
+      zodIssues: [],
+    });
+    expect(error.userMessage).toBe("file: malformed");
   });
 });

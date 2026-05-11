@@ -1,5 +1,7 @@
 import { isCancel } from "@clack/prompts";
-import { ZodError } from "zod";
+import { core as zodCore, ZodError } from "zod";
+
+export const VERBOSE_ENV = "METABASE_VERBOSE";
 
 export type ErrorCategory =
   | "network"
@@ -68,6 +70,8 @@ export class TimeoutError extends MetabaseError {
   }
 }
 
+const VALIDATION_ISSUE_PREVIEW_LIMIT = 5;
+
 export class ValidationError extends MetabaseError {
   readonly category = "validation";
   readonly isRetryable = false;
@@ -78,6 +82,21 @@ export class ValidationError extends MetabaseError {
     super(message);
     this.name = "ValidationError";
     this.developerDetail = developerDetail;
+  }
+
+  override get userMessage(): string {
+    const issues = this.developerDetail.zodIssues;
+    if (issues.length === 0) {
+      return this.message;
+    }
+    const shown = issues.slice(0, VALIDATION_ISSUE_PREVIEW_LIMIT);
+    const lines = shown.map((issue) => `  - ${formatZodIssue(issue)}`);
+    const trailer =
+      issues.length > shown.length
+        ? `\n  …and ${issues.length - shown.length} more`
+        : "";
+    const hint = `\n  Set ${VERBOSE_ENV}=1 for the full developer detail.`;
+    return `${this.message} (${issues.length} issue${issues.length === 1 ? "" : "s"})\n${lines.join("\n")}${trailer}${hint}`;
   }
 }
 
@@ -126,7 +145,7 @@ export function toMetabaseError(error: unknown): MetabaseError {
     return new AbortError();
   }
   if (error instanceof ZodError) {
-    return new ConfigError(formatZodError(error));
+    return new ConfigError(error.issues.map(formatZodIssue).join("; "));
   }
   if (error instanceof Error) {
     return new UnknownError({ originalMessage: error.message, stack: error.stack ?? null });
@@ -134,13 +153,9 @@ export function toMetabaseError(error: unknown): MetabaseError {
   return new UnknownError({ originalMessage: String(error), stack: null });
 }
 
-function formatZodError(error: ZodError): string {
-  return error.issues
-    .map((issue) => {
-      const path = issue.path.join(".");
-      return path ? `${path}: ${issue.message}` : issue.message;
-    })
-    .join("; ");
+export function formatZodIssue(issue: ZodError["issues"][number]): string {
+  const path = zodCore.toDotPath(issue.path);
+  return path === "" ? issue.message : `${path}: ${issue.message}`;
 }
 
 export function isNotFoundError(value: unknown): value is NodeJS.ErrnoException {

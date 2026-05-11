@@ -94,16 +94,19 @@ export const collectionView: ResourceView<Collection> = {
   ],
 };
 
+// `archived` and `display` arrive as null on the wire for some model types (snippet,
+// pulse, timeline, transform, document, table) — those queries don't select the column,
+// so the union-all pads it with null. Stay permissive.
 export const CollectionItem = z
   .object({
     id: z.number().int(),
     model: CollectionItemModel,
     name: z.string(),
     description: z.string().nullable().optional(),
-    archived: z.boolean(),
+    archived: z.boolean().nullable(),
     collection_id: CollectionId.nullable().optional(),
     collection_position: z.number().int().nullable().optional(),
-    display: z.string().optional(),
+    display: z.string().nullable().optional(),
     location: z.string().nullable().optional(),
     entity_id: z.string().nullable().optional(),
     database_id: z.number().int().nullable().optional(),
