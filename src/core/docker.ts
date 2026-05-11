@@ -406,6 +406,9 @@ function workspaceContainerEnv(spec: WorkspaceContainerSpec): Record<string, str
     MB_CONFIG_FILE_PATH: `${CONTAINER_CONFIG_DIR}/${CONFIG_FILENAME}`,
     MB_PREMIUM_EMBEDDING_TOKEN: spec.licenseToken,
     MB_DB_FILE: `${CONTAINER_APP_DB_DIR}/metabase.db`,
+    // Workspace metadata is imported from the parent on start; the child has no
+    // need to run scheduled syncs/fingerprinting/scans against its warehouses.
+    MB_DISABLE_SCHEDULER: "true",
     JAVA_OPTS: "-Xmx2g",
   };
 }
