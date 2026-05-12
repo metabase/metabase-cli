@@ -277,14 +277,14 @@ describe("sync e2e against EE remote-sync endpoints", () => {
     expect(result.stderr).toContain("Metabase returned 400");
   });
 
-  it("remove-collection surfaces a 400 HttpError in the default config (read-only or paywall)", async () => {
+  it("remove-collection is idempotent when the collection is not in the sync config", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["sync", "remove-collection", "1", "--json"],
       configHome,
       env: authEnv(),
     });
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Metabase returned 400");
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({ success: true });
   });
 });

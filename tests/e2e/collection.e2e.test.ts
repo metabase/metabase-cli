@@ -44,6 +44,31 @@ const TRASH_COMPACT = {
   is_personal: false,
 } as const;
 
+const USAGE_ANALYTICS_COMPACT = {
+  id: 2,
+  name: "Usage analytics",
+  description:
+    "Your instance data. To customize these questions and dashboards, you can duplicate them and save them in the custom reports collection.",
+  archived: false,
+  location: "/",
+  parent_id: null,
+  type: "instance-analytics",
+  authority_level: null,
+  is_personal: false,
+} as const;
+
+const CUSTOM_REPORTS_COMPACT = {
+  id: 3,
+  name: "Custom reports",
+  description: "Save your Metabase analytics custom questions and dashboards here",
+  archived: false,
+  location: "/2/",
+  parent_id: 2,
+  type: null,
+  authority_level: null,
+  is_personal: false,
+} as const;
+
 describe("collection e2e", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
@@ -78,9 +103,9 @@ describe("collection e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, CollectionListEnvelope)).toEqual({
-      data: [ROOT_COMPACT, DEFAULT_COMPACT],
-      returned: 2,
-      total: 2,
+      data: [ROOT_COMPACT, CUSTOM_REPORTS_COMPACT, DEFAULT_COMPACT, USAGE_ANALYTICS_COMPACT],
+      returned: 4,
+      total: 4,
     });
   });
 
@@ -405,9 +430,17 @@ describe("collection e2e", () => {
           archived: false,
           collection_id: null,
         },
+        {
+          id: USAGE_ANALYTICS_COMPACT.id,
+          model: "collection",
+          name: USAGE_ANALYTICS_COMPACT.name,
+          description: USAGE_ANALYTICS_COMPACT.description,
+          archived: false,
+          collection_id: null,
+        },
       ],
-      returned: 1,
-      total: 1,
+      returned: 2,
+      total: 2,
     });
   });
 
