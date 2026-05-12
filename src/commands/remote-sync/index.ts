@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 
 export default defineCommand({
-  meta: { name: "sync", description: "Remote-sync operations (import, export, status, branches)" },
+  meta: { name: "remote-sync", description: "Sync Metabase content with a git remote" },
   subCommands: {
     status: () => import("./status").then((mod) => mod.default),
     "is-dirty": () => import("./is-dirty").then((mod) => mod.default),

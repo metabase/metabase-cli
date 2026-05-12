@@ -47,8 +47,8 @@ export default defineMetabaseCommand({
   },
   outputSchema: SyncSettingsUpdateResult,
   examples: [
-    "metabase sync add-collection 12",
-    "metabase sync add-collection 12 --json --profile prod",
+    "metabase remote-sync add-collection 12",
+    "metabase remote-sync add-collection 12 --json --profile prod",
   ],
   async run({ args, ctx, getClient }) {
     const collectionId = parseId(args.id, "id");

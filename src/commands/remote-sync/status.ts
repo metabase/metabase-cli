@@ -28,10 +28,13 @@ const syncStatusView: ResourceView<SyncStatus> = {
 };
 
 export default defineMetabaseCommand({
-  meta: { name: "status", description: "Show current sync state (branch, dirty, current task)" },
+  meta: {
+    name: "status",
+    description: "Show current remote-sync state (branch, dirty, current task)",
+  },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SyncStatus,
-  examples: ["metabase sync status", "metabase sync status --json"],
+  examples: ["metabase remote-sync status", "metabase remote-sync status --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const [branch, isDirty, currentTask] = await Promise.all([

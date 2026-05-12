@@ -1,16 +1,16 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { CurrentTaskResult } from "../../src/commands/sync/current-task";
-import { SyncDirtyListEnvelope } from "../../src/commands/sync/dirty";
-import { IsDirtyResult } from "../../src/commands/sync/is-dirty";
-import { SyncStatus } from "../../src/commands/sync/status";
-import { WaitResult } from "../../src/commands/sync/wait";
+import { CurrentTaskResult } from "../../src/commands/remote-sync/current-task";
+import { SyncDirtyListEnvelope } from "../../src/commands/remote-sync/dirty";
+import { IsDirtyResult } from "../../src/commands/remote-sync/is-dirty";
+import { SyncStatus } from "../../src/commands/remote-sync/status";
+import { WaitResult } from "../../src/commands/remote-sync/wait";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 
-describe("sync arg validation e2e (no Metabase contact required)", () => {
+describe("remote-sync arg validation e2e (no Metabase contact required)", () => {
   const tempDirs: string[] = [];
 
   afterEach(async () => {
@@ -26,7 +26,7 @@ describe("sync arg validation e2e (no Metabase contact required)", () => {
   it("wait with non-integer --timeout fails fast with ConfigError before any network call", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "wait", "--timeout", "abc", "--json"],
+      args: ["remote-sync", "wait", "--timeout", "abc", "--json"],
       configHome,
     });
     expect(result.exitCode).toBe(2);
@@ -37,7 +37,7 @@ describe("sync arg validation e2e (no Metabase contact required)", () => {
   it("wait with non-integer --interval fails fast with ConfigError before any network call", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "wait", "--interval", "xyz", "--json"],
+      args: ["remote-sync", "wait", "--interval", "xyz", "--json"],
       configHome,
     });
     expect(result.exitCode).toBe(2);
@@ -48,7 +48,7 @@ describe("sync arg validation e2e (no Metabase contact required)", () => {
   it("stash with whitespace-only --new-branch fails with ConfigError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "stash", "--new-branch", "   ", "--json"],
+      args: ["remote-sync", "stash", "--new-branch", "   ", "--json"],
       configHome,
     });
     expect(result.exitCode).toBe(2);
@@ -59,7 +59,7 @@ describe("sync arg validation e2e (no Metabase contact required)", () => {
   it("stash with whitespace-only --message fails with ConfigError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "stash", "--new-branch", "wip", "--message", "   ", "--json"],
+      args: ["remote-sync", "stash", "--new-branch", "wip", "--message", "   ", "--json"],
       configHome,
     });
     expect(result.exitCode).toBe(2);
@@ -70,7 +70,7 @@ describe("sync arg validation e2e (no Metabase contact required)", () => {
   it("create-branch with whitespace-only positional fails with ConfigError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "create-branch", "   ", "--json"],
+      args: ["remote-sync", "create-branch", "   ", "--json"],
       configHome,
     });
     expect(result.exitCode).toBe(2);
@@ -81,7 +81,7 @@ describe("sync arg validation e2e (no Metabase contact required)", () => {
   it("add-collection with non-integer positional fails with ConfigError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "add-collection", "abc", "--json"],
+      args: ["remote-sync", "add-collection", "abc", "--json"],
       configHome,
     });
     expect(result.exitCode).toBe(2);
@@ -92,7 +92,7 @@ describe("sync arg validation e2e (no Metabase contact required)", () => {
   it("add-collection with zero positional fails with ConfigError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "add-collection", "0", "--json"],
+      args: ["remote-sync", "add-collection", "0", "--json"],
       configHome,
     });
     expect(result.exitCode).toBe(2);
@@ -103,7 +103,7 @@ describe("sync arg validation e2e (no Metabase contact required)", () => {
   it("remove-collection with negative positional fails with ConfigError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "remove-collection", "--", "-3", "--json"],
+      args: ["remote-sync", "remove-collection", "--", "-3", "--json"],
       configHome,
     });
     expect(result.exitCode).toBe(2);
@@ -112,7 +112,7 @@ describe("sync arg validation e2e (no Metabase contact required)", () => {
   });
 });
 
-describe("sync e2e against EE remote-sync endpoints", () => {
+describe("remote-sync e2e against EE remote-sync endpoints", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
 
@@ -140,7 +140,7 @@ describe("sync e2e against EE remote-sync endpoints", () => {
   it("current-task returns the idle marker when no sync has ever run", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "current-task", "--json"],
+      args: ["remote-sync", "current-task", "--json"],
       configHome,
       env: authEnv(),
     });
@@ -151,7 +151,7 @@ describe("sync e2e against EE remote-sync endpoints", () => {
   it("is-dirty reports false when no synced collections exist", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "is-dirty", "--json"],
+      args: ["remote-sync", "is-dirty", "--json"],
       configHome,
       env: authEnv(),
     });
@@ -162,7 +162,7 @@ describe("sync e2e against EE remote-sync endpoints", () => {
   it("dirty returns an empty list envelope when nothing is dirty", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "dirty", "--json"],
+      args: ["remote-sync", "dirty", "--json"],
       configHome,
       env: authEnv(),
     });
@@ -177,7 +177,7 @@ describe("sync e2e against EE remote-sync endpoints", () => {
   it("status rolls up branch (null), is_dirty (false), and current_task (null)", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "status", "--json"],
+      args: ["remote-sync", "status", "--json"],
       configHome,
       env: authEnv(),
     });
@@ -192,7 +192,7 @@ describe("sync e2e against EE remote-sync endpoints", () => {
   it("wait exits successfully with the idle marker when no task is running", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "wait", "--json"],
+      args: ["remote-sync", "wait", "--json"],
       configHome,
       env: authEnv(),
     });
@@ -203,7 +203,7 @@ describe("sync e2e against EE remote-sync endpoints", () => {
   it("import without remote-sync configured surfaces a 400 HttpError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "import", "--no-wait", "--json"],
+      args: ["remote-sync", "import", "--no-wait", "--json"],
       configHome,
       env: authEnv(),
     });
@@ -214,7 +214,7 @@ describe("sync e2e against EE remote-sync endpoints", () => {
   it("export without remote-sync configured surfaces a 400 HttpError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "export", "--no-wait", "--json"],
+      args: ["remote-sync", "export", "--no-wait", "--json"],
       configHome,
       env: authEnv(),
     });
@@ -225,7 +225,7 @@ describe("sync e2e against EE remote-sync endpoints", () => {
   it("has-remote-changes without remote-sync configured surfaces a 400 HttpError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "has-remote-changes", "--json"],
+      args: ["remote-sync", "has-remote-changes", "--json"],
       configHome,
       env: authEnv(),
     });
@@ -236,7 +236,7 @@ describe("sync e2e against EE remote-sync endpoints", () => {
   it("cancel-task surfaces a 400 HttpError when there is no running task", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "cancel-task", "--json"],
+      args: ["remote-sync", "cancel-task", "--json"],
       configHome,
       env: authEnv(),
     });
@@ -247,7 +247,16 @@ describe("sync e2e against EE remote-sync endpoints", () => {
   it("stash surfaces a 400 HttpError when remote-sync-type is not read-write", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "stash", "--new-branch", "wip", "--message", "x", "--no-wait", "--json"],
+      args: [
+        "remote-sync",
+        "stash",
+        "--new-branch",
+        "wip",
+        "--message",
+        "x",
+        "--no-wait",
+        "--json",
+      ],
       configHome,
       env: authEnv(),
     });
@@ -258,7 +267,7 @@ describe("sync e2e against EE remote-sync endpoints", () => {
   it("branches surfaces an HttpError when no source URL is configured", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "branches", "--json"],
+      args: ["remote-sync", "branches", "--json"],
       configHome,
       env: authEnv(),
     });
@@ -269,7 +278,7 @@ describe("sync e2e against EE remote-sync endpoints", () => {
   it("add-collection surfaces a 400 HttpError in the default config (read-only or paywall)", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "add-collection", "1", "--json"],
+      args: ["remote-sync", "add-collection", "1", "--json"],
       configHome,
       env: authEnv(),
     });
@@ -280,7 +289,7 @@ describe("sync e2e against EE remote-sync endpoints", () => {
   it("remove-collection is idempotent when the collection is not in the sync config", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["sync", "remove-collection", "1", "--json"],
+      args: ["remote-sync", "remove-collection", "1", "--json"],
       configHome,
       env: authEnv(),
     });

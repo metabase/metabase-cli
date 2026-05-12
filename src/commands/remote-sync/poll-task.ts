@@ -104,5 +104,5 @@ export function throwIfFailedTask(final: SyncTask | null, verb: string): void {
     return;
   }
   const detail = final.error_message ? `: ${final.error_message}` : "";
-  throw new Error(`sync ${verb} ${final.status}${detail}`);
+  throw new Error(`remote-sync ${verb} ${final.status}${detail}`);
 }

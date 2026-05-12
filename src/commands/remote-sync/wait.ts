@@ -18,7 +18,7 @@ export const WaitResult = SyncTaskOrIdle;
 export default defineMetabaseCommand({
   meta: {
     name: "wait",
-    description: "Poll the current sync task until it reaches a terminal status",
+    description: "Poll the current remote-sync task until it reaches a terminal status",
   },
   args: {
     ...outputFlags,
@@ -36,7 +36,7 @@ export default defineMetabaseCommand({
     },
   },
   outputSchema: WaitResult,
-  examples: ["metabase sync wait", "metabase sync wait --timeout 300000 --json"],
+  examples: ["metabase remote-sync wait", "metabase remote-sync wait --timeout 300000 --json"],
   async run({ args, ctx, getClient }) {
     const timeoutMs = parseId(args.timeout, "timeout");
     const intervalMs = parseId(args.interval, "interval");

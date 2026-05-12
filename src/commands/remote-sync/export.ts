@@ -65,9 +65,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: SyncExportResult,
   examples: [
-    'metabase sync export -m "update dashboards"',
-    "metabase sync export --branch main --json",
-    "metabase sync export --no-wait",
+    'metabase remote-sync export -m "update dashboards"',
+    "metabase remote-sync export --branch main --json",
+    "metabase remote-sync export --no-wait",
   ],
   async run({ args, ctx, getClient }) {
     const timeoutMs = parseId(args.timeout, "timeout");

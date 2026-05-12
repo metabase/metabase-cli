@@ -8,10 +8,13 @@ import { fetchCurrentTask, syncTaskIdleView, SyncTaskIdle, SyncTaskOrIdle } from
 export const CurrentTaskResult = SyncTaskOrIdle;
 
 export default defineMetabaseCommand({
-  meta: { name: "current-task", description: "Get the most recent sync task (or idle if none)" },
+  meta: {
+    name: "current-task",
+    description: "Get the most recent remote-sync task (or idle if none)",
+  },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: CurrentTaskResult,
-  examples: ["metabase sync current-task", "metabase sync current-task --json"],
+  examples: ["metabase remote-sync current-task", "metabase remote-sync current-task --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const task = await fetchCurrentTask(client);

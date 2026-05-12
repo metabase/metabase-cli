@@ -65,8 +65,8 @@ export default defineMetabaseCommand({
   },
   outputSchema: SyncStashResult,
   examples: [
-    "metabase sync stash --new-branch wip",
-    'metabase sync stash --new-branch wip -m "work in progress" --json',
+    "metabase remote-sync stash --new-branch wip",
+    'metabase remote-sync stash --new-branch wip -m "work in progress" --json',
   ],
   async run({ args, ctx, getClient }) {
     const newBranch = args.newBranch.trim();

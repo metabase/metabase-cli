@@ -26,7 +26,7 @@ export default defineMetabaseCommand({
   meta: { name: "branches", description: "List branches on the configured git remote" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SyncBranchListEnvelope,
-  examples: ["metabase sync branches", "metabase sync branches --json"],
+  examples: ["metabase remote-sync branches", "metabase remote-sync branches --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const response = await client.requestParsed(
