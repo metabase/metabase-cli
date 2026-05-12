@@ -6,6 +6,7 @@ import {
   clauseSlot1HintMessage,
   getQuerySchemaBundle,
   isLegacyEnvelopeWrappingMbql5,
+  isLegacyNativeQuery,
   isMbql5Query,
   validateExternalQuery,
   validateInternalQuery,
@@ -152,6 +153,51 @@ describe("isLegacyEnvelopeWrappingMbql5", () => {
     expect(
       isLegacyEnvelopeWrappingMbql5({ type: "native", query: { "lib/type": "mbql/query" } }),
     ).toBe(false);
+  });
+});
+
+describe("isLegacyNativeQuery", () => {
+  it("returns true for a legacy MBQL 4 native body", () => {
+    expect(
+      isLegacyNativeQuery({
+        type: "native",
+        database: 2,
+        native: { query: "SELECT 1" },
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when a non-MBQL5 body carries a top-level native key without an explicit type", () => {
+    expect(isLegacyNativeQuery({ database: 2, native: { query: "SELECT 1" } })).toBe(true);
+  });
+
+  it("returns false for a well-formed MBQL 5 query even if a stray top-level native key is present", () => {
+    expect(
+      isLegacyNativeQuery({
+        "lib/type": "mbql/query",
+        database: 1,
+        stages: [{ "lib/type": "mbql.stage/native", native: "SELECT 1" }],
+        native: "stray",
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false for a legacy MBQL 4 structured envelope", () => {
+    expect(isLegacyNativeQuery({ type: "query", database: 2, query: { "source-table": 7 } })).toBe(
+      false,
+    );
+  });
+
+  it("returns false for a plain MBQL 5 query with no native fields", () => {
+    expect(isLegacyNativeQuery(VALID_INTERNAL)).toBe(false);
+  });
+
+  it("returns false for non-objects, arrays, and null", () => {
+    expect(isLegacyNativeQuery(null)).toBe(false);
+    expect(isLegacyNativeQuery(undefined)).toBe(false);
+    expect(isLegacyNativeQuery("SELECT 1")).toBe(false);
+    expect(isLegacyNativeQuery(42)).toBe(false);
+    expect(isLegacyNativeQuery([{ type: "native" }])).toBe(false);
   });
 });
 

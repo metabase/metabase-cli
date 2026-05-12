@@ -4,6 +4,7 @@ import type { ErrorObject, ValidateFunction } from "ajv";
 import { z } from "zod";
 
 import { isPlainObject } from "../../runtime/predicates";
+import { ConfigError } from "../errors";
 import { escapeJsonPointerSegment } from "../json-pointer";
 
 import idSchema from "./data/schemas/common/id.json" with { type: "json" };
@@ -253,6 +254,38 @@ export function isLegacyEnvelopeWrappingMbql5(value: unknown): boolean {
     return false;
   }
   return "lib/type" in inner && inner["lib/type"] === "mbql/query";
+}
+
+// MBQL 5 native lives inside a stage (`stages[*].native`), never at the top
+// level — the `isMbql5Query` guard keeps a well-formed MBQL 5 body out of this
+// branch even if it carries a stray top-level `native` field.
+export function isLegacyNativeQuery(value: unknown): boolean {
+  if (!isPlainObject(value)) {
+    return false;
+  }
+  if (isMbql5Query(value)) {
+    return false;
+  }
+  return value["type"] === "native" || "native" in value;
+}
+
+export interface LegacyEnvelopeAssertOptions {
+  readonly contextLabel: string;
+  readonly bodyNoun: string;
+}
+
+export function assertNotLegacyEnvelopeWrappingMbql5(
+  value: unknown,
+  options: LegacyEnvelopeAssertOptions,
+): void {
+  if (!isLegacyEnvelopeWrappingMbql5(value)) {
+    return;
+  }
+  throw new ConfigError(
+    `${options.contextLabel}: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope. ` +
+      `For MBQL 5, ${options.bodyNoun} is the mbql/query value itself: ` +
+      `{"lib/type":"mbql/query", database:N, stages:[…]}.`,
+  );
 }
 
 export const SchemaMode = z.enum(["external", "internal"]);

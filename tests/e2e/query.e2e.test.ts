@@ -254,4 +254,65 @@ describe("query e2e", () => {
       expect(queryResult.data.rows).toHaveLength(3);
     }
   });
+
+  it("run with a legacy native body skips MBQL 5 pre-flight and executes against /api/dataset", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["query", "--json"],
+      stdin: JSON.stringify({
+        type: "native",
+        database: E2E_DATABASES.WAREHOUSE,
+        native: { query: "SELECT 1 AS one, 2 AS two" },
+      }),
+      configHome,
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const queryResult = parseJson(result.stdout, CardQueryResult);
+    expect(queryResult.status).toBe("completed");
+    if (queryResult.status === "completed") {
+      expect(queryResult.row_count).toBe(1);
+      expect(queryResult.data.rows).toEqual([[1, 2]]);
+    }
+  });
+
+  it("--dry-run with a legacy native body returns ok and exits 0 (no schema applies)", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["query", "--dry-run"],
+      stdin: JSON.stringify({
+        type: "native",
+        database: E2E_DATABASES.WAREHOUSE,
+        native: { query: "SELECT 1" },
+      }),
+      configHome,
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({ ok: true, errors: [] });
+  });
+
+  it('rejects the double-wrap footgun (MBQL 5 inside a legacy {type:"query"} envelope) with a ConfigError', async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["query", "--dry-run"],
+      stdin: JSON.stringify({
+        type: "query",
+        database: E2E_DATABASES.WAREHOUSE,
+        query: {
+          "lib/type": "mbql/query",
+          database: E2E_DATABASES.WAREHOUSE,
+          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": E2E_TABLES.ORDERS }],
+        },
+      }),
+      configHome,
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(
+      'query: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope.',
+    );
+    expect(result.stdout).toBe("");
+  });
 });

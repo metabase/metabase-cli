@@ -1350,7 +1350,9 @@ metabase query --file q.json --skip-validate      # bypass pre-flight; let serve
 
 Body sources: `--file`, `--body`, or stdin (exactly one). Body is JSON.
 
-`--skip-validate` is an escape hatch when the bundled schema disagrees with what the server actually accepts (drift, false negative, edge case). Validation is skipped entirely and the body is sent as-is. Mutually exclusive with `--dry-run` (which is itself the validation mode).
+Legacy native bodies — `{ "type": "native", "database": N, "native": { "query": "..." } }` or any non-MBQL-5 body that carries a top-level `native:` key — skip MBQL 5 pre-flight automatically. The bundled schema only models MBQL 5, and `/api/dataset` accepts the legacy native shape as-is; the CLI detects it and routes straight to the server. `--dry-run` on a legacy native body emits `{ ok: true, errors: [] }` (no schema applies). The double-wrap footgun — an MBQL 5 query nested inside a `{type:"query", query:…}` envelope — is still rejected with a `ConfigError` before send.
+
+`--skip-validate` is an escape hatch when the bundled schema disagrees with what the server actually accepts (drift, false negative, edge case) for MBQL 5 bodies. Validation is skipped entirely and the body is sent as-is. Mutually exclusive with `--dry-run` (which is itself the validation mode).
 
 Exit codes:
 

@@ -1,6 +1,6 @@
 import { ConfigError } from "../core/errors";
 import {
-  isLegacyEnvelopeWrappingMbql5,
+  assertNotLegacyEnvelopeWrappingMbql5,
   isMbql5Query,
   validateInternalQuery,
 } from "../core/schema/validate";
@@ -28,13 +28,7 @@ export function preflightInternalMbql5Query(
   if (options.skip) {
     return;
   }
-  if (isLegacyEnvelopeWrappingMbql5(query)) {
-    throw new ConfigError(
-      `${contextLabel}: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope. ` +
-        `For MBQL 5, dataset_query is the mbql/query value itself: ` +
-        `{"lib/type":"mbql/query", database:N, stages:[…]}.`,
-    );
-  }
+  assertNotLegacyEnvelopeWrappingMbql5(query, { contextLabel, bodyNoun: "dataset_query" });
   if (!isMbql5Query(query)) {
     return;
   }
