@@ -139,6 +139,32 @@ export class AbortError extends MetabaseError {
   }
 }
 
+export class ChainedRequestError extends MetabaseError {
+  override readonly cause: MetabaseError;
+
+  constructor(message: string, cause: MetabaseError) {
+    super(message);
+    this.name = "ChainedRequestError";
+    this.cause = cause;
+  }
+
+  override get category(): ErrorCategory {
+    return this.cause.category;
+  }
+
+  override get isRetryable(): boolean {
+    return this.cause.isRetryable;
+  }
+
+  override get exitCode(): number {
+    return this.cause.exitCode;
+  }
+
+  override get developerDetail(): unknown {
+    return this.cause.developerDetail;
+  }
+}
+
 export class UnknownError extends MetabaseError {
   readonly category = "unknown";
   readonly isRetryable = false;

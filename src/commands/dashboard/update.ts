@@ -6,10 +6,13 @@ import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
+import { preflightDashcardCardReferences } from "./preflight";
+
 export default defineMetabaseCommand({
   meta: {
     name: "update",
-    description: "Update a dashboard (and optionally its dashcards/tabs) by id",
+    description:
+      "Update a dashboard (and optionally its dashcards/tabs) by id; any positive card_id referenced from dashcards is pre-flight-validated against /api/card/:id (exists, not archived) before the PUT",
   },
   args: {
     ...outputFlags,
@@ -29,6 +32,7 @@ export default defineMetabaseCommand({
     const id = parseId(args.id);
     const body = await readBody({ flag: args.body, file: args.file }, DashboardUpdateInput);
     const client = await getClient();
+    await preflightDashcardCardReferences(client, body.dashcards);
     const updated = await client.requestParsed(DashboardDetail, `/api/dashboard/${id}`, {
       method: "PUT",
       body,

@@ -10,9 +10,20 @@ import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
+import { preflightDashcardCardReferences, wrapChainedDashboardWriteError } from "./preflight";
+
 export default defineMetabaseCommand({
-  meta: { name: "create", description: "Create a dashboard from a JSON spec" },
-  args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...bodyInputFlags },
+  meta: {
+    name: "create",
+    description:
+      "Create a dashboard from a JSON spec; any positive card_id referenced from dashcards is pre-flight-validated against /api/card/:id (exists, not archived) before the dashboard is created",
+  },
+  args: {
+    ...outputFlags,
+    ...profileFlag,
+    ...connectionFlags,
+    ...bodyInputFlags,
+  },
   outputSchema: Dashboard,
   examples: [
     "cat dashboard.json | metabase dashboard create",
@@ -24,6 +35,7 @@ export default defineMetabaseCommand({
     const body = await readBody({ flag: args.body, file: args.file }, DashboardCreateInput);
     const { dashcards, tabs, ...createOnly } = body;
     const client = await getClient();
+    await preflightDashcardCardReferences(client, dashcards);
     const created = await client.requestParsed(Dashboard, "/api/dashboard", {
       method: "POST",
       body: createOnly,
@@ -32,10 +44,14 @@ export default defineMetabaseCommand({
       renderItem(created, dashboardView, ctx);
       return;
     }
-    const updated = await client.requestParsed(DashboardDetail, `/api/dashboard/${created.id}`, {
-      method: "PUT",
-      body: { dashcards, tabs },
-    });
-    renderItem(updated, dashboardView, ctx);
+    try {
+      const updated = await client.requestParsed(DashboardDetail, `/api/dashboard/${created.id}`, {
+        method: "PUT",
+        body: { dashcards, tabs },
+      });
+      renderItem(updated, dashboardView, ctx);
+    } catch (error) {
+      throw wrapChainedDashboardWriteError(error, created.id);
+    }
   },
 });

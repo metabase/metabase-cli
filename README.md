@@ -1375,6 +1375,14 @@ Agent discovery path: `metabase __manifest` lists every command's args and descr
 
 The bundled query schema is synced from a pinned `@metabase/representations` release via `bun run sync:representations`; CI guards against drift.
 
+### Card-reference pre-flight in `dashboard create` / `dashboard update`
+
+Before either command sends anything, every positive `card_id` referenced from the body's `dashcards` array is checked against `GET /api/card/:id` in parallel (de-duplicated per id). Cards that don't exist, are archived, or aren't readable fail pre-flight: the CLI writes a `{ ok: false, errors: [{ path, message }] }` envelope to stdout (one entry per offending dashcard, `path` is a JSON pointer like `/dashcards/3/card_id`) and exits **2** with `dashboard card-reference pre-flight failed: N error(s) — fix the dashcard card_id values listed above` on stderr. No dashboard is created or modified on a pre-flight miss — this is the contract that prevents orphan dashboards when a stale spec references an archived or missing card.
+
+There is no `--skip-validate` escape hatch here. The pre-flight queries live server state (no bundled schema to drift from), so the only legitimate path on a pre-flight miss is to fix the input.
+
+If the chained `PUT /api/dashboard/:id` fails _after_ the create has already inserted the row (rare with pre-flight in place, but possible on a permission / 5xx / network failure mid-flight), the user-facing error is rewritten to `dashboard <id> created but follow-up PUT /api/dashboard/<id> failed: <reason>; dashcards not applied`, so the caller knows the orphan exists. Recovery: `dashboard update <id> --body '{"dashcards":[...]}'` to retry the dashcards, or `dashboard update <id> --body '{"archived":true}'` to archive the orphan.
+
 ## UUIDs
 
 ### `metabase uuid`

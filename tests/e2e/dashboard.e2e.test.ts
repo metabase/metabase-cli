@@ -2,6 +2,8 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { DashcardListEnvelope } from "../../src/commands/dashboard/cards";
 import { DashboardListEnvelope } from "../../src/commands/dashboard/list";
+import { ValidationOutcome } from "../../src/core/schema/validate";
+import { CardCompact } from "../../src/domain/card";
 import {
   Dashboard,
   DashboardCompact,
@@ -13,7 +15,13 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_CARDS, E2E_COLLECTIONS, E2E_DASHBOARDS, E2E_DASHCARDS } from "./seed/ids";
+import {
+  E2E_COLLECTIONS,
+  E2E_CARDS,
+  E2E_DASHBOARDS,
+  E2E_DASHCARDS,
+  E2E_DATABASES,
+} from "./seed/ids";
 
 const ORDERS_OVERVIEW_NAME = "Orders Overview";
 const ORDERS_OVERVIEW_DESCRIPTION = "E2E seeded dashboard with one orders dashcard.";
@@ -65,6 +73,46 @@ describe("dashboard e2e", () => {
     return {
       METABASE_URL: bootstrap.baseUrl,
       METABASE_API_KEY: bootstrap.adminApiKey,
+    };
+  }
+
+  async function createScratchCard(name: string): Promise<number> {
+    const result = await runCli({
+      args: ["card", "create", "--json"],
+      stdin: JSON.stringify({
+        name,
+        display: "table",
+        visualization_settings: {},
+        collection_id: E2E_COLLECTIONS.DEFAULT,
+        dataset_query: {
+          type: "native",
+          database: E2E_DATABASES.WAREHOUSE,
+          native: { query: "SELECT 1 AS x" },
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    return parseJson(result.stdout, CardCompact).id;
+  }
+
+  function singleDashcardBody(name: string, cardId: number) {
+    return {
+      name,
+      collection_id: E2E_COLLECTIONS.DEFAULT,
+      dashcards: [
+        {
+          id: -1,
+          card_id: cardId,
+          row: 0,
+          col: 0,
+          size_x: 12,
+          size_y: 6,
+          parameter_mappings: [],
+          visualization_settings: {},
+        },
+      ],
     };
   }
 
@@ -362,6 +410,108 @@ describe("dashboard e2e", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("request body: value did not match expected schema");
     expect(result.stdout).toBe("");
+  });
+
+  it("create with a non-existent card_id fails preflight and does not create a dashboard", async () => {
+    const missingCardId = 999_999_999;
+    const dashboardName = "e2e_dashboard_preflight_missing";
+
+    const result = await runCli({
+      args: ["dashboard", "create", "--json"],
+      stdin: JSON.stringify(singleDashcardBody(dashboardName, missingCardId)),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(
+      "dashboard card-reference pre-flight failed: 1 error(s) — fix the dashcard card_id values listed above",
+    );
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/dashcards/0/card_id", message: `card ${missingCardId} not found` }],
+    });
+
+    const search = await runCli({
+      args: ["search", dashboardName, "--models", "dashboard", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(search.exitCode, search.stderr).toBe(0);
+    expect(search.stdout).not.toContain(dashboardName);
+  });
+
+  it("create with an archived card_id fails preflight with the archived diagnostic", async () => {
+    const newCardId = await createScratchCard("e2e_preflight_card_to_archive");
+    const archive = await runCli({
+      args: ["card", "archive", String(newCardId)],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(archive.exitCode, archive.stderr).toBe(0);
+
+    const result = await runCli({
+      args: ["dashboard", "create", "--json"],
+      stdin: JSON.stringify(singleDashcardBody("e2e_dashboard_preflight_archived", newCardId)),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(
+      "dashboard card-reference pre-flight failed: 1 error(s) — fix the dashcard card_id values listed above",
+    );
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/dashcards/0/card_id", message: `card ${newCardId} is archived` }],
+    });
+  });
+
+  it("update with an archived card_id fails preflight and does not touch the dashboard", async () => {
+    const newCardId = await createScratchCard("e2e_preflight_update_card");
+    const archive = await runCli({
+      args: ["card", "archive", String(newCardId)],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(archive.exitCode, archive.stderr).toBe(0);
+
+    const beforeGet = await runCli({
+      args: ["dashboard", "get", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json", "--full"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(beforeGet.exitCode, beforeGet.stderr).toBe(0);
+    const beforeDetail = parseJson(beforeGet.stdout, DashboardDetail);
+
+    const result = await runCli({
+      args: ["dashboard", "update", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json"],
+      stdin: JSON.stringify({
+        dashcards: singleDashcardBody("ignored", newCardId).dashcards,
+        tabs: [],
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(
+      "dashboard card-reference pre-flight failed: 1 error(s) — fix the dashcard card_id values listed above",
+    );
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/dashcards/0/card_id", message: `card ${newCardId} is archived` }],
+    });
+
+    const afterGet = await runCli({
+      args: ["dashboard", "get", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json", "--full"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(afterGet.exitCode, afterGet.stderr).toBe(0);
+    const afterDetail = parseJson(afterGet.stdout, DashboardDetail);
+    expect(afterDetail.dashcards).toEqual(beforeDetail.dashcards);
+    expect(afterDetail.tabs).toEqual(beforeDetail.tabs);
   });
 
   it("update with a non-integer id fails fast with ConfigError", async () => {
