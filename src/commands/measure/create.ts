@@ -6,7 +6,7 @@ import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 import {
   MEASURE_DEFINITION_LABELS,
-  preflightInternalMbql5Query,
+  preflightMbql5Query,
   skipValidateFlag,
 } from "../validate-query";
 
@@ -31,7 +31,7 @@ export default defineMetabaseCommand({
   ],
   async run({ args, ctx, getClient }) {
     const body = await readBody({ flag: args.body, file: args.file }, MeasureCreateInput);
-    preflightInternalMbql5Query(body.definition, MEASURE_DEFINITION_LABELS, {
+    preflightMbql5Query(body.definition, MEASURE_DEFINITION_LABELS, {
       skip: args["skip-validate"] === true,
     });
     const client = await getClient();

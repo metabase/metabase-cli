@@ -2,7 +2,7 @@ import { ConfigError } from "../core/errors";
 import {
   assertNotLegacyEnvelopeWrappingMbql5,
   isMbql5Query,
-  validateInternalQuery,
+  validateQuery,
 } from "../core/schema/validate";
 import { writeJson } from "../output/render";
 
@@ -45,7 +45,7 @@ export interface PreflightOptions {
 
 // Skips MBQL 4 / native — we only have a schema for MBQL 5 today, and the
 // legacy formats are still accepted by the server.
-export function preflightInternalMbql5Query(
+export function preflightMbql5Query(
   query: unknown,
   labels: PreflightLabels,
   options: PreflightOptions,
@@ -57,7 +57,7 @@ export function preflightInternalMbql5Query(
   if (!isMbql5Query(query)) {
     return;
   }
-  const outcome = validateInternalQuery(query);
+  const outcome = validateQuery(query);
   if (outcome.ok) {
     return;
   }

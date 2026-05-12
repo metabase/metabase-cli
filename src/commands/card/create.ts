@@ -6,7 +6,7 @@ import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 import {
   CARD_DATASET_QUERY_LABELS,
-  preflightInternalMbql5Query,
+  preflightMbql5Query,
   skipValidateFlag,
 } from "../validate-query";
 
@@ -32,7 +32,7 @@ export default defineMetabaseCommand({
   ],
   async run({ args, ctx, getClient }) {
     const body = await readBody({ flag: args.body, file: args.file }, CardCreateInput);
-    preflightInternalMbql5Query(body.dataset_query, CARD_DATASET_QUERY_LABELS, {
+    preflightMbql5Query(body.dataset_query, CARD_DATASET_QUERY_LABELS, {
       skip: args["skip-validate"] === true,
     });
     const client = await getClient();

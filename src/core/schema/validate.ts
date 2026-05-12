@@ -7,7 +7,6 @@ import { isPlainObject } from "../../runtime/predicates";
 import { ConfigError } from "../errors";
 import { escapeJsonPointerSegment } from "../json-pointer";
 
-import idSchema from "./data/schemas/common/id.json" with { type: "json" };
 import parameterSchema from "./data/schemas/common/parameter.json" with { type: "json" };
 import querySchema from "./data/schemas/common/query.json" with { type: "json" };
 import refSchema from "./data/schemas/common/ref.json" with { type: "json" };
@@ -25,13 +24,13 @@ export const ValidationOutcome = z.object({
 });
 export type ValidationOutcome = z.infer<typeof ValidationOutcome>;
 
-// Internal MBQL is structurally identical to external MBQL except every ID
-// field is a positive integer instead of a portable string / FK tuple. We
-// override the bundled id.yaml's five $defs to express that.
+// MBQL 5 IDs are always positive integers in the only endpoint the CLI talks to
+// (`POST /api/dataset`). The bundled query.yaml `$ref`s id.yaml#/$defs/...; this
+// override declares every id $def as a positive integer.
 const POSITIVE_INTEGER = { type: "integer", minimum: 1 } as const;
-const internalIdSchema = {
-  title: "ID (internal)",
-  description: "Internal-MBQL identifier overrides — every ID is a positive integer.",
+const idSchema = {
+  title: "ID",
+  description: "MBQL identifier $defs — every id is a positive integer.",
   $defs: {
     entity_id: POSITIVE_INTEGER,
     user_id: POSITIVE_INTEGER,
@@ -41,17 +40,19 @@ const internalIdSchema = {
   },
 };
 
-let externalValidator: ValidateFunction | null = null;
-let internalValidator: ValidateFunction | null = null;
+let validator: ValidateFunction | null = null;
 
-function buildAjv(idVariant: typeof idSchema | typeof internalIdSchema): ValidateFunction {
+function getValidator(): ValidateFunction {
+  if (validator !== null) {
+    return validator;
+  }
   const ajv = new Ajv2020({
     allErrors: true,
     strictTuples: false,
     allowUnionTypes: true,
   });
   addFormats(ajv);
-  ajv.addSchema(idVariant, "id.yaml");
+  ajv.addSchema(idSchema, "id.yaml");
   ajv.addSchema(parameterSchema, "parameter.yaml");
   ajv.addSchema(refSchema, "ref.yaml");
   ajv.addSchema(temporalSchema, "temporal_bucketing.yaml");
@@ -60,21 +61,8 @@ function buildAjv(idVariant: typeof idSchema | typeof internalIdSchema): Validat
   if (compiled === undefined) {
     throw new Error("internal: query.yaml validator not registered");
   }
-  return compiled;
-}
-
-function getExternalValidator(): ValidateFunction {
-  if (externalValidator === null) {
-    externalValidator = buildAjv(idSchema);
-  }
-  return externalValidator;
-}
-
-function getInternalValidator(): ValidateFunction {
-  if (internalValidator === null) {
-    internalValidator = buildAjv(internalIdSchema);
-  }
-  return internalValidator;
+  validator = compiled;
+  return validator;
 }
 
 export const UUID_HINT_MESSAGE =
@@ -97,12 +85,12 @@ function isUuidFormatIssue(issue: ErrorObject): boolean {
   return parsed.success && parsed.data.format === "uuid";
 }
 
-function runValidator(validator: ValidateFunction, value: unknown): ValidationOutcome {
-  if (validator(value)) {
+function runValidator(validatorFn: ValidateFunction, value: unknown): ValidationOutcome {
+  if (validatorFn(value)) {
     return { ok: true, errors: [] };
   }
   const overrides = collectMessageOverrides(value);
-  const issues = validator.errors ?? [];
+  const issues = validatorFn.errors ?? [];
   const errors = issues.map((issue) => {
     if (issue.message === undefined) {
       throw new Error(`Ajv issue at ${issue.instancePath} has no message`);
@@ -219,12 +207,8 @@ function describeJsonValue(value: unknown): string {
   return typeof value;
 }
 
-export function validateExternalQuery(value: unknown): ValidationOutcome {
-  return runValidator(getExternalValidator(), value);
-}
-
-export function validateInternalQuery(value: unknown): ValidationOutcome {
-  return runValidator(getInternalValidator(), value);
+export function validateQuery(value: unknown): ValidationOutcome {
+  return runValidator(getValidator(), value);
 }
 
 export function isMbql5Query(value: unknown): boolean {
@@ -288,11 +272,7 @@ export function assertNotLegacyEnvelopeWrappingMbql5(
   );
 }
 
-export const SchemaMode = z.enum(["external", "internal"]);
-export type SchemaMode = z.infer<typeof SchemaMode>;
-
 export const QuerySchemaBundle = z.object({
-  mode: SchemaMode,
   schema: z.unknown(),
   defs: z.object({
     "id.yaml": z.unknown(),
@@ -303,12 +283,11 @@ export const QuerySchemaBundle = z.object({
 });
 export type QuerySchemaBundle = z.infer<typeof QuerySchemaBundle>;
 
-export function getQuerySchemaBundle(mode: SchemaMode): QuerySchemaBundle {
+export function getQuerySchemaBundle(): QuerySchemaBundle {
   return {
-    mode,
     schema: querySchema,
     defs: {
-      "id.yaml": mode === "internal" ? internalIdSchema : idSchema,
+      "id.yaml": idSchema,
       "parameter.yaml": parameterSchema,
       "ref.yaml": refSchema,
       "temporal_bucketing.yaml": temporalSchema,

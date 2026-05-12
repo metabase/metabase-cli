@@ -516,4 +516,77 @@ describe("card e2e", () => {
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, CardCompact).id).toBe(E2E_CARDS.ORDERS_BY_STATUS);
   });
+
+  it("create with dataset_query: {} is rejected at the CLI boundary (no H2 stack trace)", async () => {
+    const result = await runCli({
+      args: ["card", "create", "--json"],
+      stdin: JSON.stringify({
+        name: "empty-dataset-query",
+        display: "table",
+        visualization_settings: {},
+        collection_id: E2E_COLLECTIONS.DEFAULT,
+        dataset_query: {},
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(result.stderr).toContain(
+      'dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected',
+    );
+    expect(result.stderr).not.toContain("DATABASE_ID");
+    expect(result.stdout).toBe("");
+  });
+
+  it("create with dataset_query: null is rejected at the CLI boundary", async () => {
+    const result = await runCli({
+      args: ["card", "create", "--json"],
+      stdin: JSON.stringify({
+        name: "null-dataset-query",
+        display: "table",
+        visualization_settings: {},
+        collection_id: E2E_COLLECTIONS.DEFAULT,
+        dataset_query: null,
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(result.stderr).toContain("expected object, received null");
+    expect(result.stdout).toBe("");
+  });
+
+  it("update with dataset_query: {} is rejected at the CLI boundary", async () => {
+    const result = await runCli({
+      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      stdin: JSON.stringify({ dataset_query: {} }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(result.stderr).toContain(
+      'dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected',
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("update with dataset_query: null is rejected at the CLI boundary", async () => {
+    const result = await runCli({
+      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      stdin: JSON.stringify({ dataset_query: null }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(result.stderr).toContain("expected object, received null");
+    expect(result.stdout).toBe("");
+  });
 });

@@ -7,7 +7,7 @@ import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 import {
   TRANSFORM_SOURCE_QUERY_LABELS,
-  preflightInternalMbql5Query,
+  preflightMbql5Query,
   skipValidateFlag,
 } from "../validate-query";
 
@@ -36,7 +36,7 @@ export default defineMetabaseCommand({
     const id = parseId(args.id);
     const body = await readBody({ flag: args.body, file: args.file }, TransformUpdateInput);
     if (body.source !== undefined && body.source.type === "query") {
-      preflightInternalMbql5Query(body.source.query, TRANSFORM_SOURCE_QUERY_LABELS, {
+      preflightMbql5Query(body.source.query, TRANSFORM_SOURCE_QUERY_LABELS, {
         skip: args["skip-validate"] === true,
       });
     }

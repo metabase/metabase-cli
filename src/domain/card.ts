@@ -6,6 +6,20 @@ const CardType = z.enum(["question", "model", "metric"]);
 
 const CardQueryType = z.enum(["native", "query"]);
 
+// `dataset_query: {}` is accepted by the server's `::query` schema for historic
+// reasons but immediately trips the NOT NULL constraint on REPORT_CARD.DATABASE_ID
+// during INSERT, surfacing as a raw H2 stack trace. `dataset_query: null` is
+// rejected by the create endpoint with a generic 400. Both are unrecoverable —
+// reject at the CLI boundary so the agent gets a readable error.
+export const CardDatasetQuery = z
+  .object({})
+  .loose()
+  .refine((value) => "lib/type" in value || "type" in value, {
+    message:
+      'dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected',
+  });
+export type CardDatasetQuery = z.infer<typeof CardDatasetQuery>;
+
 export const Card = z
   .object({
     id: z.number().int(),
@@ -56,7 +70,7 @@ export const CardCreateInput = z
   .object({
     name: z.string().min(1),
     type: CardType.optional(),
-    dataset_query: z.unknown(),
+    dataset_query: CardDatasetQuery,
     display: z.string().min(1),
     visualization_settings: z.unknown(),
     description: z.string().nullable().optional(),
@@ -73,7 +87,7 @@ export const CardUpdateInput = z
   .object({
     name: z.string().min(1).optional(),
     type: CardType.optional(),
-    dataset_query: z.unknown().optional(),
+    dataset_query: CardDatasetQuery.optional(),
     display: z.string().min(1).optional(),
     visualization_settings: z.unknown().optional(),
     description: z.string().nullable().optional(),

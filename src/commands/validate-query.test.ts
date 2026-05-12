@@ -7,7 +7,7 @@ import { parseJson } from "../runtime/json";
 import {
   CARD_DATASET_QUERY_LABELS,
   TRANSFORM_SOURCE_QUERY_LABELS,
-  preflightInternalMbql5Query,
+  preflightMbql5Query,
 } from "./validate-query";
 
 interface Streams {
@@ -33,9 +33,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("preflightInternalMbql5Query", () => {
+describe("preflightMbql5Query", () => {
   it("returns silently when the body is not MBQL 5 (legacy MBQL 4)", () => {
-    preflightInternalMbql5Query(
+    preflightMbql5Query(
       { type: "query", database: 1, query: { "source-table": 5 } },
       CARD_DATASET_QUERY_LABELS,
       { skip: false },
@@ -45,14 +45,14 @@ describe("preflightInternalMbql5Query", () => {
   });
 
   it("returns silently when the body is undefined / null / non-object", () => {
-    preflightInternalMbql5Query(undefined, CARD_DATASET_QUERY_LABELS, { skip: false });
-    preflightInternalMbql5Query(null, CARD_DATASET_QUERY_LABELS, { skip: false });
-    preflightInternalMbql5Query("native sql", CARD_DATASET_QUERY_LABELS, { skip: false });
+    preflightMbql5Query(undefined, CARD_DATASET_QUERY_LABELS, { skip: false });
+    preflightMbql5Query(null, CARD_DATASET_QUERY_LABELS, { skip: false });
+    preflightMbql5Query("native sql", CARD_DATASET_QUERY_LABELS, { skip: false });
     expect(streams.stdout).toBe("");
   });
 
   it("returns silently when the MBQL 5 body validates", () => {
-    preflightInternalMbql5Query(
+    preflightMbql5Query(
       {
         "lib/type": "mbql/query",
         database: 1,
@@ -67,7 +67,7 @@ describe("preflightInternalMbql5Query", () => {
 
   it("writes the structured envelope and throws ConfigError when MBQL 5 validation fails", () => {
     expect(() =>
-      preflightInternalMbql5Query(
+      preflightMbql5Query(
         {
           "lib/type": "mbql/query",
           database: "oops",
@@ -88,7 +88,7 @@ describe("preflightInternalMbql5Query", () => {
   });
 
   it("returns silently when skip is true, regardless of body validity", () => {
-    preflightInternalMbql5Query(
+    preflightMbql5Query(
       {
         "lib/type": "mbql/query",
         database: "oops",
@@ -112,7 +112,7 @@ describe("preflightInternalMbql5Query", () => {
       },
     };
     expect(() =>
-      preflightInternalMbql5Query(doubleWrapped, CARD_DATASET_QUERY_LABELS, { skip: false }),
+      preflightMbql5Query(doubleWrapped, CARD_DATASET_QUERY_LABELS, { skip: false }),
     ).toThrow(
       new ConfigError(
         'card.dataset_query validation failed: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope. ' +
@@ -135,7 +135,7 @@ describe("preflightInternalMbql5Query", () => {
       },
     };
     expect(() =>
-      preflightInternalMbql5Query(doubleWrapped, TRANSFORM_SOURCE_QUERY_LABELS, { skip: false }),
+      preflightMbql5Query(doubleWrapped, TRANSFORM_SOURCE_QUERY_LABELS, { skip: false }),
     ).toThrow(
       new ConfigError(
         'transform.source.query validation failed: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope. ' +
@@ -148,7 +148,7 @@ describe("preflightInternalMbql5Query", () => {
   });
 
   it("legacy-envelope detection is bypassed by skip", () => {
-    preflightInternalMbql5Query(
+    preflightMbql5Query(
       {
         type: "query",
         database: 2,

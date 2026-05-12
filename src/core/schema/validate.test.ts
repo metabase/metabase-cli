@@ -8,22 +8,10 @@ import {
   isLegacyEnvelopeWrappingMbql5,
   isLegacyNativeQuery,
   isMbql5Query,
-  validateExternalQuery,
-  validateInternalQuery,
+  validateQuery,
 } from "./validate";
 
-const VALID_EXTERNAL = {
-  "lib/type": "mbql/query",
-  database: "My DB",
-  stages: [
-    {
-      "lib/type": "mbql.stage/mbql",
-      "source-table": ["My DB", null, "orders"],
-    },
-  ],
-};
-
-const VALID_INTERNAL = {
+const VALID_QUERY = {
   "lib/type": "mbql/query",
   database: 1,
   stages: [
@@ -34,55 +22,24 @@ const VALID_INTERNAL = {
   ],
 };
 
-describe("validateExternalQuery", () => {
-  it("accepts a structurally valid external-MBQL body", () => {
-    expect(validateExternalQuery(VALID_EXTERNAL)).toEqual({ ok: true, errors: [] });
+describe("validateQuery", () => {
+  it("accepts a structurally valid MBQL 5 body", () => {
+    expect(validateQuery(VALID_QUERY)).toEqual({ ok: true, errors: [] });
   });
 
-  it("rejects integer database (would belong to internal MBQL)", () => {
-    expect(validateExternalQuery(VALID_INTERNAL)).toEqual({
-      ok: false,
-      errors: [
-        { path: "/database", message: "must be string" },
-        { path: "/stages/0/source-table", message: "must be array" },
-        { path: "/stages/0", message: 'must match "then" schema' },
-      ],
-    });
-  });
-
-  it("rejects an empty stages array", () => {
+  it("rejects a string database id / FK-tuple source-table (only positive integers are accepted)", () => {
     expect(
-      validateExternalQuery({
+      validateQuery({
         "lib/type": "mbql/query",
         database: "My DB",
-        stages: [],
+        stages: [
+          {
+            "lib/type": "mbql.stage/mbql",
+            "source-table": ["My DB", null, "orders"],
+          },
+        ],
       }),
     ).toEqual({
-      ok: false,
-      errors: [{ path: "/stages", message: "must NOT have fewer than 1 items" }],
-    });
-  });
-
-  it("rejects a missing top-level lib/type", () => {
-    const outcome = validateExternalQuery({
-      database: "My DB",
-      stages: [{ "lib/type": "mbql.stage/mbql", "source-table": ["My DB", null, "orders"] }],
-    });
-    expect(outcome.ok).toBe(false);
-    expect(outcome.errors).toContainEqual({
-      path: "/",
-      message: "must have required property 'lib/type'",
-    });
-  });
-});
-
-describe("validateInternalQuery", () => {
-  it("accepts a structurally valid internal-MBQL body", () => {
-    expect(validateInternalQuery(VALID_INTERNAL)).toEqual({ ok: true, errors: [] });
-  });
-
-  it("rejects string database / FK-tuple source-table (would belong to external MBQL)", () => {
-    expect(validateInternalQuery(VALID_EXTERNAL)).toEqual({
       ok: false,
       errors: [
         { path: "/database", message: "must be integer" },
@@ -93,13 +50,38 @@ describe("validateInternalQuery", () => {
   });
 
   it("rejects zero or negative database id", () => {
-    const outcome = validateInternalQuery({
+    const outcome = validateQuery({
       "lib/type": "mbql/query",
       database: 0,
       stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
     });
     expect(outcome.ok).toBe(false);
     expect(outcome.errors).toContainEqual({ path: "/database", message: "must be >= 1" });
+  });
+
+  it("rejects an empty stages array", () => {
+    expect(
+      validateQuery({
+        "lib/type": "mbql/query",
+        database: 1,
+        stages: [],
+      }),
+    ).toEqual({
+      ok: false,
+      errors: [{ path: "/stages", message: "must NOT have fewer than 1 items" }],
+    });
+  });
+
+  it("rejects a missing top-level lib/type", () => {
+    const outcome = validateQuery({
+      database: 1,
+      stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
+    });
+    expect(outcome.ok).toBe(false);
+    expect(outcome.errors).toContainEqual({
+      path: "/",
+      message: "must have required property 'lib/type'",
+    });
   });
 });
 
@@ -143,7 +125,7 @@ describe("isLegacyEnvelopeWrappingMbql5", () => {
   });
 
   it("returns false for a top-level MBQL 5 query", () => {
-    expect(isLegacyEnvelopeWrappingMbql5(VALID_INTERNAL)).toBe(false);
+    expect(isLegacyEnvelopeWrappingMbql5(VALID_QUERY)).toBe(false);
   });
 
   it("returns false for non-objects, arrays, and null", () => {
@@ -189,7 +171,7 @@ describe("isLegacyNativeQuery", () => {
   });
 
   it("returns false for a plain MBQL 5 query with no native fields", () => {
-    expect(isLegacyNativeQuery(VALID_INTERNAL)).toBe(false);
+    expect(isLegacyNativeQuery(VALID_QUERY)).toBe(false);
   });
 
   it("returns false for non-objects, arrays, and null", () => {
@@ -203,7 +185,7 @@ describe("isLegacyNativeQuery", () => {
 
 describe("ref-clause error messages", () => {
   it("rewrites 'must be string' on aggregation_ref's UUID slot and reports the cascading 'then' shape errors verbatim", () => {
-    const outcome = validateInternalQuery({
+    const outcome = validateQuery({
       "lib/type": "mbql/query",
       database: 1,
       stages: [
@@ -238,7 +220,7 @@ describe("ref-clause error messages", () => {
   });
 
   it("rewrites the message for expression refs to reference the name contract", () => {
-    const outcome = validateInternalQuery({
+    const outcome = validateQuery({
       "lib/type": "mbql/query",
       database: 1,
       stages: [
@@ -263,7 +245,7 @@ describe("ref-clause error messages", () => {
   });
 
   it("does not rewrite non-string-typed errors (only 'must be string' at ref-third positions is enriched)", () => {
-    const outcome = validateInternalQuery({
+    const outcome = validateQuery({
       "lib/type": "mbql/query",
       database: "oops",
       stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
@@ -277,7 +259,7 @@ describe("ref-clause error messages", () => {
 
 describe("clause-shape error messages", () => {
   it("rewrites 'must be object' at /1 of a `field` clause to call out the MBQL5 vs MBQL4 ordering trap", () => {
-    const outcome = validateInternalQuery({
+    const outcome = validateQuery({
       "lib/type": "mbql/query",
       database: 1,
       stages: [
@@ -302,7 +284,7 @@ describe("clause-shape error messages", () => {
   });
 
   it("rewrites 'must be object' at /1 of an arbitrary clause with a generic options-position message that names the operator and the offending value", () => {
-    const outcome = validateInternalQuery({
+    const outcome = validateQuery({
       "lib/type": "mbql/query",
       database: 1,
       stages: [
@@ -321,7 +303,7 @@ describe("clause-shape error messages", () => {
   });
 
   it("does not override slot 1 when the operator is not a string (the array isn't a clause)", () => {
-    const outcome = validateInternalQuery({
+    const outcome = validateQuery({
       "lib/type": "mbql/query",
       database: 1,
       stages: [{ "lib/type": "mbql.stage/mbql", "source-table": [1, 2, 3] }],
@@ -336,7 +318,7 @@ describe("clause-shape error messages", () => {
 
 describe("uuid-format error messages", () => {
   it("replaces Ajv's bare 'must match format \"uuid\"' with a hint pointing at `metabase uuid`", () => {
-    const outcome = validateInternalQuery({
+    const outcome = validateQuery({
       "lib/type": "mbql/query",
       database: 1,
       stages: [
@@ -361,31 +343,17 @@ describe("uuid-format error messages", () => {
 });
 
 describe("getQuerySchemaBundle", () => {
-  it("external mode bundles the query schema with the string-FK id schema and the other 3 common defs", () => {
-    const bundle = getQuerySchemaBundle("external");
-    expect(bundle.mode).toBe("external");
-    expect(bundle.schema).toBe(getQuerySchemaBundle("external").schema);
+  it("bundles the query schema with the 4 common defs and pins every id $def to a positive integer", () => {
+    const bundle = getQuerySchemaBundle();
     expect(Object.keys(bundle.defs)).toEqual([
       "id.yaml",
       "parameter.yaml",
       "ref.yaml",
       "temporal_bucketing.yaml",
     ]);
-  });
-
-  it("external mode's id schema describes database_id as a string", () => {
-    const bundle = getQuerySchemaBundle("external");
-    expect(bundle.defs["id.yaml"]).toMatchObject({
-      $defs: { database_id: { type: "string" } },
-    });
-  });
-
-  it("internal mode's id schema describes every id $def as a positive integer", () => {
-    const bundle = getQuerySchemaBundle("internal");
-    expect(bundle.mode).toBe("internal");
     expect(bundle.defs["id.yaml"]).toEqual({
-      title: "ID (internal)",
-      description: "Internal-MBQL identifier overrides — every ID is a positive integer.",
+      title: "ID",
+      description: "MBQL identifier $defs — every id is a positive integer.",
       $defs: {
         entity_id: { type: "integer", minimum: 1 },
         user_id: { type: "integer", minimum: 1 },

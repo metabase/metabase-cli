@@ -7,7 +7,7 @@ import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 import {
   SEGMENT_DEFINITION_LABELS,
-  preflightInternalMbql5Query,
+  preflightMbql5Query,
   skipValidateFlag,
 } from "../validate-query";
 
@@ -35,7 +35,7 @@ export default defineMetabaseCommand({
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const body = await readBody({ flag: args.body, file: args.file }, SegmentUpdateInput);
-    preflightInternalMbql5Query(body.definition, SEGMENT_DEFINITION_LABELS, {
+    preflightMbql5Query(body.definition, SEGMENT_DEFINITION_LABELS, {
       skip: args["skip-validate"] === true,
     });
     const client = await getClient();

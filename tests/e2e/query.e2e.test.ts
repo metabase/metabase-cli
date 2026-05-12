@@ -12,24 +12,24 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { E2E_DATABASES, E2E_TABLES } from "./seed/ids";
 
-const VALID_EXTERNAL = {
-  "lib/type": "mbql/query",
-  database: "My DB",
-  stages: [
-    {
-      "lib/type": "mbql.stage/mbql",
-      "source-table": ["My DB", null, "orders"],
-    },
-  ],
-};
-
-const VALID_INTERNAL = {
+const VALID_QUERY = {
   "lib/type": "mbql/query",
   database: 1,
   stages: [
     {
       "lib/type": "mbql.stage/mbql",
       "source-table": 7,
+    },
+  ],
+};
+
+const STRING_FK_BODY = {
+  "lib/type": "mbql/query",
+  database: "My DB",
+  stages: [
+    {
+      "lib/type": "mbql.stage/mbql",
+      "source-table": ["My DB", null, "orders"],
     },
   ],
 };
@@ -65,7 +65,7 @@ describe("query e2e", () => {
     };
   }
 
-  it("--print-schema (default) emits the internal-mode bundle with all 4 common defs", async () => {
+  it("--print-schema emits the schema bundle with all 4 common defs", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["query", "--print-schema"],
@@ -73,25 +73,14 @@ describe("query e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, QuerySchemaBundle)).toEqual(getQuerySchemaBundle("internal"));
+    expect(parseJson(result.stdout, QuerySchemaBundle)).toEqual(getQuerySchemaBundle());
   });
 
-  it("--print-schema --external emits the external-mode bundle", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["query", "--print-schema", "--external"],
-      configHome,
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, QuerySchemaBundle)).toEqual(getQuerySchemaBundle("external"));
-  });
-
-  it("--dry-run (default = internal) with a valid numeric-IDs body returns ok and exits 0", async () => {
+  it("--dry-run with a valid numeric-IDs body returns ok and exits 0", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["query", "--dry-run"],
-      stdin: JSON.stringify(VALID_INTERNAL),
+      stdin: JSON.stringify(VALID_QUERY),
       configHome,
     });
 
@@ -99,23 +88,11 @@ describe("query e2e", () => {
     expect(parseJson(result.stdout, ValidationOutcome)).toEqual({ ok: true, errors: [] });
   });
 
-  it("--external --dry-run with a valid string-FK body returns ok and exits 0", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["query", "--external", "--dry-run"],
-      stdin: JSON.stringify(VALID_EXTERNAL),
-      configHome,
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({ ok: true, errors: [] });
-  });
-
-  it("--dry-run (default = internal) rejects external-shaped IDs (string database, FK-tuple source-table)", async () => {
+  it("--dry-run rejects string-id / FK-tuple bodies (only positive integers are accepted)", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["query", "--dry-run"],
-      stdin: JSON.stringify(VALID_EXTERNAL),
+      stdin: JSON.stringify(STRING_FK_BODY),
       configHome,
     });
 
@@ -125,26 +102,6 @@ describe("query e2e", () => {
       errors: [
         { path: "/database", message: "must be integer" },
         { path: "/stages/0/source-table", message: "must be integer" },
-        { path: "/stages/0", message: 'must match "then" schema' },
-      ],
-    });
-    expect(result.stderr).toContain("validation failed: 3 error(s)");
-  });
-
-  it("--external --dry-run rejects internal-shaped IDs (integer database, integer source-table)", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["query", "--external", "--dry-run"],
-      stdin: JSON.stringify(VALID_INTERNAL),
-      configHome,
-    });
-
-    expect(result.exitCode).toBe(2);
-    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
-      ok: false,
-      errors: [
-        { path: "/database", message: "must be string" },
-        { path: "/stages/0/source-table", message: "must be array" },
         { path: "/stages/0", message: 'must match "then" schema' },
       ],
     });
@@ -202,7 +159,7 @@ describe("query e2e", () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["query", "--skip-validate", "--dry-run"],
-      stdin: JSON.stringify(VALID_INTERNAL),
+      stdin: JSON.stringify(VALID_QUERY),
       configHome,
     });
 
@@ -213,11 +170,9 @@ describe("query e2e", () => {
 
   it("--skip-validate sends an invalid body and surfaces the server-side error (HttpError, exit 1)", async () => {
     const configHome = await makeIsolatedConfigHome();
-    // External-shaped body in default (internal) mode would fail pre-flight; with --skip-validate the
-    // body reaches the server, which rejects it with an HTTP error.
     const result = await runCli({
       args: ["query", "--skip-validate", "--json"],
-      stdin: JSON.stringify(VALID_EXTERNAL),
+      stdin: JSON.stringify(STRING_FK_BODY),
       configHome,
       env: authEnv(),
     });
@@ -227,7 +182,7 @@ describe("query e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("run (default = internal) executes a valid MBQL 5 query against /api/dataset and returns rows", async () => {
+  it("run executes a valid MBQL 5 query against /api/dataset and returns rows", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["query", "--json"],
