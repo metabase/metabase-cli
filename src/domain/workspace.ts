@@ -9,22 +9,11 @@ const WorkspaceDatabaseStatus = z.enum([
   "deprovisioning",
 ]);
 
-export const WorkspaceInputNamespace = z
-  .object({
-    db: z.string().min(1).optional(),
-    schema: z.string().min(1).optional(),
-  })
-  .loose()
-  .refine((value) => value.db !== undefined || value.schema !== undefined, {
-    message: "input namespace must specify at least one of db or schema",
-  });
-export type WorkspaceInputNamespace = z.infer<typeof WorkspaceInputNamespace>;
-
 export const WorkspaceDatabase = z
   .object({
     database_id: z.number().int(),
-    output_schema: z.string(),
-    input: z.array(WorkspaceInputNamespace),
+    output_namespace: z.string(),
+    input_schemas: z.array(z.string().min(1)),
     status: WorkspaceDatabaseStatus,
   })
   .loose();
@@ -84,14 +73,14 @@ export type WorkspaceCreateInput = z.infer<typeof WorkspaceCreateInput>;
 export const WorkspaceProvisionInput = z
   .object({
     database_id: z.number().int().positive(),
-    input: z.array(WorkspaceInputNamespace).min(1),
+    input_schemas: z.array(z.string().min(1)).min(1),
   })
   .loose();
 export type WorkspaceProvisionInput = z.infer<typeof WorkspaceProvisionInput>;
 
 export const WorkspaceUpdateDatabaseInput = z
   .object({
-    input: z.array(WorkspaceInputNamespace).min(1),
+    input_schemas: z.array(z.string().min(1)).min(1),
   })
   .loose();
 export type WorkspaceUpdateDatabaseInput = z.infer<typeof WorkspaceUpdateDatabaseInput>;
@@ -106,22 +95,9 @@ function formatDatabases(value: unknown): string {
   }
   return parsed.data
     .map((entry) => {
-      const inputList =
-        entry.input.length === 0 ? "" : ` [${entry.input.map(formatInputNamespace).join(", ")}]`;
-      return `${entry.database_id} (${entry.status})${inputList}`;
+      const schemas =
+        entry.input_schemas.length === 0 ? "" : ` [${entry.input_schemas.join(", ")}]`;
+      return `${entry.database_id} (${entry.status})${schemas}`;
     })
     .join("; ");
-}
-
-function formatInputNamespace(namespace: WorkspaceInputNamespace): string {
-  if (namespace.db !== undefined && namespace.schema !== undefined) {
-    return `${namespace.db}.${namespace.schema}`;
-  }
-  if (namespace.schema !== undefined) {
-    return namespace.schema;
-  }
-  if (namespace.db !== undefined) {
-    return namespace.db;
-  }
-  throw new Error("WorkspaceInputNamespace must specify db or schema");
 }

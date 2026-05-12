@@ -47,8 +47,8 @@ export default defineMetabaseCommand({
       if (schemasFlag === undefined || schemasFlag === "") {
         throw new ConfigError("--schemas is required when using --database-id");
       }
-      const input = parseSchemasCsv(schemasFlag);
-      body = WorkspaceProvisionInput.parse({ database_id: databaseId, input });
+      const input_schemas = parseSchemasCsv(schemasFlag);
+      body = WorkspaceProvisionInput.parse({ database_id: databaseId, input_schemas });
     } else {
       body = await readBody({ flag: args.body, file: args.file }, WorkspaceProvisionInput);
     }

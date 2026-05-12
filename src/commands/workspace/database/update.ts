@@ -43,8 +43,8 @@ export default defineMetabaseCommand({
 
     let body: WorkspaceUpdateDatabaseInput;
     if (schemasFlag !== undefined && schemasFlag !== "") {
-      const input = parseSchemasCsv(schemasFlag);
-      body = WorkspaceUpdateDatabaseInput.parse({ input });
+      const input_schemas = parseSchemasCsv(schemasFlag);
+      body = WorkspaceUpdateDatabaseInput.parse({ input_schemas });
     } else {
       body = await readBody({ flag: args.body, file: args.file }, WorkspaceUpdateDatabaseInput);
     }
