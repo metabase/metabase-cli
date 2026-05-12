@@ -1340,25 +1340,18 @@ metabase eid translate --body '{"entity_ids":{"card":["abc123XYZ"]}}'
 
 Run an MBQL 5 query with built-in schema validation. Three modes — discover the schema (`--print-schema`), validate without sending (`--dry-run`), run.
 
-Two MBQL flavors:
-
-- **Internal MBQL** (default) — numeric IDs (`database: 1`, `source-table: 7`). POSTs to `/api/dataset`. This is what every existing Metabase API endpoint accepts.
-- **External MBQL** (`--external`) — string-id FKs (`database: "My DB"`, `source-table: ["My DB", null, "orders"]`). POSTs to `/api/dataset/external` (forward-looking representations endpoint).
-
-External and internal MBQL are structurally identical; only the ID types differ. The bundled query schema is synced from `@metabase/representations`; the internal validator overrides `id.yaml` to require positive integers for every ID `$def`.
+MBQL 5 bodies use numeric IDs (`database: 1`, `source-table: 7`) and POST to `/api/dataset`. The bundled query schema is synced from `@metabase/representations`; `id.yaml` is overridden to require positive integers for every ID `$def`.
 
 ```sh
-metabase query --print-schema                     # internal JSON Schema bundle
-metabase query --print-schema --external          # string-FK variant
+metabase query --print-schema                     # JSON Schema bundle
 cat q.json | metabase query --dry-run             # validate, no network
 metabase query --file q.json
-metabase query --file q.json --external
 metabase query --file q.json --skip-validate      # bypass pre-flight; let server reject
 ```
 
 Body sources: `--file`, `--body`, or stdin (exactly one). Body is JSON.
 
-Legacy native bodies — `{ "type": "native", "database": N, "native": { "query": "..." } }` or any non-MBQL-5 body that carries a top-level `native:` key — skip MBQL 5 pre-flight automatically. The bundled schema only models MBQL 5, and `/api/dataset` accepts the legacy native shape as-is; the CLI detects it and routes straight to the server. `--dry-run` on a legacy native body emits `{ ok: true, errors: [] }` (no schema applies). The double-wrap footgun — an MBQL 5 query nested inside a `{type:"query", query:…}` envelope — is still rejected with a `ConfigError` before send.
+Any non-MBQL 5 body skips pre-flight automatically — legacy MBQL 4 (`{ "type": "query", "database": N, "query": { "source-table": T, ... } }`), legacy native (`{ "type": "native", "database": N, "native": { "query": "..." } }`), or any other shape that doesn't carry `"lib/type": "mbql/query"`. The bundled schema only models MBQL 5; `/api/dataset` normalizes the rest server-side via `lib-be/normalize-query` (the same normalizer that backs `card create` / `transform create`), so behavior is symmetric across endpoints. `--dry-run` on a non-MBQL 5 body emits `{ ok: true, errors: [] }` (no schema applies). The double-wrap footgun — an MBQL 5 query nested inside a `{type:"query", query:…}` envelope — is still rejected with a `ConfigError` before send.
 
 `--skip-validate` is an escape hatch when the bundled schema disagrees with what the server actually accepts (drift, false negative, edge case) for MBQL 5 bodies. Validation is skipped entirely and the body is sent as-is. Mutually exclusive with `--dry-run` (which is itself the validation mode).
 
@@ -1370,7 +1363,7 @@ Exit codes:
 
 Output by mode:
 
-- `--print-schema` — `{ mode, schema, defs: { "id.yaml", "parameter.yaml", "ref.yaml", "temporal_bucketing.yaml" } }`. The query schema's `$ref`s point into the `defs` namespace by file path; an agent can either feed the bundle directly into Ajv (`addSchema(defs["id.yaml"], "id.yaml")` etc., then `compile(schema)`) or read it as documentation.
+- `--print-schema` — `{ schema, defs: { "id.yaml", "parameter.yaml", "ref.yaml", "temporal_bucketing.yaml" } }`. The query schema's `$ref`s point into the `defs` namespace by file path; an agent can either feed the bundle directly into Ajv (`addSchema(defs["id.yaml"], "id.yaml")` etc., then `compile(schema)`) or read it as documentation.
 - `--dry-run` — `{ ok: boolean, errors: { path: string, message: string }[] }`. `path` is a JSON Pointer into the body, `message` is the Ajv error string.
 - Run failure (no `--dry-run`) — same `{ ok, errors }` envelope on stdout, exit 2, no request made.
 - Run success — the streamed `CardQueryResult`.

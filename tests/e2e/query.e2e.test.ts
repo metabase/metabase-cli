@@ -248,6 +248,47 @@ describe("query e2e", () => {
     expect(parseJson(result.stdout, ValidationOutcome)).toEqual({ ok: true, errors: [] });
   });
 
+  it("run with a legacy MBQL 4 body skips MBQL 5 pre-flight and executes against /api/dataset (parity with card create)", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["query", "--json"],
+      stdin: JSON.stringify({
+        type: "query",
+        database: E2E_DATABASES.WAREHOUSE,
+        query: {
+          "source-table": E2E_TABLES.ORDERS,
+          limit: 3,
+        },
+      }),
+      configHome,
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const queryResult = parseJson(result.stdout, CardQueryResult);
+    expect(queryResult.status).toBe("completed");
+    if (queryResult.status === "completed") {
+      expect(queryResult.row_count).toBe(3);
+      expect(queryResult.data.rows).toHaveLength(3);
+    }
+  });
+
+  it("--dry-run with a legacy MBQL 4 body returns ok and exits 0 (server normalizes; no MBQL 5 schema applies)", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["query", "--dry-run"],
+      stdin: JSON.stringify({
+        type: "query",
+        database: E2E_DATABASES.WAREHOUSE,
+        query: { "source-table": E2E_TABLES.ORDERS, limit: 1 },
+      }),
+      configHome,
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({ ok: true, errors: [] });
+  });
+
   it('rejects the double-wrap footgun (MBQL 5 inside a legacy {type:"query"} envelope) with a ConfigError', async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({

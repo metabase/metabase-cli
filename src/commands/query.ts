@@ -4,7 +4,7 @@ import { ConfigError } from "../core/errors";
 import {
   assertNotLegacyEnvelopeWrappingMbql5,
   getQuerySchemaBundle,
-  isLegacyNativeQuery,
+  isMbql5Query,
   validateQuery,
 } from "../core/schema/validate";
 import { CardQueryResult, cardQueryView } from "../domain/card";
@@ -24,7 +24,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "query",
     description:
-      'Run an MBQL 5 query (validates against the bundled schema first); --print-schema emits the schema for agent discovery, --dry-run validates without sending. Legacy native bodies ({type:"native", …} or any top-level `native:`) skip pre-flight automatically — the bundled schema only models MBQL 5. Every clause options object carries a `lib/uuid` (UUID v4); mint these via `metabase uuid` — never author them by hand.',
+      'Run an MBQL 5 query (validates against the bundled schema first); --print-schema emits the schema for agent discovery, --dry-run validates without sending. Any non-MBQL 5 body — legacy MBQL 4 ({type:"query", …}), legacy native ({type:"native", …}), or any other non-{lib/type:"mbql/query"} shape — skips pre-flight automatically and is normalized server-side by lib-be/normalize-query. The bundled schema only models MBQL 5. Every clause options object carries a `lib/uuid` (UUID v4); mint these via `metabase uuid` — never author them by hand.',
   },
   args: {
     ...outputFlags,
@@ -66,7 +66,7 @@ export default defineMetabaseCommand({
       assertNotLegacyEnvelopeWrappingMbql5(body, { contextLabel: "query", bodyNoun: "the body" });
     }
 
-    const skipValidation = explicitSkip || isLegacyNativeQuery(body);
+    const skipValidation = explicitSkip || !isMbql5Query(body);
 
     if (!skipValidation) {
       const outcome = validateQuery(body);

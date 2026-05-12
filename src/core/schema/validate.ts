@@ -240,19 +240,6 @@ export function isLegacyEnvelopeWrappingMbql5(value: unknown): boolean {
   return "lib/type" in inner && inner["lib/type"] === "mbql/query";
 }
 
-// MBQL 5 native lives inside a stage (`stages[*].native`), never at the top
-// level — the `isMbql5Query` guard keeps a well-formed MBQL 5 body out of this
-// branch even if it carries a stray top-level `native` field.
-export function isLegacyNativeQuery(value: unknown): boolean {
-  if (!isPlainObject(value)) {
-    return false;
-  }
-  if (isMbql5Query(value)) {
-    return false;
-  }
-  return value["type"] === "native" || "native" in value;
-}
-
 export interface LegacyEnvelopeAssertOptions {
   readonly contextLabel: string;
   readonly bodyNoun: string;
