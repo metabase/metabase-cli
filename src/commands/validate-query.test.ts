@@ -4,7 +4,11 @@ import { ConfigError } from "../core/errors";
 import { ValidationOutcome } from "../core/schema/validate";
 import { parseJson } from "../runtime/json";
 
-import { preflightInternalMbql5Query } from "./validate-query";
+import {
+  CARD_DATASET_QUERY_LABELS,
+  TRANSFORM_SOURCE_QUERY_LABELS,
+  preflightInternalMbql5Query,
+} from "./validate-query";
 
 interface Streams {
   stdout: string;
@@ -33,7 +37,7 @@ describe("preflightInternalMbql5Query", () => {
   it("returns silently when the body is not MBQL 5 (legacy MBQL 4)", () => {
     preflightInternalMbql5Query(
       { type: "query", database: 1, query: { "source-table": 5 } },
-      "card.dataset_query validation failed",
+      CARD_DATASET_QUERY_LABELS,
       { skip: false },
     );
     expect(streams.stdout).toBe("");
@@ -41,9 +45,9 @@ describe("preflightInternalMbql5Query", () => {
   });
 
   it("returns silently when the body is undefined / null / non-object", () => {
-    preflightInternalMbql5Query(undefined, "x", { skip: false });
-    preflightInternalMbql5Query(null, "x", { skip: false });
-    preflightInternalMbql5Query("native sql", "x", { skip: false });
+    preflightInternalMbql5Query(undefined, CARD_DATASET_QUERY_LABELS, { skip: false });
+    preflightInternalMbql5Query(null, CARD_DATASET_QUERY_LABELS, { skip: false });
+    preflightInternalMbql5Query("native sql", CARD_DATASET_QUERY_LABELS, { skip: false });
     expect(streams.stdout).toBe("");
   });
 
@@ -54,7 +58,7 @@ describe("preflightInternalMbql5Query", () => {
         database: 1,
         stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
       },
-      "card.dataset_query validation failed",
+      CARD_DATASET_QUERY_LABELS,
       { skip: false },
     );
     expect(streams.stdout).toBe("");
@@ -69,7 +73,7 @@ describe("preflightInternalMbql5Query", () => {
           database: "oops",
           stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
         },
-        "card.dataset_query validation failed",
+        CARD_DATASET_QUERY_LABELS,
         { skip: false },
       ),
     ).toThrow(
@@ -90,7 +94,7 @@ describe("preflightInternalMbql5Query", () => {
         database: "oops",
         stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
       },
-      "card.dataset_query validation failed",
+      CARD_DATASET_QUERY_LABELS,
       { skip: true },
     );
     expect(streams.stdout).toBe("");
@@ -108,13 +112,34 @@ describe("preflightInternalMbql5Query", () => {
       },
     };
     expect(() =>
-      preflightInternalMbql5Query(doubleWrapped, "card.dataset_query validation failed", {
-        skip: false,
-      }),
+      preflightInternalMbql5Query(doubleWrapped, CARD_DATASET_QUERY_LABELS, { skip: false }),
     ).toThrow(
       new ConfigError(
         'card.dataset_query validation failed: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope. ' +
           "For MBQL 5, dataset_query is the mbql/query value itself: " +
+          '{"lib/type":"mbql/query", database:N, stages:[…]}.',
+      ),
+    );
+    expect(streams.stdout).toBe("");
+    expect(streams.stderr).toBe("");
+  });
+
+  it("names source.query when the transform preset is threaded", () => {
+    const doubleWrapped = {
+      type: "query",
+      database: 2,
+      query: {
+        "lib/type": "mbql/query",
+        database: 2,
+        stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
+      },
+    };
+    expect(() =>
+      preflightInternalMbql5Query(doubleWrapped, TRANSFORM_SOURCE_QUERY_LABELS, { skip: false }),
+    ).toThrow(
+      new ConfigError(
+        'transform.source.query validation failed: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope. ' +
+          "For MBQL 5, source.query is the mbql/query value itself: " +
           '{"lib/type":"mbql/query", database:N, stages:[…]}.',
       ),
     );
@@ -129,7 +154,7 @@ describe("preflightInternalMbql5Query", () => {
         database: 2,
         query: { "lib/type": "mbql/query", database: 2, stages: [] },
       },
-      "card.dataset_query validation failed",
+      CARD_DATASET_QUERY_LABELS,
       { skip: true },
     );
     expect(streams.stdout).toBe("");

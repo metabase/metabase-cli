@@ -14,6 +14,21 @@ export const skipValidateFlag = {
   },
 } as const;
 
+export interface PreflightLabels {
+  readonly contextLabel: string;
+  readonly bodyNoun: string;
+}
+
+export const CARD_DATASET_QUERY_LABELS: PreflightLabels = {
+  contextLabel: "card.dataset_query validation failed",
+  bodyNoun: "dataset_query",
+};
+
+export const TRANSFORM_SOURCE_QUERY_LABELS: PreflightLabels = {
+  contextLabel: "transform.source.query validation failed",
+  bodyNoun: "source.query",
+};
+
 export interface PreflightOptions {
   readonly skip: boolean;
 }
@@ -22,13 +37,13 @@ export interface PreflightOptions {
 // legacy formats are still accepted by the server.
 export function preflightInternalMbql5Query(
   query: unknown,
-  contextLabel: string,
+  labels: PreflightLabels,
   options: PreflightOptions,
 ): void {
   if (options.skip) {
     return;
   }
-  assertNotLegacyEnvelopeWrappingMbql5(query, { contextLabel, bodyNoun: "dataset_query" });
+  assertNotLegacyEnvelopeWrappingMbql5(query, labels);
   if (!isMbql5Query(query)) {
     return;
   }
@@ -38,6 +53,6 @@ export function preflightInternalMbql5Query(
   }
   writeJson(outcome);
   throw new ConfigError(
-    `${contextLabel}: ${outcome.errors.length} error(s) — pass valid MBQL 5 or use the legacy format`,
+    `${labels.contextLabel}: ${outcome.errors.length} error(s) — pass valid MBQL 5 or use the legacy format`,
   );
 }

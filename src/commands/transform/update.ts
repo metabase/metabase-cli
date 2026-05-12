@@ -5,7 +5,11 @@ import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
-import { preflightInternalMbql5Query, skipValidateFlag } from "../validate-query";
+import {
+  TRANSFORM_SOURCE_QUERY_LABELS,
+  preflightInternalMbql5Query,
+  skipValidateFlag,
+} from "../validate-query";
 
 export default defineMetabaseCommand({
   meta: {
@@ -32,7 +36,7 @@ export default defineMetabaseCommand({
     const id = parseId(args.id);
     const body = await readBody({ flag: args.body, file: args.file }, TransformUpdateInput);
     if (body.source !== undefined && body.source.type === "query") {
-      preflightInternalMbql5Query(body.source.query, "transform.source.query validation failed", {
+      preflightInternalMbql5Query(body.source.query, TRANSFORM_SOURCE_QUERY_LABELS, {
         skip: args["skip-validate"] === true,
       });
     }
