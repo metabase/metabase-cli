@@ -2,6 +2,8 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { DashcardListEnvelope } from "../../src/commands/dashboard/cards";
 import { DashboardListEnvelope } from "../../src/commands/dashboard/list";
+import { ValidationOutcome } from "../../src/core/schema/validate";
+import { CardCompact } from "../../src/domain/card";
 import {
   Dashboard,
   DashboardCompact,
@@ -13,7 +15,13 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_CARDS, E2E_COLLECTIONS, E2E_DASHBOARDS, E2E_DASHCARDS } from "./seed/ids";
+import {
+  E2E_COLLECTIONS,
+  E2E_CARDS,
+  E2E_DASHBOARDS,
+  E2E_DASHCARDS,
+  E2E_DATABASES,
+} from "./seed/ids";
 
 const ORDERS_OVERVIEW_NAME = "Orders Overview";
 const ORDERS_OVERVIEW_DESCRIPTION = "E2E seeded dashboard with one orders dashcard.";
@@ -24,6 +32,23 @@ const ORDERS_OVERVIEW_COMPACT = {
   description: ORDERS_OVERVIEW_DESCRIPTION,
   archived: false,
   collection_id: E2E_COLLECTIONS.DEFAULT,
+} as const;
+
+const ORDERS_OVERVIEW_FIRST_DASHCARD_COMPACT = {
+  id: E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST,
+  dashboard_id: E2E_DASHBOARDS.ORDERS_OVERVIEW,
+  card_id: E2E_CARDS.ORDERS_BY_STATUS,
+  dashboard_tab_id: null,
+  row: 0,
+  col: 0,
+  size_x: 12,
+  size_y: 6,
+} as const;
+
+const ORDERS_OVERVIEW_DETAIL_COMPACT = {
+  ...ORDERS_OVERVIEW_COMPACT,
+  dashcards: [ORDERS_OVERVIEW_FIRST_DASHCARD_COMPACT],
+  tabs: [],
 } as const;
 
 describe("dashboard e2e", () => {
@@ -48,6 +73,46 @@ describe("dashboard e2e", () => {
     return {
       METABASE_URL: bootstrap.baseUrl,
       METABASE_API_KEY: bootstrap.adminApiKey,
+    };
+  }
+
+  async function createScratchCard(name: string): Promise<number> {
+    const result = await runCli({
+      args: ["card", "create", "--json"],
+      stdin: JSON.stringify({
+        name,
+        display: "table",
+        visualization_settings: {},
+        collection_id: E2E_COLLECTIONS.DEFAULT,
+        dataset_query: {
+          type: "native",
+          database: E2E_DATABASES.WAREHOUSE,
+          native: { query: "SELECT 1 AS x" },
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    return parseJson(result.stdout, CardCompact).id;
+  }
+
+  function singleDashcardBody(name: string, cardId: number) {
+    return {
+      name,
+      collection_id: E2E_COLLECTIONS.DEFAULT,
+      dashcards: [
+        {
+          id: -1,
+          card_id: cardId,
+          row: 0,
+          col: 0,
+          size_x: 12,
+          size_y: 6,
+          parameter_mappings: [],
+          visualization_settings: {},
+        },
+      ],
     };
   }
 
@@ -89,7 +154,7 @@ describe("dashboard e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, DashboardCompact)).toEqual(ORDERS_OVERVIEW_COMPACT);
+    expect(parseJson(result.stdout, DashboardCompact)).toEqual(ORDERS_OVERVIEW_DETAIL_COMPACT);
   });
 
   it("get --full hydrates dashcards, tabs, and width on the seeded dashboard", async () => {
@@ -237,6 +302,8 @@ describe("dashboard e2e", () => {
       description: "created in test",
       archived: false,
       collection_id: E2E_COLLECTIONS.DEFAULT,
+      dashcards: [],
+      tabs: [],
     });
 
     const addCardResult = await runCli({
@@ -282,6 +349,56 @@ describe("dashboard e2e", () => {
     });
   });
 
+  it("create with dashcards in the body chains a PUT and surfaces them in compact output", async () => {
+    const result = await runCli({
+      args: ["dashboard", "create", "--json"],
+      stdin: JSON.stringify({
+        name: "e2e_dashboard_with_dashcards",
+        collection_id: E2E_COLLECTIONS.DEFAULT,
+        dashcards: [
+          {
+            id: -1,
+            card_id: E2E_CARDS.ORDERS_BY_STATUS,
+            row: 0,
+            col: 0,
+            size_x: 12,
+            size_y: 6,
+            parameter_mappings: [],
+            visualization_settings: {},
+          },
+        ],
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    const compact = parseJson(result.stdout, DashboardCompact);
+    const firstDashcard = compact.dashcards?.[0];
+    if (firstDashcard === undefined || compact.dashcards?.length !== 1) {
+      throw new Error(`expected exactly 1 dashcard, got ${JSON.stringify(compact.dashcards)}`);
+    }
+    expect(compact).toEqual({
+      id: compact.id,
+      name: "e2e_dashboard_with_dashcards",
+      description: null,
+      archived: false,
+      collection_id: E2E_COLLECTIONS.DEFAULT,
+      tabs: [],
+      dashcards: [
+        {
+          id: firstDashcard.id,
+          dashboard_id: compact.id,
+          card_id: E2E_CARDS.ORDERS_BY_STATUS,
+          dashboard_tab_id: null,
+          row: 0,
+          col: 0,
+          size_x: 12,
+          size_y: 6,
+        },
+      ],
+    });
+  });
+
   it("create with a body missing the required name field fails on Zod validation", async () => {
     const result = await runCli({
       args: ["dashboard", "create", "--json"],
@@ -293,6 +410,108 @@ describe("dashboard e2e", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("request body: value did not match expected schema");
     expect(result.stdout).toBe("");
+  });
+
+  it("create with a non-existent card_id fails preflight and does not create a dashboard", async () => {
+    const missingCardId = 999_999_999;
+    const dashboardName = "e2e_dashboard_preflight_missing";
+
+    const result = await runCli({
+      args: ["dashboard", "create", "--json"],
+      stdin: JSON.stringify(singleDashcardBody(dashboardName, missingCardId)),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(
+      "dashboard card-reference pre-flight failed: 1 error(s) — fix the dashcard card_id values listed above",
+    );
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/dashcards/0/card_id", message: `card ${missingCardId} not found` }],
+    });
+
+    const search = await runCli({
+      args: ["search", dashboardName, "--models", "dashboard", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(search.exitCode, search.stderr).toBe(0);
+    expect(search.stdout).not.toContain(dashboardName);
+  });
+
+  it("create with an archived card_id fails preflight with the archived diagnostic", async () => {
+    const newCardId = await createScratchCard("e2e_preflight_card_to_archive");
+    const archive = await runCli({
+      args: ["card", "archive", String(newCardId)],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(archive.exitCode, archive.stderr).toBe(0);
+
+    const result = await runCli({
+      args: ["dashboard", "create", "--json"],
+      stdin: JSON.stringify(singleDashcardBody("e2e_dashboard_preflight_archived", newCardId)),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(
+      "dashboard card-reference pre-flight failed: 1 error(s) — fix the dashcard card_id values listed above",
+    );
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/dashcards/0/card_id", message: `card ${newCardId} is archived` }],
+    });
+  });
+
+  it("update with an archived card_id fails preflight and does not touch the dashboard", async () => {
+    const newCardId = await createScratchCard("e2e_preflight_update_card");
+    const archive = await runCli({
+      args: ["card", "archive", String(newCardId)],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(archive.exitCode, archive.stderr).toBe(0);
+
+    const beforeGet = await runCli({
+      args: ["dashboard", "get", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json", "--full"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(beforeGet.exitCode, beforeGet.stderr).toBe(0);
+    const beforeDetail = parseJson(beforeGet.stdout, DashboardDetail);
+
+    const result = await runCli({
+      args: ["dashboard", "update", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json"],
+      stdin: JSON.stringify({
+        dashcards: singleDashcardBody("ignored", newCardId).dashcards,
+        tabs: [],
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(
+      "dashboard card-reference pre-flight failed: 1 error(s) — fix the dashcard card_id values listed above",
+    );
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/dashcards/0/card_id", message: `card ${newCardId} is archived` }],
+    });
+
+    const afterGet = await runCli({
+      args: ["dashboard", "get", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json", "--full"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(afterGet.exitCode, afterGet.stderr).toBe(0);
+    const afterDetail = parseJson(afterGet.stdout, DashboardDetail);
+    expect(afterDetail.dashcards).toEqual(beforeDetail.dashcards);
+    expect(afterDetail.tabs).toEqual(beforeDetail.tabs);
   });
 
   it("update with a non-integer id fails fast with ConfigError", async () => {
@@ -534,7 +753,7 @@ describe("dashboard e2e", () => {
     });
     expect(archiveResult.exitCode, archiveResult.stderr).toBe(0);
     expect(parseJson(archiveResult.stdout, DashboardCompact)).toEqual({
-      ...ORDERS_OVERVIEW_COMPACT,
+      ...ORDERS_OVERVIEW_DETAIL_COMPACT,
       archived: true,
     });
 

@@ -1,26 +1,57 @@
-import { Dashboard, DashboardCreateInput, dashboardView } from "../../domain/dashboard";
+import {
+  Dashboard,
+  DashboardCreateInput,
+  DashboardDetail,
+  dashboardView,
+} from "../../domain/dashboard";
 import { renderItem } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
+import { preflightDashcardCardReferences, wrapChainedDashboardWriteError } from "./preflight";
+
 export default defineMetabaseCommand({
-  meta: { name: "create", description: "Create a dashboard from a JSON spec" },
-  args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...bodyInputFlags },
+  meta: {
+    name: "create",
+    description:
+      "Create a dashboard from a JSON spec; any positive card_id referenced from dashcards is pre-flight-validated against /api/card/:id (exists, not archived) before the dashboard is created",
+  },
+  args: {
+    ...outputFlags,
+    ...profileFlag,
+    ...connectionFlags,
+    ...bodyInputFlags,
+  },
   outputSchema: Dashboard,
   examples: [
     "cat dashboard.json | metabase dashboard create",
     "metabase dashboard create --file dashboard.json",
     'metabase dashboard create --body \'{"name":"My Dashboard","collection_id":4}\'',
+    'metabase dashboard create --body \'{"name":"D","dashcards":[{"id":-1,"card_id":42,"row":0,"col":0,"size_x":12,"size_y":6}]}\'',
   ],
   async run({ args, ctx, getClient }) {
     const body = await readBody({ flag: args.body, file: args.file }, DashboardCreateInput);
+    const { dashcards, tabs, ...createOnly } = body;
     const client = await getClient();
+    await preflightDashcardCardReferences(client, dashcards);
     const created = await client.requestParsed(Dashboard, "/api/dashboard", {
       method: "POST",
-      body,
+      body: createOnly,
     });
-    renderItem(created, dashboardView, ctx);
+    if (dashcards === undefined && tabs === undefined) {
+      renderItem(created, dashboardView, ctx);
+      return;
+    }
+    try {
+      const updated = await client.requestParsed(DashboardDetail, `/api/dashboard/${created.id}`, {
+        method: "PUT",
+        body: { dashcards, tabs },
+      });
+      renderItem(updated, dashboardView, ctx);
+    } catch (error) {
+      throw wrapChainedDashboardWriteError(error, created.id);
+    }
   },
 });

@@ -1,12 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { CardListEnvelope } from "../../src/commands/card/list";
+import { ValidationOutcome } from "../../src/core/schema/validate";
 import { Card, CardCompact, CardQueryResult } from "../../src/domain/card";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_CARDS, E2E_COLLECTIONS, E2E_DATABASES } from "./seed/ids";
+import { E2E_CARDS, E2E_COLLECTIONS, E2E_DATABASES, E2E_TABLES } from "./seed/ids";
 
 const FIRST_NEW_CARD_ID = 95;
 const NEW_CARD_NAME = "e2e_card_new";
@@ -314,6 +315,65 @@ describe("card e2e", () => {
     expect(result.stdout).toBe("");
   });
 
+  it("create with invalid MBQL 5 dataset_query fails pre-flight before sending", async () => {
+    const result = await runCli({
+      args: ["card", "create", "--json"],
+      stdin: JSON.stringify({
+        name: "preflight-fail",
+        display: "table",
+        visualization_settings: {},
+        collection_id: E2E_COLLECTIONS.DEFAULT,
+        dataset_query: {
+          "lib/type": "mbql/query",
+          database: "oops not an integer",
+          stages: [
+            {
+              "lib/type": "mbql.stage/mbql",
+              "source-table": E2E_TABLES.ORDERS,
+            },
+          ],
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/database", message: "must be integer" }],
+    });
+    expect(result.stderr).toContain(
+      "card.dataset_query validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+    );
+  });
+
+  it("create --skip-validate bypasses the MBQL 5 pre-flight (server is the authority)", async () => {
+    const result = await runCli({
+      args: ["card", "create", "--skip-validate", "--json"],
+      stdin: JSON.stringify({
+        name: "skip-validate-bypass",
+        display: "table",
+        visualization_settings: {},
+        collection_id: E2E_COLLECTIONS.DEFAULT,
+        dataset_query: {
+          "lib/type": "mbql/query",
+          database: "oops not an integer",
+          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": E2E_TABLES.ORDERS }],
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    // Pre-flight is bypassed; the server then rejects the malformed body with an HttpError (exit 1).
+    // The card-create endpoint surfaces the underlying app-DB constraint message via the response
+    // envelope; we assert a stable substring of that surfaced error.
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('NULL not allowed for column "DATABASE_ID"');
+    expect(result.stdout).toBe("");
+  });
+
   it("archive with a non-integer id fails fast with ConfigError", async () => {
     const result = await runCli({
       args: ["card", "archive", "abc", "--json"],
@@ -323,6 +383,210 @@ describe("card e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("update renames the card and the compact view reflects the new name", async () => {
+    const result = await runCli({
+      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      stdin: JSON.stringify({ name: "Orders by status (renamed)" }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, CardCompact)).toEqual({
+      ...ORDERS_BY_STATUS_COMPACT,
+      name: "Orders by status (renamed)",
+    });
+  });
+
+  it("update flips archived to true and the archived list reflects it", async () => {
+    const updateResult = await runCli({
+      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      stdin: JSON.stringify({ archived: true }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(updateResult.exitCode, updateResult.stderr).toBe(0);
+    expect(parseJson(updateResult.stdout, CardCompact)).toEqual({
+      ...ORDERS_BY_STATUS_COMPACT,
+      archived: true,
+    });
+
+    const archivedListResult = await runCli({
+      args: ["card", "list", "--filter", "archived", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(archivedListResult.exitCode, archivedListResult.stderr).toBe(0);
+    expect(parseJson(archivedListResult.stdout, CardListEnvelope)).toEqual({
+      data: [{ ...ORDERS_BY_STATUS_COMPACT, archived: true }],
+      returned: 1,
+      total: 1,
+    });
+  });
+
+  it("update changes display from table to bar without disturbing other fields", async () => {
+    const result = await runCli({
+      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      stdin: JSON.stringify({ display: "bar" }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, CardCompact)).toEqual({
+      ...ORDERS_BY_STATUS_COMPACT,
+      display: "bar",
+    });
+  });
+
+  it("update with a non-integer id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["card", "update", "abc", "--json"],
+      stdin: JSON.stringify({ name: "x" }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("update against a missing card id surfaces a 404 HttpError", async () => {
+    const result = await runCli({
+      args: ["card", "update", "9999999", "--json"],
+      stdin: JSON.stringify({ name: "x" }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+  });
+
+  it("update with invalid MBQL 5 dataset_query fails pre-flight before sending", async () => {
+    const result = await runCli({
+      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      stdin: JSON.stringify({
+        dataset_query: {
+          "lib/type": "mbql/query",
+          database: "oops not an integer",
+          stages: [
+            {
+              "lib/type": "mbql.stage/mbql",
+              "source-table": E2E_TABLES.ORDERS,
+            },
+          ],
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/database", message: "must be integer" }],
+    });
+    expect(result.stderr).toContain(
+      "card.dataset_query validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+    );
+  });
+
+  it("update --skip-validate bypasses the MBQL 5 pre-flight (server is the authority)", async () => {
+    const result = await runCli({
+      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--skip-validate", "--json"],
+      stdin: JSON.stringify({
+        dataset_query: {
+          "lib/type": "mbql/query",
+          database: "oops not an integer",
+          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": E2E_TABLES.ORDERS }],
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    // PUT /api/card/:id accepts dataset_query as an opaque map and does not validate its inner
+    // shape, so the bad `database` does not trigger a 400. Bypass is proven by exit 0 — without
+    // --skip-validate the prior test shows pre-flight rejects with exit 2.
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, CardCompact).id).toBe(E2E_CARDS.ORDERS_BY_STATUS);
+  });
+
+  it("create with dataset_query: {} is rejected at the CLI boundary (no H2 stack trace)", async () => {
+    const result = await runCli({
+      args: ["card", "create", "--json"],
+      stdin: JSON.stringify({
+        name: "empty-dataset-query",
+        display: "table",
+        visualization_settings: {},
+        collection_id: E2E_COLLECTIONS.DEFAULT,
+        dataset_query: {},
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(result.stderr).toContain(
+      'dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected',
+    );
+    expect(result.stderr).not.toContain("DATABASE_ID");
+    expect(result.stdout).toBe("");
+  });
+
+  it("create with dataset_query: null is rejected at the CLI boundary", async () => {
+    const result = await runCli({
+      args: ["card", "create", "--json"],
+      stdin: JSON.stringify({
+        name: "null-dataset-query",
+        display: "table",
+        visualization_settings: {},
+        collection_id: E2E_COLLECTIONS.DEFAULT,
+        dataset_query: null,
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(result.stderr).toContain("expected object, received null");
+    expect(result.stdout).toBe("");
+  });
+
+  it("update with dataset_query: {} is rejected at the CLI boundary", async () => {
+    const result = await runCli({
+      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      stdin: JSON.stringify({ dataset_query: {} }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(result.stderr).toContain(
+      'dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected',
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("update with dataset_query: null is rejected at the CLI boundary", async () => {
+    const result = await runCli({
+      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      stdin: JSON.stringify({ dataset_query: null }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(result.stderr).toContain("expected object, received null");
     expect(result.stdout).toBe("");
   });
 });

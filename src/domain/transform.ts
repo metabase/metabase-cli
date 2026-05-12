@@ -56,6 +56,11 @@ const TransformTarget = z.discriminatedUnion("type", [
   TransformTableIncrementalTarget,
 ]);
 
+const TransformTargetCompact = z.discriminatedUnion("type", [
+  TransformTableTarget.strip(),
+  TransformTableIncrementalTarget.strip(),
+]);
+
 const TransformLastRun = z
   .object({
     id: z.number().int(),
@@ -83,6 +88,30 @@ export const TransformRun = z
   })
   .loose();
 export type TransformRun = z.infer<typeof TransformRun>;
+
+export const TransformRunCompact = TransformRun.pick({
+  id: true,
+  transform_id: true,
+  status: true,
+  run_method: true,
+  start_time: true,
+  end_time: true,
+  message: true,
+}).strip();
+export type TransformRunCompact = z.infer<typeof TransformRunCompact>;
+
+export const transformRunView: ResourceView<TransformRun> = {
+  compactPick: TransformRunCompact,
+  tableColumns: [
+    { key: "id", label: "Run ID" },
+    { key: "transform_id", label: "Transform" },
+    { key: "status", label: "Status" },
+    { key: "run_method", label: "Method" },
+    { key: "start_time", label: "Started" },
+    { key: "end_time", label: "Ended" },
+    { key: "message", label: "Message" },
+  ],
+};
 
 export const Transform = z
   .object({
@@ -113,7 +142,9 @@ export const TransformCompact = Transform.pick({
   description: true,
   source_type: true,
   target_db_id: true,
-}).strip();
+})
+  .strip()
+  .extend({ target: TransformTargetCompact });
 export type TransformCompact = z.infer<typeof TransformCompact>;
 
 export const transformView: ResourceView<Transform> = {
@@ -122,10 +153,20 @@ export const transformView: ResourceView<Transform> = {
     { key: "id", label: "ID" },
     { key: "name", label: "Name" },
     { key: "source_type", label: "Source" },
+    { key: "target", label: "Target", format: (value) => formatTarget(value) },
     { key: "target_db_id", label: "Target DB" },
     { key: "description", label: "Description" },
   ],
 };
+
+function formatTarget(value: unknown): string {
+  const parsed = TransformTarget.safeParse(value);
+  if (!parsed.success) {
+    return "";
+  }
+  const { schema, name } = parsed.data;
+  return schema ? `${schema}.${name}` : name;
+}
 
 export const TransformCreateInput = z
   .object({

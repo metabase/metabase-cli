@@ -1,8 +1,8 @@
 import { z } from "zod";
 
+import { clearRejection } from "../../core/auth/rejection";
 import { clearProfile } from "../../core/auth/storage";
 import { resolveProfileName } from "../../core/config";
-import { ConfigError } from "../../core/errors";
 import type { ResourceView } from "../../domain/view";
 import { promptConfirm } from "../../output/prompt";
 import { renderItem } from "../../output/render";
@@ -37,10 +37,7 @@ export default defineMetabaseCommand({
   async run({ args, ctx }) {
     const profileName = resolveProfileName(args.profile);
 
-    if (!args.yes) {
-      if (!process.stdin.isTTY) {
-        throw new ConfigError("--yes required to clear credentials non-interactively");
-      }
+    if (!args.yes && process.stdin.isTTY === true) {
       const ok = await promptConfirm({
         message: `Clear stored credentials for profile "${profileName}"?`,
         initialValue: false,
@@ -51,7 +48,7 @@ export default defineMetabaseCommand({
       }
     }
 
-    const cleared = await clearProfile(profileName);
+    const [cleared] = await Promise.all([clearProfile(profileName), clearRejection(profileName)]);
     renderItem({ profile: profileName, cleared, aborted: false }, logoutView, ctx);
   },
 });

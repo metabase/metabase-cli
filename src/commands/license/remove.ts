@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import { clearLicense } from "../../core/auth/storage";
-import { ConfigError } from "../../core/errors";
 import type { ResourceView } from "../../domain/view";
 import { promptConfirm } from "../../output/prompt";
 import { renderItem } from "../../output/render";
@@ -31,10 +30,7 @@ export default defineMetabaseCommand({
   outputSchema: LicenseRemoveResult,
   examples: ["metabase license remove --yes"],
   async run({ args, ctx }) {
-    if (!args.yes) {
-      if (!process.stdin.isTTY) {
-        throw new ConfigError("--yes required to remove license non-interactively");
-      }
+    if (!args.yes && process.stdin.isTTY === true) {
       const ok = await promptConfirm({
         message: "Remove stored license token?",
         initialValue: false,

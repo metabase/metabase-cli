@@ -139,4 +139,14 @@ describe("readInput precedence", () => {
     }
     expect(error.message).toBe(`--file not found: ${missing}`);
   });
+
+  it("treats --file - as stdin", async () => {
+    setStdin(piped("from-stdin-via-dash"));
+    expect(await readInput({ file: "-" })).toBe("from-stdin-via-dash");
+  });
+
+  it("--file - returns empty string when stdin is empty", async () => {
+    setStdin(piped(""));
+    expect(await readInput({ file: "-" })).toBe("");
+  });
 });

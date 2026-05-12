@@ -24,6 +24,8 @@ const {
   clearProfile,
   credentials,
   fallbackFilePath,
+  listProfileNames,
+  profileIndexPath,
   readLicense,
   readProfile,
   writeLicense,
@@ -203,6 +205,79 @@ describe("profiles", () => {
     expect(await clearProfile("a")).toBe(true);
     expect(await readProfile("a")).toBeNull();
     expect(await readProfile("b")).toEqual({ url: "https://b.example.com", apiKey: "b" });
+  });
+});
+
+describe("profile index", () => {
+  let home: TempConfigHome;
+
+  beforeEach(() => {
+    hoisted.store.clear();
+    hoisted.controls.broken = false;
+    home = setupTempConfigHome();
+  });
+
+  afterEach(() => {
+    home.cleanup();
+  });
+
+  it("returns an empty list when no profiles exist", async () => {
+    expect(await listProfileNames()).toEqual([]);
+  });
+
+  it("adds a profile to the index on writeProfile", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "k" }, "staging");
+    expect(await listProfileNames()).toEqual(["staging"]);
+  });
+
+  it("stores the index as JSON in profiles.json on the filesystem", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "k" }, "staging");
+    await writeProfile({ url: "https://p.example.com", apiKey: "p" }, "prod");
+    const stored = JSON.parse(readFileSync(profileIndexPath(), "utf8"));
+    expect(stored).toEqual(["prod", "staging"]);
+  });
+
+  it("keeps the index sorted and deduplicated across multiple writes", async () => {
+    await writeProfile({ url: "https://1.example.com", apiKey: "k1" }, "zeta");
+    await writeProfile({ url: "https://2.example.com", apiKey: "k2" }, "alpha");
+    await writeProfile({ url: "https://3.example.com", apiKey: "k3" }, "alpha");
+    expect(await listProfileNames()).toEqual(["alpha", "zeta"]);
+  });
+
+  it("removes a profile from the index on clearProfile", async () => {
+    await writeProfile({ url: "https://a.example.com", apiKey: "a" }, "a");
+    await writeProfile({ url: "https://b.example.com", apiKey: "b" }, "b");
+    await clearProfile("a");
+    expect(await listProfileNames()).toEqual(["b"]);
+  });
+
+  it("deletes profiles.json when the last profile is cleared", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+    await writeProfile({ url: "https://m.example.com", apiKey: "k" }, "only");
+    await clearProfile("only");
+    expect(() => statSync(profileIndexPath())).toThrow(/ENOENT/);
+  });
+
+  it("backfills the index from credentials.json on first read when keyring is broken", async () => {
+    hoisted.controls.broken = true;
+    await credentials.set(account.profileUrl("backfilled"), "https://b.example.com");
+    await credentials.set(account.profileApiKey("backfilled"), "k");
+    hoisted.controls.broken = false;
+
+    expect(await listProfileNames()).toEqual(["backfilled"]);
+    const stored = JSON.parse(readFileSync(profileIndexPath(), "utf8"));
+    expect(stored).toEqual(["backfilled"]);
+  });
+
+  it("writes the index to its own file with 0600 perms", async () => {
+    if (process.platform === "win32") {
+      return;
+    }
+    await writeProfile({ url: "https://m.example.com", apiKey: "k" }, "only");
+    const mode = statSync(profileIndexPath()).mode & 0o777;
+    expect(mode).toBe(0o600);
   });
 });
 

@@ -12,7 +12,7 @@ export interface TruncationInfo {
 export interface ListEnvelope<T> {
   data: T[];
   returned: number;
-  total?: number | undefined;
+  total?: number | null | undefined;
   limit?: number | undefined;
   truncated?: TruncationInfo | undefined;
 }
@@ -21,7 +21,7 @@ export function listEnvelopeSchema<T>(item: ZodType<T>): ZodType<ListEnvelope<T>
   return z.object({
     data: z.array(item),
     returned: z.number().int().nonnegative(),
-    total: z.number().int().nonnegative().optional(),
+    total: z.number().int().nonnegative().nullable().optional(),
     limit: z.number().int().nonnegative().optional(),
     truncated: z
       .object({

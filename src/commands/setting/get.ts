@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Client } from "../../core/http/client";
 import { SettingValue, settingValueView } from "../../domain/setting";
 import { renderItem } from "../../output/render";
-import { parseJson } from "../../runtime/json";
+import { parseJsonOrPlain } from "../../runtime/json";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -37,5 +37,7 @@ async function fetchSettingValue(client: Client, key: string): Promise<unknown> 
     return null;
   }
   const text = await response.text();
-  return parseJson(text, z.unknown(), { source: response.url });
+  return parseJsonOrPlain(text, response.headers.get("content-type"), z.unknown(), {
+    source: response.url,
+  });
 }

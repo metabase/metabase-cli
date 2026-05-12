@@ -13,7 +13,7 @@ export interface PaginateOptions {
 
 export interface PaginatedEnvelope<T> {
   data: T[];
-  total?: number | undefined;
+  total?: number | null | undefined;
   limit?: number | undefined;
   offset?: number | undefined;
 }
@@ -54,7 +54,11 @@ export async function* paginate<T>(
     if (envelope.data.length < requested) {
       return;
     }
-    if (envelope.total !== undefined && offset + envelope.data.length >= envelope.total) {
+    if (
+      envelope.total !== undefined &&
+      envelope.total !== null &&
+      offset + envelope.data.length >= envelope.total
+    ) {
       return;
     }
 
@@ -79,7 +83,7 @@ function paginatedEnvelopeSchema<T>(itemSchema: ZodType<T>): ZodType<PaginatedEn
   return z
     .object({
       data: z.array(itemSchema),
-      total: z.number().int().nonnegative().optional(),
+      total: z.number().int().nonnegative().nullable().optional(),
       limit: z.number().int().nonnegative().optional(),
       offset: z.number().int().nonnegative().optional(),
     })

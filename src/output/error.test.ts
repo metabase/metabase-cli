@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
-import { AbortError, ConfigError, UnknownError } from "../core/errors";
+import { AbortError, ConfigError, UnknownError, ValidationError } from "../core/errors";
 import { reportError } from "./error";
 
 interface CapturedStreams {
@@ -73,6 +74,28 @@ describe("reportError", () => {
   it("normalizes a non-MetabaseError value (string) into an UnknownError envelope", () => {
     reportError("plain string");
     expect(streams.stderr).toBe("plain string\n");
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("prints the JSON-pointer issue path on the stderr line beneath the ValidationError header", () => {
+    const schema = z.object({ total: z.number() });
+    const result = schema.safeParse({ total: null });
+    if (result.success) {
+      throw new Error("expected zod failure");
+    }
+    reportError(
+      new ValidationError(
+        "https://m.example.com/api/collection/8/items: value did not match expected schema",
+        {
+          source: "https://m.example.com/api/collection/8/items",
+          zodIssues: result.error.issues,
+        },
+      ),
+    );
+    expect(streams.stderr).toBe(
+      "https://m.example.com/api/collection/8/items: value did not match expected schema\n" +
+        "  /total: Invalid input: expected number, received null\n",
+    );
     expect(process.exitCode).toBe(1);
   });
 });

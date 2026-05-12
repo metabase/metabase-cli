@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { ConfigError } from "../core/errors";
 import {
   SEARCH_MODELS,
   SearchModel,
@@ -10,6 +9,7 @@ import {
 } from "../domain/search";
 import { renderList } from "../output/render";
 import { listEnvelopeSchema, type ListEnvelope } from "../output/types";
+import { parseEnumCsv } from "../runtime/csv";
 
 import { connectionFlags, outputFlags, profileFlag } from "./flags";
 import { parseId } from "./parse-id";
@@ -76,7 +76,7 @@ export default defineMetabaseCommand({
     const limit = parseId(args.limit, "--limit");
     const tableDbIdRaw = args["table-db-id"];
     const tableDbId = tableDbIdRaw ? parseId(tableDbIdRaw, "--table-db-id") : undefined;
-    const models = parseModels(args.models);
+    const models = parseEnumCsv(args.models, SearchModel, "--models");
     const client = await getClient();
 
     const response = await client.requestParsed(SearchApiResponse, "/api/search", {
@@ -106,33 +106,4 @@ function nonEmpty(value: string | undefined): string | undefined {
   }
   const trimmed = value.trim();
   return trimmed.length === 0 ? undefined : trimmed;
-}
-
-function parseModels(raw: string | undefined): SearchModel[] | undefined {
-  if (raw === undefined || raw === "") {
-    return undefined;
-  }
-  const parts = raw
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
-  if (parts.length === 0) {
-    return undefined;
-  }
-  const accepted: SearchModel[] = [];
-  const rejected: string[] = [];
-  for (const part of parts) {
-    const result = SearchModel.safeParse(part);
-    if (result.success) {
-      accepted.push(result.data);
-    } else {
-      rejected.push(part);
-    }
-  }
-  if (rejected.length > 0) {
-    throw new ConfigError(
-      `invalid --models value: ${rejected.join(", ")} (expected one of: ${SEARCH_MODELS.join(", ")})`,
-    );
-  }
-  return accepted;
 }

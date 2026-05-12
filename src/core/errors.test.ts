@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { AbortError, ConfigError, MetabaseError, toMetabaseError, UnknownError } from "./errors";
+import {
+  AbortError,
+  ConfigError,
+  formatZodIssue,
+  MetabaseError,
+  toMetabaseError,
+  UnknownError,
+  ValidationError,
+} from "./errors";
 import { HttpError } from "./http/errors";
 
 describe("toMetabaseError", () => {
@@ -93,5 +101,129 @@ describe("MetabaseError contract", () => {
     expect(error.category).toBe("config");
     expect(error.exitCode).toBe(2);
     expect(error.userMessage).toBe("missing TTY");
+  });
+});
+
+describe("formatZodIssue", () => {
+  it("formats nested object/array paths with dot and bracket syntax", () => {
+    const schema = z.object({
+      data: z.array(z.object({ archived: z.boolean() })),
+    });
+    const result = schema.safeParse({ data: [{ archived: true }, { archived: null }] });
+    if (result.success) {
+      throw new Error("expected zod failure");
+    }
+    expect(result.error.issues.map(formatZodIssue)).toEqual([
+      "data[1].archived: Invalid input: expected boolean, received null",
+    ]);
+  });
+
+  it("returns just the message when the issue path is empty (top-level mismatch)", () => {
+    const schema = z.string();
+    const result = schema.safeParse(42);
+    if (result.success) {
+      throw new Error("expected zod failure");
+    }
+    const firstIssue = result.error.issues[0];
+    if (firstIssue === undefined) {
+      throw new Error("expected at least one issue");
+    }
+    expect(formatZodIssue(firstIssue)).toBe("Invalid input: expected string, received number");
+  });
+});
+
+function issueLine(index: number): string {
+  return `  /${index}: Invalid input: expected number, received string`;
+}
+
+describe("ValidationError userMessage formatting", () => {
+  it("appends a JSON-pointer path and the zod issue text for a single issue", () => {
+    const schema = z.object({ total: z.number() });
+    const result = schema.safeParse({ total: null });
+    if (result.success) {
+      throw new Error("expected zod failure");
+    }
+    const error = new ValidationError(
+      "api/collection/8/items: value did not match expected schema",
+      {
+        source: "api/collection/8/items",
+        zodIssues: result.error.issues,
+      },
+    );
+
+    expect(error.message).toBe("api/collection/8/items: value did not match expected schema");
+    expect(error.userMessage).toBe(
+      "api/collection/8/items: value did not match expected schema\n" +
+        "  /total: Invalid input: expected number, received null",
+    );
+  });
+
+  it("renders one line per issue with array indices in the pointer", () => {
+    const schema = z.object({ items: z.array(z.object({ id: z.number() })) });
+    const result = schema.safeParse({ items: [{ id: 1 }, { id: "bad" }] });
+    if (result.success) {
+      throw new Error("expected zod failure");
+    }
+    const error = new ValidationError("source: value did not match expected schema", {
+      source: "source",
+      zodIssues: result.error.issues,
+    });
+
+    expect(error.userMessage).toBe(
+      "source: value did not match expected schema\n" +
+        "  /items/1/id: Invalid input: expected number, received string",
+    );
+  });
+
+  it("escapes JSON Pointer reserved characters in property names", () => {
+    const schema = z.object({ "weird/key~with-special": z.string() });
+    const result = schema.safeParse({ "weird/key~with-special": 42 });
+    if (result.success) {
+      throw new Error("expected zod failure");
+    }
+    const error = new ValidationError("source: value did not match expected schema", {
+      source: "source",
+      zodIssues: result.error.issues,
+    });
+
+    expect(error.userMessage).toBe(
+      "source: value did not match expected schema\n" +
+        "  /weird~1key~0with-special: Invalid input: expected string, received number",
+    );
+  });
+
+  it("caps the printed issue list at ten and reports the overflow count", () => {
+    const schema = z.array(z.number());
+    const result = schema.safeParse(Array.from({ length: 13 }, (_unused, index) => `bad-${index}`));
+    if (result.success) {
+      throw new Error("expected zod failure");
+    }
+    const error = new ValidationError("source: value did not match expected schema", {
+      source: "source",
+      zodIssues: result.error.issues,
+    });
+
+    expect(error.userMessage.split("\n")).toEqual([
+      "source: value did not match expected schema",
+      issueLine(0),
+      issueLine(1),
+      issueLine(2),
+      issueLine(3),
+      issueLine(4),
+      issueLine(5),
+      issueLine(6),
+      issueLine(7),
+      issueLine(8),
+      issueLine(9),
+      "  ... and 3 more",
+    ]);
+  });
+
+  it("falls back to the plain message when developerDetail carries no issues", () => {
+    const error = new ValidationError("file: malformed", {
+      source: "file",
+      zodIssues: [],
+    });
+    expect(error.userMessage).toBe("file: malformed");
   });
 });

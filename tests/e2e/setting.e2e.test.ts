@@ -1,9 +1,14 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { SettingListEnvelope } from "../../src/commands/setting/list";
 import { createClient, type Client } from "../../src/core/http/client";
 import { SettingValue } from "../../src/domain/setting";
 import { parseJson } from "../../src/runtime/json";
+
+const IntegerSettingValue = SettingValue.extend({ value: z.number().int() });
+const NumberSettingValue = SettingValue.extend({ value: z.number() });
+const StringArraySettingValue = SettingValue.extend({ value: z.array(z.string()) });
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
@@ -216,6 +221,118 @@ describe("setting e2e", () => {
       'invalid setting key: "..bad.." (expected kebab-case identifier)',
     );
     expect(result.stdout).toBe("");
+  });
+
+  it("get --json on a string-valued setting wraps the bare server response", async () => {
+    const STRING_KEY = "remote-sync-type";
+    const TARGET = "read-write";
+    try {
+      await adminClient.requestRaw(`/api/setting/${STRING_KEY}`, {
+        method: "PUT",
+        body: { value: TARGET },
+        expectContentType: "binary",
+      });
+
+      const result = await runCli({
+        args: ["setting", "get", STRING_KEY, "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, SettingValue)).toEqual({
+        key: STRING_KEY,
+        value: TARGET,
+      });
+    } finally {
+      await adminClient.requestRaw(`/api/setting/${STRING_KEY}`, {
+        method: "PUT",
+        body: { value: null },
+        expectContentType: "binary",
+      });
+    }
+  });
+
+  it("get --json on a text/plain string setting (admin-email) returns the wrapped string", async () => {
+    const result = await runCli({
+      args: ["setting", "get", "admin-email", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, SettingValue)).toEqual({
+      key: "admin-email",
+      value: bootstrap.admin.email,
+    });
+  });
+
+  it("get --json on an integer setting (active-users-count) returns a JSON number", async () => {
+    const result = await runCli({
+      args: ["setting", "get", "active-users-count", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const parsed = parseJson(result.stdout, IntegerSettingValue);
+    expect(parsed.key).toBe("active-users-count");
+    expect(parsed.value).toBeGreaterThanOrEqual(1);
+  });
+
+  it("get --json on a float setting (startup-time-millis) returns a JSON number", async () => {
+    const result = await runCli({
+      args: ["setting", "get", "startup-time-millis", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const parsed = parseJson(result.stdout, NumberSettingValue);
+    expect(parsed.key).toBe("startup-time-millis");
+    expect(parsed.value).toBeGreaterThan(0);
+  });
+
+  it("get --json on a JSON-object setting (custom-geojson) returns the parsed object", async () => {
+    const result = await runCli({
+      args: ["setting", "get", "custom-geojson", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, SettingValue)).toEqual({
+      key: "custom-geojson",
+      value: {
+        us_states: {
+          name: "United States",
+          url: "app/assets/geojson/us-states.json",
+          region_key: "STATE",
+          region_name: "NAME",
+          builtin: true,
+        },
+        world_countries: {
+          name: "World",
+          url: "app/assets/geojson/world.json",
+          region_key: "ISO_A2",
+          region_name: "NAME",
+          builtin: true,
+        },
+      },
+    });
+  });
+
+  it("get --json on a JSON-array setting (available-fonts) returns the parsed array", async () => {
+    const result = await runCli({
+      args: ["setting", "get", "available-fonts", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const parsed = parseJson(result.stdout, StringArraySettingValue);
+    expect(parsed.key).toBe("available-fonts");
+    expect(parsed.value).toEqual(expect.arrayContaining(["Lato", "Roboto"]));
   });
 
   it("get with an invalid setting key (regex fail) fails with ConfigError", async () => {

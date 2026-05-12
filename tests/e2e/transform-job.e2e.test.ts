@@ -220,15 +220,20 @@ describe("transform-job e2e", () => {
     expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
   });
 
-  it("delete without --yes and without TTY stdin fails with ConfigError", async () => {
+  it("delete without --yes proceeds in non-TTY (auto-confirm matches kubectl/gh/docker convention)", async () => {
+    await createSeedJob();
+
     const result = await runCli({
-      args: ["transform-job", "delete", "1", "--json"],
+      args: ["transform-job", "delete", String(FIRST_USER_JOB_ID), "--json"],
       stdin: "",
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain("--yes required to delete non-interactively");
-    expect(result.stdout).toBe("");
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, DeleteResult)).toEqual({
+      deleted: true,
+      aborted: false,
+      id: FIRST_USER_JOB_ID,
+    });
   });
 });

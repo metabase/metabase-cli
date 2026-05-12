@@ -1,5 +1,4 @@
 import { promises as fs } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { Entry } from "@napi-rs/keyring";
@@ -7,11 +6,13 @@ import { z } from "zod";
 
 import { parseJson } from "../../runtime/json";
 import { isNotFoundError } from "../errors";
+import { configDir } from "../paths";
 
 const CredentialsFileSchema = z.record(z.string(), z.string());
 
 const KEYRING_SERVICE = "metabase-cli";
 const CREDENTIALS_FILE = "credentials.json";
+const PROFILE_INDEX_FILE = "profiles.json";
 export const DEFAULT_PROFILE = "default";
 
 const CREDENTIALS_FILE_MODE = 0o600;
@@ -27,6 +28,9 @@ export const account = {
   profileApiKey: (profile: string): ProfileApiKeyAccount => `profile:${profile}:apiKey`,
   license: "license",
 } as const;
+
+const ProfileIndexSchema = z.array(z.string());
+const FILE_STORE_PROFILE_URL_PATTERN = /^profile:(.+):url$/;
 
 export interface KeyringLocation {
   backend: "keyring";
@@ -47,17 +51,12 @@ export interface Profile {
   apiKey: string;
 }
 
-function configDir(): string {
-  if (process.platform === "win32") {
-    const appData = process.env["APPDATA"] ?? join(homedir(), "AppData", "Roaming");
-    return join(appData, "metabase-cli");
-  }
-  const xdg = process.env["XDG_CONFIG_HOME"] ?? join(homedir(), ".config");
-  return join(xdg, "metabase-cli");
-}
-
 export function fallbackFilePath(): string {
   return join(configDir(), CREDENTIALS_FILE);
+}
+
+export function profileIndexPath(): string {
+  return join(configDir(), PROFILE_INDEX_FILE);
 }
 
 function keyringEnabled(): boolean {
@@ -207,13 +206,89 @@ export async function writeProfile(
   name: string = DEFAULT_PROFILE,
 ): Promise<CredentialLocation> {
   await credentials.set(account.profileUrl(name), profile.url);
-  return credentials.set(account.profileApiKey(name), profile.apiKey);
+  const location = await credentials.set(account.profileApiKey(name), profile.apiKey);
+  await addToProfileIndex(name);
+  return location;
 }
 
 export async function clearProfile(name: string = DEFAULT_PROFILE): Promise<boolean> {
   const removedUrl = await credentials.remove(account.profileUrl(name));
   const removedKey = await credentials.remove(account.profileApiKey(name));
+  await removeFromProfileIndex(name);
   return removedUrl || removedKey;
+}
+
+export async function listProfileNames(): Promise<string[]> {
+  const stored = await readProfileIndex();
+  if (stored !== null) {
+    return stored;
+  }
+  const backfilled = await backfillProfileIndexFromFile();
+  if (backfilled.length > 0) {
+    await writeProfileIndex(backfilled);
+  }
+  return backfilled;
+}
+
+async function readProfileIndex(): Promise<string[] | null> {
+  const path = profileIndexPath();
+  let raw: string;
+  try {
+    raw = await fs.readFile(path, "utf8");
+  } catch (error) {
+    if (isNotFoundError(error)) {
+      return null;
+    }
+    throw error;
+  }
+  return parseJson(raw, ProfileIndexSchema, { source: path });
+}
+
+async function writeProfileIndex(names: string[]): Promise<void> {
+  const path = profileIndexPath();
+  const unique = [...new Set(names)].toSorted();
+  await fs.mkdir(dirname(path), { recursive: true, mode: CREDENTIALS_DIR_MODE });
+  await fs.writeFile(path, JSON.stringify(unique, null, 2) + "\n", { mode: CREDENTIALS_FILE_MODE });
+  if (process.platform !== "win32") {
+    await fs.chmod(path, CREDENTIALS_FILE_MODE);
+  }
+}
+
+async function deleteProfileIndex(): Promise<void> {
+  await fs.unlink(profileIndexPath()).catch(() => undefined);
+}
+
+async function addToProfileIndex(name: string): Promise<void> {
+  const current = await listProfileNames();
+  if (current.includes(name)) {
+    return;
+  }
+  await writeProfileIndex([...current, name]);
+}
+
+async function removeFromProfileIndex(name: string): Promise<void> {
+  const current = await listProfileNames();
+  const next = current.filter((entry) => entry !== name);
+  if (next.length === current.length) {
+    return;
+  }
+  if (next.length === 0) {
+    await deleteProfileIndex();
+    return;
+  }
+  await writeProfileIndex(next);
+}
+
+async function backfillProfileIndexFromFile(): Promise<string[]> {
+  const store = await readFileStore();
+  const names = new Set<string>();
+  for (const key of Object.keys(store)) {
+    const name = FILE_STORE_PROFILE_URL_PATTERN.exec(key)?.[1];
+    if (name !== undefined) {
+      names.add(name);
+    }
+  }
+  return [...names];
 }
 
 export async function readLicense(): Promise<string | null> {

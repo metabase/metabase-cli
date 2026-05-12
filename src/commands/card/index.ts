@@ -7,6 +7,7 @@ export default defineCommand({
     get: () => import("./get").then((mod) => mod.default),
     query: () => import("./query").then((mod) => mod.default),
     create: () => import("./create").then((mod) => mod.default),
+    update: () => import("./update").then((mod) => mod.default),
     archive: () => import("./archive").then((mod) => mod.default),
   },
 });

@@ -83,4 +83,19 @@ describe("showUsage", () => {
     const out = chunks.join("");
     expect(out).not.toContain("EXAMPLES");
   });
+
+  it("appends a SCHEMA section pointing to __manifest on every help page", async () => {
+    const cmd = defineCommand({
+      meta: { name: "demo", description: "demo cmd" },
+      args: {},
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain("SCHEMA");
+    expect(out).toContain("metabase __manifest");
+  });
 });

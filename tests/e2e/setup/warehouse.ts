@@ -16,11 +16,46 @@ const SEED_TABLES = new Set([
   "analytics.daily_sales",
 ]);
 
-const LIST_TABLES_SQL =
+const SEED_SCHEMAS = new Set([
+  "public",
+  "analytics",
+  "information_schema",
+  "pg_catalog",
+  "pg_toast",
+]);
+
+const LIST_NON_SEED_TABLES_SQL =
   "SELECT schemaname || '.' || tablename FROM pg_tables WHERE schemaname IN ('public','analytics');";
 
-export async function dropNonSeedWarehouseTables(): Promise<void> {
-  const list = await execa(
+const LIST_NON_SEED_SCHEMAS_SQL = "SELECT schema_name FROM information_schema.schemata;";
+
+export async function resetWarehouse(): Promise<void> {
+  const [tables, schemas] = await Promise.all([
+    runPsqlQuery(LIST_NON_SEED_TABLES_SQL),
+    runPsqlQuery(LIST_NON_SEED_SCHEMAS_SQL),
+  ]);
+  const tableDrops = tables.filter((line) => !SEED_TABLES.has(line));
+  const schemaDrops = schemas.filter((line) => !SEED_SCHEMAS.has(line));
+  if (tableDrops.length === 0 && schemaDrops.length === 0) {
+    return;
+  }
+  const stmts = [
+    ...tableDrops.map((qualified) => `DROP TABLE IF EXISTS ${qualified} CASCADE;`),
+    ...schemaDrops.map((schema) => `DROP SCHEMA IF EXISTS "${schema}" CASCADE;`),
+  ];
+  await runPsql(stmts.join("\n"));
+}
+
+async function runPsqlQuery(query: string): Promise<string[]> {
+  const result = await runPsql(query);
+  return result
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+async function runPsql(sql: string): Promise<string> {
+  const result = await execa(
     "docker",
     [
       "compose",
@@ -36,38 +71,12 @@ export async function dropNonSeedWarehouseTables(): Promise<void> {
       "warehouse",
       "-At",
       "-c",
-      LIST_TABLES_SQL,
+      sql,
     ],
     { encoding: "utf8" },
   );
-  if (typeof list.stdout !== "string") {
+  if (typeof result.stdout !== "string") {
     throw new Error("docker exec psql returned non-string stdout");
   }
-  const drops = list.stdout
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !SEED_TABLES.has(line))
-    .map((qualified) => `DROP TABLE IF EXISTS ${qualified} CASCADE;`);
-  if (drops.length === 0) {
-    return;
-  }
-  await execa(
-    "docker",
-    [
-      "compose",
-      "-f",
-      COMPOSE_FILE,
-      "exec",
-      "-T",
-      "data-db",
-      "psql",
-      "-U",
-      "metabase_test",
-      "-d",
-      "warehouse",
-      "-c",
-      drops.join("\n"),
-    ],
-    { encoding: "utf8" },
-  );
+  return result.stdout;
 }

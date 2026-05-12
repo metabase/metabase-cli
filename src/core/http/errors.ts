@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { MetabaseError } from "../errors";
 import { parseJsonResult } from "../../runtime/json";
+import { isPlainObject } from "../../runtime/predicates";
 
 import { redactBody, redactHeaders, type RedactionContext } from "./sanitize";
 
@@ -23,11 +24,19 @@ const STATUS_CLASSIFICATIONS: Record<number, StatusClassification> = {
   504: { retryable: true, message: "Metabase timed out responding" },
 };
 
-const ErrorEnvelope = z.object({
-  message: z.string().optional(),
-  error: z.string().optional(),
-  "error-message": z.string().optional(),
-});
+const ErrorEnvelope = z
+  .object({
+    message: z.string().optional(),
+    error: z.string().optional(),
+    "error-message": z.string().optional(),
+    via: z.array(z.object({ message: z.string().optional() }).loose()).optional(),
+    "specific-errors": z.unknown().optional(),
+    errors: z.unknown().optional(),
+  })
+  .loose();
+
+const MAX_EXTRACTED_MESSAGE_LEN = 500;
+const ELLIPSIS = "…";
 
 export interface HttpErrorDetail {
   status: number;
@@ -106,7 +115,69 @@ function parseEnvelopeMessage(sanitizedBody: string | null): string | null {
     return null;
   }
   const envelope = result.value;
-  return envelope.message ?? envelope.error ?? envelope["error-message"] ?? null;
+  const topLevel = envelope.message ?? envelope.error ?? envelope["error-message"];
+  if (topLevel) {
+    return capLength(topLevel);
+  }
+  const viaMessage = envelope.via?.find((entry) => entry.message)?.message;
+  if (viaMessage) {
+    return capLength(viaMessage);
+  }
+  const specific = formatErrorTree(envelope["specific-errors"]);
+  if (specific) {
+    return capLength(specific);
+  }
+  const generic = formatErrorTree(envelope.errors);
+  if (generic) {
+    return capLength(generic);
+  }
+  return null;
+}
+
+interface LeafEntry {
+  path: string;
+  message: string;
+}
+
+function formatErrorTree(value: unknown): string | null {
+  const entries = collectLeafEntries(value, []);
+  if (entries.length === 0) {
+    return null;
+  }
+  return entries.map(formatLeafEntry).join("; ");
+}
+
+function formatLeafEntry(entry: LeafEntry): string {
+  return entry.path === "" ? entry.message : `${entry.path}: ${entry.message}`;
+}
+
+function collectLeafEntries(value: unknown, path: ReadonlyArray<string>): LeafEntry[] {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed === "" ? [] : [{ path: path.join("."), message: trimmed }];
+  }
+  if (Array.isArray(value)) {
+    const messages = value.filter(
+      (entry): entry is string => typeof entry === "string" && entry.trim() !== "",
+    );
+    if (messages.length === 0) {
+      return [];
+    }
+    return [{ path: path.join("."), message: messages.join("; ") }];
+  }
+  if (isPlainObject(value)) {
+    return Object.entries(value).flatMap(([key, child]) =>
+      collectLeafEntries(child, [...path, key]),
+    );
+  }
+  return [];
+}
+
+function capLength(message: string): string {
+  if (message.length <= MAX_EXTRACTED_MESSAGE_LEN) {
+    return message;
+  }
+  return message.slice(0, MAX_EXTRACTED_MESSAGE_LEN - ELLIPSIS.length) + ELLIPSIS;
 }
 
 function defaultMessageForStatus(status: number): string {

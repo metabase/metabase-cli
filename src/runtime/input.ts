@@ -38,6 +38,9 @@ export async function readInput(sources: InputSources): Promise<string> {
 }
 
 async function readFileSource(path: string): Promise<string> {
+  if (path === "-") {
+    return await readStdin();
+  }
   try {
     return await readFile(path, "utf8");
   } catch (error) {

@@ -65,7 +65,7 @@ describe("auth e2e", () => {
     });
   });
 
-  it("login with an invalid api key fails verification", async () => {
+  it("login with an invalid api key fails verification, persists a rejection record, and surfaces it on later commands", async () => {
     const configHome = await makeIsolatedConfigHome();
 
     const login = await runCli({
@@ -76,13 +76,86 @@ describe("auth e2e", () => {
         bootstrap.baseUrl,
         "--api-key",
         "mb_definitely_not_valid_key_aaaaaaaaaa",
+        "--profile",
+        "rejected_profile",
         "--json",
       ],
       configHome,
     });
 
     expect(login.exitCode).toBe(2);
-    expect(login.stderr).toContain("verification failed: Invalid or unauthorized API key");
+    expect(login.stderr).toContain(
+      'verification failed: Invalid or unauthorized API key — credentials were not saved for profile "rejected_profile"',
+    );
+
+    const status = await runCli({
+      args: ["auth", "status", "--profile", "rejected_profile", "--json"],
+      configHome,
+    });
+    expect(status.exitCode, status.stderr).toBe(0);
+    expect(parseJson(status.stdout, AuthStatus)).toEqual({
+      profile: "rejected_profile",
+      present: false,
+      url: null,
+    });
+
+    const followup = await runCli({
+      args: ["database", "list", "--profile", "rejected_profile", "--json"],
+      configHome,
+    });
+    expect(followup.exitCode).toBe(2);
+    expect(followup.stderr).toContain('Last login for profile "rejected_profile" was rejected by');
+    expect(followup.stderr).toContain("Invalid or unauthorized API key");
+    expect(followup.stderr).toContain(
+      "Re-run `metabase auth login --profile rejected_profile` with valid credentials.",
+    );
+  });
+
+  it("a successful login clears a prior rejection record for the same profile", async () => {
+    const configHome = await makeIsolatedConfigHome();
+
+    const failed = await runCli({
+      args: [
+        "auth",
+        "login",
+        "--url",
+        bootstrap.baseUrl,
+        "--api-key",
+        "mb_definitely_not_valid_key_aaaaaaaaaa",
+        "--profile",
+        "recovers",
+        "--json",
+      ],
+      configHome,
+    });
+    expect(failed.exitCode).toBe(2);
+
+    const succeeded = await runCli({
+      args: [
+        "auth",
+        "login",
+        "--url",
+        bootstrap.baseUrl,
+        "--api-key",
+        bootstrap.adminApiKey,
+        "--profile",
+        "recovers",
+        "--json",
+      ],
+      configHome,
+    });
+    expect(succeeded.exitCode, succeeded.stderr).toBe(0);
+
+    const followup = await runCli({
+      args: ["auth", "status", "--profile", "recovers", "--json"],
+      configHome,
+    });
+    expect(followup.exitCode, followup.stderr).toBe(0);
+    expect(parseJson(followup.stdout, AuthStatus)).toEqual({
+      profile: "recovers",
+      present: true,
+      url: bootstrap.baseUrl,
+    });
   });
 
   it("logout clears stored credentials and status reflects the cleared profile", async () => {
@@ -144,7 +217,7 @@ describe("auth e2e", () => {
     });
   });
 
-  it("logout fails with ConfigError exit code without --yes when stdin is not a TTY", async () => {
+  it("logout proceeds without --yes when stdin is not a TTY (non-interactive auto-confirm)", async () => {
     const configHome = await makeIsolatedConfigHome();
 
     const logout = await runCli({
@@ -153,8 +226,11 @@ describe("auth e2e", () => {
       stdin: "",
     });
 
-    expect(logout.exitCode).toBe(2);
-    expect(logout.stderr).toContain("--yes required to clear credentials non-interactively");
-    expect(logout.stdout).toBe("");
+    expect(logout.exitCode, logout.stderr).toBe(0);
+    expect(parseJson(logout.stdout, LogoutResult)).toEqual({
+      profile: "default",
+      cleared: false,
+      aborted: false,
+    });
   });
 });

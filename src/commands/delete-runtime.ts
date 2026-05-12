@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { ConfigError } from "../core/errors";
 import type { Client } from "../core/http/client";
 import type { ResourceView } from "../domain/view";
 import { promptConfirm } from "../output/prompt";
@@ -31,13 +30,11 @@ export interface ConfirmAndDeleteArgs {
   promptMessage: string;
   client: Client;
   ctx: CommonContext;
+  afterDelete?: () => Promise<void>;
 }
 
 export async function confirmAndDelete(args: ConfirmAndDeleteArgs): Promise<void> {
-  if (!args.yes) {
-    if (!process.stdin.isTTY) {
-      throw new ConfigError("--yes required to delete non-interactively");
-    }
+  if (!args.yes && process.stdin.isTTY === true) {
     const ok = await promptConfirm({
       message: args.promptMessage,
       initialValue: false,
@@ -51,5 +48,8 @@ export async function confirmAndDelete(args: ConfirmAndDeleteArgs): Promise<void
     method: "DELETE",
     expectContentType: "binary",
   });
+  if (args.afterDelete) {
+    await args.afterDelete();
+  }
   renderItem({ deleted: true, aborted: false, id: args.id }, deleteResultView, args.ctx);
 }

@@ -1,5 +1,9 @@
 import { isCancel } from "@clack/prompts";
-import { ZodError } from "zod";
+import { core as zodCore, ZodError } from "zod";
+
+import { escapeJsonPointerSegment } from "./json-pointer";
+
+export const VERBOSE_ENV = "METABASE_VERBOSE";
 
 export type ErrorCategory =
   | "network"
@@ -8,6 +12,7 @@ export type ErrorCategory =
   | "timeout"
   | "config"
   | "abort"
+  | "docker"
   | "unknown";
 
 export interface NetworkErrorDetail {
@@ -78,6 +83,36 @@ export class ValidationError extends MetabaseError {
     this.name = "ValidationError";
     this.developerDetail = developerDetail;
   }
+
+  override get userMessage(): string {
+    const issues = this.developerDetail.zodIssues;
+    if (issues.length === 0) {
+      return this.message;
+    }
+    return `${this.message}\n${formatZodIssueList(issues)}`;
+  }
+}
+
+const MAX_ISSUES_PRINTED = 10;
+
+function formatZodIssueList(issues: ZodError["issues"]): string {
+  const head = issues.slice(0, MAX_ISSUES_PRINTED).map(formatZodIssueLine);
+  const overflow = issues.length - MAX_ISSUES_PRINTED;
+  if (overflow > 0) {
+    head.push(`  ... and ${overflow} more`);
+  }
+  return head.join("\n");
+}
+
+function formatZodIssueLine(issue: ZodError["issues"][number]): string {
+  return `  ${formatZodIssuePointer(issue.path)}: ${issue.message}`;
+}
+
+function formatZodIssuePointer(path: ReadonlyArray<PropertyKey>): string {
+  if (path.length === 0) {
+    return "/";
+  }
+  return path.map((key) => `/${escapeJsonPointerSegment(key)}`).join("");
 }
 
 export class ConfigError extends MetabaseError {
@@ -104,6 +139,32 @@ export class AbortError extends MetabaseError {
   }
 }
 
+export class ChainedRequestError extends MetabaseError {
+  override readonly cause: MetabaseError;
+
+  constructor(message: string, cause: MetabaseError) {
+    super(message);
+    this.name = "ChainedRequestError";
+    this.cause = cause;
+  }
+
+  override get category(): ErrorCategory {
+    return this.cause.category;
+  }
+
+  override get isRetryable(): boolean {
+    return this.cause.isRetryable;
+  }
+
+  override get exitCode(): number {
+    return this.cause.exitCode;
+  }
+
+  override get developerDetail(): unknown {
+    return this.cause.developerDetail;
+  }
+}
+
 export class UnknownError extends MetabaseError {
   readonly category = "unknown";
   readonly isRetryable = false;
@@ -125,7 +186,7 @@ export function toMetabaseError(error: unknown): MetabaseError {
     return new AbortError();
   }
   if (error instanceof ZodError) {
-    return new ConfigError(formatZodError(error));
+    return new ConfigError(error.issues.map(formatZodIssue).join("; "));
   }
   if (error instanceof Error) {
     return new UnknownError({ originalMessage: error.message, stack: error.stack ?? null });
@@ -133,13 +194,9 @@ export function toMetabaseError(error: unknown): MetabaseError {
   return new UnknownError({ originalMessage: String(error), stack: null });
 }
 
-function formatZodError(error: ZodError): string {
-  return error.issues
-    .map((issue) => {
-      const path = issue.path.join(".");
-      return path ? `${path}: ${issue.message}` : issue.message;
-    })
-    .join("; ");
+export function formatZodIssue(issue: ZodError["issues"][number]): string {
+  const path = zodCore.toDotPath(issue.path);
+  return path === "" ? issue.message : `${path}: ${issue.message}`;
 }
 
 export function isNotFoundError(value: unknown): value is NodeJS.ErrnoException {
