@@ -155,6 +155,57 @@ describe("table e2e", () => {
     });
   });
 
+  it("get --include fields hydrates and projects them in compact form", async () => {
+    const result = await runCli({
+      args: [
+        "table",
+        "get",
+        String(E2E_TABLES.CUSTOMERS),
+        "--include",
+        "fields",
+        "--json",
+        "--max-bytes",
+        "0",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const parsed = parseJson(result.stdout, TableCompact);
+    const { fields, ...tableBody } = parsed;
+    const fieldNames = (fields ?? []).map((field) => field.name).toSorted();
+    const allFieldsBelongToCustomersTable = (fields ?? []).every(
+      (field) => field.table_id === E2E_TABLES.CUSTOMERS,
+    );
+    expect({ tableBody, fieldNames, allFieldsBelongToCustomersTable }).toEqual({
+      tableBody: {
+        id: E2E_TABLES.CUSTOMERS,
+        name: "customers",
+        display_name: "Customers",
+        description: "Customer dimension; mixed types for sync coverage.",
+        db_id: E2E_DATABASES.WAREHOUSE,
+        schema: "public",
+        entity_type: "entity/GenericTable",
+      },
+      fieldNames: CUSTOMERS_FIELD_NAMES,
+      allFieldsBelongToCustomersTable: true,
+    });
+  });
+
+  it("get rejects an unknown --include value with ConfigError", async () => {
+    const result = await runCli({
+      args: ["table", "get", String(E2E_TABLES.CUSTOMERS), "--include", "everything", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(
+      'invalid --include value: "everything" (expected one of: fields)',
+    );
+  });
+
   it("get with a non-integer id fails fast with ConfigError", async () => {
     const result = await runCli({
       args: ["table", "get", "not-a-number", "--json"],
@@ -194,11 +245,12 @@ describe("table e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const parsed = parseJson(result.stdout, Table);
-    const fieldNames = (parsed.fields ?? []).map((field) => field.name).toSorted();
+    const parsed = parseJson(result.stdout, TableCompact);
+    const { fields, ...tableBody } = parsed;
+    const fieldNames = (fields ?? []).map((field) => field.name).toSorted();
 
-    expect({ compact: TableCompact.parse(parsed), fieldNames }).toEqual({
-      compact: {
+    expect({ tableBody, fieldNames }).toEqual({
+      tableBody: {
         id: E2E_TABLES.CUSTOMERS,
         name: "customers",
         display_name: "Customers",

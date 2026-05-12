@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { Field } from "./field";
+import { Field, FieldCompact } from "./field";
 import type { ResourceView } from "./view";
 
 const TableEntityType = z.enum([
@@ -54,7 +54,11 @@ export const TableCompact = Table.pick({
   db_id: true,
   schema: true,
   entity_type: true,
-}).strip();
+})
+  .strip()
+  .extend({
+    fields: z.array(FieldCompact).optional(),
+  });
 export type TableCompact = z.infer<typeof TableCompact>;
 
 export const tableView: ResourceView<Table> = {

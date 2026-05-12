@@ -271,39 +271,42 @@ metabase transform-job delete 1 --yes
 
 ## Databases
 
-Read warehouse metadata from `/api/database`. The `db` group exposes the full database list, the per-database record, hydrated metadata (tables + fields rolled up in one response), schema and table inspection, and the two manual-sync triggers.
+Read warehouse metadata from `/api/database`. The `db` group exposes the full database list, the per-database record, schema and table inspection, the two manual-sync triggers, and (rarely useful) full-warehouse rollup endpoints.
 
 `db` is aliased to `database`.
+
+> **Agent traversal:** prefer the granular path — `db list` → `db schemas <db-id>` → `db schema-tables <db-id> <schema>` → `table get <table-id> --include fields`. On a real warehouse (dozens of schemas, hundreds of tables, dozens of fields per table) the rollup commands (`db metadata`, `db get --include tables.fields`, `db list --include tables`) return megabytes of JSON and exhaust the agent context. Reach for them only on small/dev warehouses where you know the size up front.
 
 ### `metabase db list`
 
 ```sh
 metabase db list
 metabase db list --json
-metabase db list --include tables --full --json
 metabase db list --saved --json
+metabase db list --include tables --full --json   # rollup: every db with its full table list
 ```
 
-| Flag                | Description                                                                                                   |
-| ------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `--include <which>` | Hydrate related entities. Currently only `tables` is supported (each database is returned with its `tables`). |
-| `--saved`           | Include the Saved Questions virtual database in the list. The virtual db has id `-1337` and no `engine`.      |
+| Flag                | Description                                                                                                                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--include <which>` | Hydrate related entities. Currently only `tables` is supported (each database is returned with its `tables`). On real warehouses this returns hundreds of table records per db — use the granular traversal instead. |
+| `--saved`           | Include the Saved Questions virtual database in the list. The virtual db has id `-1337` and no `engine`.                                                                                                             |
 
 ### `metabase db get <id>`
 
 ```sh
 metabase db get 1
 metabase db get 1 --json
-metabase db get 1 --include tables.fields --full --json
+metabase db get 1 --include tables --full --json          # rollup: db + every table (compact)
+metabase db get 1 --include tables.fields --full --json   # rollup: db + every table + every field
 ```
 
-| Flag                | Description                                                   |
-| ------------------- | ------------------------------------------------------------- |
-| `--include <which>` | Hydrate related entities. One of `tables` or `tables.fields`. |
+| Flag                | Description                                                                                                                                                                                                                                                                       |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--include <which>` | Hydrate related entities. One of `tables` or `tables.fields`. `tables.fields` returns every column of every table in the database in one response — only safe on small/dev warehouses. For a real warehouse use `db schemas` → `db schema-tables` → `table get --include fields`. |
 
 ### `metabase db metadata <id>`
 
-Equivalent to `GET /api/database/:id/metadata`: a single database with all its tables and fields rolled up in one response. Use this when an agent needs a one-shot warehouse introspection rather than the per-table `metabase table get --full`.
+Equivalent to `GET /api/database/:id/metadata`: a single database with all its tables and fields rolled up in one response. This is the largest read in the `db` group — on a real warehouse the response will exceed the agent context. Use only when you know the database is small (a seeded dev instance, a sample db, a freshly-bootstrapped test fixture). For agent-driven introspection on a real warehouse, walk `db schemas` → `db schema-tables` → `table get --include fields` instead.
 
 ```sh
 metabase db metadata 1 --json --full --max-bytes 0
@@ -311,7 +314,7 @@ metabase db metadata 1 --json --full --max-bytes 0
 
 ### `metabase db schemas <id>`
 
-List the schemas in a database. Schemas with no tables are excluded.
+List the schemas in a database. Schemas with no tables are excluded. Cheap and bounded — this is the right entry point for an agent walking a warehouse.
 
 ```sh
 metabase db schemas 1
@@ -320,7 +323,7 @@ metabase db schemas 1 --json
 
 ### `metabase db schema-tables <id> <schema>`
 
-List the tables in a given schema, sorted by display name.
+List the tables in one schema, sorted by display name. Returns compact projections without fields — pair with `table get --include fields` (or `table fields <id>`) per table you actually need to introspect.
 
 ```sh
 metabase db schema-tables 1 public
@@ -347,9 +350,11 @@ metabase db rescan-values 1 --json
 
 ## Tables
 
-Inspect and edit warehouse tables via `/api/table`.
+Inspect and edit warehouse tables via `/api/table`. For agent-driven field introspection, `table get --include fields` is the default — it returns the table plus its columns in a single bounded response.
 
 ### `metabase table list`
+
+Returns every table in the chosen database (or across all databases) as a flat compact list — no fields, no per-table hydration. On a real warehouse with hundreds of tables this is still bounded (kilobytes), but `db schema-tables <db-id> <schema>` is the better starting point when you know the schema.
 
 ```sh
 metabase table list
@@ -362,28 +367,33 @@ metabase table list --db-id 1 --json
 
 ### `metabase table get <id>`
 
-Returns the basic table record (no fields). Use `metabase table metadata <id>` when you want the rollup with fields/FKs/dimensions hydrated.
+Returns the basic table record (no fields). Pass `--include fields` to route through `/api/table/:id/query_metadata` so the response carries the table's columns compact-projected as `fields` — this is the default agent path for field introspection. Use `metabase table fields <id>` if you only want the fields as a list envelope, or `metabase table metadata <id>` when you also need FKs and dimensions hydrated.
 
 ```sh
 metabase table get 42
 metabase table get 42 --json
+metabase table get 42 --include fields --json
 ```
 
-### `metabase table metadata <id>`
-
-`GET /api/table/:id/query_metadata`: the table with its fields, FKs, and dimensions hydrated. The agent-facing one-shot introspection for a single table.
-
-```sh
-metabase table metadata 42 --json --full --max-bytes 0
-```
+| Flag                | Description                                                                                         |
+| ------------------- | --------------------------------------------------------------------------------------------------- |
+| `--include <which>` | Hydrate related entities. Currently only `fields` is supported (bundles compact-projected columns). |
 
 ### `metabase table fields <id>`
 
-List the fields on a table (a thin projection over `query_metadata.fields`).
+List the fields on a table (a thin projection over `query_metadata.fields`). Use this when you want just the field array without the surrounding table metadata.
 
 ```sh
 metabase table fields 42
 metabase table fields 42 --json
+```
+
+### `metabase table metadata <id>`
+
+`GET /api/table/:id/query_metadata`: the table with its fields, FKs, dimensions, segments, and measures all hydrated. Heavier than `table get --include fields` — reach for it only when you actually need the FK / dimension / segment / measure data.
+
+```sh
+metabase table metadata 42 --json --full --max-bytes 0
 ```
 
 ### `metabase table update <id>`
