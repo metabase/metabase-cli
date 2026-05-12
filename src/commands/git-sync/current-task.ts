@@ -1,4 +1,4 @@
-import { syncTaskView } from "../../domain/remote-sync";
+import { syncTaskView } from "../../domain/git-sync";
 import { renderItem } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -10,11 +10,11 @@ export const CurrentTaskResult = SyncTaskOrIdle;
 export default defineMetabaseCommand({
   meta: {
     name: "current-task",
-    description: "Get the most recent remote-sync task (or idle if none)",
+    description: "Get the most recent git-sync task (or idle if none)",
   },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: CurrentTaskResult,
-  examples: ["metabase remote-sync current-task", "metabase remote-sync current-task --json"],
+  examples: ["metabase git-sync current-task", "metabase git-sync current-task --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const task = await fetchCurrentTask(client);

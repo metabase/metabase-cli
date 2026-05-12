@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { SyncTask } from "../../domain/remote-sync";
+import { SyncTask } from "../../domain/git-sync";
 import type { ResourceView } from "../../domain/view";
 import { warn } from "../../output/notice";
 import { renderItem } from "../../output/render";
@@ -65,9 +65,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: SyncExportResult,
   examples: [
-    'metabase remote-sync export -m "update dashboards"',
-    "metabase remote-sync export --branch main --json",
-    "metabase remote-sync export --no-wait",
+    'metabase git-sync export -m "update dashboards"',
+    "metabase git-sync export --branch main --json",
+    "metabase git-sync export --no-wait",
   ],
   async run({ args, ctx, getClient }) {
     const timeoutMs = parseId(args.timeout, "timeout");

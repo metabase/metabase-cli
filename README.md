@@ -932,73 +932,73 @@ metabase search products --archived
 | `--table-db-id`  | Restrict to items on a given database id.                                                                                                                 |
 | `--verified`     | Only verified content.                                                                                                                                    |
 
-## Remote Sync
+## Git Sync
 
-Drive Metabase Enterprise Remote Sync (`/api/ee/remote-sync`) — import / export Metabase content against a configured git remote, inspect dirty state, and manage branches. All remote-sync commands require an active EE token and superuser credentials.
+Drive Metabase Enterprise Remote Sync (`/api/ee/remote-sync`) — import / export Metabase content against a configured git remote, inspect dirty state, and manage branches. All git-sync commands require an active EE token and superuser credentials.
 
-### `metabase remote-sync status`
+### `metabase git-sync status`
 
 Roll up the current sync state in one call: configured branch, dirty flag, and the most recent sync task (or `null` if none has ever run).
 
 ```sh
-metabase remote-sync status
-metabase remote-sync status --json
+metabase git-sync status
+metabase git-sync status --json
 ```
 
-### `metabase remote-sync is-dirty`
+### `metabase git-sync is-dirty`
 
 Boolean check for whether any synced collection has unsynced local changes.
 
 ```sh
-metabase remote-sync is-dirty --json
+metabase git-sync is-dirty --json
 ```
 
-### `metabase remote-sync has-remote-changes`
+### `metabase git-sync has-remote-changes`
 
 Compare the latest version on the remote branch against the version Metabase last imported. Cached for a short TTL server-side; pass `--force-refresh` to bypass.
 
 ```sh
-metabase remote-sync has-remote-changes
-metabase remote-sync has-remote-changes --force-refresh --json
+metabase git-sync has-remote-changes
+metabase git-sync has-remote-changes --force-refresh --json
 ```
 
 | Flag              | Description                                         |
 | ----------------- | --------------------------------------------------- |
 | `--force-refresh` | Bypass the in-memory cache and re-check the remote. |
 
-### `metabase remote-sync dirty`
+### `metabase git-sync dirty`
 
 List every object that has unsynced local changes (compact list envelope; `--full` for the per-row payload).
 
 ```sh
-metabase remote-sync dirty
-metabase remote-sync dirty --json
+metabase git-sync dirty
+metabase git-sync dirty --json
 ```
 
-### `metabase remote-sync current-task`
+### `metabase git-sync current-task`
 
 Fetch the most recent sync task. Renders `{ status: "idle" }` when no task has ever run, otherwise the full task with its hydrated `status`.
 
 ```sh
-metabase remote-sync current-task
-metabase remote-sync current-task --json
+metabase git-sync current-task
+metabase git-sync current-task --json
 ```
 
-### `metabase remote-sync cancel-task`
+### `metabase git-sync cancel-task`
 
 Cancel the currently running sync task. Fails with HTTP 400 if no task is running.
 
 ```sh
-metabase remote-sync cancel-task --json
+metabase git-sync cancel-task --json
 ```
 
-### `metabase remote-sync wait`
+### `metabase git-sync wait`
 
 Poll `/current-task` until it reaches a terminal status (`successful`, `errored`, `cancelled`, `timed-out`, `conflict`). Exits 0 on `successful` or `cancelled`; exits 1 on `errored` / `timed-out` / `conflict`. Returns immediately with `{ status: "idle" }` if no task is running.
 
 ```sh
-metabase remote-sync wait
-metabase remote-sync wait --timeout 300000 --json
+metabase git-sync wait
+metabase git-sync wait --timeout 300000 --json
 ```
 
 | Flag              | Description                             |
@@ -1006,14 +1006,14 @@ metabase remote-sync wait --timeout 300000 --json
 | `--timeout <ms>`  | Polling timeout in ms (default 600000). |
 | `--interval <ms>` | Polling interval in ms (default 2000).  |
 
-### `metabase remote-sync import`
+### `metabase git-sync import`
 
 Import content from the configured git remote into Metabase (repo → Metabase). Auto-polls until the resulting task reaches a terminal status; pass `--no-wait` to return immediately after kickoff.
 
 ```sh
-metabase remote-sync import
-metabase remote-sync import --branch main --json
-metabase remote-sync import --force --no-wait
+metabase git-sync import
+metabase git-sync import --branch main --json
+metabase git-sync import --force --no-wait
 ```
 
 | Flag                    | Description                                                           |
@@ -1024,14 +1024,14 @@ metabase remote-sync import --force --no-wait
 | `--timeout <ms>`        | Polling timeout in ms (default 600000). Used with `--wait`.           |
 | `--interval <ms>`       | Polling interval in ms (default 2000). Used with `--wait`.            |
 
-### `metabase remote-sync export`
+### `metabase git-sync export`
 
 Export Metabase changes back to the configured git remote (Metabase → repo). Auto-polls by default.
 
 ```sh
-metabase remote-sync export -m "update dashboards"
-metabase remote-sync export --branch main --json
-metabase remote-sync export --no-wait
+metabase git-sync export -m "update dashboards"
+metabase git-sync export --branch main --json
+metabase git-sync export --no-wait
 ```
 
 | Flag                    | Description                                                         |
@@ -1043,13 +1043,13 @@ metabase remote-sync export --no-wait
 | `--timeout <ms>`        | Polling timeout in ms (default 600000). Used with `--wait`.         |
 | `--interval <ms>`       | Polling interval in ms (default 2000). Used with `--wait`.          |
 
-### `metabase remote-sync stash`
+### `metabase git-sync stash`
 
 Export the current Metabase state to a NEW branch on the remote and switch sync to it. Requires `remote-sync-type` to be `read-write`.
 
 ```sh
-metabase remote-sync stash --new-branch wip
-metabase remote-sync stash --new-branch wip -m "work in progress" --json
+metabase git-sync stash --new-branch wip
+metabase git-sync stash --new-branch wip -m "work in progress" --json
 ```
 
 | Flag                    | Description                                                    |
@@ -1060,41 +1060,41 @@ metabase remote-sync stash --new-branch wip -m "work in progress" --json
 | `--timeout <ms>`        | Polling timeout in ms. Used with `--wait`.                     |
 | `--interval <ms>`       | Polling interval in ms. Used with `--wait`.                    |
 
-### `metabase remote-sync branches`
+### `metabase git-sync branches`
 
 List branches available on the configured git remote.
 
 ```sh
-metabase remote-sync branches --json
+metabase git-sync branches --json
 ```
 
-### `metabase remote-sync create-branch <name>`
+### `metabase git-sync create-branch <name>`
 
 Create a new branch on the git remote (from the last imported version) and switch sync to it.
 
 ```sh
-metabase remote-sync create-branch feat/dashboards
-metabase remote-sync create-branch feat/x --json
+metabase git-sync create-branch feat/dashboards
+metabase git-sync create-branch feat/x --json
 ```
 
-### `metabase remote-sync add-collection <id>`
+### `metabase git-sync add-collection <id>`
 
-Mark a collection as remote-synced. The toggle cascades to every descendant by `location` prefix, so flagging a parent flags the whole subtree. Returns `{ success, task_id? }`; `task_id` only appears when the toggle triggers a follow-up task (e.g. a finalization import after switching to read-only mode).
+Mark a collection as git-synced. The toggle cascades to every descendant by `location` prefix, so flagging a parent flags the whole subtree. Returns `{ success, task_id? }`; `task_id` only appears when the toggle triggers a follow-up task (e.g. a finalization import after switching to read-only mode).
 
 ```sh
-metabase remote-sync add-collection 12
-metabase remote-sync add-collection 12 --json --profile prod
+metabase git-sync add-collection 12
+metabase git-sync add-collection 12 --json --profile prod
 ```
 
 The server rejects toggles while `remote-sync-type` is `read-only` (the install default). Switch first with `metabase setting set remote-sync-type '"read-write"'`.
 
-### `metabase remote-sync remove-collection <id>`
+### `metabase git-sync remove-collection <id>`
 
-Unmark a collection as remote-synced. Same cascade and same `read-only` precondition as `add-collection`.
+Unmark a collection as git-synced. Same cascade and same `read-only` precondition as `add-collection`.
 
 ```sh
-metabase remote-sync remove-collection 12
-metabase remote-sync remove-collection 12 --json --profile prod
+metabase git-sync remove-collection 12
+metabase git-sync remove-collection 12 --json --profile prod
 ```
 
 ## Workspaces

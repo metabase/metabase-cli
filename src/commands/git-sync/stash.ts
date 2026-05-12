@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { ConfigError } from "../../core/errors";
-import { SyncTask } from "../../domain/remote-sync";
+import { SyncTask } from "../../domain/git-sync";
 import type { ResourceView } from "../../domain/view";
 import { renderItem } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -65,8 +65,8 @@ export default defineMetabaseCommand({
   },
   outputSchema: SyncStashResult,
   examples: [
-    "metabase remote-sync stash --new-branch wip",
-    'metabase remote-sync stash --new-branch wip -m "work in progress" --json',
+    "metabase git-sync stash --new-branch wip",
+    'metabase git-sync stash --new-branch wip -m "work in progress" --json',
   ],
   async run({ args, ctx, getClient }) {
     const newBranch = args.newBranch.trim();

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { SyncTask } from "../../domain/remote-sync";
+import { SyncTask } from "../../domain/git-sync";
 import type { ResourceView } from "../../domain/view";
 import { renderItem } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -30,11 +30,11 @@ const syncStatusView: ResourceView<SyncStatus> = {
 export default defineMetabaseCommand({
   meta: {
     name: "status",
-    description: "Show current remote-sync state (branch, dirty, current task)",
+    description: "Show current git-sync state (branch, dirty, current task)",
   },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SyncStatus,
-  examples: ["metabase remote-sync status", "metabase remote-sync status --json"],
+  examples: ["metabase git-sync status", "metabase git-sync status --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const [branch, isDirty, currentTask] = await Promise.all([

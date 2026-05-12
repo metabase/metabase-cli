@@ -25,7 +25,7 @@ const createBranchView: ResourceView<CreateBranchResult> = {
 export default defineMetabaseCommand({
   meta: {
     name: "create-branch",
-    description: "Create a new branch on the git remote and switch remote-sync to it",
+    description: "Create a new branch on the git remote and switch git-sync to it",
   },
   args: {
     ...outputFlags,
@@ -35,8 +35,8 @@ export default defineMetabaseCommand({
   },
   outputSchema: CreateBranchResult,
   examples: [
-    "metabase remote-sync create-branch feat/dashboards",
-    "metabase remote-sync create-branch feat/x --json",
+    "metabase git-sync create-branch feat/dashboards",
+    "metabase git-sync create-branch feat/x --json",
   ],
   async run({ args, ctx, getClient }) {
     const name = args.name.trim();

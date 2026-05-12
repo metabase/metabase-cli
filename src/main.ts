@@ -22,7 +22,7 @@ const main: CommandDef = defineCommand({
     "transform-job": () => import("./commands/transform-job").then((mod) => mod.default),
     setting: () => import("./commands/setting").then((mod) => mod.default),
     search: () => import("./commands/search").then((mod) => mod.default),
-    "remote-sync": () => import("./commands/remote-sync").then((mod) => mod.default),
+    "git-sync": () => import("./commands/git-sync").then((mod) => mod.default),
     workspace: () => import("./commands/workspace").then((mod) => mod.default),
     setup: () => import("./commands/setup").then((mod) => mod.default),
     "api-key": () => import("./commands/api-key").then((mod) => mod.default),

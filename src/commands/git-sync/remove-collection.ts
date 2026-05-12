@@ -12,7 +12,7 @@ import {
 export default defineMetabaseCommand({
   meta: {
     name: "remove-collection",
-    description: "Unmark a collection as remote-synced; cascades to descendants by location prefix",
+    description: "Unmark a collection as git-synced; cascades to descendants by location prefix",
   },
   args: {
     ...outputFlags,
@@ -22,8 +22,8 @@ export default defineMetabaseCommand({
   },
   outputSchema: SyncSettingsUpdateResult,
   examples: [
-    "metabase remote-sync remove-collection 12",
-    "metabase remote-sync remove-collection 12 --json --profile prod",
+    "metabase git-sync remove-collection 12",
+    "metabase git-sync remove-collection 12 --json --profile prod",
   ],
   async run({ args, ctx, getClient }) {
     const collectionId = parseId(args.id, "id");

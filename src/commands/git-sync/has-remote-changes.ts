@@ -43,8 +43,8 @@ export default defineMetabaseCommand({
   },
   outputSchema: HasRemoteChangesResult,
   examples: [
-    "metabase remote-sync has-remote-changes",
-    "metabase remote-sync has-remote-changes --force-refresh --json",
+    "metabase git-sync has-remote-changes",
+    "metabase git-sync has-remote-changes --force-refresh --json",
   ],
   async run({ args, ctx, getClient }) {
     const client = await getClient();

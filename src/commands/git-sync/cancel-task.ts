@@ -1,4 +1,4 @@
-import { SyncTask, syncTaskView } from "../../domain/remote-sync";
+import { SyncTask, syncTaskView } from "../../domain/git-sync";
 import { renderItem } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -6,10 +6,10 @@ import { defineMetabaseCommand } from "../runtime";
 import { REMOTE_SYNC_PATHS } from "./poll-task";
 
 export default defineMetabaseCommand({
-  meta: { name: "cancel-task", description: "Cancel the running remote-sync task" },
+  meta: { name: "cancel-task", description: "Cancel the running git-sync task" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SyncTask,
-  examples: ["metabase remote-sync cancel-task", "metabase remote-sync cancel-task --json"],
+  examples: ["metabase git-sync cancel-task", "metabase git-sync cancel-task --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const task = await client.requestParsed(SyncTask, REMOTE_SYNC_PATHS.cancelTask, {

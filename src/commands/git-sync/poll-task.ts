@@ -1,6 +1,6 @@
 import { z, type ZodType } from "zod";
 
-import { SyncTask, type SyncTaskStatus } from "../../domain/remote-sync";
+import { SyncTask, type SyncTaskStatus } from "../../domain/git-sync";
 import type { Client } from "../../core/http/client";
 import type { ResourceView } from "../../domain/view";
 import { parseJsonOrPlain } from "../../runtime/json";
@@ -104,5 +104,5 @@ export function throwIfFailedTask(final: SyncTask | null, verb: string): void {
     return;
   }
   const detail = final.error_message ? `: ${final.error_message}` : "";
-  throw new Error(`remote-sync ${verb} ${final.status}${detail}`);
+  throw new Error(`git-sync ${verb} ${final.status}${detail}`);
 }

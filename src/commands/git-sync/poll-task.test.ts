@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { SyncTaskStatus } from "../../domain/remote-sync";
+import type { SyncTaskStatus } from "../../domain/git-sync";
 
 import { isFailure, isTerminal } from "./poll-task";
 

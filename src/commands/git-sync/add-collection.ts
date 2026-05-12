@@ -37,7 +37,7 @@ export async function setCollectionRemoteSynced(
 export default defineMetabaseCommand({
   meta: {
     name: "add-collection",
-    description: "Mark a collection as remote-synced; cascades to descendants by location prefix",
+    description: "Mark a collection as git-synced; cascades to descendants by location prefix",
   },
   args: {
     ...outputFlags,
@@ -47,8 +47,8 @@ export default defineMetabaseCommand({
   },
   outputSchema: SyncSettingsUpdateResult,
   examples: [
-    "metabase remote-sync add-collection 12",
-    "metabase remote-sync add-collection 12 --json --profile prod",
+    "metabase git-sync add-collection 12",
+    "metabase git-sync add-collection 12 --json --profile prod",
   ],
   async run({ args, ctx, getClient }) {
     const collectionId = parseId(args.id, "id");
