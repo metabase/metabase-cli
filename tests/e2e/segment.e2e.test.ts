@@ -1,12 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { SegmentListEnvelope } from "../../src/commands/segment/list";
+import { ValidationOutcome } from "../../src/core/schema/validate";
 import { SegmentCompact, type SegmentCreateInput } from "../../src/domain/segment";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_FIELDS, E2E_TABLES } from "./seed/ids";
+import { E2E_DATABASES, E2E_FIELDS, E2E_TABLES } from "./seed/ids";
 
 const FIRST_NEW_SEGMENT_ID = 1;
 const SEGMENT_NAME = "PositiveIdOrders";
@@ -109,6 +110,53 @@ describe("segment e2e", () => {
     });
   });
 
+  it("create with invalid MBQL 5 definition fails pre-flight before sending", async () => {
+    const result = await runCli({
+      args: ["segment", "create", "--json"],
+      stdin: JSON.stringify({
+        name: "preflight-fail",
+        table_id: E2E_TABLES.ORDERS,
+        definition: {
+          "lib/type": "mbql/query",
+          database: E2E_DATABASES.WAREHOUSE,
+          stages: [],
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/stages", message: "must NOT have fewer than 1 items" }],
+    });
+    expect(result.stderr).toContain(
+      "segment.definition validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+    );
+  });
+
+  it("create --skip-validate bypasses the MBQL 5 pre-flight (server is the authority)", async () => {
+    const result = await runCli({
+      args: ["segment", "create", "--skip-validate", "--json"],
+      stdin: JSON.stringify({
+        name: "skip-validate-bypass",
+        table_id: E2E_TABLES.ORDERS,
+        definition: {
+          "lib/type": "mbql/query",
+          database: E2E_DATABASES.WAREHOUSE,
+          stages: [],
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Metabase returned 500");
+    expect(result.stdout).toBe("");
+  });
+
   it("create with a body missing required fields fails on Zod validation", async () => {
     const result = await runCli({
       args: ["segment", "create", "--json"],
@@ -173,6 +221,33 @@ describe("segment e2e", () => {
       ...NEW_SEGMENT_COMPACT,
       name: "OrdersWithStatusRenamed",
     });
+  });
+
+  it("update with invalid MBQL 5 definition fails pre-flight before sending", async () => {
+    await createSegment();
+
+    const result = await runCli({
+      args: ["segment", "update", String(FIRST_NEW_SEGMENT_ID), "--json"],
+      stdin: JSON.stringify({
+        revision_message: "bad definition",
+        definition: {
+          "lib/type": "mbql/query",
+          database: E2E_DATABASES.WAREHOUSE,
+          stages: [],
+        },
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/stages", message: "must NOT have fewer than 1 items" }],
+    });
+    expect(result.stderr).toContain(
+      "segment.definition validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+    );
   });
 
   it("update without the required revision_message fails on Zod validation", async () => {

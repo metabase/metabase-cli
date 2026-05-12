@@ -29,6 +29,16 @@ export const TRANSFORM_SOURCE_QUERY_LABELS: PreflightLabels = {
   bodyNoun: "source.query",
 };
 
+export const MEASURE_DEFINITION_LABELS: PreflightLabels = {
+  contextLabel: "measure.definition validation failed",
+  bodyNoun: "definition",
+};
+
+export const SEGMENT_DEFINITION_LABELS: PreflightLabels = {
+  contextLabel: "segment.definition validation failed",
+  bodyNoun: "definition",
+};
+
 export interface PreflightOptions {
   readonly skip: boolean;
 }

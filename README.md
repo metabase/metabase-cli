@@ -695,29 +695,33 @@ metabase segment get 1 --json --full
 ```sh
 cat segment.json | metabase segment create
 metabase segment create --file segment.json
+metabase segment create --file segment.json --skip-validate
 ```
 
-| Flag            | Description             |
-| --------------- | ----------------------- |
-| `--body <json>` | Inline JSON body.       |
-| `--file <path>` | Path to JSON body file. |
+| Flag              | Description                                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--body <json>`   | Inline JSON body.                                                                                                                                      |
+| `--file <path>`   | Path to JSON body file.                                                                                                                                |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-Body fields: `name` (required), `table_id` (required positive integer), `definition` (required MBQL filter object), `description` (optional).
+Body fields: `name` (required), `table_id` (required positive integer), `definition` (required MBQL filter object), `description` (optional). If `definition` is MBQL 5 (`lib/type: "mbql/query"`) it goes through the same pre-flight validation as `card create` and `metabase query`; pass `--skip-validate` to bypass.
 
 ### `metabase segment update <id>`
 
-Patch a segment. The body MUST include `revision_message`. Other keys are partial: `name`, `definition`, `archived`, `description`, `caveats`, `points_of_interest`, `show_in_getting_started`.
+Patch a segment. The body MUST include `revision_message`. Other keys are partial: `name`, `definition`, `archived`, `description`, `caveats`, `points_of_interest`, `show_in_getting_started`. If `definition` is MBQL 5 (`lib/type: "mbql/query"`) it goes through the same pre-flight validation as `segment create`; pass `--skip-validate` to bypass.
 
 ```sh
 cat patch.json | metabase segment update 1
 metabase segment update 1 --file patch.json
 metabase segment update 1 --body '{"name":"renamed","revision_message":"rename"}'
+metabase segment update 1 --file patch.json --skip-validate
 ```
 
-| Flag            | Description             |
-| --------------- | ----------------------- |
-| `--body <json>` | Inline JSON body.       |
-| `--file <path>` | Path to JSON body file. |
+| Flag              | Description                                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--body <json>`   | Inline JSON body.                                                                                                                                      |
+| `--file <path>`   | Path to JSON body file.                                                                                                                                |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
 ### `metabase segment archive <id>`
 
@@ -755,29 +759,33 @@ metabase measure get 1 --json --full
 ```sh
 cat measure.json | metabase measure create
 metabase measure create --file measure.json
+metabase measure create --file measure.json --skip-validate
 ```
 
-| Flag            | Description             |
-| --------------- | ----------------------- |
-| `--body <json>` | Inline JSON body.       |
-| `--file <path>` | Path to JSON body file. |
+| Flag              | Description                                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--body <json>`   | Inline JSON body.                                                                                                                                      |
+| `--file <path>`   | Path to JSON body file.                                                                                                                                |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-Body fields: `name` (required), `table_id` (required positive integer), `definition` (required MBQL aggregation object), `description` (optional).
+Body fields: `name` (required), `table_id` (required positive integer), `definition` (required MBQL aggregation object), `description` (optional). If `definition` is MBQL 5 (`lib/type: "mbql/query"`) it goes through the same pre-flight validation as `card create` and `metabase query`; pass `--skip-validate` to bypass.
 
 ### `metabase measure update <id>`
 
-Patch a measure. The body MUST include `revision_message`. Other keys are partial: `name`, `definition`, `archived`, `description`.
+Patch a measure. The body MUST include `revision_message`. Other keys are partial: `name`, `definition`, `archived`, `description`. If `definition` is MBQL 5 (`lib/type: "mbql/query"`) it goes through the same pre-flight validation as `measure create`; pass `--skip-validate` to bypass.
 
 ```sh
 cat patch.json | metabase measure update 1
 metabase measure update 1 --file patch.json
 metabase measure update 1 --body '{"name":"renamed","revision_message":"rename"}'
+metabase measure update 1 --file patch.json --skip-validate
 ```
 
-| Flag            | Description             |
-| --------------- | ----------------------- |
-| `--body <json>` | Inline JSON body.       |
-| `--file <path>` | Path to JSON body file. |
+| Flag              | Description                                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--body <json>`   | Inline JSON body.                                                                                                                                      |
+| `--file <path>`   | Path to JSON body file.                                                                                                                                |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
 ### `metabase measure archive <id>`
 
@@ -1367,13 +1375,13 @@ Output by mode:
 - Run failure (no `--dry-run`) — same `{ ok, errors }` envelope on stdout, exit 2, no request made.
 - Run success — the streamed `CardQueryResult`.
 
-### MBQL 5 pre-flight in `card create`/`update` and `transform create`/`update`
+### MBQL 5 pre-flight in `card create`/`update`, `transform create`/`update`, `measure create`/`update`, and `segment create`/`update`
 
-When the embedded query (`card.dataset_query`, or `transform.source.query` for `source.type: "query"`) is MBQL 5 (`lib/type: "mbql/query"`), it is pre-flight-validated against the same schema as `metabase query`. Validation failure: `{ ok, errors }` envelope on stdout, exit 2, request not made. MBQL 4 (legacy) bodies and Python transform sources skip validation — they're still accepted by the server and we don't ship a schema for them.
+When the embedded query (`card.dataset_query`, `transform.source.query` for `source.type: "query"`, or `measure.definition` / `segment.definition`) is MBQL 5 (`lib/type: "mbql/query"`), it is pre-flight-validated against the same schema as `metabase query`. Validation failure: `{ ok, errors }` envelope on stdout, exit 2, request not made. MBQL 4 (legacy) bodies and Python transform sources skip validation — they're still accepted by the server and we don't ship a schema for them.
 
-Pass `--skip-validate` to bypass the pre-flight on `card create`, `card update`, `transform create`, or `transform update` — the body is sent as-is and the server is the authority. Same escape hatch as on `metabase query`; use only when the bundled schema disagrees with what the server actually accepts.
+Pass `--skip-validate` to bypass the pre-flight on any of `card create`, `card update`, `transform create`, `transform update`, `measure create`, `measure update`, `segment create`, or `segment update` — the body is sent as-is and the server is the authority. Same escape hatch as on `metabase query`; use only when the bundled schema disagrees with what the server actually accepts.
 
-Agent discovery path: `metabase __manifest` lists every command's args and description; the description for `card create`/`update` and `transform create`/`update` references `metabase query --print-schema` so an agent can fetch the validating schema directly.
+Agent discovery path: `metabase __manifest` lists every command's args and description; the description for `card create`/`update`, `transform create`/`update`, `measure create`/`update`, and `segment create`/`update` references `metabase query --print-schema` so an agent can fetch the validating schema directly.
 
 The bundled query schema is synced from a pinned `@metabase/representations` release via `bun run sync:representations`; CI guards against drift.
 
