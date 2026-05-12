@@ -359,6 +359,34 @@ describe("collection e2e", () => {
     expect(result.stdout).toBe("");
   });
 
+  it("items on a freshly-created empty collection returns an empty envelope (server total: null)", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const createResult = await runCli({
+      args: ["collection", "create", "--json"],
+      stdin: JSON.stringify({
+        name: `e2e_empty_collection_${Date.now()}`,
+        parent_id: E2E_COLLECTIONS.DEFAULT,
+      }),
+      configHome,
+      env: authEnv(),
+    });
+    expect(createResult.exitCode, createResult.stderr).toBe(0);
+    const created = parseJson(createResult.stdout, Collection);
+
+    const itemsResult = await runCli({
+      args: ["collection", "items", String(created.id), "--json"],
+      configHome,
+      env: authEnv(),
+    });
+
+    expect(itemsResult.exitCode, itemsResult.stderr).toBe(0);
+    expect(parseJson(itemsResult.stdout, CollectionItemListEnvelope)).toEqual({
+      data: [],
+      returned: 0,
+      total: 0,
+    });
+  });
+
   it("items root surfaces the seeded collection at the root level with collection_id null", async () => {
     const result = await runCli({
       args: ["collection", "items", "root", "--json"],

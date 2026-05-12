@@ -1,6 +1,8 @@
 import { isCancel } from "@clack/prompts";
 import { core as zodCore, ZodError } from "zod";
 
+import { escapeJsonPointerSegment } from "./json-pointer";
+
 export const VERBOSE_ENV = "METABASE_VERBOSE";
 
 export type ErrorCategory =
@@ -70,8 +72,6 @@ export class TimeoutError extends MetabaseError {
   }
 }
 
-const VALIDATION_ISSUE_PREVIEW_LIMIT = 5;
-
 export class ValidationError extends MetabaseError {
   readonly category = "validation";
   readonly isRetryable = false;
@@ -89,15 +89,30 @@ export class ValidationError extends MetabaseError {
     if (issues.length === 0) {
       return this.message;
     }
-    const shown = issues.slice(0, VALIDATION_ISSUE_PREVIEW_LIMIT);
-    const lines = shown.map((issue) => `  - ${formatZodIssue(issue)}`);
-    const trailer =
-      issues.length > shown.length
-        ? `\n  …and ${issues.length - shown.length} more`
-        : "";
-    const hint = `\n  Set ${VERBOSE_ENV}=1 for the full developer detail.`;
-    return `${this.message} (${issues.length} issue${issues.length === 1 ? "" : "s"})\n${lines.join("\n")}${trailer}${hint}`;
+    return `${this.message}\n${formatZodIssueList(issues)}`;
   }
+}
+
+const MAX_ISSUES_PRINTED = 10;
+
+function formatZodIssueList(issues: ZodError["issues"]): string {
+  const head = issues.slice(0, MAX_ISSUES_PRINTED).map(formatZodIssueLine);
+  const overflow = issues.length - MAX_ISSUES_PRINTED;
+  if (overflow > 0) {
+    head.push(`  ... and ${overflow} more`);
+  }
+  return head.join("\n");
+}
+
+function formatZodIssueLine(issue: ZodError["issues"][number]): string {
+  return `  ${formatZodIssuePointer(issue.path)}: ${issue.message}`;
+}
+
+function formatZodIssuePointer(path: ReadonlyArray<PropertyKey>): string {
+  if (path.length === 0) {
+    return "/";
+  }
+  return path.map((key) => `/${escapeJsonPointerSegment(key)}`).join("");
 }
 
 export class ConfigError extends MetabaseError {

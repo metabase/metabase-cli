@@ -4,6 +4,7 @@ import type { ErrorObject, ValidateFunction } from "ajv";
 import { z } from "zod";
 
 import { isPlainObject } from "../../runtime/predicates";
+import { escapeJsonPointerSegment } from "../json-pointer";
 
 import idSchema from "./data/schemas/common/id.json" with { type: "json" };
 import parameterSchema from "./data/schemas/common/parameter.json" with { type: "json" };
@@ -146,8 +147,7 @@ function collectMessageOverrides(root: unknown): Map<string, string> {
       return;
     }
     for (const key of Object.keys(node)) {
-      const segment = key.replace(/~/g, "~0").replace(/\//g, "~1");
-      visit(node[key], `${path}/${segment}`);
+      visit(node[key], `${path}/${escapeJsonPointerSegment(key)}`);
     }
   }
 }

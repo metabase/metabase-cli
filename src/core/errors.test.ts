@@ -132,60 +132,91 @@ describe("formatZodIssue", () => {
   });
 });
 
-describe("ValidationError.userMessage", () => {
-  it("appends one bullet per zod issue with the offending path and the verbose hint", () => {
+function issueLine(index: number): string {
+  return `  /${index}: Invalid input: expected number, received string`;
+}
+
+describe("ValidationError userMessage formatting", () => {
+  it("appends a JSON-pointer path and the zod issue text for a single issue", () => {
+    const schema = z.object({ total: z.number() });
+    const result = schema.safeParse({ total: null });
+    if (result.success) {
+      throw new Error("expected zod failure");
+    }
     const error = new ValidationError(
-      "https://mb.example/api/collection/8/items: value did not match expected schema",
+      "api/collection/8/items: value did not match expected schema",
       {
-        source: "https://mb.example/api/collection/8/items",
-        zodIssues: [
-          {
-            code: "invalid_type",
-            expected: "boolean",
-            path: ["data", 3, "archived"],
-            message: "Expected boolean, received null",
-            input: null,
-          },
-          {
-            code: "invalid_type",
-            expected: "string",
-            path: ["data", 7, "display"],
-            message: "Expected string, received null",
-            input: null,
-          },
-        ],
+        source: "api/collection/8/items",
+        zodIssues: result.error.issues,
       },
     );
+
+    expect(error.message).toBe("api/collection/8/items: value did not match expected schema");
     expect(error.userMessage).toBe(
-      "https://mb.example/api/collection/8/items: value did not match expected schema (2 issues)\n" +
-        "  - data[3].archived: Expected boolean, received null\n" +
-        "  - data[7].display: Expected string, received null\n" +
-        "  Set METABASE_VERBOSE=1 for the full developer detail.",
+      "api/collection/8/items: value did not match expected schema\n" +
+        "  /total: Invalid input: expected number, received null",
     );
   });
 
-  it("caps the inline issue preview at 5 and reports the overflow count", () => {
-    const zodIssues = Array.from({ length: 7 }, (_unused, index) => ({
-      code: "invalid_type" as const,
-      expected: "boolean" as const,
-      path: ["data", index, "archived"],
-      message: "Expected boolean, received null",
-      input: null,
-    }));
+  it("renders one line per issue with array indices in the pointer", () => {
+    const schema = z.object({ items: z.array(z.object({ id: z.number() })) });
+    const result = schema.safeParse({ items: [{ id: 1 }, { id: "bad" }] });
+    if (result.success) {
+      throw new Error("expected zod failure");
+    }
     const error = new ValidationError("source: value did not match expected schema", {
       source: "source",
-      zodIssues,
+      zodIssues: result.error.issues,
     });
+
     expect(error.userMessage).toBe(
-      "source: value did not match expected schema (7 issues)\n" +
-        "  - data[0].archived: Expected boolean, received null\n" +
-        "  - data[1].archived: Expected boolean, received null\n" +
-        "  - data[2].archived: Expected boolean, received null\n" +
-        "  - data[3].archived: Expected boolean, received null\n" +
-        "  - data[4].archived: Expected boolean, received null\n" +
-        "  …and 2 more\n" +
-        "  Set METABASE_VERBOSE=1 for the full developer detail.",
+      "source: value did not match expected schema\n" +
+        "  /items/1/id: Invalid input: expected number, received string",
     );
+  });
+
+  it("escapes JSON Pointer reserved characters in property names", () => {
+    const schema = z.object({ "weird/key~with-special": z.string() });
+    const result = schema.safeParse({ "weird/key~with-special": 42 });
+    if (result.success) {
+      throw new Error("expected zod failure");
+    }
+    const error = new ValidationError("source: value did not match expected schema", {
+      source: "source",
+      zodIssues: result.error.issues,
+    });
+
+    expect(error.userMessage).toBe(
+      "source: value did not match expected schema\n" +
+        "  /weird~1key~0with-special: Invalid input: expected string, received number",
+    );
+  });
+
+  it("caps the printed issue list at ten and reports the overflow count", () => {
+    const schema = z.array(z.number());
+    const result = schema.safeParse(Array.from({ length: 13 }, (_unused, index) => `bad-${index}`));
+    if (result.success) {
+      throw new Error("expected zod failure");
+    }
+    const error = new ValidationError("source: value did not match expected schema", {
+      source: "source",
+      zodIssues: result.error.issues,
+    });
+
+    expect(error.userMessage.split("\n")).toEqual([
+      "source: value did not match expected schema",
+      issueLine(0),
+      issueLine(1),
+      issueLine(2),
+      issueLine(3),
+      issueLine(4),
+      issueLine(5),
+      issueLine(6),
+      issueLine(7),
+      issueLine(8),
+      issueLine(9),
+      "  ... and 3 more",
+    ]);
   });
 
   it("falls back to the plain message when developerDetail carries no issues", () => {

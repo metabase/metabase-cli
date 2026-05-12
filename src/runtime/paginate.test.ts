@@ -214,6 +214,33 @@ describe("paginate", () => {
     const items = await collectPaginated(client, "/api/search", Card);
     expect(items).toEqual([{ id: 1, name: "a" }]);
   });
+
+  it("accepts total: null on an empty page without falling over (collection-items shape)", async () => {
+    const handle = makeFakeFetch([{ body: { data: [], total: null, models: ["card"] } }]);
+    const client = createClient(CONFIG, { fetchImpl: handle.fetch });
+
+    const items = await collectPaginated(client, "/api/collection/8/items", Card, { pageSize: 50 });
+
+    expect(items).toEqual([]);
+    expect(handle.calls).toHaveLength(1);
+  });
+
+  it("treats total: null as unknown total and continues paginating until a short page", async () => {
+    const handle = makeFakeFetch([
+      { body: { data: [{ id: 1, name: "a" }], total: null } },
+      { body: { data: [{ id: 2, name: "b" }], total: null } },
+      { body: { data: [], total: null } },
+    ]);
+    const client = createClient(CONFIG, { fetchImpl: handle.fetch });
+
+    const items = await collectPaginated(client, "/api/card", Card, { pageSize: 1 });
+
+    expect(items).toEqual([
+      { id: 1, name: "a" },
+      { id: 2, name: "b" },
+    ]);
+    expect(handle.calls).toHaveLength(3);
+  });
 });
 
 describe("paginate edge-case grid", () => {
