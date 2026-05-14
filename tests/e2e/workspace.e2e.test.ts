@@ -123,14 +123,14 @@ describe("workspace e2e", () => {
     const entry = findWarehouseDatabase(provisioned);
     expect({
       database_id: entry.database_id,
-      input: entry.input,
+      input_schemas: entry.input_schemas,
       status: entry.status,
-      hasOutputSchema: entry.output_schema.length > 0,
+      hasOutputNamespace: entry.output_namespace.length > 0,
     }).toEqual({
       database_id: E2E_DATABASES.WAREHOUSE,
-      input: [{ schema: ANALYTICS_SCHEMA }],
+      input_schemas: [ANALYTICS_SCHEMA],
       status: "provisioned",
-      hasOutputSchema: true,
+      hasOutputNamespace: true,
     });
   });
 
@@ -187,10 +187,10 @@ describe("workspace e2e", () => {
     const updated = parseJson(updateResult.stdout, Workspace);
     const entry = findWarehouseDatabase(updated);
     expect({
-      input: entry.input,
+      input_schemas: entry.input_schemas,
       status: entry.status,
     }).toEqual({
-      input: [{ schema: PUBLIC_SCHEMA }],
+      input_schemas: [PUBLIC_SCHEMA],
       status: "provisioned",
     });
   });

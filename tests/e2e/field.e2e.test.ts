@@ -1,19 +1,39 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { createClient } from "../../src/core/http/client";
 import { Field, FieldCompact, FieldSummary, FieldValues } from "../../src/domain/field";
+import { TableQueryMetadata } from "../../src/domain/table";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_FIELDS, E2E_TABLES } from "./seed/ids";
+import { E2E_TABLES } from "./seed/ids";
 
 describe("field e2e", () => {
   let bootstrap: E2EBootstrap;
+  let customersEmailFieldId: number;
   const tempDirs: string[] = [];
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
+    customersEmailFieldId = await resolveFieldId(E2E_TABLES.CUSTOMERS, "email");
   });
+
+  async function resolveFieldId(tableId: number, fieldName: string): Promise<number> {
+    const client = createClient({ url: bootstrap.baseUrl, apiKey: bootstrap.adminApiKey });
+    const metadata = await client.requestParsed(
+      TableQueryMetadata,
+      `/api/table/${tableId}/query_metadata`,
+    );
+    const field = metadata.fields.find((entry) => entry.name === fieldName);
+    if (!field) {
+      throw new Error(
+        `expected table ${tableId} to expose a field named ${fieldName}, ` +
+          `got: ${metadata.fields.map((entry) => entry.name).join(", ")}`,
+      );
+    }
+    return field.id;
+  }
 
   afterEach(async () => {
     await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
@@ -34,14 +54,14 @@ describe("field e2e", () => {
 
   it("get returns the customers.email field with the expected compact projection", async () => {
     const result = await runCli({
-      args: ["field", "get", String(E2E_FIELDS.CUSTOMERS_EMAIL), "--json"],
+      args: ["field", "get", String(customersEmailFieldId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, FieldCompact)).toEqual({
-      id: E2E_FIELDS.CUSTOMERS_EMAIL,
+      id: customersEmailFieldId,
       name: "email",
       display_name: "Email",
       description: null,
@@ -79,14 +99,14 @@ describe("field e2e", () => {
 
   it("values returns the FieldValues envelope for the email field", async () => {
     const result = await runCli({
-      args: ["field", "values", String(E2E_FIELDS.CUSTOMERS_EMAIL), "--json"],
+      args: ["field", "values", String(customersEmailFieldId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
     const parsed = parseJson(result.stdout, FieldValues);
-    expect(parsed.field_id).toBe(E2E_FIELDS.CUSTOMERS_EMAIL);
+    expect(parsed.field_id).toBe(customersEmailFieldId);
   });
 
   it("values with a non-integer id fails fast with ConfigError", async () => {
@@ -102,14 +122,14 @@ describe("field e2e", () => {
 
   it("summary returns the count and distinct count for the email field", async () => {
     const result = await runCli({
-      args: ["field", "summary", String(E2E_FIELDS.CUSTOMERS_EMAIL), "--json"],
+      args: ["field", "summary", String(customersEmailFieldId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
     const parsed = parseJson(result.stdout, FieldSummary);
-    expect(parsed.field_id).toBe(E2E_FIELDS.CUSTOMERS_EMAIL);
+    expect(parsed.field_id).toBe(customersEmailFieldId);
   });
 
   it("summary against a missing field id surfaces a 404 HttpError", async () => {
@@ -129,7 +149,7 @@ describe("field e2e", () => {
       args: [
         "field",
         "update",
-        String(E2E_FIELDS.CUSTOMERS_EMAIL),
+        String(customersEmailFieldId),
         "--body",
         JSON.stringify({ description: newDescription }),
         "--json",
@@ -145,7 +165,7 @@ describe("field e2e", () => {
       args: [
         "field",
         "update",
-        String(E2E_FIELDS.CUSTOMERS_EMAIL),
+        String(customersEmailFieldId),
         "--body",
         JSON.stringify({ description: null }),
         "--json",
@@ -162,7 +182,7 @@ describe("field e2e", () => {
       args: [
         "field",
         "update",
-        String(E2E_FIELDS.CUSTOMERS_EMAIL),
+        String(customersEmailFieldId),
         "--body",
         '{"description":"x"}',
         "--file",
@@ -193,7 +213,7 @@ describe("field e2e", () => {
       args: [
         "field",
         "update",
-        String(E2E_FIELDS.CUSTOMERS_EMAIL),
+        String(customersEmailFieldId),
         "--body",
         JSON.stringify({ visibility_type: "not-a-real-value" }),
         "--json",

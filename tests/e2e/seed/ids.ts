@@ -36,6 +36,5 @@ export const E2E_TABLES = {
 } as const;
 
 export const E2E_FIELDS = {
-  CUSTOMERS_EMAIL: 1664,
   ORDERS_ID: 1689,
 } as const;

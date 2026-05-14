@@ -469,21 +469,24 @@ metabase card get 1 --json --detail full
 
 ### `metabase card query <id>`
 
-Run the card's query. Without `--export-format`, returns the Metabase JSON envelope (`status`, `row_count`, `data: { rows, cols }`, …). With `--export-format csv` or `--export-format xlsx`, the export bytes stream straight to stdout.
+Run the card's query. Without `--export-format`, returns the Metabase JSON envelope (`status`, `row_count`, `data: { rows, cols }`, …). With `--export-format csv`, `--export-format json`, or `--export-format xlsx`, the export bytes stream straight to stdout.
 
 ```sh
 metabase card query 1 --json
 metabase card query 1 --json --limit 20
 metabase card query 1 --export-format csv > export.csv
+metabase card query 1 --export-format json > export.json
 metabase card query 1 --export-format xlsx > export.xlsx
 metabase card query 1 --parameters '[{"type":"category","value":"A","target":["variable",["template-tag","c"]]}]'
 ```
 
-| Flag                    | Description                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------------ |
-| `--export-format <fmt>` | Stream the export instead of the JSON envelope. One of `csv`, `xlsx`.                      |
-| `--parameters <json>`   | JSON array of Metabase parameter objects (the same shape Metabase POSTs from a dashboard). |
-| `--limit <n>`           | Cap rows kept in the JSON envelope. No effect on `csv` / `xlsx` exports.                   |
+| Flag                    | Description                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| `--export-format <fmt>` | Stream the export instead of the JSON envelope. One of `csv`, `json`, `xlsx`.                          |
+| `--parameters <json>`   | JSON array of Metabase parameter objects (the same shape Metabase POSTs from a dashboard).             |
+| `--limit <n>`           | Cap rows kept in the JSON envelope. No effect on streamed exports.                                     |
+| `--format-rows`         | Streamed exports only: apply the card's visualization-settings formatting to values (default `false`). |
+| `--pivot-results`       | Streamed exports only: emit the pivoted output for pivot questions (default `false`).                  |
 
 ### `metabase card create`
 

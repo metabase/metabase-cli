@@ -10,15 +10,23 @@ import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
-const ExportFormat = z.enum(["csv", "xlsx"]);
+const ExportFormat = z.enum(["csv", "json", "xlsx"]);
 type ExportFormat = z.infer<typeof ExportFormat>;
 
 const QueryParameters = z.array(z.unknown());
 
+interface StreamExportOptions {
+  format: ExportFormat;
+  parameters: unknown[];
+  formatRows: boolean;
+  pivotResults: boolean;
+}
+
 export default defineMetabaseCommand({
   meta: {
     name: "query",
-    description: "Run a saved card and return results (json envelope, CSV, or XLSX)",
+    description:
+      "Run a saved card and return results (json envelope, or stream CSV/JSON/XLSX via --export-format)",
   },
   args: {
     ...outputFlags,
@@ -35,7 +43,19 @@ export default defineMetabaseCommand({
     },
     limit: {
       type: "string",
-      description: "Cap rows kept in the JSON envelope (no effect on csv/xlsx exports)",
+      description: "Cap rows kept in the JSON envelope (no effect on streamed exports)",
+    },
+    "format-rows": {
+      type: "boolean",
+      description:
+        "Streamed exports only: apply visualization-settings formatting to values (default false)",
+      default: false,
+    },
+    "pivot-results": {
+      type: "boolean",
+      description:
+        "Streamed exports only: emit the pivoted output for pivot questions (default false)",
+      default: false,
     },
   },
   outputSchema: CardQueryResult,
@@ -52,8 +72,12 @@ export default defineMetabaseCommand({
 
     const exportFormatRaw = args["export-format"];
     if (exportFormatRaw !== undefined && exportFormatRaw !== "") {
-      const exportFormat = parseExportFormat(exportFormatRaw);
-      await streamExport(client, id, exportFormat, parameters);
+      await streamExport(client, id, {
+        format: parseExportFormat(exportFormatRaw),
+        parameters,
+        formatRows: args["format-rows"],
+        pivotResults: args["pivot-results"],
+      });
       return;
     }
 
@@ -94,11 +118,14 @@ function applyLimit(result: CardQueryResult, limit: number | null): CardQueryRes
 async function streamExport(
   client: Client,
   id: number,
-  format: ExportFormat,
-  parameters: unknown[],
+  options: StreamExportOptions,
 ): Promise<void> {
-  const body = new URLSearchParams({ parameters: JSON.stringify(parameters) });
-  const stream = await client.requestStream(`/api/card/${id}/query/${format}`, {
+  const body = new URLSearchParams({
+    parameters: JSON.stringify(options.parameters),
+    format_rows: String(options.formatRows),
+    pivot_results: String(options.pivotResults),
+  });
+  const stream = await client.requestStream(`/api/card/${id}/query/${options.format}`, {
     method: "POST",
     body,
   });

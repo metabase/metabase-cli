@@ -52,11 +52,13 @@ const HEALTH_MAX_INTERVAL_MS = 10_000;
 const HEALTH_PROBE_TIMEOUT_MS = 4_000;
 const DEFAULT_REPO_MODE: RepoSyncMode = "read-write";
 const REPO_FILE_URL = `file://${CONTAINER_REPO_DIR}`;
-// Metadata can be multi-MB and the backend runs a 4-pass loader, so the per-
-// request HTTP timeout (30s default) is too tight. Reuse the readiness budget.
+// The backend enqueues the import (returns `{queued: true}` immediately) but
+// only after spooling the entire request body to a temp file synchronously, so
+// the request stays open for the full multi-MB upload. The 30s default is too
+// tight for that; reuse the readiness budget.
 const METADATA_IMPORT_TIMEOUT_MS = DEFAULT_READY_TIMEOUT_MS;
 
-const MetadataImportResult = z.object({ success: z.boolean() });
+const MetadataImportResult = z.object({ queued: z.literal(true) });
 
 export const StartResult = z.object({
   workspace_id: z.number().int().positive(),
@@ -352,18 +354,11 @@ async function importMetadataIntoChild(
     url: localUrl(hostPort),
     apiKey: credentials.api_key.key,
   });
-  const result = await childClient.requestParsed(
-    MetadataImportResult,
-    "/api/ee/serialization/metadata/import",
-    {
-      method: "POST",
-      body: metadataJson,
-      timeoutMs: METADATA_IMPORT_TIMEOUT_MS,
-    },
-  );
-  if (!result.success) {
-    throw new ConfigError("workspace child rejected the metadata import (returned success=false)");
-  }
+  await childClient.requestParsed(MetadataImportResult, "/api/ee/serialization/metadata/import", {
+    method: "POST",
+    body: metadataJson,
+    timeoutMs: METADATA_IMPORT_TIMEOUT_MS,
+  });
 }
 
 interface ResolvedRepoOptions {

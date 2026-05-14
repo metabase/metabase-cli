@@ -445,7 +445,7 @@ describe("transform e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Metabase returned 400");
+    expect(result.stderr).toContain("source.query.lib/metadata: missing required key");
     expect(result.stdout).toBe("");
   });
 

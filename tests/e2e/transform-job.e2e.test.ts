@@ -20,6 +20,7 @@ const BUILT_IN_JOBS = [
     description: "Executes transforms tagged with 'hourly' every hour",
     schedule: "0 0 * * * ? *",
     ui_display_type: "cron/builder",
+    active: true,
     built_in_type: "hourly",
   },
   {
@@ -28,6 +29,7 @@ const BUILT_IN_JOBS = [
     description: "Executes transforms tagged with 'daily' once per day",
     schedule: "0 0 0 * * ? *",
     ui_display_type: "cron/builder",
+    active: true,
     built_in_type: "daily",
   },
   {
@@ -36,6 +38,7 @@ const BUILT_IN_JOBS = [
     description: "Executes transforms tagged with 'weekly' once per week",
     schedule: "0 0 0 ? * 1 *",
     ui_display_type: "cron/builder",
+    active: true,
     built_in_type: "weekly",
   },
   {
@@ -44,6 +47,7 @@ const BUILT_IN_JOBS = [
     description: "Executes transforms tagged with 'monthly' once per month",
     schedule: "0 0 0 1 * ? *",
     ui_display_type: "cron/builder",
+    active: true,
     built_in_type: "monthly",
   },
 ] as const;
@@ -54,6 +58,7 @@ const USER_JOB_COMPACT = {
   description: null,
   schedule: VALID_CRON,
   ui_display_type: "cron/raw",
+  active: true,
   built_in_type: null,
 } as const;
 

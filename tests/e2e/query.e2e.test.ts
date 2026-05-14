@@ -178,7 +178,7 @@ describe("query e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Metabase returned 400");
+    expect(result.stderr).toContain('database: should be an integer, received: "My DB"');
     expect(result.stdout).toBe("");
   });
 

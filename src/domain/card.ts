@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { FieldBaseType, FieldSemanticType } from "./field";
 import type { ResourceView } from "./view";
 
 const CardType = z.enum(["question", "model", "metric"]);
@@ -72,7 +73,7 @@ export const CardCreateInput = z
     type: CardType.optional(),
     dataset_query: CardDatasetQuery,
     display: z.string().min(1),
-    visualization_settings: z.unknown(),
+    visualization_settings: z.record(z.string(), z.unknown()),
     description: z.string().nullable().optional(),
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
@@ -89,7 +90,7 @@ export const CardUpdateInput = z
     type: CardType.optional(),
     dataset_query: CardDatasetQuery.optional(),
     display: z.string().min(1).optional(),
-    visualization_settings: z.unknown().optional(),
+    visualization_settings: z.record(z.string(), z.unknown()).optional(),
     description: z.string().nullable().optional(),
     archived: z.boolean().optional(),
     enable_embedding: z.boolean().optional(),
@@ -112,8 +113,8 @@ const QueryColumn = z
   .object({
     name: z.string(),
     display_name: z.string().optional(),
-    base_type: z.string().optional(),
-    semantic_type: z.string().nullable().optional(),
+    base_type: FieldBaseType.optional(),
+    semantic_type: FieldSemanticType.nullable().optional(),
   })
   .loose();
 

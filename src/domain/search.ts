@@ -12,7 +12,6 @@ export const SEARCH_MODELS = [
   "table",
   "segment",
   "measure",
-  "snippet",
   "document",
   "action",
   "transform",
