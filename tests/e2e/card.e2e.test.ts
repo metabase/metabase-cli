@@ -6,6 +6,7 @@ import { Card, CardCompact, CardQueryResult } from "../../src/domain/card";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
+import { assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { E2E_CARDS, E2E_COLLECTIONS, E2E_DATABASES, E2E_TABLES } from "./seed/ids";
 
@@ -196,9 +197,7 @@ describe("card e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     const parsed = parseJson(result.stdout, CardQueryResult);
-    if (parsed.status !== "completed") {
-      throw new Error(`expected status "completed", got "${parsed.status}"`);
-    }
+    assertCompletedQuery(parsed);
     expect({
       status: parsed.status,
       row_count: parsed.row_count,
@@ -221,9 +220,7 @@ describe("card e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     const parsed = parseJson(result.stdout, CardQueryResult);
-    if (parsed.status !== "completed") {
-      throw new Error(`expected status "completed", got "${parsed.status}"`);
-    }
+    assertCompletedQuery(parsed);
     expect({
       rowsLength: parsed.data.rows.length,
       row_count: parsed.row_count,

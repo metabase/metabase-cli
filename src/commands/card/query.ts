@@ -109,7 +109,7 @@ function parseExportFormat(raw: string): ExportFormat {
 }
 
 function applyLimit(result: CardQueryResult, limit: number | null): CardQueryResult {
-  if (limit === null || result.status !== "completed" || result.data.rows.length <= limit) {
+  if (limit === null || result.data === undefined || result.data.rows.length <= limit) {
     return result;
   }
   return { ...result, data: { ...result.data, rows: result.data.rows.slice(0, limit) } };

@@ -44,7 +44,7 @@ export default defineMetabaseCommand({
     }
     const patched = Dashcard.parse({ ...target, ...patch });
     const updatedDashcards = dashboard.dashcards.map((dashcard) =>
-      dashcard.id === dashcardId ? patched : dashcard,
+      stripEntityId(dashcard.id === dashcardId ? patched : dashcard),
     );
 
     const result = await client.requestParsed(DashboardDetail, `/api/dashboard/${dashboardId}`, {
@@ -60,3 +60,8 @@ export default defineMetabaseCommand({
     renderItem(refreshed, dashcardView, ctx);
   },
 });
+
+function stripEntityId(dashcard: Dashcard): Omit<Dashcard, "entity_id"> {
+  const { entity_id: _entity_id, ...rest } = dashcard;
+  return rest;
+}

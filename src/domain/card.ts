@@ -74,7 +74,7 @@ export const CardCreateInput = z
     dataset_query: CardDatasetQuery,
     display: z.string().min(1),
     visualization_settings: z.record(z.string(), z.unknown()),
-    description: z.string().nullable().optional(),
+    description: z.string().min(1).nullable().optional(),
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
     dashboard_id: z.number().int().positive().nullable().optional(),
@@ -118,33 +118,22 @@ const QueryColumn = z
   })
   .loose();
 
-const CardQueryDataCompleted = z
+const CardQueryData = z
   .object({
     rows: z.array(z.unknown()),
     cols: z.array(QueryColumn),
   })
   .loose();
 
-const CardQueryCompleted = z
+export const CardQueryResult = z
   .object({
-    status: z.literal("completed"),
-    row_count: z.number().int().nonnegative(),
-    data: CardQueryDataCompleted,
-  })
-  .loose();
-
-const CardQueryFailed = z
-  .object({
-    status: z.literal("failed"),
+    status: z.string(),
+    row_count: z.number().int().nonnegative().optional(),
+    data: CardQueryData.optional(),
     error: z.string().nullable().optional(),
     error_type: z.string().nullable().optional(),
   })
   .loose();
-
-export const CardQueryResult = z.discriminatedUnion("status", [
-  CardQueryCompleted,
-  CardQueryFailed,
-]);
 export type CardQueryResult = z.infer<typeof CardQueryResult>;
 
 export const cardQueryView: ResourceView<CardQueryResult> = {

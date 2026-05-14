@@ -9,6 +9,7 @@ import { CardQueryResult } from "../../src/domain/card";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
+import { assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { E2E_DATABASES, E2E_TABLES } from "./seed/ids";
 
@@ -203,11 +204,9 @@ describe("query e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     const queryResult = parseJson(result.stdout, CardQueryResult);
-    expect(queryResult.status).toBe("completed");
-    if (queryResult.status === "completed") {
-      expect(queryResult.row_count).toBe(3);
-      expect(queryResult.data.rows).toHaveLength(3);
-    }
+    assertCompletedQuery(queryResult);
+    expect(queryResult.row_count).toBe(3);
+    expect(queryResult.data.rows).toHaveLength(3);
   });
 
   it("run with a legacy native body skips MBQL 5 pre-flight and executes against /api/dataset", async () => {
@@ -225,11 +224,9 @@ describe("query e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     const queryResult = parseJson(result.stdout, CardQueryResult);
-    expect(queryResult.status).toBe("completed");
-    if (queryResult.status === "completed") {
-      expect(queryResult.row_count).toBe(1);
-      expect(queryResult.data.rows).toEqual([[1, 2]]);
-    }
+    assertCompletedQuery(queryResult);
+    expect(queryResult.row_count).toBe(1);
+    expect(queryResult.data.rows).toEqual([[1, 2]]);
   });
 
   it("--dry-run with a legacy native body returns ok and exits 0 (no schema applies)", async () => {
@@ -266,11 +263,9 @@ describe("query e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     const queryResult = parseJson(result.stdout, CardQueryResult);
-    expect(queryResult.status).toBe("completed");
-    if (queryResult.status === "completed") {
-      expect(queryResult.row_count).toBe(3);
-      expect(queryResult.data.rows).toHaveLength(3);
-    }
+    assertCompletedQuery(queryResult);
+    expect(queryResult.row_count).toBe(3);
+    expect(queryResult.data.rows).toHaveLength(3);
   });
 
   it("--dry-run with a legacy MBQL 4 body returns ok and exits 0 (server normalizes; no MBQL 5 schema applies)", async () => {

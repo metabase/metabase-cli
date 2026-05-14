@@ -10,30 +10,21 @@ const CollectionAuthorityLevel = z.enum(["official"]);
 const CollectionType = z.enum([
   "instance-analytics",
   "trash",
-  "remote-synced",
   "library",
   "library-data",
   "library-metrics",
-  "shared-tenant-collection",
   "tenant-specific-root-collection",
 ]);
 
-const CollectionNamespace = z.enum([
-  "snippets",
-  "transforms",
-  "analytics",
-  "tenant-specific",
-  "shared-tenant-collection",
-]);
+const CollectionNamespace = z.string().min(1);
 
-export const COLLECTION_ITEM_MODELS = [
+export const COLLECTION_ITEM_FILTER_MODELS = [
   "card",
   "dataset",
   "metric",
   "dashboard",
   "snippet",
   "collection",
-  "indexed-entity",
   "document",
   "table",
   "transform",
@@ -42,6 +33,11 @@ export const COLLECTION_ITEM_MODELS = [
   "timeline",
   "no_models",
 ] as const;
+export const CollectionItemFilterModel = z.enum(COLLECTION_ITEM_FILTER_MODELS);
+export type CollectionItemFilterModel = z.infer<typeof CollectionItemFilterModel>;
+
+// `indexed-entity` is a valid response model but not accepted as a filter value.
+export const COLLECTION_ITEM_MODELS = [...COLLECTION_ITEM_FILTER_MODELS, "indexed-entity"] as const;
 export const CollectionItemModel = z.enum(COLLECTION_ITEM_MODELS);
 export type CollectionItemModel = z.infer<typeof CollectionItemModel>;
 

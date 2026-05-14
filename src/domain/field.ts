@@ -189,12 +189,14 @@ export const fieldView: ResourceView<Field> = {
   ],
 };
 
+const NonBlankNullable = z.string().min(1).nullable();
+
 export const FieldUpdateInput = z
   .object({
     display_name: z.string().min(1).optional(),
-    description: z.string().nullable().optional(),
-    caveats: z.string().nullable().optional(),
-    points_of_interest: z.string().nullable().optional(),
+    description: NonBlankNullable.optional(),
+    caveats: NonBlankNullable.optional(),
+    points_of_interest: NonBlankNullable.optional(),
     semantic_type: FieldSemanticType.nullable().optional(),
     coercion_strategy: FieldCoercionStrategy.nullable().optional(),
     fk_target_field_id: z.number().int().positive().nullable().optional(),

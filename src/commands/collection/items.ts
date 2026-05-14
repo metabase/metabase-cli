@@ -1,9 +1,9 @@
 import {
-  COLLECTION_ITEM_MODELS,
+  COLLECTION_ITEM_FILTER_MODELS,
   COLLECTION_PINNED_STATES,
   CollectionItem,
   CollectionItemCompact,
-  CollectionItemModel,
+  CollectionItemFilterModel,
   CollectionPinnedState,
   collectionItemView,
 } from "../../domain/collection";
@@ -32,7 +32,7 @@ export default defineMetabaseCommand({
     },
     models: {
       type: "string",
-      description: `Comma-separated model filter: ${COLLECTION_ITEM_MODELS.join(",")}`,
+      description: `Comma-separated model filter: ${COLLECTION_ITEM_FILTER_MODELS.join(",")}`,
       alias: "m",
     },
     archived: {
@@ -58,7 +58,7 @@ export default defineMetabaseCommand({
   ],
   async run({ args, ctx, getClient }) {
     const ref = parseCollectionRef(args.id);
-    const models = parseEnumCsv(args.models, CollectionItemModel, "--models");
+    const models = parseEnumCsv(args.models, CollectionItemFilterModel, "--models");
     const pinnedState = parseEnum(args["pinned-state"], CollectionPinnedState, "--pinned-state");
     const max = args.limit === undefined ? undefined : parseId(args.limit, "--limit");
     const client = await getClient();
