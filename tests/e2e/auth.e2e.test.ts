@@ -217,6 +217,55 @@ describe("auth e2e", () => {
     });
   });
 
+  it("login routes through METABASE_PROFILE when no --profile flag is passed", async () => {
+    const configHome = await makeIsolatedConfigHome();
+
+    const login = await runCli({
+      args: [
+        "auth",
+        "login",
+        "--url",
+        bootstrap.baseUrl,
+        "--api-key",
+        bootstrap.adminApiKey,
+        "--json",
+      ],
+      configHome,
+      env: { METABASE_PROFILE: "env_routed" },
+    });
+
+    expect(login.exitCode, login.stderr).toBe(0);
+    expect(parseJson(login.stdout, LoginResult)).toEqual({
+      profile: "env_routed",
+      url: bootstrap.baseUrl,
+      authenticated: true,
+      email: bootstrap.adminApiKeyEmail,
+    });
+
+    const defaultStatus = await runCli({
+      args: ["auth", "status", "--json"],
+      configHome,
+    });
+    expect(defaultStatus.exitCode, defaultStatus.stderr).toBe(0);
+    expect(parseJson(defaultStatus.stdout, AuthStatus)).toEqual({
+      profile: "default",
+      present: false,
+      url: null,
+    });
+
+    const envStatus = await runCli({
+      args: ["auth", "status", "--json"],
+      configHome,
+      env: { METABASE_PROFILE: "env_routed" },
+    });
+    expect(envStatus.exitCode, envStatus.stderr).toBe(0);
+    expect(parseJson(envStatus.stdout, AuthStatus)).toEqual({
+      profile: "env_routed",
+      present: true,
+      url: bootstrap.baseUrl,
+    });
+  });
+
   it("logout proceeds without --yes when stdin is not a TTY (non-interactive auto-confirm)", async () => {
     const configHome = await makeIsolatedConfigHome();
 

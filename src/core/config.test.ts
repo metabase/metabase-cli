@@ -13,7 +13,7 @@ vi.mock("@napi-rs/keyring", async () => {
 import { recordRejection } from "./auth/rejection";
 import { writeProfile } from "./auth/storage";
 import { setupTempConfigHome, type TempConfigHome } from "./auth/temp-config-home";
-import { resolveConfig, resolveProfileName } from "./config";
+import { explicitProfileName, resolveConfig, resolveProfileName } from "./config";
 import { ConfigError } from "./errors";
 
 describe("resolveConfig", () => {
@@ -205,5 +205,31 @@ describe("resolveProfileName", () => {
 
   it("falls back to default when neither flag nor env is set", () => {
     expect(resolveProfileName(undefined)).toBe("default");
+  });
+});
+
+describe("explicitProfileName", () => {
+  const originalEnv = { ...process.env };
+
+  beforeEach(() => {
+    delete process.env["METABASE_PROFILE"];
+  });
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+  });
+
+  it("returns the flag value when provided", () => {
+    process.env["METABASE_PROFILE"] = "env-profile";
+    expect(explicitProfileName("flag-profile")).toBe("flag-profile");
+  });
+
+  it("returns METABASE_PROFILE when no flag", () => {
+    process.env["METABASE_PROFILE"] = "env-profile";
+    expect(explicitProfileName(undefined)).toBe("env-profile");
+  });
+
+  it("returns null when neither flag nor env is set", () => {
+    expect(explicitProfileName(undefined)).toBeNull();
   });
 });

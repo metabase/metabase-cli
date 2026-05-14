@@ -126,6 +126,13 @@ Adding a new field to `.bootstrap.json`:
 
 - Update the `Bootstrap` schema in `tests/e2e/bootstrap-data.ts`. The writer in `setup/bootstrap.ts` consumes the same schema for its parameter type — drift is mechanically prevented.
 
+Running e2e — the suite is slow (~3–5 minutes for a full run, ~hundreds of ms to seconds per test):
+
+- **Plan for failures on the first run.** Capture the full output end-to-end the first time so every failure is in hand before deciding next steps. Pipe to a file when the buffer is unreliable: `bun run test:e2e 2>&1 | tee /tmp/e2e.log`. Vitest's per-file failure summary at the end is the authoritative list — read it before rerunning. Rerunning the full suite "to see what failed" is a 3-minute round-trip; don't do it.
+- **Iterate on one file.** During development, scope to the file under change: `bun run test:e2e tests/e2e/<noun>.e2e.test.ts` (seconds, not minutes). Run the full suite only as the closing pre-merge check, not during back-and-forth.
+- **The stack persists.** `e2e:up` is idempotent and the bootstrap reuses `.bootstrap.json` when the stored key still authenticates, so iteration cost is dominated by test execution, not setup. Don't `e2e:down` between iterations.
+- **Bail-by-default is off.** Vitest runs all e2e files even after a failure, on purpose — the full failure inventory is more valuable than fast-fail when each rerun costs minutes. Don't pass `--bail=1` unless you genuinely want to abort early; you'll lose signal you'd have to rerun to recover.
+
 ## Don't
 
 - Add a color library or any colored output.

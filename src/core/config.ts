@@ -38,7 +38,11 @@ interface FieldResolution {
 }
 
 export function resolveProfileName(profileFlag: string | undefined): string {
-  return profileFlag || process.env[ENV_PROFILE] || DEFAULT_PROFILE;
+  return explicitProfileName(profileFlag) ?? DEFAULT_PROFILE;
+}
+
+export function explicitProfileName(profileFlag: string | undefined): string | null {
+  return profileFlag || process.env[ENV_PROFILE] || null;
 }
 
 export function readEnvCredentials(): EnvCredentials {

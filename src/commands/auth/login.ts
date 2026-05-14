@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 import { clearRejection, recordRejection } from "../../core/auth/rejection";
-import { writeProfile } from "../../core/auth/storage";
+import { DEFAULT_PROFILE, writeProfile } from "../../core/auth/storage";
 import { verifyCredentials } from "../../core/auth/verify";
-import { readEnvCredentials, resolveProfileName } from "../../core/config";
+import { explicitProfileName, readEnvCredentials } from "../../core/config";
 import { ConfigError, errorMessage } from "../../core/errors";
 import { normalizeUrl } from "../../core/url";
 import type { ResourceView } from "../../domain/view";
@@ -26,9 +26,13 @@ const loginView: ResourceView<LoginResultJson> = {
   compactPick: LoginResult,
   tableColumns: [
     { key: "profile", label: "Profile" },
-    { key: "url", label: "URL" },
-    { key: "authenticated", label: "Authenticated" },
-    { key: "email", label: "Email" },
+    { key: "url", label: "Metabase URL" },
+    {
+      key: "authenticated",
+      label: "Status",
+      format: (value) => (value === true ? "credentials verified" : "saved without verification"),
+    },
+    { key: "email", label: "Logged in as" },
   ],
 };
 
@@ -51,7 +55,7 @@ export default defineMetabaseCommand({
     "metabase auth login --profile staging --url https://staging.example.com",
   ],
   async run({ args, ctx }) {
-    const profileName = resolveProfileName(args.profile);
+    const profileName = await resolveLoginProfile(args.profile);
     const env = readEnvCredentials();
 
     if (args.apiKey) {
@@ -86,6 +90,22 @@ export default defineMetabaseCommand({
     renderItem({ profile: profileName, url, authenticated, email }, loginView, ctx);
   },
 });
+
+async function resolveLoginProfile(flagProfile: string | undefined): Promise<string> {
+  const explicit = explicitProfileName(flagProfile);
+  if (explicit !== null) {
+    return explicit;
+  }
+  if (!process.stdin.isTTY) {
+    return DEFAULT_PROFILE;
+  }
+  return promptText({
+    message: "Profile name",
+    placeholder: DEFAULT_PROFILE,
+    initialValue: DEFAULT_PROFILE,
+    validate: (input) => (input ? undefined : "Profile name is required"),
+  });
+}
 
 async function resolveUrl(flagUrl: string | undefined, envUrl: string | null): Promise<string> {
   if (flagUrl) {
