@@ -26,15 +26,15 @@ export const E2E_DASHCARDS = {
 } as const;
 
 export const E2E_TABLES = {
-  CUSTOMERS: 169,
-  DAILY_SALES: 168,
-  ORDER_ITEMS: 173,
-  ORDER_SUMMARY: 170,
-  ORDERS: 174,
-  PRODUCTS: 172,
-  REVIEWS: 171,
+  CUSTOMERS: 170,
+  DAILY_SALES: 169,
+  ORDER_ITEMS: 174,
+  ORDER_SUMMARY: 171,
+  ORDERS: 175,
+  PRODUCTS: 173,
+  REVIEWS: 172,
 } as const;
 
 export const E2E_FIELDS = {
-  ORDERS_ID: 1689,
+  ORDERS_ID: 1702,
 } as const;

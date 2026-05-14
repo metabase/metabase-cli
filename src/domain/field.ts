@@ -7,6 +7,7 @@ const FieldVisibilityType = z.enum(["details-only", "hidden", "normal", "retired
 const FieldValuesType = z.enum(["list", "search", "none", "auto-list"]);
 
 export const FieldBaseType = z.enum([
+  "type/*",
   "type/field-values-unsupported",
   "type/fingerprint-unsupported",
   "type/Large",
@@ -42,6 +43,7 @@ export const FieldBaseType = z.enum([
   "type/MySQLEnum",
   "type/PostgresEnum",
   "type/PostgresBitString",
+  "type/IPAddress",
   "type/Collection",
   "type/Dictionary",
   "type/Array",
