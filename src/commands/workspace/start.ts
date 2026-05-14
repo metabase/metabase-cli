@@ -52,13 +52,27 @@ const HEALTH_MAX_INTERVAL_MS = 10_000;
 const HEALTH_PROBE_TIMEOUT_MS = 4_000;
 const DEFAULT_REPO_MODE: RepoSyncMode = "read-write";
 const REPO_FILE_URL = `file://${CONTAINER_REPO_DIR}`;
-// The backend enqueues the import (returns `{queued: true}` immediately) but
-// only after spooling the entire request body to a temp file synchronously, so
-// the request stays open for the full multi-MB upload. The 30s default is too
-// tight for that; reuse the readiness budget.
+// The POST spools the multi-MB body to a temp file synchronously before
+// returning 202, so the 30s default is too tight; reuse the readiness budget
+// for both the upload and the subsequent status poll.
 const METADATA_IMPORT_TIMEOUT_MS = DEFAULT_READY_TIMEOUT_MS;
+const METADATA_POLL_INTERVAL_MS = 250;
+const METADATA_POLL_MAX_INTERVAL_MS = 5_000;
 
-const MetadataImportResult = z.object({ queued: z.literal(true) });
+const MetadataImportEnqueued = z.object({
+  queued: z.literal(true),
+  "import-id": z.string(),
+});
+
+const MetadataImportStatus = z.object({
+  id: z.string(),
+  status: z.enum(["queued", "running", "ok", "error"]),
+  "enqueued-at": z.string(),
+  "started-at": z.string().nullable(),
+  "finished-at": z.string().nullable(),
+  "wall-ms": z.number().nullable(),
+  error: z.string().nullable(),
+});
 
 export const StartResult = z.object({
   workspace_id: z.number().int().positive(),
@@ -113,7 +127,7 @@ export default defineMetabaseCommand({
     },
     timeout: {
       type: "string",
-      description: `Per-phase readiness deadline in ms — covers post-create config consumption and (with --wait) the /api/health probe. Default: ${DEFAULT_READY_TIMEOUT_MS}.`,
+      description: `Per-phase readiness deadline in ms — covers post-create config consumption, (with --wait) the /api/health probe, and (with --metadata) the metadata-import status poll. Default: ${DEFAULT_READY_TIMEOUT_MS}.`,
       default: String(DEFAULT_READY_TIMEOUT_MS),
     },
     pull: {
@@ -240,7 +254,7 @@ export default defineMetabaseCommand({
       await waitForHealth(hostPort, readyTimeoutMs);
     }
     if (metadataJson !== null) {
-      await importMetadataIntoChild(hostPort, credentials, metadataJson);
+      await importMetadataIntoChild(hostPort, credentials, metadataJson, readyTimeoutMs);
     }
 
     const result: StartResult = {
@@ -349,16 +363,40 @@ async function importMetadataIntoChild(
   hostPort: number,
   credentials: WorkspaceCredentials,
   metadataJson: Uint8Array,
+  pollTimeoutMs: number,
 ): Promise<void> {
   const childClient = createClient({
     url: localUrl(hostPort),
     apiKey: credentials.api_key.key,
   });
-  await childClient.requestParsed(MetadataImportResult, "/api/ee/serialization/metadata/import", {
-    method: "POST",
-    body: metadataJson,
-    timeoutMs: METADATA_IMPORT_TIMEOUT_MS,
-  });
+  const enqueued = await childClient.requestParsed(
+    MetadataImportEnqueued,
+    "/api/ee/serialization/metadata/import",
+    {
+      method: "POST",
+      body: metadataJson,
+      timeoutMs: METADATA_IMPORT_TIMEOUT_MS,
+    },
+  );
+  const importId = enqueued["import-id"];
+  const final = await pollUntil(
+    () =>
+      childClient.requestParsed(
+        MetadataImportStatus,
+        `/api/ee/serialization/metadata/import/${importId}`,
+      ),
+    (status) => status.status === "ok" || status.status === "error",
+    {
+      intervalMs: METADATA_POLL_INTERVAL_MS,
+      maxIntervalMs: METADATA_POLL_MAX_INTERVAL_MS,
+      backoff: "exponential",
+      timeoutMs: pollTimeoutMs,
+    },
+  );
+  if (final.status === "error") {
+    const detail = final.error !== null ? `: ${final.error}` : "";
+    throw new Error(`metadata import failed (id=${importId})${detail}`);
+  }
 }
 
 interface ResolvedRepoOptions {

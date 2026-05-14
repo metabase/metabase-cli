@@ -1207,7 +1207,7 @@ When `--repo <host-path>` is passed, the CLI bind-mounts the host directory at `
 | `--port <n>`           | Host port (default: 3000; auto-shifts up to 100 ports if taken).                                                                   |
 | `--image <ref>`        | Docker image (default: `metabase/metabase-dev:feature-workspaces-v2`).                                                             |
 | `--wait`               | Block until `/api/health` is ready. Default: return as soon as consumed.                                                           |
-| `--timeout <ms>`       | Per-phase readiness deadline (default: 240000). Covers post-create config consumption and (with `--wait`) the `/api/health` probe. |
+| `--timeout <ms>`       | Per-phase readiness deadline (default: 240000). Covers post-create config consumption, (with `--wait`) the `/api/health` probe, and (with `--metadata`) the metadata-import status poll. |
 | `--no-pull`            | Skip `docker pull` (useful if the image is already present).                                                                       |
 | `--no-metadata`        | Skip the warehouse metadata export.                                                                                                |
 | `--force`              | If a container for this workspace already exists, remove it before starting.                                                       |
