@@ -63,4 +63,18 @@ describe("streamProcess", () => {
       ProcessNotFoundError,
     );
   });
+
+  it("honors `shell: true` so platform-shell-resolved commands run", async () => {
+    const code = await streamProcess('node -e "process.exit(3)"', [], { shell: true });
+    expect(code).toBe(3);
+  });
+});
+
+describe("runProcess shell option", () => {
+  it("interprets the command via the platform shell when shell:true", async () => {
+    const result = await runProcess('node -e "process.stdout.write(String(2+2))"', [], {
+      shell: true,
+    });
+    expect(result).toEqual({ stdout: "4", stderr: "", exitCode: 0 });
+  });
 });

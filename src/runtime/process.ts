@@ -7,6 +7,11 @@ export interface ProcessRunOptions {
   cwd?: string;
   stdin?: string | Uint8Array;
   timeoutMs?: number;
+  shell?: boolean;
+}
+
+export interface ProcessStreamOptions {
+  shell?: boolean;
 }
 
 export interface ProcessResult {
@@ -57,6 +62,7 @@ function spawnAndCollect(
       env: options.env ?? process.env,
       ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
       ...(timeoutSignal !== undefined ? { signal: timeoutSignal, killSignal: "SIGKILL" } : {}),
+      ...(options.shell === true ? { shell: true } : {}),
     });
 
     const stdoutChunks: Buffer[] = [];
@@ -123,9 +129,16 @@ export function runProcessBinary(
   return spawnAndCollect(command, args, options);
 }
 
-export function streamProcess(command: string, args: readonly string[]): Promise<number | null> {
+export function streamProcess(
+  command: string,
+  args: readonly string[],
+  options: ProcessStreamOptions = {},
+): Promise<number | null> {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: "inherit" });
+    const child = spawn(command, args, {
+      stdio: "inherit",
+      ...(options.shell === true ? { shell: true } : {}),
+    });
     child.on("error", (error: unknown) => {
       if (isNotFoundError(error)) {
         reject(new ProcessNotFoundError(command));

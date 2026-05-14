@@ -1408,6 +1408,52 @@ Output: text mode prints one UUID per line; JSON mode prints a `string[]`. Defau
 
 Exit codes: `0` success, `2` invalid `--count`.
 
+## Upgrade
+
+### `metabase upgrade`
+
+Self-update the CLI. Fetches the latest published version from the npm registry's `/-/package/<pkg>/dist-tags` endpoint, detects how the binary was installed (npm-global / npm-local / npx / dev / unknown — for the global case, also which package manager: npm, pnpm, yarn, or bun), and either runs the matching install command (for npm-style globals, after confirmation) or prints the exact command to run by hand.
+
+```sh
+metabase upgrade                 # interactive: check + confirm + run for global installs
+metabase upgrade --check         # print status only, never install
+metabase upgrade --check --json  # structured plan for agents
+metabase upgrade --yes           # skip the confirmation prompt
+metabase upgrade --to 0.1.2      # pin a specific version (also valid for downgrades)
+```
+
+Flags:
+
+- `--check` — print the upgrade plan without installing.
+- `--yes` / `-y` — skip the confirmation prompt; only meaningful when the install method is auto-installable.
+- `--to <version>` — target a specific semver instead of the registry `latest`. Useful for pinning or rolling back.
+- `--registry <url>` — override the npm registry (default `https://registry.npmjs.org`). The same URL the CLI hits to fetch dist-tags; the actual install always goes through your local `npm` / `pnpm` / `yarn` / `bun` which use their own configured registry.
+
+JSON output (UpgradeStatus):
+
+```json
+{
+  "packageName": "@metabase/cli",
+  "currentVersion": "0.1.2",
+  "latestVersion": "0.1.3",
+  "targetVersion": "0.1.3",
+  "updateAvailable": true,
+  "changeRequired": true,
+  "installMethod": "npm-global",
+  "packageManager": "npm",
+  "binaryPath": "/usr/local/lib/node_modules/@metabase/cli/dist/cli.mjs",
+  "command": {
+    "argv": ["npm", "install", "-g", "@metabase/cli@0.1.3"],
+    "display": "npm install -g @metabase/cli@0.1.3"
+  },
+  "canAutoInstall": true
+}
+```
+
+Auto-install happens only when `installMethod === "npm-global"`; everything else (local installs, npx, dev checkouts) prints the upgrade command and exits. In non-TTY runs without `--yes`, the command never prompts.
+
+Exit codes: `0` success (including up-to-date / printed-instructions), `1` registry or install failure, `2` invalid `--to` value, `130` user cancelled the prompt.
+
 ## Environment variables
 
 | Variable                 | Effect                                                                         |

@@ -17,7 +17,7 @@ const JSON_CONTENT_TYPE = "application/json";
 const OCTET_STREAM_CONTENT_TYPE = "application/octet-stream";
 const TEXT_CONTENT_TYPE_PREFIX = "text/";
 const ERROR_BODY_BYTE_CAP = 64 * 1024;
-const USER_AGENT = `metabase-cli/${packageJson.version}`;
+export const USER_AGENT = `metabase-cli/${packageJson.version}`;
 
 const IDEMPOTENT_METHODS: ReadonlySet<HttpMethod> = new Set(["GET", "HEAD", "OPTIONS"]);
 

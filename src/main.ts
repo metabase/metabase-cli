@@ -32,6 +32,7 @@ const main: CommandDef = defineCommand({
     eid: () => import("./commands/eid").then((mod) => mod.default),
     query: () => import("./commands/query").then((mod) => mod.default),
     uuid: () => import("./commands/uuid").then((mod) => mod.default),
+    upgrade: () => import("./commands/upgrade").then((mod) => mod.default),
     __manifest: (): Promise<CommandDef> =>
       import("./commands/manifest").then((mod) => mod.createManifestCommand(main)),
   },
