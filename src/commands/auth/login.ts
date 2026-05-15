@@ -50,9 +50,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: LoginResult,
   examples: [
-    "metabase auth login --url https://metabase.example.com < key.txt",
-    "echo $METABASE_API_KEY | metabase auth login --url https://metabase.example.com",
-    "metabase auth login --profile staging --url https://staging.example.com",
+    "mb auth login --url https://metabase.example.com < key.txt",
+    "echo $METABASE_API_KEY | mb auth login --url https://metabase.example.com",
+    "mb auth login --profile staging --url https://staging.example.com",
   ],
   async run({ args, ctx }) {
     const profileName = await resolveLoginProfile(args.profile);

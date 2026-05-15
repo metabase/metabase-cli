@@ -51,10 +51,10 @@ export default defineMetabaseCommand({
   },
   outputSchema: CollectionItemListEnvelope,
   examples: [
-    "metabase collection items 4",
-    "metabase collection items root --json",
-    "metabase collection items 4 --models card,dashboard --json",
-    "metabase collection items 4 --pinned-state is_pinned --json",
+    "mb collection items 4",
+    "mb collection items root --json",
+    "mb collection items 4 --models card,dashboard --json",
+    "mb collection items 4 --pinned-state is_pinned --json",
   ],
   async run({ args, ctx, getClient }) {
     const ref = parseCollectionRef(args.id);

@@ -24,7 +24,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "query",
     description:
-      'Run an MBQL 5 query (validates against the bundled schema first); --print-schema emits the schema for agent discovery, --dry-run validates without sending. Any non-MBQL 5 body — legacy MBQL 4 ({type:"query", …}), legacy native ({type:"native", …}), or any other non-{lib/type:"mbql/query"} shape — skips pre-flight automatically and is normalized server-side by lib-be/normalize-query. The bundled schema only models MBQL 5. Every clause options object carries a `lib/uuid` (UUID v4); mint these via `metabase uuid` — never author them by hand.',
+      'Run an MBQL 5 query (validates against the bundled schema first); --print-schema emits the schema for agent discovery, --dry-run validates without sending. Any non-MBQL 5 body — legacy MBQL 4 ({type:"query", …}), legacy native ({type:"native", …}), or any other non-{lib/type:"mbql/query"} shape — skips pre-flight automatically and is normalized server-side by lib-be/normalize-query. The bundled schema only models MBQL 5. Every clause options object carries a `lib/uuid` (UUID v4); mint these via `mb uuid` — never author them by hand.',
   },
   args: {
     ...outputFlags,
@@ -43,10 +43,10 @@ export default defineMetabaseCommand({
   },
   outputSchema: CardQueryResult,
   examples: [
-    "metabase query --print-schema",
-    "cat q.json | metabase query --dry-run",
-    "metabase query --file q.json",
-    "metabase query --file q.json --skip-validate",
+    "mb query --print-schema",
+    "cat q.json | mb query --dry-run",
+    "mb query --file q.json",
+    "mb query --file q.json --skip-validate",
   ],
   async run({ args, ctx, getClient }) {
     if (args["print-schema"] === true) {

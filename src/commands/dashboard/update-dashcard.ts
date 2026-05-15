@@ -27,9 +27,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: Dashcard,
   examples: [
-    'metabase dashboard update-dashcard 1 5 --body \'{"row":2,"col":0}\'',
-    'metabase dashboard update-dashcard 1 5 --body \'{"size_x":12,"size_y":4}\'',
-    "cat patch.json | metabase dashboard update-dashcard 1 5",
+    'mb dashboard update-dashcard 1 5 --body \'{"row":2,"col":0}\'',
+    'mb dashboard update-dashcard 1 5 --body \'{"size_x":12,"size_y":4}\'',
+    "cat patch.json | mb dashboard update-dashcard 1 5",
   ],
   async run({ args, ctx, getClient }) {
     const dashboardId = parseId(args["dashboard-id"], "dashboard-id");

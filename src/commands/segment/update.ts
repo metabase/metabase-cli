@@ -15,7 +15,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "update",
     description:
-      "Update a segment by id; body must include revision_message (audit-logged with the change). If definition is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `metabase query` (see `metabase query --print-schema`)",
+      "Update a segment by id; body must include revision_message (audit-logged with the change). If definition is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
   },
   args: {
     ...outputFlags,
@@ -27,10 +27,10 @@ export default defineMetabaseCommand({
   },
   outputSchema: Segment,
   examples: [
-    "cat patch.json | metabase segment update 1",
-    "metabase segment update 1 --file patch.json",
-    'metabase segment update 1 --body \'{"name":"renamed","revision_message":"rename"}\'',
-    "metabase segment update 1 --file patch.json --skip-validate",
+    "cat patch.json | mb segment update 1",
+    "mb segment update 1 --file patch.json",
+    'mb segment update 1 --body \'{"name":"renamed","revision_message":"rename"}\'',
+    "mb segment update 1 --file patch.json --skip-validate",
   ],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);

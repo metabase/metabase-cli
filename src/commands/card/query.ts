@@ -60,10 +60,10 @@ export default defineMetabaseCommand({
   },
   outputSchema: CardQueryResult,
   examples: [
-    "metabase card query 1",
-    "metabase card query 1 --json --limit 20",
-    "metabase card query 1 --export-format csv > results.csv",
-    'metabase card query 1 --parameters \'[{"type":"category","value":"A","target":["variable",["template-tag","c"]]}]\'',
+    "mb card query 1",
+    "mb card query 1 --json --limit 20",
+    "mb card query 1 --export-format csv > results.csv",
+    'mb card query 1 --parameters \'[{"type":"category","value":"A","target":["variable",["template-tag","c"]]}]\'',
   ],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);

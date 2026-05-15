@@ -20,9 +20,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: Table,
   examples: [
-    'metabase table update 42 --body \'{"display_name":"Customers"}\'',
-    "metabase table update 42 --file patch.json",
-    "cat patch.json | metabase table update 42",
+    'mb table update 42 --body \'{"display_name":"Customers"}\'',
+    "mb table update 42 --file patch.json",
+    "cat patch.json | mb table update 42",
   ],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);

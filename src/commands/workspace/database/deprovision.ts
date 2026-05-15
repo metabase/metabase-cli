@@ -22,8 +22,8 @@ export default defineMetabaseCommand({
   },
   outputSchema: DeleteResult,
   examples: [
-    "metabase workspace database deprovision 1 5 --yes",
-    "metabase workspace database deprovision 1 5 --yes --wait",
+    "mb workspace database deprovision 1 5 --yes",
+    "mb workspace database deprovision 1 5 --yes --wait",
   ],
   async run({ args, ctx, getClient }) {
     const workspaceId = parseId(args.id);

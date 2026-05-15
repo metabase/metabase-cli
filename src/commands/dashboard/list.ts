@@ -26,9 +26,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: DashboardListEnvelope,
   examples: [
-    "metabase dashboard list",
-    "metabase dashboard list --json",
-    "metabase dashboard list --filter archived --json",
+    "mb dashboard list",
+    "mb dashboard list --json",
+    "mb dashboard list --filter archived --json",
   ],
   async run({ args, ctx, getClient }) {
     const filter = DashboardListFilter.parse(args.filter);

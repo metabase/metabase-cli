@@ -107,7 +107,7 @@ describe("auth e2e", () => {
     expect(followup.stderr).toContain('Last login for profile "rejected_profile" was rejected by');
     expect(followup.stderr).toContain("Invalid or unauthorized API key");
     expect(followup.stderr).toContain(
-      "Re-run `metabase auth login --profile rejected_profile` with valid credentials.",
+      "Re-run `mb auth login --profile rejected_profile` with valid credentials.",
     );
   });
 

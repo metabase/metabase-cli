@@ -49,7 +49,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Workspace id", required: true },
   },
   outputSchema: WorkspaceCredentialsResult,
-  examples: ["metabase workspace credentials 1", "metabase workspace credentials 1 --json"],
+  examples: ["mb workspace credentials 1", "mb workspace credentials 1 --json"],
   async run({ args, ctx }) {
     const workspaceId = parseId(args.id);
 

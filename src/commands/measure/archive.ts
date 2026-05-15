@@ -15,10 +15,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Measure id", required: true },
   },
   outputSchema: Measure,
-  examples: [
-    "metabase measure archive 1",
-    'metabase measure archive 1 --revision-message "deprecated"',
-  ],
+  examples: ["mb measure archive 1", 'mb measure archive 1 --revision-message "deprecated"'],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Segment id", required: true },
   },
   outputSchema: Segment,
-  examples: ["metabase segment get 1", "metabase segment get 1 --json"],
+  examples: ["mb segment get 1", "mb segment get 1 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Card id", required: true },
   },
   outputSchema: Card,
-  examples: ["metabase card archive 1", "metabase card archive 1 --json"],
+  examples: ["mb card archive 1", "mb card archive 1 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

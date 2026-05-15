@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
   meta: { name: "list", description: "List segments" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SegmentListEnvelope,
-  examples: ["metabase segment list", "metabase segment list --json"],
+  examples: ["mb segment list", "mb segment list --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const items = await client.requestParsed(SegmentApiList, "/api/segment");

@@ -17,10 +17,10 @@ export default defineMetabaseCommand({
   },
   outputSchema: Snippet,
   examples: [
-    "cat patch.json | metabase snippet update 1",
-    "metabase snippet update 1 --file patch.json",
-    'metabase snippet update 1 --body \'{"name":"renamed"}\'',
-    "metabase snippet update 1 --body '{\"archived\":true}'",
+    "cat patch.json | mb snippet update 1",
+    "mb snippet update 1 --file patch.json",
+    'mb snippet update 1 --body \'{"name":"renamed"}\'',
+    "mb snippet update 1 --body '{\"archived\":true}'",
   ],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);

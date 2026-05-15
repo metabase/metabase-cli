@@ -1,4 +1,4 @@
-export const DEFAULT_ARCHIVE_REVISION_MESSAGE = "Archived via metabase CLI";
+export const DEFAULT_ARCHIVE_REVISION_MESSAGE = "Archived via mb CLI";
 
 export const revisionMessageFlag = {
   revisionMessage: {

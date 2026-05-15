@@ -28,7 +28,7 @@ export default defineMetabaseCommand({
     yes: { type: "boolean", description: "Skip confirmation", default: false },
   },
   outputSchema: LicenseRemoveResult,
-  examples: ["metabase license remove --yes"],
+  examples: ["mb license remove --yes"],
   async run({ args, ctx }) {
     if (!args.yes && process.stdin.isTTY === true) {
       const ok = await promptConfirm({

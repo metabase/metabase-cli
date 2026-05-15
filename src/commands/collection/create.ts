@@ -10,9 +10,9 @@ export default defineMetabaseCommand({
   args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...bodyInputFlags },
   outputSchema: Collection,
   examples: [
-    "cat collection.json | metabase collection create",
-    "metabase collection create --file collection.json",
-    'metabase collection create --body \'{"name":"My Collection","parent_id":4}\'',
+    "cat collection.json | mb collection create",
+    "mb collection create --file collection.json",
+    'mb collection create --body \'{"name":"My Collection","parent_id":4}\'',
   ],
   async run({ args, ctx, getClient }) {
     const body = await readBody({ flag: args.body, file: args.file }, CollectionCreateInput);

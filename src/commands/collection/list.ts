@@ -32,9 +32,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: CollectionListEnvelope,
   examples: [
-    "metabase collection list",
-    "metabase collection list --json",
-    "metabase collection list --filter archived --json",
+    "mb collection list",
+    "mb collection list --json",
+    "mb collection list --filter archived --json",
   ],
   async run({ args, ctx, getClient }) {
     const filter = CollectionListFilter.parse(args.filter);

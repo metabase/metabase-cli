@@ -12,7 +12,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
   it("round-trips an augment through set/get on the same command object", () => {
     const cmd = {};
     const augment: MetabaseAugment = {
-      examples: ["metabase card list"],
+      examples: ["mb card list"],
       outputSchema: z.object({ id: z.number() }),
     };
     setMetabaseAugment(cmd, augment);

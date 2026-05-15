@@ -159,7 +159,7 @@ describe("resolveConfig", () => {
       throw new Error("expected ConfigError");
     }
     expect(error.message).toBe(
-      'Last login for profile "cohort_retention" was rejected by https://metabase.example.com: Invalid or unauthorized API key. Re-run `metabase auth login --profile cohort_retention` with valid credentials.',
+      'Last login for profile "cohort_retention" was rejected by https://metabase.example.com: Invalid or unauthorized API key. Re-run `mb auth login --profile cohort_retention` with valid credentials.',
     );
   });
 

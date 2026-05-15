@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Transform job id", required: true },
   },
   outputSchema: TransformJob,
-  examples: ["metabase transform-job get 1", "metabase transform-job get 1 --json"],
+  examples: ["mb transform-job get 1", "mb transform-job get 1 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

@@ -42,7 +42,7 @@ Metabase CLI. TypeScript ESM. citty + native `fetch` + Zod + @clack/prompts. oxl
   - `body.ts` — `readBody(sources, schema)` chains `readInput` + `parseJson` + Zod validation for JSON bodies. Rejects multiple explicit body sources (`--body` + `--file` + `--stdin` + positional) with `ConfigError`; only one wins.
   - `paginate.ts` — `paginate(client, path, itemSchema, opts)` is the canonical limit/offset iterator over Metabase list endpoints; returns `AsyncIterable<T>`. Honors `commonFlags.limit` via `opts.max`; defaults pageSize to 50 (Metabase server default). `collectPaginated` drains it into an array.
 - `tests/` — see **Tests** and **E2E test tier**. Unit tests sit beside source under `src/**/*.test.ts`. The e2e tier lives under `tests/e2e/` with its own runtime contract.
-- `bin/metabase-dev` — contributor wrapper running the CLI from source against an isolated `XDG_CONFIG_HOME=$ROOT/.dev-state` with `METABASE_CLI_DISABLE_KEYRING=1`. Use this — never the real `~/.config` — when poking at the running e2e Metabase by hand.
+- `bin/mb-dev` — contributor wrapper running the CLI from source against an isolated `XDG_CONFIG_HOME=$ROOT/.dev-state` with `METABASE_CLI_DISABLE_KEYRING=1`. Use this — never the real `~/.config` — when poking at the running e2e Metabase by hand.
 
 ## Commands runtime
 
@@ -116,7 +116,7 @@ Lives under `tests/e2e/`. The whole point is to run the **built `dist/cli.mjs`**
 - `tests/e2e/defaults.ts` — sole owner of `DEFAULT_E2E_BASE_URL` and `resolveE2EBaseUrl()` (reads `METABASE_CLI_E2E_URL` env override, falls back to the docker-compose default). Anywhere that needs a base URL imports from here.
 - `tests/e2e/docker-compose.yml` — Postgres warehouse + Metabase EE (image overridable via `METABASE_E2E_IMAGE`). Token override via `MB_PREMIUM_EMBEDDING_TOKEN` env passes through; absence is fine — EE boots without a token, the test endpoints work either way.
 
-Adding a new e2e test for command `metabase <noun> <verb>`:
+Adding a new e2e test for command `mb <noun> <verb>`:
 
 1. `tests/e2e/<noun>.e2e.test.ts` — drive the command via `runCli`, assert exit code, assert `--json` output through the schema imported from `src/commands/<noun>/<verb>.ts` or `src/domain/<noun>.ts`. Each test gets its own config home via `mkTempConfigHome()` (or a small `makeIsolatedConfigHome` closure inside the file that pushes onto a `tempDirs` array drained in `afterEach`).
 2. The seeded admin API key (`bootstrap.adminApiKey`) authenticates as a synthetic api-key user (`api-key-user-…@api-key.invalid`). For tests that need a real admin user, call `auth login` with admin email/password — but expose that need explicitly; don't paper over it.

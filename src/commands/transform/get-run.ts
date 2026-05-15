@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Run id", required: true },
   },
   outputSchema: TransformRun,
-  examples: ["metabase transform get-run 1", "metabase transform get-run 1 --json"],
+  examples: ["mb transform get-run 1", "mb transform get-run 1 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id, "run id");
     const client = await getClient();

@@ -38,6 +38,6 @@ function renderSchemaHint(): string {
     "",
     "SCHEMA",
     "",
-    "  metabase __manifest      # machine-readable command tree (flags, output, examples)",
+    "  mb __manifest      # machine-readable command tree (flags, output, examples)",
   ].join("\n");
 }

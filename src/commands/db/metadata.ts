@@ -16,7 +16,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Database id", required: true },
   },
   outputSchema: Database,
-  examples: ["metabase db metadata 1", "metabase db metadata 1 --json"],
+  examples: ["mb db metadata 1", "mb db metadata 1 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

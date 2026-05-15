@@ -30,7 +30,7 @@ export default defineMetabaseCommand({
   meta: { name: "list", description: "List configured authentication profiles" },
   args: { ...outputFlags },
   outputSchema: AuthProfileListEnvelope,
-  examples: ["metabase auth list", "metabase auth list --json"],
+  examples: ["mb auth list", "mb auth list --json"],
   async run({ ctx }) {
     const names = await listProfileNames();
     const items = await Promise.all(

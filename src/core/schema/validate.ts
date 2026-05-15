@@ -66,10 +66,10 @@ function getValidator(): ValidateFunction {
 }
 
 export const UUID_HINT_MESSAGE =
-  "must be a UUID v4 (RFC 4122) — run `metabase uuid` (or `metabase uuid --count N`) to mint one. The MBQL 5 schema rejects placeholder strings (`a1`, `uuid-1`, etc.); agents must call the CLI for UUIDs rather than authoring them.";
+  "must be a UUID v4 (RFC 4122) — run `mb uuid` (or `mb uuid --count N`) to mint one. The MBQL 5 schema rejects placeholder strings (`a1`, `uuid-1`, etc.); agents must call the CLI for UUIDs rather than authoring them.";
 
 export const FIELD_SLOT1_HINT_MESSAGE =
-  'must be the field options object — MBQL 5 field refs are ["field", {options}, fieldId]; the legacy MBQL 4 shape ["field", id, opts] is not accepted here. (Tip: `metabase uuid` mints `lib/uuid` strings if you need them.)';
+  'must be the field options object — MBQL 5 field refs are ["field", {options}, fieldId]; the legacy MBQL 4 shape ["field", id, opts] is not accepted here. (Tip: `mb uuid` mints `lib/uuid` strings if you need them.)';
 
 export function clauseSlot1HintMessage(operator: string, slot1: unknown): string {
   return `must be the clause options object — every MBQL 5 clause is ["${operator}", {options}, ...args]; got ${describeJsonValue(slot1)} at index 1`;

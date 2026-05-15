@@ -47,7 +47,7 @@ export async function runCli(opts: RunCliOptions): Promise<RunCliResult> {
   if (typeof result.exitCode !== "number") {
     const cause = result.signal ? `signal ${result.signal}` : "no exit code";
     throw new Error(
-      `metabase CLI process did not exit normally (${cause}); stderr:\n${asString(result.stderr)}`,
+      `mb CLI process did not exit normally (${cause}); stderr:\n${asString(result.stderr)}`,
     );
   }
 

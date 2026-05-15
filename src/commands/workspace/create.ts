@@ -16,9 +16,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: Workspace,
   examples: [
-    'metabase workspace create --name "analytics"',
-    'echo \'{"name":"analytics"}\' | metabase workspace create',
-    "metabase workspace create --file workspace.json",
+    'mb workspace create --name "analytics"',
+    'echo \'{"name":"analytics"}\' | mb workspace create',
+    "mb workspace create --file workspace.json",
   ],
   async run({ args, ctx, getClient }) {
     const body =

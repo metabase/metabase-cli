@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Transform job id", required: true },
   },
   outputSchema: DeleteResult,
-  examples: ["metabase transform-job delete 1 --yes", "metabase transform-job delete 1"],
+  examples: ["mb transform-job delete 1 --yes", "mb transform-job delete 1"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

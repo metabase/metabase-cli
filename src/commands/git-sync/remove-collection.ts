@@ -22,8 +22,8 @@ export default defineMetabaseCommand({
   },
   outputSchema: SyncSettingsUpdateResult,
   examples: [
-    "metabase git-sync remove-collection 12",
-    "metabase git-sync remove-collection 12 --json --profile prod",
+    "mb git-sync remove-collection 12",
+    "mb git-sync remove-collection 12 --json --profile prod",
   ],
   async run({ args, ctx, getClient }) {
     const collectionId = parseId(args.id, "id");

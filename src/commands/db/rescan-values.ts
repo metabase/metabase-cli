@@ -20,7 +20,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Database id", required: true },
   },
   outputSchema: DatabaseSyncResult,
-  examples: ["metabase db rescan-values 1", "metabase db rescan-values 1 --json"],
+  examples: ["mb db rescan-values 1", "mb db rescan-values 1 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

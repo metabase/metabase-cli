@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
   },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: CurrentTaskResult,
-  examples: ["metabase git-sync current-task", "metabase git-sync current-task --json"],
+  examples: ["mb git-sync current-task", "mb git-sync current-task --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const task = await fetchCurrentTask(client);

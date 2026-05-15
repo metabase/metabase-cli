@@ -16,7 +16,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Table id", required: true },
   },
   outputSchema: TableQueryMetadata,
-  examples: ["metabase table metadata 42", "metabase table metadata 42 --json"],
+  examples: ["mb table metadata 42", "mb table metadata 42 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

@@ -23,7 +23,7 @@ export default defineMetabaseCommand({
   },
   args: { ...outputFlags },
   outputSchema: LicenseStatus,
-  examples: ["metabase license status", "metabase license status --json"],
+  examples: ["mb license status", "mb license status --json"],
   async run({ ctx }) {
     const present = await credentials.has(account.license);
     renderItem({ present }, licenseStatusView, ctx);

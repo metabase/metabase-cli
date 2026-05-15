@@ -26,9 +26,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: Table,
   examples: [
-    "metabase table get 42",
-    "metabase table get 42 --json",
-    "metabase table get 42 --include fields --json",
+    "mb table get 42",
+    "mb table get 42 --json",
+    "mb table get 42 --include fields --json",
   ],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);

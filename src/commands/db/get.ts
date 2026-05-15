@@ -22,11 +22,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Database id", required: true },
   },
   outputSchema: Database,
-  examples: [
-    "metabase db get 1",
-    "metabase db get 1 --json",
-    "metabase db get 1 --include tables.fields --json",
-  ],
+  examples: ["mb db get 1", "mb db get 1 --json", "mb db get 1 --include tables.fields --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const include = parseEnum(args.include, DatabaseGetInclude, "--include");

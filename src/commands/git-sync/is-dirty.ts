@@ -24,7 +24,7 @@ export default defineMetabaseCommand({
   },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: IsDirtyResult,
-  examples: ["metabase git-sync is-dirty", "metabase git-sync is-dirty --json"],
+  examples: ["mb git-sync is-dirty", "mb git-sync is-dirty --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const result = await client.requestParsed(IsDirtyResult, REMOTE_SYNC_PATHS.isDirty);

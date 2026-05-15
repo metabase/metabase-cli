@@ -27,7 +27,7 @@ export default defineMetabaseCommand({
     },
   },
   outputSchema: UuidList,
-  examples: ["metabase uuid", "metabase uuid --count 5", "metabase uuid --count 5 --json"],
+  examples: ["mb uuid", "mb uuid --count 5", "mb uuid --count 5 --json"],
   run({ args, ctx }) {
     const count = parseInteger(args.count, { name: "--count", min: 1 });
     if (count > MAX_COUNT) {

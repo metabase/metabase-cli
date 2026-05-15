@@ -20,7 +20,7 @@ export default defineMetabaseCommand({
     "db-id": { type: "string", description: "Filter by database id" },
   },
   outputSchema: TableListEnvelope,
-  examples: ["metabase table list", "metabase table list --db-id 1 --json"],
+  examples: ["mb table list", "mb table list --db-id 1 --json"],
   async run({ args, ctx, getClient }) {
     const dbIdFilter = args["db-id"] === undefined ? undefined : parseId(args["db-id"], "db-id");
     const client = await getClient();

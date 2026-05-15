@@ -80,11 +80,11 @@ export default defineMetabaseCommand({
   },
   outputSchema: UpgradeStatus,
   examples: [
-    "metabase upgrade",
-    "metabase upgrade --check",
-    "metabase upgrade --check --json",
-    "metabase upgrade --yes",
-    "metabase upgrade --to 0.1.2",
+    "mb upgrade",
+    "mb upgrade --check",
+    "mb upgrade --check --json",
+    "mb upgrade --yes",
+    "mb upgrade --to 0.1.2",
   ],
   async run({ args, ctx }) {
     const currentVersion = SemverString.parse(packageJson.version);

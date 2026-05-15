@@ -32,7 +32,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Workspace id", required: true },
   },
   outputSchema: UrlResult,
-  examples: ["metabase workspace url 1", "metabase workspace url 1 --json"],
+  examples: ["mb workspace url 1", "mb workspace url 1 --json"],
   async run({ args, ctx }) {
     const workspaceId = parseId(args.id);
 

@@ -72,11 +72,11 @@ export async function resolveConfig(flags: ConfigFlags): Promise<ResolvedConfig>
     const rejection = await readRejection(profile);
     if (rejection !== null) {
       throw new ConfigError(
-        `Last login for profile "${profile}" was rejected by ${originOnly(rejection.url)}: ${rejection.reason}. Re-run \`metabase auth login --profile ${profile}\` with valid credentials.`,
+        `Last login for profile "${profile}" was rejected by ${originOnly(rejection.url)}: ${rejection.reason}. Re-run \`mb auth login --profile ${profile}\` with valid credentials.`,
       );
     }
     throw new ConfigError(
-      `Not authenticated for profile "${profile}". Run \`metabase auth login\`, set ${ENV_URL}/${ENV_API_KEY}, or pass --url/--api-key.`,
+      `Not authenticated for profile "${profile}". Run \`mb auth login\`, set ${ENV_URL}/${ENV_API_KEY}, or pass --url/--api-key.`,
     );
   }
 
@@ -95,7 +95,7 @@ export async function resolveLicenseToken(flags: LicenseFlags): Promise<string> 
   const value = flag ?? env ?? stored;
   if (!value) {
     throw new ConfigError(
-      `No license token. Pass --token, set ${ENV_LICENSE_TOKEN}, or store one with \`metabase license set\`.`,
+      `No license token. Pass --token, set ${ENV_LICENSE_TOKEN}, or store one with \`mb license set\`.`,
     );
   }
   return value;

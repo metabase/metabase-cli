@@ -16,7 +16,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Dashboard id", required: true },
   },
   outputSchema: DashcardListEnvelope,
-  examples: ["metabase dashboard cards 1", "metabase dashboard cards 1 --json"],
+  examples: ["mb dashboard cards 1", "mb dashboard cards 1 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

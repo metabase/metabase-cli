@@ -1,6 +1,6 @@
 {
   "name": "@metabase/cli",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Metabase CLI",
   "license": "AGPL-3.0",
   "repository": {
@@ -8,7 +8,7 @@
     "url": "git+https://github.com/metabase/mb-cli.git"
   },
   "bin": {
-    "metabase": "./dist/cli.mjs"
+    "mb": "./dist/cli.mjs"
   },
   "files": [
     "dist"

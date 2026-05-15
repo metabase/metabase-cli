@@ -31,9 +31,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: Workspace,
   examples: [
-    "metabase workspace database provision 1 --database-id 5 --schemas analytics,github",
-    "metabase workspace database provision 1 --database-id 5 --schemas analytics --wait",
-    "metabase workspace database provision 1 --file provision.json",
+    "mb workspace database provision 1 --database-id 5 --schemas analytics,github",
+    "mb workspace database provision 1 --database-id 5 --schemas analytics --wait",
+    "mb workspace database provision 1 --file provision.json",
   ],
   async run({ args, ctx, getClient }) {
     const workspaceId = parseId(args.id);

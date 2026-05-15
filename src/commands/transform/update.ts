@@ -15,7 +15,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "update",
     description:
-      "Update a transform by id; if source is provided with type `query` and source.query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `metabase query` (see `metabase query --print-schema`)",
+      "Update a transform by id; if source is provided with type `query` and source.query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
   },
   args: {
     ...outputFlags,
@@ -27,10 +27,10 @@ export default defineMetabaseCommand({
   },
   outputSchema: Transform,
   examples: [
-    "cat patch.json | metabase transform update 1",
-    "metabase transform update 1 --file patch.json",
-    'metabase transform update 1 --body \'{"name":"renamed"}\'',
-    "metabase transform update 1 --file patch.json --skip-validate",
+    "cat patch.json | mb transform update 1",
+    "mb transform update 1 --file patch.json",
+    'mb transform update 1 --body \'{"name":"renamed"}\'',
+    "mb transform update 1 --file patch.json --skip-validate",
   ],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);

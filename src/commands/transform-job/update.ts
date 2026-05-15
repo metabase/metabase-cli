@@ -21,9 +21,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: TransformJob,
   examples: [
-    "cat patch.json | metabase transform-job update 1",
-    "metabase transform-job update 1 --file patch.json",
-    'metabase transform-job update 1 --body \'{"schedule":"0 0 6 * * ?"}\'',
+    "cat patch.json | mb transform-job update 1",
+    "mb transform-job update 1 --file patch.json",
+    'mb transform-job update 1 --body \'{"schedule":"0 0 6 * * ?"}\'',
   ],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);

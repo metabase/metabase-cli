@@ -35,9 +35,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: EidTranslateResult,
   examples: [
-    "metabase eid translate --model card --eids abc123XYZ,def456ABC",
-    "metabase eid translate --file translate.json",
-    'metabase eid translate --body \'{"entity_ids":{"card":["abc123XYZ"]}}\'',
+    "mb eid translate --model card --eids abc123XYZ,def456ABC",
+    "mb eid translate --file translate.json",
+    'mb eid translate --body \'{"entity_ids":{"card":["abc123XYZ"]}}\'',
   ],
   async run({ args, ctx, getClient }) {
     const pair = requireBothOrNeither(

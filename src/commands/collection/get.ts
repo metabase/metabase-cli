@@ -22,10 +22,10 @@ export default defineMetabaseCommand({
   },
   outputSchema: Collection,
   examples: [
-    "metabase collection get 4",
-    "metabase collection get root --json",
-    "metabase collection get trash --json",
-    "metabase collection get voo1If9y8Sld0lXej6xl0 --json",
+    "mb collection get 4",
+    "mb collection get root --json",
+    "mb collection get trash --json",
+    "mb collection get voo1If9y8Sld0lXej6xl0 --json",
   ],
   async run({ args, ctx, getClient }) {
     const ref = parseCollectionRef(args.id);

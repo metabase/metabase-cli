@@ -35,10 +35,10 @@ export default defineMetabaseCommand({
   },
   outputSchema: DatabaseListEnvelope,
   examples: [
-    "metabase db list",
-    "metabase db list --json",
-    "metabase db list --include tables --json",
-    "metabase db list --saved --json",
+    "mb db list",
+    "mb db list --json",
+    "mb db list --include tables --json",
+    "mb db list --saved --json",
   ],
   async run({ args, ctx, getClient }) {
     const include = parseEnum(args.include, DatabaseListInclude, "--include");

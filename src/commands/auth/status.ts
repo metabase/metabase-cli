@@ -28,7 +28,7 @@ export default defineMetabaseCommand({
   meta: { name: "status", description: "Show authentication status for a profile" },
   args: { ...outputFlags, ...profileFlag },
   outputSchema: AuthStatus,
-  examples: ["metabase auth status --json", "metabase auth status --profile staging"],
+  examples: ["mb auth status --json", "mb auth status --profile staging"],
   async run({ args, ctx }) {
     const profileName = resolveProfileName(args.profile);
 

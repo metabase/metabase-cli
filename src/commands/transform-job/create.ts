@@ -14,9 +14,9 @@ export default defineMetabaseCommand({
   args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...bodyInputFlags },
   outputSchema: TransformJob,
   examples: [
-    "cat job.json | metabase transform-job create",
-    "metabase transform-job create --file job.json",
-    'metabase transform-job create --body \'{"name":"daily","schedule":"0 0 0 * * ?"}\'',
+    "cat job.json | mb transform-job create",
+    "mb transform-job create --file job.json",
+    'mb transform-job create --body \'{"name":"daily","schedule":"0 0 0 * * ?"}\'',
   ],
   async run({ args, ctx, getClient }) {
     const body = await readBody({ flag: args.body, file: args.file }, TransformJobCreateInput);

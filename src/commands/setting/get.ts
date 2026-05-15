@@ -18,7 +18,7 @@ export default defineMetabaseCommand({
     key: { type: "positional", description: "Setting key", required: true },
   },
   outputSchema: SettingValue,
-  examples: ["metabase setting get remote-sync-branch", "metabase setting get site-name --json"],
+  examples: ["mb setting get remote-sync-branch", "mb setting get site-name --json"],
   async run({ args, ctx, getClient }) {
     const key = parseSettingKey(args.key);
     const client = await getClient();

@@ -15,10 +15,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Segment id", required: true },
   },
   outputSchema: Segment,
-  examples: [
-    "metabase segment archive 1",
-    'metabase segment archive 1 --revision-message "deprecated"',
-  ],
+  examples: ["mb segment archive 1", 'mb segment archive 1 --revision-message "deprecated"'],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

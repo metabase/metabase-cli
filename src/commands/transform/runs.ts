@@ -25,9 +25,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: TransformRunListEnvelope,
   examples: [
-    "metabase transform runs",
-    "metabase transform runs --transform-id 1 --json",
-    "metabase transform runs --limit 10 --json",
+    "mb transform runs",
+    "mb transform runs --transform-id 1 --json",
+    "mb transform runs --limit 10 --json",
   ],
   async run({ args, ctx, getClient }) {
     const transformId =

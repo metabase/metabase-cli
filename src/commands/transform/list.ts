@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
   meta: { name: "list", description: "List transforms" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: TransformListEnvelope,
-  examples: ["metabase transform list", "metabase transform list --json"],
+  examples: ["mb transform list", "mb transform list --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const items = await client.requestParsed(TransformApiList, "/api/transform");

@@ -19,11 +19,7 @@ export default defineMetabaseCommand({
     archived: { type: "boolean", description: "Show archived snippets instead of active ones" },
   },
   outputSchema: SnippetListEnvelope,
-  examples: [
-    "metabase snippet list",
-    "metabase snippet list --json",
-    "metabase snippet list --archived --json",
-  ],
+  examples: ["mb snippet list", "mb snippet list --json", "mb snippet list --archived --json"],
   async run({ args, ctx, getClient }) {
     const client = await getClient();
     const items = await client.requestParsed(SnippetApiList, "/api/native-query-snippet", {

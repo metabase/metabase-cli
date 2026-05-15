@@ -164,13 +164,13 @@ export default defineMetabaseCommand({
   },
   outputSchema: StartResult,
   examples: [
-    "metabase workspace start 1",
-    "metabase workspace start 1 --wait",
-    "metabase workspace start 1 --port 3100",
-    "metabase workspace start 1 --image metabase/metabase-dev:feature-workspaces-v2 --no-pull",
-    "metabase workspace start 1 --force",
-    "metabase workspace start 1 --repo /path/to/sync-repo --wait",
-    "metabase workspace start 1 --repo /path/to/sync-repo --repo-branch dev --repo-mode read-only",
+    "mb workspace start 1",
+    "mb workspace start 1 --wait",
+    "mb workspace start 1 --port 3100",
+    "mb workspace start 1 --image metabase/metabase-dev:feature-workspaces-v2 --no-pull",
+    "mb workspace start 1 --force",
+    "mb workspace start 1 --repo /path/to/sync-repo --wait",
+    "mb workspace start 1 --repo /path/to/sync-repo --repo-branch dev --repo-mode read-only",
   ],
   async run({ args, ctx, getClient, getResolvedConfig }) {
     const workspaceId = parseId(args.id);
@@ -310,7 +310,7 @@ async function ensureNoExistingContainer(
     return;
   }
   throw new ConfigError(
-    `container ${containerName} is currently ${status}. Run \`metabase workspace stop ${workspaceId}\` first, or use --force to recreate it.`,
+    `container ${containerName} is currently ${status}. Run \`mb workspace stop ${workspaceId}\` first, or use --force to recreate it.`,
   );
 }
 

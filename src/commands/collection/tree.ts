@@ -15,7 +15,7 @@ export default defineMetabaseCommand({
   },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: CollectionTreeResponse,
-  examples: ["metabase collection tree", "metabase collection tree --json"],
+  examples: ["mb collection tree", "mb collection tree --json"],
   async run({ ctx, getClient }) {
     if (ctx.format === "text") {
       throw new ConfigError("collection tree output is JSON-only; --format text is not supported");

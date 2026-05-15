@@ -16,7 +16,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Field id", required: true },
   },
   outputSchema: FieldSummary,
-  examples: ["metabase field summary 100", "metabase field summary 100 --json"],
+  examples: ["mb field summary 100", "mb field summary 100 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

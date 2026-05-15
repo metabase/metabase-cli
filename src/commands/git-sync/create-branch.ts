@@ -35,8 +35,8 @@ export default defineMetabaseCommand({
   },
   outputSchema: CreateBranchResult,
   examples: [
-    "metabase git-sync create-branch feat/dashboards",
-    "metabase git-sync create-branch feat/x --json",
+    "mb git-sync create-branch feat/dashboards",
+    "mb git-sync create-branch feat/x --json",
   ],
   async run({ args, ctx, getClient }) {
     const name = args.name.trim();

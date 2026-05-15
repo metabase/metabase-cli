@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
   meta: { name: "list", description: "List workspaces" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: WorkspaceListEnvelope,
-  examples: ["metabase workspace list", "metabase workspace list --json"],
+  examples: ["mb workspace list", "mb workspace list --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const items = await client.requestParsed(WorkspaceApiList, "/api/ee/workspace-manager");

@@ -20,11 +20,11 @@ export default defineMetabaseCommand({
   },
   outputSchema: SettingValue,
   examples: [
-    `metabase setting set remote-sync-branch '"main"'`,
-    `metabase setting set anon-tracking-enabled true`,
-    `echo '"main"' | metabase setting set remote-sync-branch`,
-    `metabase setting set remote-sync-branch --file value.json`,
-    `metabase setting set remote-sync-branch null`,
+    `mb setting set remote-sync-branch '"main"'`,
+    `mb setting set anon-tracking-enabled true`,
+    `echo '"main"' | mb setting set remote-sync-branch`,
+    `mb setting set remote-sync-branch --file value.json`,
+    `mb setting set remote-sync-branch null`,
   ],
   async run({ args, ctx, getClient }) {
     const key = parseSettingKey(args.key);

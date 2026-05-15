@@ -23,10 +23,10 @@ export default defineMetabaseCommand({
   },
   outputSchema: DashboardDetail,
   examples: [
-    "cat patch.json | metabase dashboard update 1",
-    "metabase dashboard update 1 --file patch.json",
-    'metabase dashboard update 1 --body \'{"name":"renamed"}\'',
-    'metabase dashboard update 1 --body \'{"dashcards":[{"id":-1,"card_id":42,"row":0,"col":0,"size_x":12,"size_y":6}]}\'',
+    "cat patch.json | mb dashboard update 1",
+    "mb dashboard update 1 --file patch.json",
+    'mb dashboard update 1 --body \'{"name":"renamed"}\'',
+    'mb dashboard update 1 --body \'{"dashcards":[{"id":-1,"card_id":42,"row":0,"col":0,"size_x":12,"size_y":6}]}\'',
   ],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);

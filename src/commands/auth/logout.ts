@@ -33,7 +33,7 @@ export default defineMetabaseCommand({
     yes: { type: "boolean", description: "Skip confirmation", default: false },
   },
   outputSchema: LogoutResult,
-  examples: ["metabase auth logout --yes", "metabase auth logout --profile staging --yes"],
+  examples: ["mb auth logout --yes", "mb auth logout --profile staging --yes"],
   async run({ args, ctx }) {
     const profileName = resolveProfileName(args.profile);
 

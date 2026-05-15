@@ -46,7 +46,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Workspace id", required: true },
   },
   outputSchema: StopResult,
-  examples: ["metabase workspace stop 1", "metabase workspace stop 1 --json"],
+  examples: ["mb workspace stop 1", "mb workspace stop 1 --json"],
   async run({ args, ctx }) {
     const workspaceId = parseId(args.id);
     const containerName = containerNameFor(workspaceId);

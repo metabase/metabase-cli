@@ -36,7 +36,7 @@ export default defineMetabaseCommand({
     },
   },
   outputSchema: WaitResult,
-  examples: ["metabase git-sync wait", "metabase git-sync wait --timeout 300000 --json"],
+  examples: ["mb git-sync wait", "mb git-sync wait --timeout 300000 --json"],
   async run({ args, ctx, getClient }) {
     const timeoutMs = parseId(args.timeout, "timeout");
     const intervalMs = parseId(args.interval, "interval");

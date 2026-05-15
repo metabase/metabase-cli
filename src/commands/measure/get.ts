@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Measure id", required: true },
   },
   outputSchema: Measure,
-  examples: ["metabase measure get 1", "metabase measure get 1 --json"],
+  examples: ["mb measure get 1", "mb measure get 1 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

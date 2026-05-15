@@ -517,7 +517,7 @@ export async function requireWorkspaceContainerLocation(
   const summary = await inspectWorkspaceContainer(containerName);
   if (summary === null) {
     throw new ConfigError(
-      `no container for workspace ${workspaceId} — run \`metabase workspace start ${workspaceId}\` first`,
+      `no container for workspace ${workspaceId} — run \`mb workspace start ${workspaceId}\` first`,
     );
   }
   if (summary.hostPort === null) {

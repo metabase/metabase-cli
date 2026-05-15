@@ -42,7 +42,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Transform id", required: true },
   },
   outputSchema: TransformRunResult,
-  examples: ["metabase transform run 1", "metabase transform run 1 --wait --json"],
+  examples: ["mb transform run 1", "mb transform run 1 --wait --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const wait = parseWaitFlags(args);

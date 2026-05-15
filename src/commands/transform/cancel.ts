@@ -29,7 +29,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Transform id", required: true },
   },
   outputSchema: TransformCancelResult,
-  examples: ["metabase transform cancel 1", "metabase transform cancel 1 --json"],
+  examples: ["mb transform cancel 1", "mb transform cancel 1 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

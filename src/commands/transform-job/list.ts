@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
   meta: { name: "list", description: "List transform jobs" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: TransformJobListEnvelope,
-  examples: ["metabase transform-job list", "metabase transform-job list --json"],
+  examples: ["mb transform-job list", "mb transform-job list --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const items = await client.requestParsed(TransformJobApiList, "/api/transform-job");

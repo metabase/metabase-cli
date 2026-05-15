@@ -57,7 +57,7 @@ export default defineMetabaseCommand({
   },
   args: { ...outputFlags },
   outputSchema: LocalWorkspaceListEnvelope,
-  examples: ["metabase workspace ps", "metabase workspace ps --json"],
+  examples: ["mb workspace ps", "mb workspace ps --json"],
   async run({ ctx }) {
     await checkDockerReady();
     const summaries = await listWorkspaceContainers();

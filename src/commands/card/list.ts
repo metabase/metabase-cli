@@ -40,9 +40,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: CardListEnvelope,
   examples: [
-    "metabase card list",
-    "metabase card list --filter archived --json",
-    "metabase card list --filter using_model --model-id 42 --json",
+    "mb card list",
+    "mb card list --filter archived --json",
+    "mb card list --filter using_model --model-id 42 --json",
   ],
   async run({ args, ctx, getClient }) {
     const filter = CardListFilter.parse(args.filter);

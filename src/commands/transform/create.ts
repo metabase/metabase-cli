@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "create",
     description:
-      "Create a transform; if source.type is `query` and source.query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `metabase query` (see `metabase query --print-schema`)",
+      "Create a transform; if source.type is `query` and source.query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
   },
   args: {
     ...outputFlags,
@@ -25,9 +25,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: Transform,
   examples: [
-    "cat transform.json | metabase transform create",
-    "metabase transform create --file transform.json",
-    "metabase transform create --file transform.json --skip-validate",
+    "cat transform.json | mb transform create",
+    "mb transform create --file transform.json",
+    "mb transform create --file transform.json --skip-validate",
   ],
   async run({ args, ctx, getClient }) {
     const body = await readBody({ flag: args.body, file: args.file }, TransformCreateInput);

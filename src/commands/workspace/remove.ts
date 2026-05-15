@@ -54,10 +54,7 @@ export default defineMetabaseCommand({
     yes: { type: "boolean", description: "Skip the confirmation prompt", default: false },
   },
   outputSchema: RemoveResult,
-  examples: [
-    "metabase workspace remove 1 --yes",
-    "metabase workspace remove 1 --keep-volume --yes",
-  ],
+  examples: ["mb workspace remove 1 --yes", "mb workspace remove 1 --keep-volume --yes"],
   async run({ args, ctx }) {
     const workspaceId = parseId(args.id);
     const containerName = containerNameFor(workspaceId);

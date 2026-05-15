@@ -28,7 +28,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Database id", required: true },
   },
   outputSchema: DatabaseSchemaListEnvelope,
-  examples: ["metabase db schemas 1", "metabase db schemas 1 --json"],
+  examples: ["mb db schemas 1", "mb db schemas 1 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

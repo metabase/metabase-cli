@@ -56,7 +56,7 @@ describe("showUsage", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "demo cmd" },
       args: {},
-      examples: ["metabase demo --json", "metabase demo --profile staging"],
+      examples: ["mb demo --json", "mb demo --profile staging"],
       outputSchema: z.object({ ok: z.boolean() }),
       run() {
         return;
@@ -66,8 +66,8 @@ describe("showUsage", () => {
     await showUsage(cmd);
     const out = chunks.join("");
     expect(out).toContain("EXAMPLES");
-    expect(out).toContain("metabase demo --json");
-    expect(out).toContain("metabase demo --profile staging");
+    expect(out).toContain("mb demo --json");
+    expect(out).toContain("mb demo --profile staging");
   });
 
   it("omits the EXAMPLES section when no examples are declared", async () => {
@@ -96,6 +96,6 @@ describe("showUsage", () => {
     await showUsage(cmd);
     const out = chunks.join("");
     expect(out).toContain("SCHEMA");
-    expect(out).toContain("metabase __manifest");
+    expect(out).toContain("mb __manifest");
   });
 });

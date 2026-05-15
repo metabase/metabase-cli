@@ -271,7 +271,7 @@ describe("clause-shape error messages", () => {
 });
 
 describe("uuid-format error messages", () => {
-  it("replaces Ajv's bare 'must match format \"uuid\"' with a hint pointing at `metabase uuid`", () => {
+  it("replaces Ajv's bare 'must match format \"uuid\"' with a hint pointing at `mb uuid`", () => {
     const outcome = validateQuery({
       "lib/type": "mbql/query",
       database: 1,
@@ -290,8 +290,8 @@ describe("uuid-format error messages", () => {
     });
   });
 
-  it("uuid hint string mentions `metabase uuid` and notes that placeholders are rejected", () => {
-    expect(UUID_HINT_MESSAGE).toContain("metabase uuid");
+  it("uuid hint string mentions `mb uuid` and notes that placeholders are rejected", () => {
+    expect(UUID_HINT_MESSAGE).toContain("mb uuid");
     expect(UUID_HINT_MESSAGE).toContain("placeholder");
   });
 });

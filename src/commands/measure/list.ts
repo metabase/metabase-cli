@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
   meta: { name: "list", description: "List measures" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: MeasureListEnvelope,
-  examples: ["metabase measure list", "metabase measure list --json"],
+  examples: ["mb measure list", "mb measure list --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const items = await client.requestParsed(MeasureApiList, "/api/measure");

@@ -5,7 +5,7 @@ import packageJson from "../package.json" with { type: "json" };
 
 const main: CommandDef = defineCommand({
   meta: {
-    name: "metabase",
+    name: "mb",
     version: packageJson.version,
     description: packageJson.description,
   },

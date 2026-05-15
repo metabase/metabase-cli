@@ -18,7 +18,7 @@ export default defineMetabaseCommand({
   meta: { name: "dirty", description: "List objects with unsynced local changes" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SyncDirtyListEnvelope,
-  examples: ["metabase git-sync dirty", "metabase git-sync dirty --json"],
+  examples: ["mb git-sync dirty", "mb git-sync dirty --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const response = await client.requestParsed(SyncDirtyApiResponse, REMOTE_SYNC_PATHS.dirty);

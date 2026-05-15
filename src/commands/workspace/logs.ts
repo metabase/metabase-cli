@@ -33,9 +33,9 @@ export default defineMetabaseCommand({
     },
   },
   examples: [
-    "metabase workspace logs 1",
-    "metabase workspace logs 1 --follow",
-    "metabase workspace logs 1 --tail 500",
+    "mb workspace logs 1",
+    "mb workspace logs 1 --follow",
+    "mb workspace logs 1 --tail 500",
   ],
   async run({ args }) {
     const workspaceId = parseId(args.id);
@@ -46,7 +46,7 @@ export default defineMetabaseCommand({
     const status = await containerLifecycleStatus(containerName);
     if (status === "missing") {
       throw new ConfigError(
-        `no container for workspace ${workspaceId} — run \`metabase workspace start ${workspaceId}\` first`,
+        `no container for workspace ${workspaceId} — run \`mb workspace start ${workspaceId}\` first`,
       );
     }
 

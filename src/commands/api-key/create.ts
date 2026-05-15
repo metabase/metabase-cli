@@ -22,9 +22,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: ApiKey,
   examples: [
-    'metabase api-key create --name "deploy-bot" --group-id 2',
-    'echo \'{"name":"k","group_id":2}\' | metabase api-key create',
-    "metabase api-key create --file key.json",
+    'mb api-key create --name "deploy-bot" --group-id 2',
+    'echo \'{"name":"k","group_id":2}\' | mb api-key create',
+    "mb api-key create --file key.json",
   ],
   async run({ args, ctx, getClient }) {
     const pair = requireBothOrNeither(

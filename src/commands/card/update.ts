@@ -15,7 +15,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "update",
     description:
-      "Update a card by id; if dataset_query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `metabase query` (see `metabase query --print-schema`)",
+      "Update a card by id; if dataset_query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
   },
   args: {
     ...outputFlags,
@@ -27,12 +27,12 @@ export default defineMetabaseCommand({
   },
   outputSchema: Card,
   examples: [
-    "cat patch.json | metabase card update 1",
-    "metabase card update 1 --file patch.json",
-    'metabase card update 1 --body \'{"name":"renamed"}\'',
-    'metabase card update 1 --body \'{"display":"bar"}\'',
-    "metabase card update 1 --body '{\"archived\":true}'",
-    "metabase card update 1 --file patch.json --skip-validate",
+    "cat patch.json | mb card update 1",
+    "mb card update 1 --file patch.json",
+    'mb card update 1 --body \'{"name":"renamed"}\'',
+    'mb card update 1 --body \'{"display":"bar"}\'',
+    "mb card update 1 --body '{\"archived\":true}'",
+    "mb card update 1 --file patch.json --skip-validate",
   ],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);

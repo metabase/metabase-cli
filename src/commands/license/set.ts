@@ -33,9 +33,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: LicenseSetResult,
   examples: [
-    "echo $METABASE_LICENSE_TOKEN | metabase license set",
-    "metabase license set < token.txt",
-    "metabase license set $METABASE_LICENSE_TOKEN",
+    "echo $METABASE_LICENSE_TOKEN | mb license set",
+    "mb license set < token.txt",
+    "mb license set $METABASE_LICENSE_TOKEN",
   ],
   async run({ args, ctx }) {
     const token = await resolveToken(args.token);

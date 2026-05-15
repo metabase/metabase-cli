@@ -38,7 +38,7 @@ interface StashRequestBody {
   message: string;
 }
 
-const DEFAULT_STASH_MESSAGE = "Stashed from metabase CLI";
+const DEFAULT_STASH_MESSAGE = "Stashed from mb CLI";
 
 export default defineMetabaseCommand({
   meta: {
@@ -65,8 +65,8 @@ export default defineMetabaseCommand({
   },
   outputSchema: SyncStashResult,
   examples: [
-    "metabase git-sync stash --new-branch wip",
-    'metabase git-sync stash --new-branch wip -m "work in progress" --json',
+    "mb git-sync stash --new-branch wip",
+    'mb git-sync stash --new-branch wip -m "work in progress" --json',
   ],
   async run({ args, ctx, getClient }) {
     const newBranch = args.newBranch.trim();

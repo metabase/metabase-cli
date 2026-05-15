@@ -26,10 +26,10 @@ export default defineMetabaseCommand({
   },
   outputSchema: Dashboard,
   examples: [
-    "cat dashboard.json | metabase dashboard create",
-    "metabase dashboard create --file dashboard.json",
-    'metabase dashboard create --body \'{"name":"My Dashboard","collection_id":4}\'',
-    'metabase dashboard create --body \'{"name":"D","dashcards":[{"id":-1,"card_id":42,"row":0,"col":0,"size_x":12,"size_y":6}]}\'',
+    "cat dashboard.json | mb dashboard create",
+    "mb dashboard create --file dashboard.json",
+    'mb dashboard create --body \'{"name":"My Dashboard","collection_id":4}\'',
+    'mb dashboard create --body \'{"name":"D","dashcards":[{"id":-1,"card_id":42,"row":0,"col":0,"size_x":12,"size_y":6}]}\'',
   ],
   async run({ args, ctx, getClient }) {
     const body = await readBody({ flag: args.body, file: args.file }, DashboardCreateInput);

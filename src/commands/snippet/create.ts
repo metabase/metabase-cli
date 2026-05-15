@@ -15,9 +15,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: Snippet,
   examples: [
-    "cat snippet.json | metabase snippet create",
-    "metabase snippet create --file snippet.json",
-    'metabase snippet create --body \'{"name":"active","content":"WHERE active = true"}\'',
+    "cat snippet.json | mb snippet create",
+    "mb snippet create --file snippet.json",
+    'mb snippet create --body \'{"name":"active","content":"WHERE active = true"}\'',
   ],
   async run({ args, ctx, getClient }) {
     const body = await readBody({ flag: args.body, file: args.file }, SnippetCreateInput);

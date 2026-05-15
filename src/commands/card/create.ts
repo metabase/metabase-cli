@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "create",
     description:
-      "Create a card from a JSON spec; if dataset_query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `metabase query` (see `metabase query --print-schema`)",
+      "Create a card from a JSON spec; if dataset_query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
   },
   args: {
     ...outputFlags,
@@ -25,10 +25,10 @@ export default defineMetabaseCommand({
   },
   outputSchema: Card,
   examples: [
-    "cat card.json | metabase card create",
-    "metabase card create --file card.json",
-    'metabase card create --body \'{"name":"x","display":"table","dataset_query":{...},"visualization_settings":{}}\'',
-    "metabase card create --file card.json --skip-validate",
+    "cat card.json | mb card create",
+    "mb card create --file card.json",
+    'mb card create --body \'{"name":"x","display":"table","dataset_query":{...},"visualization_settings":{}}\'',
+    "mb card create --file card.json --skip-validate",
   ],
   async run({ args, ctx, getClient }) {
     const body = await readBody({ flag: args.body, file: args.file }, CardCreateInput);

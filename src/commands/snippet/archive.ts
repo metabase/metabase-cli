@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Snippet id", required: true },
   },
   outputSchema: Snippet,
-  examples: ["metabase snippet archive 1", "metabase snippet archive 1 --json"],
+  examples: ["mb snippet archive 1", "mb snippet archive 1 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

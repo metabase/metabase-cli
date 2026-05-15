@@ -13,11 +13,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Dashboard id", required: true },
   },
   outputSchema: DashboardDetail,
-  examples: [
-    "metabase dashboard get 1",
-    "metabase dashboard get 1 --json",
-    "metabase dashboard get 1 --json --full",
-  ],
+  examples: ["mb dashboard get 1", "mb dashboard get 1 --json", "mb dashboard get 1 --json --full"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

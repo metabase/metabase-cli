@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "create",
     description:
-      "Create a segment from a JSON spec; if definition is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `metabase query` (see `metabase query --print-schema`)",
+      "Create a segment from a JSON spec; if definition is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
   },
   args: {
     ...outputFlags,
@@ -25,9 +25,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: Segment,
   examples: [
-    "cat segment.json | metabase segment create",
-    "metabase segment create --file segment.json",
-    "metabase segment create --file segment.json --skip-validate",
+    "cat segment.json | mb segment create",
+    "mb segment create --file segment.json",
+    "mb segment create --file segment.json --skip-validate",
   ],
   async run({ args, ctx, getClient }) {
     const body = await readBody({ flag: args.body, file: args.file }, SegmentCreateInput);

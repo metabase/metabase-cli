@@ -34,7 +34,7 @@ export default defineMetabaseCommand({
   },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SyncStatus,
-  examples: ["metabase git-sync status", "metabase git-sync status --json"],
+  examples: ["mb git-sync status", "mb git-sync status --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const [branch, isDirty, currentTask] = await Promise.all([

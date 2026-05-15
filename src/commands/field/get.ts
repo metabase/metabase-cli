@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Field id", required: true },
   },
   outputSchema: Field,
-  examples: ["metabase field get 100", "metabase field get 100 --json"],
+  examples: ["mb field get 100", "mb field get 100 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();

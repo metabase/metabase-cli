@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
   meta: { name: "list", description: "List all settings (admin)" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SettingListEnvelope,
-  examples: ["metabase setting list", "metabase setting list --json"],
+  examples: ["mb setting list", "mb setting list --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const settings = await client.requestParsed(SettingApiList, "/api/setting");

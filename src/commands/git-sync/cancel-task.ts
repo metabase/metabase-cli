@@ -9,7 +9,7 @@ export default defineMetabaseCommand({
   meta: { name: "cancel-task", description: "Cancel the running git-sync task" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SyncTask,
-  examples: ["metabase git-sync cancel-task", "metabase git-sync cancel-task --json"],
+  examples: ["mb git-sync cancel-task", "mb git-sync cancel-task --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const task = await client.requestParsed(SyncTask, REMOTE_SYNC_PATHS.cancelTask, {

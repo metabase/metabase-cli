@@ -19,9 +19,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: SetupResult,
   examples: [
-    "cat setup.json | metabase setup",
-    "metabase setup --file setup.json",
-    'metabase setup --body \'{"token":"...","user":{"email":"a@b.c","password":"..."}}\'',
+    "cat setup.json | mb setup",
+    "mb setup --file setup.json",
+    'mb setup --body \'{"token":"...","user":{"email":"a@b.c","password":"..."}}\'',
   ],
   async run({ args, ctx, getClient }) {
     const body = await readBody({ flag: args.body, file: args.file }, SetupInput);

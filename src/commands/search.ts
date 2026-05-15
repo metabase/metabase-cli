@@ -68,9 +68,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: SearchListEnvelope,
   examples: [
-    "metabase search orders",
-    "metabase search --models card,dashboard --limit 10 --json",
-    "metabase search products --archived",
+    "mb search orders",
+    "mb search --models card,dashboard --limit 10 --json",
+    "mb search products --archived",
   ],
   async run({ args, ctx, getClient }) {
     const limit = parseId(args.limit, "--limit");

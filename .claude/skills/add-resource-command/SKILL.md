@@ -123,7 +123,7 @@ export default defineMetabaseCommand({
   meta: { name: "list", description: "List <resource-plural>" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags /* + filter flags */ },
   outputSchema: <Resource>ListEnvelope,
-  examples: ["metabase <r> list", "metabase <r> list --json"],
+  examples: ["mb <r> list", "mb <r> list --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const response = await client.requestParsed(<Resource>ApiList, "/api/<r>");
@@ -159,7 +159,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "<R> id", required: true },
   },
   outputSchema: <Resource>,
-  examples: ["metabase <r> get 1", "metabase <r> get 1 --json"],
+  examples: ["mb <r> get 1", "mb <r> get 1 --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();
