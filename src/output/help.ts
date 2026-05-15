@@ -10,12 +10,18 @@ export const ANSI_ESC = String.fromCharCode(27);
 // typed to reach this --help.
 const BREADCRUMB_SUFFIX = new RegExp(` \\([^()]*\\)(${ANSI_ESC}\\[\\d+m)?\\s*$`);
 
+// Citty's formatLineColumns pads the description column with spaces so all rows align
+// to the longest row. When one description is very long (e.g. `query`, `uuid`), every
+// short row trails hundreds of spaces, which wraps badly on narrow terminals.
+const TRAILING_WHITESPACE = /[ \t]+$/;
+
 export async function showUsage<T extends ArgsDef = ArgsDef>(
   cmd: CommandDef<T>,
   parent?: CommandDef<T>,
 ): Promise<void> {
   const raw = await renderUsage(cmd, parent);
-  const [first, ...rest] = raw.split("\n");
+  const lines = raw.split("\n").map((line) => line.replace(TRAILING_WHITESPACE, ""));
+  const [first, ...rest] = lines;
   const stripped = first === undefined ? "" : first.replace(BREADCRUMB_SUFFIX, "$1");
   const body = [stripped, ...rest].join("\n");
   const examples = getMetabaseAugment(cmd)?.examples ?? [];

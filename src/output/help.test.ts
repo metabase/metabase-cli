@@ -84,6 +84,39 @@ describe("showUsage", () => {
     expect(out).not.toContain("EXAMPLES");
   });
 
+  it("strips citty's column-padding whitespace from short rows so a long description does not bloat every line", async () => {
+    const cmd = defineCommand({
+      meta: { name: "root", description: "root cmd" },
+      subCommands: {
+        short: defineCommand({
+          meta: { name: "short", description: "Short description" },
+          run() {
+            return;
+          },
+        }),
+        long: defineCommand({
+          meta: {
+            name: "long",
+            description:
+              "This is a much, much longer description that forces citty's formatLineColumns to pad every other row with trailing spaces up to this length.",
+          },
+          run() {
+            return;
+          },
+        }),
+      },
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    const shortRow = out.split("\n").find((line) => line.includes("Short description"));
+    expect(shortRow).toBeDefined();
+    expect(shortRow).toMatch(/Short description$/);
+  });
+
   it("appends a SCHEMA section pointing to __manifest on every help page", async () => {
     const cmd = defineCommand({
       meta: { name: "demo", description: "demo cmd" },
