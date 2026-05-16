@@ -4,6 +4,7 @@ import type { ZodType } from "zod";
 
 import { resolveConfig, type ConfigFlags, type ResolvedConfig } from "../core/config";
 import { createClient, type Client } from "../core/http/client";
+import { createServerInfoCache, type ServerInfo } from "../core/version/probe";
 import { reportError } from "../output/error";
 import { setMetabaseAugment } from "../runtime/command-augment";
 
@@ -14,6 +15,7 @@ export interface MetabaseCommandContext<A extends ArgsDef> {
   ctx: CommonContext;
   getClient: () => Promise<Client>;
   getResolvedConfig: () => Promise<ResolvedConfig>;
+  getServerInfo: () => Promise<ServerInfo>;
 }
 
 export interface MetabaseCommandDef<A extends ArgsDef> {
@@ -48,7 +50,8 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
           }
           return cachedClient;
         };
-        await def.run({ args, ctx, getClient, getResolvedConfig });
+        const getServerInfo = createServerInfoCache(getClient);
+        await def.run({ args, ctx, getClient, getResolvedConfig, getServerInfo });
       } catch (error) {
         reportError(error);
       }

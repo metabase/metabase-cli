@@ -11,7 +11,7 @@ import {
   type InstallCommand,
   type InstallMethod,
 } from "../core/install-method";
-import { compareSemver, SemverString } from "../core/version";
+import { compareSemver, SemverString } from "../core/semver";
 import type { ResourceView } from "../domain/view";
 import { renderItem, writeText } from "../output/render";
 import { promptConfirm } from "../output/prompt";
