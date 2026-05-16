@@ -1,4 +1,6 @@
-import type { Build, TokenFeatures } from "../../domain/session-properties";
+import type { TokenFeatures } from "../../domain/session-properties";
+
+import type { Build } from "./tag";
 
 export type Edition = "oss" | "pro" | "enterprise";
 

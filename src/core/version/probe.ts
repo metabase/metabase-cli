@@ -1,37 +1,36 @@
-import {
-  parseTag,
-  SessionProperties,
-  type ParsedVersion,
-  type TokenFeatures,
-} from "../../domain/session-properties";
+import { SessionProperties, type TokenFeatures } from "../../domain/session-properties";
 import type { Client } from "../http/client";
 
 import { deriveEdition, type Edition } from "./edition";
+import { parseTag, type ParsedVersion } from "./tag";
 
-const PROBE_TIMEOUT_MS = 10_000;
-const PROBE_PATH = "/api/session/properties";
+export const PROBE_PATH = "/api/session/properties";
+export const PROBE_TIMEOUT_MS = 10_000;
 
 export interface ServerInfo {
-  version: ParsedVersion | null;
-  edition: Edition | null;
-  tokenFeatures: Readonly<TokenFeatures> | null;
+  readonly version: ParsedVersion | null;
+  readonly edition: Edition | null;
+  readonly tokenFeatures: Readonly<TokenFeatures> | null;
 }
 
-export const EMPTY_SERVER_INFO: ServerInfo = {
+export const EMPTY_SERVER_INFO: ServerInfo = Object.freeze({
   version: null,
   edition: null,
   tokenFeatures: null,
-};
+});
 
 export async function probeServer(client: Client): Promise<ServerInfo> {
   const properties = await client.requestParsed(SessionProperties, PROBE_PATH, {
     timeoutMs: PROBE_TIMEOUT_MS,
     retries: 0,
   });
+  const tokenFeatures = properties["token-features"];
   const version = parseTag(properties.version.tag);
-  const tokenFeatures = properties["token-features"] ?? {};
-  const edition = deriveEdition(version.build, tokenFeatures);
-  return { version, edition, tokenFeatures };
+  return {
+    version,
+    edition: deriveEdition(version.build, tokenFeatures),
+    tokenFeatures: tokenFeatures ?? null,
+  };
 }
 
 export function createServerInfoCache(getClient: () => Promise<Client>): () => Promise<ServerInfo> {

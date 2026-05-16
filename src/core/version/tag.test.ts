@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseTag, VersionTagParseError } from "./session-properties";
+import { parseTag, VersionTagParseError } from "./tag";
 
 describe("parseTag", () => {
   it("parses an OSS-build tag", () => {
@@ -39,33 +39,22 @@ describe("parseTag", () => {
     });
   });
 
-  it("throws VersionTagParseError on a flavor outside 0|1", () => {
+  it.each([
+    ["flavor outside 0|1", "v2.58.7"],
+    ["wholly malformed", "vLOCAL_DEV"],
+  ])("throws VersionTagParseError on %s", (_label, input) => {
     let caught: unknown;
     try {
-      parseTag("v2.58.7");
+      parseTag(input);
     } catch (error) {
       caught = error;
     }
     expect(caught).toBeInstanceOf(VersionTagParseError);
     if (caught instanceof VersionTagParseError) {
       expect(caught.message).toBe(
-        `Unrecognized Metabase version tag: "v2.58.7" (expected v0.X.Y or v1.X.Y)`,
+        `Unrecognized Metabase version tag: ${JSON.stringify(input)} (expected v0.X.Y or v1.X.Y)`,
       );
-    }
-  });
-
-  it("throws VersionTagParseError on a wholly malformed tag", () => {
-    let caught: unknown;
-    try {
-      parseTag("vLOCAL_DEV");
-    } catch (error) {
-      caught = error;
-    }
-    expect(caught).toBeInstanceOf(VersionTagParseError);
-    if (caught instanceof VersionTagParseError) {
-      expect(caught.message).toBe(
-        `Unrecognized Metabase version tag: "vLOCAL_DEV" (expected v0.X.Y or v1.X.Y)`,
-      );
+      expect(caught.developerDetail).toEqual({ tag: input });
     }
   });
 });

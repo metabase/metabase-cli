@@ -2,8 +2,6 @@ import { z } from "zod";
 
 import type { ResourceView } from "./view";
 
-const VERSION_TAG_REGEX = /^v?(?<flavor>[01])\.(?<major>\d+)\.(?<patch>\d+)/;
-
 export const ServerVersion = z
   .object({
     tag: z.string(),
@@ -37,36 +35,3 @@ export const sessionPropertiesView: ResourceView<SessionProperties> = {
     { key: "token-features", label: "Token features" },
   ],
 };
-
-export type Build = "oss" | "ee";
-
-export interface ParsedVersion {
-  tag: string;
-  build: Build;
-  major: number;
-  patch: number;
-}
-
-export class VersionTagParseError extends Error {
-  constructor(tag: string) {
-    super(`Unrecognized Metabase version tag: ${JSON.stringify(tag)} (expected v0.X.Y or v1.X.Y)`);
-    this.name = "VersionTagParseError";
-  }
-}
-
-export function parseTag(tag: string): ParsedVersion {
-  const match = VERSION_TAG_REGEX.exec(tag);
-  const groups = match?.groups;
-  const flavor = groups?.["flavor"];
-  const major = groups?.["major"];
-  const patch = groups?.["patch"];
-  if (flavor === undefined || major === undefined || patch === undefined) {
-    throw new VersionTagParseError(tag);
-  }
-  return {
-    tag,
-    build: flavor === "1" ? "ee" : "oss",
-    major: Number.parseInt(major, 10),
-    patch: Number.parseInt(patch, 10),
-  };
-}
