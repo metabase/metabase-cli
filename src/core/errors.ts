@@ -11,6 +11,7 @@ export type ErrorCategory =
   | "validation"
   | "timeout"
   | "config"
+  | "capability"
   | "abort"
   | "docker"
   | "unknown";

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { defineMetabaseCommand } from "../commands/runtime";
+import { BASELINE_CAPABILITIES } from "../core/version/capabilities";
 
 import { buildManifest } from "./manifest";
 
@@ -35,6 +36,7 @@ describe("buildManifest", () => {
           examples: [],
           args: [],
           outputSchema: null,
+          capabilities: BASELINE_CAPABILITIES,
         },
       ],
     });
@@ -126,6 +128,7 @@ describe("buildManifest", () => {
             required: ["ok", "name"],
             additionalProperties: false,
           },
+          capabilities: BASELINE_CAPABILITIES,
         },
       ],
     });
@@ -159,7 +162,7 @@ describe("buildManifest", () => {
     expect(manifest.commands.map((entry) => entry.command)).toEqual(["visible"]);
   });
 
-  it("returns null outputSchema and empty examples for non-metabase leaf commands", async () => {
+  it("skips non-metabase leaf commands (raw defineCommand without augment)", async () => {
     const leaf = defineCommand({
       meta: { name: "leaf", description: "raw" },
       args: {},
@@ -174,17 +177,6 @@ describe("buildManifest", () => {
 
     const manifest = await buildManifest(root);
 
-    expect(manifest).toEqual({
-      version: 1,
-      commands: [
-        {
-          command: "leaf",
-          description: "raw",
-          examples: [],
-          args: [],
-          outputSchema: null,
-        },
-      ],
-    });
+    expect(manifest).toEqual({ version: 1, commands: [] });
   });
 });

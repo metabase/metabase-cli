@@ -2,35 +2,81 @@ import { runCommand } from "citty";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setupTempConfigHome, type TempConfigHome } from "../core/auth/temp-config-home";
+import type { ServerInfo } from "../core/version/probe";
 
-const hoisted = vi.hoisted(() => ({
-  store: new Map<string, string>(),
-  controls: { broken: false },
-}));
+interface ServerInfoSlot {
+  current: ServerInfo | null;
+}
+
+const hoisted = vi.hoisted(() => {
+  const slot: ServerInfoSlot = { current: null };
+  return {
+    store: new Map<string, string>(),
+    controls: { broken: false },
+    serverInfo: slot,
+  };
+});
 
 vi.mock("@napi-rs/keyring", async () => {
   const { createKeyringMockModule } = await import("../core/auth/keyring-mock");
   return createKeyringMockModule(hoisted);
 });
 
-const { defineMetabaseCommand } = await import("./runtime");
+vi.mock("../core/version/probe", async () => {
+  const actual =
+    await vi.importActual<typeof import("../core/version/probe")>("../core/version/probe");
+  return {
+    ...actual,
+    createServerInfoCache: () => async () => hoisted.serverInfo.current ?? actual.EMPTY_SERVER_INFO,
+  };
+});
+
+const { defineMetabaseCommand, SKIP_PREFLIGHT_ENV } = await import("./runtime");
 const { outputFlags, profileFlag } = await import("./flags");
 const { writeProfile } = await import("../core/auth/storage");
 
+function setServerInfo(info: ServerInfo): void {
+  hoisted.serverInfo.current = info;
+}
+
+function fakeServerInfo(major: number, build: "oss" | "ee" = "oss"): ServerInfo {
+  return {
+    version: { tag: `v${build === "ee" ? "1" : "0"}.${major}.0`, build, major, patch: 0 },
+    edition: build === "ee" ? "enterprise" : "oss",
+    tokenFeatures: null,
+  };
+}
+
+function captureStderr(): string[] {
+  const captured: string[] = [];
+  vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+    captured.push(String(chunk));
+    return true;
+  });
+  return captured;
+}
+
 describe("defineMetabaseCommand", () => {
   let home: TempConfigHome;
+  let previousExitCode: typeof process.exitCode;
 
   beforeEach(() => {
     hoisted.store.clear();
+    hoisted.serverInfo.current = null;
     home = setupTempConfigHome();
     delete process.env["METABASE_URL"];
     delete process.env["METABASE_API_KEY"];
     delete process.env["METABASE_PROFILE"];
+    delete process.env[SKIP_PREFLIGHT_ENV];
+    previousExitCode = process.exitCode;
+    process.exitCode = 0;
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     home.cleanup();
+    delete process.env[SKIP_PREFLIGHT_ENV];
+    process.exitCode = previousExitCode;
   });
 
   it("resolves opted-in output flags into ctx and exposes custom flags on args", async () => {
@@ -115,20 +161,120 @@ describe("defineMetabaseCommand", () => {
         await getClient();
       },
     });
-    const stderr: string[] = [];
-    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
-      stderr.push(String(chunk));
-      return true;
-    });
-    const previousExitCode = process.exitCode;
-    process.exitCode = 0;
+    const stderr = captureStderr();
 
     await runCommand(cmd, { rawArgs: [] });
 
     expect(stderr.join("")).toContain('Not authenticated for profile "default"');
     expect(process.exitCode).toBe(2);
+  });
 
-    process.exitCode = previousExitCode;
-    stderrSpy.mockRestore();
+  it("refuses with CapabilityError exit code 2 when the server major is below required minVersion", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
+    setServerInfo(fakeServerInfo(58, "oss"));
+
+    const ran = vi.fn();
+    const cmd = defineMetabaseCommand({
+      meta: { name: "needs-v60", description: "wants v60" },
+      args: {},
+      capabilities: { minVersion: 60 },
+      async run({ getClient }) {
+        await getClient();
+        ran();
+      },
+    });
+    const stderr = captureStderr();
+
+    await runCommand(cmd, { rawArgs: [] });
+
+    expect(stderr.join("")).toContain(
+      "This command requires Metabase v0.60+ (this server is v0.58.0). Upgrade Metabase or pin mb-cli to an older release.",
+    );
+    expect(process.exitCode).toBe(2);
+    expect(ran).not.toHaveBeenCalled();
+  });
+
+  it("uses the EE upgrade hint (v1.X+) when the server build is ee", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
+    setServerInfo(fakeServerInfo(58, "ee"));
+
+    const cmd = defineMetabaseCommand({
+      meta: { name: "needs-v60-ee", description: "wants v60" },
+      args: {},
+      capabilities: { minVersion: 60 },
+      async run({ getClient }) {
+        await getClient();
+      },
+    });
+    const stderr = captureStderr();
+
+    await runCommand(cmd, { rawArgs: [] });
+
+    expect(stderr.join("")).toContain(
+      "This command requires Metabase v1.60+ (this server is v1.58.0). Upgrade Metabase or pin mb-cli to an older release.",
+    );
+    expect(process.exitCode).toBe(2);
+  });
+
+  it("runs a baseline-capabilities command to completion against a v0.58 server with no probe", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
+    setServerInfo(fakeServerInfo(58, "oss"));
+
+    const ran = vi.fn();
+    const cmd = defineMetabaseCommand({
+      meta: { name: "no-caps", description: "no caps" },
+      args: {},
+      async run({ getClient }) {
+        await getClient();
+        ran();
+      },
+    });
+
+    await runCommand(cmd, { rawArgs: [] });
+    expect(ran).toHaveBeenCalledOnce();
+  });
+
+  it("warns to stderr but proceeds when the server version is unknown (probe failed)", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
+
+    const ran = vi.fn();
+    const cmd = defineMetabaseCommand({
+      meta: { name: "needs-v60-warn", description: "wants v60" },
+      args: {},
+      capabilities: { minVersion: 60 },
+      async run({ getClient }) {
+        await getClient();
+        ran();
+      },
+    });
+    const stderr = captureStderr();
+
+    await runCommand(cmd, { rawArgs: [] });
+
+    expect(stderr.join("")).toContain(
+      "Could not detect Metabase server version. Proceeding without preflight check; failures may produce confusing errors.",
+    );
+    expect(ran).toHaveBeenCalledOnce();
+    expect(process.exitCode).toBe(0);
+  });
+
+  it("bypasses the preflight check when METABASE_CLI_SKIP_PREFLIGHT=1 is set", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
+    setServerInfo(fakeServerInfo(58, "oss"));
+    process.env[SKIP_PREFLIGHT_ENV] = "1";
+
+    const ran = vi.fn();
+    const cmd = defineMetabaseCommand({
+      meta: { name: "skip-preflight", description: "skip" },
+      args: {},
+      capabilities: { minVersion: 99 },
+      async run({ getClient }) {
+        await getClient();
+        ran();
+      },
+    });
+
+    await runCommand(cmd, { rawArgs: [] });
+    expect(ran).toHaveBeenCalledOnce();
   });
 });

@@ -2,13 +2,29 @@ import { defineCommand } from "citty";
 import type { ArgsDef, CommandDef, CommandMeta, ParsedArgs } from "citty";
 import type { ZodType } from "zod";
 
-import { resolveConfig, type ConfigFlags, type ResolvedConfig } from "../core/config";
+import {
+  isPreflightSkipped,
+  resolveConfig,
+  SKIP_PREFLIGHT_ENV,
+  type ConfigFlags,
+  type ResolvedConfig,
+} from "../core/config";
 import { createClient, type Client } from "../core/http/client";
+import {
+  BASELINE_CAPABILITIES,
+  checkCapabilities,
+  mergeCapabilities,
+  type Capabilities,
+} from "../core/version/capabilities";
+import { CapabilityError } from "../core/version/preflight-error";
 import { createServerInfoCache, type ServerInfo } from "../core/version/probe";
 import { reportError } from "../output/error";
+import { warn } from "../output/notice";
 import { setMetabaseAugment } from "../runtime/command-augment";
 
 import { resolveCommonFlags, type CommonArgs, type CommonContext } from "./context";
+
+export { SKIP_PREFLIGHT_ENV };
 
 export interface MetabaseCommandContext<A extends ArgsDef> {
   args: ParsedArgs<A>;
@@ -23,12 +39,14 @@ export interface MetabaseCommandDef<A extends ArgsDef> {
   args: A;
   examples?: readonly string[];
   outputSchema?: ZodType;
+  capabilities?: Partial<Capabilities>;
   run: (context: MetabaseCommandContext<A>) => Promise<void> | void;
 }
 
 export function defineMetabaseCommand<const A extends ArgsDef>(
   def: MetabaseCommandDef<A>,
 ): CommandDef<A> {
+  const required = mergeCapabilities(def.capabilities);
   const cmd = defineCommand<A>({
     meta: def.meta,
     args: def.args,
@@ -43,15 +61,32 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
           }
           return cachedConfig;
         };
-        const getClient = async (): Promise<Client> => {
+        const rawGetClient = async (): Promise<Client> => {
           if (cachedClient === null) {
             const resolved = await getResolvedConfig();
             cachedClient = createClient({ url: resolved.url, apiKey: resolved.apiKey });
           }
           return cachedClient;
         };
-        const getServerInfo = createServerInfoCache(getClient);
-        await def.run({ args, ctx, getClient, getResolvedConfig, getServerInfo });
+        const getServerInfo = createServerInfoCache(rawGetClient);
+        const enforcePreflight = createPreflightEnforcer(required, getServerInfo);
+        const getClient = async (): Promise<Client> => {
+          const client = await rawGetClient();
+          await enforcePreflight();
+          return client;
+        };
+        const guardedGetServerInfo = async (): Promise<ServerInfo> => {
+          const info = await getServerInfo();
+          await enforcePreflight();
+          return info;
+        };
+        await def.run({
+          args,
+          ctx,
+          getClient,
+          getResolvedConfig,
+          getServerInfo: guardedGetServerInfo,
+        });
       } catch (error) {
         reportError(error);
       }
@@ -60,8 +95,45 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
   setMetabaseAugment(cmd, {
     examples: def.examples ?? [],
     outputSchema: def.outputSchema ?? null,
+    capabilities: required,
   });
   return cmd;
+}
+
+const NO_OP_ENFORCER: () => Promise<void> = async () => {};
+
+function createPreflightEnforcer(
+  required: Capabilities,
+  getServerInfo: () => Promise<ServerInfo>,
+): () => Promise<void> {
+  if (isPreflightSkipped() || isBaseline(required)) {
+    return NO_OP_ENFORCER;
+  }
+  let done = false;
+  return async () => {
+    if (done) {
+      return;
+    }
+    done = true;
+    const info = await getServerInfo();
+    const failure = checkCapabilities(info, required);
+    if (failure === null) {
+      return;
+    }
+    if (failure.reason === "unknown-version") {
+      warn(failure.detail);
+      return;
+    }
+    throw new CapabilityError(failure);
+  };
+}
+
+function isBaseline(caps: Capabilities): boolean {
+  return (
+    caps.minVersion === BASELINE_CAPABILITIES.minVersion &&
+    caps.edition === BASELINE_CAPABILITIES.edition &&
+    caps.tokenFeature === undefined
+  );
 }
 
 function pickCommonArgs<A extends ArgsDef>(args: ParsedArgs<A>): CommonArgs {

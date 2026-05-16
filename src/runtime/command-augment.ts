@@ -1,8 +1,11 @@
 import type { ZodType } from "zod";
 
+import type { Capabilities } from "./capabilities";
+
 export interface MetabaseAugment {
   examples: readonly string[];
   outputSchema: ZodType | null;
+  capabilities: Capabilities;
 }
 
 const augments = new WeakMap<object, MetabaseAugment>();

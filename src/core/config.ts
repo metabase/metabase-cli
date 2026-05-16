@@ -7,6 +7,13 @@ const ENV_URL = "METABASE_URL";
 const ENV_API_KEY = "METABASE_API_KEY";
 const ENV_PROFILE = "METABASE_PROFILE";
 const ENV_LICENSE_TOKEN = "METABASE_LICENSE_TOKEN";
+const ENV_SKIP_PREFLIGHT = "METABASE_CLI_SKIP_PREFLIGHT";
+
+export const SKIP_PREFLIGHT_ENV = ENV_SKIP_PREFLIGHT;
+
+export function isPreflightSkipped(): boolean {
+  return process.env[ENV_SKIP_PREFLIGHT] === "1";
+}
 
 export type ConfigSource = "flag" | "env" | "stored" | "mixed";
 

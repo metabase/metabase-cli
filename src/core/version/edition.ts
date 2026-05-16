@@ -1,8 +1,9 @@
 import type { TokenFeatures } from "../../domain/session-properties";
+import type { Edition } from "../../runtime/capabilities";
 
 import type { Build } from "./tag";
 
-export type Edition = "oss" | "pro" | "enterprise";
+export type { Edition };
 
 // Metabase's backend exposes token-features as a flat boolean map with no canonical
 // Pro vs Enterprise marker. This set captures the features marketed as Enterprise-only;

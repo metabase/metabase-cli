@@ -1456,13 +1456,14 @@ Exit codes: `0` success (including up-to-date / printed-instructions), `1` regis
 
 ## Environment variables
 
-| Variable                 | Effect                                                                         |
-| ------------------------ | ------------------------------------------------------------------------------ |
-| `METABASE_URL`           | Default URL for `auth login` and config resolution.                            |
-| `METABASE_API_KEY`       | Default API key (overrides interactive prompt; not stored).                    |
-| `METABASE_PROFILE`       | Default profile when `--profile` is omitted. Falls back to `default`.          |
-| `METABASE_LICENSE_TOKEN` | Default license token for `license set`.                                       |
-| `METABASE_VERBOSE`       | When set to `1`, prints structured developer-detail JSON to stderr on failure. |
+| Variable                      | Effect                                                                                                                                                                              |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `METABASE_URL`                | Default URL for `auth login` and config resolution.                                                                                                                                 |
+| `METABASE_API_KEY`            | Default API key (overrides interactive prompt; not stored).                                                                                                                         |
+| `METABASE_PROFILE`            | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                               |
+| `METABASE_LICENSE_TOKEN`      | Default license token for `license set`.                                                                                                                                            |
+| `METABASE_VERBOSE`            | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                                      |
+| `METABASE_CLI_SKIP_PREFLIGHT` | When set to `1`, bypasses the per-command server version / edition / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
 
 ## Agent integration
 

@@ -1,6 +1,7 @@
 import type { ArgDef, ArgsDef, CommandDef, CommandMeta, Resolvable, SubCommandsDef } from "citty";
 import { z } from "zod";
 
+import { Capabilities } from "./capabilities";
 import { getMetabaseAugment } from "./command-augment";
 
 export const ManifestArg = z.object({
@@ -20,6 +21,7 @@ export const ManifestEntry = z.object({
   examples: z.array(z.string()),
   args: z.array(ManifestArg),
   outputSchema: z.unknown().nullable(),
+  capabilities: Capabilities,
 });
 export type ManifestEntry = z.infer<typeof ManifestEntry>;
 
@@ -52,13 +54,17 @@ async function walk(cmd: CommandDef, path: string[]): Promise<ManifestEntry[]> {
 
   const args = (await resolveCitty(cmd.args)) ?? {};
   const augment = getMetabaseAugment(cmd);
+  if (augment === null) {
+    return [];
+  }
   return [
     {
       command: path.join(" "),
       description: readDescription(meta),
-      examples: augment ? Array.from(augment.examples) : [],
+      examples: Array.from(augment.examples),
       args: convertArgs(args),
-      outputSchema: augment?.outputSchema ? z.toJSONSchema(augment.outputSchema) : null,
+      outputSchema: augment.outputSchema ? z.toJSONSchema(augment.outputSchema) : null,
+      capabilities: augment.capabilities,
     },
   ];
 }
