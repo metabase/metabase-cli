@@ -42,7 +42,7 @@ import { parseId } from "../parse-id";
 import { parseInteger, parseOptionalInteger } from "../parse-integer";
 import { defineMetabaseCommand } from "../runtime";
 
-const DEFAULT_IMAGE = "metabase/metabase-dev:feature-workspaces-v2";
+const DEFAULT_IMAGE = "metabase/metabase-enterprise:latest";
 const DEFAULT_HOST_PORT = 3000;
 // 240s: a cold boot (image pull + JVM classloading + initial app-db migrations)
 // can exceed three minutes on the first start.
@@ -167,7 +167,7 @@ export default defineMetabaseCommand({
     "mb workspace start 1",
     "mb workspace start 1 --wait",
     "mb workspace start 1 --port 3100",
-    "mb workspace start 1 --image metabase/metabase-dev:feature-workspaces-v2 --no-pull",
+    "mb workspace start 1 --image metabase/metabase-enterprise:latest --no-pull",
     "mb workspace start 1 --force",
     "mb workspace start 1 --repo /path/to/sync-repo --wait",
     "mb workspace start 1 --repo /path/to/sync-repo --repo-branch dev --repo-mode read-only",

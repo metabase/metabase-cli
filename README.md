@@ -1188,7 +1188,7 @@ These commands manage a Docker container that serves as the workspace's child Me
 mb workspace start 1
 mb workspace start 1 --wait
 mb workspace start 1 --port 3100
-mb workspace start 1 --image metabase/metabase-dev:feature-workspaces-v2 --no-pull
+mb workspace start 1 --image metabase/metabase-enterprise:latest --no-pull
 mb workspace start 1 --force
 mb workspace start 1 --repo /path/to/sync-repo --wait
 mb workspace start 1 --repo /path/to/sync-repo --repo-branch dev --repo-mode read-only
@@ -1205,7 +1205,7 @@ When `--repo <host-path>` is passed, the CLI bind-mounts the host directory at `
 | Flag                   | Description                                                                                                                                                                              |
 | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--port <n>`           | Host port (default: 3000; auto-shifts up to 100 ports if taken).                                                                                                                         |
-| `--image <ref>`        | Docker image (default: `metabase/metabase-dev:feature-workspaces-v2`).                                                                                                                   |
+| `--image <ref>`        | Docker image (default: `metabase/metabase-enterprise:latest`).                                                                                                                           |
 | `--wait`               | Block until `/api/health` is ready. Default: return as soon as consumed.                                                                                                                 |
 | `--timeout <ms>`       | Per-phase readiness deadline (default: 240000). Covers post-create config consumption, (with `--wait`) the `/api/health` probe, and (with `--metadata`) the metadata-import status poll. |
 | `--no-pull`            | Skip `docker pull` (useful if the image is already present).                                                                                                                             |
