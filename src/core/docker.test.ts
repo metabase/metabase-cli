@@ -23,12 +23,12 @@ describe("parseContainerLine", () => {
       Names: "metabase-workspace-12",
       State: "running",
       Status: "Up 5 minutes",
-      Image: "metabase/metabase-enterprise:latest",
+      Image: "metabase/metabase-dev:feature-workspaces-v2",
       Ports: "0.0.0.0:3100->3000/tcp",
       Labels:
         "com.metabase.workspace.id=12,com.metabase.workspace.name=analytics," +
         "com.metabase.workspace.profile=staging,com.metabase.workspace.parent=https://parent.example," +
-        "com.metabase.workspace.image=metabase/metabase-enterprise:latest," +
+        "com.metabase.workspace.image=metabase/metabase-dev:feature-workspaces-v2," +
         "com.metabase.workspace.host-port=3100",
     });
     expect(parseContainerLine(line)).toEqual({
@@ -36,7 +36,7 @@ describe("parseContainerLine", () => {
       name: "metabase-workspace-12",
       state: "running",
       status: "Up 5 minutes",
-      image: "metabase/metabase-enterprise:latest",
+      image: "metabase/metabase-dev:feature-workspaces-v2",
       workspaceId: 12,
       workspaceName: "analytics",
       profile: "staging",
@@ -64,7 +64,7 @@ describe("parseContainerLine", () => {
       Names: "metabase-workspace-3",
       State: "exited",
       Status: "Exited (0) 2 minutes ago",
-      Image: "metabase/metabase-enterprise:latest",
+      Image: "metabase/metabase-dev:feature-workspaces-v2",
       Ports: "",
       Labels: "com.metabase.workspace.id=3,com.metabase.workspace.name=demo",
     });
