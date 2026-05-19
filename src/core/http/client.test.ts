@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import packageJson from "../../../package.json" with { type: "json" };
-import { TimeoutError, ValidationError } from "../errors";
+import { ResponseShapeError, TimeoutError } from "../errors";
 import { type ClientCredentials, createClient } from "./client";
 import { HttpError } from "./errors";
 
@@ -181,19 +181,33 @@ describe("createClient.requestParsed", () => {
     expect(fakeFetch.calls.length).toBe(2);
   });
 
-  it("throws ValidationError when the response does not match the schema", async () => {
-    const fakeFetch = makeFakeFetch([jsonResponse({ id: "not-a-number", email: "a@b.com" })]);
+  it("throws ResponseShapeError carrying the request context and the schema's zod issues", async () => {
+    const body = { id: "not-a-number", email: "a@b.com" };
+    const expectedIssues = PingResponse.safeParse(body).error?.issues;
+    if (expectedIssues === undefined) {
+      throw new Error("expected zod failure for fixture body");
+    }
+    const fakeFetch = makeFakeFetch([jsonResponse(body)]);
     const client = createClient(CONFIG, { fetchImpl: fakeFetch.fetch });
 
     const error = await client
       .requestParsed(PingResponse, "/api/user/current")
       .catch((caught: unknown) => caught);
 
-    expect(error).toBeInstanceOf(ValidationError);
-    if (!(error instanceof ValidationError)) {
-      throw new Error("expected ValidationError");
+    expect(error).toBeInstanceOf(ResponseShapeError);
+    if (!(error instanceof ResponseShapeError)) {
+      throw new Error("expected ResponseShapeError");
     }
-    expect(error.userMessage).toContain("value did not match expected schema");
+    expect(error.userMessage).toBe(
+      "Metabase returned unexpected response shape:\n" +
+        "  id: Invalid input: expected number, received string",
+    );
+    expect(error.developerDetail).toEqual({
+      method: "GET",
+      url: "https://m.example.com/api/user/current",
+      status: 200,
+      zodIssues: expectedIssues,
+    });
   });
 
   it("throws HttpError on content-type mismatch with no silent downgrade", async () => {

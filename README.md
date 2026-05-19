@@ -32,14 +32,14 @@ Credentials are stored per-profile. The default profile is named `default`. Use 
 
 ### `mb auth login`
 
-Save credentials for a profile.
+Save credentials for a profile. On success the server is probed once — the rendered output shows the API-key user, role (`Admin`/`User`), Metabase version, and edition (`oss`/`pro`/`enterprise`), and the same values are cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good `apiKey`/`url`/`lastProbe` and gains a `lastFailure` entry.
 
 | Flag                | Description                                                |
 | ------------------- | ---------------------------------------------------------- |
 | `--url <url>`       | Metabase URL. Falls back to `METABASE_URL`, then prompts.  |
 | `--api-key <value>` | API key. Visible in shell history — pipe on stdin instead. |
 | `--profile <name>`  | Profile to write to (default: `default`).                  |
-| `--skip-verify`     | Save without contacting the server.                        |
+| `--skip-verify`     | Save without contacting the server (no probe, no cache).   |
 
 Resolution order for the API key: `--api-key` → piped stdin → `METABASE_API_KEY` → interactive prompt. Stdin is auto-detected when not a TTY.
 
@@ -65,7 +65,9 @@ mb auth status --profile staging
 
 ### `mb auth list`
 
-List configured authentication profiles. The index is maintained at `<configDir>/profiles.json` and updated on every `auth login` / `auth logout`. Profiles whose URL/API key were stored in the OS keychain before the index existed are picked up by a one-time backfill from `credentials.json`; profiles that exist only in the keyring (no entry in `credentials.json`) appear after the next `auth login` or `auth logout` against them.
+List configured authentication profiles. All profile metadata (URL, last successful probe, last failure) lives in `<configDir>/profiles.json` at mode `0600`; the API key sits in the OS keychain when available, or inline in the same file when the keychain is unavailable.
+
+`auth list` re-probes every profile in parallel — on success it refreshes `lastProbe` (Metabase version, edition, token features, API-key user identity) and clears `lastFailure`; on failure it updates `lastFailure` and leaves the prior `lastProbe`/`url`/`apiKey` untouched. Rendered columns: `Profile | URL | Status | Role | Version | Edition | Last probed`. Failed rows append a one-line footer pointing at `mb auth login --profile <name>`.
 
 ```sh
 mb auth list

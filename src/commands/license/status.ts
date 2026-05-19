@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { account, credentials } from "../../core/auth/storage";
+import { readLicense } from "../../core/auth/storage";
 import type { ResourceView } from "../../domain/view";
 import { renderItem } from "../../output/render";
 import { outputFlags } from "../flags";
@@ -25,7 +25,7 @@ export default defineMetabaseCommand({
   outputSchema: LicenseStatus,
   examples: ["mb license status", "mb license status --json"],
   async run({ ctx }) {
-    const present = await credentials.has(account.license);
+    const present = (await readLicense()) !== null;
     renderItem({ present }, licenseStatusView, ctx);
   },
 });

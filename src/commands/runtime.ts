@@ -2,6 +2,7 @@ import { defineCommand } from "citty";
 import type { ArgsDef, CommandDef, CommandMeta, ParsedArgs } from "citty";
 import type { ZodType } from "zod";
 
+import { consumeLegacyStorageWarning, readProfileRecord } from "../core/auth/storage";
 import {
   isPreflightSkipped,
   resolveConfig,
@@ -17,7 +18,7 @@ import {
   type Capabilities,
 } from "../core/version/capabilities";
 import { CapabilityError } from "../core/version/preflight-error";
-import { createServerInfoCache, type ServerInfo } from "../core/version/probe";
+import { EMPTY_SERVER_INFO, type ServerInfo } from "../core/version/probe";
 import { reportError } from "../output/error";
 import { warn } from "../output/notice";
 import { setMetabaseAugment } from "../runtime/command-augment";
@@ -31,7 +32,7 @@ export interface MetabaseCommandContext<A extends ArgsDef> {
   ctx: CommonContext;
   getClient: () => Promise<Client>;
   getResolvedConfig: () => Promise<ResolvedConfig>;
-  getServerInfo: () => Promise<ServerInfo>;
+  getServerInfo: () => Promise<ServerInfo | null>;
 }
 
 export interface MetabaseCommandDef<A extends ArgsDef> {
@@ -68,25 +69,35 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
           }
           return cachedClient;
         };
-        const getServerInfo = createServerInfoCache(rawGetClient);
+        const getServerInfo = async (): Promise<ServerInfo | null> => {
+          const resolved = await getResolvedConfig();
+          const record = await readProfileRecord(resolved.profile);
+          if (record === null || record.lastProbe === null) {
+            return null;
+          }
+          return {
+            version: record.lastProbe.version,
+            edition: record.lastProbe.edition,
+            tokenFeatures: record.lastProbe.tokenFeatures,
+          };
+        };
         const enforcePreflight = createPreflightEnforcer(required, getServerInfo);
         const getClient = async (): Promise<Client> => {
           const client = await rawGetClient();
           await enforcePreflight();
           return client;
         };
-        const guardedGetServerInfo = async (): Promise<ServerInfo> => {
-          const info = await getServerInfo();
-          await enforcePreflight();
-          return info;
-        };
-        await def.run({
-          args,
-          ctx,
-          getClient,
-          getResolvedConfig,
-          getServerInfo: guardedGetServerInfo,
-        });
+        try {
+          await def.run({
+            args,
+            ctx,
+            getClient,
+            getResolvedConfig,
+            getServerInfo,
+          });
+        } finally {
+          emitLegacyStorageWarningIfPending();
+        }
       } catch (error) {
         reportError(error);
       }
@@ -100,11 +111,20 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
   return cmd;
 }
 
+function emitLegacyStorageWarningIfPending(): void {
+  const message = consumeLegacyStorageWarning();
+  if (message !== null) {
+    warn(message);
+  }
+}
+
 const NO_OP_ENFORCER: () => Promise<void> = async () => {};
+
+const PROBE_HINT = " Run `mb auth list` (or `mb auth login`) to populate the version cache.";
 
 function createPreflightEnforcer(
   required: Capabilities,
-  getServerInfo: () => Promise<ServerInfo>,
+  getServerInfo: () => Promise<ServerInfo | null>,
 ): () => Promise<void> {
   if (isPreflightSkipped() || isBaseline(required)) {
     return NO_OP_ENFORCER;
@@ -115,13 +135,13 @@ function createPreflightEnforcer(
       return;
     }
     done = true;
-    const info = await getServerInfo();
+    const info = (await getServerInfo()) ?? EMPTY_SERVER_INFO;
     const failure = checkCapabilities(info, required);
     if (failure === null) {
       return;
     }
     if (failure.reason === "unknown-version") {
-      warn(failure.detail);
+      warn(failure.detail + PROBE_HINT);
       return;
     }
     throw new CapabilityError(failure);

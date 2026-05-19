@@ -1,11 +1,18 @@
 import { z } from "zod";
 
-import { clearRejection, recordRejection } from "../../core/auth/rejection";
-import { DEFAULT_PROFILE, writeProfile } from "../../core/auth/storage";
-import { verifyCredentials } from "../../core/auth/verify";
+import {
+  DEFAULT_PROFILE,
+  writeProbeFailure,
+  writeProbeResult,
+  writeProfile,
+} from "../../core/auth/storage";
+import { verifyAndProbe, type VerifyFailure } from "../../core/auth/verify";
 import { explicitProfileName, readEnvCredentials } from "../../core/config";
 import { ConfigError, errorMessage } from "../../core/errors";
 import { normalizeUrl } from "../../core/url";
+import { ParsedVersionSchema } from "../../core/version/tag";
+import { Edition } from "../../runtime/capabilities";
+import { ProbedUser } from "../../core/auth/profile-record";
 import type { ResourceView } from "../../domain/view";
 import { warn } from "../../output/notice";
 import { promptPassword, promptText } from "../../output/prompt";
@@ -13,12 +20,15 @@ import { renderItem } from "../../output/render";
 import { readInput } from "../../runtime/input";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
+import { renderEditionLabel, renderUserName, renderUserRole, renderVersionTag } from "./render";
 
 export const LoginResult = z.object({
   profile: z.string(),
   url: z.string(),
   authenticated: z.boolean(),
-  email: z.string().nullable(),
+  user: ProbedUser.nullable(),
+  version: ParsedVersionSchema.nullable(),
+  edition: Edition.nullable(),
 });
 export type LoginResultJson = z.infer<typeof LoginResult>;
 
@@ -29,10 +39,13 @@ const loginView: ResourceView<LoginResultJson> = {
     { key: "url", label: "Metabase URL" },
     {
       key: "authenticated",
-      label: "Status",
+      label: "Authenticated",
       format: (value) => (value === true ? "credentials verified" : "saved without verification"),
     },
-    { key: "email", label: "Logged in as" },
+    { key: "user", label: "Logged in as", format: (value) => renderUserName(value) },
+    { key: "user", label: "Role", format: (value) => renderUserRole(value) },
+    { key: "version", label: "Version", format: (value) => renderVersionTag(value) },
+    { key: "edition", label: "Edition", format: (value) => renderEditionLabel(value) },
   ],
 };
 
@@ -67,29 +80,59 @@ export default defineMetabaseCommand({
     const url = await resolveUrl(args.url, env.url);
     const apiKey = await resolveApiKey(args.apiKey, env.apiKey);
 
-    let email: string | null = null;
-    let authenticated = false;
-    if (!args["skip-verify"]) {
-      const result = await verifyCredentials(url, apiKey);
-      if (!result.ok) {
-        await recordRejection(profileName, { reason: result.message, url });
-        throw new ConfigError(
-          `verification failed: ${result.message} — credentials were not saved for profile "${profileName}"`,
+    if (args["skip-verify"]) {
+      const location = await writeProfile({ url, apiKey }, profileName);
+      if (location.backend === "file") {
+        warn(
+          `warning: OS keychain unavailable; credentials stored as plaintext at ${location.path}`,
         );
       }
-      email = result.user.email;
-      authenticated = true;
+      renderItem(
+        {
+          profile: profileName,
+          url,
+          authenticated: false,
+          user: null,
+          version: null,
+          edition: null,
+        },
+        loginView,
+        ctx,
+      );
+      return;
+    }
+
+    const result = await verifyAndProbe(url, apiKey);
+    if (!result.ok) {
+      await writeProbeFailure(profileName, { kind: result.kind, reason: result.message });
+      throw new ConfigError(formatVerifyFailureMessage(profileName, result));
     }
 
     const location = await writeProfile({ url, apiKey }, profileName);
-    await clearRejection(profileName);
     if (location.backend === "file") {
       warn(`warning: OS keychain unavailable; credentials stored as plaintext at ${location.path}`);
     }
+    await writeProbeResult(profileName, { user: result.user, server: result.server });
 
-    renderItem({ profile: profileName, url, authenticated, email }, loginView, ctx);
+    renderItem(
+      {
+        profile: profileName,
+        url,
+        authenticated: true,
+        user: result.user,
+        version: result.server.version,
+        edition: result.server.edition,
+      },
+      loginView,
+      ctx,
+    );
   },
 });
+
+function formatVerifyFailureMessage(profileName: string, failure: VerifyFailure): string {
+  const which = failure.which === "user" ? "/api/user/current" : "/api/session/properties";
+  return `verification failed (${which}): ${failure.message} — credentials were not saved for profile "${profileName}"`;
+}
 
 async function resolveLoginProfile(flagProfile: string | undefined): Promise<string> {
   const explicit = explicitProfileName(flagProfile);

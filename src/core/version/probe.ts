@@ -32,19 +32,3 @@ export async function probeServer(client: Client): Promise<ServerInfo> {
     tokenFeatures: tokenFeatures ?? null,
   };
 }
-
-export function createServerInfoCache(getClient: () => Promise<Client>): () => Promise<ServerInfo> {
-  let cached: Promise<ServerInfo> | null = null;
-  return () => {
-    if (cached === null) {
-      cached = (async () => {
-        try {
-          return await probeServer(await getClient());
-        } catch {
-          return EMPTY_SERVER_INFO;
-        }
-      })();
-    }
-    return cached;
-  };
-}

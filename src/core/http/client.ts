@@ -1,7 +1,13 @@
 import type { ZodType } from "zod";
 
 import packageJson from "../../../package.json" with { type: "json" };
-import { ConfigError, errorMessage, NetworkError, TimeoutError } from "../errors";
+import {
+  errorMessage,
+  NetworkError,
+  ResponseShapeError,
+  TimeoutError,
+  ValidationError,
+} from "../errors";
 import { parseJson } from "../../runtime/json";
 import { combineAborts, throwIfAborted } from "../../runtime/signal";
 
@@ -191,15 +197,12 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
       try {
         return parseJson(text, schema, { source: prepared.url });
       } catch (error) {
-        if (error instanceof ConfigError) {
-          throw new HttpError({
-            status: response.status,
-            statusText: response.statusText,
+        if (error instanceof ValidationError) {
+          throw new ResponseShapeError({
             method: prepared.method,
             url: prepared.url,
-            responseHeaders: response.headers,
-            rawBody: text,
-            redactionContext,
+            status: response.status,
+            zodIssues: error.developerDetail.zodIssues,
           });
         }
         throw error;

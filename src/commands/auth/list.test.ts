@@ -3,10 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ZodType } from "zod";
 
 import { parseJson } from "../../runtime/json";
+import type { Verification } from "../../core/auth/verify";
 
 const hoisted = vi.hoisted(() => ({
   store: new Map<string, string>(),
   controls: { broken: false },
+  verify: { results: new Map<string, Verification>() },
 }));
 
 vi.mock("@napi-rs/keyring", async () => {
@@ -14,8 +16,18 @@ vi.mock("@napi-rs/keyring", async () => {
   return createKeyringMockModule(hoisted);
 });
 
+vi.mock("../../core/auth/verify", () => ({
+  verifyAndProbe: async (url: string, apiKey: string): Promise<Verification> => {
+    const result = hoisted.verify.results.get(apiKey);
+    if (result === undefined) {
+      throw new Error(`no verifyAndProbe result configured for apiKey "${apiKey}"`);
+    }
+    return result;
+  },
+}));
+
 import authListCommand, { AuthProfileListEnvelope } from "./list";
-import { clearProfile, writeProfile } from "../../core/auth/storage";
+import { writeProfile, readProfileRecord } from "../../core/auth/storage";
 import { setupTempConfigHome, type TempConfigHome } from "../../core/auth/temp-config-home";
 
 interface CapturedStdout {
@@ -39,11 +51,33 @@ function captureStdout(): CapturedStdout {
   };
 }
 
+function captureStderr(): string[] {
+  const captured: string[] = [];
+  vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+    captured.push(String(chunk));
+    return true;
+  });
+  return captured;
+}
+
+function successVerify(): Verification {
+  return {
+    ok: true,
+    user: { id: 1, name: "Tester", isAdmin: true },
+    server: {
+      version: { tag: "v0.58.7", build: "oss", major: 58, patch: 7 },
+      edition: "oss",
+      tokenFeatures: null,
+    },
+  };
+}
+
 describe("auth list command", () => {
   let home: TempConfigHome;
 
   beforeEach(() => {
     hoisted.store.clear();
+    hoisted.verify.results.clear();
     home = setupTempConfigHome();
   });
 
@@ -62,33 +96,84 @@ describe("auth list command", () => {
     });
   });
 
-  it("lists every stored profile with sanitized URL and present=true", async () => {
+  it("probes each stored profile and writes the refreshed lastProbe to disk", async () => {
+    hoisted.verify.results.set("k1", successVerify());
+    hoisted.verify.results.set("k2", successVerify());
     await writeProfile({ url: "https://staging.example.com/path?x=1", apiKey: "k1" }, "staging");
     await writeProfile({ url: "https://prod.example.com", apiKey: "k2" }, "prod");
 
     const capture = captureStdout();
     await runCommand(authListCommand, { rawArgs: ["--json"] });
-    expect(capture.parse(AuthProfileListEnvelope)).toEqual({
-      data: [
-        { profile: "prod", url: "https://prod.example.com", present: true },
-        { profile: "staging", url: "https://staging.example.com", present: true },
-      ],
-      returned: 2,
-      total: 2,
+
+    const envelope = capture.parse(AuthProfileListEnvelope);
+    expect(envelope.returned).toBe(2);
+    expect(envelope.data.map((entry) => entry.profile)).toEqual(["staging", "prod"]);
+    expect(envelope.data.every((entry) => entry.status === "ok")).toBe(true);
+    expect(envelope.data[0]?.url).toBe("https://staging.example.com");
+    expect(envelope.data[0]?.version).toEqual({
+      tag: "v0.58.7",
+      build: "oss",
+      major: 58,
+      patch: 7,
     });
+    expect(envelope.data[0]?.edition).toBe("oss");
+    expect(envelope.data[0]?.user).toEqual({ id: 1, name: "Tester", isAdmin: true });
+
+    const staging = await readProfileRecord("staging");
+    expect(staging?.lastProbe?.version.tag).toBe("v0.58.7");
+    expect(staging?.lastFailure).toBeNull();
   });
 
-  it("drops a profile from the list after clearProfile", async () => {
-    await writeProfile({ url: "https://a.example.com", apiKey: "a" }, "a");
-    await writeProfile({ url: "https://b.example.com", apiKey: "b" }, "b");
-    await clearProfile("a");
+  it("renders Auth failed status, footer line, and persists lastFailure on a 401 response", async () => {
+    hoisted.verify.results.set("revoked", {
+      ok: false,
+      which: "user",
+      kind: "auth",
+      status: 401,
+      message: "Invalid or unauthorized API key",
+    });
+    await writeProfile({ url: "https://m.example.com", apiKey: "revoked" }, "revoked_profile");
 
     const capture = captureStdout();
+    const stderr = captureStderr();
     await runCommand(authListCommand, { rawArgs: ["--json"] });
-    expect(capture.parse(AuthProfileListEnvelope)).toEqual({
-      data: [{ profile: "b", url: "https://b.example.com", present: true }],
-      returned: 1,
-      total: 1,
+
+    const envelope = capture.parse(AuthProfileListEnvelope);
+    expect(envelope.data).toHaveLength(1);
+    const record = await readProfileRecord("revoked_profile");
+    expect(envelope.data[0]?.status).toBe("auth-failed");
+    expect(envelope.data[0]?.lastFailure).toEqual(record?.lastFailure);
+    expect(record?.lastFailure).toEqual({
+      at: envelope.data[0]?.lastFailure?.at,
+      kind: "auth",
+      reason: "Invalid or unauthorized API key",
     });
+
+    expect(stderr.join("")).toContain(
+      "revoked_profile: Invalid or unauthorized API key. Run `mb auth login --profile revoked_profile` to update the token.",
+    );
+  });
+
+  it("preserves the previous lastProbe and apiKey on a failed refresh", async () => {
+    hoisted.verify.results.set("good", successVerify());
+    await writeProfile({ url: "https://m.example.com", apiKey: "good" }, "stable");
+
+    await runCommand(authListCommand, { rawArgs: ["--json"] });
+    const before = await readProfileRecord("stable");
+    expect(before?.lastProbe).not.toBeNull();
+
+    hoisted.verify.results.set("good", {
+      ok: false,
+      which: "server",
+      kind: "network",
+      message: "Could not reach Metabase: getaddrinfo ENOTFOUND",
+    });
+    await runCommand(authListCommand, { rawArgs: ["--json"] });
+    const after = await readProfileRecord("stable");
+
+    expect(after?.lastProbe).toEqual(before?.lastProbe);
+    expect(after?.url).toBe(before?.url);
+    expect(after?.apiKey).toBe(before?.apiKey);
+    expect(after?.lastFailure?.kind).toBe("network");
   });
 });

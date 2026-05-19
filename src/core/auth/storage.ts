@@ -2,35 +2,41 @@ import { promises as fs } from "node:fs";
 import { dirname, join } from "node:path";
 
 import { Entry } from "@napi-rs/keyring";
-import { z } from "zod";
 
-import { parseJson } from "../../runtime/json";
-import { isNotFoundError } from "../errors";
+import { parseJsonResult } from "../../runtime/json";
+import { isNotFoundError, ValidationError } from "../errors";
 import { configDir } from "../paths";
+import type { ServerInfo } from "../version/probe";
 
-const CredentialsFileSchema = z.record(z.string(), z.string());
+import {
+  ProfileLastFailure,
+  ProfileLastProbe,
+  ProfilesFile,
+  type ProbedUser,
+  type ProfileFailureKind,
+  type ProfileRecord,
+} from "./profile-record";
 
 const KEYRING_SERVICE = "metabase-cli";
-const CREDENTIALS_FILE = "credentials.json";
-const PROFILE_INDEX_FILE = "profiles.json";
+const PROFILES_FILE = "profiles.json";
+const LEGACY_CREDENTIALS_FILE = "credentials.json";
+const LEGACY_REJECTIONS_FILE = "rejections.json";
+const PROFILES_FILE_MODE = 0o600;
+const PROFILES_DIR_MODE = 0o700;
+
 export const DEFAULT_PROFILE = "default";
 
-const CREDENTIALS_FILE_MODE = 0o600;
-const CREDENTIALS_DIR_MODE = 0o700;
+export const LEGACY_STORAGE_NOTICE =
+  "Old profile storage detected and ignored; re-run `mb auth login` for each profile.";
 
-export type ProfileUrlAccount = `profile:${string}:url`;
 export type ProfileApiKeyAccount = `profile:${string}:apiKey`;
 export type LicenseAccount = "license";
-export type CredentialAccount = ProfileUrlAccount | ProfileApiKeyAccount | LicenseAccount;
+export type CredentialAccount = ProfileApiKeyAccount | LicenseAccount;
 
 export const account = {
-  profileUrl: (profile: string): ProfileUrlAccount => `profile:${profile}:url`,
   profileApiKey: (profile: string): ProfileApiKeyAccount => `profile:${profile}:apiKey`,
   license: "license",
 } as const;
-
-const ProfileIndexSchema = z.array(z.string());
-const FILE_STORE_PROFILE_URL_PATTERN = /^profile:(.+):url$/;
 
 export interface KeyringLocation {
   backend: "keyring";
@@ -51,12 +57,23 @@ export interface Profile {
   apiKey: string;
 }
 
-export function fallbackFilePath(): string {
-  return join(configDir(), CREDENTIALS_FILE);
+export interface ProbeWriteInput {
+  user: ProbedUser;
+  server: ServerInfo;
 }
 
-export function profileIndexPath(): string {
-  return join(configDir(), PROFILE_INDEX_FILE);
+let legacyWarningPending = false;
+
+export function profilesFilePath(): string {
+  return join(configDir(), PROFILES_FILE);
+}
+
+export function consumeLegacyStorageWarning(): string | null {
+  if (!legacyWarningPending) {
+    return null;
+  }
+  legacyWarningPending = false;
+  return LEGACY_STORAGE_NOTICE;
 }
 
 function keyringEnabled(): boolean {
@@ -103,202 +120,240 @@ function tryRemoveKeyring(key: CredentialAccount): boolean | undefined {
   }
 }
 
-async function readFileStore(): Promise<Record<string, string>> {
-  const path = fallbackFilePath();
+async function readProfilesFile(): Promise<ProfilesFile> {
+  const path = profilesFilePath();
   let raw: string;
   try {
     raw = await fs.readFile(path, "utf8");
   } catch (error) {
     if (isNotFoundError(error)) {
-      return {};
+      await detectLegacyArtifacts();
+      return { profiles: [], license: null };
     }
     throw error;
   }
-  return parseJson(raw, CredentialsFileSchema, { source: path });
+  const parsed = parseJsonResult(raw, ProfilesFile, { source: path });
+  if (parsed.ok) {
+    return parsed.value;
+  }
+  if (parsed.error instanceof ValidationError) {
+    legacyWarningPending = true;
+    return { profiles: [], license: null };
+  }
+  throw parsed.error;
 }
 
-async function writeFileStore(store: Record<string, string>): Promise<void> {
-  const path = fallbackFilePath();
-  await fs.mkdir(dirname(path), { recursive: true, mode: CREDENTIALS_DIR_MODE });
-  await fs.writeFile(path, JSON.stringify(store, null, 2) + "\n", { mode: CREDENTIALS_FILE_MODE });
-  if (process.platform !== "win32") {
-    await fs.chmod(path, CREDENTIALS_FILE_MODE);
+async function detectLegacyArtifacts(): Promise<void> {
+  const legacyCredentials = join(configDir(), LEGACY_CREDENTIALS_FILE);
+  const legacyRejections = join(configDir(), LEGACY_REJECTIONS_FILE);
+  const [credentialsExists, rejectionsExists] = await Promise.all([
+    fileExists(legacyCredentials),
+    fileExists(legacyRejections),
+  ]);
+  if (credentialsExists || rejectionsExists) {
+    legacyWarningPending = true;
   }
 }
 
-async function setFile(key: CredentialAccount, value: string): Promise<void> {
-  const store = await readFileStore();
-  store[key] = value;
-  await writeFileStore(store);
-}
-
-async function readFromFile(key: CredentialAccount): Promise<string | null> {
-  const store = await readFileStore();
-  return store[key] ?? null;
-}
-
-async function removeFromFile(key: CredentialAccount): Promise<boolean> {
-  const store = await readFileStore();
-  if (!(key in store)) {
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await fs.access(path);
+    return true;
+  } catch {
     return false;
   }
-  delete store[key];
-  if (Object.keys(store).length === 0) {
-    await fs.unlink(fallbackFilePath()).catch(() => undefined);
-  } else {
-    await writeFileStore(store);
-  }
-  return true;
 }
 
-export const credentials = {
-  async set(key: CredentialAccount, value: string): Promise<CredentialLocation> {
-    if (trySetKeyring(key, value)) {
-      await removeFromFile(key).catch(() => undefined);
-      return { backend: "keyring", service: KEYRING_SERVICE, account: key };
-    }
-    await setFile(key, value);
-    return { backend: "file", path: fallbackFilePath(), account: key };
-  },
+async function writeProfilesFile(file: ProfilesFile): Promise<void> {
+  const path = profilesFilePath();
+  if (file.profiles.length === 0 && file.license === null) {
+    await fs.unlink(path).catch(() => undefined);
+    await cleanupLegacyFiles();
+    return;
+  }
+  await fs.mkdir(dirname(path), { recursive: true, mode: PROFILES_DIR_MODE });
+  await fs.writeFile(path, JSON.stringify(file, null, 2) + "\n", { mode: PROFILES_FILE_MODE });
+  if (process.platform !== "win32") {
+    await fs.chmod(path, PROFILES_FILE_MODE);
+  }
+  await cleanupLegacyFiles();
+}
 
-  async read(key: CredentialAccount): Promise<string | null> {
-    const fromKeyring = tryReadKeyring(key);
-    if (fromKeyring !== undefined) {
-      return fromKeyring;
-    }
-    return readFromFile(key);
-  },
+async function cleanupLegacyFiles(): Promise<void> {
+  await Promise.all([
+    fs.unlink(join(configDir(), LEGACY_CREDENTIALS_FILE)).catch(() => undefined),
+    fs.unlink(join(configDir(), LEGACY_REJECTIONS_FILE)).catch(() => undefined),
+  ]);
+}
 
-  async has(key: CredentialAccount): Promise<boolean> {
-    return (await credentials.read(key)) !== null;
-  },
+function findRecord(file: ProfilesFile, name: string): ProfileRecord | null {
+  return file.profiles.find((entry) => entry.name === name) ?? null;
+}
 
-  async remove(key: CredentialAccount): Promise<boolean> {
-    const fromKeyring = tryRemoveKeyring(key);
-    const fromFile = await removeFromFile(key).catch(() => false);
-    if (fromKeyring === undefined) {
-      return fromFile;
-    }
-    return fromKeyring || fromFile;
-  },
-
-  async location(key: CredentialAccount): Promise<CredentialLocation> {
-    if (tryReadKeyring(key) !== undefined) {
-      return { backend: "keyring", service: KEYRING_SERVICE, account: key };
-    }
-    return { backend: "file", path: fallbackFilePath(), account: key };
-  },
-};
+async function persistApiKey(name: string, apiKey: string): Promise<CredentialLocation> {
+  const key = account.profileApiKey(name);
+  if (trySetKeyring(key, apiKey)) {
+    return { backend: "keyring", service: KEYRING_SERVICE, account: key };
+  }
+  return { backend: "file", path: profilesFilePath(), account: key };
+}
 
 export async function readProfile(name: string = DEFAULT_PROFILE): Promise<Profile | null> {
-  const [url, apiKey] = await Promise.all([
-    credentials.read(account.profileUrl(name)),
-    credentials.read(account.profileApiKey(name)),
-  ]);
-  if (!url || !apiKey) {
+  const file = await readProfilesFile();
+  const record = findRecord(file, name);
+  if (record === null) {
     return null;
   }
-  return { url, apiKey };
+  const apiKey = await resolveApiKey(record);
+  if (apiKey === null) {
+    return null;
+  }
+  return { url: record.url, apiKey };
+}
+
+async function resolveApiKey(record: ProfileRecord): Promise<string | null> {
+  const fromKeyring = tryReadKeyring(account.profileApiKey(record.name));
+  if (typeof fromKeyring === "string") {
+    return fromKeyring;
+  }
+  return record.apiKey;
+}
+
+export async function readProfileRecord(
+  name: string = DEFAULT_PROFILE,
+): Promise<ProfileRecord | null> {
+  const file = await readProfilesFile();
+  return findRecord(file, name);
+}
+
+export async function listProfileRecords(): Promise<ProfileRecord[]> {
+  const file = await readProfilesFile();
+  return file.profiles;
+}
+
+export async function listProfileNames(): Promise<string[]> {
+  const file = await readProfilesFile();
+  return file.profiles.map((entry) => entry.name);
 }
 
 export async function writeProfile(
   profile: Profile,
   name: string = DEFAULT_PROFILE,
 ): Promise<CredentialLocation> {
-  await credentials.set(account.profileUrl(name), profile.url);
-  const location = await credentials.set(account.profileApiKey(name), profile.apiKey);
-  await addToProfileIndex(name);
+  const location = await persistApiKey(name, profile.apiKey);
+  const inlineApiKey = location.backend === "file" ? profile.apiKey : null;
+
+  const file = await readProfilesFile();
+  const existing = findRecord(file, name);
+  const updated: ProfileRecord =
+    existing === null
+      ? {
+          name,
+          url: profile.url,
+          apiKey: inlineApiKey,
+          lastProbe: null,
+          lastFailure: null,
+        }
+      : { ...existing, url: profile.url, apiKey: inlineApiKey };
+  const profiles =
+    existing === null
+      ? [...file.profiles, updated]
+      : file.profiles.map((entry) => (entry.name === name ? updated : entry));
+  await writeProfilesFile({ ...file, profiles });
   return location;
 }
 
+export async function writeProbeResult(
+  name: string,
+  input: ProbeWriteInput,
+): Promise<ProfileLastProbe | null> {
+  const probe = ProfileLastProbe.parse({
+    at: new Date().toISOString(),
+    version: input.server.version,
+    edition: input.server.edition,
+    tokenFeatures: input.server.tokenFeatures,
+    user: input.user,
+  });
+  const file = await readProfilesFile();
+  const existing = findRecord(file, name);
+  if (existing === null) {
+    return null;
+  }
+  const profiles = file.profiles.map((entry) =>
+    entry.name === name ? { ...entry, lastProbe: probe, lastFailure: null } : entry,
+  );
+  await writeProfilesFile({ ...file, profiles });
+  return probe;
+}
+
+export interface ProbeFailureInput {
+  kind: ProfileFailureKind;
+  reason: string;
+}
+
+export async function writeProbeFailure(
+  name: string,
+  input: ProbeFailureInput,
+): Promise<ProfileLastFailure | null> {
+  const failure = ProfileLastFailure.parse({
+    at: new Date().toISOString(),
+    kind: input.kind,
+    reason: input.reason,
+  });
+  const file = await readProfilesFile();
+  const existing = findRecord(file, name);
+  if (existing === null) {
+    return null;
+  }
+  const profiles = file.profiles.map((entry) =>
+    entry.name === name ? { ...entry, lastFailure: failure } : entry,
+  );
+  await writeProfilesFile({ ...file, profiles });
+  return failure;
+}
+
 export async function clearProfile(name: string = DEFAULT_PROFILE): Promise<boolean> {
-  const removedUrl = await credentials.remove(account.profileUrl(name));
-  const removedKey = await credentials.remove(account.profileApiKey(name));
-  await removeFromProfileIndex(name);
-  return removedUrl || removedKey;
-}
-
-export async function listProfileNames(): Promise<string[]> {
-  const stored = await readProfileIndex();
-  if (stored !== null) {
-    return stored;
+  tryRemoveKeyring(account.profileApiKey(name));
+  const file = await readProfilesFile();
+  const existing = findRecord(file, name);
+  if (existing === null) {
+    return false;
   }
-  const backfilled = await backfillProfileIndexFromFile();
-  if (backfilled.length > 0) {
-    await writeProfileIndex(backfilled);
-  }
-  return backfilled;
-}
-
-async function readProfileIndex(): Promise<string[] | null> {
-  const path = profileIndexPath();
-  let raw: string;
-  try {
-    raw = await fs.readFile(path, "utf8");
-  } catch (error) {
-    if (isNotFoundError(error)) {
-      return null;
-    }
-    throw error;
-  }
-  return parseJson(raw, ProfileIndexSchema, { source: path });
-}
-
-async function writeProfileIndex(names: string[]): Promise<void> {
-  const path = profileIndexPath();
-  const unique = [...new Set(names)].toSorted();
-  await fs.mkdir(dirname(path), { recursive: true, mode: CREDENTIALS_DIR_MODE });
-  await fs.writeFile(path, JSON.stringify(unique, null, 2) + "\n", { mode: CREDENTIALS_FILE_MODE });
-  if (process.platform !== "win32") {
-    await fs.chmod(path, CREDENTIALS_FILE_MODE);
-  }
-}
-
-async function deleteProfileIndex(): Promise<void> {
-  await fs.unlink(profileIndexPath()).catch(() => undefined);
-}
-
-async function addToProfileIndex(name: string): Promise<void> {
-  const current = await listProfileNames();
-  if (current.includes(name)) {
-    return;
-  }
-  await writeProfileIndex([...current, name]);
-}
-
-async function removeFromProfileIndex(name: string): Promise<void> {
-  const current = await listProfileNames();
-  const next = current.filter((entry) => entry !== name);
-  if (next.length === current.length) {
-    return;
-  }
-  if (next.length === 0) {
-    await deleteProfileIndex();
-    return;
-  }
-  await writeProfileIndex(next);
-}
-
-async function backfillProfileIndexFromFile(): Promise<string[]> {
-  const store = await readFileStore();
-  const names = new Set<string>();
-  for (const key of Object.keys(store)) {
-    const name = FILE_STORE_PROFILE_URL_PATTERN.exec(key)?.[1];
-    if (name !== undefined) {
-      names.add(name);
-    }
-  }
-  return [...names];
+  await writeProfilesFile({
+    ...file,
+    profiles: file.profiles.filter((entry) => entry.name !== name),
+  });
+  return true;
 }
 
 export async function readLicense(): Promise<string | null> {
-  return credentials.read(account.license);
+  const fromKeyring = tryReadKeyring(account.license);
+  if (typeof fromKeyring === "string") {
+    return fromKeyring;
+  }
+  const file = await readProfilesFile();
+  return file.license;
 }
 
 export async function writeLicense(token: string): Promise<CredentialLocation> {
-  return credentials.set(account.license, token);
+  const key = account.license;
+  const file = await readProfilesFile();
+  if (trySetKeyring(key, token)) {
+    if (file.license !== null) {
+      await writeProfilesFile({ ...file, license: null });
+    }
+    return { backend: "keyring", service: KEYRING_SERVICE, account: key };
+  }
+  await writeProfilesFile({ ...file, license: token });
+  return { backend: "file", path: profilesFilePath(), account: key };
 }
 
 export async function clearLicense(): Promise<boolean> {
-  return credentials.remove(account.license);
+  const removedFromKeyring = tryRemoveKeyring(account.license);
+  const file = await readProfilesFile();
+  const hadInline = file.license !== null;
+  if (hadInline) {
+    await writeProfilesFile({ ...file, license: null });
+  }
+  return removedFromKeyring === true || hadInline;
 }

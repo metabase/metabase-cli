@@ -1,15 +1,18 @@
+import { parse as parseSemver } from "semver";
+import { z } from "zod";
+
 import { MetabaseError } from "../errors";
 
-const VERSION_TAG_REGEX = /^v?(?<flavor>[01])\.(?<major>\d+)\.(?<patch>\d+)/;
+export const Build = z.enum(["oss", "ee"]);
+export type Build = z.infer<typeof Build>;
 
-export type Build = "oss" | "ee";
-
-export interface ParsedVersion {
-  readonly tag: string;
-  readonly build: Build;
-  readonly major: number;
-  readonly patch: number;
-}
+export const ParsedVersionSchema = z.object({
+  tag: z.string(),
+  build: Build,
+  major: z.number().int().nonnegative(),
+  patch: z.number().int().nonnegative(),
+});
+export type ParsedVersion = z.infer<typeof ParsedVersionSchema>;
 
 export class VersionTagParseError extends MetabaseError {
   readonly category = "validation";
@@ -25,17 +28,14 @@ export class VersionTagParseError extends MetabaseError {
 }
 
 export function parseTag(tag: string): ParsedVersion {
-  const groups = VERSION_TAG_REGEX.exec(tag)?.groups;
-  const flavor = groups?.["flavor"];
-  const major = groups?.["major"];
-  const patch = groups?.["patch"];
-  if (flavor === undefined || major === undefined || patch === undefined) {
+  const parsed = parseSemver(tag);
+  if (parsed === null || (parsed.major !== 0 && parsed.major !== 1)) {
     throw new VersionTagParseError(tag);
   }
   return {
     tag,
-    build: flavor === "1" ? "ee" : "oss",
-    major: Number.parseInt(major, 10),
-    patch: Number.parseInt(patch, 10),
+    build: parsed.major === 1 ? "ee" : "oss",
+    major: parsed.minor,
+    patch: parsed.patch,
   };
 }

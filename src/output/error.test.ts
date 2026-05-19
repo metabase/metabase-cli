@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { AbortError, ConfigError, UnknownError, ValidationError } from "../core/errors";
+import {
+  AbortError,
+  ConfigError,
+  ResponseShapeError,
+  UnknownError,
+  ValidationError,
+} from "../core/errors";
 import { reportError } from "./error";
 
 interface CapturedStreams {
@@ -95,6 +101,28 @@ describe("reportError", () => {
     expect(streams.stderr).toBe(
       "https://m.example.com/api/collection/8/items: value did not match expected schema\n" +
         "  /total: Invalid input: expected number, received null\n",
+    );
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("prints the ResponseShapeError lead and field paths and exits 1", () => {
+    const schema = z.object({ version: z.object({ tag: z.string() }) });
+    const result = schema.safeParse({ version: {} });
+    if (result.success) {
+      throw new Error("expected zod failure");
+    }
+    const error = new ResponseShapeError({
+      method: "GET",
+      url: "https://m.example.com/api/session/properties",
+      status: 200,
+      zodIssues: result.error.issues,
+    });
+
+    reportError(error);
+
+    expect(streams.stderr).toBe(
+      "Metabase returned unexpected response shape:\n" +
+        "  version.tag: Invalid input: expected string, received undefined\n",
     );
     expect(process.exitCode).toBe(1);
   });

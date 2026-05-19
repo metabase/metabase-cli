@@ -1,4 +1,6 @@
 {
   "id": 7,
-  "email": "alice@example.com"
+  "email": "alice@example.com",
+  "common_name": "Alice Example",
+  "is_superuser": true
 }

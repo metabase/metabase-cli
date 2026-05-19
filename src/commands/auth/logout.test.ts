@@ -12,8 +12,12 @@ vi.mock("@napi-rs/keyring", async () => {
 });
 
 import logoutCommand from "./logout";
-import { readRejection, recordRejection } from "../../core/auth/rejection";
-import { readProfile, writeProfile } from "../../core/auth/storage";
+import {
+  readProfile,
+  readProfileRecord,
+  writeProbeFailure,
+  writeProfile,
+} from "../../core/auth/storage";
 import { setupTempConfigHome, type TempConfigHome } from "../../core/auth/temp-config-home";
 
 describe("auth logout command", () => {
@@ -38,15 +42,16 @@ describe("auth logout command", () => {
     expect(await readProfile()).toBeNull();
   });
 
-  it("--yes clears any recorded rejection for the profile", async () => {
-    await recordRejection("staging", {
+  it("--yes removes the entry entirely, including any prior lastFailure", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "secret" }, "staging");
+    await writeProbeFailure("staging", {
+      kind: "auth",
       reason: "Invalid or unauthorized API key",
-      url: "https://staging.example.com",
     });
-    expect(await readRejection("staging")).not.toBeNull();
+    expect(await readProfileRecord("staging")).not.toBeNull();
 
     vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     await runCommand(logoutCommand, { rawArgs: ["--profile", "staging", "--yes"] });
-    expect(await readRejection("staging")).toBeNull();
+    expect(await readProfileRecord("staging")).toBeNull();
   });
 });

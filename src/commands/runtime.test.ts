@@ -4,39 +4,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setupTempConfigHome, type TempConfigHome } from "../core/auth/temp-config-home";
 import type { ServerInfo } from "../core/version/probe";
 
-interface ServerInfoSlot {
-  current: ServerInfo | null;
-}
-
-const hoisted = vi.hoisted(() => {
-  const slot: ServerInfoSlot = { current: null };
-  return {
-    store: new Map<string, string>(),
-    controls: { broken: false },
-    serverInfo: slot,
-  };
-});
+const hoisted = vi.hoisted(() => ({
+  store: new Map<string, string>(),
+  controls: { broken: false },
+}));
 
 vi.mock("@napi-rs/keyring", async () => {
   const { createKeyringMockModule } = await import("../core/auth/keyring-mock");
   return createKeyringMockModule(hoisted);
 });
 
-vi.mock("../core/version/probe", async () => {
-  const actual =
-    await vi.importActual<typeof import("../core/version/probe")>("../core/version/probe");
-  return {
-    ...actual,
-    createServerInfoCache: () => async () => hoisted.serverInfo.current ?? actual.EMPTY_SERVER_INFO,
-  };
-});
-
 const { defineMetabaseCommand, SKIP_PREFLIGHT_ENV } = await import("./runtime");
 const { outputFlags, profileFlag } = await import("./flags");
-const { writeProfile } = await import("../core/auth/storage");
+const { writeProbeResult, writeProfile } = await import("../core/auth/storage");
 
-function setServerInfo(info: ServerInfo): void {
-  hoisted.serverInfo.current = info;
+async function seedProbedProfile(name: string, info: ServerInfo): Promise<void> {
+  await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" }, name);
+  await writeProbeResult(name, {
+    user: { id: 1, name: "Tester", isAdmin: true },
+    server: info,
+  });
 }
 
 function fakeServerInfo(major: number, build: "oss" | "ee" = "oss"): ServerInfo {
@@ -62,7 +49,6 @@ describe("defineMetabaseCommand", () => {
 
   beforeEach(() => {
     hoisted.store.clear();
-    hoisted.serverInfo.current = null;
     home = setupTempConfigHome();
     delete process.env["METABASE_URL"];
     delete process.env["METABASE_API_KEY"];
@@ -169,9 +155,8 @@ describe("defineMetabaseCommand", () => {
     expect(process.exitCode).toBe(2);
   });
 
-  it("refuses with CapabilityError exit code 2 when the server major is below required minVersion", async () => {
-    await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
-    setServerInfo(fakeServerInfo(58, "oss"));
+  it("refuses with CapabilityError exit code 2 when the cached server major is below required minVersion", async () => {
+    await seedProbedProfile("default", fakeServerInfo(58, "oss"));
 
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
@@ -194,9 +179,8 @@ describe("defineMetabaseCommand", () => {
     expect(ran).not.toHaveBeenCalled();
   });
 
-  it("uses the EE upgrade hint (v1.X+) when the server build is ee", async () => {
-    await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
-    setServerInfo(fakeServerInfo(58, "ee"));
+  it("uses the EE upgrade hint (v1.X+) when the cached server build is ee", async () => {
+    await seedProbedProfile("default", fakeServerInfo(58, "ee"));
 
     const cmd = defineMetabaseCommand({
       meta: { name: "needs-v60-ee", description: "wants v60" },
@@ -216,9 +200,8 @@ describe("defineMetabaseCommand", () => {
     expect(process.exitCode).toBe(2);
   });
 
-  it("runs a baseline-capabilities command to completion against a v0.58 server with no probe", async () => {
+  it("runs a baseline-capabilities command without consulting the cached probe", async () => {
     await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
-    setServerInfo(fakeServerInfo(58, "oss"));
 
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
@@ -234,7 +217,7 @@ describe("defineMetabaseCommand", () => {
     expect(ran).toHaveBeenCalledOnce();
   });
 
-  it("warns to stderr but proceeds when the server version is unknown (probe failed)", async () => {
+  it("warns to stderr but proceeds when the profile has no cached probe", async () => {
     await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
 
     const ran = vi.fn();
@@ -251,16 +234,19 @@ describe("defineMetabaseCommand", () => {
 
     await runCommand(cmd, { rawArgs: [] });
 
-    expect(stderr.join("")).toContain(
+    const joined = stderr.join("");
+    expect(joined).toContain(
       "Could not detect Metabase server version. Proceeding without preflight check; failures may produce confusing errors.",
+    );
+    expect(joined).toContain(
+      "Run `mb auth list` (or `mb auth login`) to populate the version cache.",
     );
     expect(ran).toHaveBeenCalledOnce();
     expect(process.exitCode).toBe(0);
   });
 
   it("bypasses the preflight check when METABASE_CLI_SKIP_PREFLIGHT=1 is set", async () => {
-    await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
-    setServerInfo(fakeServerInfo(58, "oss"));
+    await seedProbedProfile("default", fakeServerInfo(58, "oss"));
     process.env[SKIP_PREFLIGHT_ENV] = "1";
 
     const ran = vi.fn();

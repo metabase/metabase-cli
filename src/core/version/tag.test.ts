@@ -40,7 +40,7 @@ describe("parseTag", () => {
   });
 
   it.each([
-    ["flavor outside 0|1", "v2.58.7"],
+    ["edition prefix outside 0|1", "v2.58.7"],
     ["wholly malformed", "vLOCAL_DEV"],
   ])("throws VersionTagParseError on %s", (_label, input) => {
     let caught: unknown;

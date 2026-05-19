@@ -2,13 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createFakeClient, type FakeClientCall } from "../http/fake-client";
 
-import {
-  createServerInfoCache,
-  EMPTY_SERVER_INFO,
-  probeServer,
-  PROBE_PATH,
-  PROBE_TIMEOUT_MS,
-} from "./probe";
+import { probeServer, PROBE_PATH, PROBE_TIMEOUT_MS } from "./probe";
 
 const EXPECTED_PROBE_CALL: FakeClientCall = {
   path: PROBE_PATH,
@@ -17,10 +11,6 @@ const EXPECTED_PROBE_CALL: FakeClientCall = {
 
 function planning(response: unknown): ReadonlyMap<string, unknown> {
   return new Map([[PROBE_PATH, response]]);
-}
-
-function failingWith(error: Error): ReadonlyMap<string, Error> {
-  return new Map([[PROBE_PATH, error]]);
 }
 
 describe("probeServer", () => {
@@ -69,32 +59,5 @@ describe("probeServer", () => {
       edition: "oss",
       tokenFeatures: null,
     });
-  });
-});
-
-describe("createServerInfoCache", () => {
-  it("probes once even when called many times concurrently", async () => {
-    const { client, calls } = createFakeClient({
-      responses: planning({ version: { tag: "v0.58.7" }, "token-features": {} }),
-    });
-    const getInfo = createServerInfoCache(async () => client);
-    const [a, b, c] = await Promise.all([getInfo(), getInfo(), getInfo()]);
-    expect(calls).toEqual([EXPECTED_PROBE_CALL]);
-    expect(a).toBe(b);
-    expect(a).toBe(c);
-  });
-
-  it("returns the EMPTY_SERVER_INFO sentinel when the probe rejects", async () => {
-    const { client } = createFakeClient({ errors: failingWith(new Error("boom")) });
-    const getInfo = createServerInfoCache(async () => client);
-    expect(await getInfo()).toBe(EMPTY_SERVER_INFO);
-  });
-
-  it("caches the failure so transient errors do not re-probe per call", async () => {
-    const { client, calls } = createFakeClient({ errors: failingWith(new Error("boom")) });
-    const getInfo = createServerInfoCache(async () => client);
-    await getInfo();
-    await getInfo();
-    expect(calls).toEqual([EXPECTED_PROBE_CALL]);
   });
 });
