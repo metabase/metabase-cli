@@ -2,7 +2,7 @@ import type { ZodType } from "zod";
 
 import { ConfigError, errorMessage, ValidationError } from "../core/errors";
 
-const JSON_CONTENT_TYPE = "application/json";
+export const JSON_CONTENT_TYPE = "application/json";
 
 export interface ParseJsonOptions {
   source?: string;

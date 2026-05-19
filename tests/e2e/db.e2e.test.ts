@@ -233,7 +233,7 @@ describe("db e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("get against a missing database id surfaces a 404 HttpError", async () => {
+  it("get against a missing database id surfaces a resource-missing 404 with the exact path", async () => {
     const result = await runCli({
       args: ["db", "get", "9999999", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -241,7 +241,7 @@ describe("db e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/database/9999999.");
   });
 
   it("metadata returns the warehouse with its tables hydrated", async () => {
@@ -280,7 +280,7 @@ describe("db e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/database/9999999/metadata.");
   });
 
   it("schemas lists the seeded warehouse schemas alphabetically", async () => {
@@ -347,7 +347,9 @@ describe("db e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain(
+      `Not found: GET /api/database/${E2E_DATABASES.WAREHOUSE}/schema/does_not_exist.`,
+    );
   });
 
   it("sync-schema triggers a manual schema sync and returns ok", async () => {
@@ -372,7 +374,7 @@ describe("db e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: POST /api/database/9999999/sync_schema.");
   });
 
   it("rescan-values triggers a field-values rescan and returns ok", async () => {

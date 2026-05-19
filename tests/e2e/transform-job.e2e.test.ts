@@ -189,7 +189,7 @@ describe("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(getResult.exitCode).toBe(1);
-    expect(getResult.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(getResult.stderr).toContain(`Not found: GET /api/transform-job/${FIRST_USER_JOB_ID}.`);
   });
 
   it("create with body missing required schedule fails on Zod validation", async () => {
@@ -222,7 +222,7 @@ describe("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/transform-job/9999999.");
   });
 
   it("delete without --yes proceeds in non-TTY (auto-confirm matches kubectl/gh/docker convention)", async () => {

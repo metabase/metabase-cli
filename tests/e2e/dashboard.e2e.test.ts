@@ -221,7 +221,7 @@ describe("dashboard e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/dashboard/9999999.");
   });
 
   it("cards lists the seeded dashcard for the orders dashboard", async () => {
@@ -616,7 +616,7 @@ describe("dashboard e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/dashboard/9999999.");
   });
 
   it("update-dashcard preserves the other dashcards verbatim when patching one of two", async () => {

@@ -237,12 +237,16 @@ function zodIssuesFor<T>(schema: z.ZodType<T>, value: unknown): z.ZodError["issu
   return result.error.issues;
 }
 
-function buildResponseShapeError(zodIssues: z.ZodError["issues"]): ResponseShapeError {
+function buildResponseShapeError(
+  zodIssues: z.ZodError["issues"],
+  serverTag: string | null = null,
+): ResponseShapeError {
   return new ResponseShapeError({
     method: "GET",
     url: "https://m.example.com/api/session/properties",
     status: 200,
     zodIssues,
+    serverTag,
   });
 }
 
@@ -282,6 +286,16 @@ describe("ResponseShapeError", () => {
     const error = buildResponseShapeError([]);
 
     expect(error.userMessage).toBe("Metabase returned unexpected response shape");
+  });
+
+  it("leads with the server tag when the version is known", () => {
+    const schema = z.object({ version: z.object({ tag: z.string() }) });
+    const error = buildResponseShapeError(zodIssuesFor(schema, { version: {} }), "v0.58.7");
+
+    expect(error.userMessage).toBe(
+      "On Metabase v0.58.7 the response shape was unexpected:\n" +
+        "  version.tag: Invalid input: expected string, received undefined",
+    );
   });
 
   it("is passed through unchanged by toMetabaseError", () => {

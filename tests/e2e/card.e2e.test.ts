@@ -185,7 +185,7 @@ describe("card e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/card/9999999.");
   });
 
   it("query (json) executes the card and returns the full result envelope", async () => {
@@ -461,7 +461,7 @@ describe("card e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: PUT /api/card/9999999.");
   });
 
   it("update with invalid MBQL 5 dataset_query fails pre-flight before sending", async () => {

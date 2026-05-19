@@ -8,7 +8,7 @@ import {
   TimeoutError,
   ValidationError,
 } from "../errors";
-import { parseJson } from "../../runtime/json";
+import { JSON_CONTENT_TYPE, parseJson } from "../../runtime/json";
 import { combineAborts, throwIfAborted } from "../../runtime/signal";
 
 import { HttpError, isRetryableStatus } from "./errors";
@@ -19,7 +19,6 @@ export type HttpMethod = "GET" | "HEAD" | "OPTIONS" | "POST" | "PUT" | "PATCH" |
 export type ExpectedContentType = "json" | "text" | "binary";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-const JSON_CONTENT_TYPE = "application/json";
 const OCTET_STREAM_CONTENT_TYPE = "application/octet-stream";
 const TEXT_CONTENT_TYPE_PREFIX = "text/";
 const ERROR_BODY_BYTE_CAP = 64 * 1024;
@@ -66,14 +65,20 @@ interface PreparedRequest {
   callerSignal: AbortSignal | undefined;
 }
 
+export type ServerTagResolver = () => Promise<string | null>;
+
 export interface ClientOverrides {
   fetchImpl?: typeof fetch;
+  getServerTag?: ServerTagResolver;
 }
 
 type AttemptResult = { kind: "success"; response: Response } | { kind: "retry"; delayMs: number };
 
+const NO_SERVER_TAG: ServerTagResolver = async () => null;
+
 export function createClient(config: ClientCredentials, overrides: ClientOverrides = {}): Client {
   const fetchImpl = overrides.fetchImpl ?? globalThis.fetch.bind(globalThis);
+  const getServerTag = overrides.getServerTag ?? NO_SERVER_TAG;
   const redactionContext: RedactionContext = {
     knownSecrets: new Set([config.apiKey]),
   };
@@ -124,6 +129,7 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
 
     if (!response.ok) {
       const rawBody = await readBodyForError(response);
+      const serverTag = await getServerTag();
       throw new HttpError({
         status: response.status,
         statusText: response.statusText,
@@ -131,6 +137,7 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
         url: prepared.url,
         responseHeaders: response.headers,
         rawBody,
+        serverTag,
         redactionContext,
       });
     }
@@ -203,6 +210,7 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
             url: prepared.url,
             status: response.status,
             zodIssues: error.developerDetail.zodIssues,
+            serverTag: await getServerTag(),
           });
         }
         throw error;

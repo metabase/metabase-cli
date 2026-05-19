@@ -264,7 +264,7 @@ describe("collection e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/collection/9999999.");
   });
 
   it("items lists the seeded card and dashboard inside the default collection", async () => {

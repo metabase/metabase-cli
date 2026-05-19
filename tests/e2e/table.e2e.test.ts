@@ -226,7 +226,7 @@ describe("table e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/table/9999999.");
   });
 
   it("metadata returns the table with hydrated fields", async () => {
@@ -271,7 +271,7 @@ describe("table e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/table/9999999/query_metadata.");
   });
 
   it("fields lists every field on the table in compact form", async () => {

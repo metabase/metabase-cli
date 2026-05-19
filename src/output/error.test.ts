@@ -116,6 +116,7 @@ describe("reportError", () => {
       url: "https://m.example.com/api/session/properties",
       status: 200,
       zodIssues: result.error.issues,
+      serverTag: null,
     });
 
     reportError(error);

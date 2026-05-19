@@ -207,7 +207,69 @@ describe("createClient.requestParsed", () => {
       url: "https://m.example.com/api/user/current",
       status: 200,
       zodIssues: expectedIssues,
+      serverTag: null,
     });
+  });
+
+  it("threads getServerTag into ResponseShapeError so the lead names the version", async () => {
+    const body = { id: "not-a-number", email: "a@b.com" };
+    const expectedIssues = PingResponse.safeParse(body).error?.issues;
+    if (expectedIssues === undefined) {
+      throw new Error("expected zod failure for fixture body");
+    }
+    const fakeFetch = makeFakeFetch([jsonResponse(body)]);
+    const client = createClient(CONFIG, {
+      fetchImpl: fakeFetch.fetch,
+      getServerTag: async () => "v0.58.7",
+    });
+
+    const error = await client
+      .requestParsed(PingResponse, "/api/user/current")
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ResponseShapeError);
+    if (!(error instanceof ResponseShapeError)) {
+      throw new Error("expected ResponseShapeError");
+    }
+    expect(error.developerDetail).toEqual({
+      method: "GET",
+      url: "https://m.example.com/api/user/current",
+      status: 200,
+      zodIssues: expectedIssues,
+      serverTag: "v0.58.7",
+    });
+    expect(error.userMessage).toBe(
+      "On Metabase v0.58.7 the response shape was unexpected:\n" +
+        "  id: Invalid input: expected number, received string",
+    );
+  });
+
+  it("threads getServerTag into HttpError so route-missing names the version", async () => {
+    const fakeFetch = makeFakeFetch([
+      new Response("API endpoint does not exist.", {
+        status: 404,
+        headers: { "content-type": "text/plain" },
+      }),
+    ]);
+    const client = createClient(CONFIG, {
+      fetchImpl: fakeFetch.fetch,
+      getServerTag: async () => "v0.58.7",
+    });
+
+    const error = await client
+      .requestParsed(PingResponse, "/api/this-does-not-exist", { retries: 0 })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(HttpError);
+    if (!(error instanceof HttpError)) {
+      throw new Error("expected HttpError");
+    }
+    expect(error.kind).toBe("route-missing");
+    expect(error.userMessage).toBe(
+      "This endpoint is not available on Metabase v0.58.7: GET /api/this-does-not-exist. " +
+        "The command may require a newer Metabase major version. " +
+        "Run 'mb doctor' to see which commands are available on this server.",
+    );
   });
 
   it("throws HttpError on content-type mismatch with no silent downgrade", async () => {

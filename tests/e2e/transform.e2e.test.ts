@@ -202,7 +202,7 @@ describe("transform e2e", () => {
       env: authEnv(),
     });
     expect(getResult.exitCode).toBe(1);
-    expect(getResult.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(getResult.stderr).toContain(`Not found: GET /api/transform/${FIRST_TRANSFORM_ID}.`);
   });
 
   it("run --wait polls until the run reaches a terminal status and renders the final state", async () => {
@@ -350,7 +350,7 @@ describe("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/transform/9999999.");
   });
 
   it("create with invalid MBQL 5 source.query fails pre-flight before sending", async () => {
@@ -500,7 +500,7 @@ describe("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/transform/run/9999999.");
   });
 
   it("runs lists the recently-completed run for the seeded transform", async () => {
@@ -702,7 +702,7 @@ describe("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain(`Not found: POST /api/transform/${FIRST_TRANSFORM_ID}/cancel.`);
   });
 
   it("cancel with non-integer id fails fast with ConfigError", async () => {

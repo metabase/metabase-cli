@@ -56,30 +56,30 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
         const ctx = resolveCommonFlags(pickCommonArgs(args));
         let cachedConfig: ResolvedConfig | null = null;
         let cachedClient: Client | null = null;
+        let cachedServerInfo: Promise<ServerInfo | null> | null = null;
         const getResolvedConfig = async (): Promise<ResolvedConfig> => {
           if (cachedConfig === null) {
             cachedConfig = await resolveConfig(buildConfigFlags(ctx));
           }
           return cachedConfig;
         };
+        const getServerInfo = (): Promise<ServerInfo | null> => {
+          if (cachedServerInfo === null) {
+            cachedServerInfo = loadServerInfo(getResolvedConfig);
+          }
+          return cachedServerInfo;
+        };
         const rawGetClient = async (): Promise<Client> => {
           if (cachedClient === null) {
             const resolved = await getResolvedConfig();
-            cachedClient = createClient({ url: resolved.url, apiKey: resolved.apiKey });
+            cachedClient = createClient(
+              { url: resolved.url, apiKey: resolved.apiKey },
+              {
+                getServerTag: async () => (await getServerInfo())?.version?.tag ?? null,
+              },
+            );
           }
           return cachedClient;
-        };
-        const getServerInfo = async (): Promise<ServerInfo | null> => {
-          const resolved = await getResolvedConfig();
-          const record = await readProfileRecord(resolved.profile);
-          if (record === null || record.lastProbe === null) {
-            return null;
-          }
-          return {
-            version: record.lastProbe.version,
-            edition: record.lastProbe.edition,
-            tokenFeatures: record.lastProbe.tokenFeatures,
-          };
         };
         const enforcePreflight = createPreflightEnforcer(required, getServerInfo);
         const getClient = async (): Promise<Client> => {
@@ -116,6 +116,21 @@ function emitLegacyStorageWarningIfPending(): void {
   if (message !== null) {
     warn(message);
   }
+}
+
+async function loadServerInfo(
+  getResolvedConfig: () => Promise<ResolvedConfig>,
+): Promise<ServerInfo | null> {
+  const resolved = await getResolvedConfig();
+  const record = await readProfileRecord(resolved.profile);
+  if (record === null || record.lastProbe === null) {
+    return null;
+  }
+  return {
+    version: record.lastProbe.version,
+    edition: record.lastProbe.edition,
+    tokenFeatures: record.lastProbe.tokenFeatures,
+  };
 }
 
 const NO_OP_ENFORCER: () => Promise<void> = async () => {};

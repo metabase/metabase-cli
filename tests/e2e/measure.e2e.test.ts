@@ -203,7 +203,7 @@ describe("measure e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/measure/9999999.");
   });
 
   it("update renames the measure and the compact view reflects the new name", async () => {

@@ -94,7 +94,7 @@ describe("field e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/field/9999999.");
   });
 
   it("values returns the FieldValues envelope for the email field", async () => {
@@ -140,7 +140,7 @@ describe("field e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/field/9999999/summary.");
   });
 
   it("update edits the email field description and restores it", async () => {

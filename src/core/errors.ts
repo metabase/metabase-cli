@@ -37,6 +37,7 @@ export interface ResponseShapeErrorDetail {
   url: string;
   status: number;
   zodIssues: ZodError["issues"];
+  serverTag: string | null;
 }
 
 export interface UnknownErrorDetail {
@@ -136,7 +137,7 @@ function formatZodIssuePointer(path: ReadonlyArray<PropertyKey>): string {
   return path.map((key) => `/${escapeJsonPointerSegment(key)}`).join("");
 }
 
-const RESPONSE_SHAPE_LEAD = "Metabase returned unexpected response shape";
+const RESPONSE_SHAPE_LEAD_UNKNOWN_VERSION = "Metabase returned unexpected response shape";
 
 export class ResponseShapeError extends MetabaseError {
   readonly category = "response-shape";
@@ -145,17 +146,21 @@ export class ResponseShapeError extends MetabaseError {
   readonly developerDetail: ResponseShapeErrorDetail;
 
   constructor(developerDetail: ResponseShapeErrorDetail) {
-    super(formatResponseShapeMessage(developerDetail.zodIssues));
+    super(formatResponseShapeMessage(developerDetail.zodIssues, developerDetail.serverTag));
     this.name = "ResponseShapeError";
     this.developerDetail = developerDetail;
   }
 }
 
-function formatResponseShapeMessage(issues: ZodError["issues"]): string {
+function formatResponseShapeMessage(issues: ZodError["issues"], serverTag: string | null): string {
+  const lead =
+    serverTag === null
+      ? RESPONSE_SHAPE_LEAD_UNKNOWN_VERSION
+      : `On Metabase ${serverTag} the response shape was unexpected`;
   if (issues.length === 0) {
-    return RESPONSE_SHAPE_LEAD;
+    return lead;
   }
-  return `${RESPONSE_SHAPE_LEAD}:\n${formatIssueLines(issues, RESPONSE_SHAPE_ISSUE_FORMAT)}`;
+  return `${lead}:\n${formatIssueLines(issues, RESPONSE_SHAPE_ISSUE_FORMAT)}`;
 }
 
 export class ConfigError extends MetabaseError {
