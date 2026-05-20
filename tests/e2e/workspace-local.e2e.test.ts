@@ -14,8 +14,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_DATABASES } from "./seed/ids";
-
+import { SEEDED } from "./seed/seeded";
 const ENABLE_FLAG = "METABASE_CLI_E2E_DOCKER";
 const dockerEnabled = process.env[ENABLE_FLAG] === "1";
 const licenseToken = process.env["MB_PREMIUM_EMBEDDING_TOKEN"];
@@ -91,7 +90,7 @@ describe.skipIf(skipReason !== null)("workspace local-runtime e2e", () => {
         "provision",
         String(FIRST_WORKSPACE_ID),
         "--database-id",
-        String(E2E_DATABASES.WAREHOUSE),
+        String(SEEDED.warehouseDbId),
         "--schemas",
         ANALYTICS_SCHEMA,
         "--wait",
@@ -105,10 +104,10 @@ describe.skipIf(skipReason !== null)("workspace local-runtime e2e", () => {
     expect(provision.exitCode, provision.stderr).toBe(0);
     const workspace = parseJson(provision.stdout, Workspace);
     const provisioned = workspace.databases?.find(
-      (entry) => entry.database_id === E2E_DATABASES.WAREHOUSE,
+      (entry) => entry.database_id === SEEDED.warehouseDbId,
     );
     expect(provisioned).toMatchObject({
-      database_id: E2E_DATABASES.WAREHOUSE,
+      database_id: SEEDED.warehouseDbId,
       input: [{ schema: ANALYTICS_SCHEMA }],
       status: "provisioned",
     });

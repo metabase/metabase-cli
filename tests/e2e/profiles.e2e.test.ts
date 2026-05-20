@@ -10,8 +10,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_CARDS, E2E_DATABASES } from "./seed/ids";
-
+import { SEEDED } from "./seed/seeded";
 describe("profiles e2e", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
@@ -152,7 +151,7 @@ describe("profiles e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, DatabaseListEnvelope)).toEqual({
-      data: [{ id: E2E_DATABASES.WAREHOUSE, name: "Warehouse", engine: "postgres" }],
+      data: [{ id: SEEDED.warehouseDbId, name: "Warehouse", engine: "postgres" }],
       returned: 1,
       total: 1,
     });
@@ -164,7 +163,7 @@ describe("profiles e2e", () => {
     await loginProfile(configHome, "limited", bootstrap.limitedApiKey);
 
     const adminQuery = await runCli({
-      args: ["card", "query", String(E2E_CARDS.ORDERS_BY_STATUS), "--profile", "admin", "--json"],
+      args: ["card", "query", String(SEEDED.ordersCardId), "--profile", "admin", "--json"],
       configHome,
     });
     expect(adminQuery.exitCode, adminQuery.stderr).toBe(0);
@@ -172,7 +171,7 @@ describe("profiles e2e", () => {
     expect(adminPayload.status).toBe("completed");
 
     const limitedQuery = await runCli({
-      args: ["card", "query", String(E2E_CARDS.ORDERS_BY_STATUS), "--profile", "limited", "--json"],
+      args: ["card", "query", String(SEEDED.ordersCardId), "--profile", "limited", "--json"],
       configHome,
     });
     expect(limitedQuery.exitCode).toBe(1);

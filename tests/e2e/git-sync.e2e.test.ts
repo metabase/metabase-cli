@@ -9,6 +9,9 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { requireServer } from "./server-gate";
+
+const skipReason = requireServer({ minVersion: 58, edition: "ee", tokenFeature: "remote_sync" });
 
 describe("git-sync arg validation e2e (no Metabase contact required)", () => {
   const tempDirs: string[] = [];
@@ -112,7 +115,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
   });
 });
 
-describe("git-sync e2e against EE git-sync endpoints", () => {
+describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
 

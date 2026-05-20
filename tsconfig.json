@@ -19,5 +19,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src/**/*", "tests/**/*", "tsdown.config.ts", "eslint.config.js"]
+  "include": ["src/**/*", "tests/**/*", "scripts/**/*", "tsdown.config.ts", "eslint.config.js"]
 }

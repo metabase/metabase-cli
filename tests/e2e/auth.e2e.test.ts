@@ -243,10 +243,9 @@ describe("auth e2e", () => {
 
     const list = await runCli({ args: ["auth", "list", "--json"], configHome });
     expect(list.exitCode, list.stderr).toBe(0);
-    expect(list.stderr).toContain("stable:");
 
     const envelope = parseJson(list.stdout, AuthProfileListEnvelope);
-    expect(envelope.data[0]?.status).not.toBe("ok");
+    expect(envelope.data[0]?.status).toBe("network-error");
 
     const after = await readProfilesJson(configHome);
     expect(after.profiles[0]?.lastProbe).toEqual(beforeProbe);

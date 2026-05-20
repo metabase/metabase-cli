@@ -20,6 +20,7 @@ interface StatusClassification {
 }
 
 const ROUTE_MISSING_LITERAL = "API endpoint does not exist.";
+const RESOURCE_MISSING_LITERAL = "Not found.";
 
 const STATUS_CLASSIFICATIONS: Record<number, StatusClassification> = {
   401: { retryable: false },
@@ -141,6 +142,12 @@ function isRouteMissingResponse(
 ): boolean {
   if (sanitizedBody?.includes(ROUTE_MISSING_LITERAL)) {
     return true;
+  }
+  // Metabase ≤ v0.58 serves resource-missing 404s as text/plain "Not found." (newer
+  // versions use a JSON envelope); without this the plain-text body falls through to the
+  // non-JSON branch below and is misread as a missing route.
+  if (sanitizedBody?.includes(RESOURCE_MISSING_LITERAL)) {
+    return false;
   }
   if (redactedHeaders["content-type"]?.includes(JSON_CONTENT_TYPE)) {
     return false;

@@ -11,8 +11,7 @@ import { parseJson } from "../../src/runtime/json";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_DATABASES, E2E_TABLES } from "./seed/ids";
-
+import { SEEDED } from "./seed/seeded";
 const VALID_QUERY = {
   "lib/type": "mbql/query",
   database: 1,
@@ -189,11 +188,11 @@ describe("query e2e", () => {
       args: ["query", "--json"],
       stdin: JSON.stringify({
         "lib/type": "mbql/query",
-        database: E2E_DATABASES.WAREHOUSE,
+        database: SEEDED.warehouseDbId,
         stages: [
           {
             "lib/type": "mbql.stage/mbql",
-            "source-table": E2E_TABLES.ORDERS,
+            "source-table": SEEDED.tables.orders,
             limit: 3,
           },
         ],
@@ -215,7 +214,7 @@ describe("query e2e", () => {
       args: ["query", "--json"],
       stdin: JSON.stringify({
         type: "native",
-        database: E2E_DATABASES.WAREHOUSE,
+        database: SEEDED.warehouseDbId,
         native: { query: "SELECT 1 AS one, 2 AS two" },
       }),
       configHome,
@@ -235,7 +234,7 @@ describe("query e2e", () => {
       args: ["query", "--dry-run"],
       stdin: JSON.stringify({
         type: "native",
-        database: E2E_DATABASES.WAREHOUSE,
+        database: SEEDED.warehouseDbId,
         native: { query: "SELECT 1" },
       }),
       configHome,
@@ -251,9 +250,9 @@ describe("query e2e", () => {
       args: ["query", "--json"],
       stdin: JSON.stringify({
         type: "query",
-        database: E2E_DATABASES.WAREHOUSE,
+        database: SEEDED.warehouseDbId,
         query: {
-          "source-table": E2E_TABLES.ORDERS,
+          "source-table": SEEDED.tables.orders,
           limit: 3,
         },
       }),
@@ -274,8 +273,8 @@ describe("query e2e", () => {
       args: ["query", "--dry-run"],
       stdin: JSON.stringify({
         type: "query",
-        database: E2E_DATABASES.WAREHOUSE,
-        query: { "source-table": E2E_TABLES.ORDERS, limit: 1 },
+        database: SEEDED.warehouseDbId,
+        query: { "source-table": SEEDED.tables.orders, limit: 1 },
       }),
       configHome,
     });
@@ -290,11 +289,11 @@ describe("query e2e", () => {
       args: ["query", "--dry-run"],
       stdin: JSON.stringify({
         type: "query",
-        database: E2E_DATABASES.WAREHOUSE,
+        database: SEEDED.warehouseDbId,
         query: {
           "lib/type": "mbql/query",
-          database: E2E_DATABASES.WAREHOUSE,
-          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": E2E_TABLES.ORDERS }],
+          database: SEEDED.warehouseDbId,
+          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": SEEDED.tables.orders }],
         },
       }),
       configHome,

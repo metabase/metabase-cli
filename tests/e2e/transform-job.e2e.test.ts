@@ -7,6 +7,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { requireServer } from "./server-gate";
 
 const VALID_CRON = "0 0 0 * * ?";
 const SECOND_CRON = "0 0 6 * * ?";
@@ -73,7 +74,9 @@ const JOB_BODY: JobBody = {
   schedule: VALID_CRON,
 };
 
-describe("transform-job e2e", () => {
+const skipReason = requireServer({ minVersion: 58, edition: "ee", tokenFeature: "transforms" });
+
+describe.skipIf(skipReason !== null)("transform-job e2e", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
 

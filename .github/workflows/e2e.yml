@@ -12,7 +12,21 @@ concurrency:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        stack:
+          - oss-58
+          - ee-58
+          - oss-59
+          - ee-59
+          - oss-60
+          - ee-60
+          - oss-61
+          - ee-61
+          - oss-head
+          - ee-head
     env:
       MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }}
       METASTORE_DEV_SERVER_URL: ${{ secrets.METASTORE_DEV_SERVER_URL }}
@@ -27,28 +41,18 @@ jobs:
 
       # The Metabase container runs the JVM as uid 2000; the bind-mounted
       # snapshot dir is owned by the runner user, so without this Metabase
-      # cannot write `cli_default.sql` and bootstrap fails.
+      # cannot write the per-stack snapshot and bootstrap fails.
       - name: Make snapshot dir writable by Metabase container
         run: chmod 777 tests/e2e/snapshots
 
-      - name: Boot Metabase + Postgres via docker compose
-        run: bun run e2e:up
+      - name: Run e2e against ${{ matrix.stack }}
+        run: bun run e2e:matrix --stack=${{ matrix.stack }}
 
-      - name: Run e2e tests
-        run: bun run test:e2e
-
-      - name: Capture Metabase logs on failure
-        if: failure()
-        run: docker compose -f tests/e2e/docker-compose.yml logs metabase > metabase.log
-
+      # The runner writes metabase-<stack>.log before tearing the stack down.
       - name: Upload Metabase logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: metabase-logs
-          path: metabase.log
+          name: metabase-logs-${{ matrix.stack }}
+          path: metabase-${{ matrix.stack }}.log
           if-no-files-found: ignore
-
-      - name: Tear down docker compose
-        if: always()
-        run: bun run e2e:down

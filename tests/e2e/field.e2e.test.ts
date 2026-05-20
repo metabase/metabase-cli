@@ -7,8 +7,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_TABLES } from "./seed/ids";
-
+import { SEEDED } from "./seed/seeded";
 describe("field e2e", () => {
   let bootstrap: E2EBootstrap;
   let customersEmailFieldId: number;
@@ -16,7 +15,7 @@ describe("field e2e", () => {
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
-    customersEmailFieldId = await resolveFieldId(E2E_TABLES.CUSTOMERS, "email");
+    customersEmailFieldId = await resolveFieldId(SEEDED.tables.customers, "email");
   });
 
   async function resolveFieldId(tableId: number, fieldName: string): Promise<number> {
@@ -65,7 +64,7 @@ describe("field e2e", () => {
       name: "email",
       display_name: "Email",
       description: null,
-      table_id: E2E_TABLES.CUSTOMERS,
+      table_id: SEEDED.tables.customers,
       base_type: "type/Text",
       semantic_type: "type/Email",
       fk_target_field_id: null,

@@ -7,8 +7,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_DATABASES, E2E_FIELDS, E2E_TABLES } from "./seed/ids";
-
+import { SEEDED } from "./seed/seeded";
 const FIRST_NEW_SEGMENT_ID = 1;
 const SEGMENT_NAME = "PositiveIdOrders";
 const SEGMENT_DESCRIPTION = "Orders with a positive id.";
@@ -18,16 +17,16 @@ const NEW_SEGMENT_COMPACT = {
   name: SEGMENT_NAME,
   description: SEGMENT_DESCRIPTION,
   archived: false,
-  table_id: E2E_TABLES.ORDERS,
+  table_id: SEEDED.tables.orders,
 } as const;
 
 const NEW_SEGMENT_BODY: SegmentCreateInput = {
   name: SEGMENT_NAME,
-  table_id: E2E_TABLES.ORDERS,
+  table_id: SEEDED.tables.orders,
   description: SEGMENT_DESCRIPTION,
   definition: {
-    "source-table": E2E_TABLES.ORDERS,
-    filter: [">", ["field", E2E_FIELDS.ORDERS_ID, null], 0],
+    "source-table": SEEDED.tables.orders,
+    filter: [">", ["field", SEEDED.fields.ordersId, null], 0],
   },
 };
 
@@ -115,10 +114,10 @@ describe("segment e2e", () => {
       args: ["segment", "create", "--json"],
       stdin: JSON.stringify({
         name: "preflight-fail",
-        table_id: E2E_TABLES.ORDERS,
+        table_id: SEEDED.tables.orders,
         definition: {
           "lib/type": "mbql/query",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           stages: [],
         },
       }),
@@ -141,10 +140,10 @@ describe("segment e2e", () => {
       args: ["segment", "create", "--skip-validate", "--json"],
       stdin: JSON.stringify({
         name: "skip-validate-bypass",
-        table_id: E2E_TABLES.ORDERS,
+        table_id: SEEDED.tables.orders,
         definition: {
           "lib/type": "mbql/query",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           stages: [],
         },
       }),
@@ -232,7 +231,7 @@ describe("segment e2e", () => {
         revision_message: "bad definition",
         definition: {
           "lib/type": "mbql/query",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           stages: [],
         },
       }),

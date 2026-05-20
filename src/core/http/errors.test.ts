@@ -213,6 +213,18 @@ describe("HttpError kind classification", () => {
     expect(error.kind).toBe("resource-missing");
   });
 
+  it("classifies 404 with a text/plain Not-found body as resource-missing (Metabase v0.58)", () => {
+    const error = buildHttpError({
+      status: 404,
+      method: "GET",
+      url: "https://example.invalid/api/database/9999",
+      responseHeaders: textHeaders(),
+      rawBody: "Not found.",
+    });
+    expect(error.kind).toBe("resource-missing");
+    expect(error.message).toBe("Not found: GET /api/database/9999.");
+  });
+
   it("treats a 404 with an empty non-JSON body as route-missing", () => {
     const error = buildHttpError({
       status: 404,

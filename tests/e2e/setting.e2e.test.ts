@@ -12,6 +12,9 @@ const StringArraySettingValue = SettingValue.extend({ value: z.array(z.string())
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { requireServer } from "./server-gate";
+
+const eeOnlySkip = requireServer({ edition: "ee" });
 
 const MUTABLE_KEY = "enable-public-sharing";
 const MUTABLE_KEY_ENV_NAME = "MB_ENABLE_PUBLIC_SHARING";
@@ -223,35 +226,38 @@ describe("setting e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("get --json on a string-valued setting wraps the bare server response", async () => {
-    const STRING_KEY = "remote-sync-type";
-    const TARGET = "read-write";
-    try {
-      await adminClient.requestRaw(`/api/setting/${STRING_KEY}`, {
-        method: "PUT",
-        body: { value: TARGET },
-        expectContentType: "binary",
-      });
+  it.skipIf(eeOnlySkip !== null)(
+    "get --json on a string-valued setting wraps the bare server response",
+    async () => {
+      const STRING_KEY = "remote-sync-type";
+      const TARGET = "read-write";
+      try {
+        await adminClient.requestRaw(`/api/setting/${STRING_KEY}`, {
+          method: "PUT",
+          body: { value: TARGET },
+          expectContentType: "binary",
+        });
 
-      const result = await runCli({
-        args: ["setting", "get", STRING_KEY, "--json"],
-        configHome: await makeIsolatedConfigHome(),
-        env: authEnv(),
-      });
+        const result = await runCli({
+          args: ["setting", "get", STRING_KEY, "--json"],
+          configHome: await makeIsolatedConfigHome(),
+          env: authEnv(),
+        });
 
-      expect(result.exitCode, result.stderr).toBe(0);
-      expect(parseJson(result.stdout, SettingValue)).toEqual({
-        key: STRING_KEY,
-        value: TARGET,
-      });
-    } finally {
-      await adminClient.requestRaw(`/api/setting/${STRING_KEY}`, {
-        method: "PUT",
-        body: { value: null },
-        expectContentType: "binary",
-      });
-    }
-  });
+        expect(result.exitCode, result.stderr).toBe(0);
+        expect(parseJson(result.stdout, SettingValue)).toEqual({
+          key: STRING_KEY,
+          value: TARGET,
+        });
+      } finally {
+        await adminClient.requestRaw(`/api/setting/${STRING_KEY}`, {
+          method: "PUT",
+          body: { value: null },
+          expectContentType: "binary",
+        });
+      }
+    },
+  );
 
   it("get --json on a text/plain string setting (admin-email) returns the wrapped string", async () => {
     const result = await runCli({

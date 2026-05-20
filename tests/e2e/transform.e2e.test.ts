@@ -15,8 +15,8 @@ import { pollUntil } from "../../src/runtime/poll";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_DATABASES, E2E_TABLES } from "./seed/ids";
-
+import { SEEDED } from "./seed/seeded";
+import { requireServer } from "./server-gate";
 const FIRST_TRANSFORM_ID = 1;
 const TRANSFORM_NAME = "e2e_transform";
 const TRANSFORM_TARGET_TABLE = "e2e_transform";
@@ -57,13 +57,13 @@ const TRANSFORM_BODY: TransformBody = {
     type: "query",
     query: {
       type: "native",
-      database: E2E_DATABASES.WAREHOUSE,
+      database: SEEDED.warehouseDbId,
       native: { query: "SELECT 1 AS one" },
     },
   },
   target: {
     type: "table",
-    database: E2E_DATABASES.WAREHOUSE,
+    database: SEEDED.warehouseDbId,
     schema: "public",
     name: TRANSFORM_TARGET_TABLE,
   },
@@ -76,14 +76,16 @@ const TRANSFORM_COMPACT = {
   source_type: "native",
   target: {
     type: "table",
-    database: E2E_DATABASES.WAREHOUSE,
+    database: SEEDED.warehouseDbId,
     schema: "public",
     name: TRANSFORM_TARGET_TABLE,
   },
-  target_db_id: E2E_DATABASES.WAREHOUSE,
+  target_db_id: SEEDED.warehouseDbId,
 } as const;
 
-describe("transform e2e", () => {
+const skipReason = requireServer({ minVersion: 58, edition: "ee", tokenFeature: "transforms" });
+
+describe.skipIf(skipReason !== null)("transform e2e", () => {
   let bootstrap: E2EBootstrap;
   let adminClient: Client;
   const tempDirs: string[] = [];
@@ -228,13 +230,13 @@ describe("transform e2e", () => {
         type: "query",
         query: {
           type: "native",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           native: { query: "SELECT 1 FROM does_not_exist" },
         },
       },
       target: {
         type: "table",
-        database: E2E_DATABASES.WAREHOUSE,
+        database: SEEDED.warehouseDbId,
         schema: "public",
         name: failName,
       },
@@ -366,14 +368,14 @@ describe("transform e2e", () => {
             stages: [
               {
                 "lib/type": "mbql.stage/mbql",
-                "source-table": E2E_TABLES.ORDERS,
+                "source-table": SEEDED.tables.orders,
               },
             ],
           },
         },
         target: {
           type: "table",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           schema: "public",
           name: "preflight_fail_target",
         },
@@ -430,12 +432,12 @@ describe("transform e2e", () => {
           query: {
             "lib/type": "mbql/query",
             database: "oops",
-            stages: [{ "lib/type": "mbql.stage/mbql", "source-table": E2E_TABLES.ORDERS }],
+            stages: [{ "lib/type": "mbql.stage/mbql", "source-table": SEEDED.tables.orders }],
           },
         },
         target: {
           type: "table",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           schema: "public",
           name: "skip_validate_bypass_target",
         },
@@ -644,13 +646,13 @@ describe("transform e2e", () => {
         type: "query",
         query: {
           type: "native",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           native: { query: "WITH s AS (SELECT pg_sleep(20)) SELECT 1 AS one FROM s" },
         },
       },
       target: {
         type: "table",
-        database: E2E_DATABASES.WAREHOUSE,
+        database: SEEDED.warehouseDbId,
         schema: "public",
         name: "e2e_transform_cancel",
       },

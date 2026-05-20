@@ -19,7 +19,7 @@ services:
       data-db:
         condition: service_healthy
     ports:
-      - "13000:3000"
+      - "${METABASE_E2E_PORT:-13000}:3000"
     environment:
       MB_DB_TYPE: h2
       MB_DB_FILE: /metabase/metabase.db
