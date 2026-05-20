@@ -16,6 +16,7 @@ export default defineMetabaseCommand({
     name: "provision",
     description: "Provision a database into a workspace",
   },
+  capabilities: { minVersion: 62, edition: "ee", tokenFeature: "workspaces" },
   args: {
     ...outputFlags,
     ...profileFlag,

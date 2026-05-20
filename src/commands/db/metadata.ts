@@ -9,6 +9,7 @@ export default defineMetabaseCommand({
     name: "metadata",
     description: "Get a database with its tables and fields hydrated",
   },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

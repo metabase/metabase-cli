@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const Edition = z.enum(["oss", "pro", "enterprise"]);
+export const Edition = z.enum(["oss", "ee"]);
 export type Edition = z.infer<typeof Edition>;
 
 export const Capabilities = z.object({

@@ -24,7 +24,7 @@ function infoFor(overrides: InfoOverrides = {}): ServerInfo {
   const build = overrides.build ?? "oss";
   return {
     version: { tag: `v${build === "ee" ? "1" : "0"}.${major}.0`, build, major, patch: 0 },
-    edition: overrides.edition ?? (build === "ee" ? "enterprise" : "oss"),
+    edition: overrides.edition ?? build,
     tokenFeatures: overrides.tokenFeatures ?? null,
   };
 }
@@ -42,9 +42,9 @@ describe("mergeCapabilities", () => {
   });
 
   it("overlays edition onto baseline", () => {
-    expect(mergeCapabilities({ edition: "pro" })).toEqual({
+    expect(mergeCapabilities({ edition: "ee" })).toEqual({
       minVersion: 58,
-      edition: "pro",
+      edition: "ee",
     });
   });
 
@@ -57,11 +57,9 @@ describe("mergeCapabilities", () => {
   });
 
   it("overlays all three fields at once", () => {
-    expect(
-      mergeCapabilities({ minVersion: 60, edition: "enterprise", tokenFeature: "scim" }),
-    ).toEqual({
+    expect(mergeCapabilities({ minVersion: 60, edition: "ee", tokenFeature: "scim" })).toEqual({
       minVersion: 60,
-      edition: "enterprise",
+      edition: "ee",
       tokenFeature: "scim",
     });
   });
@@ -102,37 +100,30 @@ describe("checkCapabilities", () => {
     });
   });
 
-  it("returns null when required edition pro is satisfied by actual pro", () => {
-    const required: Capabilities = { minVersion: 58, edition: "pro" };
+  it("returns null when required edition ee is satisfied by an ee server", () => {
+    const required: Capabilities = { minVersion: 58, edition: "ee" };
     expect(
-      checkCapabilities(infoFor({ major: 58, build: "ee", edition: "pro" }), required),
+      checkCapabilities(infoFor({ major: 58, build: "ee", edition: "ee" }), required),
     ).toBeNull();
   });
 
-  it("returns null when required edition pro is satisfied by actual enterprise", () => {
-    const required: Capabilities = { minVersion: 58, edition: "pro" };
-    expect(
-      checkCapabilities(infoFor({ major: 58, build: "ee", edition: "enterprise" }), required),
-    ).toBeNull();
-  });
-
-  it("returns edition-mismatch when required pro and actual oss", () => {
-    const required: Capabilities = { minVersion: 58, edition: "pro" };
+  it("returns edition-mismatch when required ee and actual oss", () => {
+    const required: Capabilities = { minVersion: 58, edition: "ee" };
     expect(checkCapabilities(infoFor({ major: 58, build: "oss" }), required)).toEqual({
       reason: "edition-mismatch",
       detail:
-        "This command requires Metabase pro (this server is oss). Upgrade your Metabase edition.",
+        "This command requires Metabase ee (this server is oss). Upgrade your Metabase edition.",
     });
   });
 
   it("returns missing-token-feature when required feature is absent from token-features", () => {
-    const required: Capabilities = { minVersion: 58, edition: "pro", tokenFeature: "transforms" };
+    const required: Capabilities = { minVersion: 58, edition: "ee", tokenFeature: "transforms" };
     expect(
       checkCapabilities(
         infoFor({
           major: 58,
           build: "ee",
-          edition: "pro",
+          edition: "ee",
           tokenFeatures: { transforms: false, embedding: true },
         }),
         required,
@@ -145,13 +136,13 @@ describe("checkCapabilities", () => {
   });
 
   it("returns null when required tokenFeature is enabled", () => {
-    const required: Capabilities = { minVersion: 58, edition: "pro", tokenFeature: "transforms" };
+    const required: Capabilities = { minVersion: 58, edition: "ee", tokenFeature: "transforms" };
     expect(
       checkCapabilities(
         infoFor({
           major: 58,
           build: "ee",
-          edition: "pro",
+          edition: "ee",
           tokenFeatures: { transforms: true },
         }),
         required,
@@ -160,7 +151,7 @@ describe("checkCapabilities", () => {
   });
 
   it("returns unknown-version when the probe failed to identify the server", () => {
-    const required: Capabilities = { minVersion: 60, edition: "enterprise" };
+    const required: Capabilities = { minVersion: 60, edition: "ee" };
     expect(checkCapabilities(infoFor({ major: null }), required)).toEqual({
       reason: "unknown-version",
       detail:

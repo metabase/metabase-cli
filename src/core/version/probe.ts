@@ -1,7 +1,7 @@
 import { SessionProperties, type TokenFeatures } from "../../domain/session-properties";
+import type { Edition } from "../../runtime/capabilities";
 import type { Client } from "../http/client";
 
-import { deriveEdition, type Edition } from "./edition";
 import { parseTag, type ParsedVersion } from "./tag";
 
 export const PROBE_PATH = "/api/session/properties";
@@ -28,7 +28,7 @@ export async function probeServer(client: Client): Promise<ServerInfo> {
   const version = parseTag(properties.version.tag);
   return {
     version,
-    edition: deriveEdition(version.build, tokenFeatures),
+    edition: version.build,
     tokenFeatures: tokenFeatures ?? null,
   };
 }

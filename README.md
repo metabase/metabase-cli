@@ -2,6 +2,18 @@
 
 Command-line client for Metabase. Authenticates against an instance with an API key and stores it securely on your machine.
 
+## Supported Metabase versions
+
+The minimum supported server is **Metabase v0.58** (major `58`). Anything older is unsupported.
+
+Commands that need more than a baseline OSS server declare it — a higher minimum major version, an EE edition, or a premium token feature. The server version and edition are detected and cached when you run `mb auth login` (or `mb auth list`). For those commands, a preflight check runs before the first request and refuses with an actionable message (exit code `2`) when:
+
+- the server is older than the command's minimum version,
+- the command needs an EE build and the server is OSS, or
+- the command needs a premium feature (e.g. `transforms`, `remote_sync`, `workspaces`) that isn't enabled.
+
+Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs but the server version can't be detected (no cached probe), it proceeds with a warning rather than refusing. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `METABASE_CLI_SKIP_PREFLIGHT=1`. Both are footguns — only for servers you know are patched.
+
 ## Install
 
 ```sh

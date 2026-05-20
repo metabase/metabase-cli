@@ -9,6 +9,7 @@ export const DashcardListEnvelope = listEnvelopeSchema(DashcardCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "cards", description: "List dashcards on a dashboard" },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

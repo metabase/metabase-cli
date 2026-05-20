@@ -9,6 +9,7 @@ export default defineMetabaseCommand({
     name: "values",
     description: "Fetch the cached distinct values for a field (FieldValues list)",
   },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

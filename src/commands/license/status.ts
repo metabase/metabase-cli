@@ -21,6 +21,7 @@ export default defineMetabaseCommand({
     name: "status",
     description: "Show whether a license token is stored (does not reveal value)",
   },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: { ...outputFlags },
   outputSchema: LicenseStatus,
   examples: ["mb license status", "mb license status --json"],

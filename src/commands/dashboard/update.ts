@@ -14,6 +14,7 @@ export default defineMetabaseCommand({
     description:
       "Update a dashboard (and optionally its dashcards/tabs) by id; any positive card_id referenced from dashcards is pre-flight-validated against /api/card/:id (exists, not archived) before the PUT",
   },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

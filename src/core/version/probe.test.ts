@@ -14,7 +14,7 @@ function planning(response: unknown): ReadonlyMap<string, unknown> {
 }
 
 describe("probeServer", () => {
-  it("returns parsed ServerInfo on a successful EE-enterprise response", async () => {
+  it("returns parsed ServerInfo on a successful EE response", async () => {
     const { client } = createFakeClient({
       responses: planning({
         version: { tag: "v1.58.7", date: "2025-12-15", hash: "abc1234" },
@@ -23,7 +23,7 @@ describe("probeServer", () => {
     });
     expect(await probeServer(client)).toEqual({
       version: { tag: "v1.58.7", build: "ee", major: 58, patch: 7 },
-      edition: "enterprise",
+      edition: "ee",
       tokenFeatures: { advanced_permissions: true, audit_app: true, embedding: true },
     });
   });
@@ -36,7 +36,7 @@ describe("probeServer", () => {
     expect(calls).toEqual([EXPECTED_PROBE_CALL]);
   });
 
-  it("classifies an EE-build response with all token-features false as oss", async () => {
+  it("derives edition from the build, not token-features (EE build stays ee even with all features false)", async () => {
     const { client } = createFakeClient({
       responses: planning({
         version: { tag: "v1.58.7" },
@@ -45,7 +45,7 @@ describe("probeServer", () => {
     });
     expect(await probeServer(client)).toEqual({
       version: { tag: "v1.58.7", build: "ee", major: 58, patch: 7 },
-      edition: "oss",
+      edition: "ee",
       tokenFeatures: { advanced_permissions: false, embedding: false },
     });
   });

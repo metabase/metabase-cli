@@ -28,11 +28,10 @@ export interface PreflightFailure {
 
 const EDITION_RANK: Readonly<Record<Edition, number>> = Object.freeze({
   oss: 0,
-  pro: 1,
-  enterprise: 2,
+  ee: 1,
 });
 
-const VERSION_FLAVOR: Readonly<Record<"oss" | "ee", "0" | "1">> = Object.freeze({
+const EDITION_TAG_PREFIX: Readonly<Record<Edition, "0" | "1">> = Object.freeze({
   oss: "0",
   ee: "1",
 });
@@ -50,10 +49,10 @@ export function checkCapabilities(
   }
 
   if (info.version.major < required.minVersion) {
-    const flavor = VERSION_FLAVOR[info.version.build];
+    const editionPrefix = EDITION_TAG_PREFIX[info.version.build];
     return {
       reason: "version-too-old",
-      detail: `This command requires Metabase v${flavor}.${required.minVersion}+ (this server is ${info.version.tag}). Upgrade Metabase or pin mb-cli to an older release.`,
+      detail: `This command requires Metabase v${editionPrefix}.${required.minVersion}+ (this server is ${info.version.tag}). Upgrade Metabase or pin mb-cli to an older release.`,
     };
   }
 

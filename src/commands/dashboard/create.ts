@@ -18,6 +18,7 @@ export default defineMetabaseCommand({
     description:
       "Create a dashboard from a JSON spec; any positive card_id referenced from dashcards is pre-flight-validated against /api/card/:id (exists, not archived) before the dashboard is created",
   },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

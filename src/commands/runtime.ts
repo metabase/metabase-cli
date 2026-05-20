@@ -40,14 +40,15 @@ export interface MetabaseCommandDef<A extends ArgsDef> {
   args: A;
   examples?: readonly string[];
   outputSchema?: ZodType;
-  capabilities?: Partial<Capabilities>;
+  capabilities?: Partial<Capabilities> | null;
   run: (context: MetabaseCommandContext<A>) => Promise<void> | void;
 }
 
 export function defineMetabaseCommand<const A extends ArgsDef>(
   def: MetabaseCommandDef<A>,
 ): CommandDef<A> {
-  const required = mergeCapabilities(def.capabilities);
+  const required: Capabilities | null =
+    def.capabilities === null ? null : mergeCapabilities(def.capabilities);
   const cmd = defineCommand<A>({
     meta: def.meta,
     args: def.args,
@@ -81,7 +82,11 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
           }
           return cachedClient;
         };
-        const enforcePreflight = createPreflightEnforcer(required, getServerInfo);
+        const enforcePreflight = createPreflightEnforcer(
+          required,
+          getServerInfo,
+          ctx.skipPreflight,
+        );
         const getClient = async (): Promise<Client> => {
           const client = await rawGetClient();
           await enforcePreflight();
@@ -138,10 +143,11 @@ const NO_OP_ENFORCER: () => Promise<void> = async () => {};
 const PROBE_HINT = " Run `mb auth list` (or `mb auth login`) to populate the version cache.";
 
 function createPreflightEnforcer(
-  required: Capabilities,
+  required: Capabilities | null,
   getServerInfo: () => Promise<ServerInfo | null>,
+  skip: boolean,
 ): () => Promise<void> {
-  if (isPreflightSkipped() || isBaseline(required)) {
+  if (required === null || skip || isPreflightSkipped() || isBaseline(required)) {
     return NO_OP_ENFORCER;
   }
   let done = false;
@@ -196,6 +202,9 @@ function pickCommonArgs<A extends ArgsDef>(args: ParsedArgs<A>): CommonArgs {
   }
   if (typeof args["apiKey"] === "string") {
     out.apiKey = args["apiKey"];
+  }
+  if (typeof args["skipPreflight"] === "boolean") {
+    out.skipPreflight = args["skipPreflight"];
   }
   return out;
 }

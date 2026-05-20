@@ -17,6 +17,7 @@ export default defineMetabaseCommand({
     name: "logs",
     description: "Stream the local container's logs (passthrough to `docker logs`)",
   },
+  capabilities: { minVersion: 62, edition: "ee", tokenFeature: "workspaces" },
   args: {
     ...outputFlags,
     id: { type: "positional", description: "Workspace id", required: true },

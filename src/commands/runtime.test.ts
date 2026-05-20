@@ -15,7 +15,7 @@ vi.mock("@napi-rs/keyring", async () => {
 });
 
 const { defineMetabaseCommand, SKIP_PREFLIGHT_ENV } = await import("./runtime");
-const { outputFlags, profileFlag } = await import("./flags");
+const { connectionFlags, outputFlags, profileFlag } = await import("./flags");
 const { writeProbeResult, writeProfile } = await import("../core/auth/storage");
 
 async function seedProbedProfile(name: string, info: ServerInfo): Promise<void> {
@@ -29,7 +29,7 @@ async function seedProbedProfile(name: string, info: ServerInfo): Promise<void> 
 function fakeServerInfo(major: number, build: "oss" | "ee" = "oss"): ServerInfo {
   return {
     version: { tag: `v${build === "ee" ? "1" : "0"}.${major}.0`, build, major, patch: 0 },
-    edition: build === "ee" ? "enterprise" : "oss",
+    edition: build,
     tokenFeatures: null,
   };
 }
@@ -200,6 +200,54 @@ describe("defineMetabaseCommand", () => {
     expect(process.exitCode).toBe(2);
   });
 
+  it("refuses with CapabilityError exit code 2 when the server edition is below the required edition", async () => {
+    await seedProbedProfile("default", fakeServerInfo(58, "oss"));
+
+    const ran = vi.fn();
+    const cmd = defineMetabaseCommand({
+      meta: { name: "needs-ee", description: "wants ee" },
+      args: {},
+      capabilities: { edition: "ee" },
+      async run({ getClient }) {
+        await getClient();
+        ran();
+      },
+    });
+    const stderr = captureStderr();
+
+    await runCommand(cmd, { rawArgs: [] });
+
+    expect(stderr.join("")).toContain(
+      "This command requires Metabase ee (this server is oss). Upgrade your Metabase edition.",
+    );
+    expect(process.exitCode).toBe(2);
+    expect(ran).not.toHaveBeenCalled();
+  });
+
+  it("refuses with CapabilityError exit code 2 when the required premium token-feature is absent", async () => {
+    await seedProbedProfile("default", fakeServerInfo(58, "ee"));
+
+    const ran = vi.fn();
+    const cmd = defineMetabaseCommand({
+      meta: { name: "needs-transforms", description: "wants transforms" },
+      args: {},
+      capabilities: { edition: "ee", tokenFeature: "transforms" },
+      async run({ getClient }) {
+        await getClient();
+        ran();
+      },
+    });
+    const stderr = captureStderr();
+
+    await runCommand(cmd, { rawArgs: [] });
+
+    expect(stderr.join("")).toContain(
+      "This command requires the 'transforms' premium feature (not enabled on this server).",
+    );
+    expect(process.exitCode).toBe(2);
+    expect(ran).not.toHaveBeenCalled();
+  });
+
   it("runs a baseline-capabilities command without consulting the cached probe", async () => {
     await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
 
@@ -243,6 +291,24 @@ describe("defineMetabaseCommand", () => {
     );
     expect(ran).toHaveBeenCalledOnce();
     expect(process.exitCode).toBe(0);
+  });
+
+  it("bypasses the preflight check when --skip-preflight is passed", async () => {
+    await seedProbedProfile("default", fakeServerInfo(58, "oss"));
+
+    const ran = vi.fn();
+    const cmd = defineMetabaseCommand({
+      meta: { name: "skip-preflight-flag", description: "skip via flag" },
+      args: { ...connectionFlags },
+      capabilities: { minVersion: 99 },
+      async run({ getClient }) {
+        await getClient();
+        ran();
+      },
+    });
+
+    await runCommand(cmd, { rawArgs: ["--skip-preflight"] });
+    expect(ran).toHaveBeenCalledOnce();
   });
 
   it("bypasses the preflight check when METABASE_CLI_SKIP_PREFLIGHT=1 is set", async () => {

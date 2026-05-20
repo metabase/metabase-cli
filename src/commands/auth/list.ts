@@ -79,6 +79,7 @@ function renderStatus(value: unknown): string {
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List configured authentication profiles" },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: { ...outputFlags },
   outputSchema: AuthProfileListEnvelope,
   examples: ["mb auth list", "mb auth list --json"],

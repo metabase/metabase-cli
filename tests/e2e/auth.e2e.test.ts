@@ -68,7 +68,7 @@ describe("auth e2e", () => {
     expect(loginPayload.user?.id).toBeGreaterThan(0);
     expect(loginPayload.user?.name).not.toBe("");
     expect(loginPayload.version?.tag.startsWith("v")).toBe(true);
-    expect(["oss", "pro", "enterprise"]).toContain(loginPayload.edition);
+    expect(["oss", "ee"]).toContain(loginPayload.edition);
 
     const fileAfterLogin = await readProfilesJson(configHome);
     expect(fileAfterLogin.profiles).toHaveLength(1);

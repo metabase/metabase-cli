@@ -33,6 +33,7 @@ export default defineMetabaseCommand({
     name: "search",
     description: "Search Metabase content (cards, dashboards, collections, …)",
   },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

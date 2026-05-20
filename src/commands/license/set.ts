@@ -23,6 +23,7 @@ const licenseSetView: ResourceView<LicenseSetResultJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "set", description: "Store a Metabase license token" },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,
     token: {

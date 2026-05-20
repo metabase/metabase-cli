@@ -40,6 +40,7 @@ export default defineMetabaseCommand({
     name: "import",
     description: "Import content from the configured git remote into Metabase",
   },
+  capabilities: { minVersion: 58, edition: "ee", tokenFeature: "remote_sync" },
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -17,6 +17,7 @@ export default defineMetabaseCommand({
     description:
       "Update a measure by id; body must include revision_message (audit-logged with the change). If definition is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
   },
+  capabilities: { minVersion: 59, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

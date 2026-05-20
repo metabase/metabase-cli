@@ -21,7 +21,7 @@ export const ManifestEntry = z.object({
   examples: z.array(z.string()),
   args: z.array(ManifestArg),
   outputSchema: z.unknown().nullable(),
-  capabilities: Capabilities,
+  capabilities: Capabilities.nullable(),
 });
 export type ManifestEntry = z.infer<typeof ManifestEntry>;
 

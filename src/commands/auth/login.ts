@@ -51,6 +51,7 @@ const loginView: ResourceView<LoginResultJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "login", description: "Set Metabase credentials for a profile" },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

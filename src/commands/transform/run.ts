@@ -34,6 +34,7 @@ const transformRunResultView: ResourceView<TransformRunResultJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "run", description: "Trigger a transform run by id" },
+  capabilities: { minVersion: 58, edition: "ee", tokenFeature: "transforms" },
   args: {
     ...outputFlags,
     ...profileFlag,

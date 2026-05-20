@@ -26,4 +26,9 @@ export const profileFlag = {
 export const connectionFlags = {
   url: { type: "string", description: "Metabase URL" },
   apiKey: { type: "string", description: "API key", alias: "api-key" },
+  skipPreflight: {
+    type: "boolean",
+    description: "Skip the server version/edition capability check for this command",
+    alias: "skip-preflight",
+  },
 } as const;

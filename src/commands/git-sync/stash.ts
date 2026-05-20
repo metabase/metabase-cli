@@ -45,6 +45,7 @@ export default defineMetabaseCommand({
     name: "stash",
     description: "Export current Metabase state to a new branch on the git remote",
   },
+  capabilities: { minVersion: 58, edition: "ee", tokenFeature: "remote_sync" },
   args: {
     ...outputFlags,
     ...profileFlag,
