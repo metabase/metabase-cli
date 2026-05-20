@@ -11,10 +11,10 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { requireServer } from "./server-gate";
 
-// remote-sync exists on v58 EE, but this suite exercises `has-remote-changes` (a v59
-// endpoint) and v58's `remove-collection` server-NPEs on the idempotent path — the API
-// only fully settles at v59, so gate the suite there.
-const skipReason = requireServer({ minVersion: 59, edition: "ee", tokenFeature: "remote_sync" });
+// The remote-sync API has breaking server-side differences through v59 (the git source layer
+// was reworked and v59 NPEs on the idempotent `remove-collection` no-op path); it settles at
+// v60, which is the minVersion every git-sync command declares.
+const skipReason = requireServer({ minVersion: 60, edition: "ee", tokenFeature: "remote_sync" });
 
 describe("git-sync arg validation e2e (no Metabase contact required)", () => {
   const tempDirs: string[] = [];
