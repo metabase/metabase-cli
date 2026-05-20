@@ -1,6 +1,6 @@
 {
   "name": "@metabase/cli",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Metabase CLI",
   "license": "AGPL-3.0",
   "repository": {
@@ -11,7 +11,10 @@
     "mb": "./dist/cli.mjs"
   },
   "files": [
-    "dist"
+    "dist",
+    "skills",
+    "skill-data",
+    ".claude-plugin"
   ],
   "type": "module",
   "publishConfig": {

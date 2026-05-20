@@ -1468,6 +1468,38 @@ Auto-install happens only when `installMethod === "npm-global"`; everything else
 
 Exit codes: `0` success (including up-to-date / printed-instructions), `1` registry or install failure, `2` invalid `--to` value, `130` user cancelled the prompt.
 
+## Skills
+
+The CLI ships with bundled agent skills (Claude Code / `npx skills add` compatible) that document `mb` itself. Content is served at runtime from the installed CLI version, so the instructions an agent fetches always match the binary it's about to run — no drift between a separately-installed skill copy and the CLI.
+
+```sh
+mb skills list                              # discover bundled skills (table or JSON)
+mb skills get core                          # print the top-level guide
+mb skills get core --full                   # include references and templates
+mb skills get workspace,transform           # comma-separated, multi-skill fetch
+mb skills get --all --json --max-bytes 0    # every non-hidden skill, structured (default cap truncates)
+mb skills path                              # absolute paths for direct Read
+mb skills path core                         # one path
+```
+
+`mb skills get` honors the shared `--max-bytes` list cap. With the default 65 536 cap, `--all` will return only the first skill and emit a truncation notice — pass `--max-bytes 0` to dump every skill in one envelope.
+
+Bundled skills:
+
+| Name        | Use                                                                                    |
+| ----------- | -------------------------------------------------------------------------------------- |
+| `core`      | Top-level guide: auth, flag conventions, output flags, body input, every command group |
+| `workspace` | Enterprise workspace lifecycle (create, provision, start, child credentials, diagnose) |
+| `transform` | Authoring and running transforms (native SQL + MBQL 5), iteration, run inspection      |
+| `git-sync`  | Round-tripping Metabase content to/from a git remote                                   |
+
+Discovery surfaces:
+
+- **Claude Code plugin marketplace**: `.claude-plugin/marketplace.json` declares a `metabase-cli` plugin pointing at the in-repo discovery stub. Users install with `/plugin marketplace add metabase/mb-cli` then `/plugin install metabase-cli@metabase`.
+- **`npx skills add`**: the same stub at `skills/metabase-cli/SKILL.md` is picked up by `npx skills add metabase/mb-cli`. The stub is intentionally minimal — it redirects the agent at `mb skills get core` so the real workflow content always comes from the installed CLI version.
+
+Exit codes: `0` success, `2` `ConfigError` (missing name, unknown name, `MB_SKILLS_DIR` not a directory), `1` unexpected I/O.
+
 ## Environment variables
 
 | Variable                      | Effect                                                                                                                                                                              |
@@ -1478,6 +1510,7 @@ Exit codes: `0` success (including up-to-date / printed-instructions), `1` regis
 | `METABASE_LICENSE_TOKEN`      | Default license token for `license set`.                                                                                                                                            |
 | `METABASE_VERBOSE`            | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                                      |
 | `METABASE_CLI_SKIP_PREFLIGHT` | When set to `1`, bypasses the per-command server version / edition / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
+| `MB_SKILLS_DIR`               | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees).                                                              |
 
 ## Agent integration
 
