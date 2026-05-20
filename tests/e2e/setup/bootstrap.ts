@@ -4,9 +4,10 @@ import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
 
-import { isNotFoundError } from "../../../src/core/errors";
+import { errorMessage, isNotFoundError } from "../../../src/core/errors";
 import { createClient, type Client } from "../../../src/core/http/client";
 import { HttpError } from "../../../src/core/http/errors";
+import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries } from "../../../src/core/http/retry";
 import { probeServer } from "../../../src/core/version/probe";
 import { CardQueryResult } from "../../../src/domain/card";
 import { CurrentUser } from "../../../src/domain/user";
@@ -93,9 +94,7 @@ async function main(): Promise<void> {
 
   const apiKeyUser = await client.requestParsed(CurrentUser, "/api/user/current");
   const seeded = await seedContent(client);
-  // Probe last: seeding has driven enough traffic that the server is fully warm, so the
-  // single retries:0 probe call won't trip over a transient connection reset.
-  const server = await probeServer(client);
+  const server = await probeServer(client, { retries: DEFAULT_MAX_RETRIES });
 
   const limitedGroupId = await createLimitedGroup(client);
   await revokeDefaultCollectionAccess(client, limitedGroupId, seeded.defaultCollectionId);
@@ -165,8 +164,28 @@ async function ensureAdminSessionId(): Promise<string> {
   return after.id;
 }
 
+// These requests can't use the api-key `Client`: setup is pre-auth (no key yet) and
+// `mintApiKey` authenticates with an `x-metabase-session` header the client doesn't model.
+// They still share the client's retry loop via `runWithRetries`.
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  return runWithRetries(async (attempt) => {
+    try {
+      return { kind: "success", response: await fetch(url, init) };
+    } catch (error) {
+      if (attempt >= DEFAULT_MAX_RETRIES) {
+        const method = init.method ?? "GET";
+        throw new Error(
+          `${method} ${url} failed after ${attempt + 1} attempts: ${errorMessage(error)}`,
+          { cause: error },
+        );
+      }
+      return { kind: "retry", delayMs: backoffDelay({ attempt }) };
+    }
+  });
+}
+
 async function mintApiKey(sessionId: string, namePrefix: string, groupId: number): Promise<string> {
-  const response = await fetch(`${BASE_URL}/api/api-key`, {
+  const response = await fetchWithRetry(`${BASE_URL}/api/api-key`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-metabase-session": sessionId },
     body: JSON.stringify({
@@ -424,7 +443,7 @@ async function postOrGetPreAuthJson<T>(
     init.headers = { "content-type": "application/json" };
     init.body = JSON.stringify(body);
   }
-  const response = await fetch(url, init);
+  const response = await fetchWithRetry(url, init);
   if (!response.ok) {
     throw new Error(`${method} ${url} -> ${response.status}: ${await response.text()}`);
   }
@@ -432,7 +451,7 @@ async function postOrGetPreAuthJson<T>(
 }
 
 async function tryLogin(): Promise<z.infer<typeof SessionResponse> | null> {
-  const response = await fetch(`${BASE_URL}/api/session`, {
+  const response = await fetchWithRetry(`${BASE_URL}/api/session`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ username: ADMIN.email, password: ADMIN.password }),

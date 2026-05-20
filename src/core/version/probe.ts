@@ -13,16 +13,20 @@ export interface ServerInfo {
   readonly tokenFeatures: Readonly<TokenFeatures> | null;
 }
 
+export interface ProbeOptions {
+  retries?: number;
+}
+
 export const EMPTY_SERVER_INFO: ServerInfo = Object.freeze({
   version: null,
   edition: null,
   tokenFeatures: null,
 });
 
-export async function probeServer(client: Client): Promise<ServerInfo> {
+export async function probeServer(client: Client, opts: ProbeOptions = {}): Promise<ServerInfo> {
   const properties = await client.requestParsed(SessionProperties, PROBE_PATH, {
     timeoutMs: PROBE_TIMEOUT_MS,
-    retries: 0,
+    retries: opts.retries ?? 0,
   });
   const tokenFeatures = properties["token-features"];
   const version = tryParseTag(properties.version.tag);

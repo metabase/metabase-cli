@@ -36,3 +36,25 @@ function parseRetryAfter(header: string | null | undefined): number | null {
 export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return delay(ms, undefined, { signal });
 }
+
+export type RetryOutcome =
+  | { kind: "success"; response: Response }
+  | { kind: "retry"; delayMs: number };
+
+// `attempt` owns the terminal decision: return `success`, return `retry` to back off and run
+// again, or throw to fail hard. This helper only sequences the backoff sleep between retries —
+// without a throwing terminal case it would loop forever.
+export async function runWithRetries(
+  attempt: (attemptIndex: number) => Promise<RetryOutcome>,
+  signal?: AbortSignal,
+): Promise<Response> {
+  let attemptIndex = 0;
+  while (true) {
+    const outcome = await attempt(attemptIndex);
+    if (outcome.kind === "success") {
+      return outcome.response;
+    }
+    await sleep(outcome.delayMs, signal);
+    attemptIndex += 1;
+  }
+}

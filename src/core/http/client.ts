@@ -12,7 +12,7 @@ import { JSON_CONTENT_TYPE, parseJson } from "../../runtime/json";
 import { combineAborts, throwIfAborted } from "../../runtime/signal";
 
 import { HttpError, isRetryableStatus } from "./errors";
-import { backoffDelay, DEFAULT_MAX_RETRIES, sleep } from "./retry";
+import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries, type RetryOutcome } from "./retry";
 import type { RedactionContext } from "./sanitize";
 
 export type HttpMethod = "GET" | "HEAD" | "OPTIONS" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -72,8 +72,6 @@ export interface ClientOverrides {
   getServerTag?: ServerTagResolver;
 }
 
-type AttemptResult = { kind: "success"; response: Response } | { kind: "retry"; delayMs: number };
-
 const NO_SERVER_TAG: ServerTagResolver = async () => null;
 
 export function createClient(config: ClientCredentials, overrides: ClientOverrides = {}): Client {
@@ -83,7 +81,7 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
     knownSecrets: new Set([config.apiKey]),
   };
 
-  async function attemptOnce(prepared: PreparedRequest, attempt: number): Promise<AttemptResult> {
+  async function attemptOnce(prepared: PreparedRequest, attempt: number): Promise<RetryOutcome> {
     const hasRetriesLeft = attempt < prepared.retries;
     const timeoutSignal = AbortSignal.timeout(prepared.timeoutMs);
     const { combined, processSignal } = combineAborts(timeoutSignal, prepared.callerSignal);
@@ -147,15 +145,7 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
   }
 
   async function executeRaw(prepared: PreparedRequest): Promise<Response> {
-    let attempt = 0;
-    while (true) {
-      const result = await attemptOnce(prepared, attempt);
-      if (result.kind === "success") {
-        return result.response;
-      }
-      await sleep(result.delayMs, prepared.callerSignal);
-      attempt += 1;
-    }
+    return runWithRetries((attempt) => attemptOnce(prepared, attempt), prepared.callerSignal);
   }
 
   function prepare(path: string, opts: RequestOptions = {}): PreparedRequest {
