@@ -79,7 +79,7 @@ const DashboardWithDashcardsResponse = z
   .loose();
 
 async function main(): Promise<void> {
-  await waitForHealth(BASE_URL, HEALTH_TIMEOUT_MS);
+  await waitForReady(BASE_URL, HEALTH_TIMEOUT_MS);
 
   const existing = await readStoredBootstrap();
   if (existing && (await canReuseExisting(existing.adminApiKey))) {
@@ -92,8 +92,10 @@ async function main(): Promise<void> {
   const client = createClient({ url: BASE_URL, apiKey: adminApiKey });
 
   const apiKeyUser = await client.requestParsed(CurrentUser, "/api/user/current");
-  const server = await probeServer(client);
   const seeded = await seedContent(client);
+  // Probe last: seeding has driven enough traffic that the server is fully warm, so the
+  // single retries:0 probe call won't trip over a transient connection reset.
+  const server = await probeServer(client);
 
   const limitedGroupId = await createLimitedGroup(client);
   await revokeDefaultCollectionAccess(client, limitedGroupId, seeded.defaultCollectionId);
@@ -389,12 +391,19 @@ async function snapshotFileExists(): Promise<boolean> {
   }
 }
 
-async function waitForHealth(baseUrl: string, timeoutMs: number): Promise<void> {
+async function waitForReady(baseUrl: string, timeoutMs: number): Promise<void> {
   await pollUntil(
     async (signal) => {
       try {
-        const response = await fetch(`${baseUrl}/api/health`, { signal });
-        return response.ok;
+        const health = await fetch(`${baseUrl}/api/health`, { signal });
+        if (!health.ok) {
+          return false;
+        }
+        // /api/health goes green before the app reliably serves real endpoints; gating on
+        // the settings endpoint the probe + setup depend on keeps a slow (especially EE)
+        // startup from resetting connections mid-bootstrap.
+        const properties = await fetch(`${baseUrl}/api/session/properties`, { signal });
+        return properties.ok;
       } catch {
         return false;
       }
