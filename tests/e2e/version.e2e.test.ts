@@ -1,10 +1,55 @@
 import { afterEach, describe, expect, it } from "vitest";
 
+import { writeProbeResult, writeProfile } from "../../src/core/auth/storage";
 import { BASELINE_CAPABILITIES } from "../../src/core/version/capabilities";
+import type { Build } from "../../src/core/version/tag";
 import { Manifest } from "../../src/runtime/manifest";
 import { parseJson } from "../../src/runtime/json";
 
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+
+const UNREACHABLE_URL = "http://127.0.0.1:1";
+
+function restoreEnv(key: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+}
+
+async function withSeedEnv(configHome: string, seed: () => Promise<void>): Promise<void> {
+  const prevXdg = process.env["XDG_CONFIG_HOME"];
+  const prevKeyring = process.env["METABASE_CLI_DISABLE_KEYRING"];
+  process.env["XDG_CONFIG_HOME"] = configHome;
+  process.env["METABASE_CLI_DISABLE_KEYRING"] = "1";
+  try {
+    await seed();
+  } finally {
+    restoreEnv("XDG_CONFIG_HOME", prevXdg);
+    restoreEnv("METABASE_CLI_DISABLE_KEYRING", prevKeyring);
+  }
+}
+
+async function seedProfile(configHome: string): Promise<void> {
+  await withSeedEnv(configHome, async () => {
+    await writeProfile({ url: UNREACHABLE_URL, apiKey: "secret-key" }, "default");
+  });
+}
+
+async function seedProbedProfile(configHome: string, major: number, build: Build): Promise<void> {
+  await withSeedEnv(configHome, async () => {
+    await writeProfile({ url: UNREACHABLE_URL, apiKey: "secret-key" }, "default");
+    await writeProbeResult("default", {
+      user: { id: 1, name: "Tester", isAdmin: true },
+      server: {
+        version: { tag: `v${build === "ee" ? "1" : "0"}.${major}.0`, build, major, patch: 0 },
+        edition: build,
+        tokenFeatures: null,
+      },
+    });
+  });
+}
 
 const MEASURE_CAPABILITIES = { minVersion: 59, edition: "oss" } as const;
 const TRANSFORM_CAPABILITIES = {
@@ -138,5 +183,53 @@ describe("version preflight e2e", () => {
       "workspace database deprovision": WORKSPACE_CAPABILITIES,
       "workspace database update": WORKSPACE_CAPABILITIES,
     });
+  });
+});
+
+describe("version preflight enforcement e2e", () => {
+  const tempDirs: string[] = [];
+
+  afterEach(async () => {
+    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+  });
+
+  async function makeIsolatedConfigHome(): Promise<string> {
+    const dir = await mkTempConfigHome();
+    tempDirs.push(dir);
+    return dir;
+  }
+
+  it("refuses a command whose minVersion exceeds the cached server version (exit 2)", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfile(configHome, 58, "oss");
+
+    const result = await runCli({ args: ["measure", "list"], configHome });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(
+      "This command requires Metabase v0.59+ (this server is v0.58.0). Upgrade Metabase or pin mb-cli to an older release.",
+    );
+  });
+
+  it("bypasses the refusal and reaches the network layer when --skip-preflight is passed", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfile(configHome, 58, "oss");
+
+    const result = await runCli({ args: ["measure", "list", "--skip-preflight"], configHome });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).not.toContain("This command requires Metabase");
+    expect(result.stderr).toContain("Could not reach Metabase");
+  });
+
+  it("warns but proceeds when a gated command runs without a cached probe", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProfile(configHome);
+
+    const result = await runCli({ args: ["measure", "list"], configHome });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Could not detect Metabase server version");
+    expect(result.stderr).toContain("Could not reach Metabase");
   });
 });
