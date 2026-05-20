@@ -60,4 +60,18 @@ describe("probeServer", () => {
       tokenFeatures: null,
     });
   });
+
+  it("returns version null and edition null for an unparseable head/nightly tag", async () => {
+    const { client } = createFakeClient({
+      responses: planning({
+        version: { tag: "vUNKNOWN" },
+        "token-features": { transforms: true },
+      }),
+    });
+    expect(await probeServer(client)).toEqual({
+      version: null,
+      edition: null,
+      tokenFeatures: { transforms: true },
+    });
+  });
 });

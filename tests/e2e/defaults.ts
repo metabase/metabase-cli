@@ -10,5 +10,7 @@ export function resolveStackId(): string {
 }
 
 export function resolveSnapshotName(): string {
-  return `cli_${resolveStackId()}`;
+  // Metabase's snapshot endpoint sanitizes the name to an identifier (e.g. `-` → `_`)
+  // when writing `<name>.sql`, so keep the name underscore-safe to match on disk.
+  return `cli_${resolveStackId().replaceAll("-", "_")}`;
 }

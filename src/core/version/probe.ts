@@ -2,7 +2,7 @@ import { SessionProperties, type TokenFeatures } from "../../domain/session-prop
 import type { Edition } from "../../runtime/capabilities";
 import type { Client } from "../http/client";
 
-import { parseTag, type ParsedVersion } from "./tag";
+import { tryParseTag, type ParsedVersion } from "./tag";
 
 export const PROBE_PATH = "/api/session/properties";
 export const PROBE_TIMEOUT_MS = 10_000;
@@ -25,10 +25,10 @@ export async function probeServer(client: Client): Promise<ServerInfo> {
     retries: 0,
   });
   const tokenFeatures = properties["token-features"];
-  const version = parseTag(properties.version.tag);
+  const version = tryParseTag(properties.version.tag);
   return {
     version,
-    edition: version.build,
+    edition: version?.build ?? null,
     tokenFeatures: tokenFeatures ?? null,
   };
 }

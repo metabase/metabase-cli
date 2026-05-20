@@ -13,19 +13,25 @@ interface Stack {
   id: string;
   image: string;
   port: number;
+  edition: "oss" | "ee";
 }
 
 const STACKS: readonly Stack[] = [
-  { id: "oss-58", image: "metabase/metabase:v0.58.15", port: 13058 },
-  { id: "ee-58", image: "metabase/metabase-enterprise:v1.58.15", port: 13158 },
-  { id: "oss-59", image: "metabase/metabase:v0.59.12", port: 13059 },
-  { id: "ee-59", image: "metabase/metabase-enterprise:v1.59.12", port: 13159 },
-  { id: "oss-60", image: "metabase/metabase:v0.60.7", port: 13060 },
-  { id: "ee-60", image: "metabase/metabase-enterprise:v1.60.7", port: 13160 },
-  { id: "oss-61", image: "metabase/metabase:v0.61.2", port: 13061 },
-  { id: "ee-61", image: "metabase/metabase-enterprise:v1.61.2", port: 13161 },
-  { id: "oss-head", image: "metabase/metabase-head:latest", port: 13062 },
-  { id: "ee-head", image: "metabase/metabase-enterprise-head:latest", port: 13162 },
+  { id: "oss-58", image: "metabase/metabase:v0.58.15", port: 13058, edition: "oss" },
+  { id: "ee-58", image: "metabase/metabase-enterprise:v1.58.15", port: 13158, edition: "ee" },
+  { id: "oss-59", image: "metabase/metabase:v0.59.12", port: 13059, edition: "oss" },
+  { id: "ee-59", image: "metabase/metabase-enterprise:v1.59.12", port: 13159, edition: "ee" },
+  { id: "oss-60", image: "metabase/metabase:v0.60.7", port: 13060, edition: "oss" },
+  { id: "ee-60", image: "metabase/metabase-enterprise:v1.60.7", port: 13160, edition: "ee" },
+  { id: "oss-61", image: "metabase/metabase:v0.61.2", port: 13061, edition: "oss" },
+  { id: "ee-61", image: "metabase/metabase-enterprise:v1.61.2", port: 13161, edition: "ee" },
+  { id: "oss-head", image: "metabase/metabase-head:latest", port: 13062, edition: "oss" },
+  {
+    id: "ee-head",
+    image: "metabase/metabase-enterprise-head:latest",
+    port: 13162,
+    edition: "ee",
+  },
 ];
 
 const DEFAULT_PARALLELISM = 2;
@@ -93,6 +99,9 @@ function stackEnv(stack: Stack): NodeJS.ProcessEnv {
     // calls and the ones the spawned test process makes (e.g. warehouse reset),
     // so concurrent stacks never target each other's containers.
     COMPOSE_PROJECT_NAME: `mb-e2e-${stack.id}`,
+    // Consulted by requireServer only when the probe can't parse a version (head builds),
+    // so capability-gated suites run against head with the lane's known edition.
+    METABASE_CLI_E2E_ASSUME_EDITION: stack.edition,
   };
 }
 

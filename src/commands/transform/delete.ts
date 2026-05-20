@@ -5,7 +5,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "delete", description: "Delete a transform by id" },
-  capabilities: { minVersion: 58, edition: "ee", tokenFeature: "transforms" },
+  capabilities: { minVersion: 59, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

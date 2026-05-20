@@ -67,15 +67,19 @@ describe("auth e2e", () => {
     expect(loginPayload.authenticated).toBe(true);
     expect(loginPayload.user?.id).toBeGreaterThan(0);
     expect(loginPayload.user?.name).not.toBe("");
-    expect(loginPayload.version?.tag.startsWith("v")).toBe(true);
-    expect(["oss", "ee"]).toContain(loginPayload.edition);
+    // Head/nightly builds report an unparseable version tag → version/edition null;
+    // released builds report a v-tag and a known edition.
+    if (loginPayload.version !== null) {
+      expect(loginPayload.version.tag.startsWith("v")).toBe(true);
+      expect(["oss", "ee"]).toContain(loginPayload.edition);
+    }
 
     const fileAfterLogin = await readProfilesJson(configHome);
     expect(fileAfterLogin.profiles).toHaveLength(1);
     const stored = fileAfterLogin.profiles[0];
     expect(stored?.name).toBe("default");
     expect(stored?.url).toBe(bootstrap.baseUrl);
-    expect(stored?.lastProbe?.version.tag).toBe(loginPayload.version?.tag);
+    expect(stored?.lastProbe?.version?.tag).toBe(loginPayload.version?.tag);
     expect(stored?.lastFailure).toBeNull();
 
     const status = await runCli({ args: ["auth", "status", "--json"], configHome });
@@ -202,11 +206,14 @@ describe("auth e2e", () => {
     const envelope = parseJson(list.stdout, AuthProfileListEnvelope);
     expect(envelope.returned).toBe(1);
     expect(envelope.data[0]?.status).toBe("ok");
-    expect(envelope.data[0]?.version?.tag.startsWith("v")).toBe(true);
+    const versionTag = envelope.data[0]?.version?.tag;
+    if (versionTag !== undefined) {
+      expect(versionTag.startsWith("v")).toBe(true);
+    }
 
     const after = await readProfilesJson(configHome);
     expect(after.profiles[0]?.lastProbe).not.toBeNull();
-    expect(after.profiles[0]?.lastProbe?.version.tag).toBe(envelope.data[0]?.version?.tag);
+    expect(after.profiles[0]?.lastProbe?.version?.tag).toBe(envelope.data[0]?.version?.tag);
   });
 
   it("auth list against an unreachable URL surfaces the failure but keeps cached lastProbe", async () => {

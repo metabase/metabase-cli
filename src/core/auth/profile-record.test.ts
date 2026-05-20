@@ -5,7 +5,7 @@ import { type ParsedVersion } from "../version/tag";
 import { type ProfileLastProbe } from "./profile-record";
 
 describe("ProfileLastProbe schema", () => {
-  it("infers version as the same shape as ParsedVersion", () => {
-    expectTypeOf<ProfileLastProbe["version"]>().toEqualTypeOf<ParsedVersion>();
+  it("infers version as a nullable ParsedVersion (null for head/nightly builds)", () => {
+    expectTypeOf<ProfileLastProbe["version"]>().toEqualTypeOf<ParsedVersion | null>();
   });
 });

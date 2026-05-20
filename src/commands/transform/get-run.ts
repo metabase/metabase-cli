@@ -6,7 +6,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "get-run", description: "Get a transform run by id" },
-  capabilities: { minVersion: 58, edition: "ee", tokenFeature: "transforms" },
+  capabilities: { minVersion: 59, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -9,7 +9,7 @@ import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
 import { requireServer } from "./server-gate";
 
-const transformsSkip = requireServer({ minVersion: 58, edition: "ee", tokenFeature: "transforms" });
+const transformsSkip = requireServer({ minVersion: 59, edition: "oss" });
 
 describe("eid translate e2e", () => {
   let bootstrap: E2EBootstrap;

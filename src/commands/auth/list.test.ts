@@ -120,7 +120,7 @@ describe("auth list command", () => {
     expect(envelope.data[0]?.user).toEqual({ id: 1, name: "Tester", isAdmin: true });
 
     const staging = await readProfileRecord("staging");
-    expect(staging?.lastProbe?.version.tag).toBe("v0.58.7");
+    expect(staging?.lastProbe?.version?.tag).toBe("v0.58.7");
     expect(staging?.lastFailure).toBeNull();
   });
 

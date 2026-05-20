@@ -13,8 +13,8 @@ export type ProbedUser = z.infer<typeof ProbedUser>;
 
 export const ProfileLastProbe = z.object({
   at: z.iso.datetime(),
-  version: ParsedVersionSchema,
-  edition: Edition,
+  version: ParsedVersionSchema.nullable(),
+  edition: Edition.nullable(),
   tokenFeatures: TokenFeatures.nullable(),
   user: ProbedUser,
 });

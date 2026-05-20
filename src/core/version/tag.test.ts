@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseTag, VersionTagParseError } from "./tag";
+import { parseTag, tryParseTag, VersionTagParseError } from "./tag";
 
 describe("parseTag", () => {
   it("parses an OSS-build tag", () => {
@@ -56,5 +56,18 @@ describe("parseTag", () => {
       );
       expect(caught.developerDetail).toEqual({ tag: input });
     }
+  });
+});
+
+describe("tryParseTag", () => {
+  it("returns the parsed version for a valid tag", () => {
+    expect(tryParseTag("v1.58.7")).toEqual({ tag: "v1.58.7", build: "ee", major: 58, patch: 7 });
+  });
+
+  it.each([
+    ["edition prefix outside 0|1", "v2.58.7"],
+    ["a head/nightly build tag", "vUNKNOWN"],
+  ])("returns null on %s instead of throwing", (_label, input) => {
+    expect(tryParseTag(input)).toBeNull();
   });
 });

@@ -52,11 +52,7 @@ async function seedProbedProfile(configHome: string, major: number, build: Build
 }
 
 const MEASURE_CAPABILITIES = { minVersion: 59, edition: "oss" } as const;
-const TRANSFORM_CAPABILITIES = {
-  minVersion: 58,
-  edition: "ee",
-  tokenFeature: "transforms",
-} as const;
+const TRANSFORM_CAPABILITIES = { minVersion: 59, edition: "oss" } as const;
 const WORKSPACE_CAPABILITIES = {
   minVersion: 62,
   edition: "ee",

@@ -27,10 +27,10 @@ export class VersionTagParseError extends MetabaseError {
   }
 }
 
-export function parseTag(tag: string): ParsedVersion {
+export function tryParseTag(tag: string): ParsedVersion | null {
   const parsed = parseSemver(tag);
   if (parsed === null || (parsed.major !== 0 && parsed.major !== 1)) {
-    throw new VersionTagParseError(tag);
+    return null;
   }
   return {
     tag,
@@ -38,4 +38,12 @@ export function parseTag(tag: string): ParsedVersion {
     major: parsed.minor,
     patch: parsed.patch,
   };
+}
+
+export function parseTag(tag: string): ParsedVersion {
+  const parsed = tryParseTag(tag);
+  if (parsed === null) {
+    throw new VersionTagParseError(tag);
+  }
+  return parsed;
 }
