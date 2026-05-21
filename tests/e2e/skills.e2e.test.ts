@@ -7,7 +7,14 @@ import { parseJson } from "../../src/runtime/json";
 
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 
-const BUNDLED_VISIBLE_NAMES = ["core", "git-sync", "mbql", "transform", "workspace"] as const;
+const BUNDLED_VISIBLE_NAMES = [
+  "core",
+  "git-sync",
+  "mbql",
+  "transform",
+  "viz",
+  "workspace",
+] as const;
 
 describe("skills e2e", () => {
   const tempDirs: string[] = [];
@@ -22,7 +29,7 @@ describe("skills e2e", () => {
     return dir;
   }
 
-  it("list returns the five bundled non-hidden skills, sorted by name", async () => {
+  it("list returns the six bundled non-hidden skills, sorted by name", async () => {
     const result = await runCli({
       args: ["skills", "list", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -113,7 +120,7 @@ describe("skills e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain(
-      "unknown skill name(s): does-not-exist (available: core, git-sync, mbql, transform, workspace)",
+      "unknown skill name(s): does-not-exist (available: core, git-sync, mbql, transform, viz, workspace)",
     );
   });
 

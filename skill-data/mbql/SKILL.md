@@ -138,7 +138,14 @@ Default MBQL 5 aggregations materialize as `count`, `count_where`, `avg`, `avg_2
 
 ## Operator reference
 
-The full operator vocabulary — filter operators (`=`, `!=`, `<`, `between`, `contains`, `is-null`, …), aggregation functions (`count`, `sum`, `avg`, `distinct`, `count-where`, `share`, …), expression operators (arithmetic, string, date), temporal-unit values, and binning strategies — is shared with the portable representation format. Load the `metabase-representation-format` skill's `spec.md` ("MBQL Query", "Filter Operators", "Aggregation Functions", "Expression Operators", "Temporal Bucketing", "Binning") for the complete list. The clause _structure_ there is identical to the CLI form; only the ids differ (representation uses table/field _names_, the CLI uses numeric ids).
+The full operator vocabulary — filter operators (`=`, `!=`, `<`, `between`, `contains`, `is-null`, …), aggregation functions (`count`, `sum`, `avg`, `distinct`, `count-where`, `share`, …), expression operators (arithmetic, string, temporal), temporal-bucketing units, and binning strategies — lives in this skill's `references/operators.md`, in the CLI's numeric-id form. Load it on demand rather than dumping the schema:
+
+```bash
+mb skills get mbql --full     # appends references/operators.md to this body
+mb skills path mbql           # → the skill dir; then Read references/operators.md
+```
+
+`mb query --print-schema` is the exhaustive-but-heavy fallback (the full JSON Schema, ~1600 lines). The cheat-sheet covers the vocabulary; the `--dry-run` loop settles any disagreement.
 
 ## Don't
 

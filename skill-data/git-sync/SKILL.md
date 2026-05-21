@@ -8,7 +8,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 Metabase content (cards, dashboards, transforms, snippets, collections, …) can live in a git repo as YAML and round-trip in and out of a Metabase instance via the `git-sync` verbs. The instance is configured with a `remote-sync-*` settings block (URL, branch, token, type read-only/read-write); the CLI drives the sync tasks against `/api/ee/remote-sync/*`.
 
-This skill covers the import/export workflow. The general flag conventions and auth setup live in the `core` skill (`mb skills get core`). To author content YAML by hand, also load the `metabase-representation-format` skill — it covers the file-tree layout and per-resource YAML shape.
+This skill covers the import/export workflow. The general flag conventions and auth setup live in the `core` skill (`mb skills get core`). To author content YAML by hand: the per-resource clause and settings shapes mirror the API form — query bodies follow the `mbql` skill, `visualization_settings` follow the `viz` skill — except the portable YAML uses **name-based** references (e.g. `[Sample Database, PUBLIC, ORDERS, TOTAL]`, and entity-ids for cross-entity FKs) where the API form uses numeric ids. For the on-disk folder layout, model new files on what the synced repo already contains.
 
 ## Adding / removing a directory (collection) to sync
 
