@@ -198,10 +198,7 @@ export default defineMetabaseCommand({
 
     const hostPort = await resolveHostPort(requestedPort);
 
-    // Boot bundle stays in process memory: no host-disk artifact for config.yml
-    // or credentials.json. The bytes are tar-streamed into the container by the
-    // docker daemon and land on the overlay FS (root-only on the daemon host).
-    // Repo resolution overlaps with the parent fetches.
+    // Repo resolution overlaps with the parent config/metadata fetches.
     const [parentConfigYaml, metadataJson, repoOptions] = await Promise.all([
       fetchConfigYaml(client, workspaceId),
       args.metadata ? fetchMetadataJson(client, workspaceId) : Promise.resolve(null),
@@ -212,13 +209,7 @@ export default defineMetabaseCommand({
       }),
     ]);
 
-    const credentials = generateWorkspaceCredentials(workspaceId);
-    const configWithCredentials = injectCredentialsIntoConfig(parentConfigYaml, credentials);
-    const configYaml =
-      repoOptions !== null
-        ? injectRepoSettingsIntoConfig(configWithCredentials, repoOptions.repo)
-        : configWithCredentials;
-    const credentialsJson = buildCredentialsJson(credentials);
+    const bundle = assembleBootBundle(parentConfigYaml, workspaceId, repoOptions);
 
     await pullPromise;
 
@@ -229,40 +220,26 @@ export default defineMetabaseCommand({
       parentUrl: resolved.url,
       image: args.image,
       hostPort,
-      configYaml,
-      credentialsJson,
+      configYaml: bundle.configYaml,
+      credentialsJson: bundle.credentialsJson,
       licenseToken,
       bindMounts: repoOptions === null ? [] : [repoOptions.bindMount],
     });
 
-    // The child reads config.yml during init; once it logs the consumed marker, the
-    // warehouse credentials inside that file are mirrored into its app db and the
-    // file itself is no longer needed. Scrubbing it here keeps the warehouse password
-    // out of the container's overlay FS for the rest of the instance's lifetime.
-    // credentials.json stays — `workspace credentials` reads it on demand.
-    await waitForConfigConsumed(workspaceId, readyTimeoutMs);
-    try {
-      await scrubContainerConfig(workspaceId);
-    } catch (error) {
-      warn(`could not scrub in-container config.yml: ${errorMessage(error)}`);
-    }
-
-    // The metadata POST lands at the child's REST API, so the child must be
-    // health-ready before we can ship it. That implicitly upgrades --wait when
-    // --metadata is on.
-    const needsHealth = args.wait || metadataJson !== null;
-    if (needsHealth) {
-      await waitForHealth(hostPort, readyTimeoutMs);
-    }
-    if (metadataJson !== null) {
-      await importMetadataIntoChild(hostPort, credentials, metadataJson, readyTimeoutMs);
-    }
+    const state = await finalizeContainer({
+      workspaceId,
+      hostPort,
+      credentials: bundle.credentials,
+      metadataJson,
+      wait: args.wait,
+      timeoutMs: readyTimeoutMs,
+    });
 
     const result: StartResult = {
       workspace_id: workspaceId,
       workspace_name: workspace.name,
       container_name: containerName,
-      state: needsHealth ? "running" : "starting",
+      state,
       host_port: hostPort,
       url: localUrl(hostPort),
       image: args.image,
@@ -344,6 +321,69 @@ async function fetchMetadataJson(client: Client, workspaceId: number): Promise<U
     },
   );
   return new Uint8Array(await response.arrayBuffer());
+}
+
+interface BootBundle {
+  configYaml: string;
+  credentialsJson: Uint8Array;
+  credentials: WorkspaceCredentials;
+}
+
+// The bundle stays in process memory: no host-disk artifact for config.yml or
+// credentials.json. The bytes are tar-streamed into the container by the docker
+// daemon and land on the overlay FS (root-only on the daemon host).
+function assembleBootBundle(
+  parentConfigYaml: string,
+  workspaceId: number,
+  repoOptions: ResolvedRepoOptions | null,
+): BootBundle {
+  const credentials = generateWorkspaceCredentials(workspaceId);
+  const withCredentials = injectCredentialsIntoConfig(parentConfigYaml, credentials);
+  const configYaml =
+    repoOptions !== null
+      ? injectRepoSettingsIntoConfig(withCredentials, repoOptions.repo)
+      : withCredentials;
+  return { configYaml, credentialsJson: buildCredentialsJson(credentials), credentials };
+}
+
+interface FinalizeContainerInput {
+  workspaceId: number;
+  hostPort: number;
+  credentials: WorkspaceCredentials;
+  metadataJson: Uint8Array | null;
+  wait: boolean;
+  timeoutMs: number;
+}
+
+async function finalizeContainer(input: FinalizeContainerInput): Promise<StartResult["state"]> {
+  // The child reads config.yml during init; once it logs the consumed marker, the
+  // warehouse credentials inside that file are mirrored into its app db and the
+  // file itself is no longer needed. Scrubbing it here keeps the warehouse password
+  // out of the container's overlay FS for the rest of the instance's lifetime.
+  // credentials.json stays — `workspace credentials` reads it on demand.
+  await waitForConfigConsumed(input.workspaceId, input.timeoutMs);
+  try {
+    await scrubContainerConfig(input.workspaceId);
+  } catch (error) {
+    warn(`could not scrub in-container config.yml: ${errorMessage(error)}`);
+  }
+
+  // The metadata POST lands at the child's REST API, so the child must be
+  // health-ready before we can ship it. That implicitly upgrades --wait when
+  // --metadata is on.
+  const reachedHealth = input.wait || input.metadataJson !== null;
+  if (reachedHealth) {
+    await waitForHealth(input.hostPort, input.timeoutMs);
+  }
+  if (input.metadataJson !== null) {
+    await importMetadataIntoChild(
+      input.hostPort,
+      input.credentials,
+      input.metadataJson,
+      input.timeoutMs,
+    );
+  }
+  return reachedHealth ? "running" : "starting";
 }
 
 async function waitForHealth(hostPort: number, timeoutMs: number): Promise<void> {
