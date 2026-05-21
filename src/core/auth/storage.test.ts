@@ -247,14 +247,13 @@ describe("writeProbeResult and writeProbeFailure", () => {
     const probe = await writeProbeResult("p", {
       user: { id: 42, name: "Alice", isAdmin: true },
       server: {
-        version: { tag: "v0.58.7", build: "oss", major: 58, patch: 7 },
-        edition: "oss",
+        version: { tag: "v0.58.7", major: 58, patch: 7 },
         tokenFeatures: null,
       },
     });
     expect(probe).not.toBeNull();
     expect(probe?.user).toEqual({ id: 42, name: "Alice", isAdmin: true });
-    expect(probe?.version).toEqual({ tag: "v0.58.7", build: "oss", major: 58, patch: 7 });
+    expect(probe?.version).toEqual({ tag: "v0.58.7", major: 58, patch: 7 });
 
     const record = await readProfileRecord("p");
     expect(record?.lastProbe).toEqual(probe);
@@ -265,8 +264,7 @@ describe("writeProbeResult and writeProbeFailure", () => {
     const result = await writeProbeResult("ghost", {
       user: { id: 1, name: "n", isAdmin: false },
       server: {
-        version: { tag: "v0.58.7", build: "oss", major: 58, patch: 7 },
-        edition: "oss",
+        version: { tag: "v0.58.7", major: 58, patch: 7 },
         tokenFeatures: null,
       },
     });
@@ -279,8 +277,7 @@ describe("writeProbeResult and writeProbeFailure", () => {
     const probe = await writeProbeResult("p", {
       user: { id: 1, name: "Alice", isAdmin: true },
       server: {
-        version: { tag: "v0.58.7", build: "oss", major: 58, patch: 7 },
-        edition: "oss",
+        version: { tag: "v0.58.7", major: 58, patch: 7 },
         tokenFeatures: null,
       },
     });

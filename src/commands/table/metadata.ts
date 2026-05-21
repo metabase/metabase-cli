@@ -9,7 +9,7 @@ export default defineMetabaseCommand({
     name: "metadata",
     description: "Get a table with its fields, FKs, and dimensions hydrated",
   },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,

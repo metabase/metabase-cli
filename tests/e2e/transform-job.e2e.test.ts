@@ -82,7 +82,7 @@ function withoutActive(job: TransformJobCompact): Omit<TransformJobCompact, "act
   };
 }
 
-const skipReason = requireServer({ minVersion: 59, edition: "oss" });
+const skipReason = requireServer({ minVersion: 59 });
 
 describe.skipIf(skipReason !== null)("transform-job e2e", () => {
   let bootstrap: E2EBootstrap;

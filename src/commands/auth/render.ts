@@ -34,10 +34,6 @@ export function renderVersionTag(value: unknown): string {
   return pickString(value, "tag") ?? EMPTY_CELL;
 }
 
-export function renderEditionLabel(value: unknown): string {
-  return typeof value === "string" ? value : EMPTY_CELL;
-}
-
 export function renderTimestamp(value: unknown): string {
   return typeof value === "string" ? value : EMPTY_CELL;
 }

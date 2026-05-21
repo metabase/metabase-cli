@@ -7,7 +7,6 @@ import { z } from "zod";
 import { isNotFoundError } from "../../src/core/errors";
 import { ParsedVersionSchema } from "../../src/core/version/tag";
 import { TokenFeatures } from "../../src/domain/session-properties";
-import { Edition } from "../../src/runtime/capabilities";
 import { parseJson } from "../../src/runtime/json";
 
 import { resolveStackId } from "./defaults";
@@ -39,7 +38,6 @@ export type SeededIds = z.infer<typeof SeededIds>;
 
 export const ServerIdentity = z.object({
   version: ParsedVersionSchema.nullable(),
-  edition: Edition.nullable(),
   tokenFeatures: TokenFeatures.nullable(),
 });
 export type ServerIdentity = z.infer<typeof ServerIdentity>;

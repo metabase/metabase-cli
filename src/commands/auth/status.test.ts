@@ -61,7 +61,6 @@ describe("auth status command", () => {
       url: null,
       user: null,
       version: null,
-      edition: null,
       tokenFeatures: null,
       lastProbedAt: null,
       lastFailure: null,
@@ -78,20 +77,18 @@ describe("auth status command", () => {
       url: "https://m.example.com",
       user: null,
       version: null,
-      edition: null,
       tokenFeatures: null,
       lastProbedAt: null,
       lastFailure: null,
     });
   });
 
-  it("surfaces the cached probe (user, version, edition, lastProbedAt) when one exists", async () => {
+  it("surfaces the cached probe (user, version, lastProbedAt) when one exists", async () => {
     await writeProfile({ url: "https://m.example.com", apiKey: "secret" });
     const probe = await writeProbeResult("default", {
       user: { id: 42, name: "Alice", isAdmin: true },
       server: {
-        version: { tag: "v0.58.7", build: "oss", major: 58, patch: 7 },
-        edition: "oss",
+        version: { tag: "v0.58.7", major: 58, patch: 7 },
         tokenFeatures: null,
       },
     });
@@ -103,8 +100,7 @@ describe("auth status command", () => {
       present: true,
       url: "https://m.example.com",
       user: { id: 42, name: "Alice", isAdmin: true },
-      version: { tag: "v0.58.7", build: "oss", major: 58, patch: 7 },
-      edition: "oss",
+      version: { tag: "v0.58.7", major: 58, patch: 7 },
       tokenFeatures: null,
       lastProbedAt: probe?.at ?? null,
       lastFailure: null,

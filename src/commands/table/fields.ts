@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     name: "fields",
     description: "List fields on a table (projection over query_metadata.fields)",
   },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,

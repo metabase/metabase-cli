@@ -12,7 +12,6 @@ import { explicitProfileName, readEnvCredentials } from "../../core/config";
 import { ConfigError, errorMessage } from "../../core/errors";
 import { normalizeUrl } from "../../core/url";
 import { ParsedVersionSchema } from "../../core/version/tag";
-import { Edition } from "../../runtime/capabilities";
 import { ProbedUser } from "../../core/auth/profile-record";
 import type { ResourceView } from "../../domain/view";
 import { warn } from "../../output/notice";
@@ -21,7 +20,7 @@ import { renderItem } from "../../output/render";
 import { readInput } from "../../runtime/input";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
-import { renderEditionLabel, renderUserName, renderUserRole, renderVersionTag } from "./render";
+import { renderUserName, renderUserRole, renderVersionTag } from "./render";
 
 export const LoginResult = z.object({
   profile: z.string(),
@@ -29,7 +28,6 @@ export const LoginResult = z.object({
   authenticated: z.boolean(),
   user: ProbedUser.nullable(),
   version: ParsedVersionSchema.nullable(),
-  edition: Edition.nullable(),
 });
 export type LoginResultJson = z.infer<typeof LoginResult>;
 
@@ -46,13 +44,12 @@ const loginView: ResourceView<LoginResultJson> = {
     { key: "user", label: "Logged in as", format: (value) => renderUserName(value) },
     { key: "user", label: "Role", format: (value) => renderUserRole(value) },
     { key: "version", label: "Version", format: (value) => renderVersionTag(value) },
-    { key: "edition", label: "Edition", format: (value) => renderEditionLabel(value) },
   ],
 };
 
 export default defineMetabaseCommand({
   meta: { name: "login", description: "Set Metabase credentials for a profile" },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -94,7 +91,6 @@ export default defineMetabaseCommand({
           authenticated: false,
           user: null,
           version: null,
-          edition: null,
         },
         loginView,
         ctx,
@@ -121,7 +117,6 @@ export default defineMetabaseCommand({
         authenticated: true,
         user: result.user,
         version: result.server.version,
-        edition: result.server.edition,
       },
       loginView,
       ctx,
@@ -146,6 +141,7 @@ async function resolveLoginProfile(flagProfile: string | undefined): Promise<str
     await promptText({
       message: "Profile name",
       placeholder: DEFAULT_PROFILE,
+      defaultValue: DEFAULT_PROFILE,
     })
   ).trim();
   return entered === "" ? DEFAULT_PROFILE : entered;

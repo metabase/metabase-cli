@@ -20,7 +20,7 @@ export const CollectionListEnvelope = listEnvelopeSchema(CollectionCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List collections" },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,

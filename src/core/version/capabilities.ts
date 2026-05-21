@@ -1,8 +1,8 @@
-import { BASELINE_CAPABILITIES, type Capabilities, type Edition } from "../../runtime/capabilities";
+import { BASELINE_CAPABILITIES, type Capabilities } from "../../runtime/capabilities";
 
 import type { ServerInfo } from "./probe";
 
-export { BASELINE_CAPABILITIES, type Capabilities, type Edition };
+export { BASELINE_CAPABILITIES, type Capabilities };
 
 export function mergeCapabilities(overrides?: Partial<Capabilities>): Capabilities {
   if (overrides === undefined) {
@@ -10,31 +10,16 @@ export function mergeCapabilities(overrides?: Partial<Capabilities>): Capabiliti
   }
   return {
     minVersion: overrides.minVersion ?? BASELINE_CAPABILITIES.minVersion,
-    edition: overrides.edition ?? BASELINE_CAPABILITIES.edition,
     ...(overrides.tokenFeature === undefined ? {} : { tokenFeature: overrides.tokenFeature }),
   };
 }
 
-type PreflightReason =
-  | "version-too-old"
-  | "edition-mismatch"
-  | "missing-token-feature"
-  | "unknown-version";
+type PreflightReason = "version-too-old" | "missing-token-feature" | "unknown-version";
 
 export interface PreflightFailure {
   readonly reason: PreflightReason;
   readonly detail: string;
 }
-
-const EDITION_RANK: Readonly<Record<Edition, number>> = Object.freeze({
-  oss: 0,
-  ee: 1,
-});
-
-const EDITION_TAG_PREFIX: Readonly<Record<Edition, "0" | "1">> = Object.freeze({
-  oss: "0",
-  ee: "1",
-});
 
 export function checkCapabilities(
   info: ServerInfo,
@@ -49,18 +34,9 @@ export function checkCapabilities(
   }
 
   if (info.version.major < required.minVersion) {
-    const editionPrefix = EDITION_TAG_PREFIX[info.version.build];
     return {
       reason: "version-too-old",
-      detail: `This command requires Metabase v${editionPrefix}.${required.minVersion}+ (this server is ${info.version.tag}). Upgrade Metabase or pin mb-cli to an older release.`,
-    };
-  }
-
-  const actualEdition = info.edition ?? "oss";
-  if (EDITION_RANK[actualEdition] < EDITION_RANK[required.edition]) {
-    return {
-      reason: "edition-mismatch",
-      detail: `This command requires Metabase ${required.edition} (this server is ${actualEdition}). Upgrade your Metabase edition.`,
+      detail: `This command requires Metabase v${required.minVersion}+ (this server is ${info.version.tag}). Upgrade Metabase or pin mb-cli to an older release.`,
     };
   }
 

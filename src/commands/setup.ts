@@ -11,7 +11,7 @@ export default defineMetabaseCommand({
     name: "setup",
     description: "Complete the initial Metabase setup wizard with a default user",
   },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,

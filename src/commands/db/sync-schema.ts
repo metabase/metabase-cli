@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     name: "sync-schema",
     description: "Trigger a manual schema sync for a database",
   },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,

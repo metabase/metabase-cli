@@ -9,7 +9,6 @@ import {
 import { verifyAndProbe, type VerifyFailure } from "../../core/auth/verify";
 import { originOnly } from "../../core/url";
 import type { ServerInfo } from "../../core/version/probe";
-import { Edition } from "../../runtime/capabilities";
 import {
   ProbedUser,
   ProfileLastFailure,
@@ -23,7 +22,7 @@ import { renderList } from "../../output/render";
 import { listEnvelopeSchema, wrapList } from "../../output/types";
 import { ParsedVersionSchema } from "../../core/version/tag";
 import { outputFlags } from "../flags";
-import { renderEditionLabel, renderTimestamp, renderUserRole, renderVersionTag } from "./render";
+import { renderTimestamp, renderUserRole, renderVersionTag } from "./render";
 import { defineMetabaseCommand } from "../runtime";
 
 const AuthProfileStatus = z.enum([
@@ -42,7 +41,6 @@ export const AuthProfile = z.object({
   status: AuthProfileStatus,
   user: ProbedUser.nullable(),
   version: ParsedVersionSchema.nullable(),
-  edition: Edition.nullable(),
   tokenFeatures: TokenFeatures.nullable(),
   lastProbedAt: z.iso.datetime().nullable(),
   lastFailure: ProfileLastFailure.nullable(),
@@ -67,7 +65,6 @@ const authProfileView: ResourceView<AuthProfileJson> = {
     { key: "status", label: "Status", format: (value) => renderStatus(value) },
     { key: "user", label: "Role", format: (value) => renderUserRole(value) },
     { key: "version", label: "Version", format: (value) => renderVersionTag(value) },
-    { key: "edition", label: "Edition", format: (value) => renderEditionLabel(value) },
     { key: "lastProbedAt", label: "Last probed", format: (value) => renderTimestamp(value) },
   ],
 };
@@ -79,7 +76,7 @@ function renderStatus(value: unknown): string {
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List configured authentication profiles" },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: { ...outputFlags },
   outputSchema: AuthProfileListEnvelope,
   examples: ["mb auth list", "mb auth list --json"],
@@ -174,7 +171,6 @@ function projectSuccess(name: string, url: string, probe: ProfileLastProbe): Aut
     status: "ok",
     user: probe.user,
     version: probe.version,
-    edition: probe.edition,
     tokenFeatures: probe.tokenFeatures,
     lastProbedAt: probe.at,
     lastFailure: null,
@@ -190,7 +186,6 @@ function toJson(record: ProfileRecord, status: AuthProfileStatusValue): AuthProf
     status,
     user: probe?.user ?? null,
     version: probe?.version ?? null,
-    edition: probe?.edition ?? null,
     tokenFeatures: probe?.tokenFeatures ?? null,
     lastProbedAt: probe?.at ?? null,
     lastFailure: record.lastFailure,

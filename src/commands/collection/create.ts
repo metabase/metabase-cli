@@ -7,7 +7,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a collection from a JSON spec" },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...bodyInputFlags },
   outputSchema: Collection,
   examples: [

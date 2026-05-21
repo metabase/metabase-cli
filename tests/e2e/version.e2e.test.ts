@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { writeProbeResult, writeProfile } from "../../src/core/auth/storage";
 import { BASELINE_CAPABILITIES } from "../../src/core/version/capabilities";
-import type { Edition } from "../../src/runtime/capabilities";
 import { Manifest } from "../../src/runtime/manifest";
 import { parseJson } from "../../src/runtime/json";
 
@@ -37,25 +36,23 @@ async function seedProfile(configHome: string): Promise<void> {
   });
 }
 
-async function seedProbedProfile(configHome: string, major: number, build: Edition): Promise<void> {
+async function seedProbedProfile(configHome: string, major: number): Promise<void> {
   await withSeedEnv(configHome, async () => {
     await writeProfile({ url: UNREACHABLE_URL, apiKey: "secret-key" }, "default");
     await writeProbeResult("default", {
       user: { id: 1, name: "Tester", isAdmin: true },
       server: {
-        version: { tag: `v${build === "ee" ? "1" : "0"}.${major}.0`, build, major, patch: 0 },
-        edition: build,
+        version: { tag: `v0.${major}.0`, major, patch: 0 },
         tokenFeatures: null,
       },
     });
   });
 }
 
-const MEASURE_CAPABILITIES = { minVersion: 59, edition: "oss" } as const;
-const TRANSFORM_CAPABILITIES = { minVersion: 59, edition: "oss" } as const;
+const MEASURE_CAPABILITIES = { minVersion: 59 } as const;
+const TRANSFORM_CAPABILITIES = { minVersion: 59 } as const;
 const WORKSPACE_CAPABILITIES = {
   minVersion: 62,
-  edition: "ee",
   tokenFeature: "workspaces",
 } as const;
 
@@ -200,19 +197,19 @@ describe("version preflight enforcement e2e", () => {
 
   it("refuses a command whose minVersion exceeds the cached server version (exit 2)", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfile(configHome, 58, "oss");
+    await seedProbedProfile(configHome, 58);
 
     const result = await runCli({ args: ["measure", "list"], configHome });
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain(
-      "This command requires Metabase v0.59+ (this server is v0.58.0). Upgrade Metabase or pin mb-cli to an older release.",
+      "This command requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase or pin mb-cli to an older release.",
     );
   });
 
   it("bypasses the refusal and reaches the network layer when --skip-preflight is passed", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfile(configHome, 58, "oss");
+    await seedProbedProfile(configHome, 58);
 
     const result = await runCli({ args: ["measure", "list", "--skip-preflight"], configHome });
 
@@ -232,21 +229,9 @@ describe("version preflight enforcement e2e", () => {
     expect(result.stderr).toContain("Could not reach Metabase");
   });
 
-  it("refuses an EE-only command when the cached server edition is OSS (exit 2)", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfile(configHome, 60, "oss");
-
-    const result = await runCli({ args: ["git-sync", "status"], configHome });
-
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
-      "This command requires Metabase ee (this server is oss). Upgrade your Metabase edition.",
-    );
-  });
-
   it("refuses a token-gated command when the cached server lacks the premium feature (exit 2)", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfile(configHome, 60, "ee");
+    await seedProbedProfile(configHome, 60);
 
     const result = await runCli({ args: ["git-sync", "status"], configHome });
 
@@ -258,7 +243,7 @@ describe("version preflight enforcement e2e", () => {
 
   it("bypasses the refusal via METABASE_CLI_SKIP_PREFLIGHT=1 and reaches the network layer", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfile(configHome, 58, "oss");
+    await seedProbedProfile(configHome, 58);
 
     const result = await runCli({
       args: ["measure", "list"],

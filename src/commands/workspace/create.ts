@@ -7,7 +7,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a workspace" },
-  capabilities: { minVersion: 62, edition: "ee", tokenFeature: "workspaces" },
+  capabilities: { minVersion: 62, tokenFeature: "workspaces" },
   args: {
     ...outputFlags,
     ...profileFlag,

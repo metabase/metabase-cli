@@ -12,7 +12,7 @@ export const SnippetListEnvelope = listEnvelopeSchema(SnippetCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List native query snippets" },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -11,7 +11,7 @@ export default defineMetabaseCommand({
     name: "deprovision",
     description: "Deprovision a database from a workspace",
   },
-  capabilities: { minVersion: 62, edition: "ee", tokenFeature: "workspaces" },
+  capabilities: { minVersion: 62, tokenFeature: "workspaces" },
   args: {
     ...outputFlags,
     ...profileFlag,

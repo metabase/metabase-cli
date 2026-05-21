@@ -76,6 +76,16 @@ describe("promptText", () => {
       initialValue: "https://m",
     });
   });
+
+  it("forwards defaultValue so an empty submit resolves to it rather than undefined", async () => {
+    hoisted.text.mockResolvedValueOnce("default");
+    const value = await promptText({ message: "Profile name", defaultValue: "default" });
+    expect(hoisted.text).toHaveBeenCalledWith({
+      message: "Profile name",
+      defaultValue: "default",
+    });
+    expect(value).toBe("default");
+  });
 });
 
 describe("promptPassword", () => {

@@ -67,11 +67,10 @@ describe("auth e2e", () => {
     expect(loginPayload.authenticated).toBe(true);
     expect(loginPayload.user?.id).toBeGreaterThan(0);
     expect(loginPayload.user?.name).not.toBe("");
-    // Head/nightly builds report an unparseable version tag → version/edition null;
-    // released builds report a v-tag and a known edition.
+    // Head/nightly builds report an unparseable version tag → version null;
+    // released builds report a v-tag.
     if (loginPayload.version !== null) {
       expect(loginPayload.version.tag.startsWith("v")).toBe(true);
-      expect(["oss", "ee"]).toContain(loginPayload.edition);
     }
 
     const fileAfterLogin = await readProfilesJson(configHome);

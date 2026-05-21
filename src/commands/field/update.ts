@@ -11,7 +11,7 @@ export default defineMetabaseCommand({
     name: "update",
     description: "Update a field (description, semantic_type, FK target, visibility, etc.)",
   },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -16,7 +16,7 @@ const PUBLIC_SCHEMA = "public";
 const FIRST_WORKSPACE_ID = 1;
 const WORKSPACE_NAME = "e2e_workspace";
 
-const skipReason = requireServer({ minVersion: 62, edition: "ee", tokenFeature: "workspaces" });
+const skipReason = requireServer({ minVersion: 62, tokenFeature: "workspaces" });
 
 describe.skipIf(skipReason !== null)("workspace e2e", () => {
   let bootstrap: E2EBootstrap;

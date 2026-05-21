@@ -65,8 +65,7 @@ function successVerify(): Verification {
     ok: true,
     user: { id: 1, name: "Tester", isAdmin: true },
     server: {
-      version: { tag: "v0.58.7", build: "oss", major: 58, patch: 7 },
-      edition: "oss",
+      version: { tag: "v0.58.7", major: 58, patch: 7 },
       tokenFeatures: null,
     },
   };
@@ -112,11 +111,9 @@ describe("auth list command", () => {
     expect(envelope.data[0]?.url).toBe("https://staging.example.com");
     expect(envelope.data[0]?.version).toEqual({
       tag: "v0.58.7",
-      build: "oss",
       major: 58,
       patch: 7,
     });
-    expect(envelope.data[0]?.edition).toBe("oss");
     expect(envelope.data[0]?.user).toEqual({ id: 1, name: "Tester", isAdmin: true });
 
     const staging = await readProfileRecord("staging");

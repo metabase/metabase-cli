@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 import { TokenFeatures } from "../../domain/session-properties";
-import { Edition } from "../../runtime/capabilities";
 import { ParsedVersionSchema } from "../version/tag";
 
 export const ProbedUser = z.object({
@@ -14,7 +13,6 @@ export type ProbedUser = z.infer<typeof ProbedUser>;
 export const ProfileLastProbe = z.object({
   at: z.iso.datetime(),
   version: ParsedVersionSchema.nullable(),
-  edition: Edition.nullable(),
   tokenFeatures: TokenFeatures.nullable(),
   user: ProbedUser,
 });
