@@ -3,7 +3,6 @@ import { defineCommand } from "citty";
 export default defineCommand({
   meta: {
     name: "transform-job",
-    alias: "transform-jobs",
     description: "Manage Metabase transform jobs",
   },
   subCommands: {

@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 
 export default defineCommand({
-  meta: { name: "transform", alias: "transforms", description: "Manage Metabase transforms" },
+  meta: { name: "transform", description: "Manage Metabase transforms" },
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),
     get: () => import("./get").then((mod) => mod.default),

@@ -20,7 +20,7 @@ export const outputFlags = {
 } as const;
 
 export const profileFlag = {
-  profile: { type: "string", description: "Named profile (default: 'default')" },
+  profile: { type: "string", description: "Named profile (default: 'default')", alias: "p" },
 } as const;
 
 export const connectionFlags = {

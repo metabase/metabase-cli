@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 
 export default defineCommand({
-  meta: { name: "field", alias: "fields", description: "Manage Metabase fields" },
+  meta: { name: "field", description: "Manage Metabase fields" },
   subCommands: {
     get: () => import("./get").then((m) => m.default),
     values: () => import("./values").then((m) => m.default),

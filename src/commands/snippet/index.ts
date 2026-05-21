@@ -3,7 +3,6 @@ import { defineCommand } from "citty";
 export default defineCommand({
   meta: {
     name: "snippet",
-    alias: "snippets",
     description: "Manage Metabase native query snippets",
   },
   subCommands: {

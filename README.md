@@ -45,12 +45,12 @@ Credentials are stored per-profile. The default profile is named `default`. Use 
 
 Save credentials for a profile. On success the server is probed once — the rendered output shows the API-key user, role (`Admin`/`User`), and Metabase version, and the same values are cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good `apiKey`/`url`/`lastProbe` and gains a `lastFailure` entry.
 
-| Flag                | Description                                                |
-| ------------------- | ---------------------------------------------------------- |
-| `--url <url>`       | Metabase URL. Falls back to `METABASE_URL`, then prompts.  |
-| `--api-key <value>` | API key. Visible in shell history — pipe on stdin instead. |
-| `--profile <name>`  | Profile to write to (default: `default`).                  |
-| `--skip-verify`     | Save without contacting the server (no probe, no cache).   |
+| Flag                     | Description                                                |
+| ------------------------ | ---------------------------------------------------------- |
+| `--url <url>`            | Metabase URL. Falls back to `METABASE_URL`, then prompts.  |
+| `--api-key <value>`      | API key. Visible in shell history — pipe on stdin instead. |
+| `--profile <name>`, `-p` | Profile to write to (default: `default`).                  |
+| `--skip-verify`          | Save without contacting the server (no probe, no cache).   |
 
 Resolution order for the API key: `--api-key` → piped stdin → `METABASE_API_KEY` → interactive prompt. Stdin is auto-detected when not a TTY.
 
@@ -69,10 +69,10 @@ mb auth status --json
 mb auth status --profile staging
 ```
 
-| Flag               | Description                              |
-| ------------------ | ---------------------------------------- |
-| `--profile <name>` | Profile to inspect (default: `default`). |
-| `--json`           | Emit JSON. Auto-enabled on non-TTY.      |
+| Flag                     | Description                              |
+| ------------------------ | ---------------------------------------- |
+| `--profile <name>`, `-p` | Profile to inspect (default: `default`). |
+| `--json`                 | Emit JSON. Auto-enabled on non-TTY.      |
 
 ### `mb auth list`
 
@@ -98,10 +98,10 @@ mb auth logout --yes
 mb auth logout --profile staging --yes
 ```
 
-| Flag               | Description                                                                                                                       |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--profile <name>` | Profile to clear (default: `default`).                                                                                            |
-| `--yes`            | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
+| Flag                     | Description                                                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--profile <name>`, `-p` | Profile to clear (default: `default`).                                                                                            |
+| `--yes`                  | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
 ## Transforms
 

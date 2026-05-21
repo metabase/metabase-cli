@@ -3,7 +3,6 @@ import { defineCommand } from "citty";
 export default defineCommand({
   meta: {
     name: "card",
-    alias: "cards",
     description: "Manage Metabase cards (questions, models, metrics)",
   },
   subCommands: {

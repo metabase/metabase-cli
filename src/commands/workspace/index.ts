@@ -3,7 +3,6 @@ import { defineCommand } from "citty";
 export default defineCommand({
   meta: {
     name: "workspace",
-    alias: "workspaces",
     description: "Manage Metabase workspaces (workspace-manager)",
   },
   subCommands: {

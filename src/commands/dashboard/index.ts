@@ -3,7 +3,6 @@ import { defineCommand } from "citty";
 export default defineCommand({
   meta: {
     name: "dashboard",
-    alias: "dashboards",
     description: "Manage Metabase dashboards",
   },
   subCommands: {
