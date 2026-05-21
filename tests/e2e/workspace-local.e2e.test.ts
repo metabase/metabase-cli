@@ -1,11 +1,11 @@
 import { readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, assert, beforeAll, describe, expect, it } from "vitest";
 
 import { WorkspaceCredentialsResult } from "../../src/commands/workspace/credentials";
 import { LocalWorkspaceListEnvelope } from "../../src/commands/workspace/ps";
-import { RemoveResult } from "../../src/commands/workspace/remove";
+import { DeleteResult } from "../../src/commands/workspace/delete";
 import { StartResult } from "../../src/commands/workspace/start";
 import { StopResult } from "../../src/commands/workspace/stop";
 import { UrlResult } from "../../src/commands/workspace/url";
@@ -54,7 +54,7 @@ describe.skipIf(skipReason !== null)("workspace local-runtime e2e", () => {
     // doesn't touch local docker. Tear down the container/volume that the
     // test left behind so reruns start clean.
     await runCli({
-      args: ["workspace", "remove", String(FIRST_WORKSPACE_ID), "--yes", "--json"],
+      args: ["workspace", "delete", String(FIRST_WORKSPACE_ID), "--yes", "--json"],
       configHome: await pushConfigHome(),
       env: authEnv(),
       timeoutMs: 60_000,
@@ -89,7 +89,6 @@ describe.skipIf(skipReason !== null)("workspace local-runtime e2e", () => {
         "database",
         "provision",
         String(FIRST_WORKSPACE_ID),
-        "--database-id",
         String(SEEDED.warehouseDbId),
         "--schemas",
         ANALYTICS_SCHEMA,
@@ -106,19 +105,27 @@ describe.skipIf(skipReason !== null)("workspace local-runtime e2e", () => {
     const provisioned = workspace.databases?.find(
       (entry) => entry.database_id === SEEDED.warehouseDbId,
     );
-    expect(provisioned).toMatchObject({
+    assert(
+      provisioned !== undefined,
+      `warehouse database ${SEEDED.warehouseDbId} missing from provisioned workspace`,
+    );
+    expect({
+      database_id: provisioned.database_id,
+      input_schemas: provisioned.input_schemas,
+      status: provisioned.status,
+      hasOutputNamespace: provisioned.output_namespace.length > 0,
+    }).toEqual({
       database_id: SEEDED.warehouseDbId,
-      input: [{ schema: ANALYTICS_SCHEMA }],
+      input_schemas: [ANALYTICS_SCHEMA],
       status: "provisioned",
+      hasOutputNamespace: true,
     });
   }
 
   it(
     "start spins up a healthy local container; ps + url + stop + remove cycle through it",
     async () => {
-      if (!licenseToken) {
-        throw new Error("test reached body without a license token — skip guard is broken");
-      }
+      assert(licenseToken, "test reached body without a license token — skip guard is broken");
 
       // The setupFile's restore-each hook wipes parent state before this test
       // runs, so the workspace must be created here (not in beforeAll).
@@ -245,15 +252,15 @@ describe.skipIf(skipReason !== null)("workspace local-runtime e2e", () => {
         url: null,
       });
 
-      // 8. Remove tears down the container + the app-db volume.
+      // 8. Delete tears down the container + the app-db volume.
       const remove = await runCli({
-        args: ["workspace", "remove", String(FIRST_WORKSPACE_ID), "--yes", "--full", "--json"],
+        args: ["workspace", "delete", String(FIRST_WORKSPACE_ID), "--yes", "--full", "--json"],
         configHome: await pushConfigHome(),
         env: authEnv(),
         timeoutMs: 60_000,
       });
       expect(remove.exitCode, remove.stderr).toBe(0);
-      const removeResult = parseJson(remove.stdout, RemoveResult);
+      const removeResult = parseJson(remove.stdout, DeleteResult);
       expect(removeResult).toEqual({
         workspace_id: FIRST_WORKSPACE_ID,
         container_name: `metabase-workspace-${FIRST_WORKSPACE_ID}`,

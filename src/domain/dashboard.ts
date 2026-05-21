@@ -159,6 +159,7 @@ export const DashcardPatchInput = z
     parameter_mappings: z.array(z.unknown()).optional(),
     inline_parameters: z.array(z.string()).optional(),
     visualization_settings: z.unknown().optional(),
+    series: z.array(z.unknown()).optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, {

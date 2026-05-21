@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
 import { createClient, type Client } from "../../src/core/http/client";
 import { Workspace, WorkspaceCompact, type WorkspaceDatabase } from "../../src/domain/workspace";
@@ -70,7 +70,6 @@ describe.skipIf(skipReason !== null)("workspace e2e", () => {
         "database",
         "provision",
         String(workspaceId),
-        "--database-id",
         String(SEEDED.warehouseDbId),
         "--schemas",
         schemas.join(","),
@@ -88,11 +87,10 @@ describe.skipIf(skipReason !== null)("workspace e2e", () => {
   function findWarehouseDatabase(workspace: Workspace): WorkspaceDatabase {
     const databases = workspace.databases ?? [];
     const entry = databases.find((row) => row.database_id === SEEDED.warehouseDbId);
-    if (!entry) {
-      throw new Error(
-        `expected workspace ${workspace.id} to contain database ${SEEDED.warehouseDbId}, got: ${JSON.stringify(databases)}`,
-      );
-    }
+    assert(
+      entry,
+      `expected workspace ${workspace.id} to contain database ${SEEDED.warehouseDbId}, got: ${JSON.stringify(databases)}`,
+    );
     return entry;
   }
 
@@ -146,7 +144,6 @@ describe.skipIf(skipReason !== null)("workspace e2e", () => {
         "database",
         "provision",
         String(FIRST_WORKSPACE_ID),
-        "--database-id",
         String(SEEDED.warehouseDbId),
         "--schemas",
         ANALYTICS_SCHEMA,
@@ -226,7 +223,7 @@ describe.skipIf(skipReason !== null)("workspace e2e", () => {
     expect(after.databases ?? []).toEqual([]);
   });
 
-  it("database update rejects --database-id smuggled in --body (backend's UpdateDatabaseParams is closed)", async () => {
+  it("database update rejects database_id smuggled in --body (backend's UpdateDatabaseParams is closed)", async () => {
     await createWorkspace();
     await provisionDatabase(FIRST_WORKSPACE_ID, [ANALYTICS_SCHEMA]);
 

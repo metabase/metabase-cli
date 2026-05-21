@@ -1,5 +1,5 @@
 import type { ArgsDef } from "citty";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { ConfigError } from "../core/errors";
 
@@ -27,9 +27,7 @@ function thrownBy(run: () => void): unknown {
 function expectUnknownFlag(rawArgs: readonly string[], display: string): void {
   const error = thrownBy(() => assertKnownFlags(rawArgs, ARGS));
   expect(error).toBeInstanceOf(ConfigError);
-  if (!(error instanceof ConfigError)) {
-    throw new Error("expected ConfigError");
-  }
+  assert(error instanceof ConfigError, "expected ConfigError");
   expect(error.message).toBe(`unknown flag: ${display}`);
   expect(error.exitCode).toBe(2);
 }

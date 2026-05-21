@@ -4,12 +4,7 @@ import { SyncTask, type SyncTaskStatus } from "../../domain/git-sync";
 import type { Client } from "../../core/http/client";
 import type { ResourceView } from "../../domain/view";
 import { parseJsonOrPlain } from "../../runtime/json";
-import {
-  DEFAULT_INTERVAL_MS,
-  DEFAULT_TIMEOUT_MS,
-  pollUntil,
-  type PollOptions,
-} from "../../runtime/poll";
+import { pollUntil, type PollOptions } from "../../runtime/poll";
 
 const TERMINAL_STATUSES = new Set<SyncTaskStatus>([
   "successful",
@@ -45,24 +40,6 @@ export const syncTaskIdleView: ResourceView<SyncTaskIdle> = {
   compactPick: SyncTaskIdle,
   tableColumns: [{ key: "status", label: "Status" }],
 };
-
-export const pollFlags = {
-  wait: {
-    type: "boolean",
-    description: "Poll the resulting task until it reaches a terminal status",
-    default: true,
-  },
-  timeout: {
-    type: "string",
-    description: "Polling timeout in ms (used with --wait)",
-    default: String(DEFAULT_TIMEOUT_MS),
-  },
-  interval: {
-    type: "string",
-    description: "Polling interval in ms (used with --wait)",
-    default: String(DEFAULT_INTERVAL_MS),
-  },
-} as const;
 
 export function isTerminal(status: SyncTaskStatus): boolean {
   return TERMINAL_STATUSES.has(status);

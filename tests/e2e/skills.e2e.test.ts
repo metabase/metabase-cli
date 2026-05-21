@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { SkillGetEnvelope } from "../../src/commands/skills/get";
 import { SkillListEnvelope } from "../../src/commands/skills/list";
@@ -152,9 +152,7 @@ describe("skills e2e", () => {
     expect(envelope.returned).toBe(1);
     expect(envelope.data).toHaveLength(1);
     const item = envelope.data[0];
-    if (item === undefined) {
-      throw new Error("expected one item in the envelope");
-    }
+    assert(item !== undefined, "expected one item in the envelope");
     expect(item.name).toBe("core");
     expect(item.dir.endsWith("/skill-data/core")).toBe(true);
   });

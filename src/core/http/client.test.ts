@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import packageJson from "../../../package.json" with { type: "json" };
@@ -37,9 +37,7 @@ function makeFakeFetch(script: FetchScript): FakeFetchHandle {
       headers: headersToRecord(init?.headers),
     });
     const next = queue.shift();
-    if (next === undefined) {
-      throw new Error("fakeFetch: no more responses queued");
-    }
+    assert(next !== undefined, "fakeFetch: no more responses queued");
     if (next instanceof Error) {
       throw next;
     }
@@ -147,9 +145,7 @@ describe("createClient.requestParsed", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(HttpError);
-    if (!(error instanceof HttpError)) {
-      throw new Error("expected HttpError");
-    }
+    assert(error instanceof HttpError, "expected HttpError");
     expect(error.status).toBe(500);
     expect(error.userMessage).toBe("server boom");
     expect(fakeFetch.calls.length).toBe(3);
@@ -194,9 +190,7 @@ describe("createClient.requestParsed", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(NetworkError);
-    if (!(error instanceof NetworkError)) {
-      throw new Error("expected NetworkError");
-    }
+    assert(error instanceof NetworkError, "expected NetworkError");
     expect(error.userMessage).toBe(
       "Could not reach Metabase: Connection refused by m.example.com — is Metabase running and is the port correct?",
     );
@@ -220,9 +214,7 @@ describe("createClient.requestParsed", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(NetworkError);
-    if (!(error instanceof NetworkError)) {
-      throw new Error("expected NetworkError");
-    }
+    assert(error instanceof NetworkError, "expected NetworkError");
     expect(error.userMessage).toBe(
       "Could not reach Metabase: Host not found: m.example.com — check the URL.",
     );
@@ -242,9 +234,7 @@ describe("createClient.requestParsed", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(NetworkError);
-    if (!(error instanceof NetworkError)) {
-      throw new Error("expected NetworkError");
-    }
+    assert(error instanceof NetworkError, "expected NetworkError");
     expect(error.userMessage).toBe("Could not reach Metabase: fetch failed");
     expect(error.developerDetail).toEqual({
       method: "GET",
@@ -256,9 +246,7 @@ describe("createClient.requestParsed", () => {
   it("throws ResponseShapeError carrying the request context and the schema's zod issues", async () => {
     const body = { id: "not-a-number", email: "a@b.com" };
     const expectedIssues = PingResponse.safeParse(body).error?.issues;
-    if (expectedIssues === undefined) {
-      throw new Error("expected zod failure for fixture body");
-    }
+    assert(expectedIssues !== undefined, "expected zod failure for fixture body");
     const fakeFetch = makeFakeFetch([jsonResponse(body)]);
     const client = createClient(CONFIG, { fetchImpl: fakeFetch.fetch });
 
@@ -267,9 +255,7 @@ describe("createClient.requestParsed", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(ResponseShapeError);
-    if (!(error instanceof ResponseShapeError)) {
-      throw new Error("expected ResponseShapeError");
-    }
+    assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
     expect(error.userMessage).toBe(
       "Metabase returned unexpected response shape:\n" +
         "  id: Invalid input: expected number, received string",
@@ -286,9 +272,7 @@ describe("createClient.requestParsed", () => {
   it("threads getServerTag into ResponseShapeError so the lead names the version", async () => {
     const body = { id: "not-a-number", email: "a@b.com" };
     const expectedIssues = PingResponse.safeParse(body).error?.issues;
-    if (expectedIssues === undefined) {
-      throw new Error("expected zod failure for fixture body");
-    }
+    assert(expectedIssues !== undefined, "expected zod failure for fixture body");
     const fakeFetch = makeFakeFetch([jsonResponse(body)]);
     const client = createClient(CONFIG, {
       fetchImpl: fakeFetch.fetch,
@@ -300,9 +284,7 @@ describe("createClient.requestParsed", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(ResponseShapeError);
-    if (!(error instanceof ResponseShapeError)) {
-      throw new Error("expected ResponseShapeError");
-    }
+    assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
     expect(error.developerDetail).toEqual({
       method: "GET",
       url: "https://m.example.com/api/user/current",
@@ -333,9 +315,7 @@ describe("createClient.requestParsed", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(HttpError);
-    if (!(error instanceof HttpError)) {
-      throw new Error("expected HttpError");
-    }
+    assert(error instanceof HttpError, "expected HttpError");
     expect(error.kind).toBe("route-missing");
     expect(error.userMessage).toBe(
       "This endpoint is not available on Metabase v0.58.7: GET /api/this-does-not-exist. " +
@@ -355,9 +335,7 @@ describe("createClient.requestParsed", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(HttpError);
-    if (!(error instanceof HttpError)) {
-      throw new Error("expected HttpError");
-    }
+    assert(error instanceof HttpError, "expected HttpError");
     expect(error.developerDetail.body).toBeNull();
     expect(error.userMessage).toBe("Expected json response but got text/html");
   });
@@ -377,9 +355,7 @@ describe("createClient.requestParsed", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(HttpError);
-    if (!(error instanceof HttpError)) {
-      throw new Error("expected HttpError");
-    }
+    assert(error instanceof HttpError, "expected HttpError");
     expect(error.userMessage).toBe("Expected json response but got no content-type");
   });
 
@@ -391,9 +367,7 @@ describe("createClient.requestParsed", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(TimeoutError);
-    if (!(error instanceof TimeoutError)) {
-      throw new Error("expected TimeoutError");
-    }
+    assert(error instanceof TimeoutError, "expected TimeoutError");
     expect(error.developerDetail.timeoutMs).toBe(25);
   });
 });
@@ -413,9 +387,7 @@ describe("createClient idempotency-aware retry", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(HttpError);
-    if (!(error instanceof HttpError)) {
-      throw new Error("expected HttpError");
-    }
+    assert(error instanceof HttpError, "expected HttpError");
     expect(error.status).toBe(500);
     expect(error.userMessage).toBe("server boom");
     expect(fakeFetch.calls.length).toBe(1);
@@ -435,9 +407,7 @@ describe("createClient idempotency-aware retry", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(HttpError);
-    if (!(error instanceof HttpError)) {
-      throw new Error("expected HttpError");
-    }
+    assert(error instanceof HttpError, "expected HttpError");
     expect(error.status).toBe(429);
     expect(error.userMessage).toBe("slow down");
     expect(fakeFetch.calls.length).toBe(1);
@@ -490,9 +460,7 @@ describe("createClient idempotency-aware retry", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(HttpError);
-    if (!(error instanceof HttpError)) {
-      throw new Error("expected HttpError");
-    }
+    assert(error instanceof HttpError, "expected HttpError");
     expect(error.status).toBe(503);
     expect(error.userMessage).toBe("down");
     expect(fakeFetch.calls.length).toBe(1);
@@ -518,9 +486,7 @@ describe("createClient sanitization", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(HttpError);
-    if (!(error instanceof HttpError)) {
-      throw new Error("expected HttpError");
-    }
+    assert(error instanceof HttpError, "expected HttpError");
     expect(error.developerDetail.body).toBe('{"message":"forbidden","echo":"[REDACTED]"}');
   });
 
@@ -542,9 +508,7 @@ describe("createClient sanitization", () => {
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(HttpError);
-    if (!(error instanceof HttpError)) {
-      throw new Error("expected HttpError");
-    }
+    assert(error instanceof HttpError, "expected HttpError");
     expect(error.developerDetail.responseHeaders).toEqual({
       "content-type": "application/json",
       "x-metabase-session": "[REDACTED]",

@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 
 export default defineCommand({
-  meta: { name: "measure", description: "Manage Metabase measures" },
+  meta: { name: "measure", alias: "measures", description: "Manage Metabase measures" },
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),
     get: () => import("./get").then((mod) => mod.default),

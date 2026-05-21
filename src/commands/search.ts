@@ -58,7 +58,7 @@ export default defineMetabaseCommand({
       description: "Max results to return",
       default: String(DEFAULT_LIMIT),
     },
-    "table-db-id": {
+    "db-id": {
       type: "string",
       description: "Restrict to items on a given database id",
     },
@@ -75,8 +75,8 @@ export default defineMetabaseCommand({
   ],
   async run({ args, ctx, getClient }) {
     const limit = parseId(args.limit, "--limit");
-    const tableDbIdRaw = args["table-db-id"];
-    const tableDbId = tableDbIdRaw ? parseId(tableDbIdRaw, "--table-db-id") : undefined;
+    const tableDbIdRaw = args["db-id"];
+    const tableDbId = tableDbIdRaw ? parseId(tableDbIdRaw, "--db-id") : undefined;
     const models = parseEnumCsv(args.models, SearchModel, "--models");
     const client = await getClient();
 

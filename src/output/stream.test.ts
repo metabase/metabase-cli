@@ -1,6 +1,6 @@
 import { Writable } from "node:stream";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it } from "vitest";
 
 import { pipeToStdout } from "./stream";
 
@@ -71,9 +71,7 @@ describe("pipeToStdout", () => {
     });
     const error = await pipeToStdout(failing).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(Error);
-    if (!(error instanceof Error)) {
-      throw new Error("expected Error");
-    }
+    assert(error instanceof Error, "expected Error");
     expect(error.message).toBe("source blew up");
   });
 });

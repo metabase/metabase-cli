@@ -1,5 +1,5 @@
 import { defineCommand } from "citty";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { defineMetabaseCommand } from "../commands/runtime";
@@ -161,9 +161,7 @@ describe("buildManifest", () => {
     const manifest = await buildManifest(root);
     const withEntry = manifest.commands.find((entry) => entry.command === "with");
     const withoutEntry = manifest.commands.find((entry) => entry.command === "without");
-    if (withoutEntry === undefined) {
-      throw new Error("expected the 'without' entry in the manifest");
-    }
+    assert(withoutEntry !== undefined, "expected the 'without' entry in the manifest");
     expect(withEntry?.details).toBe("the long per-command knowledge");
     expect("details" in withoutEntry).toBe(false);
   });

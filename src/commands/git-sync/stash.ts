@@ -5,10 +5,10 @@ import { SyncTask } from "../../domain/git-sync";
 import type { ResourceView } from "../../domain/view";
 import { renderItem } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
-import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
+import { gitSyncWaitFlags, parseWaitFlags } from "../wait-flags";
 
-import { pollFlags, pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
+import { pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
 
 const SyncStashKickoff = z.object({
   status: z.literal("success"),
@@ -62,7 +62,7 @@ export default defineMetabaseCommand({
       alias: "m",
       default: DEFAULT_STASH_MESSAGE,
     },
-    ...pollFlags,
+    ...gitSyncWaitFlags,
   },
   outputSchema: SyncStashResult,
   examples: [
@@ -78,8 +78,7 @@ export default defineMetabaseCommand({
     if (message === "") {
       throw new ConfigError("invalid message: must not be blank");
     }
-    const timeoutMs = parseId(args.timeout, "timeout");
-    const intervalMs = parseId(args.interval, "interval");
+    const wait = parseWaitFlags(args);
 
     const body: StashRequestBody = { new_branch: newBranch, message };
     const client = await getClient();
@@ -88,7 +87,7 @@ export default defineMetabaseCommand({
       body,
     });
 
-    if (!args.wait) {
+    if (!wait.enabled) {
       const result: SyncStashResult = {
         status: kickoff.status,
         message: kickoff.message,
@@ -98,7 +97,7 @@ export default defineMetabaseCommand({
       return;
     }
 
-    const final = await pollSyncTask(client, { timeoutMs, intervalMs });
+    const final = await pollSyncTask(client, wait.schedule);
     const result: SyncStashResult = {
       status: kickoff.status,
       message: kickoff.message,

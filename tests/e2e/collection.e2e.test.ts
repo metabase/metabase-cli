@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
 import { CollectionItemListEnvelope } from "../../src/commands/collection/items";
 import { CollectionListEnvelope } from "../../src/commands/collection/list";
@@ -96,6 +96,20 @@ describe("collection e2e", () => {
       data: [TRASH_COMPACT],
       returned: 1,
       total: 1,
+    });
+  });
+
+  it("archive soft-deletes the seeded collection and flips its archived flag", async () => {
+    const result = await runCli({
+      args: ["collection", "archive", String(SEEDED.defaultCollectionId), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, CollectionCompact)).toEqual({
+      ...DEFAULT_COMPACT,
+      archived: true,
     });
   });
 
@@ -215,11 +229,10 @@ describe("collection e2e", () => {
     });
     expect(fetchByEntityId.exitCode, fetchByEntityId.stderr).toBe(0);
     const viaInt = parseJson(fetchByEntityId.stdout, Collection);
-    if (typeof viaInt.entity_id !== "string") {
-      throw new Error(
-        `expected entity_id to be a string on the seeded collection, got ${String(viaInt.entity_id)}`,
-      );
-    }
+    assert(
+      typeof viaInt.entity_id === "string",
+      `expected entity_id to be a string on the seeded collection, got ${String(viaInt.entity_id)}`,
+    );
 
     const fetchAgain = await runCli({
       args: ["collection", "get", "--json", "--", viaInt.entity_id],
@@ -427,11 +440,10 @@ describe("collection e2e", () => {
     expect(result.exitCode, result.stderr).toBe(0);
     const tree = parseJson(result.stdout, CollectionTreeResponse);
     const seeded = tree.find((node) => node.id === SEEDED.defaultCollectionId);
-    if (seeded === undefined) {
-      throw new Error(
-        `expected E2E Default in tree, got ids ${tree.map((node) => node.id).join(", ")}`,
-      );
-    }
+    assert(
+      seeded !== undefined,
+      `expected E2E Default in tree, got ids ${tree.map((node) => node.id).join(", ")}`,
+    );
     expect({
       id: seeded.id,
       name: seeded.name,

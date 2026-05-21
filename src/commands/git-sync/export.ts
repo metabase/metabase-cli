@@ -6,10 +6,10 @@ import { warn } from "../../output/notice";
 import { renderItem } from "../../output/render";
 import type { CommonContext } from "../context";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
-import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
+import { gitSyncWaitFlags, parseWaitFlags } from "../wait-flags";
 
-import { pollFlags, pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
+import { pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
 
 const SyncExportKickoff = z.object({
   message: z.string(),
@@ -62,7 +62,7 @@ export default defineMetabaseCommand({
       description: "Force-push / overwrite remote",
       default: false,
     },
-    ...pollFlags,
+    ...gitSyncWaitFlags,
   },
   outputSchema: SyncExportResult,
   examples: [
@@ -71,8 +71,7 @@ export default defineMetabaseCommand({
     "mb git-sync export --no-wait",
   ],
   async run({ args, ctx, getClient }) {
-    const timeoutMs = parseId(args.timeout, "timeout");
-    const intervalMs = parseId(args.interval, "interval");
+    const wait = parseWaitFlags(args);
     const body: ExportRequestBody = {};
     if (args.branch !== undefined && args.branch !== "") {
       body.branch = args.branch;
@@ -90,11 +89,11 @@ export default defineMetabaseCommand({
       body,
     });
 
-    if (!args.wait) {
+    if (!wait.enabled) {
       const result: SyncExportResult = { message: kickoff.message, task_id: kickoff.task_id };
       renderItem(result, syncExportView, ctx);
     } else {
-      const final = await pollSyncTask(client, { timeoutMs, intervalMs });
+      const final = await pollSyncTask(client, wait.schedule);
       const result: SyncExportResult = {
         message: kickoff.message,
         task_id: kickoff.task_id,

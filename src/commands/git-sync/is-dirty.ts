@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { ResourceView } from "../../domain/view";
-import { renderItem } from "../../output/render";
+import { renderScalar } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -29,6 +29,6 @@ export default defineMetabaseCommand({
   async run({ ctx, getClient }) {
     const client = await getClient();
     const result = await client.requestParsed(IsDirtyResult, REMOTE_SYNC_PATHS.isDirty);
-    renderItem(result, isDirtyView, ctx);
+    renderScalar(result, isDirtyView, result.is_dirty ? "dirty" : "clean", ctx);
   },
 });

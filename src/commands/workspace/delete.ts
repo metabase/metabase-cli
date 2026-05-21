@@ -14,17 +14,17 @@ import { outputFlags } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
-export const RemoveResult = z.object({
+export const DeleteResult = z.object({
   workspace_id: z.number().int().positive(),
   container_name: z.string(),
   volume_name: z.string(),
   removed_container: z.boolean(),
   removed_volume: z.boolean(),
 });
-export type RemoveResult = z.infer<typeof RemoveResult>;
+export type DeleteResult = z.infer<typeof DeleteResult>;
 
-const removeResultView: ResourceView<RemoveResult> = {
-  compactPick: RemoveResult.pick({
+const deleteResultView: ResourceView<DeleteResult> = {
+  compactPick: DeleteResult.pick({
     workspace_id: true,
     removed_container: true,
     removed_volume: true,
@@ -40,7 +40,7 @@ const removeResultView: ResourceView<RemoveResult> = {
 
 export default defineMetabaseCommand({
   meta: {
-    name: "remove",
+    name: "delete",
     description: "Stop and remove the local container + app-db volume (does not affect remote)",
   },
   capabilities: null,
@@ -54,8 +54,8 @@ export default defineMetabaseCommand({
     },
     yes: { type: "boolean", description: "Skip the confirmation prompt", default: false },
   },
-  outputSchema: RemoveResult,
-  examples: ["mb workspace remove 1 --yes", "mb workspace remove 1 --keep-volume --yes"],
+  outputSchema: DeleteResult,
+  examples: ["mb workspace delete 1 --yes", "mb workspace delete 1 --keep-volume --yes"],
   async run({ args, ctx }) {
     const workspaceId = parseId(args.id);
     const containerName = containerNameFor(workspaceId);
@@ -78,13 +78,13 @@ export default defineMetabaseCommand({
     const removedContainer = await removeContainer(containerName);
     const removedVolume = shouldRemoveVolume ? await removeVolume(volumeName) : false;
 
-    const result: RemoveResult = {
+    const result: DeleteResult = {
       workspace_id: workspaceId,
       container_name: containerName,
       volume_name: volumeName,
       removed_container: removedContainer,
       removed_volume: removedVolume,
     };
-    renderItem(result, removeResultView, ctx);
+    renderItem(result, deleteResultView, ctx);
   },
 });

@@ -27,23 +27,24 @@ export default defineMetabaseCommand({
     ...bodyInputFlags,
     model: {
       type: "string",
-      description: `Entity model for shortcut form: ${EID_MODELS.join(" | ")}`,
+      description: `Entity model for the positional EIDs: ${EID_MODELS.join(" | ")}`,
     },
     eids: {
-      type: "string",
-      description: "Comma-separated EIDs (used with --model as a shortcut)",
+      type: "positional",
+      required: false,
+      description: "Comma-separated EIDs to translate (used with --model)",
     },
   },
   outputSchema: EidTranslateResult,
   examples: [
-    "mb eid --model card --eids abc123XYZ,def456ABC",
+    "mb eid --model card abc123XYZ,def456ABC",
     "mb eid --file translate.json",
     'mb eid --body \'{"entity_ids":{"card":["abc123XYZ"]}}\'',
   ],
   async run({ args, ctx, getClient }) {
     const pair = requireBothOrNeither(
       { name: "--model", value: args.model },
-      { name: "--eids", value: args.eids },
+      { name: "<eids>", value: args.eids },
     );
     const body = pair
       ? EidTranslateInput.parse({
@@ -71,7 +72,7 @@ function parseModel(raw: string): EidModel {
 function parseEids(raw: string): string[] {
   const parts = parseCsv(raw);
   if (parts.length === 0) {
-    throw new ConfigError("--eids must contain at least one EID");
+    throw new ConfigError("provide at least one EID");
   }
   return parts;
 }

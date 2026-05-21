@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { ConfigError } from "../core/errors";
 import type { ResourceView } from "../domain/view";
 import { parseJson } from "../runtime/json";
 import { capListEnvelope } from "./cap";
-import { renderItem, renderList, writeJson, writeText } from "./render";
+import { renderItem, renderList, renderScalar, writeJson, writeText } from "./render";
 import type { ListEnvelope, RenderOptions } from "./types";
 
 const Card = z.object({
@@ -125,9 +125,7 @@ describe("renderItem", () => {
       throw new Error("expected renderItem to throw");
     })();
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe(
       `output is ${expectedBytes} bytes, over the 50-byte --max-bytes cap; narrow with --fields, or pass --max-bytes 0 to disable`,
     );
@@ -153,6 +151,39 @@ describe("renderItem", () => {
     });
     expect(parseJson(streams.stdout, Card)).toEqual(item);
     expect(streams.stderr).toBe("");
+  });
+});
+
+describe("renderScalar", () => {
+  it("prints the bare scalar text in text mode", () => {
+    renderScalar({ id: 1, name: "Sales", archived: false }, cardView, "Sales", {
+      ...baseOpts,
+      format: "text",
+    });
+    expect(streams.stdout).toBe("Sales\n");
+  });
+
+  it("emits the keyed compact envelope in JSON mode, ignoring the scalar text", () => {
+    renderScalar({ id: 1, name: "Sales", archived: false }, cardView, "Sales", baseOpts);
+    expect(parseJson(streams.stdout, CardCompact)).toEqual({ id: 1, name: "Sales" });
+  });
+
+  it("falls back to the keyed object in text mode when full=true", () => {
+    renderScalar({ id: 1, name: "Sales", archived: false }, cardView, "Sales", {
+      ...baseOpts,
+      format: "text",
+      full: true,
+    });
+    expect(streams.stdout).toBe("id        1\nname      Sales\narchived  false\n");
+  });
+
+  it("falls back to a fields projection when fields is set, even in text mode", () => {
+    renderScalar({ id: 1, name: "Sales", archived: false }, cardView, "Sales", {
+      ...baseOpts,
+      format: "text",
+      fields: ["id", "archived"],
+    });
+    expect(parseJson(streams.stdout, CardProjected)).toEqual({ id: 1, archived: false });
   });
 });
 
@@ -204,9 +235,7 @@ describe("renderList — JSON format", () => {
       { data: projectedItems, returned: items.length, total: items.length },
       500,
     );
-    if (expectedCapped.truncated === undefined) {
-      throw new Error("fixture should produce truncation");
-    }
+    assert(expectedCapped.truncated !== undefined, "fixture should produce truncation");
 
     expect(parseJson(streams.stdout, TruncatedEnvelope)).toEqual(expectedCapped);
     expect(streams.stderr).toBe(
@@ -274,9 +303,7 @@ describe("renderList — text format", () => {
     renderList(envelope, cardView, { ...baseOpts, format: "text", maxBytes: 500 });
 
     const expectedCapped = capListEnvelope(envelope, 500);
-    if (expectedCapped.truncated === undefined) {
-      throw new Error("fixture should produce truncation");
-    }
+    assert(expectedCapped.truncated !== undefined, "fixture should produce truncation");
     expect(streams.stdout).toContain("ID");
     expect(streams.stderr).toBe(
       `… cut at ${expectedCapped.truncated.bytes} bytes; rerun with --max-bytes 0\n`,

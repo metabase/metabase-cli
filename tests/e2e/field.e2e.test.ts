@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
 import { createClient } from "../../src/core/http/client";
 import { Field, FieldCompact, FieldSummary, FieldValues } from "../../src/domain/field";
@@ -26,12 +26,11 @@ describe("field e2e", () => {
       `/api/table/${tableId}/query_metadata`,
     );
     const field = metadata.fields.find((entry) => entry.name === fieldName);
-    if (!field) {
-      throw new Error(
-        `expected table ${tableId} to expose a field named ${fieldName}, ` +
-          `got: ${metadata.fields.map((entry) => entry.name).join(", ")}`,
-      );
-    }
+    assert(
+      field,
+      `expected table ${tableId} to expose a field named ${fieldName}, ` +
+        `got: ${metadata.fields.map((entry) => entry.name).join(", ")}`,
+    );
     return field.id;
   }
 

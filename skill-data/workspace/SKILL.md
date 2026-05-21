@@ -76,8 +76,7 @@ fi
 WS_ID=$(mb workspace create --name "$WS_NAME" --profile "$PARENT" --json | jq -r '.id')
 
 # 2. Provision a database into it (blocks on :provisioned)
-mb workspace database provision "$WS_ID" \
-  --database-id "$DB_ID" \
+mb workspace database provision "$WS_ID" "$DB_ID" \
   --schemas "$SCHEMAS" \
   --wait \
   --profile "$PARENT"
@@ -179,8 +178,7 @@ mb table list --db-id <db-id> --profile <parent> --json \
 Provision (one db per call; `--schemas` is required, no "all" wildcard):
 
 ```bash
-mb workspace database provision <ws-id> \
-  --database-id <db-id> \
+mb workspace database provision <ws-id> <db-id> \
   --schemas <schema1>,<schema2> \
   --wait \
   --profile <parent>
@@ -298,10 +296,10 @@ Log in with the **admin email + password** from `workspace credentials` (the API
 | Read admin email/password/API key | `mb workspace credentials <ws-id> --json`                      |
 | Stop (preserves app db)           | `mb workspace stop <ws-id>`                                    |
 | Restart                           | `mb workspace start <ws-id> --force --wait --profile <parent>` |
-| Remove container + app db         | `mb workspace remove <ws-id> --yes`                            |
-| Remove container, keep app db     | `mb workspace remove <ws-id> --keep-volume --yes`              |
+| Remove container + app db         | `mb workspace delete <ws-id> --yes`                            |
+| Remove container, keep app db     | `mb workspace delete <ws-id> --keep-volume --yes`              |
 
-The supported restart path is `stop` + `start --force` (or `start --force` directly). The app db volume persists across `stop`/`start` cycles, so users/sessions/saved questions survive. `remove`, `start --force`, and `stop` are destructive enough to confirm before running unless the user explicitly asked for them.
+The supported restart path is `stop` + `start --force` (or `start --force` directly). The app db volume persists across `stop`/`start` cycles, so users/sessions/saved questions survive. `delete`, `start --force`, and `stop` are destructive enough to confirm before running unless the user explicitly asked for them.
 
 ## Diagnose
 
@@ -328,15 +326,15 @@ This is a parent↔child credential drift bug — the parent's record for the wo
 Recovery (works reliably):
 
 ```bash
-mb workspace remove <ws-id> --yes     # destroys container + volume; keeps parent record + provisioned dbs
+mb workspace delete <ws-id> --yes     # destroys container + volume; keeps parent record + provisioned dbs
 mb workspace start  <ws-id> --port <fresh-port> --wait --profile <parent>  # different port from the bad attempt
 mb workspace credentials <ws-id> --json | jq -r '.api_key' \
   | xargs -I{} curl -s -H "x-api-key: {}" http://localhost:<fresh-port>/api/user/current   # smoke check
 ```
 
-Why "different port": empirically, restarting on the same port after the drifted attempt can cling to the same broken state; switching ports forces a clean parent-side handoff. If you must reuse the original port, `workspace remove --yes` plus a brief pause (a few seconds) before `start` increases the success rate.
+Why "different port": empirically, restarting on the same port after the drifted attempt can cling to the same broken state; switching ports forces a clean parent-side handoff. If you must reuse the original port, `workspace delete --yes` plus a brief pause (a few seconds) before `start` increases the success rate.
 
-`workspace remove --yes` is destructive — it drops the container _and_ the app db volume — but in the bring-up window (before any user content has been imported) there's nothing to lose. The provisioned-database records on the parent survive the remove and don't need to be re-created.
+`workspace delete --yes` is destructive — it drops the container _and_ the app db volume — but in the bring-up window (before any user content has been imported) there's nothing to lose. The provisioned-database records on the parent survive the delete and don't need to be re-created.
 
 ### Container exited shortly after `start`
 
@@ -376,7 +374,7 @@ mb workspace list --profile <parent> --full --json \
 
 ### Workspace UI demands the setup wizard
 
-You opened the URL before health passed and walked through the wizard, which created a fresh app db and bypassed the workspace bring-up. `mb workspace remove <ws-id> --yes` then `start --wait` again. Don't open the URL before `state: "running"`.
+You opened the URL before health passed and walked through the wizard, which created a fresh app db and bypassed the workspace bring-up. `mb workspace delete <ws-id> --yes` then `start --wait` again. Don't open the URL before `state: "running"`.
 
 ### `git status` on the host shows confusing "staged changes" after `git-sync export`
 

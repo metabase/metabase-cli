@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { parseYaml } from "../runtime/yaml";
@@ -136,9 +136,7 @@ describe("injectCredentialsIntoConfig", () => {
     const credentials = generateWorkspaceCredentials(1);
     const thrown = captureThrown(() => injectCredentialsIntoConfig(yaml, credentials));
     expect(thrown).toBeInstanceOf(ConfigError);
-    if (!(thrown instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(thrown instanceof ConfigError, "expected ConfigError");
     expect(thrown.message).toBe(OVERWRITE_REFUSAL);
   });
 });
@@ -215,9 +213,7 @@ describe("injectRepoSettingsIntoConfig", () => {
 `;
     const thrown = captureThrown(() => injectRepoSettingsIntoConfig(yamlWithRemoteSync, REPO));
     expect(thrown).toBeInstanceOf(ConfigError);
-    if (!(thrown instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(thrown instanceof ConfigError, "expected ConfigError");
     expect(thrown.message).toContain(`already declares remote-sync settings (${key})`);
   });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { type ClientCredentials, createClient } from "../core/http/client";
@@ -33,9 +33,7 @@ function makeFakeFetch(script: FetchScriptResponse[]): FakeFetchHandle {
       typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
     calls.push({ url, method: init?.method ?? "GET" });
     const next = queue.shift();
-    if (next === undefined) {
-      throw new Error("fakeFetch: no more responses queued");
-    }
+    assert(next !== undefined, "fakeFetch: no more responses queued");
     return new Response(JSON.stringify(next.body), {
       headers: { "content-type": "application/json" },
     });
@@ -253,9 +251,10 @@ describe("paginate edge-case grid", () => {
       const params = new URL(url).searchParams;
       const limitParam = params.get("limit");
       const offsetParam = params.get("offset");
-      if (limitParam === null || offsetParam === null) {
-        throw new Error("paginate must always send both limit and offset");
-      }
+      assert(
+        limitParam !== null && offsetParam !== null,
+        "paginate must always send both limit and offset",
+      );
       const slice = items.slice(Number(offsetParam), Number(offsetParam) + Number(limitParam));
       return new Response(JSON.stringify({ data: slice, total: items.length }), {
         headers: { "content-type": "application/json" },

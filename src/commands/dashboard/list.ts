@@ -4,6 +4,7 @@ import { Dashboard, DashboardCompact, dashboardView } from "../../domain/dashboa
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema, wrapList } from "../../output/types";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { parseEnumFlag } from "../parse-enum";
 import { defineMetabaseCommand } from "../runtime";
 
 const DashboardApiList = z.array(Dashboard);
@@ -32,7 +33,7 @@ export default defineMetabaseCommand({
     "mb dashboard list --filter archived --json",
   ],
   async run({ args, ctx, getClient }) {
-    const filter = DashboardListFilter.parse(args.filter);
+    const filter = parseEnumFlag(args.filter, DashboardListFilter, "filter");
     const client = await getClient();
     const items = await client.requestParsed(DashboardApiList, "/api/dashboard", {
       query: { f: filter },

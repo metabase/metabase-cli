@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import {
@@ -36,9 +36,7 @@ describe("toMetabaseError", () => {
 
   it("maps a ZodError to a ConfigError with exit code 2", () => {
     const zodError = z.object({ name: z.string() }).safeParse({ name: 42 });
-    if (zodError.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!zodError.success, "expected zod failure");
     const result = toMetabaseError(zodError.error);
     expect(result).toBeInstanceOf(ConfigError);
     expect(result.exitCode).toBe(2);
@@ -80,9 +78,7 @@ describe("HttpError sanitization at the print site", () => {
     });
     const handled = toMetabaseError(httpError);
     expect(handled).toBeInstanceOf(HttpError);
-    if (!(handled instanceof HttpError)) {
-      throw new Error("expected HttpError");
-    }
+    assert(handled instanceof HttpError, "expected HttpError");
     expect(handled.developerDetail.body).toBe('{"errors":{"token":"[REDACTED]"}}');
   });
 });
@@ -111,9 +107,7 @@ describe("formatZodIssue", () => {
       data: z.array(z.object({ archived: z.boolean() })),
     });
     const result = schema.safeParse({ data: [{ archived: true }, { archived: null }] });
-    if (result.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!result.success, "expected zod failure");
     expect(result.error.issues.map(formatZodIssue)).toEqual([
       "data[1].archived: Invalid input: expected boolean, received null",
     ]);
@@ -122,13 +116,9 @@ describe("formatZodIssue", () => {
   it("returns just the message when the issue path is empty (top-level mismatch)", () => {
     const schema = z.string();
     const result = schema.safeParse(42);
-    if (result.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!result.success, "expected zod failure");
     const firstIssue = result.error.issues[0];
-    if (firstIssue === undefined) {
-      throw new Error("expected at least one issue");
-    }
+    assert(firstIssue !== undefined, "expected at least one issue");
     expect(formatZodIssue(firstIssue)).toBe("Invalid input: expected string, received number");
   });
 });
@@ -141,9 +131,7 @@ describe("ValidationError userMessage formatting", () => {
   it("appends a JSON-pointer path and the zod issue text for a single issue", () => {
     const schema = z.object({ total: z.number() });
     const result = schema.safeParse({ total: null });
-    if (result.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!result.success, "expected zod failure");
     const error = new ValidationError(
       "api/collection/8/items: value did not match expected schema",
       {
@@ -162,9 +150,7 @@ describe("ValidationError userMessage formatting", () => {
   it("renders one line per issue with array indices in the pointer", () => {
     const schema = z.object({ items: z.array(z.object({ id: z.number() })) });
     const result = schema.safeParse({ items: [{ id: 1 }, { id: "bad" }] });
-    if (result.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!result.success, "expected zod failure");
     const error = new ValidationError("source: value did not match expected schema", {
       source: "source",
       zodIssues: result.error.issues,
@@ -179,9 +165,7 @@ describe("ValidationError userMessage formatting", () => {
   it("escapes JSON Pointer reserved characters in property names", () => {
     const schema = z.object({ "weird/key~with-special": z.string() });
     const result = schema.safeParse({ "weird/key~with-special": 42 });
-    if (result.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!result.success, "expected zod failure");
     const error = new ValidationError("source: value did not match expected schema", {
       source: "source",
       zodIssues: result.error.issues,
@@ -196,9 +180,7 @@ describe("ValidationError userMessage formatting", () => {
   it("caps the printed issue list at ten and reports the overflow count", () => {
     const schema = z.array(z.number());
     const result = schema.safeParse(Array.from({ length: 13 }, (_unused, index) => `bad-${index}`));
-    if (result.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!result.success, "expected zod failure");
     const error = new ValidationError("source: value did not match expected schema", {
       source: "source",
       zodIssues: result.error.issues,
@@ -231,9 +213,7 @@ describe("ValidationError userMessage formatting", () => {
 
 function zodIssuesFor<T>(schema: z.ZodType<T>, value: unknown): z.ZodError["issues"] {
   const result = schema.safeParse(value);
-  if (result.success) {
-    throw new Error("expected zod failure");
-  }
+  assert(!result.success, "expected zod failure");
   return result.error.issues;
 }
 

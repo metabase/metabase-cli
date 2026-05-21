@@ -3,6 +3,7 @@ import { defineCommand } from "citty";
 export default defineCommand({
   meta: {
     name: "dashboard",
+    alias: "dashboards",
     description: "Manage Metabase dashboards",
   },
   subCommands: {
@@ -12,5 +13,6 @@ export default defineCommand({
     create: () => import("./create").then((mod) => mod.default),
     update: () => import("./update").then((mod) => mod.default),
     "update-dashcard": () => import("./update-dashcard").then((mod) => mod.default),
+    archive: () => import("./archive").then((mod) => mod.default),
   },
 });

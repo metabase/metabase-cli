@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
 import { Card } from "../../src/domain/card";
 import { EidTranslateResult } from "../../src/domain/eid-translation";
@@ -46,17 +46,15 @@ describe("eid e2e", () => {
     });
     expect(result.exitCode, result.stderr).toBe(0);
     const card = parseJson(result.stdout, Card);
-    if (card.entity_id === null) {
-      throw new Error(`seeded card ${cardId} has no entity_id`);
-    }
+    assert(card.entity_id !== null, `seeded card ${cardId} has no entity_id`);
     return card.entity_id;
   }
 
-  it("translates a real card entity-id back to its numeric id with the --model/--eids shortcut", async () => {
+  it("translates a real card entity-id back to its numeric id with the --model + positional EIDs shortcut", async () => {
     const eid = await getCardEid(SEEDED.ordersCardId);
 
     const result = await runCli({
-      args: ["eid", "--model", "card", "--eids", eid, "--json"],
+      args: ["eid", "--model", "card", eid, "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -73,7 +71,7 @@ describe("eid e2e", () => {
     const fakeButValidEid = "Z".repeat(21);
 
     const result = await runCli({
-      args: ["eid", "--model", "card", "--eids", fakeButValidEid, "--json"],
+      args: ["eid", "--model", "card", fakeButValidEid, "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -88,7 +86,7 @@ describe("eid e2e", () => {
 
   it("rejects an unknown --model client-side with ConfigError exit code", async () => {
     const result = await runCli({
-      args: ["eid", "--model", "totally-invalid", "--eids", "abc", "--json"],
+      args: ["eid", "--model", "totally-invalid", "abc", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -103,7 +101,7 @@ describe("eid e2e", () => {
       const fakeButValidEid = "Y".repeat(21);
 
       const result = await runCli({
-        args: ["eid", "--model", "transform", "--eids", fakeButValidEid, "--json"],
+        args: ["eid", "--model", "transform", fakeButValidEid, "--json"],
         configHome: await makeIsolatedConfigHome(),
         env: authEnv(),
       });

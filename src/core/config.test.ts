@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 const hoisted = vi.hoisted(() => ({
   store: new Map<string, string>(),
@@ -136,18 +136,14 @@ describe("resolveConfig", () => {
     await writeProfile({ url: "https://default.example.com", apiKey: "default-key" });
     const error = await resolveConfig({ profile: "missing" }).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toContain('Not authenticated for profile "missing"');
   });
 
   it("throws ConfigError when nothing is configured", async () => {
     const error = await resolveConfig({}).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toContain("Not authenticated");
   });
 
@@ -176,9 +172,7 @@ describe("resolveConfig", () => {
 
     const error = await resolveConfig({ profile: "lost" }).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toContain(
       'profile "lost" last verify failed: Invalid or unauthorized API key',
     );
@@ -202,9 +196,7 @@ describe("resolveConfig", () => {
 
     const error = await resolveConfig({ profile: "recovers" }).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).not.toContain("last verify failed");
   });
 });

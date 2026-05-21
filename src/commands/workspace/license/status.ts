@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { readLicense } from "../../../core/auth/storage";
 import type { ResourceView } from "../../../domain/view";
-import { renderItem } from "../../../output/render";
+import { renderScalar } from "../../../output/render";
 import { outputFlags } from "../../flags";
 import { defineMetabaseCommand } from "../../runtime";
 
@@ -27,6 +27,7 @@ export default defineMetabaseCommand({
   examples: ["mb workspace license status", "mb workspace license status --json"],
   async run({ ctx }) {
     const present = (await readLicense()) !== null;
-    renderItem({ present }, licenseStatusView, ctx);
+    const summary = present ? "A license token is stored." : "No license token stored.";
+    renderScalar({ present }, licenseStatusView, summary, ctx);
   },
 });

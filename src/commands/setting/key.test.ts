@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { ConfigError } from "../../core/errors";
 import { HttpError } from "../../core/http/errors";
@@ -22,9 +22,7 @@ describe("parseSettingKey", () => {
   it("rejects a key that is not a kebab-case identifier", () => {
     const error = thrownBy(() => parseSettingKey("not a key!"));
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe(
       'invalid setting key: "not a key!" (expected kebab-case identifier)',
     );
@@ -45,9 +43,7 @@ describe("rethrowSettingError", () => {
 
     const error = thrownBy(() => rethrowSettingError(serverError, "totally-bogus"));
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe("unknown setting: totally-bogus");
     expect(error.exitCode).toBe(2);
   });

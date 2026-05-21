@@ -102,18 +102,16 @@ describe("search e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("--table-db-id with a non-integer rejects with ConfigError", async () => {
+  it("--db-id with a non-integer rejects with ConfigError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["search", "--table-db-id", "abc", "--json"],
+      args: ["search", "--db-id", "abc", "--json"],
       configHome,
       env: authEnv(),
     });
 
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain(
-      'invalid --table-db-id: "abc" (expected integer)',
-    );
+    expect(cliErrorMessage(result.stderr)).toContain('invalid --db-id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 });

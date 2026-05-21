@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import {
@@ -86,9 +86,7 @@ describe("reportError", () => {
   it("prints the JSON-pointer issue path on the stderr line beneath the ValidationError header", () => {
     const schema = z.object({ total: z.number() });
     const result = schema.safeParse({ total: null });
-    if (result.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!result.success, "expected zod failure");
     reportError(
       new ValidationError(
         "https://m.example.com/api/collection/8/items: value did not match expected schema",
@@ -109,9 +107,7 @@ describe("reportError", () => {
   it("prints the ResponseShapeError lead and field paths and exits 1", () => {
     const schema = z.object({ version: z.object({ tag: z.string() }) });
     const result = schema.safeParse({ version: {} });
-    if (result.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!result.success, "expected zod failure");
     const error = new ResponseShapeError({
       method: "GET",
       url: "https://m.example.com/api/session/properties",

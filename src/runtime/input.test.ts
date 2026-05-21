@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { ConfigError } from "../core/errors";
 import { readInput } from "./input";
@@ -118,9 +118,7 @@ describe("readInput precedence", () => {
   it("throws ConfigError listing all sources when required and all empty", async () => {
     const error = await readInput({}).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe(
       "input required: provide one of --body, --file, stdin, or a positional argument",
     );
@@ -129,9 +127,7 @@ describe("readInput precedence", () => {
   it("names the concrete body flag in the required error when flagName is provided", async () => {
     const error = await readInput({ flagName: "--value" }).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe(
       "input required: provide one of --value, --file, stdin, or a positional argument",
     );
@@ -145,9 +141,7 @@ describe("readInput precedence", () => {
     const missing = join(tempDir, "does-not-exist.txt");
     const error = await readInput({ file: missing }).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe(`--file not found: ${missing}`);
   });
 

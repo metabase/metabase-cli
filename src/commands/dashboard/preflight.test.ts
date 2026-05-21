@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ChainedRequestError, ConfigError, NetworkError } from "../../core/errors";
 import { createFakeClient, type FakeClientCall } from "../../core/http/fake-client";
@@ -277,9 +277,7 @@ describe("wrapChainedDashboardWriteError", () => {
     });
     const wrapped = wrapChainedDashboardWriteError(original, 7);
     expect(wrapped).toBeInstanceOf(HttpError);
-    if (!(wrapped instanceof HttpError)) {
-      throw new Error("expected HttpError");
-    }
+    assert(wrapped instanceof HttpError, "expected HttpError");
     expect(wrapped.status).toBe(400);
     expect(wrapped.developerDetail.body).toBe('{"message":"The object has been archived."}');
     expect(wrapped.userMessage).toBe(
@@ -296,9 +294,7 @@ describe("wrapChainedDashboardWriteError", () => {
     });
     const wrapped = wrapChainedDashboardWriteError(original, 9);
     expect(wrapped).toBeInstanceOf(ChainedRequestError);
-    if (!(wrapped instanceof ChainedRequestError)) {
-      throw new Error("expected ChainedRequestError");
-    }
+    assert(wrapped instanceof ChainedRequestError, "expected ChainedRequestError");
     expect(wrapped.userMessage).toBe(
       "dashboard 9 created but follow-up PUT /api/dashboard/9 failed: Could not reach Metabase: socket hang up; dashcards not applied",
     );

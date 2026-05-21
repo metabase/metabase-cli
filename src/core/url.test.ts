@@ -1,5 +1,5 @@
 import * as fc from "fast-check";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { ConfigError } from "./errors";
 import { normalizeUrl, originOnly } from "./url";
@@ -27,9 +27,7 @@ describe("normalizeUrl", () => {
       throw new Error("expected normalizeUrl to throw");
     })();
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe("URL must start with http:// or https://");
     expect(error.exitCode).toBe(2);
   });

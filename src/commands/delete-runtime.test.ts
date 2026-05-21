@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { ConfigError } from "../core/errors";
 import type { Client } from "../core/http/client";
@@ -41,9 +41,7 @@ describe("confirmAndDelete", () => {
     }).catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe(
       "refusing to delete 99999999 without confirmation — pass --yes to proceed non-interactively",
     );

@@ -23,30 +23,34 @@ export default defineMetabaseCommand({
     ...connectionFlags,
     ...bodyInputFlags,
     ...waitFlags,
-    "database-id": { type: "string", description: "Database id (alternative to --body / --file)" },
     schemas: {
       type: "string",
       description: "Comma-separated input schemas (alternative to --body / --file)",
     },
     id: { type: "positional", description: "Workspace id", required: true },
+    "db-id": {
+      type: "positional",
+      description: "Database id (alternative to --body / --file)",
+      required: false,
+    },
   },
   outputSchema: Workspace,
   examples: [
-    "mb workspace database provision 1 --database-id 5 --schemas analytics,github",
-    "mb workspace database provision 1 --database-id 5 --schemas analytics --wait",
+    "mb workspace database provision 1 5 --schemas analytics,github",
+    "mb workspace database provision 1 5 --schemas analytics --wait",
     "mb workspace database provision 1 --file provision.json",
   ],
   async run({ args, ctx, getClient }) {
     const workspaceId = parseId(args.id);
-    const databaseIdFlag = args["database-id"];
+    const databaseIdArg = args["db-id"];
     const schemasFlag = args.schemas;
     const wait = parseWaitFlags(args);
 
     let body: WorkspaceProvisionInput;
-    if (databaseIdFlag !== undefined && databaseIdFlag !== "") {
-      const databaseId = parseId(databaseIdFlag, "--database-id");
+    if (databaseIdArg !== undefined && databaseIdArg !== "") {
+      const databaseId = parseId(databaseIdArg, "db-id");
       if (schemasFlag === undefined || schemasFlag === "") {
-        throw new ConfigError("--schemas is required when using --database-id");
+        throw new ConfigError("--schemas is required when providing a db-id");
       }
       const input_schemas = parseSchemasCsv(schemasFlag);
       body = WorkspaceProvisionInput.parse({ database_id: databaseId, input_schemas });

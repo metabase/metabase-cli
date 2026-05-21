@@ -4,10 +4,10 @@ import { SyncTask } from "../../domain/git-sync";
 import type { ResourceView } from "../../domain/view";
 import { renderItem } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
-import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
+import { gitSyncWaitFlags, parseWaitFlags } from "../wait-flags";
 
-import { pollFlags, pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
+import { pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
 
 const SyncImportKickoff = z.object({
   status: z.literal("success"),
@@ -55,7 +55,7 @@ export default defineMetabaseCommand({
       description: "Discard local Metabase-side dirty changes (LOSSY)",
       default: false,
     },
-    ...pollFlags,
+    ...gitSyncWaitFlags,
   },
   outputSchema: SyncImportResult,
   examples: [
@@ -64,8 +64,7 @@ export default defineMetabaseCommand({
     "mb git-sync import --force --no-wait",
   ],
   async run({ args, ctx, getClient }) {
-    const timeoutMs = parseId(args.timeout, "timeout");
-    const intervalMs = parseId(args.interval, "interval");
+    const wait = parseWaitFlags(args);
     const body: ImportRequestBody = {};
     if (args.branch !== undefined && args.branch !== "") {
       body.branch = args.branch;
@@ -80,7 +79,7 @@ export default defineMetabaseCommand({
       body,
     });
 
-    if (!args.wait || kickoff.task_id === null) {
+    if (!wait.enabled || kickoff.task_id === null) {
       const result: SyncImportResult = {
         message: kickoff.message ?? null,
         task_id: kickoff.task_id,
@@ -89,7 +88,7 @@ export default defineMetabaseCommand({
       return;
     }
 
-    const final = await pollSyncTask(client, { timeoutMs, intervalMs });
+    const final = await pollSyncTask(client, wait.schedule);
     const result: SyncImportResult = {
       message: kickoff.message ?? null,
       task_id: kickoff.task_id,

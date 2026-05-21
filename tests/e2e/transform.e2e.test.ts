@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
 import { z } from "zod";
 
@@ -261,13 +261,9 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     expect(runResult.exitCode).toBe(1);
     const parsed = parseJson(runResult.stdout, TransformRunResult);
     const finalRun = parsed.final;
-    if (finalRun === null) {
-      throw new Error("expected final run to be populated when --wait is set");
-    }
+    assert(finalRun !== null, "expected final run to be populated when --wait is set");
     const failureDetail = finalRun.message;
-    if (failureDetail === null) {
-      throw new Error("expected failed run to carry a message");
-    }
+    assert(failureDetail !== null, "expected failed run to carry a message");
 
     expect(finalRun.status).toBe("failed");
     expect(runResult.stderr).toContain(`transform run ${parsed.run_id} failed`);
@@ -463,9 +459,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     expect(runResult.exitCode, runResult.stderr).toBe(0);
     const kickoff = parseJson(runResult.stdout, TransformRunResult);
     const runId = kickoff.run_id;
-    if (runId === null) {
-      throw new Error("expected kickoff to return a run_id");
-    }
+    assert(runId !== null, "expected kickoff to return a run_id");
 
     const result = await runCli({
       args: ["transform", "get-run", String(runId), "--json"],
@@ -517,9 +511,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     expect(runResult.exitCode, runResult.stderr).toBe(0);
     const kickoff = parseJson(runResult.stdout, TransformRunResult);
     const runId = kickoff.run_id;
-    if (runId === null) {
-      throw new Error("expected kickoff to return a run_id");
-    }
+    assert(runId !== null, "expected kickoff to return a run_id");
 
     const result = await runCli({
       args: ["transform", "runs", "--json"],
@@ -677,9 +669,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     expect(kickoffResult.exitCode, kickoffResult.stderr).toBe(0);
     const kickoff = parseJson(kickoffResult.stdout, TransformRunResult);
     const runId = kickoff.run_id;
-    if (runId === null) {
-      throw new Error("expected kickoff to return a run_id");
-    }
+    assert(runId !== null, "expected kickoff to return a run_id");
     await waitForRunStarted(adminClient, runId);
 
     const cancelResult = await runCli({

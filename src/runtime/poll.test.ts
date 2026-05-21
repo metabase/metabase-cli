@@ -1,5 +1,5 @@
 import * as fc from "fast-check";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { TimeoutError } from "../core/errors";
 import { pollUntil } from "./poll";
@@ -27,9 +27,7 @@ describe("pollUntil", () => {
     ).catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(TimeoutError);
-    if (!(error instanceof TimeoutError)) {
-      throw new Error("expected TimeoutError");
-    }
+    assert(error instanceof TimeoutError, "expected TimeoutError");
     expect(error.userMessage).toBe("Polling timed out after 10ms");
     expect(error.developerDetail).toEqual({ kind: "polling", timeoutMs: 10, attempts: 1 });
   });
@@ -44,9 +42,7 @@ describe("pollUntil", () => {
     ).catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(TimeoutError);
-    if (!(error instanceof TimeoutError)) {
-      throw new Error("expected TimeoutError");
-    }
+    assert(error instanceof TimeoutError, "expected TimeoutError");
     expect(error.developerDetail).toEqual({ kind: "polling", timeoutMs: 60_000, attempts: 0 });
   });
 
@@ -65,9 +61,7 @@ describe("pollUntil", () => {
     expect(error).toBeInstanceOf(TimeoutError);
     expect(captured.length).toBe(1);
     const signal = captured[0];
-    if (!signal) {
-      throw new Error("expected fn to receive a signal");
-    }
+    assert(signal, "expected fn to receive a signal");
     expect(signal.aborted).toBe(true);
   });
 
@@ -115,9 +109,7 @@ const MAX_GAP_WITH_SLACK = 250 + SCHEDULER_SLACK_MS;
 function gapAt(timestamps: number[], index: number): number {
   const previous = timestamps[index];
   const current = timestamps[index + 1];
-  if (previous === undefined || current === undefined) {
-    throw new Error(`missing timestamp at index ${index}`);
-  }
+  assert(previous !== undefined && current !== undefined, `missing timestamp at index ${index}`);
   return current - previous;
 }
 
@@ -163,12 +155,8 @@ describe("pollUntil property tests", () => {
         ).catch((caught: unknown) => caught);
 
         expect(error).toBeInstanceOf(TimeoutError);
-        if (!(error instanceof TimeoutError)) {
-          throw new Error("expected TimeoutError");
-        }
-        if (error.developerDetail.kind !== "polling") {
-          throw new Error("expected polling timeout detail");
-        }
+        assert(error instanceof TimeoutError, "expected TimeoutError");
+        assert(error.developerDetail.kind === "polling", "expected polling timeout detail");
         expect(error.developerDetail.timeoutMs).toBe(timeoutMs);
         expect(error.developerDetail.attempts).toBe(calls);
       }),
@@ -199,9 +187,7 @@ describe("pollUntil property tests", () => {
           for (let index = 1; index < gaps.length; index += 1) {
             const previous = gaps[index - 1];
             const current = gaps[index];
-            if (previous === undefined || current === undefined) {
-              throw new Error("missing gap");
-            }
+            assert(previous !== undefined && current !== undefined, "missing gap");
             expect(current).toBeGreaterThanOrEqual(previous - SCHEDULER_SLACK);
           }
           for (const gap of gaps) {

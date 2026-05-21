@@ -152,7 +152,7 @@ Routine verb shapes (list / get / create / update), every flag, and output JSON 
 - **search vs. list.** For plain enumeration of cards/dashboards/collections use the dedicated `… list` verbs; reach for `search --models <kind>` only for ranking against a query string or a cross-resource lookup.
 - **transform.** Iterate with `transform update <id>`, never `delete` + `create` — keeps the row, `entity_id`, materialized table, and YAML filename (avoids `_2` suffixes and noisy git history). `transform run` needs `--wait` or you get only `{run_id, final:null}`. (→ `transform` skill.)
 - **setup is one-shot.** `mb setup` walks `/api/setup` for a **fresh** instance only — it errors against an already-configured one. Mostly for bootstrapping local / e2e instances.
-- **eid** translates a string entity id → numeric id: `mb eid --model <model> --eids <eid1,eid2> --json` (or `--body '{"entity_ids":{"card":["…"]}}'`). Useful when an external system hands you an entity id and a verb needs the numeric one.
+- **eid** translates a string entity id → numeric id: `mb eid --model <model> <eid1,eid2> --json` (EIDs are a positional used with `--model`; or pass `--body '{"entity_ids":{"card":["…"]}}'`). Useful when an external system hands you an entity id and a verb needs the numeric one.
 - **query / uuid.** `mb query` is the ad-hoc MBQL surface (`--print-schema` → `--dry-run` → run); `mb uuid --count <n>` mints the `lib/uuid` values every MBQL 5 clause needs. Both workflows live in the `mbql` skill.
 
 ## Specialized skills (load on demand)

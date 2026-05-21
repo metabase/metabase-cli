@@ -7,6 +7,8 @@ import { applyProjection, isPlainObject } from "./projection";
 import { formatCell, formatScalar, renderTable } from "./table";
 import type { ListEnvelope, RenderOptions } from "./types";
 
+export { formatScalar } from "./table";
+
 export function writeJson(value: unknown): void {
   process.stdout.write(JSON.stringify(value, null, 2) + "\n");
 }
@@ -20,6 +22,25 @@ type KeyValuePair = readonly [label: string, value: string];
 export function renderItem<T>(item: T, view: ResourceView<T>, opts: RenderOptions): void {
   const projected = applyProjection(item, view, opts.full, opts.fields);
   const body = renderItemBody(item, view, projected, opts) + "\n";
+  assertItemWithinMaxBytes(body, opts.maxBytes);
+  process.stdout.write(body);
+}
+
+// Single-value lookups (setting get, workspace url, git-sync is-dirty, …) print the bare
+// scalar in human/text mode so the result composes in a shell (`URL=$(mb … --format text)`)
+// and reads as prose, while `--json`/`--fields`/`--full` keep the stable keyed envelope so
+// agents get a predictable shape. `scalarText` is the already-formatted human string.
+export function renderScalar<T>(
+  item: T,
+  view: ResourceView<T>,
+  scalarText: string,
+  opts: RenderOptions,
+): void {
+  if (opts.format === "json" || opts.fields !== undefined || opts.full) {
+    renderItem(item, view, opts);
+    return;
+  }
+  const body = scalarText + "\n";
   assertItemWithinMaxBytes(body, opts.maxBytes);
   process.stdout.write(body);
 }

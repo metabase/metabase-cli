@@ -583,6 +583,15 @@ cat patch.json | mb dashboard update-dashcard 1 5
 
 The patch must contain at least one field; an empty object is rejected before the network round-trip.
 
+### `mb dashboard archive <id>`
+
+Soft-delete a dashboard by setting `archived: true`. The archived dashboard stays available via `dashboard list --filter archived` and `dashboard get <id>` until permanently deleted server-side. To unarchive use `mb dashboard update <id> --body '{"archived":false}'`.
+
+```sh
+mb dashboard archive 1
+mb dashboard archive 1 --json
+```
+
 ## Snippets
 
 CRUD on `/api/native-query-snippet`. A snippet is a named, reusable piece of native (SQL) query text — referenced from cards via `{{snippet: Name}}`. The list endpoint returns either active or archived rows (mutually exclusive — pass `--archived` to swap).
@@ -846,6 +855,15 @@ mb collection create --body '{"name":"My Collection","parent_id":4}'
 | `--body <json>` | Inline JSON body.                                   |
 | `--file <path>` | Path to JSON body file. Use `-` to read from stdin. |
 
+### `mb collection archive <id>`
+
+Soft-delete a collection by setting `archived: true`. The archived collection stays available via `collection list --filter archived` until permanently deleted server-side. Restore it from the trash in the Metabase UI.
+
+```sh
+mb collection archive 4
+mb collection archive 4 --json
+```
+
 ## Settings
 
 Read and write Metabase instance settings via `/api/setting`. Listing all settings requires admin privileges; per-key reads/writes additionally enforce per-setting access. Setting values are always JSON — `"main"` is the string `main`, `42` is a number, `null` deletes the override and resets the value to its default.
@@ -903,7 +921,7 @@ mb search products --archived
 | `--models`, `-m` | Comma-separated model filter: `card,dataset,metric,dashboard,collection,database,table,segment,measure,snippet,document,action,transform,indexed-entity`. |
 | `--archived`     | Include archived items only.                                                                                                                              |
 | `--limit`        | Max results to return (default `20`).                                                                                                                     |
-| `--table-db-id`  | Restrict to items on a given database id.                                                                                                                 |
+| `--db-id`        | Restrict to items on a given database id.                                                                                                                 |
 | `--verified`     | Only verified content.                                                                                                                                    |
 
 ## Git Sync
@@ -1096,25 +1114,25 @@ mb workspace create --file workspace.json
 | `--body <json>` | Inline JSON body.                                       |
 | `--file <path>` | Path to JSON body file.                                 |
 
-### `mb workspace database provision <workspace-id>`
+### `mb workspace database provision <workspace-id> [db-id]`
 
 Provision a database into a workspace. The backend kicks off the work asynchronously and returns the workspace with the new entry in `status: "provisioning"`. Pass `--wait` to poll until the entry reaches `status: "provisioned"` and surface the polled state instead of the initial response.
 
 ```sh
-mb workspace database provision 1 --database-id 5 --schemas analytics,github
-mb workspace database provision 1 --database-id 5 --schemas analytics --wait
+mb workspace database provision 1 5 --schemas analytics,github
+mb workspace database provision 1 5 --schemas analytics --wait
 mb workspace database provision 1 --file provision.json
 ```
 
-| Flag                 | Description                                                    |
-| -------------------- | -------------------------------------------------------------- |
-| `--database-id <id>` | Database id (used with `--schemas`).                           |
-| `--schemas <csv>`    | Comma-separated input schemas (used with `--database-id`).     |
-| `--body <json>`      | Inline JSON body.                                              |
-| `--file <path>`      | Path to JSON body file.                                        |
-| `--wait`             | Poll until the database entry reaches `status: "provisioned"`. |
-| `--timeout <ms>`     | Polling timeout in ms (default 600000). Used with `--wait`.    |
-| `--interval <ms>`    | Polling interval in ms (default 2000). Used with `--wait`.     |
+| Arg / Flag        | Description                                                    |
+| ----------------- | -------------------------------------------------------------- |
+| `<db-id>`         | Database id positional (used with `--schemas`).                |
+| `--schemas <csv>` | Comma-separated input schemas (used with the `db-id`).         |
+| `--body <json>`   | Inline JSON body.                                              |
+| `--file <path>`   | Path to JSON body file.                                        |
+| `--wait`          | Poll until the database entry reaches `status: "provisioned"`. |
+| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`.    |
+| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.     |
 
 ### `mb workspace database update <workspace-id> <db-id>`
 
@@ -1195,11 +1213,11 @@ mb workspace stop 1 --json
 
 Stops the running container; no-ops if it's already exited or missing. Reports the prior state.
 
-### `mb workspace remove <id>`
+### `mb workspace delete <id>`
 
 ```sh
-mb workspace remove 1 --yes
-mb workspace remove 1 --keep-volume --yes
+mb workspace delete 1 --yes
+mb workspace delete 1 --keep-volume --yes
 ```
 
 Stops and removes the container. By default, also removes the app-db volume — pass `--keep-volume` to preserve it across rebuilds. **Does not affect the remote workspace** on the parent.
@@ -1314,22 +1332,22 @@ mb setup --body '{"token":"<setup-token>","user":{"email":"a@b.c","password":"..
 
 Endpoints commonly used by agents driving the instance. `card query` and `transform run` are documented in their own sections; the helper below covers entity-id translation.
 
-### `mb eid`
+### `mb eid [eids]`
 
 Translate string entity ids (EIDs) to numeric ids (`POST /api/eid-translation/translate`).
 
 ```sh
-mb eid --model card --eids abc123XYZ,def456ABC
+mb eid --model card abc123XYZ,def456ABC
 mb eid --file translate.json
 mb eid --body '{"entity_ids":{"card":["abc123XYZ"]}}'
 ```
 
-| Flag             | Description                                                                                      |
-| ---------------- | ------------------------------------------------------------------------------------------------ |
-| `--model <name>` | Entity model for the shortcut form (e.g. `card`, `dashboard`, `collection`). Used with `--eids`. |
-| `--eids <csv>`   | Comma-separated EIDs. Used with `--model`.                                                       |
-| `--body <json>`  | Inline JSON body.                                                                                |
-| `--file <path>`  | Path to JSON body file.                                                                          |
+| Arg / Flag       | Description                                                                    |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `<eids>`         | Comma-separated EIDs positional. Used with `--model`.                          |
+| `--model <name>` | Entity model for the positional EIDs (e.g. `card`, `dashboard`, `collection`). |
+| `--body <json>`  | Inline JSON body.                                                              |
+| `--file <path>`  | Path to JSON body file.                                                        |
 
 ## Query
 

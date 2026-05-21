@@ -167,7 +167,7 @@ describe("version preflight e2e", () => {
       "workspace create": WORKSPACE_CAPABILITIES,
       "workspace start": WORKSPACE_CAPABILITIES,
       "workspace stop": null,
-      "workspace remove": null,
+      "workspace delete": null,
       "workspace ps": null,
       "workspace logs": null,
       "workspace url": null,

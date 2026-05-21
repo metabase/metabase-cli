@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
 import { DashcardListEnvelope } from "../../src/commands/dashboard/cards";
 import { DashboardListEnvelope } from "../../src/commands/dashboard/list";
@@ -324,9 +324,10 @@ describe("dashboard e2e", () => {
     expect(addCardResult.exitCode, addCardResult.stderr).toBe(0);
     const withCard = parseJson(addCardResult.stdout, Dashboard);
     const firstDashcard = withCard.dashcards?.[0];
-    if (firstDashcard === undefined || withCard.dashcards?.length !== 1) {
-      throw new Error(`expected exactly 1 dashcard, got ${JSON.stringify(withCard.dashcards)}`);
-    }
+    assert(
+      firstDashcard !== undefined && withCard.dashcards?.length === 1,
+      `expected exactly 1 dashcard, got ${JSON.stringify(withCard.dashcards)}`,
+    );
     expect({
       dashboard_id: firstDashcard.dashboard_id,
       card_id: firstDashcard.card_id,
@@ -369,9 +370,10 @@ describe("dashboard e2e", () => {
     expect(result.exitCode, result.stderr).toBe(0);
     const compact = parseJson(result.stdout, DashboardCompact);
     const firstDashcard = compact.dashcards?.[0];
-    if (firstDashcard === undefined || compact.dashcards?.length !== 1) {
-      throw new Error(`expected exactly 1 dashcard, got ${JSON.stringify(compact.dashcards)}`);
-    }
+    assert(
+      firstDashcard !== undefined && compact.dashcards?.length === 1,
+      `expected exactly 1 dashcard, got ${JSON.stringify(compact.dashcards)}`,
+    );
     expect(compact).toEqual({
       id: compact.id,
       name: "e2e_dashboard_with_dashcards",
@@ -647,9 +649,7 @@ describe("dashboard e2e", () => {
     const secondDashcard = dashboardWithTwo.dashcards.find(
       (dashcard) => dashcard.id !== SEEDED.ordersDashcardId,
     );
-    if (secondDashcard === undefined) {
-      throw new Error("expected a second dashcard after update");
-    }
+    assert(secondDashcard !== undefined, "expected a second dashcard after update");
 
     const patchResult = await runCli({
       args: [
@@ -737,6 +737,31 @@ describe("dashboard e2e", () => {
     const archiveResult = await runCli({
       args: ["dashboard", "update", String(SEEDED.ordersDashboardId), "--json"],
       stdin: JSON.stringify({ archived: true }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(archiveResult.exitCode, archiveResult.stderr).toBe(0);
+    expect(parseJson(archiveResult.stdout, DashboardCompact)).toEqual({
+      ...ORDERS_OVERVIEW_DETAIL_COMPACT,
+      archived: true,
+    });
+
+    const archivedListResult = await runCli({
+      args: ["dashboard", "list", "--filter", "archived", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(archivedListResult.exitCode, archivedListResult.stderr).toBe(0);
+    expect(parseJson(archivedListResult.stdout, DashboardListEnvelope)).toEqual({
+      data: [{ ...ORDERS_OVERVIEW_COMPACT, archived: true }],
+      returned: 1,
+      total: 1,
+    });
+  });
+
+  it("archive soft-deletes the dashboard and the archived list reflects it", async () => {
+    const archiveResult = await runCli({
+      args: ["dashboard", "archive", String(SEEDED.ordersDashboardId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
