@@ -19,7 +19,7 @@ export default defineMetabaseCommand({
     name: "translate",
     description: "Translate entity ids (EIDs) to numeric ids",
   },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,

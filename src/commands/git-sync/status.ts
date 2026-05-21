@@ -32,7 +32,7 @@ export default defineMetabaseCommand({
     name: "status",
     description: "Show current git-sync state (branch, dirty, current task)",
   },
-  capabilities: { minVersion: 60, edition: "ee", tokenFeature: "remote_sync" },
+  capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SyncStatus,
   examples: ["mb git-sync status", "mb git-sync status --json"],

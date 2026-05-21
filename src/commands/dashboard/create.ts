@@ -19,7 +19,7 @@ export default defineMetabaseCommand({
   },
   details:
     "Any positive card_id referenced from dashcards is pre-flight-validated (exists and readable, not archived) before the dashboard is created.",
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,

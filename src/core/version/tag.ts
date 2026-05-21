@@ -1,11 +1,8 @@
 import { parse as parseSemver } from "semver";
 import { z } from "zod";
 
-import { Edition } from "../../runtime/capabilities";
-
 export const ParsedVersionSchema = z.object({
   tag: z.string(),
-  build: Edition,
   major: z.number().int().nonnegative(),
   patch: z.number().int().nonnegative(),
 });
@@ -18,7 +15,6 @@ export function tryParseTag(tag: string): ParsedVersion | null {
   }
   return {
     tag,
-    build: parsed.major === 1 ? "ee" : "oss",
     major: parsed.minor,
     patch: parsed.patch,
   };

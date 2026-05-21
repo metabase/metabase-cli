@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
     name: "get",
     description: "Get a table by id; pass --include fields to bundle hydrated fields",
   },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,

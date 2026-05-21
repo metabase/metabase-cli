@@ -6,10 +6,9 @@ Command-line client for Metabase. Authenticates against an instance with an API 
 
 The minimum supported server is **Metabase v0.58** (major `58`). Anything older is unsupported.
 
-Commands that need more than a baseline OSS server declare it — a higher minimum major version, an EE edition, or a premium token feature. The server version and edition are detected and cached when you run `mb auth login` (or `mb auth list`). For those commands, a preflight check runs before the first request and refuses with an actionable message (exit code `2`) when:
+Commands that need more than a baseline OSS server declare it — a higher minimum major version or a premium token feature. The server version and token features are detected and cached when you run `mb auth login` (or `mb auth list`). For those commands, a preflight check runs before the first request and refuses with an actionable message (exit code `2`) when:
 
-- the server is older than the command's minimum version,
-- the command needs an EE build and the server is OSS, or
+- the server is older than the command's minimum version, or
 - the command needs a premium feature (e.g. `remote_sync`, `workspaces`) that isn't enabled.
 
 Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs but the server version can't be detected (no cached probe), it proceeds with a warning rather than refusing. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `METABASE_CLI_SKIP_PREFLIGHT=1`. Both are footguns — only for servers you know are patched.
@@ -44,7 +43,7 @@ Credentials are stored per-profile. The default profile is named `default`. Use 
 
 ### `mb auth login`
 
-Save credentials for a profile. On success the server is probed once — the rendered output shows the API-key user, role (`Admin`/`User`), Metabase version, and edition (`oss`/`pro`/`enterprise`), and the same values are cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good `apiKey`/`url`/`lastProbe` and gains a `lastFailure` entry.
+Save credentials for a profile. On success the server is probed once — the rendered output shows the API-key user, role (`Admin`/`User`), and Metabase version, and the same values are cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good `apiKey`/`url`/`lastProbe` and gains a `lastFailure` entry.
 
 | Flag                | Description                                                |
 | ------------------- | ---------------------------------------------------------- |
@@ -79,7 +78,7 @@ mb auth status --profile staging
 
 List configured authentication profiles. All profile metadata (URL, last successful probe, last failure) lives in `<configDir>/profiles.json` at mode `0600`; the API key sits in the OS keychain when available, or inline in the same file when the keychain is unavailable.
 
-`auth list` re-probes every profile in parallel — on success it refreshes `lastProbe` (Metabase version, edition, token features, API-key user identity) and clears `lastFailure`; on failure it updates `lastFailure` and leaves the prior `lastProbe`/`url`/`apiKey` untouched. Rendered columns: `Profile | URL | Status | Role | Version | Edition | Last probed`. Failed rows append a one-line footer pointing at `mb auth login --profile <name>`.
+`auth list` re-probes every profile in parallel — on success it refreshes `lastProbe` (Metabase version, token features, API-key user identity) and clears `lastFailure`; on failure it updates `lastFailure` and leaves the prior `lastProbe`/`url`/`apiKey` untouched. Rendered columns: `Profile | URL | Status | Role | Version | Last probed`. Failed rows append a one-line footer pointing at `mb auth login --profile <name>`.
 
 ```sh
 mb auth list
@@ -1483,15 +1482,15 @@ Exit codes: `0` success, `2` `ConfigError` (missing name, unknown name, `MB_SKIL
 
 ## Environment variables
 
-| Variable                      | Effect                                                                                                                                                                              |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `METABASE_URL`                | Default URL for `auth login` and config resolution.                                                                                                                                 |
-| `METABASE_API_KEY`            | Default API key (overrides interactive prompt; not stored).                                                                                                                         |
-| `METABASE_PROFILE`            | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                               |
-| `METABASE_LICENSE_TOKEN`      | Default license token for `workspace license set`.                                                                                                                                  |
-| `METABASE_VERBOSE`            | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                                      |
-| `METABASE_CLI_SKIP_PREFLIGHT` | When set to `1`, bypasses the per-command server version / edition / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
-| `MB_SKILLS_DIR`               | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees).                                                              |
+| Variable                      | Effect                                                                                                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `METABASE_URL`                | Default URL for `auth login` and config resolution.                                                                                                                       |
+| `METABASE_API_KEY`            | Default API key (overrides interactive prompt; not stored).                                                                                                               |
+| `METABASE_PROFILE`            | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                     |
+| `METABASE_LICENSE_TOKEN`      | Default license token for `workspace license set`.                                                                                                                        |
+| `METABASE_VERBOSE`            | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                            |
+| `METABASE_CLI_SKIP_PREFLIGHT` | When set to `1`, bypasses the per-command server version / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
+| `MB_SKILLS_DIR`               | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees).                                                    |
 
 ## Agent integration
 

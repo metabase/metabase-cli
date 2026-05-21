@@ -26,10 +26,9 @@ async function seedProbedProfile(name: string, info: ServerInfo): Promise<void> 
   });
 }
 
-function fakeServerInfo(major: number, build: "oss" | "ee" = "oss"): ServerInfo {
+function fakeServerInfo(major: number): ServerInfo {
   return {
-    version: { tag: `v${build === "ee" ? "1" : "0"}.${major}.0`, build, major, patch: 0 },
-    edition: build,
+    version: { tag: `v0.${major}.0`, major, patch: 0 },
     tokenFeatures: null,
   };
 }
@@ -156,7 +155,7 @@ describe("defineMetabaseCommand", () => {
   });
 
   it("refuses with CapabilityError exit code 2 when the cached server major is below required minVersion", async () => {
-    await seedProbedProfile("default", fakeServerInfo(58, "oss"));
+    await seedProbedProfile("default", fakeServerInfo(58));
 
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
@@ -173,65 +172,20 @@ describe("defineMetabaseCommand", () => {
     await runCommand(cmd, { rawArgs: [] });
 
     expect(stderr.join("")).toContain(
-      "This command requires Metabase v0.60+ (this server is v0.58.0). Upgrade Metabase or pin mb-cli to an older release.",
-    );
-    expect(process.exitCode).toBe(2);
-    expect(ran).not.toHaveBeenCalled();
-  });
-
-  it("uses the EE upgrade hint (v1.X+) when the cached server build is ee", async () => {
-    await seedProbedProfile("default", fakeServerInfo(58, "ee"));
-
-    const cmd = defineMetabaseCommand({
-      meta: { name: "needs-v60-ee", description: "wants v60" },
-      args: {},
-      capabilities: { minVersion: 60 },
-      async run({ getClient }) {
-        await getClient();
-      },
-    });
-    const stderr = captureStderr();
-
-    await runCommand(cmd, { rawArgs: [] });
-
-    expect(stderr.join("")).toContain(
-      "This command requires Metabase v1.60+ (this server is v1.58.0). Upgrade Metabase or pin mb-cli to an older release.",
-    );
-    expect(process.exitCode).toBe(2);
-  });
-
-  it("refuses with CapabilityError exit code 2 when the server edition is below the required edition", async () => {
-    await seedProbedProfile("default", fakeServerInfo(58, "oss"));
-
-    const ran = vi.fn();
-    const cmd = defineMetabaseCommand({
-      meta: { name: "needs-ee", description: "wants ee" },
-      args: {},
-      capabilities: { edition: "ee" },
-      async run({ getClient }) {
-        await getClient();
-        ran();
-      },
-    });
-    const stderr = captureStderr();
-
-    await runCommand(cmd, { rawArgs: [] });
-
-    expect(stderr.join("")).toContain(
-      "This command requires Metabase ee (this server is oss). Upgrade your Metabase edition.",
+      "This command requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase or pin mb-cli to an older release.",
     );
     expect(process.exitCode).toBe(2);
     expect(ran).not.toHaveBeenCalled();
   });
 
   it("refuses with CapabilityError exit code 2 when the required premium token-feature is absent", async () => {
-    await seedProbedProfile("default", fakeServerInfo(58, "ee"));
+    await seedProbedProfile("default", fakeServerInfo(58));
 
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
       meta: { name: "needs-transforms", description: "wants transforms" },
       args: {},
-      capabilities: { edition: "ee", tokenFeature: "transforms" },
+      capabilities: { tokenFeature: "transforms" },
       async run({ getClient }) {
         await getClient();
         ran();
@@ -294,7 +248,7 @@ describe("defineMetabaseCommand", () => {
   });
 
   it("bypasses the preflight check when --skip-preflight is passed", async () => {
-    await seedProbedProfile("default", fakeServerInfo(58, "oss"));
+    await seedProbedProfile("default", fakeServerInfo(58));
 
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
@@ -312,7 +266,7 @@ describe("defineMetabaseCommand", () => {
   });
 
   it("bypasses the preflight check when METABASE_CLI_SKIP_PREFLIGHT=1 is set", async () => {
-    await seedProbedProfile("default", fakeServerInfo(58, "oss"));
+    await seedProbedProfile("default", fakeServerInfo(58));
     process.env[SKIP_PREFLIGHT_ENV] = "1";
 
     const ran = vi.fn();

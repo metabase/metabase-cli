@@ -17,7 +17,7 @@ export default defineMetabaseCommand({
     name: "update-dashcard",
     description: "Patch a single dashcard's layout or settings on a dashboard",
   },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,

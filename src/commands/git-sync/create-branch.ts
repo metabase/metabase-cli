@@ -27,7 +27,7 @@ export default defineMetabaseCommand({
     name: "create-branch",
     description: "Create a new branch on the git remote and switch git-sync to it",
   },
-  capabilities: { minVersion: 60, edition: "ee", tokenFeature: "remote_sync" },
+  capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
   args: {
     ...outputFlags,
     ...profileFlag,

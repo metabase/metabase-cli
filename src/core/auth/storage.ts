@@ -295,7 +295,6 @@ export async function writeProbeResult(
   const probe = ProfileLastProbe.parse({
     at: new Date().toISOString(),
     version: input.server.version,
-    edition: input.server.edition,
     tokenFeatures: input.server.tokenFeatures,
     user: input.user,
   });

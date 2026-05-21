@@ -16,7 +16,7 @@ export default defineMetabaseCommand({
     description:
       "Update a workspace's database (deprovisions then re-provisions with new input schemas)",
   },
-  capabilities: { minVersion: 62, edition: "ee", tokenFeature: "workspaces" },
+  capabilities: { minVersion: 62, tokenFeature: "workspaces" },
   args: {
     ...outputFlags,
     ...profileFlag,

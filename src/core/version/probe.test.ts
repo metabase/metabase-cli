@@ -14,7 +14,7 @@ function planning(response: unknown): ReadonlyMap<string, unknown> {
 }
 
 describe("probeServer", () => {
-  it("returns parsed ServerInfo on a successful EE response", async () => {
+  it("parses the version tag and passes token-features through", async () => {
     const { client } = createFakeClient({
       responses: planning({
         version: { tag: "v1.58.7", date: "2025-12-15", hash: "abc1234" },
@@ -22,8 +22,7 @@ describe("probeServer", () => {
       }),
     });
     expect(await probeServer(client)).toEqual({
-      version: { tag: "v1.58.7", build: "ee", major: 58, patch: 7 },
-      edition: "ee",
+      version: { tag: "v1.58.7", major: 58, patch: 7 },
       tokenFeatures: { advanced_permissions: true, audit_app: true, embedding: true },
     });
   });
@@ -36,32 +35,17 @@ describe("probeServer", () => {
     expect(calls).toEqual([EXPECTED_PROBE_CALL]);
   });
 
-  it("derives edition from the build, not token-features (EE build stays ee even with all features false)", async () => {
-    const { client } = createFakeClient({
-      responses: planning({
-        version: { tag: "v1.58.7" },
-        "token-features": { advanced_permissions: false, embedding: false },
-      }),
-    });
-    expect(await probeServer(client)).toEqual({
-      version: { tag: "v1.58.7", build: "ee", major: 58, patch: 7 },
-      edition: "ee",
-      tokenFeatures: { advanced_permissions: false, embedding: false },
-    });
-  });
-
   it("returns tokenFeatures: null when the server omits the field", async () => {
     const { client } = createFakeClient({
       responses: planning({ version: { tag: "v0.58.7" } }),
     });
     expect(await probeServer(client)).toEqual({
-      version: { tag: "v0.58.7", build: "oss", major: 58, patch: 7 },
-      edition: "oss",
+      version: { tag: "v0.58.7", major: 58, patch: 7 },
       tokenFeatures: null,
     });
   });
 
-  it("returns version null and edition null for an unparseable head/nightly tag", async () => {
+  it("returns version null for an unparseable head/nightly tag, token-features still passed through", async () => {
     const { client } = createFakeClient({
       responses: planning({
         version: { tag: "vUNKNOWN" },
@@ -70,7 +54,6 @@ describe("probeServer", () => {
     });
     expect(await probeServer(client)).toEqual({
       version: null,
-      edition: null,
       tokenFeatures: { transforms: true },
     });
   });

@@ -14,7 +14,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { requireServer } from "./server-gate";
 
-const eeOnlySkip = requireServer({ edition: "ee" });
+const remoteSyncSkip = requireServer({ minVersion: 60, tokenFeature: "remote_sync" });
 
 const MUTABLE_KEY = "enable-public-sharing";
 const MUTABLE_KEY_ENV_NAME = "MB_ENABLE_PUBLIC_SHARING";
@@ -226,7 +226,7 @@ describe("setting e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it.skipIf(eeOnlySkip !== null)(
+  it.skipIf(remoteSyncSkip !== null)(
     "get --json on a string-valued setting wraps the bare server response",
     async () => {
       const STRING_KEY = "remote-sync-type";

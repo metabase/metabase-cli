@@ -105,7 +105,7 @@ export default defineMetabaseCommand({
     name: "start",
     description: "Start a local Docker container that serves as the workspace's dev instance",
   },
-  capabilities: { minVersion: 62, edition: "ee", tokenFeature: "workspaces" },
+  capabilities: { minVersion: 62, tokenFeature: "workspaces" },
   args: {
     ...outputFlags,
     ...profileFlag,

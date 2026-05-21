@@ -9,7 +9,7 @@ export default defineMetabaseCommand({
     name: "summary",
     description: "Get the row count and distinct count for a field",
   },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,

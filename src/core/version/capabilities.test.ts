@@ -11,20 +11,16 @@ import {
 
 interface InfoOverrides {
   major?: number | null;
-  build?: "oss" | "ee";
-  edition?: ServerInfo["edition"];
   tokenFeatures?: ServerInfo["tokenFeatures"];
 }
 
 function infoFor(overrides: InfoOverrides = {}): ServerInfo {
   if (overrides.major === null) {
-    return { version: null, edition: null, tokenFeatures: overrides.tokenFeatures ?? null };
+    return { version: null, tokenFeatures: overrides.tokenFeatures ?? null };
   }
   const major = overrides.major ?? 58;
-  const build = overrides.build ?? "oss";
   return {
-    version: { tag: `v${build === "ee" ? "1" : "0"}.${major}.0`, build, major, patch: 0 },
-    edition: overrides.edition ?? build,
+    version: { tag: `v0.${major}.0`, major, patch: 0 },
     tokenFeatures: overrides.tokenFeatures ?? null,
   };
 }
@@ -35,97 +31,53 @@ describe("mergeCapabilities", () => {
   });
 
   it("overlays minVersion onto baseline", () => {
-    expect(mergeCapabilities({ minVersion: 60 })).toEqual({
-      minVersion: 60,
-      edition: "oss",
-    });
-  });
-
-  it("overlays edition onto baseline", () => {
-    expect(mergeCapabilities({ edition: "ee" })).toEqual({
-      minVersion: 58,
-      edition: "ee",
-    });
+    expect(mergeCapabilities({ minVersion: 60 })).toEqual({ minVersion: 60 });
   });
 
   it("overlays tokenFeature onto baseline", () => {
     expect(mergeCapabilities({ tokenFeature: "transforms" })).toEqual({
       minVersion: 58,
-      edition: "oss",
       tokenFeature: "transforms",
     });
   });
 
-  it("overlays all three fields at once", () => {
-    expect(mergeCapabilities({ minVersion: 60, edition: "ee", tokenFeature: "scim" })).toEqual({
+  it("overlays both fields at once", () => {
+    expect(mergeCapabilities({ minVersion: 60, tokenFeature: "scim" })).toEqual({
       minVersion: 60,
-      edition: "ee",
       tokenFeature: "scim",
     });
   });
 });
 
 describe("checkCapabilities", () => {
-  it("returns null when the server matches baseline (major 58, oss)", () => {
-    expect(
-      checkCapabilities(infoFor({ major: 58, build: "oss" }), BASELINE_CAPABILITIES),
-    ).toBeNull();
+  it("returns null when the server matches baseline (major 58)", () => {
+    expect(checkCapabilities(infoFor({ major: 58 }), BASELINE_CAPABILITIES)).toBeNull();
   });
 
   it("returns null when major equals minVersion exactly", () => {
-    const required: Capabilities = { minVersion: 58, edition: "oss" };
+    const required: Capabilities = { minVersion: 58 };
     expect(checkCapabilities(infoFor({ major: 58 }), required)).toBeNull();
   });
 
   it("returns null when major exceeds minVersion (purely numeric, no patch axis)", () => {
-    const required: Capabilities = { minVersion: 99, edition: "oss" };
+    const required: Capabilities = { minVersion: 99 };
     expect(checkCapabilities(infoFor({ major: 100 }), required)).toBeNull();
   });
 
-  it("returns version-too-old when major is below minVersion, with the OSS upgrade hint", () => {
-    const required: Capabilities = { minVersion: 60, edition: "oss" };
-    expect(checkCapabilities(infoFor({ major: 58, build: "oss" }), required)).toEqual({
+  it("returns version-too-old when major is below minVersion", () => {
+    const required: Capabilities = { minVersion: 60 };
+    expect(checkCapabilities(infoFor({ major: 58 }), required)).toEqual({
       reason: "version-too-old",
       detail:
-        "This command requires Metabase v0.60+ (this server is v0.58.0). Upgrade Metabase or pin mb-cli to an older release.",
+        "This command requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase or pin mb-cli to an older release.",
     });
   });
 
-  it("returns version-too-old with the EE upgrade hint when the actual build is ee", () => {
-    const required: Capabilities = { minVersion: 60, edition: "oss" };
-    expect(checkCapabilities(infoFor({ major: 58, build: "ee" }), required)).toEqual({
-      reason: "version-too-old",
-      detail:
-        "This command requires Metabase v1.60+ (this server is v1.58.0). Upgrade Metabase or pin mb-cli to an older release.",
-    });
-  });
-
-  it("returns null when required edition ee is satisfied by an ee server", () => {
-    const required: Capabilities = { minVersion: 58, edition: "ee" };
-    expect(
-      checkCapabilities(infoFor({ major: 58, build: "ee", edition: "ee" }), required),
-    ).toBeNull();
-  });
-
-  it("returns edition-mismatch when required ee and actual oss", () => {
-    const required: Capabilities = { minVersion: 58, edition: "ee" };
-    expect(checkCapabilities(infoFor({ major: 58, build: "oss" }), required)).toEqual({
-      reason: "edition-mismatch",
-      detail:
-        "This command requires Metabase ee (this server is oss). Upgrade your Metabase edition.",
-    });
-  });
-
-  it("returns missing-token-feature when required feature is absent from token-features", () => {
-    const required: Capabilities = { minVersion: 58, edition: "ee", tokenFeature: "transforms" };
+  it("returns missing-token-feature when the required feature is absent from token-features", () => {
+    const required: Capabilities = { minVersion: 58, tokenFeature: "transforms" };
     expect(
       checkCapabilities(
-        infoFor({
-          major: 58,
-          build: "ee",
-          edition: "ee",
-          tokenFeatures: { transforms: false, embedding: true },
-        }),
+        infoFor({ major: 58, tokenFeatures: { transforms: false, embedding: true } }),
         required,
       ),
     ).toEqual({
@@ -135,23 +87,15 @@ describe("checkCapabilities", () => {
     });
   });
 
-  it("returns null when required tokenFeature is enabled", () => {
-    const required: Capabilities = { minVersion: 58, edition: "ee", tokenFeature: "transforms" };
+  it("returns null when the required tokenFeature is enabled", () => {
+    const required: Capabilities = { minVersion: 58, tokenFeature: "transforms" };
     expect(
-      checkCapabilities(
-        infoFor({
-          major: 58,
-          build: "ee",
-          edition: "ee",
-          tokenFeatures: { transforms: true },
-        }),
-        required,
-      ),
+      checkCapabilities(infoFor({ major: 58, tokenFeatures: { transforms: true } }), required),
     ).toBeNull();
   });
 
   it("returns unknown-version when the probe failed to identify the server", () => {
-    const required: Capabilities = { minVersion: 60, edition: "ee" };
+    const required: Capabilities = { minVersion: 60 };
     expect(checkCapabilities(infoFor({ major: null }), required)).toEqual({
       reason: "unknown-version",
       detail:

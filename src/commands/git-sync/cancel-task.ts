@@ -7,7 +7,7 @@ import { REMOTE_SYNC_PATHS } from "./poll-task";
 
 export default defineMetabaseCommand({
   meta: { name: "cancel-task", description: "Cancel the running git-sync task" },
-  capabilities: { minVersion: 60, edition: "ee", tokenFeature: "remote_sync" },
+  capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SyncTask,
   examples: ["mb git-sync cancel-task", "mb git-sync cancel-task --json"],

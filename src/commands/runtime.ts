@@ -135,7 +135,6 @@ async function loadServerInfo(
   }
   return {
     version: record.lastProbe.version,
-    edition: record.lastProbe.edition,
     tokenFeatures: record.lastProbe.tokenFeatures,
   };
 }
@@ -172,11 +171,7 @@ function createPreflightEnforcer(
 }
 
 function isBaseline(caps: Capabilities): boolean {
-  return (
-    caps.minVersion === BASELINE_CAPABILITIES.minVersion &&
-    caps.edition === BASELINE_CAPABILITIES.edition &&
-    caps.tokenFeature === undefined
-  );
+  return caps.minVersion === BASELINE_CAPABILITIES.minVersion && caps.tokenFeature === undefined;
 }
 
 function pickCommonArgs<A extends ArgsDef>(args: ParsedArgs<A>): CommonArgs {

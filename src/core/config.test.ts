@@ -194,8 +194,7 @@ describe("resolveConfig", () => {
     await writeProbeResult("recovers", {
       user: { id: 1, name: "Tester", isAdmin: true },
       server: {
-        version: { tag: "v0.58.7", build: "oss", major: 58, patch: 7 },
-        edition: "oss",
+        version: { tag: "v0.58.7", major: 58, patch: 7 },
         tokenFeatures: null,
       },
     });

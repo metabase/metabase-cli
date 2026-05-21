@@ -20,7 +20,7 @@ export default defineMetabaseCommand({
     name: "wait",
     description: "Poll the current git-sync task until it reaches a terminal status",
   },
-  capabilities: { minVersion: 60, edition: "ee", tokenFeature: "remote_sync" },
+  capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
   args: {
     ...outputFlags,
     ...profileFlag,

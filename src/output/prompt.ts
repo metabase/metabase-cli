@@ -15,6 +15,7 @@ export interface TextPromptOptions {
   message: string;
   placeholder?: string;
   initialValue?: string;
+  defaultValue?: string;
   validate?: Validator;
 }
 
@@ -43,6 +44,7 @@ export async function promptText(opts: TextPromptOptions): Promise<string> {
     message: opts.message,
     ...(opts.placeholder !== undefined && { placeholder: opts.placeholder }),
     ...(opts.initialValue !== undefined && { initialValue: opts.initialValue }),
+    ...(opts.defaultValue !== undefined && { defaultValue: opts.defaultValue }),
     ...(opts.validate !== undefined && { validate: opts.validate }),
   });
   if (isCancel(value)) {

@@ -31,7 +31,7 @@ const NEW_MEASURE_BODY: MeasureCreateInput = {
   },
 };
 
-const skipReason = requireServer({ minVersion: 59, edition: "oss" });
+const skipReason = requireServer({ minVersion: 59 });
 
 describe.skipIf(skipReason !== null)("measure e2e", () => {
   let bootstrap: E2EBootstrap;

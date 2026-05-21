@@ -83,7 +83,7 @@ const TRANSFORM_COMPACT = {
   target_db_id: SEEDED.warehouseDbId,
 } as const;
 
-const skipReason = requireServer({ minVersion: 59, edition: "oss" });
+const skipReason = requireServer({ minVersion: 59 });
 
 describe.skipIf(skipReason !== null)("transform e2e", () => {
   let bootstrap: E2EBootstrap;
