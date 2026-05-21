@@ -12,6 +12,7 @@ export const SegmentListEnvelope = listEnvelopeSchema(SegmentCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List segments" },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SegmentListEnvelope,
   examples: ["mb segment list", "mb segment list --json"],

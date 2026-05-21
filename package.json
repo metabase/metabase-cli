@@ -32,6 +32,7 @@
     "e2e:up": "docker compose -f tests/e2e/docker-compose.yml up -d --wait",
     "e2e:down": "docker compose -f tests/e2e/docker-compose.yml down -v",
     "e2e:bootstrap": "bun tests/e2e/setup/bootstrap.ts",
+    "e2e:matrix": "bun scripts/e2e-matrix.ts",
     "e2e:logs": "docker compose -f tests/e2e/docker-compose.yml logs -f metabase",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",

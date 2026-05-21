@@ -41,6 +41,7 @@ export default defineMetabaseCommand({
     name: "stop",
     description: "Stop the local Docker container for a workspace (does not remove it)",
   },
+  capabilities: null,
   args: {
     ...outputFlags,
     id: { type: "positional", description: "Workspace id", required: true },

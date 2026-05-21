@@ -1,10 +1,10 @@
 import { z } from "zod";
 
-import { account, credentials } from "../../core/auth/storage";
-import type { ResourceView } from "../../domain/view";
-import { renderItem } from "../../output/render";
-import { outputFlags } from "../flags";
-import { defineMetabaseCommand } from "../runtime";
+import { readLicense } from "../../../core/auth/storage";
+import type { ResourceView } from "../../../domain/view";
+import { renderItem } from "../../../output/render";
+import { outputFlags } from "../../flags";
+import { defineMetabaseCommand } from "../../runtime";
 
 export const LicenseStatus = z.object({
   present: z.boolean(),
@@ -21,11 +21,12 @@ export default defineMetabaseCommand({
     name: "status",
     description: "Show whether a license token is stored (does not reveal value)",
   },
+  capabilities: null,
   args: { ...outputFlags },
   outputSchema: LicenseStatus,
-  examples: ["mb license status", "mb license status --json"],
+  examples: ["mb workspace license status", "mb workspace license status --json"],
   async run({ ctx }) {
-    const present = await credentials.has(account.license);
+    const present = (await readLicense()) !== null;
     renderItem({ present }, licenseStatusView, ctx);
   },
 });

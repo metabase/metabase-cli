@@ -16,6 +16,7 @@ export default defineMetabaseCommand({
     name: "schema-tables",
     description: "List tables in a database schema",
   },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -7,8 +7,8 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_DATABASES, E2E_TABLES } from "./seed/ids";
-
+import { SEEDED } from "./seed/seeded";
+import { requireServer } from "./server-gate";
 const FIRST_NEW_MEASURE_ID = 1;
 const MEASURE_NAME = "OrderCount";
 const MEASURE_DESCRIPTION = "Count of orders rows.";
@@ -18,20 +18,22 @@ const NEW_MEASURE_COMPACT = {
   name: MEASURE_NAME,
   description: MEASURE_DESCRIPTION,
   archived: false,
-  table_id: E2E_TABLES.ORDERS,
+  table_id: SEEDED.tables.orders,
 } as const;
 
 const NEW_MEASURE_BODY: MeasureCreateInput = {
   name: MEASURE_NAME,
-  table_id: E2E_TABLES.ORDERS,
+  table_id: SEEDED.tables.orders,
   description: MEASURE_DESCRIPTION,
   definition: {
-    "source-table": E2E_TABLES.ORDERS,
+    "source-table": SEEDED.tables.orders,
     aggregation: [["count"]],
   },
 };
 
-describe("measure e2e", () => {
+const skipReason = requireServer({ minVersion: 59, edition: "oss" });
+
+describe.skipIf(skipReason !== null)("measure e2e", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
 
@@ -115,10 +117,10 @@ describe("measure e2e", () => {
       args: ["measure", "create", "--json"],
       stdin: JSON.stringify({
         name: "preflight-fail",
-        table_id: E2E_TABLES.ORDERS,
+        table_id: SEEDED.tables.orders,
         definition: {
           "lib/type": "mbql/query",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           stages: [],
         },
       }),
@@ -141,10 +143,10 @@ describe("measure e2e", () => {
       args: ["measure", "create", "--skip-validate", "--json"],
       stdin: JSON.stringify({
         name: "skip-validate-bypass",
-        table_id: E2E_TABLES.ORDERS,
+        table_id: SEEDED.tables.orders,
         definition: {
           "lib/type": "mbql/query",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           stages: [],
         },
       }),
@@ -203,7 +205,7 @@ describe("measure e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/measure/9999999.");
   });
 
   it("update renames the measure and the compact view reflects the new name", async () => {
@@ -232,7 +234,7 @@ describe("measure e2e", () => {
         revision_message: "bad definition",
         definition: {
           "lib/type": "mbql/query",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           stages: [],
         },
       }),

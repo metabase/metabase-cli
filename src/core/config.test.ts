@@ -10,8 +10,7 @@ vi.mock("@napi-rs/keyring", async () => {
   return createKeyringMockModule(hoisted);
 });
 
-import { recordRejection } from "./auth/rejection";
-import { writeProfile } from "./auth/storage";
+import { writeProbeFailure, writeProbeResult, writeProfile } from "./auth/storage";
 import { setupTempConfigHome, type TempConfigHome } from "./auth/temp-config-home";
 import { explicitProfileName, resolveConfig, resolveProfileName } from "./config";
 import { ConfigError } from "./errors";
@@ -137,48 +136,77 @@ describe("resolveConfig", () => {
     await writeProfile({ url: "https://default.example.com", apiKey: "default-key" });
     const error = await resolveConfig({ profile: "missing" }).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
-    expect(error).toMatchObject({ message: expect.stringContaining('profile "missing"') });
+    if (!(error instanceof ConfigError)) {
+      throw new Error("expected ConfigError");
+    }
+    expect(error.message).toContain('Not authenticated for profile "missing"');
   });
 
   it("throws ConfigError when nothing is configured", async () => {
     const error = await resolveConfig({}).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
-    expect(error).toMatchObject({ message: expect.stringContaining("Not authenticated") });
+    if (!(error instanceof ConfigError)) {
+      throw new Error("expected ConfigError");
+    }
+    expect(error.message).toContain("Not authenticated");
   });
 
-  it("surfaces a prior login rejection when nothing is configured", async () => {
-    await recordRejection("cohort_retention", {
+  it("does not append the lastFailure hint when stored credentials are still usable", async () => {
+    await writeProfile({ url: "https://saved.example.com", apiKey: "saved-key" }, "still_works");
+    await writeProbeFailure("still_works", {
+      kind: "auth",
       reason: "Invalid or unauthorized API key",
-      url: "https://metabase.example.com/admin",
     });
-    const error = await resolveConfig({ profile: "cohort_retention" }).catch(
-      (thrown: unknown) => thrown,
-    );
+    const config = await resolveConfig({ profile: "still_works" });
+    expect(config).toEqual({
+      url: "https://saved.example.com",
+      apiKey: "saved-key",
+      profile: "still_works",
+      source: "stored",
+    });
+  });
+
+  it("appends the lastFailure hint when the keyring entry disappears under an existing failure record", async () => {
+    await writeProfile({ url: "https://saved.example.com", apiKey: "saved-key" }, "lost");
+    await writeProbeFailure("lost", {
+      kind: "auth",
+      reason: "Invalid or unauthorized API key",
+    });
+    hoisted.store.delete("metabase-cli:profile:lost:apiKey");
+
+    const error = await resolveConfig({ profile: "lost" }).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
     if (!(error instanceof ConfigError)) {
       throw new Error("expected ConfigError");
     }
-    expect(error.message).toBe(
-      'Last login for profile "cohort_retention" was rejected by https://metabase.example.com: Invalid or unauthorized API key. Re-run `mb auth login --profile cohort_retention` with valid credentials.',
+    expect(error.message).toContain(
+      'profile "lost" last verify failed: Invalid or unauthorized API key',
     );
+    expect(error.message).toContain("Run `mb auth login --profile lost` to update the token.");
   });
 
-  it("ignores the rejection record when stored credentials are still present", async () => {
-    await writeProfile(
-      { url: "https://saved.example.com", apiKey: "saved-key" },
-      "cohort_retention",
-    );
-    await recordRejection("cohort_retention", {
-      reason: "Invalid or unauthorized API key",
-      url: "https://saved.example.com",
+  it("omits the lastFailure hint after a successful re-probe clears the failure", async () => {
+    await writeProfile({ url: "https://saved.example.com", apiKey: "saved-key" }, "recovers");
+    await writeProbeFailure("recovers", {
+      kind: "auth",
+      reason: "old failure",
     });
-    const config = await resolveConfig({ profile: "cohort_retention" });
-    expect(config).toEqual({
-      url: "https://saved.example.com",
-      apiKey: "saved-key",
-      profile: "cohort_retention",
-      source: "stored",
+    await writeProbeResult("recovers", {
+      user: { id: 1, name: "Tester", isAdmin: true },
+      server: {
+        version: { tag: "v0.58.7", build: "oss", major: 58, patch: 7 },
+        edition: "oss",
+        tokenFeatures: null,
+      },
     });
+    hoisted.store.delete("metabase-cli:profile:recovers:apiKey");
+
+    const error = await resolveConfig({ profile: "recovers" }).catch((thrown: unknown) => thrown);
+    expect(error).toBeInstanceOf(ConfigError);
+    if (!(error instanceof ConfigError)) {
+      throw new Error("expected ConfigError");
+    }
+    expect(error.message).not.toContain("last verify failed");
   });
 });
 

@@ -8,6 +8,7 @@ export default defineMetabaseCommand({
     name: "delete-table",
     description: "Drop a transform's materialized output table (keeps the transform definition)",
   },
+  capabilities: { minVersion: 59, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

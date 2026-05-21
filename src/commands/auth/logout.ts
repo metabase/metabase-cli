@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { clearRejection } from "../../core/auth/rejection";
 import { clearProfile } from "../../core/auth/storage";
 import { resolveProfileName } from "../../core/config";
 import type { ResourceView } from "../../domain/view";
@@ -27,6 +26,7 @@ const logoutView: ResourceView<LogoutResultJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "logout", description: "Clear stored credentials for a profile" },
+  capabilities: null,
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -48,7 +48,7 @@ export default defineMetabaseCommand({
       }
     }
 
-    const [cleared] = await Promise.all([clearProfile(profileName), clearRejection(profileName)]);
+    const cleared = await clearProfile(profileName);
     renderItem({ profile: profileName, cleared, aborted: false }, logoutView, ctx);
   },
 });

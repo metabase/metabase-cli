@@ -12,6 +12,7 @@ export const WorkspaceListEnvelope = listEnvelopeSchema(WorkspaceCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List workspaces" },
+  capabilities: { minVersion: 62, edition: "ee", tokenFeature: "workspaces" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: WorkspaceListEnvelope,
   examples: ["mb workspace list", "mb workspace list --json"],

@@ -13,6 +13,7 @@ export default defineMetabaseCommand({
     name: "rescan-values",
     description: "Trigger a rescan of cached field values for a database",
   },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

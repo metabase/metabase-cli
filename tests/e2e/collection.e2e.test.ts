@@ -8,12 +8,11 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_CARDS, E2E_COLLECTIONS, E2E_DASHBOARDS } from "./seed/ids";
-
+import { SEEDED } from "./seed/seeded";
 const DEFAULT_COLLECTION_NAME = "E2E Default";
 
 const DEFAULT_COMPACT = {
-  id: E2E_COLLECTIONS.DEFAULT,
+  id: SEEDED.defaultCollectionId,
   name: DEFAULT_COLLECTION_NAME,
   description: null,
   archived: false,
@@ -40,31 +39,6 @@ const TRASH_COMPACT = {
   location: "/",
   parent_id: null,
   type: "trash",
-  authority_level: null,
-  is_personal: false,
-} as const;
-
-const USAGE_ANALYTICS_COMPACT = {
-  id: 2,
-  name: "Usage analytics",
-  description:
-    "Your instance data. To customize these questions and dashboards, you can duplicate them and save them in the custom reports collection.",
-  archived: false,
-  location: "/",
-  parent_id: null,
-  type: "instance-analytics",
-  authority_level: null,
-  is_personal: false,
-} as const;
-
-const CUSTOM_REPORTS_COMPACT = {
-  id: 3,
-  name: "Custom reports",
-  description: "Save your Metabase analytics custom questions and dashboards here",
-  archived: false,
-  location: "/2/",
-  parent_id: 2,
-  type: null,
   authority_level: null,
   is_personal: false,
 } as const;
@@ -102,11 +76,11 @@ describe("collection e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, CollectionListEnvelope)).toEqual({
-      data: [ROOT_COMPACT, CUSTOM_REPORTS_COMPACT, DEFAULT_COMPACT, USAGE_ANALYTICS_COMPACT],
-      returned: 4,
-      total: 4,
-    });
+    const envelope = parseJson(result.stdout, CollectionListEnvelope);
+    expect(envelope.data.find((collection) => collection.id === "root")).toEqual(ROOT_COMPACT);
+    expect(
+      envelope.data.find((collection) => collection.id === SEEDED.defaultCollectionId),
+    ).toEqual(DEFAULT_COMPACT);
   });
 
   it("list --filter archived returns the trash collection by itself", async () => {
@@ -141,7 +115,7 @@ describe("collection e2e", () => {
 
   it("get returns the seeded collection by id in compact form", async () => {
     const result = await runCli({
-      args: ["collection", "get", String(E2E_COLLECTIONS.DEFAULT), "--json"],
+      args: ["collection", "get", String(SEEDED.defaultCollectionId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -152,7 +126,7 @@ describe("collection e2e", () => {
 
   it("get --full surfaces slug, can_write, and namespace beyond the compact projection", async () => {
     const result = await runCli({
-      args: ["collection", "get", String(E2E_COLLECTIONS.DEFAULT), "--json", "--full"],
+      args: ["collection", "get", String(SEEDED.defaultCollectionId), "--json", "--full"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -167,7 +141,7 @@ describe("collection e2e", () => {
       namespace: collection.namespace,
       personal_owner_id: collection.personal_owner_id,
     }).toEqual({
-      id: E2E_COLLECTIONS.DEFAULT,
+      id: SEEDED.defaultCollectionId,
       name: DEFAULT_COLLECTION_NAME,
       slug: "e2e_default",
       can_write: true,
@@ -178,7 +152,7 @@ describe("collection e2e", () => {
 
   it("get --format text renders the compact key/value pairs", async () => {
     const result = await runCli({
-      args: ["collection", "get", String(E2E_COLLECTIONS.DEFAULT), "--format", "text"],
+      args: ["collection", "get", String(SEEDED.defaultCollectionId), "--format", "text"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -186,7 +160,7 @@ describe("collection e2e", () => {
     expect(result.exitCode, result.stderr).toBe(0);
     const labelPadding = "Authority".length;
     const expected = [
-      `${"ID".padEnd(labelPadding)}  ${E2E_COLLECTIONS.DEFAULT}`,
+      `${"ID".padEnd(labelPadding)}  ${SEEDED.defaultCollectionId}`,
       `${"Name".padEnd(labelPadding)}  ${DEFAULT_COLLECTION_NAME}`,
       `${"Location".padEnd(labelPadding)}  /`,
       `${"Type".padEnd(labelPadding)}  `,
@@ -234,7 +208,7 @@ describe("collection e2e", () => {
 
   it("get with a 21-char entity id resolves to the same collection as the integer id", async () => {
     const fetchByEntityId = await runCli({
-      args: ["collection", "get", String(E2E_COLLECTIONS.DEFAULT), "--json", "--full"],
+      args: ["collection", "get", String(SEEDED.defaultCollectionId), "--json", "--full"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -247,7 +221,7 @@ describe("collection e2e", () => {
     }
 
     const fetchAgain = await runCli({
-      args: ["collection", "get", viaInt.entity_id, "--json"],
+      args: ["collection", "get", "--json", "--", viaInt.entity_id],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -264,38 +238,35 @@ describe("collection e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/collection/9999999.");
   });
 
   it("items lists the seeded card and dashboard inside the default collection", async () => {
     const result = await runCli({
-      args: ["collection", "items", String(E2E_COLLECTIONS.DEFAULT), "--json"],
+      args: ["collection", "items", String(SEEDED.defaultCollectionId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
     const envelope = parseJson(result.stdout, CollectionItemListEnvelope);
-    const sortedById = [...envelope.data].toSorted((left, right) => left.id - right.id);
-    expect({ ...envelope, data: sortedById }).toEqual({
-      data: [
-        {
-          id: E2E_DASHBOARDS.ORDERS_OVERVIEW,
-          model: "dashboard",
-          name: "Orders Overview",
-          description: "E2E seeded dashboard with one orders dashcard.",
-          archived: false,
-          collection_id: E2E_COLLECTIONS.DEFAULT,
-        },
-        {
-          id: E2E_CARDS.ORDERS_BY_STATUS,
-          model: "card",
-          name: "Orders by status",
-          description: null,
-          archived: false,
-          collection_id: E2E_COLLECTIONS.DEFAULT,
-        },
-      ],
+    expect(envelope.data.find((item) => item.model === "dashboard")).toEqual({
+      id: SEEDED.ordersDashboardId,
+      model: "dashboard",
+      name: "Orders Overview",
+      description: "E2E seeded dashboard with one orders dashcard.",
+      archived: false,
+      collection_id: SEEDED.defaultCollectionId,
+    });
+    expect(envelope.data.find((item) => item.model === "card")).toEqual({
+      id: SEEDED.ordersCardId,
+      model: "card",
+      name: "Orders by status",
+      description: null,
+      archived: false,
+      collection_id: SEEDED.defaultCollectionId,
+    });
+    expect({ returned: envelope.returned, total: envelope.total }).toEqual({
       returned: 2,
       total: 2,
     });
@@ -303,7 +274,14 @@ describe("collection e2e", () => {
 
   it("items --models card filters the result to cards only", async () => {
     const result = await runCli({
-      args: ["collection", "items", String(E2E_COLLECTIONS.DEFAULT), "--models", "card", "--json"],
+      args: [
+        "collection",
+        "items",
+        String(SEEDED.defaultCollectionId),
+        "--models",
+        "card",
+        "--json",
+      ],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -312,12 +290,12 @@ describe("collection e2e", () => {
     expect(parseJson(result.stdout, CollectionItemListEnvelope)).toEqual({
       data: [
         {
-          id: E2E_CARDS.ORDERS_BY_STATUS,
+          id: SEEDED.ordersCardId,
           model: "card",
           name: "Orders by status",
           description: null,
           archived: false,
-          collection_id: E2E_COLLECTIONS.DEFAULT,
+          collection_id: SEEDED.defaultCollectionId,
         },
       ],
       returned: 1,
@@ -327,7 +305,7 @@ describe("collection e2e", () => {
 
   it("items --limit caps the returned page", async () => {
     const result = await runCli({
-      args: ["collection", "items", String(E2E_COLLECTIONS.DEFAULT), "--limit", "1", "--json"],
+      args: ["collection", "items", String(SEEDED.defaultCollectionId), "--limit", "1", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -341,7 +319,14 @@ describe("collection e2e", () => {
 
   it("items --models rejects an unknown model with ConfigError", async () => {
     const result = await runCli({
-      args: ["collection", "items", String(E2E_COLLECTIONS.DEFAULT), "--models", "bogus", "--json"],
+      args: [
+        "collection",
+        "items",
+        String(SEEDED.defaultCollectionId),
+        "--models",
+        "bogus",
+        "--json",
+      ],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -356,7 +341,7 @@ describe("collection e2e", () => {
       args: [
         "collection",
         "items",
-        String(E2E_COLLECTIONS.DEFAULT),
+        String(SEEDED.defaultCollectionId),
         "--pinned-state",
         "bogus",
         "--json",
@@ -390,7 +375,7 @@ describe("collection e2e", () => {
       args: ["collection", "create", "--json"],
       stdin: JSON.stringify({
         name: `e2e_empty_collection_${Date.now()}`,
-        parent_id: E2E_COLLECTIONS.DEFAULT,
+        parent_id: SEEDED.defaultCollectionId,
       }),
       configHome,
       env: authEnv(),
@@ -420,27 +405,14 @@ describe("collection e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, CollectionItemListEnvelope)).toEqual({
-      data: [
-        {
-          id: E2E_COLLECTIONS.DEFAULT,
-          model: "collection",
-          name: DEFAULT_COLLECTION_NAME,
-          description: null,
-          archived: false,
-          collection_id: null,
-        },
-        {
-          id: USAGE_ANALYTICS_COMPACT.id,
-          model: "collection",
-          name: USAGE_ANALYTICS_COMPACT.name,
-          description: USAGE_ANALYTICS_COMPACT.description,
-          archived: false,
-          collection_id: null,
-        },
-      ],
-      returned: 2,
-      total: 2,
+    const envelope = parseJson(result.stdout, CollectionItemListEnvelope);
+    expect(envelope.data.find((item) => item.id === SEEDED.defaultCollectionId)).toEqual({
+      id: SEEDED.defaultCollectionId,
+      model: "collection",
+      name: DEFAULT_COLLECTION_NAME,
+      description: null,
+      archived: false,
+      collection_id: null,
     });
   });
 
@@ -453,7 +425,7 @@ describe("collection e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     const tree = parseJson(result.stdout, CollectionTreeResponse);
-    const seeded = tree.find((node) => node.id === E2E_COLLECTIONS.DEFAULT);
+    const seeded = tree.find((node) => node.id === SEEDED.defaultCollectionId);
     if (seeded === undefined) {
       throw new Error(
         `expected E2E Default in tree, got ids ${tree.map((node) => node.id).join(", ")}`,
@@ -467,7 +439,7 @@ describe("collection e2e", () => {
       childrenLength: seeded.children.length,
       here: seeded.here,
     }).toEqual({
-      id: E2E_COLLECTIONS.DEFAULT,
+      id: SEEDED.defaultCollectionId,
       name: DEFAULT_COLLECTION_NAME,
       location: "/",
       type: null,
@@ -482,7 +454,7 @@ describe("collection e2e", () => {
       stdin: JSON.stringify({
         name: "e2e_new_collection",
         description: "created in test",
-        parent_id: E2E_COLLECTIONS.DEFAULT,
+        parent_id: SEEDED.defaultCollectionId,
       }),
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
@@ -501,7 +473,7 @@ describe("collection e2e", () => {
       name: "e2e_new_collection",
       description: "created in test",
       archived: false,
-      location: `/${E2E_COLLECTIONS.DEFAULT}/`,
+      location: `/${SEEDED.defaultCollectionId}/`,
       type: null,
       authority_level: null,
     });
@@ -519,8 +491,8 @@ describe("collection e2e", () => {
       name: "e2e_new_collection",
       description: "created in test",
       archived: false,
-      location: `/${E2E_COLLECTIONS.DEFAULT}/`,
-      parent_id: E2E_COLLECTIONS.DEFAULT,
+      location: `/${SEEDED.defaultCollectionId}/`,
+      parent_id: SEEDED.defaultCollectionId,
       type: null,
       authority_level: null,
       is_personal: false,

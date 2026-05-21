@@ -15,9 +15,11 @@ import { preflightDashcardCardReferences, wrapChainedDashboardWriteError } from 
 export default defineMetabaseCommand({
   meta: {
     name: "create",
-    description:
-      "Create a dashboard from a JSON spec; any positive card_id referenced from dashcards is pre-flight-validated against /api/card/:id (exists, not archived) before the dashboard is created",
+    description: "Create a dashboard from JSON",
   },
+  details:
+    "Any positive card_id referenced from dashcards is pre-flight-validated (exists and readable, not archived) before the dashboard is created.",
+  capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

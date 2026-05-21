@@ -22,6 +22,7 @@ export default defineMetabaseCommand({
     name: "is-dirty",
     description: "Check whether Metabase has unsynced local changes",
   },
+  capabilities: { minVersion: 60, edition: "ee", tokenFeature: "remote_sync" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: IsDirtyResult,
   examples: ["mb git-sync is-dirty", "mb git-sync is-dirty --json"],

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compareSemver, SemverString } from "./version";
+import { compareSemver, SemverString } from "./semver";
 
 describe("compareSemver", () => {
   it("returns -1 / 0 / 1 for ordered inputs", () => {

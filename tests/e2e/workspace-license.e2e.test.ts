@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { LicenseRemoveResult } from "../../src/commands/license/remove";
-import { LicenseSetResult } from "../../src/commands/license/set";
-import { LicenseStatus } from "../../src/commands/license/status";
+import { LicenseRemoveResult } from "../../src/commands/workspace/license/remove";
+import { LicenseSetResult } from "../../src/commands/workspace/license/set";
+import { LicenseStatus } from "../../src/commands/workspace/license/status";
+import { parseJson } from "../../src/runtime/json";
 
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 
@@ -28,7 +29,7 @@ describe("license storage e2e", () => {
     const configHome = await makeIsolatedConfigHome();
 
     const set = await runCli({
-      args: ["license", "set", "--json"],
+      args: ["workspace", "license", "set", "--json"],
       stdin: DUMMY_DEV_TOKEN,
       configHome,
     });
@@ -36,49 +37,49 @@ describe("license storage e2e", () => {
     expect(set.exitCode, set.stderr).toBe(0);
     expect(set.stdout).not.toContain(DUMMY_DEV_TOKEN);
     expect(set.stderr).not.toContain(DUMMY_DEV_TOKEN);
-    expect(LicenseSetResult.parse(JSON.parse(set.stdout))).toEqual({ stored: true });
+    expect(parseJson(set.stdout, LicenseSetResult)).toEqual({ stored: true });
 
     const status = await runCli({
-      args: ["license", "status", "--json"],
+      args: ["workspace", "license", "status", "--json"],
       configHome,
     });
 
     expect(status.exitCode, status.stderr).toBe(0);
     expect(status.stdout).not.toContain(DUMMY_DEV_TOKEN);
-    expect(LicenseStatus.parse(JSON.parse(status.stdout))).toEqual({ present: true });
+    expect(parseJson(status.stdout, LicenseStatus)).toEqual({ present: true });
   });
 
   it("remove --yes clears the token and is idempotent on a second remove", async () => {
     const configHome = await makeIsolatedConfigHome();
 
     await runCli({
-      args: ["license", "set", "--json"],
+      args: ["workspace", "license", "set", "--json"],
       stdin: DUMMY_DEV_TOKEN,
       configHome,
     });
 
     const firstRemove = await runCli({
-      args: ["license", "remove", "--yes", "--json"],
+      args: ["workspace", "license", "remove", "--yes", "--json"],
       configHome,
     });
     expect(firstRemove.exitCode, firstRemove.stderr).toBe(0);
-    expect(LicenseRemoveResult.parse(JSON.parse(firstRemove.stdout))).toEqual({
+    expect(parseJson(firstRemove.stdout, LicenseRemoveResult)).toEqual({
       removed: true,
       aborted: false,
     });
 
     const status = await runCli({
-      args: ["license", "status", "--json"],
+      args: ["workspace", "license", "status", "--json"],
       configHome,
     });
-    expect(LicenseStatus.parse(JSON.parse(status.stdout))).toEqual({ present: false });
+    expect(parseJson(status.stdout, LicenseStatus)).toEqual({ present: false });
 
     const secondRemove = await runCli({
-      args: ["license", "remove", "--yes", "--json"],
+      args: ["workspace", "license", "remove", "--yes", "--json"],
       configHome,
     });
     expect(secondRemove.exitCode, secondRemove.stderr).toBe(0);
-    expect(LicenseRemoveResult.parse(JSON.parse(secondRemove.stdout))).toEqual({
+    expect(parseJson(secondRemove.stdout, LicenseRemoveResult)).toEqual({
       removed: false,
       aborted: false,
     });

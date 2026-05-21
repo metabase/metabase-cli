@@ -10,62 +10,61 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_DATABASES, E2E_TABLES } from "./seed/ids";
-
+import { SEEDED } from "./seed/seeded";
 const SAVED_QUESTIONS_VIRTUAL_DB_ID = -1337;
 
 const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
   {
-    id: E2E_TABLES.CUSTOMERS,
+    id: SEEDED.tables.customers,
     name: "customers",
     display_name: "Customers",
     description: "Customer dimension; mixed types for sync coverage.",
-    db_id: E2E_DATABASES.WAREHOUSE,
+    db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/GenericTable",
   },
   {
-    id: E2E_TABLES.ORDER_ITEMS,
+    id: SEEDED.tables.orderItems,
     name: "order_items",
     display_name: "Order Items",
     description: null,
-    db_id: E2E_DATABASES.WAREHOUSE,
+    db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
   },
   {
-    id: E2E_TABLES.ORDER_SUMMARY,
+    id: SEEDED.tables.orderSummary,
     name: "order_summary",
     display_name: "Order Summary",
     description: null,
-    db_id: E2E_DATABASES.WAREHOUSE,
+    db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
   },
   {
-    id: E2E_TABLES.ORDERS,
+    id: SEEDED.tables.orders,
     name: "orders",
     display_name: "Orders",
     description: null,
-    db_id: E2E_DATABASES.WAREHOUSE,
+    db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
   },
   {
-    id: E2E_TABLES.PRODUCTS,
+    id: SEEDED.tables.products,
     name: "products",
     display_name: "Products",
     description: null,
-    db_id: E2E_DATABASES.WAREHOUSE,
+    db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/ProductTable",
   },
   {
-    id: E2E_TABLES.REVIEWS,
+    id: SEEDED.tables.reviews,
     name: "reviews",
     display_name: "Reviews",
     description: null,
-    db_id: E2E_DATABASES.WAREHOUSE,
+    db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/GenericTable",
   },
@@ -73,11 +72,11 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
 
 const ANALYTICS_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
   {
-    id: E2E_TABLES.DAILY_SALES,
+    id: SEEDED.tables.dailySales,
     name: "daily_sales",
     display_name: "Daily Sales",
     description: null,
-    db_id: E2E_DATABASES.WAREHOUSE,
+    db_id: SEEDED.warehouseDbId,
     schema: "analytics",
     entity_type: "entity/TransactionTable",
   },
@@ -117,7 +116,7 @@ describe("db e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, DatabaseListEnvelope)).toEqual({
-      data: [{ id: E2E_DATABASES.WAREHOUSE, name: "Warehouse", engine: "postgres" }],
+      data: [{ id: SEEDED.warehouseDbId, name: "Warehouse", engine: "postgres" }],
       returned: 1,
       total: 1,
     });
@@ -134,7 +133,7 @@ describe("db e2e", () => {
     const parsed = parseJson(result.stdout, listEnvelopeSchema(Database));
     expect(parsed.data.length).toBe(1);
     const warehouse = parsed.data[0];
-    expect(warehouse?.id).toBe(E2E_DATABASES.WAREHOUSE);
+    expect(warehouse?.id).toBe(SEEDED.warehouseDbId);
     const tableIds = (warehouse?.tables ?? []).map((table) => table.id).toSorted();
     const expectedIds = [
       ...PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME,
@@ -155,7 +154,7 @@ describe("db e2e", () => {
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, DatabaseListEnvelope)).toEqual({
       data: [
-        { id: E2E_DATABASES.WAREHOUSE, name: "Warehouse", engine: "postgres" },
+        { id: SEEDED.warehouseDbId, name: "Warehouse", engine: "postgres" },
         {
           id: SAVED_QUESTIONS_VIRTUAL_DB_ID,
           name: "Saved Questions",
@@ -182,14 +181,14 @@ describe("db e2e", () => {
 
   it("get returns the warehouse by id", async () => {
     const result = await runCli({
-      args: ["db", "get", String(E2E_DATABASES.WAREHOUSE), "--json"],
+      args: ["db", "get", String(SEEDED.warehouseDbId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, DatabaseCompact)).toEqual({
-      id: E2E_DATABASES.WAREHOUSE,
+      id: SEEDED.warehouseDbId,
       name: "Warehouse",
       engine: "postgres",
     });
@@ -200,7 +199,7 @@ describe("db e2e", () => {
       args: [
         "db",
         "get",
-        String(E2E_DATABASES.WAREHOUSE),
+        String(SEEDED.warehouseDbId),
         "--include",
         "tables.fields",
         "--full",
@@ -214,8 +213,8 @@ describe("db e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     const parsed = parseJson(result.stdout, Database);
-    expect(parsed.id).toBe(E2E_DATABASES.WAREHOUSE);
-    const customers = (parsed.tables ?? []).find((table) => table.id === E2E_TABLES.CUSTOMERS);
+    expect(parsed.id).toBe(SEEDED.warehouseDbId);
+    const customers = (parsed.tables ?? []).find((table) => table.id === SEEDED.tables.customers);
     expect(customers).toBeDefined();
     expect(Array.isArray(customers?.fields)).toBe(true);
     expect((customers?.fields ?? []).length).toBeGreaterThan(0);
@@ -233,7 +232,7 @@ describe("db e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("get against a missing database id surfaces a 404 HttpError", async () => {
+  it("get against a missing database id surfaces a resource-missing 404 with the exact path", async () => {
     const result = await runCli({
       args: ["db", "get", "9999999", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -241,7 +240,7 @@ describe("db e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/database/9999999.");
   });
 
   it("metadata returns the warehouse with its tables hydrated", async () => {
@@ -249,7 +248,7 @@ describe("db e2e", () => {
       args: [
         "db",
         "metadata",
-        String(E2E_DATABASES.WAREHOUSE),
+        String(SEEDED.warehouseDbId),
         "--full",
         "--json",
         "--max-bytes",
@@ -261,7 +260,7 @@ describe("db e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     const parsed = parseJson(result.stdout, Database);
-    expect(parsed.id).toBe(E2E_DATABASES.WAREHOUSE);
+    expect(parsed.id).toBe(SEEDED.warehouseDbId);
     const tableIds = (parsed.tables ?? []).map((table) => table.id).toSorted();
     const expectedIds = [
       ...PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME,
@@ -280,12 +279,12 @@ describe("db e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/database/9999999/metadata.");
   });
 
   it("schemas lists the seeded warehouse schemas alphabetically", async () => {
     const result = await runCli({
-      args: ["db", "schemas", String(E2E_DATABASES.WAREHOUSE), "--json"],
+      args: ["db", "schemas", String(SEEDED.warehouseDbId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -311,7 +310,7 @@ describe("db e2e", () => {
 
   it("schema-tables lists tables in the public schema sorted by display name", async () => {
     const result = await runCli({
-      args: ["db", "schema-tables", String(E2E_DATABASES.WAREHOUSE), "public", "--json"],
+      args: ["db", "schema-tables", String(SEEDED.warehouseDbId), "public", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -326,7 +325,7 @@ describe("db e2e", () => {
 
   it("schema-tables lists tables in the analytics schema", async () => {
     const result = await runCli({
-      args: ["db", "schema-tables", String(E2E_DATABASES.WAREHOUSE), "analytics", "--json"],
+      args: ["db", "schema-tables", String(SEEDED.warehouseDbId), "analytics", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -341,25 +340,27 @@ describe("db e2e", () => {
 
   it("schema-tables against an unknown schema surfaces a 404 HttpError", async () => {
     const result = await runCli({
-      args: ["db", "schema-tables", String(E2E_DATABASES.WAREHOUSE), "does_not_exist", "--json"],
+      args: ["db", "schema-tables", String(SEEDED.warehouseDbId), "does_not_exist", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain(
+      `Not found: GET /api/database/${SEEDED.warehouseDbId}/schema/does_not_exist.`,
+    );
   });
 
   it("sync-schema triggers a manual schema sync and returns ok", async () => {
     const result = await runCli({
-      args: ["db", "sync-schema", String(E2E_DATABASES.WAREHOUSE), "--json"],
+      args: ["db", "sync-schema", String(SEEDED.warehouseDbId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, DatabaseSyncResult)).toEqual({
-      id: E2E_DATABASES.WAREHOUSE,
+      id: SEEDED.warehouseDbId,
       status: "ok",
     });
   });
@@ -372,19 +373,19 @@ describe("db e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: POST /api/database/9999999/sync_schema.");
   });
 
   it("rescan-values triggers a field-values rescan and returns ok", async () => {
     const result = await runCli({
-      args: ["db", "rescan-values", String(E2E_DATABASES.WAREHOUSE), "--json"],
+      args: ["db", "rescan-values", String(SEEDED.warehouseDbId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, DatabaseSyncResult)).toEqual({
-      id: E2E_DATABASES.WAREHOUSE,
+      id: SEEDED.warehouseDbId,
       status: "ok",
     });
   });

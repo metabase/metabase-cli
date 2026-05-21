@@ -7,69 +7,68 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_DATABASES, E2E_TABLES } from "./seed/ids";
-
+import { SEEDED } from "./seed/seeded";
 const SEEDED_WAREHOUSE_TABLES = [
   {
-    id: E2E_TABLES.CUSTOMERS,
+    id: SEEDED.tables.customers,
     name: "customers",
     display_name: "Customers",
     description: "Customer dimension; mixed types for sync coverage.",
-    db_id: E2E_DATABASES.WAREHOUSE,
+    db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/GenericTable",
   },
   {
-    id: E2E_TABLES.DAILY_SALES,
+    id: SEEDED.tables.dailySales,
     name: "daily_sales",
     display_name: "Daily Sales",
     description: null,
-    db_id: E2E_DATABASES.WAREHOUSE,
+    db_id: SEEDED.warehouseDbId,
     schema: "analytics",
     entity_type: "entity/TransactionTable",
   },
   {
-    id: E2E_TABLES.ORDER_ITEMS,
+    id: SEEDED.tables.orderItems,
     name: "order_items",
     display_name: "Order Items",
     description: null,
-    db_id: E2E_DATABASES.WAREHOUSE,
+    db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
   },
   {
-    id: E2E_TABLES.ORDER_SUMMARY,
+    id: SEEDED.tables.orderSummary,
     name: "order_summary",
     display_name: "Order Summary",
     description: null,
-    db_id: E2E_DATABASES.WAREHOUSE,
+    db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
   },
   {
-    id: E2E_TABLES.ORDERS,
+    id: SEEDED.tables.orders,
     name: "orders",
     display_name: "Orders",
     description: null,
-    db_id: E2E_DATABASES.WAREHOUSE,
+    db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
   },
   {
-    id: E2E_TABLES.PRODUCTS,
+    id: SEEDED.tables.products,
     name: "products",
     display_name: "Products",
     description: null,
-    db_id: E2E_DATABASES.WAREHOUSE,
+    db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/ProductTable",
   },
   {
-    id: E2E_TABLES.REVIEWS,
+    id: SEEDED.tables.reviews,
     name: "reviews",
     display_name: "Reviews",
     description: null,
-    db_id: E2E_DATABASES.WAREHOUSE,
+    db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/GenericTable",
   },
@@ -121,7 +120,7 @@ describe("table e2e", () => {
 
   it("list filtered by --db-id returns the seeded warehouse tables", async () => {
     const result = await runCli({
-      args: ["table", "list", "--db-id", String(E2E_DATABASES.WAREHOUSE), "--json"],
+      args: ["table", "list", "--db-id", String(SEEDED.warehouseDbId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -136,7 +135,7 @@ describe("table e2e", () => {
 
   it("get returns the basic table without hydrating fields", async () => {
     const result = await runCli({
-      args: ["table", "get", String(E2E_TABLES.CUSTOMERS), "--json"],
+      args: ["table", "get", String(SEEDED.tables.customers), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -145,11 +144,11 @@ describe("table e2e", () => {
     const parsed = parseJson(result.stdout, Table);
     expect(parsed.fields).toBeUndefined();
     expect(TableCompact.parse(parsed)).toEqual({
-      id: E2E_TABLES.CUSTOMERS,
+      id: SEEDED.tables.customers,
       name: "customers",
       display_name: "Customers",
       description: "Customer dimension; mixed types for sync coverage.",
-      db_id: E2E_DATABASES.WAREHOUSE,
+      db_id: SEEDED.warehouseDbId,
       schema: "public",
       entity_type: "entity/GenericTable",
     });
@@ -160,7 +159,7 @@ describe("table e2e", () => {
       args: [
         "table",
         "get",
-        String(E2E_TABLES.CUSTOMERS),
+        String(SEEDED.tables.customers),
         "--include",
         "fields",
         "--json",
@@ -176,15 +175,15 @@ describe("table e2e", () => {
     const { fields, ...tableBody } = parsed;
     const fieldNames = (fields ?? []).map((field) => field.name).toSorted();
     const allFieldsBelongToCustomersTable = (fields ?? []).every(
-      (field) => field.table_id === E2E_TABLES.CUSTOMERS,
+      (field) => field.table_id === SEEDED.tables.customers,
     );
     expect({ tableBody, fieldNames, allFieldsBelongToCustomersTable }).toEqual({
       tableBody: {
-        id: E2E_TABLES.CUSTOMERS,
+        id: SEEDED.tables.customers,
         name: "customers",
         display_name: "Customers",
         description: "Customer dimension; mixed types for sync coverage.",
-        db_id: E2E_DATABASES.WAREHOUSE,
+        db_id: SEEDED.warehouseDbId,
         schema: "public",
         entity_type: "entity/GenericTable",
       },
@@ -195,7 +194,7 @@ describe("table e2e", () => {
 
   it("get rejects an unknown --include value with ConfigError", async () => {
     const result = await runCli({
-      args: ["table", "get", String(E2E_TABLES.CUSTOMERS), "--include", "everything", "--json"],
+      args: ["table", "get", String(SEEDED.tables.customers), "--include", "everything", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -226,7 +225,7 @@ describe("table e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/table/9999999.");
   });
 
   it("metadata returns the table with hydrated fields", async () => {
@@ -234,7 +233,7 @@ describe("table e2e", () => {
       args: [
         "table",
         "metadata",
-        String(E2E_TABLES.CUSTOMERS),
+        String(SEEDED.tables.customers),
         "--json",
         "--full",
         "--max-bytes",
@@ -251,11 +250,11 @@ describe("table e2e", () => {
 
     expect({ tableBody, fieldNames }).toEqual({
       tableBody: {
-        id: E2E_TABLES.CUSTOMERS,
+        id: SEEDED.tables.customers,
         name: "customers",
         display_name: "Customers",
         description: "Customer dimension; mixed types for sync coverage.",
-        db_id: E2E_DATABASES.WAREHOUSE,
+        db_id: SEEDED.warehouseDbId,
         schema: "public",
         entity_type: "entity/GenericTable",
       },
@@ -271,12 +270,12 @@ describe("table e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/table/9999999/query_metadata.");
   });
 
   it("fields lists every field on the table in compact form", async () => {
     const result = await runCli({
-      args: ["table", "fields", String(E2E_TABLES.CUSTOMERS), "--json", "--max-bytes", "0"],
+      args: ["table", "fields", String(SEEDED.tables.customers), "--json", "--max-bytes", "0"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -289,7 +288,7 @@ describe("table e2e", () => {
       total: envelope.total,
       fieldNames,
       everyFieldHasCustomersTableId: envelope.data.every(
-        (field) => field.table_id === E2E_TABLES.CUSTOMERS,
+        (field) => field.table_id === SEEDED.tables.customers,
       ),
     }).toEqual({
       returned: CUSTOMERS_FIELD_NAMES.length,
@@ -316,7 +315,7 @@ describe("table e2e", () => {
       args: [
         "table",
         "update",
-        String(E2E_TABLES.REVIEWS),
+        String(SEEDED.tables.reviews),
         "--body",
         JSON.stringify({ description: newDescription }),
         "--json",
@@ -332,7 +331,7 @@ describe("table e2e", () => {
       args: [
         "table",
         "update",
-        String(E2E_TABLES.REVIEWS),
+        String(SEEDED.tables.reviews),
         "--body",
         JSON.stringify({ description: null }),
         "--json",
@@ -349,7 +348,7 @@ describe("table e2e", () => {
       args: [
         "table",
         "update",
-        String(E2E_TABLES.REVIEWS),
+        String(SEEDED.tables.reviews),
         "--body",
         '{"description":"x"}',
         "--file",
@@ -380,7 +379,7 @@ describe("table e2e", () => {
       args: [
         "table",
         "update",
-        String(E2E_TABLES.REVIEWS),
+        String(SEEDED.tables.reviews),
         "--body",
         JSON.stringify({ visibility_type: "not-a-real-value" }),
         "--json",

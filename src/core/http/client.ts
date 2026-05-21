@@ -1,19 +1,24 @@
 import type { ZodType } from "zod";
 
 import packageJson from "../../../package.json" with { type: "json" };
-import { ConfigError, errorMessage, NetworkError, TimeoutError } from "../errors";
-import { parseJson } from "../../runtime/json";
+import {
+  errorMessage,
+  NetworkError,
+  ResponseShapeError,
+  TimeoutError,
+  ValidationError,
+} from "../errors";
+import { JSON_CONTENT_TYPE, parseJson } from "../../runtime/json";
 import { combineAborts, throwIfAborted } from "../../runtime/signal";
 
 import { HttpError, isRetryableStatus } from "./errors";
-import { backoffDelay, DEFAULT_MAX_RETRIES, sleep } from "./retry";
+import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries, type RetryOutcome } from "./retry";
 import type { RedactionContext } from "./sanitize";
 
 export type HttpMethod = "GET" | "HEAD" | "OPTIONS" | "POST" | "PUT" | "PATCH" | "DELETE";
 export type ExpectedContentType = "json" | "text" | "binary";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-const JSON_CONTENT_TYPE = "application/json";
 const OCTET_STREAM_CONTENT_TYPE = "application/octet-stream";
 const TEXT_CONTENT_TYPE_PREFIX = "text/";
 const ERROR_BODY_BYTE_CAP = 64 * 1024;
@@ -60,19 +65,23 @@ interface PreparedRequest {
   callerSignal: AbortSignal | undefined;
 }
 
+export type ServerTagResolver = () => Promise<string | null>;
+
 export interface ClientOverrides {
   fetchImpl?: typeof fetch;
+  getServerTag?: ServerTagResolver;
 }
 
-type AttemptResult = { kind: "success"; response: Response } | { kind: "retry"; delayMs: number };
+const NO_SERVER_TAG: ServerTagResolver = async () => null;
 
 export function createClient(config: ClientCredentials, overrides: ClientOverrides = {}): Client {
   const fetchImpl = overrides.fetchImpl ?? globalThis.fetch.bind(globalThis);
+  const getServerTag = overrides.getServerTag ?? NO_SERVER_TAG;
   const redactionContext: RedactionContext = {
     knownSecrets: new Set([config.apiKey]),
   };
 
-  async function attemptOnce(prepared: PreparedRequest, attempt: number): Promise<AttemptResult> {
+  async function attemptOnce(prepared: PreparedRequest, attempt: number): Promise<RetryOutcome> {
     const hasRetriesLeft = attempt < prepared.retries;
     const timeoutSignal = AbortSignal.timeout(prepared.timeoutMs);
     const { combined, processSignal } = combineAborts(timeoutSignal, prepared.callerSignal);
@@ -118,6 +127,7 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
 
     if (!response.ok) {
       const rawBody = await readBodyForError(response);
+      const serverTag = await getServerTag();
       throw new HttpError({
         status: response.status,
         statusText: response.statusText,
@@ -125,6 +135,7 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
         url: prepared.url,
         responseHeaders: response.headers,
         rawBody,
+        serverTag,
         redactionContext,
       });
     }
@@ -134,15 +145,7 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
   }
 
   async function executeRaw(prepared: PreparedRequest): Promise<Response> {
-    let attempt = 0;
-    while (true) {
-      const result = await attemptOnce(prepared, attempt);
-      if (result.kind === "success") {
-        return result.response;
-      }
-      await sleep(result.delayMs, prepared.callerSignal);
-      attempt += 1;
-    }
+    return runWithRetries((attempt) => attemptOnce(prepared, attempt), prepared.callerSignal);
   }
 
   function prepare(path: string, opts: RequestOptions = {}): PreparedRequest {
@@ -191,15 +194,13 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
       try {
         return parseJson(text, schema, { source: prepared.url });
       } catch (error) {
-        if (error instanceof ConfigError) {
-          throw new HttpError({
-            status: response.status,
-            statusText: response.statusText,
+        if (error instanceof ValidationError) {
+          throw new ResponseShapeError({
             method: prepared.method,
             url: prepared.url,
-            responseHeaders: response.headers,
-            rawBody: text,
-            redactionContext,
+            status: response.status,
+            zodIssues: error.developerDetail.zodIssues,
+            serverTag: await getServerTag(),
           });
         }
         throw error;

@@ -17,47 +17,22 @@ A transform has two halves:
 - `source` — the query to run (`type: "query"`, with `query.type` of `native` or `mbql`).
 - `target` — the warehouse destination (`type: "table"`, with `database`, `schema`, `name`).
 
-Native SQL is the simplest source and the easiest to author by hand. MBQL is what the Metabase UI emits and is much more verbose; pull a sample with `mb transform get <id> --full --json` if you need its shape.
+Native SQL is the simplest source and the easiest to author by hand (see "Create + run" below). MBQL is what the Metabase UI emits and is more verbose; pull a sample with `mb transform get <id> --full --json` if you need its shape.
 
-If `source.query` is **MBQL 5** (`lib/type: "mbql/query"`), `transform create` and `transform update` validate it against the bundled query schema before sending; failure exits 2 with `{ ok, errors: [{path, message}] }` on stdout. To author MBQL 5 by hand: fetch the schema via `mb query --print-schema --profile <n>`, iterate the body with `mb query --file q.json --dry-run --profile <n>` until `ok: true`, then drop it into `source.query`. Legacy MBQL 4 and native sources skip pre-flight. Pass `--skip-validate` to bypass the pre-flight and let the server be the authority — useful when the bundled schema disagrees with what the server actually accepts.
+For an **MBQL 5** `source.query` (`lib/type: "mbql/query"`), the body shape, the "options object is always second" clause rule, UUID minting, aggregation/order-by refs, and the `--print-schema` → `--dry-run` validation loop are all in the `mbql` skill — **`mb skills get mbql`**. `transform create`/`update` pre-flight an MBQL 5 `source.query` against that schema (exit 2 + `{ok, errors}` on failure); legacy MBQL 4 and native sources skip it; `--skip-validate` bypasses.
 
-**Mint UUIDs for `lib/uuid` slots before assembling the body — never invent, hard-code, or reuse them.** Every clause options object carries a `lib/uuid` (UUID v4); the bundled schema enforces RFC 4122 format strictly, so placeholder strings fail `--dry-run`. Workflow: count the slots, run `mb uuid --count <N> --json`, substitute each minted value into its slot. The examples below use `<UUID:label>` sentinels (NOT valid UUIDs) so the assembly step is unambiguous — replace each sentinel with a freshly-minted UUID before sending. Same `<UUID:label>` token must be replaced with the same minted UUID (used for aggregation-ref ↔ aggregation pairing); distinct sentinels get distinct UUIDs.
-
-**Clause shape: opts always second, args after.** Every clause is `[op, {options}, ...args]`. Field refs are `["field", {options}, fieldId]` (id third), not the legacy MBQL 4 shape `["field", id, opts]`. The same rule holds for aggregations, filters, order-by — the options object never moves out of slot 1.
-
-## MBQL 5 aggregations: name your output columns
-
-Default MBQL 5 aggregations materialize as `count`, `count_where`, `count_where_2`, `avg`, `avg_2`, `sum`, … — ugly when the result is a transform target. Pass `name` and `display-name` in the aggregation's options object to control them. Mint 4 UUIDs (`mb uuid --count 4 --json`) for the slots below before assembling:
+**One transform-specific MBQL note: name your aggregation output columns.** A default aggregation materializes as `count`, `avg`, `sum_2`, … — ugly for a warehouse target table. Set `name` (the warehouse column name) and `display-name` (the UI header) in the aggregation's options object:
 
 ```json
-["count",
- {"lib/uuid": "<UUID:agg-shipped>", "name": "shipments_shipped", "display-name": "Shipments shipped"}]
-
-["count-where",
- {"lib/uuid": "<UUID:agg-delivered>", "name": "shipments_delivered", "display-name": "Shipments delivered"},
- ["=", {"lib/uuid": "<UUID:eq-filter>"},
-  ["field", {"base-type": "type/Text", "lib/uuid": "<UUID:status-field>"}, 1779],
-  "delivered"]]
-```
-
-The `name` value becomes the warehouse column name on the materialized table. The `display-name` is the column header in the UI.
-
-## MBQL 5 order-by referencing an aggregation
-
-Order by an aggregation column with an `["aggregation", {…}, "<aggregation-uuid>"]` ref — the third arg is the **string UUID** of the target aggregation's `lib/uuid`, **not** its numeric position. The aggregation's own `lib/uuid` and the ref's third element must be the same minted UUID (string equality); the order-by clause itself and the ref clause each carry their own separate `lib/uuid` in their options. Mint 3 UUIDs and substitute — note that `<UUID:agg-count>` appears twice and gets the same minted value:
-
-```json
-"aggregation": [
-  ["count", {"lib/uuid": "<UUID:agg-count>"}]
-],
-"order-by": [
-  ["desc", {"lib/uuid": "<UUID:order-desc>"},
-    ["aggregation", {"lib/uuid": "<UUID:agg-ref>"},
-     "<UUID:agg-count>"]]
+[
+  "count",
+  {
+    "lib/uuid": "<mint via mb uuid>",
+    "name": "shipments_shipped",
+    "display-name": "Shipments shipped"
+  }
 ]
 ```
-
-A numeric index (`["aggregation", {…}, 0]`) fails pre-flight with `must be the target aggregation's lib/uuid (string), not a numeric position` at `/stages/0/order-by/0/2/2`.
 
 ## Create + run (native SQL)
 

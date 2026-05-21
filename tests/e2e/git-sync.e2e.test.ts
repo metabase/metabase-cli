@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { SyncSettingsUpdateResult } from "../../src/commands/git-sync/add-collection";
 import { CurrentTaskResult } from "../../src/commands/git-sync/current-task";
 import { SyncDirtyListEnvelope } from "../../src/commands/git-sync/dirty";
 import { IsDirtyResult } from "../../src/commands/git-sync/is-dirty";
@@ -9,6 +10,12 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { requireServer } from "./server-gate";
+
+// The remote-sync API has breaking server-side differences through v59 (the git source layer
+// was reworked and v59 NPEs on the idempotent `remove-collection` no-op path); it settles at
+// v60, which is the minVersion every git-sync command declares.
+const skipReason = requireServer({ minVersion: 60, edition: "ee", tokenFeature: "remote_sync" });
 
 describe("git-sync arg validation e2e (no Metabase contact required)", () => {
   const tempDirs: string[] = [];
@@ -112,7 +119,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
   });
 });
 
-describe("git-sync e2e against EE git-sync endpoints", () => {
+describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
 
@@ -285,6 +292,6 @@ describe("git-sync e2e against EE git-sync endpoints", () => {
       env: authEnv(),
     });
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({ success: true });
+    expect(parseJson(result.stdout, SyncSettingsUpdateResult)).toEqual({ success: true });
   });
 });

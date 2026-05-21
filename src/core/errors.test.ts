@@ -6,6 +6,7 @@ import {
   ConfigError,
   formatZodIssue,
   MetabaseError,
+  ResponseShapeError,
   toMetabaseError,
   UnknownError,
   ValidationError,
@@ -225,5 +226,82 @@ describe("ValidationError userMessage formatting", () => {
       zodIssues: [],
     });
     expect(error.userMessage).toBe("file: malformed");
+  });
+});
+
+function zodIssuesFor<T>(schema: z.ZodType<T>, value: unknown): z.ZodError["issues"] {
+  const result = schema.safeParse(value);
+  if (result.success) {
+    throw new Error("expected zod failure");
+  }
+  return result.error.issues;
+}
+
+function buildResponseShapeError(
+  zodIssues: z.ZodError["issues"],
+  serverTag: string | null = null,
+): ResponseShapeError {
+  return new ResponseShapeError({
+    method: "GET",
+    url: "https://m.example.com/api/session/properties",
+    status: 200,
+    zodIssues,
+    serverTag,
+  });
+}
+
+describe("ResponseShapeError", () => {
+  it("formats the message listing one issue per line under the lead", () => {
+    const schema = z.object({ version: z.object({ tag: z.string() }) });
+    const error = buildResponseShapeError(zodIssuesFor(schema, { version: {} }));
+
+    expect(error.userMessage).toBe(
+      "Metabase returned unexpected response shape:\n" +
+        "  version.tag: Invalid input: expected string, received undefined",
+    );
+    expect(error.category).toBe("response-shape");
+    expect(error.exitCode).toBe(1);
+  });
+
+  it("caps the listed issues at five and appends an overflow line", () => {
+    const schema = z.array(z.number());
+    const issues = zodIssuesFor(
+      schema,
+      Array.from({ length: 8 }, (_unused, index) => `bad-${index}`),
+    );
+    const error = buildResponseShapeError(issues);
+
+    expect(error.userMessage).toBe(
+      "Metabase returned unexpected response shape:\n" +
+        "  [0]: Invalid input: expected number, received string\n" +
+        "  [1]: Invalid input: expected number, received string\n" +
+        "  [2]: Invalid input: expected number, received string\n" +
+        "  [3]: Invalid input: expected number, received string\n" +
+        "  [4]: Invalid input: expected number, received string\n" +
+        "  ... and 3 more",
+    );
+  });
+
+  it("falls back to just the lead when there are no issues", () => {
+    const error = buildResponseShapeError([]);
+
+    expect(error.userMessage).toBe("Metabase returned unexpected response shape");
+  });
+
+  it("leads with the server tag when the version is known", () => {
+    const schema = z.object({ version: z.object({ tag: z.string() }) });
+    const error = buildResponseShapeError(zodIssuesFor(schema, { version: {} }), "v0.58.7");
+
+    expect(error.userMessage).toBe(
+      "On Metabase v0.58.7 the response shape was unexpected:\n" +
+        "  version.tag: Invalid input: expected string, received undefined",
+    );
+  });
+
+  it("is passed through unchanged by toMetabaseError", () => {
+    const schema = z.object({ id: z.number() });
+    const original = buildResponseShapeError(zodIssuesFor(schema, { id: "x" }));
+
+    expect(toMetabaseError(original)).toBe(original);
   });
 });

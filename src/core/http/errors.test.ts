@@ -4,23 +4,35 @@ import { HttpError } from "./errors";
 
 interface HttpErrorFixtureOverrides {
   status?: number;
+  method?: string;
+  url?: string;
+  responseHeaders?: Headers | Record<string, string>;
   rawBody?: string | null;
+  serverTag?: string | null;
   overrideUserMessage?: string;
 }
 
 function buildHttpError(overrides: HttpErrorFixtureOverrides = {}): HttpError {
-  const base = {
+  return new HttpError({
     status: overrides.status ?? 400,
     statusText: "Bad Request",
-    method: "POST",
-    url: "https://example.invalid/api/test",
-    responseHeaders: new Headers(),
+    method: overrides.method ?? "POST",
+    url: overrides.url ?? "https://example.invalid/api/test",
+    responseHeaders: overrides.responseHeaders ?? new Headers(),
     rawBody: overrides.rawBody ?? null,
-  };
-  if (overrides.overrideUserMessage !== undefined) {
-    return new HttpError({ ...base, overrideUserMessage: overrides.overrideUserMessage });
-  }
-  return new HttpError(base);
+    ...(overrides.serverTag !== undefined && { serverTag: overrides.serverTag }),
+    ...(overrides.overrideUserMessage !== undefined && {
+      overrideUserMessage: overrides.overrideUserMessage,
+    }),
+  });
+}
+
+function jsonHeaders(): Headers {
+  return new Headers({ "content-type": "application/json" });
+}
+
+function textHeaders(): Headers {
+  return new Headers({ "content-type": "text/plain" });
 }
 
 describe("HttpError message extraction", () => {
@@ -110,13 +122,19 @@ describe("HttpError message extraction", () => {
     );
   });
 
-  it("preserves the override message for known status codes", () => {
+  it("emits an auth message with the host for 401 with no body", () => {
     expect(buildHttpError({ status: 401, rawBody: null }).message).toBe(
-      "Invalid or unauthorized API key",
+      "Invalid or unauthorized API key (host: example.invalid)",
     );
-    expect(buildHttpError({ status: 404, rawBody: null }).message).toBe(
-      "Endpoint not found — is this a Metabase instance?",
+  });
+
+  it("emits an auth message with the host for 403 with no body", () => {
+    expect(buildHttpError({ status: 403, rawBody: null }).message).toBe(
+      "Invalid or unauthorized API key (host: example.invalid)",
     );
+  });
+
+  it("falls back to status defaults for 408 and 429 with no body", () => {
     expect(buildHttpError({ status: 408, rawBody: null }).message).toBe(
       "Metabase timed out responding",
     );
@@ -125,7 +143,7 @@ describe("HttpError message extraction", () => {
     );
   });
 
-  it("body-derived messages override status-default messages", () => {
+  it("body-derived messages override status-default messages for auth", () => {
     const body = JSON.stringify({ message: "actual problem from server" });
     expect(buildHttpError({ status: 401, rawBody: body }).message).toBe(
       "actual problem from server",
@@ -155,5 +173,121 @@ describe("HttpError message extraction", () => {
     expect(
       buildHttpError({ rawBody: body, overrideUserMessage: "explicit override" }).message,
     ).toBe("explicit override");
+  });
+});
+
+describe("HttpError kind classification", () => {
+  it("classifies 401 and 403 as auth", () => {
+    expect(buildHttpError({ status: 401 }).kind).toBe("auth");
+    expect(buildHttpError({ status: 403 }).kind).toBe("auth");
+  });
+
+  it("classifies 429 as rate-limit", () => {
+    expect(buildHttpError({ status: 429 }).kind).toBe("rate-limit");
+  });
+
+  it("classifies 5xx as server-error", () => {
+    expect(buildHttpError({ status: 500 }).kind).toBe("server-error");
+    expect(buildHttpError({ status: 503 }).kind).toBe("server-error");
+  });
+
+  it("classifies 404 with Metabase route-not-found body as route-missing", () => {
+    const error = buildHttpError({
+      status: 404,
+      method: "GET",
+      url: "https://example.invalid/api/this-does-not-exist",
+      responseHeaders: textHeaders(),
+      rawBody: "API endpoint does not exist.",
+    });
+    expect(error.kind).toBe("route-missing");
+  });
+
+  it("classifies 404 with a JSON Not-found envelope as resource-missing", () => {
+    const error = buildHttpError({
+      status: 404,
+      method: "GET",
+      url: "https://example.invalid/api/database/9999",
+      responseHeaders: jsonHeaders(),
+      rawBody: JSON.stringify({ message: "Not found." }),
+    });
+    expect(error.kind).toBe("resource-missing");
+  });
+
+  it("classifies 404 with a text/plain Not-found body as resource-missing (Metabase v0.58)", () => {
+    const error = buildHttpError({
+      status: 404,
+      method: "GET",
+      url: "https://example.invalid/api/database/9999",
+      responseHeaders: textHeaders(),
+      rawBody: "Not found.",
+    });
+    expect(error.kind).toBe("resource-missing");
+    expect(error.message).toBe("Not found: GET /api/database/9999.");
+  });
+
+  it("treats a 404 with an empty non-JSON body as route-missing", () => {
+    const error = buildHttpError({
+      status: 404,
+      method: "GET",
+      url: "https://example.invalid/api/nope",
+      responseHeaders: new Headers(),
+      rawBody: "",
+    });
+    expect(error.kind).toBe("route-missing");
+  });
+});
+
+describe("HttpError 404 messages", () => {
+  it("renders route-missing with the server tag and a doctor hint when the tag is known", () => {
+    const error = buildHttpError({
+      status: 404,
+      method: "GET",
+      url: "https://example.invalid/api/this-does-not-exist?q=1",
+      responseHeaders: textHeaders(),
+      rawBody: "API endpoint does not exist.",
+      serverTag: "v0.58.7",
+    });
+    expect(error.message).toBe(
+      "This endpoint is not available on Metabase v0.58.7: GET /api/this-does-not-exist?q=1. " +
+        "The command may require a newer Metabase major version. " +
+        "Run 'mb doctor' to see which commands are available on this server.",
+    );
+  });
+
+  it("renders route-missing without the version when the tag is unknown", () => {
+    const error = buildHttpError({
+      status: 404,
+      method: "POST",
+      url: "https://example.invalid/api/this-does-not-exist",
+      responseHeaders: textHeaders(),
+      rawBody: "API endpoint does not exist.",
+    });
+    expect(error.message).toBe(
+      "This endpoint is not available on the connected Metabase: POST /api/this-does-not-exist.",
+    );
+  });
+
+  it("renders resource-missing as 'Not found: METHOD path.' ignoring the body envelope", () => {
+    const error = buildHttpError({
+      status: 404,
+      method: "GET",
+      url: "https://example.invalid/api/database/9999",
+      responseHeaders: jsonHeaders(),
+      rawBody: JSON.stringify({ message: "Not found." }),
+      serverTag: "v0.58.7",
+    });
+    expect(error.message).toBe("Not found: GET /api/database/9999.");
+  });
+
+  it("does not append a doctor hint to resource-missing", () => {
+    const error = buildHttpError({
+      status: 404,
+      method: "GET",
+      url: "https://example.invalid/api/database/9999",
+      responseHeaders: jsonHeaders(),
+      rawBody: JSON.stringify({ message: "Not found." }),
+      serverTag: "v0.58.7",
+    });
+    expect(error.message).not.toContain("mb doctor");
   });
 });

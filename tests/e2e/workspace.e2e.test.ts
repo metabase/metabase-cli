@@ -6,7 +6,8 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_DATABASES } from "./seed/ids";
+import { SEEDED } from "./seed/seeded";
+import { requireServer } from "./server-gate";
 import { WorkspaceListEnvelope } from "../../src/commands/workspace/list";
 
 const PROVISION_TIMEOUT_MS = 60_000;
@@ -15,7 +16,9 @@ const PUBLIC_SCHEMA = "public";
 const FIRST_WORKSPACE_ID = 1;
 const WORKSPACE_NAME = "e2e_workspace";
 
-describe("workspace e2e", () => {
+const skipReason = requireServer({ minVersion: 62, edition: "ee", tokenFeature: "workspaces" });
+
+describe.skipIf(skipReason !== null)("workspace e2e", () => {
   let bootstrap: E2EBootstrap;
   let adminClient: Client;
   const tempDirs: string[] = [];
@@ -68,7 +71,7 @@ describe("workspace e2e", () => {
         "provision",
         String(workspaceId),
         "--database-id",
-        String(E2E_DATABASES.WAREHOUSE),
+        String(SEEDED.warehouseDbId),
         "--schemas",
         schemas.join(","),
         "--full",
@@ -84,10 +87,10 @@ describe("workspace e2e", () => {
 
   function findWarehouseDatabase(workspace: Workspace): WorkspaceDatabase {
     const databases = workspace.databases ?? [];
-    const entry = databases.find((row) => row.database_id === E2E_DATABASES.WAREHOUSE);
+    const entry = databases.find((row) => row.database_id === SEEDED.warehouseDbId);
     if (!entry) {
       throw new Error(
-        `expected workspace ${workspace.id} to contain database ${E2E_DATABASES.WAREHOUSE}, got: ${JSON.stringify(databases)}`,
+        `expected workspace ${workspace.id} to contain database ${SEEDED.warehouseDbId}, got: ${JSON.stringify(databases)}`,
       );
     }
     return entry;
@@ -127,7 +130,7 @@ describe("workspace e2e", () => {
       status: entry.status,
       hasOutputNamespace: entry.output_namespace.length > 0,
     }).toEqual({
-      database_id: E2E_DATABASES.WAREHOUSE,
+      database_id: SEEDED.warehouseDbId,
       input_schemas: [ANALYTICS_SCHEMA],
       status: "provisioned",
       hasOutputNamespace: true,
@@ -144,7 +147,7 @@ describe("workspace e2e", () => {
         "provision",
         String(FIRST_WORKSPACE_ID),
         "--database-id",
-        String(E2E_DATABASES.WAREHOUSE),
+        String(SEEDED.warehouseDbId),
         "--schemas",
         ANALYTICS_SCHEMA,
         "--wait",
@@ -172,7 +175,7 @@ describe("workspace e2e", () => {
         "database",
         "update",
         String(FIRST_WORKSPACE_ID),
-        String(E2E_DATABASES.WAREHOUSE),
+        String(SEEDED.warehouseDbId),
         "--schemas",
         PUBLIC_SCHEMA,
         "--full",
@@ -205,7 +208,7 @@ describe("workspace e2e", () => {
         "database",
         "deprovision",
         String(FIRST_WORKSPACE_ID),
-        String(E2E_DATABASES.WAREHOUSE),
+        String(SEEDED.warehouseDbId),
         "--yes",
         "--json",
       ],
@@ -233,10 +236,10 @@ describe("workspace e2e", () => {
         "database",
         "update",
         String(FIRST_WORKSPACE_ID),
-        String(E2E_DATABASES.WAREHOUSE),
+        String(SEEDED.warehouseDbId),
         "--body",
         JSON.stringify({
-          database_id: E2E_DATABASES.WAREHOUSE,
+          database_id: SEEDED.warehouseDbId,
           input: [{ schema: PUBLIC_SCHEMA }],
         }),
         "--json",

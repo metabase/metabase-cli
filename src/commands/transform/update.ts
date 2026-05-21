@@ -14,9 +14,11 @@ import {
 export default defineMetabaseCommand({
   meta: {
     name: "update",
-    description:
-      "Update a transform by id; if source is provided with type `query` and source.query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
+    description: "Update a transform by id (partial)",
   },
+  details:
+    "Patches only the fields you send (any of `name`, `source`, `target`, `tag_ids`, …). When a new `source.query` is an MBQL 5 query it is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass. See `mb skills get mbql`.",
+  capabilities: { minVersion: 59, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

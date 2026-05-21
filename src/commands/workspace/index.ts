@@ -13,5 +13,6 @@ export default defineCommand({
     url: () => import("./url").then((mod) => mod.default),
     credentials: () => import("./credentials").then((mod) => mod.default),
     ps: () => import("./ps").then((mod) => mod.default),
+    license: () => import("./license").then((mod) => mod.default),
   },
 });

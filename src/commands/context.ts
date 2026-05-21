@@ -26,6 +26,7 @@ export interface CommonContext {
   url: string | undefined;
   apiKey: string | undefined;
   profile: string | undefined;
+  skipPreflight: boolean;
 }
 
 export interface ResolveOptions {
@@ -47,6 +48,7 @@ export function resolveCommonFlags(args: CommonArgs, options: ResolveOptions = {
     url: args.url,
     apiKey: args.apiKey,
     profile: args.profile,
+    skipPreflight: args.skipPreflight === true,
   };
 }
 

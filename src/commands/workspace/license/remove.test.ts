@@ -7,13 +7,13 @@ const hoisted = vi.hoisted(() => ({
 }));
 
 vi.mock("@napi-rs/keyring", async () => {
-  const { createKeyringMockModule } = await import("../../core/auth/keyring-mock");
+  const { createKeyringMockModule } = await import("../../../core/auth/keyring-mock");
   return createKeyringMockModule(hoisted);
 });
 
 import licenseRemoveCommand from "./remove";
-import { readLicense, writeLicense } from "../../core/auth/storage";
-import { setupTempConfigHome, type TempConfigHome } from "../../core/auth/temp-config-home";
+import { readLicense, writeLicense } from "../../../core/auth/storage";
+import { setupTempConfigHome, type TempConfigHome } from "../../../core/auth/temp-config-home";
 
 describe("license remove command", () => {
   let home: TempConfigHome;

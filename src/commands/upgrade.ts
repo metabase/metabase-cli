@@ -11,7 +11,7 @@ import {
   type InstallCommand,
   type InstallMethod,
 } from "../core/install-method";
-import { compareSemver, SemverString } from "../core/version";
+import { compareSemver, SemverString } from "../core/semver";
 import type { ResourceView } from "../domain/view";
 import { renderItem, writeText } from "../output/render";
 import { promptConfirm } from "../output/prompt";
@@ -58,6 +58,7 @@ export default defineMetabaseCommand({
     name: "upgrade",
     description: "Upgrade the Metabase CLI itself to the latest published release",
   },
+  capabilities: null,
   args: {
     ...outputFlags,
     check: {

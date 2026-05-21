@@ -6,10 +6,9 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_CARDS } from "./seed/ids";
-
+import { SEEDED } from "./seed/seeded";
 const ORDERS_BY_STATUS_COMPACT = {
-  id: E2E_CARDS.ORDERS_BY_STATUS,
+  id: SEEDED.ordersCardId,
   name: "Orders by status",
   model: "card",
   description: null,

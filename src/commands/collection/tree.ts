@@ -13,6 +13,7 @@ export default defineMetabaseCommand({
     name: "tree",
     description: "Fetch the collection hierarchy as a nested tree (JSON only)",
   },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: CollectionTreeResponse,
   examples: ["mb collection tree", "mb collection tree --json"],

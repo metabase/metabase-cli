@@ -11,17 +11,17 @@ The official Metabase CLI (`mb`) drives a Metabase instance over its REST API. I
 Top-level command groups (run `mb <group> --help` to discover verbs):
 
 ```
-auth | license | db | table | field | query | card | dashboard | snippet | segment | measure | collection | transform | transform-job
+auth | db | table | field | query | card | dashboard | snippet | segment | measure | collection | transform | transform-job
 setting | search | git-sync | workspace | setup | api-key | eid
 ```
 
-The general patterns below — auth, flag conventions, output flags, body input, common verb shapes — apply across **every** group. Three flows have enough surface to warrant their own specialized skills; load them on demand (see "Specialized skills" near the bottom).
+The general patterns below — auth, flag conventions, output flags, body input, common verb shapes — apply across **every** group. A few flows have enough surface to warrant their own specialized skills; load them on demand (see "Specialized skills" near the bottom). Authoring any query body (cards, transforms, measures, segments, ad-hoc `mb query`) is one of them — load `mbql` whenever you build MBQL by hand.
 
 ## Auth & profiles
 
 **The agent does not log in for the user.** Authentication is the human's job — they pick the base URL, paste credentials, and store them as a named profile under their own login. The agent's role is to _check_ what profiles exist, _ask_ which to use, and pass `--profile <name>` through every command.
 
-**The one exception** is a freshly bootstrapped workspace child. The child's API credentials are minted by the parent the human already authorized; the agent reads them via `mb workspace credentials <ws-id>` and saves them as a new profile non-interactively. This is the **only** legitimate place for the agent to call `auth login`. See the `workspace` skill, step 4 — and even there, pipe the key on stdin (`--api-key-stdin`), never on a flag value.
+**The one exception** is a freshly bootstrapped workspace child. The child's API credentials are minted by the parent the human already authorized; the agent reads them via `mb workspace credentials <ws-id>` and saves them as a new profile non-interactively. This is the **only** legitimate place for the agent to call `auth login`. See the `workspace` skill, step 4 — and even there, pipe the key on stdin (piped to `auth login`, which auto-detects it), never on a flag value.
 
 For everything else (parent profile, staging, prod, anything pointing at a Metabase the user has direct credentials for), follow the flow below.
 
@@ -50,12 +50,12 @@ Run `mb auth list --json` first. If exactly one profile is configured and the us
 Same rule: the human runs the storing command. To check whether a license is present:
 
 ```bash
-mb license status --profile <name> --json   # → {present: bool}
+mb workspace license status --json   # → {present: bool}
 ```
 
 If `present: false`, ask:
 
-> Please run `echo "<your-token>" | mb license set --profile <name>` from your terminal — don't paste the token in chat.
+> Please run `echo "<your-token>" | mb workspace license set` from your terminal — don't paste the token in chat.
 
 ## Flag conventions (read once, internalize)
 
@@ -75,7 +75,7 @@ These trip up every fresh run.
 The agent normally doesn't run `auth login` (see "Auth & profiles" — the human does). The one place it _does_ — saving a workspace child's API key after `workspace credentials` — must use stdin, not a flag value:
 
 ```bash
-✅ printf '%s' "$KEY" | mb auth login --url <url> --api-key-stdin --profile <n> --json
+✅ printf '%s' "$KEY" | mb auth login --url <url> --profile <n> --json
 ❌ mb auth login --api-key "$KEY" …       # → warns + rejects
 ```
 
@@ -90,7 +90,7 @@ Reason: shell history and process listings leak the value. The CLI rejects the f
 A handful of "lookup" verbs return a JSON object even when you only want a single field. `mb workspace url <id>` returns `{"workspace_id": ..., "url": "http://..."}`, not `"http://..."`. Don't drop them raw into another flag — extract:
 
 ```bash
-WS_URL=$(mb workspace url <id> --profile <n> --json | jq -r '.url')
+WS_URL=$(mb workspace url <id> --json | jq -r '.url')
 ```
 
 If you find yourself writing `--url $(mb ...)` and the receiving command rejects it with "URL must start with http://", this is what happened.
@@ -148,7 +148,7 @@ Heredoc with single-quoted `'EOF'` prevents shell from interpolating `$vars` ins
 
 ## Discover the full surface: `mb __manifest`
 
-For the canonical, machine-readable inventory of every command — name, description, examples, every flag with type and default, and the output JSON Schema — run:
+For the canonical, machine-readable inventory of every command — name, description, the longer per-command `details` (when present), examples, every flag with type and default, and the output JSON Schema — run:
 
 ```bash
 mb __manifest
@@ -174,7 +174,7 @@ Use it to (a) enumerate verbs you don't know by heart, (b) validate flag names b
 
 ## Resources at a glance
 
-The CLI exposes the Metabase REST API in 13 command groups beyond `auth` / `license`. Each follows the same shape (list/get/create/…); flags + output schemas are in `__manifest`. Only the deviations and quirks worth memorizing are below.
+The CLI exposes the Metabase REST API in 13 command groups beyond `auth`. Each follows the same shape (list/get/create/…); flags + output schemas are in `__manifest`. Only the deviations and quirks worth memorizing are below.
 
 ### `db` (alias `database`) — list and inspect databases
 
@@ -254,47 +254,17 @@ mb query --file q.json --dry-run --profile <n>            # validate, no network
 mb query --file q.json --profile <n> --json               # validate + run
 ```
 
-The canonical agent-side path for ad-hoc MBQL. Three modes:
+The canonical agent-side path for ad-hoc MBQL: `--print-schema` fetches the bundled MBQL 5 schema, `--dry-run` validates without sending (exit `0`/`2`), plain run validates then POSTs to `/api/dataset` (exit `2` on validation failure, **never sends**; exit `1` on a server error after a valid pre-flight). Legacy MBQL 4 / native bodies skip pre-flight and are normalized server-side; `--skip-validate` bypasses pre-flight on an MBQL 5 body.
 
-- `--print-schema` — emits `{ schema, defs }` where `defs` carries `id.yaml` / `parameter.yaml` / `ref.yaml` / `temporal_bucketing.yaml` keyed by the path used in the schema's `$ref`s. Use this **first** when authoring a non-trivial query — it's cheaper than guess-and-fail.
-- `--dry-run` — validates and emits `{ ok, errors: [{path, message}] }`. Exit 0 if valid, 2 if not. No request sent.
-- run (no flag) — validates, then on success runs the query. On validation failure: same envelope on stdout, exit 2, **never sends** the request.
-
-MBQL 5 bodies use numeric IDs (`database: 1`, `source-table: 7`) and POST to `/api/dataset`. The bundled schema's `id.yaml` is overridden to require positive integers for every ID `$def`.
-
-Validation error envelope (same shape across `query`, `card create`, `transform create/update`):
-
-```json
-{ "ok": false, "errors": [{ "path": "/stages/0/aggregation/0", "message": "must be array" }] }
-```
-
-`path` is a JSON Pointer into the body, `message` is the validator error string. Iterate against `--dry-run` until `ok: true`, then drop `--dry-run` to run.
-
-Exit codes: `0` valid + ran, `2` validation failed / malformed body, `1` server-side error after a valid pre-flight.
-
-**Any non-MBQL 5 body skips pre-flight automatically.** Legacy MBQL 4 (`{type:"query", database:N, query:{source-table:T, …}}`), legacy native (`{type:"native", database:N, native:{query:"…"}}`), and any other shape that doesn't carry `lib/type:"mbql/query"` are accepted by `/api/dataset` as-is and normalized server-side by `lib-be/normalize-query` (the same normalizer that backs `card create` / `transform create`, so behavior is symmetric across endpoints). The bundled schema only models MBQL 5; the CLI skips validation for the rest. Just `mb query --file probe.json` works for ad-hoc native SQL or legacy MBQL 4 probes; no `--skip-validate` needed. `--dry-run` on a non-MBQL 5 body returns `{ ok: true, errors: [] }`. The double-wrap footgun (`{type:"query", query:{lib/type:"mbql/query",…}}`) is still rejected with a `ConfigError` before send.
-
-**`--skip-validate`** is the escape hatch for MBQL 5 bodies: bypasses the pre-flight and sends the body as-is. Use only when the bundled schema disagrees with what the server actually accepts (drift, false negative). Mutually exclusive with `--dry-run`. Same flag works on `mb card create` and `mb transform create / update`.
-
-**MBQL 5 clause shape — opts always second.** Every clause is `[op, {options}, ...args]`: options object is the **second** element, not the third. Field refs are `["field", {options}, fieldId]` (id third), not the legacy MBQL 4 shape `["field", id, opts]`. The same `[op, {options}, …]` rule applies to aggregations (`["count", {options}]`, `["sum", {options}, <expr>]`), filters (`["=", {options}, <a>, <b>]`), order-by (`["asc", {options}, <expr>]`), and every other clause. Slot-1 violations surface from `--dry-run` as `must be the field options object` / `must be the clause options object` at `/stages/0/<verb>/<n>/1`.
+**For the MBQL 5 body shape, the "options object is always second" clause rule, UUID minting, the validation envelope, and the flat-vs-legacy-envelope footgun, load the `mbql` skill — `mb skills get mbql`.** It is the single canonical reference for every query body across `query`, `card`, `transform`, `measure`, and `segment`.
 
 ### `uuid` — mint UUID v4 strings for `lib/uuid` slots
 
 ```bash
-mb uuid                          # one UUID, v4 from crypto.randomUUID
-mb uuid --count 5                # five UUIDs (one per line in TTY, JSON when piped)
-mb uuid --count 5 --json         # ["uuid1", "uuid2", …]
+mb uuid --count 5 --json         # ["uuid1", "uuid2", …] — mint exactly what you need, in one call
 ```
 
-**Hard rule for agents: never generate, invent, hard-code, or reuse UUID values.** Always call `mb uuid` for fresh UUIDs at the moment you need them. Do not copy UUIDs from documentation examples, prior conversations, prior queries you authored, or anywhere else — every `lib/uuid` slot gets a freshly-minted value. The bundled schema enforces RFC 4122 format strictly, so placeholder strings (`"a1"`, `"uuid-1"`, `"agg-uuid-001"`, …) fail pre-flight with `must be a UUID v4 (RFC 4122) — run \`mb uuid\` …`. The same rule applies to native template-tag `id`fields, parameter ids, and any other`format: "uuid"` slot.
-
-Workflow when assembling an MBQL 5 body:
-
-1. Count the `lib/uuid` slots you need (one per clause options object, plus aggregation-ref ↔ aggregation pairings — those two share the same string).
-2. `mb uuid --count <N> --json` — mint exactly that many in one call.
-3. Substitute each minted value into its slot as you build the JSON.
-
-Aggregation-ref pairing: the `["aggregation", {options}, "<uuid>"]` ref's third arg must equal the target aggregation's own `lib/uuid` (string equality). Mint the aggregation's `lib/uuid` once, then reuse that _same minted value_ for the ref — that's the only legitimate "reuse" pattern, and it's intra-body, not across bodies or sessions.
+Every MBQL 5 clause options object needs a freshly-minted `lib/uuid`; **never invent, hard-code, or reuse** one (the schema rejects placeholders like `"a1"`). The same applies to native template-tag ids and any other `format: "uuid"` slot. The `mbql` skill covers the minting workflow and the one legitimate reuse pattern (aggregation-ref ↔ aggregation pairing).
 
 ### `card` — questions, models, metrics
 
@@ -314,33 +284,9 @@ mb card archive <id> --profile <n>                    # soft-delete; not undoabl
 
 `--export-format csv|xlsx` bypasses the JSON envelope and streams the raw export — pipe to a file. There is no permanent-delete; `archive` is the only delete verb (and `update --body '{"archived":false}'` is the unarchive path).
 
-**`card update <id>`** patches a partial subset of the create shape (`name`, `display`, `dataset_query`, `visualization_settings`, `description`, `archived`, `collection_id`, `dashboard_id`, `cache_ttl`, `parameters`, `parameter_mappings`, …). Only the keys you send are touched. If `dataset_query` is MBQL 5 (`lib/type: "mbql/query"`) it goes through the same pre-flight validation as `card create` and `mb query`; pass `--skip-validate` to bypass.
+**`card update <id>`** patches a partial subset of the create shape (`name`, `display`, `dataset_query`, `visualization_settings`, `description`, `archived`, `collection_id`, `dashboard_id`, `cache_ttl`, `parameters`, `parameter_mappings`, …). Only the keys you send are touched.
 
-**MBQL 5 `dataset_query` is a _flat_ `mbql/query`, not a legacy envelope.** This is the most common authoring mistake — the legacy MBQL4 shape `{type:"query", database:N, query:{...}}` looks similar but the server _will silently double-wrap_ an MBQL5 body submitted that way (you'll see the second-level `stages` nested inside an outer empty stage on `card get`), and queries fail with `"Initial MBQL stage must have either :source-table or :source-card"`. The right shape:
-
-```json
-{
-  "name": "Total shipments",
-  "display": "scalar",
-  "collection_id": 8,
-  "dataset_query": {
-    "lib/type": "mbql/query",
-    "database": 2,
-    "stages": [
-      {
-        "lib/type": "mbql.stage/mbql",
-        "source-table": 190,
-        "aggregation": [["count", { "lib/uuid": "<mint via `mb uuid`>" }]]
-      }
-    ]
-  },
-  "visualization_settings": {}
-}
-```
-
-`dataset_query` is the mbql/query value itself — no `type:"query"` envelope, no `query:` nesting.
-
-**MBQL 5 pre-flight on `card create` / `card update`:** when `dataset_query` has `lib/type: "mbql/query"`, the body is validated against the same schema as `mb query` before sending. On failure, exit 2 with the standard `{ ok, errors }` envelope on stdout. Legacy `dataset_query` shapes (MBQL 4, native) skip pre-flight. The pre-flight also rejects the double-wrap mistake above (MBQL 5 nested inside a legacy `{type:"query", query:…}` envelope) with a `ConfigError` pointing at the right shape — no `--skip-validate` will get that past pre-flight. Author MBQL 5 by fetching the schema via `mb query --print-schema` and iterating with `mb query --dry-run`. Pass `--skip-validate` to bypass the pre-flight on schema-shape disagreements and let the server be the authority.
+**`dataset_query` is the _flat_ `mbql/query` value** — not a legacy `{type:"query", query:…}` envelope. An MBQL 5 `dataset_query` is pre-flight-validated on `card create`/`card update` (exit 2 + `{ok, errors}` on failure; the double-wrap envelope is rejected outright). The shape, the footgun, and the authoring loop live in the `mbql` skill — `mb skills get mbql`.
 
 **Visualization settings.** The valid keys for `visualization_settings` are scoped by the card's `display` value (`scalar`, `bar`, `line`, `area`, `combo`, `pie`, `table`, `pivot`, `row`, `waterfall`, `scatter`, `boxplot`, …). The CLI does not validate this object client-side — the schema lives in the **`metabase-representation-format`** skill, `spec.md` "Visualization Settings" section (graph / series / table / pivot / pie / scalar subsections, plus common `column_settings`). Load that skill if it isn't active when authoring viz keys. Common keys you'll reach for:
 
@@ -482,11 +428,11 @@ mb transform cancel <id> --profile <n> --json                 # cancel the in-fl
 mb transform-job list --profile <n> --json
 ```
 
-**MBQL 5 pre-flight on `transform create` / `update`:** when `source.query` has `lib/type: "mbql/query"`, it's validated against the same schema as `mb query` before sending; failures exit 2 with the standard `{ ok, errors }` envelope on stdout. Legacy `source.query` shapes and Python sources skip pre-flight. Pass `--skip-validate` to bypass.
+An MBQL 5 `source.query` is pre-flight-validated on `transform create`/`update` (legacy and Python sources skip it). The query body itself is covered by the `mbql` skill; the transform-specific flow lives in the `transform` skill.
 
 **Iterate via `transform update`, not re-`create`.** When a `transform run` fails and you want to retry with a fixed body, patch the existing transform with `transform update <id> --file new-body.json` rather than `transform delete <id>` + `transform create`. Update keeps the same row, `entity_id`, materialized table, and on-disk YAML filename — `git-sync export` produces one clean commit, and you avoid the `_2` suffix the YAML serializer mints when two same-named transforms exist on disk. See the `transform` skill, "Iterating on a failing transform".
 
-For the body shape, run-with-wait pattern, schedule authoring, and inspection load the `transform` skill via `mb skills get transform`.
+For the body shape, run-with-wait pattern, schedule authoring, and inspection load the `transform` skill (`mb skills get transform`); for the MBQL query inside `source.query`, load `mbql`.
 
 ### `setting` (alias `settings`) — admin settings
 
@@ -552,10 +498,11 @@ Walks the `/api/setup` endpoint with a default user. **Don't run this against an
 
 ## Specialized skills (load on demand)
 
-This core file is enough for any single-command task. Specialized flows live in sibling skills, served by the same CLI. **Load the relevant skill proactively when the user's intent matches** — don't wing the workspace lifecycle, transform body, or git-sync workflow from this overview alone.
+This core file is enough for any single-command task. Specialized flows live in sibling skills, served by the same CLI. **Load the relevant skill proactively when the user's intent matches** — don't wing an MBQL body, the workspace lifecycle, a transform body, or the git-sync workflow from this overview alone.
 
 | Load this skill           | When the user's intent matches                                                                                                                                                                                                                                                                                  |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mb skills get mbql`      | Authoring or fixing any MBQL query body by hand — `mb query`, a card `dataset_query`, a transform `source.query`, a measure/segment `definition`, "aggregate and group by", "order by the count", reading `--dry-run` errors. The canonical query-body reference.                                               |
 | `mb skills get workspace` | "spin up a workspace", "provision", "start a local Metabase against my prod", anything `mb workspace …`. **Mandatory** before running `workspace start` — it tells you to ask the user about Remote Sync (current dir / custom path / none) up front, since the bind mount can only be set at container create. |
 | `mb skills get transform` | "create a transform", "run a transform", authoring transform body JSON, run inspection                                                                                                                                                                                                                          |
 | `mb skills get git-sync`  | "import the latest changes", "export to git", "git sync", "dirty check", "stash before pulling"                                                                                                                                                                                                                 |
@@ -569,7 +516,7 @@ If a task spans more than one (e.g., "spin up `my_ws`, sync transforms from `mai
 - **Don't run `mb auth login` for the user.** Authentication is theirs — ask them to log in and tell you the profile name. The only legitimate exception is saving a freshly created workspace child's credentials (see the `workspace` skill); even there, pipe the key on stdin.
 - Don't paste credentials, license tokens, or warehouse passwords in chat. Have the user run the storing command themselves.
 - Don't put `--profile` before the verb chain — the CLI parses it as a top-level subcommand and errors out.
-- Don't pass an API key with `--api-key "$KEY"`; pipe it on stdin via `--api-key-stdin`. (Comes up only in the workspace-child case.)
+- Don't pass an API key with `--api-key "$KEY"`; pipe it on stdin to `auth login` (no flag — it auto-detects piped stdin). (Comes up only in the workspace-child case.)
 - Don't omit `--wait` on `workspace start` / `transform run` / `workspace database provision` for interactive flows; the next step will race the operation.
 - Don't drop a JSON-envelope verb's output raw into another flag. Extract with `--json | jq -r '.<field>'`.
 - Don't add a third-party HTTP library or shell into `curl` workflows when a `mb <verb>` exists — the CLI is the supported path; `curl` against `/api/...` bypasses retries, schema validation, and credential redaction.

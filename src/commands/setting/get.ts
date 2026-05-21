@@ -11,6 +11,7 @@ import { parseSettingKey } from "./key";
 
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a setting value by key" },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -4,28 +4,28 @@ import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
 
-import { isNotFoundError } from "../../../src/core/errors";
+import { errorMessage, isNotFoundError } from "../../../src/core/errors";
 import { createClient, type Client } from "../../../src/core/http/client";
 import { HttpError } from "../../../src/core/http/errors";
+import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries } from "../../../src/core/http/retry";
+import { probeServer } from "../../../src/core/version/probe";
 import { CardQueryResult } from "../../../src/domain/card";
 import { CurrentUser } from "../../../src/domain/user";
 import { parseJsonResult } from "../../../src/runtime/json";
 import { pollUntil } from "../../../src/runtime/poll";
-import { Bootstrap, BOOTSTRAP_FILE_PATH, type E2EBootstrap } from "../bootstrap-data";
-import { resolveE2EBaseUrl } from "../defaults";
 import {
-  E2E_CARDS,
-  E2E_COLLECTIONS,
-  E2E_DASHBOARDS,
-  E2E_DASHCARDS,
-  E2E_DATABASES,
-  E2E_GROUPS,
-  E2E_SNAPSHOT_NAME,
-} from "../seed/ids";
+  Bootstrap,
+  BOOTSTRAP_FILE_PATH,
+  type E2EBootstrap,
+  type SeededIds,
+} from "../bootstrap-data";
+import { resolveE2EBaseUrl, resolveSnapshotName } from "../defaults";
+import { E2E_GROUPS } from "../seed/ids";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const E2E_ROOT = resolve(HERE, "..");
-const SNAPSHOT_FILE_PATH = resolve(E2E_ROOT, "snapshots", `${E2E_SNAPSHOT_NAME}.sql`);
+const SNAPSHOT_NAME = resolveSnapshotName();
+const SNAPSHOT_FILE_PATH = resolve(E2E_ROOT, "snapshots", `${SNAPSHOT_NAME}.sql`);
 
 const ADMIN = {
   first_name: "Admin",
@@ -63,7 +63,11 @@ const SessionPropertiesResponse = z.object({ "setup-token": z.string().nullish()
 const SessionResponse = z.object({ id: z.string() });
 const ApiKeyResponse = z.object({ unmasked_key: z.string() }).loose();
 const EntityWithIdResponse = z.object({ id: z.number() }).loose();
-const DatabaseMetadataResponse = z.object({ tables: z.array(z.unknown()) }).loose();
+const FieldMeta = z.object({ id: z.number().int(), name: z.string() }).loose();
+const TableMeta = z
+  .object({ id: z.number().int(), name: z.string(), fields: z.array(FieldMeta).optional() })
+  .loose();
+const DatabaseMetadataResponse = z.object({ tables: z.array(TableMeta) }).loose();
 const PermissionsGroupResponse = z.object({ id: z.number().int().positive() }).loose();
 const CollectionGraphResponse = z
   .object({ revision: z.number().int(), groups: z.record(z.string(), z.unknown()) })
@@ -76,7 +80,7 @@ const DashboardWithDashcardsResponse = z
   .loose();
 
 async function main(): Promise<void> {
-  await waitForHealth(BASE_URL, HEALTH_TIMEOUT_MS);
+  await waitForReady(BASE_URL, HEALTH_TIMEOUT_MS);
 
   const existing = await readStoredBootstrap();
   if (existing && (await canReuseExisting(existing.adminApiKey))) {
@@ -89,14 +93,15 @@ async function main(): Promise<void> {
   const client = createClient({ url: BASE_URL, apiKey: adminApiKey });
 
   const apiKeyUser = await client.requestParsed(CurrentUser, "/api/user/current");
-  await seedContent(client);
+  const seeded = await seedContent(client);
+  const server = await probeServer(client, { retries: DEFAULT_MAX_RETRIES });
 
   const limitedGroupId = await createLimitedGroup(client);
-  await revokeDefaultCollectionAccess(client, limitedGroupId);
+  await revokeDefaultCollectionAccess(client, limitedGroupId, seeded.defaultCollectionId);
   const limitedApiKey = await mintApiKey(sessionId, "e2e-limited-key", limitedGroupId);
   const limitedClient = createClient({ url: BASE_URL, apiKey: limitedApiKey });
   const limitedKeyUser = await limitedClient.requestParsed(CurrentUser, "/api/user/current");
-  await assertLimitedKeyCannotQueryOrdersCard(limitedClient);
+  await assertLimitedKeyCannotQueryOrdersCard(limitedClient, seeded.ordersCardId);
 
   await captureSnapshot(client);
 
@@ -107,9 +112,11 @@ async function main(): Promise<void> {
     adminApiKeyEmail: apiKeyUser.email,
     limitedApiKey,
     limitedApiKeyEmail: limitedKeyUser.email,
+    seeded,
+    server,
   });
   process.stdout.write(
-    `bootstrap: wrote ${BOOTSTRAP_FILE_PATH} and captured snapshot ${E2E_SNAPSHOT_NAME}\n`,
+    `bootstrap: wrote ${BOOTSTRAP_FILE_PATH} and captured snapshot ${SNAPSHOT_NAME}\n`,
   );
 }
 
@@ -157,8 +164,28 @@ async function ensureAdminSessionId(): Promise<string> {
   return after.id;
 }
 
+// These requests can't use the api-key `Client`: setup is pre-auth (no key yet) and
+// `mintApiKey` authenticates with an `x-metabase-session` header the client doesn't model.
+// They still share the client's retry loop via `runWithRetries`.
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  return runWithRetries(async (attempt) => {
+    try {
+      return { kind: "success", response: await fetch(url, init) };
+    } catch (error) {
+      if (attempt >= DEFAULT_MAX_RETRIES) {
+        const method = init.method ?? "GET";
+        throw new Error(
+          `${method} ${url} failed after ${attempt + 1} attempts: ${errorMessage(error)}`,
+          { cause: error },
+        );
+      }
+      return { kind: "retry", delayMs: backoffDelay({ attempt }) };
+    }
+  });
+}
+
 async function mintApiKey(sessionId: string, namePrefix: string, groupId: number): Promise<string> {
-  const response = await fetch(`${BASE_URL}/api/api-key`, {
+  const response = await fetchWithRetry(`${BASE_URL}/api/api-key`, {
     method: "POST",
     headers: { "content-type": "application/json", "x-metabase-session": sessionId },
     body: JSON.stringify({
@@ -183,10 +210,11 @@ async function createLimitedGroup(client: Client): Promise<number> {
 async function revokeDefaultCollectionAccess(
   client: Client,
   limitedGroupId: number,
+  defaultCollectionId: number,
 ): Promise<void> {
   const graph = await client.requestParsed(CollectionGraphResponse, "/api/collection/graph");
   const denyDefaultCollection = {
-    [String(E2E_COLLECTIONS.DEFAULT)]: "none",
+    [String(defaultCollectionId)]: "none",
   };
   const updated = {
     revision: graph.revision,
@@ -203,9 +231,12 @@ async function revokeDefaultCollectionAccess(
   });
 }
 
-async function assertLimitedKeyCannotQueryOrdersCard(client: Client): Promise<void> {
+async function assertLimitedKeyCannotQueryOrdersCard(
+  client: Client,
+  ordersCardId: number,
+): Promise<void> {
   try {
-    await client.requestParsed(CardQueryResult, `/api/card/${E2E_CARDS.ORDERS_BY_STATUS}/query`, {
+    await client.requestParsed(CardQueryResult, `/api/card/${ordersCardId}/query`, {
       method: "POST",
       body: { parameters: [] },
     });
@@ -220,52 +251,48 @@ async function assertLimitedKeyCannotQueryOrdersCard(client: Client): Promise<vo
   );
 }
 
-async function seedContent(client: Client): Promise<void> {
-  const dbId = await createEntityId(client, "/api/database", {
+async function seedContent(client: Client): Promise<SeededIds> {
+  const warehouseDbId = await createEntityId(client, "/api/database", {
     name: WAREHOUSE_DB_NAME,
     engine: "postgres",
     details: WAREHOUSE_CONNECTION,
   });
-  assertPinnedId("warehouse database", dbId, E2E_DATABASES.WAREHOUSE);
-  await waitForDatabaseSync(client, dbId);
+  await waitForDatabaseSync(client, warehouseDbId);
 
-  const collectionId = await createEntityId(client, "/api/collection", {
+  const defaultCollectionId = await createEntityId(client, "/api/collection", {
     name: DEFAULT_COLLECTION_NAME,
     color: "#509EE3",
     parent_id: null,
   });
-  assertPinnedId("default collection", collectionId, E2E_COLLECTIONS.DEFAULT);
 
-  const cardId = await createEntityId(client, "/api/card", {
+  const ordersCardId = await createEntityId(client, "/api/card", {
     name: ORDERS_BY_STATUS_CARD_NAME,
     display: "table",
     visualization_settings: {},
-    collection_id: collectionId,
+    collection_id: defaultCollectionId,
     dataset_query: {
       type: "native",
-      database: dbId,
+      database: warehouseDbId,
       native: { query: ORDERS_BY_STATUS_SQL },
     },
   });
-  assertPinnedId("orders-by-status card", cardId, E2E_CARDS.ORDERS_BY_STATUS);
 
-  const dashboardId = await createEntityId(client, "/api/dashboard", {
+  const ordersDashboardId = await createEntityId(client, "/api/dashboard", {
     name: ORDERS_OVERVIEW_DASHBOARD_NAME,
     description: ORDERS_OVERVIEW_DASHBOARD_DESCRIPTION,
-    collection_id: collectionId,
+    collection_id: defaultCollectionId,
   });
-  assertPinnedId("orders-overview dashboard", dashboardId, E2E_DASHBOARDS.ORDERS_OVERVIEW);
 
   const updated = await client.requestParsed(
     DashboardWithDashcardsResponse,
-    `/api/dashboard/${dashboardId}`,
+    `/api/dashboard/${ordersDashboardId}`,
     {
       method: "PUT",
       body: {
         dashcards: [
           {
             id: -1,
-            card_id: cardId,
+            card_id: ordersCardId,
             row: 0,
             col: 0,
             size_x: 12,
@@ -278,11 +305,22 @@ async function seedContent(client: Client): Promise<void> {
       },
     },
   );
-  const dashcardId = updated.dashcards[0]?.id;
-  if (dashcardId === undefined) {
+  const ordersDashcardId = updated.dashcards[0]?.id;
+  if (ordersDashcardId === undefined) {
     throw new Error("expected dashboard to have at least one dashcard after PUT");
   }
-  assertPinnedId("orders-overview first dashcard", dashcardId, E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST);
+
+  const { tables, fields } = await discoverWarehouseSchema(client, warehouseDbId);
+
+  return {
+    warehouseDbId,
+    defaultCollectionId,
+    ordersCardId,
+    ordersDashboardId,
+    ordersDashcardId,
+    tables,
+    fields,
+  };
 }
 
 async function createEntityId(client: Client, path: string, body: unknown): Promise<number> {
@@ -299,18 +337,62 @@ async function waitForDatabaseSync(client: Client, databaseId: number): Promise<
   );
 }
 
-function assertPinnedId(label: string, actual: number, expected: number): void {
-  if (actual === expected) {
-    return;
-  }
-  throw new Error(
-    `${label} got id ${actual}, expected ${expected} per tests/e2e/seed/ids.ts. ` +
-      `Update the constant then run \`bun run e2e:down && bun run e2e:up && bun run e2e:bootstrap\`.`,
+const WAREHOUSE_TABLE_NAMES = {
+  orders: "orders",
+  customers: "customers",
+  products: "products",
+  reviews: "reviews",
+  orderItems: "order_items",
+  orderSummary: "order_summary",
+  dailySales: "daily_sales",
+} as const;
+const ORDERS_ID_FIELD_NAME = "id";
+
+type WarehouseSchema = Pick<SeededIds, "tables" | "fields">;
+
+async function discoverWarehouseSchema(
+  client: Client,
+  databaseId: number,
+): Promise<WarehouseSchema> {
+  const metadata = await client.requestParsed(
+    DatabaseMetadataResponse,
+    `/api/database/${databaseId}/metadata`,
   );
+  const tableIdByName = new Map(metadata.tables.map((table) => [table.name, table.id]));
+  const tables = {
+    orders: requireTableId(tableIdByName, WAREHOUSE_TABLE_NAMES.orders),
+    customers: requireTableId(tableIdByName, WAREHOUSE_TABLE_NAMES.customers),
+    products: requireTableId(tableIdByName, WAREHOUSE_TABLE_NAMES.products),
+    reviews: requireTableId(tableIdByName, WAREHOUSE_TABLE_NAMES.reviews),
+    orderItems: requireTableId(tableIdByName, WAREHOUSE_TABLE_NAMES.orderItems),
+    orderSummary: requireTableId(tableIdByName, WAREHOUSE_TABLE_NAMES.orderSummary),
+    dailySales: requireTableId(tableIdByName, WAREHOUSE_TABLE_NAMES.dailySales),
+  };
+
+  const ordersTable = metadata.tables.find((table) => table.name === WAREHOUSE_TABLE_NAMES.orders);
+  const ordersIdField = ordersTable?.fields?.find((field) => field.name === ORDERS_ID_FIELD_NAME);
+  if (ordersIdField === undefined) {
+    throw new Error(
+      `bootstrap: warehouse "orders" table has no "${ORDERS_ID_FIELD_NAME}" field in /api/database/${databaseId}/metadata`,
+    );
+  }
+
+  return { tables, fields: { ordersId: ordersIdField.id } };
+}
+
+function requireTableId(tableIdByName: Map<string, number>, name: string): number {
+  const id = tableIdByName.get(name);
+  if (id === undefined) {
+    const seen = [...tableIdByName.keys()].join(", ");
+    throw new Error(
+      `bootstrap: warehouse table "${name}" missing from synced metadata (saw: ${seen})`,
+    );
+  }
+  return id;
 }
 
 async function captureSnapshot(client: Client): Promise<void> {
-  await client.requestRaw(`/api/testing/snapshot/${E2E_SNAPSHOT_NAME}`, {
+  await client.requestRaw(`/api/testing/snapshot/${SNAPSHOT_NAME}`, {
     method: "POST",
     idempotent: true,
   });
@@ -328,12 +410,19 @@ async function snapshotFileExists(): Promise<boolean> {
   }
 }
 
-async function waitForHealth(baseUrl: string, timeoutMs: number): Promise<void> {
+async function waitForReady(baseUrl: string, timeoutMs: number): Promise<void> {
   await pollUntil(
     async (signal) => {
       try {
-        const response = await fetch(`${baseUrl}/api/health`, { signal });
-        return response.ok;
+        const health = await fetch(`${baseUrl}/api/health`, { signal });
+        if (!health.ok) {
+          return false;
+        }
+        // /api/health goes green before the app reliably serves real endpoints; gating on
+        // the settings endpoint the probe + setup depend on keeps a slow (especially EE)
+        // startup from resetting connections mid-bootstrap.
+        const properties = await fetch(`${baseUrl}/api/session/properties`, { signal });
+        return properties.ok;
       } catch {
         return false;
       }
@@ -354,7 +443,7 @@ async function postOrGetPreAuthJson<T>(
     init.headers = { "content-type": "application/json" };
     init.body = JSON.stringify(body);
   }
-  const response = await fetch(url, init);
+  const response = await fetchWithRetry(url, init);
   if (!response.ok) {
     throw new Error(`${method} ${url} -> ${response.status}: ${await response.text()}`);
   }
@@ -362,7 +451,7 @@ async function postOrGetPreAuthJson<T>(
 }
 
 async function tryLogin(): Promise<z.infer<typeof SessionResponse> | null> {
-  const response = await fetch(`${BASE_URL}/api/session`, {
+  const response = await fetchWithRetry(`${BASE_URL}/api/session`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ username: ADMIN.email, password: ADMIN.password }),

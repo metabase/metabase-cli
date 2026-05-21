@@ -11,6 +11,7 @@ const DatabaseGetInclude = z.enum(["tables", "tables.fields"]);
 
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a database by id" },
+  capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,
     ...profileFlag,

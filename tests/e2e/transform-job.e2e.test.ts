@@ -7,6 +7,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { requireServer } from "./server-gate";
 
 const VALID_CRON = "0 0 0 * * ?";
 const SECOND_CRON = "0 0 6 * * ?";
@@ -20,7 +21,6 @@ const BUILT_IN_JOBS = [
     description: "Executes transforms tagged with 'hourly' every hour",
     schedule: "0 0 * * * ? *",
     ui_display_type: "cron/builder",
-    active: true,
     built_in_type: "hourly",
   },
   {
@@ -29,7 +29,6 @@ const BUILT_IN_JOBS = [
     description: "Executes transforms tagged with 'daily' once per day",
     schedule: "0 0 0 * * ? *",
     ui_display_type: "cron/builder",
-    active: true,
     built_in_type: "daily",
   },
   {
@@ -38,7 +37,6 @@ const BUILT_IN_JOBS = [
     description: "Executes transforms tagged with 'weekly' once per week",
     schedule: "0 0 0 ? * 1 *",
     ui_display_type: "cron/builder",
-    active: true,
     built_in_type: "weekly",
   },
   {
@@ -47,7 +45,6 @@ const BUILT_IN_JOBS = [
     description: "Executes transforms tagged with 'monthly' once per month",
     schedule: "0 0 0 1 * ? *",
     ui_display_type: "cron/builder",
-    active: true,
     built_in_type: "monthly",
   },
 ] as const;
@@ -58,7 +55,6 @@ const USER_JOB_COMPACT = {
   description: null,
   schedule: VALID_CRON,
   ui_display_type: "cron/raw",
-  active: true,
   built_in_type: null,
 } as const;
 
@@ -73,7 +69,22 @@ const JOB_BODY: JobBody = {
   schedule: VALID_CRON,
 };
 
-describe("transform-job e2e", () => {
+// `active` is absent before v0.61 (added by the "disable jobs" migration), so strip it
+// before comparing — the field is asserted nowhere in this suite.
+function withoutActive(job: TransformJobCompact): Omit<TransformJobCompact, "active"> {
+  return {
+    id: job.id,
+    name: job.name,
+    description: job.description,
+    schedule: job.schedule,
+    ui_display_type: job.ui_display_type,
+    built_in_type: job.built_in_type,
+  };
+}
+
+const skipReason = requireServer({ minVersion: 59, edition: "oss" });
+
+describe.skipIf(skipReason !== null)("transform-job e2e", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
 
@@ -107,7 +118,7 @@ describe("transform-job e2e", () => {
     });
     expect(result.exitCode, result.stderr).toBe(0);
     const created = parseJson(result.stdout, TransformJobCompact);
-    expect(created).toEqual(USER_JOB_COMPACT);
+    expect(withoutActive(created)).toEqual(USER_JOB_COMPACT);
     return created;
   }
 
@@ -121,8 +132,12 @@ describe("transform-job e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, TransformJobListEnvelope)).toEqual({
-      data: [USER_JOB_COMPACT, ...BUILT_IN_JOBS],
+    const envelope = parseJson(result.stdout, TransformJobListEnvelope);
+    const byId = [...envelope.data]
+      .toSorted((left, right) => left.id - right.id)
+      .map(withoutActive);
+    expect(byId).toEqual([...BUILT_IN_JOBS, USER_JOB_COMPACT]);
+    expect({ returned: envelope.returned, total: envelope.total }).toEqual({
       returned: BUILT_IN_JOBS.length + 1,
       total: BUILT_IN_JOBS.length + 1,
     });
@@ -138,7 +153,7 @@ describe("transform-job e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, TransformJobCompact)).toEqual(USER_JOB_COMPACT);
+    expect(withoutActive(parseJson(result.stdout, TransformJobCompact))).toEqual(USER_JOB_COMPACT);
   });
 
   it("update changes the schedule and the change is visible via get", async () => {
@@ -151,7 +166,7 @@ describe("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(updateResult.exitCode, updateResult.stderr).toBe(0);
-    expect(parseJson(updateResult.stdout, TransformJobCompact)).toEqual({
+    expect(withoutActive(parseJson(updateResult.stdout, TransformJobCompact))).toEqual({
       ...USER_JOB_COMPACT,
       schedule: SECOND_CRON,
     });
@@ -162,7 +177,7 @@ describe("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(getResult.exitCode, getResult.stderr).toBe(0);
-    expect(parseJson(getResult.stdout, TransformJobCompact)).toEqual({
+    expect(withoutActive(parseJson(getResult.stdout, TransformJobCompact))).toEqual({
       ...USER_JOB_COMPACT,
       schedule: SECOND_CRON,
     });
@@ -189,7 +204,7 @@ describe("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(getResult.exitCode).toBe(1);
-    expect(getResult.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(getResult.stderr).toContain(`Not found: GET /api/transform-job/${FIRST_USER_JOB_ID}.`);
   });
 
   it("create with body missing required schedule fails on Zod validation", async () => {
@@ -222,7 +237,7 @@ describe("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/transform-job/9999999.");
   });
 
   it("delete without --yes proceeds in non-TTY (auto-confirm matches kubectl/gh/docker convention)", async () => {

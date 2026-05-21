@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { defineMetabaseCommand } from "../commands/runtime";
+import { BASELINE_CAPABILITIES } from "../core/version/capabilities";
 
 import { buildManifest } from "./manifest";
 
@@ -35,6 +36,7 @@ describe("buildManifest", () => {
           examples: [],
           args: [],
           outputSchema: null,
+          capabilities: BASELINE_CAPABILITIES,
         },
       ],
     });
@@ -126,9 +128,44 @@ describe("buildManifest", () => {
             required: ["ok", "name"],
             additionalProperties: false,
           },
+          capabilities: BASELINE_CAPABILITIES,
         },
       ],
     });
+  });
+
+  it("forwards details for metabase commands that declare it and omits the key otherwise", async () => {
+    const withDetails = defineMetabaseCommand({
+      meta: { name: "with", description: "short" },
+      args: {},
+      details: "the long per-command knowledge",
+      run() {
+        return;
+      },
+    });
+    const without = defineMetabaseCommand({
+      meta: { name: "without", description: "short" },
+      args: {},
+      run() {
+        return;
+      },
+    });
+    const root = defineCommand({
+      meta: { name: "root" },
+      subCommands: {
+        with: () => Promise.resolve(withDetails),
+        without: () => Promise.resolve(without),
+      },
+    });
+
+    const manifest = await buildManifest(root);
+    const withEntry = manifest.commands.find((entry) => entry.command === "with");
+    const withoutEntry = manifest.commands.find((entry) => entry.command === "without");
+    if (withoutEntry === undefined) {
+      throw new Error("expected the 'without' entry in the manifest");
+    }
+    expect(withEntry?.details).toBe("the long per-command knowledge");
+    expect("details" in withoutEntry).toBe(false);
   });
 
   it("skips commands marked meta.hidden = true (and their subtrees)", async () => {
@@ -159,7 +196,7 @@ describe("buildManifest", () => {
     expect(manifest.commands.map((entry) => entry.command)).toEqual(["visible"]);
   });
 
-  it("returns null outputSchema and empty examples for non-metabase leaf commands", async () => {
+  it("skips non-metabase leaf commands (raw defineCommand without augment)", async () => {
     const leaf = defineCommand({
       meta: { name: "leaf", description: "raw" },
       args: {},
@@ -174,17 +211,6 @@ describe("buildManifest", () => {
 
     const manifest = await buildManifest(root);
 
-    expect(manifest).toEqual({
-      version: 1,
-      commands: [
-        {
-          command: "leaf",
-          description: "raw",
-          examples: [],
-          args: [],
-          outputSchema: null,
-        },
-      ],
-    });
+    expect(manifest).toEqual({ version: 1, commands: [] });
   });
 });

@@ -1,12 +1,18 @@
-import { readRejection } from "./auth/rejection";
-import { DEFAULT_PROFILE, readLicense, readProfile } from "./auth/storage";
+import { DEFAULT_PROFILE, readLicense, readProfile, readProfileRecord } from "./auth/storage";
 import { ConfigError } from "./errors";
-import { normalizeUrl, originOnly } from "./url";
+import { normalizeUrl } from "./url";
 
 const ENV_URL = "METABASE_URL";
 const ENV_API_KEY = "METABASE_API_KEY";
 const ENV_PROFILE = "METABASE_PROFILE";
 const ENV_LICENSE_TOKEN = "METABASE_LICENSE_TOKEN";
+const ENV_SKIP_PREFLIGHT = "METABASE_CLI_SKIP_PREFLIGHT";
+
+export const SKIP_PREFLIGHT_ENV = ENV_SKIP_PREFLIGHT;
+
+export function isPreflightSkipped(): boolean {
+  return process.env[ENV_SKIP_PREFLIGHT] === "1";
+}
 
 export type ConfigSource = "flag" | "env" | "stored" | "mixed";
 
@@ -69,14 +75,9 @@ export async function resolveConfig(flags: ConfigFlags): Promise<ResolvedConfig>
   const keyField = pickField(flagKey, env.apiKey, stored?.apiKey);
 
   if (urlField === null || keyField === null) {
-    const rejection = await readRejection(profile);
-    if (rejection !== null) {
-      throw new ConfigError(
-        `Last login for profile "${profile}" was rejected by ${originOnly(rejection.url)}: ${rejection.reason}. Re-run \`mb auth login --profile ${profile}\` with valid credentials.`,
-      );
-    }
+    const hint = await failureHintForProfile(profile);
     throw new ConfigError(
-      `Not authenticated for profile "${profile}". Run \`mb auth login\`, set ${ENV_URL}/${ENV_API_KEY}, or pass --url/--api-key.`,
+      `Not authenticated for profile "${profile}". Run \`mb auth login\`, set ${ENV_URL}/${ENV_API_KEY}, or pass --url/--api-key.${hint}`,
     );
   }
 
@@ -95,10 +96,21 @@ export async function resolveLicenseToken(flags: LicenseFlags): Promise<string> 
   const value = flag ?? env ?? stored;
   if (!value) {
     throw new ConfigError(
-      `No license token. Pass --token, set ${ENV_LICENSE_TOKEN}, or store one with \`mb license set\`.`,
+      `No license token. Pass --token, set ${ENV_LICENSE_TOKEN}, or store one with \`mb workspace license set\`.`,
     );
   }
   return value;
+}
+
+async function failureHintForProfile(profile: string): Promise<string> {
+  const record = await readProfileRecord(profile);
+  if (record === null || record.lastFailure === null) {
+    return "";
+  }
+  if (record.lastProbe !== null && record.lastProbe.at >= record.lastFailure.at) {
+    return "";
+  }
+  return ` profile "${profile}" last verify failed: ${record.lastFailure.reason}. Run \`mb auth login --profile ${profile}\` to update the token.`;
 }
 
 function pickField(

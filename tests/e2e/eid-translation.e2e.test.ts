@@ -6,7 +6,10 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_CARDS } from "./seed/ids";
+import { SEEDED } from "./seed/seeded";
+import { requireServer } from "./server-gate";
+
+const transformsSkip = requireServer({ minVersion: 59, edition: "oss" });
 
 describe("eid translate e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -49,7 +52,7 @@ describe("eid translate e2e", () => {
   }
 
   it("translates a real card entity-id back to its numeric id with the --model/--eids shortcut", async () => {
-    const eid = await getCardEid(E2E_CARDS.ORDERS_BY_STATUS);
+    const eid = await getCardEid(SEEDED.ordersCardId);
 
     const result = await runCli({
       args: ["eid", "translate", "--model", "card", "--eids", eid, "--json"],
@@ -60,7 +63,7 @@ describe("eid translate e2e", () => {
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, EidTranslateResult)).toEqual({
       entity_ids: {
-        [eid]: { id: E2E_CARDS.ORDERS_BY_STATUS, type: "card", status: "ok" },
+        [eid]: { id: SEEDED.ordersCardId, type: "card", status: "ok" },
       },
     });
   });
@@ -93,20 +96,23 @@ describe("eid translate e2e", () => {
     expect(result.stderr).toContain('invalid --model: "totally-invalid"');
   });
 
-  it("accepts the previously-missing transform model in the closed enum (synced with backend)", async () => {
-    const fakeButValidEid = "Y".repeat(21);
+  it.skipIf(transformsSkip !== null)(
+    "accepts the previously-missing transform model in the closed enum (synced with backend)",
+    async () => {
+      const fakeButValidEid = "Y".repeat(21);
 
-    const result = await runCli({
-      args: ["eid", "translate", "--model", "transform", "--eids", fakeButValidEid, "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
+      const result = await runCli({
+        args: ["eid", "translate", "--model", "transform", "--eids", fakeButValidEid, "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
 
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, EidTranslateResult)).toEqual({
-      entity_ids: {
-        [fakeButValidEid]: { type: "transform", status: "not-found" },
-      },
-    });
-  });
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, EidTranslateResult)).toEqual({
+        entity_ids: {
+          [fakeButValidEid]: { type: "transform", status: "not-found" },
+        },
+      });
+    },
+  );
 });

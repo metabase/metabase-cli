@@ -1,15 +1,15 @@
 import { z } from "zod";
 
-import { writeLicense } from "../../core/auth/storage";
-import { readEnvLicenseToken } from "../../core/config";
-import { ConfigError } from "../../core/errors";
-import type { ResourceView } from "../../domain/view";
-import { warn } from "../../output/notice";
-import { promptPassword } from "../../output/prompt";
-import { renderItem } from "../../output/render";
-import { readInput } from "../../runtime/input";
-import { outputFlags } from "../flags";
-import { defineMetabaseCommand } from "../runtime";
+import { writeLicense } from "../../../core/auth/storage";
+import { readEnvLicenseToken } from "../../../core/config";
+import { ConfigError } from "../../../core/errors";
+import type { ResourceView } from "../../../domain/view";
+import { warn } from "../../../output/notice";
+import { promptPassword } from "../../../output/prompt";
+import { renderItem } from "../../../output/render";
+import { readInput } from "../../../runtime/input";
+import { outputFlags } from "../../flags";
+import { defineMetabaseCommand } from "../../runtime";
 
 export const LicenseSetResult = z.object({
   stored: z.literal(true),
@@ -23,6 +23,7 @@ const licenseSetView: ResourceView<LicenseSetResultJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "set", description: "Store a Metabase license token" },
+  capabilities: null,
   args: {
     ...outputFlags,
     token: {
@@ -33,9 +34,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: LicenseSetResult,
   examples: [
-    "echo $METABASE_LICENSE_TOKEN | mb license set",
-    "mb license set < token.txt",
-    "mb license set $METABASE_LICENSE_TOKEN",
+    "echo $METABASE_LICENSE_TOKEN | mb workspace license set",
+    "mb workspace license set < token.txt",
+    "mb workspace license set $METABASE_LICENSE_TOKEN",
   ],
   async run({ args, ctx }) {
     const token = await resolveToken(args.token);

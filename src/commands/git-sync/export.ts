@@ -42,6 +42,7 @@ export default defineMetabaseCommand({
     name: "export",
     description: "Export Metabase changes back to the configured git remote",
   },
+  capabilities: { minVersion: 60, edition: "ee", tokenFeature: "remote_sync" },
   args: {
     ...outputFlags,
     ...profileFlag,

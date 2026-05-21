@@ -13,6 +13,8 @@ describe("CurrentUser", () => {
     expect(parseJson(readFileSync(samplePath, "utf8"), CurrentUser)).toEqual({
       id: 7,
       email: "alice@example.com",
+      common_name: "Alice Example",
+      is_superuser: true,
     });
   });
 
@@ -20,21 +22,27 @@ describe("CurrentUser", () => {
     const parsed = CurrentUser.parse({
       id: 7,
       email: "alice@example.com",
+      common_name: "Alice Example",
+      is_superuser: false,
       first_name: "Alice",
       experimental_flag: true,
     });
     expect(parsed).toEqual({
       id: 7,
       email: "alice@example.com",
+      common_name: "Alice Example",
+      is_superuser: false,
       first_name: "Alice",
       experimental_flag: true,
     });
   });
 
-  it("userView declares id and email columns", () => {
+  it("userView declares id, email, name, and admin columns", () => {
     expect(userView.tableColumns).toEqual([
       { key: "id", label: "ID" },
       { key: "email", label: "Email" },
+      { key: "common_name", label: "Name" },
+      { key: "is_superuser", label: "Admin" },
     ]);
   });
 });

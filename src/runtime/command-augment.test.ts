@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { BASELINE_CAPABILITIES } from "../core/version/capabilities";
+
 import { getMetabaseAugment, setMetabaseAugment, type MetabaseAugment } from "./command-augment";
 
 describe("getMetabaseAugment / setMetabaseAugment", () => {
@@ -13,7 +15,9 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
     const cmd = {};
     const augment: MetabaseAugment = {
       examples: ["mb card list"],
+      details: "see mb skills get mbql",
       outputSchema: z.object({ id: z.number() }),
+      capabilities: BASELINE_CAPABILITIES,
     };
     setMetabaseAugment(cmd, augment);
     expect(getMetabaseAugment(cmd)).toBe(augment);
@@ -22,8 +26,18 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
   it("keys augments by reference identity, not structural equality", () => {
     const first = {};
     const second = {};
-    const firstAugment: MetabaseAugment = { examples: ["a"], outputSchema: null };
-    const secondAugment: MetabaseAugment = { examples: ["b"], outputSchema: null };
+    const firstAugment: MetabaseAugment = {
+      examples: ["a"],
+      details: null,
+      outputSchema: null,
+      capabilities: BASELINE_CAPABILITIES,
+    };
+    const secondAugment: MetabaseAugment = {
+      examples: ["b"],
+      details: null,
+      outputSchema: null,
+      capabilities: BASELINE_CAPABILITIES,
+    };
     setMetabaseAugment(first, firstAugment);
     setMetabaseAugment(second, secondAugment);
     expect(getMetabaseAugment(first)).toBe(firstAugment);
@@ -32,8 +46,18 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
 
   it("overwrites an existing augment when set is called twice on the same command", () => {
     const cmd = {};
-    const initial: MetabaseAugment = { examples: ["before"], outputSchema: null };
-    const replacement: MetabaseAugment = { examples: ["after"], outputSchema: null };
+    const initial: MetabaseAugment = {
+      examples: ["before"],
+      details: null,
+      outputSchema: null,
+      capabilities: BASELINE_CAPABILITIES,
+    };
+    const replacement: MetabaseAugment = {
+      examples: ["after"],
+      details: null,
+      outputSchema: null,
+      capabilities: BASELINE_CAPABILITIES,
+    };
     setMetabaseAugment(cmd, initial);
     setMetabaseAugment(cmd, replacement);
     expect(getMetabaseAugment(cmd)).toBe(replacement);
@@ -41,9 +65,19 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
 
   it("accepts outputSchema=null as a valid stored augment", () => {
     const cmd = {};
-    const augment: MetabaseAugment = { examples: [], outputSchema: null };
+    const augment: MetabaseAugment = {
+      examples: [],
+      details: null,
+      outputSchema: null,
+      capabilities: BASELINE_CAPABILITIES,
+    };
     setMetabaseAugment(cmd, augment);
     const recalled = getMetabaseAugment(cmd);
-    expect(recalled).toEqual({ examples: [], outputSchema: null });
+    expect(recalled).toEqual({
+      examples: [],
+      details: null,
+      outputSchema: null,
+      capabilities: BASELINE_CAPABILITIES,
+    });
   });
 });

@@ -2,62 +2,46 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { CardListEnvelope } from "../../src/commands/card/list";
 import { ValidationOutcome } from "../../src/core/schema/validate";
-import { Card, CardCompact, CardQueryResult } from "../../src/domain/card";
+import { Card, CardCompact, CardCreateInput, CardQueryResult } from "../../src/domain/card";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_CARDS, E2E_COLLECTIONS, E2E_DATABASES, E2E_TABLES } from "./seed/ids";
+import { SEEDED } from "./seed/seeded";
 
-const FIRST_NEW_CARD_ID = 95;
 const NEW_CARD_NAME = "e2e_card_new";
 const ORDERS_BY_STATUS_NAME = "Orders by status";
 
 const ORDERS_BY_STATUS_COMPACT = {
-  id: E2E_CARDS.ORDERS_BY_STATUS,
+  id: SEEDED.ordersCardId,
   name: ORDERS_BY_STATUS_NAME,
   type: "question",
   display: "table",
   archived: false,
-  database_id: E2E_DATABASES.WAREHOUSE,
-  collection_id: E2E_COLLECTIONS.DEFAULT,
+  database_id: SEEDED.warehouseDbId,
+  collection_id: SEEDED.defaultCollectionId,
   description: null,
 } as const;
 
 const NEW_CARD_COMPACT = {
-  id: FIRST_NEW_CARD_ID,
   name: NEW_CARD_NAME,
   type: "question",
   display: "table",
   archived: false,
-  database_id: E2E_DATABASES.WAREHOUSE,
-  collection_id: E2E_COLLECTIONS.DEFAULT,
+  database_id: SEEDED.warehouseDbId,
+  collection_id: SEEDED.defaultCollectionId,
   description: null,
 } as const;
 
-interface NativeQueryBody {
-  type: "native";
-  database: number;
-  native: { query: string };
-}
-
-interface CardCreateBody {
-  name: string;
-  display: "table";
-  visualization_settings: Record<string, unknown>;
-  collection_id: number;
-  dataset_query: NativeQueryBody;
-}
-
-const NEW_CARD_BODY: CardCreateBody = {
+const NEW_CARD_BODY: CardCreateInput = {
   name: NEW_CARD_NAME,
   display: "table",
   visualization_settings: {},
-  collection_id: E2E_COLLECTIONS.DEFAULT,
+  collection_id: SEEDED.defaultCollectionId,
   dataset_query: {
     type: "native",
-    database: E2E_DATABASES.WAREHOUSE,
+    database: SEEDED.warehouseDbId,
     native: { query: "SELECT 2 AS x" },
   },
 };
@@ -106,14 +90,14 @@ describe("card e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     const envelope = parseJson(result.stdout, CardListEnvelope);
-    expect(envelope.data.find((row) => row.id === E2E_CARDS.ORDERS_BY_STATUS)).toEqual(
+    expect(envelope.data.find((row) => row.id === SEEDED.ordersCardId)).toEqual(
       ORDERS_BY_STATUS_COMPACT,
     );
     expect(envelope.data.filter((row) => row.archived)).toEqual([]);
   });
 
   it("list --filter archived returns the archived card and excludes the active one", async () => {
-    const archived = await archiveCard(E2E_CARDS.ORDERS_BY_STATUS);
+    const archived = await archiveCard(SEEDED.ordersCardId);
     expect(archived).toEqual({ ...ORDERS_BY_STATUS_COMPACT, archived: true });
 
     const result = await runCli({
@@ -132,7 +116,7 @@ describe("card e2e", () => {
 
   it("get returns the seeded card by id in compact form", async () => {
     const result = await runCli({
-      args: ["card", "get", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      args: ["card", "get", String(SEEDED.ordersCardId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -143,7 +127,7 @@ describe("card e2e", () => {
 
   it("get --full returns the full card with dataset_query and query_type", async () => {
     const result = await runCli({
-      args: ["card", "get", String(E2E_CARDS.ORDERS_BY_STATUS), "--json", "--full"],
+      args: ["card", "get", String(SEEDED.ordersCardId), "--json", "--full"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -157,7 +141,7 @@ describe("card e2e", () => {
       table_id: card.table_id,
       dashboard_id: card.dashboard_id,
     }).toEqual({
-      id: E2E_CARDS.ORDERS_BY_STATUS,
+      id: SEEDED.ordersCardId,
       query_type: "native",
       creator_id: 2,
       table_id: null,
@@ -185,12 +169,12 @@ describe("card e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/card/9999999.");
   });
 
   it("query (json) executes the card and returns the full result envelope", async () => {
     const result = await runCli({
-      args: ["card", "query", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      args: ["card", "query", String(SEEDED.ordersCardId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -213,7 +197,7 @@ describe("card e2e", () => {
 
   it("query --limit truncates the rows kept in the JSON envelope", async () => {
     const result = await runCli({
-      args: ["card", "query", String(E2E_CARDS.ORDERS_BY_STATUS), "--json", "--limit", "2"],
+      args: ["card", "query", String(SEEDED.ordersCardId), "--json", "--limit", "2"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -232,7 +216,7 @@ describe("card e2e", () => {
 
   it("query --export-format csv streams a CSV with the expected header and rows", async () => {
     const result = await runCli({
-      args: ["card", "query", String(E2E_CARDS.ORDERS_BY_STATUS), "--export-format", "csv"],
+      args: ["card", "query", String(SEEDED.ordersCardId), "--export-format", "csv"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -245,7 +229,7 @@ describe("card e2e", () => {
 
   it("query --export-format xlsx streams an XLSX file (zip magic bytes)", async () => {
     const result = await runCli({
-      args: ["card", "query", String(E2E_CARDS.ORDERS_BY_STATUS), "--export-format", "xlsx"],
+      args: ["card", "query", String(SEEDED.ordersCardId), "--export-format", "xlsx"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -256,7 +240,7 @@ describe("card e2e", () => {
 
   it("query --export-format with an invalid value fails with ConfigError", async () => {
     const result = await runCli({
-      args: ["card", "query", String(E2E_CARDS.ORDERS_BY_STATUS), "--export-format", "html"],
+      args: ["card", "query", String(SEEDED.ordersCardId), "--export-format", "html"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -268,14 +252,7 @@ describe("card e2e", () => {
 
   it("query --parameters with malformed JSON fails fast with a parse error", async () => {
     const result = await runCli({
-      args: [
-        "card",
-        "query",
-        String(E2E_CARDS.ORDERS_BY_STATUS),
-        "--parameters",
-        "not-json",
-        "--json",
-      ],
+      args: ["card", "query", String(SEEDED.ordersCardId), "--parameters", "not-json", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -293,10 +270,11 @@ describe("card e2e", () => {
       env: authEnv(),
     });
     expect(createResult.exitCode, createResult.stderr).toBe(0);
-    expect(parseJson(createResult.stdout, CardCompact)).toEqual(NEW_CARD_COMPACT);
+    const created = parseJson(createResult.stdout, CardCompact);
+    expect(created).toEqual({ ...NEW_CARD_COMPACT, id: created.id });
 
-    const archived = await archiveCard(FIRST_NEW_CARD_ID);
-    expect(archived).toEqual({ ...NEW_CARD_COMPACT, archived: true });
+    const archived = await archiveCard(created.id);
+    expect(archived).toEqual({ ...NEW_CARD_COMPACT, id: created.id, archived: true });
   });
 
   it("create with a body missing required fields fails on Zod validation", async () => {
@@ -319,14 +297,14 @@ describe("card e2e", () => {
         name: "preflight-fail",
         display: "table",
         visualization_settings: {},
-        collection_id: E2E_COLLECTIONS.DEFAULT,
+        collection_id: SEEDED.defaultCollectionId,
         dataset_query: {
           "lib/type": "mbql/query",
           database: "oops not an integer",
           stages: [
             {
               "lib/type": "mbql.stage/mbql",
-              "source-table": E2E_TABLES.ORDERS,
+              "source-table": SEEDED.tables.orders,
             },
           ],
         },
@@ -352,11 +330,11 @@ describe("card e2e", () => {
         name: "skip-validate-bypass",
         display: "table",
         visualization_settings: {},
-        collection_id: E2E_COLLECTIONS.DEFAULT,
+        collection_id: SEEDED.defaultCollectionId,
         dataset_query: {
           "lib/type": "mbql/query",
           database: "oops not an integer",
-          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": E2E_TABLES.ORDERS }],
+          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": SEEDED.tables.orders }],
         },
       }),
       configHome: await makeIsolatedConfigHome(),
@@ -385,7 +363,7 @@ describe("card e2e", () => {
 
   it("update renames the card and the compact view reflects the new name", async () => {
     const result = await runCli({
-      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      args: ["card", "update", String(SEEDED.ordersCardId), "--json"],
       stdin: JSON.stringify({ name: "Orders by status (renamed)" }),
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
@@ -400,7 +378,7 @@ describe("card e2e", () => {
 
   it("update flips archived to true and the archived list reflects it", async () => {
     const updateResult = await runCli({
-      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      args: ["card", "update", String(SEEDED.ordersCardId), "--json"],
       stdin: JSON.stringify({ archived: true }),
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
@@ -426,7 +404,7 @@ describe("card e2e", () => {
 
   it("update changes display from table to bar without disturbing other fields", async () => {
     const result = await runCli({
-      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      args: ["card", "update", String(SEEDED.ordersCardId), "--json"],
       stdin: JSON.stringify({ display: "bar" }),
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
@@ -461,12 +439,12 @@ describe("card e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: PUT /api/card/9999999.");
   });
 
   it("update with invalid MBQL 5 dataset_query fails pre-flight before sending", async () => {
     const result = await runCli({
-      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      args: ["card", "update", String(SEEDED.ordersCardId), "--json"],
       stdin: JSON.stringify({
         dataset_query: {
           "lib/type": "mbql/query",
@@ -474,7 +452,7 @@ describe("card e2e", () => {
           stages: [
             {
               "lib/type": "mbql.stage/mbql",
-              "source-table": E2E_TABLES.ORDERS,
+              "source-table": SEEDED.tables.orders,
             },
           ],
         },
@@ -495,12 +473,12 @@ describe("card e2e", () => {
 
   it("update --skip-validate bypasses the MBQL 5 pre-flight (server is the authority)", async () => {
     const result = await runCli({
-      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--skip-validate", "--json"],
+      args: ["card", "update", String(SEEDED.ordersCardId), "--skip-validate", "--json"],
       stdin: JSON.stringify({
         dataset_query: {
           "lib/type": "mbql/query",
           database: "oops not an integer",
-          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": E2E_TABLES.ORDERS }],
+          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": SEEDED.tables.orders }],
         },
       }),
       configHome: await makeIsolatedConfigHome(),
@@ -511,7 +489,7 @@ describe("card e2e", () => {
     // shape, so the bad `database` does not trigger a 400. Bypass is proven by exit 0 — without
     // --skip-validate the prior test shows pre-flight rejects with exit 2.
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, CardCompact).id).toBe(E2E_CARDS.ORDERS_BY_STATUS);
+    expect(parseJson(result.stdout, CardCompact).id).toBe(SEEDED.ordersCardId);
   });
 
   it("create with dataset_query: {} is rejected at the CLI boundary (no H2 stack trace)", async () => {
@@ -521,7 +499,7 @@ describe("card e2e", () => {
         name: "empty-dataset-query",
         display: "table",
         visualization_settings: {},
-        collection_id: E2E_COLLECTIONS.DEFAULT,
+        collection_id: SEEDED.defaultCollectionId,
         dataset_query: {},
       }),
       configHome: await makeIsolatedConfigHome(),
@@ -544,7 +522,7 @@ describe("card e2e", () => {
         name: "null-dataset-query",
         display: "table",
         visualization_settings: {},
-        collection_id: E2E_COLLECTIONS.DEFAULT,
+        collection_id: SEEDED.defaultCollectionId,
         dataset_query: null,
       }),
       configHome: await makeIsolatedConfigHome(),
@@ -559,7 +537,7 @@ describe("card e2e", () => {
 
   it("update with dataset_query: {} is rejected at the CLI boundary", async () => {
     const result = await runCli({
-      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      args: ["card", "update", String(SEEDED.ordersCardId), "--json"],
       stdin: JSON.stringify({ dataset_query: {} }),
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
@@ -575,7 +553,7 @@ describe("card e2e", () => {
 
   it("update with dataset_query: null is rejected at the CLI boundary", async () => {
     const result = await runCli({
-      args: ["card", "update", String(E2E_CARDS.ORDERS_BY_STATUS), "--json"],
+      args: ["card", "update", String(SEEDED.ordersCardId), "--json"],
       stdin: JSON.stringify({ dataset_query: null }),
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
