@@ -105,24 +105,12 @@ mb database list --profile "$WS_NAME" --json
 mb setting get remote-sync-url --profile "$WS_NAME" --json    # → "file:///mnt/repo"
 mb git-sync status --profile "$WS_NAME" --json                # → branch, dirty, current task
 
-# 7. (If REPO_FLAGS was set) Ensure the repo has been applied to the fresh workspace.
-#    The container's boot-time auto-import usually handles this on its own, so check
-#    `git-sync status` first — if `current_task` already shows a successful `import` for
-#    the current branch, skip the explicit call (it's a no-op round-trip).
-#    Only when the auto-import hasn't landed yet do you need an explicit import.
-#    The first explicit import on a fresh instance can spuriously report
-#    `status: conflict` (stale task state from the boot-time import); retry once,
-#    then `--force` is safe because the workspace is empty (nothing to lose).
-#    Skipping the import entirely is *not* safe — without it the instance has none
-#    of the repo content and subsequent edits will diverge.
-HOST_BRANCH=$(git -C "$(pwd)" symbolic-ref --short HEAD)
-SYNC_STATUS=$(mb git-sync status --profile "$WS_NAME" --json)
-if ! echo "$SYNC_STATUS" | jq -e --arg b "$HOST_BRANCH" \
-     '.current_task.sync_task_type == "import" and .current_task.status == "successful" and (.branch == $b)' >/dev/null; then
-  mb git-sync import --branch "$HOST_BRANCH" --profile "$WS_NAME" --json \
-    || mb git-sync import --branch "$HOST_BRANCH" --profile "$WS_NAME" --json \
-    || mb git-sync import --branch "$HOST_BRANCH" --force --profile "$WS_NAME" --json
-fi
+# 7. (If REPO_FLAGS was set) Apply the repo to the fresh workspace. The container's
+#    boot-time auto-import usually handles this — the step-6 `git-sync status` shows
+#    whether it landed. If `current_task` is not a successful `import` for the host
+#    branch, run an explicit import. The status-check + retry-then-force guard lives
+#    in the git-sync skill, "First import on a fresh workspace". Skipping the import is
+#    *not* safe — without it the instance has none of the repo content and edits diverge.
 ```
 
 After step 5, drive the child via `mb <verb> --profile $WS_NAME` for everything (cards, transforms, queries, …). To author a transform on the workspace, load the `transform` skill (`mb skills get transform`). To use the sync flow (import host commits, export instance changes), load the `git-sync` skill (`mb skills get git-sync`).
@@ -238,17 +226,15 @@ mb workspace start <ws-id> --repo /path/to/repo --repo-branch dev --repo-mode re
 
 `--wait` blocks until `state: "running"`. Don't omit it for interactive bring-up — without it the next step (saving credentials as a child profile) races the container's HTTP listener and you'll get spurious connection errors.
 
-| Flag                   | Purpose                                                                                                                                                                                                                                                                                                                      |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--port <n>`           | Host port (default 3000; **does not** auto-shift reliably — pass an explicit free port if 3000 might be taken).                                                                                                                                                                                                              |
-| `--wait`               | Block until `/api/health` reports ready before returning.                                                                                                                                                                                                                                                                    |
-| `--no-pull`            | Skip `docker pull` (image already present).                                                                                                                                                                                                                                                                                  |
-| `--no-metadata`        | Skip the warehouse metadata export.                                                                                                                                                                                                                                                                                          |
-| `--force`              | Recreate even if a container for this workspace exists. Preserves the app db.                                                                                                                                                                                                                                                |
-| `--timeout <ms>`       | Per-phase readiness deadline (default 240000). Covers the post-create config-consumption wait, (with `--wait`) the `/api/health` probe, and (with `--metadata`) the metadata-import status poll on the child. Bump if the first cold boot exceeds the default — image pull + JVM startup can stretch on slow disks/networks. |
-| `--repo <host-path>`   | Bind-mount a host directory at `/mnt/repo` and inject `remote-sync-url=file:///mnt/repo` into config.yml.                                                                                                                                                                                                                    |
-| `--repo-branch <name>` | `remote-sync-branch` value. Default: current branch of the host repo (`git symbolic-ref --short HEAD`).                                                                                                                                                                                                                      |
-| `--repo-mode <mode>`   | `read-write` (default) or `read-only`. Also flips the bind mount's mount mode.                                                                                                                                                                                                                                               |
+- `--port <n>` — host port (default 3000; **does not** auto-shift reliably — pass an explicit free port if 3000 might be taken).
+- `--wait` — block until `/api/health` reports ready before returning.
+- `--no-pull` — skip `docker pull` (image already present).
+- `--no-metadata` — skip the warehouse metadata export.
+- `--force` — recreate even if a container for this workspace exists. Preserves the app db.
+- `--timeout <ms>` — per-phase readiness deadline (default 240000). Covers the post-create config-consumption wait, (with `--wait`) the `/api/health` probe, and (with `--metadata`) the metadata-import status poll on the child. Bump if the first cold boot exceeds the default — image pull + JVM startup can stretch on slow disks/networks.
+- `--repo <host-path>` — bind-mount a host directory at `/mnt/repo` and inject `remote-sync-url=file:///mnt/repo` into config.yml.
+- `--repo-branch <name>` — `remote-sync-branch` value. Default: current branch of the host repo (`git symbolic-ref --short HEAD`).
+- `--repo-mode <mode>` — `read-write` (default) or `read-only`. Also flips the bind mount's mount mode.
 
 **Notes on `--repo`:**
 

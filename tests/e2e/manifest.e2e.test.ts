@@ -132,7 +132,7 @@ describe("__manifest e2e", () => {
       "measure create",
       "measure update",
       "measure archive",
-      "eid translate",
+      "eid",
       "query",
       "uuid",
       "upgrade",

@@ -1,7 +1,8 @@
-import type { ArgDef, ArgsDef, CommandDef, CommandMeta, Resolvable, SubCommandsDef } from "citty";
+import type { ArgDef, ArgsDef, CommandDef, CommandMeta } from "citty";
 import { z } from "zod";
 
 import { Capabilities } from "./capabilities";
+import { resolveCitty, toAliasArray } from "./citty";
 import { getMetabaseAugment } from "./command-augment";
 
 export const ManifestArg = z.object({
@@ -114,26 +115,9 @@ function readOptions(def: ArgDef): string[] {
 }
 
 function readAlias(def: ArgDef): string[] {
-  if (!("alias" in def) || def.alias === undefined) {
-    return [];
-  }
-  return Array.isArray(def.alias) ? def.alias : [def.alias];
+  return "alias" in def ? toAliasArray(def.alias) : [];
 }
 
 function isPrimitiveDefault(value: unknown): value is string | boolean | number {
   return typeof value === "string" || typeof value === "boolean" || typeof value === "number";
-}
-
-type CittyValue = CommandMeta | ArgsDef | SubCommandsDef | CommandDef;
-
-async function resolveCitty<T extends CittyValue>(
-  value: Resolvable<T> | undefined,
-): Promise<T | undefined> {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value === "function") {
-    return value();
-  }
-  return value;
 }

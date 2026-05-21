@@ -6,7 +6,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # MBQL 5
 
-MBQL 5 (the server's name; the bundled schema calls it "serialized pMBQL") is the **only query format you can author by hand** with confidence — it has a bundled JSON Schema, so the CLI pre-flight-validates it before sending. Legacy MBQL 4 and native SQL are accepted but **not** schema-validated (see "Other formats" below).
+MBQL 5 is the **only query format you can author by hand** with confidence — it has a bundled JSON Schema, so the CLI pre-flight-validates it before sending. Legacy MBQL 4 and native SQL are accepted but **not** schema-validated (see "Other formats" below).
 
 Prefer MBQL over native SQL: MBQL is portable across warehouse engines and the CLI can validate it. Reach for native only when the query needs something MBQL can't express.
 

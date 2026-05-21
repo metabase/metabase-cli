@@ -3,7 +3,7 @@ import { defineCommand } from "citty";
 export default defineCommand({
   meta: {
     name: "collection",
-    description: "Browse Metabase collections",
+    description: "Manage Metabase collections",
   },
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),

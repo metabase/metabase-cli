@@ -11,7 +11,7 @@ import { requireServer } from "./server-gate";
 
 const transformsSkip = requireServer({ minVersion: 59 });
 
-describe("eid translate e2e", () => {
+describe("eid e2e", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
 
@@ -55,7 +55,7 @@ describe("eid translate e2e", () => {
     const eid = await getCardEid(SEEDED.ordersCardId);
 
     const result = await runCli({
-      args: ["eid", "translate", "--model", "card", "--eids", eid, "--json"],
+      args: ["eid", "--model", "card", "--eids", eid, "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -72,7 +72,7 @@ describe("eid translate e2e", () => {
     const fakeButValidEid = "Z".repeat(21);
 
     const result = await runCli({
-      args: ["eid", "translate", "--model", "card", "--eids", fakeButValidEid, "--json"],
+      args: ["eid", "--model", "card", "--eids", fakeButValidEid, "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -87,7 +87,7 @@ describe("eid translate e2e", () => {
 
   it("rejects an unknown --model client-side with ConfigError exit code", async () => {
     const result = await runCli({
-      args: ["eid", "translate", "--model", "totally-invalid", "--eids", "abc", "--json"],
+      args: ["eid", "--model", "totally-invalid", "--eids", "abc", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -102,7 +102,7 @@ describe("eid translate e2e", () => {
       const fakeButValidEid = "Y".repeat(21);
 
       const result = await runCli({
-        args: ["eid", "translate", "--model", "transform", "--eids", fakeButValidEid, "--json"],
+        args: ["eid", "--model", "transform", "--eids", fakeButValidEid, "--json"],
         configHome: await makeIsolatedConfigHome(),
         env: authEnv(),
       });

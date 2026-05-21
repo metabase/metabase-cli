@@ -4,20 +4,20 @@ import {
   EidTranslateInput,
   EidTranslateResult,
   eidTranslateView,
-} from "../../domain/eid-translation";
-import { ConfigError } from "../../core/errors";
-import { renderItem } from "../../output/render";
-import { readBody } from "../../runtime/body";
-import { parseCsv } from "../../runtime/csv";
-import { bodyInputFlags } from "../body-flags";
-import { requireBothOrNeither } from "../flag-pair";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
-import { defineMetabaseCommand } from "../runtime";
+} from "../domain/eid-translation";
+import { ConfigError } from "../core/errors";
+import { renderItem } from "../output/render";
+import { readBody } from "../runtime/body";
+import { parseCsv } from "../runtime/csv";
+import { bodyInputFlags } from "./body-flags";
+import { requireBothOrNeither } from "./flag-pair";
+import { connectionFlags, outputFlags, profileFlag } from "./flags";
+import { defineMetabaseCommand } from "./runtime";
 
 export default defineMetabaseCommand({
   meta: {
-    name: "translate",
-    description: "Translate entity ids (EIDs) to numeric ids",
+    name: "eid",
+    description: "Translate Metabase entity ids (string EIDs) to numeric ids",
   },
   capabilities: { minVersion: 58 },
   args: {
@@ -36,9 +36,9 @@ export default defineMetabaseCommand({
   },
   outputSchema: EidTranslateResult,
   examples: [
-    "mb eid translate --model card --eids abc123XYZ,def456ABC",
-    "mb eid translate --file translate.json",
-    'mb eid translate --body \'{"entity_ids":{"card":["abc123XYZ"]}}\'',
+    "mb eid --model card --eids abc123XYZ,def456ABC",
+    "mb eid --file translate.json",
+    'mb eid --body \'{"entity_ids":{"card":["abc123XYZ"]}}\'',
   ],
   async run({ args, ctx, getClient }) {
     const pair = requireBothOrNeither(

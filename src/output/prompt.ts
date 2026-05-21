@@ -42,6 +42,7 @@ export async function promptText(opts: TextPromptOptions): Promise<string> {
   requireTty(opts.message);
   const value = await clackText({
     message: opts.message,
+    defaultValue: "",
     ...(opts.placeholder !== undefined && { placeholder: opts.placeholder }),
     ...(opts.initialValue !== undefined && { initialValue: opts.initialValue }),
     ...(opts.defaultValue !== undefined && { defaultValue: opts.defaultValue }),

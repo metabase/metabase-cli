@@ -48,4 +48,14 @@ describe("HTTP error messages (end-to-end)", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Not found: PUT /api/card/9999999.");
   });
+
+  it("list filter against a missing model id reports not-found and exits 1", async () => {
+    const result = await runCli({
+      args: ["card", "list", "--filter", "using_model", "--model-id", "9999999", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Not found: GET /api/card");
+  });
 });

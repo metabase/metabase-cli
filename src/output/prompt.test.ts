@@ -73,6 +73,7 @@ describe("promptText", () => {
     await promptText({ message: "URL", initialValue: "https://m" });
     expect(hoisted.text).toHaveBeenCalledWith({
       message: "URL",
+      defaultValue: "",
       initialValue: "https://m",
     });
   });

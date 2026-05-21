@@ -1314,14 +1314,14 @@ mb setup --body '{"token":"<setup-token>","user":{"email":"a@b.c","password":"..
 
 Endpoints commonly used by agents driving the instance. `card query` and `transform run` are documented in their own sections; the helper below covers entity-id translation.
 
-### `mb eid translate`
+### `mb eid`
 
 Translate string entity ids (EIDs) to numeric ids (`POST /api/eid-translation/translate`).
 
 ```sh
-mb eid translate --model card --eids abc123XYZ,def456ABC
-mb eid translate --file translate.json
-mb eid translate --body '{"entity_ids":{"card":["abc123XYZ"]}}'
+mb eid --model card --eids abc123XYZ,def456ABC
+mb eid --file translate.json
+mb eid --body '{"entity_ids":{"card":["abc123XYZ"]}}'
 ```
 
 | Flag             | Description                                                                                      |

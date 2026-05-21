@@ -19,20 +19,7 @@ A transform has two halves:
 
 Native SQL is the simplest source and the easiest to author by hand (see "Create + run" below). MBQL is what the Metabase UI emits and is more verbose; pull a sample with `mb transform get <id> --full --json` if you need its shape.
 
-For an **MBQL 5** `source.query` (`lib/type: "mbql/query"`), the body shape, the "options object is always second" clause rule, UUID minting, aggregation/order-by refs, and the `--print-schema` → `--dry-run` validation loop are all in the `mbql` skill — **`mb skills get mbql`**. `transform create`/`update` pre-flight an MBQL 5 `source.query` against that schema (exit 2 + `{ok, errors}` on failure); legacy MBQL 4 and native sources skip it; `--skip-validate` bypasses.
-
-**One transform-specific MBQL note: name your aggregation output columns.** A default aggregation materializes as `count`, `avg`, `sum_2`, … — ugly for a warehouse target table. Set `name` (the warehouse column name) and `display-name` (the UI header) in the aggregation's options object:
-
-```json
-[
-  "count",
-  {
-    "lib/uuid": "<mint via mb uuid>",
-    "name": "shipments_shipped",
-    "display-name": "Shipments shipped"
-  }
-]
-```
+For an **MBQL 5** `source.query` (`lib/type: "mbql/query"`), the body shape, the "options object is always second" clause rule, UUID minting, aggregation/order-by refs, naming aggregation output columns, and the `--print-schema` → `--dry-run` validation loop are all in the `mbql` skill — **`mb skills get mbql`**. The MBQL-5 pre-flight on `transform create`/`update` is documented there too (legacy MBQL 4 and native sources skip it). For a transform target, naming your aggregation output columns matters more than usual — a bare `count` / `avg_2` becomes the warehouse column name; see the `mbql` skill's "Naming aggregation output columns".
 
 ## Create + run (native SQL)
 

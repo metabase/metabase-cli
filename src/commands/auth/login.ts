@@ -49,6 +49,8 @@ const loginView: ResourceView<LoginResultJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "login", description: "Set Metabase credentials for a profile" },
+  details:
+    "API-key auth only. The key is read from --api-key, $METABASE_API_KEY, or piped stdin (first non-empty wins); the URL from --url or $METABASE_URL. Both are prompted when stdin is a TTY.",
   capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
