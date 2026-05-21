@@ -1294,7 +1294,7 @@ mb workspace license remove --yes
 
 ## Instance setup
 
-Operations against a workspace-instance Metabase. The setup wizard and API key creation are distinct endpoints — there is no shared body schema.
+Bootstrapping a fresh, not-yet-configured Metabase instance.
 
 ### `mb setup`
 
@@ -1310,23 +1310,6 @@ mb setup --body '{"token":"<setup-token>","user":{"email":"a@b.c","password":"..
 | --------------- | ----------------------- |
 | `--body <json>` | Inline JSON body.       |
 | `--file <path>` | Path to JSON body file. |
-
-### `mb api-key create`
-
-Create a new API key (`POST /api/api-key`). The unmasked key is returned on creation only; capture it from the output.
-
-```sh
-mb api-key create --name deploy-bot --group-id 2
-echo '{"name":"k","group_id":2}' | mb api-key create
-mb api-key create --file key.json
-```
-
-| Flag              | Description                               |
-| ----------------- | ----------------------------------------- |
-| `--name <name>`   | API key name (used with `--group-id`).    |
-| `--group-id <id>` | Permission group id (used with `--name`). |
-| `--body <json>`   | Inline JSON body.                         |
-| `--file <path>`   | Path to JSON body file.                   |
 
 ## Agent helpers
 

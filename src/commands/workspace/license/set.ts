@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { writeLicense } from "../../../core/auth/storage";
+import { keyringFallbackWarning, writeLicense } from "../../../core/auth/storage";
 import { readEnvLicenseToken } from "../../../core/config";
 import { ConfigError } from "../../../core/errors";
 import type { ResourceView } from "../../../domain/view";
@@ -43,7 +43,7 @@ export default defineMetabaseCommand({
     const location = await writeLicense(token);
 
     if (location.backend === "file") {
-      warn(`warning: OS keychain unavailable; license stored as plaintext at ${location.path}`);
+      warn(keyringFallbackWarning(location, "license"));
     }
 
     const result: LicenseSetResultJson = { stored: true };

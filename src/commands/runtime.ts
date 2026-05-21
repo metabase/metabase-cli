@@ -111,7 +111,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
   });
   setMetabaseAugment(cmd, {
     examples: def.examples ?? [],
-    details: def.details ?? null,
+    details: def.details ? def.details : null,
     outputSchema: def.outputSchema ?? null,
     capabilities: required,
   });

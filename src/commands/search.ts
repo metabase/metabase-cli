@@ -50,7 +50,7 @@ export default defineMetabaseCommand({
     },
     archived: {
       type: "boolean",
-      description: "Include archived items",
+      description: "Search only archived items (instead of only active ones)",
       default: false,
     },
     limit: {

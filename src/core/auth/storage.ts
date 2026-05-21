@@ -44,10 +44,15 @@ export interface KeyringLocation {
   account: CredentialAccount;
 }
 
+export type KeyringFallbackReason = "disabled" | "unavailable";
+
+export type KeyringFallbackSubject = "credentials" | "license";
+
 export interface FileLocation {
   backend: "file";
   path: string;
   account: CredentialAccount;
+  reason: KeyringFallbackReason;
 }
 
 export type CredentialLocation = KeyringLocation | FileLocation;
@@ -190,12 +195,32 @@ function findRecord(file: ProfilesFile, name: string): ProfileRecord | null {
   return file.profiles.find((entry) => entry.name === name) ?? null;
 }
 
+function fileLocation(key: CredentialAccount): FileLocation {
+  return {
+    backend: "file",
+    path: profilesFilePath(),
+    account: key,
+    reason: keyringEnabled() ? "unavailable" : "disabled",
+  };
+}
+
+export function keyringFallbackWarning(
+  location: FileLocation,
+  subject: KeyringFallbackSubject,
+): string {
+  const cause =
+    location.reason === "disabled"
+      ? "OS keychain disabled via METABASE_CLI_DISABLE_KEYRING"
+      : "OS keychain unavailable";
+  return `warning: ${cause}; ${subject} stored as plaintext at ${location.path}`;
+}
+
 async function persistApiKey(name: string, apiKey: string): Promise<CredentialLocation> {
   const key = account.profileApiKey(name);
   if (trySetKeyring(key, apiKey)) {
     return { backend: "keyring", service: KEYRING_SERVICE, account: key };
   }
-  return { backend: "file", path: profilesFilePath(), account: key };
+  return fileLocation(key);
 }
 
 export async function readProfile(name: string = DEFAULT_PROFILE): Promise<Profile | null> {
@@ -345,7 +370,7 @@ export async function writeLicense(token: string): Promise<CredentialLocation> {
     return { backend: "keyring", service: KEYRING_SERVICE, account: key };
   }
   await writeProfilesFile({ ...file, license: token });
-  return { backend: "file", path: profilesFilePath(), account: key };
+  return fileLocation(key);
 }
 
 export async function clearLicense(): Promise<boolean> {

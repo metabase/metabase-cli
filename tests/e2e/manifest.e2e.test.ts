@@ -117,7 +117,6 @@ describe("__manifest e2e", () => {
       "workspace license status",
       "workspace license remove",
       "setup",
-      "api-key create",
       "snippet list",
       "snippet get",
       "snippet create",

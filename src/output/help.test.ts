@@ -107,7 +107,7 @@ describe("showUsage", () => {
   it("omits the details block when none is declared", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "Short summary" },
-      args: { foo: { type: "string", description: "the foo flag" } },
+      args: {},
       run() {
         return;
       },

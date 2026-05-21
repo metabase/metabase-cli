@@ -47,7 +47,6 @@ export const SearchResultCompact = SearchResult.pick({
   name: true,
   model: true,
   description: true,
-  archived: true,
 }).strip();
 export type SearchResultCompact = z.infer<typeof SearchResultCompact>;
 
@@ -57,6 +56,5 @@ export const searchResultView: ResourceView<SearchResult> = {
     { key: "id", label: "ID" },
     { key: "model", label: "Model" },
     { key: "name", label: "Name" },
-    { key: "archived", label: "Archived" },
   ],
 };

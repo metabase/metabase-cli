@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   DEFAULT_PROFILE,
+  keyringFallbackWarning,
   writeProbeFailure,
   writeProbeResult,
   writeProfile,
@@ -84,9 +85,7 @@ export default defineMetabaseCommand({
     if (args["skip-verify"]) {
       const location = await writeProfile({ url, apiKey }, profileName);
       if (location.backend === "file") {
-        warn(
-          `warning: OS keychain unavailable; credentials stored as plaintext at ${location.path}`,
-        );
+        warn(keyringFallbackWarning(location, "credentials"));
       }
       renderItem(
         {
@@ -111,7 +110,7 @@ export default defineMetabaseCommand({
 
     const location = await writeProfile({ url, apiKey }, profileName);
     if (location.backend === "file") {
-      warn(`warning: OS keychain unavailable; credentials stored as plaintext at ${location.path}`);
+      warn(keyringFallbackWarning(location, "credentials"));
     }
     await writeProbeResult(profileName, { user: result.user, server: result.server });
 
@@ -143,12 +142,13 @@ async function resolveLoginProfile(flagProfile: string | undefined): Promise<str
   if (!process.stdin.isTTY) {
     return DEFAULT_PROFILE;
   }
-  return promptText({
-    message: "Profile name",
-    placeholder: DEFAULT_PROFILE,
-    initialValue: DEFAULT_PROFILE,
-    validate: (input) => (input ? undefined : "Profile name is required"),
-  });
+  const entered = (
+    await promptText({
+      message: "Profile name",
+      placeholder: DEFAULT_PROFILE,
+    })
+  ).trim();
+  return entered === "" ? DEFAULT_PROFILE : entered;
 }
 
 async function resolveUrl(flagUrl: string | undefined, envUrl: string | null): Promise<string> {

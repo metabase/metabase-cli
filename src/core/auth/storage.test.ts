@@ -24,6 +24,7 @@ const {
   clearLicense,
   clearProfile,
   consumeLegacyStorageWarning,
+  keyringFallbackWarning,
   LEGACY_STORAGE_NOTICE,
   listProfileNames,
   listProfileRecords,
@@ -36,6 +37,8 @@ const {
   writeProbeResult,
   writeProfile,
 } = storage;
+
+import type { FileLocation } from "./storage";
 
 import { join } from "node:path";
 
@@ -168,6 +171,7 @@ describe("profiles (file fallback when keyring is broken)", () => {
       backend: "file",
       path: profilesFilePath(),
       account: "profile:default:apiKey",
+      reason: "unavailable",
     });
     const file = parseJson(readFileSync(profilesFilePath(), "utf8"), ProfilesFile);
     expect(file.profiles[0]?.apiKey).toBe("secret");
@@ -349,6 +353,7 @@ describe("METABASE_CLI_DISABLE_KEYRING", () => {
       backend: "file",
       path: profilesFilePath(),
       account: "profile:default:apiKey",
+      reason: "disabled",
     });
     expect(hoisted.store.size).toBe(0);
     const file = parseJson(readFileSync(profilesFilePath(), "utf8"), ProfilesFile);
@@ -359,6 +364,32 @@ describe("METABASE_CLI_DISABLE_KEYRING", () => {
     process.env["METABASE_CLI_DISABLE_KEYRING"] = "0";
     const location = await writeProfile({ url: "https://m.example.com", apiKey: "secret" });
     expect(location.backend).toBe("keyring");
+  });
+});
+
+describe("keyringFallbackWarning", () => {
+  it("names the env var when the keyring was deliberately disabled", () => {
+    const location: FileLocation = {
+      backend: "file",
+      path: "/tmp/profiles.json",
+      account: "profile:default:apiKey",
+      reason: "disabled",
+    };
+    expect(keyringFallbackWarning(location, "credentials")).toBe(
+      "warning: OS keychain disabled via METABASE_CLI_DISABLE_KEYRING; credentials stored as plaintext at /tmp/profiles.json",
+    );
+  });
+
+  it("reports an unavailable keychain when the backend failed", () => {
+    const location: FileLocation = {
+      backend: "file",
+      path: "/tmp/profiles.json",
+      account: "license",
+      reason: "unavailable",
+    };
+    expect(keyringFallbackWarning(location, "license")).toBe(
+      "warning: OS keychain unavailable; license stored as plaintext at /tmp/profiles.json",
+    );
   });
 });
 

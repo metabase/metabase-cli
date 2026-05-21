@@ -66,7 +66,7 @@ async function walk(cmd: CommandDef, path: string[]): Promise<ManifestEntry[]> {
     outputSchema: augment.outputSchema ? z.toJSONSchema(augment.outputSchema) : null,
     capabilities: augment.capabilities,
   };
-  if (augment.details !== null && augment.details !== "") {
+  if (augment.details !== null) {
     entry.details = augment.details;
   }
   return [entry];

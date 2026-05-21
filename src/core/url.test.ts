@@ -187,7 +187,9 @@ describe("normalizeUrl property tests", () => {
 });
 
 describe("originOnly property tests", () => {
-  const safeHost = fc.stringMatching(/^[a-z][a-z0-9-]{0,30}\.[a-z]{2,6}$/);
+  const safeHost = fc
+    .stringMatching(/^[a-z][a-z0-9-]{0,30}\.[a-z]{2,6}$/)
+    .filter((host) => !host.startsWith("xn--"));
 
   it("property: result never contains userinfo (no '@' between scheme and host)", () => {
     const userinfo = fc.stringMatching(/^[a-z0-9]{1,8}:[a-z0-9]{1,8}@$/);

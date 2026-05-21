@@ -12,7 +12,7 @@ Top-level command groups (run `mb <group> --help` to discover verbs):
 
 ```
 auth | db | table | field | query | card | dashboard | snippet | segment | measure | collection | transform | transform-job
-setting | search | git-sync | workspace | setup | api-key | eid
+setting | search | git-sync | workspace | setup | eid
 ```
 
 The general patterns below — auth, flag conventions, output flags, body input, common verb shapes — apply across **every** group. A few flows have enough surface to warrant their own specialized skills; load them on demand (see "Specialized skills" near the bottom). Authoring any query body (cards, transforms, measures, segments, ad-hoc `mb query`) is one of them — load `mbql` whenever you build MBQL by hand.
@@ -471,14 +471,6 @@ mb git-sync branches --profile <n> --json
 ### `workspace` — Enterprise workspaces (parent-side + local child)
 
 Lifecycle, provisioning, child-credential extraction, diagnose. Load the `workspace` skill via `mb skills get workspace` — it's the densest reference and assumes the conventions above.
-
-### `api-key` — create API keys
-
-```bash
-mb api-key create --body '{"name":"agent-demo","group_id":<id>}' --profile <n> --json
-```
-
-Admin-only. The response includes the unmasked key once — capture it; the API never reveals it again.
 
 ### `eid translate` — string EID → numeric id
 

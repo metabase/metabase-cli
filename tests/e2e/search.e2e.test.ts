@@ -12,7 +12,6 @@ const ORDERS_BY_STATUS_COMPACT = {
   name: "Orders by status",
   model: "card",
   description: null,
-  archived: false,
 } as const;
 
 describe("search e2e", () => {
