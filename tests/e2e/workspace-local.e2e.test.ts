@@ -21,7 +21,7 @@ const licenseToken = process.env["MB_PREMIUM_EMBEDDING_TOKEN"];
 // The same image the e2e docker-compose uses; it's already pulled when the
 // developer ran `bun run e2e:up`, so --no-pull is the right default for tests.
 const TEST_IMAGE =
-  process.env["METABASE_CLI_E2E_LOCAL_IMAGE"] ?? "metabase/metabase-dev:feature-workspaces-v2";
+  process.env["METABASE_CLI_E2E_LOCAL_IMAGE"] ?? "metabase/metabase-enterprise-head:latest";
 const TEST_HOST_PORT = "13100";
 const HEALTH_TIMEOUT_MS = 240_000;
 const PROVISION_TIMEOUT_MS = 60_000;

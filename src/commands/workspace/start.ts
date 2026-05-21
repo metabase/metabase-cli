@@ -20,6 +20,7 @@ import { ConfigError, errorMessage } from "../../core/errors";
 import { type Client, createClient } from "../../core/http/client";
 import { probeHealth } from "../../core/http/probe";
 import { localUrl } from "../../core/url";
+import type { ParsedVersion } from "../../core/version/tag";
 import {
   REPO_SYNC_MODES,
   type RepoSettings,
@@ -42,7 +43,10 @@ import { parseId } from "../parse-id";
 import { parseInteger, parseOptionalInteger } from "../parse-integer";
 import { defineMetabaseCommand } from "../runtime";
 
-const DEFAULT_IMAGE = "metabase/metabase-dev:feature-workspaces-v2";
+const ENTERPRISE_IMAGE = "metabase/metabase-enterprise";
+const ENTERPRISE_HEAD_IMAGE = "metabase/metabase-enterprise-head";
+const LATEST_TAG = "latest";
+const WORKSPACES_MIN_VERSION = 62;
 const DEFAULT_HOST_PORT = 3000;
 // 240s: a cold boot (image pull + JVM classloading + initial app-db migrations)
 // can exceed three minutes on the first start.
@@ -105,7 +109,7 @@ export default defineMetabaseCommand({
     name: "start",
     description: "Start a local Docker container that serves as the workspace's dev instance",
   },
-  capabilities: { minVersion: 62, tokenFeature: "workspaces" },
+  capabilities: { minVersion: WORKSPACES_MIN_VERSION, tokenFeature: "workspaces" },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -117,8 +121,7 @@ export default defineMetabaseCommand({
     },
     image: {
       type: "string",
-      description: `Docker image to run (default: ${DEFAULT_IMAGE})`,
-      default: DEFAULT_IMAGE,
+      description: `Docker image to run. Default: ${ENTERPRISE_IMAGE}:${LATEST_TAG} once Metabase v${WORKSPACES_MIN_VERSION} is released, otherwise ${ENTERPRISE_HEAD_IMAGE}:${LATEST_TAG}.`,
     },
     wait: {
       type: "boolean",
@@ -168,12 +171,12 @@ export default defineMetabaseCommand({
     "mb workspace start 1",
     "mb workspace start 1 --wait",
     "mb workspace start 1 --port 3100",
-    "mb workspace start 1 --image metabase/metabase-dev:feature-workspaces-v2 --no-pull",
+    "mb workspace start 1 --image metabase/metabase-enterprise:latest --no-pull",
     "mb workspace start 1 --force",
     "mb workspace start 1 --repo /path/to/sync-repo --wait",
     "mb workspace start 1 --repo /path/to/sync-repo --repo-branch dev --repo-mode read-only",
   ],
-  async run({ args, ctx, getClient, getResolvedConfig }) {
+  async run({ args, ctx, getClient, getResolvedConfig, getServerInfo }) {
     const workspaceId = parseId(args.id);
     const containerName = containerNameFor(workspaceId);
     const requestedPort = parseOptionalInteger(args.port, { name: "--port", min: 1 });
@@ -184,11 +187,13 @@ export default defineMetabaseCommand({
     const client = await getClient();
     const resolved = await getResolvedConfig();
     const licenseToken = await resolveLicenseToken({});
+    const serverInfo = await getServerInfo();
+    const image = args.image ?? resolveDefaultImage(serverInfo?.version ?? null);
 
     await checkDockerReady();
     await ensureNoExistingContainer(workspaceId, containerName, args.force);
 
-    const pullPromise = args.pull ? pullImage(args.image) : Promise.resolve();
+    const pullPromise = args.pull ? pullImage(image) : Promise.resolve();
 
     const workspace = await client.requestParsed(
       Workspace,
@@ -218,7 +223,7 @@ export default defineMetabaseCommand({
       workspaceName: workspace.name,
       profile: resolved.profile,
       parentUrl: resolved.url,
-      image: args.image,
+      image,
       hostPort,
       configYaml: bundle.configYaml,
       credentialsJson: bundle.credentialsJson,
@@ -242,11 +247,20 @@ export default defineMetabaseCommand({
       state,
       host_port: hostPort,
       url: localUrl(hostPort),
-      image: args.image,
+      image,
     };
     renderItem(result, startResultView, ctx);
   },
 });
+
+export function resolveDefaultImage(version: ParsedVersion | null): string {
+  // Workspaces ship in v62, which isn't on the released metabase-enterprise repo
+  // yet — until the parent reports a released version, track master via the head
+  // build; once released, use the published enterprise image.
+  const isReleased = version !== null && version.major >= WORKSPACES_MIN_VERSION;
+  const repo = isReleased ? ENTERPRISE_IMAGE : ENTERPRISE_HEAD_IMAGE;
+  return `${repo}:${LATEST_TAG}`;
+}
 
 function assertAllDatabasesProvisioned(workspace: Workspace): void {
   const databases = workspace.databases ?? [];
