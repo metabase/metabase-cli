@@ -15,7 +15,7 @@ export function mergeCapabilities(overrides?: Partial<Capabilities>): Capabiliti
   };
 }
 
-export type PreflightReason =
+type PreflightReason =
   | "version-too-old"
   | "edition-mismatch"
   | "missing-token-feature"

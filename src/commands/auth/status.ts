@@ -48,7 +48,7 @@ const authStatusView: ResourceView<AuthStatusJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "status", description: "Show authentication status for a profile" },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: null,
   args: { ...outputFlags, ...profileFlag },
   outputSchema: AuthStatus,
   examples: ["mb auth status --json", "mb auth status --profile staging"],

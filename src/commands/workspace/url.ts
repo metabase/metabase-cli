@@ -27,7 +27,7 @@ export default defineMetabaseCommand({
     name: "url",
     description: "Print the local URL the workspace's container is bound to",
   },
-  capabilities: { minVersion: 62, edition: "ee", tokenFeature: "workspaces" },
+  capabilities: null,
   args: {
     ...outputFlags,
     id: { type: "positional", description: "Workspace id", required: true },

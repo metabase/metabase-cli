@@ -33,13 +33,21 @@ function parseRetryAfter(header: string | null | undefined): number | null {
   return null;
 }
 
-export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return delay(ms, undefined, { signal });
 }
 
-export type RetryOutcome =
-  | { kind: "success"; response: Response }
-  | { kind: "retry"; delayMs: number };
+interface RetrySuccess {
+  kind: "success";
+  response: Response;
+}
+
+interface RetryBackoff {
+  kind: "retry";
+  delayMs: number;
+}
+
+export type RetryOutcome = RetrySuccess | RetryBackoff;
 
 // `attempt` owns the terminal decision: return `success`, return `retry` to back off and run
 // again, or throw to fail hard. This helper only sequences the backoff sleep between retries —

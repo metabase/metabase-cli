@@ -44,7 +44,7 @@ export default defineMetabaseCommand({
     description:
       "Read the workspace child instance's admin credentials (email + password + API key) from the running container",
   },
-  capabilities: { minVersion: 62, edition: "ee", tokenFeature: "workspaces" },
+  capabilities: null,
   args: {
     ...outputFlags,
     id: { type: "positional", description: "Workspace id", required: true },

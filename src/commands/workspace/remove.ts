@@ -43,7 +43,7 @@ export default defineMetabaseCommand({
     name: "remove",
     description: "Stop and remove the local container + app-db volume (does not affect remote)",
   },
-  capabilities: { minVersion: 62, edition: "ee", tokenFeature: "workspaces" },
+  capabilities: null,
   args: {
     ...outputFlags,
     id: { type: "positional", description: "Workspace id", required: true },

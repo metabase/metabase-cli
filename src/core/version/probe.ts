@@ -13,7 +13,7 @@ export interface ServerInfo {
   readonly tokenFeatures: Readonly<TokenFeatures> | null;
 }
 
-export interface ProbeOptions {
+interface ProbeOptions {
   retries?: number;
 }
 

@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { SyncSettingsUpdateResult } from "../../src/commands/git-sync/add-collection";
 import { CurrentTaskResult } from "../../src/commands/git-sync/current-task";
 import { SyncDirtyListEnvelope } from "../../src/commands/git-sync/dirty";
 import { IsDirtyResult } from "../../src/commands/git-sync/is-dirty";
@@ -291,6 +292,6 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
       env: authEnv(),
     });
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({ success: true });
+    expect(parseJson(result.stdout, SyncSettingsUpdateResult)).toEqual({ success: true });
   });
 });

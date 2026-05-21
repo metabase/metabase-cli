@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { writeProbeResult, writeProfile } from "../../src/core/auth/storage";
 import { BASELINE_CAPABILITIES } from "../../src/core/version/capabilities";
-import type { Build } from "../../src/core/version/tag";
+import type { Edition } from "../../src/runtime/capabilities";
 import { Manifest } from "../../src/runtime/manifest";
 import { parseJson } from "../../src/runtime/json";
 
@@ -37,7 +37,7 @@ async function seedProfile(configHome: string): Promise<void> {
   });
 }
 
-async function seedProbedProfile(configHome: string, major: number, build: Build): Promise<void> {
+async function seedProbedProfile(configHome: string, major: number, build: Edition): Promise<void> {
   await withSeedEnv(configHome, async () => {
     await writeProfile({ url: UNREACHABLE_URL, apiKey: "secret-key" }, "default");
     await writeProbeResult("default", {
@@ -151,7 +151,7 @@ describe("version preflight e2e", () => {
     expect(localCapabilities).toEqual({ uuid: null, upgrade: null });
   });
 
-  it("manifest gates every workspace command at v62 behind the workspaces token-feature", async () => {
+  it("manifest gates server-touching workspace commands at v62 and reports null for local-only ones", async () => {
     const result = await runCli({
       args: ["__manifest"],
       configHome: await makeIsolatedConfigHome(),
@@ -169,12 +169,12 @@ describe("version preflight e2e", () => {
       "workspace list": WORKSPACE_CAPABILITIES,
       "workspace create": WORKSPACE_CAPABILITIES,
       "workspace start": WORKSPACE_CAPABILITIES,
-      "workspace stop": WORKSPACE_CAPABILITIES,
-      "workspace remove": WORKSPACE_CAPABILITIES,
-      "workspace ps": WORKSPACE_CAPABILITIES,
-      "workspace logs": WORKSPACE_CAPABILITIES,
-      "workspace url": WORKSPACE_CAPABILITIES,
-      "workspace credentials": WORKSPACE_CAPABILITIES,
+      "workspace stop": null,
+      "workspace remove": null,
+      "workspace ps": null,
+      "workspace logs": null,
+      "workspace url": null,
+      "workspace credentials": null,
       "workspace database provision": WORKSPACE_CAPABILITIES,
       "workspace database deprovision": WORKSPACE_CAPABILITIES,
       "workspace database update": WORKSPACE_CAPABILITIES,

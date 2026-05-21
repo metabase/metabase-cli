@@ -55,7 +55,7 @@ export default defineMetabaseCommand({
     name: "ps",
     description: "List workspaces with a local container (running or stopped)",
   },
-  capabilities: { minVersion: 62, edition: "ee", tokenFeature: "workspaces" },
+  capabilities: null,
   args: { ...outputFlags },
   outputSchema: LocalWorkspaceListEnvelope,
   examples: ["mb workspace ps", "mb workspace ps --json"],

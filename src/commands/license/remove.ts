@@ -23,7 +23,7 @@ const licenseRemoveView: ResourceView<LicenseRemoveResultJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "remove", description: "Remove the stored license token" },
-  capabilities: { minVersion: 58, edition: "oss" },
+  capabilities: null,
   args: {
     ...outputFlags,
     yes: { type: "boolean", description: "Skip confirmation", default: false },

@@ -10,7 +10,7 @@ Commands that need more than a baseline OSS server declare it — a higher minim
 
 - the server is older than the command's minimum version,
 - the command needs an EE build and the server is OSS, or
-- the command needs a premium feature (e.g. `transforms`, `remote_sync`, `workspaces`) that isn't enabled.
+- the command needs a premium feature (e.g. `remote_sync`, `workspaces`) that isn't enabled.
 
 Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs but the server version can't be detected (no cached probe), it proceeds with a warning rather than refusing. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `METABASE_CLI_SKIP_PREFLIGHT=1`. Both are footguns — only for servers you know are patched.
 

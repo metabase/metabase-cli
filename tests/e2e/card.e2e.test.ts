@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { CardListEnvelope } from "../../src/commands/card/list";
 import { ValidationOutcome } from "../../src/core/schema/validate";
-import { Card, CardCompact, CardQueryResult } from "../../src/domain/card";
+import { Card, CardCompact, CardCreateInput, CardQueryResult } from "../../src/domain/card";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
@@ -34,21 +34,7 @@ const NEW_CARD_COMPACT = {
   description: null,
 } as const;
 
-interface NativeQueryBody {
-  type: "native";
-  database: number;
-  native: { query: string };
-}
-
-interface CardCreateBody {
-  name: string;
-  display: "table";
-  visualization_settings: Record<string, unknown>;
-  collection_id: number;
-  dataset_query: NativeQueryBody;
-}
-
-const NEW_CARD_BODY: CardCreateBody = {
+const NEW_CARD_BODY: CardCreateInput = {
   name: NEW_CARD_NAME,
   display: "table",
   visualization_settings: {},
