@@ -228,4 +228,43 @@ describe("version preflight enforcement e2e", () => {
     expect(result.stderr).toContain("Could not detect Metabase server version");
     expect(result.stderr).toContain("Could not reach Metabase");
   });
+
+  it("refuses an EE-only command when the cached server edition is OSS (exit 2)", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfile(configHome, 60, "oss");
+
+    const result = await runCli({ args: ["git-sync", "status"], configHome });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(
+      "This command requires Metabase ee (this server is oss). Upgrade your Metabase edition.",
+    );
+  });
+
+  it("refuses a token-gated command when the cached server lacks the premium feature (exit 2)", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfile(configHome, 60, "ee");
+
+    const result = await runCli({ args: ["git-sync", "status"], configHome });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(
+      "This command requires the 'remote_sync' premium feature (not enabled on this server).",
+    );
+  });
+
+  it("bypasses the refusal via METABASE_CLI_SKIP_PREFLIGHT=1 and reaches the network layer", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfile(configHome, 58, "oss");
+
+    const result = await runCli({
+      args: ["measure", "list"],
+      configHome,
+      env: { METABASE_CLI_SKIP_PREFLIGHT: "1" },
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).not.toContain("This command requires Metabase");
+    expect(result.stderr).toContain("Could not reach Metabase");
+  });
 });
