@@ -15,9 +15,10 @@ export const UuidList = z.array(z.string().uuid());
 export default defineMetabaseCommand({
   meta: {
     name: "uuid",
-    description:
-      "Mint UUID v4 strings for MBQL `lib/uuid` slots, native template-tag ids, etc. Call this for fresh UUIDs rather than authoring them by hand. See `mb skills get mbql`.",
+    description: "Mint random UUID v4 strings",
   },
+  details:
+    "For MBQL `lib/uuid` slots, native template-tag ids, and other UUID fields. Mint fresh values here rather than authoring them by hand — the MBQL 5 schema rejects placeholder strings. See `mb skills get mbql`.",
   capabilities: null,
   args: {
     ...outputFlags,

@@ -13,9 +13,10 @@ import {
 export default defineMetabaseCommand({
   meta: {
     name: "create",
-    description:
-      "Create a transform. An MBQL 5 source.query is pre-flight-validated; see `mb skills get mbql`.",
+    description: "Create a transform from JSON",
   },
+  details:
+    "The JSON body needs a `name`, a `source` (the query to run — native SQL or MBQL — under `source.query`), and a `target` (the warehouse table to write, with `database`/`schema`/`name`). When `source.query` is an MBQL 5 query it is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass. See `mb skills get mbql`.",
   capabilities: { minVersion: 59, edition: "oss" },
   args: {
     ...outputFlags,

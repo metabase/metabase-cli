@@ -13,9 +13,10 @@ import {
 export default defineMetabaseCommand({
   meta: {
     name: "create",
-    description:
-      "Create a card from a JSON spec. An MBQL 5 dataset_query is pre-flight-validated; see `mb skills get mbql`.",
+    description: "Create a card (question, model, or metric) from JSON",
   },
+  details:
+    "The JSON body needs `name`, `display` (the visualization — e.g. table, bar, scalar), `dataset_query` (the query powering the card), and `visualization_settings` (`{}` is fine). When `dataset_query` is an MBQL 5 query it is checked against a bundled JSON Schema before sending — fix the reported errors, or pass --skip-validate to send anyway. Native-SQL and legacy queries are sent unchecked. See `mb skills get mbql`.",
   capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,

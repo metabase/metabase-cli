@@ -84,6 +84,41 @@ describe("showUsage", () => {
     expect(out).not.toContain("EXAMPLES");
   });
 
+  it("renders the details block after the description and before USAGE when declared", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "demo", description: "Short summary" },
+      args: {},
+      details: "Longer per-command knowledge shown only on this page.",
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    const summaryIdx = out.indexOf("Short summary");
+    const detailIdx = out.indexOf("Longer per-command knowledge shown only on this page.");
+    const usageIdx = out.indexOf("USAGE");
+    expect(summaryIdx).toBeGreaterThanOrEqual(0);
+    expect(detailIdx).toBeGreaterThan(summaryIdx);
+    expect(usageIdx).toBeGreaterThan(detailIdx);
+  });
+
+  it("omits the details block when none is declared", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "demo", description: "Short summary" },
+      args: { foo: { type: "string", description: "the foo flag" } },
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain("Short summary");
+    expect(out).not.toContain("Longer per-command knowledge");
+  });
+
   it("strips citty's column-padding whitespace from short rows so a long description does not bloat every line", async () => {
     const cmd = defineCommand({
       meta: { name: "root", description: "root cmd" },

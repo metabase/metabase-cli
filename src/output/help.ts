@@ -23,8 +23,11 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
   const lines = raw.split("\n").map((line) => line.replace(TRAILING_WHITESPACE, ""));
   const [first, ...rest] = lines;
   const stripped = first === undefined ? "" : first.replace(BREADCRUMB_SUFFIX, "$1");
-  const body = [stripped, ...rest].join("\n");
-  const examples = getMetabaseAugment(cmd)?.examples ?? [];
+  const augment = getMetabaseAugment(cmd);
+  const details = augment?.details ?? null;
+  const head = details === null ? stripped : `${stripped}\n\n${details}`;
+  const body = [head, ...rest].join("\n");
+  const examples = augment?.examples ?? [];
   process.stdout.write(body + renderExamples(examples) + renderSchemaHint() + "\n");
 }
 

@@ -15,6 +15,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
     const cmd = {};
     const augment: MetabaseAugment = {
       examples: ["mb card list"],
+      details: "see mb skills get mbql",
       outputSchema: z.object({ id: z.number() }),
       capabilities: BASELINE_CAPABILITIES,
     };
@@ -27,11 +28,13 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
     const second = {};
     const firstAugment: MetabaseAugment = {
       examples: ["a"],
+      details: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
     };
     const secondAugment: MetabaseAugment = {
       examples: ["b"],
+      details: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
     };
@@ -45,11 +48,13 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
     const cmd = {};
     const initial: MetabaseAugment = {
       examples: ["before"],
+      details: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
     };
     const replacement: MetabaseAugment = {
       examples: ["after"],
+      details: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
     };
@@ -62,6 +67,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
     const cmd = {};
     const augment: MetabaseAugment = {
       examples: [],
+      details: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
     };
@@ -69,6 +75,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
     const recalled = getMetabaseAugment(cmd);
     expect(recalled).toEqual({
       examples: [],
+      details: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
     });

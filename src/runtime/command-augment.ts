@@ -4,6 +4,7 @@ import type { Capabilities } from "./capabilities";
 
 export interface MetabaseAugment {
   examples: readonly string[];
+  details: string | null;
   outputSchema: ZodType | null;
   capabilities: Capabilities | null;
 }

@@ -13,9 +13,10 @@ import {
 export default defineMetabaseCommand({
   meta: {
     name: "create",
-    description:
-      "Create a measure from a JSON spec. An MBQL 5 definition is pre-flight-validated; see `mb skills get mbql`.",
+    description: "Create a measure (saved aggregation) from JSON",
   },
+  details:
+    "A measure is a reusable, saved aggregation tied to a table. The JSON body needs `name`, `table_id`, and a `definition` (an MBQL query holding exactly one aggregation). An MBQL 5 `definition` is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass. See `mb skills get mbql`.",
   capabilities: { minVersion: 59, edition: "oss" },
   args: {
     ...outputFlags,

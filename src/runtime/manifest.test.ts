@@ -134,6 +134,40 @@ describe("buildManifest", () => {
     });
   });
 
+  it("forwards details for metabase commands that declare it and omits the key otherwise", async () => {
+    const withDetails = defineMetabaseCommand({
+      meta: { name: "with", description: "short" },
+      args: {},
+      details: "the long per-command knowledge",
+      run() {
+        return;
+      },
+    });
+    const without = defineMetabaseCommand({
+      meta: { name: "without", description: "short" },
+      args: {},
+      run() {
+        return;
+      },
+    });
+    const root = defineCommand({
+      meta: { name: "root" },
+      subCommands: {
+        with: () => Promise.resolve(withDetails),
+        without: () => Promise.resolve(without),
+      },
+    });
+
+    const manifest = await buildManifest(root);
+    const withEntry = manifest.commands.find((entry) => entry.command === "with");
+    const withoutEntry = manifest.commands.find((entry) => entry.command === "without");
+    if (withoutEntry === undefined) {
+      throw new Error("expected the 'without' entry in the manifest");
+    }
+    expect(withEntry?.details).toBe("the long per-command knowledge");
+    expect("details" in withoutEntry).toBe(false);
+  });
+
   it("skips commands marked meta.hidden = true (and their subtrees)", async () => {
     const visible = defineMetabaseCommand({
       meta: { name: "visible", description: "visible" },

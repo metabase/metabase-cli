@@ -11,9 +11,10 @@ import { preflightDashcardCardReferences } from "./preflight";
 export default defineMetabaseCommand({
   meta: {
     name: "update",
-    description:
-      "Update a dashboard (and optionally its dashcards/tabs) by id; any positive card_id referenced from dashcards is pre-flight-validated against /api/card/:id (exists, not archived) before the PUT",
+    description: "Update a dashboard (and optionally its dashcards/tabs) by id",
   },
+  details:
+    "Any positive card_id referenced from dashcards is pre-flight-validated (exists and readable, not archived) before the PUT.",
   capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,

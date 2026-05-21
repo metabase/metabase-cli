@@ -13,9 +13,10 @@ import {
 export default defineMetabaseCommand({
   meta: {
     name: "create",
-    description:
-      "Create a segment from a JSON spec. An MBQL 5 definition is pre-flight-validated; see `mb skills get mbql`.",
+    description: "Create a segment (saved filter) from JSON",
   },
+  details:
+    "A segment is a reusable, saved row filter tied to a table. The JSON body needs `name`, `table_id`, and a `definition` (an MBQL query holding the filter). An MBQL 5 `definition` is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass. See `mb skills get mbql`.",
   capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,

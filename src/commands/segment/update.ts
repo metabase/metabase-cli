@@ -14,9 +14,10 @@ import {
 export default defineMetabaseCommand({
   meta: {
     name: "update",
-    description:
-      "Update a segment by id; body must include revision_message (audit-logged). An MBQL 5 definition is pre-flight-validated; see `mb skills get mbql`.",
+    description: "Update a segment by id (body must include revision_message)",
   },
+  details:
+    "Patches only the fields you send and must include `revision_message` (recorded in the audit log). When `definition` is an MBQL 5 query it is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass. See `mb skills get mbql`.",
   capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,

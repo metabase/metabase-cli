@@ -14,9 +14,10 @@ import {
 export default defineMetabaseCommand({
   meta: {
     name: "update",
-    description:
-      "Update a card by id (partial). An MBQL 5 dataset_query is pre-flight-validated; see `mb skills get mbql`.",
+    description: "Update a card by id (partial)",
   },
+  details:
+    "Patches only the fields you send (any of `name`, `display`, `dataset_query`, `collection_id`, `archived`, …). When `dataset_query` is an MBQL 5 query it is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass. See `mb skills get mbql`.",
   capabilities: { minVersion: 58, edition: "oss" },
   args: {
     ...outputFlags,

@@ -18,6 +18,7 @@ export type ManifestArg = z.infer<typeof ManifestArg>;
 export const ManifestEntry = z.object({
   command: z.string(),
   description: z.string(),
+  details: z.string().optional(),
   examples: z.array(z.string()),
   args: z.array(ManifestArg),
   outputSchema: z.unknown().nullable(),
@@ -57,16 +58,18 @@ async function walk(cmd: CommandDef, path: string[]): Promise<ManifestEntry[]> {
   if (augment === null) {
     return [];
   }
-  return [
-    {
-      command: path.join(" "),
-      description: readDescription(meta),
-      examples: Array.from(augment.examples),
-      args: convertArgs(args),
-      outputSchema: augment.outputSchema ? z.toJSONSchema(augment.outputSchema) : null,
-      capabilities: augment.capabilities,
-    },
-  ];
+  const entry: ManifestEntry = {
+    command: path.join(" "),
+    description: readDescription(meta),
+    examples: Array.from(augment.examples),
+    args: convertArgs(args),
+    outputSchema: augment.outputSchema ? z.toJSONSchema(augment.outputSchema) : null,
+    capabilities: augment.capabilities,
+  };
+  if (augment.details !== null && augment.details !== "") {
+    entry.details = augment.details;
+  }
+  return [entry];
 }
 
 function readDescription(meta: CommandMeta | undefined): string {

@@ -148,7 +148,7 @@ Heredoc with single-quoted `'EOF'` prevents shell from interpolating `$vars` ins
 
 ## Discover the full surface: `mb __manifest`
 
-For the canonical, machine-readable inventory of every command — name, description, examples, every flag with type and default, and the output JSON Schema — run:
+For the canonical, machine-readable inventory of every command — name, description, the longer per-command `details` (when present), examples, every flag with type and default, and the output JSON Schema — run:
 
 ```bash
 mb __manifest

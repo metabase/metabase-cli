@@ -39,6 +39,7 @@ export interface MetabaseCommandDef<A extends ArgsDef> {
   meta: CommandMeta;
   args: A;
   examples?: readonly string[];
+  details?: string;
   outputSchema?: ZodType;
   capabilities?: Partial<Capabilities> | null;
   run: (context: MetabaseCommandContext<A>) => Promise<void> | void;
@@ -110,6 +111,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
   });
   setMetabaseAugment(cmd, {
     examples: def.examples ?? [],
+    details: def.details ?? null,
     outputSchema: def.outputSchema ?? null,
     capabilities: required,
   });
