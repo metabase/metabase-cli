@@ -127,7 +127,7 @@ describe.skipIf(skipReason !== null)("workspace local-runtime e2e", () => {
       // 1. Stash the EE token so workspace start can resolve it from the keyring/file fallback.
       const licenseHome = await pushConfigHome();
       const setLicense = await runCli({
-        args: ["license", "set", "--json"],
+        args: ["workspace", "license", "set", "--json"],
         configHome: licenseHome,
         env: authEnv(),
         stdin: licenseToken,

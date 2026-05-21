@@ -16,7 +16,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "uuid",
     description:
-      'Mint UUID v4 strings (Node crypto.randomUUID) for MBQL `lib/uuid` slots, native template-tag ids, etc. Agents must call this to obtain UUIDs rather than authoring them by hand — hand-written placeholders fail the bundled MBQL 5 schema\'s `format: "uuid"` check.',
+      "Mint UUID v4 strings for MBQL `lib/uuid` slots, native template-tag ids, etc. Call this for fresh UUIDs rather than authoring them by hand. See `mb skills get mbql`.",
   },
   capabilities: null,
   args: {

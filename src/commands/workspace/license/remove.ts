@@ -1,11 +1,11 @@
 import { z } from "zod";
 
-import { clearLicense } from "../../core/auth/storage";
-import type { ResourceView } from "../../domain/view";
-import { promptConfirm } from "../../output/prompt";
-import { renderItem } from "../../output/render";
-import { outputFlags } from "../flags";
-import { defineMetabaseCommand } from "../runtime";
+import { clearLicense } from "../../../core/auth/storage";
+import type { ResourceView } from "../../../domain/view";
+import { promptConfirm } from "../../../output/prompt";
+import { renderItem } from "../../../output/render";
+import { outputFlags } from "../../flags";
+import { defineMetabaseCommand } from "../../runtime";
 
 export const LicenseRemoveResult = z.object({
   removed: z.boolean(),
@@ -29,7 +29,7 @@ export default defineMetabaseCommand({
     yes: { type: "boolean", description: "Skip confirmation", default: false },
   },
   outputSchema: LicenseRemoveResult,
-  examples: ["mb license remove --yes"],
+  examples: ["mb workspace license remove --yes"],
   async run({ args, ctx }) {
     if (!args.yes && process.stdin.isTTY === true) {
       const ok = await promptConfirm({

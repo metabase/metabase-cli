@@ -178,6 +178,9 @@ describe("version preflight e2e", () => {
       "workspace database provision": WORKSPACE_CAPABILITIES,
       "workspace database deprovision": WORKSPACE_CAPABILITIES,
       "workspace database update": WORKSPACE_CAPABILITIES,
+      "workspace license set": null,
+      "workspace license status": null,
+      "workspace license remove": null,
     });
   });
 });

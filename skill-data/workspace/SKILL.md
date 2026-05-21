@@ -91,11 +91,10 @@ mb workspace start "$WS_ID" --wait --profile "$PARENT" "${REPO_FLAGS[@]}"
 #    This is the documented exception to "the agent doesn't run auth login" — the child
 #    key was minted by the parent the human authorized, and reading it via
 #    `workspace credentials` is the supported path.
-WS_URL=$(mb workspace url "$WS_ID" --profile "$PARENT" --json | jq -r '.url')
-WS_API_KEY=$(mb workspace credentials "$WS_ID" --profile "$PARENT" --json | jq -r '.api_key')
+WS_URL=$(mb workspace url "$WS_ID" --json | jq -r '.url')
+WS_API_KEY=$(mb workspace credentials "$WS_ID" --json | jq -r '.api_key')
 printf '%s' "$WS_API_KEY" | mb auth login \
   --url "$WS_URL" \
-  --api-key-stdin \
   --profile "$WS_NAME" \
   --json
 
@@ -145,13 +144,13 @@ Don't run `auth login` for them and don't suggest a URL — they pick. Verify wi
 ### 2. License
 
 ```bash
-mb license status --profile <parent> --json
+mb workspace license status --json
 ```
 
 If `present: false`, ask the operator to run, themselves:
 
 ```bash
-echo "<your-token>" | mb license set --profile <parent>
+echo "<your-token>" | mb workspace license set
 ```
 
 A workspace child cannot start without a parent license — it inherits feature gates from the parent.
@@ -219,7 +218,7 @@ Before running `start`, ask the user about Remote Sync (see "Always ask about Re
 Despite the `--port` flag's "auto-shifts up if taken" hint, in practice `workspace start` fails with `docker start failed for metabase-workspace-<id>` when the host port is occupied — typically by a stale workspace container from a prior session. **List local containers first** and pass an explicit free `--port`:
 
 ```bash
-mb workspace ps --profile <parent>          # → currently-running workspace containers + their host ports
+mb workspace ps          # → currently-running workspace containers + their host ports
 docker ps --filter "name=metabase-workspace" \
   --format "{{.Names}}\t{{.Ports}}\t{{.Status}}"  # also surfaces stopped containers
 ```
@@ -264,21 +263,20 @@ mb workspace start <ws-id> --repo /path/to/repo --repo-branch dev --repo-mode re
 `url` and `credentials` both return JSON envelopes. Extract fields with `jq`:
 
 ```bash
-mb workspace url <ws-id> --profile <parent> --json
+mb workspace url <ws-id> --json
 # → {"workspace_id": ..., "url": "http://localhost:3000"}
 
-mb workspace credentials <ws-id> --profile <parent> --json
+mb workspace credentials <ws-id> --json
 # → {"email": ..., "password": ..., "api_key": ...}
 ```
 
 Save the child's API key as its own named profile. **Always pipe the key on stdin** (the CLI rejects `--api-key "$VAR"`).
 
 ```bash
-WS_URL=$(mb workspace url <ws-id> --profile <parent> --json | jq -r '.url')
-WS_API_KEY=$(mb workspace credentials <ws-id> --profile <parent> --json | jq -r '.api_key')
+WS_URL=$(mb workspace url <ws-id> --json | jq -r '.url')
+WS_API_KEY=$(mb workspace credentials <ws-id> --json | jq -r '.api_key')
 printf '%s' "$WS_API_KEY" | mb auth login \
   --url "$WS_URL" \
-  --api-key-stdin \
   --profile <ws-name> \
   --json
 ```
@@ -306,16 +304,16 @@ Log in with the **admin email + password** from `workspace credentials` (the API
 
 ## Lifecycle
 
-| User intent                       | Command                                                              |
-| --------------------------------- | -------------------------------------------------------------------- |
-| List local workspace containers   | `mb workspace ps --profile <parent>`                                 |
-| Tail logs                         | `mb workspace logs <ws-id> --tail 200 --profile <parent>`            |
-| Follow logs                       | `mb workspace logs <ws-id> --follow --profile <parent>`              |
-| Read admin email/password/API key | `mb workspace credentials <ws-id> --profile <parent> --json`         |
-| Stop (preserves app db)           | `mb workspace stop <ws-id> --profile <parent>`                       |
-| Restart                           | `mb workspace start <ws-id> --force --wait --profile <parent>`       |
-| Remove container + app db         | `mb workspace remove <ws-id> --yes --profile <parent>`               |
-| Remove container, keep app db     | `mb workspace remove <ws-id> --keep-volume --yes --profile <parent>` |
+| User intent                       | Command                                                        |
+| --------------------------------- | -------------------------------------------------------------- |
+| List local workspace containers   | `mb workspace ps`                                              |
+| Tail logs                         | `mb workspace logs <ws-id> --tail 200`                         |
+| Follow logs                       | `mb workspace logs <ws-id> --follow`                           |
+| Read admin email/password/API key | `mb workspace credentials <ws-id> --json`                      |
+| Stop (preserves app db)           | `mb workspace stop <ws-id>`                                    |
+| Restart                           | `mb workspace start <ws-id> --force --wait --profile <parent>` |
+| Remove container + app db         | `mb workspace remove <ws-id> --yes`                            |
+| Remove container, keep app db     | `mb workspace remove <ws-id> --keep-volume --yes`              |
 
 The supported restart path is `stop` + `start --force` (or `start --force` directly). The app db volume persists across `stop`/`start` cycles, so users/sessions/saved questions survive. `remove`, `start --force`, and `stop` are destructive enough to confirm before running unless the user explicitly asked for them.
 
@@ -326,14 +324,14 @@ Pick the symptom.
 ### `start` succeeds but the database isn't visible in the UI
 
 ```bash
-mb workspace logs <ws-id> --tail 300 --profile <parent> | grep -iE "advanced-config|workspace|error"
+mb workspace logs <ws-id> --tail 300 | grep -iE "advanced-config|workspace|error"
 ```
 
 | Log signal                                                       | Cause                                                             | Fix                                                                                                                         |
 | ---------------------------------------------------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `Spec assertion failed ... :input ... :output`                   | Parent emits keys the child's spec doesn't accept (server-side).  | File against the parent. Not a CLI issue.                                                                                   |
 | `Connection refused` / `unknown host` against the warehouse host | Container can't reach the source DB.                              | Source DB credentials configured on the parent use a host that doesn't resolve from inside docker. Use a routable hostname. |
-| `Invalid token` / `License expired`                              | EE license bad or unset on the parent (forwarded into the child). | Re-set on the parent: `mb license set` (operator pastes).                                                                   |
+| `Invalid token` / `License expired`                              | EE license bad or unset on the parent (forwarded into the child). | Re-set on the parent: `mb workspace license set` (operator pastes).                                                         |
 
 ### `workspace credentials` returns values that don't authenticate
 
@@ -344,9 +342,9 @@ This is a parent↔child credential drift bug — the parent's record for the wo
 Recovery (works reliably):
 
 ```bash
-mb workspace remove <ws-id> --yes --profile <parent>     # destroys container + volume; keeps parent record + provisioned dbs
+mb workspace remove <ws-id> --yes     # destroys container + volume; keeps parent record + provisioned dbs
 mb workspace start  <ws-id> --port <fresh-port> --wait --profile <parent>  # different port from the bad attempt
-mb workspace credentials <ws-id> --profile <parent> --json | jq -r '.api_key' \
+mb workspace credentials <ws-id> --json | jq -r '.api_key' \
   | xargs -I{} curl -s -H "x-api-key: {}" http://localhost:<fresh-port>/api/user/current   # smoke check
 ```
 
@@ -357,7 +355,7 @@ Why "different port": empirically, restarting on the same port after the drifted
 ### Container exited shortly after `start`
 
 ```bash
-mb workspace ps --profile <parent>
+mb workspace ps
 ```
 
 `Exited (137)` → OOM. Bump Docker host memory to ≥ 6 GB.
@@ -392,7 +390,7 @@ mb workspace list --profile <parent> --full --json \
 
 ### Workspace UI demands the setup wizard
 
-You opened the URL before health passed and walked through the wizard, which created a fresh app db and bypassed the workspace bring-up. `mb workspace remove <ws-id> --yes --profile <parent>` then `start --wait` again. Don't open the URL before `state: "running"`.
+You opened the URL before health passed and walked through the wizard, which created a fresh app db and bypassed the workspace bring-up. `mb workspace remove <ws-id> --yes` then `start --wait` again. Don't open the URL before `state: "running"`.
 
 ### `git status` on the host shows confusing "staged changes" after `git-sync export`
 

@@ -15,7 +15,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "update",
     description:
-      "Update a card by id; if dataset_query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
+      "Update a card by id (partial). An MBQL 5 dataset_query is pre-flight-validated; see `mb skills get mbql`.",
   },
   capabilities: { minVersion: 58, edition: "oss" },
   args: {

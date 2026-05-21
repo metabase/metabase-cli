@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "create",
     description:
-      "Create a transform; if source.type is `query` and source.query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
+      "Create a transform. An MBQL 5 source.query is pre-flight-validated; see `mb skills get mbql`.",
   },
   capabilities: { minVersion: 59, edition: "oss" },
   args: {

@@ -24,7 +24,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "query",
     description:
-      'Run an MBQL 5 query (validates against the bundled schema first); --print-schema emits the schema for agent discovery, --dry-run validates without sending. Any non-MBQL 5 body — legacy MBQL 4 ({type:"query", …}), legacy native ({type:"native", …}), or any other non-{lib/type:"mbql/query"} shape — skips pre-flight automatically and is normalized server-side by lib-be/normalize-query. The bundled schema only models MBQL 5. Every clause options object carries a `lib/uuid` (UUID v4); mint these via `mb uuid` — never author them by hand.',
+      "Run a query against /api/dataset. An MBQL 5 body is pre-flight-validated against the bundled schema — --print-schema fetches it, --dry-run validates without sending; legacy MBQL 4 and native bodies skip validation. See `mb skills get mbql`.",
   },
   capabilities: { minVersion: 58, edition: "oss" },
   args: {

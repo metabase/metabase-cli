@@ -104,48 +104,6 @@ mb auth logout --profile staging --yes
 | `--profile <name>` | Profile to clear (default: `default`).                                                                                            |
 | `--yes`            | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
-## License
-
-Manage the Metabase Enterprise license token.
-
-### `mb license set [token]`
-
-Store a license token. Resolution order: positional → piped stdin → `METABASE_LICENSE_TOKEN` → interactive prompt. Stdin is auto-detected when not a TTY.
-
-Common output flags (`--json`, `--format`, `--detail`, `--fields`, `--max-bytes`) are accepted; the result payload is rendered through the standard output layer.
-
-```sh
-echo "$MB_LICENSE" | mb license set
-mb license set < token.txt
-```
-
-### `mb license status`
-
-Show whether a license is stored. Does not reveal the value.
-
-```sh
-mb license status
-mb license status --json
-```
-
-| Flag     | Description                         |
-| -------- | ----------------------------------- |
-| `--json` | Emit JSON. Auto-enabled on non-TTY. |
-
-### `mb license remove`
-
-Clear the stored license.
-
-```sh
-mb license remove --yes
-```
-
-| Flag    | Description                                                                                                                       |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
-
-Common output flags (`--json`, `--format`, `--detail`, `--fields`, `--max-bytes`) are accepted; the result payload is rendered through the standard output layer.
-
 ## Transforms
 
 CRUD on `/api/transform`. Bodies for `create` / `update` are JSON; resolution order: `--body` → `--file` → piped stdin (auto-detected when stdin is not a TTY).
@@ -478,7 +436,7 @@ mb card list --filter using_model --model-id 42 --json
 
 ```sh
 mb card get 1
-mb card get 1 --json --detail full
+mb card get 1 --json --full
 ```
 
 ### `mb card query <id>`
@@ -933,7 +891,7 @@ Sources are resolved in this order: positional, `--file`, piped stdin. Provide e
 
 ### `mb search [query]`
 
-Search Metabase content (cards, dashboards, collections, tables, …). Returns a `ListEnvelope` of compact search results by default; pass `--detail full` for the full per-row payload.
+Search Metabase content (cards, dashboards, collections, tables, …). Returns a `ListEnvelope` of compact search results by default; pass `--full` for the full per-row payload.
 
 ```sh
 mb search orders
@@ -1208,7 +1166,7 @@ mb workspace start 1 --repo /path/to/sync-repo --wait
 mb workspace start 1 --repo /path/to/sync-repo --repo-branch dev --repo-mode read-only
 ```
 
-Resolves the parent via the active profile (or `--profile`/`--url`/`--api-key`) and the EE license via `resolveLicenseToken` (the same path `mb license set` writes to). Refuses to start if the workspace has any database that isn't `status: "provisioned"`.
+Resolves the parent via the active profile (or `--profile`/`--url`/`--api-key`) and the EE license via `resolveLicenseToken` (the same path `mb workspace license set` writes to). Refuses to start if the workspace has any database that isn't `status: "provisioned"`.
 
 The boot bundle (`config.yml`, `credentials.json`, optional `metadata.json`) is built in process memory and tar-streamed into the container's `/mw-config/` directory through `docker cp -`; no host-disk artifact is created. The CLI generates a per-workspace admin user + API key, injects them into the YAML before shipping, and stores the same values in `credentials.json` for later retrieval via `mb workspace credentials`. Once the child logs that it has read `config.yml`, the CLI scrubs the in-container copy (`docker exec rm /mw-config/config.yml`) so the warehouse credentials in `details.password` no longer linger; `credentials.json` stays.
 
@@ -1293,6 +1251,46 @@ mb workspace ps --json
 ```
 
 Lists every container that carries the `com.metabase.workspace.id` label, running or stopped. The `--json` envelope is the canonical agent-facing shape and contains only `workspace_id`, `workspace_name`, `state`, and `url`; `--full --json` emits the wider record (image, profile, parent URL, container name, status string, host port).
+
+### License
+
+The Metabase Enterprise license token is stored locally and forwarded to the child instance by `mb workspace start`. It is global to the CLI install (not per-profile).
+
+#### `mb workspace license set [token]`
+
+Store a license token. Resolution order: positional → piped stdin → `METABASE_LICENSE_TOKEN` → interactive prompt. Stdin is auto-detected when not a TTY.
+
+Common output flags (`--json`, `--format`, `--full`, `--fields`, `--max-bytes`) are accepted; the result payload is rendered through the standard output layer.
+
+```sh
+echo "$MB_LICENSE" | mb workspace license set
+mb workspace license set < token.txt
+```
+
+#### `mb workspace license status`
+
+Show whether a license is stored. Does not reveal the value.
+
+```sh
+mb workspace license status
+mb workspace license status --json
+```
+
+| Flag     | Description                         |
+| -------- | ----------------------------------- |
+| `--json` | Emit JSON. Auto-enabled on non-TTY. |
+
+#### `mb workspace license remove`
+
+Clear the stored license.
+
+```sh
+mb workspace license remove --yes
+```
+
+| Flag    | Description                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
 ## Instance setup
 
@@ -1507,7 +1505,7 @@ Exit codes: `0` success, `2` `ConfigError` (missing name, unknown name, `MB_SKIL
 | `METABASE_URL`                | Default URL for `auth login` and config resolution.                                                                                                                                 |
 | `METABASE_API_KEY`            | Default API key (overrides interactive prompt; not stored).                                                                                                                         |
 | `METABASE_PROFILE`            | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                               |
-| `METABASE_LICENSE_TOKEN`      | Default license token for `license set`.                                                                                                                                            |
+| `METABASE_LICENSE_TOKEN`      | Default license token for `workspace license set`.                                                                                                                                  |
 | `METABASE_VERBOSE`            | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                                      |
 | `METABASE_CLI_SKIP_PREFLIGHT` | When set to `1`, bypasses the per-command server version / edition / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
 | `MB_SKILLS_DIR`               | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees).                                                              |

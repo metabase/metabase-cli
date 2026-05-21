@@ -11,7 +11,6 @@ const main: CommandDef = defineCommand({
   },
   subCommands: {
     auth: () => import("./commands/auth").then((mod) => mod.default),
-    license: () => import("./commands/license").then((mod) => mod.default),
     db: () => import("./commands/db").then((mod) => mod.default),
     table: () => import("./commands/table").then((mod) => mod.default),
     field: () => import("./commands/field").then((mod) => mod.default),

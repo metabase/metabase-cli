@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "create",
     description:
-      "Create a card from a JSON spec; if dataset_query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
+      "Create a card from a JSON spec. An MBQL 5 dataset_query is pre-flight-validated; see `mb skills get mbql`.",
   },
   capabilities: { minVersion: 58, edition: "oss" },
   args: {

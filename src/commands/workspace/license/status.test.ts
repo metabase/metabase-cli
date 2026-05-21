@@ -2,7 +2,7 @@ import { runCommand } from "citty";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ZodType } from "zod";
 
-import { parseJson } from "../../runtime/json";
+import { parseJson } from "../../../runtime/json";
 
 const hoisted = vi.hoisted(() => ({
   store: new Map<string, string>(),
@@ -10,13 +10,13 @@ const hoisted = vi.hoisted(() => ({
 }));
 
 vi.mock("@napi-rs/keyring", async () => {
-  const { createKeyringMockModule } = await import("../../core/auth/keyring-mock");
+  const { createKeyringMockModule } = await import("../../../core/auth/keyring-mock");
   return createKeyringMockModule(hoisted);
 });
 
 import licenseStatusCommand, { LicenseStatus } from "./status";
-import { writeLicense } from "../../core/auth/storage";
-import { setupTempConfigHome, type TempConfigHome } from "../../core/auth/temp-config-home";
+import { writeLicense } from "../../../core/auth/storage";
+import { setupTempConfigHome, type TempConfigHome } from "../../../core/auth/temp-config-home";
 
 interface CapturedStdout {
   chunks: string[];

@@ -96,7 +96,7 @@ export async function resolveLicenseToken(flags: LicenseFlags): Promise<string> 
   const value = flag ?? env ?? stored;
   if (!value) {
     throw new ConfigError(
-      `No license token. Pass --token, set ${ENV_LICENSE_TOKEN}, or store one with \`mb license set\`.`,
+      `No license token. Pass --token, set ${ENV_LICENSE_TOKEN}, or store one with \`mb workspace license set\`.`,
     );
   }
   return value;
