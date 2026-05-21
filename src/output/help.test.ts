@@ -6,7 +6,7 @@ import { z } from "zod";
 import { connectionFlags, outputFlags, profileFlag } from "../commands/flags";
 import { defineMetabaseCommand } from "../commands/runtime";
 
-import { resolveBreadcrumb, showUsage } from "./help";
+import { findUnknownCommand, resolveBreadcrumb, showUsage } from "./help";
 
 describe("showUsage", () => {
   let chunks: string[];
@@ -334,5 +334,43 @@ describe("resolveBreadcrumb", () => {
 
   it("stops at the first unknown token", async () => {
     expect(await resolveBreadcrumb(tree(), ["nope", "bar"])).toBe("mb");
+  });
+});
+
+describe("findUnknownCommand", () => {
+  function tree(): CommandDef {
+    const leaf = defineCommand({
+      meta: { name: "bar" },
+      args: { id: { type: "positional", required: false } },
+    });
+    const group = defineCommand({
+      meta: { name: "foo", alias: "f" },
+      subCommands: { bar: leaf },
+    });
+    return defineCommand<ArgsDef>({
+      meta: { name: "mb" },
+      args: { profile: { type: "string" } },
+      subCommands: { foo: group },
+    });
+  }
+
+  it("returns null for a valid subcommand path with a trailing positional", async () => {
+    expect(await findUnknownCommand(tree(), ["foo", "bar", "123"])).toBeNull();
+  });
+
+  it("returns null when a command alias is used", async () => {
+    expect(await findUnknownCommand(tree(), ["f", "bar"])).toBeNull();
+  });
+
+  it("returns null when only flags are present (a missing command, not an unknown one)", async () => {
+    expect(await findUnknownCommand(tree(), ["--profile", "staging"])).toBeNull();
+  });
+
+  it("returns the unknown token at the root", async () => {
+    expect(await findUnknownCommand(tree(), ["nope"])).toBe("nope");
+  });
+
+  it("returns the unknown token nested under a group", async () => {
+    expect(await findUnknownCommand(tree(), ["foo", "frob"])).toBe("frob");
   });
 });

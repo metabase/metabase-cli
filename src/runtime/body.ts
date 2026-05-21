@@ -2,7 +2,7 @@ import type { ZodType } from "zod";
 
 import { ConfigError } from "../core/errors";
 
-import { readInput, type InputSources } from "./input";
+import { DEFAULT_FLAG_NAME, readInput, type InputSources } from "./input";
 import { parseJson } from "./json";
 
 export interface BodySources extends InputSources {
@@ -18,7 +18,7 @@ export async function readBody<T>(sources: BodySources, schema: ZodType<T>): Pro
 function assertSingleSource(sources: BodySources): void {
   const provided: string[] = [];
   if (sources.flag !== undefined && sources.flag !== "") {
-    provided.push("--body");
+    provided.push(DEFAULT_FLAG_NAME);
   }
   if (sources.file !== undefined && sources.file !== "") {
     provided.push("--file");

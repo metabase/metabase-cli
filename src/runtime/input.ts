@@ -7,9 +7,14 @@ export interface InputSources {
   file?: string | undefined;
   positional?: string | undefined;
   required?: boolean | undefined;
+  flagName?: string | undefined;
 }
 
-const SOURCE_LIST = "flag, --file, stdin, or positional argument";
+export const DEFAULT_FLAG_NAME = "--body";
+
+function sourceList(flagName: string | undefined): string {
+  return `${flagName ?? DEFAULT_FLAG_NAME}, --file, stdin, or a positional argument`;
+}
 
 export async function readInput(sources: InputSources): Promise<string> {
   if (sources.flag) {
@@ -32,7 +37,7 @@ export async function readInput(sources: InputSources): Promise<string> {
 
   const required = sources.required ?? true;
   if (required) {
-    throw new ConfigError(`input required: provide one of ${SOURCE_LIST}`);
+    throw new ConfigError(`input required: provide one of ${sourceList(sources.flagName)}`);
   }
   return "";
 }

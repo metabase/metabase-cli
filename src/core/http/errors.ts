@@ -26,13 +26,13 @@ const STATUS_CLASSIFICATIONS: Record<number, StatusClassification> = {
   401: { retryable: false },
   403: { retryable: false },
   404: { retryable: false },
-  408: { retryable: true, message: "Metabase timed out responding" },
+  408: { retryable: true, message: "Metabase timed out responding." },
   425: { retryable: true },
-  429: { retryable: true, message: "Metabase rate-limited the request" },
+  429: { retryable: true, message: "Metabase rate-limited the request." },
   500: { retryable: true },
   502: { retryable: true },
   503: { retryable: true },
-  504: { retryable: true, message: "Metabase timed out responding" },
+  504: { retryable: true, message: "Metabase timed out responding." },
 };
 
 const ErrorEnvelope = z
@@ -169,12 +169,14 @@ function buildUserMessage(
   if (kind === "resource-missing") {
     return `Not found: ${input.method} ${pathFromUrl(input.url)}.`;
   }
+  // Messages we generate read as full sentences ending in a period; messages quoted from a
+  // Metabase response envelope (parseEnvelopeMessage) are passed through verbatim, periods or not.
   const fromBody = parseEnvelopeMessage(sanitizedBody);
   if (fromBody !== null) {
     return fromBody;
   }
   if (kind === "auth") {
-    return `Invalid or unauthorized API key (host: ${hostFromUrl(input.url)})`;
+    return `Invalid or unauthorized API key (host: ${hostFromUrl(input.url)}).`;
   }
   return defaultMessageForStatus(input.status);
 }
@@ -187,7 +189,7 @@ function buildRouteMissingMessage(input: HttpErrorInput): string {
   return (
     `This endpoint is not available on Metabase ${input.serverTag}: ${input.method} ${path}. ` +
     `The command may require a newer Metabase major version. ` +
-    `Run 'mb doctor' to see which commands are available on this server.`
+    `Run 'mb auth list' to see this server's version, or 'mb __manifest' for per-command requirements.`
   );
 }
 
@@ -275,5 +277,5 @@ function capLength(message: string): string {
 }
 
 function defaultMessageForStatus(status: number): string {
-  return STATUS_CLASSIFICATIONS[status]?.message ?? `Metabase returned ${status}`;
+  return STATUS_CLASSIFICATIONS[status]?.message ?? `Metabase returned ${status}.`;
 }

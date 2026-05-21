@@ -10,6 +10,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 describe("profiles e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -240,7 +241,7 @@ describe("profiles e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('Not authenticated for profile "nonexistent"');
+    expect(cliErrorMessage(result.stderr)).toContain('Not authenticated for profile "nonexistent"');
     expect(result.stdout).toBe("");
   });
 });

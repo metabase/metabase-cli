@@ -15,6 +15,7 @@ import { pollUntil } from "../../src/runtime/poll";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 import { requireServer } from "./server-gate";
 const FIRST_TRANSFORM_ID = 1;
@@ -341,7 +342,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -491,7 +492,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid run id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid run id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -635,7 +636,9 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid --transform-id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain(
+      'invalid --transform-id: "abc" (expected integer)',
+    );
     expect(result.stdout).toBe("");
   });
 
@@ -714,24 +717,21 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
-  it("delete without --yes proceeds in non-TTY (auto-confirm matches kubectl/gh/docker convention)", async () => {
-    await createSeedTransform();
-
+  it("delete without --yes refuses in non-TTY and exits 2 (explicit confirmation required)", async () => {
     const result = await runCli({
       args: ["transform", "delete", String(FIRST_TRANSFORM_ID), "--json"],
       stdin: "",
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, DeleteResult)).toEqual({
-      deleted: true,
-      aborted: false,
-      id: FIRST_TRANSFORM_ID,
-    });
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(
+      `refusing to delete ${FIRST_TRANSFORM_ID} without confirmation — pass --yes to proceed non-interactively`,
+    );
+    expect(result.stdout).toBe("");
   });
 });

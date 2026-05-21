@@ -8,6 +8,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 const DEFAULT_COLLECTION_NAME = "E2E Default";
 
@@ -351,7 +352,7 @@ describe("collection e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid --pinned-state value: "bogus"');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid --pinned-state value: "bogus"');
     expect(result.stdout).toBe("");
   });
 

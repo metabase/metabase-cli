@@ -12,6 +12,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { cliErrorMessage } from "./cli-error";
 
 const BAD_API_KEY = "mb_definitely_not_valid_key_aaaaaaaaaa";
 
@@ -114,7 +115,9 @@ describe("auth e2e", () => {
     expect(login.exitCode).toBe(2);
     expect(login.stderr).toContain("verification failed");
     expect(login.stderr).toContain("Invalid or unauthorized API key");
-    expect(login.stderr).toContain('credentials were not saved for profile "first_attempt"');
+    expect(cliErrorMessage(login.stderr)).toContain(
+      'credentials were not saved for profile "first_attempt"',
+    );
 
     await expect(fs.access(profilesPath(configHome))).rejects.toThrow();
 

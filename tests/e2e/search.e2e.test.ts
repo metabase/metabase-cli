@@ -6,6 +6,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 const ORDERS_BY_STATUS_COMPACT = {
   id: SEEDED.ordersCardId,
@@ -110,7 +111,9 @@ describe("search e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid --table-db-id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain(
+      'invalid --table-db-id: "abc" (expected integer)',
+    );
     expect(result.stdout).toBe("");
   });
 });

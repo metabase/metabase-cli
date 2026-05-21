@@ -113,33 +113,33 @@ describe("HttpError message extraction", () => {
 
   it("falls back to the status default when the body has no extractable fields", () => {
     const body = JSON.stringify({ unrelated: "data", trace: [] });
-    expect(buildHttpError({ status: 500, rawBody: body }).message).toBe("Metabase returned 500");
+    expect(buildHttpError({ status: 500, rawBody: body }).message).toBe("Metabase returned 500.");
   });
 
   it("falls back to the status default for malformed JSON bodies", () => {
     expect(buildHttpError({ status: 500, rawBody: "not json at all" }).message).toBe(
-      "Metabase returned 500",
+      "Metabase returned 500.",
     );
   });
 
   it("emits an auth message with the host for 401 with no body", () => {
     expect(buildHttpError({ status: 401, rawBody: null }).message).toBe(
-      "Invalid or unauthorized API key (host: example.invalid)",
+      "Invalid or unauthorized API key (host: example.invalid).",
     );
   });
 
   it("emits an auth message with the host for 403 with no body", () => {
     expect(buildHttpError({ status: 403, rawBody: null }).message).toBe(
-      "Invalid or unauthorized API key (host: example.invalid)",
+      "Invalid or unauthorized API key (host: example.invalid).",
     );
   });
 
   it("falls back to status defaults for 408 and 429 with no body", () => {
     expect(buildHttpError({ status: 408, rawBody: null }).message).toBe(
-      "Metabase timed out responding",
+      "Metabase timed out responding.",
     );
     expect(buildHttpError({ status: 429, rawBody: null }).message).toBe(
-      "Metabase rate-limited the request",
+      "Metabase rate-limited the request.",
     );
   });
 
@@ -238,7 +238,7 @@ describe("HttpError kind classification", () => {
 });
 
 describe("HttpError 404 messages", () => {
-  it("renders route-missing with the server tag and a doctor hint when the tag is known", () => {
+  it("renders route-missing with the server tag and a real-command hint when the tag is known", () => {
     const error = buildHttpError({
       status: 404,
       method: "GET",
@@ -250,7 +250,7 @@ describe("HttpError 404 messages", () => {
     expect(error.message).toBe(
       "This endpoint is not available on Metabase v0.58.7: GET /api/this-does-not-exist?q=1. " +
         "The command may require a newer Metabase major version. " +
-        "Run 'mb doctor' to see which commands are available on this server.",
+        "Run 'mb auth list' to see this server's version, or 'mb __manifest' for per-command requirements.",
     );
   });
 

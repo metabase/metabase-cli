@@ -24,6 +24,7 @@ import { warn } from "../output/notice";
 import { setMetabaseAugment } from "../runtime/command-augment";
 
 import { resolveCommonFlags, type CommonArgs, type CommonContext } from "./context";
+import { assertKnownFlags } from "./known-flags";
 
 export { SKIP_PREFLIGHT_ENV };
 
@@ -53,9 +54,12 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
   const cmd = defineCommand<A>({
     meta: def.meta,
     args: def.args,
-    async run({ args }) {
+    async run({ args, rawArgs }) {
+      let reportFormat: CommonContext["format"] | undefined;
       try {
         const ctx = resolveCommonFlags(pickCommonArgs(args));
+        reportFormat = ctx.format;
+        assertKnownFlags(rawArgs, def.args);
         let cachedConfig: ResolvedConfig | null = null;
         let cachedClient: Client | null = null;
         let cachedServerInfo: Promise<ServerInfo | null> | null = null;
@@ -105,7 +109,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
           emitLegacyStorageWarningIfPending();
         }
       } catch (error) {
-        reportError(error);
+        reportError(error, reportFormat);
       }
     },
   });

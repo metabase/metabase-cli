@@ -6,6 +6,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { cliErrorMessage } from "./cli-error";
 
 const FIRST_NEW_SNIPPET_ID = 1;
 const SNIPPET_NAME = "active_filter";
@@ -152,7 +153,7 @@ describe("snippet e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -193,7 +194,7 @@ describe("snippet e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -255,7 +256,7 @@ describe("snippet e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 });

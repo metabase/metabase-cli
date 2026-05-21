@@ -6,6 +6,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 import { requireServer } from "./server-gate";
 
@@ -93,7 +94,7 @@ describe("eid e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid --model: "totally-invalid"');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid --model: "totally-invalid"');
   });
 
   it.skipIf(transformsSkip !== null)(

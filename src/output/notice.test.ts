@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { itemOversizeNotice, listTruncationNotice, warn } from "./notice";
+import { itemOversizeMessage, listTruncationNotice, warn } from "./notice";
 
 describe("warn", () => {
   let stderr: string;
@@ -29,10 +29,10 @@ describe("listTruncationNotice", () => {
   });
 });
 
-describe("itemOversizeNotice", () => {
-  it("names the byte count and the available knobs", () => {
-    expect(itemOversizeNotice(4096)).toBe(
-      "… item is 4096 bytes (exceeds --max-bytes); narrow with --fields, or pass --max-bytes 0",
+describe("itemOversizeMessage", () => {
+  it("names both the actual byte count and the configured cap alongside the knobs", () => {
+    expect(itemOversizeMessage(4096, 1024)).toBe(
+      "output is 4096 bytes, over the 1024-byte --max-bytes cap; narrow with --fields, or pass --max-bytes 0 to disable",
     );
   });
 });

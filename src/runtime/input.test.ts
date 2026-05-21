@@ -122,7 +122,18 @@ describe("readInput precedence", () => {
       throw new Error("expected ConfigError");
     }
     expect(error.message).toBe(
-      "input required: provide one of flag, --file, stdin, or positional argument",
+      "input required: provide one of --body, --file, stdin, or a positional argument",
+    );
+  });
+
+  it("names the concrete body flag in the required error when flagName is provided", async () => {
+    const error = await readInput({ flagName: "--value" }).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ConfigError);
+    if (!(error instanceof ConfigError)) {
+      throw new Error("expected ConfigError");
+    }
+    expect(error.message).toBe(
+      "input required: provide one of --value, --file, stdin, or a positional argument",
     );
   });
 

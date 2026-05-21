@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import packageJson from "../../../package.json" with { type: "json" };
-import { ResponseShapeError, TimeoutError } from "../errors";
+import { NetworkError, ResponseShapeError, TimeoutError } from "../errors";
 import { type ClientCredentials, createClient } from "./client";
 import { HttpError } from "./errors";
 
@@ -181,6 +181,78 @@ describe("createClient.requestParsed", () => {
     expect(fakeFetch.calls.length).toBe(2);
   });
 
+  it("maps ECONNREFUSED to an actionable message and carries the code as the cause", async () => {
+    const failure = new TypeError("fetch failed");
+    failure.cause = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:1"), {
+      code: "ECONNREFUSED",
+    });
+    const fakeFetch = makeFakeFetch([failure]);
+    const client = createClient(CONFIG, { fetchImpl: fakeFetch.fetch });
+
+    const error = await client
+      .requestParsed(PingResponse, "/api/user/current", { retries: 0 })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(NetworkError);
+    if (!(error instanceof NetworkError)) {
+      throw new Error("expected NetworkError");
+    }
+    expect(error.userMessage).toBe(
+      "Could not reach Metabase: Connection refused by m.example.com — is Metabase running and is the port correct?",
+    );
+    expect(error.developerDetail).toEqual({
+      method: "GET",
+      url: "https://m.example.com/api/user/current",
+      cause: "ECONNREFUSED",
+    });
+  });
+
+  it("maps ENOTFOUND to a host-not-found message", async () => {
+    const failure = new TypeError("fetch failed");
+    failure.cause = Object.assign(new Error("getaddrinfo ENOTFOUND m.example.com"), {
+      code: "ENOTFOUND",
+    });
+    const fakeFetch = makeFakeFetch([failure]);
+    const client = createClient(CONFIG, { fetchImpl: fakeFetch.fetch });
+
+    const error = await client
+      .requestParsed(PingResponse, "/api/user/current", { retries: 0 })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(NetworkError);
+    if (!(error instanceof NetworkError)) {
+      throw new Error("expected NetworkError");
+    }
+    expect(error.userMessage).toBe(
+      "Could not reach Metabase: Host not found: m.example.com — check the URL.",
+    );
+    expect(error.developerDetail).toEqual({
+      method: "GET",
+      url: "https://m.example.com/api/user/current",
+      cause: "ENOTFOUND",
+    });
+  });
+
+  it("falls back to the raw fetch message when the cause carries no error code", async () => {
+    const fakeFetch = makeFakeFetch([new TypeError("fetch failed")]);
+    const client = createClient(CONFIG, { fetchImpl: fakeFetch.fetch });
+
+    const error = await client
+      .requestParsed(PingResponse, "/api/user/current", { retries: 0 })
+      .catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(NetworkError);
+    if (!(error instanceof NetworkError)) {
+      throw new Error("expected NetworkError");
+    }
+    expect(error.userMessage).toBe("Could not reach Metabase: fetch failed");
+    expect(error.developerDetail).toEqual({
+      method: "GET",
+      url: "https://m.example.com/api/user/current",
+      cause: "fetch failed",
+    });
+  });
+
   it("throws ResponseShapeError carrying the request context and the schema's zod issues", async () => {
     const body = { id: "not-a-number", email: "a@b.com" };
     const expectedIssues = PingResponse.safeParse(body).error?.issues;
@@ -268,7 +340,7 @@ describe("createClient.requestParsed", () => {
     expect(error.userMessage).toBe(
       "This endpoint is not available on Metabase v0.58.7: GET /api/this-does-not-exist. " +
         "The command may require a newer Metabase major version. " +
-        "Run 'mb doctor' to see which commands are available on this server.",
+        "Run 'mb auth list' to see this server's version, or 'mb __manifest' for per-command requirements.",
     );
   });
 

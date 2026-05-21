@@ -11,6 +11,7 @@ import { parseJson } from "../../src/runtime/json";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 const VALID_QUERY = {
   "lib/type": "mbql/query",
@@ -178,7 +179,9 @@ describe("query e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('database: should be an integer, received: "My DB"');
+    expect(cliErrorMessage(result.stderr)).toContain(
+      'database: should be an integer, received: "My DB"',
+    );
     expect(result.stdout).toBe("");
   });
 

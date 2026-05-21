@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
+import { ConfigError } from "./errors";
 import { normalizeUrl, originOnly } from "./url";
 
 describe("normalizeUrl", () => {
@@ -16,8 +17,21 @@ describe("normalizeUrl", () => {
     expect(normalizeUrl("  https://m.example.com  ")).toBe("https://m.example.com");
   });
 
-  it("rejects URLs without a scheme", () => {
-    expect(() => normalizeUrl("m.example.com")).toThrow(/http/);
+  it("rejects a scheme-less URL with a ConfigError (exit-2 input error, not an internal crash)", () => {
+    const error = (() => {
+      try {
+        normalizeUrl("m.example.com");
+      } catch (caught: unknown) {
+        return caught;
+      }
+      throw new Error("expected normalizeUrl to throw");
+    })();
+    expect(error).toBeInstanceOf(ConfigError);
+    if (!(error instanceof ConfigError)) {
+      throw new Error("expected ConfigError");
+    }
+    expect(error.message).toBe("URL must start with http:// or https://");
+    expect(error.exitCode).toBe(2);
   });
 });
 

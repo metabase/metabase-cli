@@ -1,7 +1,7 @@
 import { renderUsage } from "citty";
 import type { ArgsDef, CommandDef, SubCommandsDef } from "citty";
 
-import { resolveCitty, toAliasArray } from "../runtime/citty";
+import { flagConsumesValue, resolveCitty, toAliasArray } from "../runtime/citty";
 import { getMetabaseAugment } from "../runtime/command-augment";
 
 export const ANSI_ESC = String.fromCharCode(27);
@@ -183,13 +183,16 @@ interface SubCommandMatch {
   command: CommandDef;
 }
 
+interface CommandPath {
+  segments: string[];
+  unknownToken: string | null;
+}
+
 // Citty's renderUsage only knows a command's immediate parent, so the leaf USAGE line drops
 // the ancestry above it. Citty's own path walk (resolveSubCommand/findSubCommandIndex) is not
-// exported, so we re-walk the tree from the root against rawArgs to recover the full breadcrumb.
-export async function resolveBreadcrumb(
-  root: CommandDef,
-  rawArgs: readonly string[],
-): Promise<string> {
+// exported, so we re-walk the tree from the root against rawArgs to recover the full breadcrumb
+// (and to detect an unknown subcommand before citty's own colored handler fires).
+async function walkCommandPath(root: CommandDef, rawArgs: readonly string[]): Promise<CommandPath> {
   const rootMeta = await resolveCitty(root.meta);
   const segments: string[] = rootMeta?.name === undefined ? [] : [rootMeta.name];
   let current: CommandDef = root;
@@ -207,13 +210,28 @@ export async function resolveBreadcrumb(
     }
     const match = await findSubCommand(subCommands, token);
     if (match === null) {
-      break;
+      return { segments, unknownToken: token };
     }
     segments.push(match.name);
     current = match.command;
     index += 1;
   }
+  return { segments, unknownToken: null };
+}
+
+export async function resolveBreadcrumb(
+  root: CommandDef,
+  rawArgs: readonly string[],
+): Promise<string> {
+  const { segments } = await walkCommandPath(root, rawArgs);
   return segments.length > 0 ? segments.join(" ") : CLI_NAME;
+}
+
+export async function findUnknownCommand(
+  root: CommandDef,
+  rawArgs: readonly string[],
+): Promise<string | null> {
+  return (await walkCommandPath(root, rawArgs)).unknownToken;
 }
 
 function skipFlags(rawArgs: readonly string[], start: number, argsDef: ArgsDef): number {
@@ -229,32 +247,12 @@ function skipFlags(rawArgs: readonly string[], start: number, argsDef: ArgsDef):
     if (!token.startsWith("-")) {
       return index;
     }
-    if (!token.includes("=") && consumesValue(token, argsDef)) {
+    if (flagConsumesValue(token, argsDef)) {
       index += 1;
     }
     index += 1;
   }
   return index;
-}
-
-function consumesValue(token: string, argsDef: ArgsDef): boolean {
-  const name = normalizeFlag(token);
-  for (const [key, def] of Object.entries(argsDef)) {
-    if (def.type !== "string" && def.type !== "enum") {
-      continue;
-    }
-    if (normalizeFlag(key) === name) {
-      return true;
-    }
-    if (toAliasArray(def.alias).some((alias) => normalizeFlag(alias) === name)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function normalizeFlag(value: string): string {
-  return value.replace(/^-+/, "").replace(/-/g, "").toLowerCase();
 }
 
 async function findSubCommand(

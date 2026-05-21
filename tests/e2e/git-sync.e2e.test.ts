@@ -10,6 +10,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { cliErrorMessage } from "./cli-error";
 import { requireServer } from "./server-gate";
 
 // The remote-sync API has breaking server-side differences through v59 (the git source layer
@@ -37,7 +38,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
       configHome,
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid timeout: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid timeout: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -48,7 +49,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
       configHome,
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid interval: "xyz" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid interval: "xyz" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -92,7 +93,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
       configHome,
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 

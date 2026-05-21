@@ -138,7 +138,7 @@ describe("defineMetabaseCommand", () => {
     expect(first).toBe(second);
   });
 
-  it("reports ConfigError to stderr and sets exitCode 2 when no credentials are available", async () => {
+  it("reports ConfigError as a JSON error envelope to stderr (non-TTY format) and sets exitCode 2", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "needs-creds", description: "needs creds" },
       args: {},
@@ -150,7 +150,16 @@ describe("defineMetabaseCommand", () => {
 
     await runCommand(cmd, { rawArgs: [] });
 
-    expect(stderr.join("")).toContain('Not authenticated for profile "default"');
+    const parsed: unknown = JSON.parse(stderr.join(""));
+    expect(parsed).toEqual({
+      ok: false,
+      error: {
+        category: "config",
+        message:
+          'Not authenticated for profile "default". Run `mb auth login`, set METABASE_URL/METABASE_API_KEY, or pass --url/--api-key.',
+        exitCode: 2,
+      },
+    });
     expect(process.exitCode).toBe(2);
   });
 

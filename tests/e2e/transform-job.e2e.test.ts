@@ -7,6 +7,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { cliErrorMessage } from "./cli-error";
 import { requireServer } from "./server-gate";
 
 const VALID_CRON = "0 0 0 * * ?";
@@ -226,7 +227,7 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -240,20 +241,17 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
     expect(result.stderr).toContain("Not found: GET /api/transform-job/9999999.");
   });
 
-  it("delete without --yes proceeds in non-TTY (auto-confirm matches kubectl/gh/docker convention)", async () => {
-    await createSeedJob();
-
+  it("delete without --yes refuses in non-TTY and exits 2 (explicit confirmation required)", async () => {
     const result = await runCli({
       args: ["transform-job", "delete", String(FIRST_USER_JOB_ID), "--json"],
       stdin: "",
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, DeleteResult)).toEqual({
-      deleted: true,
-      aborted: false,
-      id: FIRST_USER_JOB_ID,
-    });
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(
+      `refusing to delete ${FIRST_USER_JOB_ID} without confirmation — pass --yes to proceed non-interactively`,
+    );
+    expect(result.stdout).toBe("");
   });
 });

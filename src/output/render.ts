@@ -1,7 +1,8 @@
+import { ConfigError } from "../core/errors";
 import type { ColumnDef, ResourceView } from "../domain/view";
 
 import { capListEnvelope } from "./cap";
-import { itemOversizeNotice, listTruncationNotice, warn } from "./notice";
+import { itemOversizeMessage, listTruncationNotice, warn } from "./notice";
 import { applyProjection, isPlainObject } from "./projection";
 import { formatCell, formatScalar, renderTable } from "./table";
 import type { ListEnvelope, RenderOptions } from "./types";
@@ -19,8 +20,8 @@ type KeyValuePair = readonly [label: string, value: string];
 export function renderItem<T>(item: T, view: ResourceView<T>, opts: RenderOptions): void {
   const projected = applyProjection(item, view, opts.full, opts.fields);
   const body = renderItemBody(item, view, projected, opts) + "\n";
+  assertItemWithinMaxBytes(body, opts.maxBytes);
   process.stdout.write(body);
-  emitItemOversizeNotice(body, opts.maxBytes);
 }
 
 export function renderList<T>(
@@ -96,7 +97,7 @@ function renderKeyValueLines(pairs: ReadonlyArray<KeyValuePair>): string {
   return pairs.map(([label, value]) => `${label.padEnd(padding)}  ${value}`).join("\n");
 }
 
-function emitItemOversizeNotice(body: string, maxBytes: number): void {
+function assertItemWithinMaxBytes(body: string, maxBytes: number): void {
   if (maxBytes <= 0) {
     return;
   }
@@ -104,5 +105,5 @@ function emitItemOversizeNotice(body: string, maxBytes: number): void {
   if (bytes <= maxBytes) {
     return;
   }
-  warn(itemOversizeNotice(bytes));
+  throw new ConfigError(itemOversizeMessage(bytes, maxBytes));
 }

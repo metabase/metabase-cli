@@ -53,13 +53,13 @@ describe("reportError", () => {
 
   it("sets exit code 1 for UnknownError wrapping a generic Error", () => {
     reportError(new Error("kaboom"));
-    expect(streams.stderr).toBe("kaboom\n");
+    expect(streams.stderr).toBe("kaboom\n(rerun with METABASE_VERBOSE=1 for details)\n");
     expect(process.exitCode).toBe(1);
   });
 
-  it("omits developerDetail when METABASE_VERBOSE is unset", () => {
+  it("appends the verbose breadcrumb (not the detail) when METABASE_VERBOSE is unset and detail exists", () => {
     reportError(new UnknownError({ originalMessage: "boom", stack: "trace" }));
-    expect(streams.stderr).toBe("boom\n");
+    expect(streams.stderr).toBe("boom\n(rerun with METABASE_VERBOSE=1 for details)\n");
   });
 
   it("appends developerDetail JSON when METABASE_VERBOSE=1 and the error carries detail", () => {
@@ -79,7 +79,7 @@ describe("reportError", () => {
 
   it("normalizes a non-MetabaseError value (string) into an UnknownError envelope", () => {
     reportError("plain string");
-    expect(streams.stderr).toBe("plain string\n");
+    expect(streams.stderr).toBe("plain string\n(rerun with METABASE_VERBOSE=1 for details)\n");
     expect(process.exitCode).toBe(1);
   });
 
@@ -100,7 +100,8 @@ describe("reportError", () => {
     );
     expect(streams.stderr).toBe(
       "https://m.example.com/api/collection/8/items: value did not match expected schema\n" +
-        "  /total: Invalid input: expected number, received null\n",
+        "  /total: Invalid input: expected number, received null\n" +
+        "(rerun with METABASE_VERBOSE=1 for details)\n",
     );
     expect(process.exitCode).toBe(1);
   });
@@ -123,8 +124,53 @@ describe("reportError", () => {
 
     expect(streams.stderr).toBe(
       "Metabase returned unexpected response shape:\n" +
-        "  version.tag: Invalid input: expected string, received undefined\n",
+        "  version.tag: Invalid input: expected string, received undefined\n" +
+        "(rerun with METABASE_VERBOSE=1 for details)\n",
     );
     expect(process.exitCode).toBe(1);
+  });
+
+  it("emits a JSON error envelope to stderr (no detail) when format is json", () => {
+    reportError(new ConfigError("missing TTY"), "json");
+    const expected =
+      JSON.stringify(
+        { ok: false, error: { category: "config", message: "missing TTY", exitCode: 2 } },
+        null,
+        2,
+      ) + "\n";
+    expect(streams.stderr).toBe(expected);
+    expect(process.exitCode).toBe(2);
+  });
+
+  it("omits detail from the JSON error envelope when METABASE_VERBOSE is unset", () => {
+    reportError(new UnknownError({ originalMessage: "boom", stack: "trace" }), "json");
+    const expected =
+      JSON.stringify(
+        { ok: false, error: { category: "unknown", message: "boom", exitCode: 1 } },
+        null,
+        2,
+      ) + "\n";
+    expect(streams.stderr).toBe(expected);
+    expect(process.exitCode).toBe(1);
+  });
+
+  it("includes detail in the JSON error envelope when METABASE_VERBOSE=1", () => {
+    process.env["METABASE_VERBOSE"] = "1";
+    reportError(new UnknownError({ originalMessage: "boom", stack: "trace" }), "json");
+    const expected =
+      JSON.stringify(
+        {
+          ok: false,
+          error: {
+            category: "unknown",
+            message: "boom",
+            exitCode: 1,
+            detail: { originalMessage: "boom", stack: "trace" },
+          },
+        },
+        null,
+        2,
+      ) + "\n";
+    expect(streams.stderr).toBe(expected);
   });
 });

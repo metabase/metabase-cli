@@ -6,7 +6,7 @@ import { readBody } from "../../runtime/body";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
-import { parseSettingKey } from "./key";
+import { parseSettingKey, rethrowSettingError } from "./key";
 
 export default defineMetabaseCommand({
   meta: { name: "set", description: "Set a setting value (parsed strictly as JSON)" },
@@ -34,11 +34,13 @@ export default defineMetabaseCommand({
       z.unknown(),
     );
     const client = await getClient();
-    await client.requestRaw(`/api/setting/${encodeURIComponent(key)}`, {
-      method: "PUT",
-      body: { value },
-      expectContentType: "binary",
-    });
+    await client
+      .requestRaw(`/api/setting/${encodeURIComponent(key)}`, {
+        method: "PUT",
+        body: { value },
+        expectContentType: "binary",
+      })
+      .catch((error: unknown) => rethrowSettingError(error, key));
     const item: SettingValue = { key, value };
     renderItem(item, settingValueView, ctx);
   },

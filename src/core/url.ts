@@ -1,7 +1,9 @@
+import { ConfigError } from "./errors";
+
 export function normalizeUrl(input: string): string {
   const trimmed = input.trim().replace(/\/+$/, "");
   if (!/^https?:\/\//i.test(trimmed)) {
-    throw new Error("URL must start with http:// or https://");
+    throw new ConfigError("URL must start with http:// or https://");
   }
   return trimmed;
 }

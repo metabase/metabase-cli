@@ -7,7 +7,7 @@ import { parseJsonOrPlain } from "../../runtime/json";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
-import { parseSettingKey } from "./key";
+import { parseSettingKey, rethrowSettingError } from "./key";
 
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a setting value by key" },
@@ -23,7 +23,9 @@ export default defineMetabaseCommand({
   async run({ args, ctx, getClient }) {
     const key = parseSettingKey(args.key);
     const client = await getClient();
-    const value = await fetchSettingValue(client, key);
+    const value = await fetchSettingValue(client, key).catch((error: unknown) =>
+      rethrowSettingError(error, key),
+    );
     const item: SettingValue = { key, value };
     renderItem(item, settingValueView, ctx);
   },

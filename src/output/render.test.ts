@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
+import { ConfigError } from "../core/errors";
 import type { ResourceView } from "../domain/view";
 import { parseJson } from "../runtime/json";
 import { capListEnvelope } from "./cap";
@@ -111,22 +112,30 @@ describe("renderItem", () => {
     expect(streams.stdout).toBe("id        1\nname      Sales\narchived  false\n");
   });
 
-  it("emits a stderr notice when JSON output exceeds maxBytes", () => {
+  it("throws ConfigError and writes nothing when a single item exceeds maxBytes", () => {
     const longName = "x".repeat(200);
     const item: Card = { id: 1, name: longName, archived: false };
-    renderItem(item, cardView, {
-      ...baseOpts,
-      full: true,
-      maxBytes: 50,
-    });
-    expect(parseJson(streams.stdout, Card)).toEqual(item);
     const expectedBytes = Buffer.byteLength(JSON.stringify(item, null, 2) + "\n", "utf8");
-    expect(streams.stderr).toBe(
-      `… item is ${expectedBytes} bytes (exceeds --max-bytes); narrow with --fields, or pass --max-bytes 0\n`,
+    const error = (() => {
+      try {
+        renderItem(item, cardView, { ...baseOpts, full: true, maxBytes: 50 });
+      } catch (caught: unknown) {
+        return caught;
+      }
+      throw new Error("expected renderItem to throw");
+    })();
+    expect(error).toBeInstanceOf(ConfigError);
+    if (!(error instanceof ConfigError)) {
+      throw new Error("expected ConfigError");
+    }
+    expect(error.message).toBe(
+      `output is ${expectedBytes} bytes, over the 50-byte --max-bytes cap; narrow with --fields, or pass --max-bytes 0 to disable`,
     );
+    expect(error.exitCode).toBe(2);
+    expect(streams.stdout).toBe("");
   });
 
-  it("does not warn when item fits inside maxBytes", () => {
+  it("does not throw when item fits inside maxBytes", () => {
     renderItem({ id: 1, name: "Sales", archived: false }, cardView, {
       ...baseOpts,
       maxBytes: 65536,
@@ -134,13 +143,15 @@ describe("renderItem", () => {
     expect(streams.stderr).toBe("");
   });
 
-  it("disables the oversize notice when maxBytes is 0", () => {
+  it("does not cap a single item when maxBytes is 0", () => {
     const longName = "x".repeat(200);
-    renderItem({ id: 1, name: longName, archived: false }, cardView, {
+    const item: Card = { id: 1, name: longName, archived: false };
+    renderItem(item, cardView, {
       ...baseOpts,
       full: true,
       maxBytes: 0,
     });
+    expect(parseJson(streams.stdout, Card)).toEqual(item);
     expect(streams.stderr).toBe("");
   });
 });

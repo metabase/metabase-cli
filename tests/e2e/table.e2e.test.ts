@@ -7,6 +7,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 const SEEDED_WAREHOUSE_TABLES = [
   {
@@ -213,7 +214,9 @@ describe("table e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "not-a-number" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain(
+      'invalid id: "not-a-number" (expected integer)',
+    );
     expect(result.stdout).toBe("");
   });
 
@@ -306,7 +309,7 @@ describe("table e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
   });
 
   it("update edits the table description and returns the updated row", async () => {
@@ -371,7 +374,7 @@ describe("table e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
   });
 
   it("update enforces the input schema when an unknown enum value is sent", async () => {

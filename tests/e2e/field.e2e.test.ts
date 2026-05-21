@@ -7,6 +7,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 describe("field e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -80,7 +81,7 @@ describe("field e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "x" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "x" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -116,7 +117,7 @@ describe("field e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
   });
 
   it("summary returns the count and distinct count for the email field", async () => {
@@ -204,7 +205,7 @@ describe("field e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
   });
 
   it("update enforces the input schema for an unknown enum value", async () => {

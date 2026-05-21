@@ -8,6 +8,7 @@ import { parseJson } from "../../src/runtime/json";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 
 const NEW_CARD_NAME = "e2e_card_new";
@@ -157,7 +158,7 @@ describe("card e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -246,7 +247,9 @@ describe("card e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid --export-format: "html" (expected: csv, json, xlsx)');
+    expect(cliErrorMessage(result.stderr)).toContain(
+      'invalid --export-format: "html" (expected: csv, json, xlsx)',
+    );
     expect(result.stdout).toBe("");
   });
 
@@ -345,7 +348,7 @@ describe("card e2e", () => {
     // The card-create endpoint surfaces the underlying app-DB constraint message via the response
     // envelope; we assert a stable substring of that surfaced error.
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('NULL not allowed for column "DATABASE_ID"');
+    expect(cliErrorMessage(result.stderr)).toContain('NULL not allowed for column "DATABASE_ID"');
     expect(result.stdout).toBe("");
   });
 
@@ -357,7 +360,7 @@ describe("card e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -426,7 +429,7 @@ describe("card e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
