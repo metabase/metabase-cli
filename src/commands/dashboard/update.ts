@@ -1,5 +1,5 @@
 import { DashboardDetail, DashboardUpdateInput, dashboardView } from "../../domain/dashboard";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -39,6 +39,11 @@ export default defineMetabaseCommand({
       method: "PUT",
       body,
     });
-    renderItem(updated, dashboardView, ctx);
+    renderSummary(
+      updated,
+      dashboardView,
+      `Updated dashboard ${updated.id} "${updated.name}".`,
+      ctx,
+    );
   },
 });

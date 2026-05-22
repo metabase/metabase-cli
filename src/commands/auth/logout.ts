@@ -4,7 +4,7 @@ import { clearProfile } from "../../core/auth/storage";
 import { resolveProfileName } from "../../core/config";
 import type { ResourceView } from "../../domain/view";
 import { promptConfirm } from "../../output/prompt";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -43,12 +43,20 @@ export default defineMetabaseCommand({
         initialValue: false,
       });
       if (!ok) {
-        renderItem({ profile: profileName, cleared: false, aborted: true }, logoutView, ctx);
+        renderSummary(
+          { profile: profileName, cleared: false, aborted: true },
+          logoutView,
+          `Left credentials for profile "${profileName}" untouched.`,
+          ctx,
+        );
         return;
       }
     }
 
     const cleared = await clearProfile(profileName);
-    renderItem({ profile: profileName, cleared, aborted: false }, logoutView, ctx);
+    const message = cleared
+      ? `Cleared stored credentials for profile "${profileName}".`
+      : `No stored credentials for profile "${profileName}".`;
+    renderSummary({ profile: profileName, cleared, aborted: false }, logoutView, message, ctx);
   },
 });

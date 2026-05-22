@@ -1,5 +1,5 @@
 import { Card, CardCreateInput, cardView } from "../../domain/card";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -42,6 +42,6 @@ export default defineMetabaseCommand({
       method: "POST",
       body,
     });
-    renderItem(created, cardView, ctx);
+    renderSummary(created, cardView, `Created card ${created.id} "${created.name}".`, ctx);
   },
 });

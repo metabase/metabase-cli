@@ -256,6 +256,28 @@ describe("defineMetabaseCommand", () => {
     expect(process.exitCode).toBe(0);
   });
 
+  it("proceeds without any version warning when the cached probe has a non-numeric version", async () => {
+    await seedProbedProfile("default", { version: null, tokenFeatures: null });
+
+    const ran = vi.fn();
+    const cmd = defineMetabaseCommand({
+      meta: { name: "needs-v60-unknown", description: "wants v60" },
+      args: {},
+      capabilities: { minVersion: 60 },
+      async run({ getClient }) {
+        await getClient();
+        ran();
+      },
+    });
+    const stderr = captureStderr();
+
+    await runCommand(cmd, { rawArgs: [] });
+
+    expect(stderr.join("")).not.toContain("Could not detect Metabase server version");
+    expect(ran).toHaveBeenCalledOnce();
+    expect(process.exitCode).toBe(0);
+  });
+
   it("bypasses the preflight check when --skip-preflight is passed", async () => {
     await seedProbedProfile("default", fakeServerInfo(58));
 

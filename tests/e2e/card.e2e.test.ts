@@ -510,9 +510,9 @@ describe("card e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("request body: value did not match expected schema");
-    expect(result.stderr).toContain(
-      'dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected',
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "request body: value did not match expected schema\n" +
+        '  /dataset_query: dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected',
     );
     expect(result.stderr).not.toContain("DATABASE_ID");
     expect(result.stdout).toBe("");
@@ -547,9 +547,9 @@ describe("card e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("request body: value did not match expected schema");
-    expect(result.stderr).toContain(
-      'dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected',
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "request body: value did not match expected schema\n" +
+        '  /dataset_query: dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected',
     );
     expect(result.stdout).toBe("");
   });

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { ResourceView } from "../../domain/view";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -54,6 +54,9 @@ export default defineMetabaseCommand({
       REMOTE_SYNC_PATHS.hasRemoteChanges,
       { query: { "force-refresh": args.forceRefresh } },
     );
-    renderItem(result, hasRemoteChangesView, ctx);
+    const base = result.has_changes
+      ? `The remote branch has changes not yet imported (remote ${result.remote_version ?? "?"}, local ${result.local_version ?? "?"}).`
+      : "Up to date with the remote branch.";
+    renderSummary(result, hasRemoteChangesView, result.cached ? `${base} (cached)` : base, ctx);
   },
 });

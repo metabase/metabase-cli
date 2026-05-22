@@ -193,7 +193,7 @@ describe("collection e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       'invalid id: "abc" (expected integer, "root", "trash", or 21-char entity id)',
     );
     expect(result.stdout).toBe("");
@@ -377,7 +377,7 @@ describe("collection e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       'invalid id: "abc" (expected integer, "root", "trash", or 21-char entity id)',
     );
     expect(result.stdout).toBe("");

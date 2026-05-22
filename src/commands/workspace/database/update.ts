@@ -1,5 +1,5 @@
 import { Workspace, WorkspaceUpdateDatabaseInput, workspaceView } from "../../../domain/workspace";
-import { renderItem } from "../../../output/render";
+import { renderSummary } from "../../../output/render";
 import { readBody } from "../../../runtime/body";
 import { bodyInputFlags } from "../../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../../flags";
@@ -60,6 +60,9 @@ export default defineMetabaseCommand({
     const final = wait.enabled
       ? await waitForDatabaseProvisioned(client, workspaceId, databaseId, wait.schedule)
       : initial;
-    renderItem(final, workspaceView, ctx);
+    const message = wait.enabled
+      ? `Re-provisioned database ${databaseId} in workspace ${workspaceId}.`
+      : `Started re-provisioning database ${databaseId} in workspace ${workspaceId}; rerun with --wait to block until ready.`;
+    renderSummary(final, workspaceView, message, ctx);
   },
 });

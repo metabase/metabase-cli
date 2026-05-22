@@ -2,12 +2,12 @@ import { z } from "zod";
 
 import { SyncTask } from "../../domain/git-sync";
 import type { ResourceView } from "../../domain/view";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 import { gitSyncWaitFlags, parseWaitFlags } from "../wait-flags";
 
-import { pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
+import { formatSyncTask, pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
 
 const SyncImportKickoff = z.object({
   status: z.literal("success"),
@@ -84,7 +84,11 @@ export default defineMetabaseCommand({
         message: kickoff.message ?? null,
         task_id: kickoff.task_id,
       };
-      renderItem(result, syncImportView, ctx);
+      const text =
+        kickoff.task_id === null
+          ? (kickoff.message ?? "Already up to date; nothing to import.")
+          : `Started import task #${kickoff.task_id}.`;
+      renderSummary(result, syncImportView, text, ctx);
       return;
     }
 
@@ -94,7 +98,9 @@ export default defineMetabaseCommand({
       task_id: kickoff.task_id,
       final,
     };
-    renderItem(result, syncImportView, ctx);
+    const text =
+      final === null ? `Import task #${kickoff.task_id} finished.` : formatSyncTask(final);
+    renderSummary(result, syncImportView, text, ctx);
     throwIfFailedTask(final, "import");
   },
 });

@@ -18,7 +18,7 @@ import {
   type Capabilities,
 } from "../core/version/capabilities";
 import { CapabilityError } from "../core/version/preflight-error";
-import { EMPTY_SERVER_INFO, type ServerInfo } from "../core/version/probe";
+import { type ServerInfo } from "../core/version/probe";
 import { reportError } from "../output/error";
 import { warn } from "../output/notice";
 import { setMetabaseAugment } from "../runtime/command-augment";
@@ -145,7 +145,8 @@ async function loadServerInfo(
 
 const NO_OP_ENFORCER: () => Promise<void> = async () => {};
 
-const PROBE_HINT = " Run `mb auth list` (or `mb auth login`) to populate the version cache.";
+const NO_PROBE_DATA_WARNING =
+  "Could not detect Metabase server version. Proceeding without preflight check; failures may produce confusing errors. Run `mb auth list` (or `mb auth login`) to populate the version cache.";
 
 function createPreflightEnforcer(
   required: Capabilities | null,
@@ -161,13 +162,13 @@ function createPreflightEnforcer(
       return;
     }
     done = true;
-    const info = (await getServerInfo()) ?? EMPTY_SERVER_INFO;
-    const failure = checkCapabilities(info, required);
-    if (failure === null) {
+    const info = await getServerInfo();
+    if (info === null) {
+      warn(NO_PROBE_DATA_WARNING);
       return;
     }
-    if (failure.reason === "unknown-version") {
-      warn(failure.detail + PROBE_HINT);
+    const failure = checkCapabilities(info, required);
+    if (failure === null || failure.reason === "unknown-version") {
       return;
     }
     throw new CapabilityError(failure);

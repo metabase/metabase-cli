@@ -1,5 +1,5 @@
 import { SetupInput, SetupResult, setupResultView } from "../domain/setup";
-import { renderItem } from "../output/render";
+import { renderSummary } from "../output/render";
 import { readBody } from "../runtime/body";
 
 import { bodyInputFlags } from "./body-flags";
@@ -31,6 +31,6 @@ export default defineMetabaseCommand({
       method: "POST",
       body,
     });
-    renderItem(result, setupResultView, ctx);
+    renderSummary(result, setupResultView, "Metabase setup complete.", ctx);
   },
 });

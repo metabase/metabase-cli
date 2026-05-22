@@ -16,11 +16,11 @@ import { ProbedUser } from "../../core/auth/profile-record";
 import type { ResourceView } from "../../domain/view";
 import { warn } from "../../output/notice";
 import { promptPassword, promptText } from "../../output/prompt";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readInput } from "../../runtime/input";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
-import { renderUserName, renderUserRole, renderVersionTag } from "./render";
+import { EMPTY_CELL, renderUserName, renderUserRole, renderVersionTag } from "./render";
 
 export const LoginResult = z.object({
   profile: z.string(),
@@ -86,7 +86,7 @@ export default defineMetabaseCommand({
       if (location.backend === "file") {
         warn(keyringFallbackWarning(location, "credentials"));
       }
-      renderItem(
+      renderSummary(
         {
           profile: profileName,
           url,
@@ -95,6 +95,7 @@ export default defineMetabaseCommand({
           version: null,
         },
         loginView,
+        `Saved credentials for profile "${profileName}" (${url}) without verifying.`,
         ctx,
       );
       return;
@@ -112,7 +113,11 @@ export default defineMetabaseCommand({
     }
     await writeProbeResult(profileName, { user: result.user, server: result.server });
 
-    renderItem(
+    const who = renderUserName(result.user);
+    const role = renderUserRole(result.user);
+    const versionTag = renderVersionTag(result.server.version);
+    const serverClause = versionTag === EMPTY_CELL ? "" : ` Server ${versionTag}.`;
+    renderSummary(
       {
         profile: profileName,
         url,
@@ -121,6 +126,7 @@ export default defineMetabaseCommand({
         version: result.server.version,
       },
       loginView,
+      `Logged in to ${url} as ${who} (${role}). Saved to profile "${profileName}".${serverClause}`,
       ctx,
     );
   },

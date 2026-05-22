@@ -8,7 +8,8 @@ import {
   validateQuery,
 } from "../core/schema/validate";
 import { CardQueryResult, cardQueryView } from "../domain/card";
-import { renderItem, writeJson } from "../output/render";
+import { formatQueryResult } from "../output/query-result";
+import { renderSummary, writeJson } from "../output/render";
 import { readBody } from "../runtime/body";
 
 import { bodyInputFlags } from "./body-flags";
@@ -91,6 +92,6 @@ export default defineMetabaseCommand({
       method: "POST",
       body,
     });
-    renderItem(queryResult, cardQueryView, ctx);
+    renderSummary(queryResult, cardQueryView, () => formatQueryResult(queryResult), ctx);
   },
 });

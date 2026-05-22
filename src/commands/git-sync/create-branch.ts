@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { ConfigError } from "../../core/errors";
 import type { ResourceView } from "../../domain/view";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -49,6 +49,11 @@ export default defineMetabaseCommand({
       method: "POST",
       body: { name },
     });
-    renderItem(result, createBranchView, ctx);
+    renderSummary(
+      result,
+      createBranchView,
+      `Created branch "${name}" and switched git-sync to it.`,
+      ctx,
+    );
   },
 });

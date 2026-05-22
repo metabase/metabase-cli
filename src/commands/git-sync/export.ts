@@ -3,13 +3,13 @@ import { z } from "zod";
 import { SyncTask } from "../../domain/git-sync";
 import type { ResourceView } from "../../domain/view";
 import { warn } from "../../output/notice";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import type { CommonContext } from "../context";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 import { gitSyncWaitFlags, parseWaitFlags } from "../wait-flags";
 
-import { pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
+import { formatSyncTask, pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
 
 const SyncExportKickoff = z.object({
   message: z.string(),
@@ -91,7 +91,7 @@ export default defineMetabaseCommand({
 
     if (!wait.enabled) {
       const result: SyncExportResult = { message: kickoff.message, task_id: kickoff.task_id };
-      renderItem(result, syncExportView, ctx);
+      renderSummary(result, syncExportView, `Started export task #${kickoff.task_id}.`, ctx);
     } else {
       const final = await pollSyncTask(client, wait.schedule);
       const result: SyncExportResult = {
@@ -99,7 +99,9 @@ export default defineMetabaseCommand({
         task_id: kickoff.task_id,
         final,
       };
-      renderItem(result, syncExportView, ctx);
+      const text =
+        final === null ? `Export task #${kickoff.task_id} finished.` : formatSyncTask(final);
+      renderSummary(result, syncExportView, text, ctx);
       throwIfFailedTask(final, "export");
     }
     emitRealignHint(ctx);

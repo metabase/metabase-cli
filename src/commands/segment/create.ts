@@ -1,5 +1,5 @@
 import { Segment, SegmentCreateInput, segmentView } from "../../domain/segment";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -41,6 +41,6 @@ export default defineMetabaseCommand({
       method: "POST",
       body,
     });
-    renderItem(created, segmentView, ctx);
+    renderSummary(created, segmentView, `Created segment ${created.id} "${created.name}".`, ctx);
   },
 });

@@ -1,5 +1,5 @@
 import { Card, CardUpdateInput, cardView } from "../../domain/card";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -47,6 +47,6 @@ export default defineMetabaseCommand({
       method: "PUT",
       body,
     });
-    renderItem(updated, cardView, ctx);
+    renderSummary(updated, cardView, `Updated card ${updated.id} "${updated.name}".`, ctx);
   },
 });

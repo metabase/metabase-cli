@@ -3,8 +3,8 @@ import type { ColumnDef, ResourceView } from "../domain/view";
 
 import { capListEnvelope } from "./cap";
 import { itemOversizeMessage, listTruncationNotice, warn } from "./notice";
-import { applyProjection, isPlainObject } from "./projection";
-import { formatCell, formatScalar, renderTable } from "./table";
+import { applyProjection, isPlainObject, pickPath } from "./projection";
+import { formatCell, formatScalar, renderRows, renderTable } from "./table";
 import type { ListEnvelope, RenderOptions } from "./types";
 
 export { formatScalar } from "./table";
@@ -26,21 +26,24 @@ export function renderItem<T>(item: T, view: ResourceView<T>, opts: RenderOption
   process.stdout.write(body);
 }
 
-// Single-value lookups (setting get, workspace url, git-sync is-dirty, …) print the bare
-// scalar in human/text mode so the result composes in a shell (`URL=$(mb … --format text)`)
-// and reads as prose, while `--json`/`--fields`/`--full` keep the stable keyed envelope so
-// agents get a predictable shape. `scalarText` is the already-formatted human string.
-export function renderScalar<T>(
+// Default text/human view prints `summaryText` — a bare scalar for single-value lookups
+// (setting get, workspace url, git-sync is-dirty) so the result composes in a shell
+// (`URL=$(mb … --format text)`), or an action-confirmation sentence for mutations
+// ("Archived card 1 …"). `--json`, `--fields`, and `--full` fall through to renderItem, which
+// emits structured JSON under `--json` and the selected/all fields as key/value lines in text.
+// Pass a thunk when the text is expensive to build (e.g. a rendered result table) so it is
+// skipped entirely under `--json`/`--fields`/`--full`.
+export function renderSummary<T>(
   item: T,
   view: ResourceView<T>,
-  scalarText: string,
+  summaryText: string | (() => string),
   opts: RenderOptions,
 ): void {
   if (opts.format === "json" || opts.fields !== undefined || opts.full) {
     renderItem(item, view, opts);
     return;
   }
-  const body = scalarText + "\n";
+  const body = (typeof summaryText === "function" ? summaryText() : summaryText) + "\n";
   assertItemWithinMaxBytes(body, opts.maxBytes);
   process.stdout.write(body);
 }
@@ -50,7 +53,7 @@ export function renderList<T>(
   view: ResourceView<T>,
   opts: RenderOptions,
 ): void {
-  if (opts.format === "json" || opts.fields !== undefined) {
+  if (opts.format === "json") {
     renderJsonEnvelope(envelope, view, opts);
     return;
   }
@@ -60,8 +63,30 @@ export function renderList<T>(
     return;
   }
 
+  if (opts.fields !== undefined) {
+    renderProjectedTable(envelope, view, opts.fields, opts.maxBytes);
+    return;
+  }
+
   const capped = capListEnvelope(envelope, opts.maxBytes);
   process.stdout.write(renderTable(capped.data, view.tableColumns) + "\n");
+  if (capped.truncated !== undefined) {
+    warn(listTruncationNotice(capped.truncated.bytes));
+  }
+}
+
+function renderProjectedTable<T>(
+  envelope: ListEnvelope<T>,
+  view: ResourceView<T>,
+  fields: string[],
+  maxBytes: number,
+): void {
+  const projectedItems = envelope.data.map((item) => applyProjection(item, view, false, fields));
+  const capped = capListEnvelope({ ...envelope, data: projectedItems }, maxBytes);
+  const rows = capped.data.map((item) =>
+    fields.map((path) => formatScalar(pickPath(item, path.split(".")))),
+  );
+  process.stdout.write(renderRows(fields, rows) + "\n");
   if (capped.truncated !== undefined) {
     warn(listTruncationNotice(capped.truncated.bytes));
   }
@@ -89,13 +114,13 @@ function renderItemBody<T>(
   projected: unknown,
   opts: RenderOptions,
 ): string {
-  if (opts.format === "json" || opts.fields !== undefined) {
+  if (opts.format === "json") {
     return JSON.stringify(projected, null, 2);
   }
-  if (!opts.full) {
-    return renderKeyValueLines(columnPairs(item, view.tableColumns));
+  if (opts.fields !== undefined || opts.full) {
+    return renderKeyValueLines(objectPairs(projected));
   }
-  return renderKeyValueLines(objectPairs(projected));
+  return renderKeyValueLines(columnPairs(item, view.tableColumns));
 }
 
 function columnPairs<T>(item: T, columns: ColumnDef<T>[]): KeyValuePair[] {

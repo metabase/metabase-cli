@@ -5,7 +5,7 @@ import {
   DashcardPatchInput,
   dashcardView,
 } from "../../domain/dashboard";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -58,7 +58,12 @@ export default defineMetabaseCommand({
         `PUT /api/dashboard/${dashboardId}: dashcard ${dashcardId} missing from response`,
       );
     }
-    renderItem(refreshed, dashcardView, ctx);
+    renderSummary(
+      refreshed,
+      dashcardView,
+      `Updated dashcard ${dashcardId} on dashboard ${dashboardId} (row ${refreshed.row}, col ${refreshed.col}, ${refreshed.size_x}x${refreshed.size_y}).`,
+      ctx,
+    );
   },
 });
 

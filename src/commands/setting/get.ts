@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import type { Client } from "../../core/http/client";
 import { SettingValue, settingValueView } from "../../domain/setting";
-import { formatScalar, renderScalar } from "../../output/render";
+import { formatScalar, renderSummary } from "../../output/render";
 import { parseJsonOrPlain } from "../../runtime/json";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -27,7 +27,7 @@ export default defineMetabaseCommand({
       rethrowSettingError(error, key),
     );
     const item: SettingValue = { key, value };
-    renderScalar(item, settingValueView, formatScalar(value), ctx);
+    renderSummary(item, settingValueView, formatScalar(value), ctx);
   },
 });
 

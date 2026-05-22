@@ -1,11 +1,12 @@
 import { syncTaskView } from "../../domain/git-sync";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { DEFAULT_INTERVAL_MS, DEFAULT_TIMEOUT_MS } from "../../runtime/poll";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
 import {
+  formatSyncTask,
   pollSyncTask,
   syncTaskIdleView,
   SyncTaskIdle,
@@ -46,11 +47,11 @@ export default defineMetabaseCommand({
 
     if (final === null) {
       const idle: SyncTaskIdle = { status: "idle" };
-      renderItem(idle, syncTaskIdleView, ctx);
+      renderSummary(idle, syncTaskIdleView, "No git-sync task is running.", ctx);
       return;
     }
 
-    renderItem(final, syncTaskView, ctx);
+    renderSummary(final, syncTaskView, formatSyncTask(final), ctx);
     throwIfFailedTask(final, "task");
   },
 });

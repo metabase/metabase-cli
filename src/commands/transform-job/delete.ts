@@ -23,6 +23,8 @@ export default defineMetabaseCommand({
       path: `/api/transform-job/${id}`,
       yes: args.yes,
       promptMessage: `Delete transform job ${id}?`,
+      successMessage: `Deleted transform job ${id}.`,
+      abortMessage: `Aborted; transform job ${id} was not deleted.`,
       client,
       ctx,
     });

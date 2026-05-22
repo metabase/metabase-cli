@@ -1,5 +1,5 @@
 import { Transform, TransformUpdateInput, transformView } from "../../domain/transform";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -47,6 +47,11 @@ export default defineMetabaseCommand({
       method: "PUT",
       body,
     });
-    renderItem(updated, transformView, ctx);
+    renderSummary(
+      updated,
+      transformView,
+      `Updated transform ${updated.id} "${updated.name}".`,
+      ctx,
+    );
   },
 });

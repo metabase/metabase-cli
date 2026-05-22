@@ -8,7 +8,7 @@ import {
   volumeNameFor,
 } from "../../core/docker";
 import type { ResourceView } from "../../domain/view";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { promptConfirm } from "../../output/prompt";
 import { outputFlags } from "../flags";
 import { parseId } from "../parse-id";
@@ -85,6 +85,14 @@ export default defineMetabaseCommand({
       removed_container: removedContainer,
       removed_volume: removedVolume,
     };
-    renderItem(result, deleteResultView, ctx);
+    let message: string;
+    if (!result.removed_container) {
+      message = `No container found for workspace ${workspaceId} — nothing to remove.`;
+    } else if (result.removed_volume) {
+      message = `Removed workspace ${workspaceId}: container ${containerName} and app-db volume ${volumeName}.`;
+    } else {
+      message = `Removed workspace ${workspaceId}: container ${containerName} (volume ${volumeName} kept).`;
+    }
+    renderSummary(result, deleteResultView, message, ctx);
   },
 });

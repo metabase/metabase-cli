@@ -175,7 +175,7 @@ describe("db e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       'invalid --include value: "everything" (expected one of: tables)',
     );
   });

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { clearLicense } from "../../../core/auth/storage";
 import type { ResourceView } from "../../../domain/view";
 import { promptConfirm } from "../../../output/prompt";
-import { renderItem } from "../../../output/render";
+import { renderSummary } from "../../../output/render";
 import { outputFlags } from "../../flags";
 import { defineMetabaseCommand } from "../../runtime";
 
@@ -37,12 +37,18 @@ export default defineMetabaseCommand({
         initialValue: false,
       });
       if (!ok) {
-        renderItem({ removed: false, aborted: true }, licenseRemoveView, ctx);
+        renderSummary(
+          { removed: false, aborted: true },
+          licenseRemoveView,
+          "Left the stored license token in place.",
+          ctx,
+        );
         return;
       }
     }
 
     const removed = await clearLicense();
-    renderItem({ removed, aborted: false }, licenseRemoveView, ctx);
+    const message = removed ? "License token removed." : "No license token was stored.";
+    renderSummary({ removed, aborted: false }, licenseRemoveView, message, ctx);
   },
 });

@@ -177,50 +177,29 @@ function buildHumanText(
   if (!status.changeRequired) {
     return `Up to date (${status.currentVersion}).`;
   }
-  const header = [
-    `Current version:  ${status.currentVersion}`,
-    `Latest version:   ${status.latestVersion}`,
-  ];
-  if (status.targetVersion !== status.latestVersion) {
-    header.push(`Target version:   ${status.targetVersion}`);
-  }
-  const tail = buildHumanTail(install, command);
-  return [...header, "", ...tail].join("\n");
+  const headline =
+    status.targetVersion === status.latestVersion
+      ? `Update available: ${status.currentVersion} → ${status.latestVersion}`
+      : `Target ${status.targetVersion} (current ${status.currentVersion}, latest ${status.latestVersion}).`;
+  return [headline, ...buildHumanTail(install, command)].join("\n");
 }
 
 function buildHumanTail(install: InstallMethod, command: InstallCommand | null): string[] {
   switch (install.kind) {
     case "npm-global": {
-      return [
-        `Installed via:    ${install.packageManager} (global)`,
-        `Binary path:      ${install.realPath}`,
-        ...(command === null ? [] : [`Upgrade command: ${command.display}`]),
-      ];
+      return command === null ? [] : [`Run: ${command.display}`];
     }
     case "npm-local": {
-      return [
-        `Installed via:    ${install.packageManager} (local install)`,
-        `Binary path:      ${install.realPath}`,
-        ...(command === null ? [] : [`Run in that project: ${command.display}`]),
-      ];
+      return command === null ? [] : [`Run in that project: ${command.display}`];
     }
     case "npx": {
-      return [
-        `Running via npx — no upgrade needed.`,
-        `npx fetches the latest version on each invocation.`,
-      ];
+      return ["Running via npx — it fetches the latest version on each run, no upgrade needed."];
     }
     case "dev": {
-      return [
-        `Running from source at ${install.realPath}.`,
-        `Pull the latest changes from git and rebuild to upgrade.`,
-      ];
+      return [`Running from source at ${install.realPath}. Pull the latest changes and rebuild.`];
     }
     case "unknown": {
-      return [
-        `Could not detect how the CLI was installed${install.realPath === "" ? "" : ` (${install.realPath})`}.`,
-        `Reinstall with your package manager — for example: npm install -g @metabase/cli@latest`,
-      ];
+      return ["Reinstall with your package manager, e.g. npm install -g @metabase/cli@latest"];
     }
   }
 }

@@ -26,6 +26,8 @@ export default defineMetabaseCommand({
       path: `/api/transform/${id}/table`,
       yes: args.yes,
       promptMessage: `Drop transform ${id}'s output table?`,
+      successMessage: `Dropped transform ${id}'s output table.`,
+      abortMessage: `Aborted; transform ${id}'s output table was not dropped.`,
       client,
       ctx,
     });

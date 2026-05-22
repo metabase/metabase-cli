@@ -36,6 +36,8 @@ export default defineMetabaseCommand({
       path: `/api/ee/workspace-manager/${workspaceId}/database/${databaseId}`,
       yes: args.yes,
       promptMessage: `Deprovision database ${databaseId} from workspace ${workspaceId}?`,
+      successMessage: `Deprovisioned database ${databaseId} from workspace ${workspaceId}.`,
+      abortMessage: `Aborted; database ${databaseId} was not deprovisioned.`,
       client,
       ctx,
       ...(wait.enabled

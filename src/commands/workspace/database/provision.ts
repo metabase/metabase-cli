@@ -1,6 +1,6 @@
 import { Workspace, WorkspaceProvisionInput, workspaceView } from "../../../domain/workspace";
 import { ConfigError } from "../../../core/errors";
-import { renderItem } from "../../../output/render";
+import { renderSummary } from "../../../output/render";
 import { readBody } from "../../../runtime/body";
 import { bodyInputFlags } from "../../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../../flags";
@@ -68,6 +68,9 @@ export default defineMetabaseCommand({
     const final = wait.enabled
       ? await waitForDatabaseProvisioned(client, workspaceId, body.database_id, wait.schedule)
       : initial;
-    renderItem(final, workspaceView, ctx);
+    const message = wait.enabled
+      ? `Provisioned database ${body.database_id} into workspace ${workspaceId}.`
+      : `Started provisioning database ${body.database_id} into workspace ${workspaceId}; rerun with --wait to block until ready.`;
+    renderSummary(final, workspaceView, message, ctx);
   },
 });

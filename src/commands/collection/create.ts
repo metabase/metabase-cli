@@ -1,5 +1,5 @@
 import { Collection, CollectionCreateInput, collectionView } from "../../domain/collection";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -22,6 +22,11 @@ export default defineMetabaseCommand({
       method: "POST",
       body,
     });
-    renderItem(created, collectionView, ctx);
+    renderSummary(
+      created,
+      collectionView,
+      `Created collection ${created.id} "${created.name}".`,
+      ctx,
+    );
   },
 });

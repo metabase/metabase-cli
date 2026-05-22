@@ -1,5 +1,5 @@
 import { SyncTask, syncTaskView } from "../../domain/git-sync";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -16,6 +16,11 @@ export default defineMetabaseCommand({
     const task = await client.requestParsed(SyncTask, REMOTE_SYNC_PATHS.cancelTask, {
       method: "POST",
     });
-    renderItem(task, syncTaskView, ctx);
+    renderSummary(
+      task,
+      syncTaskView,
+      `Requested cancellation of ${task.sync_task_type} task #${task.id}.`,
+      ctx,
+    );
   },
 });

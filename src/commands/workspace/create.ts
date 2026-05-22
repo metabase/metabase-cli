@@ -1,5 +1,5 @@
 import { Workspace, WorkspaceCreateInput, workspaceView } from "../../domain/workspace";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -31,6 +31,13 @@ export default defineMetabaseCommand({
       method: "POST",
       body,
     });
-    renderItem(created, workspaceView, ctx);
+    const hasDatabases = (created.databases ?? []).length > 0;
+    const hint = hasDatabases ? "" : " No databases yet — run `mb workspace database provision`.";
+    renderSummary(
+      created,
+      workspaceView,
+      `Created workspace ${created.id} "${created.name}".${hint}`,
+      ctx,
+    );
   },
 });

@@ -1,5 +1,5 @@
 import { Snippet, SnippetCreateInput, snippetView } from "../../domain/snippet";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -27,6 +27,6 @@ export default defineMetabaseCommand({
       method: "POST",
       body,
     });
-    renderItem(created, snippetView, ctx);
+    renderSummary(created, snippetView, `Created snippet ${created.id} "${created.name}".`, ctx);
   },
 });

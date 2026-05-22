@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { TransformRun } from "../../domain/transform";
 import type { ResourceView } from "../../domain/view";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { pollUntil } from "../../runtime/poll";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -53,18 +53,24 @@ export default defineMetabaseCommand({
     });
 
     if (!wait.enabled) {
-      renderItem(
+      const started =
+        kickoff.run_id === null
+          ? kickoff.message
+          : `Started run ${kickoff.run_id} for transform ${id}.`;
+      renderSummary(
         { message: kickoff.message, run_id: kickoff.run_id, final: null },
         transformRunResultView,
+        started,
         ctx,
       );
       return;
     }
 
     if (kickoff.run_id === null) {
-      renderItem(
+      renderSummary(
         { message: kickoff.message, run_id: null, final: null },
         transformRunResultView,
+        kickoff.message,
         ctx,
       );
       throw new Error(`transform run did not start: ${kickoff.message}`);
@@ -78,7 +84,12 @@ export default defineMetabaseCommand({
       wait.schedule,
     );
 
-    renderItem({ message: kickoff.message, run_id: runId, final }, transformRunResultView, ctx);
+    renderSummary(
+      { message: kickoff.message, run_id: runId, final },
+      transformRunResultView,
+      `Run ${runId} of transform ${id} ${final.status}.`,
+      ctx,
+    );
 
     if (RUN_FAILURE_STATUSES.has(final.status)) {
       throw new Error(`transform run ${runId} ${final.status}`);

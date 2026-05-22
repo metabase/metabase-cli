@@ -6,7 +6,7 @@ import {
   eidTranslateView,
 } from "../domain/eid-translation";
 import { ConfigError } from "../core/errors";
-import { renderItem } from "../output/render";
+import { renderSummary } from "../output/render";
 import { readBody } from "../runtime/body";
 import { parseCsv } from "../runtime/csv";
 import { bodyInputFlags } from "./body-flags";
@@ -57,7 +57,12 @@ export default defineMetabaseCommand({
       "/api/eid-translation/translate",
       { method: "POST", body },
     );
-    renderItem(result, eidTranslateView, ctx);
+    const lines = Object.entries(result.entity_ids).map(([eid, entry]) => {
+      const resolved = entry.status === "ok" && entry.id !== undefined;
+      const target = resolved ? String(entry.id) : "not found";
+      return `${entry.type} ${eid} → ${target}`;
+    });
+    renderSummary(result, eidTranslateView, lines.join("\n"), ctx);
   },
 });
 

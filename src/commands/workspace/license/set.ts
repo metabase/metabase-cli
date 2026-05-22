@@ -6,7 +6,7 @@ import { ConfigError } from "../../../core/errors";
 import type { ResourceView } from "../../../domain/view";
 import { warn } from "../../../output/notice";
 import { promptPassword } from "../../../output/prompt";
-import { renderItem } from "../../../output/render";
+import { renderSummary } from "../../../output/render";
 import { readInput } from "../../../runtime/input";
 import { outputFlags } from "../../flags";
 import { defineMetabaseCommand } from "../../runtime";
@@ -47,7 +47,7 @@ export default defineMetabaseCommand({
     }
 
     const result: LicenseSetResultJson = { stored: true };
-    renderItem(result, licenseSetView, ctx);
+    renderSummary(result, licenseSetView, "License token stored.", ctx);
   },
 });
 

@@ -1,5 +1,5 @@
 import { Field, FieldUpdateInput, fieldView } from "../../domain/field";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -33,6 +33,11 @@ export default defineMetabaseCommand({
       method: "PUT",
       body,
     });
-    renderItem(updated, fieldView, ctx);
+    renderSummary(
+      updated,
+      fieldView,
+      `Updated field ${updated.id} "${updated.display_name}".`,
+      ctx,
+    );
   },
 });

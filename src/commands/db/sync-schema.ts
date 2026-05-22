@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { databaseSyncResultView, DatabaseSyncResult } from "../../domain/database";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
@@ -30,6 +30,11 @@ export default defineMetabaseCommand({
       `/api/database/${id}/sync_schema`,
       { method: "POST" },
     );
-    renderItem({ id, status: response.status }, databaseSyncResultView, ctx);
+    renderSummary(
+      { id, status: response.status },
+      databaseSyncResultView,
+      `Schema sync queued for database ${id}.`,
+      ctx,
+    );
   },
 });

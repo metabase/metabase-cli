@@ -178,15 +178,23 @@ export const FieldCompact = Field.pick({
 }).strip();
 export type FieldCompact = z.infer<typeof FieldCompact>;
 
+function formatTypeTag(value: unknown): string {
+  return typeof value === "string" ? value.replace(/^type\//, "") : "";
+}
+
+function formatFkTarget(value: unknown): string {
+  return typeof value === "number" ? `field ${value}` : "";
+}
+
 export const fieldView: ResourceView<Field> = {
   compactPick: FieldCompact,
   tableColumns: [
     { key: "id", label: "ID" },
     { key: "name", label: "Name" },
     { key: "display_name", label: "Display Name" },
-    { key: "base_type", label: "Base Type" },
-    { key: "semantic_type", label: "Semantic Type" },
-    { key: "fk_target_field_id", label: "FK Target" },
+    { key: "base_type", label: "Base Type", format: formatTypeTag },
+    { key: "semantic_type", label: "Semantic Type", format: formatTypeTag },
+    { key: "fk_target_field_id", label: "FK Target", format: formatFkTarget },
     { key: "description", label: "Description" },
   ],
 };

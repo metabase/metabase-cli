@@ -36,6 +36,8 @@ describe("confirmAndDelete", () => {
       path: "/api/transform/99999999",
       yes: false,
       promptMessage: "Delete transform 99999999?",
+      successMessage: "Deleted transform 99999999.",
+      abortMessage: "Aborted; transform 99999999 was not deleted.",
       client: NEVER_CALL,
       ctx: CTX,
     }).catch((caught: unknown) => caught);

@@ -1,5 +1,5 @@
 import { Collection, collectionView } from "../../domain/collection";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
@@ -22,6 +22,11 @@ export default defineMetabaseCommand({
       method: "PUT",
       body: { archived: true },
     });
-    renderItem(updated, collectionView, ctx);
+    renderSummary(
+      updated,
+      collectionView,
+      `Archived collection ${updated.id} "${updated.name}".`,
+      ctx,
+    );
   },
 });

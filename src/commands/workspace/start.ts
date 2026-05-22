@@ -34,7 +34,7 @@ import {
 import type { ResourceView } from "../../domain/view";
 import { Workspace } from "../../domain/workspace";
 import { warn } from "../../output/notice";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { findFreePort, isPortFree } from "../../runtime/port";
 import { pollUntil } from "../../runtime/poll";
 import { runProcess } from "../../runtime/process";
@@ -249,7 +249,11 @@ export default defineMetabaseCommand({
       url: localUrl(hostPort),
       image,
     };
-    renderItem(result, startResultView, ctx);
+    const message =
+      result.state === "running"
+        ? `Workspace ${workspaceId} "${workspace.name}" is running at ${result.url}.`
+        : `Workspace ${workspaceId} "${workspace.name}" is starting — container is up, instance still booting. Check \`mb workspace ps\` or rerun with --wait.`;
+    renderSummary(result, startResultView, message, ctx);
   },
 });
 

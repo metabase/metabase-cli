@@ -2,12 +2,17 @@ import { z } from "zod";
 
 import { SyncTask } from "../../domain/git-sync";
 import type { ResourceView } from "../../domain/view";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 import { IsDirtyResult } from "./is-dirty";
-import { fetchCurrentTask, fetchOptionalParsed, REMOTE_SYNC_PATHS } from "./poll-task";
+import {
+  fetchCurrentTask,
+  fetchOptionalParsed,
+  formatSyncTask,
+  REMOTE_SYNC_PATHS,
+} from "./poll-task";
 
 const RemoteSyncBranch = z.string().nullable();
 
@@ -49,6 +54,11 @@ export default defineMetabaseCommand({
       is_dirty: isDirty.is_dirty,
       current_task: currentTask,
     };
-    renderItem(summary, syncStatusView, ctx);
+    const branchPart = branch === null ? "git-sync branch not set" : `Branch ${branch}`;
+    const dirtyPart = isDirty.is_dirty
+      ? "Metabase has unsynced local changes"
+      : "in sync with the remote";
+    const taskPart = currentTask === null ? "No task running." : formatSyncTask(currentTask);
+    renderSummary(summary, syncStatusView, `${branchPart} — ${dirtyPart}. ${taskPart}`, ctx);
   },
 });

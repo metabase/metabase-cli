@@ -3,12 +3,12 @@ import { z } from "zod";
 import { ConfigError } from "../../core/errors";
 import { SyncTask } from "../../domain/git-sync";
 import type { ResourceView } from "../../domain/view";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 import { gitSyncWaitFlags, parseWaitFlags } from "../wait-flags";
 
-import { pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
+import { formatSyncTask, pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
 
 const SyncStashKickoff = z.object({
   status: z.literal("success"),
@@ -93,7 +93,12 @@ export default defineMetabaseCommand({
         message: kickoff.message,
         task_id: kickoff.task_id,
       };
-      renderItem(result, syncStashView, ctx);
+      renderSummary(
+        result,
+        syncStashView,
+        `Started stash to branch "${newBranch}" (task #${kickoff.task_id}).`,
+        ctx,
+      );
       return;
     }
 
@@ -104,7 +109,11 @@ export default defineMetabaseCommand({
       task_id: kickoff.task_id,
       final,
     };
-    renderItem(result, syncStashView, ctx);
+    const succeeded = final === null || final.status === "successful";
+    const text = succeeded
+      ? `Stashed Metabase state to branch "${newBranch}" (task #${kickoff.task_id}).`
+      : formatSyncTask(final);
+    renderSummary(result, syncStashView, text, ctx);
     throwIfFailedTask(final, "stash");
   },
 });

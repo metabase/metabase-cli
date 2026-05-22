@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { SettingValue, settingValueView } from "../../domain/setting";
-import { renderItem } from "../../output/render";
+import { formatScalar, renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -42,6 +42,8 @@ export default defineMetabaseCommand({
       })
       .catch((error: unknown) => rethrowSettingError(error, key));
     const item: SettingValue = { key, value };
-    renderItem(item, settingValueView, ctx);
+    const message =
+      value === null ? `Cleared "${key}".` : `Set "${key}" to ${formatScalar(value)}.`;
+    renderSummary(item, settingValueView, message, ctx);
   },
 });

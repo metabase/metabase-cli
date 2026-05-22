@@ -189,8 +189,7 @@ describe("upgrade e2e", () => {
       configHome: await makeIsolatedConfigHome(),
     });
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.stdout).toContain(`Current version:  ${packageJson.version}`);
-    expect(result.stdout).toContain("Latest version:   999.0.0");
+    expect(result.stdout).toContain(`Update available: ${packageJson.version} → 999.0.0`);
     expect(result.stdout).toContain("Running from source");
   });
 });

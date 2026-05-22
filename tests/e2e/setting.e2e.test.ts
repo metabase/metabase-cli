@@ -11,6 +11,7 @@ const NumberSettingValue = SettingValue.extend({ value: z.number() });
 const StringArraySettingValue = SettingValue.extend({ value: z.array(z.string()) });
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
+import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { requireServer } from "./server-gate";
 
@@ -184,8 +185,8 @@ describe("setting e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
-      "input required: provide one of flag, --file, stdin, or positional argument",
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "input required: provide one of --body, --file, stdin, or a positional argument",
     );
     expect(result.stdout).toBe("");
   });
@@ -220,7 +221,7 @@ describe("setting e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       'invalid setting key: "..bad.." (expected kebab-case identifier)',
     );
     expect(result.stdout).toBe("");
@@ -349,33 +350,33 @@ describe("setting e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       'invalid setting key: "..bad.." (expected kebab-case identifier)',
     );
     expect(result.stdout).toBe("");
   });
 
-  it("get with a server-unknown setting key surfaces the backend's Unknown setting error", async () => {
+  it("get on a server-unknown setting key maps the backend error to a ConfigError (exit 2)", async () => {
     const result = await runCli({
       args: ["setting", "get", "definitely-not-a-real-setting", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Unknown setting: :definitely-not-a-real-setting");
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe("unknown setting: definitely-not-a-real-setting");
     expect(result.stdout).toBe("");
   });
 
-  it("set against a server-unknown setting key surfaces the backend's Unknown setting error", async () => {
+  it("set on a server-unknown setting key maps the backend error to a ConfigError (exit 2)", async () => {
     const result = await runCli({
       args: ["setting", "set", "definitely-not-a-real-setting", "true", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Unknown setting: :definitely-not-a-real-setting");
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe("unknown setting: definitely-not-a-real-setting");
     expect(result.stdout).toBe("");
   });
 });

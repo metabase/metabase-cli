@@ -5,7 +5,7 @@ import { ConfigError } from "../core/errors";
 import type { ResourceView } from "../domain/view";
 import { parseJson } from "../runtime/json";
 import { capListEnvelope } from "./cap";
-import { renderItem, renderList, renderScalar, writeJson, writeText } from "./render";
+import { renderSummary, renderItem, renderList, writeJson, writeText } from "./render";
 import type { ListEnvelope, RenderOptions } from "./types";
 
 const Card = z.object({
@@ -87,12 +87,21 @@ describe("renderItem", () => {
     expect(parseJson(streams.stdout, Card)).toEqual({ id: 1, name: "Sales", archived: false });
   });
 
-  it("emits a fields projection when fields is set", () => {
+  it("emits a fields projection as JSON when fields is set and format is json", () => {
     renderItem({ id: 1, name: "Sales", archived: false }, cardView, {
       ...baseOpts,
       fields: ["id", "archived"],
     });
     expect(parseJson(streams.stdout, CardProjected)).toEqual({ id: 1, archived: false });
+  });
+
+  it("renders the fields projection as key/value lines in text mode", () => {
+    renderItem({ id: 1, name: "Sales", archived: false }, cardView, {
+      ...baseOpts,
+      format: "text",
+      fields: ["id", "archived"],
+    });
+    expect(streams.stdout).toBe("id        1\narchived  false\n");
   });
 
   it("renders text mode as label/value lines using tableColumns", () => {
@@ -154,22 +163,22 @@ describe("renderItem", () => {
   });
 });
 
-describe("renderScalar", () => {
-  it("prints the bare scalar text in text mode", () => {
-    renderScalar({ id: 1, name: "Sales", archived: false }, cardView, "Sales", {
+describe("renderSummary", () => {
+  it("prints the bare human text in text mode", () => {
+    renderSummary({ id: 1, name: "Sales", archived: false }, cardView, "Sales", {
       ...baseOpts,
       format: "text",
     });
     expect(streams.stdout).toBe("Sales\n");
   });
 
-  it("emits the keyed compact envelope in JSON mode, ignoring the scalar text", () => {
-    renderScalar({ id: 1, name: "Sales", archived: false }, cardView, "Sales", baseOpts);
+  it("emits the keyed compact envelope in JSON mode, ignoring the human text", () => {
+    renderSummary({ id: 1, name: "Sales", archived: false }, cardView, "Sales", baseOpts);
     expect(parseJson(streams.stdout, CardCompact)).toEqual({ id: 1, name: "Sales" });
   });
 
   it("falls back to the keyed object in text mode when full=true", () => {
-    renderScalar({ id: 1, name: "Sales", archived: false }, cardView, "Sales", {
+    renderSummary({ id: 1, name: "Sales", archived: false }, cardView, "Sales", {
       ...baseOpts,
       format: "text",
       full: true,
@@ -177,10 +186,18 @@ describe("renderScalar", () => {
     expect(streams.stdout).toBe("id        1\nname      Sales\narchived  false\n");
   });
 
-  it("falls back to a fields projection when fields is set, even in text mode", () => {
-    renderScalar({ id: 1, name: "Sales", archived: false }, cardView, "Sales", {
+  it("falls back to the fields projection (as text key/value lines) when fields is set in text mode", () => {
+    renderSummary({ id: 1, name: "Sales", archived: false }, cardView, "Sales", {
       ...baseOpts,
       format: "text",
+      fields: ["id", "archived"],
+    });
+    expect(streams.stdout).toBe("id        1\narchived  false\n");
+  });
+
+  it("falls back to the fields projection as JSON when fields is set under --json", () => {
+    renderSummary({ id: 1, name: "Sales", archived: false }, cardView, "Sales", {
+      ...baseOpts,
       fields: ["id", "archived"],
     });
     expect(parseJson(streams.stdout, CardProjected)).toEqual({ id: 1, archived: false });
@@ -266,7 +283,7 @@ describe("renderList — text format", () => {
     expect(streams.stdout).toBe("(no results)\n");
   });
 
-  it("falls back to JSON when fields is set even in text format", () => {
+  it("renders a projected table (columns = the requested field paths) when fields is set in text mode", () => {
     renderList(
       {
         data: [
@@ -278,6 +295,31 @@ describe("renderList — text format", () => {
       },
       cardView,
       { ...baseOpts, format: "text", fields: ["id", "archived"] },
+    );
+    expect(streams.stdout).toBe(
+      `┌────┬──────────┐
+│ id │ archived │
+├────┼──────────┤
+│ 1  │ false    │
+├────┼──────────┤
+│ 2  │ true     │
+└────┴──────────┘
+`,
+    );
+  });
+
+  it("emits the projected list as JSON when fields is set under --json", () => {
+    renderList(
+      {
+        data: [
+          { id: 1, name: "Sales", archived: false },
+          { id: 2, name: "Ops", archived: true },
+        ],
+        returned: 2,
+        total: 2,
+      },
+      cardView,
+      { ...baseOpts, fields: ["id", "archived"] },
     );
     expect(parseJson(streams.stdout, CardProjectedListEnvelope)).toEqual({
       data: [

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { checkDockerReady, requireWorkspaceContainerLocation } from "../../core/docker";
 import { localUrl } from "../../core/url";
 import type { ResourceView } from "../../domain/view";
-import { renderScalar } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { outputFlags } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
@@ -44,6 +44,6 @@ export default defineMetabaseCommand({
       workspace_id: workspaceId,
       url: localUrl(hostPort),
     };
-    renderScalar(result, urlResultView, result.url, ctx);
+    renderSummary(result, urlResultView, result.url, ctx);
   },
 });

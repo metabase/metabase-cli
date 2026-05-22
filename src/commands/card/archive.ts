@@ -1,5 +1,5 @@
 import { Card, cardView } from "../../domain/card";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
@@ -22,6 +22,6 @@ export default defineMetabaseCommand({
       method: "PUT",
       body: { archived: true },
     });
-    renderItem(updated, cardView, ctx);
+    renderSummary(updated, cardView, `Archived card ${updated.id} "${updated.name}".`, ctx);
   },
 });

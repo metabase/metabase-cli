@@ -83,3 +83,30 @@ export function throwIfFailedTask(final: SyncTask | null, verb: string): void {
   const detail = final.error_message ? `: ${final.error_message}` : "";
   throw new Error(`git-sync ${verb} ${final.status}${detail}`);
 }
+
+export function formatSyncTask(task: SyncTask): string {
+  const kind = task.sync_task_type === "export" ? "Export" : "Import";
+  const label = `${kind} task #${task.id}`;
+  const detail = task.error_message ? `: ${task.error_message}` : "";
+  switch (task.status) {
+    case "running": {
+      const percent = task.progress === null ? "" : ` (${Math.round(task.progress * 100)}%)`;
+      return `${label} is running${percent}.`;
+    }
+    case "successful": {
+      return `${label} succeeded.`;
+    }
+    case "errored": {
+      return `${label} errored${detail}.`;
+    }
+    case "timed-out": {
+      return `${label} timed out${detail}.`;
+    }
+    case "conflict": {
+      return `${label} hit conflicts${detail}.`;
+    }
+    case "cancelled": {
+      return `${label} was cancelled.`;
+    }
+  }
+}

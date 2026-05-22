@@ -7,7 +7,7 @@ import {
   stopContainer,
 } from "../../core/docker";
 import type { ResourceView } from "../../domain/view";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { outputFlags } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
@@ -68,6 +68,14 @@ export default defineMetabaseCommand({
       stopped,
       prior_state: priorState,
     };
-    renderItem(result, stopResultView, ctx);
+    let message: string;
+    if (result.stopped) {
+      message = `Stopped workspace ${workspaceId} (container ${containerName}).`;
+    } else if (result.prior_state !== null) {
+      message = `Workspace ${workspaceId} container is already ${result.prior_state} — nothing to stop.`;
+    } else {
+      message = `No container found for workspace ${workspaceId} — nothing to stop.`;
+    }
+    renderSummary(result, stopResultView, message, ctx);
   },
 });

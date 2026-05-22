@@ -15,11 +15,6 @@ interface ProbeOptions {
   retries?: number;
 }
 
-export const EMPTY_SERVER_INFO: ServerInfo = Object.freeze({
-  version: null,
-  tokenFeatures: null,
-});
-
 export async function probeServer(client: Client, opts: ProbeOptions = {}): Promise<ServerInfo> {
   const properties = await client.requestParsed(SessionProperties, PROBE_PATH, {
     timeoutMs: PROBE_TIMEOUT_MS,
