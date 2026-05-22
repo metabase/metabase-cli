@@ -1,4 +1,5 @@
 import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { DashcardListEnvelope } from "../../src/commands/dashboard/cards";
 import { DashboardListEnvelope } from "../../src/commands/dashboard/list";
@@ -11,6 +12,7 @@ import {
   Dashcard,
   DashcardCompact,
 } from "../../src/domain/dashboard";
+import { listEnvelopeSchema } from "../../src/output/types";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
@@ -45,6 +47,17 @@ const ORDERS_OVERVIEW_DETAIL_COMPACT = {
   dashcards: [ORDERS_OVERVIEW_FIRST_DASHCARD_COMPACT],
   tabs: [],
 } as const;
+
+const ProjectedDashboardDetail = z.strictObject({
+  name: z.string(),
+  collection_id: z.number().int().nullable(),
+});
+
+const ProjectedDashboardRow = z.strictObject({
+  id: z.number().int(),
+  name: z.string(),
+});
+const ProjectedDashboardListEnvelope = listEnvelopeSchema(ProjectedDashboardRow);
 
 describe("dashboard e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -217,6 +230,87 @@ describe("dashboard e2e", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Not found: GET /api/dashboard/9999999.");
+  });
+
+  it("get --fields projects only the requested top-level fields", async () => {
+    const result = await runCli({
+      args: [
+        "dashboard",
+        "get",
+        String(SEEDED.ordersDashboardId),
+        "--fields",
+        "name,collection_id",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, ProjectedDashboardDetail)).toEqual({
+      name: ORDERS_OVERVIEW_NAME,
+      collection_id: SEEDED.defaultCollectionId,
+    });
+  });
+
+  it("get --fields with an empty value falls back to the compact projection", async () => {
+    const result = await runCli({
+      args: ["dashboard", "get", String(SEEDED.ordersDashboardId), "--fields", "", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, DashboardCompact)).toEqual(ORDERS_OVERVIEW_DETAIL_COMPACT);
+  });
+
+  it("get --fields with an unknown path fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["dashboard", "get", String(SEEDED.ordersDashboardId), "--fields", "nope", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain('unknown field path: "nope"');
+    expect(result.stdout).toBe("");
+  });
+
+  it("rejects --fields combined with --full", async () => {
+    const result = await runCli({
+      args: [
+        "dashboard",
+        "get",
+        String(SEEDED.ordersDashboardId),
+        "--fields",
+        "name",
+        "--full",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain(
+      "--full conflicts with --fields (use one or neither)",
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("list --fields projects each row to the requested fields", async () => {
+    const result = await runCli({
+      args: ["dashboard", "list", "--fields", "id,name", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const envelope = parseJson(result.stdout, ProjectedDashboardListEnvelope);
+    expect(envelope.data.find((row) => row.id === SEEDED.ordersDashboardId)).toEqual({
+      id: SEEDED.ordersDashboardId,
+      name: ORDERS_OVERVIEW_NAME,
+    });
   });
 
   it("cards lists the seeded dashcard for the orders dashboard", async () => {

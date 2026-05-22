@@ -12,7 +12,7 @@ const BUNDLED_VISIBLE_NAMES = [
   "git-sync",
   "mbql",
   "transform",
-  "viz",
+  "visualization",
   "workspace",
 ] as const;
 
@@ -120,7 +120,7 @@ describe("skills e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain(
-      "unknown skill name(s): does-not-exist (available: core, git-sync, mbql, transform, viz, workspace)",
+      "unknown skill name(s): does-not-exist (available: core, git-sync, mbql, transform, visualization, workspace)",
     );
   });
 

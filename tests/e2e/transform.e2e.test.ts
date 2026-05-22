@@ -17,7 +17,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
-import { requireServer } from "./server-gate";
+import { requireServer, serverVersionBelow } from "./server-gate";
 const FIRST_TRANSFORM_ID = 1;
 const TRANSFORM_NAME = "e2e_transform";
 const TRANSFORM_TARGET_TABLE = "e2e_transform";
@@ -725,3 +725,78 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     expect(result.stdout).toBe("");
   });
 });
+
+const GATE_MIN_VERSION = 59;
+
+describe.skipIf(!serverVersionBelow(GATE_MIN_VERSION))(
+  "transform capability gate against a sub-v59 server",
+  () => {
+    let bootstrap: E2EBootstrap;
+    const tempDirs: string[] = [];
+
+    beforeAll(async () => {
+      bootstrap = await readBootstrap();
+    });
+
+    afterEach(async () => {
+      await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+    });
+
+    async function makeIsolatedConfigHome(): Promise<string> {
+      const dir = await mkTempConfigHome();
+      tempDirs.push(dir);
+      return dir;
+    }
+
+    async function loginWithCachedProbe(): Promise<string> {
+      const configHome = await makeIsolatedConfigHome();
+      const login = await runCli({
+        args: [
+          "auth",
+          "login",
+          "--url",
+          bootstrap.baseUrl,
+          "--api-key",
+          bootstrap.adminApiKey,
+          "--json",
+        ],
+        configHome,
+      });
+      assert(login.exitCode === 0, login.stderr);
+      return configHome;
+    }
+
+    it("transform list refuses with CapabilityError (exit 2) naming the v59 requirement", async () => {
+      const serverTag = bootstrap.server.version?.tag;
+      assert(serverTag !== undefined, "gate block requires a known cached server version");
+      const configHome = await loginWithCachedProbe();
+
+      const result = await runCli({ args: ["transform", "list", "--json"], configHome });
+
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain(
+        `This command requires Metabase v${GATE_MIN_VERSION}+ (this server is ${serverTag}). Upgrade Metabase or pin mb-cli to an older release.`,
+      );
+      expect(result.stdout).toBe("");
+    });
+
+    it("--skip-preflight bypasses the gate and surfaces the raw server 404 the gate prevents (exit 1)", async () => {
+      const serverTag = bootstrap.server.version?.tag;
+      assert(serverTag !== undefined, "gate block requires a known cached server version");
+      const configHome = await loginWithCachedProbe();
+
+      const result = await runCli({
+        args: ["transform", "list", "--skip-preflight", "--json"],
+        configHome,
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain(
+        `This endpoint is not available on Metabase ${serverTag}: GET /api/transform. ` +
+          `The command may require a newer Metabase major version. ` +
+          `Run 'mb auth list' to see this server's version, or 'mb __manifest' for per-command requirements.`,
+      );
+      expect(result.stdout).toBe("");
+    });
+  },
+);

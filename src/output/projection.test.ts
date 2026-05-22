@@ -34,6 +34,19 @@ const sample: Card = {
   database: { id: 9, engine: "postgres" },
 };
 
+const Report = z.object({
+  id: z.number().int(),
+  cards: z.array(z.object({ card_id: z.number().int() })),
+});
+type Report = z.infer<typeof Report>;
+
+const reportView: ResourceView<Report> = {
+  compactPick: Report.pick({ id: true }),
+  tableColumns: [{ key: "id", label: "ID" }],
+};
+
+const reportSample: Report = { id: 1, cards: [{ card_id: 7 }] };
+
 describe("applyProjection", () => {
   it("compact (full=false, no fields) projects via view.compactPick", () => {
     expect(applyProjection(sample, cardView, false, undefined)).toEqual({
@@ -83,6 +96,12 @@ describe("applyProjection", () => {
   it("fields throws ConfigError when descending into a non-object", () => {
     expect(() => applyProjection(sample, cardView, false, ["id.nested"])).toThrow(
       new ConfigError(`unknown field path: "id.nested"`),
+    );
+  });
+
+  it("fields rejects indexing into an array element (pickPath descends only through plain objects)", () => {
+    expect(() => applyProjection(reportSample, reportView, false, ["cards.0.card_id"])).toThrow(
+      new ConfigError(`unknown field path: "cards.0.card_id"`),
     );
   });
 

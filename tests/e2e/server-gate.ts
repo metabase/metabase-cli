@@ -33,3 +33,12 @@ export function requireServer(required: Partial<Capabilities>): string | null {
   const failure = checkCapabilities(resolveServerInfo(), mergeCapabilities(required));
   return failure === null ? null : failure.detail;
 }
+
+// True only when the server version is known AND below `minVersion` — the exact condition under
+// which a non-baseline command's preflight raises a CapabilityError (exit 2) rather than warning
+// and proceeding on an unknown version. Lets a suite assert the gate fires on the sub-version
+// stacks the matrix boots, inverse to the `requireServer` skip the happy-path suite uses.
+export function serverVersionBelow(minVersion: number): boolean {
+  const { version } = resolveServerInfo();
+  return version !== null && version.major < minVersion;
+}
