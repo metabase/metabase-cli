@@ -1,18 +1,18 @@
 ---
 name: core
-description: Drive a Metabase instance from the terminal via the `mb` CLI — auth, databases, cards, dashboards, collections, transforms, queries, search, git-sync, Enterprise workspaces. Use for any `mb <verb>` task.
+description: Drive a Metabase instance from the terminal via the `mb` CLI — auth, databases, cards, dashboards, collections, transforms, queries, search, git-sync. Use for any `mb <verb>` task.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
 # metabase-cli (core)
 
-The official Metabase CLI (`mb`) drives a Metabase instance over its REST API. It covers auth, list/get/create/update/delete on every resource, query and transform execution, content search, git-sync (representations ↔ instance), Enterprise workspaces, and entity-id translation.
+The official Metabase CLI (`mb`) drives a Metabase instance over its REST API. It covers auth, list/get/create/update/delete on every resource, query and transform execution, content search, git-sync (representations ↔ instance), and entity-id translation.
 
 Top-level command groups (run `mb <group> --help` to discover verbs):
 
 ```
 auth | db | table | field | query | card | dashboard | snippet | segment | measure | collection
-transform | transform-job | setting | search | git-sync | workspace | setup | eid | uuid | upgrade | skills
+transform | transform-job | setting | search | git-sync | setup | eid | uuid | upgrade | skills
 ```
 
 The patterns below — auth, flag conventions, output flags, body input — apply across **every** group. Per-command flags, examples, and output schemas live in `mb __manifest` (see below). A few flows have their own specialized skills; load them on demand (see "Specialized skills"). Authoring any query body (cards, transforms, measures, segments, ad-hoc `mb query`) is one — load `mbql` whenever you build MBQL by hand.
@@ -20,8 +20,6 @@ The patterns below — auth, flag conventions, output flags, body input — appl
 ## Auth & profiles
 
 **The agent does not log in for the user.** Authentication is the human's job — they pick the base URL, paste credentials, and store them as a named profile. The agent's role is to _check_ what profiles exist, _ask_ which to use, and pass `--profile <name>` through every command.
-
-**The one exception** is a freshly bootstrapped workspace child: its API key is minted by the parent the human already authorized, so the agent reads it via `mb workspace credentials <ws-id>` and saves it with `auth login` — piping the key on **stdin** (`printf '%s' "$KEY" | mb auth login …`), never on an `--api-key` flag (the CLI rejects the flag form). See the `workspace` skill, step 4.
 
 ### Discover what's already configured
 
@@ -35,17 +33,7 @@ mb auth status --profile <name> --json   # → status of a specific profile
 
 ### Pick the profile to use
 
-If exactly one profile is configured and the user's intent doesn't disambiguate, use it. If multiple profiles exist and the user hasn't named one, ask via `AskUserQuestion`, presenting the names from `auth list`. Once a name is established, pass `--profile <name>` to **every** subsequent command. Profile names are arbitrary local labels — `prod`, `staging`, the workspace name — let the user pick.
-
-### Other secrets (license, warehouse passwords)
-
-Same rule: the human runs the storing command. To check whether a license is present:
-
-```bash
-mb workspace license status --json   # → {present: bool}
-```
-
-If `present: false`, ask the user to run `echo "<your-token>" | mb workspace license set` from their terminal — don't paste the token in chat.
+If exactly one profile is configured and the user's intent doesn't disambiguate, use it. If multiple profiles exist and the user hasn't named one, ask via `AskUserQuestion`, presenting the names from `auth list`. Once a name is established, pass `--profile <name>` to **every** subsequent command. Profile names are arbitrary local labels — `prod`, `staging` — let the user pick.
 
 ## Flag conventions
 
@@ -56,21 +44,21 @@ If `present: false`, ask the user to run `echo "<your-token>" | mb workspace lic
 ❌ mb --profile prod table list           # → error: "Unknown command prod"
 ```
 
-`--profile` attaches **after** the full verb chain (`table list`, `card get`, `workspace start`).
+`--profile` attaches **after** the full verb chain (`table list`, `card get`, `git-sync export`).
 
 ### `--wait` for async operations
 
-`workspace start`, `workspace database provision`, `transform run`, and similar async verbs return immediately by default. Pass `--wait` for any interactive flow where the next step depends on completion. Without it you'll race the operation and see "not ready" / `state: starting` / transient connection refusals.
+`transform run`, `git-sync import`, and similar async verbs return immediately by default. Pass `--wait` for any interactive flow where the next step depends on completion. Without it you'll race the operation and see "not ready" / transient connection refusals.
 
 ### Some outputs are JSON envelopes, not bare strings
 
-A handful of "lookup" verbs return a JSON object even when you only want a single field. `mb workspace url <id>` returns `{"workspace_id": ..., "url": "http://..."}`, not `"http://..."`. Don't drop them raw into another flag — extract:
+A handful of "lookup" verbs return a JSON object even when you only want a single field. `mb setting get <key>` returns `{"key": "...", "value": ...}`, not the bare value. Don't drop them raw into another flag — extract:
 
 ```bash
-WS_URL=$(mb workspace url <id> --json | jq -r '.url')
+VALUE=$(mb setting get <key> --json | jq -r '.value')
 ```
 
-If you find yourself writing `--url $(mb ...)` and the receiving command rejects it with "URL must start with http://", this is what happened.
+If you find yourself piping a `--json` envelope straight into another flag and the receiving command rejects it, this is what happened.
 
 ## Output
 
@@ -157,11 +145,10 @@ Routine verb shapes (list / get / create / update), every flag, and output JSON 
 
 ## Specialized skills (load on demand)
 
-This core file is enough for any single-command task. Load the relevant skill **proactively** when intent matches — don't wing an MBQL body, the workspace lifecycle, a transform body, or the git-sync workflow from this overview alone. Load each via `mb skills get <name>`.
+This core file is enough for any single-command task. Load the relevant skill **proactively** when intent matches — don't wing an MBQL body, a transform body, or the git-sync workflow from this overview alone. Load each via `mb skills get <name>`.
 
 - **`mbql`** — authoring or fixing any MBQL query body: `mb query`, a card `dataset_query`, a transform `source.query`, a measure/segment `definition`, "aggregate and group by", reading `--dry-run` errors. The query-body reference.
 - **`viz`** — choosing a card's `display` and authoring `visualization_settings`: "make it a bar chart", "set the pie dimension/metric", "format this column as currency", "the card renders as a table instead of a chart". The presentation counterpart to `mbql`.
-- **`workspace`** — "spin up a workspace", "provision", "start a local Metabase against my prod", anything `mb workspace …`. **Mandatory** before `workspace start` — ask the user about Remote Sync up front (the bind mount is create-time only).
 - **`transform`** — "create a transform", "run a transform", authoring transform body JSON, run inspection.
 - **`git-sync`** — "import the latest changes", "export to git", "git sync", "dirty check", "stash before pulling".
 
@@ -169,9 +156,9 @@ If a task spans more than one, load each. Specialized skills assume the conventi
 
 ## Don't
 
-- **Don't run `mb auth login` for the user** — authentication is theirs (see §Auth). The only exception is saving a workspace child's credentials, and even there pipe the key on stdin.
-- Don't paste credentials, license tokens, or warehouse passwords in chat. Have the user run the storing command.
+- **Don't run `mb auth login` for the user** — authentication is theirs (see §Auth).
+- Don't paste credentials or warehouse passwords in chat. Have the user run the storing command.
 - Don't put `--profile` before the verb chain — the CLI parses it as a subcommand and errors out.
-- Don't omit `--wait` on `workspace start` / `transform run` / `workspace database provision` for interactive flows; the next step will race the operation.
+- Don't omit `--wait` on `transform run` / `git-sync import` for interactive flows; the next step will race the operation.
 - Don't drop a JSON-envelope verb's output raw into another flag. Extract with `--json | jq -r '.<field>'`.
 - Don't add a third-party HTTP library or shell into `curl` against `/api/...` when a `mb <verb>` exists — that bypasses retries, schema validation, and credential redaction.

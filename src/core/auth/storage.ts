@@ -30,12 +30,10 @@ export const LEGACY_STORAGE_NOTICE =
   "Old profile storage detected and ignored; re-run `mb auth login` for each profile.";
 
 export type ProfileApiKeyAccount = `profile:${string}:apiKey`;
-export type LicenseAccount = "license";
-export type CredentialAccount = ProfileApiKeyAccount | LicenseAccount;
+export type CredentialAccount = ProfileApiKeyAccount;
 
 export const account = {
   profileApiKey: (profile: string): ProfileApiKeyAccount => `profile:${profile}:apiKey`,
-  license: "license",
 } as const;
 
 export interface KeyringLocation {
@@ -45,8 +43,6 @@ export interface KeyringLocation {
 }
 
 export type KeyringFallbackReason = "disabled" | "unavailable";
-
-export type KeyringFallbackSubject = "credentials" | "license";
 
 export interface FileLocation {
   backend: "file";
@@ -133,7 +129,7 @@ async function readProfilesFile(): Promise<ProfilesFile> {
   } catch (error) {
     if (isNotFoundError(error)) {
       await detectLegacyArtifacts();
-      return { profiles: [], license: null };
+      return { profiles: [] };
     }
     throw error;
   }
@@ -143,7 +139,7 @@ async function readProfilesFile(): Promise<ProfilesFile> {
   }
   if (parsed.error instanceof ValidationError) {
     legacyWarningPending = true;
-    return { profiles: [], license: null };
+    return { profiles: [] };
   }
   throw parsed.error;
 }
@@ -171,7 +167,7 @@ async function fileExists(path: string): Promise<boolean> {
 
 async function writeProfilesFile(file: ProfilesFile): Promise<void> {
   const path = profilesFilePath();
-  if (file.profiles.length === 0 && file.license === null) {
+  if (file.profiles.length === 0) {
     await fs.unlink(path).catch(() => undefined);
     await cleanupLegacyFiles();
     return;
@@ -204,15 +200,12 @@ function fileLocation(key: CredentialAccount): FileLocation {
   };
 }
 
-export function keyringFallbackWarning(
-  location: FileLocation,
-  subject: KeyringFallbackSubject,
-): string {
+export function keyringFallbackWarning(location: FileLocation): string {
   const cause =
     location.reason === "disabled"
       ? "OS keychain disabled via METABASE_CLI_DISABLE_KEYRING"
       : "OS keychain unavailable";
-  return `warning: ${cause}; ${subject} stored as plaintext at ${location.path}`;
+  return `warning: ${cause}; credentials stored as plaintext at ${location.path}`;
 }
 
 async function persistApiKey(name: string, apiKey: string): Promise<CredentialLocation> {
@@ -348,36 +341,4 @@ export async function clearProfile(name: string = DEFAULT_PROFILE): Promise<bool
     profiles: file.profiles.filter((entry) => entry.name !== name),
   });
   return true;
-}
-
-export async function readLicense(): Promise<string | null> {
-  const fromKeyring = tryReadKeyring(account.license);
-  if (typeof fromKeyring === "string") {
-    return fromKeyring;
-  }
-  const file = await readProfilesFile();
-  return file.license;
-}
-
-export async function writeLicense(token: string): Promise<CredentialLocation> {
-  const key = account.license;
-  const file = await readProfilesFile();
-  if (trySetKeyring(key, token)) {
-    if (file.license !== null) {
-      await writeProfilesFile({ ...file, license: null });
-    }
-    return { backend: "keyring", service: KEYRING_SERVICE, account: key };
-  }
-  await writeProfilesFile({ ...file, license: token });
-  return fileLocation(key);
-}
-
-export async function clearLicense(): Promise<boolean> {
-  const removedFromKeyring = tryRemoveKeyring(account.license);
-  const file = await readProfilesFile();
-  const hadInline = file.license !== null;
-  if (hadInline) {
-    await writeProfilesFile({ ...file, license: null });
-  }
-  return removedFromKeyring === true || hadInline;
 }

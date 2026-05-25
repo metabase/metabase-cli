@@ -8,7 +8,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 A **transform** persists the result of a query (native SQL or MBQL) to a warehouse table the user can read from cards, dashboards, and other transforms. It runs on a schedule (via `transform-job`) or on-demand (`transform run`).
 
-This skill covers the create-and-run flow. The general flag conventions, body-input precedence, and output flags live in the `core` skill (`mb skills get core`). If you're authoring a transform inside a workspace, also load the `workspace` skill for the canonical-vs-isolation-schema rule.
+This skill covers the create-and-run flow. The general flag conventions, body-input precedence, and output flags live in the `core` skill (`mb skills get core`).
 
 ## Body shape
 
@@ -53,8 +53,8 @@ mb transform run "$TRANSFORM_ID" --wait --profile <name> --json
 
 Notes:
 
-- `<db-id>` comes from `mb database list --profile <name> --json`. Database ids are per-instance — a workspace child re-numbers them independently of the parent.
-- Target `schema` is the **canonical** name (e.g. `public`). In a workspace, the QP rewrites it to the per-workspace isolation schema (`mb__isolation_<hash>_<ws-id>`) at execution time — don't hard-code that prefix.
+- `<db-id>` comes from `mb database list --profile <name> --json`. Database ids are per-instance.
+- Target `schema` is the schema the result table is written into (e.g. `public`).
 - `--wait` on `transform run` polls until status is `succeeded` or `failed`. Without it you only get `{message: "Transform run started", run_id, final: null}` and have to poll yourself.
 - The `--json` envelope is shape-stable: `{message, run_id, final}`. `final` is always present — `null` when `--wait` is omitted or the run never started, otherwise a full `TransformRun` object with `status` and `message`. On a failed run (`final.status` ∈ {`failed`, `timeout`, `canceled`}) the CLI exits 1 and writes a one-line summary `transform run <id> failed` to stderr; the failure detail lives only in `final.message` on stdout, so `jq -r '.final.message'` is where to look.
 - The heredoc with single-quoted `'EOF'` prevents shell from interpolating any `$vars` inside the SQL.
@@ -193,5 +193,4 @@ A schedule lives in a separate resource (`transform-job`) and references one or 
 
 - Don't put `transform run` calls in tight polling loops — pass `--wait` and let the CLI handle the polling. Manual loops without `--wait` will hammer the server.
 - Don't author MBQL 4 (the legacy nested `{ type: "query", query: {...} }` shape) by hand — pull a sample with `mb transform get <id> --full --json`. MBQL 5 (`lib/type: "mbql/query"`) **is** authorable by hand thanks to the `mb query --print-schema` + `--dry-run` feedback loop; for non-trivial pipelines you may still prefer building in the UI and exporting.
-- Don't write the workspace isolation schema into `target.schema` or SQL. See the `workspace` skill for the canonical-name rule.
 - Don't paste a `transform get` body into `transform update` — the PUT endpoint only accepts writable keys, and unknown keys (notably `tags`, `source_type`, `entity_id`, `created_at`, `last_run`) leak as raw SQL errors. See "Update body: send only writable keys" above. Use `tag_ids` (not `tags`) on the REST contract.

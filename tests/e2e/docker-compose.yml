@@ -13,7 +13,7 @@ services:
       retries: 30
 
   metabase:
-    image: ${METABASE_E2E_IMAGE:-metabase/metabase-dev:feature-workspaces-v2}
+    image: ${METABASE_E2E_IMAGE:-metabase/metabase-enterprise-head:latest}
     pull_policy: always
     depends_on:
       data-db:

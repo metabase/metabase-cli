@@ -39,6 +39,5 @@ export type ProfileRecord = z.infer<typeof ProfileRecord>;
 
 export const ProfilesFile = z.object({
   profiles: z.array(ProfileRecord),
-  license: z.string().nullable(),
 });
 export type ProfilesFile = z.infer<typeof ProfilesFile>;

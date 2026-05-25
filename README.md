@@ -9,7 +9,7 @@ The minimum supported server is **Metabase v0.58** (major `58`). Anything older 
 Commands that need more than a baseline OSS server declare it — a higher minimum major version or a premium token feature. The server version and token features are detected and cached when you run `mb auth login` (or `mb auth list`). For those commands, a preflight check runs before the first request and refuses with an actionable message (exit code `2`) when:
 
 - the server is older than the command's minimum version, or
-- the command needs a premium feature (e.g. `remote_sync`, `workspaces`) that isn't enabled.
+- the command needs a premium feature (e.g. `remote_sync`, `transforms`) that isn't enabled.
 
 Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs but the server version can't be detected (no cached probe), it proceeds with a warning rather than refusing. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `METABASE_CLI_SKIP_PREFLIGHT=1`. Both are footguns — only for servers you know are patched.
 
@@ -1089,226 +1089,6 @@ mb git-sync remove-collection 12
 mb git-sync remove-collection 12 --json --profile prod
 ```
 
-## Workspaces
-
-CRUD on `/api/ee/workspace-manager`. Run against the workspace-manager parent instance.
-
-### `mb workspace list`
-
-```sh
-mb workspace list
-mb workspace list --json
-```
-
-### `mb workspace create`
-
-```sh
-mb workspace create --name analytics
-echo '{"name":"analytics"}' | mb workspace create
-mb workspace create --file workspace.json
-```
-
-| Flag            | Description                                             |
-| --------------- | ------------------------------------------------------- |
-| `--name <name>` | Workspace name. Shortcut for `--body '{"name":"<n>"}'`. |
-| `--body <json>` | Inline JSON body.                                       |
-| `--file <path>` | Path to JSON body file.                                 |
-
-### `mb workspace database provision <workspace-id> [db-id]`
-
-Provision a database into a workspace. The backend kicks off the work asynchronously and returns the workspace with the new entry in `status: "provisioning"`. Pass `--wait` to poll until the entry reaches `status: "provisioned"` and surface the polled state instead of the initial response.
-
-```sh
-mb workspace database provision 1 5 --schemas analytics,github
-mb workspace database provision 1 5 --schemas analytics --wait
-mb workspace database provision 1 --file provision.json
-```
-
-| Arg / Flag        | Description                                                    |
-| ----------------- | -------------------------------------------------------------- |
-| `<db-id>`         | Database id positional (used with `--schemas`).                |
-| `--schemas <csv>` | Comma-separated input schemas (used with the `db-id`).         |
-| `--body <json>`   | Inline JSON body.                                              |
-| `--file <path>`   | Path to JSON body file.                                        |
-| `--wait`          | Poll until the database entry reaches `status: "provisioned"`. |
-| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`.    |
-| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.     |
-
-### `mb workspace database update <workspace-id> <db-id>`
-
-Update a workspace's provisioned database (server-side this is deprovision + provision). Body accepts only `input` — the database id comes from the URL.
-
-```sh
-mb workspace database update 1 5 --schemas analytics,github
-mb workspace database update 1 5 --schemas analytics --wait
-mb workspace database update 1 5 --file update.json
-```
-
-| Flag              | Description                                                       |
-| ----------------- | ----------------------------------------------------------------- |
-| `--schemas <csv>` | Comma-separated input schemas. Shortcut for body.                 |
-| `--body <json>`   | Inline JSON body (`{"input":[{"schema":"..."}]}`).                |
-| `--file <path>`   | Path to JSON body file.                                           |
-| `--wait`          | Poll until the database entry returns to `status: "provisioned"`. |
-| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`.       |
-| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.        |
-
-### `mb workspace database deprovision <workspace-id> <db-id>`
-
-```sh
-mb workspace database deprovision 1 5 --yes
-mb workspace database deprovision 1 5 --yes --wait
-```
-
-| Flag              | Description                                                                                                                       |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--yes`           | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
-| `--wait`          | Poll until the database entry is removed from the workspace.                                                                      |
-| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`.                                                                       |
-| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.                                                                        |
-
-### Local runtime
-
-These commands manage a Docker container that serves as the workspace's child Metabase instance. State lives in Docker labels and a named volume — there is no per-workspace local state directory. The container is named `metabase-workspace-<id>`; the app-db volume is `metabase-workspace-<id>-appdb`.
-
-### `mb workspace start <id>`
-
-```sh
-mb workspace start 1
-mb workspace start 1 --wait
-mb workspace start 1 --port 3100
-mb workspace start 1 --image metabase/metabase-enterprise:latest --no-pull
-mb workspace start 1 --force
-mb workspace start 1 --repo /path/to/sync-repo --wait
-mb workspace start 1 --repo /path/to/sync-repo --repo-branch dev --repo-mode read-only
-```
-
-Resolves the parent via the active profile (or `--profile`/`--url`/`--api-key`) and the EE license via `resolveLicenseToken` (the same path `mb workspace license set` writes to). Refuses to start if the workspace has any database that isn't `status: "provisioned"`.
-
-The boot bundle (`config.yml`, `credentials.json`, optional `metadata.json`) is built in process memory and tar-streamed into the container's `/mw-config/` directory through `docker cp -`; no host-disk artifact is created. The CLI generates a per-workspace admin user + API key, injects them into the YAML before shipping, and stores the same values in `credentials.json` for later retrieval via `mb workspace credentials`. Once the child logs that it has read `config.yml`, the CLI scrubs the in-container copy (`docker exec rm /mw-config/config.yml`) so the warehouse credentials in `details.password` no longer linger; `credentials.json` stays.
-
-By default `start` returns once the bundle has been consumed by the child (`state: "starting"`); pass `--wait` to also block until `/api/health` reports ready and the response reports `state: "running"`.
-
-When `--repo <host-path>` is passed, the CLI bind-mounts the host directory at `/mnt/repo` inside the container and injects three settings into the workspace's `config.yml` so the child boots already wired to the repo: `remote-sync-url=file:///mnt/repo`, `remote-sync-branch=<branch>` (defaults to the current branch of the host repo, read via `git -C <path> symbolic-ref --short HEAD`; override with `--repo-branch`), and `remote-sync-type=<mode>` (defaults to `read-write`; override with `--repo-mode read-only`, which also makes the bind mount read-only). The bind mount is set at container-create time only — to add or change it after the fact, run `start --force` again with the new flags. The host path must be an existing directory; the CLI does not create or `git init` it for you.
-
-| Flag                   | Description                                                                                                                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--port <n>`           | Host port (default: 3000; auto-shifts up to 100 ports if taken).                                                                                                                         |
-| `--image <ref>`        | Docker image. Default: `metabase/metabase-enterprise:latest` once Metabase v62 is released, otherwise `metabase/metabase-enterprise-head:latest`.                                        |
-| `--wait`               | Block until `/api/health` is ready. Default: return as soon as consumed.                                                                                                                 |
-| `--timeout <ms>`       | Per-phase readiness deadline (default: 240000). Covers post-create config consumption, (with `--wait`) the `/api/health` probe, and (with `--metadata`) the metadata-import status poll. |
-| `--no-pull`            | Skip `docker pull` (useful if the image is already present).                                                                                                                             |
-| `--no-metadata`        | Skip the warehouse metadata export.                                                                                                                                                      |
-| `--force`              | If a container for this workspace already exists, remove it before starting.                                                                                                             |
-| `--repo <host-path>`   | Bind-mount a host directory at `/mnt/repo` and set `remote-sync-url=file:///mnt/repo` in `config.yml`.                                                                                   |
-| `--repo-branch <name>` | `remote-sync-branch` value (default: current branch of the host repo).                                                                                                                   |
-| `--repo-mode <mode>`   | `remote-sync-type`: `read-write` (default) or `read-only`. Read-only also makes the bind mount read-only.                                                                                |
-
-### `mb workspace stop <id>`
-
-```sh
-mb workspace stop 1
-mb workspace stop 1 --json
-```
-
-Stops the running container; no-ops if it's already exited or missing. Reports the prior state.
-
-### `mb workspace delete <id>`
-
-```sh
-mb workspace delete 1 --yes
-mb workspace delete 1 --keep-volume --yes
-```
-
-Stops and removes the container. By default, also removes the app-db volume — pass `--keep-volume` to preserve it across rebuilds. **Does not affect the remote workspace** on the parent.
-
-| Flag            | Description                                                                                                                       |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--yes`         | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
-| `--keep-volume` | Preserve the app-db volume (`metabase-workspace-<id>-appdb`).                                                                     |
-
-### `mb workspace logs <id>`
-
-```sh
-mb workspace logs 1
-mb workspace logs 1 --follow
-mb workspace logs 1 --tail 500
-```
-
-Passthrough to `docker logs`. Output streams directly to your terminal; Ctrl-C terminates a follow.
-
-| Flag           | Description                                   |
-| -------------- | --------------------------------------------- |
-| `--follow, -f` | Stream indefinitely.                          |
-| `--tail <n>`   | Lines from the end of the logs (default 200). |
-
-### `mb workspace url <id>`
-
-```sh
-mb workspace url 1
-mb workspace url 1 --json
-```
-
-Prints `http://localhost:<port>` for the workspace's container. Reads the host port from the container's `com.metabase.workspace.host-port` label.
-
-### `mb workspace credentials <id>`
-
-```sh
-mb workspace credentials 1
-mb workspace credentials 1 --json
-```
-
-Reads the workspace child's admin credentials (email, password, admin API key) from `/mw-config/credentials.json` inside the container. The file is written by `workspace start` from CLI-generated, per-workspace values; the same values are injected into `config.yml`'s `:users` and `:api-keys` sections so they take effect on the child's first boot. Works against running and stopped containers (uses `docker cp`); errors clearly if no container exists for the given workspace id. Removing the container destroys the file — recover by `workspace start <id> --force`.
-
-### `mb workspace ps`
-
-```sh
-mb workspace ps
-mb workspace ps --json
-```
-
-Lists every container that carries the `com.metabase.workspace.id` label, running or stopped. The `--json` envelope is the canonical agent-facing shape and contains only `workspace_id`, `workspace_name`, `state`, and `url`; `--full --json` emits the wider record (image, profile, parent URL, container name, status string, host port).
-
-### License
-
-The Metabase Enterprise license token is stored locally and forwarded to the child instance by `mb workspace start`. It is global to the CLI install (not per-profile).
-
-#### `mb workspace license set [token]`
-
-Store a license token. Resolution order: positional → piped stdin → `METABASE_LICENSE_TOKEN` → interactive prompt. Stdin is auto-detected when not a TTY.
-
-Common output flags (`--json`, `--format`, `--full`, `--fields`, `--max-bytes`) are accepted; the result payload is rendered through the standard output layer.
-
-```sh
-echo "$MB_LICENSE" | mb workspace license set
-mb workspace license set < token.txt
-```
-
-#### `mb workspace license status`
-
-Show whether a license is stored. Does not reveal the value.
-
-```sh
-mb workspace license status
-mb workspace license status --json
-```
-
-| Flag     | Description                         |
-| -------- | ----------------------------------- |
-| `--json` | Emit JSON. Auto-enabled on non-TTY. |
-
-#### `mb workspace license remove`
-
-Clear the stored license.
-
-```sh
-mb workspace license remove --yes
-```
-
-| Flag    | Description                                                                                                                       |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
-
 ## Instance setup
 
 Bootstrapping a fresh, not-yet-configured Metabase instance.
@@ -1474,7 +1254,7 @@ The CLI ships with bundled agent skills (Claude Code / `npx skills add` compatib
 mb skills list                              # discover bundled skills (table or JSON)
 mb skills get core                          # print the top-level guide
 mb skills get core --full                   # include references and templates
-mb skills get workspace,transform           # comma-separated, multi-skill fetch
+mb skills get git-sync,transform            # comma-separated, multi-skill fetch
 mb skills get --all --json --max-bytes 0    # every non-hidden skill, structured (default cap truncates)
 mb skills path                              # absolute paths for direct Read
 mb skills path core                         # one path
@@ -1487,7 +1267,6 @@ Bundled skills:
 | Name        | Use                                                                                    |
 | ----------- | -------------------------------------------------------------------------------------- |
 | `core`      | Top-level guide: auth, flag conventions, output flags, body input, every command group |
-| `workspace` | Enterprise workspace lifecycle (create, provision, start, child credentials, diagnose) |
 | `transform` | Authoring and running transforms (native SQL + MBQL 5), iteration, run inspection      |
 | `git-sync`  | Round-tripping Metabase content to/from a git remote                                   |
 
@@ -1505,7 +1284,6 @@ Exit codes: `0` success, `2` `ConfigError` (missing name, unknown name, `MB_SKIL
 | `METABASE_URL`                | Default URL for `auth login` and config resolution.                                                                                                                       |
 | `METABASE_API_KEY`            | Default API key (overrides interactive prompt; not stored).                                                                                                               |
 | `METABASE_PROFILE`            | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                     |
-| `METABASE_LICENSE_TOKEN`      | Default license token for `workspace license set`.                                                                                                                        |
 | `METABASE_VERBOSE`            | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                            |
 | `METABASE_CLI_SKIP_PREFLIGHT` | When set to `1`, bypasses the per-command server version / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
 | `MB_SKILLS_DIR`               | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees).                                                    |

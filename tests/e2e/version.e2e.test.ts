@@ -51,10 +51,6 @@ async function seedProbedProfile(configHome: string, major: number): Promise<voi
 
 const MEASURE_CAPABILITIES = { minVersion: 59 } as const;
 const TRANSFORM_CAPABILITIES = { minVersion: 59 } as const;
-const WORKSPACE_CAPABILITIES = {
-  minVersion: 62,
-  tokenFeature: "workspaces",
-} as const;
 
 describe("version preflight e2e", () => {
   const tempDirs: string[] = [];
@@ -146,39 +142,6 @@ describe("version preflight e2e", () => {
         .map((entry) => [entry.command, entry.capabilities]),
     );
     expect(localCapabilities).toEqual({ uuid: null, upgrade: null });
-  });
-
-  it("manifest gates server-touching workspace commands at v62 and reports null for local-only ones", async () => {
-    const result = await runCli({
-      args: ["__manifest"],
-      configHome: await makeIsolatedConfigHome(),
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-
-    const manifest = parseJson(result.stdout, Manifest, { source: "__manifest" });
-    const workspaceCapabilities = Object.fromEntries(
-      manifest.commands
-        .filter((entry) => entry.command.startsWith("workspace "))
-        .map((entry) => [entry.command, entry.capabilities]),
-    );
-    expect(workspaceCapabilities).toEqual({
-      "workspace list": WORKSPACE_CAPABILITIES,
-      "workspace create": WORKSPACE_CAPABILITIES,
-      "workspace start": WORKSPACE_CAPABILITIES,
-      "workspace stop": null,
-      "workspace delete": null,
-      "workspace ps": null,
-      "workspace logs": null,
-      "workspace url": null,
-      "workspace credentials": null,
-      "workspace database provision": WORKSPACE_CAPABILITIES,
-      "workspace database deprovision": WORKSPACE_CAPABILITIES,
-      "workspace database update": WORKSPACE_CAPABILITIES,
-      "workspace license set": null,
-      "workspace license status": null,
-      "workspace license remove": null,
-    });
   });
 });
 

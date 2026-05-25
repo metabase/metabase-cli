@@ -103,21 +103,6 @@ describe("__manifest e2e", () => {
       "git-sync create-branch",
       "git-sync add-collection",
       "git-sync remove-collection",
-      "workspace list",
-      "workspace create",
-      "workspace database provision",
-      "workspace database update",
-      "workspace database deprovision",
-      "workspace start",
-      "workspace stop",
-      "workspace delete",
-      "workspace logs",
-      "workspace url",
-      "workspace credentials",
-      "workspace ps",
-      "workspace license set",
-      "workspace license status",
-      "workspace license remove",
       "setup",
       "snippet list",
       "snippet get",
@@ -143,15 +128,9 @@ describe("__manifest e2e", () => {
       "skills path",
     ]);
 
-    // Streaming commands legitimately have no outputSchema — they pipe raw bytes
-    // (docker logs) to stdout rather than a typed JSON envelope.
-    const streamingCommands = new Set(["workspace logs"]);
-
     for (const entry of manifest.commands) {
       expect(entry.examples.length, `missing examples for ${entry.command}`).toBeGreaterThan(0);
-      if (!streamingCommands.has(entry.command)) {
-        expect(entry.outputSchema, `missing outputSchema for ${entry.command}`).not.toBeNull();
-      }
+      expect(entry.outputSchema, `missing outputSchema for ${entry.command}`).not.toBeNull();
     }
   });
 });

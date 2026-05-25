@@ -27,7 +27,7 @@ export function renderItem<T>(item: T, view: ResourceView<T>, opts: RenderOption
 }
 
 // Default text/human view prints `summaryText` — a bare scalar for single-value lookups
-// (setting get, workspace url, git-sync is-dirty) so the result composes in a shell
+// (setting get, git-sync is-dirty) so the result composes in a shell
 // (`URL=$(mb … --format text)`), or an action-confirmation sentence for mutations
 // ("Archived card 1 …"). `--json`, `--fields`, and `--full` fall through to renderItem, which
 // emits structured JSON under `--json` and the selected/all fields as key/value lines in text.

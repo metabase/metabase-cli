@@ -84,7 +84,7 @@ export default defineMetabaseCommand({
     if (args["skip-verify"]) {
       const location = await writeProfile({ url, apiKey }, profileName);
       if (location.backend === "file") {
-        warn(keyringFallbackWarning(location, "credentials"));
+        warn(keyringFallbackWarning(location));
       }
       renderSummary(
         {
@@ -109,7 +109,7 @@ export default defineMetabaseCommand({
 
     const location = await writeProfile({ url, apiKey }, profileName);
     if (location.backend === "file") {
-      warn(keyringFallbackWarning(location, "credentials"));
+      warn(keyringFallbackWarning(location));
     }
     await writeProbeResult(profileName, { user: result.user, server: result.server });
 
