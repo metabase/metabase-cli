@@ -87,6 +87,8 @@ mb query --file q.json --profile <n> --json                     # 3. validate + 
 
 `path` is a JSON Pointer into the body (`/stages/0/aggregation/0`); `message` is the validator error. Exit codes: `0` valid + ran, `2` validation failed / malformed body, `1` server-side error after a valid pre-flight.
 
+A successful run emits the **full `/api/dataset` envelope** — `data.rows`, `data.cols`, plus heavy `data.results_metadata` and per-column fingerprints. For ad-hoc exploration project `--fields data.rows` (add `data.cols` if you need column names); without it even a few rows render as hundreds of lines of metadata. (`mb query` also runs a **native** body — `{database, type:"native", native:{query:"SELECT …"}}` — which skips pre-flight and is the quickest way to eyeball raw warehouse data; same `--fields data.rows` advice applies.)
+
 `--skip-validate` bypasses the pre-flight and sends as-is — use only when the bundled schema disagrees with what the server actually accepts (drift / false negative). Mutually exclusive with `--dry-run`. The same flag exists on `card create/update` and `transform create/update`.
 
 ## Where MBQL 5 is consumed

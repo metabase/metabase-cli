@@ -60,6 +60,7 @@ Notes:
 - The heredoc with single-quoted `'EOF'` prevents shell from interpolating any `$vars` inside the SQL.
 - `transform create --json` returns the agent-facing compact projection: `{id, name, description, source_type, target: {type, database, schema, name}, target_db_id}`. Read `target.schema`/`target.name` directly off the create output — no follow-up `transform get` needed to verify where the transform will write.
 - If a transform with the same `name` already has a YAML representation on disk under the configured remote-sync repo, `create` mints a `_2` suffix on the exported filename (the new transform gets a fresh `entity_id`; the prior one isn't touched). For "iterate on the same concept" workflows, prefer `transform update <id>` — see "Iterating on a failing transform" below.
+- **`collection_id` only accepts a collection in the `:transforms` namespace.** Transforms aren't filed next to cards and dashboards — passing a normal analytics collection id (the kind a dashboard lives in) fails create/update with `collection_id: A Transform can only go in Collections in the :transforms namespace.` Omit `collection_id` to leave the transform uncollected (the common case), or pass a collection created in the transforms namespace. Cards and dashboards you build **on top of** the transform's output table go in ordinary collections as usual — so "put the transform and its dashboard in collection X" generally means *X holds the dashboard + cards; the transform stays in the transforms namespace.*
 
 ## Inspect
 
@@ -68,7 +69,16 @@ mb transform list --profile <name> --json
 mb transform get <id> --profile <name> --full --json     # full transform incl. last run summary
 ```
 
-After a run, the materialized table is queryable via `mb` (`card create` against it, native query against `<schema>.<name>`, etc.). Columns and types are inferred from the result set; if you change the SELECT shape, drop the table first or the next run will fail on a column-mismatch error.
+After a run, the materialized table physically exists in the warehouse, but Metabase doesn't know about it yet. **Native SQL** (a native `card`, or `mb query` against `<schema>.<name>`) reads it immediately — native runs straight against the warehouse. **MBQL and the Metabase UI cannot reference it until the instance syncs**, because they address tables and columns by numeric id and a brand-new table has none. To build MBQL cards on a fresh output table:
+
+```bash
+mb database sync-schema <db-id> --profile <name> --json          # async — returns {status:"ok"} at once
+# poll until the new table appears (sync is not instant):
+mb database schema-tables <db-id> <schema> --profile <name> --json --fields id,name
+mb table get <table-id> --include fields --profile <name> --json  # then grab the field ids
+```
+
+Columns and types are inferred from the result set; if you change the SELECT shape, drop the table first (`transform delete-table <id>`) or the next run will fail on a column-mismatch error. A changed shape also needs a re-sync before MBQL sees the new/renamed columns.
 
 ## Inspect runs and cancel an in-flight run
 
@@ -107,10 +117,11 @@ Column "TAGS" not found; SQL statement:
 UPDATE "TRANSFORM" SET "TAGS" = (), "UPDATED_AT" = NOW() WHERE "ID" = ? [42122-214]
 ```
 
-Two specific footguns:
+Three specific footguns:
 
 - **`tags` is not a key on the REST API.** The serdes/YAML representation uses `tags`; the REST contract uses `tag_ids` (an array of integer ids). If you pulled a YAML representation and want to PUT it, translate `tags: [...]` → `tag_ids: [...]` first (or omit it entirely if you're not changing tag membership).
 - **`source_type`, `target_db_id`, `target_table_id`, `entity_id`** are derived/computed by the server. They appear in GET responses for the agent's benefit; the server doesn't accept them on update.
+- **`collection_id` must be a `:transforms`-namespace collection** — a regular card/dashboard collection id is rejected with `A Transform can only go in Collections in the :transforms namespace.` Omit it unless you have one (see the create notes above). Round-tripping the existing value is safe; setting it to an ordinary collection is what fails.
 
 Right shape — patch only what changes:
 
