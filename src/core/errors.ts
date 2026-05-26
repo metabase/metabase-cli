@@ -14,7 +14,6 @@ export type ErrorCategory =
   | "config"
   | "capability"
   | "abort"
-  | "docker"
   | "unknown";
 
 export interface NetworkErrorDetail {

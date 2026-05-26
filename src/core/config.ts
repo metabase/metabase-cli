@@ -1,11 +1,10 @@
-import { DEFAULT_PROFILE, readLicense, readProfile, readProfileRecord } from "./auth/storage";
+import { DEFAULT_PROFILE, readProfile, readProfileRecord } from "./auth/storage";
 import { ConfigError } from "./errors";
 import { normalizeUrl } from "./url";
 
 const ENV_URL = "METABASE_URL";
 const ENV_API_KEY = "METABASE_API_KEY";
 const ENV_PROFILE = "METABASE_PROFILE";
-const ENV_LICENSE_TOKEN = "METABASE_LICENSE_TOKEN";
 const ENV_SKIP_PREFLIGHT = "METABASE_CLI_SKIP_PREFLIGHT";
 
 export const SKIP_PREFLIGHT_ENV = ENV_SKIP_PREFLIGHT;
@@ -27,10 +26,6 @@ export interface ResolvedConfig {
   apiKey: string;
   profile: string;
   source: ConfigSource;
-}
-
-export interface LicenseFlags {
-  token?: string;
 }
 
 export interface EnvCredentials {
@@ -58,10 +53,6 @@ export function readEnvCredentials(): EnvCredentials {
   };
 }
 
-export function readEnvLicenseToken(): string | null {
-  return process.env[ENV_LICENSE_TOKEN] ?? null;
-}
-
 export async function resolveConfig(flags: ConfigFlags): Promise<ResolvedConfig> {
   const profile = resolveProfileName(flags.profile);
   const env = readEnvCredentials();
@@ -87,19 +78,6 @@ export async function resolveConfig(flags: ConfigFlags): Promise<ResolvedConfig>
     profile,
     source: urlField.source === keyField.source ? urlField.source : "mixed",
   };
-}
-
-export async function resolveLicenseToken(flags: LicenseFlags): Promise<string> {
-  const flag = flags.token;
-  const env = readEnvLicenseToken();
-  const stored = !flag && !env ? await readLicense() : null;
-  const value = flag ?? env ?? stored;
-  if (!value) {
-    throw new ConfigError(
-      `No license token. Pass --token, set ${ENV_LICENSE_TOKEN}, or store one with \`mb workspace license set\`.`,
-    );
-  }
-  return value;
 }
 
 async function failureHintForProfile(profile: string): Promise<string> {

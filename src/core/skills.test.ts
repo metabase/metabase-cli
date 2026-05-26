@@ -131,9 +131,9 @@ describe("discoverSkills", () => {
     writeSkill(temp.skillData, "core", { name: "core", description: "Core." }, "core body");
     writeSkill(
       temp.skillData,
-      "workspace",
-      { name: "workspace", description: "Workspaces." },
-      "ws body",
+      "transform",
+      { name: "transform", description: "Transforms." },
+      "transform body",
     );
 
     expect(discoverSkills([temp.skills, temp.skillData])).toEqual([
@@ -145,10 +145,10 @@ describe("discoverSkills", () => {
         dir: join(temp.skills, "metabase-cli"),
       },
       {
-        name: "workspace",
-        description: "Workspaces.",
+        name: "transform",
+        description: "Transforms.",
         hidden: false,
-        dir: join(temp.skillData, "workspace"),
+        dir: join(temp.skillData, "transform"),
       },
     ]);
   });
@@ -246,10 +246,10 @@ describe("availableSkillNames", () => {
   it('formats the visible skill list as "available: a, b"', () => {
     const skills: SkillInfo[] = [
       { name: "core", description: "", hidden: false, dir: "/x/core" },
-      { name: "workspace", description: "", hidden: false, dir: "/x/workspace" },
+      { name: "transform", description: "", hidden: false, dir: "/x/transform" },
       { name: "metabase-cli", description: "", hidden: true, dir: "/x/metabase-cli" },
     ];
-    expect(availableSkillNames(skills)).toBe("available: core, workspace");
+    expect(availableSkillNames(skills)).toBe("available: core, transform");
   });
 
   it('falls back to "available: none" when no visible skills exist', () => {
@@ -263,7 +263,7 @@ describe("availableSkillNames", () => {
 describe("findSkillByName", () => {
   const skills: SkillInfo[] = [
     { name: "core", description: "Core.", hidden: false, dir: "/x/core" },
-    { name: "workspace", description: "Workspaces.", hidden: false, dir: "/x/workspace" },
+    { name: "transform", description: "Transforms.", hidden: false, dir: "/x/transform" },
   ];
 
   it("returns the matching skill", () => {
@@ -272,7 +272,7 @@ describe("findSkillByName", () => {
 
   it("throws ConfigError with the available list when the name is unknown", () => {
     expect(() => findSkillByName(skills, "nope")).toThrow(
-      new ConfigError("unknown skill name: nope (available: core, workspace)"),
+      new ConfigError("unknown skill name: nope (available: core, transform)"),
     );
   });
 });
@@ -280,18 +280,18 @@ describe("findSkillByName", () => {
 describe("selectSkillsByNames", () => {
   const skills: SkillInfo[] = [
     { name: "core", description: "", hidden: false, dir: "/x/core" },
-    { name: "workspace", description: "", hidden: false, dir: "/x/workspace" },
+    { name: "git-sync", description: "", hidden: false, dir: "/x/git-sync" },
     { name: "transform", description: "", hidden: false, dir: "/x/transform" },
   ];
 
   it("returns selected skills in the requested order", () => {
-    expect(selectSkillsByNames(skills, ["workspace", "core"])).toEqual([skills[1], skills[0]]);
+    expect(selectSkillsByNames(skills, ["git-sync", "core"])).toEqual([skills[1], skills[0]]);
   });
 
   it("throws ConfigError listing missing names and the available set", () => {
     expect(() => selectSkillsByNames(skills, ["core", "nope", "also-missing"])).toThrow(
       new ConfigError(
-        "unknown skill name(s): nope, also-missing (available: core, workspace, transform)",
+        "unknown skill name(s): nope, also-missing (available: core, git-sync, transform)",
       ),
     );
   });

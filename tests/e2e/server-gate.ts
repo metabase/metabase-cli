@@ -10,7 +10,7 @@ import { resolveAssumeHead } from "./defaults";
 
 // Head/nightly builds report version tag "vUNKNOWN" → version: null, which would skip every
 // version-gated suite. The matrix runner sets METABASE_CLI_E2E_ASSUME_HEAD on the head lanes
-// so those suites run against head (the only place head-only features like workspaces exist).
+// so those suites run against head (where the newest features land first).
 // The premium token-feature is still checked against the live probe, so the override only
 // relaxes the version that genuinely can't be parsed on head.
 const HEAD_ASSUMED_MAJOR = 9999;

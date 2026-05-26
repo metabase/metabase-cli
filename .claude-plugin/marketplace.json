@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "metabase-cli",
-      "description": "Drive a Metabase instance from the terminal via the `mb` CLI: auth, list/get/create/update/delete on every resource, run queries and transforms, git-sync content to and from a remote, manage Enterprise workspaces. Bundles workspace, transform, and git-sync references as on-demand skills served by `mb skills get`.",
+      "description": "Drive a Metabase instance from the terminal via the `mb` CLI: auth, list/get/create/update/delete on every resource, run queries and transforms, git-sync content to and from a remote. Bundles transform and git-sync references as on-demand skills served by `mb skills get`.",
       "source": "./",
       "strict": false,
       "skills": ["./skills/metabase-cli"],

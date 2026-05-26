@@ -7,14 +7,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 
-const BUNDLED_VISIBLE_NAMES = [
-  "core",
-  "git-sync",
-  "mbql",
-  "transform",
-  "visualization",
-  "workspace",
-] as const;
+const BUNDLED_VISIBLE_NAMES = ["core", "git-sync", "mbql", "transform", "visualization"] as const;
 
 describe("skills e2e", () => {
   const tempDirs: string[] = [];
@@ -29,7 +22,7 @@ describe("skills e2e", () => {
     return dir;
   }
 
-  it("list returns the six bundled non-hidden skills, sorted by name", async () => {
+  it("list returns the five bundled non-hidden skills, sorted by name", async () => {
     const result = await runCli({
       args: ["skills", "list", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -103,13 +96,13 @@ describe("skills e2e", () => {
 
   it("get accepts comma-separated names", async () => {
     const result = await runCli({
-      args: ["skills", "get", "workspace,transform", "--json"],
+      args: ["skills", "get", "git-sync,transform", "--json"],
       configHome: await makeIsolatedConfigHome(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
     const envelope = parseJson(result.stdout, SkillGetEnvelope);
-    expect(envelope.data.map((s) => s.name)).toEqual(["workspace", "transform"]);
+    expect(envelope.data.map((s) => s.name)).toEqual(["git-sync", "transform"]);
   });
 
   it("get rejects an unknown skill name with exit 2 and a ConfigError message listing available names", async () => {
@@ -120,7 +113,7 @@ describe("skills e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain(
-      "unknown skill name(s): does-not-exist (available: core, git-sync, mbql, transform, visualization, workspace)",
+      "unknown skill name(s): does-not-exist (available: core, git-sync, mbql, transform, visualization)",
     );
   });
 

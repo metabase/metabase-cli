@@ -21,7 +21,6 @@ vi.mock("@napi-rs/keyring", async () => {
 import * as storage from "./storage";
 
 const {
-  clearLicense,
   clearProfile,
   consumeLegacyStorageWarning,
   keyringFallbackWarning,
@@ -29,10 +28,8 @@ const {
   listProfileNames,
   listProfileRecords,
   profilesFilePath,
-  readLicense,
   readProfile,
   readProfileRecord,
-  writeLicense,
   writeProbeFailure,
   writeProbeResult,
   writeProfile,
@@ -83,7 +80,6 @@ describe("profiles (keyring backend)", () => {
           lastFailure: null,
         },
       ],
-      license: null,
     });
   });
 
@@ -129,7 +125,7 @@ describe("profiles (keyring backend)", () => {
     expect(await clearProfile("missing")).toBe(false);
   });
 
-  it("deletes profiles.json when the last profile and license are gone", async () => {
+  it("deletes profiles.json when the last profile is gone", async () => {
     if (process.platform === "win32") {
       return;
     }
@@ -182,13 +178,6 @@ describe("profiles (file fallback when keyring is broken)", () => {
   it("readProfile returns the inline API key when the keyring is broken", async () => {
     await writeProfile({ url: "https://m.example.com", apiKey: "secret" });
     expect(await readProfile()).toEqual({ url: "https://m.example.com", apiKey: "secret" });
-  });
-
-  it("stores the license inline in profiles.json when the keyring is broken", async () => {
-    await writeLicense("license-token");
-    const file = parseJson(readFileSync(profilesFilePath(), "utf8"), ProfilesFile);
-    expect(file).toEqual({ profiles: [], license: "license-token" });
-    expect(await readLicense()).toBe("license-token");
   });
 });
 
@@ -296,40 +285,6 @@ describe("writeProbeResult and writeProbeFailure", () => {
   });
 });
 
-describe("license", () => {
-  let home: TempConfigHome;
-
-  beforeEach(() => {
-    hoisted.store.clear();
-    hoisted.controls.broken = false;
-    home = setupTempConfigHome();
-  });
-
-  afterEach(() => {
-    home.cleanup();
-  });
-
-  it("round-trips via the keyring (license stays null inline)", async () => {
-    await writeLicense("license-token");
-    expect(await readLicense()).toBe("license-token");
-    expect(hoisted.store.get("metabase-cli:license")).toBe("license-token");
-  });
-
-  it("clearLicense removes the keyring entry", async () => {
-    await writeLicense("license-token");
-    expect(await clearLicense()).toBe(true);
-    expect(await readLicense()).toBeNull();
-    expect(await clearLicense()).toBe(false);
-  });
-
-  it("license is independent of profile clears", async () => {
-    await writeProfile({ url: "https://m.example.com", apiKey: "k" });
-    await writeLicense("license-token");
-    expect(await clearProfile()).toBe(true);
-    expect(await readLicense()).toBe("license-token");
-  });
-});
-
 describe("METABASE_CLI_DISABLE_KEYRING", () => {
   let home: TempConfigHome;
 
@@ -372,7 +327,7 @@ describe("keyringFallbackWarning", () => {
       account: "profile:default:apiKey",
       reason: "disabled",
     };
-    expect(keyringFallbackWarning(location, "credentials")).toBe(
+    expect(keyringFallbackWarning(location)).toBe(
       "warning: OS keychain disabled via METABASE_CLI_DISABLE_KEYRING; credentials stored as plaintext at /tmp/profiles.json",
     );
   });
@@ -381,11 +336,11 @@ describe("keyringFallbackWarning", () => {
     const location: FileLocation = {
       backend: "file",
       path: "/tmp/profiles.json",
-      account: "license",
+      account: "profile:default:apiKey",
       reason: "unavailable",
     };
-    expect(keyringFallbackWarning(location, "license")).toBe(
-      "warning: OS keychain unavailable; license stored as plaintext at /tmp/profiles.json",
+    expect(keyringFallbackWarning(location)).toBe(
+      "warning: OS keychain unavailable; credentials stored as plaintext at /tmp/profiles.json",
     );
   });
 });
