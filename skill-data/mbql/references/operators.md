@@ -5,15 +5,15 @@ form. The clause _structure_ and the slot-1-options rule are in the SKILL.md bod
 this file is the catalog of which operators exist and their arguments.
 
 **Reading the tables.** Every clause is `[op, {options}, ...args]`. Below, `{…}`
-abbreviates the slot-1 options object, which always carries `lib/uuid` (mint with
-`mb uuid`) plus any operator-specific option noted in the row. Field refs are numeric:
-`["field", {…}, <field-id>]`. Everything here passes `mb query --dry-run`; when in
-doubt, that loop is the authority.
+abbreviates the slot-1 options object — usually empty (`{}`), since `lib/uuid` is
+optional and the server generates it (see the SKILL body). It carries a value only
+when noted: an operator-specific option named in the row, or an explicit `lib/uuid`
+you mint to reference the clause. Field refs are numeric: `["field", {…}, <field-id>]`.
+Everything here passes `mb query --dry-run`; when in doubt, that loop is the authority.
 
-> Relative date filters use **`time-interval`** / **`relative-time-interval`** (below),
-> not bare date literals. If you pulled a query from the UI that contains
-> `relative-datetime` or `absolute-datetime`, the bundled schema does not yet model
-> those — send it with `--skip-validate` rather than rewriting it.
+> For relative date filters, prefer **`time-interval`** / **`relative-time-interval`**
+> (below). `relative-datetime` / `absolute-datetime` literals (e.g. from a UI-built
+> query) also work.
 
 ---
 
@@ -67,7 +67,7 @@ options object.
 | `ends-with`        | field, 1+ strings |
 
 ```json
-["contains", { "lib/uuid": "<mint>", "case-sensitive": false }, ["field", {…}, 9], "widget"]
+["contains", { "case-sensitive": false }, ["field", {…}, 9], "widget"]
 ```
 
 ### Temporal
@@ -120,7 +120,7 @@ A stage's `aggregation` is a list of aggregation clauses.
 ```
 
 **Naming** — set `name` (warehouse column) and/or `display-name` (UI header) in the
-options object: `["sum", { "lib/uuid": "<mint>", "name": "revenue", "display-name": "Revenue" }, …]`.
+options object: `["sum", { "name": "revenue", "display-name": "Revenue" }, …]`.
 
 **Window function** — `offset` is only valid inside `aggregation`:
 
@@ -205,7 +205,7 @@ Add/subtract/interval units: `year`, `quarter`, `month`, `week`, `day`, `hour`,
 | `coalesce` | 2+ expressions                 | first non-null                                       |
 
 ```json
-["case", { "lib/uuid": "<mint>", "lib/expression-name": "Tier" },
+["case", { "lib/expression-name": "Tier" },
   [[[">", {…}, ["field", {…}, 14], 100], "Premium"],
    [["<=", {…}, ["field", {…}, 14], 20], "Budget"]],
   "Standard"]
@@ -235,7 +235,7 @@ positional arg is the default.)
   `month-of-year`, `quarter-of-year`, `year-of-era`, `second-of-minute`.
 
 ```json
-["field", { "lib/uuid": "<mint>", "temporal-unit": "month" }, 22]
+["field", { "temporal-unit": "month" }, 22]
 ```
 
 ## Field option: binning
@@ -249,5 +249,5 @@ positional arg is the default.)
 | `default`   | —                    | Metabase chooses                 |
 
 ```json
-["field", { "lib/uuid": "<mint>", "binning": { "strategy": "num-bins", "num-bins": 10 } }, 14]
+["field", { "binning": { "strategy": "num-bins", "num-bins": 10 } }, 14]
 ```

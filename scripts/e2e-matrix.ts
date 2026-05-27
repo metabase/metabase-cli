@@ -97,9 +97,6 @@ function stackEnv(stack: Stack): NodeJS.ProcessEnv {
     // calls and the ones the spawned test process makes (e.g. warehouse reset),
     // so concurrent stacks never target each other's containers.
     COMPOSE_PROJECT_NAME: `mb-e2e-${stack.id}`,
-    // Consulted by requireServer only when the probe can't parse a version (head builds),
-    // so capability-gated suites run against head instead of skipping.
-    ...(stack.id.endsWith("-head") ? { METABASE_CLI_E2E_ASSUME_HEAD: "1" } : {}),
   };
 }
 

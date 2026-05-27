@@ -2,11 +2,17 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { CardListEnvelope } from "../../src/commands/card/list";
 import { ValidationOutcome } from "../../src/core/schema/validate";
-import { Card, CardCompact, CardCreateInput, CardQueryResult } from "../../src/domain/card";
+import {
+  Card,
+  CardCompact,
+  CardCreateInput,
+  CardQueryResult,
+  CardQueryResultCompact,
+} from "../../src/domain/card";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
-import { assertCompletedQuery } from "./card-query";
+import { assertCompactColumns, assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
@@ -173,7 +179,7 @@ describe("card e2e", () => {
     expect(result.stderr).toContain("Not found: GET /api/card/9999999.");
   });
 
-  it("query (json) executes the card and returns the full result envelope", async () => {
+  it("query (json) returns the compact projection: slim columns, heavy envelope metadata dropped", async () => {
     const result = await runCli({
       args: ["card", "query", String(SEEDED.ordersCardId), "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -181,19 +187,43 @@ describe("card e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const parsed = parseJson(result.stdout, CardQueryResult);
-    assertCompletedQuery(parsed);
+
+    // Parse through the loose full schema to inspect exactly what the CLI printed: the compact
+    // projection must have dropped the per-column metadata and the envelope-level blocks.
+    const printed = parseJson(result.stdout, CardQueryResult);
+    assertCompletedQuery(printed);
+    assertCompactColumns(printed);
+    expect(printed).not.toHaveProperty("json_query");
+    expect(printed.data).not.toHaveProperty("results_metadata");
+    expect(printed.data).not.toHaveProperty("native_form");
+
+    // The slim output still satisfies the compact schema contract against the live /api/dataset.
+    const compact = parseJson(result.stdout, CardQueryResultCompact);
     expect({
-      status: parsed.status,
-      row_count: parsed.row_count,
-      rowsLength: parsed.data.rows.length,
-      colNames: parsed.data.cols.map((column) => column.name),
+      status: compact.status,
+      row_count: compact.row_count,
+      rowsLength: compact.data?.rows.length,
+      colNames: compact.data?.cols.map((column) => column.name),
     }).toEqual({
       status: "completed",
       row_count: 5,
       rowsLength: 5,
       colNames: ["status", "n"],
     });
+  });
+
+  it("query --json --full returns the raw /api/dataset envelope with json_query and results_metadata", async () => {
+    const result = await runCli({
+      args: ["card", "query", String(SEEDED.ordersCardId), "--json", "--full"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const printed = parseJson(result.stdout, CardQueryResult);
+    assertCompletedQuery(printed);
+    expect(printed).toHaveProperty("json_query");
+    expect(printed.data).toHaveProperty("results_metadata");
   });
 
   it("query --limit truncates the rows kept in the JSON envelope", async () => {

@@ -124,6 +124,7 @@ export const Transform = z
     source_database_id: z.number().int().nullable().optional(),
     target_db_id: z.number().int().nullable().optional(),
     target_table_id: z.number().int().nullable().optional(),
+    table: z.object({ id: z.number().int() }).loose().nullable().optional(),
     entity_id: z.string().nullable(),
     created_at: z.string(),
     updated_at: z.string(),

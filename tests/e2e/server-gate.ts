@@ -6,21 +6,17 @@ import {
 import type { ServerInfo } from "../../src/core/version/probe";
 
 import { readBootstrapSync } from "./bootstrap-data";
-import { resolveAssumeHead } from "./defaults";
 
-// Head/nightly builds report version tag "vUNKNOWN" → version: null, which would skip every
-// version-gated suite. The matrix runner sets METABASE_CLI_E2E_ASSUME_HEAD on the head lanes
-// so those suites run against head (where the newest features land first).
-// The premium token-feature is still checked against the live probe, so the override only
-// relaxes the version that genuinely can't be parsed on head.
+// An unparsable version tag ("vUNKNOWN", "vLOCAL", any non-semver dev/head build) probes to
+// version: null. Treat that as the latest version so every version-gated suite runs — head and
+// local dev builds carry the newest features, and skipping them would hide regressions there.
+// The premium token-feature is still checked against the live probe, so this only relaxes the
+// version that genuinely can't be parsed; a suite whose token-feature the server lacks still skips.
 const HEAD_ASSUMED_MAJOR = 9999;
 
 function resolveServerInfo(): ServerInfo {
   const { server } = readBootstrapSync();
   if (server.version !== null) {
-    return server;
-  }
-  if (!resolveAssumeHead()) {
     return server;
   }
   return {

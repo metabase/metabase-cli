@@ -9,6 +9,7 @@ import { RUN_TERMINAL_STATUSES, TransformRunResult } from "../../src/commands/tr
 import { TransformRunListEnvelope } from "../../src/commands/transform/runs";
 import { createClient, type Client } from "../../src/core/http/client";
 import { ValidationOutcome } from "../../src/core/schema/validate";
+import { Collection } from "../../src/domain/collection";
 import { TransformCompact, TransformRun, TransformRunCompact } from "../../src/domain/transform";
 import { parseJson } from "../../src/runtime/json";
 import { pollUntil } from "../../src/runtime/poll";
@@ -221,6 +222,35 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     expect(parsed.message).toBe("Transform run started");
     expect(parsed.run_id).not.toBeNull();
     expect(parsed.final?.status).toBe("succeeded");
+  });
+
+  it("run --sync waits for the run's output table to register and surfaces target_table_id", async () => {
+    await createSeedTransform();
+
+    const result = await runCli({
+      args: [
+        "transform",
+        "run",
+        String(FIRST_TRANSFORM_ID),
+        "--sync",
+        "--interval",
+        "1000",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+      timeoutMs: 60_000,
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const parsed = parseJson(result.stdout, TransformRunResult);
+    expect(parsed.message).toBe("Transform run started");
+    expect(parsed.final?.status).toBe("succeeded");
+    assert(
+      parsed.target_table_id !== null && parsed.target_table_id !== undefined,
+      `expected --sync to register a target table; got ${JSON.stringify(parsed.target_table_id)}`,
+    );
+    expect(parsed.target_table_id).toBeGreaterThan(0);
   });
 
   it("run --wait --json on a failing transform exits 1 with a stderr summary that does not duplicate final.message", async () => {
@@ -724,6 +754,66 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     );
     expect(result.stdout).toBe("");
   });
+
+  it("a transform can be filed in a transforms-namespace collection created via --namespace", async () => {
+    const collectionResult = await runCli({
+      args: [
+        "collection",
+        "create",
+        "--body",
+        JSON.stringify({ name: "e2e_transforms_ns" }),
+        "--namespace",
+        "transforms",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(collectionResult.exitCode, collectionResult.stderr).toBe(0);
+    const collection = parseJson(collectionResult.stdout, Collection);
+    expect(collection.name).toBe("e2e_transforms_ns");
+    assert(typeof collection.id === "number", "expected a numeric collection id");
+
+    const transformResult = await runCli({
+      args: ["transform", "create", "--json"],
+      stdin: JSON.stringify({ ...TRANSFORM_BODY, collection_id: collection.id }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(transformResult.exitCode, transformResult.stderr).toBe(0);
+    const created = parseJson(transformResult.stdout, TransformCompact);
+    expect(created).toEqual({ ...TRANSFORM_COMPACT, id: created.id });
+  });
+
+  it("create into a default-namespace collection fails (exit 2) with the --namespace transforms hint", async () => {
+    const collectionResult = await runCli({
+      args: [
+        "collection",
+        "create",
+        "--body",
+        JSON.stringify({ name: "e2e_normal_collection" }),
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(collectionResult.exitCode, collectionResult.stderr).toBe(0);
+    const collection = parseJson(collectionResult.stdout, Collection);
+    assert(typeof collection.id === "number", "expected a numeric collection id");
+
+    const result = await runCli({
+      args: ["transform", "create", "--json"],
+      stdin: JSON.stringify({ ...TRANSFORM_BODY, collection_id: collection.id }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    const message = cliErrorMessage(result.stderr);
+    expect(message).toContain("A Transform can only go in Collections");
+    expect(message).toContain("--namespace transforms");
+    expect(result.stdout).toBe("");
+  });
 });
 
 const GATE_MIN_VERSION = 59;
@@ -794,7 +884,7 @@ describe.skipIf(!serverVersionBelow(GATE_MIN_VERSION))(
       expect(result.stderr).toContain(
         `This endpoint is not available on Metabase ${serverTag}: GET /api/transform. ` +
           `The command may require a newer Metabase major version. ` +
-          `Run 'mb auth list' to see this server's version, or 'mb __manifest' for per-command requirements.`,
+          `Run 'mb auth list' to see this server's version.`,
       );
       expect(result.stdout).toBe("");
     });
