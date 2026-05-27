@@ -664,7 +664,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("cancel marks an in-progress run as canceling", async () => {
+  it("cancel is accepted for an in-progress run (lands canceled, or succeeded if it beat the cancel)", async () => {
     const sleepBody: TransformBody = {
       name: "e2e_transform_cancel",
       source: {
@@ -715,7 +715,10 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
 
     await waitForRunComplete(adminClient, runId);
     const finalRun = await adminClient.requestParsed(TransformRun, `/api/transform/run/${runId}`);
-    expect(finalRun.status).toBe("canceled");
+    // Cancel is accepted synchronously (asserted above), but it doesn't kill the warehouse query
+    // mid-flight — a fast run can commit as `succeeded` before the cancel lands. Both are correct
+    // terminal outcomes; pinning `canceled` races the writer.
+    expect(["canceled", "succeeded"]).toContain(finalRun.status);
   });
 
   it("cancel with no running run surfaces a 404 HttpError", async () => {

@@ -1132,6 +1132,8 @@ mb eid --file translate.json
 mb eid --body '{"entity_ids":{"card":["abc123XYZ"]}}'
 ```
 
+Entity ids are NanoIDs that can start with `-`, which the positional `<eids>` form misreads as a flag (shell quoting doesn't help — the leading `-` survives into argv). For an id that may start with `-`, pass it via `--body`, where the id is a JSON string value immune to flag parsing: `mb eid --body '{"entity_ids":{"card":["-abc123XYZ"]}}'`.
+
 | Arg / Flag       | Description                                                                    |
 | ---------------- | ------------------------------------------------------------------------------ |
 | `<eids>`         | Comma-separated EIDs positional. Used with `--model`.                          |
