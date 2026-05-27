@@ -154,7 +154,7 @@ describe("showUsage", () => {
     expect(shortRow).toMatch(/Short description$/);
   });
 
-  it("appends a SCHEMA section pointing to __manifest on every help page", async () => {
+  it("does not advertise the hidden __manifest command on a help page", async () => {
     const cmd = defineCommand({
       meta: { name: "demo", description: "demo cmd" },
       args: {},
@@ -165,11 +165,11 @@ describe("showUsage", () => {
 
     await showUsage(cmd);
     const out = chunks.join("");
-    expect(out).toContain("SCHEMA");
-    expect(out).toContain("mb __manifest");
+    expect(out).not.toContain("SCHEMA");
+    expect(out).not.toContain("__manifest");
   });
 
-  it("separates the SCHEMA footer from the body with a blank line", async () => {
+  it("separates the EXAMPLES footer from the body with a blank line", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "demo cmd" },
       args: {},
@@ -182,7 +182,6 @@ describe("showUsage", () => {
 
     await showUsage(cmd);
     const out = chunks.join("");
-    expect(out).toContain("\n\nSCHEMA\n\n");
     expect(out).toContain("\n\nEXAMPLES\n\n");
   });
 
@@ -284,20 +283,6 @@ describe("showUsage", () => {
 
     expect(rootOut).toContain("First time? Run `mb auth login` to connect to a Metabase instance.");
     expect(leafOut).not.toContain("First time?");
-  });
-
-  it("omits the SCHEMA footer on the __manifest page", async () => {
-    const cmd = defineCommand({
-      meta: { name: "__manifest", description: "Emit machine-readable command manifest as JSON" },
-      args: {},
-      run() {
-        return;
-      },
-    });
-
-    await showUsage(cmd);
-    const out = chunks.join("");
-    expect(out).not.toContain("SCHEMA");
   });
 });
 

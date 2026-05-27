@@ -50,11 +50,15 @@ describe("eid e2e", () => {
     return card.entity_id;
   }
 
-  it("translates a real card entity-id back to its numeric id with the --model + positional EIDs shortcut", async () => {
+  // A card's entity_id is a random NanoID that can start with `-`, which the positional `<eids>`
+  // form would misparse as a flag (~1/64 of ids). Translate via --body so the round-trip is
+  // deterministic regardless of the seeded id; the positional shortcut is covered by the fake-eid
+  // test below, whose id never leads with `-`.
+  it("translates a real card entity-id back to its numeric id via --body", async () => {
     const eid = await getCardEid(SEEDED.ordersCardId);
 
     const result = await runCli({
-      args: ["eid", "--model", "card", eid, "--json"],
+      args: ["eid", "--body", JSON.stringify({ entity_ids: { card: [eid] } }), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });

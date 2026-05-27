@@ -81,7 +81,7 @@ function renderProjectedTable<T>(
   fields: string[],
   maxBytes: number,
 ): void {
-  const projectedItems = envelope.data.map((item) => applyProjection(item, view, false, fields));
+  const projectedItems = projectListItems(envelope.data, view, false, fields);
   const capped = capListEnvelope({ ...envelope, data: projectedItems }, maxBytes);
   const rows = capped.data.map((item) =>
     fields.map((path) => formatScalar(pickPath(item, path.split(".")))),
@@ -92,14 +92,47 @@ function renderProjectedTable<T>(
   }
 }
 
+// List projections are item-relative: each path is resolved against an element of `data`,
+// not the envelope. Users who write the path they see in the JSON (`data.id`) hit a dead-end
+// "unknown field path" error. Catch that here and point them at the item-relative form.
+function projectListItems<T>(
+  items: readonly T[],
+  view: ResourceView<T>,
+  full: boolean,
+  fields: string[] | undefined,
+): unknown[] {
+  try {
+    return items.map((item) => applyProjection(item, view, full, fields));
+  } catch (error) {
+    throw enrichListFieldPathError(error, fields);
+  }
+}
+
+function enrichListFieldPathError(error: unknown, fields: string[] | undefined): unknown {
+  if (
+    fields === undefined ||
+    !(error instanceof ConfigError) ||
+    !error.message.startsWith("unknown field path")
+  ) {
+    return error;
+  }
+  const prefix = "data.";
+  const culprit = fields.find((field) => field === "data" || field.startsWith(prefix));
+  if (culprit === undefined) {
+    return error;
+  }
+  const suggestion = culprit.startsWith(prefix) ? culprit.slice(prefix.length) : "<field>";
+  return new ConfigError(
+    `${error.message} — on list commands --fields paths are relative to each item in \`data\`, not the envelope. Drop the \`data.\` prefix (e.g. use \`${suggestion}\` instead of \`${culprit}\`).`,
+  );
+}
+
 function renderJsonEnvelope<T>(
   envelope: ListEnvelope<T>,
   view: ResourceView<T>,
   opts: RenderOptions,
 ): void {
-  const projectedItems = envelope.data.map((item) =>
-    applyProjection(item, view, opts.full, opts.fields),
-  );
+  const projectedItems = projectListItems(envelope.data, view, opts.full, opts.fields);
   const projectedEnvelope: ListEnvelope<unknown> = { ...envelope, data: projectedItems };
   const capped = capListEnvelope(projectedEnvelope, opts.maxBytes);
   process.stdout.write(JSON.stringify(capped, null, 2) + "\n");

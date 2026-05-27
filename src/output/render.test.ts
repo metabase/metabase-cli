@@ -353,6 +353,40 @@ describe("renderList — text format", () => {
   });
 });
 
+describe("renderList — --fields path errors", () => {
+  const envelope: ListEnvelope<Card> = {
+    data: [{ id: 1, name: "Sales", archived: false }],
+    returned: 1,
+    total: 1,
+  };
+
+  function renderListError(opts: RenderOptions): ConfigError {
+    try {
+      renderList(envelope, cardView, opts);
+    } catch (error) {
+      assert(error instanceof ConfigError, "expected a ConfigError");
+      return error;
+    }
+    throw new Error("expected renderList to throw");
+  }
+
+  it("enriches an envelope-relative `data.` path with the item-relative hint (json)", () => {
+    const { message } = renderListError({ ...baseOpts, fields: ["data.id"] });
+    expect(message).toContain("relative to each item in `data`");
+    expect(message).toContain("use `id` instead of `data.id`");
+  });
+
+  it("enriches a `data.` path in text mode too", () => {
+    const { message } = renderListError({ ...baseOpts, format: "text", fields: ["data.name"] });
+    expect(message).toContain("use `name` instead of `data.name`");
+  });
+
+  it("leaves an ordinary unknown-path error unchanged", () => {
+    const { message } = renderListError({ ...baseOpts, fields: ["nope"] });
+    expect(message).toBe('unknown field path: "nope"');
+  });
+});
+
 describe("writeJson", () => {
   it("emits the value pretty-printed with a trailing newline", () => {
     writeJson({ a: 1, b: ["x", "y"] });

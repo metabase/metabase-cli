@@ -10,6 +10,8 @@ import {
   skipValidateFlag,
 } from "../validate-query";
 
+import { enrichTransformCollectionError } from "./collection-namespace";
+
 export default defineMetabaseCommand({
   meta: {
     name: "create",
@@ -39,10 +41,11 @@ export default defineMetabaseCommand({
       });
     }
     const client = await getClient();
-    const created = await client.requestParsed(Transform, "/api/transform", {
-      method: "POST",
-      body,
-    });
+    const created = await client
+      .requestParsed(Transform, "/api/transform", { method: "POST", body })
+      .catch((error: unknown) => {
+        throw enrichTransformCollectionError(error);
+      });
     renderSummary(
       created,
       transformView,

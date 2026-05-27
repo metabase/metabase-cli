@@ -189,7 +189,7 @@ function buildRouteMissingMessage(input: HttpErrorInput): string {
   return (
     `This endpoint is not available on Metabase ${input.serverTag}: ${input.method} ${path}. ` +
     `The command may require a newer Metabase major version. ` +
-    `Run 'mb auth list' to see this server's version, or 'mb __manifest' for per-command requirements.`
+    `Run 'mb auth list' to see this server's version.`
   );
 }
 

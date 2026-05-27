@@ -136,7 +136,35 @@ export const CardQueryResult = z
   .loose();
 export type CardQueryResult = z.infer<typeof CardQueryResult>;
 
+// The raw `/api/dataset` envelope carries heavy per-column `lib/*` metadata, fingerprints,
+// `results_metadata`, and `native_form`. The compact projection keeps only what an agent
+// reading rows needs — status, row_count, the rows, and a slim column header — so the default
+// `--json` output isn't hundreds of lines of metadata. `--full` returns the raw envelope.
+const QueryColumnCompact = QueryColumn.pick({
+  name: true,
+  display_name: true,
+  base_type: true,
+  semantic_type: true,
+}).strip();
+
+const CardQueryDataCompact = z
+  .object({
+    rows: z.array(z.unknown()),
+    cols: z.array(QueryColumnCompact),
+  })
+  .strip();
+
+export const CardQueryResultCompact = CardQueryResult.pick({
+  status: true,
+  row_count: true,
+  error: true,
+  error_type: true,
+})
+  .strip()
+  .extend({ data: CardQueryDataCompact.optional() });
+export type CardQueryResultCompact = z.infer<typeof CardQueryResultCompact>;
+
 export const cardQueryView: ResourceView<CardQueryResult> = {
-  compactPick: CardQueryResult,
+  compactPick: CardQueryResultCompact,
   tableColumns: [{ key: "status", label: "Status" }],
 };

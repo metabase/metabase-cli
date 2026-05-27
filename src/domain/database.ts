@@ -9,6 +9,7 @@ export const Database = z
     name: z.string(),
     engine: z.string().optional(),
     is_saved_questions: z.boolean().optional(),
+    initial_sync_status: z.string().nullable().optional(),
     tables: z.array(Table).optional(),
   })
   .loose();
@@ -31,9 +32,12 @@ export const databaseView: ResourceView<Database> = {
   ],
 };
 
+export const DatabaseTaskAck = z.object({ status: z.literal("ok") });
+
 export const DatabaseSyncResult = z.object({
   id: z.number().int(),
   status: z.literal("ok"),
+  initial_sync_status: z.string().nullable().optional(),
 });
 export type DatabaseSyncResult = z.infer<typeof DatabaseSyncResult>;
 
@@ -42,5 +46,6 @@ export const databaseSyncResultView: ResourceView<DatabaseSyncResult> = {
   tableColumns: [
     { key: "id", label: "Database" },
     { key: "status", label: "Status" },
+    { key: "initial_sync_status", label: "Initial sync" },
   ],
 };

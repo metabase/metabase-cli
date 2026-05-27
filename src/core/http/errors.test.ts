@@ -250,7 +250,7 @@ describe("HttpError 404 messages", () => {
     expect(error.message).toBe(
       "This endpoint is not available on Metabase v0.58.7: GET /api/this-does-not-exist?q=1. " +
         "The command may require a newer Metabase major version. " +
-        "Run 'mb auth list' to see this server's version, or 'mb __manifest' for per-command requirements.",
+        "Run 'mb auth list' to see this server's version.",
     );
   });
 

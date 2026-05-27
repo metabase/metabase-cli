@@ -5,11 +5,11 @@ import {
   QuerySchemaBundle,
   ValidationOutcome,
 } from "../../src/core/schema/validate";
-import { CardQueryResult } from "../../src/domain/card";
+import { CardQueryResult, CardQueryResultCompact } from "../../src/domain/card";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
-import { assertCompletedQuery } from "./card-query";
+import { assertCompactColumns, assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
@@ -229,6 +229,61 @@ describe("query e2e", () => {
     assertCompletedQuery(queryResult);
     expect(queryResult.row_count).toBe(1);
     expect(queryResult.data.rows).toEqual([[1, 2]]);
+  });
+
+  it("run (json) returns the compact projection: deterministic rows, no envelope metadata", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["query", "--json"],
+      stdin: JSON.stringify({
+        type: "native",
+        database: SEEDED.warehouseDbId,
+        native: { query: "SELECT 1 AS one, 2 AS two" },
+      }),
+      configHome,
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+
+    const printed = parseJson(result.stdout, CardQueryResult);
+    assertCompletedQuery(printed);
+    assertCompactColumns(printed);
+    expect(printed).not.toHaveProperty("json_query");
+    expect(printed.data).not.toHaveProperty("results_metadata");
+
+    const compact = parseJson(result.stdout, CardQueryResultCompact);
+    expect({
+      status: compact.status,
+      row_count: compact.row_count,
+      rows: compact.data?.rows,
+      colNames: compact.data?.cols.map((column) => column.name),
+    }).toEqual({
+      status: "completed",
+      row_count: 1,
+      rows: [[1, 2]],
+      colNames: ["one", "two"],
+    });
+  });
+
+  it("run --json --full returns the raw envelope with json_query and results_metadata", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["query", "--json", "--full"],
+      stdin: JSON.stringify({
+        type: "native",
+        database: SEEDED.warehouseDbId,
+        native: { query: "SELECT 1 AS one, 2 AS two" },
+      }),
+      configHome,
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const printed = parseJson(result.stdout, CardQueryResult);
+    assertCompletedQuery(printed);
+    expect(printed).toHaveProperty("json_query");
+    expect(printed.data).toHaveProperty("results_metadata");
   });
 
   it("--dry-run with a legacy native body returns ok and exits 0 (no schema applies)", async () => {

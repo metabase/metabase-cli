@@ -152,18 +152,20 @@ mb transform delete 1 --yes
 
 ### `mb transform run <id>`
 
-Trigger a manual run. Returns `{message, run_id}` and exits immediately. Pass `--wait` to poll until the run reaches a terminal status (`succeeded`, `failed`, `timeout`, `canceled`); the `final` field on the result holds the polled run state, and the command exits 1 if the final status is anything but `succeeded`.
+Trigger a manual run. Returns `{message, run_id}` and exits immediately. Pass `--wait` to poll until the run reaches a terminal status (`succeeded`, `failed`, `timeout`, `canceled`); the `final` field on the result holds the polled run state, and the command exits 1 if the final status is anything but `succeeded`. Pass `--sync` to additionally wait until the run's output table is registered and surface its `target_table_id`, so you can build MBQL cards against it — the run registers the table itself, so no separate `db sync-schema` is needed; `--sync` implies `--wait`.
 
 ```sh
 mb transform run 1
 mb transform run 1 --wait --json
+mb transform run 1 --sync --json
 ```
 
-| Flag              | Description                                                 |
-| ----------------- | ----------------------------------------------------------- |
-| `--wait`          | Poll until the run reaches a terminal status.               |
-| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`. |
-| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.  |
+| Flag              | Description                                                                                                            |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `--wait`          | Poll until the run reaches a terminal status.                                                                          |
+| `--sync`          | After a successful run, wait until the output table is registered and return its `target_table_id` (implies `--wait`). |
+| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`.                                                            |
+| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.                                                             |
 
 ### `mb transform cancel <id>`
 
@@ -303,12 +305,18 @@ mb db schema-tables 1 analytics --json
 
 ### `mb db sync-schema <id>`
 
-Trigger a manual schema sync (`POST /api/database/:id/sync_schema`). Returns `{ id, status: "ok" }` once the sync has been queued; the actual work happens asynchronously on the server.
+Trigger a manual schema sync (`POST /api/database/:id/sync_schema`). Returns `{ id, status: "ok" }` once the sync has been queued; the actual work happens asynchronously on the server. Pass `--wait` to poll the database until its `initial_sync_status` reports `complete` (a database that has already finished its initial sync returns at once). To wait for a specific newly-materialized transform table to register, prefer `mb transform run <id> --sync`.
 
 ```sh
 mb db sync-schema 1
-mb db sync-schema 1 --json
+mb db sync-schema 1 --wait --json
 ```
+
+| Flag              | Description                                                 |
+| ----------------- | ----------------------------------------------------------- |
+| `--wait`          | Poll until `initial_sync_status` reports `complete`.        |
+| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`. |
+| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.  |
 
 ### `mb db rescan-values <id>`
 
@@ -848,12 +856,14 @@ Create a collection from a JSON spec. The body accepts the same fields as `POST 
 cat collection.json | mb collection create
 mb collection create --file collection.json
 mb collection create --body '{"name":"My Collection","parent_id":4}'
+mb collection create --body '{"name":"ETL"}' --namespace transforms
 ```
 
-| Flag            | Description                                         |
-| --------------- | --------------------------------------------------- |
-| `--body <json>` | Inline JSON body.                                   |
-| `--file <path>` | Path to JSON body file. Use `-` to read from stdin. |
+| Flag               | Description                                                                                                                                                                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--body <json>`    | Inline JSON body.                                                                                                                                                                                                |
+| `--file <path>`    | Path to JSON body file. Use `-` to read from stdin.                                                                                                                                                              |
+| `--namespace <ns>` | Collection namespace (`transforms`, `snippets`, `analytics`, `shared-tenant-collection`, `tenant-specific`). Omit for a normal collection; required for a collection a transform's `collection_id` can point at. |
 
 ### `mb collection archive <id>`
 
@@ -1121,6 +1131,8 @@ mb eid --model card abc123XYZ,def456ABC
 mb eid --file translate.json
 mb eid --body '{"entity_ids":{"card":["abc123XYZ"]}}'
 ```
+
+Entity ids are NanoIDs that can start with `-`, which the positional `<eids>` form misreads as a flag (shell quoting doesn't help — the leading `-` survives into argv). For an id that may start with `-`, pass it via `--body`, where the id is a JSON string value immune to flag parsing: `mb eid --body '{"entity_ids":{"card":["-abc123XYZ"]}}'`.
 
 | Arg / Flag       | Description                                                                    |
 | ---------------- | ------------------------------------------------------------------------------ |

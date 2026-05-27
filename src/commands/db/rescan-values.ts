@@ -1,12 +1,8 @@
-import { z } from "zod";
-
-import { databaseSyncResultView, DatabaseSyncResult } from "../../domain/database";
+import { databaseSyncResultView, DatabaseSyncResult, DatabaseTaskAck } from "../../domain/database";
 import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
-
-const RescanValuesApiResponse = z.object({ status: z.literal("ok") });
 
 export default defineMetabaseCommand({
   meta: {
@@ -26,7 +22,7 @@ export default defineMetabaseCommand({
     const id = parseId(args.id);
     const client = await getClient();
     const response = await client.requestParsed(
-      RescanValuesApiResponse,
+      DatabaseTaskAck,
       `/api/database/${id}/rescan_values`,
       { method: "POST" },
     );

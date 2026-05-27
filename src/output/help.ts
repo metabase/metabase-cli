@@ -23,7 +23,6 @@ const LINE_PREFIX = "  ";
 const COLUMN_GAP = "  ";
 const COMMAND_PLACEHOLDER = "<command> [options]";
 
-const MANIFEST_COMMAND = "__manifest";
 const CLI_NAME = "mb";
 
 const HELP_FLAG_SPEC = "-h, --help";
@@ -51,7 +50,6 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
   const cittyName = parentMeta?.name ? `${parentMeta.name} ${cmdName}` : cmdName;
   const hasSubCommands = Boolean(cmd.subCommands);
   const isRoot = parent === undefined && hasSubCommands;
-  const isManifest = cmdName === MANIFEST_COMMAND;
 
   const augment = getMetabaseAugment(cmd);
   const details = augment?.details ?? null;
@@ -70,9 +68,6 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
   }
   if (isRoot) {
     sections.push(GETTING_STARTED_HINT);
-  }
-  if (!isManifest) {
-    sections.push(renderSchemaHint());
   }
   process.stdout.write(sections.join("\n\n") + "\n");
 }
@@ -168,14 +163,6 @@ function withDetails(lines: string[], details: string | null): string[] {
 
 function renderExamples(examples: readonly string[]): string {
   return ["EXAMPLES", "", ...examples.map((example) => `${LINE_PREFIX}${example}`)].join("\n");
-}
-
-function renderSchemaHint(): string {
-  return [
-    "SCHEMA",
-    "",
-    `${LINE_PREFIX}${CLI_NAME} ${MANIFEST_COMMAND}      # machine-readable command manifest (flags, output, examples)`,
-  ].join("\n");
 }
 
 interface SubCommandMatch {

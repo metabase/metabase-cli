@@ -4,7 +4,7 @@ export default defineCommand({
   meta: {
     name: "skills",
     description:
-      "Discover and read CLI-bundled skills (SKILL.md files served from the installed version)",
+      "Read CLI-bundled skills — always consult the matching skill before acting on a task; they are the source of truth for every workflow.",
   },
   default: "list",
   subCommands: {

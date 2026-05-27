@@ -9,10 +9,6 @@ export function resolveStackId(): string {
   return process.env["METABASE_CLI_E2E_STACK"] ?? DEFAULT_E2E_STACK;
 }
 
-export function resolveAssumeHead(): boolean {
-  return process.env["METABASE_CLI_E2E_ASSUME_HEAD"] === "1";
-}
-
 export function resolveSnapshotName(): string {
   // Metabase's snapshot endpoint sanitizes the name to an identifier (e.g. `-` → `_`)
   // when writing `<name>.sql`, so keep the name underscore-safe to match on disk.

@@ -1,6 +1,6 @@
 ---
 name: mbql
-description: Author Metabase MBQL 5 query bodies for the `mb` CLI — the only hand-authorable query format. Covers the JSON shape (lib/type mbql/query, flat stages, numeric ids), the "options object always second" clause rule, lib/uuid minting, the print-schema → dry-run → run validation loop, where MBQL 5 is consumed (mb query, card dataset_query, transform source.query, measure/segment definition), the flat-vs-legacy-envelope footgun, and naming aggregation output columns. Load whenever building or fixing an MBQL query by hand — "write an MBQL query", "create a card from MBQL", "the dataset_query is wrong", "fix the validation errors", "aggregate and group by", "order by the count", or any `--dry-run` / `mb query` work.
+description: Author Metabase MBQL 5 query bodies for the `mb` CLI — the only hand-authorable query format. Covers the JSON shape (lib/type mbql/query, flat stages, numeric ids), the "options object always second" clause rule, when lib/uuid is needed (it's optional — only to reference a clause), the print-schema → dry-run → run validation loop, where MBQL 5 is consumed (mb query, card dataset_query, transform source.query, measure/segment definition), the flat-vs-legacy-envelope footgun, joins and FK traversal, multi-stage pipelines, and naming aggregation output columns. Load whenever building or fixing an MBQL query by hand — "write an MBQL query", "create a card from MBQL", "the dataset_query is wrong", "fix the validation errors", "aggregate and group by", "order by the count", "join two tables", "month-over-month", or any `--dry-run` / `mb query` work.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
@@ -8,7 +8,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 MBQL 5 is the **only query format you can author by hand** with confidence — it has a bundled JSON Schema, so the CLI pre-flight-validates it before sending. Legacy MBQL 4 and native SQL are accepted but **not** schema-validated (see "Other formats" below).
 
-Prefer MBQL over native SQL: MBQL is portable across warehouse engines and the CLI can validate it. Reach for native only when the query needs something MBQL can't express.
+Prefer MBQL over native SQL: it's portable across warehouse engines and the CLI pre-flight-validates it. Try it first, but don't force it — fall back to native SQL when MBQL can't express what you need, or when an MBQL body keeps failing server-side and you can't resolve it.
 
 The general flag conventions, body-input precedence, and output flags live in the `core` skill (`mb skills get core`).
 
@@ -24,8 +24,8 @@ A query is a flat object — `lib/type`, a numeric `database` id, and an ordered
     {
       "lib/type": "mbql.stage/mbql",
       "source-table": 7,
-      "aggregation": [["count", { "lib/uuid": "<mint via mb uuid>" }]],
-      "breakout": [["field", { "temporal-unit": "month", "lib/uuid": "<mint>" }, 22]]
+      "aggregation": [["count", {}]],
+      "breakout": [["field", { "temporal-unit": "month" }, 22]]
     }
   ]
 }
@@ -33,43 +33,42 @@ A query is a flat object — `lib/type`, a numeric `database` id, and an ordered
 
 - **Numeric ids only.** `database`, `source-table`, and field ids are integers from `mb database list` / `mb table get <id> --include fields`. (The portable YAML representation under git-sync uses _names_ like `[Sample Database, PUBLIC, ORDERS]`; the CLI's `/api/dataset` form uses numeric ids — don't mix them.)
 - **First stage** carries `source-table` (a table id) or `source-card` (a saved card). Later stages omit both and read the previous stage's output columns by name.
-- `source-card` references a saved card by entity id; downstream fields are referenced by column name (string), not a field id.
+- `source-card` references a saved card by its **numeric id** (from `mb card list`), not its string entity id; downstream fields are referenced by column name (string), not a field id.
 
 ## The one rule that trips everyone: options object is **second**
 
 Every clause is `[op, {options}, ...args]`. The options object is element **1**, args follow.
 
 ```json
-["field", { "base-type": "type/Text", "lib/uuid": "<mint>" }, 1779]   // field id is THIRD
-["count", { "lib/uuid": "<mint>" }]                                    // no args
-["sum",   { "lib/uuid": "<mint>" }, ["field", { "lib/uuid": "<mint>" }, 42]]
-["=",     { "lib/uuid": "<mint>" }, ["field", { "lib/uuid": "<mint>" }, 1779], "delivered"]
-["asc",   { "lib/uuid": "<mint>" }, ["field", { "lib/uuid": "<mint>" }, 42]]
+["field", { "base-type": "type/Text" }, 1779]   // field id is THIRD; options may be empty {}
+["count", {}]                                    // no args
+["sum",   {}, ["field", {}, 42]]
+["=",     {}, ["field", {}, 1779], "delivered"]
+["asc",   {}, ["field", {}, 42]]
 ```
 
 The legacy MBQL 4 field shape `["field", id, opts]` (id second) is **rejected** here. A slot-1 violation surfaces from `--dry-run` as `must be the field options object` / `must be the clause options object` at `/stages/0/<verb>/<n>/1`.
 
 The same `[op, {options}, …]` rule holds for `aggregation`, `breakout` (a list of field refs), `filters` (implicitly ANDed; nest an explicit `["or", {}, …]` for OR), `order-by`, `expressions`, and join `conditions`.
 
-## UUIDs: mint them, never invent them
+## UUIDs: optional — mint only to reference a clause
 
-Every clause options object carries a `lib/uuid` (UUID v4). The schema enforces RFC 4122 strictly, so placeholders (`"a1"`, `"uuid-1"`, `"agg-uuid-001"`) fail pre-flight with `must be a UUID v4 (RFC 4122) — run \`mb uuid\` …`. The same applies to native template-tag ids and any other `format: "uuid"` slot.
+`lib/uuid` is **optional — leave it out whenever you can.** Omit it and the server generates a unique one for every clause as the query comes in; an empty options object `{}` is the normal, preferred case. Don't add a UUID per clause: it's needless work, and the more UUIDs you hand-manage the easier it is to trip the server's "all `lib/uuid`s must be unique" check — a duplicated UUID passes pre-flight, then fails server-side.
 
-```bash
-mb uuid --count 5 --json     # → ["…","…","…","…","…"] — mint exactly what you need, in one call
-```
-
-Workflow: count the slots (one per clause options object), `mb uuid --count <N> --json`, substitute each minted value as you build the JSON. Never copy a UUID from docs, a prior query, or another session.
-
-**Aggregation/expression refs are the only legitimate reuse.** To reference an aggregation downstream (in `order-by` or a later stage), use `["aggregation", {options}, "<uuid>"]` where the third arg is the **string** `lib/uuid` of the target aggregation — the same minted value, by string equality. A numeric position fails with `must be the target aggregation's lib/uuid (string), not a numeric position`. Expression refs work the same way but key off the expression's name string.
+Set an explicit `lib/uuid` only when you must **reference a clause from elsewhere in the query** — the one thing the server can't do for you, since you have to know the value to point at. The case that needs it: **ordering by (or otherwise reusing) an aggregation.** `["aggregation", {…}, "<uuid>"]`'s third arg is the **string** `lib/uuid` of the target aggregation, so give that aggregation an explicit `lib/uuid` and point the ref at the same string. A numeric position fails with `must be the target aggregation's lib/uuid (string), not a numeric position`.
 
 ```json
 "aggregation": [["count", { "lib/uuid": "AGG_UUID" }]],
-"order-by":   [["desc", { "lib/uuid": "ORDER_UUID" },
-                 ["aggregation", { "lib/uuid": "REF_UUID" }, "AGG_UUID"]]]
+"order-by":   [["desc", {}, ["aggregation", {}, "AGG_UUID"]]]
 ```
 
-(`AGG_UUID` appears twice and must be the _same_ minted value; `ORDER_UUID` and `REF_UUID` are distinct.)
+(`AGG_UUID` is both the aggregation's own `lib/uuid` and the string the ref points at — one value, by string equality. Every other clause omits its UUID. Expression refs work the same way but key off the expression's `lib/expression-name` string, so expressions rarely need an explicit `lib/uuid`.)
+
+On the rare occasion you do need one, **always mint it with `mb uuid` — never write, guess, or copy a UUID yourself.** A hand-authored value is either rejected pre-flight as not-a-v4 (`"a1"`, `"uuid-1"`, `"agg-uuid-001"` → `must be a UUID v4 (RFC 4122) — run \`mb uuid\``) or, if it happens to look valid, risks colliding with another clause. Only `mb uuid`gives you genuine, unique v4s — mint just the few you reference (this also covers native template-tag ids and any other`format: "uuid"` slot):
+
+```bash
+mb uuid --count 2 --json     # mint only the clauses you actually reference
+```
 
 ## Authoring loop: print-schema → dry-run → run
 
@@ -87,7 +86,14 @@ mb query --file q.json --profile <n> --json                     # 3. validate + 
 
 `path` is a JSON Pointer into the body (`/stages/0/aggregation/0`); `message` is the validator error. Exit codes: `0` valid + ran, `2` validation failed / malformed body, `1` server-side error after a valid pre-flight.
 
-A successful run emits the **full `/api/dataset` envelope** — `data.rows`, `data.cols`, plus heavy `data.results_metadata` and per-column fingerprints. For ad-hoc exploration project `--fields data.rows` (add `data.cols` if you need column names); without it even a few rows render as hundreds of lines of metadata. (`mb query` also runs a **native** body — `{database, type:"native", native:{query:"SELECT …"}}` — which skips pre-flight and is the quickest way to eyeball raw warehouse data; same `--fields data.rows` advice applies.)
+**Pre-flight is a lightweight shape check, not the full backend validator.** It checks JSON shape, `lib/uuid` format, and enum values — not operator names, the first-stage source rule, or whether a reference resolves. A clean `--dry-run` is necessary but not sufficient: a body can pass pre-flight and still fail on the server (exit `1`). The Metabase server is the authority — when a run fails, read its error and fix the body. The common ones and what they mean:
+
+- `not a known MBQL clause` → a misspelled or unsupported **operator**. Check the vocabulary in `operators.md` (`mb skills get mbql --full`).
+- `Initial MBQL stage must have either :source-table or :source-card` → the **first stage** is missing its source (a numeric table or card id); only the first stage takes one, later stages read the previous stage's columns.
+- `Invalid :expression reference: no expression named "X"` (or an invalid `:aggregation` reference) → a **ref** points to an expression name / aggregation `lib/uuid` that isn't defined in the query; fix the target string.
+- `Duplicate :lib/uuid` → you reused a `lib/uuid`. Omit them (the server mints unique ones) or give each clause a distinct value.
+
+A successful run emits the compact envelope by default: `data.rows` + slim `data.cols` (`name`, `display_name`, `base_type`, `semantic_type`). Pass `--full` for the raw `/api/dataset` envelope (`results_metadata`, `native_form`, per-column fingerprints/`field_ref`) only when you need that metadata; `--fields data.rows` narrows to rows alone. `mb query` also runs a **native** body — `{database, type:"native", native:{query:"SELECT …"}}` — which skips pre-flight; the quickest way to eyeball warehouse data.
 
 `--skip-validate` bypasses the pre-flight and sends as-is — use only when the bundled schema disagrees with what the server actually accepts (drift / false negative). Mutually exclusive with `--dry-run`. The same flag exists on `card create/update` and `transform create/update`.
 
@@ -112,7 +118,7 @@ The most common mistake. The legacy MBQL 4 shape `{ "type": "query", "database":
   "lib/type": "mbql/query",
   "database": 2,
   "stages": [{ "lib/type": "mbql.stage/mbql", "source-table": 190,
-               "aggregation": [["count", { "lib/uuid": "<mint>" }]] }]
+               "aggregation": [["count", {}]] }]
 }
 ```
 
@@ -127,15 +133,74 @@ Anything that is not `lib/type: "mbql/query"` is sent as-is and normalized serve
 
 `mb query --file probe.json` runs these directly; `--dry-run` on them returns `{ ok: true, errors: [] }`. Don't author MBQL 4 by hand — if you need a legacy or complex query, build it in the Metabase UI and pull the body with `mb card get <id> --full --json` / `mb transform get <id> --full --json`.
 
+## Joins and FK traversal
+
+Two ways to read columns from a related table.
+
+**Explicit join.** A stage's `joins` array holds join objects, each with three required keys: `stages` (the joined source as its own one-stage array carrying `source-table`/`source-card`), `conditions` (the ON clause — `[op, {}, leftRef, rightRef]`, slot-1 rule and all), and `alias` (the string name you address joined columns by). Optional `strategy` (`left-join` default; also `right-join` / `inner-join` / `full-join`) and `fields` (`"all"` | `"none"` | an array of refs — which joined columns to select). Reference a joined column anywhere downstream by putting **`join-alias`** in the field options:
+
+```json
+"joins": [
+  {
+    "alias": "Customers",
+    "strategy": "left-join",
+    "stages": [{ "lib/type": "mbql.stage/mbql", "source-table": 170 }],
+    "conditions": [
+      ["=", {}, ["field", {}, 1711], ["field", { "join-alias": "Customers" }, 1684]]
+    ],
+    "fields": "none"
+  }
+],
+"breakout": [["field", { "join-alias": "Customers" }, 1682]]
+```
+
+The condition's left ref is a column of the stage's own source (`1711` = orders.customer_id); the right ref carries `join-alias` and points at the joined table's key (`1684` = customers.id). Every later reference to a joined column (`1682` = customers.plan) needs that same `join-alias`. Stack multiple objects in `joins` for multiple joins, each with its own `alias`.
+
+**Implicit FK join via `source-field`.** For a single-hop FK lookup, skip the join — put the FK column's id in the target field's `source-field` option and Metabase traverses the relationship:
+
+```json
+["field", { "source-field": 1711 }, 1682] // orders.customer_id → customers.plan
+```
+
+`source-field` is the **FK field id** (orders.customer_id); the third element is the **target field id** in the related table (customers.plan). Use it for "show a column from the table this FK points at"; reach for an explicit join when you need a non-FK condition, a non-default strategy, or control over which joined columns return.
+
+## Multi-stage pipelines
+
+Stages run in order; each reads the **previous stage's output columns** — the breakouts and aggregations it produced — referenced by **string name + `base-type`**, not a numeric field id. Only the first stage takes a `source-table`/`source-card`. The reason to add a stage is to operate on an aggregate (you can't filter or order by an aggregation within the stage that computes it): aggregate, then filter the aggregate, then order + limit.
+
+```json
+"stages": [
+  { "lib/type": "mbql.stage/mbql", "source-table": 175,
+    "aggregation": [["sum", { "name": "total" }, ["field", {}, 1715]]],
+    "breakout": [["field", {}, 1711]] },
+  { "lib/type": "mbql.stage/mbql",
+    "filters": [[">", {}, ["field", { "base-type": "type/BigInteger" }, "total"], 0]] },
+  { "lib/type": "mbql.stage/mbql",
+    "order-by": [["desc", {}, ["field", { "base-type": "type/BigInteger" }, "total"]]],
+    "limit": 3 }
+]
+```
+
+Later stages address the first stage's aggregation by the `name` you gave it (`"total"`) — set that `name`, or the column lands as the default `sum` / `count` / … and you reference that string instead.
+
+**Window functions** sit in `aggregation` next to ordinary aggregates. `offset` reads a value from another breakout row — month-over-month is `offset` of a sum by `-1` against a monthly breakout:
+
+```json
+"aggregation": [
+  ["sum", { "name": "revenue" }, ["field", {}, 1715]],
+  ["offset", { "name": "prev_month" }, ["sum", {}, ["field", {}, 1715]], -1]
+],
+"breakout": [["field", { "temporal-unit": "month" }, 1717]]
+```
+
+**Binning** is a breakout-level field option — bucket a numeric column into ranges with `["field", { "binning": { "strategy": "num-bins", "num-bins": 5 } }, 1715]`, the numeric counterpart to the `temporal-unit` bucket. Strategies (`num-bins` / `bin-width` / `default`) are in the operator reference.
+
 ## Naming aggregation output columns
 
 Default MBQL 5 aggregations materialize as `count`, `count_where`, `avg`, `avg_2`, `sum`, … — fine for an ad-hoc run, ugly when the output is a transform target table or a card column. Set `name` (becomes the warehouse column name) and `display-name` (the UI header) in the aggregation's options:
 
 ```json
-[
-  "count",
-  { "lib/uuid": "<mint>", "name": "shipments_shipped", "display-name": "Shipments shipped" }
-]
+["count", { "name": "shipments_shipped", "display-name": "Shipments shipped" }]
 ```
 
 ## Operator reference
@@ -151,7 +216,7 @@ mb skills path mbql           # → the skill dir; then Read references/operator
 
 ## Don't
 
-- Don't invent, hard-code, or copy `lib/uuid` values — `mb uuid` every slot at author time.
+- Don't mint a `lib/uuid` for every clause — they're optional; omit them and the server fills them in. Mint (with `mb uuid`) only the clause you need to reference; never invent, hard-code, or copy a UUID (duplicates are rejected server-side).
 - Don't put the options object anywhere but slot 1, and don't use the legacy `["field", id, opts]` order.
 - Don't wrap an MBQL 5 body in `{type:"query", query:…}` — `dataset_query` / `source.query` / `definition` is the flat `mbql/query`.
 - Don't author MBQL 4 by hand — build it in the UI and pull it with `… get <id> --full --json`.
