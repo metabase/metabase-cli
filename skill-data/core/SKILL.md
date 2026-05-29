@@ -1,6 +1,6 @@
 ---
 name: core
-description: Drive a Metabase instance from the terminal via the `mb` CLI — auth, databases, cards, dashboards, collections, transforms, queries, search, git-sync. Use for any `mb <verb>` task.
+description: Drive a Metabase instance from the terminal via the `mb` CLI — auth, databases, cards, dashboards, documents, collections, transforms, queries, search, git-sync. Use for any `mb verb` task.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
