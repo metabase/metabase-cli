@@ -56,7 +56,9 @@ The create body is `{name, document, collection_id?, collection_position?}`. `na
       {
         "type": "paragraph",
         "attrs": { "_id": "<uuid-4>" },
-        "content": [{ "type": "text", "text": "Orders trended up this week.", "attrs": { "_id": "<uuid-5>" } }]
+        "content": [
+          { "type": "text", "text": "Orders trended up this week.", "attrs": { "_id": "<uuid-5>" } }
+        ]
       }
     ]
   }
