@@ -13,6 +13,8 @@ export const TipTapNode = z.looseObject({
 });
 export type TipTapNode = z.infer<typeof TipTapNode>;
 
+// The TipTap editor anchors these node types with an `_id` (each opts in via `createIdAttribute()`
+// in the Metabase frontend) and drops it on others; keep this set in sync with that editor.
 const NODE_TYPES_WITH_ID = new Set([
   "paragraph",
   "heading",
@@ -33,8 +35,7 @@ function validateNodeId({ type, attrs, content = [] }: TipTapNode): boolean {
 }
 
 export const TipTapNodeInput = TipTapNode.refine(validateNodeId, {
-  message:
-    "every paragraph, heading, codeBlock, orderedList, bulletList, blockquote, cardEmbed, or supportingText node needs a non-empty string `_id` (mint with `mb uuid`)",
+  message: `every ${[...NODE_TYPES_WITH_ID].join(", ")} node needs a non-empty string \`_id\` (mint with \`mb uuid\`)`,
 });
 export type TipTapNodeInput = z.infer<typeof TipTapNodeInput>;
 
