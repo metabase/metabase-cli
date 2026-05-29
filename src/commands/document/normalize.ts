@@ -18,23 +18,15 @@ const ID_BEARING_NODE_TYPES = new Set([
   "supportingText",
 ]);
 
-function randomNodeId(): string {
-  return globalThis.crypto.randomUUID();
-}
-
-export function normalizeDocumentBody(
-  doc: TipTapNode,
-  makeId: () => string = randomNodeId,
-): TipTapNode {
+export function normalizeDocumentBody(doc: TipTapNode): TipTapNode {
   const usedIds = new Set<string>();
-  const withIds = assignNodeIds(doc, usedIds, makeId);
-  return ensureTrailingParagraph(withIds, makeId);
+  return ensureTrailingParagraph(assignNodeIds(doc, usedIds));
 }
 
-function assignNodeIds(node: TipTapNode, usedIds: Set<string>, makeId: () => string): TipTapNode {
+function assignNodeIds(node: TipTapNode, usedIds: Set<string>): TipTapNode {
   let attrs = node.attrs;
   if (ID_BEARING_NODE_TYPES.has(node.type)) {
-    const id = resolveNodeId(node, usedIds, makeId);
+    const id = resolveNodeId(node, usedIds);
     if (id !== node.attrs?.[ID_ATTRIBUTE]) {
       attrs = { ...node.attrs, [ID_ATTRIBUTE]: id };
     }
@@ -43,7 +35,7 @@ function assignNodeIds(node: TipTapNode, usedIds: Set<string>, makeId: () => str
   let content = node.content;
   if (content !== undefined) {
     const original = content;
-    const mapped = original.map((child) => assignNodeIds(child, usedIds, makeId));
+    const mapped = original.map((child) => assignNodeIds(child, usedIds));
     if (mapped.some((child, index) => child !== original[index])) {
       content = mapped;
     }
@@ -56,16 +48,19 @@ function assignNodeIds(node: TipTapNode, usedIds: Set<string>, makeId: () => str
   }
 }
 
-function resolveNodeId(node: TipTapNode, usedIds: Set<string>, makeId: () => string): string {
+function resolveNodeId(node: TipTapNode, usedIds: Set<string>): string {
   const existing = node.attrs?.[ID_ATTRIBUTE];
-  const id = typeof existing === "string" && !usedIds.has(existing) ? existing : makeId();
+  const id =
+    typeof existing === "string" && !usedIds.has(existing)
+      ? existing
+      : globalThis.crypto.randomUUID();
   usedIds.add(id);
   return id;
 }
 
 // The editor's trailing-node extension appends an empty paragraph on load whenever the document's
 // last top-level child isn't a paragraph, which is the other source of open-on-dirty.
-function ensureTrailingParagraph(doc: TipTapNode, makeId: () => string): TipTapNode {
+function ensureTrailingParagraph(doc: TipTapNode): TipTapNode {
   if (doc.type !== "doc") {
     return doc;
   }
@@ -74,6 +69,9 @@ function ensureTrailingParagraph(doc: TipTapNode, makeId: () => string): TipTapN
   if (last != null && last.type === PARAGRAPH_NODE_TYPE) {
     return doc;
   }
-  const trailing: TipTapNode = { type: PARAGRAPH_NODE_TYPE, attrs: { [ID_ATTRIBUTE]: makeId() } };
+  const trailing: TipTapNode = {
+    type: PARAGRAPH_NODE_TYPE,
+    attrs: { [ID_ATTRIBUTE]: globalThis.crypto.randomUUID() },
+  };
   return { ...doc, content: [...content, trailing] };
 }
