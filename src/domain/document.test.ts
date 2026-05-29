@@ -3,38 +3,27 @@ import { describe, expect, it } from "vitest";
 import { TipTapNodeInput } from "./document";
 
 describe("TipTapNodeInput", () => {
-  it("accepts a document with an _id on every node", () => {
+  it("accepts a document where id-bearing nodes carry an _id and other node types don't", () => {
     const doc = {
       type: "doc",
-      attrs: { _id: "d1" },
       content: [
+        { type: "heading", attrs: { level: 1, _id: "h1" }, content: [{ type: "text", text: "T" }] },
         {
-          type: "paragraph",
-          attrs: { _id: "p1" },
-          content: [{ type: "text", text: "hi", attrs: { _id: "t1" } }],
+          type: "resizeNode",
+          attrs: { height: 400 },
+          content: [{ type: "cardEmbed", attrs: { id: 9, name: null, _id: "c1" } }],
         },
+        { type: "paragraph", attrs: { _id: "p1" } },
       ],
     };
 
     expect(TipTapNodeInput.safeParse(doc).success).toBe(true);
   });
 
-  it("rejects a document with a node missing its _id", () => {
+  it("rejects an id-bearing node missing its _id", () => {
     const doc = {
       type: "doc",
-      attrs: { _id: "d1" },
-      content: [
-        { type: "paragraph", attrs: { _id: "p1" }, content: [{ type: "text", text: "hi" }] },
-      ],
-    };
-
-    expect(TipTapNodeInput.safeParse(doc).success).toBe(false);
-  });
-
-  it("rejects when the root node has no _id", () => {
-    const doc = {
-      type: "doc",
-      content: [{ type: "paragraph", attrs: { _id: "p1" } }],
+      content: [{ type: "paragraph", content: [{ type: "text", text: "x" }] }],
     };
 
     expect(TipTapNodeInput.safeParse(doc).success).toBe(false);

@@ -14,18 +14,11 @@ const RENAMED = "e2e_document_renamed";
 
 const DOC_BODY = {
   type: "doc",
-  attrs: { _id: "11111111-1111-4111-8111-111111111111" },
   content: [
     {
       type: "paragraph",
-      attrs: { _id: "22222222-2222-4222-8222-222222222222" },
-      content: [
-        {
-          type: "text",
-          text: "Hello from the e2e suite.",
-          attrs: { _id: "33333333-3333-4333-8333-333333333333" },
-        },
-      ],
+      attrs: { _id: "11111111-1111-4111-8111-111111111111" },
+      content: [{ type: "text", text: "Hello from the e2e suite." }],
     },
   ],
 };

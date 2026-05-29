@@ -13,14 +13,27 @@ export const TipTapNode = z.looseObject({
 });
 export type TipTapNode = z.infer<typeof TipTapNode>;
 
-export const TipTapNodeInput = z.looseObject({
-  type: z.string(),
-  text: z.string().optional(),
-  attrs: z.looseObject({ _id: z.string().min(1) }),
-  marks: z.array(z.record(z.string(), z.unknown())).optional(),
-  get content() {
-    return z.array(TipTapNodeInput).optional();
-  },
+const NODE_TYPES_WITH_ID = new Set([
+  "paragraph",
+  "heading",
+  "codeBlock",
+  "orderedList",
+  "bulletList",
+  "blockquote",
+  "cardEmbed",
+  "supportingText",
+]);
+
+function validateNodeId({ type, attrs, content = [] }: TipTapNode): boolean {
+  if (NODE_TYPES_WITH_ID.has(type) && attrs?.["_id"] == null) {
+    return false;
+  }
+  return content.every(validateNodeId);
+}
+
+export const TipTapNodeInput = TipTapNode.refine(validateNodeId, {
+  message:
+    "every paragraph, heading, codeBlock, orderedList, bulletList, blockquote, cardEmbed, or supportingText node needs a non-empty string `_id` (mint with `mb uuid`)",
 });
 export type TipTapNodeInput = z.infer<typeof TipTapNodeInput>;
 

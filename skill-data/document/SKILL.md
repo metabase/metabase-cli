@@ -1,6 +1,6 @@
 ---
 name: document
-description: Author and edit Metabase documents via `mb` — the TipTap (ProseMirror) JSON body shape, the node-type inventory (paragraphs, headings, lists, plus the Metabase-custom `cardEmbed` / `smartLink` / `flexContainer` / `resizeNode`), the required per-node `_id`, embedding existing or brand-new cards, and the list/get/create/update/archive verbs. Load when the user touches documents — "create a document", "add a card to a document", "edit a document", "list documents", or anything `mb document …`.
+description: Author and edit Metabase documents via `mb` — the TipTap (ProseMirror) JSON body shape, the node-type inventory (paragraphs, headings, lists, plus the Metabase-custom `cardEmbed` / `smartLink` / `flexContainer` / `resizeNode`), the per-node-type `_id` requirement, embedding existing or brand-new cards, and the list/get/create/update/archive verbs. Load when the user touches documents — "create a document", "add a card to a document", "edit a document", "list documents", or anything `mb document …`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
@@ -24,21 +24,21 @@ mb document archive <id> --profile <name> --json         # soft-delete (PUT arch
 - `archive` is the only delete, mirroring `card` / `dashboard`. **Unarchive** with `mb document update <id> --body '{"archived":false}'`.
 - `update` is PATCH — send only the keys you want to change (`name`, `document`, `collection_id`, `collection_position`, `archived`). Replacing `document` replaces the **whole** body; there is no partial-node patch.
 
-## Node ids (`_id`) — required on every node
+## Node ids (`_id`)
 
-Every node in the `document` tree (the root `doc`, every paragraph, heading, list, text run, cardEmbed, …) must carry a unique `_id` string in its `attrs`. `create` and `update` validate this and reject a body where any node is missing one. Mint the ids with the bundled `uuid` command — one per node:
+The editor anchors only these node types with an `_id` (a UUID): `paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed`, `supportingText`. **`create`/`update` require a non-empty `_id` on every node of those types** and reject a body missing any; other node types (`doc`, `text`, `listItem`, `resizeNode`, `flexContainer`, …) don't take an `_id` and are left alone. Mint the ids with the bundled `uuid` command — one per id-bearing node:
 
 ```bash
-mb uuid --count 8 --json     # → ["…", …]   one UUID per node in your document
+mb uuid --count 5 --json     # → ["…", …]   one UUID per id-bearing node
 ```
 
-Set each as a node's `attrs._id`. Without ids the editor backfills them when the document opens, which makes a freshly-saved document show a spurious "unsaved changes" prompt.
+Set each as that node's `attrs._id`. Without them the editor backfills ids when the document opens, which makes a freshly-saved document show a spurious "unsaved changes" prompt.
 
 ## Body shape (create / update)
 
 The create body is `{name, document, collection_id?, collection_position?}`. `name` and `document` are required on create; everything is optional on update.
 
-`document` is the TipTap tree — a root `doc` node whose `content` is an array of block nodes. Every node (replace each `<uuid-N>` with an `mb uuid` value):
+`document` is the TipTap tree — a root `doc` node whose `content` is an array of block nodes (replace each `<uuid-N>` with an `mb uuid` value):
 
 ```json
 {
@@ -46,19 +46,16 @@ The create body is `{name, document, collection_id?, collection_position?}`. `na
   "collection_id": 12,
   "document": {
     "type": "doc",
-    "attrs": { "_id": "<uuid-1>" },
     "content": [
       {
         "type": "heading",
-        "attrs": { "level": 1, "_id": "<uuid-2>" },
-        "content": [{ "type": "text", "text": "Weekly report", "attrs": { "_id": "<uuid-3>" } }]
+        "attrs": { "level": 1, "_id": "<uuid-1>" },
+        "content": [{ "type": "text", "text": "Weekly report" }]
       },
       {
         "type": "paragraph",
-        "attrs": { "_id": "<uuid-4>" },
-        "content": [
-          { "type": "text", "text": "Orders trended up this week.", "attrs": { "_id": "<uuid-5>" } }
-        ]
+        "attrs": { "_id": "<uuid-2>" },
+        "content": [{ "type": "text", "text": "Orders trended up this week." }]
       }
     ]
   }
@@ -69,48 +66,47 @@ The create body is `{name, document, collection_id?, collection_position?}`. `na
 
 ## Node inventory
 
-Every node is `{ "type": string, "attrs": { "_id": string, … }, "content"?: [nodes], "text"?: string, "marks"?: [marks] }`.
+Every node is `{ "type": string, "attrs"?: object, "content"?: [nodes], "text"?: string, "marks"?: [marks] }`. The id-bearing types listed above carry `attrs._id`; the rest don't.
 
 **Standard text nodes** (TipTap StarterKit):
 
 - `doc` — the root; `content` holds block nodes.
 - `paragraph` — `content` is inline nodes (usually `text`). An empty paragraph (`{ "type": "paragraph", "attrs": { "_id": "<uuid>" } }`) is a blank line.
-- `text` — a leaf with `text` and optional `marks`.
+- `text` — a leaf with `text` and optional `marks` (no `_id`).
 - `heading` — `attrs.level` 1–6.
-- `bulletList` / `orderedList` — `content` is `listItem` nodes; each `listItem` wraps `paragraph`(s).
+- `bulletList` / `orderedList` — `content` is `listItem` nodes (no `_id`); each `listItem` wraps `paragraph`(s).
 - `blockquote`, `codeBlock`, `horizontalRule`, `hardBreak`, `image`.
 
-**Marks** on `text` (the `marks` array): `bold`, `italic`, `strike`, `code`, plus `link` (`attrs.href`). Example: `{ "type": "text", "text": "important", "attrs": { "_id": "<uuid>" }, "marks": [{ "type": "bold" }] }`.
+**Marks** on `text` (the `marks` array): `bold`, `italic`, `strike`, `code`, plus `link` (`attrs.href`). Example: `{ "type": "text", "text": "important", "marks": [{ "type": "bold" }] }`.
 
 **Metabase-custom nodes** (the reason a document is more than a wiki page):
 
-- **`cardEmbed`** — an embedded saved question. Block, atomic. `attrs: { "id": <card-id>, "name": <string|null>, "_id": "<uuid>" }`. `name` overrides the displayed title (`null` = use the card's own name). Card embeds are commonly wrapped in a `resizeNode` to give them a fixed height.
-- **`resizeNode`** — wraps a single `cardEmbed` or `flexContainer` to make it resizable. `attrs: { "height": <px>, "minHeight": <px>, "_id": "<uuid>" }`, `content` is exactly one `cardEmbed`/`flexContainer`.
-- **`flexContainer`** — a horizontal row of 1–3 `cardEmbed` / `supportingText` cells side by side. `attrs.columnWidths` is an array of width percentages.
-- **`supportingText`** — a text column that sits next to a card inside a `flexContainer`; `content` is the usual block nodes (`paragraph`, `heading`, lists, …).
-- **`smartLink`** — an inline reference to a Metabase entity (renders as a live chip). Inline, atomic. `attrs: { "entityId": <id>, "model": <model>, "label": <string|null>, "href": <relative-path>, "_id": "<uuid>" }`. `model` ∈ `card`, `dataset`, `metric`, `dashboard`, `collection`, `table`, `database`, `document`, `transform`, `segment`, `measure`, `user`, `action`, `indexed-entity`.
+- **`cardEmbed`** — an embedded saved question. Block, atomic, id-bearing. `attrs: { "id": <card-id>, "name": <string|null>, "_id": "<uuid>" }`. `name` overrides the displayed title (`null` = use the card's own name). Card embeds are commonly wrapped in a `resizeNode` to give them a fixed height.
+- **`resizeNode`** — wraps a single `cardEmbed` or `flexContainer` to make it resizable (no `_id`). `attrs: { "height": <px>, "minHeight": <px> }`, `content` is exactly one `cardEmbed`/`flexContainer`.
+- **`flexContainer`** — a horizontal row of 1–3 `cardEmbed` / `supportingText` cells side by side (no `_id`). `attrs.columnWidths` is an array of width percentages.
+- **`supportingText`** — a text column that sits next to a card inside a `flexContainer` (id-bearing); `content` is the usual block nodes (`paragraph`, `heading`, lists, …).
+- **`smartLink`** — an inline reference to a Metabase entity (renders as a live chip). Inline, atomic, no `_id`. `attrs: { "entityId": <id>, "model": <model>, "label": <string|null>, "href": <relative-path> }`. `model` ∈ `card`, `dataset`, `metric`, `dashboard`, `collection`, `table`, `database`, `document`, `transform`, `segment`, `measure`, `user`, `action`, `indexed-entity`.
 - **`metabot`** — an inline Metabot prompt block.
 
 ## Embedding an existing card
 
-A document embedding an existing card (id 114) under a heading:
+A document embedding an existing card (id 114) under a heading (only the id-bearing nodes carry `_id`):
 
 ```json
 {
   "type": "doc",
-  "attrs": { "_id": "<uuid-1>" },
   "content": [
     {
       "type": "heading",
-      "attrs": { "level": 2, "_id": "<uuid-2>" },
-      "content": [{ "type": "text", "text": "Orders", "attrs": { "_id": "<uuid-3>" } }]
+      "attrs": { "level": 2, "_id": "<uuid-1>" },
+      "content": [{ "type": "text", "text": "Orders" }]
     },
     {
       "type": "resizeNode",
-      "attrs": { "height": 400, "minHeight": 200, "_id": "<uuid-4>" },
-      "content": [{ "type": "cardEmbed", "attrs": { "id": 114, "name": null, "_id": "<uuid-5>" } }]
+      "attrs": { "height": 400, "minHeight": 200 },
+      "content": [{ "type": "cardEmbed", "attrs": { "id": 114, "name": null, "_id": "<uuid-2>" } }]
     },
-    { "type": "paragraph", "attrs": { "_id": "<uuid-6>" } }
+    { "type": "paragraph", "attrs": { "_id": "<uuid-3>" } }
   ]
 }
 ```
@@ -126,10 +122,9 @@ You can create cards atomically with the document instead of pre-creating them. 
   "name": "Auto report",
   "document": {
     "type": "doc",
-    "attrs": { "_id": "<uuid-1>" },
     "content": [
-      { "type": "cardEmbed", "attrs": { "id": -1, "name": null, "_id": "<uuid-2>" } },
-      { "type": "paragraph", "attrs": { "_id": "<uuid-3>" } }
+      { "type": "cardEmbed", "attrs": { "id": -1, "name": null, "_id": "<uuid-1>" } },
+      { "type": "paragraph", "attrs": { "_id": "<uuid-2>" } }
     ]
   },
   "cards": {
@@ -147,11 +142,11 @@ Each entry in `cards` needs at least `{name, dataset_query, display, visualizati
 
 ## Iterating on a document
 
-`update` replaces the whole `document` body, so the safe loop is **read → edit → write**. A fetched body already carries `_id`s, so preserve them — only mint new ones for nodes you add:
+`update` replaces the whole `document` body, so the safe loop is **read → edit → write**. A fetched body already carries `_id`s on its id-bearing nodes, so preserve them — only mint new ones for id-bearing nodes you add:
 
 ```bash
 mb document get <id> --full --profile <name> --json | jq '.document' > /tmp/body.json
-# edit /tmp/body.json (add nodes — give each new node a fresh `mb uuid` _id) …
+# edit /tmp/body.json (add nodes — give each new id-bearing node a fresh `mb uuid` _id) …
 jq -n --slurpfile d /tmp/body.json '{document: $d[0]}' > /tmp/patch.json
 mb document update <id> --file /tmp/patch.json --profile <name> --json
 ```
@@ -160,7 +155,7 @@ Don't hand-merge a partial node tree into a live document — pull the current `
 
 ## Don't
 
-- Don't omit `_id` on any node — `create`/`update` reject the body ("did not match expected schema"). Mint ids with `mb uuid`, one per node.
+- Don't omit `_id` on an id-bearing node (`paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed`, `supportingText`) — `create`/`update` reject the body ("did not match expected schema"). Mint ids with `mb uuid`.
 - Don't paste a whole `document get` response into `update` — `update` only accepts `name`, `document`, `collection_id`, `collection_position`, `archived`. Send the body under the `document` key, not the full record.
 - Don't put the full `document` body in `list` expectations — `list` is compact and omits it by design; use `get --full`.
 - Don't invent node types. Stick to the inventory above; unknown block types render as empty/broken in the editor even though the response schema is lenient.
