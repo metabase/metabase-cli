@@ -28,4 +28,13 @@ describe("TipTapNodeInput", () => {
 
     expect(TipTapNodeInput.safeParse(doc).success).toBe(false);
   });
+
+  it("rejects an id-bearing node whose _id is an empty string", () => {
+    const doc = {
+      type: "doc",
+      content: [{ type: "paragraph", attrs: { _id: "" }, content: [{ type: "text", text: "x" }] }],
+    };
+
+    expect(TipTapNodeInput.safeParse(doc).success).toBe(false);
+  });
 });

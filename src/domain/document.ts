@@ -25,7 +25,8 @@ const NODE_TYPES_WITH_ID = new Set([
 ]);
 
 function validateNodeId({ type, attrs, content = [] }: TipTapNode): boolean {
-  if (NODE_TYPES_WITH_ID.has(type) && attrs?.["_id"] == null) {
+  const id = attrs?.["_id"];
+  if (NODE_TYPES_WITH_ID.has(type) && (typeof id !== "string" || id === "")) {
     return false;
   }
   return content.every(validateNodeId);

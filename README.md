@@ -909,7 +909,7 @@ mb document create --body '{"name":"Notes","document":{"type":"doc","content":[]
 
 Body fields: `name` (required), `document` (required — the TipTap `doc` tree), `collection_id` (optional positive integer; `null` files it under "Our analytics"), `collection_position` (optional positive integer). New cards can be created inline by referencing them with negative ids in `cardEmbed` nodes and supplying their definitions in a top-level `cards` map — see the `document` skill.
 
-The body is normalized before it's sent so the document opens clean (no spurious "unsaved changes"): a UUID `_id` is filled in on each id-bearing node (`paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed`, `supportingText`) that lacks one, and a trailing empty paragraph is appended when the last top-level node isn't one. Existing `_id`s are preserved. The same normalization runs on `update` whenever a `document` is supplied.
+For a document to open clean (no spurious "unsaved changes"), each id-bearing node (`paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed`, `supportingText`) must carry a unique `_id` — `create`/`update` **validate** this and reject a body where any such node is missing one (mint ids with `mb uuid`). Other node types don't take an `_id`. See the `document` skill (`mb skills get document`) for the full authoring guide.
 
 ### `mb document update <id>`
 
