@@ -47,7 +47,7 @@ describe("normalizeDocumentBody", () => {
 
     const result = normalizeDocumentBody(doc);
     const reassignedId = result.content?.[1]?.attrs?.["_id"];
-    
+
     expect(result).toEqual({
       type: "doc",
       content: [
