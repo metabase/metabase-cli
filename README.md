@@ -874,6 +874,68 @@ mb collection archive 4
 mb collection archive 4 --json
 ```
 
+## Documents
+
+CRUD on `/api/document`. A document is a rich-text page that mixes prose with embedded saved questions (`cardEmbed`) and inline links to Metabase entities (`smartLink`). The body is a [TipTap](https://tiptap.dev/) (ProseMirror) JSON tree stored under `content_type: application/json+vnd.prose-mirror`. The agent-facing format reference lives in the bundled `document` skill (`mb skills get document`). It's a baseline OSS feature — no elevated server version or premium token required.
+
+### `mb document list`
+
+Returns non-archived documents visible to you. The compact item omits the (potentially large) `document` body — pull it with `get --full`.
+
+```sh
+mb document list
+mb document list --json
+```
+
+### `mb document get <id>`
+
+```sh
+mb document get 1
+mb document get 1 --json --full
+```
+
+### `mb document create`
+
+```sh
+cat document.json | mb document create
+mb document create --file document.json
+mb document create --body '{"name":"Notes","document":{"type":"doc","content":[]}}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+Body fields: `name` (required), `document` (required — the TipTap `doc` tree), `collection_id` (optional positive integer; `null` files it under "Our analytics"), `collection_position` (optional positive integer). New cards can be created inline by referencing them with negative ids in `cardEmbed` nodes and supplying their definitions in a top-level `cards` map — see the `document` skill.
+
+The body is normalized before it's sent so the document opens clean (no spurious "unsaved changes"): a UUID `_id` is filled in on each id-bearing node (`paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed`, `supportingText`) that lacks one, and a trailing empty paragraph is appended when the last top-level node isn't one. Existing `_id`s are preserved. The same normalization runs on `update` whenever a `document` is supplied.
+
+### `mb document update <id>`
+
+Patch a document. Body is a partial subset of the create shape plus `archived`. Only the keys you send are touched; replacing `document` replaces the whole body.
+
+```sh
+cat patch.json | mb document update 1
+mb document update 1 --file patch.json
+mb document update 1 --body '{"name":"renamed"}'
+mb document update 1 --body '{"archived":false}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb document archive <id>`
+
+Soft-delete a document by setting `archived: true`. To unarchive use `mb document update <id> --body '{"archived":false}'`.
+
+```sh
+mb document archive 1
+mb document archive 1 --json
+```
+
 ## Settings
 
 Read and write Metabase instance settings via `/api/setting`. Listing all settings requires admin privileges; per-key reads/writes additionally enforce per-setting access. Setting values are always JSON — `"main"` is the string `main`, `42` is a number, `null` deletes the override and resets the value to its default.
@@ -1280,6 +1342,7 @@ Bundled skills:
 | ----------- | -------------------------------------------------------------------------------------- |
 | `core`      | Top-level guide: auth, flag conventions, output flags, body input, every command group |
 | `transform` | Authoring and running transforms (native SQL + MBQL 5), iteration, run inspection      |
+| `document`  | Authoring document bodies: the TipTap JSON tree, embedding cards, entity links         |
 | `git-sync`  | Round-tripping Metabase content to/from a git remote                                   |
 
 Discovery surfaces:
