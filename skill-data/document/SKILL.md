@@ -1,6 +1,6 @@
 ---
 name: document
-description: Author and edit Metabase documents via `mb` — the TipTap (ProseMirror) JSON body shape, the node-type inventory (paragraphs, headings, lists, plus the Metabase-custom `cardEmbed` / `smartLink` / `flexContainer` / `resizeNode`), embedding existing or brand-new cards, and the list/get/create/update/archive verbs. Load when the user touches documents — "create a document", "add a card to a document", "edit a document", "list documents", or anything `mb document …`.
+description: Author and edit Metabase documents via `mb` — the TipTap (ProseMirror) JSON body shape, the node-type inventory (paragraphs, headings, lists, plus the Metabase-custom `cardEmbed` / `smartLink` / `flexContainer` / `resizeNode`), the required per-node `_id`, embedding existing or brand-new cards, and the list/get/create/update/archive verbs. Load when the user touches documents — "create a document", "add a card to a document", "edit a document", "list documents", or anything `mb document …`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
@@ -24,11 +24,21 @@ mb document archive <id> --profile <name> --json         # soft-delete (PUT arch
 - `archive` is the only delete, mirroring `card` / `dashboard`. **Unarchive** with `mb document update <id> --body '{"archived":false}'`.
 - `update` is PATCH — send only the keys you want to change (`name`, `document`, `collection_id`, `collection_position`, `archived`). Replacing `document` replaces the **whole** body; there is no partial-node patch.
 
+## Node ids (`_id`) — required on every node
+
+Every node in the `document` tree (the root `doc`, every paragraph, heading, list, text run, cardEmbed, …) must carry a unique `_id` string in its `attrs`. `create` and `update` validate this and reject a body where any node is missing one. Mint the ids with the bundled `uuid` command — one per node:
+
+```bash
+mb uuid --count 8 --json     # → ["…", …]   one UUID per node in your document
+```
+
+Set each as a node's `attrs._id`. Without ids the editor backfills them when the document opens, which makes a freshly-saved document show a spurious "unsaved changes" prompt.
+
 ## Body shape (create / update)
 
 The create body is `{name, document, collection_id?, collection_position?}`. `name` and `document` are required on create; everything is optional on update.
 
-`document` is the TipTap tree. The root is always a `doc` node whose `content` is an array of block nodes:
+`document` is the TipTap tree — a root `doc` node whose `content` is an array of block nodes. Every node (replace each `<uuid-N>` with an `mb uuid` value):
 
 ```json
 {
@@ -36,15 +46,17 @@ The create body is `{name, document, collection_id?, collection_position?}`. `na
   "collection_id": 12,
   "document": {
     "type": "doc",
+    "attrs": { "_id": "<uuid-1>" },
     "content": [
       {
         "type": "heading",
-        "attrs": { "level": 1 },
-        "content": [{ "type": "text", "text": "Weekly report" }]
+        "attrs": { "level": 1, "_id": "<uuid-2>" },
+        "content": [{ "type": "text", "text": "Weekly report", "attrs": { "_id": "<uuid-3>" } }]
       },
       {
         "type": "paragraph",
-        "content": [{ "type": "text", "text": "Orders trended up this week." }]
+        "attrs": { "_id": "<uuid-4>" },
+        "content": [{ "type": "text", "text": "Orders trended up this week.", "attrs": { "_id": "<uuid-5>" } }]
       }
     ]
   }
@@ -55,56 +67,48 @@ The create body is `{name, document, collection_id?, collection_position?}`. `na
 
 ## Node inventory
 
-Every node is `{ "type": string, "attrs"?: object, "content"?: [nodes], "text"?: string, "marks"?: [marks] }`.
+Every node is `{ "type": string, "attrs": { "_id": string, … }, "content"?: [nodes], "text"?: string, "marks"?: [marks] }`.
 
 **Standard text nodes** (TipTap StarterKit):
 
 - `doc` — the root; `content` holds block nodes.
-- `paragraph` — `content` is inline nodes (usually `text`). An empty paragraph (`{ "type": "paragraph" }`) is a blank line.
+- `paragraph` — `content` is inline nodes (usually `text`). An empty paragraph (`{ "type": "paragraph", "attrs": { "_id": "<uuid>" } }`) is a blank line.
 - `text` — a leaf with `text` and optional `marks`.
 - `heading` — `attrs.level` 1–6.
 - `bulletList` / `orderedList` — `content` is `listItem` nodes; each `listItem` wraps `paragraph`(s).
 - `blockquote`, `codeBlock`, `horizontalRule`, `hardBreak`, `image`.
 
-**Marks** on `text` (the `marks` array): `bold`, `italic`, `strike`, `code`, plus `link` (`attrs.href`). Example: `{ "type": "text", "text": "important", "marks": [{ "type": "bold" }] }`.
+**Marks** on `text` (the `marks` array): `bold`, `italic`, `strike`, `code`, plus `link` (`attrs.href`). Example: `{ "type": "text", "text": "important", "attrs": { "_id": "<uuid>" }, "marks": [{ "type": "bold" }] }`.
 
 **Metabase-custom nodes** (the reason a document is more than a wiki page):
 
-- **`cardEmbed`** — an embedded saved question. Block, atomic. `attrs: { "id": <card-id>, "name": <string|null> }`. `name` overrides the displayed title (`null` = use the card's own name). Card embeds are commonly wrapped in a `resizeNode` to give them a fixed height.
-- **`resizeNode`** — wraps a single `cardEmbed` or `flexContainer` to make it resizable. `attrs: { "height": <px>, "minHeight": <px> }`, `content` is exactly one `cardEmbed`/`flexContainer`.
+- **`cardEmbed`** — an embedded saved question. Block, atomic. `attrs: { "id": <card-id>, "name": <string|null>, "_id": "<uuid>" }`. `name` overrides the displayed title (`null` = use the card's own name). Card embeds are commonly wrapped in a `resizeNode` to give them a fixed height.
+- **`resizeNode`** — wraps a single `cardEmbed` or `flexContainer` to make it resizable. `attrs: { "height": <px>, "minHeight": <px>, "_id": "<uuid>" }`, `content` is exactly one `cardEmbed`/`flexContainer`.
 - **`flexContainer`** — a horizontal row of 1–3 `cardEmbed` / `supportingText` cells side by side. `attrs.columnWidths` is an array of width percentages.
 - **`supportingText`** — a text column that sits next to a card inside a `flexContainer`; `content` is the usual block nodes (`paragraph`, `heading`, lists, …).
-- **`smartLink`** — an inline reference to a Metabase entity (renders as a live chip). Inline, atomic. `attrs: { "entityId": <id>, "model": <model>, "label": <string|null>, "href": <relative-path> }`. `model` ∈ `card`, `dataset`, `metric`, `dashboard`, `collection`, `table`, `database`, `document`, `transform`, `segment`, `measure`, `user`, `action`, `indexed-entity`.
+- **`smartLink`** — an inline reference to a Metabase entity (renders as a live chip). Inline, atomic. `attrs: { "entityId": <id>, "model": <model>, "label": <string|null>, "href": <relative-path>, "_id": "<uuid>" }`. `model` ∈ `card`, `dataset`, `metric`, `dashboard`, `collection`, `table`, `database`, `document`, `transform`, `segment`, `measure`, `user`, `action`, `indexed-entity`.
 - **`metabot`** — an inline Metabot prompt block.
 
-Many nodes also carry an `_id` attribute (a UUID the editor uses for comment anchors). **Author without `_id`** — the CLI fills them in for you on `create`/`update` (see below). Expect them to be present in fetched bodies.
-
-## Open-clean normalization (handled by the CLI)
-
-The TipTap editor rewrites a document the moment it opens: it mints a UUID `_id` on every id-bearing node that lacks one, and appends a trailing empty paragraph if the last block isn't one. A document stored without those would open already-"dirty" with the Save button lit. So `mb document create` and `mb document update` normalize the body for you before sending:
-
-- a UUID `_id` is added to each node of type `paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed`, or `supportingText` that doesn't already have one (existing `_id`s are kept; duplicates are reassigned);
-- a trailing empty `paragraph` is appended when the document's last top-level node isn't a paragraph.
-
-Don't add `_id`s yourself, and don't add them to other node types — the editor only keeps `_id` on the types above and drops it everywhere else, so a hand-added `_id` on a `resizeNode`/`listItem`/`text` is dead weight. Just author the structure; the CLI makes it open clean.
+## Embedding an existing card
 
 A document embedding an existing card (id 114) under a heading:
 
 ```json
 {
   "type": "doc",
+  "attrs": { "_id": "<uuid-1>" },
   "content": [
     {
       "type": "heading",
-      "attrs": { "level": 2 },
-      "content": [{ "type": "text", "text": "Orders" }]
+      "attrs": { "level": 2, "_id": "<uuid-2>" },
+      "content": [{ "type": "text", "text": "Orders", "attrs": { "_id": "<uuid-3>" } }]
     },
     {
       "type": "resizeNode",
-      "attrs": { "height": 400, "minHeight": 200 },
-      "content": [{ "type": "cardEmbed", "attrs": { "id": 114, "name": null } }]
+      "attrs": { "height": 400, "minHeight": 200, "_id": "<uuid-4>" },
+      "content": [{ "type": "cardEmbed", "attrs": { "id": 114, "name": null, "_id": "<uuid-5>" } }]
     },
-    { "type": "paragraph" }
+    { "type": "paragraph", "attrs": { "_id": "<uuid-6>" } }
   ]
 }
 ```
@@ -120,7 +124,11 @@ You can create cards atomically with the document instead of pre-creating them. 
   "name": "Auto report",
   "document": {
     "type": "doc",
-    "content": [{ "type": "cardEmbed", "attrs": { "id": -1, "name": null } }]
+    "attrs": { "_id": "<uuid-1>" },
+    "content": [
+      { "type": "cardEmbed", "attrs": { "id": -1, "name": null, "_id": "<uuid-2>" } },
+      { "type": "paragraph", "attrs": { "_id": "<uuid-3>" } }
+    ]
   },
   "cards": {
     "-1": {
@@ -133,15 +141,15 @@ You can create cards atomically with the document instead of pre-creating them. 
 }
 ```
 
-Each entry in `cards` needs at least `{name, dataset_query, display, visualization_settings}`. Author the `dataset_query` with the `mbql` skill (`mb skills get mbql`) and the `visualization_settings` with the `viz` skill. For most edits, prefer embedding cards that already exist (a plain positive `id` in `cardEmbed`) — inline creation is for "build the report and its questions in one shot".
+Each entry in `cards` needs at least `{name, dataset_query, display, visualization_settings}` (these are card definitions, not TipTap nodes, so they take no `_id`). Author the `dataset_query` with the `mbql` skill (`mb skills get mbql`) and the `visualization_settings` with the `viz` skill. For most edits, prefer embedding cards that already exist (a plain positive `id` in `cardEmbed`) — inline creation is for "build the report and its questions in one shot".
 
 ## Iterating on a document
 
-`update` replaces the whole `document` body, so the safe loop is **read → edit → write**:
+`update` replaces the whole `document` body, so the safe loop is **read → edit → write**. A fetched body already carries `_id`s, so preserve them — only mint new ones for nodes you add:
 
 ```bash
 mb document get <id> --full --profile <name> --json | jq '.document' > /tmp/body.json
-# edit /tmp/body.json (add nodes, change text) …
+# edit /tmp/body.json (add nodes — give each new node a fresh `mb uuid` _id) …
 jq -n --slurpfile d /tmp/body.json '{document: $d[0]}' > /tmp/patch.json
 mb document update <id> --file /tmp/patch.json --profile <name> --json
 ```
@@ -150,7 +158,8 @@ Don't hand-merge a partial node tree into a live document — pull the current `
 
 ## Don't
 
+- Don't omit `_id` on any node — `create`/`update` reject the body ("did not match expected schema"). Mint ids with `mb uuid`, one per node.
 - Don't paste a whole `document get` response into `update` — `update` only accepts `name`, `document`, `collection_id`, `collection_position`, `archived`. Send the body under the `document` key, not the full record.
 - Don't put the full `document` body in `list` expectations — `list` is compact and omits it by design; use `get --full`.
-- Don't invent node types. Stick to the inventory above; unknown block types render as empty/broken in the editor even though the loose schema accepts them.
+- Don't invent node types. Stick to the inventory above; unknown block types render as empty/broken in the editor even though the response schema is lenient.
 - Don't author a card's `dataset_query` or `visualization_settings` from this skill alone — load `mbql` and `viz`.

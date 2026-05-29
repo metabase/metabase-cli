@@ -13,6 +13,17 @@ export const TipTapNode = z.looseObject({
 });
 export type TipTapNode = z.infer<typeof TipTapNode>;
 
+export const TipTapNodeInput = z.looseObject({
+  type: z.string(),
+  text: z.string().optional(),
+  attrs: z.looseObject({ _id: z.string().min(1) }),
+  marks: z.array(z.record(z.string(), z.unknown())).optional(),
+  get content() {
+    return z.array(TipTapNodeInput).optional();
+  },
+});
+export type TipTapNodeInput = z.infer<typeof TipTapNodeInput>;
+
 const DocumentCreator = z
   .object({
     id: z.number().int(),
@@ -67,7 +78,7 @@ export const documentView: ResourceView<Document> = {
 export const DocumentCreateInput = z
   .object({
     name: z.string().min(1),
-    document: TipTapNode,
+    document: TipTapNodeInput,
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
   })
@@ -77,7 +88,7 @@ export type DocumentCreateInput = z.infer<typeof DocumentCreateInput>;
 export const DocumentUpdateInput = z
   .object({
     name: z.string().min(1).optional(),
-    document: TipTapNode.optional(),
+    document: TipTapNodeInput.optional(),
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
     archived: z.boolean().nullable().optional(),

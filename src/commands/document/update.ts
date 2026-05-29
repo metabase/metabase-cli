@@ -6,8 +6,6 @@ import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
-import { normalizeDocumentBody } from "./normalize";
-
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a document by id" },
   capabilities: { minVersion: 58 },
@@ -28,9 +26,6 @@ export default defineMetabaseCommand({
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const body = await readBody({ flag: args.body, file: args.file }, DocumentUpdateInput);
-    if (body.document !== undefined) {
-      body.document = normalizeDocumentBody(body.document);
-    }
     const client = await getClient();
     const updated = await client.requestParsed(Document, `/api/document/${id}`, {
       method: "PUT",

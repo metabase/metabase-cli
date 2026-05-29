@@ -14,7 +14,20 @@ const RENAMED = "e2e_document_renamed";
 
 const DOC_BODY = {
   type: "doc",
-  content: [{ type: "paragraph", content: [{ type: "text", text: "Hello from the e2e suite." }] }],
+  attrs: { _id: "11111111-1111-4111-8111-111111111111" },
+  content: [
+    {
+      type: "paragraph",
+      attrs: { _id: "22222222-2222-4222-8222-222222222222" },
+      content: [
+        {
+          type: "text",
+          text: "Hello from the e2e suite.",
+          attrs: { _id: "33333333-3333-4333-8333-333333333333" },
+        },
+      ],
+    },
+  ],
 };
 
 interface CreateDocumentBody {
@@ -151,6 +164,25 @@ describe("document e2e", () => {
     const result = await runCli({
       args: ["document", "create", "--json"],
       stdin: JSON.stringify({ name: "missing-body" }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(result.stdout).toBe("");
+  });
+
+  it("create rejects a document whose node is missing its _id", async () => {
+    const result = await runCli({
+      args: ["document", "create", "--json"],
+      stdin: JSON.stringify({
+        name: "missing-node-id",
+        collection_id: SEEDED.defaultCollectionId,
+        document: {
+          type: "doc",
+          content: [{ type: "paragraph", content: [{ type: "text", text: "x" }] }],
+        },
+      }),
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });

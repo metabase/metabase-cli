@@ -5,8 +5,6 @@ import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
-import { normalizeDocumentBody } from "./normalize";
-
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a document" },
   capabilities: { minVersion: 58 },
@@ -19,7 +17,6 @@ export default defineMetabaseCommand({
   ],
   async run({ args, ctx, getClient }) {
     const body = await readBody({ flag: args.body, file: args.file }, DocumentCreateInput);
-    body.document = normalizeDocumentBody(body.document);
     const client = await getClient();
     const created = await client.requestParsed(Document, "/api/document", {
       method: "POST",
