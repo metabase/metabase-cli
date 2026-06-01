@@ -42,6 +42,8 @@ Sort every choice into one of these.
 4. Never guess what a column or code means from its name. Confirm against the actual values.
 5. Never silently drop a whole _thing_. Dropping a column is routine; dropping a whole kind-of-thing (e.g. "suppliers") must be surfaced and confirmed.
 6. Never drop the columns that link things together. Every table keeps its own id **and** the ids tying it to your other tables — alongside the readable labels you copy in, not instead of them. The label is for reading; the id is what lets two tables be combined later. You're building several tables about _related_ things, so they **will** be combined ("sales per region", "messages per customer") — a dropped id makes that quietly impossible, and the user can't see it happened. (Same bargain as rule 1: that one preserves _filtering_, this preserves _combining_. Keep the ids; just don't make the user stare at them.)
+7. Never bake a non-obvious business rule into a table without confirming it in plain terms. When a transform encodes a judgment the user would have an opinion on — how money nets (a refund is money back _out_), which row is someone's "current" one, what "active" means — say it back in one plain sentence and get a yes first. You know the columns; only they know the business, and a wrong rule hides perfectly inside a clean-looking table. ("I'm treating each person's most recent sign-up as their current one — right?")
+8. Never quietly carry sensitive personal data through. Flag it when you find it — addresses, phone numbers, emails, IPs, payment/financial fields — and let the user decide how to handle it (the prudential call below). Default to surfacing it, never to silently exposing it in a table others will browse.
 
 **Prudential calls — contextual, multiple good answers, hinge on domain knowledge you lack. State a lean, then let the user decide.** The recurring ones:
 
@@ -49,6 +51,7 @@ Sort every choice into one of these.
 - **Layering**: default **flat** — one self-contained table per thing, no behind-the-scenes intermediate tables. Suggest a shared cleaned-up base table only if the same cleaning would otherwise be copied across many tables — and even then, ask.
 - **Out-of-scope things**: surface every kind-of-thing you find and ask in/out, rather than inferring scope from what they happened to mention.
 - **A repeating thing vs. the events it takes part in**: one table can mix a _stable_ thing (a customer, a company) with the _repeating_ events it's in (each order, each visit), copying the stable details onto every event row. If that thing genuinely recurs — same customer on many rows — consider giving it its own one-row-per-thing table too, linked by id, so "how many distinct customers" and the per-customer details have a clean home. Lean: split when recurrence is real, keep as one table when each appears once. (Phase 0's one-to-one / one-to-many check already tells you which.)
+- **Handling sensitive data** (addresses, emails, phones, IPs, financial details): once you've flagged it (rule 8), _how_ to carry it is the user's call — keep as-is, mask (last-4, domain-only, city not street), or drop. Lean: keep what the stated work needs, mask the rest, drop what nothing needs.
 
 Phrase a prudential call as a lean plus a nod:
 
@@ -71,7 +74,7 @@ Don't narrate this — a single "Let me take a look at what's in here — one mi
 Then dig in:
 
 1. **Map the tables.** List them; pull each one's column names and types; note its own id.
-2. **Find the decode tables.** Normalized SaaS data hides meaning in lookups — `*_field`, `*_field_choice`, `*_question`, `*_choice`, `*_type`. A column like `c_4471` is meaningless until you join the lookup and find it's _"Preferred contact method"_. Build a code → label map before showing the user anything.
+2. **Find the decode tables.** Normalized SaaS data hides meaning in lookups — `*_field`, `*_field_choice`, `*_question`, `*_choice`, `*_type`. A column like `c_4471` is meaningless until you join the lookup and find it's _"Preferred contact method"_. Build that code → label map yourself by joining the lookups — never hand the user a coded column and ask what it means — before showing them anything.
 3. **Prove the connections — don't trust declared keys.** Synced databases usually have none. For each `<x>_id`, guess it points at `<x>`, then check what fraction of values actually match the target's id: high = real link, low = decoy, discard. Note one-to-one vs one-to-many. **Also look outward** — does a thing you're about to build already exist as clean data elsewhere in the instance (an existing customers table your people match, a product list)? If so, plan to _link_ to it, not duplicate it.
 4. **Pin down "one row per what."** Count rows; check the id is unique; figure out what a single row is. **Watch for lies:** a stale count column, or a table that looks like "all of X" but is a filtered subset.
 5. **Reconcile across related tables.** Do child rows all link to a parent? Orphans? Is one table a trimmed snapshot while another keeps everything? These mismatches matter and the user can't see them — you must.
@@ -109,7 +112,7 @@ Cheap, because nothing's built. Adjust the set of things, what's kept, and the s
 Build one wide transform per agreed thing. Each table:
 
 - **Denormalized, but the link stays.** Copy in related context so casual reading needs no lookups (a product's name and price on the orders table) — **and keep the linking id beside it** (the product's id too). The label is for reading; the id keeps the tables combinable. Use the same id name everywhere a thing appears.
-- **Decoded**: codes and JSON become readable text; deleted/internal rows and bookkeeping columns are gone.
+- **Decoded**: codes and JSON become readable text; bookkeeping columns and soft-deleted rows are gone (filter the source's delete flag — e.g. `_fivetran_deleted` — so tombstones never reach clean data).
 - **Clean, plain column names**, consistent across tables.
 - **Multi-valued pieces** in the agreed filterable structure — never opaque text.
 - **Keep the detail; don't pre-summarize it away.** Build the detailed rows (one per order, one per payment), not pre-computed totals. A convenience count is fine _beside_ the rows, never _instead of_ them — a frozen total only ever answers the one question it was summed for.
@@ -118,6 +121,7 @@ Then make the links real, not just implied:
 
 - **Wire foreign keys between your tables.** Mark each linking id as a foreign key pointing at the id it references (`mb field update` — set the column's type to foreign-key and its target). Now Metabase itself knows the tables connect and can traverse them.
 - **Graft onto existing clean data** the user approved (step 3 / Phase 1): point the linking id at the existing table's id the same way. Link, don't duplicate.
+- **Write down what you learned.** You decoded every column's real meaning while investigating — save it: set a short description on each table and its non-obvious columns (`mb table update` / `mb field update`). The cleaned data then explains itself inside Metabase — in search, in the Question editor, to Metabot — instead of the knowledge living only in this chat.
 
 When you start refining a built transform _with_ the user, open its inspector for them so you're looking at the same thing — `<base-url>/data-studio/transforms/<transform-id>/inspect` — opening it in their browser if you can, else pasting the URL. Iterate with `transform update`, never delete-and-recreate.
 
@@ -144,4 +148,4 @@ Always decode _before_ presenting, so the user sees "Preferred contact method", 
 
 - **Pull the readable name from the lookup, don't type it in.** The label (and any question text) should come _from_ the lookup's `name`, sourced in the query — not pasted as a literal. A hard-typed label goes wrong the moment the source changes.
 - **Codes are usually specific to today's data.** `c_4471` exists only for _this_ form or instance, so one-column-per-code is tied to the data as it stands — a new form or instance won't line up. When that's unavoidable, say so on hand-back ("reflects the current form; new questions need a refresh"), and with many such codes prefer the companion-table shape (one row per answer, question text from the lookup): nothing hard-typed, and adding a question is a smaller change.
-- **Normalize encodings once.** Turn raw representations clean in the table itself — signed amounts into clear positive numbers by kind, 0/1 into true/false — so nothing downstream re-derives them.
+- **Normalize encodings once.** Turn raw representations clean in the table itself, so nothing downstream re-derives them: signed amounts → clear positive numbers by kind, 0/1 → true/false, timestamps → one consistent timezone, text → trimmed and case-consistent, and junk placeholders (`"NULL"`, `"N/A"`, `"-"`, empty string) → real null.
