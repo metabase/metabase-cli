@@ -44,6 +44,7 @@ Sort every choice into one of these.
 6. Never drop the columns that link things together. Every table keeps its own id **and** the ids tying it to your other tables — alongside the readable labels you copy in, not instead of them. The label is for reading; the id is what lets two tables be combined later. You're building several tables about _related_ things, so they **will** be combined ("sales per region", "messages per customer") — a dropped id makes that quietly impossible, and the user can't see it happened. (Same bargain as rule 1: that one preserves _filtering_, this preserves _combining_. Keep the ids; just don't make the user stare at them.)
 7. Never bake a non-obvious business rule into a table without confirming it in plain terms. When a transform encodes a judgment the user would have an opinion on — how money nets (a refund is money back _out_), which row is someone's "current" one, what "active" means — say it back in one plain sentence and get a yes first. You know the columns; only they know the business, and a wrong rule hides perfectly inside a clean-looking table. ("I'm treating each person's most recent sign-up as their current one — right?")
 8. Never quietly carry sensitive personal data through. Flag it when you find it — addresses, phone numbers, emails, IPs, payment/financial fields — and let the user decide how to handle it (the prudential call below). Default to surfacing it, never to silently exposing it in a table others will browse.
+9. Never overwrite an existing table or another transform's output. Before building, check the target name is actually free (`mb transform list`, `mb table list`); if something already writes there, stop and surface it — building over it silently destroys their data. Reusing a name is only ever for updating _your own_ transform (`transform update`), never for clobbering another.
 
 **Prudential calls — contextual, multiple good answers, hinge on domain knowledge you lack. State a lean, then let the user decide.** The recurring ones:
 
@@ -78,7 +79,7 @@ Then dig in:
 3. **Prove the connections — don't trust declared keys.** Synced databases usually have none. For each `<x>_id`, guess it points at `<x>`, then check what fraction of values actually match the target's id: high = real link, low = decoy, discard. Note one-to-one vs one-to-many. **Also look outward** — does a thing you're about to build already exist as clean data elsewhere in the instance (an existing customers table your people match, a product list)? If so, plan to _link_ to it, not duplicate it.
 4. **Pin down "one row per what."** Count rows; check the id is unique; figure out what a single row is. **Watch for lies:** a stale count column, or a table that looks like "all of X" but is a filtered subset.
 5. **Reconcile across related tables.** Do child rows all link to a parent? Orphans? Is one table a trimmed snapshot while another keeps everything? These mismatches matter and the user can't see them — you must.
-6. **Profile the values.** List distinct values for coded/low-variety columns; check how full (% non-empty) any column you might drop is; spot multi-valued JSON fields.
+6. **Profile the values.** List distinct values for coded/low-variety columns; check how full (% non-empty) any column you might drop is; spot multi-valued JSON fields. Profile with the cleaning checklist (end of file) in mind — surface the quality smells you hit, don't silently fix them.
 7. **Cluster into things.** Group tables and columns into the real-world things they describe — a thing may span several tables (one _customer_ across a main table + a loyalty table + custom-profile columns). Decide "one row per \_\_\_" for each and gather its attributes, decoded. Watch for a table that secretly mixes _two_ things — a stable thing plus its repeating events; that's the split in the prudential calls above.
 
 **Then, still quietly, sketch the design space.** Once the things and how they connect are pinned, brainstorm the range of questions this data could answer — finance views, leaderboards, breakdowns by any attribute. **This is not goal-setting and you don't show it to the user or build any of it.** Its only purpose is to pressure-test your table design: would a reasonable pivot to a nearby question force a rewrite? When keeping a column or a finer grain _cheaply_ preserves that flexibility, keep it. The clean data must serve the user's stated concern — but a good engineer doesn't scope so tightly that the next question means starting over.
@@ -105,7 +106,7 @@ If you spotted existing clean data to link to (step 3), raise it here too — an
 
 ### Phase 2 — Iterate
 
-Cheap, because nothing's built. Adjust the set of things, what's kept, and the shape of any multi-valued pieces until the user's happy. Re-confirm the final picture in one short recap.
+Cheap, because nothing's built. Adjust the set of things, what's kept, and the shape of any multi-valued pieces until the user's happy. **Agree on what each table will be called** — propose a clear name for each (matching any naming pattern you found in their existing data, Phase 0) and let them adjust. Confirm each name is free — not already an existing table or another transform's output (rule 9) — so building can't overwrite anyone's data. Settle the names before building: the name you agree on is the one you build and keep. Re-confirm the final picture in one short recap.
 
 ### Phase 3 — Build, check, hand back
 
@@ -149,3 +150,21 @@ Always decode _before_ presenting, so the user sees "Preferred contact method", 
 - **Pull the readable name from the lookup, don't type it in.** The label (and any question text) should come _from_ the lookup's `name`, sourced in the query — not pasted as a literal. A hard-typed label goes wrong the moment the source changes.
 - **Codes are usually specific to today's data.** `c_4471` exists only for _this_ form or instance, so one-column-per-code is tied to the data as it stands — a new form or instance won't line up. When that's unavoidable, say so on hand-back ("reflects the current form; new questions need a refresh"), and with many such codes prefer the companion-table shape (one row per answer, question text from the lookup): nothing hard-typed, and adding a question is a smaller change.
 - **Normalize encodings once.** Turn raw representations clean in the table itself, so nothing downstream re-derives them: signed amounts → clear positive numbers by kind, 0/1 → true/false, timestamps → one consistent timezone, text → trimmed and case-consistent, and junk placeholders (`"NULL"`, `"N/A"`, `"-"`, empty string) → real null.
+
+---
+
+## Cleaning checklist (for your reference, not the user's)
+
+A scan-list, not a pipeline — and the governing rule is **surface what you find, don't silently "fix" it.** Silently dropping outliers, imputing blanks, or merging "duplicates" can erase the exact signal the domain expert cares about. Safe standardizations you just apply; everything else is a prudential call — flag it with a lean and let them decide.
+
+**Just apply** (safe, universal — already your default): consistent timestamps/timezone; trimmed, case-consistent text; junk placeholders (`"NULL"`, `"N/A"`, `"-"`, `""`) → real null; sane numeric precision; booleans from varied forms (Y/N, 1/0); soft-deleted rows filtered, bookkeeping columns dropped.
+
+**Notice and surface** (the answer depends on their business):
+
+- **Duplicates** — exact, or by business rule ("same email = same person"). Never merge silently.
+- **Validation smells** — out-of-range numbers, malformed emails/phones/ids, `end_date < start_date`.
+- **Outliers** — values that read as data-entry errors. Flag, don't drop.
+- **Missing data** — random vs. systematic? Surface the pattern; never silently impute or default.
+- **Free text / mixed encodings** — handle the safe parts, flag the rest.
+
+Already covered by the rules above, listed so they stay on your radar: structural reshaping (decode/JSON/multi-value), orphans & key validity (Phase 0 step 5 + the post-run check), and recording meanings (the descriptions step).
