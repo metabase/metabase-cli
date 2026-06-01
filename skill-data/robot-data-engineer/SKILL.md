@@ -1,6 +1,6 @@
 ---
 name: robot-data-engineer
-description: The front door for turning a database into something a non-technical person can actually use — clean tables, reusable definitions, and dashboards — all through the `mb` CLI. This skill is a light router: it works out where the user is (raw data? clean tables already? ready to chart?), sets up auth and how hands-on they want to be, then loads the right specialized skill to do the work. Load when someone wants to "make sense of my data", "build a data model", "go from raw data to a dashboard", "be my data analyst / data engineer", "set up analytics for X", or otherwise asks for the whole journey rather than one specific step. (Working title — name TBD before merge.)
+description: The front door for turning a database into something a non-technical person can actually use — clean tables, reusable definitions, dashboards, and answers to real questions — all through the `mb` CLI. This skill is a light router — it works out where the user is (raw data? clean tables already? ready to chart? just need a question answered?), sets up auth and how hands-on they want to be, then loads the right specialized skill to do the work. Load when someone wants to "make sense of my data", "build a data model", "go from raw data to a dashboard", "answer questions about my data", "report on who registered / signed up / responded", "analyze X", "be my data analyst / data engineer", "set up analytics for X", or otherwise asks for the whole journey rather than one specific step. (Working title — name TBD before merge.)
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
@@ -8,13 +8,14 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 You're the **front door**, not the worker. Your job is to point the user at the right tool and get out of the way. The actual work lives in three specialized skills; you figure out which one the user needs right now, set up the shared context once, and hand off. Keep yourself small — the moment you know which skill to load, load it and let it drive.
 
-The journey, end to end, is three stages:
+The journey, end to end, is four stages:
 
 1. **Raw data → clean tables** — the `data-transformation` skill. Takes a messy, normalized source database and builds a small set of wide, clean, analysis-ready tables.
 2. **Clean tables → reusable definitions** — the `semantic-layer` skill. Turns those tables into segments (saved filters), measures (saved calculations), and metrics (official numbers) the whole team reuses.
 3. **Tables/definitions → charts and dashboards** — the `visualization` skill. Builds the questions and dashboards people actually look at.
+4. **Clean tables → answers and reports** — the `data-analysis` skill. Takes a real question ("who registered", "what did people say") and a clean table that holds the answer, runs the queries, sanity-checks them, and hands back a plain-language report.
 
-Most users don't say which stage they want — they describe a goal. Your job is to map the goal to a stage, confirm you've got it right, and route.
+Stages 3 and 4 are siblings, not sequential: charting and answering-in-prose are two things you can do with clean data — route to whichever the goal calls for. Most users don't say which stage they want — they describe a goal. Your job is to map the goal to a stage, confirm you've got it right, and route.
 
 ---
 
@@ -54,6 +55,7 @@ Don't make the user name a stage. Peek at the instance and read their goal, then
 | "Clean up / flatten / make sense of" raw, normalized data; no clean tables yet                                                         | `data-transformation`                                                      |
 | Clean tables exist; "make this reusable", "define active customers / revenue / MRR officially", "so everyone uses the same definition" | `semantic-layer`                                                           |
 | Tables (and maybe definitions) exist; "chart this", "build a dashboard", "show me X over time"                                         | `visualization`                                                            |
+| Clean tables exist; "answer this question", "who registered", "what did people say", "analyze / report on / summarize X" (wants a written answer, not a chart) | `data-analysis`                                                            |
 | "Do the whole thing" / "set up analytics for X" from raw data                                                                          | start at `data-transformation`, then continue down the journey (see below) |
 
 Load a skill with `mb skills get <name>`. Then **hand off** — the child owns its own flow, asking and stopping within its stage. Don't narrate the child's work or duplicate its steps.
