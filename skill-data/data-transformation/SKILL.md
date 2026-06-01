@@ -1,6 +1,6 @@
 ---
 name: data-transformation
-description: Turn a raw, normalized source database into a small set of clean, analysis-ready tables. Claude investigates the source, works out the real-world "things" the data is about (even when each one is scattered across several tables), decodes coded/JSON/translated values into readable text, and builds one wide, denormalized table per thing as Metabase transforms. Designed for a non-technical user who knows their domain. Use whenever someone wants to "clean up", "flatten", "denormalize", "make sense of", or "build analysis-ready tables from" a raw database.
+description: Turn a raw, normalized source database into a small set of clean, analysis-ready tables. Claude investigates the source, works out the real-world "things" the data is about (even when each one is scattered across several tables), decodes coded/JSON/translated values into readable text, and builds one wide, denormalized table per thing as Metabase transforms. Designed for a non-technical user who knows their domain. Use whenever someone wants to "clean up", "flatten", "denormalize", "make sense of", or "build analysis-ready tables from" a raw database. This is the strategy skill for modeling a whole database into a set of clean tables; for authoring or running one individual transform (body shape, flags, run inspection), use the `transform` skill instead.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 

@@ -8,7 +8,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 A **transform** persists the result of a query (native SQL or MBQL) to a warehouse table the user can read from cards, dashboards, and other transforms. It runs on a schedule (via `transform-job`) or on-demand (`transform run`).
 
-This skill covers the create-and-run flow. The general flag conventions, body-input precedence, and output flags live in the `core` skill (`mb skills get core`).
+This skill covers the create-and-run flow for one transform. The general flag conventions, body-input precedence, and output flags live in the `core` skill (`mb skills get core`). Deciding *which* transforms to build — modeling a whole raw database into a set of clean, analysis-ready tables — is the `data-transformation` skill (`mb skills get data-transformation`).
 
 ## Body shape
 
