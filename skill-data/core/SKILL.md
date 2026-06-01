@@ -150,6 +150,7 @@ This core file is enough for any single-command task. Load the relevant skill **
 - **`mbql`** — authoring or fixing any MBQL query body: `mb query`, a card `dataset_query`, a transform `source.query`, a measure/segment `definition`, "aggregate and group by", reading `--dry-run` errors. The query-body reference.
 - **`viz`** — choosing a card's `display` and authoring `visualization_settings`: "make it a bar chart", "set the pie dimension/metric", "format this column as currency", "the card renders as a table instead of a chart". The presentation counterpart to `mbql`.
 - **`transform`** — "create a transform", "run a transform", authoring transform body JSON, run inspection.
+- **`data-transformation`** — the higher-level workflow: turning a raw, normalized source database into a small set of clean, wide, analysis-ready tables for a non-technical user — "clean up", "flatten", "denormalize", "make sense of this database", "build analysis-ready tables". Wraps `transform` (the mechanics) with the investigate → propose → build flow.
 - **`semantic-layer`** — turning clean tables into reusable definitions: "make this filter reusable", "define active customers / net revenue / MRR officially", "create a segment / measure / metric", "so everyone uses the same definition". Builds on `mbql` (the definition bodies) and `transform` (widen a table first when a definition needs more than one).
 - **`git-sync`** — "import the latest changes", "export to git", "git sync", "dirty check", "stash before pulling".
 

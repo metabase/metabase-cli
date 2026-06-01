@@ -9,6 +9,7 @@ import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 
 const BUNDLED_VISIBLE_NAMES = [
   "core",
+  "data-transformation",
   "document",
   "git-sync",
   "mbql",
@@ -30,7 +31,7 @@ describe("skills e2e", () => {
     return dir;
   }
 
-  it("list returns the seven bundled non-hidden skills, sorted by name", async () => {
+  it("list returns the eight bundled non-hidden skills, sorted by name", async () => {
     const result = await runCli({
       args: ["skills", "list", "--json"],
       configHome: await makeIsolatedConfigHome(),
