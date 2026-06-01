@@ -12,6 +12,7 @@ const BUNDLED_VISIBLE_NAMES = [
   "document",
   "git-sync",
   "mbql",
+  "semantic-layer",
   "transform",
   "visualization",
 ] as const;
@@ -29,7 +30,7 @@ describe("skills e2e", () => {
     return dir;
   }
 
-  it("list returns the six bundled non-hidden skills, sorted by name", async () => {
+  it("list returns the seven bundled non-hidden skills, sorted by name", async () => {
     const result = await runCli({
       args: ["skills", "list", "--json"],
       configHome: await makeIsolatedConfigHome(),
