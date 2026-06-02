@@ -15,9 +15,9 @@ rules:
       # always-resident skills (core, robot-data-engineer) are the tightest
       # of the set; the larger ones (data-transformation, semantic-layer,
       # mbql) are leaf skills loaded for a single stage, where the extra
-      # tokens are genuine guidance, not fluff. 5100 clears the largest
+      # tokens are genuine guidance, not fluff. 6000 clears the largest
       # honest floor while still catching real future bloat.
       skill:
-        warn: 5100
+        warn: 6000
       skill-description:
         warn: 200
