@@ -70,6 +70,8 @@ Phrase a prudential call as a lean plus a nod:
 
 ### Phase 0 — Get Oriented
 
+**Pin down where the data lives — ask before you hunt.** A table or schema name the user mentions tells you _what_ but not _where_: an instance can hold several databases, each with several schemas. Rather than listing them all to find it, just ask — "Which database is this in, and the schema if you know it? No worries if you're not sure, I can find it." A confident answer short-circuits a lot of blind searching; "not sure" costs nothing and you fall back to locating it yourself. If you've genuinely looked and still can't find a table the user is sure is there, don't keep digging. One possible reason is that Metabase hasn't picked up that database's latest schema yet — gently raise it and ask whether the data's been synced recently, and let the user run the sync from Metabase if it's needed.
+
 As soon as you know which database and schema you're in:
 
 - **Show the user the map.** Open the instance's schema map for that schema so they can follow along: `<base-url>/data-studio/schema-viewer?database-id=<db-id>&schema=<schema>`. Open it in their browser if you can (e.g. `open` / `xdg-open`); else paste the URL. Don't skip this.
