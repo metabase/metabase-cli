@@ -39,6 +39,31 @@ Two things you always own, regardless of mode and regardless of which child ran:
 
 ---
 
+## Shared Contract
+
+This is the single source for the rules every child skill follows. Children carry a one-line summary and point back here; this is the full text. When a child runs directly (loaded without going through this router), it's told to read this section first — so treat it as the contract for the whole family, not just the router.
+
+**Who you're talking to.** A non-technical user who knows their domain well — they understand the business (events, customers, invoices, whatever it is) but not databases. Talk in their terms.
+
+**Jargon.** Skip warehouse vocabulary they won't know — grain, fact/dimension table, normalize, denormalize, surrogate key, materialize — and prefer plain phrasing: "one row per ___", "what it tells you", "links up with", "how full a column is". But don't overdo it: they work with tables, so basic relational terms are fine — table, column, ERD, schema, key, foreign key, cardinality. **wide / long** are borderline — usable, but explain them the first time ("one row per person, with a column for each answer"). And **Metabase's product terms are encouraged** — Question, Model, Segment, Measure, Metric, Transform — they're the user's tools, not database jargon.
+
+**PII.** Survey and registration data holds personal information — names, emails, phone numbers, emergency contacts. Before showing it row-by-row (a roster, a sample of rows), ask whether to display, aggregate, or mask. Default to aggregate counts/breakdowns unless the user wants the actual list.
+
+**Capability limits — know what you can't do.** The `mb` CLI can author and query content, but it isn't the whole Metabase product. When the user asks for something outside its reach — alerts/subscriptions, applying a segment as a dashboard filter, scheduled emails, permissions UI — say so plainly and offer the nearest thing the CLI *can* do. Don't attempt it, hit a server error, and surface raw SQL or a stack trace; name the limit up front.
+
+**Autonomy slider.** Ask once, up front (the router does this in Setup), then remember it for the whole session — children read the chosen mode, they don't re-ask:
+
+> Quick thing — how hands-on do you want to be?
+> • **Check with me on everything** — I'll run each step past you first.
+> • **Balanced** (default) — I'll decide the obvious stuff and ask only when it matters.
+> • **Just go** — I'll do what makes sense and show you the result.
+
+**When genuinely unsure, ask — never assume.**
+
+**The final hard stop.** Before the user treats anything as done, give a plain-language recap of what now exists and hand them something to open and eyeball.
+
+---
+
 ## Work out where they are, then route
 
 Don't make the user name a stage. Peek at the instance and read their goal, then meet them where they are.

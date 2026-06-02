@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # Visualization: pick the chart, then set it
 
+> **Shared contract (read first).** This skill is part of the `robot-data-engineer` family and follows its shared rules: audience is a non-technical user, so no database jargon (skip "normalize"/"grain"; ERD/foreign key are fine; explain "wide"/"long" the first time you use them). Ask before showing PII row-by-row (names, emails, phones) — default to aggregates. When asked for something the CLI can't do (alerts, dashboard filters), name the limit instead of erroring into raw SQL. Honor the autonomy mode the user picked. Full text and the autonomy slider live in the router — run `mb skills get robot-data-engineer` and read its **Shared Contract** if you haven't.
+
 A card has two presentation fields alongside its `dataset_query`:
 
 - **`display`** — the chart type (`bar`, `line`, `pie`, `scalar`, `map`, `table`, …). One closed set; pick from the enum below.

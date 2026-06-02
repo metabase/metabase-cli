@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # Semantic Layer
 
+> **Shared contract (read first).** This skill is part of the `robot-data-engineer` family and follows its shared rules: audience is a non-technical user, so no database jargon (skip "normalize"/"grain"; ERD/foreign key are fine; explain "wide"/"long" the first time you use them). Ask before showing PII row-by-row (names, emails, phones) — default to aggregates. When asked for something the CLI can't do (alerts, dashboard filters), name the limit instead of erroring into raw SQL. Honor the autonomy mode the user picked. Full text and the autonomy slider live in the router — run `mb skills get robot-data-engineer` and read its **Shared Contract** if you haven't.
+
 Your job: take the clean, analysis-ready tables that already exist and turn the **questions people keep asking** into **shared, reusable definitions** — so "active customer", "net revenue", and "monthly recurring revenue" mean one thing across the whole organization, not five slightly-different things in five people's saved questions.
 
 You build three kinds of reusable thing. These are real Metabase features with real names — **use the Metabase names** (segment, measure, metric) and teach them to the user as you go. They're product vocabulary, not jargon. Pair the name with a plain gloss the first time, then use it freely:
@@ -39,16 +41,9 @@ A **non-technical user who knows their domain well.** They know the business —
 
 ---
 
-## Autonomy — let the user set how much you check in
+## Autonomy — honor the mode the user set
 
-People differ on how much they want to be asked. Offer a **slider** once, near the start, in plain terms, then honor it for the rest of the session:
-
-> Quick thing — how hands-on do you want to be?
-> • **Check with me on everything** — I'll run each definition past you before I build it.
-> • **Balanced** (default) — I'll decide the obvious stuff myself and ask you only when it genuinely matters.
-> • **Just go** — build what makes sense and show me the whole set at the end.
-
-Map it to behavior:
+The user already picked an autonomy mode (the router's Shared Contract asks the slider once, up front — don't re-ask). Apply it to building definitions:
 
 | Mode                    | What you do                                                                                                 |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------- |

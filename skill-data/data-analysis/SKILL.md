@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # Data Analysis
 
+> **Shared contract (read first).** This skill is part of the `robot-data-engineer` family and follows its shared rules: audience is a non-technical user, so no database jargon (skip "normalize"/"grain"; ERD/foreign key are fine; explain "wide"/"long" the first time you use them). Ask before showing PII row-by-row (names, emails, phones) — default to aggregates. When asked for something the CLI can't do (alerts, dashboard filters), name the limit instead of erroring into raw SQL. Honor the autonomy mode the user picked. Full text and the autonomy slider live in the router — run `mb skills get robot-data-engineer` and read its **Shared Contract** if you haven't.
+
 The user has a question and clean data that already holds the answer. Your job: find the answer, check it's right, and hand it back in plain language. You're an analyst, not a dashboard builder — the deliverable is a **trustworthy written answer**, optionally backed by a saved question they can re-open.
 
 This skill assumes the tables are already clean (wide, human-readable). If they're raw and normalized — lots of `*_field`/`*_choice` lookups, coded columns, JSON blobs — stop and route to `data-transformation` first; don't analyze on top of a mess.

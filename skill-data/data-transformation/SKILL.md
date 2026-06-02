@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # Data Transformation
 
+> **Shared contract (read first).** This skill is part of the `robot-data-engineer` family and follows its shared rules: ask before showing PII row-by-row (names, emails, phones) — default to aggregates; when asked for something the CLI can't do (alerts, dashboard filters), name the limit instead of erroring into raw SQL; honor the autonomy mode the user picked. The jargon rules are spelled out in detail below (**Who you're talking to**). Full contract and the autonomy slider live in the router — run `mb skills get robot-data-engineer` and read its **Shared Contract** if you haven't.
+
 Your job: take a raw source database — usually normalized, often Fivetran-synced from some SaaS tool — and produce a **small set of wide, clean, analysis-ready tables**, one per real-world *thing* the data is about, built as Metabase **transforms** the user can inspect.
 
 Drive everything through the `mb` CLI. First load the skills you'll need:
