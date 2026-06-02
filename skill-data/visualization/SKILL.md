@@ -15,7 +15,7 @@ A card has two presentation fields alongside its `dataset_query`:
 
 Nothing validates `visualization_settings` — there is no pre-flight to fail past. A `display` typo or a misnamed key is accepted by the API; the card just renders as a default table or drops the setting. So **the feedback loop is read-back, not pre-flight**: after `card create`/`update`, confirm with `mb card get <id> --full --json` (or open the card) that it rendered as intended.
 
-General flag conventions and body-input precedence live in the `core` skill (`mb skills get core`); the `dataset_query` itself is the `mbql` skill's job (`mb skills get mbql`). This skill is only about how the result is displayed.
+Flag conventions and body-input precedence live in the `core` skill (`mb skills get core`); the `dataset_query` itself is the `mbql` skill's job (`mb skills get mbql`). This skill is only about how the result is displayed.
 
 Two steps: **(1) pick the `display` that fits the data**, then **(2) bind the data columns and set options**.
 
@@ -66,7 +66,7 @@ Closed `display` enum (card-level, non-hidden): `table`, `bar`, `line`, `area`, 
 
 `graph.dimensions`, `graph.metrics`, `pie.dimension`, `pie.metric`, `scalar.field`, `funnel.metric`, `map.latitude_column`, `sankey.source`, … all take **output column-name strings** — the names the query _produces_, not field ids. A `count` aggregation outputs the column `count`; a breakout on a field outputs that field's name; a named aggregation outputs its `name`. These strings are **identical in the API form and the portable (git-sync) form** — no numeric-vs-name footgun here.
 
-So the names you put in `visualization_settings` come from the query's output, not from `mb field`/`mb table`. If you set `name` on an aggregation (see the `mbql` skill), use that same string here.
+The names come from the query's output, not from `mb field`/`mb table`. If you set `name` on an aggregation (see the `mbql` skill), use that same string here.
 
 ## Minimum-viable settings per chart family (API form)
 
@@ -138,7 +138,7 @@ For anything beyond a single dimension + metric — combo charts, conditional fo
 mb card get <id> --full --json | jq '.visualization_settings'
 ```
 
-Paste that block into your `card create`/`update` body. The server produced it, so it's valid for that `display`. This beats guessing keys from memory, and it's token-cheap.
+Paste that block into your `card create`/`update` body. The server produced it, so it's valid for that `display`.
 
 ## Full per-visualization key catalog
 

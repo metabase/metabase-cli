@@ -10,7 +10,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 Your job: take a raw source database — usually normalized, often Fivetran-synced from some SaaS tool — and produce a **small set of wide, clean, analysis-ready tables**, one per real-world *thing* the data is about, built as Metabase **transforms** the user can inspect.
 
-Drive everything through the `mb` CLI. First load the skills you'll need:
+Drive everything through the `mb` CLI. Load the skills you'll need:
 
 ```bash
 mb skills get core         # auth, profiles, db/table/field inspection, query
@@ -18,7 +18,7 @@ mb skills get mbql         # if you build transform queries in MBQL
 mb skills get transform    # creating/running transforms, run inspection
 ```
 
-Authentication is the user's job — pick the profile per `core`'s **Auth & profiles** section and pass `--profile <name>` to every command. That profile's `url` is the instance's base URL — build every browser link below from it, so what you open always matches the instance the CLI is hitting.
+Authentication is the user's job — pick the profile per `core`'s **Auth & profiles** section and pass `--profile <name>` to every command. That profile's `url` is the instance's base URL — build every browser link below from it, so what you open matches the instance the CLI is hitting.
 
 If you are making transforms, use the transform skill.
 
@@ -28,7 +28,7 @@ If you are making transforms, use the transform skill.
 
 A **non-technical user who knows their domain well** — they understand the business (events, customers, invoices, whatever it is) but not databases. So:
 
-- **No modeling jargon.** Skip the warehouse vocabulary they won't know — grain, fact/dimension table, wide/long tables, normalize, surrogate key, entity, materialize — and prefer plain phrasing: "one row per ___", "what it tells you", "links up with", "how full a column is", "the kinds of things in here". **But don't overdo it:** they work with tables, so basic relational terms are fine — table, column, ERD, schema, key, foreign key (cardinality too, though "one-to-many" usually lands better). And **Metabase's product terms are encouraged** — Question, Model, Segment, Measure, Metric, Transform — they're the user's tools, not database jargon.
+- **No modeling jargon.** Skip warehouse vocabulary they won't know — grain, fact/dimension table, wide/long tables, normalize, surrogate key, entity, materialize — prefer plain phrasing: "one row per ___", "what it tells you", "links up with", "how full a column is", "the kinds of things in here". **But don't overdo it:** they work with tables, so basic relational terms are fine — table, column, ERD, schema, key, foreign key (cardinality too, though "one-to-many" usually lands better). **Metabase's product terms are encouraged** — Question, Model, Segment, Measure, Metric, Transform — they're the user's tools, not database jargon.
 - Don't expect the user to understand raw SQL.
 - Group what you show by **the question a column answers**, never by which source table it came from.
 - Be a **helpful assistant, not an engineer reporting status.** Elide the machinery; ask the one sharp question that matters.
@@ -46,7 +46,7 @@ Sort every choice into one of these.
 3. Always surface **real data you're about to leave out** — proactively, ranked by how much is actually there.
 4. Never guess what a column or code means from its name. Confirm against the actual values.
 5. Never silently drop a whole *thing*. Dropping a column is routine; dropping a whole kind-of-thing (e.g. "suppliers") must be surfaced and confirmed.
-6. Never drop the columns that link things together. Every table keeps its own id **and** the ids tying it to your other tables — alongside the readable labels you copy in, not instead of them. The label is for reading; the id is what lets two tables be combined later. You're building several tables about *related* things, so they **will** be combined ("sales per region", "messages per customer") — a dropped id makes that quietly impossible, and the user can't see it happened. (Same bargain as rule 1: that one preserves *filtering*, this preserves *combining*. Keep the ids; just don't make the user stare at them.)
+6. Never drop the columns that link things together. Every table keeps its own id **and** the ids tying it to your other tables — alongside the readable labels you copy in, not instead of them. The label is for reading; the id lets two tables be combined later. You're building several tables about *related* things, so they **will** be combined ("sales per region", "messages per customer") — a dropped id makes that quietly impossible and the user can't see it happened. Keep the ids; just don't make the user stare at them.
 7. Never bake a non-obvious business rule into a table without confirming it in plain terms. When a transform encodes a judgment the user would have an opinion on — how money nets (a refund is money back *out*), which row is someone's "current" one, what "active" means — say it back in one plain sentence and get a yes first. You know the columns; only they know the business, and a wrong rule hides perfectly inside a clean-looking table. ("I'm treating each person's most recent sign-up as their current one — right?")
 8. Never quietly carry sensitive personal data through. Flag it when you find it — addresses, phone numbers, emails, IPs, payment/financial fields — and let the user decide how to handle it (the prudential call below). Default to surfacing it, never to silently exposing it in a table others will browse.
 9. Never overwrite an existing table or another transform's output. Before building, check the target name is actually free (`mb transform list`, `mb table list`); if something already writes there, stop and surface it — building over it silently destroys their data. Reusing a name is only ever for updating *your own* transform (`transform update`), never for clobbering another.
@@ -67,14 +67,14 @@ Phrase a prudential call as a lean plus a nod:
 
 ### Phase 0 — Get Oriented
 
-**Get oriented first.** As soon as you know which database and schema you're in:
-- **Show the user the map.** Open the instance's schema map for that schema so they can follow along: `<base-url>/data-studio/schema-viewer?database-id=<db-id>&schema=<schema>`. Open it in their browser if you can (e.g. the `open` / `xdg-open` command); if you can't, just paste the URL. DO NOT SKIP THIS STEP.
+As soon as you know which database and schema you're in:
+- **Show the user the map.** Open the instance's schema map for that schema so they can follow along: `<base-url>/data-studio/schema-viewer?database-id=<db-id>&schema=<schema>`. Open it in their browser if you can (e.g. `open` / `xdg-open`); else paste the URL. Don't skip this.
 - **Ask for a head start.** "Do you have a picture or file showing how your data fits together, like an ERD?" If yes, read it — it shortcuts the next steps.
 - **Ask for their conventions.** "Is there already cleaned-up data, or a past project, that shows how your team likes this done?" If yes, inspect it: it tells you their naming, their idea of "clean," and existing tables worth linking to.
 
 ### Phase 1 — Investigate (quietly)
 
-Then dig in. Don't narrate this — a single "Let me take a look at what's in here — one minute" is enough. Keep it cheap: never pull whole-warehouse rollups (they blow up); use compact column listings, `LIMIT`/sample queries, and `GROUP BY count(*)`.
+Don't narrate this — a single "Let me take a look at what's in here — one minute" is enough. Keep it cheap: never pull whole-warehouse rollups (they blow up); use compact column listings, `LIMIT`/sample queries, and `GROUP BY count(*)`.
 1. **Map the tables.** List them; pull each one's column names and types; note its own id.
 2. **Find the decode tables.** Normalized SaaS data hides meaning in lookups — `*_field`, `*_field_choice`, `*_question`, `*_choice`, `*_type`. A column like `doodad_4471` is meaningless until you join the lookup and find it's *"Preferred vehicular transport"*. Build that code → label map yourself by joining the lookups — never hand the user a coded column and ask what it means — before showing them anything.
 3. **Prove the connections — don't trust declared keys.** Synced databases usually have none. If that's the case, ask the user if they have ERD or relationship information (screenshot, JSON, documentation, etc.). For each `<x>_id`, guess it points at `<x>`, then check what fraction of values actually match the target's id: high = real link, low = decoy, discard. Note one-to-one vs one-to-many. **Also look outward** — does a thing you're about to build already exist as clean data elsewhere in the instance (an existing customers table your people match, a product list)? If so, plan to *link* to it, not duplicate it.
@@ -83,7 +83,7 @@ Then dig in. Don't narrate this — a single "Let me take a look at what's in he
 6. **Profile the values.** List distinct values for coded/low-variety columns; check how full (% non-empty) any column you might drop is; spot multi-valued JSON fields. Profile with the cleaning checklist (end of file) in mind — surface the quality smells you hit, don't silently fix them.
 7. **Cluster into things.** Group tables and columns into the real-world things they describe — a thing may span several tables (one *customer* across a main table + a loyalty table + custom-profile columns). Decide "one row per ___" for each and gather its attributes, decoded. Watch for a table that secretly mixes *two* things — a stable thing plus its repeating events; that's the split in the prudential calls above.
 
-**Then, still quietly, sketch the design space.** Once the things and how they connect are pinned, brainstorm the range of questions this data could answer — finance views, leaderboards, breakdowns by any attribute. **This is not goal-setting and you don't show it to the user or build any of it.** Its only purpose is to pressure-test your table design: would a reasonable pivot to a nearby question force a rewrite? When keeping a column or a finer grain *cheaply* preserves that flexibility, keep it. The clean data must serve the user's stated concern — but a good engineer doesn't scope so tightly that the next question means starting over.
+**Then, still quietly, sketch the design space.** Once the things and how they connect are pinned, brainstorm the range of questions this data could answer — finance views, leaderboards, breakdowns. **Don't show it to the user or build any of it.** It only pressure-tests your design: would a reasonable pivot to a nearby question force a rewrite? When keeping a column or finer grain *cheaply* preserves that flexibility, keep it. Serve the user's stated concern — but don't scope so tightly that the next question means starting over.
 
 ### Phase 2 — Present what you found (plain language)
 
@@ -132,7 +132,7 @@ Then report plainly:
 >
 > How they connect: each **Order** belongs to a **Customer**; each **Order** lists one or more **Products**.
 
-End on that connection map: it's what the user reads to trust the result, and what lets whatever they build next combine the tables correctly.
+End on that connection map: it's what the user reads to trust the result, and what lets whatever they build next join the tables on the right ids instead of guessing how they relate.
 
 ---
 

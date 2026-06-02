@@ -1,31 +1,31 @@
 ---
 name: robot-data-engineer
-description: The front door for turning a database into something a non-technical person can actually use — clean tables, reusable definitions, dashboards, and answers to real questions — all through the `mb` CLI. This skill is a light router — it works out where the user is (raw data? clean tables already? ready to chart? just need a question answered?), sets up auth and how hands-on they want to be, then loads the right specialized skill to do the work. Load when someone wants to "make sense of my data", "build a data model", "go from raw data to a dashboard", "answer questions about my data", "report on who registered / signed up / responded", "analyze X", "be my data analyst / data engineer", "set up analytics for X", or otherwise asks for the whole journey rather than one specific step. (Working title — name TBD before merge.)
+description: The front door for turning a database into something a non-technical person can use - clean tables, reusable definitions, dashboards, and answers - all through the `mb` CLI. A light router - it works out where the user is (raw data? clean tables? ready to chart? just need a question answered?), sets up auth and how hands-on they want to be, then loads the right specialized skill. Load when someone wants to "make sense of my data", "build a data model", "go from raw data to a dashboard", "answer questions about my data", "report on who registered / signed up / responded", "analyze X", "be my data analyst / data engineer", "set up analytics for X", or asks for the whole journey rather than one step.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
 # Robot Data Engineer
 
-You're the **front door**, not the worker. Your job is to point the user at the right tool and get out of the way. The actual work lives in three specialized skills; you figure out which one the user needs right now, set up the shared context once, and hand off. Keep yourself small — the moment you know which skill to load, load it and let it drive.
+You're the front door, not the worker. Point the user at the right tool and get out of the way. The work lives in four specialized skills; figure out which one the user needs now, set up shared context once, and hand off. The moment you know which skill to load, load it and let it drive.
 
-The journey, end to end, is four stages:
+The four stages:
 
-1. **Raw data → clean tables** — the `data-transformation` skill. Takes a messy, normalized source database and builds a small set of wide, clean, analysis-ready tables.
-2. **Clean tables → reusable definitions** — the `semantic-layer` skill. Turns those tables into segments (saved filters), measures (saved calculations), and metrics (official numbers) the whole team reuses.
-3. **Tables/definitions → charts and dashboards** — the `visualization` skill. Builds the questions and dashboards people actually look at.
-4. **Clean tables → answers and reports** — the `data-analysis` skill. Takes a real question ("who registered", "what did people say") and a clean table that holds the answer, runs the queries, sanity-checks them, and hands back a plain-language report.
+1. **Raw data → clean tables** — `data-transformation`. Turns a messy, normalized source database into a small set of wide, clean, analysis-ready tables.
+2. **Clean tables → reusable definitions** — `semantic-layer`. Turns those tables into segments (saved filters), measures (saved calculations), and metrics (official numbers) the whole team reuses.
+3. **Tables/definitions → charts and dashboards** — `visualization`. Builds the questions and dashboards people look at.
+4. **Clean tables → answers and reports** — `data-analysis`. Takes a real question ("who registered", "what did people say") and a clean table that holds the answer, runs the queries, sanity-checks them, hands back a plain-language report.
 
-Stages 3 and 4 are siblings, not sequential: charting and answering-in-prose are two things you can do with clean data — route to whichever the goal calls for. Most users don't say which stage they want — they describe a goal. Your job is to map the goal to a stage, confirm you've got it right, and route.
+Stages 3 and 4 are siblings, not sequential — charting and answering-in-prose are two things you can do with clean data; route to whichever the goal calls for. Users describe a goal, not a stage. Map the goal to a stage, confirm, and route.
 
 ---
 
 ## Setup — do this once, up front
 
-Before routing, settle two things so the child skills don't have to re-ask:
+Settle two things before routing so the child skills don't re-ask:
 
-1. **Auth.** Pick the profile per `core`'s **Auth & profiles** section — `mb auth list --json`; one → use it, several → ask which, none → ask the user to `mb auth login` — then carry `--profile <name>` into everything. (That's the canonical recipe; this one line is here because the router is the front door and may run before `core` is loaded.)
+1. **Auth.** Pick the profile per `core`'s **Auth & profiles** section — `mb auth list --json`; one → use it, several → ask which, none → ask the user to `mb auth login` — then carry `--profile <name>` into everything. (Canonical recipe; restated here because the router may run before `core` is loaded.)
 
-2. **How hands-on they want to be** (the autonomy slider). Ask once, plainly, and remember it for the whole session — tell the child skill which mode the user picked so they aren't asked again:
+2. **How hands-on they want to be** (the autonomy slider). Ask once, plainly, remember it for the whole session, and tell the child skill the chosen mode so they aren't asked again:
 
    > Quick thing — how hands-on do you want to be?
    > • **Check with me on everything** — I'll run each step past you first.
@@ -125,15 +125,15 @@ Load a skill with `mb skills get <name>`. Then **hand off** — the child owns i
 
 ## The whole journey
 
-When the user wants the full arc (raw → dashboard), run the three stages in order, handing off to each child in turn. Between stages, let the child's own stopping point double as a check-in: clean tables exist and look right → move to definitions → move to charts. You don't need a heavy gate between every stage (the children handle their own), but do confirm the user's happy before starting the next one in **Check with me on everything** mode, and always finish with your end-of-journey recap.
+For the full arc (raw → dashboard), run the stages in order, handing off to each child in turn. Let each child's stopping point double as a check-in: clean tables exist and look right → definitions → charts. No heavy gate between stages (children handle their own), but in **Check with me on everything** mode confirm the user's happy before starting the next, and always finish with your end-of-journey recap.
 
-A user can also drop in at any stage — that's the whole point of detecting state. Someone who already has clean tables and just wants metrics gets routed straight to `semantic-layer`; don't drag them back through cleaning.
+A user can drop in at any stage — that's the point of detecting state. Someone with clean tables who just wants metrics goes straight to `semantic-layer`; don't drag them back through cleaning.
 
 ---
 
 ## Don't
 
-- **Don't do the children's work yourself.** If you're writing transform SQL or segment definitions in this skill, you've gone too deep — load the child and let it work.
+- **Hand the work to the child skill — don't do it yourself.** The moment you'd be writing transform SQL or a segment definition here, stop and `mb skills get` the right child; let it drive. You route and set up context; the child does the work.
 - **Don't re-ask the autonomy question** once it's set; pass it down.
 - **Don't skip the starting-state check** and assume raw data — a user with clean tables shouldn't be sent through cleaning.
 - **Don't build on raw data when the goal needs clean tables** — route to the earlier stage first.

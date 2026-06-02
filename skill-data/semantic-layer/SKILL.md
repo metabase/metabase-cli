@@ -1,6 +1,6 @@
 ---
 name: semantic-layer
-description: Turn clean, analysis-ready tables into a shared vocabulary everyone reuses — Metabase segments (saved filters like "active customers"), measures (saved calculations like "net revenue"), and metrics (official numbers like "monthly recurring revenue") — so people stop reinventing the same definitions five different ways. Find the questions people keep asking, propose segments and measures in plain language (teaching the Metabase terms as you go), graft them onto what the org already tracks, and build them via `mb segment create` / `mb measure create` / `mb card create`. For a non-technical user who knows their domain. Load when someone wants to "make this reusable", "define X officially", "standardize how we calculate Y", "so everyone uses the same definition", "save this filter/calculation/metric for the team", or "create a segment / measure / metric". This is the strategy skill for deciding which reusable definitions an org needs and designing them; for the raw `mb segment` / `mb measure` command mechanics (flags, body shape), use the `core` skill instead.
+description: Turn clean, analysis-ready tables into a shared vocabulary the org reuses - Metabase segments (saved filters, e.g. active customers), measures (saved calculations, e.g. net revenue), and metrics (official numbers, e.g. monthly recurring revenue) - so people stop reinventing the same definition five ways. Find the questions people keep asking, propose definitions in plain language, graft them onto what the org already tracks, build them via `mb segment` / `mb measure` / `mb card` create. For a non-technical user who knows their domain. Load when someone wants to "make this reusable", "define X officially", "standardize how we calculate Y", or "create a segment / measure / metric". Strategy skill for designing reusable definitions; for raw `mb segment` / `mb measure` mechanics, use `core`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
@@ -18,9 +18,9 @@ You build three kinds of reusable thing. These are real Metabase features with r
 
 Introduce each like: _"I'll save this as a **segment** — that's Metabase's word for a reusable filter, so you can pull up active customers with one click anytime."_ After that, just say "segment".
 
-This skill runs **after** the analysis-ready tables exist (build those with transforms — load `mb skills get transform`). Segments and measures only reach one table — no joins, no nesting (see the docs' Limitations sections) — so a semantic layer on raw, normalized tables is nearly useless: a real answer rarely lives in a single raw table. So: **wide clean tables first, segments/measures/metrics second.**
+This skill runs **after** the analysis-ready tables exist (build those with transforms — load `mb skills get transform`). Segments and measures only reach one table — no joins, no nesting (see the docs' Limitations sections) — so a semantic layer on raw, normalized tables is nearly useless: a real answer rarely lives in a single raw table. **Wide clean tables first, segments/measures/metrics second.**
 
-You drive everything through the `mb` CLI. Before you start, load the CLI skills you'll need:
+You drive everything through the `mb` CLI. Load the CLI skills you'll need:
 
 ```bash
 mb skills get core         # auth, profiles, db/table/field inspection, query, search
@@ -35,7 +35,7 @@ Authentication is the user's job. Check `mb auth list --json`; if one profile ex
 
 A **non-technical user who knows their domain well.** They know the business — who an "active" customer is, what counts as "revenue" — but not databases. So:
 
-- **Teach the words a curious non-engineer can follow; skip the deep-internals jargon.** Two sets are fine and worth teaching: Metabase product terms (**segment, measure, metric, collection, Library, the Filter / Summarize blocks**) and common data words a domain user can reasonably learn (**table, column, foreign key, schema, join, filter, row**) — gloss them once, then use them. What you still avoid is the **deep-internals jargon** that buys nothing for this user: grain, cardinality, normalize/denormalize, surrogate key, MBQL, `table_id`, materialize. Prefer the plain effect when it's clearer ("this number needs data from two tables" reads easier than "this needs a join across two fact tables") — but you don't have to contort around "foreign key" or "schema".
+- **Teach the words a curious non-engineer can follow; skip the deep-internals jargon.** Two sets are fine and worth teaching: Metabase product terms (**segment, measure, metric, collection, Library, the Filter / Summarize blocks**) and common data words a domain user can reasonably learn (**table, column, foreign key, schema, join, filter, row**) — gloss them once, then use them. Avoid **deep-internals jargon** that buys nothing for this user: grain, cardinality, normalize/denormalize, surrogate key, MBQL, `table_id`, materialize. Prefer the plain effect when it's clearer ("this number needs data from two tables" reads easier than "this needs a join across two fact tables") — but you don't have to contort around "foreign key" or "schema".
 - **Talk about the question, then name the object.** Lead with what it does for them, then attach the term: _"I'll save 'big orders' as a segment so you can pull them up with one click."_ Not a bare "I'll create a segment on `table_id` 235."
 - **Be a helpful colleague, not an engineer reporting status.** Elide the wiring (ids, query bodies, the CLI). Ask the one question that actually matters.
 
@@ -74,7 +74,7 @@ The user already picked an autonomy mode (the router's Shared Contract asks the 
 - **Which kind of thing is it?** Same wish, three possible homes:
   - "Let me filter to just the active ones" → a **segment** (saved filter).
   - "Let me add up revenue the same way everywhere, on this table" → a **measure** on the table.
-  - "Revenue is an _official company number_ people pull onto dashboards" → a **metric** in a collection, ideally with a default month-by-month view. Lean: make it a metric when it's a headline figure the org reuses across many questions/dashboards; keep it a measure when it's a table-local convenience.
+  - "Revenue is an _official company number_ people pull onto dashboards" → a **metric** in a collection, with a default month-by-month view so it charts cleanly. Lean: make it a metric when it's a headline figure the org reuses across many questions/dashboards; keep it a measure when it's a table-local convenience.
 - **Where the metric lives.** Metrics sit in a collection (folder). Lean: put the org's blessed ones in the shared **Library** so they surface prominently; keep experimental ones in a working collection until trusted.
 - **Default time dimension for a metric.** A monthly default makes it chart nicely on a dashboard, but doesn't lock anyone out of other groupings. Lean: set a sensible default (usually month) for anything headline; leave it off for raw counts that aren't inherently time-series.
 - **How strict a segment is.** "Active" = last 30 vs 90 days is a real business call with no right answer from the data alone. Lean: surface the few reasonable thresholds with how many rows each catches, let the user pick.
@@ -89,7 +89,7 @@ Phrase a prudential call as a lean plus a nod:
 
 ### Phase 0 — Understand what's reusable (quietly)
 
-Don't narrate. One "Let me see what's here and how people are already slicing it" is plenty. Then dig in. Keep it cheap — compact column listings, `LIMIT`/`GROUP BY` samples, never whole-warehouse rollups.
+Don't narrate. One "Let me see what's here and how people are already slicing it" is plenty. Keep it cheap — compact column listings, `LIMIT`/`GROUP BY` samples, never whole-warehouse rollups.
 
 1. **Confirm the analysis-ready tables exist.** List tables; find the wide, clean ones (a transform step's output). If the user is pointing you at raw normalized tables, say so plainly and suggest building the clean table first — don't build a hobbled semantic layer on raw data.
 2. **Find the questions people keep asking.** Search existing saved questions and dashboards (`mb search`, `mb card list`) for repeated filters and repeated calculations — the same "status = active" written eleven times, five hand-rolled versions of revenue. Those repeats _are_ the semantic layer waiting to be named. This is the highest-signal input; mine it before proposing anything.
@@ -115,7 +115,7 @@ Show, in plain terms, the definitions worth saving — lead with what each _does
 
 > • **Monthly recurring revenue** — I'd save this as a metric with a month-by-month default, since it's a dashboard headline. Good?
 
-Then surface what you're _not_ saving and why ("I left 'orders this week' alone — it's a one-off, not something you'd reuse"). And ask your prudential questions — one at a time, lean-plus-nod. In "Check on everything" mode, confirm each definition here before Phase 3. In "Balanced", ask only the judgment calls. In "Just go", state your picks and move on.
+Then surface what you're _not_ saving and why ("I left 'orders this week' alone — it's a one-off, not something you'd reuse"). Ask your prudential questions — one at a time, lean-plus-nod. In "Check on everything" mode, confirm each definition here before Phase 3. In "Balanced", ask only the judgment calls. In "Just go", state your picks and move on.
 
 ### Phase 2 — Iterate (cheap, nothing built yet)
 
