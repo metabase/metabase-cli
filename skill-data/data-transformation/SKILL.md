@@ -18,7 +18,7 @@ mb skills get mbql         # if you build transform queries in MBQL
 mb skills get transform    # creating/running transforms, run inspection
 ```
 
-Authentication is the user's job — pick the profile per `core`'s **Auth & profiles** section and pass `--profile <name>` to every command. That profile's `url` is the instance's base URL — build every browser link below from it, so what you open matches the instance the CLI is hitting.
+Users authenticate. You pick the profile per `core`'s **Auth & profiles** and pass `--profile <name>` to every command. That profile's `url` is the instance's base URL. Browser links below are built from it, ensuring the links are consistent with your CLI usage.
 
 If you are making transforms, use the transform skill.
 
@@ -26,13 +26,13 @@ If you are making transforms, use the transform skill.
 
 ## Who you're talking to
 
-A **non-technical user who knows their domain well** — they understand the business (events, customers, invoices, whatever it is) but not databases. So:
+A **non-technical user who knows their domain well** — they understand the business (events, customers, invoices, etc.) but not databases.
 
-- **No modeling jargon.** Skip warehouse vocabulary they won't know — grain, fact/dimension table, wide/long tables, normalize, surrogate key, entity, materialize — prefer plain phrasing: "one row per \_\_\_", "what it tells you", "links up with", "how full a column is", "the kinds of things in here". **But don't overdo it:** they work with tables, so basic relational terms are fine — table, column, ERD, schema, key, foreign key (cardinality too, though "one-to-many" usually lands better). **Metabase's product terms are encouraged** — Question, Model, Segment, Measure, Metric, Transform — they're the user's tools, not database jargon.
-- **Don't lean on raw SQL to communicate.** They may follow a simple `SELECT`, but don't explain your work in SQL or ask them to read or write it.
+- **No modeling jargon.** Skip warehouse vocabulary — grain, fact/dimension table, wide/long tables, normalize, surrogate key, entity, materialize — prefer plain phrasing: "one row per \_\_\_", "what it tells you", "links up with", "how full a column is", "the kinds of things in here". **But don't overdo it:** basic relational terms are fine — table, column, ERD, schema, key, foreign key (cardinality too, though "one-to-many" usually lands better). **Metabase's product terms are encouraged** — Question, Model, Segment, Measure, Metric, Transform — they're not database jargon.
+- **Don't lean on raw SQL to communicate.** They may follow a simple `SELECT`, but don't explain work via SQL or ask them to read/write it.
 - Group what you show by **the question a column answers**, never by which source table it came from.
-- Be a **helpful assistant, not an engineer reporting status.** Elide the machinery; ask the one sharp question that matters.
-- Your user probably says "go" and comes back later. **If you ever ask the user a question, wait for their answer.**
+- Be a **helpful assistant, not an engineer reporting status.** Elide machinery; ask sharp questions that matter.
+- Your user may say "go" and come back later. **If you ever ask the user a question, wait for their answer.**
 
 ---
 
@@ -42,23 +42,23 @@ Sort every choice into one of these.
 
 **Hard rules — absolutes, never ask:**
 
-1. Never flatten a multi-valued field into one opaque blob (e.g. three options jammed into `"email | phone | text"`). It destroys filterability, which is the whole point.
-2. Never use jargon with the user.
-3. Always surface **real data you're about to leave out** — proactively, ranked by how much is actually there.
-4. Never guess what a column or code means from its name alone. Confirm against the actual values, then interpret them in context — the table the field belongs to and the business domain it sits in (e.g., a status on orders ≠ status on subscriptions).
+1. Never flatten multi-valued fields into opaque blobs (e.g. three options squished: `"email | phone | text"`). It destroys filterability (the whole point).
+2. Never use jargon with the user. Explain by domain and telos.
+3. Always surface **real data you're about to leave out** proactively, ranked by how much is extant.
+4. Never guess what schema mean from their name alone. Confirm against actual values, interpret them in context: the table the field belongs to and the relevant domain (e.g., a status on orders ≠ status on subscriptions).
 5. Never silently drop a whole _thing_. Dropping a column is routine; dropping a whole kind-of-thing (e.g. "suppliers") must be surfaced and confirmed.
-6. Never drop the columns that link things together. Every table keeps its own id **and** the ids tying it to your other tables — alongside the readable labels you copy in, not instead of them. The label is for reading; the id lets two tables be combined later. You're building several tables about _related_ things, so they **will** be combined ("sales per region", "messages per customer") — a dropped id makes that quietly impossible and the user can't see it happened. Keep the ids; just don't make the user stare at them.
-7. Never bake a non-obvious business rule into a table without confirming it in plain terms. When a transform encodes a judgment the user would have an opinion on — how money nets (a refund is money back _out_), which row is someone's "current" one, what "active" means — say it back in one plain sentence and get a yes first. You know the columns; only they know the business, and a wrong rule hides perfectly inside a clean-looking table. ("I'm treating each person's most recent sign-up as their current one — right?")
-8. Never quietly carry sensitive personal data through. Flag it when you find it — addresses, phone numbers, emails, IPs, payment/financial fields — and let the user decide how to handle it (the prudential call below). Default to surfacing it, never to silently exposing it in a table others will browse.
-9. Never overwrite an existing table or another transform's output. Before building, check the target name is actually free (`mb transform list`, `mb table list`); if something already writes there, stop and surface it — building over it silently destroys their data. Reusing a name is only ever for updating _your own_ transform (`transform update`), never for clobbering another.
+6. Never drop columns that link things together. Every table keeps its own id **and** the ids tying it to other tables — alongside the readable labels you copy in, not instead of. The label is for reading; the id is for joining. You're building tables about _related_ things, so they **will** be combined ("sales per region", "messages per customer") — dropped ids make that quietly impossible and the user will regret it. Keep the ids; don't force the user to stare at them.
+7. Never bake a non-obvious business rule into a table without confirming it in plain terms. When a transform encodes a judgment the user would have an opinion on — how money nets, which row is the "current" one, what "active" means — say it back in one plain sentence and get a yes/no first. You know only the columns; they know the business. Wrong rules hide insidiously in clean-looking tables. ("I'm treating each person's most recent sign-up as their current one — right?")
+8. Never sneak sensitive personal data through. Flag it when appropriate — addresses, phone numbers, emails, IPs, financial, etc. — and ask the user how to handle it (the prudential call below). Always surface, never silently expose it in a table others will browse.
+9. Never overwrite existing tables or other transforms' outputs. Before building, check the target name is unused (`mb transform list`, `mb table list`); if it's in use, stop and surface it — building over it silently destroys their data. Reuse names only for updating _your own_ transform (`transform update`), never for clobbering another.
 
 **Prudential calls — contextual, multiple good answers, hinge on domain knowledge you lack. State a lean, then let the user decide.** The recurring ones:
 
-- **Multi-valued attribute** (one response → many options; one order → many line items): keep it filterable — a structured column for predefined lists, or a simple join table, never opaque text. Structure is the user's call. Lean: whatever keeps filtering simplest, very possibly flat.
-- **Layering**: default **flat** — one self-contained table per thing, no behind-the-scenes intermediate tables. Suggest a shared cleaned-up base table only if the same cleaning would otherwise be copied across many tables — and even then, ask.
-- **Out-of-scope things**: surface every kind-of-thing you find and ask in/out, rather than inferring scope from what they happened to mention.
-- **A repeating thing vs. the events it takes part in**: one table can mix a _stable_ thing (a customer, a company) with the _repeating_ events it's in (each order, each visit), copying the stable details onto every event row. If that thing genuinely recurs — same customer on many rows — consider giving it its own one-row-per-thing table too, linked by id, so "how many distinct customers" and the per-customer details have a clean home. Lean: split when recurrence is real, keep as one table when each appears once. (Phase 0's one-to-one / one-to-many check already tells you which.)
-- **Handling sensitive data** (addresses, emails, phones, IPs, financial details): once you've flagged it (rule 8), _how_ to carry it is the user's call — keep as-is, mask (last-4, domain-only, city not street), or drop. Lean: keep what the stated work needs, mask the rest, drop what nothing needs.
+- **Multi-valued attribute** (one response → many options; one order → many line items): keep it filterable! Structured columns for predefined lists, or simple join tables, never opaque text. Structure is the user's call. Lean: easiest filtering, probably flat.
+- **Layering**: default **flat** — one self-contained table per thing, no hidden intermediate tables. Suggest a shared cleaned-up base table only for DRY, avoiding copying complex logic across many transforms. Even then, ask.
+- **Out-of-scope things**: surface every domain-model you find and ask in/out, rather than inferring scope from what they happened to mention.
+- **A repeating thing vs. the events it takes part in**: one table can mix a _stable_ thing (a customer, a company) with _repeating_ events (each order, each visit), copying the stable details onto every event row. If that thing genuinely recurs — same customer on many rows — consider a one-row-per-thing table too, linked by id, so "how many distinct X" and the per-X details have clean homes. Lean: split when recurrence is real, but one table when each appears once. (Phase 0's one-to-one / one-to-many check already tells you which.)
+- **Handling sensitive data** (addresses, emails, phones, IPs, financial details): once you've flagged it (rule 8), _how_ to carry it is user's choice — keep as-is, mask (partial redaction), or drop. Lean: keep what is needed, mask the rest, drop the useless.
 
 Phrase a prudential call as a lean plus a nod:
 
@@ -131,10 +131,10 @@ Cheap, because nothing's built. Adjust the set of things, what's kept, and the s
 
 Design settled — now you build, the first step that writes; plan mode, if you used it, is behind you. Build one wide transform per agreed thing — and build for how it'll be judged: aim for output that's readable on sight, not just one that runs clean. Each table:
 
-- **Denormalized, but the link stays.** Copy in related context so casual reading needs no lookups (a product's name and price on the orders table) — **and keep the linking id beside it** (the product's id too). The label is for reading; the id keeps the tables combinable. Use the same id name everywhere a thing appears.
+- **Denormalized, but the link stays.** Copy in related context so casual reading needs no lookups (a product's name and price on the orders table) — **and keep the linking id beside it** (the product's id too, per rule 6). Use the same id name everywhere a thing appears.
 - **Decoded**: codes and JSON become readable text; bookkeeping columns and soft-deleted rows are gone (filter the source's soft-delete flag — Fivetran's `_fivetran_deleted`, Airbyte's `_ab_cdc_deleted_at`, or a plain `deleted_at`/`is_deleted` — so tombstones never reach clean data; not every source has one).
 - **Clean, plain column names**, consistent across tables.
-- **Multi-valued pieces** in the agreed filterable structure — never opaque text.
+- **Multi-valued pieces** in the agreed filterable structure (rule 1).
 - **Keep the detail; don't pre-summarize it away.** Build the detailed rows (one per order, one per payment), not pre-computed totals. A convenience count is fine _beside_ the rows, never _instead of_ them — a frozen total only ever answers the one question it was summed for.
 
 Then make the links real, not just implied:
@@ -187,7 +187,7 @@ Always decode _before_ presenting, so the user sees "Preferred contact method", 
 
 A scan-list, not a pipeline — and the governing rule is **surface what you find, don't silently "fix" it.** Silently dropping outliers, imputing blanks, or merging "duplicates" can erase the exact signal the domain expert cares about. Safe standardizations you just apply; everything else is a prudential call — flag it with a lean and let them decide.
 
-**Just apply** (safe, universal — already your default): consistent timestamps/timezone; trimmed, case-consistent text; junk placeholders (`"NULL"`, `"N/A"`, `"-"`, `""`) → real null; sane numeric precision; booleans from varied forms (Y/N, 1/0); soft-deleted rows filtered, bookkeeping columns dropped.
+**Just apply** (safe, universal — already your default): consistent timestamps/timezone; trimmed, case-consistent text; junk placeholders (`"NULL"`, `"N/A"`, `"-"`, `""`) → real null; sane numeric precision; booleans from varied forms (Y/N, 1/0).
 
 **Notice and surface** (the answer depends on their business):
 
@@ -197,4 +197,4 @@ A scan-list, not a pipeline — and the governing rule is **surface what you fin
 - **Missing data** — random vs. systematic? Surface the pattern; never silently impute or default.
 - **Free text / mixed encodings** — handle the safe parts, flag the rest.
 
-Already covered by the rules above, listed so they stay on your radar: structural reshaping (decode/JSON/multi-value), orphans & key validity (Phase 0 step 5 + the post-run check), and recording meanings (the descriptions step).
+Already covered by the rules above, listed so they stay on your radar: structural reshaping (decode/JSON/multi-value), orphans & key validity (Phase 0 step 5 + the post-run check), filtering soft-deletes & dropping bookkeeping columns (Phase 4's **Decoded** step), and recording meanings (the descriptions step).
