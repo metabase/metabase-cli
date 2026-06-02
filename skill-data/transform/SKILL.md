@@ -24,28 +24,23 @@ For an **MBQL 5** `source.query` (`lib/type: "mbql/query"`), the body shape, the
 ## Create + run (native SQL)
 
 ```bash
-cat > ./.scratch/transform.json <<'EOF'
-{
-  "name": "user_counts_by_signup_year",
-  "description": "Sample transform: counts users by year of signup",
-  "source": {
-    "type": "query",
-    "query": {
-      "type": "native",
-      "database": <db-id>,
-      "native": {
-        "query": "SELECT date_trunc('year', created_at)::date AS signup_year, COUNT(*)::int AS user_count FROM public.users GROUP BY 1 ORDER BY 1"
-      }
-    }
-  },
-  "target": {
-    "type": "table",
-    "database": <db-id>,
-    "schema": "public",
-    "name": "user_counts_by_signup_year"
-  }
-}
-EOF
+# Author the SQL formatted — it's what `mb transform get` and the Metabase editor show.
+cat > ./.scratch/user_counts_by_signup_year.sql <<'SQL'
+SELECT
+  date_trunc('year', created_at)::date AS signup_year,
+  COUNT(*)::int                        AS user_count
+FROM public.users
+GROUP BY 1
+ORDER BY 1
+SQL
+
+# Embed it with jq --rawfile so the newlines survive as \n in valid JSON (don't hand-write the SQL as one line).
+jq -n --rawfile q ./.scratch/user_counts_by_signup_year.sql \
+  '{ name: "user_counts_by_signup_year",
+     description: "Sample transform: counts users by year of signup",
+     source: { type: "query", query: { type: "native", database: <db-id>, native: { query: $q } } },
+     target: { type: "table", database: <db-id>, schema: "public", name: "user_counts_by_signup_year" } }' \
+  > ./.scratch/transform.json
 
 TRANSFORM_ID=$(mb transform create --file ./.scratch/transform.json --profile <name> --json | jq -r '.id')
 mb transform run "$TRANSFORM_ID" --wait --profile <name> --json
@@ -58,7 +53,7 @@ Notes:
 - `--wait` on `transform run` polls until status is `succeeded` or `failed`. Without it you only get `{message: "Transform run started", run_id, final: null}` and have to poll yourself.
 - `--sync` implies `--wait`, then waits until the run's output table is registered — the run registers it itself, no `db sync-schema` needed — adding `target_table_id` to the envelope. Use it when you'll build MBQL on the output (see "Inspect").
 - The `--json` envelope is shape-stable: `{message, run_id, final}` (plus `target_table_id` under `--sync` — a number, or `null` if the table didn't register before the timeout). `final` is `null` when `--wait` is omitted or the run never started, otherwise a full `TransformRun` object with `status` and `message`. On a failed run (`final.status` ∈ {`failed`, `timeout`, `canceled`}) the CLI exits 1 and writes a one-line summary `transform run <id> failed` to stderr; the failure detail lives only in `final.message` on stdout, so `jq -r '.final.message'` is where to look.
-- The heredoc with single-quoted `'EOF'` prevents shell from interpolating any `$vars` inside the SQL.
+- **Keep the SQL formatted.** Author it multi-line in `./.scratch/<name>.sql` and embed with `jq --rawfile` (jq ≥1.6, which JSON-encodes the file so newlines become `\n`). The stored `native.query` is what `mb transform get` and the Metabase editor render — a single-line blob is valid JSON but unreadable when anyone opens the transform. Single-quote the heredoc delimiter (`<<'SQL'`) so the shell leaves `$vars` in the query alone (e.g. Postgres `$1`, `$$`).
 - `transform create --json` returns the agent-facing compact projection: `{id, name, description, source_type, target: {type, database, schema, name}, target_db_id}`. Read `target.schema`/`target.name` directly off the create output — no follow-up `transform get` needed to verify where the transform will write.
 - If a transform with the same `name` already has a YAML representation on disk under the configured remote-sync repo, `create` mints a `_2` suffix on the exported filename (the new transform gets a fresh `entity_id`; the prior one isn't touched). For "iterate on the same concept" workflows, prefer `transform update <id>` — see "Iterating on a failing transform" below.
 - **`collection_id` only accepts a collection in the `:transforms` namespace.** Transforms aren't filed next to cards and dashboards — passing a normal analytics collection id (the kind a dashboard lives in) fails create/update with `collection_id: A Transform can only go in Collections in the :transforms namespace.` Omit `collection_id` to leave the transform uncollected (the common case), or create one with `mb collection create --body '{"name":"…"}' --namespace transforms --json` and pass the returned `id`. Cards and dashboards you build **on top of** the transform's output table go in ordinary collections as usual — so "put the transform and its dashboard in collection X" generally means _X holds the dashboard + cards; the transform stays in the transforms namespace._
@@ -130,12 +125,14 @@ Right shape — patch only what changes:
 # Rename only:
 mb transform update <id> --body '{"name":"renamed"}' --profile <name> --json
 
-# Rewrite the SQL only:
-cat > ./.scratch/patch.json <<'EOF'
-{ "source": { "type": "query", "query": { "type": "native",
-    "database": <db-id>,
-    "native": { "query": "SELECT … FROM public.orders" } } } }
-EOF
+# Rewrite the SQL only — author it formatted, embed with jq:
+cat > ./.scratch/orders.sql <<'SQL'
+SELECT …
+FROM public.orders
+SQL
+jq -n --rawfile q ./.scratch/orders.sql \
+  '{ source: { type: "query", query: { type: "native", database: <db-id>, native: { query: $q } } } }' \
+  > ./.scratch/patch.json
 mb transform update <id> --file ./.scratch/patch.json --profile <name> --json
 
 # Change tag membership (note: tag_ids, not tags):
@@ -168,11 +165,12 @@ mb transform run "$ID" --wait --profile <n> --json     # → failed
 
 # 2. Fix the body in place; PATCH only what changed.
 #    Source-only patch — keeps name, target, tags untouched on the server.
-cat > ./.scratch/source-patch.json <<'EOF'
-{ "source": { "type": "query", "query": { "type": "native",
-    "database": <db-id>,
-    "native": { "query": "<fixed SQL here>" } } } }
-EOF
+cat > ./.scratch/source.sql <<'SQL'
+<fixed SQL, formatted>
+SQL
+jq -n --rawfile q ./.scratch/source.sql \
+  '{ source: { type: "query", query: { type: "native", database: <db-id>, native: { query: $q } } } }' \
+  > ./.scratch/source-patch.json
 mb transform update "$ID" --file ./.scratch/source-patch.json --profile <n> --json
 
 # 3. Re-run
