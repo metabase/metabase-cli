@@ -60,6 +60,18 @@ This is the single source for the rules every child skill follows. Children carr
 
 **When genuinely unsure, ask — never assume.**
 
+**Questions must carry their own context.** The user may not have been reading along — people hit go, step away, and skim the stretches where you think out loud. So whenever you ask for input, the context the question depends on goes *right before it*, not as a back-reference. "Given the mismatch I found earlier, what would you like to do?" forces a scroll-back; lead with a short recap instead:
+
+> I have a question for you — quick recap so it makes sense:
+>
+> - I found a mismatch in ...
+> - This matters because ...
+> - Here's what I was thinking, but I need to check ...
+>
+> The question.
+
+Recap only the few points the question turns on — enough to answer cold, not a replay of everything you did.
+
 **The final hard stop.** Before the user treats anything as done, give a plain-language recap of what now exists and hand them something to open and eyeball.
 
 ---
