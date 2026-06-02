@@ -1,7 +1,7 @@
 ---
 name: data-transformation
 description: Turn a raw, normalized source database into a small set of clean, analysis-ready tables. Claude investigates the source, works out the real-world "things" the data is about (even when each one is scattered across several tables), decodes coded/JSON/translated values into readable text, and builds one wide, denormalized table per thing as Metabase transforms. Designed for a non-technical user who knows their domain. Use whenever someone wants to "clean up", "flatten", "denormalize", "make sense of", or "build analysis-ready tables from" a raw database. This is the strategy skill for modeling a whole database into a set of clean tables; for authoring or running one individual transform (body shape, flags, run inspection), use the `transform` skill instead.
-allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
+allowed-tools: Read, Write, Edit, Bash, AskUserQuestion, EnterPlanMode, ExitPlanMode
 ---
 
 # Data Transformation
@@ -72,9 +72,19 @@ As soon as you know which database and schema you're in:
 - **Ask for a head start.** "Do you have a picture or file showing how your data fits together, like an ERD?" If yes, read it — it shortcuts the next steps.
 - **Ask for their conventions.** "Is there already cleaned-up data, or a past project, that shows how your team likes this done?" If yes, inspect it: it tells you their naming, their idea of "clean," and existing tables worth linking to.
 
-### Phase 1 — Investigate (quietly)
+### Phase 1 — Investigate (in plan mode, if they choose)
 
-Don't narrate this — a single "Let me take a look at what's in here — one minute" is enough. Keep it cheap: never pull whole-warehouse rollups (they blow up); use compact column listings, `LIMIT`/sample queries, and `GROUP BY count(*)`.
+Orientation done, you're about to go heads-down. First, offer two ways to work:
+
+> Two ways I can take it from here:
+> - **I dig through it all and bring you a complete plan** to approve before I build anything — quieter; you won't hear much until it's ready.
+> - **We work it out together** — I share what I find and we make the calls as we go.
+
+First path: **enter plan mode** (`EnterPlanMode`). Everything up to the agreed table list — investigate, present, prudential calls, naming (Phases 1–3) — happens inside it, read-only; you exit once, at the approval gate before building (Phase 4). Second path: skip it, shape it conversationally through the same phases. Either way, don't build until the design is settled and user-approved.
+
+Plan mode is a long quiet stretch — they said "go" and walked off. So whenever you surface — a question now, the plan at the end — **carry your own context**: recap what it rests on right before you ask, never a back-reference to something said while they were away (the router's contract spells this out).
+
+Then dig in. Don't narrate this — a single "Let me take a look at what's in here — one minute" is enough. Keep it cheap: never pull whole-warehouse rollups (they blow up); use compact column listings, `LIMIT`/sample queries, and `GROUP BY count(*)`.
 1. **Map the tables.** List them; pull each one's column names and types; note its own id.
 2. **Find the decode tables.** Normalized SaaS data hides meaning in lookups — `*_field`, `*_field_choice`, `*_question`, `*_choice`, `*_type`. A column like `doodad_4471` is meaningless until you join the lookup and find it's *"Preferred vehicular transport"*. Build that code → label map yourself by joining the lookups — never hand the user a coded column and ask what it means — before showing them anything.
 3. **Prove the connections — don't trust declared keys.** Synced databases usually have none. If that's the case, ask the user if they have ERD or relationship information (screenshot, JSON, documentation, etc.). For each `<x>_id`, guess it points at `<x>`, then check what fraction of values actually match the target's id: high = real link, low = decoy, discard. Note one-to-one vs one-to-many. **Also look outward** — does a thing you're about to build already exist as clean data elsewhere in the instance (an existing customers table your people match, a product list)? If so, plan to *link* to it, not duplicate it.
@@ -104,11 +114,11 @@ If you spotted existing clean data to link to (step 3), raise it here too — an
 
 ### Phase 3 — Iterate
 
-Cheap, because nothing's built. Adjust the set of things, what's kept, and the shape of any multi-valued pieces until the user's happy. **Agree on what each table will be called** — propose a clear name for each (matching any naming pattern you found in their existing data, Phase 0) and let them adjust. Confirm each name is free — not already an existing table or another transform's output (rule 9) — so building can't overwrite anyone's data. Settle the names before building: the name you agree on is the one you build and keep. Re-confirm the final picture in one short recap.
+Cheap, because nothing's built. Adjust the set of things, what's kept, and the shape of any multi-valued pieces until the user's happy. **Agree on what each table will be called** — propose a clear name for each (matching any naming pattern you found in their existing data, Phase 0) and let them adjust. Confirm each name is free — not already an existing table or another transform's output (rule 9) — so building can't overwrite anyone's data. Settle the names before building: the name you agree on is the one you build and keep. Re-confirm the final picture in one short recap. **In plan mode, that recap *is* your exit:** present it as the plan and call `ExitPlanMode` — approval here is the single go-ahead to build. (Iterating together? The recap is just your check before building.)
 
 ### Phase 4 — Build, check, hand back
 
-Build one wide transform per agreed thing. Each table:
+Design settled — now you build, the first step that writes; plan mode, if you used it, is behind you. Build one wide transform per agreed thing. Each table:
 - **Denormalized, but the link stays.** Copy in related context so casual reading needs no lookups (a product's name and price on the orders table) — **and keep the linking id beside it** (the product's id too). The label is for reading; the id keeps the tables combinable. Use the same id name everywhere a thing appears.
 - **Decoded**: codes and JSON become readable text; bookkeeping columns and soft-deleted rows are gone (filter the source's soft-delete flag — Fivetran's `_fivetran_deleted`, Airbyte's `_ab_cdc_deleted_at`, or a plain `deleted_at`/`is_deleted` — so tombstones never reach clean data; not every source has one).
 - **Clean, plain column names**, consistent across tables.
