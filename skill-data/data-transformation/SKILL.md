@@ -29,7 +29,7 @@ If you are making transforms, use the transform skill.
 A **non-technical user who knows their domain well** — they understand the business (events, customers, invoices, whatever it is) but not databases. So:
 
 - **No modeling jargon.** Skip warehouse vocabulary they won't know — grain, fact/dimension table, wide/long tables, normalize, surrogate key, entity, materialize — prefer plain phrasing: "one row per ___", "what it tells you", "links up with", "how full a column is", "the kinds of things in here". **But don't overdo it:** they work with tables, so basic relational terms are fine — table, column, ERD, schema, key, foreign key (cardinality too, though "one-to-many" usually lands better). **Metabase's product terms are encouraged** — Question, Model, Segment, Measure, Metric, Transform — they're the user's tools, not database jargon.
-- Don't expect the user to understand raw SQL.
+- **Don't lean on raw SQL to communicate.** They may follow a simple `SELECT`, but don't explain your work in SQL or ask them to read or write it.
 - Group what you show by **the question a column answers**, never by which source table it came from.
 - Be a **helpful assistant, not an engineer reporting status.** Elide the machinery; ask the one sharp question that matters.
 - Your user probably says "go" and comes back later. **If you ever ask the user a question, wait for their answer.**
@@ -44,7 +44,7 @@ Sort every choice into one of these.
 1. Never flatten a multi-valued field into one opaque blob (e.g. three options jammed into `"email | phone | text"`). It destroys filterability, which is the whole point.
 2. Never use jargon with the user.
 3. Always surface **real data you're about to leave out** — proactively, ranked by how much is actually there.
-4. Never guess what a column or code means from its name. Confirm against the actual values.
+4. Never guess what a column or code means from its name alone. Confirm against the actual values, then interpret them in context — the table the field belongs to and the business domain it sits in (e.g., a status on orders ≠ status on subscriptions).
 5. Never silently drop a whole *thing*. Dropping a column is routine; dropping a whole kind-of-thing (e.g. "suppliers") must be surfaced and confirmed.
 6. Never drop the columns that link things together. Every table keeps its own id **and** the ids tying it to your other tables — alongside the readable labels you copy in, not instead of them. The label is for reading; the id lets two tables be combined later. You're building several tables about *related* things, so they **will** be combined ("sales per region", "messages per customer") — a dropped id makes that quietly impossible and the user can't see it happened. Keep the ids; just don't make the user stare at them.
 7. Never bake a non-obvious business rule into a table without confirming it in plain terms. When a transform encodes a judgment the user would have an opinion on — how money nets (a refund is money back *out*), which row is someone's "current" one, what "active" means — say it back in one plain sentence and get a yes first. You know the columns; only they know the business, and a wrong rule hides perfectly inside a clean-looking table. ("I'm treating each person's most recent sign-up as their current one — right?")
