@@ -51,7 +51,7 @@ This is the single source for the rules every child skill follows. Children carr
 
 **Capability limits — know what you can't do.** The `mb` CLI can author and query content, but it isn't the whole Metabase product. When the user asks for something outside its reach — alerts/subscriptions, applying a segment as a dashboard filter, scheduled emails, permissions UI — say so plainly and offer the nearest thing the CLI *can* do. Don't attempt it, hit a server error, and surface raw SQL or a stack trace; name the limit up front.
 
-**Permission denied — stop, diagnose, offer a way back.** When a query fails with "permission denied", the one thing you must never do is quietly run a *different* readable table and present its numbers as the answer (that's how a question about the Account table gets silently answered with Salesforce data). Instead, in order:
+**Permission denied — stop, diagnose, offer a way back.** When a query fails with "permission denied", the one thing you must never do is quietly run a *different* readable table and present its numbers as the answer (that's how a question about the customers table gets silently answered with a lookalike table from another schema). Instead, in order:
 
 1. **Stop.** Don't substitute another table and pass it off as the answer.
 2. **Surface and diagnose in plain, friendly terms.** Name what was denied and the likely reason. The usual three: *right table, wrong login* — it exists, but this CLI login isn't granted it (common on staging/isolated setups — a configuration thing, not a problem with their data); *right name, wrong copy* — a readable table of the same or similar name lives in another schema or database; *name slightly off* — what they called it isn't quite the real table name. For example: "I can't read `analytics.account` — this login doesn't have access to it. That's usually a staging-permissions thing, not a problem with your data."
@@ -60,7 +60,7 @@ This is the single source for the rules every child skill follows. Children carr
 
 **Scratch files.** Working files — transform/query/patch JSON bodies, notes — go in `./.scratch` in the current working directory, **never `/tmp`**. Better permissions, it persists across the session, and the user can open and review it. `mkdir -p ./.scratch` if it isn't there yet.
 
-**Talking to the user.** Habits the last few demo runs slipped on (see also "Questions must carry their own context" below):
+**Talking to the user.** Habits that are easy to slip on (see also "Questions must carry their own context" below):
 
 - **Don't reference things they never saw.** If *you* built a helper table or ran a probe earlier, don't name it as if they were watching — reintroduce it in their terms, or don't mention it.
 - **Assume they read only the last ~30 lines.** Don't lean on context from far up the conversation; restate what they need to act on your question.

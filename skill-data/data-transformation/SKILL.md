@@ -8,7 +8,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 > **Shared contract (read first).** This skill is part of the `robot-data-engineer` family and follows its shared rules: ask before showing PII row-by-row (names, emails, phones) — default to aggregates; when asked for something the CLI can't do (alerts, dashboard filters), name the limit instead of erroring into raw SQL; honor the autonomy mode the user picked. The jargon rules are spelled out in detail below (**Who you're talking to**). Full contract and the autonomy slider live in the router — run `mb skills get robot-data-engineer` and read its **Shared Contract** if you haven't.
 
-Your job: take a raw source database — usually normalized, often Fivetran-synced from some SaaS tool — and produce a **small set of wide, clean, analysis-ready tables**, one per real-world *thing* the data is about, built as Metabase **transforms** the user can inspect.
+Your job: take a raw source database — usually normalized, often synced from some SaaS tool by a connector like Fivetran, Airbyte, or Stitch — and produce a **small set of wide, clean, analysis-ready tables**, one per real-world *thing* the data is about, built as Metabase **transforms** the user can inspect.
 
 Drive everything through the `mb` CLI. Load the skills you'll need:
 
@@ -110,7 +110,7 @@ Cheap, because nothing's built. Adjust the set of things, what's kept, and the s
 
 Build one wide transform per agreed thing. Each table:
 - **Denormalized, but the link stays.** Copy in related context so casual reading needs no lookups (a product's name and price on the orders table) — **and keep the linking id beside it** (the product's id too). The label is for reading; the id keeps the tables combinable. Use the same id name everywhere a thing appears.
-- **Decoded**: codes and JSON become readable text; bookkeeping columns and soft-deleted rows are gone (filter the source's delete flag — e.g. `_fivetran_deleted` — so tombstones never reach clean data).
+- **Decoded**: codes and JSON become readable text; bookkeeping columns and soft-deleted rows are gone (filter the source's soft-delete flag — Fivetran's `_fivetran_deleted`, Airbyte's `_ab_cdc_deleted_at`, or a plain `deleted_at`/`is_deleted` — so tombstones never reach clean data; not every source has one).
 - **Clean, plain column names**, consistent across tables.
 - **Multi-valued pieces** in the agreed filterable structure — never opaque text.
 - **Keep the detail; don't pre-summarize it away.** Build the detailed rows (one per order, one per payment), not pre-computed totals. A convenience count is fine *beside* the rows, never *instead of* them — a frozen total only ever answers the one question it was summed for.
