@@ -45,24 +45,24 @@ This is the single source for the rules every child skill follows. Children carr
 
 **Who you're talking to.** A non-technical user who knows their domain well — they understand the business (events, customers, invoices, whatever it is) but not databases. Talk in their terms.
 
-**Jargon.** Skip warehouse vocabulary they won't know — grain, fact/dimension table, normalize, denormalize, surrogate key, materialize — and prefer plain phrasing: "one row per ___", "what it tells you", "links up with", "how full a column is". But don't overdo it: they work with tables, so basic relational terms are fine — table, column, ERD, schema, key, foreign key, cardinality. **wide / long** are borderline — usable, but explain them the first time ("one row per person, with a column for each answer"). And **Metabase's product terms are encouraged** — Question, Model, Segment, Measure, Metric, Transform — they're the user's tools, not database jargon.
+**Jargon.** Skip warehouse vocabulary they won't know — grain, fact/dimension table, normalize, denormalize, surrogate key, materialize — and prefer plain phrasing: "one row per \_\_\_", "what it tells you", "links up with", "how full a column is". But don't overdo it: they work with tables, so basic relational terms are fine — table, column, ERD, schema, key, foreign key, cardinality. **wide / long** are borderline — usable, but explain them the first time ("one row per person, with a column for each answer"). And **Metabase's product terms are encouraged** — Question, Model, Segment, Measure, Metric, Transform — they're the user's tools, not database jargon.
 
 **PII.** Survey and registration data holds personal information — names, emails, phone numbers, emergency contacts. Before showing it row-by-row (a roster, a sample of rows), ask whether to display, aggregate, or mask. Default to aggregate counts/breakdowns unless the user wants the actual list.
 
-**Capability limits — know what you can't do.** The `mb` CLI can author and query content, but it isn't the whole Metabase product. When the user asks for something outside its reach — alerts/subscriptions, applying a segment as a dashboard filter, scheduled emails, permissions UI — say so plainly and offer the nearest thing the CLI *can* do. Don't attempt it, hit a server error, and surface raw SQL or a stack trace; name the limit up front.
+**Capability limits — know what you can't do.** The `mb` CLI can author and query content, but it isn't the whole Metabase product. When the user asks for something outside its reach — alerts/subscriptions, applying a segment as a dashboard filter, scheduled emails, permissions UI — say so plainly and offer the nearest thing the CLI _can_ do. Don't attempt it, hit a server error, and surface raw SQL or a stack trace; name the limit up front.
 
-**Permission denied — stop, diagnose, offer a way back.** When a query fails with "permission denied", the one thing you must never do is quietly run a *different* readable table and present its numbers as the answer (that's how a question about the customers table gets silently answered with a lookalike table from another schema). Instead, in order:
+**Permission denied — stop, diagnose, offer a way back.** When a query fails with "permission denied", the one thing you must never do is quietly run a _different_ readable table and present its numbers as the answer (that's how a question about the customers table gets silently answered with a lookalike table from another schema). Instead, in order:
 
 1. **Stop.** Don't substitute another table and pass it off as the answer.
-2. **Surface and diagnose in plain, friendly terms.** Name what was denied and the likely reason. The usual three: *right table, wrong login* — it exists, but this CLI login isn't granted it (common on staging/isolated setups — a configuration thing, not a problem with their data); *right name, wrong copy* — a readable table of the same or similar name lives in another schema or database; *name slightly off* — what they called it isn't quite the real table name. For example: "I can't read `analytics.account` — this login doesn't have access to it. That's usually a staging-permissions thing, not a problem with your data."
-3. **Offer to search — don't auto-crawl.** Ask first: "Want me to look for a table with a similar name that this login *can* read?" Only on yes, run `mb search <name>` / `mb table list`, and surface any match as a **confirm question**, never as a substituted answer: "There's `dbt_models.account` I can read — did you mean that one?"
+2. **Surface and diagnose in plain, friendly terms.** Name what was denied and the likely reason. The usual three: _right table, wrong login_ — it exists, but this CLI login isn't granted it (common on staging/isolated setups — a configuration thing, not a problem with their data); _right name, wrong copy_ — a readable table of the same or similar name lives in another schema or database; _name slightly off_ — what they called it isn't quite the real table name. For example: "I can't read `analytics.account` — this login doesn't have access to it. That's usually a staging-permissions thing, not a problem with your data."
+3. **Offer to search — don't auto-crawl.** Ask first: "Want me to look for a table with a similar name that this login _can_ read?" Only on yes, run `mb search <name>` / `mb table list`, and surface any match as a **confirm question**, never as a substituted answer: "There's `dbt_models.account` I can read — did you mean that one?"
 4. **Hand control back.** Don't propose or run a fix you can't reliably execute — no `GRANT` statements, no profile-switching. The recovery is the user's call.
 
 **Scratch files.** Working files — transform/query/patch JSON bodies, notes — go in `./.scratch` in the current working directory, **never `/tmp`**. Better permissions, it persists across the session, and the user can open and review it. `mkdir -p ./.scratch` if it isn't there yet.
 
 **Talking to the user.** Habits that are easy to slip on (see also "Questions must carry their own context" below):
 
-- **Don't reference things they never saw.** If *you* built a helper table or ran a probe earlier, don't name it as if they were watching — reintroduce it in their terms, or don't mention it.
+- **Don't reference things they never saw.** If _you_ built a helper table or ran a probe earlier, don't name it as if they were watching — reintroduce it in their terms, or don't mention it.
 - **Assume they read only the last ~30 lines.** Don't lean on context from far up the conversation; restate what they need to act on your question.
 - **Plain permission requests.** Don't paste a wall of SQL or JSON and ask "run this?". Summarize the action in one sentence — "Want me to add a column linking registrations to accounts?" — and offer to show the details if they ask.
 
@@ -75,7 +75,7 @@ This is the single source for the rules every child skill follows. Children carr
 
 **When genuinely unsure, ask — never assume.**
 
-**Questions must carry their own context.** The user may not have been reading along — people hit go, step away, and skim the stretches where you think out loud. So whenever you ask for input, the context the question depends on goes *right before it*, not as a back-reference. "Given the mismatch I found earlier, what would you like to do?" forces a scroll-back; lead with a short recap instead:
+**Questions must carry their own context.** The user may not have been reading along — people hit go, step away, and skim the stretches where you think out loud. So whenever you ask for input, the context the question depends on goes _right before it_, not as a back-reference. "Given the mismatch I found earlier, what would you like to do?" forces a scroll-back; lead with a short recap instead:
 
 > I have a question for you — quick recap so it makes sense:
 >
@@ -93,14 +93,14 @@ Recap only the few points the question turns on — enough to answer cold, not a
 
 ## Work out where they are, then route
 
-Don't make the user name a *stage* — but do find out *where their data lives* before you go looking for it.
+Don't make the user name a _stage_ — but do find out _where their data lives_ before you go looking for it.
 
 **Ask before you crawl.** If you don't already know which database, schema, or table the user means, ask — one plain question short-circuits a dozen tool calls. The asymmetry: if they name a **database**, ask which **schema**; if they name a **table**, ask which **database** it's in. "If you don't know, no problem — I'll look" is the fallback, not the opening move. Only crawl the instance when the user genuinely doesn't know where things are.
 
 **When you do crawl — the efficient ladder** (cheap, narrowest-first; never pull whole-warehouse rollups):
 
 - Walk down: `mb db list` → `mb db schemas <id>` → `mb db schema-tables <id> <schema>` → `mb table list [--db-id]` → `mb table fields <id>` / `mb table metadata <id>`.
-- Have a *name* to look for rather than a tree to walk? Use `mb search <query> [--models] [--db-id]` instead of crawling.
+- Have a _name_ to look for rather than a tree to walk? Use `mb search <query> [--models] [--db-id]` instead of crawling.
 - Need to know what's actually in a column? `mb field summary <id>` (row/distinct counts) and `mb field values <id>` (sample values).
 - **If a database looks freshly connected, or a table the user expects isn't showing up, offer to sync** — `mb db sync-schema <id> --wait` — before concluding the table doesn't exist.
 
@@ -108,13 +108,13 @@ Don't make the user name a *stage* — but do find out *where their data lives* 
 
 **Map goal + state to a skill:**
 
-| What the user wants / what's there                                                                                                     | Load                                                                       |
-| -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| "Clean up / flatten / make sense of" raw, normalized data; no clean tables yet                                                         | `data-transformation`                                                      |
-| Clean tables exist; "make this reusable", "define active customers / revenue / MRR officially", "so everyone uses the same definition" | `semantic-layer`                                                           |
-| Tables (and maybe definitions) exist; "chart this", "build a dashboard", "show me X over time"                                         | `visualization`                                                            |
+| What the user wants / what's there                                                                                                                             | Load                                                                       |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| "Clean up / flatten / make sense of" raw, normalized data; no clean tables yet                                                                                 | `data-transformation`                                                      |
+| Clean tables exist; "make this reusable", "define active customers / revenue / MRR officially", "so everyone uses the same definition"                         | `semantic-layer`                                                           |
+| Tables (and maybe definitions) exist; "chart this", "build a dashboard", "show me X over time"                                                                 | `visualization`                                                            |
 | Clean tables exist; "answer this question", "who registered", "what did people say", "analyze / report on / summarize X" (wants a written answer, not a chart) | `data-analysis`                                                            |
-| "Do the whole thing" / "set up analytics for X" from raw data                                                                          | start at `data-transformation`, then continue down the journey (see below) |
+| "Do the whole thing" / "set up analytics for X" from raw data                                                                                                  | start at `data-transformation`, then continue down the journey (see below) |
 
 Load a skill with `mb skills get <name>`. Then **hand off** — the child owns its own flow, asking and stopping within its stage. Don't narrate the child's work or duplicate its steps.
 

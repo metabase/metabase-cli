@@ -32,7 +32,7 @@ For each question the user asks:
 
 Don't over-interrogate, but settle the things that change the answer:
 
-- **Scope.** All-time or a window? Everyone, or only confirmed/active? A "how many registered" with no status filter and a "how many *confirmed*" are different numbers — pick the one they mean, and say which you used.
+- **Scope.** All-time or a window? Everyone, or only confirmed/active? A "how many registered" with no status filter and a "how many _confirmed_" are different numbers — pick the one they mean, and say which you used.
 - **Cut.** Do they want the headline number, or the number broken down (by role, by company, by version)? A breakdown is usually one `GROUP BY` away and far more useful.
 - **Form of the answer.** A number in chat? A short written digest? A saved question they can re-open and refilter? If they want something durable or visual, that's the `visualization` skill — hand off.
 

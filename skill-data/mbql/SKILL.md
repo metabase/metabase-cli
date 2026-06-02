@@ -64,7 +64,7 @@ Set an explicit `lib/uuid` only when you must **reference a clause from elsewher
 
 (`AGG_UUID` is both the aggregation's own `lib/uuid` and the string the ref points at — one value, by string equality. Every other clause omits its UUID. Expression refs work the same way but key off the expression's `lib/expression-name` string, so expressions rarely need an explicit `lib/uuid`.)
 
-When you do need one, **always mint it with `mb uuid` — never write, guess, or copy a UUID yourself.** A hand-authored value is rejected pre-flight as not-a-v4 (`"a1"`, `"uuid-1"`, `"agg-uuid-001"` → `must be a UUID v4 (RFC 4122) — run \`mb uuid\``), or if it looks valid risks colliding with another clause. Only `mb uuid` gives genuine, unique v4s — mint just the few you reference (also covers native template-tag ids and any other `format: "uuid"` slot):
+When you do need one, **always mint it with `mb uuid` — never write, guess, or copy a UUID yourself.** A hand-authored value is rejected pre-flight as not-a-v4 (`"a1"`, `"uuid-1"`, `"agg-uuid-001"` → `must be a UUID v4 (RFC 4122) — run \`mb uuid\``), or if it looks valid risks colliding with another clause. Only `mb uuid`gives genuine, unique v4s — mint just the few you reference (also covers native template-tag ids and any other`format: "uuid"` slot):
 
 ```bash
 mb uuid --count 2 --json     # mint only the clauses you actually reference
