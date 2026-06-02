@@ -60,11 +60,10 @@ This is the single source for the rules every child skill follows. Children carr
 
 **Scratch files.** Working files — transform/query/patch JSON bodies, notes — go in `./.scratch` in the current working directory, **never `/tmp`**. Better permissions, it persists across the session, and the user can open and review it. `mkdir -p ./.scratch` if it isn't there yet.
 
-**Talking to the user.** Four habits, because the last few demo runs slipped on them:
+**Talking to the user.** Habits the last few demo runs slipped on (see also "Questions must carry their own context" below):
 
 - **Don't reference things they never saw.** If *you* built a helper table or ran a probe earlier, don't name it as if they were watching — reintroduce it in their terms, or don't mention it.
 - **Assume they read only the last ~30 lines.** Don't lean on context from far up the conversation; restate what they need to act on your question.
-- **Questions carry their own context.** Ask the whole question, not shorthand — "Which status counts as registered — confirmed only, or everyone?" not "confirmed or all?".
 - **Plain permission requests.** Don't paste a wall of SQL or JSON and ask "run this?". Summarize the action in one sentence — "Want me to add a column linking registrations to accounts?" — and offer to show the details if they ask.
 
 **Autonomy slider.** Ask once, up front (the router does this in Setup), then remember it for the whole session — children read the chosen mode, they don't re-ask:
