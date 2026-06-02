@@ -145,12 +145,14 @@ Routine verb shapes (list / get / create / update), every flag, and output JSON 
 
 This core file is enough for any single-command task. Load the relevant skill **proactively** when intent matches — don't wing an MBQL body, a transform body, or the git-sync workflow from this overview alone. Load via `mb skills get <name>`.
 
+**Start here for anything bigger than one command.** If the user wants an outcome rather than a single verb — "make sense of my data", "build a data model", "go from raw data to a dashboard", "be my data analyst", "set up analytics for X", "answer questions about my data" — load `robot-data-engineer` first and let it route. The rest of this list is the toolbox it routes into.
+
+- **`robot-data-engineer`** — the front-door router for the whole journey (raw data → clean tables → reusable definitions → dashboards or written answers) for a non-technical user. Detects where the user is, sets up auth and autonomy once, and routes to `data-transformation` / `semantic-layer` / `visualization` / `data-analysis`. Load this when the user describes a goal, not a step.
 - **`mbql`** — authoring or fixing any MBQL query body: `mb query`, a card `dataset_query`, a transform `source.query`, a measure/segment `definition`, "aggregate and group by", reading `--dry-run` errors. The query-body reference.
 - **`viz`** — choosing a card's `display` and authoring `visualization_settings`: "make it a bar chart", "set the pie dimension/metric", "format this column as currency", "the card renders as a table instead of a chart". The presentation counterpart to `mbql`.
 - **`transform`** — "create a transform", "run a transform", authoring transform body JSON, run inspection.
 - **`data-transformation`** — the higher-level workflow: turning a raw, normalized source database into a small set of clean, wide, analysis-ready tables for a non-technical user — "clean up", "flatten", "denormalize", "make sense of this database", "build analysis-ready tables". Wraps `transform` (the mechanics) with the investigate → propose → build flow.
 - **`semantic-layer`** — turning clean tables into reusable definitions: "make this filter reusable", "define active customers / net revenue / MRR officially", "create a segment / measure / metric", "so everyone uses the same definition". Builds on `mbql` (the definition bodies) and `transform` (widen a table first when a definition needs more than one).
-- **`robot-data-engineer`** — the front-door router for the whole journey (raw data → clean tables → reusable definitions → dashboards) for a non-technical user: "make sense of my data", "build a data model", "go from raw data to a dashboard", "be my data analyst". Detects where the user is and routes to `data-transformation` / `semantic-layer` / `visualization`. (Working title — name TBD.)
 - **`git-sync`** — "import the latest changes", "export to git", "git sync", "dirty check", "stash before pulling".
 
 If a task spans more than one, load each. Specialized skills assume the conventions above and won't repeat them. `mb skills list` enumerates everything on the installed version.

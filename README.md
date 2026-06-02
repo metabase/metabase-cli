@@ -1344,7 +1344,7 @@ Bundled skills:
 | `transform`           | Authoring and running transforms (native SQL + MBQL 5), iteration, run inspection             |
 | `data-transformation` | Raw, normalized source database → clean, wide, analysis-ready tables for a non-technical user |
 | `semantic-layer`      | Turning clean tables into reusable segments, measures, and metrics for a non-technical user   |
-| `robot-data-engineer` | Front-door router for the whole journey (raw → tables → definitions → dashboards); name TBD   |
+| `robot-data-engineer` | Front-door router for the whole journey (raw → tables → definitions → dashboards)             |
 | `document`            | Authoring document bodies: the TipTap JSON tree, embedding cards, entity links                |
 | `git-sync`            | Round-tripping Metabase content to/from a git remote                                          |
 
