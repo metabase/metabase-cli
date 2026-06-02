@@ -18,7 +18,7 @@ mb skills get mbql         # if you build transform queries in MBQL
 mb skills get transform    # creating/running transforms, run inspection
 ```
 
-Authentication is the user's job. Check `mb auth list --json`; use the one profile if there's one, ask which if there are several, ask them to log in if there are none. Pass `--profile <name>` to every command. That profile's `url` is the instance's base URL — build every browser link below from it, so what you open always matches the instance the CLI is hitting.
+Authentication is the user's job — pick the profile per `core`'s **Auth & profiles** section and pass `--profile <name>` to every command. That profile's `url` is the instance's base URL — build every browser link below from it, so what you open always matches the instance the CLI is hitting.
 
 If you are making transforms, use the transform skill.
 

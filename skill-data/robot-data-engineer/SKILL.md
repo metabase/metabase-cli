@@ -23,7 +23,7 @@ Stages 3 and 4 are siblings, not sequential: charting and answering-in-prose are
 
 Before routing, settle two things so the child skills don't have to re-ask:
 
-1. **Auth.** Check `mb auth list --json`. One profile → use it. Several → ask which. None → ask the user to log in (`mb auth login`), then proceed. Carry the chosen `--profile <name>` into everything.
+1. **Auth.** Pick the profile per `core`'s **Auth & profiles** section — `mb auth list --json`; one → use it, several → ask which, none → ask the user to `mb auth login` — then carry `--profile <name>` into everything. (That's the canonical recipe; this one line is here because the router is the front door and may run before `core` is loaded.)
 
 2. **How hands-on they want to be** (the autonomy slider). Ask once, plainly, and remember it for the whole session — tell the child skill which mode the user picked so they aren't asked again:
 
@@ -50,6 +50,22 @@ This is the single source for the rules every child skill follows. Children carr
 **PII.** Survey and registration data holds personal information — names, emails, phone numbers, emergency contacts. Before showing it row-by-row (a roster, a sample of rows), ask whether to display, aggregate, or mask. Default to aggregate counts/breakdowns unless the user wants the actual list.
 
 **Capability limits — know what you can't do.** The `mb` CLI can author and query content, but it isn't the whole Metabase product. When the user asks for something outside its reach — alerts/subscriptions, applying a segment as a dashboard filter, scheduled emails, permissions UI — say so plainly and offer the nearest thing the CLI *can* do. Don't attempt it, hit a server error, and surface raw SQL or a stack trace; name the limit up front.
+
+**Permission denied — stop, diagnose, offer a way back.** When a query fails with "permission denied", the one thing you must never do is quietly run a *different* readable table and present its numbers as the answer (that's how a question about the Account table gets silently answered with Salesforce data). Instead, in order:
+
+1. **Stop.** Don't substitute another table and pass it off as the answer.
+2. **Surface and diagnose in plain, friendly terms.** Name what was denied and the likely reason. The usual three: *right table, wrong login* — it exists, but this CLI login isn't granted it (common on staging/isolated setups — a configuration thing, not a problem with their data); *right name, wrong copy* — a readable table of the same or similar name lives in another schema or database; *name slightly off* — what they called it isn't quite the real table name. For example: "I can't read `analytics.account` — this login doesn't have access to it. That's usually a staging-permissions thing, not a problem with your data."
+3. **Offer to search — don't auto-crawl.** Ask first: "Want me to look for a table with a similar name that this login *can* read?" Only on yes, run `mb search <name>` / `mb table list`, and surface any match as a **confirm question**, never as a substituted answer: "There's `dbt_models.account` I can read — did you mean that one?"
+4. **Hand control back.** Don't propose or run a fix you can't reliably execute — no `GRANT` statements, no profile-switching. The recovery is the user's call.
+
+**Scratch files.** Working files — transform/query/patch JSON bodies, notes — go in `./.scratch` in the current working directory, **never `/tmp`**. Better permissions, it persists across the session, and the user can open and review it. `mkdir -p ./.scratch` if it isn't there yet.
+
+**Talking to the user.** Four habits, because the last few demo runs slipped on them:
+
+- **Don't reference things they never saw.** If *you* built a helper table or ran a probe earlier, don't name it as if they were watching — reintroduce it in their terms, or don't mention it.
+- **Assume they read only the last ~30 lines.** Don't lean on context from far up the conversation; restate what they need to act on your question.
+- **Questions carry their own context.** Ask the whole question, not shorthand — "Which status counts as registered — confirmed only, or everyone?" not "confirmed or all?".
+- **Plain permission requests.** Don't paste a wall of SQL or JSON and ask "run this?". Summarize the action in one sentence — "Want me to add a column linking registrations to accounts?" — and offer to show the details if they ask.
 
 **Autonomy slider.** Ask once, up front (the router does this in Setup), then remember it for the whole session — children read the chosen mode, they don't re-ask:
 
@@ -78,12 +94,18 @@ Recap only the few points the question turns on — enough to answer cold, not a
 
 ## Work out where they are, then route
 
-Don't make the user name a stage. Peek at the instance and read their goal, then meet them where they are.
+Don't make the user name a *stage* — but do find out *where their data lives* before you go looking for it.
 
-**Detect the starting state** (cheap — don't pull whole-warehouse rollups):
+**Ask before you crawl.** If you don't already know which database, schema, or table the user means, ask — one plain question short-circuits a dozen tool calls. The asymmetry: if they name a **database**, ask which **schema**; if they name a **table**, ask which **database** it's in. "If you don't know, no problem — I'll look" is the fallback, not the opening move. Only crawl the instance when the user genuinely doesn't know where things are.
 
-- List databases/schemas (`mb db …`, `mb table list`). Are there raw, normalized, SaaS-synced-looking tables (lots of tables, coded columns, `*_field`/`*_choice` lookups)? Or are there already wide, clean, human-readable tables?
-- Are there already segments/measures/metrics (`mb segment list`, `mb measure list`, `mb card list`)? Existing dashboards (`mb dashboard list`)?
+**When you do crawl — the efficient ladder** (cheap, narrowest-first; never pull whole-warehouse rollups):
+
+- Walk down: `mb db list` → `mb db schemas <id>` → `mb db schema-tables <id> <schema>` → `mb table list [--db-id]` → `mb table fields <id>` / `mb table metadata <id>`.
+- Have a *name* to look for rather than a tree to walk? Use `mb search <query> [--models] [--db-id]` instead of crawling.
+- Need to know what's actually in a column? `mb field summary <id>` (row/distinct counts) and `mb field values <id>` (sample values).
+- **If a database looks freshly connected, or a table the user expects isn't showing up, offer to sync** — `mb db sync-schema <id> --wait` — before concluding the table doesn't exist.
+
+**Then read the shape to pick a stage.** Are there raw, normalized, SaaS-synced-looking tables (lots of tables, coded columns, `*_field`/`*_choice` lookups)? Or already wide, clean, human-readable ones? Any segments/measures/metrics (`mb segment list`, `mb measure list`, `mb card list`) or dashboards (`mb dashboard list`)?
 
 **Map goal + state to a skill:**
 

@@ -97,13 +97,15 @@ Verbs that take a payload accept it from one of four sources, **first non-empty 
 Picking exactly one is required; passing two of `--body` + `--file` + `--stdin` is rejected with a `ConfigError`.
 
 ```bash
-cat > /tmp/body.json <<'EOF'
+cat > ./.scratch/body.json <<'EOF'
 { ... }
 EOF
-mb <noun> create --file /tmp/body.json --profile <n> --json
+mb <noun> create --file ./.scratch/body.json --profile <n> --json
 ```
 
 Single-quoted `'EOF'` prevents the shell from interpolating `$vars` inside the JSON.
+
+Write these working files to **`./.scratch`** in the current directory (`mkdir -p ./.scratch` first), never `/tmp` — better permissions, they persist across the session, and the user can open and review them.
 
 ## Discover the full surface: `mb __manifest`
 

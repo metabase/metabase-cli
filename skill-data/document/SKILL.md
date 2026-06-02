@@ -145,10 +145,10 @@ Each entry in `cards` needs at least `{name, dataset_query, display, visualizati
 `update` replaces the whole `document` body, so the safe loop is **read → edit → write**. A fetched body already carries `_id`s on its id-bearing nodes, so preserve them — only mint new ones for id-bearing nodes you add:
 
 ```bash
-mb document get <id> --full --profile <name> --json | jq '.document' > /tmp/body.json
-# edit /tmp/body.json (add nodes — give each new id-bearing node a fresh `mb uuid` _id) …
-jq -n --slurpfile d /tmp/body.json '{document: $d[0]}' > /tmp/patch.json
-mb document update <id> --file /tmp/patch.json --profile <name> --json
+mb document get <id> --full --profile <name> --json | jq '.document' > ./.scratch/body.json
+# edit ./.scratch/body.json (add nodes — give each new id-bearing node a fresh `mb uuid` _id) …
+jq -n --slurpfile d ./.scratch/body.json '{document: $d[0]}' > ./.scratch/patch.json
+mb document update <id> --file ./.scratch/patch.json --profile <name> --json
 ```
 
 Don't hand-merge a partial node tree into a live document — pull the current `document`, mutate the array, and PUT the whole thing back. To rename without touching the body, patch only `name`: `mb document update <id> --body '{"name":"New title"}'`.

@@ -75,7 +75,7 @@ mb uuid --count 2 --json     # mint only the clauses you actually reference
 `mb query` is the canonical authoring surface. Three modes:
 
 ```bash
-mb query --print-schema --profile <n> > /tmp/mbql-schema.json   # 1. fetch the schema
+mb query --print-schema --profile <n> > ./.scratch/mbql-schema.json   # 1. fetch the schema
 mb query --file q.json --dry-run --profile <n>                  # 2. validate, no network
 mb query --file q.json --profile <n> --json                     # 3. validate + run
 ```

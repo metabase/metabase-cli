@@ -24,7 +24,7 @@ For an **MBQL 5** `source.query` (`lib/type: "mbql/query"`), the body shape, the
 ## Create + run (native SQL)
 
 ```bash
-cat > /tmp/transform.json <<'EOF'
+cat > ./.scratch/transform.json <<'EOF'
 {
   "name": "user_counts_by_signup_year",
   "description": "Sample transform: counts users by year of signup",
@@ -47,7 +47,7 @@ cat > /tmp/transform.json <<'EOF'
 }
 EOF
 
-TRANSFORM_ID=$(mb transform create --file /tmp/transform.json --profile <name> --json | jq -r '.id')
+TRANSFORM_ID=$(mb transform create --file ./.scratch/transform.json --profile <name> --json | jq -r '.id')
 mb transform run "$TRANSFORM_ID" --wait --profile <name> --json
 ```
 
@@ -131,12 +131,12 @@ Right shape — patch only what changes:
 mb transform update <id> --body '{"name":"renamed"}' --profile <name> --json
 
 # Rewrite the SQL only:
-cat > /tmp/patch.json <<'EOF'
+cat > ./.scratch/patch.json <<'EOF'
 { "source": { "type": "query", "query": { "type": "native",
     "database": <db-id>,
     "native": { "query": "SELECT … FROM public.orders" } } } }
 EOF
-mb transform update <id> --file /tmp/patch.json --profile <name> --json
+mb transform update <id> --file ./.scratch/patch.json --profile <name> --json
 
 # Change tag membership (note: tag_ids, not tags):
 mb transform update <id> --body '{"tag_ids":[1,3]}' --profile <name> --json
@@ -148,7 +148,7 @@ If you really must round-trip, project to the writable subset:
 mb transform get <id> --full --profile <name> --json \
   | jq '{name, description, source, target, run_trigger, tag_ids, collection_id, owner_user_id, owner_email}
         | with_entries(select(.value != null))' \
-  > /tmp/patch.json
+  > ./.scratch/patch.json
 ```
 
 ## Iterating on a failing transform
@@ -163,17 +163,17 @@ Recipe:
 
 ```bash
 # 1. Try once
-ID=$(mb transform create --file /tmp/t.json --profile <n> --json | jq -r '.id')
+ID=$(mb transform create --file ./.scratch/t.json --profile <n> --json | jq -r '.id')
 mb transform run "$ID" --wait --profile <n> --json     # → failed
 
 # 2. Fix the body in place; PATCH only what changed.
 #    Source-only patch — keeps name, target, tags untouched on the server.
-cat > /tmp/source-patch.json <<'EOF'
+cat > ./.scratch/source-patch.json <<'EOF'
 { "source": { "type": "query", "query": { "type": "native",
     "database": <db-id>,
     "native": { "query": "<fixed SQL here>" } } } }
 EOF
-mb transform update "$ID" --file /tmp/source-patch.json --profile <n> --json
+mb transform update "$ID" --file ./.scratch/source-patch.json --profile <n> --json
 
 # 3. Re-run
 mb transform run "$ID" --wait --profile <n> --json     # → succeeded
