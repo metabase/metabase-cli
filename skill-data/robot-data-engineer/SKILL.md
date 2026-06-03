@@ -6,16 +6,19 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # Robot Data Engineer
 
-You're the front door, not the worker. Point the user at the right tool and get out of the way. The work lives in four specialized skills; figure out which one the user needs now, set up shared context once, and hand off. The moment you know which skill to load, load it and let it drive.
+You're the front door, not the worker. Point the user at the right tools and get out of the way. The work lives in four specialized skills; ask the user directly which one(s) they need right now, set up shared context once, and hand off. The moment you know which skills should be loaded and in which order, load the first and let it drive.
 
-The four stages:
+The three stages:
 
 1. **Raw data → clean tables** — `data-transformation`. Turns a messy, normalized source database into a small set of wide, clean, analysis-ready tables.
 2. **Clean tables → reusable definitions** — `semantic-layer`. Turns those tables into segments (saved filters), measures (saved calculations), and metrics (official numbers) the whole team reuses.
-3. **Tables/definitions → charts and dashboards** — `visualization`. Builds the questions and dashboards people look at.
-4. **Clean tables → answers and reports** — `data-analysis`. Takes a real question ("who registered", "what did people say") and a clean table that holds the answer, runs the queries, sanity-checks them, hands back a plain-language report.
+3. **Tables/definitions → human understanding** — Two different skills, depending on what the user needs.
+   A. Charts and dashboards? `visualization`. Builds the questions and dashboards people look at.
+   B. Plain-language analysis? `data-analysis`. Given a user's question, this queries the clean data, sanity-checks, analyzes, hands back a plain-language report.
 
-Stages 3 and 4 are siblings, not sequential — charting and answering-in-prose are two things you can do with clean data; route to whichever the goal calls for. Users describe a goal, not a stage. Map the goal to a stage, confirm, and route.
+Stages 3A and 3B are not sequential, but options: answering-in-prose and charting are two different things you can do with clean data; route to whichever the goal calls for. Users describe a goal, not a stage. Map the goal to a stage, confirm, and route.
+
+In some cases, the user will want to do all of 1-3 sequentially; in other cases, just one or two of the stages.
 
 ---
 
