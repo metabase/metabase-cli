@@ -522,11 +522,19 @@ describe("card e2e", () => {
       env: authEnv(),
     });
 
-    // PUT /api/card/:id accepts dataset_query as an opaque map and does not validate its inner
-    // shape, so the bad `database` does not trigger a 400. Bypass is proven by exit 0 — without
-    // --skip-validate the prior test shows pre-flight rejects with exit 2.
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, CardCompact).id).toBe(SEEDED.ordersCardId);
+    // Bypass is proven by the absence of the CLI pre-flight: exit code is never 2 and the MBQL 5
+    // validation message never fires (without --skip-validate the prior test shows exit 2). What the
+    // server then does with the bad `database` is its own authority and is version-dependent: v58-61
+    // accept dataset_query as an opaque map (exit 0, card returned), while head validates the query
+    // layer and rejects it (exit 1, "missing or invalid Database ID").
+    expect(result.exitCode).not.toBe(2);
+    expect(result.stderr).not.toContain("card.dataset_query validation failed");
+    if (result.exitCode === 0) {
+      expect(parseJson(result.stdout, CardCompact).id).toBe(SEEDED.ordersCardId);
+    } else {
+      expect(result.exitCode).toBe(1);
+      expect(cliErrorMessage(result.stderr)).toContain("missing or invalid Database ID (:database)");
+    }
   });
 
   it("create with dataset_query: {} is rejected at the CLI boundary (no H2 stack trace)", async () => {
