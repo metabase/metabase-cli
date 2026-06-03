@@ -375,10 +375,14 @@ describe("card e2e", () => {
     });
 
     // Pre-flight is bypassed; the server then rejects the malformed body with an HttpError (exit 1).
-    // The card-create endpoint surfaces the underlying app-DB constraint message via the response
-    // envelope; we assert a stable substring of that surfaced error.
+    // The surfaced message for the bad Database ID is version-dependent: v58-61 leak the app-DB
+    // constraint, while head validates at the query layer first. Accept either exact substring.
     expect(result.exitCode).toBe(1);
-    expect(cliErrorMessage(result.stderr)).toContain('NULL not allowed for column "DATABASE_ID"');
+    const surfaced = cliErrorMessage(result.stderr);
+    const rejectedBadDatabaseId =
+      surfaced.includes('NULL not allowed for column "DATABASE_ID"') ||
+      surfaced.includes("missing or invalid Database ID (:database)");
+    expect(rejectedBadDatabaseId).toBe(true);
     expect(result.stdout).toBe("");
   });
 
