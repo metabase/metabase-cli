@@ -533,7 +533,9 @@ describe("card e2e", () => {
       expect(parseJson(result.stdout, CardCompact).id).toBe(SEEDED.ordersCardId);
     } else {
       expect(result.exitCode).toBe(1);
-      expect(cliErrorMessage(result.stderr)).toContain("missing or invalid Database ID (:database)");
+      expect(cliErrorMessage(result.stderr)).toContain(
+        "missing or invalid Database ID (:database)",
+      );
     }
   });
 
