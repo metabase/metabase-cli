@@ -1,6 +1,6 @@
 {
   "name": "@metabase/cli",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Metabase CLI",
   "license": "AGPL-3.0",
   "repository": {
@@ -37,6 +37,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
+    "lint:skills": "uvx skillsaw lint skill-data/ --strict",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "sync:representations": "bun run scripts/sync-representations.ts",

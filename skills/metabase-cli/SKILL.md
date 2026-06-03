@@ -19,3 +19,9 @@ Before running any `mb` command, load the workflow content from the CLI:
 mb skills get core    # auth, flag conventions, every command group
 mb skills list        # everything available on the installed version
 ```
+
+**Doing a whole job, not one command?** If the user wants an outcome — "make sense of my data", "build a data model", "go from raw data to a dashboard", "answer questions about my data", "be my data analyst", "set up analytics for X" — load the front-door router instead and let it drive:
+
+```bash
+mb skills get robot-data-engineer
+```

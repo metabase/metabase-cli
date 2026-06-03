@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "metabase-cli",
-      "description": "Drive a Metabase instance from the terminal via the `mb` CLI: auth, list/get/create/update/delete on every resource, run queries and transforms, git-sync content to and from a remote. Bundles transform and git-sync references as on-demand skills served by `mb skills get`.",
+      "description": "Be your data analyst / data engineer for Metabase, from the terminal via the `mb` CLI. Go from raw data to something a non-technical person can use: clean tables, reusable metrics, dashboards, and written answers. Use when someone wants to \"make sense of my data\", \"build a data model\", \"go from raw data to a dashboard\", \"answer questions about my data\", \"report on who registered / signed up / responded\", or \"set up analytics for X\". Also full CRUD on every Metabase resource (cards, dashboards, transforms, queries), git-sync content to and from a remote, and on-demand workflow skills served by `mb skills get`.",
       "source": "./",
       "strict": false,
       "skills": ["./skills/metabase-cli"],

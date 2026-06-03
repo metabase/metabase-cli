@@ -35,3 +35,12 @@ jobs:
           bun-version: latest
       - run: bun install
       - run: bun run format:check
+
+  skills:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: stbenjam/skillsaw@v0
+        with:
+          path: skill-data
+          strict: true

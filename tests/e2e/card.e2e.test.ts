@@ -375,10 +375,14 @@ describe("card e2e", () => {
     });
 
     // Pre-flight is bypassed; the server then rejects the malformed body with an HttpError (exit 1).
-    // The card-create endpoint surfaces the underlying app-DB constraint message via the response
-    // envelope; we assert a stable substring of that surfaced error.
+    // The surfaced message for the bad Database ID is version-dependent: v58-61 leak the app-DB
+    // constraint, while head validates at the query layer first. Accept either exact substring.
     expect(result.exitCode).toBe(1);
-    expect(cliErrorMessage(result.stderr)).toContain('NULL not allowed for column "DATABASE_ID"');
+    const surfaced = cliErrorMessage(result.stderr);
+    const rejectedBadDatabaseId =
+      surfaced.includes('NULL not allowed for column "DATABASE_ID"') ||
+      surfaced.includes("missing or invalid Database ID (:database)");
+    expect(rejectedBadDatabaseId).toBe(true);
     expect(result.stdout).toBe("");
   });
 
@@ -518,11 +522,21 @@ describe("card e2e", () => {
       env: authEnv(),
     });
 
-    // PUT /api/card/:id accepts dataset_query as an opaque map and does not validate its inner
-    // shape, so the bad `database` does not trigger a 400. Bypass is proven by exit 0 — without
-    // --skip-validate the prior test shows pre-flight rejects with exit 2.
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, CardCompact).id).toBe(SEEDED.ordersCardId);
+    // Bypass is proven by the absence of the CLI pre-flight: exit code is never 2 and the MBQL 5
+    // validation message never fires (without --skip-validate the prior test shows exit 2). What the
+    // server then does with the bad `database` is its own authority and is version-dependent: v58-61
+    // accept dataset_query as an opaque map (exit 0, card returned), while head validates the query
+    // layer and rejects it (exit 1, "missing or invalid Database ID").
+    expect(result.exitCode).not.toBe(2);
+    expect(result.stderr).not.toContain("card.dataset_query validation failed");
+    if (result.exitCode === 0) {
+      expect(parseJson(result.stdout, CardCompact).id).toBe(SEEDED.ordersCardId);
+    } else {
+      expect(result.exitCode).toBe(1);
+      expect(cliErrorMessage(result.stderr)).toContain(
+        "missing or invalid Database ID (:database)",
+      );
+    }
   });
 
   it("create with dataset_query: {} is rejected at the CLI boundary (no H2 stack trace)", async () => {

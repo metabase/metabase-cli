@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # Visualization: pick the chart, then set it
 
+> **Shared contract (read first).** This skill is part of the `robot-data-engineer` family and follows its shared rules: audience is a non-technical user, so no database jargon (skip "normalize"/"grain"; ERD/foreign key are fine; explain "wide"/"long" the first time you use them). Ask before showing PII row-by-row (names, emails, phones) — default to aggregates. When asked for something the CLI can't do (alerts, dashboard filters), name the limit instead of erroring into raw SQL. Honor the autonomy mode the user picked. Full text and the autonomy slider live in the router — run `mb skills get robot-data-engineer` and read its **Shared Contract** if you haven't.
+
 A card has two presentation fields alongside its `dataset_query`:
 
 - **`display`** — the chart type (`bar`, `line`, `pie`, `scalar`, `map`, `table`, …). One closed set; pick from the enum below.
@@ -13,7 +15,7 @@ A card has two presentation fields alongside its `dataset_query`:
 
 Nothing validates `visualization_settings` — there is no pre-flight to fail past. A `display` typo or a misnamed key is accepted by the API; the card just renders as a default table or drops the setting. So **the feedback loop is read-back, not pre-flight**: after `card create`/`update`, confirm with `mb card get <id> --full --json` (or open the card) that it rendered as intended.
 
-General flag conventions and body-input precedence live in the `core` skill (`mb skills get core`); the `dataset_query` itself is the `mbql` skill's job (`mb skills get mbql`). This skill is only about how the result is displayed.
+Flag conventions and body-input precedence live in the `core` skill (`mb skills get core`); the `dataset_query` itself is the `mbql` skill's job (`mb skills get mbql`). This skill is only about how the result is displayed.
 
 Two steps: **(1) pick the `display` that fits the data**, then **(2) bind the data columns and set options**.
 
@@ -64,7 +66,7 @@ Closed `display` enum (card-level, non-hidden): `table`, `bar`, `line`, `area`, 
 
 `graph.dimensions`, `graph.metrics`, `pie.dimension`, `pie.metric`, `scalar.field`, `funnel.metric`, `map.latitude_column`, `sankey.source`, … all take **output column-name strings** — the names the query _produces_, not field ids. A `count` aggregation outputs the column `count`; a breakout on a field outputs that field's name; a named aggregation outputs its `name`. These strings are **identical in the API form and the portable (git-sync) form** — no numeric-vs-name footgun here.
 
-So the names you put in `visualization_settings` come from the query's output, not from `mb field`/`mb table`. If you set `name` on an aggregation (see the `mbql` skill), use that same string here.
+The names come from the query's output, not from `mb field`/`mb table`. If you set `name` on an aggregation (see the `mbql` skill), use that same string here.
 
 ## Minimum-viable settings per chart family (API form)
 
@@ -136,7 +138,7 @@ For anything beyond a single dimension + metric — combo charts, conditional fo
 mb card get <id> --full --json | jq '.visualization_settings'
 ```
 
-Paste that block into your `card create`/`update` body. The server produced it, so it's valid for that `display`. This beats guessing keys from memory, and it's token-cheap.
+Paste that block into your `card create`/`update` body. The server produced it, so it's valid for that `display`.
 
 ## Full per-visualization key catalog
 

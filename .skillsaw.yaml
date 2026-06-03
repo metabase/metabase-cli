@@ -1,0 +1,23 @@
+# skillsaw configuration — https://github.com/stbenjam/skillsaw
+# Lints the skill collection under skill-data/. Pinned so a skillsaw
+# release can't silently change token math and break CI.
+
+version: "0.11.4"
+
+rules:
+  context-budget:
+    enabled: true
+    severity: warning
+    limits:
+      # Skill bodies are loaded into Claude's context when a skill fires.
+      # The default warn (3000) is tuned for lean skills; ours are dense
+      # reference/strategy skills whose de-fluffed floor is higher. The
+      # always-resident skills (core, robot-data-engineer) are the tightest
+      # of the set; the larger ones (data-transformation, semantic-layer,
+      # mbql) are leaf skills loaded for a single stage, where the extra
+      # tokens are genuine guidance, not fluff. 6000 clears the largest
+      # honest floor while still catching real future bloat.
+      skill:
+        warn: 6000
+      skill-description:
+        warn: 200

@@ -8,7 +8,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 A **transform** persists the result of a query (native SQL or MBQL) to a warehouse table the user can read from cards, dashboards, and other transforms. It runs on a schedule (via `transform-job`) or on-demand (`transform run`).
 
-This skill covers the create-and-run flow. The general flag conventions, body-input precedence, and output flags live in the `core` skill (`mb skills get core`).
+Flag conventions, body-input precedence, and output flags live in the `core` skill (`mb skills get core`). Deciding _which_ transforms to build — modeling a whole raw database into a set of clean, analysis-ready tables — is the `data-transformation` skill (`mb skills get data-transformation`).
 
 ## Body shape
 
@@ -17,37 +17,32 @@ A transform has two halves:
 - `source` — the query to run (`type: "query"`, with `query.type` of `native` or `mbql`).
 - `target` — the warehouse destination (`type: "table"`, with `database`, `schema`, `name`).
 
-Native SQL is the simplest source and the easiest to author by hand (see "Create + run" below). MBQL is what the Metabase UI emits and is more verbose; pull a sample with `mb transform get <id> --full --json` if you need its shape.
+Native SQL is the simplest source and the easiest to author by hand. MBQL is what the Metabase UI emits and is more verbose; pull a sample with `mb transform get <id> --full --json` if you need its shape.
 
 For an **MBQL 5** `source.query` (`lib/type: "mbql/query"`), the body shape, the "options object is always second" clause rule, UUID minting, aggregation/order-by refs, naming aggregation output columns, and the `--print-schema` → `--dry-run` validation loop are all in the `mbql` skill — **`mb skills get mbql`**. The MBQL-5 pre-flight on `transform create`/`update` is documented there too (legacy MBQL 4 and native sources skip it). For a transform target, naming your aggregation output columns matters more than usual — a bare `count` / `avg_2` becomes the warehouse column name; see the `mbql` skill's "Naming aggregation output columns".
 
 ## Create + run (native SQL)
 
 ```bash
-cat > /tmp/transform.json <<'EOF'
-{
-  "name": "user_counts_by_signup_year",
-  "description": "Sample transform: counts users by year of signup",
-  "source": {
-    "type": "query",
-    "query": {
-      "type": "native",
-      "database": <db-id>,
-      "native": {
-        "query": "SELECT date_trunc('year', created_at)::date AS signup_year, COUNT(*)::int AS user_count FROM public.users GROUP BY 1 ORDER BY 1"
-      }
-    }
-  },
-  "target": {
-    "type": "table",
-    "database": <db-id>,
-    "schema": "public",
-    "name": "user_counts_by_signup_year"
-  }
-}
-EOF
+# Author the SQL formatted — it's what `mb transform get` and the Metabase editor show.
+cat > ./.scratch/user_counts_by_signup_year.sql <<'SQL'
+SELECT
+  date_trunc('year', created_at)::date AS signup_year,
+  COUNT(*)::int                        AS user_count
+FROM public.users
+GROUP BY 1
+ORDER BY 1
+SQL
 
-TRANSFORM_ID=$(mb transform create --file /tmp/transform.json --profile <name> --json | jq -r '.id')
+# Embed it with jq --rawfile so the newlines survive as \n in valid JSON (don't hand-write the SQL as one line).
+jq -n --rawfile q ./.scratch/user_counts_by_signup_year.sql \
+  '{ name: "user_counts_by_signup_year",
+     description: "Sample transform: counts users by year of signup",
+     source: { type: "query", query: { type: "native", database: <db-id>, native: { query: $q } } },
+     target: { type: "table", database: <db-id>, schema: "public", name: "user_counts_by_signup_year" } }' \
+  > ./.scratch/transform.json
+
+TRANSFORM_ID=$(mb transform create --file ./.scratch/transform.json --profile <name> --json | jq -r '.id')
 mb transform run "$TRANSFORM_ID" --wait --profile <name> --json
 ```
 
@@ -57,8 +52,8 @@ Notes:
 - Target `schema` is the schema the result table is written into (e.g. `public`).
 - `--wait` on `transform run` polls until status is `succeeded` or `failed`. Without it you only get `{message: "Transform run started", run_id, final: null}` and have to poll yourself.
 - `--sync` implies `--wait`, then waits until the run's output table is registered — the run registers it itself, no `db sync-schema` needed — adding `target_table_id` to the envelope. Use it when you'll build MBQL on the output (see "Inspect").
-- The `--json` envelope is shape-stable: `{message, run_id, final}` (plus `target_table_id` under `--sync` — a number, or `null` if the table didn't register before the timeout). `final` is always present — `null` when `--wait` is omitted or the run never started, otherwise a full `TransformRun` object with `status` and `message`. On a failed run (`final.status` ∈ {`failed`, `timeout`, `canceled`}) the CLI exits 1 and writes a one-line summary `transform run <id> failed` to stderr; the failure detail lives only in `final.message` on stdout, so `jq -r '.final.message'` is where to look.
-- The heredoc with single-quoted `'EOF'` prevents shell from interpolating any `$vars` inside the SQL.
+- The `--json` envelope is shape-stable: `{message, run_id, final}` (plus `target_table_id` under `--sync` — a number, or `null` if the table didn't register before the timeout). `final` is `null` when `--wait` is omitted or the run never started, otherwise a full `TransformRun` object with `status` and `message`. On a failed run (`final.status` ∈ {`failed`, `timeout`, `canceled`}) the CLI exits 1 and writes a one-line summary `transform run <id> failed` to stderr; the failure detail lives only in `final.message` on stdout, so `jq -r '.final.message'` is where to look.
+- **Keep the SQL formatted.** Author it multi-line in `./.scratch/<name>.sql` and embed with `jq --rawfile` (jq ≥1.6, which JSON-encodes the file so newlines become `\n`). The stored `native.query` is what `mb transform get` and the Metabase editor render — a single-line blob is valid JSON but unreadable when anyone opens the transform. Single-quote the heredoc delimiter (`<<'SQL'`) so the shell leaves `$vars` in the query alone (e.g. Postgres `$1`, `$$`).
 - `transform create --json` returns the agent-facing compact projection: `{id, name, description, source_type, target: {type, database, schema, name}, target_db_id}`. Read `target.schema`/`target.name` directly off the create output — no follow-up `transform get` needed to verify where the transform will write.
 - If a transform with the same `name` already has a YAML representation on disk under the configured remote-sync repo, `create` mints a `_2` suffix on the exported filename (the new transform gets a fresh `entity_id`; the prior one isn't touched). For "iterate on the same concept" workflows, prefer `transform update <id>` — see "Iterating on a failing transform" below.
 - **`collection_id` only accepts a collection in the `:transforms` namespace.** Transforms aren't filed next to cards and dashboards — passing a normal analytics collection id (the kind a dashboard lives in) fails create/update with `collection_id: A Transform can only go in Collections in the :transforms namespace.` Omit `collection_id` to leave the transform uncollected (the common case), or create one with `mb collection create --body '{"name":"…"}' --namespace transforms --json` and pass the returned `id`. Cards and dashboards you build **on top of** the transform's output table go in ordinary collections as usual — so "put the transform and its dashboard in collection X" generally means _X holds the dashboard + cards; the transform stays in the transforms namespace._
@@ -70,14 +65,14 @@ mb transform list --profile <name> --json
 mb transform get <id> --profile <name> --full --json     # full transform incl. last run summary
 ```
 
-After a run the table physically exists in the warehouse, but Metabase addresses tables/columns by numeric id, so **MBQL and the UI can't reference a brand-new table until the instance syncs** (native SQL — a native `card` or `mb query` against `<schema>.<name>` — reads it immediately). Run and register in one step with `--sync`:
+After a run the table physically exists in the warehouse, but Metabase addresses tables/columns by numeric id, so **MBQL and the UI can't reference a brand-new table until the instance syncs** (native SQL — a native `card` or `mb query` against `<schema>.<name>` — reads it immediately). Run and register in one step with `--sync`.
 
 ```bash
 TABLE_ID=$(mb transform run <id> --sync --profile <name> --json | jq -r '.target_table_id')
 mb table get "$TABLE_ID" --include fields --profile <name> --json   # field ids for MBQL
 ```
 
-`--sync` runs the transform and polls until its output table is registered, returning the id as `target_table_id` — the run registers the table itself, so no `db sync-schema` is needed. On `target_table_id: null` (still syncing when the poll timed out; exit 0) re-poll `mb transform get <id> --full --json` until the `target_table_id` / `table` linkage lands.
+On `target_table_id: null` (still syncing when the poll timed out; exit 0) re-poll `mb transform get <id> --full --json` until the `target_table_id` / `table` linkage lands.
 
 Columns and types are inferred from the result set; change the SELECT shape and the next run fails on a column mismatch — drop the table first (`transform delete-table <id>`). A changed shape also needs a re-run with `--sync` before MBQL sees the new/renamed columns.
 
@@ -104,14 +99,14 @@ Notes:
 
 ## Update body: send only writable keys, never round-trip the GET body
 
-`transform update <id>` is **PATCH semantics** — only send the fields you actually want to change. The endpoint accepts exactly these writable keys:
+`transform update <id>` is **PATCH semantics** — only send the fields you want to change. The endpoint accepts exactly these writable keys:
 
 ```
 name, description, source, target, run_trigger,
 tag_ids, collection_id, owner_user_id, owner_email
 ```
 
-**Don't paste the output of `transform get` into a `transform update` body.** The GET response carries server-side fields (`id`, `entity_id`, `created_at`, `updated_at`, `creator_id`, `last_run`, `target_db_id`, `target_table_id`, `source_type`, `source_database_id`, `source_readable`, `creator`, `owner`, `table`, …) that the PUT endpoint isn't built to handle. Currently, unknown top-level keys flow into `t2/update!` and produce a leaked H2 SQL error like:
+**Don't paste the output of `transform get` into a `transform update` body.** The GET response carries server-side fields (`id`, `entity_id`, `created_at`, `updated_at`, `creator_id`, `last_run`, `target_db_id`, `target_table_id`, `source_type`, `source_database_id`, `source_readable`, `creator`, `owner`, `table`, …) that the PUT endpoint isn't built to handle. Unknown top-level keys flow into `t2/update!` and produce a leaked H2 SQL error like:
 
 ```
 Column "TAGS" not found; SQL statement:
@@ -130,13 +125,15 @@ Right shape — patch only what changes:
 # Rename only:
 mb transform update <id> --body '{"name":"renamed"}' --profile <name> --json
 
-# Rewrite the SQL only:
-cat > /tmp/patch.json <<'EOF'
-{ "source": { "type": "query", "query": { "type": "native",
-    "database": <db-id>,
-    "native": { "query": "SELECT … FROM public.orders" } } } }
-EOF
-mb transform update <id> --file /tmp/patch.json --profile <name> --json
+# Rewrite the SQL only — author it formatted, embed with jq:
+cat > ./.scratch/orders.sql <<'SQL'
+SELECT …
+FROM public.orders
+SQL
+jq -n --rawfile q ./.scratch/orders.sql \
+  '{ source: { type: "query", query: { type: "native", database: <db-id>, native: { query: $q } } } }' \
+  > ./.scratch/patch.json
+mb transform update <id> --file ./.scratch/patch.json --profile <name> --json
 
 # Change tag membership (note: tag_ids, not tags):
 mb transform update <id> --body '{"tag_ids":[1,3]}' --profile <name> --json
@@ -148,12 +145,12 @@ If you really must round-trip, project to the writable subset:
 mb transform get <id> --full --profile <name> --json \
   | jq '{name, description, source, target, run_trigger, tag_ids, collection_id, owner_user_id, owner_email}
         | with_entries(select(.value != null))' \
-  > /tmp/patch.json
+  > ./.scratch/patch.json
 ```
 
 ## Iterating on a failing transform
 
-When `transform run` fails and you want to retry with a fixed body, **prefer `transform update <id> --file body.json` over `transform delete <id>` + `transform create`.** Update keeps the same row, the same `entity_id`, the same materialized table, and the same on-disk YAML filename. Concretely this means:
+When `transform run` fails and you want to retry with a fixed body, **prefer `transform update <id> --file body.json` over `transform delete <id>` + `transform create`.** Update keeps the same row, the same `entity_id`, the same materialized table, and the same on-disk YAML filename:
 
 - `git-sync export` produces **one** clean commit containing only the fix, instead of "broken transform" + "remove broken transform" landing as two commits in `git log`.
 - You don't have to chase `_2` suffixes minted when two YAMLs share a `name` on disk (see the `transform create` notes above).
@@ -163,17 +160,18 @@ Recipe:
 
 ```bash
 # 1. Try once
-ID=$(mb transform create --file /tmp/t.json --profile <n> --json | jq -r '.id')
+ID=$(mb transform create --file ./.scratch/t.json --profile <n> --json | jq -r '.id')
 mb transform run "$ID" --wait --profile <n> --json     # → failed
 
 # 2. Fix the body in place; PATCH only what changed.
 #    Source-only patch — keeps name, target, tags untouched on the server.
-cat > /tmp/source-patch.json <<'EOF'
-{ "source": { "type": "query", "query": { "type": "native",
-    "database": <db-id>,
-    "native": { "query": "<fixed SQL here>" } } } }
-EOF
-mb transform update "$ID" --file /tmp/source-patch.json --profile <n> --json
+cat > ./.scratch/source.sql <<'SQL'
+<fixed SQL, formatted>
+SQL
+jq -n --rawfile q ./.scratch/source.sql \
+  '{ source: { type: "query", query: { type: "native", database: <db-id>, native: { query: $q } } } }' \
+  > ./.scratch/source-patch.json
+mb transform update "$ID" --file ./.scratch/source-patch.json --profile <n> --json
 
 # 3. Re-run
 mb transform run "$ID" --wait --profile <n> --json     # → succeeded
