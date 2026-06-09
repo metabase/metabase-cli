@@ -11,9 +11,19 @@ import {
 import { JSON_CONTENT_TYPE, parseJson } from "../../runtime/json";
 import { combineAborts, throwIfAborted } from "../../runtime/signal";
 
+import {
+  type Credential,
+  credentialAuthHeader,
+  credentialSecrets,
+  type CredentialRefresher,
+} from "../auth/credential";
+
 import { HttpError, isRetryableStatus } from "./errors";
+import { buildNetworkError } from "./network-error";
 import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries, type RetryOutcome } from "./retry";
 import type { RedactionContext } from "./sanitize";
+
+const UNAUTHORIZED_STATUS = 401;
 
 export type HttpMethod = "GET" | "HEAD" | "OPTIONS" | "POST" | "PUT" | "PATCH" | "DELETE";
 export type ExpectedContentType = "json" | "text" | "binary";
@@ -48,7 +58,7 @@ export interface Client {
 
 export interface ClientCredentials {
   url: string;
-  apiKey: string;
+  credential: Credential;
 }
 
 type FetchBody = NonNullable<RequestInit["body"]>;
@@ -65,11 +75,17 @@ interface PreparedRequest {
   callerSignal: AbortSignal | undefined;
 }
 
+interface ExecOutcome {
+  response: Response;
+  prepared: PreparedRequest;
+}
+
 export type ServerTagResolver = () => Promise<string | null>;
 
 export interface ClientOverrides {
   fetchImpl?: typeof fetch;
   getServerTag?: ServerTagResolver;
+  refreshCredential?: CredentialRefresher;
 }
 
 const NO_SERVER_TAG: ServerTagResolver = async () => null;
@@ -77,9 +93,38 @@ const NO_SERVER_TAG: ServerTagResolver = async () => null;
 export function createClient(config: ClientCredentials, overrides: ClientOverrides = {}): Client {
   const fetchImpl = overrides.fetchImpl ?? globalThis.fetch.bind(globalThis);
   const getServerTag = overrides.getServerTag ?? NO_SERVER_TAG;
-  const redactionContext: RedactionContext = {
-    knownSecrets: new Set([config.apiKey]),
-  };
+  const refreshCredential = overrides.refreshCredential;
+  let credential = config.credential;
+  const knownSecrets = new Set(credentialSecrets(credential));
+  const redactionContext: RedactionContext = { knownSecrets };
+
+  // Single-flight: concurrent 401s (e.g. verify's parallel user+probe requests) must share one
+  // refresh. The server rotates refresh tokens, so a second concurrent refresh would replay the
+  // already-consumed token — which rotation reuse detection may answer by revoking the whole grant.
+  let refreshInFlight: Promise<boolean> | null = null;
+
+  function tryRefreshCredential(): Promise<boolean> {
+    const refresh = refreshCredential;
+    if (credential.kind !== "oauth" || refresh === undefined) {
+      return Promise.resolve(false);
+    }
+    refreshInFlight ??= refreshOnce(refresh).finally(() => {
+      refreshInFlight = null;
+    });
+    return refreshInFlight;
+  }
+
+  async function refreshOnce(refresh: CredentialRefresher): Promise<boolean> {
+    const next = await refresh();
+    if (next === null) {
+      return false;
+    }
+    credential = next;
+    for (const secret of credentialSecrets(next)) {
+      knownSecrets.add(secret);
+    }
+    return true;
+  }
 
   async function attemptOnce(prepared: PreparedRequest, attempt: number): Promise<RetryOutcome> {
     const hasRetriesLeft = attempt < prepared.retries;
@@ -143,12 +188,30 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
     return runWithRetries((attempt) => attemptOnce(prepared, attempt), prepared.callerSignal);
   }
 
+  // On a 401 with an OAuth credential, attempt a single token refresh and replay the request with
+  // the new access token. API-key credentials and non-401 errors propagate unchanged.
+  async function executeWithAuthRefresh(path: string, opts: RequestOptions): Promise<ExecOutcome> {
+    const prepared = prepare(path, opts);
+    try {
+      return { response: await executeRaw(prepared), prepared };
+    } catch (error) {
+      if (error instanceof HttpError && error.status === UNAUTHORIZED_STATUS) {
+        if (await tryRefreshCredential()) {
+          const retried = prepare(path, opts);
+          return { response: await executeRaw(retried), prepared: retried };
+        }
+      }
+      throw error;
+    }
+  }
+
   function prepare(path: string, opts: RequestOptions = {}): PreparedRequest {
     const method = opts.method ?? "GET";
     const expectContentType = opts.expectContentType ?? "json";
     const url = buildUrl(config.url, path, opts.query);
     const headers = new Headers();
-    headers.set("x-api-key", config.apiKey);
+    const auth = credentialAuthHeader(credential);
+    headers.set(auth.name, auth.value);
     headers.set("accept", acceptHeader(expectContentType));
     headers.set("user-agent", USER_AGENT);
     let body: FetchBody | null = null;
@@ -180,11 +243,13 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
 
   return {
     async requestRaw(path, opts) {
-      return executeRaw(prepare(path, opts));
+      return (await executeWithAuthRefresh(path, opts ?? {})).response;
     },
     async requestParsed(schema, path, opts) {
-      const prepared = prepare(path, { ...opts, expectContentType: "json" });
-      const response = await executeRaw(prepared);
+      const { response, prepared } = await executeWithAuthRefresh(path, {
+        ...opts,
+        expectContentType: "json",
+      });
       const text = await response.text();
       try {
         return parseJson(text, schema, { source: prepared.url });
@@ -202,11 +267,10 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
       }
     },
     async requestStream(path, opts) {
-      const prepared = prepare(path, {
+      const { response, prepared } = await executeWithAuthRefresh(path, {
         ...opts,
         expectContentType: opts?.expectContentType ?? "binary",
       });
-      const response = await executeRaw(prepared);
       if (!response.body) {
         throw new NetworkError("Response had no body to stream", {
           method: prepared.method,
@@ -284,71 +348,6 @@ function throwContentTypeMismatch(
     rawBody: null,
     overrideUserMessage: `Expected ${expected} response but got ${actual}`,
   });
-}
-
-interface NetworkTarget {
-  host: string;
-  hostname: string;
-}
-
-const NETWORK_HINTS: Record<string, (target: NetworkTarget) => string> = {
-  ECONNREFUSED: (t) =>
-    `Connection refused by ${t.host} — is Metabase running and is the port correct?`,
-  ENOTFOUND: (t) => `Host not found: ${t.hostname} — check the URL.`,
-  EAI_AGAIN: (t) => `Could not resolve ${t.hostname} — check your network connection and the URL.`,
-  ECONNRESET: (t) =>
-    `Connection to ${t.host} was reset — the server may have closed it, or http/https may be mismatched.`,
-  ETIMEDOUT: (t) => `Connection to ${t.host} timed out — check the host, port, and your network.`,
-};
-
-const TLS_ERROR_CODES: ReadonlySet<string> = new Set([
-  "EPROTO",
-  "DEPTH_ZERO_SELF_SIGNED_CERT",
-  "SELF_SIGNED_CERT_IN_CHAIN",
-  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
-  "CERT_HAS_EXPIRED",
-  "ERR_TLS_CERT_ALTNAME_INVALID",
-]);
-
-function buildNetworkError(error: unknown, method: HttpMethod, url: string): NetworkError {
-  const fallback = errorMessage(error);
-  const code = causeCode(error);
-  const target = networkTarget(url);
-  return new NetworkError(networkMessage(code, target, fallback), {
-    method,
-    url,
-    cause: code ?? fallback,
-  });
-}
-
-function networkMessage(code: string | null, target: NetworkTarget, fallback: string): string {
-  if (code === null) {
-    return `Could not reach Metabase: ${fallback}`;
-  }
-  if (TLS_ERROR_CODES.has(code)) {
-    return (
-      `Could not reach Metabase: TLS error contacting ${target.host} (${code}) — ` +
-      `the certificate could not be verified, or https:// was used against a plain-HTTP server.`
-    );
-  }
-  const hint = NETWORK_HINTS[code];
-  if (hint === undefined) {
-    return `Could not reach Metabase: ${fallback} (${code})`;
-  }
-  return `Could not reach Metabase: ${hint(target)}`;
-}
-
-function causeCode(error: unknown): string | null {
-  const cause = error instanceof Error ? error.cause : undefined;
-  if (cause instanceof Error && "code" in cause && typeof cause.code === "string") {
-    return cause.code;
-  }
-  return null;
-}
-
-function networkTarget(url: string): NetworkTarget {
-  const parsed = new URL(url);
-  return { host: parsed.host, hostname: parsed.hostname };
 }
 
 async function readBodyForError(response: Response): Promise<string | null> {

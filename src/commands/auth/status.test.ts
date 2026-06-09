@@ -15,7 +15,7 @@ vi.mock("@napi-rs/keyring", async () => {
 });
 
 import authStatusCommand, { AuthStatus } from "./status";
-import { writeProbeResult, writeProfile } from "../../core/auth/storage";
+import { writeOAuthProfile, writeProbeResult, writeProfile } from "../../core/auth/storage";
 import { setupTempConfigHome, type TempConfigHome } from "../../core/auth/temp-config-home";
 
 interface CapturedStdout {
@@ -59,6 +59,7 @@ describe("auth status command", () => {
       profile: "default",
       present: false,
       url: null,
+      method: null,
       user: null,
       version: null,
       tokenFeatures: null,
@@ -75,12 +76,26 @@ describe("auth status command", () => {
       profile: "default",
       present: true,
       url: "https://m.example.com",
+      method: "apiKey",
       user: null,
       version: null,
       tokenFeatures: null,
       lastProbedAt: null,
       lastFailure: null,
     });
+  });
+
+  it("reports method=oauth for a profile holding an OAuth credential", async () => {
+    await writeOAuthProfile("https://m.example.com", {
+      kind: "oauth",
+      accessToken: "acc",
+      refreshToken: "ref",
+      expiresAt: "2026-06-08T13:00:00.000Z",
+      clientId: "c1",
+    });
+    const capture = captureStdout();
+    await runCommand(authStatusCommand, { rawArgs: ["--profile", "default", "--json"] });
+    expect(capture.parse(AuthStatus).method).toBe("oauth");
   });
 
   it("surfaces the cached probe (user, version, lastProbedAt) when one exists", async () => {
@@ -99,6 +114,7 @@ describe("auth status command", () => {
       profile: "default",
       present: true,
       url: "https://m.example.com",
+      method: "apiKey",
       user: { id: 42, name: "Alice", isAdmin: true },
       version: { tag: "v0.58.7", major: 58, patch: 7 },
       tokenFeatures: null,

@@ -4,6 +4,7 @@ import { createClient } from "../http/client";
 import { HttpError } from "../http/errors";
 import { probeServer, PROBE_TIMEOUT_MS, type ServerInfo } from "../version/probe";
 
+import type { Credential, CredentialRefresher } from "./credential";
 import { type ProbedUser, type ProfileFailureKind } from "./profile-record";
 
 const VERIFY_TIMEOUT_MS = 15_000;
@@ -27,8 +28,15 @@ export interface VerifyFailure {
 
 export type Verification = VerifySuccess | VerifyFailure;
 
-export async function verifyAndProbe(url: string, apiKey: string): Promise<Verification> {
-  const client = createClient({ url, apiKey });
+export async function verifyAndProbe(
+  url: string,
+  credential: Credential,
+  refresh?: CredentialRefresher,
+): Promise<Verification> {
+  const client = createClient(
+    { url, credential },
+    refresh === undefined ? {} : { refreshCredential: refresh },
+  );
   const userPromise = client.requestParsed(CurrentUser, USER_PATH, {
     timeoutMs: VERIFY_TIMEOUT_MS,
     retries: 0,

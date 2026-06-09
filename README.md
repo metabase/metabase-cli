@@ -1,6 +1,6 @@
 # metabase-cli
 
-Command-line client for Metabase. Authenticates against an instance with an API key and stores it securely on your machine.
+Command-line client for Metabase. Logs in to an instance in your browser (OAuth, Metabase v62+) or with an API key, and stores credentials securely on your machine.
 
 ## Supported Metabase versions
 
@@ -43,25 +43,34 @@ Credentials are stored per-profile. The default profile is named `default`. Use 
 
 ### `mb auth login`
 
-Save credentials for a profile. On success the server is probed once — the rendered output shows the API-key user, role (`Admin`/`User`), and Metabase version, and the same values are cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good `apiKey`/`url`/`lastProbe` and gains a `lastFailure` entry.
+Log in to a Metabase instance and save the credential to a profile. Interactive login offers two methods:
 
-| Flag                     | Description                                                |
-| ------------------------ | ---------------------------------------------------------- |
-| `--url <url>`            | Metabase URL. Falls back to `METABASE_URL`, then prompts.  |
-| `--api-key <value>`      | API key. Visible in shell history — pipe on stdin instead. |
-| `--profile <name>`, `-p` | Profile to write to (default: `default`).                  |
-| `--skip-verify`          | Save without contacting the server (no probe, no cache).   |
+- **In your browser** (recommended; requires Metabase v62 or newer) — the CLI opens Metabase, you sign in with your password or SSO and approve the CLI, and a short-lived access token plus a rotating refresh token are stored. Tokens refresh automatically; you never paste a secret.
+- **With an API key** — paste a key from Admin settings → Authentication → API keys.
 
-Resolution order for the API key: `--api-key` → piped stdin → `METABASE_API_KEY` → interactive prompt. Stdin is auto-detected when not a TTY.
+Against a server older than v62 the CLI detects the missing OAuth support and falls back to the API key prompt automatically. Supplying an API key (flag, env, or stdin) always skips the browser flow, so CI and scripts behave exactly as before.
+
+On success the server is probed once — the rendered output shows the user, role (`Admin`/`User`), and Metabase version, and the same values are cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good credential and gains a `lastFailure` entry.
+
+| Flag                     | Description                                                                                                                                          |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `METABASE_URL`, then prompts. |
+| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead.                                                                   |
+| `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                             |
+| `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                            |
+| `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                             |
+
+Non-interactive (non-TTY) login requires an API key; resolution order: `--api-key` → piped stdin → `METABASE_API_KEY` (first non-empty wins). Without one, non-interactive login fails rather than prompting.
 
 ```sh
+mb auth login                                            # interactive: browser or API key
 echo "$MB_KEY" | mb auth login --url https://m.example.com
 mb auth login --url https://m.example.com < key.txt
 ```
 
 ### `mb auth status`
 
-Show whether a profile is authenticated.
+Show whether a profile is authenticated. The output includes the auth method (`OAuth` or `API key`) alongside the cached user, role, and server version.
 
 ```sh
 mb auth status
@@ -76,9 +85,9 @@ mb auth status --profile staging
 
 ### `mb auth list`
 
-List configured authentication profiles. All profile metadata (URL, last successful probe, last failure) lives in `<configDir>/profiles.json` at mode `0600`; the API key sits in the OS keychain when available, or inline in the same file when the keychain is unavailable.
+List configured authentication profiles. All profile metadata (URL, auth method, last successful probe, last failure) lives in `<configDir>/profiles.json` at mode `0600`; the secrets (API key, or OAuth access/refresh tokens) sit in the OS keychain when available, or inline in the same file when the keychain is unavailable.
 
-`auth list` re-probes every profile in parallel — on success it refreshes `lastProbe` (Metabase version, token features, API-key user identity) and clears `lastFailure`; on failure it updates `lastFailure` and leaves the prior `lastProbe`/`url`/`apiKey` untouched. Rendered columns: `Profile | URL | Status | Role | Version | Last probed`. Failed rows append a one-line footer pointing at `mb auth login --profile <name>`.
+`auth list` re-probes every profile, one at a time — a probe can refresh and rewrite an expired OAuth token, so probes are serialized to avoid racing on the shared `profiles.json`. On success it refreshes `lastProbe` (Metabase version, token features, user identity) and clears `lastFailure`; on failure it updates `lastFailure` and leaves the prior `lastProbe`/`url`/credential untouched. Rendered columns: `Profile | URL | Auth | Status | Role | Version | Last probed`. Failed rows append a one-line footer pointing at `mb auth login --profile <name>`.
 
 ```sh
 mb auth list
@@ -91,7 +100,7 @@ mb auth list --json
 
 ### `mb auth logout`
 
-Clear stored credentials for a profile.
+Clear stored credentials for a profile. For an OAuth profile the refresh token is also revoked server-side, best-effort: local credentials are cleared first and a revocation failure only warns, so a slow or offline server never blocks the logout.
 
 ```sh
 mb auth logout --yes
@@ -1360,7 +1369,7 @@ Exit codes: `0` success, `2` `ConfigError` (missing name, unknown name, `MB_SKIL
 | Variable                      | Effect                                                                                                                                                                    |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `METABASE_URL`                | Default URL for `auth login` and config resolution.                                                                                                                       |
-| `METABASE_API_KEY`            | Default API key (overrides interactive prompt; not stored).                                                                                                               |
+| `METABASE_API_KEY`            | Default API key (makes `auth login` non-interactive, skipping the browser flow; not stored).                                                                              |
 | `METABASE_PROFILE`            | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                     |
 | `METABASE_VERBOSE`            | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                            |
 | `METABASE_CLI_SKIP_PREFLIGHT` | When set to `1`, bypasses the per-command server version / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |

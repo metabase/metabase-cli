@@ -2,15 +2,18 @@ import { z } from "zod";
 
 import {
   listProfileRecords,
-  readProfile,
+  resolveRecordCredential,
   writeProbeFailure,
   writeProbeResult,
 } from "../../core/auth/storage";
 import { verifyAndProbe, type VerifyFailure } from "../../core/auth/verify";
-import { originOnly } from "../../core/url";
+import { createCredentialRefresher } from "../../core/config";
+import { displayUrl } from "../../core/url";
 import type { ServerInfo } from "../../core/version/probe";
 import {
   ProbedUser,
+  profileAuthMethod,
+  ProfileAuthMethod,
   ProfileLastFailure,
   ProfileLastProbe,
   type ProfileRecord,
@@ -22,7 +25,7 @@ import { renderList } from "../../output/render";
 import { listEnvelopeSchema, wrapList } from "../../output/types";
 import { ParsedVersionSchema } from "../../core/version/tag";
 import { outputFlags } from "../flags";
-import { renderTimestamp, renderUserRole, renderVersionTag } from "./render";
+import { renderAuthMethod, renderTimestamp, renderUserRole, renderVersionTag } from "./render";
 import { defineMetabaseCommand } from "../runtime";
 
 const AuthProfileStatus = z.enum([
@@ -37,6 +40,7 @@ export type AuthProfileStatusValue = z.infer<typeof AuthProfileStatus>;
 export const AuthProfile = z.object({
   profile: z.string(),
   url: z.string(),
+  method: ProfileAuthMethod,
   authenticated: z.boolean(),
   status: AuthProfileStatus,
   user: ProbedUser.nullable(),
@@ -62,6 +66,7 @@ const authProfileView: ResourceView<AuthProfileJson> = {
   tableColumns: [
     { key: "profile", label: "Profile" },
     { key: "url", label: "URL" },
+    { key: "method", label: "Auth", format: (value) => renderAuthMethod(value) },
     { key: "status", label: "Status", format: (value) => renderStatus(value) },
     { key: "user", label: "Role", format: (value) => renderUserRole(value) },
     { key: "version", label: "Version", format: (value) => renderVersionTag(value) },
@@ -82,10 +87,11 @@ export default defineMetabaseCommand({
   examples: ["mb auth list", "mb auth list --json"],
   async run({ ctx }) {
     const records = await listProfileRecords();
-    const verifications = await Promise.all(records.map(verifyOne));
+    // Verify and persist one profile at a time: a verify can refresh+rewrite an expired OAuth
+    // token, so serializing avoids two profiles racing on the shared profiles.json.
     const items: AuthProfileJson[] = [];
-    for (const entry of verifications) {
-      items.push(await persistAndProject(entry));
+    for (const record of records) {
+      items.push(await persistAndProject(await verifyOne(record)));
     }
     renderList(wrapList(items), authProfileView, ctx);
 
@@ -123,19 +129,27 @@ interface FailureOutcome {
 type VerificationOutcome = NoCredsOutcome | SuccessOutcome | FailureOutcome;
 
 async function verifyOne(record: ProfileRecord): Promise<VerificationEntry> {
-  const profile = await readProfile(record.name);
-  if (profile === null) {
+  // Resolve from the record already in hand (listProfileRecords loaded it) rather than re-reading
+  // and re-parsing the whole profiles.json once per profile.
+  const resolved = resolveRecordCredential(record);
+  if (resolved === null) {
     return { record, url: record.url, verification: { kind: "no-creds" } };
   }
-  const result = await verifyAndProbe(profile.url, profile.apiKey);
+  // Pass a refresher so an expired-but-refreshable OAuth profile self-heals on the 401 probe
+  // instead of being reported as auth-failed.
+  const result = await verifyAndProbe(
+    resolved.url,
+    resolved.credential,
+    createCredentialRefresher(record.name),
+  );
   if (result.ok) {
     return {
       record,
-      url: profile.url,
+      url: resolved.url,
       verification: { kind: "success", user: result.user, server: result.server },
     };
   }
-  return { record, url: profile.url, verification: { kind: "failure", failure: result } };
+  return { record, url: resolved.url, verification: { kind: "failure", failure: result } };
 }
 
 async function persistAndProject(entry: VerificationEntry): Promise<AuthProfileJson> {
@@ -151,7 +165,7 @@ async function persistAndProject(entry: VerificationEntry): Promise<AuthProfileJ
     if (probe === null) {
       return toJson(record, "not-probed");
     }
-    return projectSuccess(record.name, url, probe);
+    return projectSuccess(record, url, probe);
   }
   const failure = await writeProbeFailure(record.name, {
     kind: verification.failure.kind,
@@ -163,10 +177,15 @@ async function persistAndProject(entry: VerificationEntry): Promise<AuthProfileJ
   return toJson({ ...record, lastFailure: failure }, statusFromVerification(verification.failure));
 }
 
-function projectSuccess(name: string, url: string, probe: ProfileLastProbe): AuthProfileJson {
+function projectSuccess(
+  record: ProfileRecord,
+  url: string,
+  probe: ProfileLastProbe,
+): AuthProfileJson {
   return {
-    profile: name,
-    url: originOnly(url),
+    profile: record.name,
+    url: displayUrl(url),
+    method: profileAuthMethod(record),
     authenticated: true,
     status: "ok",
     user: probe.user,
@@ -181,7 +200,8 @@ function toJson(record: ProfileRecord, status: AuthProfileStatusValue): AuthProf
   const probe = record.lastProbe;
   return {
     profile: record.name,
-    url: originOnly(record.url),
+    url: displayUrl(record.url),
+    method: profileAuthMethod(record),
     authenticated: status === "ok",
     status,
     user: probe?.user ?? null,

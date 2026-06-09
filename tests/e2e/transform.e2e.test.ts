@@ -94,7 +94,10 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
-    adminClient = createClient({ url: bootstrap.baseUrl, apiKey: bootstrap.adminApiKey });
+    adminClient = createClient({
+      url: bootstrap.baseUrl,
+      credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey },
+    });
   });
 
   afterEach(async () => {

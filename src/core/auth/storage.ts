@@ -8,12 +8,14 @@ import { isNotFoundError, ValidationError } from "../errors";
 import { configDir } from "../paths";
 import type { ServerInfo } from "../version/probe";
 
+import type { Credential, OAuthCredential } from "./credential";
 import {
   ProfileLastFailure,
   ProfileLastProbe,
   ProfilesFile,
   type ProbedUser,
   type ProfileFailureKind,
+  type ProfileOAuth,
   type ProfileRecord,
 } from "./profile-record";
 
@@ -29,11 +31,23 @@ export const DEFAULT_PROFILE = "default";
 export const LEGACY_STORAGE_NOTICE =
   "Old profile storage detected and ignored; re-run `mb auth login` for each profile.";
 
+export const KEYCHAIN_RESIDUAL_NOTICE =
+  "warning: could not remove one or more secrets from the OS keychain; a stored token may remain — remove it manually or retry.";
+
 export type ProfileApiKeyAccount = `profile:${string}:apiKey`;
-export type CredentialAccount = ProfileApiKeyAccount;
+export type ProfileOAuthAccessAccount = `profile:${string}:oauthAccess`;
+export type ProfileOAuthRefreshAccount = `profile:${string}:oauthRefresh`;
+export type CredentialAccount =
+  | ProfileApiKeyAccount
+  | ProfileOAuthAccessAccount
+  | ProfileOAuthRefreshAccount;
 
 export const account = {
   profileApiKey: (profile: string): ProfileApiKeyAccount => `profile:${profile}:apiKey`,
+  profileOAuthAccess: (profile: string): ProfileOAuthAccessAccount =>
+    `profile:${profile}:oauthAccess`,
+  profileOAuthRefresh: (profile: string): ProfileOAuthRefreshAccount =>
+    `profile:${profile}:oauthRefresh`,
 } as const;
 
 export interface KeyringLocation {
@@ -58,12 +72,19 @@ export interface Profile {
   apiKey: string;
 }
 
+export interface ResolvedCredential {
+  url: string;
+  credential: Credential;
+}
+
 export interface ProbeWriteInput {
   user: ProbedUser;
   server: ServerInfo;
 }
 
 let legacyWarningPending = false;
+let keychainResidualPending = false;
+let keyringDowngradeNotice: string | null = null;
 
 export function profilesFilePath(): string {
   return join(configDir(), PROFILES_FILE);
@@ -75,6 +96,26 @@ export function consumeLegacyStorageWarning(): string | null {
   }
   legacyWarningPending = false;
   return LEGACY_STORAGE_NOTICE;
+}
+
+// Surfaced after a logout/credential switch when a keyring-backed secret could not be confirmed
+// removed (e.g. the OS vault was locked), so the user knows a token may still be on disk in the
+// keychain. Cleared on read, like the legacy-storage notice.
+export function consumeKeychainResidualWarning(): string | null {
+  if (!keychainResidualPending) {
+    return null;
+  }
+  keychainResidualPending = false;
+  return KEYCHAIN_RESIDUAL_NOTICE;
+}
+
+// Surfaced after an automatic token refresh had to fall back to the plaintext file because the OS
+// keychain was unavailable, silently moving a previously keyring-backed credential onto disk. The
+// command shell consumes it so the downgrade can't go unnoticed. Cleared on read.
+export function consumeKeyringDowngradeWarning(): string | null {
+  const message = keyringDowngradeNotice;
+  keyringDowngradeNotice = null;
+  return message;
 }
 
 function keyringEnabled(): boolean {
@@ -110,14 +151,18 @@ function tryReadKeyring(key: CredentialAccount): string | null | undefined {
   }
 }
 
-function tryRemoveKeyring(key: CredentialAccount): boolean | undefined {
+// "skipped" — keyring disabled, nothing to do; "removed"/"absent" — delete succeeded (entry
+// existed or not); "failed" — the backend threw, so we cannot confirm the secret is gone.
+type KeyringRemoval = "skipped" | "removed" | "absent" | "failed";
+
+function removeKeyringEntry(key: CredentialAccount): KeyringRemoval {
   if (!keyringEnabled()) {
-    return undefined;
+    return "skipped";
   }
   try {
-    return new Entry(KEYRING_SERVICE, key).deletePassword();
+    return new Entry(KEYRING_SERVICE, key).deletePassword() ? "removed" : "absent";
   } catch {
-    return undefined;
+    return "failed";
   }
 }
 
@@ -173,9 +218,21 @@ async function writeProfilesFile(file: ProfilesFile): Promise<void> {
     return;
   }
   await fs.mkdir(dirname(path), { recursive: true, mode: PROFILES_DIR_MODE });
-  await fs.writeFile(path, JSON.stringify(file, null, 2) + "\n", { mode: PROFILES_FILE_MODE });
+  // Write to a per-process temp file and atomically rename it into place. A crash or a concurrent
+  // writer can then never leave a half-written profiles.json — which readProfilesFile would treat
+  // as corrupt and discard, silently wiping every stored profile. (A concurrent writer may still
+  // overwrite a just-rotated token, but the client's reactive 401-refresh recovers that.)
+  const tmpPath = `${path}.${process.pid}.tmp`;
+  await fs.writeFile(tmpPath, JSON.stringify(file, null, 2) + "\n", { mode: PROFILES_FILE_MODE });
   if (process.platform !== "win32") {
-    await fs.chmod(path, PROFILES_FILE_MODE);
+    await fs.chmod(tmpPath, PROFILES_FILE_MODE);
+  }
+  try {
+    await fs.rename(tmpPath, path);
+  } catch (error) {
+    // Don't leave a plaintext-token temp file behind if the rename fails.
+    await fs.unlink(tmpPath).catch(() => undefined);
+    throw error;
   }
   await cleanupLegacyFiles();
 }
@@ -189,6 +246,30 @@ async function cleanupLegacyFiles(): Promise<void> {
 
 function findRecord(file: ProfilesFile, name: string): ProfileRecord | null {
   return file.profiles.find((entry) => entry.name === name) ?? null;
+}
+
+// Whether the given side's secret lives in the OS keyring (its inline copy is null) rather than in
+// the file — the only case where a failed keyring delete can leave a residual secret behind.
+function sideIsKeyringBacked(record: ProfileRecord, side: "apiKey" | "oauth"): boolean {
+  return side === "oauth"
+    ? record.oauth !== null && record.oauth.accessToken === null
+    : record.oauth === null && record.apiKey === null;
+}
+
+// Flag a residual-secret warning only when a keyring delete failed for a side that was actually
+// keyring-backed. Inline secrets are dropped with the record, so a failed delete there is harmless —
+// warning on it would be a false positive on every login on a keyring-less host.
+function flagResidualIfUnconfirmed(
+  existing: ProfileRecord | null,
+  cleared: "apiKey" | "oauth",
+  removals: KeyringRemoval[],
+): void {
+  if (existing === null || !removals.includes("failed")) {
+    return;
+  }
+  if (sideIsKeyringBacked(existing, cleared)) {
+    keychainResidualPending = true;
+  }
 }
 
 function fileLocation(key: CredentialAccount): FileLocation {
@@ -208,33 +289,65 @@ export function keyringFallbackWarning(location: FileLocation): string {
   return `warning: ${cause}; credentials stored as plaintext at ${location.path}`;
 }
 
-async function persistApiKey(name: string, apiKey: string): Promise<CredentialLocation> {
-  const key = account.profileApiKey(name);
-  if (trySetKeyring(key, apiKey)) {
+function persistSecret(key: CredentialAccount, value: string): CredentialLocation {
+  if (trySetKeyring(key, value)) {
     return { backend: "keyring", service: KEYRING_SERVICE, account: key };
   }
+  // Falling back to the plaintext file (keyring unavailable): drop any stale keyring entry so a
+  // recovered vault can't later shadow the file copy with an out-of-date secret.
+  removeKeyringEntry(key);
   return fileLocation(key);
 }
 
-export async function readProfile(name: string = DEFAULT_PROFILE): Promise<Profile | null> {
+function resolveSecret(key: CredentialAccount, inline: string | null): string | null {
+  // The inline (file) copy is written only when the keyring write failed, so when it is present it
+  // is authoritative — a stale keyring entry from a since-recovered vault must not shadow it.
+  if (inline !== null) {
+    return inline;
+  }
+  return tryReadKeyring(key) ?? null;
+}
+
+export async function readProfileCredential(
+  name: string = DEFAULT_PROFILE,
+): Promise<ResolvedCredential | null> {
   const file = await readProfilesFile();
   const record = findRecord(file, name);
   if (record === null) {
     return null;
   }
-  const apiKey = await resolveApiKey(record);
+  return resolveRecordCredential(record);
+}
+
+export function resolveRecordCredential(record: ProfileRecord): ResolvedCredential | null {
+  if (record.oauth !== null) {
+    const accessToken = resolveSecret(
+      account.profileOAuthAccess(record.name),
+      record.oauth.accessToken,
+    );
+    const refreshToken = resolveSecret(
+      account.profileOAuthRefresh(record.name),
+      record.oauth.refreshToken,
+    );
+    if (accessToken === null || refreshToken === null) {
+      return null;
+    }
+    return {
+      url: record.url,
+      credential: {
+        kind: "oauth",
+        accessToken,
+        refreshToken,
+        expiresAt: record.oauth.expiresAt,
+        clientId: record.oauth.clientId,
+      },
+    };
+  }
+  const apiKey = resolveSecret(account.profileApiKey(record.name), record.apiKey);
   if (apiKey === null) {
     return null;
   }
-  return { url: record.url, apiKey };
-}
-
-async function resolveApiKey(record: ProfileRecord): Promise<string | null> {
-  const fromKeyring = tryReadKeyring(account.profileApiKey(record.name));
-  if (typeof fromKeyring === "string") {
-    return fromKeyring;
-  }
-  return record.apiKey;
+  return { url: record.url, credential: { kind: "apiKey", apiKey } };
 }
 
 export async function readProfileRecord(
@@ -254,31 +367,81 @@ export async function listProfileNames(): Promise<string[]> {
   return file.profiles.map((entry) => entry.name);
 }
 
+async function upsertRecord(
+  file: ProfilesFile,
+  name: string,
+  updated: ProfileRecord,
+): Promise<void> {
+  const exists = findRecord(file, name) !== null;
+  const profiles = exists
+    ? file.profiles.map((entry) => (entry.name === name ? updated : entry))
+    : [...file.profiles, updated];
+  await writeProfilesFile({ ...file, profiles });
+}
+
 export async function writeProfile(
   profile: Profile,
   name: string = DEFAULT_PROFILE,
 ): Promise<CredentialLocation> {
-  const location = await persistApiKey(name, profile.apiKey);
+  const location = persistSecret(account.profileApiKey(name), profile.apiKey);
   const inlineApiKey = location.backend === "file" ? profile.apiKey : null;
 
   const file = await readProfilesFile();
   const existing = findRecord(file, name);
+  // Switching a profile to an API key clears any prior OAuth credential it held.
+  flagResidualIfUnconfirmed(existing, "oauth", [
+    removeKeyringEntry(account.profileOAuthAccess(name)),
+    removeKeyringEntry(account.profileOAuthRefresh(name)),
+  ]);
   const updated: ProfileRecord =
     existing === null
       ? {
           name,
           url: profile.url,
           apiKey: inlineApiKey,
+          oauth: null,
           lastProbe: null,
           lastFailure: null,
         }
-      : { ...existing, url: profile.url, apiKey: inlineApiKey };
-  const profiles =
-    existing === null
-      ? [...file.profiles, updated]
-      : file.profiles.map((entry) => (entry.name === name ? updated : entry));
-  await writeProfilesFile({ ...file, profiles });
+      : { ...existing, url: profile.url, apiKey: inlineApiKey, oauth: null };
+  await upsertRecord(file, name, updated);
   return location;
+}
+
+export async function writeOAuthProfile(
+  url: string,
+  credential: OAuthCredential,
+  name: string = DEFAULT_PROFILE,
+): Promise<CredentialLocation> {
+  const accessKey = account.profileOAuthAccess(name);
+  const refreshKey = account.profileOAuthRefresh(name);
+  const accessLocation = persistSecret(accessKey, credential.accessToken);
+  const refreshLocation = persistSecret(refreshKey, credential.refreshToken);
+  const onFile = accessLocation.backend === "file" || refreshLocation.backend === "file";
+
+  const oauth: ProfileOAuth = {
+    accessToken: onFile ? credential.accessToken : null,
+    refreshToken: onFile ? credential.refreshToken : null,
+    expiresAt: credential.expiresAt,
+    clientId: credential.clientId,
+  };
+  const file = await readProfilesFile();
+  const existing = findRecord(file, name);
+  // A credential that was keyring-backed but now lands on file (keychain hiccup during refresh) is
+  // a silent downgrade to plaintext — flag it so the command shell can warn.
+  if (onFile && existing !== null && sideIsKeyringBacked(existing, "oauth")) {
+    keyringDowngradeNotice = keyringFallbackWarning(fileLocation(accessKey));
+  }
+  // Switching a profile to OAuth clears any prior API key it held.
+  flagResidualIfUnconfirmed(existing, "apiKey", [removeKeyringEntry(account.profileApiKey(name))]);
+  const updated: ProfileRecord =
+    existing === null
+      ? { name, url, apiKey: null, oauth, lastProbe: null, lastFailure: null }
+      : { ...existing, url, apiKey: null, oauth };
+  await upsertRecord(file, name, updated);
+  return onFile
+    ? fileLocation(accessKey)
+    : { backend: "keyring", service: KEYRING_SERVICE, account: accessKey };
 }
 
 export async function writeProbeResult(
@@ -330,9 +493,16 @@ export async function writeProbeFailure(
 }
 
 export async function clearProfile(name: string = DEFAULT_PROFILE): Promise<boolean> {
-  tryRemoveKeyring(account.profileApiKey(name));
   const file = await readProfilesFile();
   const existing = findRecord(file, name);
+  const removals = [
+    removeKeyringEntry(account.profileApiKey(name)),
+    removeKeyringEntry(account.profileOAuthAccess(name)),
+    removeKeyringEntry(account.profileOAuthRefresh(name)),
+  ];
+  if (existing !== null) {
+    flagResidualIfUnconfirmed(existing, existing.oauth !== null ? "oauth" : "apiKey", removals);
+  }
   if (existing === null) {
     return false;
   }

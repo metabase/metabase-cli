@@ -8,6 +8,7 @@ import { errorMessage, isNotFoundError } from "../../../src/core/errors";
 import { createClient, type Client } from "../../../src/core/http/client";
 import { HttpError } from "../../../src/core/http/errors";
 import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries } from "../../../src/core/http/retry";
+import { tryDiscoverMetadata } from "../../../src/core/http/oauth";
 import { probeServer } from "../../../src/core/version/probe";
 import { CardQueryResult } from "../../../src/domain/card";
 import { CurrentUser } from "../../../src/domain/user";
@@ -84,22 +85,36 @@ async function main(): Promise<void> {
 
   const existing = await readStoredBootstrap();
   if (existing && (await canReuseExisting(existing.adminApiKey))) {
+    // OAuth support depends on the booted image, not on the reused credentials — re-probe it so a
+    // stale bootstrap file (or an image swap on the same stack) can't pin the wrong answer.
+    const oauthSupported = (await tryDiscoverMetadata(BASE_URL)) !== null;
+    if (existing.server.oauthSupported !== oauthSupported) {
+      await writeStoredBootstrap({ ...existing, server: { ...existing.server, oauthSupported } });
+    }
     process.stdout.write(`bootstrap: reusing ${BOOTSTRAP_FILE_PATH}\n`);
     return;
   }
 
   const sessionId = await ensureAdminSessionId();
   const adminApiKey = await mintApiKey(sessionId, "e2e-admin-key", E2E_GROUPS.ADMIN);
-  const client = createClient({ url: BASE_URL, apiKey: adminApiKey });
+  const client = createClient({
+    url: BASE_URL,
+    credential: { kind: "apiKey", apiKey: adminApiKey },
+  });
 
   const apiKeyUser = await client.requestParsed(CurrentUser, "/api/user/current");
   const seeded = await seedContent(client);
-  const server = await probeServer(client, { retries: DEFAULT_MAX_RETRIES });
+  const probed = await probeServer(client, { retries: DEFAULT_MAX_RETRIES });
+  const oauthSupported = (await tryDiscoverMetadata(BASE_URL)) !== null;
+  const server = { ...probed, oauthSupported };
 
   const limitedGroupId = await createLimitedGroup(client);
   await revokeDefaultCollectionAccess(client, limitedGroupId, seeded.defaultCollectionId);
   const limitedApiKey = await mintApiKey(sessionId, "e2e-limited-key", limitedGroupId);
-  const limitedClient = createClient({ url: BASE_URL, apiKey: limitedApiKey });
+  const limitedClient = createClient({
+    url: BASE_URL,
+    credential: { kind: "apiKey", apiKey: limitedApiKey },
+  });
   const limitedKeyUser = await limitedClient.requestParsed(CurrentUser, "/api/user/current");
   await assertLimitedKeyCannotQueryOrdersCard(limitedClient, seeded.ordersCardId);
 
@@ -464,7 +479,7 @@ async function tryLogin(): Promise<z.infer<typeof SessionResponse> | null> {
 }
 
 async function keyStillWorks(apiKey: string): Promise<boolean> {
-  const client = createClient({ url: BASE_URL, apiKey });
+  const client = createClient({ url: BASE_URL, credential: { kind: "apiKey", apiKey } });
   try {
     await client.requestParsed(CurrentUser, "/api/user/current");
     return true;
