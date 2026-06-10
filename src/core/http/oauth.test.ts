@@ -8,6 +8,7 @@ import { captureFetch, jsonResponse, type FetchCapture, type FetchScript } from 
 import {
   discoverMetadata,
   exchangeCode,
+  OAUTH_SCOPE,
   OAUTH_UNSUPPORTED_MESSAGE,
   refreshTokens,
   revokeToken,
@@ -34,6 +35,7 @@ describe("oauth HTTP boundary", () => {
         authorization_endpoint: "https://mb.example.com/oauth/authorize",
         token_endpoint: TOKEN_ENDPOINT,
         registration_endpoint: "https://mb.example.com/oauth/register",
+        scopes_supported: ["agent:sql:read", OAUTH_SCOPE],
       }),
     ]);
     const metadata = await discoverMetadata("https://mb.example.com");
@@ -42,6 +44,7 @@ describe("oauth HTTP boundary", () => {
       authorization_endpoint: "https://mb.example.com/oauth/authorize",
       token_endpoint: TOKEN_ENDPOINT,
       registration_endpoint: "https://mb.example.com/oauth/register",
+      scopes_supported: ["agent:sql:read", OAUTH_SCOPE],
     });
     expect(stub.calls[0]?.url).toBe(
       "https://mb.example.com/.well-known/oauth-authorization-server",
@@ -67,7 +70,34 @@ describe("oauth HTTP boundary", () => {
     );
   });
 
-  it("treats the SPA shell served at the discovery path (pre-v62) as no OAuth support", async () => {
+  it("treats an agent-API-only OAuth server (no full-access scope advertised) as no OAuth support", async () => {
+    installFetch([
+      jsonResponse({
+        issuer: "https://mb.example.com",
+        authorization_endpoint: "https://mb.example.com/oauth/authorize",
+        token_endpoint: TOKEN_ENDPOINT,
+        scopes_supported: ["agent:sql:read", "agent:query"],
+      }),
+    ]);
+    expect(await tryDiscoverMetadata("https://mb.example.com")).toBeNull();
+  });
+
+  it("accepts a discovery document that omits scopes_supported", async () => {
+    installFetch([
+      jsonResponse({
+        issuer: "https://mb.example.com",
+        authorization_endpoint: "https://mb.example.com/oauth/authorize",
+        token_endpoint: TOKEN_ENDPOINT,
+      }),
+    ]);
+    expect(await tryDiscoverMetadata("https://mb.example.com")).toEqual({
+      issuer: "https://mb.example.com",
+      authorization_endpoint: "https://mb.example.com/oauth/authorize",
+      token_endpoint: TOKEN_ENDPOINT,
+    });
+  });
+
+  it("treats the SPA shell served at the discovery path (pre-v60) as no OAuth support", async () => {
     installFetch([
       new Response("<!DOCTYPE html><html><body>Metabase</body></html>", {
         status: 200,

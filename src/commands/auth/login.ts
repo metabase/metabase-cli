@@ -60,7 +60,7 @@ const loginView: ResourceView<LoginResultJson> = {
 export default defineMetabaseCommand({
   meta: { name: "login", description: "Log in to a Metabase instance for a profile" },
   details:
-    "Interactive login offers browser OAuth (recommended; Metabase v62+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a refreshing access token. For CI/non-interactive use, supply an API key via --api-key, piped stdin, or $METABASE_API_KEY (first non-empty wins); any of these skips the browser flow, even on a TTY. The URL comes from --url or $METABASE_URL, prompted when stdin is a TTY.",
+    "Interactive login offers browser OAuth (recommended; Metabase v63+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a refreshing access token. For CI/non-interactive use, supply an API key via --api-key, piped stdin, or $METABASE_API_KEY (first non-empty wins); any of these skips the browser flow, even on a TTY. The URL comes from --url or $METABASE_URL, prompted when stdin is a TTY.",
   capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
@@ -146,7 +146,7 @@ export default defineMetabaseCommand({
 
 type LoginMethod = "oauth" | "apiKey";
 
-// Reaching the server but finding no OAuth authorization server (pre-v62) degrades to the API key
+// Reaching the server but finding no CLI-capable OAuth server (pre-v63) degrades to the API key
 // prompt; not reaching it at all is an error worth stopping on before any credential is collected.
 async function probeOAuthSupport(url: string): Promise<OAuthServerMetadata | null> {
   try {
@@ -166,11 +166,11 @@ async function chooseLoginMethod(
   if (metadata === null) {
     if (clientId !== undefined) {
       throw new ConfigError(
-        "--client-id was given but this Metabase does not support OAuth login (requires Metabase v62 or newer)",
+        "--client-id was given but this Metabase does not support OAuth login (requires Metabase v63 or newer)",
       );
     }
     warn(
-      "This Metabase does not support browser login (requires Metabase v62 or newer); using an API key instead.",
+      "This Metabase does not support browser login (requires Metabase v63 or newer); using an API key instead.",
     );
     return "apiKey";
   }

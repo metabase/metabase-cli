@@ -58,6 +58,7 @@ export const OAuthServerMetadata = z
     token_endpoint: z.string(),
     registration_endpoint: z.string().optional(),
     revocation_endpoint: z.string().optional(),
+    scopes_supported: z.array(z.string()).optional(),
   })
   .loose();
 export type OAuthServerMetadata = z.infer<typeof OAuthServerMetadata>;
@@ -166,11 +167,13 @@ async function postForm<T>(
 }
 
 export const OAUTH_UNSUPPORTED_MESSAGE =
-  "this Metabase does not support OAuth login (requires Metabase v62 or newer)";
+  "this Metabase does not support OAuth login (requires Metabase v63 or newer)";
 
-// Probe whether the server exposes an OAuth authorization server. Returns null when it does not:
-// pre-v62 Metabase answers the discovery path with the SPA shell (200 text/html) or a 404, so
-// "unsupported" is any non-2xx or non-JSON response. Network-level failures still throw.
+// Probe whether the server supports OAuth login for the CLI. Returns null when it does not:
+// pre-v60 Metabase answers the discovery path with the SPA shell (200 text/html) or a 404, so
+// "unsupported" is any non-2xx or non-JSON response; v60–62 expose an OAuth authorization
+// server scoped to the agent API/MCP only — see the scopes_supported check below. Network-level
+// failures still throw.
 // The well-known path is appended after any subpath (base + /.well-known/...), not inserted
 // between host and path as RFC 8414 prescribes — Metabase routes it like /api/*, so a
 // subpath-hosted instance serves discovery under its prefix.
@@ -187,6 +190,12 @@ export async function tryDiscoverMetadata(baseUrl: string): Promise<OAuthServerM
     return null;
   }
   const metadata = await readJson(response, OAuthServerMetadata, "OAuth discovery");
+  // A server that doesn't grant the full-access scope only issues agent-API/MCP-scoped tokens
+  // (Metabase v60–62); the general REST API rejects them, so for the CLI it's "no OAuth support".
+  const scopes = metadata.scopes_supported;
+  if (scopes !== undefined && !scopes.includes(OAUTH_SCOPE)) {
+    return null;
+  }
   // Pin every endpoint we will send secrets to back to the configured base URL's origin before
   // any caller uses them, so a tampered discovery document can't redirect tokens to another host.
   assertEndpointOrigin(metadata.issuer, baseUrl, "issuer");

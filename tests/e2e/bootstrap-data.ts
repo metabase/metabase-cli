@@ -39,9 +39,9 @@ export type SeededIds = z.infer<typeof SeededIds>;
 export const ServerIdentity = z.object({
   version: ParsedVersionSchema.nullable(),
   tokenFeatures: TokenFeatures.nullable(),
-  // Whether the server exposes an OAuth authorization server (Metabase v62+); probed live during
-  // bootstrap. Defaults false for bootstrap files written before this field existed — re-run
-  // `bun run e2e:bootstrap` after deleting the stale file to refresh it.
+  // Whether the server supports full-API OAuth login (Metabase v63+, full-access scope advertised
+  // in discovery); probed live during bootstrap. Defaults false for bootstrap files written before
+  // this field existed — re-run `bun run e2e:bootstrap` after deleting the stale file to refresh it.
   oauthSupported: z.boolean().default(false),
 });
 export type ServerIdentity = z.infer<typeof ServerIdentity>;
