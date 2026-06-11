@@ -9,7 +9,10 @@ async function adminClient(): Promise<Client> {
     return cachedClient;
   }
   const bootstrap = await readBootstrap();
-  cachedClient = createClient({ url: bootstrap.baseUrl, apiKey: bootstrap.adminApiKey });
+  cachedClient = createClient({
+    url: bootstrap.baseUrl,
+    credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey },
+  });
   return cachedClient;
 }
 

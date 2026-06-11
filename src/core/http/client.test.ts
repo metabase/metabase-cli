@@ -1,85 +1,21 @@
+import { setTimeout as delay } from "node:timers/promises";
+
 import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import packageJson from "../../../package.json" with { type: "json" };
+import type { OAuthCredential } from "../auth/credential";
 import { NetworkError, ResponseShapeError, TimeoutError } from "../errors";
 import { type ClientCredentials, createClient } from "./client";
 import { HttpError } from "./errors";
+import { captureFetch, jsonResponse } from "./fetch-capture";
 
 const CONFIG: ClientCredentials = {
   url: "https://m.example.com",
-  apiKey: "mb_test_key_abcdef0123",
+  credential: { kind: "apiKey", apiKey: "mb_test_key_abcdef0123" },
 };
 
 const PingResponse = z.object({ id: z.number().int(), email: z.string() });
-
-interface FakeFetchHandle {
-  fetch: typeof fetch;
-  calls: FetchCallRecord[];
-}
-
-interface FetchCallRecord {
-  url: string;
-  method: string;
-  headers: Record<string, string>;
-}
-
-type ResponseFactory = () => Response | Promise<Response>;
-type FetchScript = ReadonlyArray<Response | ResponseFactory | Error>;
-
-function makeFakeFetch(script: FetchScript): FakeFetchHandle {
-  const queue = [...script];
-  const calls: FetchCallRecord[] = [];
-  const fetchImpl: typeof fetch = async (input, init) => {
-    calls.push({
-      url: typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url,
-      method: init?.method ?? "GET",
-      headers: headersToRecord(init?.headers),
-    });
-    const next = queue.shift();
-    assert(next !== undefined, "fakeFetch: no more responses queued");
-    if (next instanceof Error) {
-      throw next;
-    }
-    return typeof next === "function" ? await next() : next;
-  };
-  return { fetch: fetchImpl, calls };
-}
-
-function headersToRecord(init: RequestInit["headers"]): Record<string, string> {
-  const result: Record<string, string> = {};
-  if (!init) {
-    return result;
-  }
-  if (init instanceof Headers) {
-    for (const [key, value] of init.entries()) {
-      result[key] = value;
-    }
-    return result;
-  }
-  if (Array.isArray(init)) {
-    for (const entry of init) {
-      const key = entry[0];
-      const value = entry[1];
-      if (typeof key === "string" && typeof value === "string") {
-        result[key] = value;
-      }
-    }
-    return result;
-  }
-  for (const [key, value] of Object.entries(init)) {
-    if (typeof value === "string") {
-      result[key] = value;
-    }
-  }
-  return result;
-}
-
-function jsonResponse(body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    headers: { "content-type": "application/json" },
-  });
-}
 
 const HANGING_FETCH: typeof fetch = (_input, init) =>
   new Promise<Response>((_resolve, reject) => {
@@ -90,7 +26,7 @@ const HANGING_FETCH: typeof fetch = (_input, init) =>
 
 describe("createClient.requestParsed", () => {
   it("returns parsed JSON on a 200 response", async () => {
-    const fakeFetch = makeFakeFetch([jsonResponse({ id: 1, email: "a@b.com" })]);
+    const fakeFetch = captureFetch([jsonResponse({ id: 1, email: "a@b.com" })]);
     const client = createClient(CONFIG, { fetchImpl: fakeFetch.fetch });
 
     const result = await client.requestParsed(PingResponse, "/api/user/current");
@@ -105,12 +41,13 @@ describe("createClient.requestParsed", () => {
           accept: "application/json",
           "user-agent": `metabase-cli/${packageJson.version}`,
         },
+        body: null,
       },
     ]);
   });
 
   it("retries 5xx responses and returns the eventual success body", async () => {
-    const fakeFetch = makeFakeFetch([
+    const fakeFetch = captureFetch([
       new Response("oops", { status: 500 }),
       new Response("oops again", { status: 502 }),
       jsonResponse({ id: 7, email: "u@m.com" }),
@@ -124,7 +61,7 @@ describe("createClient.requestParsed", () => {
   });
 
   it("throws HttpError when retries are exhausted", async () => {
-    const fakeFetch = makeFakeFetch([
+    const fakeFetch = captureFetch([
       new Response('{"message":"server boom"}', {
         status: 500,
         headers: { "content-type": "application/json" },
@@ -152,7 +89,7 @@ describe("createClient.requestParsed", () => {
   });
 
   it("retries on 429 with Retry-After header", async () => {
-    const fakeFetch = makeFakeFetch([
+    const fakeFetch = captureFetch([
       new Response("rate", { status: 429, headers: { "retry-after": "0" } }),
       jsonResponse({ id: 1, email: "a@b.com" }),
     ]);
@@ -165,7 +102,7 @@ describe("createClient.requestParsed", () => {
   });
 
   it("retries network failures", async () => {
-    const fakeFetch = makeFakeFetch([
+    const fakeFetch = captureFetch([
       new TypeError("fetch failed"),
       jsonResponse({ id: 2, email: "x@y.com" }),
     ]);
@@ -182,7 +119,7 @@ describe("createClient.requestParsed", () => {
     failure.cause = Object.assign(new Error("connect ECONNREFUSED 127.0.0.1:1"), {
       code: "ECONNREFUSED",
     });
-    const fakeFetch = makeFakeFetch([failure]);
+    const fakeFetch = captureFetch([failure]);
     const client = createClient(CONFIG, { fetchImpl: fakeFetch.fetch });
 
     const error = await client
@@ -206,7 +143,7 @@ describe("createClient.requestParsed", () => {
     failure.cause = Object.assign(new Error("getaddrinfo ENOTFOUND m.example.com"), {
       code: "ENOTFOUND",
     });
-    const fakeFetch = makeFakeFetch([failure]);
+    const fakeFetch = captureFetch([failure]);
     const client = createClient(CONFIG, { fetchImpl: fakeFetch.fetch });
 
     const error = await client
@@ -226,7 +163,7 @@ describe("createClient.requestParsed", () => {
   });
 
   it("falls back to the raw fetch message when the cause carries no error code", async () => {
-    const fakeFetch = makeFakeFetch([new TypeError("fetch failed")]);
+    const fakeFetch = captureFetch([new TypeError("fetch failed")]);
     const client = createClient(CONFIG, { fetchImpl: fakeFetch.fetch });
 
     const error = await client
@@ -247,7 +184,7 @@ describe("createClient.requestParsed", () => {
     const body = { id: "not-a-number", email: "a@b.com" };
     const expectedIssues = PingResponse.safeParse(body).error?.issues;
     assert(expectedIssues !== undefined, "expected zod failure for fixture body");
-    const fakeFetch = makeFakeFetch([jsonResponse(body)]);
+    const fakeFetch = captureFetch([jsonResponse(body)]);
     const client = createClient(CONFIG, { fetchImpl: fakeFetch.fetch });
 
     const error = await client
@@ -273,7 +210,7 @@ describe("createClient.requestParsed", () => {
     const body = { id: "not-a-number", email: "a@b.com" };
     const expectedIssues = PingResponse.safeParse(body).error?.issues;
     assert(expectedIssues !== undefined, "expected zod failure for fixture body");
-    const fakeFetch = makeFakeFetch([jsonResponse(body)]);
+    const fakeFetch = captureFetch([jsonResponse(body)]);
     const client = createClient(CONFIG, {
       fetchImpl: fakeFetch.fetch,
       getServerTag: async () => "v0.58.7",
@@ -299,7 +236,7 @@ describe("createClient.requestParsed", () => {
   });
 
   it("threads getServerTag into HttpError so route-missing names the version", async () => {
-    const fakeFetch = makeFakeFetch([
+    const fakeFetch = captureFetch([
       new Response("API endpoint does not exist.", {
         status: 404,
         headers: { "content-type": "text/plain" },
@@ -325,7 +262,7 @@ describe("createClient.requestParsed", () => {
   });
 
   it("throws HttpError on content-type mismatch with no silent downgrade", async () => {
-    const fakeFetch = makeFakeFetch([
+    const fakeFetch = captureFetch([
       new Response("<html>oops</html>", { status: 200, headers: { "content-type": "text/html" } }),
     ]);
     const client = createClient(CONFIG, { fetchImpl: fakeFetch.fetch });
@@ -341,7 +278,7 @@ describe("createClient.requestParsed", () => {
   });
 
   it("throws HttpError when the response has no content-type header", async () => {
-    const fakeFetch = makeFakeFetch([
+    const fakeFetch = captureFetch([
       () => {
         const response = new Response('{"id":1,"email":"a@b"}', { status: 200 });
         response.headers.delete("content-type");
@@ -374,7 +311,7 @@ describe("createClient.requestParsed", () => {
 
 describe("createClient idempotency-aware retry", () => {
   it("does not retry POST on 5xx and surfaces the first HttpError", async () => {
-    const fakeFetch = makeFakeFetch([
+    const fakeFetch = captureFetch([
       new Response('{"message":"server boom"}', {
         status: 500,
         headers: { "content-type": "application/json" },
@@ -394,7 +331,7 @@ describe("createClient idempotency-aware retry", () => {
   });
 
   it("does not retry POST on 429 either — non-idempotent never retries on status", async () => {
-    const fakeFetch = makeFakeFetch([
+    const fakeFetch = captureFetch([
       new Response('{"message":"slow down"}', {
         status: 429,
         headers: { "content-type": "application/json", "retry-after": "0" },
@@ -414,7 +351,7 @@ describe("createClient idempotency-aware retry", () => {
   });
 
   it("retries POST on network failure", async () => {
-    const fakeFetch = makeFakeFetch([
+    const fakeFetch = captureFetch([
       new TypeError("fetch failed"),
       jsonResponse({ id: 9, email: "ok@m.com" }),
     ]);
@@ -430,7 +367,7 @@ describe("createClient idempotency-aware retry", () => {
   });
 
   it("retries non-idempotent calls when the caller explicitly opts in via idempotent: true", async () => {
-    const fakeFetch = makeFakeFetch([
+    const fakeFetch = captureFetch([
       new Response("oops", { status: 503 }),
       jsonResponse({ id: 4, email: "p@u.com" }),
     ]);
@@ -447,7 +384,7 @@ describe("createClient idempotency-aware retry", () => {
   });
 
   it("does not retry GET on 5xx when the caller forces idempotent: false", async () => {
-    const fakeFetch = makeFakeFetch([
+    const fakeFetch = captureFetch([
       new Response('{"message":"down"}', {
         status: 503,
         headers: { "content-type": "application/json" },
@@ -470,14 +407,14 @@ describe("createClient idempotency-aware retry", () => {
 describe("createClient sanitization", () => {
   it("strips the configured apiKey from error bodies", async () => {
     const apiKey = "configured_api_key_value";
-    const fakeFetch = makeFakeFetch([
+    const fakeFetch = captureFetch([
       new Response(`{"message":"forbidden","echo":"${apiKey}"}`, {
         status: 403,
         headers: { "content-type": "application/json" },
       }),
     ]);
     const client = createClient(
-      { url: "https://m.example.com", apiKey },
+      { url: "https://m.example.com", credential: { kind: "apiKey", apiKey } },
       { fetchImpl: fakeFetch.fetch },
     );
 
@@ -491,7 +428,7 @@ describe("createClient sanitization", () => {
   });
 
   it("redacts secret response headers in HttpError detail", async () => {
-    const fakeFetch = makeFakeFetch([
+    const fakeFetch = captureFetch([
       new Response('{"message":"forbidden"}', {
         status: 403,
         headers: {
@@ -519,7 +456,7 @@ describe("createClient sanitization", () => {
 
 describe("createClient query encoding", () => {
   it("encodes array query values as repeated keys and skips undefined entries", async () => {
-    const fakeFetch = makeFakeFetch([jsonResponse({ id: 1, email: "a@b.com" })]);
+    const fakeFetch = captureFetch([jsonResponse({ id: 1, email: "a@b.com" })]);
     const client = createClient(CONFIG, { fetchImpl: fakeFetch.fetch });
 
     await client.requestParsed(PingResponse, "/api/search", {
@@ -533,5 +470,189 @@ describe("createClient query encoding", () => {
     expect(fakeFetch.calls[0]?.url).toBe(
       "https://m.example.com/api/search?models=card&models=dashboard&q=x",
     );
+  });
+});
+
+const OAUTH: OAuthCredential = {
+  kind: "oauth",
+  accessToken: "acc-1",
+  refreshToken: "ref-1",
+  expiresAt: "2026-06-08T13:00:00.000Z",
+  clientId: "c1",
+};
+
+function unauthorizedResponse(): Response {
+  return new Response('{"error":"unauthorized"}', {
+    status: 401,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+describe("createClient OAuth bearer auth", () => {
+  it("sends an Authorization Bearer header and no x-api-key", async () => {
+    const fakeFetch = captureFetch([jsonResponse({ id: 1, email: "a@b.c" })]);
+    const client = createClient(
+      { url: "https://m.example.com", credential: OAUTH },
+      { fetchImpl: fakeFetch.fetch },
+    );
+    await client.requestParsed(PingResponse, "/api/user/current");
+    expect(fakeFetch.calls[0]?.headers["authorization"]).toBe("Bearer acc-1");
+    expect(fakeFetch.calls[0]?.headers["x-api-key"]).toBeUndefined();
+  });
+
+  it("refreshes on 401 and replays the request with the new access token", async () => {
+    const fakeFetch = captureFetch([
+      unauthorizedResponse(),
+      jsonResponse({ id: 1, email: "a@b.c" }),
+    ]);
+    const refreshed: OAuthCredential = { ...OAUTH, accessToken: "acc-2", refreshToken: "ref-2" };
+    let refreshCalls = 0;
+    const client = createClient(
+      { url: "https://m.example.com", credential: OAUTH },
+      {
+        fetchImpl: fakeFetch.fetch,
+        refreshCredential: async () => {
+          refreshCalls += 1;
+          return refreshed;
+        },
+      },
+    );
+    const result = await client.requestParsed(PingResponse, "/api/user/current", { retries: 0 });
+    expect(result).toEqual({ id: 1, email: "a@b.c" });
+    expect(refreshCalls).toBe(1);
+    expect(fakeFetch.calls[0]?.headers["authorization"]).toBe("Bearer acc-1");
+    expect(fakeFetch.calls[1]?.headers["authorization"]).toBe("Bearer acc-2");
+  });
+
+  it("gives up after a single refresh when the replay still 401s", async () => {
+    const fakeFetch = captureFetch([unauthorizedResponse(), unauthorizedResponse()]);
+    let refreshCalls = 0;
+    const client = createClient(
+      { url: "https://m.example.com", credential: OAUTH },
+      {
+        fetchImpl: fakeFetch.fetch,
+        refreshCredential: async () => {
+          refreshCalls += 1;
+          return { ...OAUTH, accessToken: "acc-2" };
+        },
+      },
+    );
+    const error = await client
+      .requestParsed(PingResponse, "/api/user/current", { retries: 0 })
+      .catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(HttpError);
+    assert(error instanceof HttpError, "expected HttpError");
+    expect(error.status).toBe(401);
+    expect(refreshCalls).toBe(1);
+    expect(fakeFetch.calls).toHaveLength(2);
+  });
+
+  it("shares a single refresh across concurrent 401s", async () => {
+    const fakeFetch = captureFetch([
+      unauthorizedResponse(),
+      unauthorizedResponse(),
+      jsonResponse({ id: 1, email: "a@b.c" }),
+      jsonResponse({ id: 1, email: "a@b.c" }),
+    ]);
+    let refreshCalls = 0;
+    const client = createClient(
+      { url: "https://m.example.com", credential: OAUTH },
+      {
+        fetchImpl: fakeFetch.fetch,
+        refreshCredential: async () => {
+          refreshCalls += 1;
+          // Yield a macrotask so both 401 handlers (pure microtask chains) join this refresh
+          // before it settles — the deterministic worst case for a duplicate-refresh bug.
+          await delay(0);
+          return { ...OAUTH, accessToken: "acc-2" };
+        },
+      },
+    );
+    const results = await Promise.all([
+      client.requestParsed(PingResponse, "/api/user/current", { retries: 0 }),
+      client.requestParsed(PingResponse, "/api/user/current", { retries: 0 }),
+    ]);
+    expect(results).toEqual([
+      { id: 1, email: "a@b.c" },
+      { id: 1, email: "a@b.c" },
+    ]);
+    expect(refreshCalls).toBe(1);
+    expect(fakeFetch.calls[2]?.headers["authorization"]).toBe("Bearer acc-2");
+    expect(fakeFetch.calls[3]?.headers["authorization"]).toBe("Bearer acc-2");
+  });
+
+  it("refreshes again on a later request when the token expires a second time", async () => {
+    const fakeFetch = captureFetch([
+      unauthorizedResponse(),
+      jsonResponse({ id: 1, email: "a@b.c" }),
+      unauthorizedResponse(),
+      jsonResponse({ id: 1, email: "a@b.c" }),
+    ]);
+    let refreshCalls = 0;
+    const client = createClient(
+      { url: "https://m.example.com", credential: OAUTH },
+      {
+        fetchImpl: fakeFetch.fetch,
+        refreshCredential: async () => {
+          refreshCalls += 1;
+          return { ...OAUTH, accessToken: `acc-${refreshCalls + 1}` };
+        },
+      },
+    );
+    await client.requestParsed(PingResponse, "/api/user/current", { retries: 0 });
+    await client.requestParsed(PingResponse, "/api/user/current", { retries: 0 });
+    // Each expiry event gets its own refresh — no per-client "refresh only once" latch.
+    expect(refreshCalls).toBe(2);
+  });
+
+  it("does not refresh an API key credential on 401", async () => {
+    const fakeFetch = captureFetch([unauthorizedResponse()]);
+    let refreshCalls = 0;
+    const client = createClient(
+      { url: "https://m.example.com", credential: { kind: "apiKey", apiKey: "k" } },
+      {
+        fetchImpl: fakeFetch.fetch,
+        refreshCredential: async () => {
+          refreshCalls += 1;
+          return null;
+        },
+      },
+    );
+    await client
+      .requestParsed(PingResponse, "/api/user/current", { retries: 0 })
+      .catch(() => undefined);
+    expect(refreshCalls).toBe(0);
+    expect(fakeFetch.calls).toHaveLength(1);
+  });
+
+  it("redacts both OAuth tokens from error bodies", async () => {
+    const fakeFetch = captureFetch([
+      new Response('{"echo":"acc-1 and ref-1"}', {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      }),
+    ]);
+    const client = createClient(
+      { url: "https://m.example.com", credential: OAUTH },
+      { fetchImpl: fakeFetch.fetch },
+    );
+    const error = await client
+      .requestParsed(PingResponse, "/api/user/current", { retries: 0 })
+      .catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(HttpError);
+    assert(error instanceof HttpError, "expected HttpError");
+    expect(error.developerDetail.body).toBe('{"echo":"[REDACTED] and [REDACTED]"}');
+  });
+});
+
+describe("createClient subpath base URLs", () => {
+  it("joins request paths under a base URL that carries a subpath", async () => {
+    const fakeFetch = captureFetch([jsonResponse({ id: 1, email: "a@b.c" })]);
+    const client = createClient(
+      { url: "https://my.org.com/metabase", credential: { kind: "apiKey", apiKey: "k" } },
+      { fetchImpl: fakeFetch.fetch },
+    );
+    await client.requestParsed(PingResponse, "/api/user/current");
+    expect(fakeFetch.calls[0]?.url).toBe("https://my.org.com/metabase/api/user/current");
   });
 });

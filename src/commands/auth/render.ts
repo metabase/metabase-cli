@@ -30,6 +30,16 @@ export function renderUserRole(value: unknown): string {
   return isAdmin ? "Admin" : "User";
 }
 
+export function renderAuthMethod(value: unknown): string {
+  if (value === "oauth") {
+    return "OAuth";
+  }
+  if (value === "apiKey") {
+    return "API key";
+  }
+  return EMPTY_CELL;
+}
+
 export function renderVersionTag(value: unknown): string {
   return pickString(value, "tag") ?? EMPTY_CELL;
 }

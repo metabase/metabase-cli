@@ -22,20 +22,33 @@ import * as storage from "./storage";
 
 const {
   clearProfile,
+  consumeKeychainResidualWarning,
+  consumeKeyringDowngradeWarning,
   consumeLegacyStorageWarning,
+  KEYCHAIN_RESIDUAL_NOTICE,
   keyringFallbackWarning,
   LEGACY_STORAGE_NOTICE,
   listProfileNames,
   listProfileRecords,
   profilesFilePath,
-  readProfile,
+  readProfileCredential,
   readProfileRecord,
+  writeOAuthProfile,
   writeProbeFailure,
   writeProbeResult,
   writeProfile,
 } = storage;
 
+import type { OAuthCredential } from "./credential";
 import type { FileLocation } from "./storage";
+
+const OAUTH: OAuthCredential = {
+  kind: "oauth",
+  accessToken: "access-1",
+  refreshToken: "refresh-1",
+  expiresAt: "2026-06-08T13:00:00.000Z",
+  clientId: "client-1",
+};
 
 import { join } from "node:path";
 
@@ -76,6 +89,7 @@ describe("profiles (keyring backend)", () => {
           name: "default",
           url: "https://m.example.com",
           apiKey: null,
+          oauth: null,
           lastProbe: null,
           lastFailure: null,
         },
@@ -85,20 +99,23 @@ describe("profiles (keyring backend)", () => {
 
   it("readProfile returns the URL with the API key from the keyring", async () => {
     await writeProfile({ url: "https://m.example.com", apiKey: "secret" });
-    expect(await readProfile()).toEqual({ url: "https://m.example.com", apiKey: "secret" });
+    expect(await readProfileCredential()).toEqual({
+      url: "https://m.example.com",
+      credential: { kind: "apiKey", apiKey: "secret" },
+    });
   });
 
   it("isolates named profiles", async () => {
     await writeProfile({ url: "https://default.example.com", apiKey: "default-key" });
     await writeProfile({ url: "https://prod.example.com", apiKey: "prod-key" }, "prod");
 
-    expect(await readProfile()).toEqual({
+    expect(await readProfileCredential()).toEqual({
       url: "https://default.example.com",
-      apiKey: "default-key",
+      credential: { kind: "apiKey", apiKey: "default-key" },
     });
-    expect(await readProfile("prod")).toEqual({
+    expect(await readProfileCredential("prod")).toEqual({
       url: "https://prod.example.com",
-      apiKey: "prod-key",
+      credential: { kind: "apiKey", apiKey: "prod-key" },
     });
   });
 
@@ -107,8 +124,11 @@ describe("profiles (keyring backend)", () => {
     await writeProfile({ url: "https://2.example.com", apiKey: "k2" }, "alpha");
     await writeProfile({ url: "https://2b.example.com", apiKey: "k2b" }, "alpha");
     expect(await listProfileNames()).toEqual(["zeta", "alpha"]);
-    const alpha = await readProfile("alpha");
-    expect(alpha).toEqual({ url: "https://2b.example.com", apiKey: "k2b" });
+    const alpha = await readProfileCredential("alpha");
+    expect(alpha).toEqual({
+      url: "https://2b.example.com",
+      credential: { kind: "apiKey", apiKey: "k2b" },
+    });
   });
 
   it("clearProfile removes the entry from JSON and the keyring", async () => {
@@ -116,9 +136,12 @@ describe("profiles (keyring backend)", () => {
     await writeProfile({ url: "https://b.example.com", apiKey: "b" }, "b");
 
     expect(await clearProfile("a")).toBe(true);
-    expect(await readProfile("a")).toBeNull();
+    expect(await readProfileCredential("a")).toBeNull();
     expect(hoisted.store.get("metabase-cli:profile:a:apiKey")).toBeUndefined();
-    expect(await readProfile("b")).toEqual({ url: "https://b.example.com", apiKey: "b" });
+    expect(await readProfileCredential("b")).toEqual({
+      url: "https://b.example.com",
+      credential: { kind: "apiKey", apiKey: "b" },
+    });
   });
 
   it("clearProfile returns false when no entry matches the name", async () => {
@@ -177,7 +200,10 @@ describe("profiles (file fallback when keyring is broken)", () => {
 
   it("readProfile returns the inline API key when the keyring is broken", async () => {
     await writeProfile({ url: "https://m.example.com", apiKey: "secret" });
-    expect(await readProfile()).toEqual({ url: "https://m.example.com", apiKey: "secret" });
+    expect(await readProfileCredential()).toEqual({
+      url: "https://m.example.com",
+      credential: { kind: "apiKey", apiKey: "secret" },
+    });
   });
 });
 
@@ -204,6 +230,7 @@ describe("readProfileRecord and listProfileRecords", () => {
       name: "staging",
       url: "https://m.example.com",
       apiKey: null,
+      oauth: null,
       lastProbe: null,
       lastFailure: null,
     });
@@ -389,5 +416,146 @@ describe("legacy storage detection", () => {
 
     expect(() => statSync(legacyCredentialsPath())).toThrow(/ENOENT/);
     expect(() => statSync(legacyRejectionsPath())).toThrow(/ENOENT/);
+  });
+});
+
+describe("OAuth profiles (keyring backend)", () => {
+  let home: TempConfigHome;
+
+  beforeEach(() => {
+    hoisted.store.clear();
+    hoisted.controls.broken = false;
+    home = setupTempConfigHome();
+  });
+
+  afterEach(() => {
+    home.cleanup();
+  });
+
+  it("round-trips an OAuth credential, keeping both tokens in the keyring", async () => {
+    await writeOAuthProfile("https://m.example.com", OAUTH);
+    expect(await readProfileCredential()).toEqual({
+      url: "https://m.example.com",
+      credential: OAUTH,
+    });
+    expect(await readProfileRecord()).toEqual({
+      name: "default",
+      url: "https://m.example.com",
+      apiKey: null,
+      oauth: {
+        accessToken: null,
+        refreshToken: null,
+        expiresAt: OAUTH.expiresAt,
+        clientId: "client-1",
+      },
+      lastProbe: null,
+      lastFailure: null,
+    });
+    expect(hoisted.store.get("metabase-cli:profile:default:oauthAccess")).toBe("access-1");
+    expect(hoisted.store.get("metabase-cli:profile:default:oauthRefresh")).toBe("refresh-1");
+  });
+
+  it("switching an OAuth profile to an API key clears the OAuth tokens", async () => {
+    await writeOAuthProfile("https://m.example.com", OAUTH);
+    await writeProfile({ url: "https://m.example.com", apiKey: "k" });
+    expect(await readProfileCredential()).toEqual({
+      url: "https://m.example.com",
+      credential: { kind: "apiKey", apiKey: "k" },
+    });
+    expect((await readProfileRecord())?.oauth).toBeNull();
+    expect(hoisted.store.get("metabase-cli:profile:default:oauthAccess")).toBeUndefined();
+    expect(hoisted.store.get("metabase-cli:profile:default:oauthRefresh")).toBeUndefined();
+  });
+
+  it("switching an API key profile to OAuth clears the API key", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "k" });
+    await writeOAuthProfile("https://m.example.com", OAUTH);
+    expect(await readProfileCredential()).toEqual({
+      url: "https://m.example.com",
+      credential: OAUTH,
+    });
+    expect((await readProfileRecord())?.apiKey).toBeNull();
+    expect(hoisted.store.get("metabase-cli:profile:default:apiKey")).toBeUndefined();
+  });
+
+  it("clearProfile removes the OAuth tokens from the keyring", async () => {
+    await writeOAuthProfile("https://m.example.com", OAUTH);
+    expect(await clearProfile()).toBe(true);
+    expect(hoisted.store.get("metabase-cli:profile:default:oauthAccess")).toBeUndefined();
+    expect(hoisted.store.get("metabase-cli:profile:default:oauthRefresh")).toBeUndefined();
+    expect(await readProfileCredential()).toBeNull();
+  });
+
+  it("file-fallback rotated tokens win over a stale keyring entry after the vault recovers", async () => {
+    await writeOAuthProfile("https://m.example.com", OAUTH); // stored in the working keyring
+    const rotated: OAuthCredential = {
+      ...OAUTH,
+      accessToken: "access-2",
+      refreshToken: "refresh-2",
+    };
+    hoisted.controls.broken = true; // the vault is unavailable during the refresh
+    try {
+      expect((await writeOAuthProfile("https://m.example.com", rotated)).backend).toBe("file");
+    } finally {
+      hoisted.controls.broken = false;
+    }
+    // The recovered keyring still holds the pre-rotation tokens; the inline file copy is
+    // authoritative, so the stale keyring entry must not shadow it.
+    expect(hoisted.store.get("metabase-cli:profile:default:oauthRefresh")).toBe("refresh-1");
+    expect(await readProfileCredential()).toEqual({
+      url: "https://m.example.com",
+      credential: rotated,
+    });
+    consumeKeyringDowngradeWarning(); // drain the downgrade notice this path raised
+  });
+
+  it("flags a residual-secret warning when a keyring-backed token cannot be removed", async () => {
+    await writeOAuthProfile("https://m.example.com", OAUTH); // stored in the working keyring
+    expect(consumeKeychainResidualWarning()).toBeNull(); // nothing pending yet
+    hoisted.controls.broken = true; // the vault now refuses deletes
+    try {
+      expect(await clearProfile()).toBe(true); // local record is still cleared
+    } finally {
+      hoisted.controls.broken = false;
+    }
+    expect(consumeKeychainResidualWarning()).toBe(KEYCHAIN_RESIDUAL_NOTICE);
+    expect(consumeKeychainResidualWarning()).toBeNull(); // consumed exactly once
+  });
+});
+
+describe("OAuth profiles (file fallback)", () => {
+  let home: TempConfigHome;
+
+  beforeEach(() => {
+    hoisted.store.clear();
+    hoisted.controls.broken = true;
+    home = setupTempConfigHome();
+  });
+
+  afterEach(() => {
+    hoisted.controls.broken = false;
+    home.cleanup();
+  });
+
+  it("inlines the OAuth tokens in profiles.json when the keyring is broken", async () => {
+    const location = await writeOAuthProfile("https://m.example.com", OAUTH);
+    expect(location.backend).toBe("file");
+    expect((await readProfileRecord())?.oauth).toEqual({
+      accessToken: "access-1",
+      refreshToken: "refresh-1",
+      expiresAt: OAUTH.expiresAt,
+      clientId: "client-1",
+    });
+    expect(await readProfileCredential()).toEqual({
+      url: "https://m.example.com",
+      credential: OAUTH,
+    });
+  });
+
+  it("does not flag a residual secret for an inline (file-fallback) profile", async () => {
+    await writeOAuthProfile("https://m.example.com", OAUTH); // inlined, never in the keyring
+    expect(await clearProfile()).toBe(true);
+    // a failed keyring delete is harmless here — the secret lived in the file we just removed
+    expect(consumeKeychainResidualWarning()).toBeNull();
   });
 });

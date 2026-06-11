@@ -2,8 +2,13 @@ import { defineCommand } from "citty";
 import type { ArgsDef, CommandDef, CommandMeta, ParsedArgs } from "citty";
 import type { ZodType } from "zod";
 
-import { consumeLegacyStorageWarning, readProfileRecord } from "../core/auth/storage";
 import {
+  consumeKeyringDowngradeWarning,
+  consumeLegacyStorageWarning,
+  readProfileRecord,
+} from "../core/auth/storage";
+import {
+  createCredentialRefresher,
   isPreflightSkipped,
   resolveConfig,
   SKIP_PREFLIGHT_ENV,
@@ -79,9 +84,10 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
           if (cachedClient === null) {
             const resolved = await getResolvedConfig();
             cachedClient = createClient(
-              { url: resolved.url, apiKey: resolved.apiKey },
+              { url: resolved.url, credential: resolved.credential },
               {
                 getServerTag: async () => (await getServerInfo())?.version?.tag ?? null,
+                refreshCredential: createCredentialRefresher(resolved.profile),
               },
             );
           }
@@ -106,7 +112,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
             getServerInfo,
           });
         } finally {
-          emitLegacyStorageWarningIfPending();
+          emitPendingStorageWarnings();
         }
       } catch (error) {
         reportError(error, reportFormat);
@@ -122,10 +128,14 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
   return cmd;
 }
 
-function emitLegacyStorageWarningIfPending(): void {
-  const message = consumeLegacyStorageWarning();
-  if (message !== null) {
-    warn(message);
+function emitPendingStorageWarnings(): void {
+  const legacy = consumeLegacyStorageWarning();
+  if (legacy !== null) {
+    warn(legacy);
+  }
+  const downgrade = consumeKeyringDowngradeWarning();
+  if (downgrade !== null) {
+    warn(downgrade);
   }
 }
 

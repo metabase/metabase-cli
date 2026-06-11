@@ -6,7 +6,7 @@ import { collectPaginated, paginate } from "./paginate";
 
 const CONFIG: ClientCredentials = {
   url: "https://m.example.com",
-  apiKey: "mb_test_key",
+  credential: { kind: "apiKey", apiKey: "mb_test_key" },
 };
 
 const Card = z.object({ id: z.number().int(), name: z.string() });

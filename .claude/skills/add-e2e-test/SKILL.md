@@ -67,7 +67,7 @@ beforeAll(async () => {
 ```
 
 - The `Bootstrap` schema lives in `tests/e2e/bootstrap-data.ts`. **Never redeclare it.** If you need a new field, edit the schema there — the writer (`tests/e2e/setup/bootstrap.ts`) consumes the same type, so drift is mechanically prevented.
-- The seeded `bootstrap.adminApiKey` authenticates as a synthetic api-key user (email `api-key-user-…@api-key.invalid`). For tests that need a real human admin, use `auth login --email --password` with `bootstrap.admin.email` / `bootstrap.admin.password` and **explain in the test name why** — don't paper over it.
+- The seeded `bootstrap.adminApiKey` authenticates as a synthetic api-key user (email `api-key-user-…@api-key.invalid`). For tests that need a real human admin, run the in-process OAuth login harness (`tests/e2e/setup/oauth-harness.ts` — `consentingBrowser` with `bootstrap.admin`; OAuth-capable servers only, gate with `requireOAuthServer()`) and **explain in the test name why** — don't paper over it.
 - **Never invoke the setup wizard from a test.** That mutates global state. Bootstrap runs once per `bun run test:e2e` via `tests/e2e/setup/global-setup.ts`.
 - **Never hard-code an API key.** Always read from `bootstrap`.
 

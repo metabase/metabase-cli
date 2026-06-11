@@ -20,7 +20,10 @@ describe("field e2e", () => {
   });
 
   async function resolveFieldId(tableId: number, fieldName: string): Promise<number> {
-    const client = createClient({ url: bootstrap.baseUrl, apiKey: bootstrap.adminApiKey });
+    const client = createClient({
+      url: bootstrap.baseUrl,
+      credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey },
+    });
     const metadata = await client.requestParsed(
       TableQueryMetadata,
       `/api/table/${tableId}/query_metadata`,

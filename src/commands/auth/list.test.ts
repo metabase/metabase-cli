@@ -2,6 +2,7 @@ import { runCommand } from "citty";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ZodType } from "zod";
 
+import type { Credential } from "../../core/auth/credential";
 import { parseJson } from "../../runtime/json";
 import type { Verification } from "../../core/auth/verify";
 
@@ -17,10 +18,11 @@ vi.mock("@napi-rs/keyring", async () => {
 });
 
 vi.mock("../../core/auth/verify", () => ({
-  verifyAndProbe: async (url: string, apiKey: string): Promise<Verification> => {
-    const result = hoisted.verify.results.get(apiKey);
+  verifyAndProbe: async (url: string, credential: Credential): Promise<Verification> => {
+    const key = credential.kind === "apiKey" ? credential.apiKey : credential.accessToken;
+    const result = hoisted.verify.results.get(key);
     if (result === undefined) {
-      throw new Error(`no verifyAndProbe result configured for apiKey "${apiKey}"`);
+      throw new Error(`no verifyAndProbe result configured for credential "${key}"`);
     }
     return result;
   },
@@ -108,7 +110,8 @@ describe("auth list command", () => {
     expect(envelope.returned).toBe(2);
     expect(envelope.data.map((entry) => entry.profile)).toEqual(["staging", "prod"]);
     expect(envelope.data.every((entry) => entry.status === "ok")).toBe(true);
-    expect(envelope.data[0]?.url).toBe("https://staging.example.com");
+    // The subpath survives (instances hosted under a path stay distinguishable); query is dropped.
+    expect(envelope.data[0]?.url).toBe("https://staging.example.com/path");
     expect(envelope.data[0]?.version).toEqual({
       tag: "v0.58.7",
       major: 58,
