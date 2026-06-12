@@ -5,7 +5,7 @@ import { DEFAULT_PROFILE, writeProfile } from "../../core/auth/storage";
 import { verifyCredentials } from "../../core/auth/verify";
 import { explicitProfileName, readEnvCredentials } from "../../core/config";
 import { ConfigError, errorMessage } from "../../core/errors";
-import { normalizeUrl } from "../../core/url";
+import { joinUrl, normalizeUrl } from "../../core/url";
 import type { ResourceView } from "../../domain/view";
 import { warn } from "../../output/notice";
 import { promptPassword, promptText } from "../../output/prompt";
@@ -65,7 +65,7 @@ export default defineMetabaseCommand({
     }
 
     const url = await resolveUrl(args.url, env.url);
-    const apiKey = await resolveApiKey(args.apiKey, env.apiKey);
+    const apiKey = await resolveApiKey(args.apiKey, env.apiKey, url);
 
     let email: string | null = null;
     let authenticated = false;
@@ -117,7 +117,11 @@ async function resolveUrl(flagUrl: string | undefined, envUrl: string | null): P
   return promptForUrl();
 }
 
-async function resolveApiKey(flagKey: string | undefined, envKey: string | null): Promise<string> {
+async function resolveApiKey(
+  flagKey: string | undefined,
+  envKey: string | null,
+  url: string,
+): Promise<string> {
   if (flagKey) {
     return flagKey;
   }
@@ -128,7 +132,7 @@ async function resolveApiKey(flagKey: string | undefined, envKey: string | null)
   if (envKey) {
     return envKey;
   }
-  return promptForApiKey();
+  return promptForApiKey(url);
 }
 
 async function promptForUrl(): Promise<string> {
@@ -155,14 +159,15 @@ async function promptForUrl(): Promise<string> {
   return normalizeUrl(value);
 }
 
-async function promptForApiKey(): Promise<string> {
+async function promptForApiKey(url: string): Promise<string> {
   if (!process.stdin.isTTY) {
     throw new ConfigError(
       "--api-key, piped stdin, or METABASE_API_KEY required when stdin is not a TTY",
     );
   }
+  const apiKeysUrl = joinUrl(url, "/admin/settings/authentication/api-keys");
   return promptPassword({
-    message: "API key",
+    message: `API key (create one at ${apiKeysUrl})`,
     mask: "•",
     validate: (input) => (input ? undefined : "API key is required"),
   });

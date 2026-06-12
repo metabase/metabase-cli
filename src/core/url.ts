@@ -13,6 +13,10 @@ export function originOnly(input: string): string {
   return parsed.origin;
 }
 
+export function joinUrl(base: string, path: string): string {
+  return new URL(path, base).href;
+}
+
 export function localUrl(port: number): string {
   return `http://localhost:${port}`;
 }
