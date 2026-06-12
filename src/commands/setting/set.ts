@@ -1,15 +1,16 @@
 import { z } from "zod";
 
 import { SettingValue, settingValueView } from "../../domain/setting";
-import { renderItem } from "../../output/render";
+import { formatScalar, renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
-import { parseSettingKey } from "./key";
+import { parseSettingKey, rethrowSettingError } from "./key";
 
 export default defineMetabaseCommand({
   meta: { name: "set", description: "Set a setting value (parsed strictly as JSON)" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -33,12 +34,16 @@ export default defineMetabaseCommand({
       z.unknown(),
     );
     const client = await getClient();
-    await client.requestRaw(`/api/setting/${encodeURIComponent(key)}`, {
-      method: "PUT",
-      body: { value },
-      expectContentType: "binary",
-    });
+    await client
+      .requestRaw(`/api/setting/${encodeURIComponent(key)}`, {
+        method: "PUT",
+        body: { value },
+        expectContentType: "binary",
+      })
+      .catch((error: unknown) => rethrowSettingError(error, key));
     const item: SettingValue = { key, value };
-    renderItem(item, settingValueView, ctx);
+    const message =
+      value === null ? `Cleared "${key}".` : `Set "${key}" to ${formatScalar(value)}.`;
+    renderSummary(item, settingValueView, message, ctx);
   },
 });

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { ResourceView } from "../../domain/view";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -22,12 +22,13 @@ export default defineMetabaseCommand({
     name: "is-dirty",
     description: "Check whether Metabase has unsynced local changes",
   },
+  capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: IsDirtyResult,
   examples: ["mb git-sync is-dirty", "mb git-sync is-dirty --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
     const result = await client.requestParsed(IsDirtyResult, REMOTE_SYNC_PATHS.isDirty);
-    renderItem(result, isDirtyView, ctx);
+    renderSummary(result, isDirtyView, result.is_dirty ? "dirty" : "clean", ctx);
   },
 });

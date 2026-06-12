@@ -3,7 +3,8 @@ import { z } from "zod";
 import { CardQueryResult, cardQueryView } from "../../domain/card";
 import { ConfigError } from "../../core/errors";
 import type { Client } from "../../core/http/client";
-import { renderItem } from "../../output/render";
+import { formatQueryResult } from "../../output/query-result";
+import { renderSummary } from "../../output/render";
 import { pipeToStdout } from "../../output/stream";
 import { parseJson } from "../../runtime/json";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -28,6 +29,7 @@ export default defineMetabaseCommand({
     description:
       "Run a saved card and return results (json envelope, or stream CSV/JSON/XLSX via --export-format)",
   },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -87,7 +89,8 @@ export default defineMetabaseCommand({
     });
     const limit =
       args.limit === undefined || args.limit === "" ? null : parseId(args.limit, "limit");
-    renderItem(applyLimit(result, limit), cardQueryView, ctx);
+    const limited = applyLimit(result, limit);
+    renderSummary(limited, cardQueryView, () => formatQueryResult(limited), ctx);
   },
 });
 

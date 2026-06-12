@@ -8,6 +8,7 @@ export default defineMetabaseCommand({
     name: "delete-table",
     description: "Drop a transform's materialized output table (keeps the transform definition)",
   },
+  capabilities: { minVersion: 59 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -25,6 +26,8 @@ export default defineMetabaseCommand({
       path: `/api/transform/${id}/table`,
       yes: args.yes,
       promptMessage: `Drop transform ${id}'s output table?`,
+      successMessage: `Dropped transform ${id}'s output table.`,
+      abortMessage: `Aborted; transform ${id}'s output table was not dropped.`,
       client,
       ctx,
     });

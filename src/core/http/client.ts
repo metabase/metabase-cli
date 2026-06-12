@@ -1,19 +1,34 @@
 import type { ZodType } from "zod";
 
 import packageJson from "../../../package.json" with { type: "json" };
-import { ConfigError, errorMessage, NetworkError, TimeoutError } from "../errors";
-import { parseJson } from "../../runtime/json";
+import {
+  errorMessage,
+  NetworkError,
+  ResponseShapeError,
+  TimeoutError,
+  ValidationError,
+} from "../errors";
+import { JSON_CONTENT_TYPE, parseJson } from "../../runtime/json";
 import { combineAborts, throwIfAborted } from "../../runtime/signal";
 
+import {
+  type Credential,
+  credentialAuthHeader,
+  credentialSecrets,
+  type CredentialRefresher,
+} from "../auth/credential";
+
 import { HttpError, isRetryableStatus } from "./errors";
-import { backoffDelay, DEFAULT_MAX_RETRIES, sleep } from "./retry";
+import { buildNetworkError } from "./network-error";
+import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries, type RetryOutcome } from "./retry";
 import type { RedactionContext } from "./sanitize";
+
+const UNAUTHORIZED_STATUS = 401;
 
 export type HttpMethod = "GET" | "HEAD" | "OPTIONS" | "POST" | "PUT" | "PATCH" | "DELETE";
 export type ExpectedContentType = "json" | "text" | "binary";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-const JSON_CONTENT_TYPE = "application/json";
 const OCTET_STREAM_CONTENT_TYPE = "application/octet-stream";
 const TEXT_CONTENT_TYPE_PREFIX = "text/";
 const ERROR_BODY_BYTE_CAP = 64 * 1024;
@@ -43,7 +58,7 @@ export interface Client {
 
 export interface ClientCredentials {
   url: string;
-  apiKey: string;
+  credential: Credential;
 }
 
 type FetchBody = NonNullable<RequestInit["body"]>;
@@ -60,19 +75,58 @@ interface PreparedRequest {
   callerSignal: AbortSignal | undefined;
 }
 
-export interface ClientOverrides {
-  fetchImpl?: typeof fetch;
+interface ExecOutcome {
+  response: Response;
+  prepared: PreparedRequest;
 }
 
-type AttemptResult = { kind: "success"; response: Response } | { kind: "retry"; delayMs: number };
+export type ServerTagResolver = () => Promise<string | null>;
+
+export interface ClientOverrides {
+  fetchImpl?: typeof fetch;
+  getServerTag?: ServerTagResolver;
+  refreshCredential?: CredentialRefresher;
+}
+
+const NO_SERVER_TAG: ServerTagResolver = async () => null;
 
 export function createClient(config: ClientCredentials, overrides: ClientOverrides = {}): Client {
   const fetchImpl = overrides.fetchImpl ?? globalThis.fetch.bind(globalThis);
-  const redactionContext: RedactionContext = {
-    knownSecrets: new Set([config.apiKey]),
-  };
+  const getServerTag = overrides.getServerTag ?? NO_SERVER_TAG;
+  const refreshCredential = overrides.refreshCredential;
+  let credential = config.credential;
+  const knownSecrets = new Set(credentialSecrets(credential));
+  const redactionContext: RedactionContext = { knownSecrets };
 
-  async function attemptOnce(prepared: PreparedRequest, attempt: number): Promise<AttemptResult> {
+  // Single-flight: concurrent 401s (e.g. verify's parallel user+probe requests) must share one
+  // refresh. The server rotates refresh tokens, so a second concurrent refresh would replay the
+  // already-consumed token — which rotation reuse detection may answer by revoking the whole grant.
+  let refreshInFlight: Promise<boolean> | null = null;
+
+  function tryRefreshCredential(): Promise<boolean> {
+    const refresh = refreshCredential;
+    if (credential.kind !== "oauth" || refresh === undefined) {
+      return Promise.resolve(false);
+    }
+    refreshInFlight ??= refreshOnce(refresh).finally(() => {
+      refreshInFlight = null;
+    });
+    return refreshInFlight;
+  }
+
+  async function refreshOnce(refresh: CredentialRefresher): Promise<boolean> {
+    const next = await refresh();
+    if (next === null) {
+      return false;
+    }
+    credential = next;
+    for (const secret of credentialSecrets(next)) {
+      knownSecrets.add(secret);
+    }
+    return true;
+  }
+
+  async function attemptOnce(prepared: PreparedRequest, attempt: number): Promise<RetryOutcome> {
     const hasRetriesLeft = attempt < prepared.retries;
     const timeoutSignal = AbortSignal.timeout(prepared.timeoutMs);
     const { combined, processSignal } = combineAborts(timeoutSignal, prepared.callerSignal);
@@ -98,12 +152,7 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
           timeoutMs: prepared.timeoutMs,
         });
       }
-      const message = errorMessage(error);
-      throw new NetworkError(`Could not reach Metabase: ${message}`, {
-        method: prepared.method,
-        url: prepared.url,
-        cause: message,
-      });
+      throw buildNetworkError(error, prepared.method, prepared.url);
     }
 
     const canRetryStatus = hasRetriesLeft && prepared.idempotent;
@@ -118,6 +167,7 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
 
     if (!response.ok) {
       const rawBody = await readBodyForError(response);
+      const serverTag = await getServerTag();
       throw new HttpError({
         status: response.status,
         statusText: response.statusText,
@@ -125,6 +175,7 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
         url: prepared.url,
         responseHeaders: response.headers,
         rawBody,
+        serverTag,
         redactionContext,
       });
     }
@@ -134,14 +185,23 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
   }
 
   async function executeRaw(prepared: PreparedRequest): Promise<Response> {
-    let attempt = 0;
-    while (true) {
-      const result = await attemptOnce(prepared, attempt);
-      if (result.kind === "success") {
-        return result.response;
+    return runWithRetries((attempt) => attemptOnce(prepared, attempt), prepared.callerSignal);
+  }
+
+  // On a 401 with an OAuth credential, attempt a single token refresh and replay the request with
+  // the new access token. API-key credentials and non-401 errors propagate unchanged.
+  async function executeWithAuthRefresh(path: string, opts: RequestOptions): Promise<ExecOutcome> {
+    const prepared = prepare(path, opts);
+    try {
+      return { response: await executeRaw(prepared), prepared };
+    } catch (error) {
+      if (error instanceof HttpError && error.status === UNAUTHORIZED_STATUS) {
+        if (await tryRefreshCredential()) {
+          const retried = prepare(path, opts);
+          return { response: await executeRaw(retried), prepared: retried };
+        }
       }
-      await sleep(result.delayMs, prepared.callerSignal);
-      attempt += 1;
+      throw error;
     }
   }
 
@@ -150,7 +210,8 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
     const expectContentType = opts.expectContentType ?? "json";
     const url = buildUrl(config.url, path, opts.query);
     const headers = new Headers();
-    headers.set("x-api-key", config.apiKey);
+    const auth = credentialAuthHeader(credential);
+    headers.set(auth.name, auth.value);
     headers.set("accept", acceptHeader(expectContentType));
     headers.set("user-agent", USER_AGENT);
     let body: FetchBody | null = null;
@@ -182,35 +243,34 @@ export function createClient(config: ClientCredentials, overrides: ClientOverrid
 
   return {
     async requestRaw(path, opts) {
-      return executeRaw(prepare(path, opts));
+      return (await executeWithAuthRefresh(path, opts ?? {})).response;
     },
     async requestParsed(schema, path, opts) {
-      const prepared = prepare(path, { ...opts, expectContentType: "json" });
-      const response = await executeRaw(prepared);
+      const { response, prepared } = await executeWithAuthRefresh(path, {
+        ...opts,
+        expectContentType: "json",
+      });
       const text = await response.text();
       try {
         return parseJson(text, schema, { source: prepared.url });
       } catch (error) {
-        if (error instanceof ConfigError) {
-          throw new HttpError({
-            status: response.status,
-            statusText: response.statusText,
+        if (error instanceof ValidationError) {
+          throw new ResponseShapeError({
             method: prepared.method,
             url: prepared.url,
-            responseHeaders: response.headers,
-            rawBody: text,
-            redactionContext,
+            status: response.status,
+            zodIssues: error.developerDetail.zodIssues,
+            serverTag: await getServerTag(),
           });
         }
         throw error;
       }
     },
     async requestStream(path, opts) {
-      const prepared = prepare(path, {
+      const { response, prepared } = await executeWithAuthRefresh(path, {
         ...opts,
         expectContentType: opts?.expectContentType ?? "binary",
       });
-      const response = await executeRaw(prepared);
       if (!response.body) {
         throw new NetworkError("Response had no body to stream", {
           method: prepared.method,

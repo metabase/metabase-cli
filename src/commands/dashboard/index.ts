@@ -12,5 +12,6 @@ export default defineCommand({
     create: () => import("./create").then((mod) => mod.default),
     update: () => import("./update").then((mod) => mod.default),
     "update-dashcard": () => import("./update-dashcard").then((mod) => mod.default),
+    archive: () => import("./archive").then((mod) => mod.default),
   },
 });

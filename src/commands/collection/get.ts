@@ -10,6 +10,7 @@ export default defineMetabaseCommand({
     name: "get",
     description: 'Get a collection by id, 21-char entity id, or "root"/"trash"',
   },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -1,9 +1,10 @@
 import { z } from "zod";
 
+import { ConfigError } from "../core/errors";
 import type { Client } from "../core/http/client";
 import type { ResourceView } from "../domain/view";
 import { promptConfirm } from "../output/prompt";
-import { renderItem } from "../output/render";
+import { renderSummary } from "../output/render";
 
 import type { CommonContext } from "./context";
 
@@ -28,19 +29,31 @@ export interface ConfirmAndDeleteArgs {
   path: string;
   yes: boolean;
   promptMessage: string;
+  successMessage: string;
+  abortMessage: string;
   client: Client;
   ctx: CommonContext;
   afterDelete?: () => Promise<void>;
 }
 
 export async function confirmAndDelete(args: ConfirmAndDeleteArgs): Promise<void> {
-  if (!args.yes && process.stdin.isTTY === true) {
+  if (!args.yes) {
+    if (process.stdin.isTTY !== true) {
+      throw new ConfigError(
+        `refusing to delete ${args.id} without confirmation — pass --yes to proceed non-interactively`,
+      );
+    }
     const ok = await promptConfirm({
       message: args.promptMessage,
       initialValue: false,
     });
     if (!ok) {
-      renderItem({ deleted: false, aborted: true, id: args.id }, deleteResultView, args.ctx);
+      renderSummary(
+        { deleted: false, aborted: true, id: args.id },
+        deleteResultView,
+        args.abortMessage,
+        args.ctx,
+      );
       return;
     }
   }
@@ -51,5 +64,10 @@ export async function confirmAndDelete(args: ConfirmAndDeleteArgs): Promise<void
   if (args.afterDelete) {
     await args.afterDelete();
   }
-  renderItem({ deleted: true, aborted: false, id: args.id }, deleteResultView, args.ctx);
+  renderSummary(
+    { deleted: true, aborted: false, id: args.id },
+    deleteResultView,
+    args.successMessage,
+    args.ctx,
+  );
 }

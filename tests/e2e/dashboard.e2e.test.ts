@@ -1,4 +1,5 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { DashcardListEnvelope } from "../../src/commands/dashboard/cards";
 import { DashboardListEnvelope } from "../../src/commands/dashboard/list";
@@ -11,33 +12,29 @@ import {
   Dashcard,
   DashcardCompact,
 } from "../../src/domain/dashboard";
+import { listEnvelopeSchema } from "../../src/output/types";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import {
-  E2E_COLLECTIONS,
-  E2E_CARDS,
-  E2E_DASHBOARDS,
-  E2E_DASHCARDS,
-  E2E_DATABASES,
-} from "./seed/ids";
+import { cliErrorMessage } from "./cli-error";
+import { SEEDED } from "./seed/seeded";
 
 const ORDERS_OVERVIEW_NAME = "Orders Overview";
 const ORDERS_OVERVIEW_DESCRIPTION = "E2E seeded dashboard with one orders dashcard.";
 
 const ORDERS_OVERVIEW_COMPACT = {
-  id: E2E_DASHBOARDS.ORDERS_OVERVIEW,
+  id: SEEDED.ordersDashboardId,
   name: ORDERS_OVERVIEW_NAME,
   description: ORDERS_OVERVIEW_DESCRIPTION,
   archived: false,
-  collection_id: E2E_COLLECTIONS.DEFAULT,
+  collection_id: SEEDED.defaultCollectionId,
 } as const;
 
 const ORDERS_OVERVIEW_FIRST_DASHCARD_COMPACT = {
-  id: E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST,
-  dashboard_id: E2E_DASHBOARDS.ORDERS_OVERVIEW,
-  card_id: E2E_CARDS.ORDERS_BY_STATUS,
+  id: SEEDED.ordersDashcardId,
+  dashboard_id: SEEDED.ordersDashboardId,
+  card_id: SEEDED.ordersCardId,
   dashboard_tab_id: null,
   row: 0,
   col: 0,
@@ -50,6 +47,17 @@ const ORDERS_OVERVIEW_DETAIL_COMPACT = {
   dashcards: [ORDERS_OVERVIEW_FIRST_DASHCARD_COMPACT],
   tabs: [],
 } as const;
+
+const ProjectedDashboardDetail = z.strictObject({
+  name: z.string(),
+  collection_id: z.number().int().nullable(),
+});
+
+const ProjectedDashboardRow = z.strictObject({
+  id: z.number().int(),
+  name: z.string(),
+});
+const ProjectedDashboardListEnvelope = listEnvelopeSchema(ProjectedDashboardRow);
 
 describe("dashboard e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -83,10 +91,10 @@ describe("dashboard e2e", () => {
         name,
         display: "table",
         visualization_settings: {},
-        collection_id: E2E_COLLECTIONS.DEFAULT,
+        collection_id: SEEDED.defaultCollectionId,
         dataset_query: {
           type: "native",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           native: { query: "SELECT 1 AS x" },
         },
       }),
@@ -100,7 +108,7 @@ describe("dashboard e2e", () => {
   function singleDashcardBody(name: string, cardId: number) {
     return {
       name,
-      collection_id: E2E_COLLECTIONS.DEFAULT,
+      collection_id: SEEDED.defaultCollectionId,
       dashcards: [
         {
           id: -1,
@@ -125,7 +133,7 @@ describe("dashboard e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     const envelope = parseJson(result.stdout, DashboardListEnvelope);
-    expect(envelope.data.find((row) => row.id === E2E_DASHBOARDS.ORDERS_OVERVIEW)).toEqual(
+    expect(envelope.data.find((row) => row.id === SEEDED.ordersDashboardId)).toEqual(
       ORDERS_OVERVIEW_COMPACT,
     );
     expect(envelope.data.filter((row) => row.archived)).toEqual([]);
@@ -148,7 +156,7 @@ describe("dashboard e2e", () => {
 
   it("get returns the seeded dashboard by id in compact form", async () => {
     const result = await runCli({
-      args: ["dashboard", "get", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json"],
+      args: ["dashboard", "get", String(SEEDED.ordersDashboardId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -159,7 +167,7 @@ describe("dashboard e2e", () => {
 
   it("get --full hydrates dashcards, tabs, and width on the seeded dashboard", async () => {
     const result = await runCli({
-      args: ["dashboard", "get", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json", "--full"],
+      args: ["dashboard", "get", String(SEEDED.ordersDashboardId), "--json", "--full"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -174,7 +182,7 @@ describe("dashboard e2e", () => {
       tabs: dashboard.tabs,
       dashcardCount: dashboard.dashcards.length,
     }).toEqual({
-      id: E2E_DASHBOARDS.ORDERS_OVERVIEW,
+      id: SEEDED.ordersDashboardId,
       width: "fixed",
       enable_embedding: false,
       auto_apply_filters: true,
@@ -185,7 +193,7 @@ describe("dashboard e2e", () => {
 
   it("get --format text renders the compact key/value pairs", async () => {
     const result = await runCli({
-      args: ["dashboard", "get", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--format", "text"],
+      args: ["dashboard", "get", String(SEEDED.ordersDashboardId), "--format", "text"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -193,9 +201,9 @@ describe("dashboard e2e", () => {
     expect(result.exitCode, result.stderr).toBe(0);
     const labelPadding = "Collection".length;
     const expected = [
-      `${"ID".padEnd(labelPadding)}  ${E2E_DASHBOARDS.ORDERS_OVERVIEW}`,
+      `${"ID".padEnd(labelPadding)}  ${SEEDED.ordersDashboardId}`,
       `${"Name".padEnd(labelPadding)}  ${ORDERS_OVERVIEW_NAME}`,
-      `${"Collection".padEnd(labelPadding)}  ${E2E_COLLECTIONS.DEFAULT}`,
+      `${"Collection".padEnd(labelPadding)}  ${SEEDED.defaultCollectionId}`,
       `${"Archived".padEnd(labelPadding)}  false`,
     ].join("\n");
     expect(result.stdout.trim()).toBe(expected);
@@ -209,7 +217,7 @@ describe("dashboard e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -221,12 +229,93 @@ describe("dashboard e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/dashboard/9999999.");
+  });
+
+  it("get --fields projects only the requested top-level fields", async () => {
+    const result = await runCli({
+      args: [
+        "dashboard",
+        "get",
+        String(SEEDED.ordersDashboardId),
+        "--fields",
+        "name,collection_id",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, ProjectedDashboardDetail)).toEqual({
+      name: ORDERS_OVERVIEW_NAME,
+      collection_id: SEEDED.defaultCollectionId,
+    });
+  });
+
+  it("get --fields with an empty value falls back to the compact projection", async () => {
+    const result = await runCli({
+      args: ["dashboard", "get", String(SEEDED.ordersDashboardId), "--fields", "", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, DashboardCompact)).toEqual(ORDERS_OVERVIEW_DETAIL_COMPACT);
+  });
+
+  it("get --fields with an unknown path fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["dashboard", "get", String(SEEDED.ordersDashboardId), "--fields", "nope", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain('unknown field path: "nope"');
+    expect(result.stdout).toBe("");
+  });
+
+  it("rejects --fields combined with --full", async () => {
+    const result = await runCli({
+      args: [
+        "dashboard",
+        "get",
+        String(SEEDED.ordersDashboardId),
+        "--fields",
+        "name",
+        "--full",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain(
+      "--full conflicts with --fields (use one or neither)",
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("list --fields projects each row to the requested fields", async () => {
+    const result = await runCli({
+      args: ["dashboard", "list", "--fields", "id,name", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const envelope = parseJson(result.stdout, ProjectedDashboardListEnvelope);
+    expect(envelope.data.find((row) => row.id === SEEDED.ordersDashboardId)).toEqual({
+      id: SEEDED.ordersDashboardId,
+      name: ORDERS_OVERVIEW_NAME,
+    });
   });
 
   it("cards lists the seeded dashcard for the orders dashboard", async () => {
     const result = await runCli({
-      args: ["dashboard", "cards", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json"],
+      args: ["dashboard", "cards", String(SEEDED.ordersDashboardId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -235,9 +324,9 @@ describe("dashboard e2e", () => {
     expect(parseJson(result.stdout, DashcardListEnvelope)).toEqual({
       data: [
         {
-          id: E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST,
-          dashboard_id: E2E_DASHBOARDS.ORDERS_OVERVIEW,
-          card_id: E2E_CARDS.ORDERS_BY_STATUS,
+          id: SEEDED.ordersDashcardId,
+          dashboard_id: SEEDED.ordersDashboardId,
+          card_id: SEEDED.ordersCardId,
           dashboard_tab_id: null,
           row: 0,
           col: 0,
@@ -258,7 +347,7 @@ describe("dashboard e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -268,7 +357,7 @@ describe("dashboard e2e", () => {
       stdin: JSON.stringify({
         name: "e2e_dashboard_new",
         description: "created in test",
-        collection_id: E2E_COLLECTIONS.DEFAULT,
+        collection_id: SEEDED.defaultCollectionId,
       }),
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
@@ -284,7 +373,7 @@ describe("dashboard e2e", () => {
     }).toEqual({
       name: "e2e_dashboard_new",
       description: "created in test",
-      collection_id: E2E_COLLECTIONS.DEFAULT,
+      collection_id: SEEDED.defaultCollectionId,
       archived: false,
       width: "fixed",
     });
@@ -301,7 +390,7 @@ describe("dashboard e2e", () => {
       name: "e2e_dashboard_renamed",
       description: "created in test",
       archived: false,
-      collection_id: E2E_COLLECTIONS.DEFAULT,
+      collection_id: SEEDED.defaultCollectionId,
       dashcards: [],
       tabs: [],
     });
@@ -312,7 +401,7 @@ describe("dashboard e2e", () => {
         dashcards: [
           {
             id: -1,
-            card_id: E2E_CARDS.ORDERS_BY_STATUS,
+            card_id: SEEDED.ordersCardId,
             row: 0,
             col: 0,
             size_x: 8,
@@ -329,9 +418,10 @@ describe("dashboard e2e", () => {
     expect(addCardResult.exitCode, addCardResult.stderr).toBe(0);
     const withCard = parseJson(addCardResult.stdout, Dashboard);
     const firstDashcard = withCard.dashcards?.[0];
-    if (firstDashcard === undefined || withCard.dashcards?.length !== 1) {
-      throw new Error(`expected exactly 1 dashcard, got ${JSON.stringify(withCard.dashcards)}`);
-    }
+    assert(
+      firstDashcard !== undefined && withCard.dashcards?.length === 1,
+      `expected exactly 1 dashcard, got ${JSON.stringify(withCard.dashcards)}`,
+    );
     expect({
       dashboard_id: firstDashcard.dashboard_id,
       card_id: firstDashcard.card_id,
@@ -341,7 +431,7 @@ describe("dashboard e2e", () => {
       size_y: firstDashcard.size_y,
     }).toEqual({
       dashboard_id: created.id,
-      card_id: E2E_CARDS.ORDERS_BY_STATUS,
+      card_id: SEEDED.ordersCardId,
       row: 0,
       col: 0,
       size_x: 8,
@@ -354,11 +444,11 @@ describe("dashboard e2e", () => {
       args: ["dashboard", "create", "--json"],
       stdin: JSON.stringify({
         name: "e2e_dashboard_with_dashcards",
-        collection_id: E2E_COLLECTIONS.DEFAULT,
+        collection_id: SEEDED.defaultCollectionId,
         dashcards: [
           {
             id: -1,
-            card_id: E2E_CARDS.ORDERS_BY_STATUS,
+            card_id: SEEDED.ordersCardId,
             row: 0,
             col: 0,
             size_x: 12,
@@ -374,21 +464,22 @@ describe("dashboard e2e", () => {
     expect(result.exitCode, result.stderr).toBe(0);
     const compact = parseJson(result.stdout, DashboardCompact);
     const firstDashcard = compact.dashcards?.[0];
-    if (firstDashcard === undefined || compact.dashcards?.length !== 1) {
-      throw new Error(`expected exactly 1 dashcard, got ${JSON.stringify(compact.dashcards)}`);
-    }
+    assert(
+      firstDashcard !== undefined && compact.dashcards?.length === 1,
+      `expected exactly 1 dashcard, got ${JSON.stringify(compact.dashcards)}`,
+    );
     expect(compact).toEqual({
       id: compact.id,
       name: "e2e_dashboard_with_dashcards",
       description: null,
       archived: false,
-      collection_id: E2E_COLLECTIONS.DEFAULT,
+      collection_id: SEEDED.defaultCollectionId,
       tabs: [],
       dashcards: [
         {
           id: firstDashcard.id,
           dashboard_id: compact.id,
-          card_id: E2E_CARDS.ORDERS_BY_STATUS,
+          card_id: SEEDED.ordersCardId,
           dashboard_tab_id: null,
           row: 0,
           col: 0,
@@ -477,7 +568,7 @@ describe("dashboard e2e", () => {
     expect(archive.exitCode, archive.stderr).toBe(0);
 
     const beforeGet = await runCli({
-      args: ["dashboard", "get", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json", "--full"],
+      args: ["dashboard", "get", String(SEEDED.ordersDashboardId), "--json", "--full"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -485,7 +576,7 @@ describe("dashboard e2e", () => {
     const beforeDetail = parseJson(beforeGet.stdout, DashboardDetail);
 
     const result = await runCli({
-      args: ["dashboard", "update", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json"],
+      args: ["dashboard", "update", String(SEEDED.ordersDashboardId), "--json"],
       stdin: JSON.stringify({
         dashcards: singleDashcardBody("ignored", newCardId).dashcards,
         tabs: [],
@@ -504,7 +595,7 @@ describe("dashboard e2e", () => {
     });
 
     const afterGet = await runCli({
-      args: ["dashboard", "get", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json", "--full"],
+      args: ["dashboard", "get", String(SEEDED.ordersDashboardId), "--json", "--full"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -523,7 +614,7 @@ describe("dashboard e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -532,8 +623,8 @@ describe("dashboard e2e", () => {
       args: [
         "dashboard",
         "update-dashcard",
-        String(E2E_DASHBOARDS.ORDERS_OVERVIEW),
-        String(E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST),
+        String(SEEDED.ordersDashboardId),
+        String(SEEDED.ordersDashcardId),
         "--json",
       ],
       stdin: JSON.stringify({ row: 4, col: 2, size_x: 10, size_y: 5 }),
@@ -543,9 +634,9 @@ describe("dashboard e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, DashcardCompact)).toEqual({
-      id: E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST,
-      dashboard_id: E2E_DASHBOARDS.ORDERS_OVERVIEW,
-      card_id: E2E_CARDS.ORDERS_BY_STATUS,
+      id: SEEDED.ordersDashcardId,
+      dashboard_id: SEEDED.ordersDashboardId,
+      card_id: SEEDED.ordersCardId,
       dashboard_tab_id: null,
       row: 4,
       col: 2,
@@ -559,8 +650,8 @@ describe("dashboard e2e", () => {
       args: [
         "dashboard",
         "update-dashcard",
-        String(E2E_DASHBOARDS.ORDERS_OVERVIEW),
-        String(E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST),
+        String(SEEDED.ordersDashboardId),
+        String(SEEDED.ordersDashcardId),
         "--json",
       ],
       stdin: JSON.stringify({}),
@@ -575,13 +666,7 @@ describe("dashboard e2e", () => {
 
   it("update-dashcard with an unknown dashcard id fails with ConfigError", async () => {
     const result = await runCli({
-      args: [
-        "dashboard",
-        "update-dashcard",
-        String(E2E_DASHBOARDS.ORDERS_OVERVIEW),
-        "9999999",
-        "--json",
-      ],
+      args: ["dashboard", "update-dashcard", String(SEEDED.ordersDashboardId), "9999999", "--json"],
       stdin: JSON.stringify({ row: 1 }),
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
@@ -589,7 +674,7 @@ describe("dashboard e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain(
-      `dashcard 9999999 not found on dashboard ${E2E_DASHBOARDS.ORDERS_OVERVIEW}`,
+      `dashcard 9999999 not found on dashboard ${SEEDED.ordersDashboardId}`,
     );
     expect(result.stdout).toBe("");
   });
@@ -603,7 +688,9 @@ describe("dashboard e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid dashboard-id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain(
+      'invalid dashboard-id: "abc" (expected integer)',
+    );
     expect(result.stdout).toBe("");
   });
 
@@ -616,17 +703,17 @@ describe("dashboard e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/dashboard/9999999.");
   });
 
   it("update-dashcard preserves the other dashcards verbatim when patching one of two", async () => {
     const addSecondCardResult = await runCli({
-      args: ["dashboard", "update", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json", "--full"],
+      args: ["dashboard", "update", String(SEEDED.ordersDashboardId), "--json", "--full"],
       stdin: JSON.stringify({
         dashcards: [
           {
-            id: E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST,
-            card_id: E2E_CARDS.ORDERS_BY_STATUS,
+            id: SEEDED.ordersDashcardId,
+            card_id: SEEDED.ordersCardId,
             row: 0,
             col: 0,
             size_x: 12,
@@ -636,7 +723,7 @@ describe("dashboard e2e", () => {
           },
           {
             id: -1,
-            card_id: E2E_CARDS.ORDERS_BY_STATUS,
+            card_id: SEEDED.ordersCardId,
             row: 7,
             col: 0,
             size_x: 6,
@@ -654,18 +741,16 @@ describe("dashboard e2e", () => {
     const dashboardWithTwo = parseJson(addSecondCardResult.stdout, DashboardDetail);
     expect(dashboardWithTwo.dashcards.length).toBe(2);
     const secondDashcard = dashboardWithTwo.dashcards.find(
-      (dashcard) => dashcard.id !== E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST,
+      (dashcard) => dashcard.id !== SEEDED.ordersDashcardId,
     );
-    if (secondDashcard === undefined) {
-      throw new Error("expected a second dashcard after update");
-    }
+    assert(secondDashcard !== undefined, "expected a second dashcard after update");
 
     const patchResult = await runCli({
       args: [
         "dashboard",
         "update-dashcard",
-        String(E2E_DASHBOARDS.ORDERS_OVERVIEW),
-        String(E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST),
+        String(SEEDED.ordersDashboardId),
+        String(SEEDED.ordersDashcardId),
         "--json",
       ],
       stdin: JSON.stringify({ row: 99, col: 1 }),
@@ -675,21 +760,19 @@ describe("dashboard e2e", () => {
     expect(patchResult.exitCode, patchResult.stderr).toBe(0);
 
     const cardsListResult = await runCli({
-      args: ["dashboard", "cards", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json"],
+      args: ["dashboard", "cards", String(SEEDED.ordersDashboardId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
     expect(cardsListResult.exitCode, cardsListResult.stderr).toBe(0);
     const envelope = parseJson(cardsListResult.stdout, DashcardListEnvelope);
     expect(envelope.data.length).toBe(2);
-    const patched = envelope.data.find(
-      (dashcard) => dashcard.id === E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST,
-    );
+    const patched = envelope.data.find((dashcard) => dashcard.id === SEEDED.ordersDashcardId);
     const untouched = envelope.data.find((dashcard) => dashcard.id === secondDashcard.id);
     expect(patched).toEqual({
-      id: E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST,
-      dashboard_id: E2E_DASHBOARDS.ORDERS_OVERVIEW,
-      card_id: E2E_CARDS.ORDERS_BY_STATUS,
+      id: SEEDED.ordersDashcardId,
+      dashboard_id: SEEDED.ordersDashboardId,
+      card_id: SEEDED.ordersCardId,
       dashboard_tab_id: null,
       row: 99,
       col: 1,
@@ -698,8 +781,8 @@ describe("dashboard e2e", () => {
     });
     expect(untouched).toEqual({
       id: secondDashcard.id,
-      dashboard_id: E2E_DASHBOARDS.ORDERS_OVERVIEW,
-      card_id: E2E_CARDS.ORDERS_BY_STATUS,
+      dashboard_id: SEEDED.ordersDashboardId,
+      card_id: SEEDED.ordersCardId,
       dashboard_tab_id: null,
       row: 7,
       col: 0,
@@ -713,8 +796,8 @@ describe("dashboard e2e", () => {
       args: [
         "dashboard",
         "update-dashcard",
-        String(E2E_DASHBOARDS.ORDERS_OVERVIEW),
-        String(E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST),
+        String(SEEDED.ordersDashboardId),
+        String(SEEDED.ordersDashcardId),
         "--json",
         "--full",
       ],
@@ -735,7 +818,7 @@ describe("dashboard e2e", () => {
       size_y: patched.size_y,
       visualization_settings: patched.visualization_settings,
     }).toEqual({
-      id: E2E_DASHCARDS.ORDERS_OVERVIEW_FIRST,
+      id: SEEDED.ordersDashcardId,
       row: 0,
       col: 0,
       size_x: 12,
@@ -746,8 +829,33 @@ describe("dashboard e2e", () => {
 
   it("update flips archived to true and the archived list reflects it", async () => {
     const archiveResult = await runCli({
-      args: ["dashboard", "update", String(E2E_DASHBOARDS.ORDERS_OVERVIEW), "--json"],
+      args: ["dashboard", "update", String(SEEDED.ordersDashboardId), "--json"],
       stdin: JSON.stringify({ archived: true }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(archiveResult.exitCode, archiveResult.stderr).toBe(0);
+    expect(parseJson(archiveResult.stdout, DashboardCompact)).toEqual({
+      ...ORDERS_OVERVIEW_DETAIL_COMPACT,
+      archived: true,
+    });
+
+    const archivedListResult = await runCli({
+      args: ["dashboard", "list", "--filter", "archived", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(archivedListResult.exitCode, archivedListResult.stderr).toBe(0);
+    expect(parseJson(archivedListResult.stdout, DashboardListEnvelope)).toEqual({
+      data: [{ ...ORDERS_OVERVIEW_COMPACT, archived: true }],
+      returned: 1,
+      total: 1,
+    });
+  });
+
+  it("archive soft-deletes the dashboard and the archived list reflects it", async () => {
+    const archiveResult = await runCli({
+      args: ["dashboard", "archive", String(SEEDED.ordersDashboardId), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });

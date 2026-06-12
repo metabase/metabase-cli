@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import {
@@ -6,6 +6,7 @@ import {
   ConfigError,
   formatZodIssue,
   MetabaseError,
+  ResponseShapeError,
   toMetabaseError,
   UnknownError,
   ValidationError,
@@ -35,9 +36,7 @@ describe("toMetabaseError", () => {
 
   it("maps a ZodError to a ConfigError with exit code 2", () => {
     const zodError = z.object({ name: z.string() }).safeParse({ name: 42 });
-    if (zodError.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!zodError.success, "expected zod failure");
     const result = toMetabaseError(zodError.error);
     expect(result).toBeInstanceOf(ConfigError);
     expect(result.exitCode).toBe(2);
@@ -79,9 +78,7 @@ describe("HttpError sanitization at the print site", () => {
     });
     const handled = toMetabaseError(httpError);
     expect(handled).toBeInstanceOf(HttpError);
-    if (!(handled instanceof HttpError)) {
-      throw new Error("expected HttpError");
-    }
+    assert(handled instanceof HttpError, "expected HttpError");
     expect(handled.developerDetail.body).toBe('{"errors":{"token":"[REDACTED]"}}');
   });
 });
@@ -110,9 +107,7 @@ describe("formatZodIssue", () => {
       data: z.array(z.object({ archived: z.boolean() })),
     });
     const result = schema.safeParse({ data: [{ archived: true }, { archived: null }] });
-    if (result.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!result.success, "expected zod failure");
     expect(result.error.issues.map(formatZodIssue)).toEqual([
       "data[1].archived: Invalid input: expected boolean, received null",
     ]);
@@ -121,13 +116,9 @@ describe("formatZodIssue", () => {
   it("returns just the message when the issue path is empty (top-level mismatch)", () => {
     const schema = z.string();
     const result = schema.safeParse(42);
-    if (result.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!result.success, "expected zod failure");
     const firstIssue = result.error.issues[0];
-    if (firstIssue === undefined) {
-      throw new Error("expected at least one issue");
-    }
+    assert(firstIssue !== undefined, "expected at least one issue");
     expect(formatZodIssue(firstIssue)).toBe("Invalid input: expected string, received number");
   });
 });
@@ -140,9 +131,7 @@ describe("ValidationError userMessage formatting", () => {
   it("appends a JSON-pointer path and the zod issue text for a single issue", () => {
     const schema = z.object({ total: z.number() });
     const result = schema.safeParse({ total: null });
-    if (result.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!result.success, "expected zod failure");
     const error = new ValidationError(
       "api/collection/8/items: value did not match expected schema",
       {
@@ -161,9 +150,7 @@ describe("ValidationError userMessage formatting", () => {
   it("renders one line per issue with array indices in the pointer", () => {
     const schema = z.object({ items: z.array(z.object({ id: z.number() })) });
     const result = schema.safeParse({ items: [{ id: 1 }, { id: "bad" }] });
-    if (result.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!result.success, "expected zod failure");
     const error = new ValidationError("source: value did not match expected schema", {
       source: "source",
       zodIssues: result.error.issues,
@@ -178,9 +165,7 @@ describe("ValidationError userMessage formatting", () => {
   it("escapes JSON Pointer reserved characters in property names", () => {
     const schema = z.object({ "weird/key~with-special": z.string() });
     const result = schema.safeParse({ "weird/key~with-special": 42 });
-    if (result.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!result.success, "expected zod failure");
     const error = new ValidationError("source: value did not match expected schema", {
       source: "source",
       zodIssues: result.error.issues,
@@ -195,9 +180,7 @@ describe("ValidationError userMessage formatting", () => {
   it("caps the printed issue list at ten and reports the overflow count", () => {
     const schema = z.array(z.number());
     const result = schema.safeParse(Array.from({ length: 13 }, (_unused, index) => `bad-${index}`));
-    if (result.success) {
-      throw new Error("expected zod failure");
-    }
+    assert(!result.success, "expected zod failure");
     const error = new ValidationError("source: value did not match expected schema", {
       source: "source",
       zodIssues: result.error.issues,
@@ -225,5 +208,80 @@ describe("ValidationError userMessage formatting", () => {
       zodIssues: [],
     });
     expect(error.userMessage).toBe("file: malformed");
+  });
+});
+
+function zodIssuesFor<T>(schema: z.ZodType<T>, value: unknown): z.ZodError["issues"] {
+  const result = schema.safeParse(value);
+  assert(!result.success, "expected zod failure");
+  return result.error.issues;
+}
+
+function buildResponseShapeError(
+  zodIssues: z.ZodError["issues"],
+  serverTag: string | null = null,
+): ResponseShapeError {
+  return new ResponseShapeError({
+    method: "GET",
+    url: "https://m.example.com/api/session/properties",
+    status: 200,
+    zodIssues,
+    serverTag,
+  });
+}
+
+describe("ResponseShapeError", () => {
+  it("formats the message listing one issue per line under the lead", () => {
+    const schema = z.object({ version: z.object({ tag: z.string() }) });
+    const error = buildResponseShapeError(zodIssuesFor(schema, { version: {} }));
+
+    expect(error.userMessage).toBe(
+      "Metabase returned unexpected response shape:\n" +
+        "  version.tag: Invalid input: expected string, received undefined",
+    );
+    expect(error.category).toBe("response-shape");
+    expect(error.exitCode).toBe(1);
+  });
+
+  it("caps the listed issues at five and appends an overflow line", () => {
+    const schema = z.array(z.number());
+    const issues = zodIssuesFor(
+      schema,
+      Array.from({ length: 8 }, (_unused, index) => `bad-${index}`),
+    );
+    const error = buildResponseShapeError(issues);
+
+    expect(error.userMessage).toBe(
+      "Metabase returned unexpected response shape:\n" +
+        "  [0]: Invalid input: expected number, received string\n" +
+        "  [1]: Invalid input: expected number, received string\n" +
+        "  [2]: Invalid input: expected number, received string\n" +
+        "  [3]: Invalid input: expected number, received string\n" +
+        "  [4]: Invalid input: expected number, received string\n" +
+        "  ... and 3 more",
+    );
+  });
+
+  it("falls back to just the lead when there are no issues", () => {
+    const error = buildResponseShapeError([]);
+
+    expect(error.userMessage).toBe("Metabase returned unexpected response shape");
+  });
+
+  it("leads with the server tag when the version is known", () => {
+    const schema = z.object({ version: z.object({ tag: z.string() }) });
+    const error = buildResponseShapeError(zodIssuesFor(schema, { version: {} }), "v0.58.7");
+
+    expect(error.userMessage).toBe(
+      "On Metabase v0.58.7 the response shape was unexpected:\n" +
+        "  version.tag: Invalid input: expected string, received undefined",
+    );
+  });
+
+  it("is passed through unchanged by toMetabaseError", () => {
+    const schema = z.object({ id: z.number() });
+    const original = buildResponseShapeError(zodIssuesFor(schema, { id: "x" }));
+
+    expect(toMetabaseError(original)).toBe(original);
   });
 });

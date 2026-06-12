@@ -46,7 +46,7 @@ export default defineMetabaseCommand({
   examples: [
     "mb skills get core",
     "mb skills get core --full",
-    "mb skills get workspace,transform --json",
+    "mb skills get git-sync,transform --json",
     "mb skills get --all --json",
   ],
   run({ args, ctx }) {

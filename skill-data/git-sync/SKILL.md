@@ -1,6 +1,6 @@
 ---
 name: git-sync
-description: Round-trip Metabase content (cards, dashboards, transforms, snippets, collections) between an instance and a git remote via `mb git-sync …` — status, dirty / has-remote-changes checks, import (with first-fresh-workspace exception), export (with branch guard + working-tree drift), branches, stash, add/remove a collection from sync. Load when the user wants to "import the latest changes", "export to git", "git sync", "dirty check", "stash before pulling", "add a collection to sync", or anything `mb git-sync …`.
+description: Round-trip Metabase content (cards, dashboards, transforms, snippets, collections) between an instance and a git remote via `mb git-sync …` — status, dirty / has-remote-changes checks, import, export (with branch guard), branches, stash, add/remove a collection from sync. Load when the user wants to "import the latest changes", "export to git", "git sync", "dirty check", "stash before pulling", "add a collection to sync", or anything `mb git-sync …`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
@@ -8,7 +8,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 Metabase content (cards, dashboards, transforms, snippets, collections, …) can live in a git repo as YAML and round-trip in and out of a Metabase instance via the `git-sync` verbs. The instance is configured with a `remote-sync-*` settings block (URL, branch, token, type read-only/read-write); the CLI drives the sync tasks against `/api/ee/remote-sync/*`.
 
-This skill covers the import/export workflow. The general flag conventions and auth setup live in the `core` skill (`mb skills get core`). To author content YAML by hand, also load the `metabase-representation-format` skill — it covers the file-tree layout and per-resource YAML shape.
+This skill covers the import/export workflow. The general flag conventions and auth setup live in the `core` skill (`mb skills get core`). To author content YAML by hand: the per-resource clause and settings shapes mirror the API form — query bodies follow the `mbql` skill, `visualization_settings` follow the `viz` skill — except the portable YAML uses **name-based** references (e.g. `[Sample Database, PUBLIC, ORDERS, TOTAL]`, and entity-ids for cross-entity FKs) where the API form uses numeric ids. For the on-disk folder layout, model new files on what the synced repo already contains.
 
 ## Adding / removing a directory (collection) to sync
 
@@ -75,25 +75,6 @@ Workflow:
 2. `git-sync has-remote-changes` — confirm there's actually something to import.
 3. `git-sync import --branch <branch>` — runs to terminal status by default.
 
-### First import on a fresh workspace
-
-After `workspace start --repo …` brings up a brand-new workspace, the repo content **must be applied** before any other work — without it the instance has none of the repo content and subsequent edits will diverge from what's on disk.
-
-The container runs a boot-time auto-import on first start, so in most cases the import has already completed by the time `workspace start --wait` returns. Check `git-sync status` first — if `current_task.sync_task_type == "import"` with `status == "successful"` and `.branch` matches the host's branch, you're done; skip the explicit call (it's a wasted round-trip). Only run the explicit `git-sync import` when the auto-import hasn't landed yet.
-
-When you do need the explicit import, the first one on a fresh instance can report `status: conflict` (typically `conflicts: ["Transforms"]`) even when nothing is dirty — the boot-time auto-import sometimes leaves a stale task record that the first explicit import collides with. Retry the same command once; the second call usually succeeds. If it keeps reporting conflict, `git-sync import --force` is safe in this specific case because the workspace is empty — there's no instance-side work for `--force` to discard. (This is a narrow exception to the usual "confirm with the user before `--force`" rule.)
-
-```bash
-HOST_BRANCH=$(git -C <repo-path> symbolic-ref --short HEAD)
-SYNC_STATUS=$(mb git-sync status --profile <ws-name> --json)
-if ! echo "$SYNC_STATUS" | jq -e --arg b "$HOST_BRANCH" \
-     '.current_task.sync_task_type == "import" and .current_task.status == "successful" and (.branch == $b)' >/dev/null; then
-  mb git-sync import --branch "$HOST_BRANCH" --profile <ws-name> --json \
-    || mb git-sync import --branch "$HOST_BRANCH" --profile <ws-name> --json \
-    || mb git-sync import --branch "$HOST_BRANCH" --force --profile <ws-name> --json
-fi
-```
-
 ## Export (instance → remote)
 
 ```bash
@@ -111,60 +92,25 @@ Pushes Metabase-side changes back to the configured remote. `-m` is the commit m
 
 Workflow:
 
-1. **Branch guard** (below) — confirm the workspace isn't tracking `main`/`master`, or that the user has explicitly accepted exporting to it.
+1. **Branch guard** (below) — confirm the instance isn't tracking `main`/`master`, or that the user has explicitly accepted exporting to it.
 2. `git-sync is-dirty` — confirm there's something to export.
 3. `git-sync export -m "..."` — pushes and polls.
 4. (Optional) `git-sync status` — verify `dirty: false` after.
-5. **Working-tree drift** (below) — if this is a `--repo` bind-mount workspace, the host repo's working tree + index will lag behind the new HEAD. Surface this and offer to realign.
 
 ### Branch guard: don't export to main/master without confirmation
 
-Workspace work is conventionally done on a feature branch — exporting to `main` (or `master`) commits team-shared content directly. Before `git-sync export`, check the tracked branch and if it's `main`/`master`, ask the user whether to switch first.
+Sync work is conventionally done on a feature branch — exporting to `main` (or `master`) commits team-shared content directly. Before `git-sync export`, check the tracked branch and if it's `main`/`master`, ask the user whether to switch first.
 
-Reading the current branch:
-
-- For a `--repo` bind-mount workspace, `git -C <repo-path> symbolic-ref --short HEAD` is the most reliable read — that's what the workspace's `remote-sync-branch` was bound to at start time.
-- Otherwise: `mb git-sync status --profile <n> --json | jq -r '.branch'`.
+Read the current branch with `mb git-sync status --profile <n> --json | jq -r '.branch'`.
 
 If the branch is `main` or `master`, prompt with `AskUserQuestion`:
 
-> "The workspace is tracking `<branch>` — exporting commits straight to it. Switch to a feature branch first?"
+> "The instance is tracking `<branch>` — exporting commits straight to it. Switch to a feature branch first?"
 >
-> 1. **Create a feature branch via the workspace** — agent suggests a name (e.g., `agent/<task>`); run `mb git-sync create-branch <name> --profile <n>`. This exports current dirty state to the new branch and switches the workspace's tracked branch to it; subsequent `git-sync export` calls go to that branch.
-> 2. **Switch the host's branch first (bind-mount workspaces)** — `git -C <repo> checkout -b <name>` on the host, then pass `--branch <name>` on the next `git-sync export` so the export targets the new branch (the workspace's `remote-sync-branch` setting won't auto-update from a host-side checkout).
-> 3. **Proceed on `main`/`master`** — explicitly accepted; surface the resulting commit (`git -C <repo> log --oneline -1`) afterwards so the user can amend or revert.
+> 1. **Create a feature branch** — agent suggests a name (e.g., `agent/<task>`); run `mb git-sync create-branch <name> --profile <n>`. This exports current dirty state to the new branch and switches the instance's tracked branch to it; subsequent `git-sync export` calls go to that branch.
+> 2. **Proceed on `main`/`master`** — explicitly accepted.
 
 Skip the prompt only if the user's instructions already specified the branch (e.g., they explicitly said "export to main" or named a feature branch). Don't silently default to whatever `remote-sync-branch` happens to point at.
-
-### Post-export: working-tree drift on `--repo` bind-mount workspaces
-
-When the workspace exports against a host bind mount, the in-container serializer writes the new commit object directly into the bind-mounted `.git/` (creating tree/blob objects and advancing the branch ref) but **does not update the host's working tree or index**. After a successful export, the host repo state is:
-
-- HEAD: the new export commit.
-- Index: still matches the _previous_ HEAD (whatever the user had staged before).
-- Working tree: still matches the _previous_ HEAD.
-
-`git status` then shows "Changes to be committed" that look like the export's content reverting back — purely a display artifact, not an actual revert. The container does this on purpose to avoid clobbering work-in-progress on the host. **Realigning is _applying_ the new HEAD's content to your worktree, not discarding work** — the new commit was written by the exporter, not by your local edits, and your tree/index are stale relative to the new HEAD until you realign.
-
-**Surface this to the user** after an export against a `--repo` workspace — don't leave them staring at a confusing `git status`. Offer to realign.
-
-**Prefer `git restore` over `git reset --hard`.** When the only "changes" are the drift artifact (no real local edits), `git restore` does the same job and isn't classified as a destructive operation by Claude Code's permission system — `git reset --hard` is, and gets blocked even after a user-confirmation dialog:
-
-```bash
-git -C <repo> restore --staged --worktree .   # non-destructive; aligns index + working tree to HEAD
-```
-
-This is the right default after a `git-sync export` realignment when the user had nothing else staged. If `git status` shows a mix of drift artifacts and real pending work, fall back to the stash sequence:
-
-```bash
-git -C <repo> stash --include-untracked
-git -C <repo> restore --staged --worktree .
-git -C <repo> stash pop
-```
-
-`git reset --hard HEAD` is the canonical equivalent and still valid — but **confirm with the user** before running it, and expect Claude Code to gate it as destructive even after the dialog. `git restore --staged --worktree .` produces the same end-state with less friction.
-
-Or pull in the new files selectively with `git -C <repo> checkout HEAD -- <path>`. Quick check that this is what you're seeing: `git -C <repo> diff --cached HEAD~1 --stat` returns empty (the index matches the parent commit, not the new HEAD).
 
 ## Branches
 
@@ -191,6 +137,5 @@ Use `wait` after `import --no-wait` / `export --no-wait`. Use `cancel-task` if a
 - Don't drive `git-sync` against a Metabase instance that doesn't have remote-sync configured — every verb returns an error pointing at the missing `remote-sync-*` settings. To check: `mb setting get remote-sync-url --profile <n> --json`.
 - Don't author content directly via `card create` / `transform create` and then assume `git-sync export` will commit it cleanly — the instance and repo can drift if you mix direct API writes with sync-tracked changes. If you do, follow direct writes immediately with `git-sync export -m "..."` to keep them in step.
 - Don't omit `-m` on `export` if the user wants a meaningful commit message — the default server-generated message is generic.
-- Don't `git-sync export` to `main`/`master` without explicit user confirmation — workspace work is conventionally on a feature branch. See "Branch guard" above.
-- Don't pretend the host's `git status` is clean after `git-sync export` against a `--repo` bind mount — the export advances HEAD but leaves the working tree + index behind. See "Working-tree drift" above.
+- Don't `git-sync export` to `main`/`master` without explicit user confirmation — sync work is conventionally on a feature branch. See "Branch guard" above.
 - Don't reach for `mb setting set` to mark a collection as remote-synced — that endpoint writes single-key settings, not the bulk `collections` map. Use `mb git-sync add-collection <id>` / `mb git-sync remove-collection <id>` (see "Adding / removing a directory (collection) to sync" above), and remember the toggle cascades to descendants.

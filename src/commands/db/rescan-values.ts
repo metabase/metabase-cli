@@ -1,18 +1,15 @@
-import { z } from "zod";
-
-import { databaseSyncResultView, DatabaseSyncResult } from "../../domain/database";
-import { renderItem } from "../../output/render";
+import { databaseSyncResultView, DatabaseSyncResult, DatabaseTaskAck } from "../../domain/database";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
-
-const RescanValuesApiResponse = z.object({ status: z.literal("ok") });
 
 export default defineMetabaseCommand({
   meta: {
     name: "rescan-values",
     description: "Trigger a rescan of cached field values for a database",
   },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -25,10 +22,15 @@ export default defineMetabaseCommand({
     const id = parseId(args.id);
     const client = await getClient();
     const response = await client.requestParsed(
-      RescanValuesApiResponse,
+      DatabaseTaskAck,
       `/api/database/${id}/rescan_values`,
       { method: "POST" },
     );
-    renderItem({ id, status: response.status }, databaseSyncResultView, ctx);
+    renderSummary(
+      { id, status: response.status },
+      databaseSyncResultView,
+      `Field-values rescan queued for database ${id}.`,
+      ctx,
+    );
   },
 });

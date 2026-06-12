@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
 import { z } from "zod";
 
@@ -9,14 +9,16 @@ import { RUN_TERMINAL_STATUSES, TransformRunResult } from "../../src/commands/tr
 import { TransformRunListEnvelope } from "../../src/commands/transform/runs";
 import { createClient, type Client } from "../../src/core/http/client";
 import { ValidationOutcome } from "../../src/core/schema/validate";
+import { Collection } from "../../src/domain/collection";
 import { TransformCompact, TransformRun, TransformRunCompact } from "../../src/domain/transform";
 import { parseJson } from "../../src/runtime/json";
 import { pollUntil } from "../../src/runtime/poll";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_DATABASES, E2E_TABLES } from "./seed/ids";
-
+import { cliErrorMessage } from "./cli-error";
+import { SEEDED } from "./seed/seeded";
+import { requireServer, serverVersionBelow } from "./server-gate";
 const FIRST_TRANSFORM_ID = 1;
 const TRANSFORM_NAME = "e2e_transform";
 const TRANSFORM_TARGET_TABLE = "e2e_transform";
@@ -57,13 +59,13 @@ const TRANSFORM_BODY: TransformBody = {
     type: "query",
     query: {
       type: "native",
-      database: E2E_DATABASES.WAREHOUSE,
+      database: SEEDED.warehouseDbId,
       native: { query: "SELECT 1 AS one" },
     },
   },
   target: {
     type: "table",
-    database: E2E_DATABASES.WAREHOUSE,
+    database: SEEDED.warehouseDbId,
     schema: "public",
     name: TRANSFORM_TARGET_TABLE,
   },
@@ -76,21 +78,26 @@ const TRANSFORM_COMPACT = {
   source_type: "native",
   target: {
     type: "table",
-    database: E2E_DATABASES.WAREHOUSE,
+    database: SEEDED.warehouseDbId,
     schema: "public",
     name: TRANSFORM_TARGET_TABLE,
   },
-  target_db_id: E2E_DATABASES.WAREHOUSE,
+  target_db_id: SEEDED.warehouseDbId,
 } as const;
 
-describe("transform e2e", () => {
+const skipReason = requireServer({ minVersion: 59 });
+
+describe.skipIf(skipReason !== null)("transform e2e", () => {
   let bootstrap: E2EBootstrap;
   let adminClient: Client;
   const tempDirs: string[] = [];
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
-    adminClient = createClient({ url: bootstrap.baseUrl, apiKey: bootstrap.adminApiKey });
+    adminClient = createClient({
+      url: bootstrap.baseUrl,
+      credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey },
+    });
   });
 
   afterEach(async () => {
@@ -202,7 +209,7 @@ describe("transform e2e", () => {
       env: authEnv(),
     });
     expect(getResult.exitCode).toBe(1);
-    expect(getResult.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(getResult.stderr).toContain(`Not found: GET /api/transform/${FIRST_TRANSFORM_ID}.`);
   });
 
   it("run --wait polls until the run reaches a terminal status and renders the final state", async () => {
@@ -220,6 +227,35 @@ describe("transform e2e", () => {
     expect(parsed.final?.status).toBe("succeeded");
   });
 
+  it("run --sync waits for the run's output table to register and surfaces target_table_id", async () => {
+    await createSeedTransform();
+
+    const result = await runCli({
+      args: [
+        "transform",
+        "run",
+        String(FIRST_TRANSFORM_ID),
+        "--sync",
+        "--interval",
+        "1000",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+      timeoutMs: 60_000,
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const parsed = parseJson(result.stdout, TransformRunResult);
+    expect(parsed.message).toBe("Transform run started");
+    expect(parsed.final?.status).toBe("succeeded");
+    assert(
+      parsed.target_table_id !== null && parsed.target_table_id !== undefined,
+      `expected --sync to register a target table; got ${JSON.stringify(parsed.target_table_id)}`,
+    );
+    expect(parsed.target_table_id).toBeGreaterThan(0);
+  });
+
   it("run --wait --json on a failing transform exits 1 with a stderr summary that does not duplicate final.message", async () => {
     const failName = "e2e_transform_fail";
     const failingBody: TransformBody = {
@@ -228,13 +264,13 @@ describe("transform e2e", () => {
         type: "query",
         query: {
           type: "native",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           native: { query: "SELECT 1 FROM does_not_exist" },
         },
       },
       target: {
         type: "table",
-        database: E2E_DATABASES.WAREHOUSE,
+        database: SEEDED.warehouseDbId,
         schema: "public",
         name: failName,
       },
@@ -258,13 +294,9 @@ describe("transform e2e", () => {
     expect(runResult.exitCode).toBe(1);
     const parsed = parseJson(runResult.stdout, TransformRunResult);
     const finalRun = parsed.final;
-    if (finalRun === null) {
-      throw new Error("expected final run to be populated when --wait is set");
-    }
+    assert(finalRun !== null, "expected final run to be populated when --wait is set");
     const failureDetail = finalRun.message;
-    if (failureDetail === null) {
-      throw new Error("expected failed run to carry a message");
-    }
+    assert(failureDetail !== null, "expected failed run to carry a message");
 
     expect(finalRun.status).toBe("failed");
     expect(runResult.stderr).toContain(`transform run ${parsed.run_id} failed`);
@@ -339,7 +371,7 @@ describe("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -350,7 +382,7 @@ describe("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/transform/9999999.");
   });
 
   it("create with invalid MBQL 5 source.query fails pre-flight before sending", async () => {
@@ -366,14 +398,14 @@ describe("transform e2e", () => {
             stages: [
               {
                 "lib/type": "mbql.stage/mbql",
-                "source-table": E2E_TABLES.ORDERS,
+                "source-table": SEEDED.tables.orders,
               },
             ],
           },
         },
         target: {
           type: "table",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           schema: "public",
           name: "preflight_fail_target",
         },
@@ -430,12 +462,12 @@ describe("transform e2e", () => {
           query: {
             "lib/type": "mbql/query",
             database: "oops",
-            stages: [{ "lib/type": "mbql.stage/mbql", "source-table": E2E_TABLES.ORDERS }],
+            stages: [{ "lib/type": "mbql.stage/mbql", "source-table": SEEDED.tables.orders }],
           },
         },
         target: {
           type: "table",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           schema: "public",
           name: "skip_validate_bypass_target",
         },
@@ -460,9 +492,7 @@ describe("transform e2e", () => {
     expect(runResult.exitCode, runResult.stderr).toBe(0);
     const kickoff = parseJson(runResult.stdout, TransformRunResult);
     const runId = kickoff.run_id;
-    if (runId === null) {
-      throw new Error("expected kickoff to return a run_id");
-    }
+    assert(runId !== null, "expected kickoff to return a run_id");
 
     const result = await runCli({
       args: ["transform", "get-run", String(runId), "--json"],
@@ -489,7 +519,7 @@ describe("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid run id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid run id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -500,7 +530,7 @@ describe("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/transform/run/9999999.");
   });
 
   it("runs lists the recently-completed run for the seeded transform", async () => {
@@ -514,9 +544,7 @@ describe("transform e2e", () => {
     expect(runResult.exitCode, runResult.stderr).toBe(0);
     const kickoff = parseJson(runResult.stdout, TransformRunResult);
     const runId = kickoff.run_id;
-    if (runId === null) {
-      throw new Error("expected kickoff to return a run_id");
-    }
+    assert(runId !== null, "expected kickoff to return a run_id");
 
     const result = await runCli({
       args: ["transform", "runs", "--json"],
@@ -633,24 +661,26 @@ describe("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid --transform-id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain(
+      'invalid --transform-id: "abc" (expected integer)',
+    );
     expect(result.stdout).toBe("");
   });
 
-  it("cancel marks an in-progress run as canceling", async () => {
+  it("cancel is accepted for an in-progress run (lands canceled, or succeeded if it beat the cancel)", async () => {
     const sleepBody: TransformBody = {
       name: "e2e_transform_cancel",
       source: {
         type: "query",
         query: {
           type: "native",
-          database: E2E_DATABASES.WAREHOUSE,
+          database: SEEDED.warehouseDbId,
           native: { query: "WITH s AS (SELECT pg_sleep(20)) SELECT 1 AS one FROM s" },
         },
       },
       target: {
         type: "table",
-        database: E2E_DATABASES.WAREHOUSE,
+        database: SEEDED.warehouseDbId,
         schema: "public",
         name: "e2e_transform_cancel",
       },
@@ -672,9 +702,7 @@ describe("transform e2e", () => {
     expect(kickoffResult.exitCode, kickoffResult.stderr).toBe(0);
     const kickoff = parseJson(kickoffResult.stdout, TransformRunResult);
     const runId = kickoff.run_id;
-    if (runId === null) {
-      throw new Error("expected kickoff to return a run_id");
-    }
+    assert(runId !== null, "expected kickoff to return a run_id");
     await waitForRunStarted(adminClient, runId);
 
     const cancelResult = await runCli({
@@ -690,7 +718,10 @@ describe("transform e2e", () => {
 
     await waitForRunComplete(adminClient, runId);
     const finalRun = await adminClient.requestParsed(TransformRun, `/api/transform/run/${runId}`);
-    expect(finalRun.status).toBe("canceled");
+    // Cancel is accepted synchronously (asserted above), but it doesn't kill the warehouse query
+    // mid-flight — a fast run can commit as `succeeded` before the cancel lands. Both are correct
+    // terminal outcomes; pinning `canceled` races the writer.
+    expect(["canceled", "succeeded"]).toContain(finalRun.status);
   });
 
   it("cancel with no running run surfaces a 404 HttpError", async () => {
@@ -702,7 +733,7 @@ describe("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain(`Not found: POST /api/transform/${FIRST_TRANSFORM_ID}/cancel.`);
   });
 
   it("cancel with non-integer id fails fast with ConfigError", async () => {
@@ -712,24 +743,156 @@ describe("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
-  it("delete without --yes proceeds in non-TTY (auto-confirm matches kubectl/gh/docker convention)", async () => {
-    await createSeedTransform();
-
+  it("delete without --yes refuses in non-TTY and exits 2 (explicit confirmation required)", async () => {
     const result = await runCli({
       args: ["transform", "delete", String(FIRST_TRANSFORM_ID), "--json"],
       stdin: "",
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, DeleteResult)).toEqual({
-      deleted: true,
-      aborted: false,
-      id: FIRST_TRANSFORM_ID,
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain(
+      `refusing to delete ${FIRST_TRANSFORM_ID} without confirmation — pass --yes to proceed non-interactively`,
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("a transform can be filed in a transforms-namespace collection created via --namespace", async () => {
+    const collectionResult = await runCli({
+      args: [
+        "collection",
+        "create",
+        "--body",
+        JSON.stringify({ name: "e2e_transforms_ns" }),
+        "--namespace",
+        "transforms",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
     });
+    expect(collectionResult.exitCode, collectionResult.stderr).toBe(0);
+    const collection = parseJson(collectionResult.stdout, Collection);
+    expect(collection.name).toBe("e2e_transforms_ns");
+    assert(typeof collection.id === "number", "expected a numeric collection id");
+
+    const transformResult = await runCli({
+      args: ["transform", "create", "--json"],
+      stdin: JSON.stringify({ ...TRANSFORM_BODY, collection_id: collection.id }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(transformResult.exitCode, transformResult.stderr).toBe(0);
+    const created = parseJson(transformResult.stdout, TransformCompact);
+    expect(created).toEqual({ ...TRANSFORM_COMPACT, id: created.id });
+  });
+
+  it("create into a default-namespace collection fails (exit 2) with the --namespace transforms hint", async () => {
+    const collectionResult = await runCli({
+      args: [
+        "collection",
+        "create",
+        "--body",
+        JSON.stringify({ name: "e2e_normal_collection" }),
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(collectionResult.exitCode, collectionResult.stderr).toBe(0);
+    const collection = parseJson(collectionResult.stdout, Collection);
+    assert(typeof collection.id === "number", "expected a numeric collection id");
+
+    const result = await runCli({
+      args: ["transform", "create", "--json"],
+      stdin: JSON.stringify({ ...TRANSFORM_BODY, collection_id: collection.id }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    const message = cliErrorMessage(result.stderr);
+    expect(message).toContain("A Transform can only go in Collections");
+    expect(message).toContain("--namespace transforms");
+    expect(result.stdout).toBe("");
   });
 });
+
+const GATE_MIN_VERSION = 59;
+
+describe.skipIf(!serverVersionBelow(GATE_MIN_VERSION))(
+  "transform capability gate against a sub-v59 server",
+  () => {
+    let bootstrap: E2EBootstrap;
+    const tempDirs: string[] = [];
+
+    beforeAll(async () => {
+      bootstrap = await readBootstrap();
+    });
+
+    afterEach(async () => {
+      await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+    });
+
+    async function makeIsolatedConfigHome(): Promise<string> {
+      const dir = await mkTempConfigHome();
+      tempDirs.push(dir);
+      return dir;
+    }
+
+    async function loginWithCachedProbe(): Promise<string> {
+      const configHome = await makeIsolatedConfigHome();
+      const login = await runCli({
+        args: [
+          "auth",
+          "login",
+          "--url",
+          bootstrap.baseUrl,
+          "--api-key",
+          bootstrap.adminApiKey,
+          "--json",
+        ],
+        configHome,
+      });
+      assert(login.exitCode === 0, login.stderr);
+      return configHome;
+    }
+
+    it("transform list refuses with CapabilityError (exit 2) naming the v59 requirement", async () => {
+      const serverTag = bootstrap.server.version?.tag;
+      assert(serverTag !== undefined, "gate block requires a known cached server version");
+      const configHome = await loginWithCachedProbe();
+
+      const result = await runCli({ args: ["transform", "list", "--json"], configHome });
+
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain(
+        `This command requires Metabase v${GATE_MIN_VERSION}+ (this server is ${serverTag}). Upgrade Metabase or pin mb-cli to an older release.`,
+      );
+      expect(result.stdout).toBe("");
+    });
+
+    it("--skip-preflight bypasses the gate and surfaces the raw server 404 the gate prevents (exit 1)", async () => {
+      const serverTag = bootstrap.server.version?.tag;
+      assert(serverTag !== undefined, "gate block requires a known cached server version");
+      const configHome = await loginWithCachedProbe();
+
+      const result = await runCli({
+        args: ["transform", "list", "--skip-preflight", "--json"],
+        configHome,
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain(
+        `This endpoint is not available on Metabase ${serverTag}: GET /api/transform. ` +
+          `The command may require a newer Metabase major version. ` +
+          `Run 'mb auth list' to see this server's version.`,
+      );
+      expect(result.stdout).toBe("");
+    });
+  },
+);

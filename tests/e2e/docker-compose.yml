@@ -13,13 +13,13 @@ services:
       retries: 30
 
   metabase:
-    image: ${METABASE_E2E_IMAGE:-metabase/metabase-dev:feature-workspaces-v2}
+    image: ${METABASE_E2E_IMAGE:-metabase/metabase-enterprise-head:latest}
     pull_policy: always
     depends_on:
       data-db:
         condition: service_healthy
     ports:
-      - "13000:3000"
+      - "${METABASE_E2E_PORT:-13000}:3000"
     environment:
       MB_DB_TYPE: h2
       MB_DB_FILE: /metabase/metabase.db

@@ -16,7 +16,14 @@ const CollectionType = z.enum([
   "tenant-specific-root-collection",
 ]);
 
-const CollectionNamespace = z.string().min(1);
+export const CollectionNamespace = z.enum([
+  "transforms",
+  "snippets",
+  "analytics",
+  "shared-tenant-collection",
+  "tenant-specific",
+]);
+export type CollectionNamespace = z.infer<typeof CollectionNamespace>;
 
 export const COLLECTION_ITEM_FILTER_MODELS = [
   "card",

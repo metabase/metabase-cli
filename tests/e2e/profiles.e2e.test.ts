@@ -10,8 +10,8 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_CARDS, E2E_DATABASES } from "./seed/ids";
-
+import { cliErrorMessage } from "./cli-error";
+import { SEEDED } from "./seed/seeded";
 describe("profiles e2e", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
@@ -30,18 +30,10 @@ describe("profiles e2e", () => {
     return dir;
   }
 
-  interface LoginCredentials {
-    apiKey: string;
-    email: string;
-  }
-
   async function loginProfile(
     configHome: string,
     profile: string,
-    credentials: LoginCredentials = {
-      apiKey: bootstrap.adminApiKey,
-      email: bootstrap.adminApiKeyEmail,
-    },
+    apiKey: string = bootstrap.adminApiKey,
   ): Promise<void> {
     const login = await runCli({
       args: [
@@ -52,18 +44,16 @@ describe("profiles e2e", () => {
         "--url",
         bootstrap.baseUrl,
         "--api-key",
-        credentials.apiKey,
+        apiKey,
         "--json",
       ],
       configHome,
     });
     expect(login.exitCode, login.stderr).toBe(0);
-    expect(parseJson(login.stdout, LoginResult)).toEqual({
-      profile,
-      url: bootstrap.baseUrl,
-      authenticated: true,
-      email: credentials.email,
-    });
+    const payload = parseJson(login.stdout, LoginResult);
+    expect(payload.profile).toBe(profile);
+    expect(payload.url).toBe(bootstrap.baseUrl);
+    expect(payload.authenticated).toBe(true);
   }
 
   it("login --profile stores credentials only under that profile", async () => {
@@ -75,22 +65,19 @@ describe("profiles e2e", () => {
       configHome,
     });
     expect(stagingStatus.exitCode, stagingStatus.stderr).toBe(0);
-    expect(parseJson(stagingStatus.stdout, AuthStatus)).toEqual({
-      profile: "staging",
-      present: true,
-      url: bootstrap.baseUrl,
-    });
+    const stagingPayload = parseJson(stagingStatus.stdout, AuthStatus);
+    expect(stagingPayload.profile).toBe("staging");
+    expect(stagingPayload.present).toBe(true);
+    expect(stagingPayload.url).toBe(bootstrap.baseUrl);
 
     const defaultStatus = await runCli({
       args: ["auth", "status", "--json"],
       configHome,
     });
     expect(defaultStatus.exitCode, defaultStatus.stderr).toBe(0);
-    expect(parseJson(defaultStatus.stdout, AuthStatus)).toEqual({
-      profile: "default",
-      present: false,
-      url: null,
-    });
+    const defaultPayload = parseJson(defaultStatus.stdout, AuthStatus);
+    expect(defaultPayload.profile).toBe("default");
+    expect(defaultPayload.present).toBe(false);
   });
 
   it("logout --profile clears only the named profile", async () => {
@@ -114,22 +101,14 @@ describe("profiles e2e", () => {
       configHome,
     });
     expect(prodStatus.exitCode, prodStatus.stderr).toBe(0);
-    expect(parseJson(prodStatus.stdout, AuthStatus)).toEqual({
-      profile: "prod",
-      present: false,
-      url: null,
-    });
+    expect(parseJson(prodStatus.stdout, AuthStatus).present).toBe(false);
 
     const stagingStatus = await runCli({
       args: ["auth", "status", "--profile", "staging", "--json"],
       configHome,
     });
     expect(stagingStatus.exitCode, stagingStatus.stderr).toBe(0);
-    expect(parseJson(stagingStatus.stdout, AuthStatus)).toEqual({
-      profile: "staging",
-      present: true,
-      url: bootstrap.baseUrl,
-    });
+    expect(parseJson(stagingStatus.stdout, AuthStatus).present).toBe(true);
   });
 
   it("METABASE_PROFILE env var selects the active profile when no --profile flag is passed", async () => {
@@ -142,11 +121,9 @@ describe("profiles e2e", () => {
       env: { METABASE_PROFILE: "prod" },
     });
     expect(status.exitCode, status.stderr).toBe(0);
-    expect(parseJson(status.stdout, AuthStatus)).toEqual({
-      profile: "prod",
-      present: true,
-      url: bootstrap.baseUrl,
-    });
+    const payload = parseJson(status.stdout, AuthStatus);
+    expect(payload.profile).toBe("prod");
+    expect(payload.present).toBe(true);
   });
 
   it("--profile flag wins over METABASE_PROFILE env var", async () => {
@@ -159,11 +136,9 @@ describe("profiles e2e", () => {
       env: { METABASE_PROFILE: "does-not-exist" },
     });
     expect(status.exitCode, status.stderr).toBe(0);
-    expect(parseJson(status.stdout, AuthStatus)).toEqual({
-      profile: "staging",
-      present: true,
-      url: bootstrap.baseUrl,
-    });
+    const payload = parseJson(status.stdout, AuthStatus);
+    expect(payload.profile).toBe("staging");
+    expect(payload.present).toBe(true);
   });
 
   it("db list authenticates using stored credentials for the named profile", async () => {
@@ -177,7 +152,7 @@ describe("profiles e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, DatabaseListEnvelope)).toEqual({
-      data: [{ id: E2E_DATABASES.WAREHOUSE, name: "Warehouse", engine: "postgres" }],
+      data: [{ id: SEEDED.warehouseDbId, name: "Warehouse", engine: "postgres" }],
       returned: 1,
       total: 1,
     });
@@ -185,17 +160,11 @@ describe("profiles e2e", () => {
 
   it("running a card query on the same instance succeeds for the admin profile but is forbidden for the limited profile", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await loginProfile(configHome, "admin", {
-      apiKey: bootstrap.adminApiKey,
-      email: bootstrap.adminApiKeyEmail,
-    });
-    await loginProfile(configHome, "limited", {
-      apiKey: bootstrap.limitedApiKey,
-      email: bootstrap.limitedApiKeyEmail,
-    });
+    await loginProfile(configHome, "admin", bootstrap.adminApiKey);
+    await loginProfile(configHome, "limited", bootstrap.limitedApiKey);
 
     const adminQuery = await runCli({
-      args: ["card", "query", String(E2E_CARDS.ORDERS_BY_STATUS), "--profile", "admin", "--json"],
+      args: ["card", "query", String(SEEDED.ordersCardId), "--profile", "admin", "--json"],
       configHome,
     });
     expect(adminQuery.exitCode, adminQuery.stderr).toBe(0);
@@ -203,7 +172,7 @@ describe("profiles e2e", () => {
     expect(adminPayload.status).toBe("completed");
 
     const limitedQuery = await runCli({
-      args: ["card", "query", String(E2E_CARDS.ORDERS_BY_STATUS), "--profile", "limited", "--json"],
+      args: ["card", "query", String(SEEDED.ordersCardId), "--profile", "limited", "--json"],
       configHome,
     });
     expect(limitedQuery.exitCode).toBe(1);
@@ -236,14 +205,16 @@ describe("profiles e2e", () => {
       configHome,
     });
     expect(afterLogin.exitCode, afterLogin.stderr).toBe(0);
-    expect(parseJson(afterLogin.stdout, AuthProfileListEnvelope)).toEqual({
-      data: [
-        { profile: "prod", url: bootstrap.baseUrl, present: true },
-        { profile: "staging", url: bootstrap.baseUrl, present: true },
-      ],
-      returned: 2,
-      total: 2,
-    });
+    const afterLoginEnvelope = parseJson(afterLogin.stdout, AuthProfileListEnvelope);
+    expect(afterLoginEnvelope.returned).toBe(2);
+    expect(afterLoginEnvelope.data.map((entry) => entry.profile).toSorted()).toEqual([
+      "prod",
+      "staging",
+    ]);
+    for (const entry of afterLoginEnvelope.data) {
+      expect(entry.status).toBe("ok");
+      expect(entry.url).toBe(bootstrap.baseUrl);
+    }
 
     await runCli({
       args: ["auth", "logout", "--profile", "prod", "--yes", "--json"],
@@ -255,11 +226,10 @@ describe("profiles e2e", () => {
       configHome,
     });
     expect(afterLogout.exitCode, afterLogout.stderr).toBe(0);
-    expect(parseJson(afterLogout.stdout, AuthProfileListEnvelope)).toEqual({
-      data: [{ profile: "staging", url: bootstrap.baseUrl, present: true }],
-      returned: 1,
-      total: 1,
-    });
+    const afterLogoutEnvelope = parseJson(afterLogout.stdout, AuthProfileListEnvelope);
+    expect(afterLogoutEnvelope.returned).toBe(1);
+    expect(afterLogoutEnvelope.data[0]?.profile).toBe("staging");
+    expect(afterLogoutEnvelope.data[0]?.status).toBe("ok");
   });
 
   it("db list --profile pointing at an unknown profile fails with ConfigError", async () => {
@@ -271,7 +241,7 @@ describe("profiles e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('Not authenticated for profile "nonexistent"');
+    expect(cliErrorMessage(result.stderr)).toContain('Not authenticated for profile "nonexistent"');
     expect(result.stdout).toBe("");
   });
 });

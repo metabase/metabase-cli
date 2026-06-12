@@ -1,5 +1,5 @@
 import { Segment, segmentView } from "../../domain/segment";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { revisionMessageFlag } from "../revision-message-flag";
@@ -7,6 +7,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "archive", description: "Archive (soft-delete) a segment by id" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -23,6 +24,6 @@ export default defineMetabaseCommand({
       method: "PUT",
       body: { archived: true, revision_message: args.revisionMessage },
     });
-    renderItem(updated, segmentView, ctx);
+    renderSummary(updated, segmentView, `Archived segment ${updated.id} "${updated.name}".`, ctx);
   },
 });

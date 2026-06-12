@@ -13,6 +13,7 @@ export const TableListEnvelope = listEnvelopeSchema(TableCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List tables (optionally filtered by database)" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,

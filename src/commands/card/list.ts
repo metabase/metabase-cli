@@ -4,6 +4,7 @@ import { Card, CardCompact, cardView } from "../../domain/card";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema, wrapList } from "../../output/types";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { parseEnumFlag } from "../parse-enum";
 import { defineMetabaseCommand } from "../runtime";
 
 const CardApiList = z.array(Card);
@@ -23,6 +24,7 @@ export const CardListEnvelope = listEnvelopeSchema(CardCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List cards (questions, models, metrics)" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -45,7 +47,7 @@ export default defineMetabaseCommand({
     "mb card list --filter using_model --model-id 42 --json",
   ],
   async run({ args, ctx, getClient }) {
-    const filter = CardListFilter.parse(args.filter);
+    const filter = parseEnumFlag(args.filter, CardListFilter, "filter");
     const modelId = args.modelId === undefined || args.modelId === "" ? undefined : args.modelId;
     const client = await getClient();
     const items = await client.requestParsed(CardApiList, "/api/card", {

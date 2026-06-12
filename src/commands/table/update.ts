@@ -1,5 +1,5 @@
 import { Table, TableUpdateInput, tableView } from "../../domain/table";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -11,6 +11,7 @@ export default defineMetabaseCommand({
     name: "update",
     description: "Update a table (display name, description, visibility, etc.)",
   },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -32,6 +33,11 @@ export default defineMetabaseCommand({
       method: "PUT",
       body,
     });
-    renderItem(updated, tableView, ctx);
+    renderSummary(
+      updated,
+      tableView,
+      `Updated table ${updated.id} "${updated.display_name}".`,
+      ctx,
+    );
   },
 });

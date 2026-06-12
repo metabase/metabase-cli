@@ -1,5 +1,5 @@
 import { Transform, TransformUpdateInput, transformView } from "../../domain/transform";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -11,12 +11,16 @@ import {
   skipValidateFlag,
 } from "../validate-query";
 
+import { enrichTransformCollectionError } from "./collection-namespace";
+
 export default defineMetabaseCommand({
   meta: {
     name: "update",
-    description:
-      "Update a transform by id; if source is provided with type `query` and source.query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
+    description: "Update a transform by id (partial)",
   },
+  details:
+    "Patches only the fields you send (any of `name`, `source`, `target`, `tag_ids`, …). When a new `source.query` is an MBQL 5 query it is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass. See `mb skills get mbql`.",
+  capabilities: { minVersion: 59 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -41,10 +45,16 @@ export default defineMetabaseCommand({
       });
     }
     const client = await getClient();
-    const updated = await client.requestParsed(Transform, `/api/transform/${id}`, {
-      method: "PUT",
-      body,
-    });
-    renderItem(updated, transformView, ctx);
+    const updated = await client
+      .requestParsed(Transform, `/api/transform/${id}`, { method: "PUT", body })
+      .catch((error: unknown) => {
+        throw enrichTransformCollectionError(error);
+      });
+    renderSummary(
+      updated,
+      transformView,
+      `Updated transform ${updated.id} "${updated.name}".`,
+      ctx,
+    );
   },
 });

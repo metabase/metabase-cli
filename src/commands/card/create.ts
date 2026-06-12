@@ -1,5 +1,5 @@
 import { Card, CardCreateInput, cardView } from "../../domain/card";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -13,9 +13,11 @@ import {
 export default defineMetabaseCommand({
   meta: {
     name: "create",
-    description:
-      "Create a card from a JSON spec; if dataset_query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
+    description: "Create a card (question, model, or metric) from JSON",
   },
+  details:
+    "The JSON body needs `name`, `display` (the visualization — e.g. table, bar, scalar), `dataset_query` (the query powering the card), and `visualization_settings` (`{}` is fine). When `dataset_query` is an MBQL 5 query it is checked against a bundled JSON Schema before sending — fix the reported errors, or pass --skip-validate to send anyway. Native-SQL and legacy queries are sent unchecked. See `mb skills get mbql`.",
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -40,6 +42,6 @@ export default defineMetabaseCommand({
       method: "POST",
       body,
     });
-    renderItem(created, cardView, ctx);
+    renderSummary(created, cardView, `Created card ${created.id} "${created.name}".`, ctx);
   },
 });

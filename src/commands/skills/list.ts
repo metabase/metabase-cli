@@ -27,7 +27,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "list",
     description:
-      "List skills bundled with this CLI. Hidden discovery stubs are omitted from the default listing.",
+      "List CLI-bundled skills — always consult the matching skill before acting on a task; they are the source of truth for every workflow.",
   },
   args: { ...outputFlags },
   outputSchema: SkillListEnvelope,

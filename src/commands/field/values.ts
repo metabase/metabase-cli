@@ -1,5 +1,5 @@
 import { FieldValues, fieldValuesView } from "../../domain/field";
-import { renderItem } from "../../output/render";
+import { formatScalar, renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
@@ -9,6 +9,7 @@ export default defineMetabaseCommand({
     name: "values",
     description: "Fetch the cached distinct values for a field (FieldValues list)",
   },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -21,6 +22,22 @@ export default defineMetabaseCommand({
     const id = parseId(args.id);
     const client = await getClient();
     const values = await client.requestParsed(FieldValues, `/api/field/${id}/values`);
-    renderItem(values, fieldValuesView, ctx);
+    const fieldId = values.field_id ?? id;
+    const count = values.values.length;
+    renderSummary(
+      values,
+      fieldValuesView,
+      () => {
+        if (count === 0) {
+          return `Field ${fieldId} has no cached values.`;
+        }
+        const more =
+          values.has_more_values === true ? " (more available; rescan for the full set)" : "";
+        const header = `Field ${fieldId} has ${count} cached value${count === 1 ? "" : "s"}${more}:`;
+        const lines = values.values.map((row) => `  ${formatScalar(row[0])}`);
+        return [header, ...lines].join("\n");
+      },
+      ctx,
+    );
   },
 });

@@ -35,9 +35,6 @@ describe("__manifest e2e", () => {
       "auth status",
       "auth list",
       "auth logout",
-      "license set",
-      "license status",
-      "license remove",
       "db list",
       "db get",
       "db metadata",
@@ -66,11 +63,18 @@ describe("__manifest e2e", () => {
       "dashboard create",
       "dashboard update",
       "dashboard update-dashcard",
+      "dashboard archive",
       "collection list",
       "collection get",
       "collection items",
       "collection tree",
       "collection create",
+      "collection archive",
+      "document list",
+      "document get",
+      "document create",
+      "document update",
+      "document archive",
       "transform list",
       "transform get",
       "transform create",
@@ -104,20 +108,7 @@ describe("__manifest e2e", () => {
       "git-sync create-branch",
       "git-sync add-collection",
       "git-sync remove-collection",
-      "workspace list",
-      "workspace create",
-      "workspace database provision",
-      "workspace database update",
-      "workspace database deprovision",
-      "workspace start",
-      "workspace stop",
-      "workspace remove",
-      "workspace logs",
-      "workspace url",
-      "workspace credentials",
-      "workspace ps",
       "setup",
-      "api-key create",
       "snippet list",
       "snippet get",
       "snippet create",
@@ -133,7 +124,7 @@ describe("__manifest e2e", () => {
       "measure create",
       "measure update",
       "measure archive",
-      "eid translate",
+      "eid",
       "query",
       "uuid",
       "upgrade",
@@ -142,15 +133,9 @@ describe("__manifest e2e", () => {
       "skills path",
     ]);
 
-    // Streaming commands legitimately have no outputSchema — they pipe raw bytes
-    // (docker logs) to stdout rather than a typed JSON envelope.
-    const streamingCommands = new Set(["workspace logs"]);
-
     for (const entry of manifest.commands) {
       expect(entry.examples.length, `missing examples for ${entry.command}`).toBeGreaterThan(0);
-      if (!streamingCommands.has(entry.command)) {
-        expect(entry.outputSchema, `missing outputSchema for ${entry.command}`).not.toBeNull();
-      }
+      expect(entry.outputSchema, `missing outputSchema for ${entry.command}`).not.toBeNull();
     }
   });
 });

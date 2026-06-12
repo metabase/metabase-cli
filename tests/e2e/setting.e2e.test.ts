@@ -11,7 +11,11 @@ const NumberSettingValue = SettingValue.extend({ value: z.number() });
 const StringArraySettingValue = SettingValue.extend({ value: z.array(z.string()) });
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
+import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { requireServer } from "./server-gate";
+
+const remoteSyncSkip = requireServer({ minVersion: 60, tokenFeature: "remote_sync" });
 
 const MUTABLE_KEY = "enable-public-sharing";
 const MUTABLE_KEY_ENV_NAME = "MB_ENABLE_PUBLIC_SHARING";
@@ -23,7 +27,10 @@ describe("setting e2e", () => {
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
-    adminClient = createClient({ url: bootstrap.baseUrl, apiKey: bootstrap.adminApiKey });
+    adminClient = createClient({
+      url: bootstrap.baseUrl,
+      credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey },
+    });
   });
 
   afterEach(async () => {
@@ -181,8 +188,8 @@ describe("setting e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
-      "input required: provide one of flag, --file, stdin, or positional argument",
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "input required: provide one of --body, --file, stdin, or a positional argument",
     );
     expect(result.stdout).toBe("");
   });
@@ -217,41 +224,44 @@ describe("setting e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       'invalid setting key: "..bad.." (expected kebab-case identifier)',
     );
     expect(result.stdout).toBe("");
   });
 
-  it("get --json on a string-valued setting wraps the bare server response", async () => {
-    const STRING_KEY = "remote-sync-type";
-    const TARGET = "read-write";
-    try {
-      await adminClient.requestRaw(`/api/setting/${STRING_KEY}`, {
-        method: "PUT",
-        body: { value: TARGET },
-        expectContentType: "binary",
-      });
+  it.skipIf(remoteSyncSkip !== null)(
+    "get --json on a string-valued setting wraps the bare server response",
+    async () => {
+      const STRING_KEY = "remote-sync-type";
+      const TARGET = "read-write";
+      try {
+        await adminClient.requestRaw(`/api/setting/${STRING_KEY}`, {
+          method: "PUT",
+          body: { value: TARGET },
+          expectContentType: "binary",
+        });
 
-      const result = await runCli({
-        args: ["setting", "get", STRING_KEY, "--json"],
-        configHome: await makeIsolatedConfigHome(),
-        env: authEnv(),
-      });
+        const result = await runCli({
+          args: ["setting", "get", STRING_KEY, "--json"],
+          configHome: await makeIsolatedConfigHome(),
+          env: authEnv(),
+        });
 
-      expect(result.exitCode, result.stderr).toBe(0);
-      expect(parseJson(result.stdout, SettingValue)).toEqual({
-        key: STRING_KEY,
-        value: TARGET,
-      });
-    } finally {
-      await adminClient.requestRaw(`/api/setting/${STRING_KEY}`, {
-        method: "PUT",
-        body: { value: null },
-        expectContentType: "binary",
-      });
-    }
-  });
+        expect(result.exitCode, result.stderr).toBe(0);
+        expect(parseJson(result.stdout, SettingValue)).toEqual({
+          key: STRING_KEY,
+          value: TARGET,
+        });
+      } finally {
+        await adminClient.requestRaw(`/api/setting/${STRING_KEY}`, {
+          method: "PUT",
+          body: { value: null },
+          expectContentType: "binary",
+        });
+      }
+    },
+  );
 
   it("get --json on a text/plain string setting (admin-email) returns the wrapped string", async () => {
     const result = await runCli({
@@ -343,33 +353,33 @@ describe("setting e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       'invalid setting key: "..bad.." (expected kebab-case identifier)',
     );
     expect(result.stdout).toBe("");
   });
 
-  it("get with a server-unknown setting key surfaces the backend's Unknown setting error", async () => {
+  it("get on a server-unknown setting key maps the backend error to a ConfigError (exit 2)", async () => {
     const result = await runCli({
       args: ["setting", "get", "definitely-not-a-real-setting", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Unknown setting: :definitely-not-a-real-setting");
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe("unknown setting: definitely-not-a-real-setting");
     expect(result.stdout).toBe("");
   });
 
-  it("set against a server-unknown setting key surfaces the backend's Unknown setting error", async () => {
+  it("set on a server-unknown setting key maps the backend error to a ConfigError (exit 2)", async () => {
     const result = await runCli({
       args: ["setting", "set", "definitely-not-a-real-setting", "true", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Unknown setting: :definitely-not-a-real-setting");
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe("unknown setting: definitely-not-a-real-setting");
     expect(result.stdout).toBe("");
   });
 });

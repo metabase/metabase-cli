@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { SkillGetEnvelope } from "../../src/commands/skills/get";
 import { SkillListEnvelope } from "../../src/commands/skills/list";
@@ -7,7 +7,18 @@ import { parseJson } from "../../src/runtime/json";
 
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 
-const BUNDLED_VISIBLE_NAMES = ["core", "git-sync", "transform", "workspace"] as const;
+const BUNDLED_VISIBLE_NAMES = [
+  "core",
+  "data-analysis",
+  "data-transformation",
+  "document",
+  "git-sync",
+  "mbql",
+  "robot-data-engineer",
+  "semantic-layer",
+  "transform",
+  "visualization",
+] as const;
 
 describe("skills e2e", () => {
   const tempDirs: string[] = [];
@@ -22,7 +33,7 @@ describe("skills e2e", () => {
     return dir;
   }
 
-  it("list returns the four bundled non-hidden skills, sorted by name", async () => {
+  it("list returns the ten bundled non-hidden skills, sorted by name", async () => {
     const result = await runCli({
       args: ["skills", "list", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -96,13 +107,13 @@ describe("skills e2e", () => {
 
   it("get accepts comma-separated names", async () => {
     const result = await runCli({
-      args: ["skills", "get", "workspace,transform", "--json"],
+      args: ["skills", "get", "git-sync,transform", "--json"],
       configHome: await makeIsolatedConfigHome(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
     const envelope = parseJson(result.stdout, SkillGetEnvelope);
-    expect(envelope.data.map((s) => s.name)).toEqual(["workspace", "transform"]);
+    expect(envelope.data.map((s) => s.name)).toEqual(["git-sync", "transform"]);
   });
 
   it("get rejects an unknown skill name with exit 2 and a ConfigError message listing available names", async () => {
@@ -113,7 +124,7 @@ describe("skills e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain(
-      "unknown skill name(s): does-not-exist (available: core, git-sync, transform, workspace)",
+      "unknown skill name(s): does-not-exist (available: core, data-analysis, data-transformation, document, git-sync, mbql, robot-data-engineer, semantic-layer, transform, visualization)",
     );
   });
 
@@ -152,9 +163,7 @@ describe("skills e2e", () => {
     expect(envelope.returned).toBe(1);
     expect(envelope.data).toHaveLength(1);
     const item = envelope.data[0];
-    if (item === undefined) {
-      throw new Error("expected one item in the envelope");
-    }
+    assert(item !== undefined, "expected one item in the envelope");
     expect(item.name).toBe("core");
     expect(item.dir.endsWith("/skill-data/core")).toBe(true);
   });

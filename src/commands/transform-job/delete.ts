@@ -5,6 +5,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "delete", description: "Delete a transform job by id" },
+  capabilities: { minVersion: 59 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -22,6 +23,8 @@ export default defineMetabaseCommand({
       path: `/api/transform-job/${id}`,
       yes: args.yes,
       promptMessage: `Delete transform job ${id}?`,
+      successMessage: `Deleted transform job ${id}.`,
+      abortMessage: `Aborted; transform job ${id} was not deleted.`,
       client,
       ctx,
     });

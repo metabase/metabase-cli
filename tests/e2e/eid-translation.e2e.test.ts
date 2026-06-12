@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
 import { Card } from "../../src/domain/card";
 import { EidTranslateResult } from "../../src/domain/eid-translation";
@@ -6,9 +6,13 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_CARDS } from "./seed/ids";
+import { cliErrorMessage } from "./cli-error";
+import { SEEDED } from "./seed/seeded";
+import { requireServer } from "./server-gate";
 
-describe("eid translate e2e", () => {
+const transformsSkip = requireServer({ minVersion: 59 });
+
+describe("eid e2e", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
 
@@ -42,17 +46,19 @@ describe("eid translate e2e", () => {
     });
     expect(result.exitCode, result.stderr).toBe(0);
     const card = parseJson(result.stdout, Card);
-    if (card.entity_id === null) {
-      throw new Error(`seeded card ${cardId} has no entity_id`);
-    }
+    assert(card.entity_id !== null, `seeded card ${cardId} has no entity_id`);
     return card.entity_id;
   }
 
-  it("translates a real card entity-id back to its numeric id with the --model/--eids shortcut", async () => {
-    const eid = await getCardEid(E2E_CARDS.ORDERS_BY_STATUS);
+  // A card's entity_id is a random NanoID that can start with `-`, which the positional `<eids>`
+  // form would misparse as a flag (~1/64 of ids). Translate via --body so the round-trip is
+  // deterministic regardless of the seeded id; the positional shortcut is covered by the fake-eid
+  // test below, whose id never leads with `-`.
+  it("translates a real card entity-id back to its numeric id via --body", async () => {
+    const eid = await getCardEid(SEEDED.ordersCardId);
 
     const result = await runCli({
-      args: ["eid", "translate", "--model", "card", "--eids", eid, "--json"],
+      args: ["eid", "--body", JSON.stringify({ entity_ids: { card: [eid] } }), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -60,7 +66,7 @@ describe("eid translate e2e", () => {
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, EidTranslateResult)).toEqual({
       entity_ids: {
-        [eid]: { id: E2E_CARDS.ORDERS_BY_STATUS, type: "card", status: "ok" },
+        [eid]: { id: SEEDED.ordersCardId, type: "card", status: "ok" },
       },
     });
   });
@@ -69,7 +75,7 @@ describe("eid translate e2e", () => {
     const fakeButValidEid = "Z".repeat(21);
 
     const result = await runCli({
-      args: ["eid", "translate", "--model", "card", "--eids", fakeButValidEid, "--json"],
+      args: ["eid", "--model", "card", fakeButValidEid, "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -84,29 +90,32 @@ describe("eid translate e2e", () => {
 
   it("rejects an unknown --model client-side with ConfigError exit code", async () => {
     const result = await runCli({
-      args: ["eid", "translate", "--model", "totally-invalid", "--eids", "abc", "--json"],
+      args: ["eid", "--model", "totally-invalid", "abc", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid --model: "totally-invalid"');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid --model: "totally-invalid"');
   });
 
-  it("accepts the previously-missing transform model in the closed enum (synced with backend)", async () => {
-    const fakeButValidEid = "Y".repeat(21);
+  it.skipIf(transformsSkip !== null)(
+    "accepts the previously-missing transform model in the closed enum (synced with backend)",
+    async () => {
+      const fakeButValidEid = "Y".repeat(21);
 
-    const result = await runCli({
-      args: ["eid", "translate", "--model", "transform", "--eids", fakeButValidEid, "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
+      const result = await runCli({
+        args: ["eid", "--model", "transform", fakeButValidEid, "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
 
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, EidTranslateResult)).toEqual({
-      entity_ids: {
-        [fakeButValidEid]: { type: "transform", status: "not-found" },
-      },
-    });
-  });
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, EidTranslateResult)).toEqual({
+        entity_ids: {
+          [fakeButValidEid]: { type: "transform", status: "not-found" },
+        },
+      });
+    },
+  );
 });

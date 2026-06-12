@@ -1,6 +1,17 @@
 # metabase-cli
 
-Command-line client for Metabase. Authenticates against an instance with an API key and stores it securely on your machine.
+Command-line client for Metabase. Logs in to an instance in your browser (OAuth, Metabase v62+) or with an API key, and stores credentials securely on your machine.
+
+## Supported Metabase versions
+
+The minimum supported server is **Metabase v0.58** (major `58`). Anything older is unsupported.
+
+Commands that need more than a baseline OSS server declare it — a higher minimum major version or a premium token feature. The server version and token features are detected and cached when you run `mb auth login` (or `mb auth list`). For those commands, a preflight check runs before the first request and refuses with an actionable message (exit code `2`) when:
+
+- the server is older than the command's minimum version, or
+- the command needs a premium feature (e.g. `remote_sync`, `transforms`) that isn't enabled.
+
+Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs but the server version can't be detected (no cached probe), it proceeds with a warning rather than refusing. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `METABASE_CLI_SKIP_PREFLIGHT=1`. Both are footguns — only for servers you know are patched.
 
 ## Install
 
@@ -32,25 +43,34 @@ Credentials are stored per-profile. The default profile is named `default`. Use 
 
 ### `mb auth login`
 
-Save credentials for a profile.
+Log in to a Metabase instance and save the credential to a profile. Interactive login offers two methods:
 
-| Flag                | Description                                                |
-| ------------------- | ---------------------------------------------------------- |
-| `--url <url>`       | Metabase URL. Falls back to `METABASE_URL`, then prompts.  |
-| `--api-key <value>` | API key. Visible in shell history — pipe on stdin instead. |
-| `--profile <name>`  | Profile to write to (default: `default`).                  |
-| `--skip-verify`     | Save without contacting the server.                        |
+- **In your browser** (recommended; requires Metabase v62 or newer) — the CLI opens Metabase, you sign in with your password or SSO and approve the CLI, and a short-lived access token plus a rotating refresh token are stored. Tokens refresh automatically; you never paste a secret.
+- **With an API key** — paste a key from Admin settings → Authentication → API keys.
 
-Resolution order for the API key: `--api-key` → piped stdin → `METABASE_API_KEY` → interactive prompt. Stdin is auto-detected when not a TTY.
+Against a server older than v62 the CLI detects the missing OAuth support and falls back to the API key prompt automatically. Supplying an API key (flag, env, or stdin) always skips the browser flow, so CI and scripts behave exactly as before.
+
+On success the server is probed once — the rendered output shows the user, role (`Admin`/`User`), and Metabase version, and the same values are cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good credential and gains a `lastFailure` entry.
+
+| Flag                     | Description                                                                                                                                          |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `METABASE_URL`, then prompts. |
+| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead.                                                                   |
+| `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                             |
+| `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                            |
+| `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                             |
+
+Non-interactive (non-TTY) login requires an API key; resolution order: `--api-key` → piped stdin → `METABASE_API_KEY` (first non-empty wins). Without one, non-interactive login fails rather than prompting.
 
 ```sh
+mb auth login                                            # interactive: browser or API key
 echo "$MB_KEY" | mb auth login --url https://m.example.com
 mb auth login --url https://m.example.com < key.txt
 ```
 
 ### `mb auth status`
 
-Show whether a profile is authenticated.
+Show whether a profile is authenticated. The output includes the auth method (`OAuth` or `API key`) alongside the cached user, role, and server version.
 
 ```sh
 mb auth status
@@ -58,14 +78,16 @@ mb auth status --json
 mb auth status --profile staging
 ```
 
-| Flag               | Description                              |
-| ------------------ | ---------------------------------------- |
-| `--profile <name>` | Profile to inspect (default: `default`). |
-| `--json`           | Emit JSON. Auto-enabled on non-TTY.      |
+| Flag                     | Description                              |
+| ------------------------ | ---------------------------------------- |
+| `--profile <name>`, `-p` | Profile to inspect (default: `default`). |
+| `--json`                 | Emit JSON. Auto-enabled on non-TTY.      |
 
 ### `mb auth list`
 
-List configured authentication profiles. The index is maintained at `<configDir>/profiles.json` and updated on every `auth login` / `auth logout`. Profiles whose URL/API key were stored in the OS keychain before the index existed are picked up by a one-time backfill from `credentials.json`; profiles that exist only in the keyring (no entry in `credentials.json`) appear after the next `auth login` or `auth logout` against them.
+List configured authentication profiles. All profile metadata (URL, auth method, last successful probe, last failure) lives in `<configDir>/profiles.json` at mode `0600`; the secrets (API key, or OAuth access/refresh tokens) sit in the OS keychain when available, or inline in the same file when the keychain is unavailable.
+
+`auth list` re-probes every profile, one at a time — a probe can refresh and rewrite an expired OAuth token, so probes are serialized to avoid racing on the shared `profiles.json`. On success it refreshes `lastProbe` (Metabase version, token features, user identity) and clears `lastFailure`; on failure it updates `lastFailure` and leaves the prior `lastProbe`/`url`/credential untouched. Rendered columns: `Profile | URL | Auth | Status | Role | Version | Last probed`. Failed rows append a one-line footer pointing at `mb auth login --profile <name>`.
 
 ```sh
 mb auth list
@@ -78,59 +100,17 @@ mb auth list --json
 
 ### `mb auth logout`
 
-Clear stored credentials for a profile.
+Clear stored credentials for a profile. For an OAuth profile the refresh token is also revoked server-side, best-effort: local credentials are cleared first and a revocation failure only warns, so a slow or offline server never blocks the logout.
 
 ```sh
 mb auth logout --yes
 mb auth logout --profile staging --yes
 ```
 
-| Flag               | Description                                                                                                                       |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--profile <name>` | Profile to clear (default: `default`).                                                                                            |
-| `--yes`            | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
-
-## License
-
-Manage the Metabase Enterprise license token.
-
-### `mb license set [token]`
-
-Store a license token. Resolution order: positional → piped stdin → `METABASE_LICENSE_TOKEN` → interactive prompt. Stdin is auto-detected when not a TTY.
-
-Common output flags (`--json`, `--format`, `--detail`, `--fields`, `--max-bytes`) are accepted; the result payload is rendered through the standard output layer.
-
-```sh
-echo "$MB_LICENSE" | mb license set
-mb license set < token.txt
-```
-
-### `mb license status`
-
-Show whether a license is stored. Does not reveal the value.
-
-```sh
-mb license status
-mb license status --json
-```
-
-| Flag     | Description                         |
-| -------- | ----------------------------------- |
-| `--json` | Emit JSON. Auto-enabled on non-TTY. |
-
-### `mb license remove`
-
-Clear the stored license.
-
-```sh
-mb license remove --yes
-```
-
-| Flag    | Description                                                                                                                       |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
-
-Common output flags (`--json`, `--format`, `--detail`, `--fields`, `--max-bytes`) are accepted; the result payload is rendered through the standard output layer.
+| Flag                     | Description                                                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--profile <name>`, `-p` | Profile to clear (default: `default`).                                                                                            |
+| `--yes`                  | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
 ## Transforms
 
@@ -181,18 +161,20 @@ mb transform delete 1 --yes
 
 ### `mb transform run <id>`
 
-Trigger a manual run. Returns `{message, run_id}` and exits immediately. Pass `--wait` to poll until the run reaches a terminal status (`succeeded`, `failed`, `timeout`, `canceled`); the `final` field on the result holds the polled run state, and the command exits 1 if the final status is anything but `succeeded`.
+Trigger a manual run. Returns `{message, run_id}` and exits immediately. Pass `--wait` to poll until the run reaches a terminal status (`succeeded`, `failed`, `timeout`, `canceled`); the `final` field on the result holds the polled run state, and the command exits 1 if the final status is anything but `succeeded`. Pass `--sync` to additionally wait until the run's output table is registered and surface its `target_table_id`, so you can build MBQL cards against it — the run registers the table itself, so no separate `db sync-schema` is needed; `--sync` implies `--wait`.
 
 ```sh
 mb transform run 1
 mb transform run 1 --wait --json
+mb transform run 1 --sync --json
 ```
 
-| Flag              | Description                                                 |
-| ----------------- | ----------------------------------------------------------- |
-| `--wait`          | Poll until the run reaches a terminal status.               |
-| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`. |
-| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.  |
+| Flag              | Description                                                                                                            |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `--wait`          | Poll until the run reaches a terminal status.                                                                          |
+| `--sync`          | After a successful run, wait until the output table is registered and return its `target_table_id` (implies `--wait`). |
+| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`.                                                            |
+| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.                                                             |
 
 ### `mb transform cancel <id>`
 
@@ -332,12 +314,18 @@ mb db schema-tables 1 analytics --json
 
 ### `mb db sync-schema <id>`
 
-Trigger a manual schema sync (`POST /api/database/:id/sync_schema`). Returns `{ id, status: "ok" }` once the sync has been queued; the actual work happens asynchronously on the server.
+Trigger a manual schema sync (`POST /api/database/:id/sync_schema`). Returns `{ id, status: "ok" }` once the sync has been queued; the actual work happens asynchronously on the server. Pass `--wait` to poll the database until its `initial_sync_status` reports `complete` (a database that has already finished its initial sync returns at once). To wait for a specific newly-materialized transform table to register, prefer `mb transform run <id> --sync`.
 
 ```sh
 mb db sync-schema 1
-mb db sync-schema 1 --json
+mb db sync-schema 1 --wait --json
 ```
+
+| Flag              | Description                                                 |
+| ----------------- | ----------------------------------------------------------- |
+| `--wait`          | Poll until `initial_sync_status` reports `complete`.        |
+| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`. |
+| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.  |
 
 ### `mb db rescan-values <id>`
 
@@ -464,7 +452,7 @@ mb card list --filter using_model --model-id 42 --json
 
 ```sh
 mb card get 1
-mb card get 1 --json --detail full
+mb card get 1 --json --full
 ```
 
 ### `mb card query <id>`
@@ -611,6 +599,15 @@ cat patch.json | mb dashboard update-dashcard 1 5
 | `visualization_settings` | object                             |
 
 The patch must contain at least one field; an empty object is rejected before the network round-trip.
+
+### `mb dashboard archive <id>`
+
+Soft-delete a dashboard by setting `archived: true`. The archived dashboard stays available via `dashboard list --filter archived` and `dashboard get <id>` until permanently deleted server-side. To unarchive use `mb dashboard update <id> --body '{"archived":false}'`.
+
+```sh
+mb dashboard archive 1
+mb dashboard archive 1 --json
+```
 
 ## Snippets
 
@@ -868,12 +865,85 @@ Create a collection from a JSON spec. The body accepts the same fields as `POST 
 cat collection.json | mb collection create
 mb collection create --file collection.json
 mb collection create --body '{"name":"My Collection","parent_id":4}'
+mb collection create --body '{"name":"ETL"}' --namespace transforms
 ```
 
-| Flag            | Description                                         |
-| --------------- | --------------------------------------------------- |
-| `--body <json>` | Inline JSON body.                                   |
-| `--file <path>` | Path to JSON body file. Use `-` to read from stdin. |
+| Flag               | Description                                                                                                                                                                                                      |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--body <json>`    | Inline JSON body.                                                                                                                                                                                                |
+| `--file <path>`    | Path to JSON body file. Use `-` to read from stdin.                                                                                                                                                              |
+| `--namespace <ns>` | Collection namespace (`transforms`, `snippets`, `analytics`, `shared-tenant-collection`, `tenant-specific`). Omit for a normal collection; required for a collection a transform's `collection_id` can point at. |
+
+### `mb collection archive <id>`
+
+Soft-delete a collection by setting `archived: true`. The archived collection stays available via `collection list --filter archived` until permanently deleted server-side. Restore it from the trash in the Metabase UI.
+
+```sh
+mb collection archive 4
+mb collection archive 4 --json
+```
+
+## Documents
+
+CRUD on `/api/document`. A document is a rich-text page that mixes prose with embedded saved questions (`cardEmbed`) and inline links to Metabase entities (`smartLink`). The body is a [TipTap](https://tiptap.dev/) (ProseMirror) JSON tree stored under `content_type: application/json+vnd.prose-mirror`. The agent-facing format reference lives in the bundled `document` skill (`mb skills get document`). It's a baseline OSS feature — no elevated server version or premium token required.
+
+### `mb document list`
+
+Returns non-archived documents visible to you. The compact item omits the (potentially large) `document` body — pull it with `get --full`.
+
+```sh
+mb document list
+mb document list --json
+```
+
+### `mb document get <id>`
+
+```sh
+mb document get 1
+mb document get 1 --json --full
+```
+
+### `mb document create`
+
+```sh
+cat document.json | mb document create
+mb document create --file document.json
+mb document create --body '{"name":"Notes","document":{"type":"doc","content":[]}}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+Body fields: `name` (required), `document` (required — the TipTap `doc` tree), `collection_id` (optional positive integer; `null` files it under "Our analytics"), `collection_position` (optional positive integer). New cards can be created inline by referencing them with negative ids in `cardEmbed` nodes and supplying their definitions in a top-level `cards` map — see the `document` skill.
+
+For a document to open clean (no spurious "unsaved changes"), each id-bearing node (`paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed`, `supportingText`) must carry a unique `_id` — `create`/`update` **validate** this and reject a body where any such node is missing one (mint ids with `mb uuid`). Other node types don't take an `_id`. See the `document` skill (`mb skills get document`) for the full authoring guide.
+
+### `mb document update <id>`
+
+Patch a document. Body is a partial subset of the create shape plus `archived`. Only the keys you send are touched; replacing `document` replaces the whole body.
+
+```sh
+cat patch.json | mb document update 1
+mb document update 1 --file patch.json
+mb document update 1 --body '{"name":"renamed"}'
+mb document update 1 --body '{"archived":false}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb document archive <id>`
+
+Soft-delete a document by setting `archived: true`. To unarchive use `mb document update <id> --body '{"archived":false}'`.
+
+```sh
+mb document archive 1
+mb document archive 1 --json
+```
 
 ## Settings
 
@@ -919,7 +989,7 @@ Sources are resolved in this order: positional, `--file`, piped stdin. Provide e
 
 ### `mb search [query]`
 
-Search Metabase content (cards, dashboards, collections, tables, …). Returns a `ListEnvelope` of compact search results by default; pass `--detail full` for the full per-row payload.
+Search Metabase content (cards, dashboards, collections, tables, …). Returns a `ListEnvelope` of compact search results by default; pass `--full` for the full per-row payload.
 
 ```sh
 mb search orders
@@ -932,7 +1002,7 @@ mb search products --archived
 | `--models`, `-m` | Comma-separated model filter: `card,dataset,metric,dashboard,collection,database,table,segment,measure,snippet,document,action,transform,indexed-entity`. |
 | `--archived`     | Include archived items only.                                                                                                                              |
 | `--limit`        | Max results to return (default `20`).                                                                                                                     |
-| `--table-db-id`  | Restrict to items on a given database id.                                                                                                                 |
+| `--db-id`        | Restrict to items on a given database id.                                                                                                                 |
 | `--verified`     | Only verified content.                                                                                                                                    |
 
 ## Git Sync
@@ -1100,189 +1170,9 @@ mb git-sync remove-collection 12
 mb git-sync remove-collection 12 --json --profile prod
 ```
 
-## Workspaces
-
-CRUD on `/api/ee/workspace-manager`. Run against the workspace-manager parent instance.
-
-### `mb workspace list`
-
-```sh
-mb workspace list
-mb workspace list --json
-```
-
-### `mb workspace create`
-
-```sh
-mb workspace create --name analytics
-echo '{"name":"analytics"}' | mb workspace create
-mb workspace create --file workspace.json
-```
-
-| Flag            | Description                                             |
-| --------------- | ------------------------------------------------------- |
-| `--name <name>` | Workspace name. Shortcut for `--body '{"name":"<n>"}'`. |
-| `--body <json>` | Inline JSON body.                                       |
-| `--file <path>` | Path to JSON body file.                                 |
-
-### `mb workspace database provision <workspace-id>`
-
-Provision a database into a workspace. The backend kicks off the work asynchronously and returns the workspace with the new entry in `status: "provisioning"`. Pass `--wait` to poll until the entry reaches `status: "provisioned"` and surface the polled state instead of the initial response.
-
-```sh
-mb workspace database provision 1 --database-id 5 --schemas analytics,github
-mb workspace database provision 1 --database-id 5 --schemas analytics --wait
-mb workspace database provision 1 --file provision.json
-```
-
-| Flag                 | Description                                                    |
-| -------------------- | -------------------------------------------------------------- |
-| `--database-id <id>` | Database id (used with `--schemas`).                           |
-| `--schemas <csv>`    | Comma-separated input schemas (used with `--database-id`).     |
-| `--body <json>`      | Inline JSON body.                                              |
-| `--file <path>`      | Path to JSON body file.                                        |
-| `--wait`             | Poll until the database entry reaches `status: "provisioned"`. |
-| `--timeout <ms>`     | Polling timeout in ms (default 600000). Used with `--wait`.    |
-| `--interval <ms>`    | Polling interval in ms (default 2000). Used with `--wait`.     |
-
-### `mb workspace database update <workspace-id> <db-id>`
-
-Update a workspace's provisioned database (server-side this is deprovision + provision). Body accepts only `input` — the database id comes from the URL.
-
-```sh
-mb workspace database update 1 5 --schemas analytics,github
-mb workspace database update 1 5 --schemas analytics --wait
-mb workspace database update 1 5 --file update.json
-```
-
-| Flag              | Description                                                       |
-| ----------------- | ----------------------------------------------------------------- |
-| `--schemas <csv>` | Comma-separated input schemas. Shortcut for body.                 |
-| `--body <json>`   | Inline JSON body (`{"input":[{"schema":"..."}]}`).                |
-| `--file <path>`   | Path to JSON body file.                                           |
-| `--wait`          | Poll until the database entry returns to `status: "provisioned"`. |
-| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`.       |
-| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.        |
-
-### `mb workspace database deprovision <workspace-id> <db-id>`
-
-```sh
-mb workspace database deprovision 1 5 --yes
-mb workspace database deprovision 1 5 --yes --wait
-```
-
-| Flag              | Description                                                                                                                       |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--yes`           | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
-| `--wait`          | Poll until the database entry is removed from the workspace.                                                                      |
-| `--timeout <ms>`  | Polling timeout in ms (default 600000). Used with `--wait`.                                                                       |
-| `--interval <ms>` | Polling interval in ms (default 2000). Used with `--wait`.                                                                        |
-
-### Local runtime
-
-These commands manage a Docker container that serves as the workspace's child Metabase instance. State lives in Docker labels and a named volume — there is no per-workspace local state directory. The container is named `metabase-workspace-<id>`; the app-db volume is `metabase-workspace-<id>-appdb`.
-
-### `mb workspace start <id>`
-
-```sh
-mb workspace start 1
-mb workspace start 1 --wait
-mb workspace start 1 --port 3100
-mb workspace start 1 --image metabase/metabase-dev:feature-workspaces-v2 --no-pull
-mb workspace start 1 --force
-mb workspace start 1 --repo /path/to/sync-repo --wait
-mb workspace start 1 --repo /path/to/sync-repo --repo-branch dev --repo-mode read-only
-```
-
-Resolves the parent via the active profile (or `--profile`/`--url`/`--api-key`) and the EE license via `resolveLicenseToken` (the same path `mb license set` writes to). Refuses to start if the workspace has any database that isn't `status: "provisioned"`.
-
-The boot bundle (`config.yml`, `credentials.json`, optional `metadata.json`) is built in process memory and tar-streamed into the container's `/mw-config/` directory through `docker cp -`; no host-disk artifact is created. The CLI generates a per-workspace admin user + API key, injects them into the YAML before shipping, and stores the same values in `credentials.json` for later retrieval via `mb workspace credentials`. Once the child logs that it has read `config.yml`, the CLI scrubs the in-container copy (`docker exec rm /mw-config/config.yml`) so the warehouse credentials in `details.password` no longer linger; `credentials.json` stays.
-
-By default `start` returns once the bundle has been consumed by the child (`state: "starting"`); pass `--wait` to also block until `/api/health` reports ready and the response reports `state: "running"`.
-
-When `--repo <host-path>` is passed, the CLI bind-mounts the host directory at `/mnt/repo` inside the container and injects three settings into the workspace's `config.yml` so the child boots already wired to the repo: `remote-sync-url=file:///mnt/repo`, `remote-sync-branch=<branch>` (defaults to the current branch of the host repo, read via `git -C <path> symbolic-ref --short HEAD`; override with `--repo-branch`), and `remote-sync-type=<mode>` (defaults to `read-write`; override with `--repo-mode read-only`, which also makes the bind mount read-only). The bind mount is set at container-create time only — to add or change it after the fact, run `start --force` again with the new flags. The host path must be an existing directory; the CLI does not create or `git init` it for you.
-
-| Flag                   | Description                                                                                                                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--port <n>`           | Host port (default: 3000; auto-shifts up to 100 ports if taken).                                                                                                                         |
-| `--image <ref>`        | Docker image (default: `metabase/metabase-dev:feature-workspaces-v2`).                                                                                                                   |
-| `--wait`               | Block until `/api/health` is ready. Default: return as soon as consumed.                                                                                                                 |
-| `--timeout <ms>`       | Per-phase readiness deadline (default: 240000). Covers post-create config consumption, (with `--wait`) the `/api/health` probe, and (with `--metadata`) the metadata-import status poll. |
-| `--no-pull`            | Skip `docker pull` (useful if the image is already present).                                                                                                                             |
-| `--no-metadata`        | Skip the warehouse metadata export.                                                                                                                                                      |
-| `--force`              | If a container for this workspace already exists, remove it before starting.                                                                                                             |
-| `--repo <host-path>`   | Bind-mount a host directory at `/mnt/repo` and set `remote-sync-url=file:///mnt/repo` in `config.yml`.                                                                                   |
-| `--repo-branch <name>` | `remote-sync-branch` value (default: current branch of the host repo).                                                                                                                   |
-| `--repo-mode <mode>`   | `remote-sync-type`: `read-write` (default) or `read-only`. Read-only also makes the bind mount read-only.                                                                                |
-
-### `mb workspace stop <id>`
-
-```sh
-mb workspace stop 1
-mb workspace stop 1 --json
-```
-
-Stops the running container; no-ops if it's already exited or missing. Reports the prior state.
-
-### `mb workspace remove <id>`
-
-```sh
-mb workspace remove 1 --yes
-mb workspace remove 1 --keep-volume --yes
-```
-
-Stops and removes the container. By default, also removes the app-db volume — pass `--keep-volume` to preserve it across rebuilds. **Does not affect the remote workspace** on the parent.
-
-| Flag            | Description                                                                                                                       |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--yes`         | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
-| `--keep-volume` | Preserve the app-db volume (`metabase-workspace-<id>-appdb`).                                                                     |
-
-### `mb workspace logs <id>`
-
-```sh
-mb workspace logs 1
-mb workspace logs 1 --follow
-mb workspace logs 1 --tail 500
-```
-
-Passthrough to `docker logs`. Output streams directly to your terminal; Ctrl-C terminates a follow.
-
-| Flag           | Description                                   |
-| -------------- | --------------------------------------------- |
-| `--follow, -f` | Stream indefinitely.                          |
-| `--tail <n>`   | Lines from the end of the logs (default 200). |
-
-### `mb workspace url <id>`
-
-```sh
-mb workspace url 1
-mb workspace url 1 --json
-```
-
-Prints `http://localhost:<port>` for the workspace's container. Reads the host port from the container's `com.metabase.workspace.host-port` label.
-
-### `mb workspace credentials <id>`
-
-```sh
-mb workspace credentials 1
-mb workspace credentials 1 --json
-```
-
-Reads the workspace child's admin credentials (email, password, admin API key) from `/mw-config/credentials.json` inside the container. The file is written by `workspace start` from CLI-generated, per-workspace values; the same values are injected into `config.yml`'s `:users` and `:api-keys` sections so they take effect on the child's first boot. Works against running and stopped containers (uses `docker cp`); errors clearly if no container exists for the given workspace id. Removing the container destroys the file — recover by `workspace start <id> --force`.
-
-### `mb workspace ps`
-
-```sh
-mb workspace ps
-mb workspace ps --json
-```
-
-Lists every container that carries the `com.metabase.workspace.id` label, running or stopped. The `--json` envelope is the canonical agent-facing shape and contains only `workspace_id`, `workspace_name`, `state`, and `url`; `--full --json` emits the wider record (image, profile, parent URL, container name, status string, host port).
-
 ## Instance setup
 
-Operations against a workspace-instance Metabase. The setup wizard and API key creation are distinct endpoints — there is no shared body schema.
+Bootstrapping a fresh, not-yet-configured Metabase instance.
 
 ### `mb setup`
 
@@ -1299,43 +1189,28 @@ mb setup --body '{"token":"<setup-token>","user":{"email":"a@b.c","password":"..
 | `--body <json>` | Inline JSON body.       |
 | `--file <path>` | Path to JSON body file. |
 
-### `mb api-key create`
-
-Create a new API key (`POST /api/api-key`). The unmasked key is returned on creation only; capture it from the output.
-
-```sh
-mb api-key create --name deploy-bot --group-id 2
-echo '{"name":"k","group_id":2}' | mb api-key create
-mb api-key create --file key.json
-```
-
-| Flag              | Description                               |
-| ----------------- | ----------------------------------------- |
-| `--name <name>`   | API key name (used with `--group-id`).    |
-| `--group-id <id>` | Permission group id (used with `--name`). |
-| `--body <json>`   | Inline JSON body.                         |
-| `--file <path>`   | Path to JSON body file.                   |
-
 ## Agent helpers
 
 Endpoints commonly used by agents driving the instance. `card query` and `transform run` are documented in their own sections; the helper below covers entity-id translation.
 
-### `mb eid translate`
+### `mb eid [eids]`
 
 Translate string entity ids (EIDs) to numeric ids (`POST /api/eid-translation/translate`).
 
 ```sh
-mb eid translate --model card --eids abc123XYZ,def456ABC
-mb eid translate --file translate.json
-mb eid translate --body '{"entity_ids":{"card":["abc123XYZ"]}}'
+mb eid --model card abc123XYZ,def456ABC
+mb eid --file translate.json
+mb eid --body '{"entity_ids":{"card":["abc123XYZ"]}}'
 ```
 
-| Flag             | Description                                                                                      |
-| ---------------- | ------------------------------------------------------------------------------------------------ |
-| `--model <name>` | Entity model for the shortcut form (e.g. `card`, `dashboard`, `collection`). Used with `--eids`. |
-| `--eids <csv>`   | Comma-separated EIDs. Used with `--model`.                                                       |
-| `--body <json>`  | Inline JSON body.                                                                                |
-| `--file <path>`  | Path to JSON body file.                                                                          |
+Entity ids are NanoIDs that can start with `-`, which the positional `<eids>` form misreads as a flag (shell quoting doesn't help — the leading `-` survives into argv). For an id that may start with `-`, pass it via `--body`, where the id is a JSON string value immune to flag parsing: `mb eid --body '{"entity_ids":{"card":["-abc123XYZ"]}}'`.
+
+| Arg / Flag       | Description                                                                    |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `<eids>`         | Comma-separated EIDs positional. Used with `--model`.                          |
+| `--model <name>` | Entity model for the positional EIDs (e.g. `card`, `dashboard`, `collection`). |
+| `--body <json>`  | Inline JSON body.                                                              |
+| `--file <path>`  | Path to JSON body file.                                                        |
 
 ## Query
 
@@ -1462,7 +1337,7 @@ The CLI ships with bundled agent skills (Claude Code / `npx skills add` compatib
 mb skills list                              # discover bundled skills (table or JSON)
 mb skills get core                          # print the top-level guide
 mb skills get core --full                   # include references and templates
-mb skills get workspace,transform           # comma-separated, multi-skill fetch
+mb skills get git-sync,transform            # comma-separated, multi-skill fetch
 mb skills get --all --json --max-bytes 0    # every non-hidden skill, structured (default cap truncates)
 mb skills path                              # absolute paths for direct Read
 mb skills path core                         # one path
@@ -1472,12 +1347,15 @@ mb skills path core                         # one path
 
 Bundled skills:
 
-| Name        | Use                                                                                    |
-| ----------- | -------------------------------------------------------------------------------------- |
-| `core`      | Top-level guide: auth, flag conventions, output flags, body input, every command group |
-| `workspace` | Enterprise workspace lifecycle (create, provision, start, child credentials, diagnose) |
-| `transform` | Authoring and running transforms (native SQL + MBQL 5), iteration, run inspection      |
-| `git-sync`  | Round-tripping Metabase content to/from a git remote                                   |
+| Name                  | Use                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| `core`                | Top-level guide: auth, flag conventions, output flags, body input, every command group        |
+| `transform`           | Authoring and running transforms (native SQL + MBQL 5), iteration, run inspection             |
+| `data-transformation` | Raw, normalized source database → clean, wide, analysis-ready tables for a non-technical user |
+| `semantic-layer`      | Turning clean tables into reusable segments, measures, and metrics for a non-technical user   |
+| `robot-data-engineer` | Front-door router for the whole journey (raw → tables → definitions → dashboards)             |
+| `document`            | Authoring document bodies: the TipTap JSON tree, embedding cards, entity links                |
+| `git-sync`            | Round-tripping Metabase content to/from a git remote                                          |
 
 Discovery surfaces:
 
@@ -1488,14 +1366,14 @@ Exit codes: `0` success, `2` `ConfigError` (missing name, unknown name, `MB_SKIL
 
 ## Environment variables
 
-| Variable                 | Effect                                                                                                                 |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `METABASE_URL`           | Default URL for `auth login` and config resolution.                                                                    |
-| `METABASE_API_KEY`       | Default API key (overrides interactive prompt; not stored).                                                            |
-| `METABASE_PROFILE`       | Default profile when `--profile` is omitted. Falls back to `default`.                                                  |
-| `METABASE_LICENSE_TOKEN` | Default license token for `license set`.                                                                               |
-| `METABASE_VERBOSE`       | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                         |
-| `MB_SKILLS_DIR`          | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees). |
+| Variable                      | Effect                                                                                                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `METABASE_URL`                | Default URL for `auth login` and config resolution.                                                                                                                       |
+| `METABASE_API_KEY`            | Default API key (makes `auth login` non-interactive, skipping the browser flow; not stored).                                                                              |
+| `METABASE_PROFILE`            | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                     |
+| `METABASE_VERBOSE`            | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                            |
+| `METABASE_CLI_SKIP_PREFLIGHT` | When set to `1`, bypasses the per-command server version / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
+| `MB_SKILLS_DIR`               | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees).                                                    |
 
 ## Agent integration
 

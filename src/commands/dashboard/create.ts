@@ -4,7 +4,7 @@ import {
   DashboardDetail,
   dashboardView,
 } from "../../domain/dashboard";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -15,9 +15,11 @@ import { preflightDashcardCardReferences, wrapChainedDashboardWriteError } from 
 export default defineMetabaseCommand({
   meta: {
     name: "create",
-    description:
-      "Create a dashboard from a JSON spec; any positive card_id referenced from dashcards is pre-flight-validated against /api/card/:id (exists, not archived) before the dashboard is created",
+    description: "Create a dashboard from JSON",
   },
+  details:
+    "Any positive card_id referenced from dashcards is pre-flight-validated (exists and readable, not archived) before the dashboard is created.",
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -41,7 +43,12 @@ export default defineMetabaseCommand({
       body: createOnly,
     });
     if (dashcards === undefined && tabs === undefined) {
-      renderItem(created, dashboardView, ctx);
+      renderSummary(
+        created,
+        dashboardView,
+        `Created dashboard ${created.id} "${created.name}".`,
+        ctx,
+      );
       return;
     }
     try {
@@ -49,7 +56,12 @@ export default defineMetabaseCommand({
         method: "PUT",
         body: { dashcards, tabs },
       });
-      renderItem(updated, dashboardView, ctx);
+      renderSummary(
+        updated,
+        dashboardView,
+        `Created dashboard ${updated.id} "${updated.name}".`,
+        ctx,
+      );
     } catch (error) {
       throw wrapChainedDashboardWriteError(error, created.id);
     }

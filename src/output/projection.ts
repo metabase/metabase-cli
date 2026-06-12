@@ -39,7 +39,7 @@ function projectFields(value: unknown, fields: string[]): Record<string, unknown
   return out;
 }
 
-function pickPath(value: unknown, parts: string[]): unknown {
+export function pickPath(value: unknown, parts: string[]): unknown {
   let cursor: unknown = value;
   for (const part of parts) {
     if (!isPlainObject(cursor) || !Object.hasOwn(cursor, part)) {

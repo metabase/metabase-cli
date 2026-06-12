@@ -1,7 +1,7 @@
 import { defineCommand } from "citty";
 
 export default defineCommand({
-  meta: { name: "segment", description: "Inspect Metabase segments" },
+  meta: { name: "segment", description: "Manage Metabase segments" },
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),
     get: () => import("./get").then((mod) => mod.default),

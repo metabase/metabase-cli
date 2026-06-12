@@ -3,7 +3,7 @@ import {
   TransformJobCreateInput,
   transformJobView,
 } from "../../domain/transform-job";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -11,6 +11,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a transform job" },
+  capabilities: { minVersion: 59 },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...bodyInputFlags },
   outputSchema: TransformJob,
   examples: [
@@ -25,6 +26,11 @@ export default defineMetabaseCommand({
       method: "POST",
       body,
     });
-    renderItem(created, transformJobView, ctx);
+    renderSummary(
+      created,
+      transformJobView,
+      `Created transform job ${created.id} "${created.name}".`,
+      ctx,
+    );
   },
 });

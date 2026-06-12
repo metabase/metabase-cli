@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AbortError, ConfigError } from "../core/errors";
 
@@ -55,9 +55,7 @@ describe("promptText", () => {
     setIsTTY(false);
     const error = await promptText({ message: "Name" }).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe('cannot prompt "Name" — stdin is not a TTY');
     expect(hoisted.text).not.toHaveBeenCalled();
   });
@@ -73,8 +71,19 @@ describe("promptText", () => {
     await promptText({ message: "URL", initialValue: "https://m" });
     expect(hoisted.text).toHaveBeenCalledWith({
       message: "URL",
+      defaultValue: "",
       initialValue: "https://m",
     });
+  });
+
+  it("forwards defaultValue so an empty submit resolves to it rather than undefined", async () => {
+    hoisted.text.mockResolvedValueOnce("default");
+    const value = await promptText({ message: "Profile name", defaultValue: "default" });
+    expect(hoisted.text).toHaveBeenCalledWith({
+      message: "Profile name",
+      defaultValue: "default",
+    });
+    expect(value).toBe("default");
   });
 });
 

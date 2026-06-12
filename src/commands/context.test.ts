@@ -148,6 +148,7 @@ describe("resolveCommonFlags — full result shape", () => {
       url: undefined,
       apiKey: undefined,
       profile: undefined,
+      skipPreflight: false,
     });
   });
 
@@ -160,6 +161,7 @@ describe("resolveCommonFlags — full result shape", () => {
         format: "text",
         fields: "id,name",
         maxBytes: "1024",
+        skipPreflight: true,
       },
       { isTty: false },
     );
@@ -171,6 +173,7 @@ describe("resolveCommonFlags — full result shape", () => {
       url: "https://m.example.com",
       apiKey: "secret",
       profile: "prod",
+      skipPreflight: true,
     });
   });
 });

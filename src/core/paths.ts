@@ -3,9 +3,7 @@ import { join } from "node:path";
 
 const APP_DIR_NAME = "metabase-cli";
 
-// Resolves the per-user CLI config directory in a way that's both XDG/AppData-idiomatic
-// and Docker Desktop-shareable on macOS and Windows (every supported OS routes through the
-// user's home, which Docker Desktop shares out of the box; `os.tmpdir()` does not on macOS).
+// Resolves the per-user CLI config directory, XDG/AppData-idiomatic per platform:
 //
 // macOS / Linux:  $XDG_CONFIG_HOME/metabase-cli   (default ~/.config/metabase-cli)
 // Windows:        %APPDATA%/metabase-cli           (default ~/AppData/Roaming/metabase-cli)

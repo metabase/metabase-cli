@@ -1,5 +1,5 @@
 import { DashboardDetail, DashboardUpdateInput, dashboardView } from "../../domain/dashboard";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -11,9 +11,11 @@ import { preflightDashcardCardReferences } from "./preflight";
 export default defineMetabaseCommand({
   meta: {
     name: "update",
-    description:
-      "Update a dashboard (and optionally its dashcards/tabs) by id; any positive card_id referenced from dashcards is pre-flight-validated against /api/card/:id (exists, not archived) before the PUT",
+    description: "Update a dashboard (and optionally its dashcards/tabs) by id",
   },
+  details:
+    "Any positive card_id referenced from dashcards is pre-flight-validated (exists and readable, not archived) before the PUT.",
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -37,6 +39,11 @@ export default defineMetabaseCommand({
       method: "PUT",
       body,
     });
-    renderItem(updated, dashboardView, ctx);
+    renderSummary(
+      updated,
+      dashboardView,
+      `Updated dashboard ${updated.id} "${updated.name}".`,
+      ctx,
+    );
   },
 });

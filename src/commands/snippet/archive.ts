@@ -1,11 +1,12 @@
 import { Snippet, snippetView } from "../../domain/snippet";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "archive", description: "Archive (soft-delete) a native query snippet by id" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -21,6 +22,6 @@ export default defineMetabaseCommand({
       method: "PUT",
       body: { archived: true },
     });
-    renderItem(updated, snippetView, ctx);
+    renderSummary(updated, snippetView, `Archived snippet ${updated.id} "${updated.name}".`, ctx);
   },
 });

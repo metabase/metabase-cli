@@ -1,8 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ZodType } from "zod";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ChainedRequestError, ConfigError, NetworkError } from "../../core/errors";
-import type { Client, RequestOptions } from "../../core/http/client";
+import { createFakeClient, type FakeClientCall } from "../../core/http/fake-client";
 import { HttpError } from "../../core/http/errors";
 import { Card } from "../../domain/card";
 
@@ -11,10 +10,6 @@ import {
   preflightDashcardCardReferences,
   wrapChainedDashboardWriteError,
 } from "./preflight";
-
-function emptyPlan(): FakeClientPlan {
-  return { responses: new Map(), errors: new Map() };
-}
 
 function cardFixture(id: number, archived = false): Card {
   return Card.parse({
@@ -35,36 +30,8 @@ function cardFixture(id: number, archived = false): Card {
   });
 }
 
-interface FakeClientPlan {
-  readonly responses: ReadonlyMap<string, unknown>;
-  readonly errors: ReadonlyMap<string, MetabaseLikeError>;
-}
-
-type MetabaseLikeError = HttpError | NetworkError;
-
-function fakeClient(plan: FakeClientPlan): { client: Client; calls: string[] } {
-  const calls: string[] = [];
-  const client: Client = {
-    async requestParsed<T>(schema: ZodType<T>, path: string, _opts?: RequestOptions): Promise<T> {
-      calls.push(path);
-      const failure = plan.errors.get(path);
-      if (failure !== undefined) {
-        throw failure;
-      }
-      const response = plan.responses.get(path);
-      if (response === undefined) {
-        throw new Error(`unexpected path: ${path}`);
-      }
-      return schema.parse(response);
-    },
-    async requestRaw() {
-      throw new Error("not implemented in fake");
-    },
-    async requestStream() {
-      throw new Error("not implemented in fake");
-    },
-  };
-  return { client, calls };
+function paths(calls: ReadonlyArray<FakeClientCall>): string[] {
+  return calls.map((call) => call.path);
 }
 
 describe("collectDashcardCardReferences", () => {
@@ -131,13 +98,13 @@ describe("preflightDashcardCardReferences", () => {
   });
 
   it("returns without making any HTTP calls when dashcards is undefined", async () => {
-    const { client, calls } = fakeClient(emptyPlan());
+    const { client, calls } = createFakeClient();
     await preflightDashcardCardReferences(client, undefined);
     expect(calls).toEqual([]);
   });
 
   it("returns without making any HTTP calls when dashcards has no positive card_id", async () => {
-    const { client, calls } = fakeClient(emptyPlan());
+    const { client, calls } = createFakeClient();
     await preflightDashcardCardReferences(client, [
       { id: -1, card_id: null },
       { id: -2, card_id: -3 },
@@ -146,38 +113,35 @@ describe("preflightDashcardCardReferences", () => {
   });
 
   it("returns without throwing when all referenced cards exist and are not archived", async () => {
-    const { client, calls } = fakeClient({
+    const { client, calls } = createFakeClient({
       responses: new Map([
         ["/api/card/42", cardFixture(42)],
         ["/api/card/17", cardFixture(17)],
       ]),
-      errors: new Map(),
     });
     await preflightDashcardCardReferences(client, [
       { id: -1, card_id: 42 },
       { id: -2, card_id: 17 },
     ]);
-    expect(calls.toSorted()).toEqual(["/api/card/17", "/api/card/42"]);
+    expect(paths(calls).toSorted()).toEqual(["/api/card/17", "/api/card/42"]);
     expect(captured).toEqual([]);
   });
 
   it("deduplicates HTTP calls when the same card_id appears in multiple dashcards", async () => {
-    const { client, calls } = fakeClient({
+    const { client, calls } = createFakeClient({
       responses: new Map([["/api/card/42", cardFixture(42)]]),
-      errors: new Map(),
     });
     await preflightDashcardCardReferences(client, [
       { id: -1, card_id: 42 },
       { id: -2, card_id: 42 },
       { id: -3, card_id: 42 },
     ]);
-    expect(calls).toEqual(["/api/card/42"]);
+    expect(paths(calls)).toEqual(["/api/card/42"]);
   });
 
   it("throws ConfigError with the archived card listed under its dashcard path", async () => {
-    const { client } = fakeClient({
+    const { client } = createFakeClient({
       responses: new Map([["/api/card/134", cardFixture(134, true)]]),
-      errors: new Map(),
     });
     const failure = preflightDashcardCardReferences(client, [{ id: -1, card_id: 134 }]);
     await expect(failure).rejects.toBeInstanceOf(ConfigError);
@@ -194,9 +158,8 @@ describe("preflightDashcardCardReferences", () => {
   });
 
   it("emits one envelope entry per dashcard reference even when they share an archived card", async () => {
-    const { client } = fakeClient({
+    const { client } = createFakeClient({
       responses: new Map([["/api/card/134", cardFixture(134, true)]]),
-      errors: new Map(),
     });
     const failure = preflightDashcardCardReferences(client, [
       { id: -1, card_id: 134 },
@@ -230,8 +193,7 @@ describe("preflightDashcardCardReferences", () => {
       responseHeaders: { "content-type": "application/json" },
       rawBody: '{"message":"Not found"}',
     });
-    const { client } = fakeClient({
-      responses: new Map(),
+    const { client } = createFakeClient({
       errors: new Map([["/api/card/9999", notFound]]),
     });
     const failure = preflightDashcardCardReferences(client, [{ id: -1, card_id: 9999 }]);
@@ -257,8 +219,7 @@ describe("preflightDashcardCardReferences", () => {
       responseHeaders: { "content-type": "application/json" },
       rawBody: '{"message":"You do not have permissions to do that."}',
     });
-    const { client } = fakeClient({
-      responses: new Map(),
+    const { client } = createFakeClient({
       errors: new Map([["/api/card/55", forbidden]]),
     });
     const failure = preflightDashcardCardReferences(client, [{ id: -1, card_id: 55 }]);
@@ -289,8 +250,7 @@ describe("preflightDashcardCardReferences", () => {
       url: "https://example.com/api/card/1",
       cause: "connect ECONNREFUSED",
     });
-    const { client } = fakeClient({
-      responses: new Map(),
+    const { client } = createFakeClient({
       errors: new Map([["/api/card/1", network]]),
     });
     await expect(preflightDashcardCardReferences(client, [{ id: -1, card_id: 1 }])).rejects.toBe(
@@ -317,9 +277,7 @@ describe("wrapChainedDashboardWriteError", () => {
     });
     const wrapped = wrapChainedDashboardWriteError(original, 7);
     expect(wrapped).toBeInstanceOf(HttpError);
-    if (!(wrapped instanceof HttpError)) {
-      throw new Error("expected HttpError");
-    }
+    assert(wrapped instanceof HttpError, "expected HttpError");
     expect(wrapped.status).toBe(400);
     expect(wrapped.developerDetail.body).toBe('{"message":"The object has been archived."}');
     expect(wrapped.userMessage).toBe(
@@ -336,9 +294,7 @@ describe("wrapChainedDashboardWriteError", () => {
     });
     const wrapped = wrapChainedDashboardWriteError(original, 9);
     expect(wrapped).toBeInstanceOf(ChainedRequestError);
-    if (!(wrapped instanceof ChainedRequestError)) {
-      throw new Error("expected ChainedRequestError");
-    }
+    assert(wrapped instanceof ChainedRequestError, "expected ChainedRequestError");
     expect(wrapped.userMessage).toBe(
       "dashboard 9 created but follow-up PUT /api/dashboard/9 failed: Could not reach Metabase: socket hang up; dashcards not applied",
     );

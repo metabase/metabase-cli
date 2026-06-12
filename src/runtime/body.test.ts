@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { ConfigError, ValidationError } from "../core/errors";
@@ -92,9 +92,7 @@ describe("readBody", () => {
       (caught: unknown) => caught,
     );
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe("multiple body sources given (--body, --file); pass exactly one");
   });
 
@@ -108,9 +106,7 @@ describe("readBody", () => {
       Card,
     ).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe(
       "multiple body sources given (--body, --file, positional); pass exactly one",
     );
@@ -126,18 +122,14 @@ describe("readBody", () => {
       (caught: unknown) => caught,
     );
     expect(error).toBeInstanceOf(ValidationError);
-    if (!(error instanceof ValidationError)) {
-      throw new Error("expected ValidationError");
-    }
+    assert(error instanceof ValidationError, "expected ValidationError");
     expect(error.message).toContain("--body");
   });
 
   it("throws ConfigError when JSON is malformed", async () => {
     const error = await readBody({ flag: "{ not json }" }, Card).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toContain("invalid JSON: ");
   });
 
@@ -147,9 +139,7 @@ describe("readBody", () => {
       Card,
     ).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ValidationError);
-    if (!(error instanceof ValidationError)) {
-      throw new Error("expected ValidationError");
-    }
+    assert(error instanceof ValidationError, "expected ValidationError");
     expect(error.message).toContain("card create body");
   });
 });

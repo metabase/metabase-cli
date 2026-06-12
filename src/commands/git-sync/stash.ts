@@ -3,12 +3,12 @@ import { z } from "zod";
 import { ConfigError } from "../../core/errors";
 import { SyncTask } from "../../domain/git-sync";
 import type { ResourceView } from "../../domain/view";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
-import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
+import { gitSyncWaitFlags, parseWaitFlags } from "../wait-flags";
 
-import { pollFlags, pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
+import { formatSyncTask, pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
 
 const SyncStashKickoff = z.object({
   status: z.literal("success"),
@@ -45,6 +45,7 @@ export default defineMetabaseCommand({
     name: "stash",
     description: "Export current Metabase state to a new branch on the git remote",
   },
+  capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -61,7 +62,7 @@ export default defineMetabaseCommand({
       alias: "m",
       default: DEFAULT_STASH_MESSAGE,
     },
-    ...pollFlags,
+    ...gitSyncWaitFlags,
   },
   outputSchema: SyncStashResult,
   examples: [
@@ -77,8 +78,7 @@ export default defineMetabaseCommand({
     if (message === "") {
       throw new ConfigError("invalid message: must not be blank");
     }
-    const timeoutMs = parseId(args.timeout, "timeout");
-    const intervalMs = parseId(args.interval, "interval");
+    const wait = parseWaitFlags(args);
 
     const body: StashRequestBody = { new_branch: newBranch, message };
     const client = await getClient();
@@ -87,24 +87,33 @@ export default defineMetabaseCommand({
       body,
     });
 
-    if (!args.wait) {
+    if (!wait.enabled) {
       const result: SyncStashResult = {
         status: kickoff.status,
         message: kickoff.message,
         task_id: kickoff.task_id,
       };
-      renderItem(result, syncStashView, ctx);
+      renderSummary(
+        result,
+        syncStashView,
+        `Started stash to branch "${newBranch}" (task #${kickoff.task_id}).`,
+        ctx,
+      );
       return;
     }
 
-    const final = await pollSyncTask(client, { timeoutMs, intervalMs });
+    const final = await pollSyncTask(client, wait.schedule);
     const result: SyncStashResult = {
       status: kickoff.status,
       message: kickoff.message,
       task_id: kickoff.task_id,
       final,
     };
-    renderItem(result, syncStashView, ctx);
+    const succeeded = final === null || final.status === "successful";
+    const text = succeeded
+      ? `Stashed Metabase state to branch "${newBranch}" (task #${kickoff.task_id}).`
+      : formatSyncTask(final);
+    renderSummary(result, syncStashView, text, ctx);
     throwIfFailedTask(final, "stash");
   },
 });

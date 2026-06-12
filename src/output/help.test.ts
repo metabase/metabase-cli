@@ -1,10 +1,12 @@
 import { defineCommand } from "citty";
+import type { ArgsDef, CommandDef } from "citty";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
+import { connectionFlags, outputFlags, profileFlag } from "../commands/flags";
 import { defineMetabaseCommand } from "../commands/runtime";
 
-import { showUsage } from "./help";
+import { findUnknownCommand, resolveBreadcrumb, showUsage } from "./help";
 
 describe("showUsage", () => {
   let chunks: string[];
@@ -84,6 +86,41 @@ describe("showUsage", () => {
     expect(out).not.toContain("EXAMPLES");
   });
 
+  it("renders the details block after the description and before USAGE when declared", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "demo", description: "Short summary" },
+      args: {},
+      details: "Longer per-command knowledge shown only on this page.",
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    const summaryIdx = out.indexOf("Short summary");
+    const detailIdx = out.indexOf("Longer per-command knowledge shown only on this page.");
+    const usageIdx = out.indexOf("USAGE");
+    expect(summaryIdx).toBeGreaterThanOrEqual(0);
+    expect(detailIdx).toBeGreaterThan(summaryIdx);
+    expect(usageIdx).toBeGreaterThan(detailIdx);
+  });
+
+  it("omits the details block when none is declared", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "demo", description: "Short summary" },
+      args: {},
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain("Short summary");
+    expect(out).not.toContain("Longer per-command knowledge");
+  });
+
   it("strips citty's column-padding whitespace from short rows so a long description does not bloat every line", async () => {
     const cmd = defineCommand({
       meta: { name: "root", description: "root cmd" },
@@ -117,7 +154,7 @@ describe("showUsage", () => {
     expect(shortRow).toMatch(/Short description$/);
   });
 
-  it("appends a SCHEMA section pointing to __manifest on every help page", async () => {
+  it("does not advertise the hidden __manifest command on a help page", async () => {
     const cmd = defineCommand({
       meta: { name: "demo", description: "demo cmd" },
       args: {},
@@ -128,7 +165,197 @@ describe("showUsage", () => {
 
     await showUsage(cmd);
     const out = chunks.join("");
-    expect(out).toContain("SCHEMA");
-    expect(out).toContain("mb __manifest");
+    expect(out).not.toContain("SCHEMA");
+    expect(out).not.toContain("__manifest");
+  });
+
+  it("separates the EXAMPLES footer from the body with a blank line", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "demo", description: "demo cmd" },
+      args: {},
+      examples: ["mb demo --json"],
+      outputSchema: z.object({ ok: z.boolean() }),
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain("\n\nEXAMPLES\n\n");
+  });
+
+  it("renders multi-character flag aliases as a single working --kebab form", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "list", description: "demo list" },
+      args: { ...outputFlags, ...profileFlag, ...connectionFlags },
+      outputSchema: z.object({ ok: z.boolean() }),
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain("--max-bytes=<max_bytes>");
+    expect(out).toContain("--api-key=<api_key>");
+    expect(out).toContain("--skip-preflight");
+    expect(out).not.toContain("--maxBytes");
+    expect(out).not.toContain("--apiKey");
+    expect(out).not.toContain("--skipPreflight");
+    expect(out).not.toMatch(/(?<!-)-max-bytes/);
+    expect(out).not.toMatch(/(?<!-)-skip-preflight/);
+  });
+
+  it("lists -h, --help in the OPTIONS block", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "list", description: "demo list" },
+      args: { ...outputFlags, ...profileFlag, ...connectionFlags },
+      outputSchema: z.object({ ok: z.boolean() }),
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain("-h, --help");
+    expect(out).toContain("Show help for this command");
+  });
+
+  it("prepends the full breadcrumb to a leaf USAGE line", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "bar", description: "demo bar" },
+      args: { ...outputFlags },
+      outputSchema: z.object({ ok: z.boolean() }),
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd, undefined, "mb foo bar");
+    const out = chunks.join("");
+    expect(out).toContain("USAGE mb foo bar [OPTIONS]");
+  });
+
+  it("collapses a command group's USAGE subcommand pipe-list to <command>", async () => {
+    const cmd = defineCommand({
+      meta: { name: "mb", description: "root cmd" },
+      subCommands: {
+        auth: defineCommand({ meta: { name: "auth", description: "auth" }, run() {} }),
+        card: defineCommand({ meta: { name: "card", description: "card" }, run() {} }),
+      },
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd, undefined, "mb");
+    const out = chunks.join("");
+    expect(out).toContain("USAGE mb <command> [options]");
+    expect(out).not.toContain("auth|card");
+  });
+
+  it("adds a getting-started hint on the root help and omits it elsewhere", async () => {
+    const root = defineCommand({
+      meta: { name: "mb", description: "root cmd" },
+      subCommands: {
+        auth: defineCommand({ meta: { name: "auth", description: "auth" }, run() {} }),
+      },
+      run() {
+        return;
+      },
+    });
+    const leaf = defineMetabaseCommand({
+      meta: { name: "list", description: "demo list" },
+      args: {},
+      outputSchema: z.object({ ok: z.boolean() }),
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(root, undefined, "mb");
+    const rootOut = chunks.join("");
+    chunks = [];
+    await showUsage(leaf);
+    const leafOut = chunks.join("");
+
+    expect(rootOut).toContain("First time? Run `mb auth login` to connect to a Metabase instance.");
+    expect(leafOut).not.toContain("First time?");
+  });
+});
+
+describe("resolveBreadcrumb", () => {
+  function tree(): CommandDef {
+    const leaf = defineCommand({
+      meta: { name: "bar" },
+      args: { id: { type: "positional", required: false } },
+    });
+    const group = defineCommand({
+      meta: { name: "foo", alias: "f" },
+      subCommands: { bar: leaf },
+    });
+    return defineCommand<ArgsDef>({
+      meta: { name: "mb" },
+      args: { profile: { type: "string" } },
+      subCommands: { foo: group },
+    });
+  }
+
+  it("walks subcommand tokens into a full breadcrumb", async () => {
+    expect(await resolveBreadcrumb(tree(), ["foo", "bar", "123"])).toBe("mb foo bar");
+  });
+
+  it("resolves a command alias to its canonical name", async () => {
+    expect(await resolveBreadcrumb(tree(), ["f", "bar"])).toBe("mb foo bar");
+  });
+
+  it("skips a value-taking flag and its argument before the subcommand", async () => {
+    expect(await resolveBreadcrumb(tree(), ["--profile", "staging", "foo", "bar"])).toBe(
+      "mb foo bar",
+    );
+  });
+
+  it("stops at the first unknown token", async () => {
+    expect(await resolveBreadcrumb(tree(), ["nope", "bar"])).toBe("mb");
+  });
+});
+
+describe("findUnknownCommand", () => {
+  function tree(): CommandDef {
+    const leaf = defineCommand({
+      meta: { name: "bar" },
+      args: { id: { type: "positional", required: false } },
+    });
+    const group = defineCommand({
+      meta: { name: "foo", alias: "f" },
+      subCommands: { bar: leaf },
+    });
+    return defineCommand<ArgsDef>({
+      meta: { name: "mb" },
+      args: { profile: { type: "string" } },
+      subCommands: { foo: group },
+    });
+  }
+
+  it("returns null for a valid subcommand path with a trailing positional", async () => {
+    expect(await findUnknownCommand(tree(), ["foo", "bar", "123"])).toBeNull();
+  });
+
+  it("returns null when a command alias is used", async () => {
+    expect(await findUnknownCommand(tree(), ["f", "bar"])).toBeNull();
+  });
+
+  it("returns null when only flags are present (a missing command, not an unknown one)", async () => {
+    expect(await findUnknownCommand(tree(), ["--profile", "staging"])).toBeNull();
+  });
+
+  it("returns the unknown token at the root", async () => {
+    expect(await findUnknownCommand(tree(), ["nope"])).toBe("nope");
+  });
+
+  it("returns the unknown token nested under a group", async () => {
+    expect(await findUnknownCommand(tree(), ["foo", "frob"])).toBe("frob");
   });
 });

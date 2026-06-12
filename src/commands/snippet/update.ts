@@ -1,5 +1,5 @@
 import { Snippet, SnippetUpdateInput, snippetView } from "../../domain/snippet";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -8,6 +8,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a native query snippet by id" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -30,6 +31,6 @@ export default defineMetabaseCommand({
       method: "PUT",
       body,
     });
-    renderItem(updated, snippetView, ctx);
+    renderSummary(updated, snippetView, `Updated snippet ${updated.id} "${updated.name}".`, ctx);
   },
 });

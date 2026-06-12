@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import type { ColumnDef } from "../domain/view";
 import { ANSI_ESC } from "./help";
@@ -21,9 +21,7 @@ const ANSI_PATTERN = new RegExp(`${ANSI_ESC}\\[[0-9;]*m`, "g");
 function rowCells(rendered: string, marker: string): string[] {
   const stripped = rendered.replace(ANSI_PATTERN, "");
   const line = stripped.split("\n").find((row) => row.includes(marker));
-  if (line === undefined) {
-    throw new Error(`row containing "${marker}" not found`);
-  }
+  assert(line !== undefined, `row containing "${marker}" not found`);
   return line
     .split("│")
     .slice(1, -1)

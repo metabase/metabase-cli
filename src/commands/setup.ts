@@ -1,5 +1,5 @@
 import { SetupInput, SetupResult, setupResultView } from "../domain/setup";
-import { renderItem } from "../output/render";
+import { renderSummary } from "../output/render";
 import { readBody } from "../runtime/body";
 
 import { bodyInputFlags } from "./body-flags";
@@ -11,6 +11,7 @@ export default defineMetabaseCommand({
     name: "setup",
     description: "Complete the initial Metabase setup wizard with a default user",
   },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -30,6 +31,6 @@ export default defineMetabaseCommand({
       method: "POST",
       body,
     });
-    renderItem(result, setupResultView, ctx);
+    renderSummary(result, setupResultView, "Metabase setup complete.", ctx);
   },
 });

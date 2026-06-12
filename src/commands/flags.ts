@@ -20,10 +20,15 @@ export const outputFlags = {
 } as const;
 
 export const profileFlag = {
-  profile: { type: "string", description: "Named profile (default: 'default')" },
+  profile: { type: "string", description: "Named profile (default: 'default')", alias: "p" },
 } as const;
 
 export const connectionFlags = {
   url: { type: "string", description: "Metabase URL" },
   apiKey: { type: "string", description: "API key", alias: "api-key" },
+  skipPreflight: {
+    type: "boolean",
+    description: "Skip the server version capability check for this command",
+    alias: "skip-preflight",
+  },
 } as const;

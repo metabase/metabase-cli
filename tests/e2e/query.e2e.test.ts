@@ -5,14 +5,14 @@ import {
   QuerySchemaBundle,
   ValidationOutcome,
 } from "../../src/core/schema/validate";
-import { CardQueryResult } from "../../src/domain/card";
+import { CardQueryResult, CardQueryResultCompact } from "../../src/domain/card";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
-import { assertCompletedQuery } from "./card-query";
+import { assertCompactColumns, assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_DATABASES, E2E_TABLES } from "./seed/ids";
-
+import { cliErrorMessage } from "./cli-error";
+import { SEEDED } from "./seed/seeded";
 const VALID_QUERY = {
   "lib/type": "mbql/query",
   database: 1,
@@ -179,7 +179,9 @@ describe("query e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('database: should be an integer, received: "My DB"');
+    expect(cliErrorMessage(result.stderr)).toContain(
+      'database: should be an integer, received: "My DB"',
+    );
     expect(result.stdout).toBe("");
   });
 
@@ -189,11 +191,11 @@ describe("query e2e", () => {
       args: ["query", "--json"],
       stdin: JSON.stringify({
         "lib/type": "mbql/query",
-        database: E2E_DATABASES.WAREHOUSE,
+        database: SEEDED.warehouseDbId,
         stages: [
           {
             "lib/type": "mbql.stage/mbql",
-            "source-table": E2E_TABLES.ORDERS,
+            "source-table": SEEDED.tables.orders,
             limit: 3,
           },
         ],
@@ -215,7 +217,7 @@ describe("query e2e", () => {
       args: ["query", "--json"],
       stdin: JSON.stringify({
         type: "native",
-        database: E2E_DATABASES.WAREHOUSE,
+        database: SEEDED.warehouseDbId,
         native: { query: "SELECT 1 AS one, 2 AS two" },
       }),
       configHome,
@@ -229,13 +231,68 @@ describe("query e2e", () => {
     expect(queryResult.data.rows).toEqual([[1, 2]]);
   });
 
+  it("run (json) returns the compact projection: deterministic rows, no envelope metadata", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["query", "--json"],
+      stdin: JSON.stringify({
+        type: "native",
+        database: SEEDED.warehouseDbId,
+        native: { query: "SELECT 1 AS one, 2 AS two" },
+      }),
+      configHome,
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+
+    const printed = parseJson(result.stdout, CardQueryResult);
+    assertCompletedQuery(printed);
+    assertCompactColumns(printed);
+    expect(printed).not.toHaveProperty("json_query");
+    expect(printed.data).not.toHaveProperty("results_metadata");
+
+    const compact = parseJson(result.stdout, CardQueryResultCompact);
+    expect({
+      status: compact.status,
+      row_count: compact.row_count,
+      rows: compact.data?.rows,
+      colNames: compact.data?.cols.map((column) => column.name),
+    }).toEqual({
+      status: "completed",
+      row_count: 1,
+      rows: [[1, 2]],
+      colNames: ["one", "two"],
+    });
+  });
+
+  it("run --json --full returns the raw envelope with json_query and results_metadata", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["query", "--json", "--full"],
+      stdin: JSON.stringify({
+        type: "native",
+        database: SEEDED.warehouseDbId,
+        native: { query: "SELECT 1 AS one, 2 AS two" },
+      }),
+      configHome,
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const printed = parseJson(result.stdout, CardQueryResult);
+    assertCompletedQuery(printed);
+    expect(printed).toHaveProperty("json_query");
+    expect(printed.data).toHaveProperty("results_metadata");
+  });
+
   it("--dry-run with a legacy native body returns ok and exits 0 (no schema applies)", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["query", "--dry-run"],
       stdin: JSON.stringify({
         type: "native",
-        database: E2E_DATABASES.WAREHOUSE,
+        database: SEEDED.warehouseDbId,
         native: { query: "SELECT 1" },
       }),
       configHome,
@@ -251,9 +308,9 @@ describe("query e2e", () => {
       args: ["query", "--json"],
       stdin: JSON.stringify({
         type: "query",
-        database: E2E_DATABASES.WAREHOUSE,
+        database: SEEDED.warehouseDbId,
         query: {
-          "source-table": E2E_TABLES.ORDERS,
+          "source-table": SEEDED.tables.orders,
           limit: 3,
         },
       }),
@@ -274,8 +331,8 @@ describe("query e2e", () => {
       args: ["query", "--dry-run"],
       stdin: JSON.stringify({
         type: "query",
-        database: E2E_DATABASES.WAREHOUSE,
-        query: { "source-table": E2E_TABLES.ORDERS, limit: 1 },
+        database: SEEDED.warehouseDbId,
+        query: { "source-table": SEEDED.tables.orders, limit: 1 },
       }),
       configHome,
     });
@@ -290,19 +347,21 @@ describe("query e2e", () => {
       args: ["query", "--dry-run"],
       stdin: JSON.stringify({
         type: "query",
-        database: E2E_DATABASES.WAREHOUSE,
+        database: SEEDED.warehouseDbId,
         query: {
           "lib/type": "mbql/query",
-          database: E2E_DATABASES.WAREHOUSE,
-          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": E2E_TABLES.ORDERS }],
+          database: SEEDED.warehouseDbId,
+          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": SEEDED.tables.orders }],
         },
       }),
       configHome,
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
-      'query: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope.',
+    expect(cliErrorMessage(result.stderr)).toBe(
+      'query: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope.' +
+        " For MBQL 5, the body is the mbql/query value itself:" +
+        ' {"lib/type":"mbql/query", database:N, stages:[…]}.',
     );
     expect(result.stdout).toBe("");
   });

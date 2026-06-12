@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { AbortError } from "../core/errors";
 import { abortReason, createProcessAbortHandler, type ProcessAbortHandler } from "./signal";
@@ -23,9 +23,7 @@ describe("createProcessAbortHandler", () => {
     expect(handle.signal.aborted).toBe(true);
     const reason: unknown = handle.signal.reason;
     expect(reason).toBeInstanceOf(AbortError);
-    if (!(reason instanceof AbortError)) {
-      throw new Error("expected AbortError");
-    }
+    assert(reason instanceof AbortError, "expected AbortError");
     expect(reason.exitCode).toBe(130);
   });
 

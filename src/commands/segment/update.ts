@@ -1,5 +1,5 @@
 import { Segment, SegmentUpdateInput, segmentView } from "../../domain/segment";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -14,9 +14,11 @@ import {
 export default defineMetabaseCommand({
   meta: {
     name: "update",
-    description:
-      "Update a segment by id; body must include revision_message (audit-logged with the change). If definition is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
+    description: "Update a segment by id (body must include revision_message)",
   },
+  details:
+    "Patches only the fields you send and must include `revision_message` (recorded in the audit log). When `definition` is an MBQL 5 query it is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass. See `mb skills get mbql`.",
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -43,6 +45,6 @@ export default defineMetabaseCommand({
       method: "PUT",
       body,
     });
-    renderItem(updated, segmentView, ctx);
+    renderSummary(updated, segmentView, `Updated segment ${updated.id} "${updated.name}".`, ctx);
   },
 });

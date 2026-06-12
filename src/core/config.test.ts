@@ -1,8 +1,15 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-const hoisted = vi.hoisted(() => ({
+const hoisted = vi.hoisted<{
+  store: Map<string, string>;
+  controls: { broken: boolean };
+  refreshError: Error | null;
+  refreshUrls: string[];
+}>(() => ({
   store: new Map<string, string>(),
   controls: { broken: false },
+  refreshError: null,
+  refreshUrls: [],
 }));
 
 vi.mock("@napi-rs/keyring", async () => {
@@ -10,11 +17,57 @@ vi.mock("@napi-rs/keyring", async () => {
   return createKeyringMockModule(hoisted);
 });
 
-import { recordRejection } from "./auth/rejection";
-import { writeProfile } from "./auth/storage";
+vi.mock("./auth/oauth-session", () => ({
+  refreshOAuthCredential: async (
+    url: string,
+    credential: OAuthCredential,
+  ): Promise<OAuthCredential> => {
+    hoisted.refreshUrls.push(url);
+    if (hoisted.refreshError !== null) {
+      throw hoisted.refreshError;
+    }
+    return {
+      ...credential,
+      accessToken: "refreshed-access",
+      refreshToken: "refreshed-refresh",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+    };
+  },
+  revokeOAuthCredential: async (): Promise<boolean> => true,
+}));
+
+import type { OAuthCredential } from "./auth/credential";
+import {
+  readProfileCredential,
+  writeOAuthProfile,
+  writeProbeFailure,
+  writeProbeResult,
+  writeProfile,
+} from "./auth/storage";
 import { setupTempConfigHome, type TempConfigHome } from "./auth/temp-config-home";
-import { explicitProfileName, resolveConfig, resolveProfileName } from "./config";
+import {
+  createCredentialRefresher,
+  explicitProfileName,
+  resolveConfig,
+  resolveProfileName,
+} from "./config";
 import { ConfigError } from "./errors";
+
+const STORED_OAUTH: OAuthCredential = {
+  kind: "oauth",
+  accessToken: "old-access",
+  refreshToken: "old-refresh",
+  expiresAt: "2000-01-01T00:00:00.000Z",
+  clientId: "c1",
+};
+
+const REFRESHED_OAUTH: OAuthCredential = {
+  kind: "oauth",
+  accessToken: "refreshed-access",
+  refreshToken: "refreshed-refresh",
+  expiresAt: "2099-01-01T00:00:00.000Z",
+  clientId: "c1",
+};
 
 describe("resolveConfig", () => {
   let home: TempConfigHome;
@@ -40,7 +93,7 @@ describe("resolveConfig", () => {
     });
     expect(config).toEqual({
       url: "https://flag.example.com",
-      apiKey: "flag-key",
+      credential: { kind: "apiKey", apiKey: "flag-key" },
       profile: "default",
       source: "flag",
     });
@@ -52,7 +105,7 @@ describe("resolveConfig", () => {
     const config = await resolveConfig({});
     expect(config).toEqual({
       url: "https://env.example.com",
-      apiKey: "env-key",
+      credential: { kind: "apiKey", apiKey: "env-key" },
       profile: "default",
       source: "env",
     });
@@ -66,7 +119,7 @@ describe("resolveConfig", () => {
     const config = await resolveConfig({});
     expect(config).toEqual({
       url: "https://saved.example.com",
-      apiKey: "saved-key",
+      credential: { kind: "apiKey", apiKey: "saved-key" },
       profile: "default",
       source: "stored",
     });
@@ -78,7 +131,7 @@ describe("resolveConfig", () => {
     const config = await resolveConfig({ profile: "staging" });
     expect(config).toEqual({
       url: "https://staging.example.com",
-      apiKey: "staging-key",
+      credential: { kind: "apiKey", apiKey: "staging-key" },
       profile: "staging",
       source: "stored",
     });
@@ -91,7 +144,7 @@ describe("resolveConfig", () => {
     const config = await resolveConfig({});
     expect(config).toEqual({
       url: "https://prod.example.com",
-      apiKey: "prod-key",
+      credential: { kind: "apiKey", apiKey: "prod-key" },
       profile: "prod",
       source: "stored",
     });
@@ -104,7 +157,7 @@ describe("resolveConfig", () => {
     const config = await resolveConfig({ profile: "staging" });
     expect(config).toEqual({
       url: "https://staging.example.com",
-      apiKey: "staging-key",
+      credential: { kind: "apiKey", apiKey: "staging-key" },
       profile: "staging",
       source: "stored",
     });
@@ -115,7 +168,7 @@ describe("resolveConfig", () => {
     const config = await resolveConfig({ url: "https://override.example.com" });
     expect(config).toEqual({
       url: "https://override.example.com",
-      apiKey: "saved-key",
+      credential: { kind: "apiKey", apiKey: "saved-key" },
       profile: "default",
       source: "mixed",
     });
@@ -127,7 +180,7 @@ describe("resolveConfig", () => {
     const config = await resolveConfig({});
     expect(config).toEqual({
       url: "https://saved.example.com",
-      apiKey: "env-key",
+      credential: { kind: "apiKey", apiKey: "env-key" },
       profile: "default",
       source: "mixed",
     });
@@ -137,48 +190,68 @@ describe("resolveConfig", () => {
     await writeProfile({ url: "https://default.example.com", apiKey: "default-key" });
     const error = await resolveConfig({ profile: "missing" }).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
-    expect(error).toMatchObject({ message: expect.stringContaining('profile "missing"') });
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toContain('Not authenticated for profile "missing"');
   });
 
   it("throws ConfigError when nothing is configured", async () => {
     const error = await resolveConfig({}).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
-    expect(error).toMatchObject({ message: expect.stringContaining("Not authenticated") });
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toContain("Not authenticated");
   });
 
-  it("surfaces a prior login rejection when nothing is configured", async () => {
-    await recordRejection("cohort_retention", {
+  it("does not append the lastFailure hint when stored credentials are still usable", async () => {
+    await writeProfile({ url: "https://saved.example.com", apiKey: "saved-key" }, "still_works");
+    await writeProbeFailure("still_works", {
+      kind: "auth",
       reason: "Invalid or unauthorized API key",
-      url: "https://metabase.example.com/admin",
     });
-    const error = await resolveConfig({ profile: "cohort_retention" }).catch(
-      (thrown: unknown) => thrown,
-    );
-    expect(error).toBeInstanceOf(ConfigError);
-    if (!(error instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
-    expect(error.message).toBe(
-      'Last login for profile "cohort_retention" was rejected by https://metabase.example.com: Invalid or unauthorized API key. Re-run `mb auth login --profile cohort_retention` with valid credentials.',
-    );
-  });
-
-  it("ignores the rejection record when stored credentials are still present", async () => {
-    await writeProfile(
-      { url: "https://saved.example.com", apiKey: "saved-key" },
-      "cohort_retention",
-    );
-    await recordRejection("cohort_retention", {
-      reason: "Invalid or unauthorized API key",
-      url: "https://saved.example.com",
-    });
-    const config = await resolveConfig({ profile: "cohort_retention" });
+    const config = await resolveConfig({ profile: "still_works" });
     expect(config).toEqual({
       url: "https://saved.example.com",
-      apiKey: "saved-key",
-      profile: "cohort_retention",
+      credential: { kind: "apiKey", apiKey: "saved-key" },
+      profile: "still_works",
       source: "stored",
     });
+  });
+
+  it("appends the lastFailure hint when the keyring entry disappears under an existing failure record", async () => {
+    await writeProfile({ url: "https://saved.example.com", apiKey: "saved-key" }, "lost");
+    await writeProbeFailure("lost", {
+      kind: "auth",
+      reason: "Invalid or unauthorized API key",
+    });
+    hoisted.store.delete("metabase-cli:profile:lost:apiKey");
+
+    const error = await resolveConfig({ profile: "lost" }).catch((thrown: unknown) => thrown);
+    expect(error).toBeInstanceOf(ConfigError);
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toContain(
+      'profile "lost" last verify failed: Invalid or unauthorized API key',
+    );
+    expect(error.message).toContain("Run `mb auth login --profile lost` to update the token.");
+  });
+
+  it("omits the lastFailure hint after a successful re-probe clears the failure", async () => {
+    await writeProfile({ url: "https://saved.example.com", apiKey: "saved-key" }, "recovers");
+    await writeProbeFailure("recovers", {
+      kind: "auth",
+      reason: "old failure",
+    });
+    await writeProbeResult("recovers", {
+      user: { id: 1, name: "Tester", isAdmin: true },
+      server: {
+        version: { tag: "v0.58.7", major: 58, patch: 7 },
+        tokenFeatures: null,
+      },
+    });
+    hoisted.store.delete("metabase-cli:profile:recovers:apiKey");
+
+    const error = await resolveConfig({ profile: "recovers" }).catch((thrown: unknown) => thrown);
+    expect(error).toBeInstanceOf(ConfigError);
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).not.toContain("last verify failed");
   });
 });
 
@@ -231,5 +304,135 @@ describe("explicitProfileName", () => {
 
   it("returns null when neither flag nor env is set", () => {
     expect(explicitProfileName(undefined)).toBeNull();
+  });
+});
+
+describe("resolveConfig OAuth credentials", () => {
+  let home: TempConfigHome;
+
+  beforeEach(() => {
+    hoisted.store.clear();
+    hoisted.refreshUrls = [];
+    home = setupTempConfigHome();
+    delete process.env["METABASE_URL"];
+    delete process.env["METABASE_API_KEY"];
+    delete process.env["METABASE_PROFILE"];
+  });
+
+  afterEach(() => {
+    home.cleanup();
+  });
+
+  it("returns a stored OAuth credential that is still valid without refreshing", async () => {
+    await writeOAuthProfile(
+      "https://oauth.example.com",
+      { ...STORED_OAUTH, expiresAt: "2099-01-01T00:00:00.000Z" },
+      "oauthp",
+    );
+    const config = await resolveConfig({ profile: "oauthp" });
+    expect(config).toEqual({
+      url: "https://oauth.example.com",
+      credential: { ...STORED_OAUTH, expiresAt: "2099-01-01T00:00:00.000Z" },
+      profile: "oauthp",
+      source: "stored",
+    });
+  });
+
+  it("refuses to send a stored OAuth credential to a --url-overridden host", async () => {
+    await writeOAuthProfile("https://oauth.example.com", STORED_OAUTH, "oauthp");
+    const error = await resolveConfig({
+      profile: "oauthp",
+      url: "https://evil.example.com",
+    }).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(ConfigError);
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toBe(
+      'profile "oauthp" is a browser-login (OAuth) profile bound to https://oauth.example.com, ' +
+        "but the request URL is https://evil.example.com. " +
+        "Drop --url/METABASE_URL to use the profile's own URL, or run " +
+        "`mb auth login --url https://evil.example.com` to authenticate there.",
+    );
+  });
+
+  it("allows a --url that matches the OAuth issuer after normalization", async () => {
+    const valid = { ...STORED_OAUTH, expiresAt: "2099-01-01T00:00:00.000Z" };
+    await writeOAuthProfile("https://oauth.example.com", valid, "oauthp");
+    const config = await resolveConfig({ profile: "oauthp", url: "https://oauth.example.com/" });
+    expect(config).toEqual({
+      url: "https://oauth.example.com",
+      credential: valid,
+      profile: "oauthp",
+      source: "mixed",
+    });
+  });
+
+  it("proactively refreshes and persists an expired stored OAuth credential", async () => {
+    await writeOAuthProfile("https://oauth.example.com", STORED_OAUTH, "oauthp");
+    const config = await resolveConfig({ profile: "oauthp" });
+    expect(config).toEqual({
+      url: "https://oauth.example.com",
+      credential: REFRESHED_OAUTH,
+      profile: "oauthp",
+      source: "stored",
+    });
+    expect(await readProfileCredential("oauthp")).toEqual({
+      url: "https://oauth.example.com",
+      credential: REFRESHED_OAUTH,
+    });
+    // The refresh leg is pinned to the stored issuer the refresh token is bound to.
+    expect(hoisted.refreshUrls).toEqual(["https://oauth.example.com"]);
+  });
+
+  it("falls back to the existing credential when a proactive refresh fails", async () => {
+    await writeOAuthProfile("https://oauth.example.com", STORED_OAUTH, "oauthp");
+    hoisted.refreshError = new Error("token endpoint unreachable");
+    try {
+      const config = await resolveConfig({ profile: "oauthp" });
+      // Best-effort: the command still resolves with the (expired) stored credential rather than
+      // throwing — the reactive 401-refresh will recover on the first request.
+      expect(config).toEqual({
+        url: "https://oauth.example.com",
+        credential: STORED_OAUTH,
+        profile: "oauthp",
+        source: "stored",
+      });
+    } finally {
+      hoisted.refreshError = null;
+    }
+  });
+
+  it("createCredentialRefresher refreshes and persists the stored OAuth credential", async () => {
+    await writeOAuthProfile("https://oauth.example.com", STORED_OAUTH, "oauthp");
+    const refresh = createCredentialRefresher("oauthp");
+    expect(await refresh()).toEqual(REFRESHED_OAUTH);
+    expect(await readProfileCredential("oauthp")).toEqual({
+      url: "https://oauth.example.com",
+      credential: REFRESHED_OAUTH,
+    });
+    // The reactive refresher reads the stored profile, so the refresh leg targets its issuer —
+    // never whatever URL the failing request was sent to.
+    expect(hoisted.refreshUrls).toEqual(["https://oauth.example.com"]);
+  });
+
+  it("createCredentialRefresher adds a re-login hint when the server rejects the refresh", async () => {
+    await writeOAuthProfile("https://oauth.example.com", STORED_OAUTH, "oauthp");
+    hoisted.refreshError = new ConfigError("OAuth token refresh failed (400): invalid_grant");
+    try {
+      const refresh = createCredentialRefresher("oauthp");
+      const error = await refresh().catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(ConfigError);
+      assert(error instanceof ConfigError, "expected ConfigError");
+      expect(error.message).toBe(
+        "OAuth token refresh failed (400): invalid_grant — run `mb auth login --profile oauthp` to log in again",
+      );
+    } finally {
+      hoisted.refreshError = null;
+    }
+  });
+
+  it("createCredentialRefresher returns null for an API key profile", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "k" }, "keyp");
+    const refresh = createCredentialRefresher("keyp");
+    expect(await refresh()).toBeNull();
   });
 });

@@ -4,12 +4,7 @@ import { SyncTask, type SyncTaskStatus } from "../../domain/git-sync";
 import type { Client } from "../../core/http/client";
 import type { ResourceView } from "../../domain/view";
 import { parseJsonOrPlain } from "../../runtime/json";
-import {
-  DEFAULT_INTERVAL_MS,
-  DEFAULT_TIMEOUT_MS,
-  pollUntil,
-  type PollOptions,
-} from "../../runtime/poll";
+import { pollUntil, type PollOptions } from "../../runtime/poll";
 
 const TERMINAL_STATUSES = new Set<SyncTaskStatus>([
   "successful",
@@ -45,24 +40,6 @@ export const syncTaskIdleView: ResourceView<SyncTaskIdle> = {
   compactPick: SyncTaskIdle,
   tableColumns: [{ key: "status", label: "Status" }],
 };
-
-export const pollFlags = {
-  wait: {
-    type: "boolean",
-    description: "Poll the resulting task until it reaches a terminal status",
-    default: true,
-  },
-  timeout: {
-    type: "string",
-    description: "Polling timeout in ms (used with --wait)",
-    default: String(DEFAULT_TIMEOUT_MS),
-  },
-  interval: {
-    type: "string",
-    description: "Polling interval in ms (used with --wait)",
-    default: String(DEFAULT_INTERVAL_MS),
-  },
-} as const;
 
 export function isTerminal(status: SyncTaskStatus): boolean {
   return TERMINAL_STATUSES.has(status);
@@ -105,4 +82,31 @@ export function throwIfFailedTask(final: SyncTask | null, verb: string): void {
   }
   const detail = final.error_message ? `: ${final.error_message}` : "";
   throw new Error(`git-sync ${verb} ${final.status}${detail}`);
+}
+
+export function formatSyncTask(task: SyncTask): string {
+  const kind = task.sync_task_type === "export" ? "Export" : "Import";
+  const label = `${kind} task #${task.id}`;
+  const detail = task.error_message ? `: ${task.error_message}` : "";
+  switch (task.status) {
+    case "running": {
+      const percent = task.progress === null ? "" : ` (${Math.round(task.progress * 100)}%)`;
+      return `${label} is running${percent}.`;
+    }
+    case "successful": {
+      return `${label} succeeded.`;
+    }
+    case "errored": {
+      return `${label} errored${detail}.`;
+    }
+    case "timed-out": {
+      return `${label} timed out${detail}.`;
+    }
+    case "conflict": {
+      return `${label} hit conflicts${detail}.`;
+    }
+    case "cancelled": {
+      return `${label} was cancelled.`;
+    }
+  }
 }

@@ -3,7 +3,7 @@ import {
   TransformJobUpdateInput,
   transformJobView,
 } from "../../domain/transform-job";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -12,6 +12,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a transform job by id" },
+  capabilities: { minVersion: 59 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -33,6 +34,11 @@ export default defineMetabaseCommand({
       method: "PUT",
       body,
     });
-    renderItem(updated, transformJobView, ctx);
+    renderSummary(
+      updated,
+      transformJobView,
+      `Updated transform job ${updated.id} "${updated.name}".`,
+      ctx,
+    );
   },
 });

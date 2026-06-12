@@ -1,11 +1,17 @@
 import { z } from "zod";
 
-import { clearRejection } from "../../core/auth/rejection";
-import { clearProfile } from "../../core/auth/storage";
+import { revokeOAuthCredential } from "../../core/auth/oauth-session";
+import {
+  clearProfile,
+  consumeKeychainResidualWarning,
+  readProfileCredential,
+} from "../../core/auth/storage";
 import { resolveProfileName } from "../../core/config";
+import { errorMessage } from "../../core/errors";
 import type { ResourceView } from "../../domain/view";
+import { warn } from "../../output/notice";
 import { promptConfirm } from "../../output/prompt";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -27,6 +33,7 @@ const logoutView: ResourceView<LogoutResultJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "logout", description: "Clear stored credentials for a profile" },
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -43,12 +50,43 @@ export default defineMetabaseCommand({
         initialValue: false,
       });
       if (!ok) {
-        renderItem({ profile: profileName, cleared: false, aborted: true }, logoutView, ctx);
+        renderSummary(
+          { profile: profileName, cleared: false, aborted: true },
+          logoutView,
+          `Left credentials for profile "${profileName}" untouched.`,
+          ctx,
+        );
         return;
       }
     }
 
-    const [cleared] = await Promise.all([clearProfile(profileName), clearRejection(profileName)]);
-    renderItem({ profile: profileName, cleared, aborted: false }, logoutView, ctx);
+    // Read the credential before clearing so we can still revoke it afterward.
+    const resolved = await readProfileCredential(profileName);
+
+    const cleared = await clearProfile(profileName);
+    const residual = consumeKeychainResidualWarning();
+    if (residual !== null) {
+      warn(residual);
+    }
+
+    // Best-effort server-side revocation AFTER the durable local clear, so a slow/offline server
+    // never blocks (or hangs) the logout. A revocation failure only warns.
+    if (resolved !== null && resolved.credential.kind === "oauth") {
+      try {
+        const revoked = await revokeOAuthCredential(resolved.url, resolved.credential);
+        if (!revoked) {
+          warn(
+            "server does not advertise a revocation endpoint; tokens remain valid until they expire",
+          );
+        }
+      } catch (error) {
+        warn(`could not revoke tokens server-side: ${errorMessage(error)}`);
+      }
+    }
+
+    const message = cleared
+      ? `Cleared stored credentials for profile "${profileName}".`
+      : `No stored credentials for profile "${profileName}".`;
+    renderSummary({ profile: profileName, cleared, aborted: false }, logoutView, message, ctx);
   },
 });

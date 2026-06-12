@@ -1,6 +1,8 @@
-import type { ArgDef, ArgsDef, CommandDef, CommandMeta, Resolvable, SubCommandsDef } from "citty";
+import type { ArgDef, ArgsDef, CommandDef, CommandMeta } from "citty";
 import { z } from "zod";
 
+import { Capabilities } from "./capabilities";
+import { resolveCitty, toAliasArray } from "./citty";
 import { getMetabaseAugment } from "./command-augment";
 
 export const ManifestArg = z.object({
@@ -17,9 +19,11 @@ export type ManifestArg = z.infer<typeof ManifestArg>;
 export const ManifestEntry = z.object({
   command: z.string(),
   description: z.string(),
+  details: z.string().optional(),
   examples: z.array(z.string()),
   args: z.array(ManifestArg),
   outputSchema: z.unknown().nullable(),
+  capabilities: Capabilities.nullable(),
 });
 export type ManifestEntry = z.infer<typeof ManifestEntry>;
 
@@ -52,15 +56,21 @@ async function walk(cmd: CommandDef, path: string[]): Promise<ManifestEntry[]> {
 
   const args = (await resolveCitty(cmd.args)) ?? {};
   const augment = getMetabaseAugment(cmd);
-  return [
-    {
-      command: path.join(" "),
-      description: readDescription(meta),
-      examples: augment ? Array.from(augment.examples) : [],
-      args: convertArgs(args),
-      outputSchema: augment?.outputSchema ? z.toJSONSchema(augment.outputSchema) : null,
-    },
-  ];
+  if (augment === null) {
+    return [];
+  }
+  const entry: ManifestEntry = {
+    command: path.join(" "),
+    description: readDescription(meta),
+    examples: Array.from(augment.examples),
+    args: convertArgs(args),
+    outputSchema: augment.outputSchema ? z.toJSONSchema(augment.outputSchema) : null,
+    capabilities: augment.capabilities,
+  };
+  if (augment.details !== null) {
+    entry.details = augment.details;
+  }
+  return [entry];
 }
 
 function readDescription(meta: CommandMeta | undefined): string {
@@ -105,26 +115,9 @@ function readOptions(def: ArgDef): string[] {
 }
 
 function readAlias(def: ArgDef): string[] {
-  if (!("alias" in def) || def.alias === undefined) {
-    return [];
-  }
-  return Array.isArray(def.alias) ? def.alias : [def.alias];
+  return "alias" in def ? toAliasArray(def.alias) : [];
 }
 
 function isPrimitiveDefault(value: unknown): value is string | boolean | number {
   return typeof value === "string" || typeof value === "boolean" || typeof value === "number";
-}
-
-type CittyValue = CommandMeta | ArgsDef | SubCommandsDef | CommandDef;
-
-async function resolveCitty<T extends CittyValue>(
-  value: Resolvable<T> | undefined,
-): Promise<T | undefined> {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (typeof value === "function") {
-    return value();
-  }
-  return value;
 }

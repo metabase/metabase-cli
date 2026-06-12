@@ -12,6 +12,7 @@ export const SettingListEnvelope = listEnvelopeSchema(SettingCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List all settings (admin)" },
+  capabilities: { minVersion: 58 },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SettingListEnvelope,
   examples: ["mb setting list", "mb setting list --json"],

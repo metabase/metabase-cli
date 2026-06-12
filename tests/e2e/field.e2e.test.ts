@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
 import { createClient } from "../../src/core/http/client";
 import { Field, FieldCompact, FieldSummary, FieldValues } from "../../src/domain/field";
@@ -7,8 +7,8 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_TABLES } from "./seed/ids";
-
+import { cliErrorMessage } from "./cli-error";
+import { SEEDED } from "./seed/seeded";
 describe("field e2e", () => {
   let bootstrap: E2EBootstrap;
   let customersEmailFieldId: number;
@@ -16,22 +16,24 @@ describe("field e2e", () => {
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
-    customersEmailFieldId = await resolveFieldId(E2E_TABLES.CUSTOMERS, "email");
+    customersEmailFieldId = await resolveFieldId(SEEDED.tables.customers, "email");
   });
 
   async function resolveFieldId(tableId: number, fieldName: string): Promise<number> {
-    const client = createClient({ url: bootstrap.baseUrl, apiKey: bootstrap.adminApiKey });
+    const client = createClient({
+      url: bootstrap.baseUrl,
+      credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey },
+    });
     const metadata = await client.requestParsed(
       TableQueryMetadata,
       `/api/table/${tableId}/query_metadata`,
     );
     const field = metadata.fields.find((entry) => entry.name === fieldName);
-    if (!field) {
-      throw new Error(
-        `expected table ${tableId} to expose a field named ${fieldName}, ` +
-          `got: ${metadata.fields.map((entry) => entry.name).join(", ")}`,
-      );
-    }
+    assert(
+      field,
+      `expected table ${tableId} to expose a field named ${fieldName}, ` +
+        `got: ${metadata.fields.map((entry) => entry.name).join(", ")}`,
+    );
     return field.id;
   }
 
@@ -65,7 +67,7 @@ describe("field e2e", () => {
       name: "email",
       display_name: "Email",
       description: null,
-      table_id: E2E_TABLES.CUSTOMERS,
+      table_id: SEEDED.tables.customers,
       base_type: "type/Text",
       semantic_type: "type/Email",
       fk_target_field_id: null,
@@ -81,7 +83,7 @@ describe("field e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "x" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "x" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -94,7 +96,7 @@ describe("field e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/field/9999999.");
   });
 
   it("values returns the FieldValues envelope for the email field", async () => {
@@ -117,7 +119,7 @@ describe("field e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
   });
 
   it("summary returns the count and distinct count for the email field", async () => {
@@ -140,7 +142,7 @@ describe("field e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Endpoint not found — is this a Metabase instance?");
+    expect(result.stderr).toContain("Not found: GET /api/field/9999999/summary.");
   });
 
   it("update edits the email field description and restores it", async () => {
@@ -205,7 +207,7 @@ describe("field e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
   });
 
   it("update enforces the input schema for an unknown enum value", async () => {

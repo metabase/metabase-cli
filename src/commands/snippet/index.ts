@@ -1,7 +1,10 @@
 import { defineCommand } from "citty";
 
 export default defineCommand({
-  meta: { name: "snippet", description: "Inspect Metabase native query snippets" },
+  meta: {
+    name: "snippet",
+    description: "Manage Metabase native query snippets",
+  },
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),
     get: () => import("./get").then((mod) => mod.default),

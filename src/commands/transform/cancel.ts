@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { ResourceView } from "../../domain/view";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
@@ -22,6 +22,7 @@ const transformCancelView: ResourceView<TransformCancelResultJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "cancel", description: "Cancel the current run for a transform" },
+  capabilities: { minVersion: 59 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -37,6 +38,11 @@ export default defineMetabaseCommand({
       method: "POST",
       expectContentType: "binary",
     });
-    renderItem({ canceled: true, id }, transformCancelView, ctx);
+    renderSummary(
+      { canceled: true, id },
+      transformCancelView,
+      `Canceled the current run for transform ${id}.`,
+      ctx,
+    );
   },
 });

@@ -35,7 +35,7 @@ export const TransformJob = z
     description: z.string().nullable(),
     schedule: z.string(),
     ui_display_type: JobUiDisplayType,
-    active: z.boolean(),
+    active: z.boolean().optional(),
     entity_id: z.string().nullable(),
     created_at: z.string(),
     updated_at: z.string(),

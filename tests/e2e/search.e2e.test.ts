@@ -6,14 +6,13 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { E2E_CARDS } from "./seed/ids";
-
+import { cliErrorMessage } from "./cli-error";
+import { SEEDED } from "./seed/seeded";
 const ORDERS_BY_STATUS_COMPACT = {
-  id: E2E_CARDS.ORDERS_BY_STATUS,
+  id: SEEDED.ordersCardId,
   name: "Orders by status",
   model: "card",
   description: null,
-  archived: false,
 } as const;
 
 describe("search e2e", () => {
@@ -103,16 +102,16 @@ describe("search e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("--table-db-id with a non-integer rejects with ConfigError", async () => {
+  it("--db-id with a non-integer rejects with ConfigError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["search", "--table-db-id", "abc", "--json"],
+      args: ["search", "--db-id", "abc", "--json"],
       configHome,
       env: authEnv(),
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain('invalid --table-db-id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toContain('invalid --db-id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 });

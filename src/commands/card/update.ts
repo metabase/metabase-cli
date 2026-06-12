@@ -1,5 +1,5 @@
 import { Card, CardUpdateInput, cardView } from "../../domain/card";
-import { renderItem } from "../../output/render";
+import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -14,9 +14,11 @@ import {
 export default defineMetabaseCommand({
   meta: {
     name: "update",
-    description:
-      "Update a card by id; if dataset_query is MBQL 5 (lib/type: mbql/query) it is pre-flight-validated against the same schema as `mb query` (see `mb query --print-schema`)",
+    description: "Update a card by id (partial)",
   },
+  details:
+    "Patches only the fields you send (any of `name`, `display`, `dataset_query`, `collection_id`, `archived`, …). When `dataset_query` is an MBQL 5 query it is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass. See `mb skills get mbql`.",
+  capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -45,6 +47,6 @@ export default defineMetabaseCommand({
       method: "PUT",
       body,
     });
-    renderItem(updated, cardView, ctx);
+    renderSummary(updated, cardView, `Updated card ${updated.id} "${updated.name}".`, ctx);
   },
 });

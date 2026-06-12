@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { ConfigError, ValidationError } from "../core/errors";
@@ -24,9 +24,7 @@ describe("parseYaml", () => {
       thrown = caught;
     }
     expect(thrown).toBeInstanceOf(ConfigError);
-    if (!(thrown instanceof ConfigError)) {
-      throw new Error("expected ConfigError");
-    }
+    assert(thrown instanceof ConfigError, "expected ConfigError");
     expect(thrown.message.startsWith("config.yml: invalid YAML: ")).toBe(true);
   });
 
@@ -39,9 +37,7 @@ describe("parseYaml", () => {
       thrown = caught;
     }
     expect(thrown).toBeInstanceOf(ValidationError);
-    if (!(thrown instanceof ValidationError)) {
-      throw new Error("expected ValidationError");
-    }
+    assert(thrown instanceof ValidationError, "expected ValidationError");
     expect(thrown.developerDetail.source).toBe("config.yml");
   });
 });
@@ -57,9 +53,7 @@ describe("parseYamlResult", () => {
   it("returns a ConfigError on broken YAML", () => {
     const result = parseYamlResult("a: [b: c", Envelope, { source: "fixture" });
     expect(result.ok).toBe(false);
-    if (result.ok) {
-      throw new Error("expected failure");
-    }
+    assert(!result.ok, "expected failure");
     expect(result.error).toBeInstanceOf(ConfigError);
     expect(result.error.message.startsWith("fixture: invalid YAML: ")).toBe(true);
   });

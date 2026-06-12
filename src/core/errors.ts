@@ -9,10 +9,11 @@ export type ErrorCategory =
   | "network"
   | "http"
   | "validation"
+  | "response-shape"
   | "timeout"
   | "config"
+  | "capability"
   | "abort"
-  | "docker"
   | "unknown";
 
 export interface NetworkErrorDetail {
@@ -28,6 +29,14 @@ export type TimeoutErrorDetail =
 export interface ValidationErrorDetail {
   source: string;
   zodIssues: ZodError["issues"];
+}
+
+export interface ResponseShapeErrorDetail {
+  method: string;
+  url: string;
+  status: number;
+  zodIssues: ZodError["issues"];
+  serverTag: string | null;
 }
 
 export interface UnknownErrorDetail {
@@ -89,23 +98,35 @@ export class ValidationError extends MetabaseError {
     if (issues.length === 0) {
       return this.message;
     }
-    return `${this.message}\n${formatZodIssueList(issues)}`;
+    return `${this.message}\n${formatIssueLines(issues, VALIDATION_ISSUE_FORMAT)}`;
   }
 }
 
-const MAX_ISSUES_PRINTED = 10;
+const VALIDATION_MAX_ISSUES = 10;
+const RESPONSE_SHAPE_MAX_ISSUES = 5;
 
-function formatZodIssueList(issues: ZodError["issues"]): string {
-  const head = issues.slice(0, MAX_ISSUES_PRINTED).map(formatZodIssueLine);
-  const overflow = issues.length - MAX_ISSUES_PRINTED;
+const VALIDATION_ISSUE_FORMAT: IssueListFormat<ZodError["issues"][number]> = {
+  max: VALIDATION_MAX_ISSUES,
+  formatIssue: (issue) => `${formatZodIssuePointer(issue.path)}: ${issue.message}`,
+};
+
+const RESPONSE_SHAPE_ISSUE_FORMAT: IssueListFormat<ZodError["issues"][number]> = {
+  max: RESPONSE_SHAPE_MAX_ISSUES,
+  formatIssue: formatZodIssue,
+};
+
+interface IssueListFormat<T> {
+  max: number;
+  formatIssue: (issue: T) => string;
+}
+
+function formatIssueLines<T>(issues: ReadonlyArray<T>, format: IssueListFormat<T>): string {
+  const head = issues.slice(0, format.max).map(format.formatIssue);
+  const overflow = issues.length - format.max;
   if (overflow > 0) {
-    head.push(`  ... and ${overflow} more`);
+    head.push(`... and ${overflow} more`);
   }
-  return head.join("\n");
-}
-
-function formatZodIssueLine(issue: ZodError["issues"][number]): string {
-  return `  ${formatZodIssuePointer(issue.path)}: ${issue.message}`;
+  return head.map((line) => `  ${line}`).join("\n");
 }
 
 function formatZodIssuePointer(path: ReadonlyArray<PropertyKey>): string {
@@ -113,6 +134,32 @@ function formatZodIssuePointer(path: ReadonlyArray<PropertyKey>): string {
     return "/";
   }
   return path.map((key) => `/${escapeJsonPointerSegment(key)}`).join("");
+}
+
+const RESPONSE_SHAPE_LEAD_UNKNOWN_VERSION = "Metabase returned unexpected response shape";
+
+export class ResponseShapeError extends MetabaseError {
+  readonly category = "response-shape";
+  readonly isRetryable = false;
+  readonly exitCode = 1;
+  readonly developerDetail: ResponseShapeErrorDetail;
+
+  constructor(developerDetail: ResponseShapeErrorDetail) {
+    super(formatResponseShapeMessage(developerDetail.zodIssues, developerDetail.serverTag));
+    this.name = "ResponseShapeError";
+    this.developerDetail = developerDetail;
+  }
+}
+
+function formatResponseShapeMessage(issues: ZodError["issues"], serverTag: string | null): string {
+  const lead =
+    serverTag === null
+      ? RESPONSE_SHAPE_LEAD_UNKNOWN_VERSION
+      : `On Metabase ${serverTag} the response shape was unexpected`;
+  if (issues.length === 0) {
+    return lead;
+  }
+  return `${lead}:\n${formatIssueLines(issues, RESPONSE_SHAPE_ISSUE_FORMAT)}`;
 }
 
 export class ConfigError extends MetabaseError {
