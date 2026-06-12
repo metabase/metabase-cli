@@ -197,7 +197,7 @@ async function chooseLoginMethod(
 
 async function promptForApiKey(url: string): Promise<string> {
   return promptPassword({
-    message: `API key (create one at ${url}/admin/settings/authentication/api-keys)`,
+    message: `API key - create one at ${url}/admin/settings/authentication/api-keys`,
     mask: "•",
     validate: (input) => (input ? undefined : "API key is required"),
   });
