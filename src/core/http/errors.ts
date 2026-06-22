@@ -38,7 +38,10 @@ const STATUS_CLASSIFICATIONS: Record<number, StatusClassification> = {
 const ErrorEnvelope = z
   .object({
     message: z.string().optional(),
-    error: z.string().optional(),
+    // `error` is usually a string, but some endpoints send a structured object
+    // (e.g. {type, message}); accept any shape so a non-string never fails the
+    // whole-envelope parse and drops us to a bare status-code message.
+    error: z.unknown().optional(),
     "error-message": z.string().optional(),
     via: z.array(z.object({ message: z.string().optional() }).loose()).optional(),
     "specific-errors": z.unknown().optional(),
@@ -211,7 +214,8 @@ function parseEnvelopeMessage(sanitizedBody: string | null): string | null {
     return null;
   }
   const envelope = result.value;
-  const topLevel = envelope.message ?? envelope.error ?? envelope["error-message"];
+  const errorString = typeof envelope.error === "string" ? envelope.error : undefined;
+  const topLevel = envelope.message ?? errorString ?? envelope["error-message"];
   if (topLevel) {
     return capLength(topLevel);
   }
