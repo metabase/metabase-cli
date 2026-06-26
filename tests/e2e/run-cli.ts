@@ -30,7 +30,7 @@ export async function runCli(opts: RunCliOptions): Promise<RunCliResult> {
     PATH: process.env["PATH"],
     HOME: process.env["HOME"],
     XDG_CONFIG_HOME: configHome,
-    METABASE_CLI_DISABLE_KEYRING: "1",
+    MB_CLI_DISABLE_KEYRING: "1",
     ...opts.env,
   };
 

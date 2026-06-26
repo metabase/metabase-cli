@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { Entry } from "@napi-rs/keyring";
 
 import { parseJsonResult } from "../../runtime/json";
+import { ENV_DISABLE_KEYRING, readEnv } from "../env";
 import { isNotFoundError, ValidationError } from "../errors";
 import { configDir } from "../paths";
 import type { ServerInfo } from "../version/probe";
@@ -119,7 +120,7 @@ export function consumeKeyringDowngradeWarning(): string | null {
 }
 
 function keyringEnabled(): boolean {
-  return process.env["METABASE_CLI_DISABLE_KEYRING"] !== "1";
+  return readEnv(ENV_DISABLE_KEYRING) !== "1";
 }
 
 // @napi-rs/keyring surfaces every backend failure (no service, locked vault,
@@ -284,7 +285,7 @@ function fileLocation(key: CredentialAccount): FileLocation {
 export function keyringFallbackWarning(location: FileLocation): string {
   const cause =
     location.reason === "disabled"
-      ? "OS keychain disabled via METABASE_CLI_DISABLE_KEYRING"
+      ? `OS keychain disabled via ${ENV_DISABLE_KEYRING}`
       : "OS keychain unavailable";
   return `warning: ${cause}; credentials stored as plaintext at ${location.path}`;
 }

@@ -10,7 +10,7 @@ import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { cliErrorMessage } from "./cli-error";
+import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { requireServer } from "./server-gate";
 
 // The remote-sync API has breaking server-side differences through v59 (the git source layer
@@ -140,8 +140,8 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
 
   function authEnv(): Record<string, string> {
     return {
-      METABASE_URL: bootstrap.baseUrl,
-      METABASE_API_KEY: bootstrap.adminApiKey,
+      MB_URL: bootstrap.baseUrl,
+      MB_API_KEY: bootstrap.adminApiKey,
     };
   }
 
@@ -208,7 +208,7 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
     expect(parseJson(result.stdout, WaitResult)).toEqual({ status: "idle" });
   });
 
-  it("import without git-sync configured surfaces a 400 HttpError", async () => {
+  it("import without git-sync configured surfaces an HttpError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "import", "--no-wait", "--json"],
@@ -216,10 +216,10 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Metabase returned 400");
+    expect(cliErrorCategory(result.stderr)).toBe("http");
   });
 
-  it("export without git-sync configured surfaces a 400 HttpError", async () => {
+  it("export without git-sync configured surfaces an HttpError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "export", "--no-wait", "--json"],
@@ -227,7 +227,7 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Metabase returned 400");
+    expect(cliErrorCategory(result.stderr)).toBe("http");
   });
 
   it("has-remote-changes without git-sync configured surfaces a 400 HttpError", async () => {

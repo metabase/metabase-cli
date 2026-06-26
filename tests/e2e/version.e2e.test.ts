@@ -19,14 +19,14 @@ function restoreEnv(key: string, value: string | undefined): void {
 
 async function withSeedEnv(configHome: string, seed: () => Promise<void>): Promise<void> {
   const prevXdg = process.env["XDG_CONFIG_HOME"];
-  const prevKeyring = process.env["METABASE_CLI_DISABLE_KEYRING"];
+  const prevKeyring = process.env["MB_CLI_DISABLE_KEYRING"];
   process.env["XDG_CONFIG_HOME"] = configHome;
-  process.env["METABASE_CLI_DISABLE_KEYRING"] = "1";
+  process.env["MB_CLI_DISABLE_KEYRING"] = "1";
   try {
     await seed();
   } finally {
     restoreEnv("XDG_CONFIG_HOME", prevXdg);
-    restoreEnv("METABASE_CLI_DISABLE_KEYRING", prevKeyring);
+    restoreEnv("MB_CLI_DISABLE_KEYRING", prevKeyring);
   }
 }
 
@@ -204,14 +204,14 @@ describe("version preflight enforcement e2e", () => {
     );
   });
 
-  it("bypasses the refusal via METABASE_CLI_SKIP_PREFLIGHT=1 and reaches the network layer", async () => {
+  it("bypasses the refusal via MB_CLI_SKIP_PREFLIGHT=1 and reaches the network layer", async () => {
     const configHome = await makeIsolatedConfigHome();
     await seedProbedProfile(configHome, 58);
 
     const result = await runCli({
       args: ["measure", "list"],
       configHome,
-      env: { METABASE_CLI_SKIP_PREFLIGHT: "1" },
+      env: { MB_CLI_SKIP_PREFLIGHT: "1" },
     });
 
     expect(result.exitCode).toBe(1);

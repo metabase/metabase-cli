@@ -49,9 +49,10 @@ describe("defineMetabaseCommand", () => {
   beforeEach(() => {
     hoisted.store.clear();
     home = setupTempConfigHome();
-    delete process.env["METABASE_URL"];
-    delete process.env["METABASE_API_KEY"];
-    delete process.env["METABASE_PROFILE"];
+    for (const name of ["URL", "API_KEY", "PROFILE"]) {
+      delete process.env[`MB_${name}`];
+      delete process.env[`METABASE_${name}`];
+    }
     delete process.env[SKIP_PREFLIGHT_ENV];
     previousExitCode = process.exitCode;
     process.exitCode = 0;
@@ -156,7 +157,7 @@ describe("defineMetabaseCommand", () => {
       error: {
         category: "config",
         message:
-          'Not authenticated for profile "default". Run `mb auth login`, set METABASE_URL/METABASE_API_KEY, or pass --url/--api-key.',
+          'Not authenticated for profile "default". Run `mb auth login`, set MB_URL/MB_API_KEY, or pass --url/--api-key.',
         exitCode: 2,
       },
     });
@@ -296,7 +297,7 @@ describe("defineMetabaseCommand", () => {
     expect(ran).toHaveBeenCalledOnce();
   });
 
-  it("bypasses the preflight check when METABASE_CLI_SKIP_PREFLIGHT=1 is set", async () => {
+  it("bypasses the preflight check when MB_CLI_SKIP_PREFLIGHT=1 is set", async () => {
     await seedProbedProfile("default", fakeServerInfo(58));
     process.env[SKIP_PREFLIGHT_ENV] = "1";
 

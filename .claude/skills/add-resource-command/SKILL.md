@@ -171,7 +171,7 @@ export default defineMetabaseCommand({
 
 **`src/main.ts`** — register the new top-level subcommand alongside the existing entries.
 
-When smoke-testing commands by hand, **never pass an API key on argv** — Metabase keys must come through env (`METABASE_URL`, `METABASE_API_KEY`) or stdin. The runtime hook will block argv-embedded keys.
+When smoke-testing commands by hand, **never pass an API key on argv** — Metabase keys must come through env (`MB_URL`, `MB_API_KEY`) or stdin. The runtime hook will block argv-embedded keys.
 
 ## Step 3 — Unit tests
 
@@ -215,7 +215,7 @@ Schemas are imported, never redeclared:
 - Single item: `<Resource>` / `<Resource>Compact` from `src/domain/<r>.ts`.
 - List envelope: `<Resource>ListEnvelope` from `src/commands/<r>/list.ts`.
 
-If the command needs auth (the common case), pass `bootstrap.adminApiKey` and `bootstrap.baseUrl` via `runCli({ env: { METABASE_URL, METABASE_API_KEY } })` — never via argv.
+If the command needs auth (the common case), pass `bootstrap.adminApiKey` and `bootstrap.baseUrl` via `runCli({ env: { MB_URL, MB_API_KEY } })` — never via argv.
 
 ## Step 5 — Manifest parity
 

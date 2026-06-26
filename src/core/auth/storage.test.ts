@@ -312,14 +312,14 @@ describe("writeProbeResult and writeProbeFailure", () => {
   });
 });
 
-describe("METABASE_CLI_DISABLE_KEYRING", () => {
+describe("MB_CLI_DISABLE_KEYRING", () => {
   let home: TempConfigHome;
 
   beforeEach(() => {
     hoisted.store.clear();
     hoisted.controls.broken = false;
     home = setupTempConfigHome();
-    process.env["METABASE_CLI_DISABLE_KEYRING"] = "1";
+    process.env["MB_CLI_DISABLE_KEYRING"] = "1";
   });
 
   afterEach(() => {
@@ -340,7 +340,7 @@ describe("METABASE_CLI_DISABLE_KEYRING", () => {
   });
 
   it("treats values other than '1' as not-disabled", async () => {
-    process.env["METABASE_CLI_DISABLE_KEYRING"] = "0";
+    process.env["MB_CLI_DISABLE_KEYRING"] = "0";
     const location = await writeProfile({ url: "https://m.example.com", apiKey: "secret" });
     expect(location.backend).toBe("keyring");
   });
@@ -355,7 +355,7 @@ describe("keyringFallbackWarning", () => {
       reason: "disabled",
     };
     expect(keyringFallbackWarning(location)).toBe(
-      "warning: OS keychain disabled via METABASE_CLI_DISABLE_KEYRING; credentials stored as plaintext at /tmp/profiles.json",
+      "warning: OS keychain disabled via MB_CLI_DISABLE_KEYRING; credentials stored as plaintext at /tmp/profiles.json",
     );
   });
 

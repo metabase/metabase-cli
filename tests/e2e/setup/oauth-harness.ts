@@ -118,14 +118,14 @@ export async function writeOAuthProfileIntoConfigHome(
   credential: OAuthCredential,
 ): Promise<void> {
   const prevXdg = process.env["XDG_CONFIG_HOME"];
-  const prevKeyring = process.env["METABASE_CLI_DISABLE_KEYRING"];
+  const prevKeyring = process.env["MB_CLI_DISABLE_KEYRING"];
   process.env["XDG_CONFIG_HOME"] = configHome;
-  process.env["METABASE_CLI_DISABLE_KEYRING"] = "1";
+  process.env["MB_CLI_DISABLE_KEYRING"] = "1";
   try {
     await writeOAuthProfile(baseUrl, credential);
   } finally {
     restoreEnv("XDG_CONFIG_HOME", prevXdg);
-    restoreEnv("METABASE_CLI_DISABLE_KEYRING", prevKeyring);
+    restoreEnv("MB_CLI_DISABLE_KEYRING", prevKeyring);
   }
 }
 

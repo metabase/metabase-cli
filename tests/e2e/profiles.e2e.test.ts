@@ -111,7 +111,23 @@ describe("profiles e2e", () => {
     expect(parseJson(stagingStatus.stdout, AuthStatus).present).toBe(true);
   });
 
-  it("METABASE_PROFILE env var selects the active profile when no --profile flag is passed", async () => {
+  it("MB_PROFILE env var selects the active profile when no --profile flag is passed", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await loginProfile(configHome, "prod");
+
+    const status = await runCli({
+      args: ["auth", "status", "--json"],
+      configHome,
+      env: { MB_PROFILE: "prod" },
+    });
+    expect(status.exitCode, status.stderr).toBe(0);
+    const payload = parseJson(status.stdout, AuthStatus);
+    expect(payload.profile).toBe("prod");
+    expect(payload.present).toBe(true);
+    expect(status.stderr).not.toContain("deprecated");
+  });
+
+  it("honors the deprecated METABASE_PROFILE alias and warns on stderr", async () => {
     const configHome = await makeIsolatedConfigHome();
     await loginProfile(configHome, "prod");
 
@@ -124,16 +140,19 @@ describe("profiles e2e", () => {
     const payload = parseJson(status.stdout, AuthStatus);
     expect(payload.profile).toBe("prod");
     expect(payload.present).toBe(true);
+    expect(status.stderr).toContain(
+      "warning: METABASE_PROFILE is deprecated; set MB_PROFILE instead",
+    );
   });
 
-  it("--profile flag wins over METABASE_PROFILE env var", async () => {
+  it("--profile flag wins over MB_PROFILE env var", async () => {
     const configHome = await makeIsolatedConfigHome();
     await loginProfile(configHome, "staging");
 
     const status = await runCli({
       args: ["auth", "status", "--profile", "staging", "--json"],
       configHome,
-      env: { METABASE_PROFILE: "does-not-exist" },
+      env: { MB_PROFILE: "does-not-exist" },
     });
     expect(status.exitCode, status.stderr).toBe(0);
     const payload = parseJson(status.stdout, AuthStatus);

@@ -365,7 +365,7 @@ describe("auth e2e", () => {
     });
   });
 
-  it("login routes through METABASE_PROFILE when no --profile flag is passed", async () => {
+  it("login routes through MB_PROFILE when no --profile flag is passed", async () => {
     const configHome = await makeIsolatedConfigHome();
 
     const login = await runCli({
@@ -379,7 +379,7 @@ describe("auth e2e", () => {
         "--json",
       ],
       configHome,
-      env: { METABASE_PROFILE: "env_routed" },
+      env: { MB_PROFILE: "env_routed" },
     });
 
     expect(login.exitCode, login.stderr).toBe(0);
@@ -396,7 +396,7 @@ describe("auth e2e", () => {
     const envStatus = await runCli({
       args: ["auth", "status", "--json"],
       configHome,
-      env: { METABASE_PROFILE: "env_routed" },
+      env: { MB_PROFILE: "env_routed" },
     });
     expect(envStatus.exitCode, envStatus.stderr).toBe(0);
     const envPayload = parseJson(envStatus.stdout, AuthStatus);

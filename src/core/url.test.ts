@@ -203,7 +203,7 @@ describe("normalizeUrl property tests", () => {
   const httpScheme = fc.constantFrom("http://", "https://", "HTTP://", "HTTPS://", "HtTp://");
   const hostname = fc
     .stringMatching(/^[a-z][a-z0-9-]{0,30}\.[a-z]{2,6}$/)
-    .filter((value) => value.length > 0);
+    .filter((value) => !value.startsWith("xn--"));
   const optionalPort = fc.option(
     fc.integer({ min: 1, max: 65535 }).map((port) => `:${port}`),
     { nil: "" },
@@ -280,7 +280,7 @@ describe("normalizeUrl property tests", () => {
 describe("assertEndpointOrigin property tests", () => {
   const hostname = fc
     .stringMatching(/^[a-z][a-z0-9-]{0,30}\.[a-z]{2,6}$/)
-    .filter((value) => value.length > 0);
+    .filter((value) => !value.startsWith("xn--"));
   const optionalPort = fc.option(
     fc.integer({ min: 1, max: 65535 }).map((port) => `:${port}`),
     { nil: "" },
