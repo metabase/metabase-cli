@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ConfigError } from "../../core/errors";
 
-import { parseColumnList, parseInputPairs } from "./run";
+import { parseColumnList, parseInputPairs, parseTargetType } from "./subgraph";
 
 describe("parseInputPairs", () => {
   it("parses comma-separated <id>=<path> pairs", () => {
@@ -33,9 +33,7 @@ describe("parseInputPairs", () => {
 
   it("throws ConfigError when the table id is not a positive integer", () => {
     expect(() => parseInputPairs("0=x.csv")).toThrow(ConfigError);
-    expect(() => parseInputPairs("0=x.csv")).toThrow(
-      "invalid --input table id: 0 (must be ≥ 1)",
-    );
+    expect(() => parseInputPairs("0=x.csv")).toThrow("invalid --input table id: 0 (must be ≥ 1)");
   });
 });
 
@@ -47,5 +45,19 @@ describe("parseColumnList", () => {
   it("returns an empty array for undefined or blank input", () => {
     expect(parseColumnList(undefined)).toEqual([]);
     expect(parseColumnList("")).toEqual([]);
+  });
+});
+
+describe("parseTargetType", () => {
+  it("accepts the supported target types", () => {
+    expect(parseTargetType("transform")).toBe("transform");
+    expect(parseTargetType("card")).toBe("card");
+  });
+
+  it("throws ConfigError naming the supported types for an unsupported value", () => {
+    expect(() => parseTargetType("metric")).toThrow(ConfigError);
+    expect(() => parseTargetType("metric")).toThrow(
+      'invalid --target-type: "metric" (expected one of: transform, card)',
+    );
   });
 });

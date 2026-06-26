@@ -1,25 +1,21 @@
-import { z } from "zod";
-
-import {
-  TestRunInput,
-  TestRunInputCompact,
-  testRunInputView,
-} from "../../domain/transform-test-run";
+import { TestRunInputCompact, testRunInputView } from "../../domain/transform-test-run";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema, wrapList } from "../../output/types";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId, parseIdList } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
+import { fetchSubgraphInputs, parseTargetType, targetLabels, targetTypeFlag } from "./subgraph";
+
 export const TestRunInputListEnvelope = listEnvelopeSchema(TestRunInputCompact);
 
 export default defineMetabaseCommand({
   meta: {
     name: "inputs",
-    description: "List the input tables a transform test run requires fixtures for",
+    description: "List the input tables a transform or card test run requires fixtures for",
   },
   details:
-    "Resolves the sub-graph from the selected --source transforms up to the target (the positional id) and returns its boundary leaf tables — one CSV fixture is required per table for `transform-test run`. Omit --source to test the target transform alone. Each row carries the table id (use it in `--input <table-id>=<file>`) and the exact column headers the fixture CSV must contain.",
+    "Resolves the sub-graph from the selected --source transforms up to the target (the positional id) and returns its boundary leaf tables — one CSV fixture is required per table for `transform-test run`. The positional id is a transform id by default, or a card id when --target-type card is set. Omit --source to test the target alone. Each row carries the table id (use it in `--input <table-id>=<file>`) and the exact column headers the fixture CSV must contain.",
   // PROVISIONAL: the test-run/subgraph endpoints are unreleased. minVersion mirrors the
   // transforms feature baseline so the command runs against a dev build; bump to the actual
   // release version before this ships.
@@ -28,27 +24,26 @@ export default defineMetabaseCommand({
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
+    ...targetTypeFlag,
     source: {
       type: "string",
       description: "Comma-separated boundary source transform ids (omit to test the target alone)",
     },
-    id: { type: "positional", description: "Target transform id", required: true },
+    id: { type: "positional", description: "Target transform or card id", required: true },
   },
   outputSchema: TestRunInputListEnvelope,
   examples: [
     "mb transform-test inputs 173 --source 172",
     "mb transform-test inputs 173 --source 172 --json",
     "mb transform-test inputs 42",
+    "mb transform-test inputs 88 --target-type card",
   ],
   async run({ args, ctx, getClient }) {
-    const target = parseId(args.id);
+    const targetType = parseTargetType(args["target-type"]);
+    const target = parseId(args.id, targetLabels(targetType).positionalLabel);
     const sources = parseIdList(args.source, "--source");
     const client = await getClient();
-    const items = await client.requestParsed(
-      z.array(TestRunInput),
-      `/api/transform/${target}/test-run/subgraph-inputs`,
-      { query: { sources } },
-    );
+    const items = await fetchSubgraphInputs(client, targetType, target, sources);
     renderList(wrapList(items), testRunInputView, ctx);
   },
 });
