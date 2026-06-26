@@ -1,12 +1,12 @@
 ---
 name: transform-test
-description: Test a transform (or a connected sub-graph of transforms) against fixture CSVs via `mb transform-test` — seeds scratch tables, runs the transform, and diffs its output against an expected CSV, never touching real tables. Covers the inputs→fixtures→run loop, the exact-header CSV contract, reading the pass/fail diff, chained sub-graph tests (`--source`), `--ignore-columns`, and the native-SQL limitations. Load when the user wants to validate a transform's logic before running it for real — "test this transform", "check the transform against sample data", "does my transform produce the right output", "write fixtures for a transform", or anything `mb transform-test …`.
+description: Test a transform — or a card (saved question / model) — against fixture CSVs via `mb transform-test` — seeds scratch tables, runs the target, and diffs its output against an expected CSV, never touching real tables. Covers the inputs→fixtures→run loop, the exact-header CSV contract, `--target-type transform|card`, reading the pass/fail diff, chained sub-graph tests (`--source`), `--ignore-columns`, and the native-SQL limitations. Load when the user wants to validate a transform's or card's logic before trusting it — "test this transform", "test this question/model against sample data", "does my transform produce the right output", "write fixtures for a transform", or anything `mb transform-test …`.
 allowed-tools: Read, Write, Edit, Bash
 ---
 
 # Testing transforms
 
-`mb transform-test` runs a transform against **fixture CSVs you supply** instead of the real source tables, then diffs the output against an **expected CSV**. It seeds throwaway scratch tables, runs the transform's query into a scratch output, compares, and drops everything — **real tables are never read or written.** Use it to validate a transform's logic on small, known data before trusting it on production rows.
+`mb transform-test` runs a **target** — a transform, or a card (saved question / model) — against **fixture CSVs you supply** instead of the real source tables, then diffs its output against an **expected CSV**. It seeds throwaway scratch tables, runs the target's query over them, compares, and drops everything — **real tables are never read or written.** Use it to validate a transform's or card's logic on small, known data before trusting it on production rows.
 
 Authoring and running transforms for real is the `transform` skill (`mb skills get transform`); deciding what to build is `data-transformation` (`mb skills get data-transformation`). Flag/profile/output conventions are in `core` (`mb skills get core`).
 
@@ -16,7 +16,7 @@ Authoring and running transforms for real is the `transform` skill (`mb skills g
 2. **Write** one CSV per input table + one expected-output CSV.
 3. **Run** the test; read passed / FAILED + the diff (`transform-test run`).
 
-The positional argument is always the **target** transform id (the one whose output is diffed).
+The positional argument is the **target** id whose output is diffed. By default that's a transform; pass `--target-type card` to target a saved question or model instead (see "Card targets" below). Everything else — inputs, fixtures, `--source`, the diff — works the same either way.
 
 ## 1. Discover required inputs
 
@@ -87,6 +87,20 @@ mb transform-test run 173 --source 172 \
 
 `--source` is comma-separated ids. Omitting it == testing the target alone. All transforms in the sub-graph must share one database (a cross-database selection is rejected).
 
+## Card targets (`--target-type card`)
+
+The target can be a **card** — a saved question or model — instead of a transform. The card's query is what gets diffed: its producing transforms run in scratch (seeded from your fixtures), the card's query runs over those scratch outputs, and the result is compared to the expected CSV. The inputs → fixtures → run loop is identical; only the positional id and `--target-type` change.
+
+```bash
+mb transform-test inputs <card-id> --target-type card --source <ids> --profile <name> --json
+mb transform-test run    <card-id> --target-type card --source <ids> \
+  --input 229=orders.csv,223=people.csv --expected expected.csv --profile <name> --json
+```
+
+- The positional is a **card id** (question or model). `--target-type` defaults to `transform`, so transform targets need no flag.
+- **Precondition:** the transform output(s) the card reads must be **materialized and synced** — run the producing transform with `mb transform run <id> --sync` first. A card built on an un-materialized output can't be linked to its producer, and you'll get a `sources-not-ancestors` error.
+- Native and MBQL cards both work. Native cards carry the same bare-table-qualifier limitation as native transforms (below).
+
 ## Ignoring non-deterministic columns
 
 For output columns you can't pin in an expected CSV — `now()` timestamps, snapshot dates, random ids — exclude them from the diff:
@@ -100,7 +114,7 @@ mb transform-test run 42 --input 229=orders.csv --expected out.csv \
 
 ## Limitations & gotchas
 
-- **Native SQL that qualifies columns by the bare table name can't be test-run.** `SELECT orders.id FROM orders` fails with a typed 422 (the fixture-redirect rewrites the table reference but can't safely follow a `orders.`-qualified column). **Alias the table** — `SELECT o.id FROM orders o` — or use unqualified column names. It always fails *safely* (you get an error, never a wrong-but-green result), and MBQL transforms aren't affected. This is a known, accepted limitation.
+- **Native SQL (in a transform or a native card) that qualifies columns by the bare table name can't be test-run.** `SELECT orders.id FROM orders` fails with a typed 422 (the fixture-redirect rewrites the table reference but can't safely follow a `orders.`-qualified column). **Alias the table** — `SELECT o.id FROM orders o` — or use unqualified column names. It always fails *safely* (you get an error, never a wrong-but-green result), and MBQL targets aren't affected. This is a known, accepted limitation.
 - **Header must match the real table exactly.** Don't guess columns — copy them from `transform-test inputs`. All columns are required; the test isn't a projection.
 - **Provisional / unreleased.** These commands target a dev build of the transforms feature; if `mb transform-test` reports the endpoint is unavailable, the connected instance predates it.
 - **Scratch only.** Fixtures seed prefix-guarded scratch tables that are dropped in a `finally` (success, failure, or error). A test run creates no transform-run record and never writes the transform's real output table.
