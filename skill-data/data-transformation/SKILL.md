@@ -169,6 +169,8 @@ Then report plainly:
 
 End on that connection map: it's what the user reads to trust the result, and what lets whatever they build next join the tables on the right ids instead of guessing how they relate.
 
+These clean tables are exactly what belongs in the **Library** — published tables appear first when anyone picks a data source, so people start from your curated set, not the raw source. If the user wants that, mark them official with `mb library publish --table-ids <ids>` (`mb library create` first if the Library isn't set up; both need the `library` premium feature + admin/data-analyst). Defining reusable segments / measures / metrics on top is the **semantic-layer** skill's job.
+
 ---
 
 ## A worked decode example (for your reference, not the user's)

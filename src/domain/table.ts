@@ -28,6 +28,8 @@ export const Table = z
     entity_type: TableEntityType.nullable(),
     visibility_type: TableVisibilityType.nullable().optional(),
     active: z.boolean().optional(),
+    is_published: z.boolean().optional(),
+    collection_id: z.number().int().nullable().optional(),
     fields: z.array(Field).optional(),
   })
   .loose();
@@ -46,6 +48,7 @@ export const TableCompact = Table.pick({
   db_id: true,
   schema: true,
   entity_type: true,
+  is_published: true,
 })
   .strip()
   .extend({
@@ -62,6 +65,7 @@ export const tableView: ResourceView<Table> = {
     { key: "name", label: "Name" },
     { key: "display_name", label: "Display Name" },
     { key: "description", label: "Description" },
+    { key: "is_published", label: "Published" },
   ],
 };
 

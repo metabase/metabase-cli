@@ -8,7 +8,5 @@ export default defineCommand({
     metadata: () => import("./metadata").then((m) => m.default),
     fields: () => import("./fields").then((m) => m.default),
     update: () => import("./update").then((m) => m.default),
-    publish: () => import("./publish").then((m) => m.default),
-    unpublish: () => import("./unpublish").then((m) => m.default),
   },
 });
