@@ -16,7 +16,7 @@ export default defineMetabaseCommand({
   },
   details:
     "Resolves the sub-graph from the selected --source transforms up to the target (the positional id) and returns its boundary leaf tables — one CSV fixture is required per table for `transform-test run`. The positional id is a transform id by default, or a card id when --target-type card is set. Omit --source to test the target alone. Each row carries the table id (use it in `--input <table-id>=<file>`) and the exact column headers the fixture CSV must contain.",
-  // PROVISIONAL: the test-run/subgraph endpoints are unreleased. minVersion mirrors the
+  // Provisional: the test-run/subgraph endpoints are unreleased. minVersion mirrors the
   // transforms feature baseline so the command runs against a dev build; bump to the actual
   // release version before this ships.
   capabilities: { minVersion: 59 },

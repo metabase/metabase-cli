@@ -38,9 +38,8 @@ const STATUS_CLASSIFICATIONS: Record<number, StatusClassification> = {
 const ErrorEnvelope = z
   .object({
     message: z.string().optional(),
-    // `error` is usually a string, but some endpoints send a structured object
-    // (e.g. {type, message}); accept any shape so a non-string never fails the
-    // whole-envelope parse and drops us to a bare status-code message.
+    // `error` may be a structured object, not a string; accept any shape so a non-string
+    // doesn't break parsing the whole envelope.
     error: z.unknown().optional(),
     "error-message": z.string().optional(),
     via: z.array(z.object({ message: z.string().optional() }).loose()).optional(),

@@ -71,7 +71,7 @@ mb transform-test run <target-id> \
 Reading the result:
 
 - The plain summary says `Transform <id> test run passed.` or `Transform <id> test run FAILED — output did not match expected. Re-run with --json to see the diff.`
-- `--json` returns `{status, diff, test_run_id}` where `status` is `passed` or `failed` (those are the only two values). On `failed`, **`diff` is where the truth is** — it reports missing rows (expected but not produced), extra rows (produced but not expected), and cell-level mismatches. Always re-run with `--json` (or start with it) to see why a test failed.
+- `--json` returns `{status, diff, test_run_id}` where `status` is `passed` or `failed` (those are the only two values). On `failed`, **the `diff` carries the detail** — it reports missing rows (expected but not produced), extra rows (produced but not expected), and cell-level mismatches. Always re-run with `--json` (or start with it) to see why a test failed.
 - A run that couldn't complete — bad CSV header, an unsupported transform, etc. — isn't a `failed` status; it surfaces as a thrown error envelope on a non-zero exit, distinct from a clean `failed` diff.
 
 ## Chained / sub-graph tests (`--source`)
@@ -114,7 +114,7 @@ mb transform-test run 42 --input 229=orders.csv --expected out.csv \
 
 ## Limitations & gotchas
 
-- **Native SQL (in a transform or a native card) that qualifies columns by the bare table name can't be test-run.** `SELECT orders.id FROM orders` fails with a typed 422 (the fixture-redirect rewrites the table reference but can't safely follow a `orders.`-qualified column). **Alias the table** — `SELECT o.id FROM orders o` — or use unqualified column names. It always fails *safely* (you get an error, never a wrong-but-green result), and MBQL targets aren't affected. This is a known, accepted limitation.
+- **Native SQL (in a transform or a native card) that qualifies columns by the bare table name can't be test-run.** `SELECT orders.id FROM orders` fails with a typed 422 (the fixture-redirect rewrites the table reference but can't safely follow a `orders.`-qualified column). **Alias the table** — `SELECT o.id FROM orders o` — or use unqualified column names. It always fails *safely* (you get an error, never a wrong-but-green result), and MBQL targets aren't affected.
 - **Header must match the real table exactly.** Don't guess columns — copy them from `transform-test inputs`. All columns are required; the test isn't a projection.
 - **Provisional / unreleased.** These commands target a dev build of the transforms feature; if `mb transform-test` reports the endpoint is unavailable, the connected instance predates it.
 - **Scratch only.** Fixtures seed prefix-guarded scratch tables that are dropped in a `finally` (success, failure, or error). A test run creates no transform-run record and never writes the transform's real output table.

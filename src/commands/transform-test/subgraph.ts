@@ -2,12 +2,21 @@ import { z } from "zod";
 
 import { ConfigError } from "../../core/errors";
 import type { Client } from "../../core/http/client";
-import { TestRunInput, TestRunResult, testRunResultView } from "../../domain/transform-test-run";
-import { renderSummary } from "../../output/render";
+import {
+  type AssertionResult,
+  assertionResultView,
+  TestRunInput,
+  TestRunResult,
+  testRunResultView,
+} from "../../domain/transform-test-run";
+import { renderList, renderSummary, writeText } from "../../output/render";
+import { wrapList } from "../../output/types";
 import { readFilePart } from "../../runtime/upload";
 import type { CommonContext } from "../context";
 import { parseEnumFlag } from "../parse-enum";
 import { parseId } from "../parse-id";
+
+import type { AssertionDef } from "./assert";
 
 export const TargetType = z.enum(["transform", "card"]);
 export type TargetType = z.infer<typeof TargetType>;
@@ -101,33 +110,78 @@ export interface SubgraphRunArgs {
   target: number;
   sources: number[];
   inputs: InputPair[];
-  expected: string;
+  // Optional per field; the run requires at least one of expected or assertions.
+  expected?: string;
   ignoreColumns: string[];
+  assertions: AssertionDef[];
 }
 
-async function buildSubgraphForm(args: SubgraphRunArgs): Promise<FormData> {
+export async function buildSubgraphForm(args: SubgraphRunArgs): Promise<FormData> {
   const form = new FormData();
   for (const { tableId, path } of args.inputs) {
     const part = await readFilePart(path, `--input ${tableId}`);
     form.append(`input-${tableId}`, part.blob, part.filename);
   }
-  const expectedPart = await readFilePart(args.expected, "--expected");
-  form.append("expected", expectedPart.blob, expectedPart.filename);
+  if (args.expected !== undefined) {
+    const expectedPart = await readFilePart(args.expected, "--expected");
+    form.append("expected", expectedPart.blob, expectedPart.filename);
+  }
   if (args.sources.length > 0) {
     form.append("sources", JSON.stringify(args.sources));
   }
   if (args.ignoreColumns.length > 0) {
     form.append("options", JSON.stringify({ ignore_columns: args.ignoreColumns }));
   }
+  if (args.assertions.length > 0) {
+    form.append("assertions", JSON.stringify(args.assertions));
+  }
   return form;
+}
+
+function assertionList(result: TestRunResult): AssertionResult[] {
+  return result.assertions ?? [];
+}
+
+// Exit nonzero iff the server's top-level status is `failed`.
+export function shouldFail(result: TestRunResult): boolean {
+  return result.status === "failed";
+}
+
+export function assertionsSummaryLine(result: TestRunResult): string | null {
+  const assertions = assertionList(result);
+  if (assertions.length === 0) {
+    return null;
+  }
+  const passed = assertions.filter((a) => a.status === "passed").length;
+  const failed = assertions.filter((a) => a.status === "failed").length;
+  const warned = assertions.filter((a) => a.status === "warn").length;
+  const parts = [`${passed} passed`, `${failed} FAILED`, `${warned} warn`];
+  const firstFailing = assertions.find((a) => a.status === "failed" || a.status === "warn");
+  const detail =
+    firstFailing === undefined
+      ? ""
+      : ` (${firstFailing.name}: ${firstFailing.failing_row_count} failing rows)`;
+  return `${assertions.length} assertions — ${parts.join(", ")}${detail}`;
 }
 
 function summaryLine(targetType: TargetType, target: number, result: TestRunResult): string {
   const noun = targetLabels(targetType).summaryNoun;
+  const lines: string[] = [];
+  const diffShown = (result.diff ?? null) !== null;
   if (result.status === "passed") {
-    return `${noun} ${target} test run passed.`;
+    lines.push(`${noun} ${target} test run passed.`);
+  } else if (diffShown) {
+    lines.push(
+      `${noun} ${target} test run FAILED — output did not match expected. Re-run with --json to see the diff.`,
+    );
+  } else {
+    lines.push(`${noun} ${target} test run FAILED. Re-run with --json to see details.`);
   }
-  return `${noun} ${target} test run FAILED — output did not match expected. Re-run with --json to see the diff.`;
+  const assertions = assertionsSummaryLine(result);
+  if (assertions !== null) {
+    lines.push(assertions);
+  }
+  return lines.join("\n");
 }
 
 export async function runSubgraph(
@@ -152,8 +206,15 @@ export async function runSubgraph(
     ctx,
   );
 
-  if (result.status === "failed") {
+  // Per-assertion table for the human view only; --json/--fields/--full already carried the full result.
+  const assertions = assertionList(result);
+  if (assertions.length > 0 && ctx.format !== "json" && ctx.fields === undefined && !ctx.full) {
+    writeText("");
+    renderList(wrapList(assertions), assertionResultView, ctx);
+  }
+
+  if (shouldFail(result)) {
     const noun = targetLabels(args.targetType).summaryNoun.toLowerCase();
-    throw new Error(`${noun} ${args.target} test run failed: output did not match expected`);
+    throw new Error(`${noun} ${args.target} test run failed`);
   }
 }
