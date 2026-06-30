@@ -251,6 +251,43 @@ mb transform-job delete 1 --yes
 | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
+## Transform tags
+
+CRUD on `/api/transform-tag`. Tags group transforms and jobs; reference them by id via the `tag_ids` field on a transform or job. The four built-in tags (`hourly`, `daily`, `weekly`, `monthly`) drive the built-in jobs. There is no get-by-id endpoint — use `list`.
+
+### `mb transform-tag list`
+
+```sh
+mb transform-tag list --json
+```
+
+### `mb transform-tag create`
+
+```sh
+mb transform-tag create --body '{"name":"nightly"}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb transform-tag update <id>`
+
+```sh
+mb transform-tag update 5 --body '{"name":"renamed"}'
+```
+
+### `mb transform-tag delete <id>`
+
+```sh
+mb transform-tag delete 5 --yes
+```
+
+| Flag    | Description                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
+
 ## Databases
 
 Read warehouse metadata from `/api/database`. The `db` group exposes the full database list, the per-database record, schema and table inspection, the two manual-sync triggers, and (rarely useful) full-warehouse rollup endpoints.
