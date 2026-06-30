@@ -35,6 +35,9 @@ export { SKIP_PREFLIGHT_ENV };
 
 export interface MetabaseCommandContext<A extends ArgsDef> {
   args: ParsedArgs<A>;
+  // The unparsed argv for this command. Needed to recover repeated flags, which citty's parser
+  // collapses to the last value (see runtime/citty.ts `collectRepeatedFlag`).
+  rawArgs: readonly string[];
   ctx: CommonContext;
   getClient: () => Promise<Client>;
   getResolvedConfig: () => Promise<ResolvedConfig>;
@@ -106,6 +109,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
         try {
           await def.run({
             args,
+            rawArgs,
             ctx,
             getClient,
             getResolvedConfig,

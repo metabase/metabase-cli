@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { ConfigError, errorMessage } from "../../core/errors";
 import { TestRunResult } from "../../domain/transform-test-run";
+import { collectRepeatedFlag } from "../../runtime/citty";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId, parseIdList } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
@@ -17,6 +18,12 @@ import {
   targetTypeFlag,
 } from "./subgraph";
 import { parseSuite, type SuiteArgs } from "./suite";
+
+const ASSERT_FLAG = {
+  type: "string",
+  description:
+    "Assertion: a .sql file path or a glob of them (dir/*.sql). Repeatable; comma-separates paths. Name = file basename without .sql. Severity defaults to error. Inline SQL is not supported — write the assertion to a .sql file.",
+} as const;
 
 async function loadSuite(path: string): Promise<SuiteArgs> {
   let contents: string;
@@ -107,11 +114,7 @@ export default defineMetabaseCommand({
       type: "string",
       description: "Comma-separated output column names to exclude from the diff",
     },
-    assert: {
-      type: "string",
-      description:
-        "Assertion: a .sql file path or a glob of them (dir/*.sql). Repeatable; comma-separates paths. Name = file basename without .sql. Severity defaults to error. Inline SQL is not supported — write the assertion to a .sql file.",
-    },
+    assert: ASSERT_FLAG,
     suite: {
       type: "string",
       description:
@@ -133,7 +136,7 @@ export default defineMetabaseCommand({
     "mb transform-test run 173 --assert 'checks/*.sql' --input 229=orders.csv",
     "mb transform-test run --suite suites/orders.yaml",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, rawArgs, ctx, getClient }) {
     const suite = args.suite !== undefined ? await loadSuite(args.suite) : null;
 
     const idGiven = typeof args.id === "string" && args.id.trim() !== "";
@@ -142,11 +145,14 @@ export default defineMetabaseCommand({
       ? parseId(args.id, targetLabels(targetType ?? "transform").positionalLabel)
       : undefined;
 
+    // `--assert` is repeatable: citty collapses repeats to the last value, so read every
+    // occurrence from rawArgs. `parseAssertFlags` also comma-splits each value.
+    const assertValues = collectRepeatedFlag(rawArgs, "assert", { assert: ASSERT_FLAG });
     const flags: FlagArgs = {
       sources: parseIdList(args.source, "--source"),
       inputs: parseInputPairs(args.input),
       ignoreColumns: parseColumnList(args["ignore-columns"]),
-      assertions: await resolveAssertions(parseAssertFlags(args.assert)),
+      assertions: await resolveAssertions(parseAssertFlags(assertValues)),
     };
     if (targetType !== undefined && idGiven) {
       flags.targetType = targetType;

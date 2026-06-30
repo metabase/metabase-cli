@@ -184,6 +184,25 @@ function summaryLine(targetType: TargetType, target: number, result: TestRunResu
   return lines.join("\n");
 }
 
+// Render a run result. Under `--json` (and `--fields`/`--full`) the full structured result is
+// emitted; otherwise the human view: the summary line(s) followed — on any run that carried
+// assertions, passing OR failing — by the per-assertion table (name / status / failing rows).
+export function renderRunResult(
+  targetType: TargetType,
+  target: number,
+  result: TestRunResult,
+  ctx: CommonContext,
+): void {
+  renderSummary(result, testRunResultView, () => summaryLine(targetType, target, result), ctx);
+
+  const humanView = ctx.format !== "json" && ctx.fields === undefined && !ctx.full;
+  const assertions = assertionList(result);
+  if (humanView && assertions.length > 0) {
+    writeText("");
+    renderList(wrapList(assertions), assertionResultView, ctx);
+  }
+}
+
 export async function runSubgraph(
   client: Client,
   args: SubgraphRunArgs,
@@ -199,19 +218,7 @@ export async function runSubgraph(
     },
   );
 
-  renderSummary(
-    result,
-    testRunResultView,
-    () => summaryLine(args.targetType, args.target, result),
-    ctx,
-  );
-
-  // Per-assertion table for the human view only; --json/--fields/--full already carried the full result.
-  const assertions = assertionList(result);
-  if (assertions.length > 0 && ctx.format !== "json" && ctx.fields === undefined && !ctx.full) {
-    writeText("");
-    renderList(wrapList(assertions), assertionResultView, ctx);
-  }
+  renderRunResult(args.targetType, args.target, result, ctx);
 
   if (shouldFail(result)) {
     const noun = targetLabels(args.targetType).summaryNoun.toLowerCase();

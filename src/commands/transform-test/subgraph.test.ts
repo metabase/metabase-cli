@@ -2,10 +2,11 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConfigError } from "../../core/errors";
 import type { AssertionResult, TestRunResult } from "../../domain/transform-test-run";
+import type { CommonContext } from "../context";
 
 import {
   assertionsSummaryLine,
@@ -13,6 +14,7 @@ import {
   parseColumnList,
   parseInputPairs,
   parseTargetType,
+  renderRunResult,
   shouldFail,
 } from "./subgraph";
 
@@ -28,6 +30,20 @@ function assertion(over: Partial<AssertionResult> & { name: string }): Assertion
 
 function result(over: Partial<TestRunResult>): TestRunResult {
   return { status: "passed", diff: null, test_run_id: null, ...over };
+}
+
+function renderCtx(over: Partial<CommonContext>): CommonContext {
+  return {
+    format: "text",
+    full: false,
+    fields: undefined,
+    maxBytes: 65536,
+    url: undefined,
+    apiKey: undefined,
+    profile: undefined,
+    skipPreflight: false,
+    ...over,
+  };
 }
 
 describe("parseInputPairs", () => {
@@ -186,5 +202,65 @@ describe("assertionsSummaryLine", () => {
   it("returns null when there are no assertions", () => {
     expect(assertionsSummaryLine(result({ status: "passed" }))).toBeNull();
     expect(assertionsSummaryLine(result({ status: "passed", assertions: [] }))).toBeNull();
+  });
+});
+
+describe("renderRunResult", () => {
+  let stdout: string;
+
+  beforeEach(() => {
+    stdout = "";
+    vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+      stdout += String(chunk);
+      return true;
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const failingResult = result({
+    status: "failed",
+    diff: null,
+    assertions: [
+      assertion({ name: "ok_check", status: "passed" }),
+      assertion({ name: "neg_rev", status: "failed", failing_row_count: 3 }),
+    ],
+  });
+
+  it("renders the per-assertion table on a FAILING run in human/text mode", () => {
+    renderRunResult("transform", 173, failingResult, renderCtx({ format: "text" }));
+    // Summary line(s)
+    expect(stdout).toContain("Transform 173 test run FAILED");
+    expect(stdout).toContain("2 assertions — 1 passed, 1 FAILED");
+    // The per-assertion table: header + each assertion's name/status/failing rows
+    expect(stdout).toContain("Name");
+    expect(stdout).toContain("Status");
+    expect(stdout).toContain("Failing Rows");
+    expect(stdout).toContain("ok_check");
+    expect(stdout).toContain("neg_rev");
+    expect(stdout).toContain("failed");
+  });
+
+  it("emits the full structured JSON (no human table) under --json", () => {
+    renderRunResult("transform", 173, failingResult, renderCtx({ format: "json" }));
+    const parsed = JSON.parse(stdout);
+    expect(parsed.status).toBe("failed");
+    expect(parsed.assertions).toHaveLength(2);
+    expect(parsed.assertions[1].name).toBe("neg_rev");
+    // No bordered text table in JSON mode.
+    expect(stdout).not.toContain("Failing Rows");
+  });
+
+  it("renders the per-assertion table on a PASSING run in text mode", () => {
+    const passing = result({
+      status: "passed",
+      assertions: [assertion({ name: "ok_check", status: "passed" })],
+    });
+    renderRunResult("transform", 173, passing, renderCtx({ format: "text" }));
+    expect(stdout).toContain("Transform 173 test run passed.");
+    expect(stdout).toContain("ok_check");
+    expect(stdout).toContain("Failing Rows");
   });
 });
