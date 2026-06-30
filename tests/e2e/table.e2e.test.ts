@@ -2,6 +2,8 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { FieldListEnvelope } from "../../src/commands/table/fields";
 import { TableListEnvelope } from "../../src/commands/table/list";
+import { TablePublishResult } from "../../src/commands/table/publish";
+import { TableUnpublishResult } from "../../src/commands/table/unpublish";
 import { Table, TableCompact } from "../../src/domain/table";
 import { parseJson } from "../../src/runtime/json";
 
@@ -11,7 +13,8 @@ import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 import { requireServer } from "./server-gate";
 
-const LIBRARY_FEATURE_PRESENT = requireServer({ tokenFeature: "library" }) === null;
+const LIBRARY_UNAVAILABLE = requireServer({ minVersion: 59, tokenFeature: "library" });
+
 const SEEDED_WAREHOUSE_TABLES = [
   {
     id: SEEDED.tables.customers,
@@ -472,43 +475,49 @@ describe("table e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  describe.skipIf(LIBRARY_FEATURE_PRESENT)("without the library premium feature", () => {
-    it("publish surfaces the library paywall as an HttpError", async () => {
-      const result = await runCli({
+  describe.skipIf(LIBRARY_UNAVAILABLE !== null)("library publish round-trip", () => {
+    it("publishes a table to the library Data collection, then unpublishes it", async () => {
+      const collectionId = SEEDED.libraryDataCollectionId;
+      if (collectionId === null) {
+        throw new Error("expected a seeded library-data collection when the library feature is on");
+      }
+
+      const publish = await runCli({
         args: [
           "table",
           "publish",
           "--collection-id",
-          String(SEEDED.defaultCollectionId),
+          String(collectionId),
           "--table-ids",
           String(SEEDED.tables.reviews),
-          "--skip-preflight",
           "--json",
         ],
         configHome: await makeIsolatedConfigHome(),
         env: authEnv(),
       });
 
-      expect(result.exitCode).toBe(1);
-      expect(cliErrorMessage(result.stderr)).toContain("Library is a paid feature");
-    });
+      expect(publish.exitCode, publish.stderr).toBe(0);
+      const target = parseJson(publish.stdout, TablePublishResult).target_collection;
+      if (target === null) {
+        throw new Error("expected a target_collection in the publish response");
+      }
+      expect({ id: target.id, name: target.name, type: target.type }).toEqual({
+        id: collectionId,
+        name: "Data",
+        type: "library-data",
+      });
 
-    it("unpublish surfaces the library paywall as an HttpError", async () => {
-      const result = await runCli({
-        args: [
-          "table",
-          "unpublish",
-          "--table-ids",
-          String(SEEDED.tables.reviews),
-          "--skip-preflight",
-          "--json",
-        ],
+      const unpublish = await runCli({
+        args: ["table", "unpublish", "--table-ids", String(SEEDED.tables.reviews), "--json"],
         configHome: await makeIsolatedConfigHome(),
         env: authEnv(),
       });
 
-      expect(result.exitCode).toBe(1);
-      expect(cliErrorMessage(result.stderr)).toContain("Library is a paid feature");
+      expect(unpublish.exitCode, unpublish.stderr).toBe(0);
+      expect(parseJson(unpublish.stdout, TableUnpublishResult)).toEqual({
+        unpublished: true,
+        table_ids: [SEEDED.tables.reviews],
+      });
     });
   });
 });

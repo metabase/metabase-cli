@@ -35,7 +35,7 @@ export default defineMetabaseCommand({
   },
   details:
     'Sets the collection for each selected table and recursively for every upstream table it depends on, surfacing them as trusted data sources in the library. Select tables with --table-ids, whole databases with --db-ids, or schemas with --schemas (each schema id is "<db-id>:<schema>", e.g. 1:public); the filters are combined. The target must be a `library-data` collection.',
-  capabilities: { minVersion: 58, tokenFeature: "library" },
+  capabilities: { minVersion: 59, tokenFeature: "library" },
   args: {
     ...outputFlags,
     ...profileFlag,

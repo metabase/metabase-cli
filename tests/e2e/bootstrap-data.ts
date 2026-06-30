@@ -33,6 +33,10 @@ export const SeededIds = z.object({
   fields: z.object({
     ordersId: z.number().int().positive(),
   }),
+  // The Library's Data collection (`library-data` type), present only when the server grants the
+  // `library` premium feature; null otherwise. Defaults null for bootstrap files written before
+  // this field existed. Target for `table publish`.
+  libraryDataCollectionId: z.number().int().positive().nullable().default(null),
 });
 export type SeededIds = z.infer<typeof SeededIds>;
 
