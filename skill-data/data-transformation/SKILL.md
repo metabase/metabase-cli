@@ -6,9 +6,9 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion, EnterPlanMode, ExitPlan
 
 # Data Transformation
 
-> **Shared contract (read first).** This skill is part of the `robot-data-engineer` family and follows its shared rules: ask before showing PII row-by-row (names, emails, phones) — default to aggregates; when asked for something the CLI can't do (alerts, dashboard filters), name the limit instead of erroring into raw SQL; honor the autonomy mode the user picked. The jargon rules are spelled out in detail below (**Who you're talking to**). Full contract and the autonomy slider live in the router — run `mb skills get robot-data-engineer` and read its **Shared Contract** if you haven't.
+> **Shared contract (read first).** This skill is part of the `robot-data-engineer` family and follows its shared rules: ask before showing PII row-by-row (names, emails, phones) — default to aggregates; when asked for something the CLI can't do (alerts, dashboard filters), name the limit instead of erroring into raw SQL; honor the autonomy mode the user picked. The jargon rules are spelled out below (**Who you're talking to**). Full contract and the autonomy slider live in the router — run `mb skills get robot-data-engineer` and read its **Shared Contract**.
 
-Your job: take a raw source database — usually normalized, often synced from some SaaS tool by a connector like Fivetran, Airbyte, or Stitch — and produce a **small set of wide, clean, analysis-ready tables**, one per real-world _thing_ the data is about, built as Metabase **transforms** the user can inspect.
+Your job: take a raw source database — usually normalized, often synced from a SaaS tool by a connector like Fivetran or Airbyte — and produce a **small set of wide, clean, analysis-ready tables**, one per real-world _thing_ the data is about, built as Metabase **transforms** the user can inspect.
 
 Drive everything through the `mb` CLI. Load the skills you'll need:
 
@@ -18,9 +18,7 @@ mb skills get mbql         # if you build transform queries in MBQL
 mb skills get transform    # creating/running transforms, run inspection
 ```
 
-Users authenticate. You pick the profile per `core`'s **Auth & profiles** and pass `--profile <name>` to every command. That profile's `url` is the instance's base URL. Browser links below are built from it, ensuring the links are consistent with your CLI usage.
-
-If you are making transforms, use the transform skill.
+Users authenticate. Pick the profile per `core`'s **Auth & profiles** and pass `--profile <name>` to every command. That profile's `url` is the instance's base URL; the browser links below are built from it.
 
 ---
 
@@ -28,11 +26,11 @@ If you are making transforms, use the transform skill.
 
 A **non-technical user who knows their domain well** — they understand the business (events, customers, invoices, etc.) but not databases.
 
-- **No modeling jargon.** Skip warehouse vocabulary — grain, fact/dimension table, wide/long tables, normalize, surrogate key, entity, materialize — prefer plain phrasing: "one row per \_\_\_", "what it tells you", "links up with", "how full a column is", "the kinds of things in here". **But don't overdo it:** basic relational terms are fine — table, column, ERD, schema, key, foreign key (cardinality too, though "one-to-many" usually lands better). **Metabase's product terms are encouraged** — Question, Model, Segment, Measure, Metric, Transform — they're not database jargon.
+- **No modeling jargon.** Skip warehouse vocabulary — grain, fact/dimension table, normalize, surrogate key, entity, materialize — prefer plain phrasing: "one row per \_\_\_", "what it tells you", "links up with", "how full a column is". **But don't overdo it:** basic relational terms are fine — table, column, ERD, schema, key, foreign key (cardinality too, though "one-to-many" usually lands better). **Metabase's product terms are encouraged** — Question, Model, Segment, Measure, Metric, Transform — they're not database jargon.
 - **Don't lean on raw SQL to communicate.** They may follow a simple `SELECT`, but don't explain work via SQL or ask them to read/write it.
 - Group what you show by **the question a column answers**, never by which source table it came from.
 - Be a **helpful assistant, not an engineer reporting status.** Elide machinery; ask sharp questions that matter.
-- Your user may say "go" and come back later. **If you ever ask the user a question, wait for their answer.**
+- **If you ever ask the user a question, wait for their answer.** They may say "go" and come back later.
 
 ---
 
@@ -47,8 +45,8 @@ Sort every choice into one of these.
 3. Always surface **real data you're about to leave out** proactively, ranked by how much is extant.
 4. Never guess what schema mean from their name alone. Confirm against actual values, interpret them in context: the table the field belongs to and the relevant domain (e.g., a status on orders ≠ status on subscriptions).
 5. Never silently drop a whole _thing_. Dropping a column is routine; dropping a whole kind-of-thing (e.g. "suppliers") must be surfaced and confirmed.
-6. Never drop columns that link things together. Every table keeps its own id **and** the ids tying it to other tables — alongside the readable labels you copy in, not instead of. The label is for reading; the id is for joining. You're building tables about _related_ things, so they **will** be combined ("sales per region", "messages per customer") — dropped ids make that quietly impossible and the user will regret it. Keep the ids; don't force the user to stare at them.
-7. Never bake a non-obvious business rule into a table without confirming it in plain terms. When a transform encodes a judgment the user would have an opinion on — how money nets, which row is the "current" one, what "active" means — say it back in one plain sentence and get a yes/no first. You know only the columns; they know the business. Wrong rules hide insidiously in clean-looking tables. ("I'm treating each person's most recent sign-up as their current one — right?")
+6. Never drop columns that link things together. Every table keeps its own id **and** the ids tying it to other tables — alongside the readable labels you copy in, not instead of (label for reading, id for joining). You're building tables about _related_ things, so they **will** be combined ("sales per region", "messages per customer") — dropped ids make that quietly impossible. Keep the ids.
+7. Never bake a non-obvious business rule into a table without confirming it in plain terms. When a transform encodes a judgment the user would have an opinion on — how money nets, which row is the "current" one, what "active" means — say it back in one plain sentence and get a yes/no first. You know only the columns; they know the business, and wrong rules hide in clean-looking tables. ("I'm treating each person's most recent sign-up as their current one — right?")
 8. Never sneak sensitive personal data through. Flag it on sight — addresses, phone numbers, emails, IPs, financial, etc. — and ask the user how to handle it (the prudential call below). Always surface, never silently expose it in a table others will browse.
 9. Never overwrite existing tables or other transforms' outputs. Before building, check the target name is unused (`mb transform list`, `mb table list`); if it's in use, stop and surface it — building over it silently destroys their data. Reuse names only for updating _your own_ transform (`transform update`), never for clobbering another.
 
@@ -57,7 +55,7 @@ Sort every choice into one of these.
 - **Multi-valued attribute** (one response → many options; one order → many line items): keep it filterable! Structured columns for predefined lists, or simple join tables, never opaque text. Structure is the user's call. Lean: easiest filtering, probably flat.
 - **Layering**: default **flat** — one self-contained table per thing, no hidden intermediate tables. Suggest a shared cleaned-up base table only for DRY, avoiding copying complex logic across many transforms. Even then, ask.
 - **Out-of-scope things**: surface every domain-model you find and ask in/out, rather than inferring scope from what they happened to mention.
-- **A repeating thing vs. the events it takes part in**: one table can mix a _stable_ thing (a customer, a company) with _repeating_ events (each order, each visit), copying the stable details onto every event row. If that thing genuinely recurs — same customer on many rows — consider a one-row-per-thing table too, linked by id, so "how many distinct X" and the per-X details have clean homes. Lean: split when recurrence is real, but one table when each appears once. (Phase 0's one-to-one / one-to-many check already tells you which.)
+- **A repeating thing vs. the events it takes part in**: one table can mix a _stable_ thing (a customer, a company) with _repeating_ events (each order, each visit), copying the stable details onto every event row. If that thing genuinely recurs — same customer on many rows — consider a one-row-per-thing table too, linked by id, so "how many distinct X" and the per-X details have clean homes. Lean: split when recurrence is real, one table when each appears once. (Phase 0's one-to-one / one-to-many check tells you which.)
 - **Handling sensitive data** (addresses, emails, phones, IPs, financial details): once you've flagged it (rule 8), _how_ to carry it is user's choice — keep as-is, mask (partial redaction), or drop. Lean: keep what is needed, mask the rest, drop the useless.
 
 Phrase a prudential call as a lean plus a nod:
@@ -70,11 +68,11 @@ Phrase a prudential call as a lean plus a nod:
 
 ### Phase 0 — Get Oriented
 
-**Pin down where the data lives — ask before you hunt.** A table or schema name the user mentions tells you _what_ but not _where_: an instance can hold several databases, each with several schemas. Rather than listing them all to find it, just ask — "Which database is this in, and the schema if you know it? No worries if you're not sure, I can find it." A confident answer short-circuits a lot of blind searching; "not sure" costs nothing and you fall back to locating it yourself. If you've genuinely looked and still can't find a table the user is sure is there, don't keep digging. One possible reason is that Metabase hasn't picked up that database's latest schema yet — gently raise it and ask whether the data's been synced recently, and let the user run the sync from Metabase if it's needed.
+**Pin down where the data lives — ask before you hunt.** A table or schema name the user mentions tells you _what_ but not _where_: an instance can hold several databases, each with several schemas. Rather than listing them all to find it, just ask — "Which database is this in, and the schema if you know it? No worries if not — I can find it." A confident answer short-circuits a lot of blind searching; "not sure" costs nothing and you fall back to locating it yourself. If you've genuinely looked and still can't find a table the user is sure is there, don't keep digging — one likely reason is Metabase hasn't synced that database's latest schema; gently raise it and let the user run the sync from Metabase.
 
 As soon as you know which database and schema you're in:
 
-- **Show the user the map.** Open the instance's schema map for that schema so they can follow along: `<base-url>/data-studio/schema-viewer?database-id=<db-id>&schema=<schema>`. Open it in their browser if you can (e.g. `open` / `xdg-open`); else paste the URL. Don't skip this.
+- **Show the user the map.** Open the instance's schema map so they can follow along: `<base-url>/data-studio/schema-viewer?database-id=<db-id>&schema=<schema>` — in their browser if you can (`open` / `xdg-open`), else paste the URL. Don't skip this.
 - **Ask for a head start.** "Do you have a picture or file showing how your data fits together, like an ERD?" If yes, read it — it shortcuts the next steps.
 - **Ask for their conventions.** "Is there already cleaned-up data, or a past project, that shows how your team likes this done?" If yes, inspect it: it tells you their naming, their idea of "clean," and existing tables worth linking to.
 
@@ -87,21 +85,21 @@ Orientation done, you're about to go heads-down. First, offer two ways to work:
 > - **I dig through it all and bring you a complete plan** to approve before I build anything — quieter; you won't hear much until it's ready.
 > - **We work it out together** — I share what I find and we make the calls as we go.
 
-First path: **enter plan mode** (`EnterPlanMode`). Everything up to the agreed table list — investigate, present, prudential calls, naming (Phases 1–3) — happens inside it, read-only; you exit once, at the approval gate before building (Phase 4). Second path: skip it, shape it conversationally through the same phases. Either way, don't build until the design is settled and user-approved.
+First path: **enter plan mode** (`EnterPlanMode`). Everything up to the agreed table list — investigate, present, prudential calls, naming (Phases 1–3) — happens inside it, read-only; you exit once, at the approval gate before building (Phase 4). Second path: skip it, shape it conversationally through the same phases. Either way, don't build until the design is settled and approved.
 
-Plan mode is a long quiet stretch — they said "go" and walked off. So whenever you surface — a question now, the plan at the end — **carry your own context**: recap what it rests on right before you ask, never a back-reference to something said while they were away (the router's contract spells this out).
+Plan mode is a long quiet stretch. So whenever you surface — a question now, the plan at the end — **carry your own context**: recap what it rests on right before you ask, never a back-reference to something said while they were away.
 
 Then dig in. Don't narrate this — a single "Let me take a look at what's in here — one minute" is enough. Keep it cheap: never pull whole-warehouse rollups (they blow up); use compact column listings, `LIMIT`/sample queries, and `GROUP BY count(*)`.
 
 1. **Map the tables.** List them; pull each one's column names and types; note its own id.
-2. **Find the decode tables.** Normalized SaaS data hides meaning in lookups — `*_field`, `*_field_choice`, `*_question`, `*_choice`, `*_type`. A column like `doodad_4471` is meaningless until you join the lookup and find it's _"Preferred vehicular transport"_. Build that code → label map yourself by joining the lookups — never hand the user a coded column and ask what it means — before showing them anything.
-3. **Prove the connections — don't trust declared keys.** Synced databases usually have none. If that's the case, ask the user if they have ERD or relationship information (screenshot, JSON, documentation, etc.). For each `<x>_id`, guess it points at `<x>`, then check what fraction of values actually match the target's id: high = real link, low = decoy, discard. Note one-to-one vs one-to-many. **Also look outward** — does a thing you're about to build already exist as clean data elsewhere in the instance (an existing customers table your people match, a product list)? If so, plan to _link_ to it, not duplicate it.
+2. **Find the decode tables.** Normalized SaaS data hides meaning in lookups — `*_field`, `*_field_choice`, `*_question`, `*_choice`, `*_type`. A column like `doodad_4471` is meaningless until you join the lookup and find it's _"Preferred vehicular transport"_. Build that code → label map yourself — never hand the user a coded column and ask what it means — before showing them anything.
+3. **Prove the connections — don't trust declared keys.** Synced databases usually have none. If that's the case, ask the user if they have ERD or relationship information (screenshot, JSON, documentation, etc.). For each `<x>_id`, guess it points at `<x>`, then check what fraction of values actually match the target's id: high = real link, low = decoy, discard. Note one-to-one vs one-to-many. **Also look outward** — does a thing you're about to build already exist as clean data elsewhere (an existing customers table, a product list)? If so, plan to _link_ to it, not duplicate it.
 4. **Pin down "one row per what."** Count rows; check the id is unique; figure out what a single row is. **Watch for lies:** a stale count column, or a table that looks like "all of X" but is a filtered subset.
-5. **Reconcile across related tables.** Do child rows all link to a parent? Orphans? Is one table a trimmed snapshot while another keeps everything? These mismatches matter and the user can't see them — you must.
+5. **Reconcile across related tables.** Do child rows all link to a parent? Orphans? Is one table a trimmed snapshot while another keeps everything? These mismatches matter and the user can't see them.
 6. **Profile the values.** List distinct values for coded/low-variety columns; check how full (% non-empty) any column you might drop is; spot multi-valued JSON fields. Profile with the cleaning checklist (end of file) in mind — surface the quality smells you hit, don't silently fix them.
 7. **Cluster into things.** Group tables and columns into the real-world things they describe — a thing may span several tables (one _customer_ across a main table + a loyalty table + custom-profile columns). Decide "one row per \_\_\_" for each and gather its attributes, decoded. Watch for a table that secretly mixes _two_ things — a stable thing plus its repeating events; that's the split in the prudential calls above.
 
-**Then, still quietly, sketch the design space.** Once the things and how they connect are pinned, brainstorm the range of questions this data could answer — finance views, leaderboards, breakdowns. **Don't show it to the user or build any of it.** It only pressure-tests your design: would a reasonable pivot to a nearby question force a rewrite? When keeping a column or finer grain _cheaply_ preserves that flexibility, keep it. Serve the user's stated concern — but don't scope so tightly that the next question means starting over.
+**Then, still quietly, sketch the design space.** Once the things and their connections are pinned, brainstorm the questions this data could answer — finance views, leaderboards, breakdowns. **Don't show it or build any of it.** It only pressure-tests your design: would a reasonable pivot to a nearby question force a rewrite? When keeping a column or finer grain _cheaply_ preserves that flexibility, keep it — don't scope so tightly that the next question means starting over.
 
 ### Phase 2 — Present what you found (plain language)
 
@@ -121,18 +119,18 @@ Three things, in order:
 > • **Real data** — gift-message text (6 of 10 orders), delivery instructions (most), preferred carrier. Minor, but real — want any kept?
 > • **Safe to drop** — duplicate product names in other languages, internal bookkeeping columns. No real loss.
 
-If you spotted existing clean data to link to (step 3), raise it here too — and **always run a suspected match past the user before wiring it; never graft onto their existing data silently.** Then ask your prudential questions, one at a time, each a lean-plus-nod.
+If you spotted existing clean data to link to (step 3), raise it here too — **always run a suspected match past the user before wiring it, never graft on silently.** Then ask your prudential questions, one at a time.
 
 ### Phase 3 — Iterate
 
-Cheap, because nothing's built. Adjust the set of things, what's kept, and the shape of any multi-valued pieces until the user's happy. **Agree on what each table will be called** — propose a clear name for each (matching any naming pattern you found in their existing data, Phase 0) and let them adjust. Confirm each name is free — not already an existing table or another transform's output (rule 9) — so building can't overwrite anyone's data. Settle the names before building: the name you agree on is the one you build and keep. Re-confirm the final picture in one short recap. **In plan mode, that recap _is_ your exit:** present it as the plan and call `ExitPlanMode` — approval here is the single go-ahead to build. (Iterating together? The recap is just your check before building.)
+Cheap, because nothing's built. Adjust the set of things, what's kept, and the shape of any multi-valued pieces until the user's happy. **Agree on what each table will be called** — propose a clear name for each (matching any naming pattern you found in their existing data, Phase 0) and let them adjust. Confirm each name is free — not already an existing table or another transform's output (rule 9) — so building can't overwrite anyone's data. The name you agree on is the one you build and keep. Re-confirm the final picture in one short recap. **In plan mode, that recap _is_ your exit:** present it as the plan and call `ExitPlanMode` — approval here is the single go-ahead to build. (Iterating together? The recap is just your check before building.)
 
 ### Phase 4 — Build, check, hand back
 
-Design settled — now you build, the first step that writes; plan mode, if you used it, is behind you. Build one wide transform per agreed thing — and build for how it'll be judged: aim for output that's readable on sight, not just one that runs clean. Each table:
+Design settled — now you build, the first step that writes; plan mode, if you used it, is behind you. Build one wide transform per agreed thing, for how it'll be judged: output that's readable on sight, not just one that runs clean. Each table:
 
 - **Denormalized, but the link stays.** Copy in related context so casual reading needs no lookups (a product's name and price on the orders table) — **and keep the linking id beside it** (the product's id too, per rule 6). Use the same id name everywhere a thing appears.
-- **Decoded**: codes and JSON become readable text; bookkeeping columns and soft-deleted rows are gone (filter the source's soft-delete flag — Fivetran's `_fivetran_deleted`, Airbyte's `_ab_cdc_deleted_at`, or a plain `deleted_at`/`is_deleted` — so tombstones never reach clean data; not every source has one).
+- **Decoded**: codes and JSON become readable text; bookkeeping columns and soft-deleted rows are gone (filter the source's soft-delete flag — Fivetran's `_fivetran_deleted`, Airbyte's `_ab_cdc_deleted_at`, or a plain `deleted_at`/`is_deleted` — so tombstones never reach clean data).
 - **Clean, plain column names**, consistent across tables.
 - **Multi-valued pieces** in the agreed filterable structure (rule 1).
 - **Keep the detail; don't pre-summarize it away.** Build the detailed rows (one per order, one per payment), not pre-computed totals. A convenience count is fine _beside_ the rows, never _instead of_ them — a frozen total only ever answers the one question it was summed for.
@@ -142,21 +140,21 @@ Then make the links real, not just implied:
 - **Wire foreign keys between your tables.** Mark each linking id as a foreign key pointing at the id it references (`mb field update` — set the column's type to foreign-key and its target). Now Metabase itself knows the tables connect and can traverse them.
 - **Graft onto existing clean data** the user approved (step 3 / Phase 1): point the linking id at the existing table's id the same way. Link, don't duplicate.
 
-**Set the metadata — a transform's output starts blank, and these tables are Library-bound.** A fresh transform table has no descriptions, raw column names, and untyped columns. You already worked all of it out while investigating; don't leave that knowledge stranded in this chat. Set it on the table so the data explains itself inside Metabase (search, the Question editor, Metabot) and is fit to publish:
+**Set the metadata — a transform's output starts blank, and these tables are Library-bound.** A fresh transform table has no descriptions, raw column names, and untyped columns. You worked it out while investigating; don't leave that knowledge stranded in this chat. Set it on the table so the data explains itself inside Metabase (search, the Question editor, Metabot) and is fit to publish:
 
-- **Semantic types — the highest-value piece.** A column's semantic type is what makes Metabase treat it right: `type/Email`, `type/Currency`/`type/Price`, `type/Category` (turns into a filter dropdown), `type/City`/`type/State`/`type/Country`, `type/CreationTimestamp`, `type/Description`. Set it on every column whose meaning you decoded — `mb field update <id> --body '{"semantic_type":"type/Currency"}'`. A typed column renders, filters, and charts correctly for everyone downstream; an untyped one is a guess.
+- **Semantic types — the highest-value piece.** A column's semantic type is what makes Metabase treat it right: `type/Email`, `type/Currency`/`type/Price`, `type/Category` (turns into a filter dropdown), `type/City`/`type/State`/`type/Country`, `type/CreationTimestamp`, `type/Description`. Set it on every column whose meaning you decoded — `mb field update <id> --body '{"semantic_type":"type/Currency"}'`. A typed column shows money as money, offers a filter dropdown, and lands on the right chart axis for everyone downstream; an untyped one is a guess.
 - **Descriptions.** A one-line description on each table and every non-obvious column (`mb table update` / `mb field update`).
 - **Display names.** When a cleaned-up column name still isn't plain English, set a readable `display_name`.
 
-When the semantics are **already spelled out** — the user is porting dbt models (the `schema.yml` carries column descriptions and types), or you settled each field's meaning together here — that documentation _is_ the metadata. Carry it straight onto the tables and fields rather than letting it evaporate when the chat ends.
+When the semantics are **already spelled out** — the user is porting dbt models (the `schema.yml` carries column descriptions and types), or you settled each field's meaning together here — that documentation _is_ the metadata. Carry it straight onto the tables and fields rather than letting it evaporate.
 
-When you start refining a built transform _with_ the user, open its inspector for them so you're looking at the same thing — `<base-url>/data-studio/transforms/<transform-id>/inspect` — opening it in their browser if you can, else pasting the URL. Iterate with `transform update`, never delete-and-recreate.
+When refining a built transform _with_ the user, open its inspector so you're looking at the same thing — `<base-url>/data-studio/transforms/<transform-id>/inspect` — in their browser if you can, else paste the URL. Iterate with `transform update`, never delete-and-recreate.
 
 **Check the output before handing back — the user can't.** Two passes, in order.
 
 **Pass 1 — Correctness (did it run right).** After each transform runs, run quick ad-hoc tests against what Phase 0 led you to expect: row counts in the right ballpark, decoded columns readable (no stray codes), linking ids that resolve to the other tables, no column unexpectedly all-null or blown up in count. Treat surprises as bugs to chase, not noise. A table that can't combine with the others — a dropped id, or the same id named two ways — is a silent failure; catch it here.
 
-**Pass 2 — Fitness (is it nice to use).** Correct isn't the bar; _usable_ is. `SELECT * FROM <table> LIMIT 20` and read every column left to right as if you'd never seen the source: would a non-technical person find each one readable? Smells that say not-yet, even though nothing errored:
+**Pass 2 — Fitness (is it nice to use).** Correct isn't the bar; _usable_ is. `SELECT * FROM <table> LIMIT 20` and read every column as if you'd never seen the source: would a non-technical person find each one readable? Smells that say not-yet, even though nothing errored:
 
 - a multi-valued column still a raw JSON/array blob or `["Email","SMS"]` text — rule 1 never actually got resolved;
 - decoded answers still carrying raw ids with no readable label, or one cryptic column per code;
@@ -174,7 +172,7 @@ Then report plainly:
 >
 > How they connect: each **Order** belongs to a **Customer**; each **Order** lists one or more **Products**.
 
-End on that connection map: it's what the user reads to trust the result, and what lets whatever they build next join the tables on the right ids instead of guessing how they relate.
+End on that connection map: it's what the user reads to trust the result, and what lets whatever they build next join on the right ids instead of guessing.
 
 These clean tables are exactly what belongs in the **Library** — published tables appear first when anyone picks a data source, so people start from your curated set, not the raw source. If the user wants that, mark them official with `mb library publish --table-ids <ids>` (`mb library create` first if the Library isn't set up; both need the `library` premium feature + admin/data-analyst). Defining reusable segments / measures / metrics on top is the **semantic-layer** skill's job.
 
@@ -187,7 +185,7 @@ The shape recurs across SaaS exports, whatever the domain. A coded column — sa
 Always decode _before_ presenting, so the user sees "Preferred contact method", never `c_4471`. Three cautions:
 
 - **Pull the readable name from the lookup, don't type it in.** The label (and any question text) should come _from_ the lookup's `name`, sourced in the query — not pasted as a literal. A hard-typed label goes wrong the moment the source changes.
-- **Codes are usually specific to today's data.** `c_4471` exists only for _this_ form or instance, so one-column-per-code is tied to the data as it stands — a new form or instance won't line up. When that's unavoidable, say so on hand-back ("reflects the current form; new questions need a refresh"), and with many such codes prefer the companion-table shape (one row per answer, question text from the lookup): nothing hard-typed, and adding a question is a smaller change.
+- **Codes are usually specific to today's data.** `c_4471` exists only for _this_ form or instance, so one-column-per-code is tied to the data as it stands — a new form won't line up. When that's unavoidable, say so on hand-back ("reflects the current form; new questions need a refresh"), and with many such codes prefer the companion-table shape (one row per answer, question text from the lookup): nothing hard-typed, and adding a question is a smaller change.
 - **Normalize encodings once.** Turn raw representations clean in the table itself, so nothing downstream re-derives them: signed amounts → clear positive numbers by kind, 0/1 → true/false, timestamps → one consistent timezone, text → trimmed and case-consistent, and junk placeholders (`"NULL"`, `"N/A"`, `"-"`, empty string) → real null.
 
 ---
@@ -206,4 +204,4 @@ A scan-list, not a pipeline — and the governing rule is **surface what you fin
 - **Missing data** — random vs. systematic? Surface the pattern; never silently impute or default.
 - **Free text / mixed encodings** — handle the safe parts, flag the rest.
 
-Already covered by the rules above, listed so they stay on your radar: structural reshaping (decode/JSON/multi-value), orphans & key validity (Phase 0 step 5 + the post-run check), filtering soft-deletes & dropping bookkeeping columns (Phase 4's **Decoded** step), and recording meanings (the descriptions step).
+Covered by the rules above, listed to stay on your radar: structural reshaping (decode/JSON/multi-value), orphans & key validity (Phase 0 step 5 + the post-run check), filtering soft-deletes & dropping bookkeeping columns (Phase 4's **Decoded** step), recording meanings (the descriptions step).
