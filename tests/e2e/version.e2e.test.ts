@@ -51,6 +51,7 @@ async function seedProbedProfile(configHome: string, major: number): Promise<voi
 
 const MEASURE_CAPABILITIES = { minVersion: 59 } as const;
 const TRANSFORM_CAPABILITIES = { minVersion: 59 } as const;
+const TRANSFORM_JOB_SET_ACTIVE_CAPABILITIES = { minVersion: 61 } as const;
 
 describe("version preflight e2e", () => {
   const tempDirs: string[] = [];
@@ -111,6 +112,7 @@ describe("version preflight e2e", () => {
     expect(transformCapabilities).toEqual({
       "transform list": TRANSFORM_CAPABILITIES,
       "transform get": TRANSFORM_CAPABILITIES,
+      "transform dependencies": TRANSFORM_CAPABILITIES,
       "transform create": TRANSFORM_CAPABILITIES,
       "transform update": TRANSFORM_CAPABILITIES,
       "transform delete": TRANSFORM_CAPABILITIES,
@@ -124,6 +126,9 @@ describe("version preflight e2e", () => {
       "transform-job create": TRANSFORM_CAPABILITIES,
       "transform-job update": TRANSFORM_CAPABILITIES,
       "transform-job delete": TRANSFORM_CAPABILITIES,
+      "transform-job run": TRANSFORM_CAPABILITIES,
+      "transform-job transforms": TRANSFORM_CAPABILITIES,
+      "transform-job set-active": TRANSFORM_JOB_SET_ACTIVE_CAPABILITIES,
     });
   });
 
