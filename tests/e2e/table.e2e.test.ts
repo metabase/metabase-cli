@@ -9,6 +9,9 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
+import { requireServer } from "./server-gate";
+
+const LIBRARY_FEATURE_PRESENT = requireServer({ tokenFeature: "library" }) === null;
 const SEEDED_WAREHOUSE_TABLES = [
   {
     id: SEEDED.tables.customers,
@@ -393,5 +396,119 @@ describe("table e2e", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("value did not match expected schema");
+  });
+
+  it("publish without --collection-id fails fast with ConfigError before any request", async () => {
+    const result = await runCli({
+      args: ["table", "publish", "--table-ids", String(SEEDED.tables.reviews), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "provide a target library collection with --collection-id <id>",
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("publish without any selector fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["table", "publish", "--collection-id", String(SEEDED.defaultCollectionId), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "provide at least one selector: --table-ids, --db-ids, or --schemas",
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("publish with a non-integer table id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: [
+        "table",
+        "publish",
+        "--collection-id",
+        String(SEEDED.defaultCollectionId),
+        "--table-ids",
+        "1,abc",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain('invalid table id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("unpublish without any selector fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["table", "unpublish", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "provide at least one selector: --table-ids, --db-ids, or --schemas",
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("unpublish with a non-integer database id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["table", "unpublish", "--db-ids", "x", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain('invalid database id: "x" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  describe.skipIf(LIBRARY_FEATURE_PRESENT)("without the library premium feature", () => {
+    it("publish surfaces the library paywall as an HttpError", async () => {
+      const result = await runCli({
+        args: [
+          "table",
+          "publish",
+          "--collection-id",
+          String(SEEDED.defaultCollectionId),
+          "--table-ids",
+          String(SEEDED.tables.reviews),
+          "--skip-preflight",
+          "--json",
+        ],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(cliErrorMessage(result.stderr)).toContain("Library is a paid feature");
+    });
+
+    it("unpublish surfaces the library paywall as an HttpError", async () => {
+      const result = await runCli({
+        args: [
+          "table",
+          "unpublish",
+          "--table-ids",
+          String(SEEDED.tables.reviews),
+          "--skip-preflight",
+          "--json",
+        ],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(cliErrorMessage(result.stderr)).toContain("Library is a paid feature");
+    });
   });
 });

@@ -47,6 +47,8 @@ describe("__manifest e2e", () => {
       "table metadata",
       "table fields",
       "table update",
+      "table publish",
+      "table unpublish",
       "field get",
       "field values",
       "field summary",

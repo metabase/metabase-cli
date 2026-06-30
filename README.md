@@ -469,6 +469,39 @@ mb table update 42 --file patch.json
 echo '{"description":"Customer dimension"}' | mb table update 42
 ```
 
+### `mb table publish`
+
+Publish tables to a library collection (`POST /api/ee/data-studio/table/publish-tables`), surfacing them as trusted data sources. The selected tables and every upstream table they depend on are set to the target `library-data` collection. Select tables with `--table-ids`, whole databases with `--db-ids`, or schemas with `--schemas` — the filters are combined. Requires the `library` premium feature.
+
+```sh
+mb table publish --collection-id 12 --table-ids 1,2,3
+mb table publish --collection-id 12 --db-ids 1 --json
+mb table publish --collection-id 12 --schemas 1:public,1:analytics
+```
+
+| Flag                   | Description                                                       |
+| ---------------------- | ----------------------------------------------------------------- |
+| `--collection-id <id>` | Target library collection id (required).                          |
+| `--table-ids <ids>`    | Comma-separated table ids.                                        |
+| `--db-ids <ids>`       | Comma-separated database ids.                                     |
+| `--schemas <ids>`      | Comma-separated schema ids, each `<db-id>:<schema>` (`1:public`). |
+
+### `mb table unpublish`
+
+Unpublish tables from the library (`POST /api/ee/data-studio/table/unpublish-tables`). Clears the library collection for the selected tables and every downstream table that depends on them. Same selector flags as `publish` (minus `--collection-id`). Requires the `library` premium feature.
+
+```sh
+mb table unpublish --table-ids 1,2,3
+mb table unpublish --db-ids 1 --json
+mb table unpublish --schemas 1:public,1:analytics
+```
+
+| Flag                | Description                                                       |
+| ------------------- | ----------------------------------------------------------------- |
+| `--table-ids <ids>` | Comma-separated table ids.                                        |
+| `--db-ids <ids>`    | Comma-separated database ids.                                     |
+| `--schemas <ids>`   | Comma-separated schema ids, each `<db-id>:<schema>` (`1:public`). |
+
 ## Fields
 
 Inspect and edit individual columns via `/api/field`.
