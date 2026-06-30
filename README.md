@@ -129,6 +129,14 @@ mb transform list --json
 mb transform get 1 --json
 ```
 
+### `mb transform dependencies <id>`
+
+List the upstream transforms this transform depends on (the ones that must run before it). The positional id is a transform id.
+
+```sh
+mb transform dependencies 1 --json
+```
+
 ### `mb transform create`
 
 ```sh

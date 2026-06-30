@@ -77,6 +77,7 @@ describe("__manifest e2e", () => {
       "document archive",
       "transform list",
       "transform get",
+      "transform dependencies",
       "transform create",
       "transform update",
       "transform delete",

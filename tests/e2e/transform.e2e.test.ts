@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { DeleteResult } from "../../src/commands/delete-runtime";
 import { TransformCancelResult } from "../../src/commands/transform/cancel";
+import { TransformDependenciesEnvelope } from "../../src/commands/transform/dependencies";
 import { TransformListEnvelope } from "../../src/commands/transform/list";
 import { RUN_TERMINAL_STATUSES, TransformRunResult } from "../../src/commands/transform/run";
 import { TransformRunListEnvelope } from "../../src/commands/transform/runs";
@@ -819,6 +820,43 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     expect(message).toContain("A Transform can only go in Collections");
     expect(message).toContain("--namespace transforms");
     expect(result.stdout).toBe("");
+  });
+
+  it("dependencies returns an empty envelope for a standalone transform", async () => {
+    await createSeedTransform();
+
+    const result = await runCli({
+      args: ["transform", "dependencies", String(FIRST_TRANSFORM_ID), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TransformDependenciesEnvelope)).toEqual({
+      data: [],
+      returned: 0,
+      total: 0,
+    });
+  });
+
+  it("dependencies with a non-integer id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["transform", "dependencies", "abc", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("dependencies against a missing id surfaces a 404 HttpError", async () => {
+    const result = await runCli({
+      args: ["transform", "dependencies", "9999999", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Not found: GET /api/transform/9999999/dependencies.");
   });
 });
 
