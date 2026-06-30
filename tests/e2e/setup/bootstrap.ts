@@ -9,7 +9,7 @@ import { createClient, type Client } from "../../../src/core/http/client";
 import { HttpError } from "../../../src/core/http/errors";
 import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries } from "../../../src/core/http/retry";
 import { tryDiscoverMetadata } from "../../../src/core/http/oauth";
-import { probeServer } from "../../../src/core/version/probe";
+import { probeServer, type ServerInfo } from "../../../src/core/version/probe";
 import { CardQueryResult } from "../../../src/domain/card";
 import { CurrentUser } from "../../../src/domain/user";
 import { parseJsonResult } from "../../../src/runtime/json";
@@ -57,6 +57,8 @@ const ORDERS_BY_STATUS_SQL = "SELECT status, COUNT(*) AS n FROM orders GROUP BY 
 const ORDERS_OVERVIEW_DASHBOARD_NAME = "Orders Overview";
 const ORDERS_OVERVIEW_DASHBOARD_DESCRIPTION = "E2E seeded dashboard with one orders dashcard.";
 const LIMITED_GROUP_NAME = "E2E Limited";
+const LIBRARY_FEATURE = "library";
+const LIBRARY_MIN_VERSION = 59;
 
 const BASE_URL = resolveE2EBaseUrl();
 
@@ -103,8 +105,8 @@ async function main(): Promise<void> {
   });
 
   const apiKeyUser = await client.requestParsed(CurrentUser, "/api/user/current");
-  const seeded = await seedContent(client);
   const probed = await probeServer(client, { retries: DEFAULT_MAX_RETRIES });
+  const seeded = await seedContent(client, libraryReady(probed));
   const oauthSupported = (await tryDiscoverMetadata(BASE_URL)) !== null;
   const server = { ...probed, oauthSupported };
 
@@ -266,7 +268,17 @@ async function assertLimitedKeyCannotQueryOrdersCard(
   );
 }
 
-async function seedContent(client: Client): Promise<SeededIds> {
+// Mirrors tests/e2e/server-gate.ts: a null (unparseable head/dev) version counts as the latest, so
+// the library round-trip seeds and runs on head images; real sub-59 images parse to a major below
+// the floor and skip seeding, since their `/api/ee/library` endpoints don't exist yet.
+function libraryReady(server: ServerInfo): boolean {
+  if (server.tokenFeatures?.[LIBRARY_FEATURE] !== true) {
+    return false;
+  }
+  return server.version === null || server.version.major >= LIBRARY_MIN_VERSION;
+}
+
+async function seedContent(client: Client, libraryEnabled: boolean): Promise<SeededIds> {
   const warehouseDbId = await createEntityId(client, "/api/database", {
     name: WAREHOUSE_DB_NAME,
     engine: "postgres",
@@ -327,6 +339,8 @@ async function seedContent(client: Client): Promise<SeededIds> {
 
   const { tables, fields } = await discoverWarehouseSchema(client, warehouseDbId);
 
+  const libraryDataCollectionId = libraryEnabled ? await ensureLibraryDataCollection(client) : null;
+
   return {
     warehouseDbId,
     defaultCollectionId,
@@ -335,7 +349,52 @@ async function seedContent(client: Client): Promise<SeededIds> {
     ordersDashcardId,
     tables,
     fields,
+    libraryDataCollectionId,
   };
+}
+
+const LIBRARY_DATA_COLLECTION_TYPE = "library-data";
+
+// `/api/collection?include-library=true` mixes numeric ids with the virtual `root` string id, so
+// the id is a union; real library collections always carry a numeric id.
+const LibraryCollectionResponse = z
+  .object({
+    id: z.union([z.number().int().positive(), z.string()]),
+    type: z.string().nullable().optional(),
+  })
+  .loose();
+const LibraryCollectionListResponse = z.array(LibraryCollectionResponse);
+
+// The Library's Data/Metrics collections don't exist until the Library is created. POST
+// /api/ee/library/ is the one-time initializer (it 4xxs if already created), so check for the
+// `library-data` collection first and only create when absent.
+async function ensureLibraryDataCollection(client: Client): Promise<number> {
+  const existing = await findLibraryDataCollectionId(client);
+  if (existing !== null) {
+    return existing;
+  }
+  await client.requestRaw("/api/ee/library/", { method: "POST" });
+  const created = await findLibraryDataCollectionId(client);
+  if (created === null) {
+    throw new Error("bootstrap: library-data collection missing after POST /api/ee/library/");
+  }
+  return created;
+}
+
+async function findLibraryDataCollectionId(client: Client): Promise<number | null> {
+  const collections = await client.requestParsed(LibraryCollectionListResponse, "/api/collection", {
+    query: { "include-library": true },
+  });
+  const dataCollection = collections.find((c) => c.type === LIBRARY_DATA_COLLECTION_TYPE);
+  if (dataCollection === undefined) {
+    return null;
+  }
+  if (typeof dataCollection.id !== "number") {
+    throw new Error(
+      `bootstrap: library-data collection has non-numeric id ${String(dataCollection.id)}`,
+    );
+  }
+  return dataCollection.id;
 }
 
 async function createEntityId(client: Client, path: string, body: unknown): Promise<number> {

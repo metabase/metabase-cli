@@ -2,6 +2,8 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { FieldListEnvelope } from "../../src/commands/table/fields";
 import { TableListEnvelope } from "../../src/commands/table/list";
+import { TablePublishResult } from "../../src/commands/table/publish";
+import { TableUnpublishResult } from "../../src/commands/table/unpublish";
 import { Table, TableCompact } from "../../src/domain/table";
 import { parseJson } from "../../src/runtime/json";
 
@@ -9,6 +11,10 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
+import { requireServer } from "./server-gate";
+
+const LIBRARY_UNAVAILABLE = requireServer({ minVersion: 59, tokenFeature: "library" });
+
 const SEEDED_WAREHOUSE_TABLES = [
   {
     id: SEEDED.tables.customers,
@@ -393,5 +399,125 @@ describe("table e2e", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("value did not match expected schema");
+  });
+
+  it("publish without --collection-id fails fast with ConfigError before any request", async () => {
+    const result = await runCli({
+      args: ["table", "publish", "--table-ids", String(SEEDED.tables.reviews), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "provide a target library collection with --collection-id <id>",
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("publish without any selector fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["table", "publish", "--collection-id", String(SEEDED.defaultCollectionId), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "provide at least one selector: --table-ids, --db-ids, or --schemas",
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("publish with a non-integer table id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: [
+        "table",
+        "publish",
+        "--collection-id",
+        String(SEEDED.defaultCollectionId),
+        "--table-ids",
+        "1,abc",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain('invalid table id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("unpublish without any selector fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["table", "unpublish", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "provide at least one selector: --table-ids, --db-ids, or --schemas",
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("unpublish with a non-integer database id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["table", "unpublish", "--db-ids", "x", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain('invalid database id: "x" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  describe.skipIf(LIBRARY_UNAVAILABLE !== null)("library publish round-trip", () => {
+    it("publishes a table to the library Data collection, then unpublishes it", async () => {
+      const collectionId = SEEDED.libraryDataCollectionId;
+      if (collectionId === null) {
+        throw new Error("expected a seeded library-data collection when the library feature is on");
+      }
+
+      const publish = await runCli({
+        args: [
+          "table",
+          "publish",
+          "--collection-id",
+          String(collectionId),
+          "--table-ids",
+          String(SEEDED.tables.reviews),
+          "--json",
+        ],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+
+      expect(publish.exitCode, publish.stderr).toBe(0);
+      const target = parseJson(publish.stdout, TablePublishResult).target_collection;
+      if (target === null) {
+        throw new Error("expected a target_collection in the publish response");
+      }
+      expect({ id: target.id, name: target.name, type: target.type }).toEqual({
+        id: collectionId,
+        name: "Data",
+        type: "library-data",
+      });
+
+      const unpublish = await runCli({
+        args: ["table", "unpublish", "--table-ids", String(SEEDED.tables.reviews), "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+
+      expect(unpublish.exitCode, unpublish.stderr).toBe(0);
+      expect(parseJson(unpublish.stdout, TableUnpublishResult)).toEqual({
+        unpublished: true,
+        table_ids: [SEEDED.tables.reviews],
+      });
+    });
   });
 });
