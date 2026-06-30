@@ -141,7 +141,14 @@ Then make the links real, not just implied:
 
 - **Wire foreign keys between your tables.** Mark each linking id as a foreign key pointing at the id it references (`mb field update` — set the column's type to foreign-key and its target). Now Metabase itself knows the tables connect and can traverse them.
 - **Graft onto existing clean data** the user approved (step 3 / Phase 1): point the linking id at the existing table's id the same way. Link, don't duplicate.
-- **Write down what you learned.** You decoded every column's real meaning while investigating — save it: set a short description on each table and its non-obvious columns (`mb table update` / `mb field update`). The cleaned data then explains itself inside Metabase — in search, in the Question editor, to Metabot — instead of the knowledge living only in this chat.
+
+**Set the metadata — a transform's output starts blank, and these tables are Library-bound.** A fresh transform table has no descriptions, raw column names, and untyped columns. You already worked all of it out while investigating; don't leave that knowledge stranded in this chat. Set it on the table so the data explains itself inside Metabase (search, the Question editor, Metabot) and is fit to publish:
+
+- **Semantic types — the highest-value piece.** A column's semantic type is what makes Metabase treat it right: `type/Email`, `type/Currency`/`type/Price`, `type/Category` (turns into a filter dropdown), `type/City`/`type/State`/`type/Country`, `type/CreationTimestamp`, `type/Description`. Set it on every column whose meaning you decoded — `mb field update <id> --body '{"semantic_type":"type/Currency"}'`. A typed column renders, filters, and charts correctly for everyone downstream; an untyped one is a guess.
+- **Descriptions.** A one-line description on each table and every non-obvious column (`mb table update` / `mb field update`).
+- **Display names.** When a cleaned-up column name still isn't plain English, set a readable `display_name`.
+
+When the semantics are **already spelled out** — the user is porting dbt models (the `schema.yml` carries column descriptions and types), or you settled each field's meaning together here — that documentation _is_ the metadata. Carry it straight onto the tables and fields rather than letting it evaporate when the chat ends.
 
 When you start refining a built transform _with_ the user, open its inspector for them so you're looking at the same thing — `<base-url>/data-studio/transforms/<transform-id>/inspect` — opening it in their browser if you can, else pasting the URL. Iterate with `transform update`, never delete-and-recreate.
 
