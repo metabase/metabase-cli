@@ -2,18 +2,68 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { DeleteResult } from "../../src/commands/delete-runtime";
 import { TransformJobListEnvelope } from "../../src/commands/transform-job/list";
+import { TransformJobRunResult } from "../../src/commands/transform-job/run";
+import { TransformJobActiveResult } from "../../src/commands/transform-job/set-active";
+import { TransformJobTransformsEnvelope } from "../../src/commands/transform-job/transforms";
 import { TransformJobCompact } from "../../src/domain/transform-job";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
+import { SEEDED } from "./seed/seeded";
 import { requireServer } from "./server-gate";
 
 const VALID_CRON = "0 0 0 * * ?";
 const SECOND_CRON = "0 0 6 * * ?";
 const JOB_NAME = "e2e_job";
 const FIRST_USER_JOB_ID = 5;
+const HOURLY_JOB_ID = 1;
+const DAILY_JOB_ID = 2;
+const DAILY_TAG_ID = 2;
+const JOB_TRANSFORM_NAME = "e2e_job_transform";
+
+interface JobTransformNativeQuery {
+  type: "native";
+  database: number;
+  native: { query: string };
+}
+
+interface JobTransformBody {
+  name: string;
+  source: { type: "query"; query: JobTransformNativeQuery };
+  target: { type: "table"; database: number; schema: string; name: string };
+  tag_ids: number[];
+}
+
+const JOB_TRANSFORM_BODY: JobTransformBody = {
+  name: JOB_TRANSFORM_NAME,
+  source: {
+    type: "query",
+    query: { type: "native", database: SEEDED.warehouseDbId, native: { query: "SELECT 1 AS one" } },
+  },
+  target: {
+    type: "table",
+    database: SEEDED.warehouseDbId,
+    schema: "public",
+    name: JOB_TRANSFORM_NAME,
+  },
+  tag_ids: [DAILY_TAG_ID],
+};
+
+const JOB_TRANSFORM_COMPACT = {
+  id: 1,
+  name: JOB_TRANSFORM_NAME,
+  description: null,
+  source_type: "native",
+  target_db_id: SEEDED.warehouseDbId,
+  target: {
+    type: "table",
+    database: SEEDED.warehouseDbId,
+    schema: "public",
+    name: JOB_TRANSFORM_NAME,
+  },
+} as const;
 
 const BUILT_IN_JOBS = [
   {
@@ -253,5 +303,159 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       `refusing to delete ${FIRST_USER_JOB_ID} without confirmation — pass --yes to proceed non-interactively`,
     );
     expect(result.stdout).toBe("");
+  });
+
+  async function createJobTransform(): Promise<void> {
+    const result = await runCli({
+      args: ["transform", "create", "--json"],
+      stdin: JSON.stringify(JOB_TRANSFORM_BODY),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+  }
+
+  it("run triggers a manual job run", async () => {
+    const result = await runCli({
+      args: ["transform-job", "run", String(HOURLY_JOB_ID), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TransformJobRunResult).message).toBe("Job run started");
+  });
+
+  it("run --force-refresh triggers a manual job run", async () => {
+    const result = await runCli({
+      args: ["transform-job", "run", String(HOURLY_JOB_ID), "--force-refresh", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TransformJobRunResult).message).toBe("Job run started");
+  });
+
+  it("run with a non-integer id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["transform-job", "run", "abc", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("run against a missing id surfaces a 404 HttpError", async () => {
+    const result = await runCli({
+      args: ["transform-job", "run", "9999999", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Not found: POST /api/transform-job/9999999/run.");
+  });
+
+  it("transforms lists the transforms a job resolves to by tag", async () => {
+    await createJobTransform();
+
+    const result = await runCli({
+      args: ["transform-job", "transforms", String(DAILY_JOB_ID), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TransformJobTransformsEnvelope)).toEqual({
+      data: [JOB_TRANSFORM_COMPACT],
+      returned: 1,
+      total: 1,
+    });
+  });
+
+  it("transforms is empty for a job with no tagged transforms", async () => {
+    const result = await runCli({
+      args: ["transform-job", "transforms", String(HOURLY_JOB_ID), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TransformJobTransformsEnvelope)).toEqual({
+      data: [],
+      returned: 0,
+      total: 0,
+    });
+  });
+
+  it("transforms with a non-integer id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["transform-job", "transforms", "abc", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("transforms against a missing id surfaces a 404 HttpError", async () => {
+    const result = await runCli({
+      args: ["transform-job", "transforms", "9999999", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Not found: GET /api/transform-job/9999999/transforms.");
+  });
+
+  describe.skipIf(requireServer({ minVersion: 61 }) !== null)("set-active", () => {
+    it("set-active false deactivates every job", async () => {
+      const result = await runCli({
+        args: ["transform-job", "set-active", "false", "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, TransformJobActiveResult)).toEqual({
+        updated: BUILT_IN_JOBS.length,
+        failed: 0,
+      });
+
+      const listResult = await runCli({
+        args: ["transform-job", "list", "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+      expect(listResult.exitCode, listResult.stderr).toBe(0);
+      const actives = parseJson(listResult.stdout, TransformJobListEnvelope).data.map(
+        (job) => job.active,
+      );
+      expect(actives).toEqual(Array.from({ length: BUILT_IN_JOBS.length }, () => false));
+    });
+
+    it("set-active true is a no-op when every job is already active", async () => {
+      const result = await runCli({
+        args: ["transform-job", "set-active", "true", "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, TransformJobActiveResult)).toEqual({
+        updated: 0,
+        failed: 0,
+      });
+    });
+
+    it("set-active with an invalid value fails fast with ConfigError", async () => {
+      const result = await runCli({
+        args: ["transform-job", "set-active", "maybe", "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorMessage(result.stderr)).toContain(
+        'invalid active: "maybe" (expected one of: true, false)',
+      );
+      expect(result.stdout).toBe("");
+    });
   });
 });

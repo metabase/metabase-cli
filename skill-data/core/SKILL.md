@@ -12,7 +12,7 @@ Top-level command groups (run `mb <group> --help` to discover verbs):
 
 ```
 auth | db | table | field | query | card | dashboard | snippet | segment | measure | collection
-document | transform | transform-job | setting | search | git-sync | setup | eid | uuid | upgrade | skills
+document | transform | transform-job | transform-tag | setting | search | git-sync | setup | eid | uuid | upgrade | skills
 ```
 
 The patterns below — auth, flag conventions, output flags, body input — apply across **every** group. Per-command flags, examples, and output schemas live in `mb __manifest` (see below). A few flows have their own specialized skills (see "Specialized skills"). When a card needs a query, prefer MBQL over native SQL (portable, pre-flight-validated) — load `mbql`; fall back to native SQL when MBQL can't express it.

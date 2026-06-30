@@ -129,6 +129,14 @@ mb transform list --json
 mb transform get 1 --json
 ```
 
+### `mb transform dependencies <id>`
+
+List the upstream transforms this transform depends on (the ones that must run before it). The positional id is a transform id.
+
+```sh
+mb transform dependencies 1 --json
+```
+
 ### `mb transform create`
 
 ```sh
@@ -245,6 +253,73 @@ mb transform-job update 1 --body '{"schedule":"0 0 6 * * ?"}'
 
 ```sh
 mb transform-job delete 1 --yes
+```
+
+| Flag    | Description                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
+
+### `mb transform-job run <id>`
+
+Trigger a job manually and return immediately. The job runs every transform carrying one of the job's tags, plus those transforms' dependencies.
+
+```sh
+mb transform-job run 1
+mb transform-job run 1 --force-refresh --json
+```
+
+| Flag              | Description                                                                                         |
+| ----------------- | --------------------------------------------------------------------------------------------------- |
+| `--force-refresh` | Re-run the whole plan, including dependency transforms that are already fresh (skipped by default). |
+
+### `mb transform-job transforms <id>`
+
+List the transforms a job would run, resolved by the job's tags. The positional id is a job id.
+
+```sh
+mb transform-job transforms 1 --json
+```
+
+### `mb transform-job set-active <true|false>`
+
+Activate or deactivate every transform job at once (admin only). Inactive jobs do not run on schedule; manual runs ignore the flag.
+
+```sh
+mb transform-job set-active false
+mb transform-job set-active true --json
+```
+
+## Transform tags
+
+CRUD on `/api/transform-tag`. Tags group transforms and jobs; reference them by id via the `tag_ids` field on a transform or job. The four built-in tags (`hourly`, `daily`, `weekly`, `monthly`) drive the built-in jobs. There is no get-by-id endpoint — use `list`.
+
+### `mb transform-tag list`
+
+```sh
+mb transform-tag list --json
+```
+
+### `mb transform-tag create`
+
+```sh
+mb transform-tag create --body '{"name":"nightly"}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb transform-tag update <id>`
+
+```sh
+mb transform-tag update 5 --body '{"name":"renamed"}'
+```
+
+### `mb transform-tag delete <id>`
+
+```sh
+mb transform-tag delete 5 --yes
 ```
 
 | Flag    | Description                                                                                                                       |
