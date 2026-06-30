@@ -15,6 +15,7 @@ import {
   type ConfigFlags,
   type ResolvedConfig,
 } from "../core/config";
+import { consumeLegacyEnvWarnings } from "../core/env";
 import { createClient, type Client } from "../core/http/client";
 import {
   BASELINE_CAPABILITIES,
@@ -112,7 +113,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
             getServerInfo,
           });
         } finally {
-          emitPendingStorageWarnings();
+          emitPendingWarnings();
         }
       } catch (error) {
         reportError(error, reportFormat);
@@ -128,7 +129,10 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
   return cmd;
 }
 
-function emitPendingStorageWarnings(): void {
+function emitPendingWarnings(): void {
+  for (const message of consumeLegacyEnvWarnings()) {
+    warn(message);
+  }
   const legacy = consumeLegacyStorageWarning();
   if (legacy !== null) {
     warn(legacy);

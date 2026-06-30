@@ -11,18 +11,14 @@ import {
   readProfileRecord,
   writeOAuthProfile,
 } from "./auth/storage";
+import { ENV_API_KEY, ENV_PROFILE, ENV_SKIP_PREFLIGHT, ENV_URL, readEnv } from "./env";
 import { ConfigError } from "./errors";
 import { normalizeUrl } from "./url";
-
-const ENV_URL = "METABASE_URL";
-const ENV_API_KEY = "METABASE_API_KEY";
-const ENV_PROFILE = "METABASE_PROFILE";
-const ENV_SKIP_PREFLIGHT = "METABASE_CLI_SKIP_PREFLIGHT";
 
 export const SKIP_PREFLIGHT_ENV = ENV_SKIP_PREFLIGHT;
 
 export function isPreflightSkipped(): boolean {
-  return process.env[ENV_SKIP_PREFLIGHT] === "1";
+  return readEnv(ENV_SKIP_PREFLIGHT) === "1";
 }
 
 export type ConfigSource = "flag" | "env" | "stored" | "mixed";
@@ -60,13 +56,13 @@ export function resolveProfileName(profileFlag: string | undefined): string {
 }
 
 export function explicitProfileName(profileFlag: string | undefined): string | null {
-  return profileFlag || process.env[ENV_PROFILE] || null;
+  return profileFlag || readEnv(ENV_PROFILE) || null;
 }
 
 export function readEnvCredentials(): EnvCredentials {
   return {
-    url: process.env[ENV_URL] ?? null,
-    apiKey: process.env[ENV_API_KEY] ?? null,
+    url: readEnv(ENV_URL) ?? null,
+    apiKey: readEnv(ENV_API_KEY) ?? null,
   };
 }
 
@@ -103,7 +99,7 @@ export async function resolveConfig(flags: ConfigFlags): Promise<ResolvedConfig>
 }
 
 // A stored OAuth credential's bearer/refresh tokens are bound to the issuer that minted them.
-// Refuse to send them to a different host named by --url/METABASE_URL: that would leak the bearer
+// Refuse to send them to a different host named by --url/MB_URL: that would leak the bearer
 // token to the foreign host, and the 401-refresh loop would keep minting fresh tokens for it too.
 // API-key credentials are unaffected (and only OAuth credentials ever come from a stored profile).
 function assertOAuthUrlMatchesIssuer(

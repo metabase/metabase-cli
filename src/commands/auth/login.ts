@@ -60,7 +60,7 @@ const loginView: ResourceView<LoginResultJson> = {
 export default defineMetabaseCommand({
   meta: { name: "login", description: "Log in to a Metabase instance for a profile" },
   details:
-    "Interactive login offers browser OAuth (recommended; Metabase v63+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a refreshing access token. For CI/non-interactive use, supply an API key via --api-key, piped stdin, or $METABASE_API_KEY (first non-empty wins); any of these skips the browser flow, even on a TTY. The URL comes from --url or $METABASE_URL, prompted when stdin is a TTY.",
+    "Interactive login offers browser OAuth (recommended; Metabase v63+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a refreshing access token. For CI/non-interactive use, supply an API key via --api-key, piped stdin, or $MB_API_KEY (first non-empty wins); any of these skips the browser flow, even on a TTY. The URL comes from --url or $MB_URL, prompted when stdin is a TTY.",
   capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
@@ -80,7 +80,7 @@ export default defineMetabaseCommand({
   outputSchema: LoginResult,
   examples: [
     "mb auth login --url https://metabase.example.com",
-    "echo $METABASE_API_KEY | mb auth login --url https://metabase.example.com",
+    "echo $MB_API_KEY | mb auth login --url https://metabase.example.com",
     "mb auth login --profile staging --url https://staging.example.com",
   ],
   async run({ args, ctx }) {
@@ -89,7 +89,7 @@ export default defineMetabaseCommand({
 
     if (args.apiKey) {
       warn(
-        "warning: --api-key is visible in shell history and process listings — pipe the key on stdin or set METABASE_API_KEY instead",
+        "warning: --api-key is visible in shell history and process listings — pipe the key on stdin or set MB_API_KEY instead",
       );
     }
 
@@ -110,7 +110,7 @@ export default defineMetabaseCommand({
 
     if (!process.stdin.isTTY) {
       throw new ConfigError(
-        "interactive login requires a TTY; pass --api-key or set METABASE_API_KEY for non-interactive login",
+        "interactive login requires a TTY; pass --api-key or set MB_API_KEY for non-interactive login",
       );
     }
 
@@ -341,7 +341,7 @@ async function nonInteractiveApiKey(
   }
   if (envKey) {
     if (process.stdin.isTTY) {
-      warn("using the API key from $METABASE_API_KEY; unset it to choose browser login");
+      warn("using the API key from $MB_API_KEY; unset it to choose browser login");
     }
     return envKey;
   }

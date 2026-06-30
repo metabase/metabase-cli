@@ -3,8 +3,6 @@ import { core as zodCore, ZodError } from "zod";
 
 import { escapeJsonPointerSegment } from "./json-pointer";
 
-export const VERBOSE_ENV = "METABASE_VERBOSE";
-
 export type ErrorCategory =
   | "network"
   | "http"

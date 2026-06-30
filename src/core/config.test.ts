@@ -69,15 +69,20 @@ const REFRESHED_OAUTH: OAuthCredential = {
   clientId: "c1",
 };
 
+function clearConfigEnv(): void {
+  for (const name of ["URL", "API_KEY", "PROFILE"]) {
+    delete process.env[`MB_${name}`];
+    delete process.env[`METABASE_${name}`];
+  }
+}
+
 describe("resolveConfig", () => {
   let home: TempConfigHome;
 
   beforeEach(() => {
     hoisted.store.clear();
     home = setupTempConfigHome();
-    delete process.env["METABASE_URL"];
-    delete process.env["METABASE_API_KEY"];
-    delete process.env["METABASE_PROFILE"];
+    clearConfigEnv();
   });
 
   afterEach(() => {
@@ -85,8 +90,8 @@ describe("resolveConfig", () => {
   });
 
   it("prefers flags over environment and stored creds", async () => {
-    process.env["METABASE_URL"] = "http://env";
-    process.env["METABASE_API_KEY"] = "env-key";
+    process.env["MB_URL"] = "http://env";
+    process.env["MB_API_KEY"] = "env-key";
     const config = await resolveConfig({
       url: "https://flag.example.com",
       apiKey: "flag-key",
@@ -100,8 +105,8 @@ describe("resolveConfig", () => {
   });
 
   it("falls back to environment", async () => {
-    process.env["METABASE_URL"] = "https://env.example.com/";
-    process.env["METABASE_API_KEY"] = "env-key";
+    process.env["MB_URL"] = "https://env.example.com/";
+    process.env["MB_API_KEY"] = "env-key";
     const config = await resolveConfig({});
     expect(config).toEqual({
       url: "https://env.example.com",
@@ -137,10 +142,10 @@ describe("resolveConfig", () => {
     });
   });
 
-  it("reads the named profile when METABASE_PROFILE is set", async () => {
+  it("reads the named profile when MB_PROFILE is set", async () => {
     await writeProfile({ url: "https://default.example.com", apiKey: "default-key" });
     await writeProfile({ url: "https://prod.example.com", apiKey: "prod-key" }, "prod");
-    process.env["METABASE_PROFILE"] = "prod";
+    process.env["MB_PROFILE"] = "prod";
     const config = await resolveConfig({});
     expect(config).toEqual({
       url: "https://prod.example.com",
@@ -150,10 +155,10 @@ describe("resolveConfig", () => {
     });
   });
 
-  it("flag profile beats METABASE_PROFILE env var", async () => {
+  it("flag profile beats MB_PROFILE env var", async () => {
     await writeProfile({ url: "https://staging.example.com", apiKey: "staging-key" }, "staging");
     await writeProfile({ url: "https://prod.example.com", apiKey: "prod-key" }, "prod");
-    process.env["METABASE_PROFILE"] = "prod";
+    process.env["MB_PROFILE"] = "prod";
     const config = await resolveConfig({ profile: "staging" });
     expect(config).toEqual({
       url: "https://staging.example.com",
@@ -176,7 +181,7 @@ describe("resolveConfig", () => {
 
   it("composes env-only apiKey with stored url (mixed source)", async () => {
     await writeProfile({ url: "https://saved.example.com", apiKey: "saved-key" });
-    process.env["METABASE_API_KEY"] = "env-key";
+    process.env["MB_API_KEY"] = "env-key";
     const config = await resolveConfig({});
     expect(config).toEqual({
       url: "https://saved.example.com",
@@ -259,6 +264,7 @@ describe("resolveProfileName", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
+    delete process.env["MB_PROFILE"];
     delete process.env["METABASE_PROFILE"];
   });
 
@@ -267,12 +273,12 @@ describe("resolveProfileName", () => {
   });
 
   it("returns the flag value when provided", () => {
-    process.env["METABASE_PROFILE"] = "env-profile";
+    process.env["MB_PROFILE"] = "env-profile";
     expect(resolveProfileName("flag-profile")).toBe("flag-profile");
   });
 
-  it("falls back to METABASE_PROFILE when no flag", () => {
-    process.env["METABASE_PROFILE"] = "env-profile";
+  it("falls back to MB_PROFILE when no flag", () => {
+    process.env["MB_PROFILE"] = "env-profile";
     expect(resolveProfileName(undefined)).toBe("env-profile");
   });
 
@@ -285,6 +291,7 @@ describe("explicitProfileName", () => {
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
+    delete process.env["MB_PROFILE"];
     delete process.env["METABASE_PROFILE"];
   });
 
@@ -293,12 +300,12 @@ describe("explicitProfileName", () => {
   });
 
   it("returns the flag value when provided", () => {
-    process.env["METABASE_PROFILE"] = "env-profile";
+    process.env["MB_PROFILE"] = "env-profile";
     expect(explicitProfileName("flag-profile")).toBe("flag-profile");
   });
 
-  it("returns METABASE_PROFILE when no flag", () => {
-    process.env["METABASE_PROFILE"] = "env-profile";
+  it("returns MB_PROFILE when no flag", () => {
+    process.env["MB_PROFILE"] = "env-profile";
     expect(explicitProfileName(undefined)).toBe("env-profile");
   });
 
@@ -314,9 +321,7 @@ describe("resolveConfig OAuth credentials", () => {
     hoisted.store.clear();
     hoisted.refreshUrls = [];
     home = setupTempConfigHome();
-    delete process.env["METABASE_URL"];
-    delete process.env["METABASE_API_KEY"];
-    delete process.env["METABASE_PROFILE"];
+    clearConfigEnv();
   });
 
   afterEach(() => {
@@ -349,7 +354,7 @@ describe("resolveConfig OAuth credentials", () => {
     expect(error.message).toBe(
       'profile "oauthp" is a browser-login (OAuth) profile bound to https://oauth.example.com, ' +
         "but the request URL is https://evil.example.com. " +
-        "Drop --url/METABASE_URL to use the profile's own URL, or run " +
+        "Drop --url/MB_URL to use the profile's own URL, or run " +
         "`mb auth login --url https://evil.example.com` to authenticate there.",
     );
   });

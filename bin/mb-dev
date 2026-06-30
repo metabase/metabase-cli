@@ -2,6 +2,6 @@
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 export XDG_CONFIG_HOME="$ROOT/.dev-state"
-export METABASE_CLI_DISABLE_KEYRING=1
+export MB_CLI_DISABLE_KEYRING=1
 mkdir -p "$XDG_CONFIG_HOME"
 exec bun "$ROOT/src/cli.ts" "$@"

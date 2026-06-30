@@ -11,7 +11,7 @@ Commands that need more than a baseline OSS server declare it — a higher minim
 - the server is older than the command's minimum version, or
 - the command needs a premium feature (e.g. `remote_sync`, `transforms`) that isn't enabled.
 
-Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs but the server version can't be detected (no cached probe), it proceeds with a warning rather than refusing. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `METABASE_CLI_SKIP_PREFLIGHT=1`. Both are footguns — only for servers you know are patched.
+Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs but the server version can't be detected (no cached probe), it proceeds with a warning rather than refusing. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `MB_CLI_SKIP_PREFLIGHT=1`. Both are footguns — only for servers you know are patched.
 
 ## Install
 
@@ -52,15 +52,15 @@ Against a server older than v62 the CLI detects the missing OAuth support and fa
 
 On success the server is probed once — the rendered output shows the user, role (`Admin`/`User`), and Metabase version, and the same values are cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good credential and gains a `lastFailure` entry.
 
-| Flag                     | Description                                                                                                                                          |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `METABASE_URL`, then prompts. |
-| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead.                                                                   |
-| `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                             |
-| `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                            |
-| `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                             |
+| Flag                     | Description                                                                                                                                    |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `MB_URL`, then prompts. |
+| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead.                                                             |
+| `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                       |
+| `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                      |
+| `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                       |
 
-Non-interactive (non-TTY) login requires an API key; resolution order: `--api-key` → piped stdin → `METABASE_API_KEY` (first non-empty wins). Without one, non-interactive login fails rather than prompting.
+Non-interactive (non-TTY) login requires an API key; resolution order: `--api-key` → piped stdin → `MB_API_KEY` (first non-empty wins). Without one, non-interactive login fails rather than prompting.
 
 ```sh
 mb auth login                                            # interactive: browser or API key
@@ -1366,14 +1366,17 @@ Exit codes: `0` success, `2` `ConfigError` (missing name, unknown name, `MB_SKIL
 
 ## Environment variables
 
-| Variable                      | Effect                                                                                                                                                                    |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `METABASE_URL`                | Default URL for `auth login` and config resolution.                                                                                                                       |
-| `METABASE_API_KEY`            | Default API key (makes `auth login` non-interactive, skipping the browser flow; not stored).                                                                              |
-| `METABASE_PROFILE`            | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                     |
-| `METABASE_VERBOSE`            | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                            |
-| `METABASE_CLI_SKIP_PREFLIGHT` | When set to `1`, bypasses the per-command server version / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
-| `MB_SKILLS_DIR`               | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees).                                                    |
+| Variable                 | Effect                                                                                                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MB_URL`                 | Default URL for `auth login` and config resolution.                                                                                                                       |
+| `MB_API_KEY`             | Default API key (makes `auth login` non-interactive, skipping the browser flow; not stored).                                                                              |
+| `MB_PROFILE`             | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                     |
+| `MB_VERBOSE`             | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                            |
+| `MB_CLI_SKIP_PREFLIGHT`  | When set to `1`, bypasses the per-command server version / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
+| `MB_CLI_DISABLE_KEYRING` | When set to `1`, skips the OS keychain and stores credentials as plaintext in the profiles file.                                                                          |
+| `MB_SKILLS_DIR`          | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees).                                                    |
+
+The former `METABASE_`-prefixed names (`METABASE_URL`, `METABASE_API_KEY`, `METABASE_PROFILE`, `METABASE_VERBOSE`, `METABASE_CLI_SKIP_PREFLIGHT`, `METABASE_CLI_DISABLE_KEYRING`) are deprecated but still honored; the CLI prints a one-line warning to stderr when it falls back to one. Switch to the `MB_`-prefixed names.
 
 ## Agent integration
 

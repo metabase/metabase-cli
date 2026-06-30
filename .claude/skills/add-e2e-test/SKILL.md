@@ -39,7 +39,7 @@ You must follow all of these. Each rule has bitten the harness before.
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 ```
 
-- `runCli({ args, configHome, env, stdin, timeoutMs })` spawns `node dist/cli.mjs` via `execa` with an isolated `XDG_CONFIG_HOME`, `METABASE_CLI_DISABLE_KEYRING=1`, and stripped env (no inherited `METABASE_*`).
+- `runCli({ args, configHome, env, stdin, timeoutMs })` spawns `node dist/cli.mjs` via `execa` with an isolated `XDG_CONFIG_HOME`, `MB_CLI_DISABLE_KEYRING=1`, and stripped env (no inherited `MB_*`/`METABASE_*`).
 - **Do not** import `execa`, `child_process`, `node:child_process`, or `spawn` directly.
 - **Do not** call `fetch` against the Metabase instance. Bootstrap owns network setup; tests drive the CLI.
 - **Do not** spread `process.env` into the `env` param. `env: process.env`, `env: { ...process.env, ... }`, and friends defeat the entire isolation guarantee — they let developer-shell `METABASE_*` leak into the test. Pass only the explicit keys you need.
@@ -169,8 +169,8 @@ describe("<noun> e2e", () => {
       args: ["<noun>", "<verb>", "--json"],
       configHome,
       env: {
-        METABASE_URL: bootstrap.baseUrl,
-        METABASE_API_KEY: bootstrap.adminApiKey,
+        MB_URL: bootstrap.baseUrl,
+        MB_API_KEY: bootstrap.adminApiKey,
       },
     });
 
