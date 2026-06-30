@@ -1,6 +1,6 @@
 ---
 name: transform
-description: Author and run Metabase transforms via `mb` — body shape (native SQL + MBQL 5), create + run-with-wait, run inspection, cancel, the `update`-vs-recreate iteration rule, and the writable-keys-only PATCH contract. Load when the user touches transforms — "create a transform", "run a transform", "fix a failing transform", "list transform runs", "cancel a running transform", or anything `mb transform …`.
+description: Author and run Metabase transforms via `mb` — body shape (native SQL + MBQL 5), create + run-with-wait, run inspection, dependencies, cancel, the `update`-vs-recreate iteration rule, the writable-keys-only PATCH contract, plus transform tags and tag-driven transform-job schedules. Load when the user touches transforms — "create a transform", "run a transform", "fix a failing transform", "list transform runs", "cancel a running transform", "manage transform tags", "run a transform job", or anything `mb transform …` / `mb transform-job …` / `mb transform-tag …`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
@@ -62,7 +62,8 @@ Notes:
 
 ```bash
 mb transform list --profile <name> --json
-mb transform get <id> --profile <name> --full --json     # full transform incl. last run summary
+mb transform get <id> --profile <name> --full --json          # full transform incl. last run summary
+mb transform dependencies <id> --profile <name> --json        # upstream transforms this one must run after
 ```
 
 After a run the table physically exists in the warehouse, but Metabase addresses tables/columns by numeric id, so **MBQL and the UI can't reference a brand-new table until the instance syncs** (native SQL — a native `card` or `mb query` against `<schema>.<name>` — reads it immediately). Run and register in one step with `--sync`.
@@ -139,6 +140,8 @@ mb transform update <id> --file ./.scratch/patch.json --profile <name> --json
 mb transform update <id> --body '{"tag_ids":[1,3]}' --profile <name> --json
 ```
 
+`tag_ids` are the integer ids of **transform tags** — discover and manage them with the `transform-tag` group: `mb transform-tag list --json` (find ids; the four built-ins `hourly`/`daily`/`weekly`/`monthly` are seeded), `mb transform-tag create --body '{"name":"nightly"}' --json`, `mb transform-tag update <id>`, `mb transform-tag delete <id>`. Tags are also how a `transform-job` selects what to run — a job executes every transform carrying one of the job's tags (see "Transform jobs" below).
+
 If you really must round-trip, project to the writable subset:
 
 ```bash
@@ -197,7 +200,18 @@ Removes the definition. Whether the materialized table is dropped depends on the
 
 ## Transform jobs (schedules)
 
-A schedule lives in a separate resource (`transform-job`) and references one or more transform ids. Create with the same body-input pattern (`--file body.json`); see `mb transform-job --help` for the verb list. Most ad-hoc agent work is one-off `transform run`, not job authoring.
+A schedule lives in a separate resource (`transform-job`). A job carries **tags** (`tag_ids`), not transform ids: each run executes every transform carrying one of the job's tags. You add a transform to a job by tagging the transform (`transform update <id> --body '{"tag_ids":[…]}'`), not by listing it on the job. Create/update with the same body-input pattern (`--file body.json`).
+
+Key verbs (`mb transform-job --help` for the full list):
+
+```bash
+mb transform-job transforms <id> --profile <name> --json   # preview which transforms this job resolves to (by tag)
+mb transform-job run <id> --profile <name> --json          # trigger a job now; runs all its tagged transforms
+mb transform-job run <id> --force-refresh --profile <name> --json   # also re-run dependencies that are already fresh
+mb transform-job set-active false --profile <name> --json  # disable every job at once (true re-enables); admin only
+```
+
+`transform-job run` is fire-and-forget — the server returns `{message, job_run_id}` immediately, with no per-job-run polling (no `--wait`). Most ad-hoc agent work is one-off `transform run`, not job authoring.
 
 ## Don't (transform-specific)
 
