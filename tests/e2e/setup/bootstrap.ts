@@ -87,6 +87,7 @@ async function main(): Promise<void> {
 
   const existing = await readStoredBootstrap();
   if (existing && (await canReuseExisting(existing.adminApiKey))) {
+    assertSnapshotMatchesSeed(existing);
     // OAuth support depends on the booted image, not on the reused credentials — re-probe it so a
     // stale bootstrap file (or an image swap on the same stack) can't pin the wrong answer.
     const oauthSupported = (await tryDiscoverMetadata(BASE_URL)) !== null;
@@ -271,6 +272,18 @@ async function assertLimitedKeyCannotQueryOrdersCard(
 // Mirrors tests/e2e/server-gate.ts: a null (unparseable head/dev) version counts as the latest, so
 // the library round-trip seeds and runs on head images; real sub-59 images parse to a major below
 // the floor and skip seeding, since their `/api/ee/library` endpoints don't exist yet.
+// A reused snapshot must already contain everything the current seed produces for this server. A
+// library-capable server whose stored snapshot has no library Data collection cannot satisfy the
+// library suite (every test resets to a state that never had it), so refuse it with an actionable
+// message rather than letting those tests fail opaquely.
+function assertSnapshotMatchesSeed(existing: E2EBootstrap): void {
+  if (libraryReady(existing.server) && existing.seeded.libraryDataCollectionId === null) {
+    throw new Error(
+      `bootstrap: snapshot ${SNAPSHOT_NAME} predates library seeding — rebuild it with \`bun run e2e:down && bun run e2e:up && bun run e2e:bootstrap\``,
+    );
+  }
+}
+
 function libraryReady(server: ServerInfo): boolean {
   if (server.tokenFeatures?.[LIBRARY_FEATURE] !== true) {
     return false;

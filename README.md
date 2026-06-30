@@ -469,38 +469,7 @@ mb table update 42 --file patch.json
 echo '{"description":"Customer dimension"}' | mb table update 42
 ```
 
-### `mb table publish`
-
-Publish tables to a library collection (`POST /api/ee/data-studio/table/publish-tables`), surfacing them as trusted data sources. The selected tables and every upstream table they depend on are set to the target `library-data` collection. Select tables with `--table-ids`, whole databases with `--db-ids`, or schemas with `--schemas` — the filters are combined. Requires the `library` premium feature.
-
-```sh
-mb table publish --collection-id 12 --table-ids 1,2,3
-mb table publish --collection-id 12 --db-ids 1 --json
-mb table publish --collection-id 12 --schemas 1:public,1:analytics
-```
-
-| Flag                   | Description                                                       |
-| ---------------------- | ----------------------------------------------------------------- |
-| `--collection-id <id>` | Target library collection id (required).                          |
-| `--table-ids <ids>`    | Comma-separated table ids.                                        |
-| `--db-ids <ids>`       | Comma-separated database ids.                                     |
-| `--schemas <ids>`      | Comma-separated schema ids, each `<db-id>:<schema>` (`1:public`). |
-
-### `mb table unpublish`
-
-Unpublish tables from the library (`POST /api/ee/data-studio/table/unpublish-tables`). Clears the library collection for the selected tables and every downstream table that depends on them. Same selector flags as `publish` (minus `--collection-id`). Requires the `library` premium feature.
-
-```sh
-mb table unpublish --table-ids 1,2,3
-mb table unpublish --db-ids 1 --json
-mb table unpublish --schemas 1:public,1:analytics
-```
-
-| Flag                | Description                                                       |
-| ------------------- | ----------------------------------------------------------------- |
-| `--table-ids <ids>` | Comma-separated table ids.                                        |
-| `--db-ids <ids>`    | Comma-separated database ids.                                     |
-| `--schemas <ids>`   | Comma-separated schema ids, each `<db-id>:<schema>` (`1:public`). |
+Publish status surfaces on the table itself — `table get`/`table list` carry `is_published` (and `collection_id` under `--full`). Publishing tables to the Library is done with [`mb library publish`](#library).
 
 ## Fields
 
@@ -989,6 +958,53 @@ Soft-delete a collection by setting `archived: true`. The archived collection st
 ```sh
 mb collection archive 4
 mb collection archive 4 --json
+```
+
+## Library
+
+Curate the Metabase **Library** — a governed subtree (`library-data` "Data" for published tables, `library-metrics` "Metrics" for official metrics, under a `library` root). Tables published to Data appear first when people pick a data source and rank up in search, steering everyone toward trusted, analysis-ready tables. Requires the `library` premium feature (Pro/Enterprise) and admin or data-analyst permission (Curate alone won't publish tables). Publish status surfaces on the table via `is_published` (`table get`/`table list`).
+
+### `mb library get`
+
+Show the Library and its Data/Metrics collection ids (`GET /api/ee/library/`). Errors if the Library hasn't been created yet.
+
+```sh
+mb library get
+mb library get --json
+```
+
+### `mb library create`
+
+Create the Library subtree (`POST /api/ee/library/`). Idempotent — returns the existing Library when it's already there.
+
+```sh
+mb library create
+mb library create --json
+```
+
+### `mb library publish`
+
+Publish tables (and their upstream dependencies) into the Library's Data collection (`POST /api/ee/data-studio/table/publish-tables`). The target Data collection is resolved automatically and the Library is created if it doesn't exist yet — there's no collection id to pass.
+
+```sh
+mb library publish --table-ids 1,2,3
+mb library publish --db-ids 1 --json
+mb library publish --schemas 1:public,1:analytics
+```
+
+| Flag                | Description                                                       |
+| ------------------- | ----------------------------------------------------------------- |
+| `--table-ids <ids>` | Comma-separated table ids.                                        |
+| `--db-ids <ids>`    | Comma-separated database ids.                                     |
+| `--schemas <ids>`   | Comma-separated schema ids, each `<db-id>:<schema>` (`1:public`). |
+
+### `mb library unpublish`
+
+Unpublish tables (and their downstream dependents) from the Library (`POST /api/ee/data-studio/table/unpublish-tables`). Same selector flags as `publish`.
+
+```sh
+mb library unpublish --table-ids 1,2,3
+mb library unpublish --db-ids 1 --json
 ```
 
 ## Documents

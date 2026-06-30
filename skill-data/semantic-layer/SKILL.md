@@ -76,6 +76,7 @@ The user already picked an autonomy mode (the router's Shared Contract asks the 
   - "Let me add up revenue the same way everywhere, on this table" → a **measure** on the table.
   - "Revenue is an _official company number_ people pull onto dashboards" → a **metric** in a collection, with a default month-by-month view so it charts cleanly. Lean: make it a metric when it's a headline figure the org reuses across many questions/dashboards; keep it a measure when it's a table-local convenience.
 - **Where the metric lives.** Metrics sit in a collection (folder). Lean: put the org's blessed ones in the shared **Library** so they surface prominently; keep experimental ones in a working collection until trusted.
+- **Publish the official tables to the Library.** The clean, analysis-ready tables your definitions sit on are the org's official starting points — the **Library** is how you mark them as such. Tables published to the Library's **Data** section appear _first_ when anyone picks a data source, nudging people toward your curated tables instead of raw warehouse ones. Lean: publish the wide clean tables you built the semantic layer on; hold back raw or half-built ones. Setting up the Library is a one-time, harmless step (`mb library create` is idempotent). Surface which tables you'd publish and confirm. (Library is a Pro/Enterprise feature; only admins and data analysts can publish.)
 - **Default time dimension for a metric.** A monthly default makes it chart nicely on a dashboard, but doesn't lock anyone out of other groupings. Lean: set a sensible default (usually month) for anything headline; leave it off for raw counts that aren't inherently time-series.
 - **How strict a segment is.** "Active" = last 30 vs 90 days is a real business call with no right answer from the data alone. Lean: surface the few reasonable thresholds with how many rows each catches, let the user pick.
 
@@ -128,6 +129,7 @@ Build each agreed definition. Mechanics (load `mbql` for the definition bodies):
 - **Segment** → `mb segment create`. Body: `name`, `table_id`, and a `definition` (a flat MBQL filter clause). Update later with `mb segment update <id>` — needs a `revision_message` (the audit note: _why_ it changed). Never delete-and-recreate.
 - **Measure** → `mb measure create`. Body: `name`, `table_id`, and a `definition` holding **exactly one** aggregation. Same `revision_message` rule on update.
 - **Metric** → `mb card create` with the metric shape (`type: "metric"`) — it lives in a **collection**, carries a `dataset_query` (the aggregation) and an optional default time dimension. Put org-blessed ones in the Library collection.
+- **Publish the official tables** → `mb library create` (idempotent — provisions the Library if it isn't set up yet), then `mb library publish --table-ids <ids>` to move the clean tables your definitions sit on into the Library's **Data** section. It resolves the Data collection itself, so there's no collection id to hunt for. Published tables surface first in every data picker, so people start from your curated set, not raw warehouse tables. (Run `mb skills get core` for the `library` group; it needs `library` premium + admin/data-analyst.)
 
 Then **verify what the user can't see**, before you hand back:
 
@@ -148,6 +150,9 @@ Then **stop. Hard gate — every mode, no exceptions.** Recap in plain language 
 >
 > **Metric** (in your **Library**, charts by month):
 > • **Monthly recurring revenue**
+>
+> **Published to the Library** (these now show up first when anyone picks a data source):
+> • **Customers**, **Orders**
 >
 > Open any of those tables' Filter or Summarize block in Metabase to see them in place and try one — give it a look before you start building dashboards on top.
 

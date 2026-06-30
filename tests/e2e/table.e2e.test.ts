@@ -2,8 +2,6 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { FieldListEnvelope } from "../../src/commands/table/fields";
 import { TableListEnvelope } from "../../src/commands/table/list";
-import { TablePublishResult } from "../../src/commands/table/publish";
-import { TableUnpublishResult } from "../../src/commands/table/unpublish";
 import { Table, TableCompact } from "../../src/domain/table";
 import { parseJson } from "../../src/runtime/json";
 
@@ -11,20 +9,31 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
-import { requireServer } from "./server-gate";
 
-const LIBRARY_UNAVAILABLE = requireServer({ minVersion: 59, tokenFeature: "library" });
+const CUSTOMERS_COMPACT = {
+  id: SEEDED.tables.customers,
+  name: "customers",
+  display_name: "Customers",
+  description: "Customer dimension; mixed types for sync coverage.",
+  db_id: SEEDED.warehouseDbId,
+  schema: "public",
+  entity_type: "entity/GenericTable",
+  is_published: false,
+};
+
+const REVIEWS_COMPACT = {
+  id: SEEDED.tables.reviews,
+  name: "reviews",
+  display_name: "Reviews",
+  description: null,
+  db_id: SEEDED.warehouseDbId,
+  schema: "public",
+  entity_type: "entity/GenericTable",
+  is_published: false,
+};
 
 const SEEDED_WAREHOUSE_TABLES = [
-  {
-    id: SEEDED.tables.customers,
-    name: "customers",
-    display_name: "Customers",
-    description: "Customer dimension; mixed types for sync coverage.",
-    db_id: SEEDED.warehouseDbId,
-    schema: "public",
-    entity_type: "entity/GenericTable",
-  },
+  CUSTOMERS_COMPACT,
   {
     id: SEEDED.tables.dailySales,
     name: "daily_sales",
@@ -33,6 +42,7 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "analytics",
     entity_type: "entity/TransactionTable",
+    is_published: false,
   },
   {
     id: SEEDED.tables.orderItems,
@@ -42,6 +52,7 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    is_published: false,
   },
   {
     id: SEEDED.tables.orderSummary,
@@ -51,6 +62,7 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    is_published: false,
   },
   {
     id: SEEDED.tables.orders,
@@ -60,6 +72,7 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    is_published: false,
   },
   {
     id: SEEDED.tables.products,
@@ -69,16 +82,9 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/ProductTable",
+    is_published: false,
   },
-  {
-    id: SEEDED.tables.reviews,
-    name: "reviews",
-    display_name: "Reviews",
-    description: null,
-    db_id: SEEDED.warehouseDbId,
-    schema: "public",
-    entity_type: "entity/GenericTable",
-  },
+  REVIEWS_COMPACT,
 ];
 
 const CUSTOMERS_FIELD_NAMES = [
@@ -150,15 +156,7 @@ describe("table e2e", () => {
     expect(result.exitCode, result.stderr).toBe(0);
     const parsed = parseJson(result.stdout, Table);
     expect(parsed.fields).toBeUndefined();
-    expect(TableCompact.parse(parsed)).toEqual({
-      id: SEEDED.tables.customers,
-      name: "customers",
-      display_name: "Customers",
-      description: "Customer dimension; mixed types for sync coverage.",
-      db_id: SEEDED.warehouseDbId,
-      schema: "public",
-      entity_type: "entity/GenericTable",
-    });
+    expect(TableCompact.parse(parsed)).toEqual(CUSTOMERS_COMPACT);
   });
 
   it("get --include fields hydrates and projects them in compact form", async () => {
@@ -185,15 +183,7 @@ describe("table e2e", () => {
       (field) => field.table_id === SEEDED.tables.customers,
     );
     expect({ tableBody, fieldNames, allFieldsBelongToCustomersTable }).toEqual({
-      tableBody: {
-        id: SEEDED.tables.customers,
-        name: "customers",
-        display_name: "Customers",
-        description: "Customer dimension; mixed types for sync coverage.",
-        db_id: SEEDED.warehouseDbId,
-        schema: "public",
-        entity_type: "entity/GenericTable",
-      },
+      tableBody: CUSTOMERS_COMPACT,
       fieldNames: CUSTOMERS_FIELD_NAMES,
       allFieldsBelongToCustomersTable: true,
     });
@@ -258,15 +248,7 @@ describe("table e2e", () => {
     const fieldNames = (fields ?? []).map((field) => field.name).toSorted();
 
     expect({ tableBody, fieldNames }).toEqual({
-      tableBody: {
-        id: SEEDED.tables.customers,
-        name: "customers",
-        display_name: "Customers",
-        description: "Customer dimension; mixed types for sync coverage.",
-        db_id: SEEDED.warehouseDbId,
-        schema: "public",
-        entity_type: "entity/GenericTable",
-      },
+      tableBody: CUSTOMERS_COMPACT,
       fieldNames: CUSTOMERS_FIELD_NAMES,
     });
   });
@@ -399,125 +381,5 @@ describe("table e2e", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("value did not match expected schema");
-  });
-
-  it("publish without --collection-id fails fast with ConfigError before any request", async () => {
-    const result = await runCli({
-      args: ["table", "publish", "--table-ids", String(SEEDED.tables.reviews), "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toBe(
-      "provide a target library collection with --collection-id <id>",
-    );
-    expect(result.stdout).toBe("");
-  });
-
-  it("publish without any selector fails fast with ConfigError", async () => {
-    const result = await runCli({
-      args: ["table", "publish", "--collection-id", String(SEEDED.defaultCollectionId), "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toBe(
-      "provide at least one selector: --table-ids, --db-ids, or --schemas",
-    );
-    expect(result.stdout).toBe("");
-  });
-
-  it("publish with a non-integer table id fails fast with ConfigError", async () => {
-    const result = await runCli({
-      args: [
-        "table",
-        "publish",
-        "--collection-id",
-        String(SEEDED.defaultCollectionId),
-        "--table-ids",
-        "1,abc",
-        "--json",
-      ],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid table id: "abc" (expected integer)');
-    expect(result.stdout).toBe("");
-  });
-
-  it("unpublish without any selector fails fast with ConfigError", async () => {
-    const result = await runCli({
-      args: ["table", "unpublish", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toBe(
-      "provide at least one selector: --table-ids, --db-ids, or --schemas",
-    );
-    expect(result.stdout).toBe("");
-  });
-
-  it("unpublish with a non-integer database id fails fast with ConfigError", async () => {
-    const result = await runCli({
-      args: ["table", "unpublish", "--db-ids", "x", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid database id: "x" (expected integer)');
-    expect(result.stdout).toBe("");
-  });
-
-  describe.skipIf(LIBRARY_UNAVAILABLE !== null)("library publish round-trip", () => {
-    it("publishes a table to the library Data collection, then unpublishes it", async () => {
-      const collectionId = SEEDED.libraryDataCollectionId;
-      if (collectionId === null) {
-        throw new Error("expected a seeded library-data collection when the library feature is on");
-      }
-
-      const publish = await runCli({
-        args: [
-          "table",
-          "publish",
-          "--collection-id",
-          String(collectionId),
-          "--table-ids",
-          String(SEEDED.tables.reviews),
-          "--json",
-        ],
-        configHome: await makeIsolatedConfigHome(),
-        env: authEnv(),
-      });
-
-      expect(publish.exitCode, publish.stderr).toBe(0);
-      const target = parseJson(publish.stdout, TablePublishResult).target_collection;
-      if (target === null) {
-        throw new Error("expected a target_collection in the publish response");
-      }
-      expect({ id: target.id, name: target.name, type: target.type }).toEqual({
-        id: collectionId,
-        name: "Data",
-        type: "library-data",
-      });
-
-      const unpublish = await runCli({
-        args: ["table", "unpublish", "--table-ids", String(SEEDED.tables.reviews), "--json"],
-        configHome: await makeIsolatedConfigHome(),
-        env: authEnv(),
-      });
-
-      expect(unpublish.exitCode, unpublish.stderr).toBe(0);
-      expect(parseJson(unpublish.stdout, TableUnpublishResult)).toEqual({
-        unpublished: true,
-        table_ids: [SEEDED.tables.reviews],
-      });
-    });
   });
 });
