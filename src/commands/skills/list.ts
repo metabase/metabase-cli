@@ -3,6 +3,7 @@ import { z } from "zod";
 import { loadVisibleSkills } from "../../core/skills";
 import type { ResourceView } from "../../domain/view";
 import { renderList } from "../../output/render";
+import { renderSkillList } from "../../output/skill-list";
 import { listEnvelopeSchema, wrapList } from "../../output/types";
 import { outputFlags } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -37,6 +38,10 @@ export default defineMetabaseCommand({
       name: s.name,
       description: s.description,
     }));
-    renderList(wrapList(items), skillSummaryView, ctx);
+    if (ctx.format === "json" || ctx.fields !== undefined || ctx.full) {
+      renderList(wrapList(items), skillSummaryView, ctx);
+      return;
+    }
+    renderSkillList(items, ctx.maxBytes);
   },
 });
