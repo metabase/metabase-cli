@@ -1,0 +1,506 @@
+schema: transforms_discourse
+tables:
+- table: activity
+  table_id: 1662
+  dbt_model: activity
+  dbt_source: data_products/discourse/schema.yaml
+  table_changes:
+    description: User activity information
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Name of the action, e.g. view, bookmark, like, share, etc.
+  - field: acted_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Acted At
+    new:
+      description: Timestamp of when the user created the activity
+  - field: user_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: User Name
+    new:
+      description: Name of the Discourse user who created the activity
+  - field: topic_title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Topic Title
+    new:
+      description: Title of the topic discussion thread that the activity was created on
+  - field: post_body
+    current:
+      description: null
+      semantic_type: null
+      display_name: Post Body
+    new:
+      description: Body text of the post that the activity was created on
+  - field: discourse_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Discourse User ID
+    new:
+      description: Foreign key to the User model; ID of the Discourse user who created the activity
+  - field: discourse_topic_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Discourse Topic ID
+    new:
+      description: Foreign key to the Topic model; ID of the topic discussion thread
+  - field: discourse_post_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Discourse Post ID
+    new:
+      description: Foreign key to the Post model; ID of the post within the topic discussion thread
+- table: post
+  table_id: 1663
+  dbt_model: post
+  dbt_source: data_products/discourse/schema.yaml
+  table_changes:
+    description: Post information
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp of when the post was created
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Updated At
+    new:
+      description: Timestamp of when the post was last updated
+  - field: is_deleted
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Deleted
+    new:
+      description: Whether or not the post has been deleted
+  - field: is_reply
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Reply
+    new:
+      description: Whether or not the post is its own post or a reply to another post within the topic discussion thread
+  - field: post_number
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Post Number
+    new:
+      description: Order of the post in the topic discussion thread; the original post is post number 1 by default
+  - field: views
+    current:
+      description: null
+      semantic_type: null
+      display_name: Views
+    new:
+      description: Number of times the post was fully read
+  - field: replies
+    current:
+      description: null
+      semantic_type: null
+      display_name: Replies
+    new:
+      description: Number of times the post was replied to
+  - field: likes
+    current:
+      description: null
+      semantic_type: null
+      display_name: Likes
+    new:
+      description: Number of times the post was liked
+  - field: bookmarks
+    current:
+      description: null
+      semantic_type: null
+      display_name: Bookmarks
+    new:
+      description: Number of times the post was bookmarked
+  - field: inappropriate_flags
+    current:
+      description: null
+      semantic_type: null
+      display_name: Inappropriate Flags
+    new:
+      description: Number of times the post has been flagged as offensive, abusive, to be hateful conduct, or a violation of community guidelines
+  - field: spam_flags
+    current:
+      description: null
+      semantic_type: null
+      display_name: Spam Flags
+    new:
+      description: Number of times the post has been flagged as an ad, vandalism, or irrelevant
+  - field: off_topic_flags
+    current:
+      description: null
+      semantic_type: null
+      display_name: Off Topic Flags
+    new:
+      description: Number of times the post has been flagged as irrelevant to the topic discussion thread
+  - field: notify_moderator_flags
+    current:
+      description: null
+      semantic_type: null
+      display_name: Notify Moderator Flags
+    new:
+      description: Number of times another user flagged the post as something other than inappropriate, off-topic, or spam to a moderator
+  - field: body
+    current:
+      description: null
+      semantic_type: null
+      display_name: Body
+    new:
+      description: Body text of the post
+  - field: url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: URL
+    new:
+      description: URL of the post within the topic discussion thread
+  - field: discourse_topic_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Discourse Topic ID
+    new:
+      description: Foreign key to the Topic model; ID of the topic discussion thread
+  - field: discourse_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Discourse User ID
+    new:
+      description: Foreign key to the User model; ID of the Discourse user who created the post
+  - field: parent_post_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Parent Post ID
+    new:
+      description: ID of the parent post that the post is replying to
+- table: post_link
+  table_id: 1664
+  dbt_model: post_link
+  dbt_source: data_products/discourse/schema.yaml
+  table_changes:
+    description: Post link information
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: null
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the link was created
+- table: topic
+  table_id: 1665
+  dbt_model: topic
+  dbt_source: data_products/discourse/schema.yaml
+  table_changes:
+    description: Discussion thread information
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Title
+    new:
+      description: Title of the topic
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp of when the topic and its original post was created
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Updated At
+    new:
+      description: Timestamp of when the topic discussion thread was last updated
+  - field: body
+    current:
+      description: null
+      semantic_type: null
+      display_name: Body
+    new:
+      description: Body text of the topic's original post
+  - field: is_deleted
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Deleted
+    new:
+      description: Whether or not the topic has been deleted
+  - field: is_closed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Closed
+    new:
+      description: Whether or not the topic has been closed from new replies
+  - field: category
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Category
+    new:
+      description: Category of the topic
+  - field: views
+    current:
+      description: null
+      semantic_type: null
+      display_name: Views
+    new:
+      description: Number of times the topic was viewed
+  - field: posts
+    current:
+      description: null
+      semantic_type: null
+      display_name: Posts
+    new:
+      description: Number of posts within the topic discussion thread, including the original post of the topic
+  - field: likes
+    current:
+      description: null
+      semantic_type: null
+      display_name: Likes
+    new:
+      description: Number of times the topic was liked
+  - field: bookmarks
+    current:
+      description: null
+      semantic_type: null
+      display_name: Bookmarks
+    new:
+      description: Number of times the topic was bookmarked
+  - field: inappropriate_flags
+    current:
+      description: null
+      semantic_type: null
+      display_name: Inappropriate Flags
+    new:
+      description: Number of times the topic and original post has been flagged as offensive, abusive, to be hateful conduct, or a violation of community guidelines
+  - field: spam_flags
+    current:
+      description: null
+      semantic_type: null
+      display_name: Spam Flags
+    new:
+      description: Number of times the original post and topic has been flagged as an ad, vandalism, or irrelevant
+  - field: off_topic_flags
+    current:
+      description: null
+      semantic_type: null
+      display_name: Off Topic Flags
+    new:
+      description: Number of times the post has been flagged as irrelevant to the topic title
+  - field: notify_moderator_flags
+    current:
+      description: null
+      semantic_type: null
+      display_name: Notify Moderator Flags
+    new:
+      description: Number of times another user flagged the post as something other than inappropriate, off-topic, or spam to a moderator
+  - field: url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: URL
+    new:
+      description: URL of the topic discussion thread
+  - field: discourse_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Discourse User ID
+    new:
+      description: Foreign key to the User model; ID of the Discourse user who created the topic and the orignal post
+- table: user
+  table_id: 1666
+  dbt_model: user
+  dbt_source: data_products/discourse/schema.yaml
+  table_changes:
+    description: Users/contributor information
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: email
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email
+    new:
+      description: Primary email of the user
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Username of the user
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp of when the user was created
+  - field: last_active_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Active At
+    new:
+      description: Timestamp of when the user was last active, e.g. posted, was logged as active by the system, visited previously, was first seen, or was created
+  - field: is_active
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Active
+    new:
+      description: Whether or not the user is an active member
+  - field: is_admin
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Admin
+    new:
+      description: Whether or not the user is an admin
+  - field: is_moderator
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Moderator
+    new:
+      description: Whether or not the user is a moderator
+  - field: is_metabase_employee
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Metabase Employee
+    new:
+      description: Whether or not the user is a Metabase employee
+  - field: trust_level
+    current:
+      description: null
+      semantic_type: null
+      display_name: Trust Level
+    new:
+      description: Level of trust and additional rights that the user earn overtime based on their contributions in shaping the community; ranges from 0 (New) to 4 (Leader)
+  - field: topics_created
+    current:
+      description: null
+      semantic_type: null
+      display_name: Topics Created
+    new:
+      description: Number of topics created by the user
+  - field: posts_created
+    current:
+      description: null
+      semantic_type: null
+      display_name: Posts Created
+    new:
+      description: Number of posts created by the user, excluding the original posts of topics
+  - field: topics_viewed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Topics Viewed
+    new:
+      description: Number of topics the user has clicked on; does not necessarily imply that all of the posts within the topic have been read
+  - field: posts_viewed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Posts Viewed
+    new:
+      description: Number of posts that the user has fully read based on the varying time that Discourse deems necessary to spend on the particular post given its length
+  - field: likes_given
+    current:
+      description: null
+      semantic_type: null
+      display_name: Likes Given
+    new:
+      description: Number of topics and posts liked by the user
+  - field: likes_received
+    current:
+      description: null
+      semantic_type: null
+      display_name: Likes Received
+    new:
+      description: Number of likes received by the user for its created content
+  - field: days_visited
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days Visited
+    new:
+      description: Number of days visited
+  - field: minutes_read
+    current:
+      description: null
+      semantic_type: null
+      display_name: Minutes Read
+    new:
+      description: Total time that the user spent reading content in minutes
+  - field: url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: URL
+    new:
+      description: URL of the user's profile

@@ -1,0 +1,79 @@
+schema: transforms_zapier_models
+tables:
+- table: zapier_account_lookup
+  table_id: 2049
+  dbt_model: zapier_account_lookup
+  dbt_source: data_products/zapier_models/schema.yml
+  table_changes:
+    description: Basic account information that will be used to enrich the "Current Metabase Usage" field for new Pipedrive leads using Zapier. When there are multiple accounts per domain/contact email, we will select the most interesting one (active and highest plan if any).
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: The unique identifier for the account
+  - field: contact_email
+    current:
+      description: null
+      semantic_type: null
+      display_name: Contact Email
+    new:
+      description: The email of the contact associated with the account.
+  - field: email_domain
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Email Domain
+    new:
+      description: The email domain of the contact
+  - field: plan_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Plan Name
+    new:
+      description: The name of the Metabase plan
+- table: zapier_expiring_enterprise_trials
+  table_id: 2050
+  dbt_model: zapier_expiring_enterprise_trials
+  dbt_source: data_products/zapier_models/schema.yml
+  table_changes:
+    description: This table contains information about expiring enterprise trials that is used in a Zapier automation. https://www.notion.so/metabase/Automate-Enterprise-Trial-Expiration-Reminder-Email-9f2d443736254d5e8e973d4e28f21acc
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: The unique identifier for the trial.
+  - field: name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Name
+    new:
+      description: The name of the trial.
+  - field: job_title
+    current:
+      description: null
+      semantic_type: null
+      display_name: Job Title
+    new:
+      description: The job title of the person associated with the trial.
+  - field: email
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email
+    new:
+      description: The email of the person associated with the trial.
+  - field: valid_thru
+    current:
+      description: null
+      semantic_type: null
+      display_name: Valid Thru
+    new:
+      description: The expiration date of the trial.

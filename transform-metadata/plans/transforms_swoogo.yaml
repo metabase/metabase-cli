@@ -1,0 +1,1220 @@
+schema: transforms_swoogo
+tables:
+- table: swoogo_contact
+  table_id: 2040
+  dbt_model: swoogo_contact
+  dbt_source: data_products/swoogo/schema.yml
+  table_changes:
+    description: Comprehensive contact database combining base contact information with event participation history and current registration details. Includes all contacts regardless of event participation, with enriched data for those who have attended events. Perfect for business users who need a complete view of contacts and their event engagement.
+  fields:
+  - field: contact_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Contact ID
+    new:
+      description: Unique contact identifier
+  - field: email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Email
+    new:
+      description: Contact email address
+  - field: first_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Name
+    new:
+      description: Contact first name
+  - field: last_name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Last Name
+    new:
+      description: Contact last name
+  - field: company
+    current:
+      description: null
+      semantic_type: type/Company
+      display_name: Company
+    new:
+      description: Contact company
+  - field: job_title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Job Title
+    new:
+      description: Contact job title
+  - field: mobile_phone
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Mobile Phone
+    new:
+      description: Contact mobile phone number
+  - field: subscribe_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Subscribe Status
+    new:
+      description: Email subscription status
+  - field: billing_city
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Billing City
+    new:
+      description: Billing address city
+  - field: billing_state
+    current:
+      description: null
+      semantic_type: type/State
+      display_name: Billing State
+    new:
+      description: Billing address state
+  - field: billing_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Billing Country
+    new:
+      description: Billing address country
+  - field: billing_address_line_1
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Billing Address Line 1
+    new:
+      description: Billing address line 1 (REDACTED for privacy)
+  - field: billing_address_line_2
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Billing Address Line 2
+    new:
+      description: Billing address line 2 (REDACTED for privacy)
+  - field: billing_address
+    current:
+      description: null
+      semantic_type: type/SerializedJSON
+      display_name: Billing Address
+    new:
+      description: Complete billing address JSON object (REDACTED for privacy)
+  - field: home_address
+    current:
+      description: null
+      semantic_type: null
+      display_name: Home Address
+    new:
+      description: Complete home address JSON object
+  - field: work_address
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Work Address
+    new:
+      description: Complete work address JSON object (REDACTED for privacy)
+  - field: registrant_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Registrant ID
+    new:
+      description: Registration ID for current event (null if not registered for current event)
+  - field: event_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Event Name
+    new:
+      description: Name of current event registered for (null if not registered)
+  - field: registration_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Registration Status
+    new:
+      description: Status of current registration (confirmed, cancelled, etc.)
+  - field: registrant_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Registrant Type
+    new:
+      description: Type of current registration (Attendee, Employee, etc.)
+  - field: current_registration_amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Current Registration Amount
+    new:
+      description: Amount paid for current registration
+  - field: current_payment_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Current Payment Status
+    new:
+      description: Payment status for current registration
+  - field: current_registration_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Current Registration Date
+    new:
+      description: When the current registration was completed
+  - field: total_events_registered
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Events Registered
+    new:
+      description: Total number of events registered for (null if no event history)
+  - field: total_events_confirmed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Events Confirmed
+    new:
+      description: Total number of events with confirmed attendance (null if no event history)
+  - field: lifetime_gross_spend
+    current:
+      description: null
+      semantic_type: null
+      display_name: Lifetime Gross Spend
+    new:
+      description: Total gross amount spent across all events (null if no event history)
+  - field: lifetime_net_spend
+    current:
+      description: null
+      semantic_type: null
+      display_name: Lifetime Net Spend
+    new:
+      description: Total net amount spent across all events (null if no event history)
+  - field: first_registration_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Registration At
+    new:
+      description: Date of first event registration (null if no event history)
+  - field: last_registration_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Registration At
+    new:
+      description: Date of most recent registration (null if no event history)
+  - field: events_last_12_months
+    current:
+      description: null
+      semantic_type: null
+      display_name: Events Last 12 Months
+    new:
+      description: Number of events registered for in the last 12 months
+  - field: spend_last_12_months
+    current:
+      description: null
+      semantic_type: null
+      display_name: Spend Last 12 Months
+    new:
+      description: Total spending in the last 12 months
+  - field: most_recent_registration
+    current:
+      description: null
+      semantic_type: null
+      display_name: Most Recent Registration
+    new:
+      description: Date of most recent registration
+  - field: recent_events_attended
+    current:
+      description: null
+      semantic_type: null
+      display_name: Recent Events Attended
+    new:
+      description: Array of recent event names attended
+  - field: preferred_venue_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Preferred Venue Type
+    new:
+      description: Most frequently chosen venue type (null if no confirmed events)
+  - field: preferred_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Preferred Country
+    new:
+      description: Most frequently chosen event country (null if no confirmed events)
+  - field: preferred_payment_method
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Preferred Payment Method
+    new:
+      description: Most frequently used payment method (null if no confirmed events)
+  - field: engagement_level
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Engagement Level
+    new:
+      description: Engagement level from intermediate model (High, Medium, Low, None)
+  - field: value_segment
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Value Segment
+    new:
+      description: Value segment from intermediate model (High Value, Medium Value, etc.)
+  - field: recency_segment
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Recency Segment
+    new:
+      description: Recency segment from intermediate model (Recent, Moderate, Old, Very Old)
+  - field: contact_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Contact Status
+    new:
+      description: Overall contact status (Current Registrant, Recent Participant, Past Participant, Former Participant, Prospect)
+  - field: contact_created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Contact Created At
+    new:
+      description: When the contact was first created
+  - field: contact_updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Contact Updated At
+    new:
+      description: When the contact was last updated
+  - field: profile_updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Profile Updated At
+    new:
+      description: When this profile view was last refreshed
+- table: swoogo_event
+  table_id: 2041
+  dbt_model: swoogo_event
+  dbt_source: data_products/swoogo/schema.yml
+  table_changes:
+    description: Comprehensive event information with real-time registration metrics and performance indicators. Business-friendly view for event management and performance analysis.
+  fields:
+  - field: event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event ID
+    new:
+      description: Unique event identifier
+  - field: event_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Event Name
+    new:
+      description: Event name
+  - field: actual_confirmed_registrations
+    current:
+      description: null
+      semantic_type: null
+      display_name: Actual Confirmed Registrations
+    new:
+      description: Actual number of confirmed registrations (calculated from registration data)
+  - field: total_gross_revenue
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Gross Revenue
+    new:
+      description: Total gross revenue generated from registrations
+  - field: capacity_utilization_pct
+    current:
+      description: null
+      semantic_type: null
+      display_name: Capacity Utilization Pct
+    new:
+      description: Percentage of capacity filled by confirmed registrations
+  - field: confirmation_rate_pct
+    current:
+      description: null
+      semantic_type: null
+      display_name: Confirmation Rate Pct
+    new:
+      description: Percentage of registrations that were confirmed
+- table: swoogo_event_performance
+  table_id: 2042
+  dbt_model: swoogo_event_performance
+  dbt_source: data_products/swoogo/schema.yml
+  table_changes:
+    description: Executive dashboard for event performance analytics. Provides comprehensive metrics for event ROI, attendance, revenue, and success ratings with performance rankings.
+  fields:
+  - field: event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event ID
+    new:
+      description: Unique event identifier
+  - field: event_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Event Name
+    new:
+      description: Event name
+  - field: revenue_performance_tier
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Revenue Performance Tier
+    new:
+      description: Performance tier based on revenue percentile (Top Performer, Strong Performer, etc.)
+  - field: demand_level
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Demand Level
+    new:
+      description: Demand categorization based on capacity utilization (Sold Out, High Demand, etc.)
+  - field: overall_success_rating
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Overall Success Rating
+    new:
+      description: Overall success rating combining multiple metrics (Highly Successful, Successful, etc.)
+- table: swoogo_registration
+  table_id: 2043
+  dbt_model: swoogo_registration
+  dbt_source: data_products/swoogo/schema.yml
+  table_changes:
+    description: Comprehensive registration view with detailed custom questions, multi-select preferences, and enriched contact data. Includes dietary restrictions, accessibility needs, Metabase usage patterns, communication preferences, and badge information. Perfect for detailed attendee analysis and event planning.
+  fields:
+  - field: registrant_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Registrant ID
+    new:
+      description: Unique registration identifier
+  - field: contact_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Contact ID
+    new:
+      description: Foreign key to contact table
+  - field: event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event ID
+    new:
+      description: Foreign key to event table
+  - field: registrant_type_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Registrant Type ID
+    new:
+      description: Foreign key to registrant type table
+  - field: badge_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Badge Name
+    new:
+      description: First name to appear on event badge
+  - field: badge_last_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Badge Last Name
+    new:
+      description: Last name to appear on event badge
+  - field: email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Email
+    new:
+      description: Registrant email address
+  - field: first_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Name
+    new:
+      description: Registrant first name
+  - field: last_name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Last Name
+    new:
+      description: Registrant last name
+  - field: company
+    current:
+      description: null
+      semantic_type: type/Company
+      display_name: Company
+    new:
+      description: Registrant company
+  - field: job_title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Job Title
+    new:
+      description: Registrant job title
+  - field: mobile_phone
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Mobile Phone
+    new:
+      description: Registrant mobile phone number
+  - field: event_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Event Name
+    new:
+      description: Name of the event registered for
+  - field: event_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Event Status
+    new:
+      description: Event status (draft, published, etc.)
+  - field: start_date
+    current:
+      description: null
+      semantic_type: type/CreationDate
+      display_name: Start Date
+    new:
+      description: Event start date
+  - field: end_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: End Date
+    new:
+      description: Event end date
+  - field: venue_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Venue Type
+    new:
+      description: Venue type (In Person Only, Virtual, Hybrid)
+  - field: location_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Location Name
+    new:
+      description: Event venue name
+  - field: location_city
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Location City
+    new:
+      description: Event city
+  - field: location_state
+    current:
+      description: null
+      semantic_type: type/State
+      display_name: Location State
+    new:
+      description: Event state/province
+  - field: location_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Location Country
+    new:
+      description: Event country
+  - field: registration_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Registration Status
+    new:
+      description: Current status of the registration (confirmed, cancelled, etc.)
+  - field: payment_method
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Payment Method
+    new:
+      description: Payment method used
+  - field: registrant_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Registrant Type
+    new:
+      description: Type of registration (Attendee, Employee, etc.)
+  - field: individual_gross
+    current:
+      description: null
+      semantic_type: null
+      display_name: Individual Gross
+    new:
+      description: Individual gross amount
+  - field: individual_net
+    current:
+      description: null
+      semantic_type: null
+      display_name: Individual Net
+    new:
+      description: Individual net amount
+  - field: individual_tax
+    current:
+      description: null
+      semantic_type: null
+      display_name: Individual Tax
+    new:
+      description: Individual tax amount
+  - field: individual_tax_2
+    current:
+      description: null
+      semantic_type: null
+      display_name: Individual Tax 2
+    new:
+      description: Additional individual tax amount
+  - field: group_gross
+    current:
+      description: null
+      semantic_type: null
+      display_name: Group Gross
+    new:
+      description: Group gross amount
+  - field: group_net
+    current:
+      description: null
+      semantic_type: null
+      display_name: Group Net
+    new:
+      description: Group net amount
+  - field: group_tax
+    current:
+      description: null
+      semantic_type: null
+      display_name: Group Tax
+    new:
+      description: Group tax amount
+  - field: group_tax_2
+    current:
+      description: null
+      semantic_type: null
+      display_name: Group Tax 2
+    new:
+      description: Additional group tax amount
+  - field: group_paid
+    current:
+      description: null
+      semantic_type: null
+      display_name: Group Paid
+    new:
+      description: Amount paid by group
+  - field: group_balance_due
+    current:
+      description: null
+      semantic_type: null
+      display_name: Group Balance Due
+    new:
+      description: Remaining group balance
+  - field: payment_status_value
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Payment Status Value
+    new:
+      description: Payment status (Paid, Pending, etc.)
+  - field: payment_status_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Payment Status ID
+    new:
+      description: Payment status ID
+  - field: custom_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Custom Email
+    new:
+      description: Custom email field value
+  - field: custom_first_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Custom First Name
+    new:
+      description: Custom first name field value
+  - field: custom_last_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Custom Last Name
+    new:
+      description: Custom last name field value
+  - field: custom_company
+    current:
+      description: null
+      semantic_type: type/Company
+      display_name: Custom Company
+    new:
+      description: Custom company field value
+  - field: custom_job_title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Custom Job Title
+    new:
+      description: Custom job title field value
+  - field: custom_mobile_phone
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Custom Mobile Phone
+    new:
+      description: Custom mobile phone field value
+  - field: custom_language
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Custom Language
+    new:
+      description: Custom language preference
+  - field: airport
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Airport
+    new:
+      description: Closest airport for travel planning
+  - field: billing_city
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Billing City
+    new:
+      description: Billing address city
+  - field: billing_state
+    current:
+      description: null
+      semantic_type: type/State
+      display_name: Billing State
+    new:
+      description: Billing address state
+  - field: billing_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Billing Country
+    new:
+      description: Billing address country
+  - field: registered_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Registered At
+    new:
+      description: When the registration was completed
+  - field: registrant_timezone
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Registrant Timezone
+    new:
+      description: Registrant timezone
+  - field: event_timezone
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Event Timezone
+    new:
+      description: Event timezone
+  - field: ip_address
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: IP Address
+    new:
+      description: IP address used for registration
+  - field: session_attendance
+    current:
+      description: null
+      semantic_type: type/SerializedJSON
+      display_name: Session Attendance
+    new:
+      description: Session attendance details (JSON array)
+  - field: sponsor_attendance
+    current:
+      description: null
+      semantic_type: type/SerializedJSON
+      display_name: Sponsor Attendance
+    new:
+      description: Sponsor attendance details (JSON array)
+  - field: custom_waitlisted_session_ids
+    current:
+      description: null
+      semantic_type: type/SerializedJSON
+      display_name: Custom Waitlisted Session Ids
+    new:
+      description: Waitlisted session IDs (JSON array)
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Metabase Version
+    new:
+      description: Version of Metabase being used
+  - field: role_description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Role Description
+    new:
+      description: Job role category
+  - field: dietary_restr_dairy_free
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dietary Restr Dairy Free
+    new:
+      description: Has dairy free/lactose intolerant dietary restriction
+  - field: dietary_restr_gluten_free
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dietary Restr Gluten Free
+    new:
+      description: Has gluten free dietary restriction
+  - field: dietary_restr_halal
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dietary Restr Halal
+    new:
+      description: Has halal dietary restriction
+  - field: dietary_restr_kosher
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dietary Restr Kosher
+    new:
+      description: Has kosher dietary restriction
+  - field: dietary_restr_pescatarian
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dietary Restr Pescatarian
+    new:
+      description: Has pescatarian dietary restriction
+  - field: dietary_restr_shellfish_allergy
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dietary Restr Shellfish Allergy
+    new:
+      description: Has shellfish allergy dietary restriction
+  - field: dietary_restr_vegetarian
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dietary Restr Vegetarian
+    new:
+      description: Has vegetarian dietary restriction
+  - field: dietary_restr_vegan
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dietary Restr Vegan
+    new:
+      description: Has vegan dietary restriction
+  - field: dietary_restr_other
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dietary Restr Other
+    new:
+      description: Has other/custom dietary restriction
+  - field: dietary_restr_other_text
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Dietary Restr Other Text
+    new:
+      description: Description of other/custom dietary restriction
+  - field: ada_visually_impaired
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ada Visually Impaired
+    new:
+      description: Requires visual impairment accommodations
+  - field: ada_wheelchair_access
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ada Wheelchair Access
+    new:
+      description: Requires wheelchair access accommodations
+  - field: ada_hearing_impaired
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ada Hearing Impaired
+    new:
+      description: Requires hearing impairment accommodations
+  - field: ada_other
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ada Other
+    new:
+      description: Requires other ADA accommodations
+  - field: ada_other_text
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Ada Other Text
+    new:
+      description: Description of other ADA accommodation needs
+  - field: mb_use_company_wide_bi
+    current:
+      description: null
+      semantic_type: type/Company
+      display_name: Mb Use Company Wide Bi
+    new:
+      description: Uses Metabase for company-wide BI or reporting
+  - field: mb_use_department_dashboards
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mb Use Department Dashboards
+    new:
+      description: Uses Metabase for department or team dashboards
+  - field: mb_use_embedded_analytics
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mb Use Embedded Analytics
+    new:
+      description: Uses Metabase for embedded analytics for customers
+  - field: mb_use_product_analytics
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mb Use Product Analytics
+    new:
+      description: Uses Metabase for product analytics
+  - field: mb_use_customer_facing_reporting
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mb Use Customer Facing Reporting
+    new:
+      description: Uses Metabase for customer-facing reporting
+  - field: mb_use_internal_operations
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mb Use Internal Operations
+    new:
+      description: Uses Metabase for internal operations reporting
+  - field: mb_use_ad_hoc_exploration
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mb Use Ad Hoc Exploration
+    new:
+      description: Uses Metabase for ad hoc data exploration
+  - field: mb_use_self_service_analytics
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mb Use Self Service Analytics
+    new:
+      description: Uses Metabase for self-service data analytics
+  - field: mb_use_data_quality_monitoring
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mb Use Data Quality Monitoring
+    new:
+      description: Uses Metabase for data quality or monitoring
+  - field: mb_use_executive_reporting
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mb Use Executive Reporting
+    new:
+      description: Uses Metabase for executive or board reporting
+  - field: mb_use_evaluating
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mb Use Evaluating
+    new:
+      description: Currently evaluating Metabase
+  - field: mb_use_other
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mb Use Other
+    new:
+      description: Uses Metabase for other purposes
+  - field: comm_pref_email
+    current:
+      description: null
+      semantic_type: null
+      display_name: Comm Pref Email
+    new:
+      description: Prefers email communication during event
+  - field: comm_pref_slack
+    current:
+      description: null
+      semantic_type: null
+      display_name: Comm Pref Slack
+    new:
+      description: Prefers Slack communication during event
+  - field: comm_pref_event_app
+    current:
+      description: null
+      semantic_type: null
+      display_name: Comm Pref Event App
+    new:
+      description: Prefers event app communication during event
+  - field: learning_interests
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Learning Interests
+    new:
+      description: What attendee would like to learn at the event
+  - field: discussion_topics
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Discussion Topics
+    new:
+      description: What attendee would like to discuss with Metabase team
+  - field: teaching_interests
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Teaching Interests
+    new:
+      description: What attendee would like to teach others at the event
+  - field: registration_created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Registration Created At
+    new:
+      description: When the registration record was created
+  - field: registration_updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Registration Updated At
+    new:
+      description: When the registration record was last updated
+  - field: contact_created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Contact Created At
+    new:
+      description: When the contact record was created
+  - field: event_created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Event Created At
+    new:
+      description: When the event record was created
+  - field: custom_questions_json
+    current:
+      description: null
+      semantic_type: type/SerializedJSON
+      display_name: Custom Questions Json
+    new:
+      description: Complete JSON object containing all custom question responses
+- table: swoogo_revenue_analysis
+  table_id: 2044
+  dbt_model: swoogo_revenue_analysis
+  dbt_source: data_products/swoogo/schema.yml
+  table_changes:
+    description: Comprehensive revenue analytics across multiple dimensions including time trends, geography, venue types, and payment methods. Supports financial planning and optimization.
+  fields:
+  - field: analysis_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Analysis Type
+    new:
+      description: Type of revenue analysis (monthly_trends, venue_type, geography, etc.)
+  - field: category
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Category
+    new:
+      description: Primary category being analyzed (venue type, country, payment method, etc.)
+  - field: gross_revenue
+    current:
+      description: null
+      semantic_type: null
+      display_name: Gross Revenue
+    new:
+      description: Total gross revenue for this segment
+- table: swoogo_transaction
+  table_id: 2045
+  dbt_model: swoogo_transaction
+  dbt_source: data_products/swoogo/schema.yml
+  table_changes:
+    description: Detailed transaction records with enriched context from registrations and contacts. Provides complete payment history for financial analysis and reconciliation.
+  fields:
+  - field: transaction_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transaction ID
+    new:
+      description: Unique transaction identifier
+  - field: email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Email
+    new:
+      description: Email of the person who made the transaction
+  - field: event_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Event Name
+    new:
+      description: Name of the event the transaction relates to
+  - field: amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Amount
+    new:
+      description: Transaction amount
+  - field: transaction_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Transaction Type
+    new:
+      description: Type of transaction (credit_card_payment, order_amount, etc.)
+  - field: transaction_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Transaction Status
+    new:
+      description: Status of the transaction
+  - field: transaction_datetime
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transaction Datetime
+    new:
+      description: When the transaction occurred
+  - field: payment_gateway_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Payment Gateway Name
+    new:
+      description: Payment gateway used for the transaction
+  - field: gateway_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Gateway ID
+    new:
+      description: Gateway-specific transaction identifier
+  - field: card_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Card Type
+    new:
+      description: Type of credit card used
+  - field: card_number_last_4
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Card Number Last 4
+    new:
+      description: Last 4 digits of card number (REDACTED as 'XXXX' for security)
+  - field: name_on_card
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Name On Card
+    new:
+      description: Name on credit card (REDACTED as '****' for security)
+  - field: registration_gross_amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Registration Gross Amount
+    new:
+      description: Gross registration amount for context
+  - field: registration_net_amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Registration Net Amount
+    new:
+      description: Net registration amount for context
+  - field: registration_payment_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Registration Payment Status
+    new:
+      description: Overall registration payment status
+  - field: created_by
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By
+    new:
+      description: User who created the transaction record
+  - field: updated_by
+    current:
+      description: null
+      semantic_type: null
+      display_name: Updated By
+    new:
+      description: User who last updated the transaction record

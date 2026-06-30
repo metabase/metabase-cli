@@ -1,0 +1,2893 @@
+schema: transforms_salesforce
+tables:
+- table: salesforce_account
+  table_id: 1878
+  dbt_model: salesforce_account
+  dbt_source: data_products/salesforce/schema.yml
+  table_changes:
+    description: Salesforce Account data for analytics. Each row represents a Salesforce Account.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: The unique identifier for Salesforce account - 15 character version
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Name of the account
+  - field: subscription_status
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription Status
+    new:
+      description: Status of the subscription
+  - field: parent_account_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Parent Account Name
+    new:
+      description: Name of the parent account
+  - field: do_not_contact
+    current:
+      description: null
+      semantic_type: null
+      display_name: Do Not Contact
+    new:
+      description: Do not contact flag
+  - field: owner_name
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner Name
+    new:
+      description: Name of the account owner
+  - field: created_by_name
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By Name
+    new:
+      description: Name of the user who created the account
+  - field: last_modified_by_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Last Modified By Name
+    new:
+      description: Name of the user who last modified the account
+  - field: created_date
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created Date
+    new:
+      description: Date the account was created
+  - field: linked_in_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Linked In URL
+    new:
+      description: LinkedIn URL for the account
+  - field: number_of_employees
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Number Of Employees
+    new:
+      description: Number of employees at the account
+  - field: website
+    current:
+      description: null
+      semantic_type: null
+      display_name: Website
+    new:
+      description: Website URL of the account
+  - field: web_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Web Domain
+    new:
+      description: Web domain of the account
+  - field: primary_email_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Primary Email Domain
+    new:
+      description: Primary email domain for the account
+  - field: related_email_domain_2
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Related Email Domain 2
+    new:
+      description: Secondary related email domain
+  - field: related_email_domain_s
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Related Email Domain S
+    new:
+      description: Related email domains (string)
+  - field: description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Description
+    new:
+      description: Description of the account
+  - field: subsidiary_of
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Subsidiary Of
+    new:
+      description: Parent company for subsidiary accounts
+  - field: referenceable
+    current:
+      description: null
+      semantic_type: null
+      display_name: Referenceable
+    new:
+      description: Indicates if the account is referenceable
+  - field: industry_custom
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Industry Custom
+    new:
+      description: Custom industry classification
+  - field: latest_funding_round
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Latest Funding Round
+    new:
+      description: Latest funding round for the account
+  - field: last_raised_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Raised At
+    new:
+      description: Timestamp of last raised event
+  - field: total_funding
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Funding
+    new:
+      description: Total funding amount
+  - field: billing_city
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing City
+    new:
+      description: Billing city
+  - field: billing_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Billing Country
+    new:
+      description: Billing country
+  - field: billing_geocode_accuracy
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Geocode Accuracy
+    new:
+      description: Geocode accuracy for billing address
+  - field: billing_latitude
+    current:
+      description: null
+      semantic_type: type/Latitude
+      display_name: Billing Latitude
+    new:
+      description: Latitude of billing address
+  - field: billing_longitude
+    current:
+      description: null
+      semantic_type: type/Longitude
+      display_name: Billing Longitude
+    new:
+      description: Longitude of billing address
+  - field: billing_postal_code
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Postal Code
+    new:
+      description: Billing postal code
+  - field: billing_state
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing State
+    new:
+      description: Billing state for the account
+  - field: billing_street
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Street
+    new:
+      description: Billing street address
+  - field: region
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Region
+    new:
+      description: Region for the account
+  - field: last_active_on_discourse
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Active On Discourse
+    new:
+      description: Last active date on Discourse
+  - field: last_active_on_github
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Active On Github
+    new:
+      description: Last active date on GitHub
+  - field: contacts_with_oss_signals
+    current:
+      description: null
+      semantic_type: null
+      display_name: Contacts With Oss Signals
+    new:
+      description: Number of contacts with OSS signals
+  - field: account_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Account Source
+    new:
+      description: Source of the account
+  - field: pylon_organization_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Pylon Organization URL
+    new:
+      description: URL to Pylon organization
+  - field: lead_source_detail
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Lead Source Detail
+    new:
+      description: Detailed lead source information
+  - field: of_active_subscriptions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Of Active Subscriptions
+    new:
+      description: Number of active subscriptions
+  - field: active_plans
+    current:
+      description: null
+      semantic_type: null
+      display_name: Active Plans
+    new:
+      description: Active plans for the account
+  - field: unify_most_recent_play
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Unify Most Recent Play
+    new:
+      description: Most recent play in Unify
+  - field: unify_most_recent_play_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unify Most Recent Play At
+    new:
+      description: Timestamp of most recent play in Unify
+  - field: last_enriched
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Enriched
+    new:
+      description: Timestamp of last enrichment
+  - field: needs_enrichment
+    current:
+      description: null
+      semantic_type: null
+      display_name: Needs Enrichment
+    new:
+      description: Indicates if the account needs enrichment
+  - field: last_modified_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Modified Date
+    new:
+      description: Last modified date of the account
+  - field: parent_account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Parent Account ID
+    new:
+      description: Salesforce parent account ID
+  - field: owner_id
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner ID
+    new:
+      description: Salesforce user ID of the account owner
+  - field: created_by_id
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By ID
+    new:
+      description: Salesforce user ID who created the account
+- table: salesforce_contact
+  table_id: 1879
+  dbt_model: salesforce_contact
+  dbt_source: data_products/salesforce/schema.yml
+  table_changes:
+    description: Salesforce Contact data for analytics. Each row represents a Salesforce Contact.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Unique identifier for Salesforce contact
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Name of the contact
+  - field: account_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Account Name
+    new:
+      description: Name of the associated account
+  - field: title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Title
+    new:
+      description: Title of the contact
+  - field: email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Email
+    new:
+      description: Email address of the contact
+  - field: email_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Domain
+    new:
+      description: Email domain of the contact
+  - field: web_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Web Domain
+    new:
+      description: Web domain of the contact
+  - field: phone
+    current:
+      description: null
+      semantic_type: null
+      display_name: Phone
+    new:
+      description: Phone number of the contact
+  - field: invalid_inbox
+    current:
+      description: null
+      semantic_type: null
+      display_name: Invalid Inbox
+    new:
+      description: Indicates if the contact has an invalid inbox
+  - field: owner_name
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner Name
+    new:
+      description: Name of the contact owner
+  - field: created_by_name
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By Name
+    new:
+      description: Name of the user who created the contact
+  - field: last_modified_by_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Last Modified By Name
+    new:
+      description: Name of the user who last modified the contact
+  - field: contact_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Contact Status
+    new:
+      description: Status of the contact
+  - field: is_public_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Public Domain
+    new:
+      description: Indicates if the contact email is public domain
+  - field: has_opted_out_of_email
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Opted Out Of Email
+    new:
+      description: Indicates if the contact has opted out of email
+  - field: still_at_company
+    current:
+      description: null
+      semantic_type: null
+      display_name: Still At Company
+    new:
+      description: Indicates if the contact is still at the company
+  - field: created_date
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created Date
+    new:
+      description: Date the contact was created
+  - field: email_bounced_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Bounced Date
+    new:
+      description: Date when the contact's email bounced
+  - field: last_activity_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Activity Date
+    new:
+      description: Date of last activity
+  - field: last_curequest_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Curequest Date
+    new:
+      description: Date of last CU request
+  - field: last_cuupdate_date
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Last Cuupdate Date
+    new:
+      description: Date of last CU update
+  - field: last_modified_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Modified Date
+    new:
+      description: Last modified date of the contact
+  - field: last_referenced_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Referenced Date
+    new:
+      description: Last referenced date in Salesforce
+  - field: last_viewed_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Viewed Date
+    new:
+      description: Last viewed date in Salesforce
+  - field: latest_email_sent_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Latest Email Sent Date
+    new:
+      description: Most recent date an outbound email was sent with a completed task status
+  - field: tags
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Tags
+    new:
+      description: Tags associated with the contact
+  - field: linked_in_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Linked In URL
+    new:
+      description: LinkedIn URL of the contact
+  - field: subscription_status
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription Status
+    new:
+      description: Subscription status of the contact
+  - field: lead_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Lead Source
+    new:
+      description: Lead source for the contact
+  - field: lead_source_detail
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Lead Source Detail
+    new:
+      description: Detailed lead source information
+  - field: mailing_city
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mailing City
+    new:
+      description: Mailing city
+  - field: mailing_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Mailing Country
+    new:
+      description: Mailing country
+  - field: mailing_geocode_accuracy
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mailing Geocode Accuracy
+    new:
+      description: Geocode accuracy for mailing address
+  - field: mailing_latitude
+    current:
+      description: null
+      semantic_type: type/Latitude
+      display_name: Mailing Latitude
+    new:
+      description: Latitude of mailing address
+  - field: mailing_longitude
+    current:
+      description: null
+      semantic_type: type/Longitude
+      display_name: Mailing Longitude
+    new:
+      description: Longitude of mailing address
+  - field: mailing_postal_code
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mailing Postal Code
+    new:
+      description: Mailing postal code
+  - field: mailing_state
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mailing State
+    new:
+      description: Mailing state
+  - field: mailing_street
+    current:
+      description: null
+      semantic_type: null
+      display_name: Mailing Street
+    new:
+      description: Mailing street address
+  - field: last_active_on_discourse
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Active On Discourse
+    new:
+      description: Last active date on Discourse
+  - field: last_active_on_github
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Active On Github
+    new:
+      description: Last active date on GitHub
+  - field: unify_most_recent_sequence
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unify Most Recent Sequence
+    new:
+      description: Most recent Unify sequence
+  - field: unify_most_recent_sequence_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unify Most Recent Sequence At
+    new:
+      description: Timestamp of most recent Unify sequence
+  - field: unify_recent_play
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unify Recent Play
+    new:
+      description: Most recent Unify play
+  - field: unify_recent_play_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unify Recent Play At
+    new:
+      description: Timestamp of most recent Unify play
+  - field: unify_sequence_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Unify Sequence Status
+    new:
+      description: Status of Unify sequence
+  - field: talk_to_a_human_reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Talk To A Human Reason
+    new:
+      description: Reason for talking to a human
+  - field: gclid
+    current:
+      description: null
+      semantic_type: null
+      display_name: Gclid
+    new:
+      description: Google Click ID
+  - field: user_snowplow_crossdomain_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: User Snowplow Crossdomain ID
+    new:
+      description: Snowplow crossdomain user ID
+  - field: utm_campaign
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Campaign
+    new:
+      description: UTM campaign
+  - field: utm_content
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Content
+    new:
+      description: UTM content
+  - field: utm_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm ID
+    new:
+      description: UTM ID
+  - field: utm_medium
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Medium
+    new:
+      description: UTM medium
+  - field: utm_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Utm Source
+    new:
+      description: UTM source
+  - field: utm_term
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Term
+    new:
+      description: UTM term
+  - field: previous_page_title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Previous Page Title
+    new:
+      description: Previous page title
+  - field: submission_form
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Submission Form
+    new:
+      description: Submission form for the contact
+  - field: last_enriched
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Enriched
+    new:
+      description: Timestamp of last enrichment
+  - field: needs_enrichment
+    current:
+      description: null
+      semantic_type: null
+      display_name: Needs Enrichment
+    new:
+      description: Indicates if the contact needs enrichment
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Salesforce account ID associated with the contact
+  - field: owner_id
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner ID
+    new:
+      description: Salesforce user ID of the contact owner
+  - field: created_by_id
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By ID
+    new:
+      description: Salesforce user ID who created the contact
+- table: salesforce_email
+  table_id: 1880
+  dbt_model: salesforce_email
+  dbt_source: data_products/salesforce/schema.yml
+  table_changes:
+    description: Salesforce Email derived from Tasks and Email Messages (Task where subTask = 'Email')
+  fields:
+  - field: task_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Task ID
+    new:
+      description: Salesforce Task ID for the email activity
+  - field: subject
+    current:
+      description: null
+      semantic_type: null
+      display_name: Subject
+    new:
+      description: Subject line of the task
+  - field: description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Description
+    new:
+      description: Description or notes on the task
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Status of the task (e.g. Completed, Open)
+  - field: priority
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Priority
+    new:
+      description: Priority of the task (e.g. Normal, High)
+  - field: activity_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Activity Date
+    new:
+      description: Date the activity is scheduled or occurred
+  - field: completed_date_time
+    current:
+      description: null
+      semantic_type: null
+      display_name: Completed Date Time
+    new:
+      description: Timestamp when the task was completed
+  - field: who_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Who ID
+    new:
+      description: Salesforce ID of the contact or lead related to the task
+  - field: what_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: What ID
+    new:
+      description: Salesforce ID of the related object (e.g. Opportunity, Account)
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Salesforce Account ID associated with the task
+  - field: owner_id
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner ID
+    new:
+      description: Salesforce user ID who owns the task
+  - field: created_by_id
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By ID
+    new:
+      description: Salesforce user ID who created the task
+  - field: created_date
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created Date
+    new:
+      description: Timestamp when the task was created
+  - field: last_modified_by_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Last Modified By ID
+    new:
+      description: Salesforce user ID who last modified the task
+  - field: last_modified_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Modified Date
+    new:
+      description: Timestamp when the task was last modified
+  - field: email_message_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Message ID
+    new:
+      description: Salesforce Email Message ID linked to the task
+  - field: from_address
+    current:
+      description: null
+      semantic_type: null
+      display_name: From Address
+    new:
+      description: Sender email address
+  - field: from_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: From Name
+    new:
+      description: Sender display name
+  - field: to_address
+    current:
+      description: null
+      semantic_type: null
+      display_name: To Address
+    new:
+      description: Recipient email address(es)
+  - field: cc_address
+    current:
+      description: null
+      semantic_type: null
+      display_name: Cc Address
+    new:
+      description: CC email address(es)
+  - field: bcc_address
+    current:
+      description: null
+      semantic_type: null
+      display_name: Bcc Address
+    new:
+      description: BCC email address(es)
+  - field: email_subject
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Subject
+    new:
+      description: Subject line of the email message
+  - field: text_body
+    current:
+      description: null
+      semantic_type: null
+      display_name: Text Body
+    new:
+      description: Plain text body of the email
+  - field: html_body
+    current:
+      description: null
+      semantic_type: null
+      display_name: Html Body
+    new:
+      description: HTML body of the email
+  - field: email_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Email Status
+    new:
+      description: Delivery status of the email (e.g. Sent, Delivered, Bounced)
+  - field: message_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Message Date
+    new:
+      description: Timestamp when the email message was sent or received
+  - field: incoming
+    current:
+      description: null
+      semantic_type: null
+      display_name: Incoming
+    new:
+      description: Whether the email was inbound (true) or outbound (false)
+  - field: has_attachment
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Attachment
+    new:
+      description: Whether the email has attachments
+  - field: is_bounced
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Bounced
+    new:
+      description: Whether the email bounced
+  - field: is_opened
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Opened
+    new:
+      description: Whether the email was opened by the recipient
+  - field: is_tracked
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Tracked
+    new:
+      description: Whether the email is tracked for opens and clicks
+  - field: open_count
+    current:
+      description: null
+      semantic_type: null
+      display_name: Open Count
+    new:
+      description: Number of times the email was opened
+  - field: click_count
+    current:
+      description: null
+      semantic_type: null
+      display_name: Click Count
+    new:
+      description: Number of link clicks in the email
+  - field: first_opened_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Opened Date
+    new:
+      description: Timestamp when the email was first opened
+  - field: last_opened_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Opened Date
+    new:
+      description: Timestamp when the email was last opened
+  - field: thread_identifier
+    current:
+      description: null
+      semantic_type: null
+      display_name: Thread Identifier
+    new:
+      description: Email thread identifier for grouping related messages
+  - field: message_identifier
+    current:
+      description: null
+      semantic_type: null
+      display_name: Message Identifier
+    new:
+      description: Unique identifier for the email message (RFC Message-ID)
+  - field: reply_to_email_message_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Reply To Email Message ID
+    new:
+      description: Salesforce Email Message ID this email is a reply to
+  - field: related_to_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Related To ID
+    new:
+      description: Salesforce ID of the record this email is related to
+  - field: parent_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Parent ID
+    new:
+      description: Salesforce ID of the parent record for the email message
+  - field: source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Source
+    new:
+      description: Source of the email activity (e.g. Salesforce, Gmail, Outlook)
+  - field: automation_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Automation Type
+    new:
+      description: Type of automation that generated the email, if any
+  - field: unify_tags
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unify Tags
+    new:
+      description: Tags from Unify associated with the email
+  - field: unify_classification
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unify Classification
+    new:
+      description: Unify classification of the email (e.g. marketing, sales)
+  - field: sequence_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Sequence Name
+    new:
+      description: Name of the outreach sequence the email belongs to
+  - field: enrolled_by_play
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Enrolled By Play
+    new:
+      description: Play or workflow that enrolled the contact into the sequence
+  - field: owner_name
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner Name
+    new:
+      description: Display name of the task owner
+  - field: created_by_name
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By Name
+    new:
+      description: Display name of the user who created the task
+- table: salesforce_lead
+  table_id: 1881
+  dbt_model: salesforce_lead
+  dbt_source: data_products/salesforce/schema.yml
+  table_changes:
+    description: Salesforce Lead data for analytics. Each row represents a Salesforce Lead.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Unique identifier for Salesforce lead
+  - field: name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Name
+    new:
+      description: Name of the lead
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Status of the lead
+  - field: company
+    current:
+      description: null
+      semantic_type: type/Company
+      display_name: Company
+    new:
+      description: Company name of the lead
+  - field: title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Title
+    new:
+      description: Title of the lead
+  - field: email
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email
+    new:
+      description: Email address of the lead
+  - field: is_public_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Public Domain
+    new:
+      description: Indicates if the lead email is public domain
+  - field: lead_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Lead Source
+    new:
+      description: Lead source
+  - field: lead_source_detail
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Lead Source Detail
+    new:
+      description: Detailed lead source information
+  - field: use_case_from_form_fill
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Use Case From Form Fill
+    new:
+      description: Use case from form fill
+  - field: owner_name
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner Name
+    new:
+      description: Name of the lead owner
+  - field: original_lead_owner
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Original Lead Owner
+    new:
+      description: Original lead owner before reassignment
+  - field: reroute
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Reroute
+    new:
+      description: Reroute information for the lead
+  - field: created_by_name
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By Name
+    new:
+      description: Name of the user who created the lead
+  - field: last_modified_by_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Last Modified By Name
+    new:
+      description: Name of the user who last modified the lead
+  - field: website
+    current:
+      description: null
+      semantic_type: null
+      display_name: Website
+    new:
+      description: Website of the lead
+  - field: next_steps
+    current:
+      description: null
+      semantic_type: null
+      display_name: Next Steps
+    new:
+      description: Next steps for the lead
+  - field: next_steps_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Next Steps Date
+    new:
+      description: Date for next steps
+  - field: status_history
+    current:
+      description: null
+      semantic_type: null
+      display_name: Status History
+    new:
+      description: Status history of the lead
+  - field: notes_from_form_fill
+    current:
+      description: null
+      semantic_type: null
+      display_name: Notes From Form Fill
+    new:
+      description: Notes from form fill
+  - field: is_converted
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Converted
+    new:
+      description: Indicates if the lead is converted
+  - field: converted_account_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Converted Account Name
+    new:
+      description: Name of the converted account
+  - field: converted_contact_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Converted Contact Name
+    new:
+      description: Name of the converted contact
+  - field: converted_opportunity_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Converted Opportunity Name
+    new:
+      description: Name of the converted opportunity
+  - field: created_date
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created Date
+    new:
+      description: Date the lead was created
+  - field: working_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Working Date
+    new:
+      description: Date when the lead was set to working
+  - field: disqualified_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Disqualified Date
+    new:
+      description: Date when the lead was disqualified
+  - field: nurture_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Nurture Date
+    new:
+      description: Date when the lead was set to nurture
+  - field: converted_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Converted Date
+    new:
+      description: Date when the lead was converted
+  - field: email_bounced_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Bounced Date
+    new:
+      description: Date when the lead's email bounced
+  - field: last_activity_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Activity Date
+    new:
+      description: Date of last activity
+  - field: last_modified_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Modified Date
+    new:
+      description: Last modified date of the lead
+  - field: first_name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: First Name
+    new:
+      description: First name of the lead
+  - field: last_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Name
+    new:
+      description: Last name of the lead
+  - field: contact_linked_in_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Contact Linked In URL
+    new:
+      description: LinkedIn URL of the contact
+  - field: contact_location
+    current:
+      description: null
+      semantic_type: null
+      display_name: Contact Location
+    new:
+      description: Location of the contact
+  - field: primary_email_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Primary Email Domain
+    new:
+      description: Primary email domain of the lead
+  - field: company_linked_in_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Company Linked In URL
+    new:
+      description: LinkedIn URL of the company
+  - field: industry_enriched
+    current:
+      description: null
+      semantic_type: null
+      display_name: Industry Enriched
+    new:
+      description: Enriched industry information
+  - field: number_of_employees
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Number Of Employees
+    new:
+      description: Number of employees at the company
+  - field: last_raised_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Raised At
+    new:
+      description: Timestamp of last raised event
+  - field: company_headquarter
+    current:
+      description: null
+      semantic_type: type/Company
+      display_name: Company Headquarter
+    new:
+      description: Company headquarter location
+  - field: latest_funding_round
+    current:
+      description: null
+      semantic_type: null
+      display_name: Latest Funding Round
+    new:
+      description: Latest funding round for the company
+  - field: total_funding
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Funding
+    new:
+      description: Total funding amount for the company
+  - field: company_description
+    current:
+      description: null
+      semantic_type: type/Company
+      display_name: Company Description
+    new:
+      description: Description of the company
+  - field: talk_to_a_human_reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Talk To A Human Reason
+    new:
+      description: Reason for talking to a human
+  - field: gclid
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Gclid
+    new:
+      description: Google Click ID
+  - field: reported_metabase_usage
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Reported Metabase Usage
+    new:
+      description: Reported Metabase usage
+  - field: user_snowplow_crossdomain_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: User Snowplow Crossdomain ID
+    new:
+      description: Snowplow crossdomain user ID
+  - field: potential_use_case
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Potential Use Case
+    new:
+      description: Potential use case for the lead
+  - field: utm_campaign
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Campaign
+    new:
+      description: UTM campaign
+  - field: utm_content
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Content
+    new:
+      description: UTM content
+  - field: utm_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm ID
+    new:
+      description: UTM ID
+  - field: utm_medium
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Medium
+    new:
+      description: UTM medium
+  - field: utm_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Utm Source
+    new:
+      description: UTM source
+  - field: utm_term
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Term
+    new:
+      description: UTM term
+  - field: previous_page_title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Previous Page Title
+    new:
+      description: Previous page title
+  - field: submission_form
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Submission Form
+    new:
+      description: Submission form for the lead
+  - field: how_d_you_hear_of_metabase
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: How D You Hear Of Metabase
+    new:
+      description: How did you hear of Metabase
+  - field: unify_most_recent_sequence
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Unify Most Recent Sequence
+    new:
+      description: Most recent Unify sequence
+  - field: unify_most_recent_sequence_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unify Most Recent Sequence At
+    new:
+      description: Timestamp of most recent Unify sequence
+  - field: unify_recent_play
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Unify Recent Play
+    new:
+      description: Most recent Unify play
+  - field: unify_recent_play_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unify Recent Play At
+    new:
+      description: Timestamp of most recent Unify play
+  - field: unify_sequence_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Unify Sequence Status
+    new:
+      description: Status of Unify sequence
+  - field: disqualification_reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Disqualification Reason
+    new:
+      description: Reason for disqualification
+  - field: email_bounced_reason
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Bounced Reason
+    new:
+      description: Reason for email bounce
+  - field: nurture_reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Nurture Reason
+    new:
+      description: Reason for nurture status
+  - field: region
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Region
+    new:
+      description: Region for the lead
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Salesforce account ID associated with the lead
+  - field: owner_id
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner ID
+    new:
+      description: Salesforce user ID of the lead owner
+  - field: created_by_id
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By ID
+    new:
+      description: Salesforce user ID who created the lead
+  - field: last_modified_by_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Last Modified By ID
+    new:
+      description: Salesforce user ID who last modified the lead
+  - field: converted_account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Converted Account ID
+    new:
+      description: Converted account ID
+  - field: converted_contact_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Converted Contact ID
+    new:
+      description: Converted contact ID
+  - field: converted_opportunity_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Converted Opportunity ID
+    new:
+      description: Converted opportunity ID
+  - field: routed_from_re_route
+    current:
+      description: null
+      semantic_type: null
+      display_name: Routed From Re Route
+    new:
+      description: Indicates whether the lead was rerouted
+- table: salesforce_opportunity
+  table_id: 1882
+  dbt_model: salesforce_opportunity
+  dbt_source: data_products/salesforce/schema.yml
+  table_changes:
+    description: Salesforce Opportunity data for analytics. Each row represents a Salesforce Opportunity.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: The unique identifier for Salesforce opportunity
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Name of the opportunity
+  - field: account_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Account Name
+    new:
+      description: Name of the associated account
+  - field: owner_name
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner Name
+    new:
+      description: Name of the opportunity owner
+  - field: original_owner
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Original Owner
+    new:
+      description: Original opportunity owner before reassignment
+  - field: created_by_name
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By Name
+    new:
+      description: Name of the user who created the opportunity
+  - field: last_modified_by_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Last Modified By Name
+    new:
+      description: Name of the user who last modified the opportunity
+  - field: contract_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Contract ID
+    new:
+      description: Contract identifier associated with the opportunity
+  - field: token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token
+    new:
+      description: Token associated with the opportunity
+  - field: fiscal_quarter
+    current:
+      description: null
+      semantic_type: null
+      display_name: Fiscal Quarter
+    new:
+      description: Fiscal quarter of the opportunity
+  - field: opportunity_review_poc_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Opportunity Review Poc Date
+    new:
+      description: Date that the opportunity entered review POC
+  - field: forecast_category
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Forecast Category
+    new:
+      description: Forecast category for the opportunity
+  - field: amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Amount
+    new:
+      description: Amount of the opportunity
+  - field: variable_count
+    current:
+      description: null
+      semantic_type: null
+      display_name: Variable Count
+    new:
+      description: Count of variables associated with the opportunity
+  - field: description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Description
+    new:
+      description: Description of the opportunity
+  - field: owner_id
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner ID
+    new:
+      description: Salesforce user ID of the opportunity owner
+  - field: term_length_months
+    current:
+      description: null
+      semantic_type: null
+      display_name: Term Length Months
+    new:
+      description: Term length in months
+  - field: store
+    current:
+      description: null
+      semantic_type: null
+      display_name: Store
+    new:
+      description: Store associated with the opportunity
+  - field: last_modified_by_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Last Modified By ID
+    new:
+      description: Salesforce user ID who last modified the opportunity
+  - field: one_time_discount
+    current:
+      description: null
+      semantic_type: type/Discount
+      display_name: One Time Discount
+    new:
+      description: One-time discount applied to the opportunity
+  - field: opportunity_technical_win_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Opportunity Technical Win Date
+    new:
+      description: Date of technical win for the opportunity
+  - field: opportunity_technical_validation_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Opportunity Technical Validation Date
+    new:
+      description: Date of technical validation for the opportunity
+  - field: opportunity_negotiation_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Opportunity Negotiation Date
+    new:
+      description: Date of opportunity negotiation
+  - field: number_of_internal_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Number Of Internal Users
+    new:
+      description: Number of internal users for the opportunity
+  - field: budget_confirmed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Budget Confirmed
+    new:
+      description: Indicates if the budget is confirmed
+  - field: end_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: End Date
+    new:
+      description: End date of the opportunity
+  - field: last_stage_change_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Stage Change Date
+    new:
+      description: Date of last stage change
+  - field: fiscal_year
+    current:
+      description: null
+      semantic_type: null
+      display_name: Fiscal Year
+    new:
+      description: Fiscal year of the opportunity
+  - field: database
+    current:
+      description: null
+      semantic_type: null
+      display_name: Database
+    new:
+      description: Database associated with the opportunity
+  - field: current_state
+    current:
+      description: null
+      semantic_type: null
+      display_name: Current State
+    new:
+      description: Current state of the opportunity
+  - field: stage_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Stage Name
+    new:
+      description: Stage name of the opportunity
+  - field: record_type_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Record Type Name
+    new:
+      description: Name of the record type for the opportunity
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Derived status of the opportunity (won, lost, or open)
+  - field: roi_analysis_completed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Roi Analysis Completed
+    new:
+      description: Indicates if ROI analysis is completed
+  - field: functional_requirements
+    current:
+      description: null
+      semantic_type: null
+      display_name: Functional Requirements
+    new:
+      description: Functional requirements for the opportunity
+  - field: closed_time
+    current:
+      description: null
+      semantic_type: null
+      display_name: Closed Time
+    new:
+      description: Time when the opportunity was closed
+  - field: record_type_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Record Type ID
+    new:
+      description: Record type ID for the opportunity
+  - field: last_activity_in_days
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Activity In Days
+    new:
+      description: Days since last activity
+  - field: variable_used
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Variable Used
+    new:
+      description: Variables used in the opportunity
+  - field: opportunity_accepted_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Opportunity Accepted Date
+    new:
+      description: Date when the opportunity was accepted
+  - field: last_amount_changed_history_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Amount Changed History ID
+    new:
+      description: ID of last amount change history
+  - field: start_date
+    current:
+      description: null
+      semantic_type: type/CreationDate
+      display_name: Start Date
+    new:
+      description: Start date of the opportunity
+  - field: system_modstamp
+    current:
+      description: null
+      semantic_type: null
+      display_name: System Modstamp
+    new:
+      description: System modification timestamp
+  - field: latest_lead_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Latest Lead Source
+    new:
+      description: Latest lead source for the opportunity
+  - field: embedding_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Embedding Type
+    new:
+      description: Embedding type for the opportunity
+  - field: last_close_date_changed_history_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Close Date Changed History ID
+    new:
+      description: ID of last close date change history
+  - field: next_steps
+    current:
+      description: null
+      semantic_type: null
+      display_name: Next Steps
+    new:
+      description: Next steps for the opportunity
+  - field: professional_services_interest
+    current:
+      description: null
+      semantic_type: null
+      display_name: Professional Services Interest
+    new:
+      description: Checked if a prospect has inferred about professional services. Intended to be checked once a Success Engineer has discussed a potential engagement and the prospect shows viable interest in purchasing.
+  - field: metabot_interest
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Interest
+    new:
+      description: Indicates if the prospect has interest in Metabot
+  - field: transform_feature_interest
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Transform Feature Interest
+    new:
+      description: Indicates if the prospect has interest in the transform feature
+  - field: estimated_ps_hours
+    current:
+      description: null
+      semantic_type: null
+      display_name: Estimated Ps Hours
+    new:
+      description: Estimated amount of hours for the discussed pro serve engagement
+  - field: use_case
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Use Case
+    new:
+      description: The use case of the customer (i.e., Internal Analytics, Embedded Analytics, or Both)
+  - field: professional_services_hours
+    current:
+      description: null
+      semantic_type: null
+      display_name: Professional Services Hours
+    new:
+      description: Confirmed amount of hours for the discussed pro serve engagement
+  - field: last_referenced_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Referenced Date
+    new:
+      description: Last referenced date in Salesforce
+  - field: has_overdue_task
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Overdue Task
+    new:
+      description: Indicates if the opportunity has overdue tasks
+  - field: opportunity_trial_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Opportunity Trial Date
+    new:
+      description: Date of opportunity trial
+  - field: last_stage_change_in_days
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Stage Change In Days
+    new:
+      description: Days since last stage change
+  - field: age_in_days
+    current:
+      description: null
+      semantic_type: null
+      display_name: Age In Days
+    new:
+      description: Age of the opportunity in days
+  - field: variable_amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Variable Amount
+    new:
+      description: Amount of variable component
+  - field: discovery_completed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Discovery Completed
+    new:
+      description: Indicates if discovery is completed
+  - field: last_activity_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Activity Date
+    new:
+      description: Date of last activity
+  - field: last_viewed_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Viewed Date
+    new:
+      description: Last viewed date in Salesforce
+  - field: probability
+    current:
+      description: null
+      semantic_type: null
+      display_name: Probability
+    new:
+      description: Probability of closing the opportunity
+  - field: contact_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Contact ID
+    new:
+      description: Contact ID associated with the opportunity
+  - field: talk_to_a_human_reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Talk To A Human Reason
+    new:
+      description: Reason for talking to a human
+  - field: forecast_category_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Forecast Category Name
+    new:
+      description: Name of the forecast category
+  - field: opportunity_closed_lost_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Opportunity Closed Lost Date
+    new:
+      description: Date when the opportunity was closed as lost
+  - field: campaign_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Campaign ID
+    new:
+      description: Campaign ID associated with the opportunity
+  - field: status_history
+    current:
+      description: null
+      semantic_type: null
+      display_name: Status History
+    new:
+      description: Status history of the opportunity
+  - field: last_modified_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Modified Date
+    new:
+      description: Last modified date in Salesforce
+  - field: deployment
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Deployment
+    new:
+      description: Deployment type for the opportunity
+  - field: industry_group
+    current:
+      description: null
+      semantic_type: null
+      display_name: Industry Group
+    new:
+      description: Industry group for the opportunity
+  - field: air_gap_token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Air Gap Token
+    new:
+      description: Air gap token for the opportunity
+  - field: push_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Push Count
+    new:
+      description: Number of pushes for the opportunity
+  - field: internal_bi_competition
+    current:
+      description: null
+      semantic_type: null
+      display_name: Internal Bi Competition
+    new:
+      description: Internal BI competition for the opportunity
+  - field: user_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: User Rate
+    new:
+      description: User rate for the opportunity
+  - field: embedding_competition
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedding Competition
+    new:
+      description: Embedding competition for the opportunity
+  - field: how_d_you_hear_of_metabase
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: How D You Hear Of Metabase
+    new:
+      description: How did you hear of Metabase
+  - field: discovery_complete_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Discovery Complete Date
+    new:
+      description: Date when discovery was completed
+  - field: lead_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Lead Source
+    new:
+      description: Lead source for the opportunity
+  - field: fiscal
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Fiscal
+    new:
+      description: Fiscal period for the opportunity
+  - field: opportunity_discovery_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Opportunity Discovery Date
+    new:
+      description: Date of opportunity discovery
+  - field: lost_subreason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Lost Subreason
+    new:
+      description: Subreason for lost opportunity
+  - field: decision_making_process
+    current:
+      description: null
+      semantic_type: null
+      display_name: Decision Making Process
+    new:
+      description: Decision making process for the opportunity
+  - field: is_deleted
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Deleted
+    new:
+      description: Indicates if the opportunity is deleted in Salesforce
+  - field: opportunity_use_case_confirmed_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Opportunity Use Case Confirmed Date
+    new:
+      description: Date when use case was confirmed
+  - field: has_open_activity
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Open Activity
+    new:
+      description: Indicates if the opportunity has open activity
+  - field: future_state
+    current:
+      description: null
+      semantic_type: null
+      display_name: Future State
+    new:
+      description: Future state for the opportunity
+  - field: upsell_expansion_potential_notes
+    current:
+      description: null
+      semantic_type: null
+      display_name: Upsell Expansion Potential Notes
+    new:
+      description: Notes on upsell/expansion potential
+  - field: is_closed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Closed
+    new:
+      description: Indicates if the opportunity is closed
+  - field: expected_revenue
+    current:
+      description: null
+      semantic_type: null
+      display_name: Expected Revenue
+    new:
+      description: Expected revenue from the opportunity
+  - field: close_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Close Date
+    new:
+      description: Close date of the opportunity
+  - field: ss_accepted_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ss Accepted Date
+    new:
+      description: Date when the opportunity was accepted in Success Services
+  - field: ss_discovery_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ss Discovery Date
+    new:
+      description: Date of Success Services discovery
+  - field: upsell_expansion_potential
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Upsell Expansion Potential
+    new:
+      description: Upsell/expansion potential for the opportunity
+  - field: is_priority_record
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Priority Record
+    new:
+      description: Indicates if the opportunity is a priority record
+  - field: air_gap_token_use_cap
+    current:
+      description: null
+      semantic_type: null
+      display_name: Air Gap Token Use Cap
+    new:
+      description: Air gap token use cap
+  - field: submission_form
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Submission Form
+    new:
+      description: Submission form for the opportunity
+  - field: internal_bi_solution
+    current:
+      description: null
+      semantic_type: null
+      display_name: Internal Bi Solution
+    new:
+      description: Internal BI solution for the opportunity
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Salesforce account ID associated with the opportunity
+  - field: synced_quote_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Synced Quote ID
+    new:
+      description: Synced quote ID for the opportunity
+  - field: pricebook_2_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Pricebook 2 ID
+    new:
+      description: Pricebook 2 ID for the opportunity
+  - field: purchase_reason
+    current:
+      description: null
+      semantic_type: null
+      display_name: Purchase Reason
+    new:
+      description: Reason for purchase
+  - field: is_won
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Won
+    new:
+      description: Indicates if the opportunity is won
+  - field: pipedrive_deal_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Pipedrive Deal ID
+    new:
+      description: Pipedrive deal ID for the opportunity
+  - field: re_route
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Re Route
+    new:
+      description: Re-route information for the opportunity
+  - field: has_opportunity_line_item
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Opportunity Line Item
+    new:
+      description: Indicates if the opportunity has line items
+  - field: pylon_organization_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Pylon Organization URL
+    new:
+      description: URL to Pylon organization for the opportunity
+  - field: plan
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Plan
+    new:
+      description: Plan associated with the opportunity
+  - field: created_by_id
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By ID
+    new:
+      description: Salesforce user ID who created the opportunity
+  - field: tools_link
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Tools Link
+    new:
+      description: Link to tools for the opportunity
+  - field: type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Type
+    new:
+      description: Type of opportunity
+  - field: created_date
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created Date
+    new:
+      description: Date the opportunity was created
+  - field: lead_source_detail
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Lead Source Detail
+    new:
+      description: Detailed lead source information
+  - field: embedding_solution
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedding Solution
+    new:
+      description: Embedding solution for the opportunity
+  - field: embedding
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedding
+    new:
+      description: Embedding type/solution for the opportunity
+  - field: loss_reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Loss Reason
+    new:
+      description: Reason for loss of the opportunity
+  - field: next_steps_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Next Steps Date
+    new:
+      description: Date for next steps
+  - field: timing_driver
+    current:
+      description: null
+      semantic_type: null
+      display_name: Timing Driver
+    new:
+      description: Timing driver for the opportunity
+  - field: lost_reason_details
+    current:
+      description: null
+      semantic_type: null
+      display_name: Lost Reason Details
+    new:
+      description: Details for lost reason
+  - field: route_from_re_route
+    current:
+      description: null
+      semantic_type: null
+      display_name: Route From Re Route
+    new:
+      description: Indicates whether the lead was rerouted
+- table: salesforce_opportunity_history
+  table_id: 1883
+  dbt_model: salesforce_opportunity_history
+  dbt_source: data_products/salesforce/schema.yml
+  table_changes:
+    description: Field-level change history for Salesforce opportunities. One row per tracked field change (from opportunity_field_history). Enriched with opportunity name, account, and created-by user name.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Unique identifier for the field history record
+  - field: opportunity_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Opportunity ID
+    new:
+      description: Salesforce opportunity ID (parent of this history row)
+  - field: opportunity_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Opportunity Name
+    new:
+      description: Name of the opportunity (from salesforce_opportunity)
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Salesforce account ID for the opportunity (from salesforce_opportunity)
+  - field: account_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account Name
+    new:
+      description: Account name for the opportunity (from salesforce_opportunity)
+  - field: created_by_id
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By ID
+    new:
+      description: Salesforce user ID who made the change
+  - field: created_by_name
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By Name
+    new:
+      description: Name of the user who made the change (from salesforce user)
+  - field: field
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Field
+    new:
+      description: API name of the field that was changed
+  - field: old_value
+    current:
+      description: null
+      semantic_type: null
+      display_name: Old Value
+    new:
+      description: Previous value of the field before the change
+  - field: new_value
+    current:
+      description: null
+      semantic_type: null
+      display_name: New Value
+    new:
+      description: New value of the field after the change
+  - field: created_date
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created Date
+    new:
+      description: When the field change occurred
+  - field: is_deleted
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Deleted
+    new:
+      description: Whether the history record has been deleted
+- table: salesforce_token
+  table_id: 1884
+  dbt_model: salesforce_token
+  dbt_source: data_products/salesforce/schema.yml
+  table_changes:
+    description: Salesforce Token data for analytics. Each row represents a Salesforce Token.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Unique identifier for Salesforce token
+  - field: stats_account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stats Account ID
+    new:
+      description: Foreign Key to account model in stats
+  - field: customer_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer Name
+    new:
+      description: Name of the customer in stats
+  - field: account_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Account Name
+    new:
+      description: Name of the salesforce account
+  - field: is_active
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Active
+    new:
+      description: Indicates if the token is active
+  - field: users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Users
+    new:
+      description: Number of users associated with the token
+  - field: subscription_plan
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription Plan
+    new:
+      description: Subscription plan for the token
+  - field: subscription_status
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription Status
+    new:
+      description: Subscription status for the token
+  - field: is_air_gapped
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Air Gapped
+    new:
+      description: Indicates if the token is air gapped
+  - field: token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token
+    new:
+      description: Token value
+  - field: is_public_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Public Domain
+    new:
+      description: Indicates if the token is public domain
+  - field: initial_enrichment_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Initial Enrichment Status
+    new:
+      description: Initial enrichment status
+  - field: last_enriched
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Enriched
+    new:
+      description: Timestamp of last enrichment
+  - field: needs_enrichment
+    current:
+      description: null
+      semantic_type: null
+      display_name: Needs Enrichment
+    new:
+      description: Indicates if the token needs enrichment
+  - field: pylon_organization_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Pylon Organization URL
+    new:
+      description: URL to Pylon organization
+  - field: contact_location
+    current:
+      description: null
+      semantic_type: null
+      display_name: Contact Location
+    new:
+      description: Location of the contact
+  - field: headquarter_location
+    current:
+      description: null
+      semantic_type: null
+      display_name: Headquarter Location
+    new:
+      description: Headquarter location
+  - field: primary_contact_full_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Primary Contact Full Name
+    new:
+      description: Full name of the primary contact
+  - field: contact_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Contact Country
+    new:
+      description: Country of the contact
+  - field: primary_contact_first_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Primary Contact First Name
+    new:
+      description: First name of the primary contact
+  - field: job_title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Job Title
+    new:
+      description: Job title of the primary contact
+  - field: primary_contact_last_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Primary Contact Last Name
+    new:
+      description: Last name of the primary contact
+  - field: primary_contact_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Primary Contact Email
+    new:
+      description: Email of the primary contact
+  - field: contact_linked_in_profile
+    current:
+      description: null
+      semantic_type: null
+      display_name: Contact Linked In Profile
+    new:
+      description: LinkedIn profile of the contact
+  - field: email_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Domain
+    new:
+      description: Email domain associated with the token
+  - field: company_name
+    current:
+      description: null
+      semantic_type: type/Company
+      display_name: Company Name
+    new:
+      description: Name of the company
+  - field: account_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Account Country
+    new:
+      description: Country of the account
+  - field: employees
+    current:
+      description: null
+      semantic_type: null
+      display_name: Employees
+    new:
+      description: Number of employees at the company
+  - field: industry
+    current:
+      description: null
+      semantic_type: null
+      display_name: Industry
+    new:
+      description: Industry of the company
+  - field: company_linked_in_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Company Linked In URL
+    new:
+      description: LinkedIn URL of the company
+  - field: web_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Web Domain
+    new:
+      description: Web domain of the company
+  - field: latest_funding_round
+    current:
+      description: null
+      semantic_type: null
+      display_name: Latest Funding Round
+    new:
+      description: Latest funding round for the company
+  - field: website
+    current:
+      description: null
+      semantic_type: null
+      display_name: Website
+    new:
+      description: Website of the company
+  - field: total_funding
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Funding
+    new:
+      description: Total funding amount for the company
+  - field: last_raised_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Raised At
+    new:
+      description: Timestamp of last raised event
+  - field: company_description
+    current:
+      description: null
+      semantic_type: type/Company
+      display_name: Company Description
+    new:
+      description: Description of the company
+  - field: created_by_id
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By ID
+    new:
+      description: Salesforce user ID who created the token
+  - field: created_date
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created Date
+    new:
+      description: Date the token was created
+  - field: last_modified_by_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Last Modified By ID
+    new:
+      description: Salesforce user ID who last modified the token
+  - field: last_modified_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Modified Date
+    new:
+      description: Last modified date of the token

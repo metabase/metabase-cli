@@ -1,0 +1,1179 @@
+schema: transforms_campaign
+tables:
+- table: campaign
+  table_id: 1641
+  dbt_model: campaign
+  dbt_source: data_products/campaign/schema.yaml
+  table_changes:
+    description: Campaign info for all kind of campaigns, such as email
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Title
+    new:
+      description: Title of the email campaign
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp of when the campaign was created
+  - field: is_automated
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Automated
+    new:
+      description: Indicates if the campaign is triggered by event or schedule
+  - field: type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Type
+    new:
+      description: Type of the campaign
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Status of the campaign
+  - field: created_by
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Created By
+    new:
+      description: Name of the user that created the campaign
+  - field: source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Source
+    new:
+      description: Source of the campaign
+  - field: url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: URL
+    new:
+      description: URL to the campaign
+  - field: sent
+    current:
+      description: null
+      semantic_type: null
+      display_name: Sent
+    new:
+      description: Number of emails sent
+  - field: opened
+    current:
+      description: null
+      semantic_type: null
+      display_name: Opened
+    new:
+      description: Number of recipients who opened the email
+  - field: open_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Open Rate
+    new:
+      description: Ratio of opened to sent
+  - field: clicked
+    current:
+      description: null
+      semantic_type: null
+      display_name: Clicked
+    new:
+      description: Number of recipients who clicked a link in the email
+  - field: click_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Click Rate
+    new:
+      description: Ratio of clicked to sent
+  - field: bounced
+    current:
+      description: null
+      semantic_type: null
+      display_name: Bounced
+    new:
+      description: Number of recipients whose emails bounced
+  - field: bounce_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Bounce Rate
+    new:
+      description: Ratio of bounced to sent
+  - field: workspace_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Workspace ID
+    new:
+      description: ID of the CustomerIO workspace; null for Mailchimp
+- table: email_campaign
+  table_id: 1642
+  dbt_model: email_campaign
+  dbt_source: data_products/campaign/schema.yaml
+  table_changes:
+    description: Email campaigns and automated messages
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Title
+    new:
+      description: Title of the email campaign
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp of when the campaign was created
+  - field: sent_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Sent At
+    new:
+      description: Timestamp of when the email was last sent
+  - field: is_automated
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Automated
+    new:
+      description: Indicactes if the campaign is triggered by an event or schedule
+  - field: email_subject
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Subject
+    new:
+      description: Subject of the email sent
+  - field: campaign_title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Campaign Title
+    new:
+      description: Title of the campaign
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Status of the campaign
+  - field: audience
+    current:
+      description: null
+      semantic_type: null
+      display_name: Audience
+    new:
+      description: Name of the audience list receiving the email
+  - field: sender_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Sender Email
+    new:
+      description: Email of the sender
+  - field: sender
+    current:
+      description: null
+      semantic_type: null
+      display_name: Sender
+    new:
+      description: Name of the sender
+  - field: content_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Content URL
+    new:
+      description: URL to the campaign content that was sent to audiences
+  - field: source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Source
+    new:
+      description: Source of the campaign
+  - field: url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: URL
+    new:
+      description: URL to the email campaign
+  - field: sent
+    current:
+      description: null
+      semantic_type: null
+      display_name: Sent
+    new:
+      description: Number of emails sent
+  - field: opened
+    current:
+      description: null
+      semantic_type: null
+      display_name: Opened
+    new:
+      description: Number of recipients who opened the email
+  - field: open_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Open Rate
+    new:
+      description: Ratio of opened to sent
+  - field: clicked
+    current:
+      description: null
+      semantic_type: null
+      display_name: Clicked
+    new:
+      description: Number of recipients who clicked a link in the email
+  - field: click_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Click Rate
+    new:
+      description: Ratio of clicked to sent
+  - field: bounced
+    current:
+      description: null
+      semantic_type: null
+      display_name: Bounced
+    new:
+      description: Number of recipients whose emails bounced
+  - field: bounce_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Bounce Rate
+    new:
+      description: Ratio of bounced to sent
+  - field: audience_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Audience ID
+    new:
+      description: ID of the audience list receiving the email
+  - field: campaign_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Campaign ID
+    new:
+      description: Foreign ID to Campaign model
+  - field: workspace_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Workspace ID
+    new:
+      description: ID of the CustomerIO workspace; null for Mailchimp
+- table: email_campaign_activity
+  table_id: 1643
+  dbt_model: email_campaign_activity
+  dbt_source: data_products/campaign/schema.yaml
+  table_changes:
+    description: Activity performed on email campaigns, automated messages, and newsletters (CustomerIO only) by recipients
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: acted_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Acted At
+    new:
+      description: Timestamp of when the activity happened
+  - field: action
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Action
+    new:
+      description: The action taken by the recipient
+  - field: campaign_title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Campaign Title
+    new:
+      description: Title of the campaign
+  - field: email_campaign_title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Email Campaign Title
+    new:
+      description: Title of the email campaign
+  - field: email_subject
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Subject
+    new:
+      description: Subject of the email campaign
+  - field: recipient_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Recipient Email
+    new:
+      description: Email of the recipient
+  - field: email_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Domain
+    new:
+      description: Domain of the recipient's email
+  - field: recipient_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Recipient Name
+    new:
+      description: Name of the recipient
+  - field: source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Source
+    new:
+      description: Source of the campaign
+  - field: link_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Link Type
+    new:
+      description: Type of the link that was clicked, e.g. Metabase Learn
+  - field: link
+    current:
+      description: null
+      semantic_type: null
+      display_name: Link
+    new:
+      description: URL of the link that was clicked
+  - field: email_hash
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Hash
+    new:
+      description: Hashed email of the recipient
+  - field: recipient_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Recipient ID
+    new:
+      description: ID of the recipient
+  - field: email_campaign_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Campaign ID
+    new:
+      description: Foreign key to the Email Campaign model
+  - field: campaign_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Campaign ID
+    new:
+      description: Foreign key to the Campaign model
+  - field: newsletter_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Newsletter ID
+    new:
+      description: ID of the CustomerIO newsletter; null for Mailchimp
+  - field: workspace_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Workspace ID
+    new:
+      description: ID of the CustomerIO workspace; null for Mailchimp
+- table: paid_campaign
+  table_id: 1644
+  dbt_model: paid_campaign
+  dbt_source: data_products/campaign/schema.yaml
+  table_changes:
+    description: Stats for paid campaigns, such as Google Ads.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Title
+    new:
+      description: Title of the campaign
+  - field: is_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Enabled
+    new:
+      description: Indicates if the campaign is enabled or not
+  - field: impressions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Impressions
+    new:
+      description: Number of impressions (shown to user) as reported by ad provider.
+  - field: clicks
+    current:
+      description: null
+      semantic_type: null
+      display_name: Clicks
+    new:
+      description: Number of clicks as reported by ad provider.
+  - field: cost
+    current:
+      description: null
+      semantic_type: type/Cost
+      display_name: Cost
+    new:
+      description: Dollar amount paid as reported by ad provider.
+  - field: cost_per_click
+    current:
+      description: null
+      semantic_type: type/Cost
+      display_name: Cost Per Click
+    new:
+      description: Ratio of cost to clicks
+  - field: click_thru_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Click Thru Rate
+    new:
+      description: Ratio of clicks to impressions
+      semantic_type: type/Percentage
+  - field: conversions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Conversions
+    new:
+      description: Number of conversions (trial signups) as reported by ad provider.
+  - field: cost_per_conversion
+    current:
+      description: null
+      semantic_type: type/Cost
+      display_name: Cost Per Conversion
+    new:
+      description: Ratio of cost to conversions
+  - field: conversion_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Conversion Rate
+    new:
+      description: Ratio of conversions to clicks
+      semantic_type: type/Percentage
+  - field: source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Source
+    new:
+      description: Source of the campaign
+- table: paid_campaign_ad_group
+  table_id: 1645
+  dbt_model: paid_campaign_ad_group
+  dbt_source: data_products/campaign/schema.yaml
+  table_changes:
+    description: Stats for ad groups of paid campaigns, such as Google Ads. Ad group is a group of similar ads.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: ad_group
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ad Group
+    new:
+      description: Name of the ad group
+  - field: campaign
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Campaign
+    new:
+      description: Name of the campaign
+  - field: is_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Enabled
+    new:
+      description: Indicates if the ad group is enabled or not
+  - field: impressions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Impressions
+    new:
+      description: Number of impressions (shown to user) as reported by ad provider.
+  - field: clicks
+    current:
+      description: null
+      semantic_type: null
+      display_name: Clicks
+    new:
+      description: Number of clicks as reported by ad provider.
+  - field: cost
+    current:
+      description: null
+      semantic_type: type/Cost
+      display_name: Cost
+    new:
+      description: Dollar amount paid as reported by ad provider.
+  - field: cost_per_click
+    current:
+      description: null
+      semantic_type: type/Cost
+      display_name: Cost Per Click
+    new:
+      description: Ratio of cost to clicks
+  - field: click_thru_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Click Thru Rate
+    new:
+      description: Ratio of clicks to impressions
+      semantic_type: type/Percentage
+  - field: conversions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Conversions
+    new:
+      description: Number of conversions (trial signups) as reported by ad provider.
+  - field: cost_per_conversion
+    current:
+      description: null
+      semantic_type: type/Cost
+      display_name: Cost Per Conversion
+    new:
+      description: Ratio of cost to conversions
+  - field: conversion_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Conversion Rate
+    new:
+      description: Ratio of conversions to clicks
+      semantic_type: type/Percentage
+  - field: paid_campaign_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paid Campaign ID
+    new:
+      description: Foreign key to Paid Campaign model
+  - field: source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Source
+    new:
+      description: Source of the campaign
+- table: paid_campaign_keyword
+  table_id: 1646
+  dbt_model: paid_campaign_keyword
+  dbt_source: data_products/campaign/schema.yaml
+  table_changes:
+    description: Stats for keywords of paid campaigns, such as Google Ads. Keywords are the search words in Google search associated with specific ad groups.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: keywords
+    current:
+      description: null
+      semantic_type: null
+      display_name: Keywords
+    new:
+      description: Search keyword text
+  - field: ad_group
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ad Group
+    new:
+      description: Name of the ad group
+  - field: campaign
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Campaign
+    new:
+      description: Name of the campaign
+  - field: is_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Enabled
+    new:
+      description: Indicates if the keyword is enabled or not
+  - field: impressions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Impressions
+    new:
+      description: Number of impressions (shown to user) as reported by ad provider.
+  - field: clicks
+    current:
+      description: null
+      semantic_type: null
+      display_name: Clicks
+    new:
+      description: Number of clicks as reported by ad provider.
+  - field: cost
+    current:
+      description: null
+      semantic_type: type/Cost
+      display_name: Cost
+    new:
+      description: Dollar amount paid as reported by ad provider.
+  - field: cost_per_click
+    current:
+      description: null
+      semantic_type: type/Cost
+      display_name: Cost Per Click
+    new:
+      description: Ratio of cost to clicks
+  - field: click_thru_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Click Thru Rate
+    new:
+      description: Ratio of clicks to impressions
+      semantic_type: type/Percentage
+  - field: conversions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Conversions
+    new:
+      description: Number of conversions (trial signups) as reported by ad provider.
+  - field: cost_per_conversion
+    current:
+      description: null
+      semantic_type: type/Cost
+      display_name: Cost Per Conversion
+    new:
+      description: Ratio of cost to conversions
+  - field: conversion_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Conversion Rate
+    new:
+      description: Ratio of conversions to clicks
+      semantic_type: type/Percentage
+  - field: paid_campaign_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paid Campaign ID
+    new:
+      description: Foreign key to Paid Campaign model
+  - field: paid_campaign_ad_group_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paid Campaign Ad Group ID
+    new:
+      description: Foreign key to Paid Campaign Ad Group model
+  - field: source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Source
+    new:
+      description: Source of the campaign
+- table: paid_campaign_keyword_daily
+  table_id: 1647
+  dbt_model: paid_campaign_keyword_daily
+  dbt_source: data_products/campaign/schema.yaml
+  table_changes:
+    description: Daily stats for keywords of paid campaigns, such as Google Ads.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: keywords
+    current:
+      description: null
+      semantic_type: null
+      display_name: Keywords
+    new:
+      description: Search keyword text
+  - field: ad_group
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ad Group
+    new:
+      description: Name of the ad group
+  - field: campaign
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Campaign
+    new:
+      description: Name of the campaign
+  - field: day
+    current:
+      description: null
+      semantic_type: null
+      display_name: Day
+    new:
+      description: Date of the data used for the aggregation
+  - field: is_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Enabled
+    new:
+      description: Indicates if the keyword is enabled or not
+  - field: impressions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Impressions
+    new:
+      description: Number of impressions (shown to user) as reported by ad provider.
+  - field: clicks
+    current:
+      description: null
+      semantic_type: null
+      display_name: Clicks
+    new:
+      description: Number of clicks as reported by ad provider.
+  - field: cost
+    current:
+      description: null
+      semantic_type: type/Cost
+      display_name: Cost
+    new:
+      description: Dollar amount paid as reported by ad provider.
+  - field: cost_per_click
+    current:
+      description: null
+      semantic_type: type/Cost
+      display_name: Cost Per Click
+    new:
+      description: Ratio of cost to clicks
+  - field: click_thru_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Click Thru Rate
+    new:
+      description: Ratio of clicks to impressions
+      semantic_type: type/Percentage
+  - field: conversions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Conversions
+    new:
+      description: Number of conversions (trial signups) as reported by ad provider.
+  - field: cost_per_conversion
+    current:
+      description: null
+      semantic_type: type/Cost
+      display_name: Cost Per Conversion
+    new:
+      description: Ratio of cost to conversions
+  - field: conversion_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Conversion Rate
+    new:
+      description: Ratio of conversions to clicks
+      semantic_type: type/Percentage
+  - field: paid_campaign_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paid Campaign ID
+    new:
+      description: Foreign key to Paid Campaign model
+  - field: paid_campaign_ad_group_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paid Campaign Ad Group ID
+    new:
+      description: Foreign key to Paid Campaign Ad Group model
+  - field: paid_campaign_keyword_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paid Campaign Keyword ID
+    new:
+      description: Foreign key to Paid Campaign Keyword model
+  - field: source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Source
+    new:
+      description: Source of the campaign
+- table: user_activity
+  table_id: 1648
+  dbt_model: user_activity
+  dbt_source: data_products/campaign/schema.yaml
+  table_changes:
+    description: Activity performed in their Metabase Instances by recipients
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: acted_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Acted At
+    new:
+      description: Timestamp of when the activity happened
+  - field: activity
+    current:
+      description: null
+      semantic_type: null
+      display_name: Activity
+    new:
+      description: The activity taken by the recipient
+  - field: subscription_status
+    current:
+      description: null
+      semantic_type: null
+      display_name: Subscription Status
+    new:
+      description: Status of the subscription plan, such as active, cancelled, or in trial
+  - field: plan_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Plan Name
+    new:
+      description: Subscription plan
+  - field: customer_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer Name
+    new:
+      description: Name of the customer
+  - field: dns_alias
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dns Alias
+    new:
+      description: DNS alias for the instance
+  - field: email_hash
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Hash
+    new:
+      description: Hashed email of the user
+  - field: user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: User ID
+    new:
+      description: Foreign key to Core User table for the user that performed the activity
+  - field: instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance ID
+    new:
+      description: Foreign key to Metabase Store Hosted Instance
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Metabase ID of the customer; foreign key to the Customer model
+- table: utm_campaign
+  table_id: 1649
+  dbt_model: utm_campaign
+  dbt_source: data_products/campaign/schema.yaml
+  table_changes:
+    description: Marketing campaigns using UTM tags, which are sourced from page views, page sessions, Metabase Store UTM tracking, Pipedrive lead UTM tracking, etc. If there is a conflict, we select the first set of UTM tags inline with first touch attribution.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: utm_campaign
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Campaign
+    new:
+      description: Identifies a specific product promotion or strategic campaign.
+  - field: utm_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Utm Source
+    new:
+      description: Identifies which site sent the traffic.
+  - field: utm_medium
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Medium
+    new:
+      description: Identifies what type of link was used, such as paid or email.
+  - field: utm_content
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Content
+    new:
+      description: Identifies what specifically was clicked to bring the user to the site, such as a banner ad or a text link.
+  - field: utm_term
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Term
+    new:
+      description: Identifies search terms
+  - field: lifetime_value
+    current:
+      description: null
+      semantic_type: null
+      display_name: Lifetime Value
+    new:
+      description: Total revenue received to date
+  - field: converted_arr
+    current:
+      description: null
+      semantic_type: null
+      display_name: Converted Arr
+    new:
+      description: Current ARR for converted customers, including ones that churned later.
+  - field: activated_arr
+    current:
+      description: null
+      semantic_type: null
+      display_name: Activated Arr
+    new:
+      description: Current ARR for activated customers, including ones that churned later.
+  - field: customers
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customers
+    new:
+      description: Number of customers
+  - field: trial_conversions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Trial Conversions
+    new:
+      description: Number of customers converted from trial
+  - field: trial_conversion_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Trial Conversion Rate
+    new:
+      description: Ratio of converted customers to total
+  - field: activations
+    current:
+      description: null
+      semantic_type: null
+      display_name: Activations
+    new:
+      description: Number of customers activated
+  - field: activation_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Activation Rate
+    new:
+      description: Ratio of activated customers to total
+  - field: avg_months_old_after_conversion
+    current:
+      description: null
+      semantic_type: null
+      display_name: Avg Months Old After Conversion
+    new:
+      description: Averger number of months old for customer after conversion
+  - field: leads
+    current:
+      description: null
+      semantic_type: null
+      display_name: Leads
+    new:
+      description: Number of qualified leads
+  - field: lead_conversion_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Lead Conversion Rate
+    new:
+      description: Ratio of deal to lead
+  - field: deals
+    current:
+      description: null
+      semantic_type: null
+      display_name: Deals
+    new:
+      description: Number of deals
+  - field: deal_value
+    current:
+      description: null
+      semantic_type: null
+      display_name: Deal Value
+    new:
+      description: Total value of deals
+  - field: won_deals
+    current:
+      description: null
+      semantic_type: null
+      display_name: Won Deals
+    new:
+      description: Number of deals won
+  - field: won_deal_value
+    current:
+      description: null
+      semantic_type: null
+      display_name: Won Deal Value
+    new:
+      description: Total value of deals won
+  - field: won_deal_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Won Deal Rate
+    new:
+      description: Ratio of won deals count to total
+  - field: page_views
+    current:
+      description: null
+      semantic_type: null
+      display_name: Page Views
+    new:
+      description: Number of page views
+  - field: checkout_page_views
+    current:
+      description: null
+      semantic_type: null
+      display_name: Checkout Page Views
+    new:
+      description: Number of page views for checkout
+  - field: checkout_page_view_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Checkout Page View Rate
+    new:
+      description: Ratio of page views for checkout to total
+  - field: paid_campaign_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paid Campaign ID
+    new:
+      description: Foreign key to Paid Campaign model
+  - field: paid_campaign_ad_group_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paid Campaign Ad Group ID
+    new:
+      description: Foreign key to Paid Campaign Ad Group model
+  - field: paid_campaign_keyword_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paid Campaign Keyword ID
+    new:
+      description: Foreign key to Paid Campaign Keyword model

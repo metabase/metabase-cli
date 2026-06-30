@@ -1,0 +1,105 @@
+schema: transforms_grain
+tables:
+- table: grain_recording
+  table_id: 1688
+  dbt_model: grain_recording
+  dbt_source: data_products/grain/schema.yml
+  table_changes:
+    description: Ready-to-use view of Grain call recordings ingested into Postgres; includes basic metadata, participants, transcript, and URL.
+  fields:
+  - field: recording_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Recording ID
+    new:
+      description: Primary key from Grain for the recording
+      semantic_type: type/PK
+  - field: creator_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Creator Email
+    new:
+      description: Email of the user who created the recording in Grain
+  - field: customer_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer Domain
+    new:
+      description: Extracted domain from attendees/owners, excluding metabase.com
+  - field: date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Date
+    new:
+      description: Recording date/time (start) normalized to timestamptz
+      semantic_type: type/CreationTimestamp
+  - field: owner_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Owner Email
+    new:
+      description: Primary owner of the recording
+  - field: start_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Start At
+    new:
+      description: Raw start timestamp reported by Grain
+  - field: end_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: End At
+    new:
+      description: Raw end timestamp reported by Grain
+  - field: tags
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Tags
+    new:
+      description: Comma-separated tags applied to the recording
+  - field: title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Title
+    new:
+      description: Title of the recording
+      semantic_type: type/Name
+  - field: attendees
+    current:
+      description: null
+      semantic_type: null
+      display_name: Attendees
+    new:
+      description: Comma-separated list of attendee emails
+  - field: transcript
+    current:
+      description: null
+      semantic_type: type/SerializedJSON
+      display_name: Transcript
+    new:
+      description: Transcript payload as JSON text (verbatim from Grain)
+      semantic_type: type/Description
+  - field: participants_data
+    current:
+      description: null
+      semantic_type: type/SerializedJSON
+      display_name: Participants Data
+    new:
+      description: Participants metadata as JSON text (verbatim from Grain)
+      semantic_type: type/Description
+  - field: url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: URL
+    new:
+      description: Public/accessible URL to the Grain recording

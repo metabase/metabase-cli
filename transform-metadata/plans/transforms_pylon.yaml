@@ -1,0 +1,1139 @@
+schema: transforms_pylon
+tables:
+- table: pylon_organization
+  table_id: 1869
+  dbt_model: pylon_organization
+  dbt_source: data_products/pylon/schema.yml
+  table_changes:
+    description: Customers in Pylon with organization level information from Unified Accounts.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Name of the organization with the Metabase customer ID appended to the end
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp, without time zone, of when the organization was created within Pylon
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Updated At
+    new:
+      description: Timestamp, without time zone, of when the organization was updated within Pylon
+  - field: is_active
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Active
+    new:
+      description: Whether the organization is still active or has canceled
+  - field: last_known_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Known Version
+    new:
+      description: Metabase version that the organization is on
+  - field: last_known_version_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Known Version Date
+    new:
+      description: Timestamp, without time zone, of when the Metabase version was updated; manually filled out by the Success team for self-hosted customers
+  - field: data_warehouse
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Data Warehouse
+    new:
+      description: Database type
+  - field: data_warehouse_ai_populated
+    current:
+      description: null
+      semantic_type: null
+      display_name: Data Warehouse Ai Populated
+    new:
+      description: Database type, populated by Pylon AI feature. The feature captures whether the customer is using a data warehouse. It complements the above field.
+  - field: nps_score
+    current:
+      description: null
+      semantic_type: type/Score
+      display_name: Nps Score
+    new:
+      description: NPS survey score on a scale from 1 to 10
+  - field: nps_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Nps Date
+    new:
+      description: Timestamp, without time zone, of when the NPS survey was sent
+  - field: customer_health_ai_populated
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Customer Health Ai Populated
+    new:
+      description: Pylon's Ai-populated field defining the health of a customer based on their interactions in the ticket system.
+  - field: customer_happiness
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Customer Happiness
+    new:
+      description: Happiness score, such as green, yellow, or red, based on the NPS survey or manually filled out by the Success team
+  - field: customer_goals
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer Goals
+    new:
+      description: Customer’s goals regarding what they want to achieve using Metabase
+  - field: achieved_goals
+    current:
+      description: null
+      semantic_type: null
+      display_name: Achieved Goals
+    new:
+      description: Whether or not the customer's goals were met
+  - field: goals_set_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Goals Set At
+    new:
+      description: Date when the customer set its goals
+  - field: goals_target_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Goals Target Date
+    new:
+      description: Date when the customer wants to achieve its goals
+  - field: customer_skill_level
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Customer Skill Level
+    new:
+      description: Customer’s technical skill level, such as 0 (non-technical) or 1 (technical)
+  - field: support_tier
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Support Tier
+    new:
+      description: Level of support, such as priority (Enterprise customers) or standard (non-Enterprise and non-SSO)
+  - field: named_success_engineer
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Named Success Engineer
+    new:
+      description: Success Engineer that is designated to support the customer
+  - field: slack_channel_name
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Slack Channel Name
+    new:
+      description: Name of the organization's external Slack channel
+  - field: annual_value
+    current:
+      description: null
+      semantic_type: null
+      display_name: Annual Value
+    new:
+      description: Annual dollar amount that the organization is paying
+  - field: subscription_status
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription Status
+    new:
+      description: Status of the subscription plan, such as active, cancelled, or in trial
+  - field: plan
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Plan
+    new:
+      description: Subscription plan
+  - field: number_of_subscriptions
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Number Of Subscriptions
+    new:
+      description: Number of subscriptions tied to the organization
+  - field: latest_user_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Latest User Count
+    new:
+      description: Recent number of users in the organization
+  - field: deployment
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Deployment
+    new:
+      description: Deployment type, such as Cloud or self-hosted
+  - field: domain_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Domain Name
+    new:
+      description: Email domain of the Account primary contact or the "primary" domain of the Pylon org as defined by (1) the number of Pylon users, (2) the email domain of the earliest created user in the org, or (3) alphabetical order (the default sorting in Zendesk)
+  - field: additional_domain_names
+    current:
+      description: null
+      semantic_type: null
+      display_name: Additional Domain Names
+    new:
+      description: Other email domains tied to the Pylon organization separated by a space
+  - field: notes
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Notes
+    new:
+      description: Notes about the customer made by Metabase employees
+  - field: url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: URL
+    new:
+      description: URL of the Pylon organization
+  - field: slack_channel_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Slack Channel URL
+    new:
+      description: URL of the organization's external Slack channel
+  - field: internal_tools_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Internal Tools URL
+    new:
+      description: URL of the organization in Internal Tools (previously referred to as "Harbormaster UI")
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Metabase ID of the customer; foreign key to the Customer model
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Foreign key to the Account model
+- table: pylon_ticket
+  table_id: 1870
+  dbt_model: pylon_ticket
+  dbt_source: data_products/pylon/schema.yml
+  table_changes:
+    description: Tickets submitted to Pylon by customers via different channels requesting support on set up or how to use Metabase.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: ticket_number
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket Number
+    new:
+      description: Human-readable ticket number from the ticketing system (Pylon or Zendesk)
+  - field: subject
+    current:
+      description: null
+      semantic_type: null
+      display_name: Subject
+    new:
+      description: Subject of the ticket
+  - field: organization_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization Name
+    new:
+      description: Customer name
+  - field: assignee_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Assignee Name
+    new:
+      description: Name of the person that the ticket is assigned to
+  - field: requester_email
+    current:
+      description: null
+      semantic_type: null
+      display_name: Requester Email
+    new:
+      description: Email of the person who actually needs the help bc can tell the name and org from the email and everyone will always have an email address
+  - field: cc_emails
+    current:
+      description: null
+      semantic_type: null
+      display_name: Cc Emails
+    new:
+      description: Email(s) of the non-Metabase people who were CC'ed on the ticket
+  - field: domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Domain
+    new:
+      description: Email domain of the customer used to identify and group tickets with missing organization names
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp, without time zone, of when the ticket was made
+  - field: assignee_updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Assignee Updated At
+    new:
+      description: Most recent timestamp, without time zone, of when the ticket was updated by the assignee
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Updated At
+    new:
+      description: Most recent timestamp, without time zone, of when the ticket was updated by anyone
+  - field: survey_created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Survey Created At
+    new:
+      description: Timestamp, without time zone, of when the survey was sent
+  - field: assignee_group_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Assignee Group Name
+    new:
+      description: The internal group that the assignee belongs to, such as Admins, Billing, Contacts, Partners, Sales, Success, or NULL
+  - field: ticket_group
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Ticket Group
+    new:
+      description: The internal group that the ticket belongs to, such as Admins, Billing, Contacts, Partners, Sales, Success, or NULL
+  - field: is_open
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Open
+    new:
+      description: Whether the ticket is open or not, which is defined as either in the solved or closed stage
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Status of the ticket - new (untouched), open (assigned or worked on), pending (waiting on the customer), hold (waiting on our internal team), solved (team thinks the issue is solved or the customer does not respond after 120 hours), closed (automatically moves to closed after being solved for 14 days); a new ticket is opened if the customer responds to their closed ticket
+  - field: type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Type
+    new:
+      description: Type of the ticket, such as question, incident, user_error.
+  - field: priority
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Priority
+    new:
+      description: Priority of the ticket, such as low, normal, high, urgent
+  - field: ticket_reason
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket Reason
+    new:
+      description: Reason why the ticket was created
+  - field: biz_ops_area
+    current:
+      description: null
+      semantic_type: null
+      display_name: Biz Ops Area
+    new:
+      description: Specific Biz Ops area/reason of the ticket
+  - field: product_area
+    current:
+      description: null
+      semantic_type: null
+      display_name: Product Area
+    new:
+      description: Specific Product area/reason of the ticket
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Metabase Version
+    new:
+      description: Metabase version(s) that the customer was on at the time they submitted their ticket
+  - field: sent_survey
+    current:
+      description: null
+      semantic_type: null
+      display_name: Sent Survey
+    new:
+      description: Whether a survey was sent out (offered) or not (unoffered)
+  - field: satisfaction_rating_score
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Satisfaction Rating Score
+    new:
+      description: Survey score, such as Good, Bad, or NULL
+  - field: satisfaction_rating_value
+    current:
+      description: null
+      semantic_type: type/Score
+      display_name: Satisfaction Rating Value
+    new:
+      description: Numerical survey score on a range of 1 (bad) to 5 (good)
+  - field: satisfaction_rating_comment
+    current:
+      description: null
+      semantic_type: type/Comment
+      display_name: Satisfaction Rating Comment
+    new:
+      description: Comment that customers voluntarily provide in addition to their survey score
+  - field: via_channel
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Via Channel
+    new:
+      description: Source from which the ticket came in through, such as web, email, sample ticket, chat, API, Slack, Microsoft Teams, etc.
+  - field: recipient
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Recipient
+    new:
+      description: Destination email that received the ticket, such as billing@, contacts@, partners@, support@, X, or NULL
+  - field: submitter_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Submitter Name
+    new:
+      description: Name of the person who created the ticket
+  - field: has_incidents
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Incidents
+    new:
+      description: True if there is an outage; used to connect all the affected tickets to the ticket about the outage in order to update as a batch
+  - field: problem_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Problem ID
+    new:
+      description: ID that connects the tickets that experience the same system outage to the respective ticket within the Tickets table
+  - field: url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: URL
+    new:
+      description: URL of the Pylon ticket
+  - field: tags
+    current:
+      description: null
+      semantic_type: null
+      display_name: Tags
+    new:
+      description: Tags on the ticket that the team uses to categorize tickets and provide more context
+  - field: description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Description
+    new:
+      description: Body text of the ticket
+  - field: system_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: System Source
+    new:
+      description: System source of the ticket (Pylon or Zendesk)
+  - field: organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization ID
+    new:
+      description: ID of the customer's Pylon organization; foreign key to the Organization model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Metabase ID of the customer; foreign key to the Customer model
+  - field: account_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Account ID
+    new:
+      description: Foreign key to the Account model
+  - field: zendesk_ticket_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Zendesk Ticket ID
+    new:
+      description: Corresponding ticket ID in Zendesk for tickets that have been migrated from Zendesk to Pylon
+  - field: zendesk_ticket_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Zendesk Ticket URL
+    new:
+      description: Corresponding ticket URL in Zendesk for tickets that have been migrated from Zendesk to Pylon
+  - field: group_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Group ID
+    new:
+      description: ID of the internal group that the assignee belongs to; foreign key to the Group model
+  - field: assignee_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Assignee ID
+    new:
+      description: ID of the person that the ticket is assigned to; foreign key to the User model
+  - field: requester_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Requester ID
+    new:
+      description: ID of the person who actually needs help; foreign key to the User model
+  - field: submitter_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Submitter ID
+    new:
+      description: ID of the person who created the ticket; foreign key to the User model
+  - field: satisfaction_rating_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Satisfaction Rating ID
+    new:
+      description: ID of the survey response; foreign key to the Satisfaction Rating model
+- table: pylon_ticket_comment
+  table_id: 1871
+  dbt_model: pylon_ticket_comment
+  dbt_source: data_products/pylon/schema.yml
+  table_changes:
+    description: Conversation of the Pylon tickets between customers and Metabase employees.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: ticket_number
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket Number
+    new:
+      description: Human-readable ticket number from the ticketing system (Pylon or Zendesk)
+  - field: ticket_subject
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket Subject
+    new:
+      description: Subject of the ticket
+  - field: comment
+    current:
+      description: null
+      semantic_type: type/Comment
+      display_name: Comment
+    new:
+      description: Body text of the ticket thread
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp, without time zone, of when the comment was made
+  - field: is_public
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Public
+    new:
+      description: Whether the comment is public for customers to see or not; internal comments contain notes and URLs of Github issues for the Success team's own reference
+  - field: author_email
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Author Email
+    new:
+      description: Email of the person who made the ticket comment
+  - field: system_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: System Source
+    new:
+      description: System source of the ticket (Pylon or Zendesk)
+  - field: ticket_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket ID
+    new:
+      description: ID of the Pylon ticket; foreign key to the Ticket model
+  - field: author_id
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Author ID
+    new:
+      description: ID of the person who made the ticket comment; foreign key to the User model
+- table: pylon_ticket_link
+  table_id: 1872
+  dbt_model: pylon_ticket_link
+  dbt_source: data_products/pylon/schema.yml
+  table_changes:
+    description: Links shared within the comments of the ticket threads
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: ticket_subject
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket Subject
+    new:
+      description: Subject of the ticket
+  - field: link
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Link
+    new:
+      description: Link that was mentioned
+  - field: link_mentioned_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Link Mentioned At
+    new:
+      description: Timestamp, without time zone, of when the link was first mentioned within the ticket thread
+      semantic_type: type/CreationTimestamp
+  - field: is_public
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Public
+    new:
+      description: Whether or not the link is shared publicly for customers to see; links commented by non-Metabase users who are not the ticket requester or a CCed user will be shown as internal notes as well
+      semantic_type: type/Category
+  - field: is_from_team
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is From Team
+    new:
+      description: Whether or not the link was shared by the Metabase team, including past employees
+      semantic_type: type/Category
+  - field: link_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Link Type
+    new:
+      description: Type of the link, such as Metabase Docs, Metabase Learn, Metabase Blog, Metabase Github, Metabase website, Metabase Store, Metabase Discourse, Metabase Tools, meeting link, image attachment, other Github, or Other
+  - field: commentor_email
+    current:
+      description: null
+      semantic_type: type/Comment
+      display_name: Commentor Email
+    new:
+      description: Email of the Pylon user who commented the link; past Metabase employees are missing emails and have a placeholder value of "Past Metabase employee" instead
+  - field: organization_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization Name
+    new:
+      description: Customer name
+  - field: domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Domain
+    new:
+      description: Email domain of the customer
+  - field: ticket_assignee_group
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Ticket Assignee Group
+    new:
+      description: The internal group that the ticket assignee belongs to, such as Admins, Billing, Contacts, Partners, Sales, or Success
+  - field: organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization ID
+    new:
+      description: ID of the customer's Pylon organization; foreign key to the Organization model
+  - field: ticket_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket ID
+    new:
+      description: ID of the Pylon ticket; foreign key to the Ticket model
+  - field: commentor_id
+    current:
+      description: null
+      semantic_type: type/Comment
+      display_name: Commentor ID
+    new:
+      description: ID of the Pylon user who commented the link; foreign key to the User model
+- table: pylon_ticket_metric
+  table_id: 1873
+  dbt_model: pylon_ticket_metric
+  dbt_source: data_products/pylon/schema.yml
+  table_changes:
+    description: Time metrics measuring the responsiveness of the Success team
+  fields:
+  - field: ticket_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket ID
+    new:
+      description: ID of the Pylon ticket; foreign key to the Ticket model
+  - field: ticket_number
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket Number
+    new:
+      description: Human-readable ticket number from the ticketing system (Pylon or Zendesk)
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp, without time zone, of when the ticket was submitted by the customer
+  - field: solved_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Solved At
+    new:
+      description: Timestamp, without time zone, of when the ticket was eventually solved
+  - field: assignee_updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Assignee Updated At
+    new:
+      description: Most recent timestamp, without time zone, of when the ticket was updated by the assignee
+  - field: reopens
+    current:
+      description: null
+      semantic_type: null
+      display_name: Reopens
+    new:
+      description: Number of times the ticket has been reopened
+  - field: replies
+    current:
+      description: null
+      semantic_type: null
+      display_name: Replies
+    new:
+      description: Number of times a Metabase employee responded to the ticket
+  - field: reply_time_in_minutes_calendar
+    current:
+      description: null
+      semantic_type: null
+      display_name: Reply Time In Minutes Calendar
+    new:
+      description: Number of calendar minutes between the time when the ticket was created and the time a Metabase employee first responded
+  - field: reply_time_in_minutes_business
+    current:
+      description: null
+      semantic_type: null
+      display_name: Reply Time In Minutes Business
+    new:
+      description: Number of minutes between the time when the ticket was created and the time a Metabase employee first responded within Metabase's official business hours (8 AM - 5 PM PST)
+  - field: first_resolution_time_in_minutes_calendar
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Resolution Time In Minutes Calendar
+    new:
+      description: Number of calendar minutes between the time when the ticket was created and the time the ticket was first marked as resolved
+  - field: first_resolution_time_in_minutes_business
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Resolution Time In Minutes Business
+    new:
+      description: Number of minutes between the time when the ticket was created and the time the ticket was first marked as resolved within Metabase's official business hours (8 AM - 5 PM PST)
+  - field: full_resolution_time_in_minutes_calendar
+    current:
+      description: null
+      semantic_type: null
+      display_name: Full Resolution Time In Minutes Calendar
+    new:
+      description: Number of calendar minutes between the time when the ticket was created and the time the ticket was finally marked as resolved
+  - field: full_resolution_time_in_minutes_business
+    current:
+      description: null
+      semantic_type: null
+      display_name: Full Resolution Time In Minutes Business
+    new:
+      description: Number of calendar minutes between the time when the ticket was created and the time the ticket was finally marked as resolved within Metabase's official business hours (8 AM - 5 PM PST)
+  - field: full_resolution_time_in_hours_calendar
+    current:
+      description: null
+      semantic_type: null
+      display_name: Full Resolution Time In Hours Calendar
+    new:
+      description: Number of calendar hours between the time when the ticket was created and the time the ticket was finally marked as resolved
+  - field: full_resolution_time_in_hours_business
+    current:
+      description: null
+      semantic_type: null
+      display_name: Full Resolution Time In Hours Business
+    new:
+      description: Number of hours between the time when the ticket was created and the time the ticket was finally marked as resolved within Metabase's official business hours (8 AM - 5 PM PST)
+  - field: assignee_stations
+    current:
+      description: null
+      semantic_type: null
+      display_name: Assignee Stations
+    new:
+      description: Number of Metabase employees that the ticket was assigned to
+  - field: group_stations
+    current:
+      description: null
+      semantic_type: null
+      display_name: Group Stations
+    new:
+      description: Number of times the ticket was (re)assigned to a group
+- table: pylon_ticket_product_area
+  table_id: 1874
+  dbt_model: pylon_ticket_product_area
+  dbt_source: data_products/pylon/schema.yml
+  table_changes:
+    description: Product areas tagged on Pylon tickets
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: ticket_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket ID
+    new:
+      description: ID of the Pylon ticket; foreign key to the Ticket model
+  - field: ticket_number
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket Number
+    new:
+      description: Human-readable ticket number from the ticketing system (Pylon or Zendesk)
+  - field: ticket_product_area
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket Product Area
+    new:
+      description: Product area of the Pylon ticket; many to one relationship
+  - field: system_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: System Source
+    new:
+      description: System source of the ticket (Pylon or Zendesk)
+- table: pylon_ticket_reason
+  table_id: 1875
+  dbt_model: pylon_ticket_reason
+  dbt_source: data_products/pylon/schema.yml
+  table_changes:
+    description: Ticket reasons tagged on Pylon tickets
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: ticket_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket ID
+    new:
+      description: ID of the Pylon ticket; foreign key to the Ticket model
+  - field: ticket_number
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket Number
+    new:
+      description: Human-readable ticket number from the ticketing system (Pylon or Zendesk)
+  - field: ticket_reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Ticket Reason
+    new:
+      description: Ticket reason of the Pylon ticket; many to one relationship
+  - field: system_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: System Source
+    new:
+      description: System source of the ticket (Pylon or Zendesk)
+- table: pylon_ticket_tag
+  table_id: 1876
+  dbt_model: pylon_ticket_tag
+  dbt_source: data_products/pylon/schema.yml
+  table_changes:
+    description: Tags on Pylon tickets that the Success team uses to categorize tickets and provide more context.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: ticket_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket ID
+    new:
+      description: ID of the Pylon ticket; foreign key to the Ticket model
+  - field: ticket_number
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket Number
+    new:
+      description: Human-readable ticket number from the ticketing system (Pylon or Zendesk)
+  - field: ticket_tag
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ticket Tag
+    new:
+      description: Tag of the Pylon ticket; many to one relationship
+- table: pylon_user
+  table_id: 1877
+  dbt_model: pylon_user
+  dbt_source: data_products/pylon/schema.yml
+  table_changes:
+    description: Users in Pylon, including customers and Metabase employees.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Name of the Pylon user
+  - field: first_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Name
+    new:
+      description: First name of the Pylon user
+  - field: organization_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization Name
+    new:
+      description: Name of the organization that the user belongs to
+  - field: email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Email
+    new:
+      description: Email of the user
+  - field: role
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Role
+    new:
+      description: Role of the user, such as end user (puts in tickets), agent (uses the system but cannot change configurations), light agent (cannot be assigned tickets or communicate w/ users), or admin
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp, without time zone, of when the user was created within Pylon
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Updated At
+    new:
+      description: Timestamp, without time zone, of when the user was updated within Pylon
+  - field: last_login_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Login At
+    new:
+      description: Timestamp, without time zone, of when a Metabase employee last logged in to Zendesk
+  - field: is_active
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Active
+    new:
+      description: Whether the user is still active or not
+  - field: is_suspended
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Suspended
+    new:
+      description: Whether users are allowed to log in to Zendesk anymore or not; used to preserve records under Metabase employees who have left the company
+  - field: group_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Group Name
+    new:
+      description: Name of the Metabase user's group
+  - field: notes
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Notes
+    new:
+      description: Notes about the user
+  - field: url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: URL
+    new:
+      description: URL of the user
+  - field: email_hash
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Hash
+    new:
+      description: Hashed version of email that can be joined to other models with the same, such as Hosting Insights Core User model.
+  - field: organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization ID
+    new:
+      description: ID of the organization that the Pylon user belongs to; foreign key to the Organization model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Metabase ID of the customer; foreign key to the Customer model
+  - field: account_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Account ID
+    new:
+      description: Foreign key to the Account model

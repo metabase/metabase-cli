@@ -1,0 +1,435 @@
+schema: transforms_linear
+tables:
+- table: linear_project
+  table_id: 1787
+  dbt_model: linear_project
+  dbt_source: data_products/linear/schema.yml
+  table_changes:
+    description: Comprehensive summary and progress of projects in Linear
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Name of the project
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Date when the project was created
+  - field: started_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Started At
+    new:
+      description: Date when the project started
+  - field: completed_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Completed At
+    new:
+      description: Date when the project was completed
+  - field: canceled_at
+    current:
+      description: null
+      semantic_type: type/CancelationTimestamp
+      display_name: Canceled At
+    new:
+      description: Date when the project status was marked as canceled
+  - field: start_date
+    current:
+      description: null
+      semantic_type: type/CreationDate
+      display_name: Start Date
+    new:
+      description: Anticipated start date set for the project
+  - field: target_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Target Date
+    new:
+      description: Target completion date set for the project
+  - field: state
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: State
+    new:
+      description: State of the project, e.g. backlog, started, planned, completed, or canceled
+  - field: progress
+    current:
+      description: null
+      semantic_type: null
+      display_name: Progress
+    new:
+      description: Progress of the project ranging from 0 to 1
+  - field: scope
+    current:
+      description: null
+      semantic_type: null
+      display_name: Scope
+    new:
+      description: Project scope
+      semantic_type: type/Quantity
+  - field: creator
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Creator
+    new:
+      description: User who created the project
+  - field: team
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Team
+    new:
+      description: Team(s) working on the project
+  - field: lead
+    current:
+      description: null
+      semantic_type: null
+      display_name: Lead
+    new:
+      description: Lead of the project
+  - field: member
+    current:
+      description: null
+      semantic_type: null
+      display_name: Member
+    new:
+      description: Member(s) working on the project
+  - field: description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Description
+    new:
+      description: Combined project summary and description
+  - field: url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: URL
+    new:
+      description: URL of the project
+  - field: slug_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Slug ID
+    new:
+      description: Unique identifier in the Linear URL that can be used to filter to the project in the model
+  - field: converted_from_issue_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Converted From Issue ID
+    new:
+      description: ID of the Linear Issue from which the project was converted from
+  - field: creator_id
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Creator ID
+    new:
+      description: Foreign key to the Linear User model
+  - field: lead_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Lead ID
+    new:
+      description: Foreign key to the Linear User model
+- table: linear_project_member
+  table_id: 1788
+  dbt_model: linear_project_member
+  dbt_source: data_products/linear/schema.yml
+  table_changes:
+    description: Projects worked on by member; intermediary model to join project- and user-related info other than the IDs and names
+  fields:
+  - field: member_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Member Name
+    new:
+      description: Project member name
+  - field: project_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Project Name
+    new:
+      description: Project name
+  - field: member_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Member ID
+    new:
+      description: Foreign key to the Linear User model
+  - field: project_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Project ID
+    new:
+      description: Foreign key to the Linear Project model
+- table: linear_team
+  table_id: 1789
+  dbt_model: linear_team
+  dbt_source: data_products/linear/schema.yml
+  table_changes:
+    description: Linear user
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Name of the team
+  - field: key
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Key
+    new:
+      description: Three letter abbreviation of the team name that is used in Issue identifiers, e.g. CLO-2991 is issue 2991 created by Cloud
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: When the team was created
+  - field: is_private
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Private
+    new:
+      description: Whether or not the team is private
+      semantic_type: type/Category
+  - field: is_triage_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Triage Enabled
+    new:
+      description: Whether or not triage is enabled
+      semantic_type: type/Category
+  - field: is_cycle_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Cycle Enabled
+    new:
+      description: Whether or not cycle is enabled and upcoming cycles are created automatically for the team by Linear. Cycles are time-boxed periods where a team works on completing a pre-defined set of work but are not tied to releases unlike sprints.
+      semantic_type: type/Category
+  - field: timezone
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Timezone
+    new:
+      description: Timezone
+  - field: projects
+    current:
+      description: null
+      semantic_type: null
+      display_name: Projects
+    new:
+      description: Number of projects worked on by the team
+      semantic_type: type/Quantity
+  - field: issues
+    current:
+      description: null
+      semantic_type: null
+      display_name: Issues
+    new:
+      description: Number of issues created by the team
+      semantic_type: type/Quantity
+  - field: upcoming_cycle_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Upcoming Cycle Count
+    new:
+      description: Number of upcoming cycles; the default is 2 if the feature is enabled. Members will only be able to add issues to cycles that have been created.
+  - field: cycle_start_day
+    current:
+      description: null
+      semantic_type: null
+      display_name: Cycle Start Day
+    new:
+      description: The specific day of the week that the team's cycles start in regular intervals
+      semantic_type: type/Quantity
+  - field: cycle_duration
+    current:
+      description: null
+      semantic_type: type/Duration
+      display_name: Cycle Duration
+    new:
+      description: How long each cycle lasts in number of weeks
+      semantic_type: type/Quantity
+  - field: cycle_cooldown_time
+    current:
+      description: null
+      semantic_type: null
+      display_name: Cycle Cooldown Time
+    new:
+      description: Cooldown period after each cycle to give the team a break and bandwidth to work through technical debt and other planning functions. Issues cannot be assigned to a cooldown.
+      semantic_type: type/Quantity
+  - field: cycle_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Cycle ID
+    new:
+      description: Foreign Key to the Linear Cycle table
+- table: linear_team_project
+  table_id: 1790
+  dbt_model: linear_team_project
+  dbt_source: data_products/linear/schema.yml
+  table_changes:
+    description: Projects worked on by team; intermediary model to join project- and team-related info other than the IDs and names
+  fields:
+  - field: team_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Team Name
+    new:
+      description: Team name
+  - field: project_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Project Name
+    new:
+      description: Project name
+  - field: team_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Team ID
+    new:
+      description: Foreign key to the Linear Team model
+  - field: project_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Project ID
+    new:
+      description: Foreign key to the Linear Project model
+- table: linear_user
+  table_id: 1791
+  dbt_model: linear_user
+  dbt_source: data_products/linear/schema.yml
+  table_changes:
+    description: Linear user
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Name of the user
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: When the user was created within Linear
+  - field: last_seen_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Seen At
+    new:
+      description: When the user was last seen in Linear
+  - field: is_active
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Active
+    new:
+      description: Whether or not the user is still active
+      semantic_type: type/Category
+  - field: is_admin
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Admin
+    new:
+      description: Whether or not the user is an admin
+      semantic_type: type/Category
+  - field: email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Email
+    new:
+      description: Email of the user
+  - field: timezone
+    current:
+      description: null
+      semantic_type: null
+      display_name: Timezone
+    new:
+      description: Timezone in which the user is located
+  - field: projects
+    current:
+      description: null
+      semantic_type: null
+      display_name: Projects
+    new:
+      description: Number of Linear projects that the user worked on
+      semantic_type: type/Quantity
+  - field: issues
+    current:
+      description: null
+      semantic_type: null
+      display_name: Issues
+    new:
+      description: Number of Linear issues that the user created
+      semantic_type: type/Quantity
+  - field: url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: URL
+    new:
+      description: Profile URL of the user

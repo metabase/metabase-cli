@@ -1,0 +1,5464 @@
+schema: transforms_product_events
+tables:
+- table: account_event
+  table_id: 1836
+  dbt_model: account_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for account creations
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: banner_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Banner Version
+    new:
+      description: The version of database connection banner that we're on
+      semantic_type: type/Category
+  - field: banner_link
+    current:
+      description: null
+      semantic_type: null
+      display_name: Banner Link
+    new:
+      description: The link where the user clicked
+      semantic_type: type/Category
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: action_event
+  table_id: 1837
+  dbt_model: action_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for actions
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: type
+    current:
+      description: null
+      semantic_type: null
+      display_name: Type
+    new:
+      description: Type of action
+      semantic_type: type/Category
+  - field: num_parameters
+    current:
+      description: null
+      semantic_type: null
+      display_name: Num Parameters
+    new:
+      description: Number of a parameter if is a custom action
+      semantic_type: type/Quantity
+  - field: context
+    current:
+      description: null
+      semantic_type: null
+      display_name: Context
+    new:
+      description: The context that an action was executed in
+      semantic_type: type/Category
+  - field: action_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Action ID
+    new:
+      description: Unique identifier for an action within the Metabase instance
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: browse_data_event
+  table_id: 1838
+  dbt_model: browse_data_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Captures various events related to data browsing. This model is particularly useful for tracking user interactions and behaviors in relation to data browsing.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Unique identifier for each event
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: This column represents the timestamp when the event data was collected
+  - field: model_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Model ID
+    new:
+      description: This column contains the unique identifier for the model associated with the event. Can be used for distinct counts within an instance.
+  - field: table_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Table ID
+    new:
+      description: This column holds the unique identifier for the table associated with the event. Can be used for distinct counts within an instance.
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: cleanup_event
+  table_id: 1839
+  dbt_model: cleanup_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Viewing or archiving stale collection items
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: cutoff_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Cutoff At
+    new:
+      description: The date before which unused items are considered 'stale'
+  - field: total_stale_items_found
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Stale Items Found
+    new:
+      description: The total number of stale items that were found
+  - field: total_items_archived
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Items Archived
+    new:
+      description: The total number of stale items that were archived
+  - field: collection_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collection ID
+    new:
+      description: Unique identifier for the Collection where we looked for stale items
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: csv_upload_event
+  table_id: 1840
+  dbt_model: csv_upload_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for csv uploads
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: upload_seconds
+    current:
+      description: null
+      semantic_type: null
+      display_name: Upload Seconds
+    new:
+      description: Number of seconds the CSV took to upload
+      semantic_type: type/Quantity
+  - field: size_mb
+    current:
+      description: null
+      semantic_type: null
+      display_name: Size Mb
+    new:
+      description: File size of the CSV in megabytes
+      semantic_type: type/Quantity
+  - field: num_columns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Num Columns
+    new:
+      description: Number of columns in the CSV
+      semantic_type: type/Quantity
+  - field: num_rows
+    current:
+      description: null
+      semantic_type: null
+      display_name: Num Rows
+    new:
+      description: Number of rows in the CSV
+      semantic_type: type/Quantity
+  - field: model_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Model ID
+    new:
+      description: Unique identifier for the newly created model
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: daily_instance_feature_availability
+  table_id: 1841
+  dbt_model: daily_instance_feature_availability
+  dbt_source: data_products/product_events/instance_features/schema.yml
+  table_changes:
+    description: 'The model provides insights into the availability and status of features across Metabase instances on a daily basis. The data is based on the anonymous stats ping we receive from Metabase instances. **Key use cases include:** - Feature adoption: Understanding which features are most commonly enabled and available across instances. - Analyzing trends in feature availability over time to inform product development and marketing strategies. **Granularity:** One row per feature per instance per day ## Caveats: - This data only shows instances that opted into sending anonymous stats pings (cloud instances have opt-in by default). - We can only identify cloud instances with their `account_id`. The identifcation might not work right away due to potential delays in the ETL process, which may affect data completeness for new instances. - Feature availability was only implemented into the stats ping from Metabase version 51.0 onwards. ## Playbook: Example SQL queries demonstrating
+      how to leverage this model. **Get the feature availability for a specific instance:** ```sql select metabase_instance_id, feature_name, is_available, is_enabled from dbt_models_product_events.daily_instance_feature_availability where metabase_instance_id = ''<your_instance_id>'' and date = ''<specific_date>'' ``` **Retrieve the features available for all paying instances:** ```sql select metabase_instance_id, feature_name, is_available, metabase_plan from dbt_models_product_events.daily_instance_feature_availability where is_paying_instance = true ```'
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Unique identifier for the feature availability record.
+  - field: date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Date
+    new:
+      description: The date for which feature availability is reported.
+  - field: feature_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Feature Name
+    new:
+      description: The name of the feature being tracked.
+  - field: is_available
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Available
+    new:
+      description: Indicates if the feature is available for the instance (i.e. can it be enabled).
+  - field: is_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Enabled
+    new:
+      description: Indicates if the feature is enabled for the instance (i.e. it can be used).
+  - field: is_paying_instance
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Paying Instance
+    new:
+      description: Indicates if the instance is on a paid Metabase plan.
+  - field: metabase_plan
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Plan
+    new:
+      description: The Metabase plan associated with the instance.
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: 'The DNS name of the Metabase instance. Note: This is only available for cloud instances if we could match the instance to an account.'
+  - field: metabase_anonymous_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Anonymous Instance ID
+    new:
+      description: The anonymous ID of the Metabase instance.
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: 'The account ID associated with the instance. Note: This is only available for cloud instances if we could match the instance to an account.'
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: The ID of the unified instance event.
+  - field: metabase_version_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version ID
+    new:
+      description: The version of Metabase being used.
+- table: daily_instance_feature_stats
+  table_id: 1842
+  dbt_model: daily_instance_feature_stats
+  dbt_source: data_products/product_events/instance_features/schema.yml
+  table_changes:
+    description: 'The model aggregates key metrics related to the usage of features across Metabase instances on a daily basis. It provides insights into the number of instances utilizing specific features, as well as their availability and enabled status. **Key use cases include:** - Use as denominator for calculating feature adoption rates or when comparing to related feature events - Evaluating feature utilization trends over time to inform product development. - Analyzing the availability and engagement of features among paying customers compared to free instances. **Granularity:** One row per feature per day ## Caveats: - The model only accounts for instances that have opted into sending anonymous stats, potentially leading to incomplete data for non-cloud instances. - Counts are based on unique (anonymous) instance identifiers - Feature availability was only implemented into the stats ping from Metabase version 51.0 onwards. ## Playbook: Example SQL queries demonstrating how to leverage
+      this model. **Get daily feature statistics for a specific feature:** ```sql select date, feature_name, all_instances, instances_with_feature_available, feature_available_rate from dbt_models_product_events.daily_instance_feature_stats where feature_name = ''<feature_name>'' ```'
+  fields:
+  - field: date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Date
+    new:
+      description: The date for which feature statistics are reported.
+  - field: feature_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Feature Name
+    new:
+      description: The name of the feature being tracked.
+  - field: all_instances
+    current:
+      description: null
+      semantic_type: null
+      display_name: All Instances
+    new:
+      description: The total number of unique instances that sent the stats ping.
+  - field: instances_with_feature_available
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instances With Feature Available
+    new:
+      description: The count of instances where the feature is available for use (i.e. can be enabled).
+  - field: instances_with_feature_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instances With Feature Enabled
+    new:
+      description: The count of instances where the feature is actively enabled (i.e. it can be used).
+  - field: feature_available_rate
+    current:
+      description: null
+      semantic_type: null
+      display_name: Feature Available Rate
+    new:
+      description: The percentage of instances where the feature is available.
+  - field: feature_enabled_rate
+    current:
+      description: null
+      semantic_type: null
+      display_name: Feature Enabled Rate
+    new:
+      description: The percentage of instances with the feature available where the feature is enabled (i.e. it can be used).
+  - field: paying_instances
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paying Instances
+    new:
+      description: The count of paying instances that sent the stats ping.
+  - field: paying_instances_with_feature_available
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paying Instances With Feature Available
+    new:
+      description: The count of paying instances where the feature is available for use (i.e. can be enabled).
+  - field: paying_instances_with_feature_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paying Instances With Feature Enabled
+    new:
+      description: The count of paying instances where the feature is actively enabled (i.e. it can be used).
+  - field: paying_feature_available_rate
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paying Feature Available Rate
+    new:
+      description: The percentage of paying instances where the feature is available.
+  - field: paying_feature_enabled_rate
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paying Feature Enabled Rate
+    new:
+      description: The percentage of paying instances with the feature available where the feature is enabled (i.e. it can be used).
+- table: daily_instance_metrics
+  table_id: 1843
+  dbt_model: daily_instance_metrics
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: 'This model provides the daily metrics collected by anonymous stats pings received from Metabase instances. **Key use cases include:** - **Performance Monitoring:** Track key performance indicators (KPIs) to ensure instances are running optimally. - **Feature Usage Analysis:** Understand how different features are being utilized across instances to inform product development and enhancements. - **Trend Analysis:** Identify trends in metric values over time to detect potential issues or areas for improvement. - **Segment Analysis:** Compare metrics across different plans **Granularity:** One row per metric (per group) per instance per day. ## Caveats: - **Data Completeness:** This data only shows instances that opted into sending anonymous stats pings (cloud instances have opt-in by default). - **ETL Delays:** We can only identify cloud instances with their `account_id`. The identifcation might not work right away due to potential delays in the ETL process, which may affect
+      data completeness for new instances. - **Metric Availability:** Only metrics tracked by Metabase version 51.0 and later are included. - **Metric groups:** Some metrics are grouped into categories. Those will have a `metric_group` value. For individual metrics, this field will be `null`. ## Playbook: Example SQL queries demonstrating how to leverage this model. **Retrieve metrics for a specific instance on a specific date:** ```sql select metabase_anonymous_instance_id, metric_name, metric_group, value, is_paying_instance, metabase_plan from dbt_models_product_events.daily_instance_metrics where metabase_anonymous_instance_id = ''<your_instance_id>'' and date = ''2024-12-05'' ``` **Analyze average metric values for all paying instances:** ```sql select metric_name, avg(value) as average_value from dbt_models_product_events.daily_instance_metrics where is_paying_instance = true group by metric_name order by average_value desc ``` **Track metric trends over the past month for a specific
+      metric:** ```sql select date, value from dbt_models_product_events.daily_instance_metrics where metric_name = ''query_execution_time'' and date >= current_date - interval ''30 day'' order by date ``` **Analyze a grouped metric**: ```sql select metric_group, metric_name, avg(value) as average_value from dbt_models_product_events.daily_instance_metrics where metric_group = ''query_execution'' group by metric_group, metric_name order by average_value desc ```'
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Unique identifier for the metric record.
+  - field: date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Date
+    new:
+      description: The date for which the metric is reported.
+  - field: metric_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metric Name
+    new:
+      description: The name of the metric being tracked.
+  - field: metric_group
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metric Group
+    new:
+      description: The group or category to which the metric belongs. This is only important for grouped metrics.
+  - field: value
+    current:
+      description: null
+      semantic_type: null
+      display_name: Value
+    new:
+      description: The numerical value of the metric.
+  - field: is_paying_instance
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Paying Instance
+    new:
+      description: Indicates if the instance is on a paid Metabase plan.
+  - field: tags
+    current:
+      description: null
+      semantic_type: null
+      display_name: Tags
+    new:
+      description: Tags associated with the metric for categorization or filtering.
+  - field: metabase_plan
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Plan
+    new:
+      description: 'The Metabase plan associated with the instance. Note: This is only available for cloud instances if the instance can be matched to an account.'
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: 'The DNS name of the Metabase instance. Note: This is only available for cloud instances if the instance can be matched to an account.'
+  - field: metabase_anonymous_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Anonymous Instance ID
+    new:
+      description: The anonymous ID of the Metabase instance.
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: 'The account ID associated with the instance. Note: This is only available for cloud instances if the instance can be matched to an account.'
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: The ID of the unified instance event.
+  - field: metabase_version_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version ID
+    new:
+      description: The version of Metabase being used.
+- table: daily_instance_tracking_attributes
+  table_id: 1844
+  dbt_model: daily_instance_tracking_attributes
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: This table contains daily attributes of Metabase instances. It is a daily snapshot of the latest instance event context data. It contains OSS, self-hosted and cloud instances that opted in to anonymous tracking. It can be used to determine eligibility for features. **Caveats:** - The data only contains stats for instances that have opted in to share usage statistics. - We wait for days to pass before we snapshot the instance context data. This means, we don't have data for the current day. **Granularity:** 1 row per instance per day
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: The date the attributes are valid for
+      semantic_type: type/CreationDate
+  - field: instance_created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Created At
+    new:
+      description: The timestamp at which this instance of Metabase was created
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: The current version of Metabase running on the instance
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_major_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Major Version
+    new:
+      description: The major version of Metabase running on the instance
+      semantic_type: type/Category
+  - field: application_database
+    current:
+      description: null
+      semantic_type: null
+      display_name: Application Database
+    new:
+      description: The type of database used for the Metabase application
+      semantic_type: type/Category
+  - field: application_database_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Application Database Version
+    new:
+      description: The version of the database used for the Metabase application
+      semantic_type: type/Category
+  - field: token_has_pro_features
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Pro Features
+    new:
+      description: Indicates whether a token has pro features enbaled. These are tied to a pro or enteprise token.
+      semantic_type: type/Category
+  - field: token_has_hosting
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Hosting
+    new:
+      description: Indicates whether a token has hosting enabled
+      semantic_type: type/Category
+  - field: token_has_advanced_config
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Advanced Config
+    new:
+      description: Indicates whether a token has advanced configuration enabled
+      semantic_type: type/Category
+  - field: token_has_advanced_permissions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Advanced Permissions
+    new:
+      description: Indicates whether a token has advanced permissions enabled
+      semantic_type: type/Category
+  - field: token_has_audit_app
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Audit App
+    new:
+      description: Indicates whether a token has the audit app enabled
+      semantic_type: type/Category
+  - field: token_has_content_management
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Content Management
+    new:
+      description: Indicates whether a token has content management enabled
+      semantic_type: type/Category
+  - field: token_has_embedding
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Embedding
+    new:
+      description: Indicates whether a token has embedding enabled
+      semantic_type: type/Category
+  - field: token_has_sandboxes
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Sandboxes
+    new:
+      description: Indicates whether a token has sandboxes enabled
+      semantic_type: type/Category
+  - field: token_has_whitelabel
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Whitelabel
+    new:
+      description: Indicates whether a token has whitelabel enabled
+      semantic_type: type/Category
+  - field: token_has_cache_granular_controls
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Cache Granular Controls
+    new:
+      description: Indicates whether a token has cache granular controls enabled
+      semantic_type: type/Category
+  - field: token_has_config_text_file
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Config Text File
+    new:
+      description: Indicates whether a token has config text file enabled
+      semantic_type: type/Category
+  - field: token_has_content_verification
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Content Verification
+    new:
+      description: Indicates whether a token has content verification enabled
+      semantic_type: type/Category
+  - field: token_has_dashboard_subscription_filters
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Dashboard Subscription Filters
+    new:
+      description: Indicates whether a token has dashboard subscription filters enabled
+      semantic_type: type/Category
+  - field: token_has_disable_password_login
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Disable Password Login
+    new:
+      description: Indicates whether a token has disable password login enabled
+      semantic_type: type/Category
+  - field: token_has_email_allow_list
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Email Allow List
+    new:
+      description: Indicates whether a token has email allow list enabled
+      semantic_type: type/Category
+  - field: token_has_email_restrict_recipients
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Email Restrict Recipients
+    new:
+      description: Indicates whether a token has email restrict recipients enabled
+      semantic_type: type/Category
+  - field: token_has_official_collections
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Official Collections
+    new:
+      description: Indicates whether a token has official collections enabled
+      semantic_type: type/Category
+  - field: token_has_session_timeout_config
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Session Timeout Config
+    new:
+      description: Indicates whether a token has session timeout config enabled
+      semantic_type: type/Category
+  - field: token_has_snippet_collections
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Snippet Collections
+    new:
+      description: Indicates whether a token has snippet collections enabled
+      semantic_type: type/Category
+  - field: token_has_sso
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Sso
+    new:
+      description: Indicates whether a token has SSO enabled
+      semantic_type: type/Category
+  - field: token_has_sso_google
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Sso Google
+    new:
+      description: Indicates whether a token has SSO Google enabled
+      semantic_type: type/Category
+  - field: token_has_sso_jwt
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Sso Jwt
+    new:
+      description: Indicates whether a token has SSO JWT enabled
+      semantic_type: type/Category
+  - field: token_has_sso_ldap
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Sso Ldap
+    new:
+      description: Indicates whether a token has SSO LDAP enabled
+      semantic_type: type/Category
+  - field: token_has_sso_saml
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Sso Saml
+    new:
+      description: Indicates whether a token has SSO SAML enabled
+      semantic_type: type/Category
+  - field: metabase_anonymous_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Anonymous Instance ID
+    new:
+      description: The unique anonymous identifier for the instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_version_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version ID
+    new:
+      description: Foreign key to Metabase Version model
+- table: dashboard_event
+  table_id: 1845
+  dbt_model: dashboard_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for dashboards
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: num_tabs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Num Tabs
+    new:
+      description: Number of tabs affected after the event
+      semantic_type: type/Quantity
+  - field: total_num_tabs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Num Tabs
+    new:
+      description: Total number of active tabs after the events
+      semantic_type: type/Quantity
+  - field: dashboard_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dashboard ID
+    new:
+      description: Unique identifier for a dashboard within the Metabase instance
+  - field: question_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Question ID
+    new:
+      description: Unique identifier for a question added to a dashboard
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: data_complexity_event
+  table_id: 1846
+  dbt_model: data_complexity_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: 'Data Complexity Score events from Metabase instances. The Data Complexity Score is computed per instance from a hierarchical formula across multiple catalogs (`library`, `universe`, `metabot`). Each catalog is composed of `<group>` rollups that aggregate `<group>.<component>` leaves into a single weighted score. **Granularity:** One row per (catalog, key) slice per instance per scoring run. A single scoring run on an instance emits multiple rows: one for the catalog `total`, one per `<group>.total` rollup, and one per `<group>.<component>` leaf. **What can this be used for:** * Tracking the complexity score distribution across instances and over time * Drilling into which components drive a customer''s overall complexity * Comparing scoring formula versions when the formula changes * Identifying instances that fail to compute specific sub-scores (see `error`) **Caveats:** * `score` is null when the leaf''s measurement couldn''t be computed, or when an aggregate rollup includes
+      any uncomputed leaf — check `error` (only set on the originating leaf) to see why. * `measurement` is absent on aggregate rows (`*.total` and the catalog `total`) and null on uncomputed leaves. * When comparing scores across time, filter by `formula_version` — values are not directly comparable across formula versions. * `parameters` is a free-form JSON object holding scoring inputs that are likely to evolve (tunables, embedder identity). Sorted-key serialization means it''s safe to use as a SQL group-by.'
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Surrogate key composed of the event's root_id and root_tstamp.
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event (always `data_complexity_scoring`).
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created.
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected.
+  - field: catalog
+    current:
+      description: null
+      semantic_type: null
+      display_name: Catalog
+    new:
+      description: Which catalog of the data layer was scored — one of `library`, `universe`, `metabot`.
+  - field: score_key
+    current:
+      description: null
+      semantic_type: null
+      display_name: Score Key
+    new:
+      description: 'Dotted identifier for this slice: `total` for the catalog rollup, `<group>.total` for a group rollup, or `<group>.<component>` for a leaf. Free-form so new keys can be added without a schema bump.'
+  - field: score
+    current:
+      description: null
+      semantic_type: null
+      display_name: Score
+    new:
+      description: Weighted score for this key. Null when the sub-score (or any sub-score it aggregates) couldn't be computed.
+  - field: measurement
+    current:
+      description: null
+      semantic_type: null
+      display_name: Measurement
+    new:
+      description: Raw pre-score measurement. Absent on aggregate rows; null on uncomputed leaves.
+  - field: error
+    current:
+      description: null
+      semantic_type: null
+      display_name: Error
+    new:
+      description: Failure message on the originating leaf when its sub-score couldn't be computed. Aggregates carry null `score` rather than propagating the error.
+  - field: formula_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Formula Version
+    new:
+      description: Scoring formula version. Bumps on breaking changes — filter on this when comparing scores across time.
+  - field: parameters
+    current:
+      description: null
+      semantic_type: null
+      display_name: Parameters
+    new:
+      description: JSON object with scoring inputs that are likely to evolve (tunables, embedder identity). Sorted-key serialized so it's stable for SQL group-by.
+  - field: batch_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Batch ID
+    new:
+      description: UUID identifying the scoring run that emitted this row. All (catalog, key) slices from a single scoring pass on one instance share a `batch_id`, letting you reconstruct the full set of scores published together. Generated once per scoring run on the source instance and emitted with every event in that run.
+  - field: batch_started_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Batch Started At
+    new:
+      description: Timestamp of the earliest event in this batch (`min(created_at)` over all rows sharing this `batch_id`). Use this as the canonical "when did this scoring run happen" timestamp instead of `created_at`, which varies per row within a batch.
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag.
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance.
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance.
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: ID of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application's instance and user ID.
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model.
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event.
+- table: database_event
+  table_id: 1847
+  dbt_model: database_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for database connections
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: database
+    current:
+      description: null
+      semantic_type: null
+      display_name: Database
+    new:
+      description: The version of database connection banner that we're on
+      semantic_type: type/Category
+  - field: error_type
+    current:
+      description: null
+      semantic_type: null
+      display_name: Error Type
+    new:
+      description: The type of error produced by a failed database connection
+      semantic_type: type/Category
+  - field: source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Source
+    new:
+      description: The product location where the database connection was attempted
+      semantic_type: type/Category
+  - field: database_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Database ID
+    new:
+      description: Unique identifier for this database connection within this Metabase instance
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: download_event
+  table_id: 1848
+  dbt_model: download_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for downloads and exports
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: accessed_via
+    current:
+      description: null
+      semantic_type: null
+      display_name: Accessed Via
+    new:
+      description: Where the result was downloaded from (interactive-iframe-embed, internal, public-link, static-embed)
+      semantic_type: type/Category
+  - field: export_type
+    current:
+      description: null
+      semantic_type: null
+      display_name: Export Type
+    new:
+      description: Type of export (csv, xlsx, png, json)
+      semantic_type: type/Category
+  - field: resource_type
+    current:
+      description: null
+      semantic_type: null
+      display_name: Resource Type
+    new:
+      description: Type of resource being downloaded (ad-hoc-question, dashcard = dashboard card, question)
+      semantic_type: type/Category
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application's instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: embed_flow_event
+  table_id: 1849
+  dbt_model: embed_flow_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: User interactions with public links, static embedding, and public embedding
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: appearance_border
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Border
+    new:
+      description: Indicates if the border is visible
+  - field: appearance_font
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Font
+    new:
+      description: The font type used in the artifact
+  - field: appearance_hide_download_button
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Hide Download Button
+    new:
+      description: Indicates if the download button is hidden. It will be null on OSS instance since it's not supported
+  - field: appearance_theme
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Theme
+    new:
+      description: The theme of the artifact's appearance
+  - field: appearance_title
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Title
+    new:
+      description: Indicates if the title is visible
+  - field: appearance_downloads
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Downloads
+    new:
+      description: Indicates if downloads are enabled, it will be null on OSS as they can't disable them
+  - field: code
+    current:
+      description: null
+      semantic_type: null
+      display_name: Code
+    new:
+      description: Type of the language of the artifact where the event is triggered
+  - field: first_published_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Published At
+    new:
+      description: The timestamp when the artifact was first published
+  - field: format
+    current:
+      description: null
+      semantic_type: null
+      display_name: Format
+    new:
+      description: The format of the public link
+  - field: language
+    current:
+      description: null
+      semantic_type: null
+      display_name: Language
+    new:
+      description: The backend or view language of the artifact.
+  - field: location
+    current:
+      description: null
+      semantic_type: null
+      display_name: Location
+    new:
+      description: The location in the code where the event is triggered.
+  - field: new_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: New Embed
+    new:
+      description: Indicates if the embed is new
+  - field: params_disabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Params Disabled
+    new:
+      description: Number of disabled parameters in the artifact.
+  - field: params_editable
+    current:
+      description: null
+      semantic_type: null
+      display_name: Params Editable
+    new:
+      description: Number of editable parameters in the artifact.
+  - field: params_locked
+    current:
+      description: null
+      semantic_type: null
+      display_name: Params Locked
+    new:
+      description: Number of locked parameters in the artifact.
+  - field: source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Source
+    new:
+      description: Location where the public link is copied from
+  - field: time_since_creation
+    current:
+      description: null
+      semantic_type: null
+      display_name: Time Since Creation
+    new:
+      description: Number of seconds from the creation of the artifact until the event is triggered
+  - field: time_since_initial_publication
+    current:
+      description: null
+      semantic_type: null
+      display_name: Time Since Initial Publication
+    new:
+      description: Number of seconds from the initial publication of the artifact until the event is triggered
+  - field: is_example_dashboard
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Example Dashboard
+    new:
+      description: Indicates if the dashboard is the example dashboard linked in the embedding homepage
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: embed_share_event
+  table_id: 1850
+  dbt_model: embed_share_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for sharing embeds
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: authorized_origins_set
+    current:
+      description: null
+      semantic_type: null
+      display_name: Authorized Origins Set
+    new:
+      description: Indicates if the authorized origins are set
+  - field: number_embedded_questions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Number Embedded Questions
+    new:
+      description: The number of questions embedded
+  - field: number_embedded_dashboards
+    current:
+      description: null
+      semantic_type: null
+      display_name: Number Embedded Dashboards
+    new:
+      description: The number of dashboards embedded
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: embedded_analytics_js_event
+  table_id: 1851
+  dbt_model: embedded_analytics_js_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events from the embedded analytics JS SDK (com.metabase/embedded_analytics_js v1, v2, and v3 unioned).
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+  - field: schema_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Schema Version
+    new:
+      description: Snowplow schema version of the source row (e.g. `1-0-0`, `2-0-0`, `3-0-0`). Determines which metric columns are populated vs NULL on a given row.
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: browser_enable_entity_navigation
+    current:
+      description: null
+      semantic_type: null
+      display_name: Browser Enable Entity Navigation
+    new:
+      description: Whether entity navigation is enabled in the browser component. v3 only; NULL on v1/v2 rows.
+  - field: browser_read_only
+    current:
+      description: null
+      semantic_type: null
+      display_name: Browser Read Only
+    new:
+      description: Whether the browser component is rendered in read-only mode.
+  - field: browser_total
+    current:
+      description: null
+      semantic_type: null
+      display_name: Browser Total
+    new:
+      description: Total number of browser component observations on this event (browser.read_only.true + browser.read_only.false). Use this as the denominator when computing rates against the per-property `true` counts.
+  - field: dashboard_auto_refresh_interval
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dashboard Auto Refresh Interval
+    new:
+      description: Whether an auto-refresh interval is configured on the dashboard. v3 only; NULL on v1/v2 rows.
+  - field: dashboard_drills
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dashboard Drills
+    new:
+      description: Whether drill-through is enabled on the dashboard.
+  - field: dashboard_enable_entity_navigation
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dashboard Enable Entity Navigation
+    new:
+      description: Whether entity navigation is enabled on the dashboard. v3 only; NULL on v1/v2 rows.
+  - field: dashboard_with_downloads
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dashboard With Downloads
+    new:
+      description: Whether downloads are enabled on the dashboard.
+  - field: dashboard_with_subscriptions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dashboard With Subscriptions
+    new:
+      description: Whether subscriptions are enabled on the dashboard. v2 and v3 only; NULL on v1 rows.
+  - field: dashboard_with_title
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dashboard With Title
+    new:
+      description: Whether the title is shown on the dashboard.
+  - field: dashboard_total
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dashboard Total
+    new:
+      description: Total number of dashboard component observations on this event (dashboard.drills.true + dashboard.drills.false). Use this as the denominator when computing rates against the per-property `true` counts.
+  - field: exploration_is_save_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Exploration Is Save Enabled
+    new:
+      description: Whether saving is enabled in the exploration component.
+  - field: exploration_total
+    current:
+      description: null
+      semantic_type: null
+      display_name: Exploration Total
+    new:
+      description: Total number of exploration component observations on this event (exploration.is_save_enabled.true + exploration.is_save_enabled.false). Use this as the denominator when computing rates against the per-property `true` counts.
+  - field: global_auth_method
+    current:
+      description: null
+      semantic_type: null
+      display_name: Global Auth Method
+    new:
+      description: Authentication method reported by the embedded analytics SDK (e.g. sso, guest).
+  - field: global_locale_used
+    current:
+      description: null
+      semantic_type: null
+      display_name: Global Locale Used
+    new:
+      description: Whether a locale was set by. v3 only; NULL on v1/v2 rows.
+  - field: metabot_layout_group_auto
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Layout Group Auto
+    new:
+      description: Count of metabot.layout observations with group `auto` on this event. v3 only; NULL on v1/v2 rows.
+  - field: metabot_layout_group_sidebar
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Layout Group Sidebar
+    new:
+      description: Count of metabot.layout observations with group `sidebar` on this event. v3 only; NULL on v1/v2 rows.
+  - field: metabot_total
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Total
+    new:
+      description: Total number of metabot.layout observations on this event (sum across all layout groups, e.g. `auto` + `sidebar`). v3 only; NULL on v1/v2 rows since metabot does not exist in those schema versions. Use this as the denominator when computing rates against the per-group `metabot.layout.group.*` counts.
+  - field: question_drills
+    current:
+      description: null
+      semantic_type: null
+      display_name: Question Drills
+    new:
+      description: Whether drill-through is enabled in the question.
+  - field: question_is_save_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Question Is Save Enabled
+    new:
+      description: Whether saving is enabled in the question.
+  - field: question_with_alerts
+    current:
+      description: null
+      semantic_type: null
+      display_name: Question With Alerts
+    new:
+      description: Whether alerts are enabled on the question. v2 and v3 only; NULL on v1 rows.
+  - field: question_with_downloads
+    current:
+      description: null
+      semantic_type: null
+      display_name: Question With Downloads
+    new:
+      description: Whether downloads are enabled on the question.
+  - field: question_with_title
+    current:
+      description: null
+      semantic_type: null
+      display_name: Question With Title
+    new:
+      description: Whether the title is shown on the question.
+  - field: question_total
+    current:
+      description: null
+      semantic_type: null
+      display_name: Question Total
+    new:
+      description: Total number of question component observations on this event (question.drills.true + question.drills.false). Use this as the denominator when computing rates against the per-property `true` counts.
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: embedding_homepage_event
+  table_id: 1852
+  dbt_model: embedding_homepage_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for interactions on the embedding homepage info
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: dismiss_reason
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dismiss Reason
+    new:
+      description: The reason for dismissing the event
+  - field: initial_tab
+    current:
+      description: null
+      semantic_type: null
+      display_name: Initial Tab
+    new:
+      description: The initial tab when the event is triggered
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: invite_event
+  table_id: 1853
+  dbt_model: invite_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for new user invites
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Source
+    new:
+      description: The product location where the event took place
+      semantic_type: type/Category
+  - field: invited_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Invited User ID
+    new:
+      description: User ID of the user who was invited
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: metabot_event
+  table_id: 1854
+  dbt_model: metabot_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for metabot
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: entity_type
+    current:
+      description: null
+      semantic_type: null
+      display_name: Entity Type
+    new:
+      description: Type of entity
+      semantic_type: type/Category
+  - field: feedback_type
+    current:
+      description: null
+      semantic_type: null
+      display_name: Feedback Type
+    new:
+      description: Type of feedback
+      semantic_type: type/Category
+  - field: prompt_template_versions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Prompt Template Versions
+    new:
+      description: The prompt template versions used in this call
+      semantic_type: type/Category
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase instance. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: model_event
+  table_id: 1855
+  dbt_model: model_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for models
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: model_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Model ID
+    new:
+      description: Unique identifier for model (Practically might be the same as the question id)
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: monthly_instance_feature_stats
+  table_id: 1856
+  dbt_model: monthly_instance_feature_stats
+  dbt_source: data_products/product_events/instance_features/schema.yml
+  table_changes:
+    description: 'The model aggregates key metrics related to the usage of features across Metabase instances on a monthly basis. It provides insights into the number of instances utilizing specific features, as well as their availability and enabled status. **Key use cases include:** - Use as denominator for calculating feature adoption rates or when comparing to related feature events - Evaluating feature utilization trends over time to inform product development. - Analyzing the availability and engagement of features among paying customers compared to free instances. **Granularity**: One row per feature per month ## Caveats: - The model only accounts for instances that have opted into sending anonymous stats, potentially leading to incomplete data for non-cloud instances. - Counts are based on unique (anonymous) instance identifiers - Feature availability was only implemented into the stats ping from Metabase version 51.0 onwards. ## Playbook: Example SQL queries demonstrating how to
+      leverage this model. **Get monthly feature statistics for a specific feature:** ```sql select month, feature_name, all_instances, instances_with_feature_available, feature_available_rate from dbt_models_product_events.monthly_instance_feature_stats where feature_name = ''<feature_name>'' ```'
+  fields:
+  - field: month
+    current:
+      description: null
+      semantic_type: null
+      display_name: Month
+    new:
+      description: The month for which feature statistics are reported.
+  - field: feature_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Feature Name
+    new:
+      description: The name of the feature being tracked.
+  - field: all_instances
+    current:
+      description: null
+      semantic_type: null
+      display_name: All Instances
+    new:
+      description: The total number of unique instances that sent the stats ping.
+  - field: instances_with_feature_available
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instances With Feature Available
+    new:
+      description: The count of instances where the feature is available for use (i.e. can be enabled).
+  - field: instances_with_feature_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instances With Feature Enabled
+    new:
+      description: The count of instances where the feature is actively enabled (i.e. it can be used).
+  - field: feature_available_rate
+    current:
+      description: null
+      semantic_type: null
+      display_name: Feature Available Rate
+    new:
+      description: The percentage of instances where the feature is available.
+  - field: feature_enabled_rate
+    current:
+      description: null
+      semantic_type: null
+      display_name: Feature Enabled Rate
+    new:
+      description: The percentage of instances with the feature available where the feature is enabled (i.e. it can be used).
+  - field: paying_instances
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paying Instances
+    new:
+      description: The count of paying instances that sent the stats ping.
+  - field: paying_instances_with_feature_available
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paying Instances With Feature Available
+    new:
+      description: The count of paying instances where the feature is available for use (i.e. can be enabled).
+  - field: paying_instances_with_feature_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paying Instances With Feature Enabled
+    new:
+      description: The count of paying instances where the feature is
+  - field: paying_feature_available_rate
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paying Feature Available Rate
+    new:
+      description: The percentage of paying instances where the feature is available.
+  - field: paying_feature_enabled_rate
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paying Feature Enabled Rate
+    new:
+      description: The percentage of paying instances with the feature available where the feature is enabled (i.e. it can be used).
+- table: question_event
+  table_id: 1857
+  dbt_model: question_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for new question creations
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: question_type
+    current:
+      description: null
+      semantic_type: null
+      display_name: Question Type
+    new:
+      description: The type of the question when it is saved
+      semantic_type: type/Category
+  - field: creation_method
+    current:
+      description: null
+      semantic_type: null
+      display_name: Creation Method
+    new:
+      description: Indicating whether or not the question was created based off of an existing question
+      semantic_type: type/Category
+  - field: visualization_type
+    current:
+      description: null
+      semantic_type: null
+      display_name: Visualization Type
+    new:
+      description: The type of visualization used for the question
+      semantic_type: type/Category
+  - field: question_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Question ID
+    new:
+      description: Unique identifier for the question within the Metabase instance
+  - field: database_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Database ID
+    new:
+      description: Unique identifier(s) for the database connection(s) used to create the question
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: search_event
+  table_id: 1858
+  dbt_model: search_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for search queries
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: is_creation_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Creation Date
+    new:
+      description: Filter for a time when a user creates an entity
+  - field: is_last_edit_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Last Edit Date
+    new:
+      description: Filter for a time when a user last edited an entity
+  - field: is_verified_items
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Verified Items
+    new:
+      description: Filter for entities that have been marked as verified
+  - field: is_search_native_queries
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Search Native Queries
+    new:
+      description: Toggles whether search should include SQL and/or native queries
+  - field: is_search_archived
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Search Archived
+    new:
+      description: Toggles whether search should include archived items
+  - field: runtime_milliseconds
+    current:
+      description: null
+      semantic_type: null
+      display_name: Runtime Milliseconds
+    new:
+      description: Number of milliseconds it took to successfully run the search query
+      semantic_type: type/Quantity
+  - field: context
+    current:
+      description: null
+      semantic_type: null
+      display_name: Context
+    new:
+      description: Source of the search event
+  - field: total_results
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Results
+    new:
+      description: The total number of results that matched the query
+  - field: page_results
+    current:
+      description: null
+      semantic_type: null
+      display_name: Page Results
+    new:
+      description: The number of results returned per page
+  - field: position
+    current:
+      description: null
+      semantic_type: null
+      display_name: Position
+    new:
+      description: The position of the result in the list that was clicked. Zero indexed
+  - field: target_type
+    current:
+      description: null
+      semantic_type: null
+      display_name: Target Type
+    new:
+      description: The type of item in the search list that was clicked.
+  - field: content_type
+    current:
+      description: null
+      semantic_type: null
+      display_name: Content Type
+    new:
+      description: Filter for entity types (question, database, model, etc.)
+  - field: creator
+    current:
+      description: null
+      semantic_type: null
+      display_name: Creator
+    new:
+      description: Filter for created by a user
+  - field: last_editor
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Editor
+    new:
+      description: Filter for last edited by a user
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: serialization_event
+  table_id: 1859
+  dbt_model: serialization_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for serialization
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: direction
+    current:
+      description: null
+      semantic_type: null
+      display_name: Direction
+    new:
+      description: The direction of the serialization
+  - field: source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Source
+    new:
+      description: The product location that the event took place
+  - field: duration_ms
+    current:
+      description: null
+      semantic_type: null
+      display_name: Duration Ms
+    new:
+      description: The duration of the serialization in milliseconds
+      semantic_type: type/Quantity
+  - field: success
+    current:
+      description: null
+      semantic_type: null
+      display_name: Success
+    new:
+      description: Whether the serialization was successful or not
+      semantic_type: type/Category
+  - field: error_message
+    current:
+      description: null
+      semantic_type: null
+      display_name: Error Message
+    new:
+      description: The error message if the serialization was not successful
+  - field: count
+    current:
+      description: null
+      semantic_type: null
+      display_name: Count
+    new:
+      description: Total count of serialized entities
+      semantic_type: type/Quantity
+  - field: error_count
+    current:
+      description: null
+      semantic_type: null
+      display_name: Error Count
+    new:
+      description: Number of errors occured during serialization (if they were skipped)
+      semantic_type: type/Quantity
+  - field: models
+    current:
+      description: null
+      semantic_type: null
+      display_name: Models
+    new:
+      description: The models that were serialized
+  - field: collection
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collection
+    new:
+      description: The collection that was serialized
+  - field: all_collections
+    current:
+      description: null
+      semantic_type: null
+      display_name: All Collections
+    new:
+      description: Indicator if all collections were serialized
+  - field: settings
+    current:
+      description: null
+      semantic_type: null
+      display_name: Settings
+    new:
+      description: If settings were serialized
+  - field: field_values
+    current:
+      description: null
+      semantic_type: null
+      display_name: Field Values
+    new:
+      description: If field values were exported
+  - field: secrets
+    current:
+      description: null
+      semantic_type: null
+      display_name: Secrets
+    new:
+      description: If database secrets were included in export
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: setting_event
+  table_id: 1860
+  dbt_model: setting_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for settings
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Source
+    new:
+      description: The product location where the event took place
+      semantic_type: type/Category
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: setup_event
+  table_id: 1861
+  dbt_model: setup_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for setup flows
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: is_step_completed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Step Completed
+    new:
+      description: Whether the step is complete or not. This will be for other events than 'step_seen'.
+      semantic_type: type/Category
+  - field: step
+    current:
+      description: null
+      semantic_type: null
+      display_name: Step
+    new:
+      description: The step that the set up is on
+      semantic_type: type/Category
+  - field: step_order
+    current:
+      description: null
+      semantic_type: null
+      display_name: Step Order
+    new:
+      description: The order of the referenced step. Note that the order is not necessarily sequential since users might jump between steps and some are optional.
+      semantic_type: type/Category
+  - field: database
+    current:
+      description: null
+      semantic_type: null
+      display_name: Database
+    new:
+      description: The database type that the user selected
+      semantic_type: type/Category
+  - field: source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Source
+    new:
+      description: The product location that the event took place
+      semantic_type: type/Category
+  - field: onboarding_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Onboarding Version
+    new:
+      description: The version of onboarding we're on
+      semantic_type: type/Category
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: usage_reason
+    current:
+      description: null
+      semantic_type: null
+      display_name: Usage Reason
+    new:
+      description: The reason the user selected for using Metabase (Answer to the usage reason question).
+      semantic_type: type/Category
+  - field: valid_token_present
+    current:
+      description: null
+      semantic_type: null
+      display_name: Valid Token Present
+    new:
+      description: Boolean indicating if a valid token was submitted in the license step during the setup
+      semantic_type: type/Category
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: simple_event
+  table_id: 1862
+  dbt_model: simple_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Generic event to track interactions and actions that happen within Metabase. https://github.com/metabase/metabase/blob/0064a6aac75cad26a1562b242fff0c4177219e29/snowplow/iglu-client-embedded/schemas/com.metabase/simple_event/jsonschema/1-0-0#L6
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the action. Noun (target) + Verb in the past (action) which define the action taken - e.g. question_created, dashboard_updated, dashboard_auto_apply_filter_enabled
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: target_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Target ID
+    new:
+      description: ID of the entity that the action was performed on. E.g. the ID of the question that was created in a question_created event.
+  - field: triggered_from
+    current:
+      description: null
+      semantic_type: null
+      display_name: Triggered From
+    new:
+      description: From where the action was taken/triggered. This can be generic like 'dashboard' or also more specific like 'dashboard_top_nav'.
+  - field: duration_ms
+    current:
+      description: null
+      semantic_type: null
+      display_name: Duration Ms
+    new:
+      description: Duration in milliseconds
+  - field: result
+    current:
+      description: null
+      semantic_type: null
+      display_name: Result
+    new:
+      description: The outcome of the action (e.g. success, failure, …)
+  - field: event_detail
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Detail
+    new:
+      description: String that can be used for additional details that describe the event, e.g. the type of question that was created in a question_created event. We should NOT pass JSON here.
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: timeline_event
+  table_id: 1863
+  dbt_model: timeline_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for timelines
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: is_time_matters
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Time Matters
+    new:
+      description: Whether the user has added time resolution to the event
+      semantic_type: type/Category
+  - field: source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Source
+    new:
+      description: The product location that the event took place
+      semantic_type: type/Category
+  - field: question_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Question ID
+    new:
+      description: Unique identifier for question, only applicable if created from a question
+  - field: collection_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collection ID
+    new:
+      description: Unique identifier for collection, only applicable if created from a collection
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: token_usage_event
+  table_id: 1864
+  dbt_model: token_usage_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: 'This model contain the token usage information for LLM calls that happened in ai-service. Every LLM call in ai-service will create a new row in this table with the usage information. **What can this be used for*** This model was built to get an understanding of the LLM token usage of customers and can be used for that. Example questions it can answer: * How many tokens did customer X use in a specific time period? * Which features (using the `tag` as source) generated most usage (and costs) across customers? * What is the average response duration for LLM calls? * How many tokens does feature X (tag) use per request on average? * What is the average token consumption (+ costs) per user per time period? **Granularity:** One row per LLM call **Caveats**: * There can be multiple LLM calls within a single request (e.g. user chats with Metabot and Metabot performs multiple loops with tool calls where every LLM invocation would create a new event). However, you can aggregate
+      those to a request level using the `request_id`. * LLM calls can be triggered by different sources (e.g. Metabot, Document generation, etc.). Use the `tag` column to identify which source / feature triggered the LLM call.'
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Surrogate key composed of the event's root_id and root_tstamp.
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp when the event occurred.
+  - field: session_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Session ID
+    new:
+      description: Session identifier that can be used to group request as part of the same conversation.
+  - field: completion_tokens
+    current:
+      description: null
+      semantic_type: null
+      display_name: Completion Tokens
+    new:
+      description: The number of completion tokens.
+  - field: estimated_costs_usd
+    current:
+      description: null
+      semantic_type: type/Cost
+      display_name: Estimated Costs Usd
+    new:
+      description: The estimated cost of for the tokens in USD.
+  - field: hashed_metabase_license_token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Hashed Metabase License Token
+    new:
+      description: The hashed value of the Metabase license token for instances with a token. For Open Source instances, this will use the snowplow anonymous uuid in the form `oss_<anonymous_uuid>` to allow unique counts of instances.
+  - field: model_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Model ID
+    new:
+      description: The ID of the model that was used to generate the tokens.
+  - field: prompt_tokens
+    current:
+      description: null
+      semantic_type: null
+      display_name: Prompt Tokens
+    new:
+      description: The number of prompt tokens.
+  - field: request_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Request ID
+    new:
+      description: Unique ID that is assigned to each incoming request. Can be used to aggregate usage for a single request.
+  - field: total_tokens
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Tokens
+    new:
+      description: The total number of tokens.
+  - field: duration_ms
+    current:
+      description: null
+      semantic_type: type/Duration
+      display_name: Duration Ms
+    new:
+      description: The time it took to (in milliseconds) to receive an answer from the LLM.
+  - field: user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: User ID
+    new:
+      description: The ID of the user that send the request.
+  - field: tag
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Tag
+    new:
+      description: A classifier indicating the specific purpose or functionality for which the tokens were used.
+  - field: profile
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Profile
+    new:
+      description: The profile/configuration variant used for the request. Allows distinguishing different configuration variants and usage patterns. Introduced in schema version 1-0-4.
+  - field: source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Source
+    new:
+      description: The source/trigger of the request (e.g., 'metabot_agent', 'sql_generation_workflow', 'analyze_chart'). Indicates which API endpoint or workflow initiated the LLM call. Introduced in schema version 1-0-4.
+  - field: token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token
+    new:
+      description: The Metabase license token.
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: The ID of the account that send the request.
+  - field: instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance ID
+    new:
+      description: The ID of the instance that send the request.
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: The ID of the cutomer that send the request.
+- table: unified_instance_event
+  table_id: 1865
+  dbt_model: unified_instance_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Consolidated version of all events and their common fields based on Instance Event (with event_name replaced with name of the main event).
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: instance_created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Created At
+    new:
+      description: Timestamp of when the instance was created
+  - field: event_group
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Group
+    new:
+      description: Group of the event, such as account, csv_upload, database, etc.
+      semantic_type: type/Category
+  - field: triggered_from
+    current:
+      description: null
+      semantic_type: null
+      display_name: Triggered From
+    new:
+      description: From where the action was taken/triggered. This can be generic like 'dashboard' or also more specific like 'dashboard_top_nav'. Only applicable to events where event_group = 'simple_event', null for all other event types.
+      semantic_type: type/Category
+  - field: event_detail
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Detail
+    new:
+      description: String that can be used for additional details that describe the event, e.g. the type of question that was created in a question_created event. We should NOT pass JSON here. Only applicable to events where event_group = 'simple_event', null for all other event types.
+      semantic_type: type/Category
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: application_database
+    current:
+      description: null
+      semantic_type: null
+      display_name: Application Database
+    new:
+      description: Application database type
+      semantic_type: type/Category
+  - field: application_database_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Application Database Version
+    new:
+      description: Application database version
+      semantic_type: type/Category
+  - field: token_has_pro_features
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token Has Pro Features
+    new:
+      description: Indicates whether a token has pro features enbaled. Maps one to one to users with white label enabled and is most likely tied to a pro or enteprise token.
+      semantic_type: type/Category
+  - field: internet_service_provider
+    current:
+      description: null
+      semantic_type: null
+      display_name: Internet Service Provider
+    new:
+      description: The internet service provider of the instance - inferred from the IP address of the instance
+      semantic_type: type/Category
+  - field: instance_hosted_country
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Hosted Country
+    new:
+      description: The country where the instance is hosted - inferred from the IP address of the instance
+      semantic_type: type/Country
+  - field: instance_hosted_region
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Hosted Region
+    new:
+      description: The region where the instance is hosted - inferred from the IP address of the instance
+      semantic_type: type/Category
+  - field: instance_hosted_city
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Hosted City
+    new:
+      description: The city where the instance is hosted - inferred from the IP address of the instance
+      semantic_type: type/City
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: upsell_event
+  table_id: 1866
+  dbt_model: upsell_event
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: Events for upsell
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the event
+      semantic_type: type/Category
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+      semantic_type: type/CreationTimestamp
+  - field: collected_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collected At
+    new:
+      description: Timestamp of when the event was collected
+  - field: promoted_feature
+    current:
+      description: null
+      semantic_type: null
+      display_name: Promoted Feature
+    new:
+      description: String identifying the product feature being promoted
+  - field: upsell_location
+    current:
+      description: null
+      semantic_type: null
+      display_name: Upsell Location
+    new:
+      description: String identifying the product location where the event took place
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Metabase instance version tag
+      semantic_type: type/Category
+  - field: instance_dns
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Dns
+    new:
+      description: DNS of the Metabase instance
+  - field: metabase_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Instance ID
+    new:
+      description: Anonymous UUID of the Metabase instance
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Id of the Metabase account. Only available for cloud instances.
+  - field: metabase_user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase User ID
+    new:
+      description: Surrogate key composed of the Metabase application’s instance and user ID
+  - field: unified_instance_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unified Instance Event ID
+    new:
+      description: Foreign key to the Unified Instance Event model
+  - field: snowplow_event_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Snowplow Event ID
+    new:
+      description: ID of the Snowplow event
+- table: usage_stats_anonymous
+  table_id: 1867
+  dbt_model: usage_stats_anonymous
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: 'This table contains the latest received anonymized usage statistics from Metabase instances. Anonymized usage stats are only collected for instances that opted in to share usage statistics. The tracking originates from this code: https://github.com/metabase/metabase/blob/master/src/metabase/analytics/stats.clj **Caveats:** - The data only contains stats for instances that have opted in to share usage statistics. - If an instance stops sending events (or opts out), it''s latest state will still be included in the data. **Granularity:** 1 row per instance (that opted in to share usage statistics)'
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: metabase_anonymous_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Anonymous Instance ID
+    new:
+      description: The unique anonymous identifier for the instance
+  - field: last_event_received_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Event Received At
+    new:
+      description: The timestamp when the event was received on the server
+  - field: instance_started_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Instance Started At
+    new:
+      description: The approximate timestamp at which this instance of Metabase was created, for inclusion in analytics.
+  - field: is_enterprise
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Enterprise
+    new:
+      description: Boolean indicating if the instance is an enterprise instance (or OSS)
+      semantic_type: type/Category
+  - field: days_since_last_seen
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days Since Last Seen
+    new:
+      description: Number of days since the last event was seen
+      semantic_type: type/Quantity
+  - field: days_since_instance_start
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days Since Instance Start
+    new:
+      description: Number of days since the instance was started
+      semantic_type: type/Quantity
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Metabase Version
+    new:
+      description: The version of Metabase running on the instance
+  - field: instance_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Instance Country
+    new:
+      description: The country where the instance is being used, as inferred from the setup user
+  - field: instance_language
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance Language
+    new:
+      description: The language of the instance, as inferred from the setup user
+  - field: instance_os
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance Os
+    new:
+      description: The operating system on which the instance is running
+  - field: instance_os_version
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance Os Version
+    new:
+      description: The version of the operating system running the Metabase instance
+  - field: running_on
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Running On
+    new:
+      description: The type of platform the Metabase instance is running on, e.g. Heroku.
+  - field: application_database
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Application Database
+    new:
+      description: The type of database used for the Metabase application
+  - field: is_update_checks_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Update Checks Enabled
+    new:
+      description: Boolean indicating if update checks are enabled
+      semantic_type: type/Category
+  - field: is_email_configured
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Email Configured
+    new:
+      description: Boolean indicating if email configuration is set up
+      semantic_type: type/Category
+  - field: is_slack_configured
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Slack Configured
+    new:
+      description: Boolean indicating if Slack integration is configured
+      semantic_type: type/Category
+  - field: is_sso_configured
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Sso Configured
+    new:
+      description: Boolean indicating if Single Sign-On is configured
+      semantic_type: type/Category
+  - field: embedding_is_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedding Is Enabled
+    new:
+      description: Boolean indicating if embedding is enabled. Originating from `enable_embedding` stat in payload.
+      semantic_type: type/Category
+  - field: embedding_is_app_origin_set
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedding Is App Origin Set
+    new:
+      description: Boolean indicating if the embedding app origin is set. Originating from `embedding_app_origin_set` stat in payload.
+      semantic_type: type/Category
+  - field: is_sample_data_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Sample Data Enabled
+    new:
+      description: Boolean indicating if sample data is enabled. Originating from `is_sample_data` stat in payload.
+      semantic_type: type/Category
+  - field: is_friendly_names_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Friendly Names Enabled
+    new:
+      description: Boolean indicating if friendly names are enabled. Originating from `friendly_names` stat in payload (related to advanced humanization feature).
+      semantic_type: type/Category
+  - field: appearance_is_metabase_links_shown
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Metabase Links Shown
+    new:
+      description: Boolean indicating if Metabase links are shown. Originating from `appearance_show_mb_links` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_metabot_greeting_shown
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Metabot Greeting Shown
+    new:
+      description: Boolean indicating if Metabot greeting is shown. Originating from `appearance_metabot_greeting` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_lighthouse_illustration_shown
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Lighthouse Illustration Shown
+    new:
+      description: Boolean indicating if Lighthouse illustration is shown. Originating from `appearance_lightouse_illustration` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_site_name_customized
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Site Name Customized
+    new:
+      description: Boolean indicating if the site name is customized. Originating from `appearance_site_name` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_custom_logo_set
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Custom Logo Set
+    new:
+      description: Boolean indicating if a custom logo is set. Originating from `appearance_logo` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_custom_favicon_set
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Custom Favicon Set
+    new:
+      description: Boolean indicating if a custom favicon is set. Originating from `appearance_favicon` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_loading_message_customized
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Loading Message Customized
+    new:
+      description: Boolean indicating if the loading message is customized. Originating from `appearance_loading_message` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_chart_colors_customized
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Chart Colors Customized
+    new:
+      description: Boolean indicating if chart colors are customized. Originating from `appearance_chart_colors` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_ui_colors_customized
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Ui Colors Customized
+    new:
+      description: Boolean indicating if UI colors are customized. Originating from `appearance_ui_colors` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_help_link
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Appearance Help Link
+    new:
+      description: Keyword setting to control whitelabeling of the help link. Valid values are `:metabase`, `:hidden`, and`:custom`. If `:custom` is set, the help link will use the URL specified in the `help-link-custom-destination`, or be hidden if it is not set.
+  - field: appearance_login_page_illustration
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Appearance Login Page Illustration
+    new:
+      description: Options for displaying the illustration on the login page.
+  - field: appearance_landing_page_illustration
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Appearance Landing Page Illustration
+    new:
+      description: Options for displaying the illustration on the landing page.
+  - field: appearance_no_data_illustration
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Appearance No Data Illustration
+    new:
+      description: Options for displaying the illustration when there are no results after running a question.
+  - field: appearance_no_object_illustration
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Appearance No Object Illustration
+    new:
+      description: Options for displaying the illustration when there are no results after searching.
+  - field: instance_java_vm_specification_version
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance Java Vm Specification Version
+    new:
+      description: The Java VM specification version of the system running the instance
+  - field: instance_java_runtime_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance Java Runtime Name
+    new:
+      description: The Java Runtime Environment name
+  - field: instance_processors
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Processors
+    new:
+      description: The number of processors available to the Metabase instance
+      semantic_type: type/Quantity
+  - field: instance_java_version
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance Java Version
+    new:
+      description: The Java version used by the Metabase instance
+  - field: instance_timezone
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance Timezone
+    new:
+      description: The timezone setting of the Metabase instance, as inferred by the setup user
+  - field: instance_file_encoding
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance File Encoding
+    new:
+      description: The file encoding type used by the Metabase instance
+  - field: instance_max_memory
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Max Memory
+    new:
+      description: The maximum memory available to the Metabase instance
+      semantic_type: type/Quantity
+  - field: startup_time_millis
+    current:
+      description: null
+      semantic_type: null
+      display_name: Startup Time Millis
+    new:
+      description: The time it took for the Metabase instance to start up
+      semantic_type: type/Quantity
+  - field: users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Users
+    new:
+      description: Total number of users in the Metabase instance
+      semantic_type: type/Quantity
+  - field: active_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Active Users
+    new:
+      description: Number of active users
+      semantic_type: type/Quantity
+  - field: admin_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Admin Users
+    new:
+      description: Number of users with admin privileges
+      semantic_type: type/Quantity
+  - field: logged_in_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Logged In Users
+    new:
+      description: Number of users who have logged in
+      semantic_type: type/Quantity
+  - field: sso_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Sso Users
+    new:
+      description: Number of users using Single Sign-On
+      semantic_type: type/Quantity
+  - field: permission_groups
+    current:
+      description: null
+      semantic_type: null
+      display_name: Permission Groups
+    new:
+      description: Number of different permission groups
+      semantic_type: type/Quantity
+  - field: questions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Questions
+    new:
+      description: Total number of questions
+      semantic_type: type/Quantity
+  - field: native_questions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Native Questions
+    new:
+      description: Number of native (SQL) questions
+      semantic_type: type/Quantity
+  - field: query_builder_questions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Builder Questions
+    new:
+      description: Number of questions created using the query builder
+      semantic_type: type/Quantity
+  - field: questions_with_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Questions With Params
+    new:
+      description: Number of questions with parameters
+      semantic_type: type/Quantity
+  - field: public_questions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Public Questions
+    new:
+      description: Number of questions made public
+      semantic_type: type/Quantity
+  - field: embedded_questions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Questions
+    new:
+      description: Number of embedded questions
+      semantic_type: type/Quantity
+  - field: embedded_questions_with_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Questions With Params
+    new:
+      description: Number of embedded questions with parameters
+      semantic_type: type/Quantity
+  - field: embedded_questions_with_enabled_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Questions With Enabled Params
+    new:
+      description: Number of embedded questions with enabled parameters
+      semantic_type: type/Quantity
+  - field: embedded_questions_with_locked_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Questions With Locked Params
+    new:
+      description: Number of embedded questions with locked parameters
+      semantic_type: type/Quantity
+  - field: embedded_questions_with_disabled_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Questions With Disabled Params
+    new:
+      description: Number of embedded questions with disabled parameters
+      semantic_type: type/Quantity
+  - field: dashboards
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dashboards
+    new:
+      description: Total number of dashboards
+      semantic_type: type/Quantity
+  - field: dashboards_with_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dashboards With Params
+    new:
+      description: Number of dashboards with parameters
+      semantic_type: type/Quantity
+  - field: public_dashboards
+    current:
+      description: null
+      semantic_type: null
+      display_name: Public Dashboards
+    new:
+      description: Number of public dashboards
+      semantic_type: type/Quantity
+  - field: public_dashboards_with_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Public Dashboards With Params
+    new:
+      description: Number of public dashboards with parameters
+      semantic_type: type/Quantity
+  - field: embedded_dashboards
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Dashboards
+    new:
+      description: Number of embedded dashboards
+      semantic_type: type/Quantity
+  - field: embedded_dashboards_with_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Dashboards With Params
+    new:
+      description: Number of embedded dashboards with parameters
+      semantic_type: type/Quantity
+  - field: embedded_dashboards_with_enabled_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Dashboards With Enabled Params
+    new:
+      description: Number of embedded dashboards with enabled parameters
+      semantic_type: type/Quantity
+  - field: embedded_dashboards_with_locked_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Dashboards With Locked Params
+    new:
+      description: Number of embedded dashboards with locked parameters
+      semantic_type: type/Quantity
+  - field: embedded_dashboards_with_disabled_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Dashboards With Disabled Params
+    new:
+      description: Number of embedded dashboards with disabled parameters
+      semantic_type: type/Quantity
+  - field: executions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Executions
+    new:
+      description: Total number of executions
+      semantic_type: type/Quantity
+  - field: completed_executions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Completed Executions
+    new:
+      description: Number of successfully completed executions
+      semantic_type: type/Quantity
+  - field: failed_executions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Failed Executions
+    new:
+      description: Number of failed executions
+      semantic_type: type/Quantity
+  - field: databases
+    current:
+      description: null
+      semantic_type: null
+      display_name: Databases
+    new:
+      description: Total number of databases
+      semantic_type: type/Quantity
+  - field: analyzed_databases
+    current:
+      description: null
+      semantic_type: null
+      display_name: Analyzed Databases
+    new:
+      description: Number of analyzed (full sync) databases
+      semantic_type: type/Quantity
+  - field: tables
+    current:
+      description: null
+      semantic_type: null
+      display_name: Tables
+    new:
+      description: Total number of tables
+      semantic_type: type/Quantity
+  - field: fields
+    current:
+      description: null
+      semantic_type: null
+      display_name: Fields
+    new:
+      description: Total number of fields
+      semantic_type: type/Quantity
+  - field: alerts
+    current:
+      description: null
+      semantic_type: null
+      display_name: Alerts
+    new:
+      description: Total number of alerts
+      semantic_type: type/Quantity
+  - field: alerts_with_table_cards
+    current:
+      description: null
+      semantic_type: null
+      display_name: Alerts With Table Cards
+    new:
+      description: Number of alerts associated with table cards
+      semantic_type: type/Quantity
+  - field: alerts_first_time_only
+    current:
+      description: null
+      semantic_type: null
+      display_name: Alerts First Time Only
+    new:
+      description: Number of alerts set to trigger only the first time
+      semantic_type: type/Quantity
+  - field: alerts_above_goal
+    current:
+      description: null
+      semantic_type: null
+      display_name: Alerts Above Goal
+    new:
+      description: Number of alerts for goals exceeded
+      semantic_type: type/Quantity
+  - field: collections
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collections
+    new:
+      description: Total number of collections
+      semantic_type: type/Quantity
+  - field: cards_in_collections
+    current:
+      description: null
+      semantic_type: null
+      display_name: Cards In Collections
+    new:
+      description: Number of cards in collections
+      semantic_type: type/Quantity
+  - field: cards_not_in_collections
+    current:
+      description: null
+      semantic_type: null
+      display_name: Cards Not In Collections
+    new:
+      description: Number of cards not in any collection
+      semantic_type: type/Quantity
+  - field: cache_average_entry_size
+    current:
+      description: null
+      semantic_type: null
+      display_name: Cache Average Entry Size
+    new:
+      description: Average size of cache entries
+      semantic_type: type/Quantity
+  - field: cache_num_queries_cached
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Cache Num Queries Cached
+    new:
+      description: Number of queries cached
+      semantic_type: type/Quantity
+  - field: segments
+    current:
+      description: null
+      semantic_type: null
+      display_name: Segments
+    new:
+      description: Total number of segments
+      semantic_type: type/Quantity
+  - field: metrics
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metrics
+    new:
+      description: Total number of metrics
+      semantic_type: type/Quantity
+  - field: metabase_version_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Metabase Version ID
+    new:
+      description: Foreign key to Metabase Version model
+- table: usage_stats_anonymous_history
+  table_id: 1868
+  dbt_model: usage_stats_anonymous_history
+  dbt_source: data_products/product_events/schema.yml
+  table_changes:
+    description: 'This table contains all received anonymized usage statistics from Metabase instances. Anonymized usage stats are only collected for instances that opted in to share usage statistics. The tracking originates from this code: https://github.com/metabase/metabase/blob/master/src/metabase/analytics/stats.clj **Caveats:** - The data only contains stats for instances that have opted in to share usage statistics. **Granularity:** 1 row per instance (that opted in to share usage statistics) per event sent (when stats where received)'
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: event_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Date
+    new:
+      description: The date when the event was received
+      semantic_type: type/CreationDate
+  - field: metabase_anonymous_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Anonymous Instance ID
+    new:
+      description: The unique anonymous identifier for the instance
+  - field: event_received_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Received At
+    new:
+      description: The timestamp when the event was received on the server
+  - field: instance_started_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Instance Started At
+    new:
+      description: The approximate timestamp at which this instance of Metabase was created, for inclusion in analytics.
+  - field: is_enterprise
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Enterprise
+    new:
+      description: Boolean indicating if the instance is an enterprise instance (or OSS)
+      semantic_type: type/Category
+  - field: days_since_instance_start
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days Since Instance Start
+    new:
+      description: Number of days since the instance was started
+      semantic_type: type/Quantity
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Metabase Version
+    new:
+      description: The version of Metabase running on the instance
+  - field: instance_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Instance Country
+    new:
+      description: The country where the instance is being used, as inferred from the setup user
+  - field: instance_language
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance Language
+    new:
+      description: The language of the instance, as inferred from the setup user
+  - field: instance_os
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance Os
+    new:
+      description: The operating system on which the instance is running
+  - field: instance_os_version
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance Os Version
+    new:
+      description: The version of the operating system running the Metabase instance
+  - field: running_on
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Running On
+    new:
+      description: The type of platform the Metabase instance is running on, e.g. Heroku.
+  - field: application_database
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Application Database
+    new:
+      description: The type of database used for the Metabase application
+  - field: is_update_checks_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Update Checks Enabled
+    new:
+      description: Boolean indicating if update checks are enabled
+      semantic_type: type/Category
+  - field: is_email_configured
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Email Configured
+    new:
+      description: Boolean indicating if email configuration is set up
+      semantic_type: type/Category
+  - field: is_slack_configured
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Slack Configured
+    new:
+      description: Boolean indicating if Slack integration is configured
+      semantic_type: type/Category
+  - field: is_sso_configured
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Sso Configured
+    new:
+      description: Boolean indicating if Single Sign-On is configured
+      semantic_type: type/Category
+  - field: embedding_is_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedding Is Enabled
+    new:
+      description: Boolean indicating if embedding is enabled. Originating from `enable_embedding` stat in payload.
+      semantic_type: type/Category
+  - field: embedding_is_app_origin_set
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedding Is App Origin Set
+    new:
+      description: Boolean indicating if the embedding app origin is set. Originating from `embedding_app_origin_set` stat in payload.
+      semantic_type: type/Category
+  - field: is_sample_data_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Sample Data Enabled
+    new:
+      description: Boolean indicating if sample data is enabled. Originating from `is_sample_data` stat in payload.
+      semantic_type: type/Category
+  - field: is_friendly_names_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Friendly Names Enabled
+    new:
+      description: Boolean indicating if friendly names are enabled. Originating from `friendly_names` stat in payload (related to advanced humanization feature).
+      semantic_type: type/Category
+  - field: appearance_is_metabase_links_shown
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Metabase Links Shown
+    new:
+      description: Boolean indicating if Metabase links are shown. Originating from `appearance_show_mb_links` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_metabot_greeting_shown
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Metabot Greeting Shown
+    new:
+      description: Boolean indicating if Metabot greeting is shown. Originating from `appearance_metabot_greeting` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_lighthouse_illustration_shown
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Lighthouse Illustration Shown
+    new:
+      description: Boolean indicating if Lighthouse illustration is shown. Originating from `appearance_lightouse_illustration` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_site_name_customized
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Site Name Customized
+    new:
+      description: Boolean indicating if the site name is customized. Originating from `appearance_site_name` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_custom_logo_set
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Custom Logo Set
+    new:
+      description: Boolean indicating if a custom logo is set. Originating from `appearance_logo` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_custom_favicon_set
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Custom Favicon Set
+    new:
+      description: Boolean indicating if a custom favicon is set. Originating from `appearance_favicon` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_loading_message_customized
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Loading Message Customized
+    new:
+      description: Boolean indicating if the loading message is customized. Originating from `appearance_loading_message` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_chart_colors_customized
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Chart Colors Customized
+    new:
+      description: Boolean indicating if chart colors are customized. Originating from `appearance_chart_colors` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_is_ui_colors_customized
+    current:
+      description: null
+      semantic_type: null
+      display_name: Appearance Is Ui Colors Customized
+    new:
+      description: Boolean indicating if UI colors are customized. Originating from `appearance_ui_colors` stat in payload.
+      semantic_type: type/Category
+  - field: appearance_help_link
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Appearance Help Link
+    new:
+      description: Keyword setting to control whitelabeling of the help link. Valid values are `:metabase`, `:hidden`, and`:custom`. If `:custom` is set, the help link will use the URL specified in the `help-link-custom-destination`, or be hidden if it is not set.
+  - field: appearance_login_page_illustration
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Appearance Login Page Illustration
+    new:
+      description: Options for displaying the illustration on the login page.
+  - field: appearance_landing_page_illustration
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Appearance Landing Page Illustration
+    new:
+      description: Options for displaying the illustration on the landing page.
+  - field: appearance_no_data_illustration
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Appearance No Data Illustration
+    new:
+      description: Options for displaying the illustration when there are no results after running a question.
+  - field: appearance_no_object_illustration
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Appearance No Object Illustration
+    new:
+      description: Options for displaying the illustration when there are no results after searching.
+  - field: instance_java_vm_specification_version
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance Java Vm Specification Version
+    new:
+      description: The Java VM specification version of the system running the instance
+  - field: instance_java_runtime_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance Java Runtime Name
+    new:
+      description: The Java Runtime Environment name
+  - field: instance_processors
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Processors
+    new:
+      description: The number of processors available to the Metabase instance
+      semantic_type: type/Quantity
+  - field: instance_java_version
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance Java Version
+    new:
+      description: The Java version used by the Metabase instance
+  - field: instance_timezone
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance Timezone
+    new:
+      description: The timezone setting of the Metabase instance, as inferred by the setup user
+  - field: instance_file_encoding
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Instance File Encoding
+    new:
+      description: The file encoding type used by the Metabase instance
+  - field: instance_max_memory
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance Max Memory
+    new:
+      description: The maximum memory available to the Metabase instance
+      semantic_type: type/Quantity
+  - field: startup_time_millis
+    current:
+      description: null
+      semantic_type: null
+      display_name: Startup Time Millis
+    new:
+      description: The time it took for the Metabase instance to start up
+      semantic_type: type/Quantity
+  - field: users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Users
+    new:
+      description: Total number of users in the Metabase instance
+      semantic_type: type/Quantity
+  - field: active_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Active Users
+    new:
+      description: Number of active users
+      semantic_type: type/Quantity
+  - field: admin_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Admin Users
+    new:
+      description: Number of users with admin privileges
+      semantic_type: type/Quantity
+  - field: logged_in_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Logged In Users
+    new:
+      description: Number of users who have logged in
+      semantic_type: type/Quantity
+  - field: sso_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Sso Users
+    new:
+      description: Number of users using Single Sign-On
+      semantic_type: type/Quantity
+  - field: permission_groups
+    current:
+      description: null
+      semantic_type: null
+      display_name: Permission Groups
+    new:
+      description: Number of different permission groups
+      semantic_type: type/Quantity
+  - field: questions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Questions
+    new:
+      description: Total number of questions
+      semantic_type: type/Quantity
+  - field: native_questions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Native Questions
+    new:
+      description: Number of native (SQL) questions
+      semantic_type: type/Quantity
+  - field: query_builder_questions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Builder Questions
+    new:
+      description: Number of questions created using the query builder
+      semantic_type: type/Quantity
+  - field: questions_with_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Questions With Params
+    new:
+      description: Number of questions with parameters
+      semantic_type: type/Quantity
+  - field: public_questions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Public Questions
+    new:
+      description: Number of questions made public
+      semantic_type: type/Quantity
+  - field: embedded_questions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Questions
+    new:
+      description: Number of embedded questions
+      semantic_type: type/Quantity
+  - field: embedded_questions_with_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Questions With Params
+    new:
+      description: Number of embedded questions with parameters
+      semantic_type: type/Quantity
+  - field: embedded_questions_with_enabled_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Questions With Enabled Params
+    new:
+      description: Number of embedded questions with enabled parameters
+      semantic_type: type/Quantity
+  - field: embedded_questions_with_locked_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Questions With Locked Params
+    new:
+      description: Number of embedded questions with locked parameters
+      semantic_type: type/Quantity
+  - field: embedded_questions_with_disabled_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Questions With Disabled Params
+    new:
+      description: Number of embedded questions with disabled parameters
+      semantic_type: type/Quantity
+  - field: dashboards
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dashboards
+    new:
+      description: Total number of dashboards
+      semantic_type: type/Quantity
+  - field: dashboards_with_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dashboards With Params
+    new:
+      description: Number of dashboards with parameters
+      semantic_type: type/Quantity
+  - field: public_dashboards
+    current:
+      description: null
+      semantic_type: null
+      display_name: Public Dashboards
+    new:
+      description: Number of public dashboards
+      semantic_type: type/Quantity
+  - field: public_dashboards_with_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Public Dashboards With Params
+    new:
+      description: Number of public dashboards with parameters
+      semantic_type: type/Quantity
+  - field: embedded_dashboards
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Dashboards
+    new:
+      description: Number of embedded dashboards
+      semantic_type: type/Quantity
+  - field: embedded_dashboards_with_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Dashboards With Params
+    new:
+      description: Number of embedded dashboards with parameters
+      semantic_type: type/Quantity
+  - field: embedded_dashboards_with_enabled_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Dashboards With Enabled Params
+    new:
+      description: Number of embedded dashboards with enabled parameters
+      semantic_type: type/Quantity
+  - field: embedded_dashboards_with_locked_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Dashboards With Locked Params
+    new:
+      description: Number of embedded dashboards with locked parameters
+      semantic_type: type/Quantity
+  - field: embedded_dashboards_with_disabled_params
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedded Dashboards With Disabled Params
+    new:
+      description: Number of embedded dashboards with disabled parameters
+      semantic_type: type/Quantity
+  - field: executions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Executions
+    new:
+      description: Total number of executions
+      semantic_type: type/Quantity
+  - field: completed_executions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Completed Executions
+    new:
+      description: Number of successfully completed executions
+      semantic_type: type/Quantity
+  - field: failed_executions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Failed Executions
+    new:
+      description: Number of failed executions
+      semantic_type: type/Quantity
+  - field: databases
+    current:
+      description: null
+      semantic_type: null
+      display_name: Databases
+    new:
+      description: Total number of databases
+      semantic_type: type/Quantity
+  - field: analyzed_databases
+    current:
+      description: null
+      semantic_type: null
+      display_name: Analyzed Databases
+    new:
+      description: Number of analyzed (full sync) databases
+      semantic_type: type/Quantity
+  - field: tables
+    current:
+      description: null
+      semantic_type: null
+      display_name: Tables
+    new:
+      description: Total number of tables
+      semantic_type: type/Quantity
+  - field: fields
+    current:
+      description: null
+      semantic_type: null
+      display_name: Fields
+    new:
+      description: Total number of fields
+      semantic_type: type/Quantity
+  - field: alerts
+    current:
+      description: null
+      semantic_type: null
+      display_name: Alerts
+    new:
+      description: Total number of alerts
+      semantic_type: type/Quantity
+  - field: alerts_with_table_cards
+    current:
+      description: null
+      semantic_type: null
+      display_name: Alerts With Table Cards
+    new:
+      description: Number of alerts associated with table cards
+      semantic_type: type/Quantity
+  - field: alerts_first_time_only
+    current:
+      description: null
+      semantic_type: null
+      display_name: Alerts First Time Only
+    new:
+      description: Number of alerts set to trigger only the first time
+      semantic_type: type/Quantity
+  - field: alerts_above_goal
+    current:
+      description: null
+      semantic_type: null
+      display_name: Alerts Above Goal
+    new:
+      description: Number of alerts for goals exceeded
+      semantic_type: type/Quantity
+  - field: collections
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collections
+    new:
+      description: Total number of collections
+      semantic_type: type/Quantity
+  - field: cards_in_collections
+    current:
+      description: null
+      semantic_type: null
+      display_name: Cards In Collections
+    new:
+      description: Number of cards in collections
+      semantic_type: type/Quantity
+  - field: cards_not_in_collections
+    current:
+      description: null
+      semantic_type: null
+      display_name: Cards Not In Collections
+    new:
+      description: Number of cards not in any collection
+      semantic_type: type/Quantity
+  - field: cache_average_entry_size
+    current:
+      description: null
+      semantic_type: null
+      display_name: Cache Average Entry Size
+    new:
+      description: Average size of cache entries
+      semantic_type: type/Quantity
+  - field: cache_num_queries_cached
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Cache Num Queries Cached
+    new:
+      description: Number of queries cached
+      semantic_type: type/Quantity
+  - field: segments
+    current:
+      description: null
+      semantic_type: null
+      display_name: Segments
+    new:
+      description: Total number of segments
+      semantic_type: type/Quantity
+  - field: metrics
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metrics
+    new:
+      description: Total number of metrics
+      semantic_type: type/Quantity
+  - field: server_time
+    current:
+      description: null
+      semantic_type: null
+      display_name: Server Time
+    new:
+      description: Just a dummy field to enable incremental loading. Don't use this field.
+  - field: metabase_version_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Metabase Version ID
+    new:
+      description: Foreign key to Metabase Version model

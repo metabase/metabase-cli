@@ -1,0 +1,114 @@
+schema: transforms_intermediate
+tables:
+- table: int_anonymous_stats_ping_enriched
+  table_id: 1767
+  dbt_model: int_anonymous_stats_ping_enriched
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Enriched version of the anonymous stats ping data
+  fields: []
+- table: int_enterprise_contract_cancelled
+  table_id: 1768
+  dbt_model: int_enterprise_contract_cancelled
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Ingest contracts that are not migrated and cancelled contracts from the legacy revenue sheet
+  fields: []
+- table: int_metabase_store_contract
+  table_id: 1769
+  dbt_model: int_metabase_store_contract
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Append product info to the contract table
+  fields: []
+- table: int_pipedrive_deal
+  table_id: 1770
+  dbt_model: int_pipedrive_deal
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Pipedrive deal model where the most recent deal history is selected
+  fields: []
+- table: int_salesforce_account
+  table_id: 1771
+  dbt_model: int_salesforce_account
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Salesforce Account model
+  fields: []
+- table: int_salesforce_contact
+  table_id: 1772
+  dbt_model: int_salesforce_contact
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Salesforce Contact model
+  fields: []
+- table: int_salesforce_email
+  table_id: 1773
+  dbt_model: int_salesforce_email
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Salesforce Email derived from Tasks and Email Messages (Task where subTask = 'Email')
+  fields: []
+- table: int_salesforce_email_message
+  table_id: 1774
+  dbt_model: int_salesforce_email_message
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Salesforce email message model
+  fields: []
+- table: int_salesforce_lead
+  table_id: 1775
+  dbt_model: int_salesforce_lead
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Salesforce Lead model
+  fields: []
+- table: int_salesforce_opportunity
+  table_id: 1776
+  dbt_model: int_salesforce_opportunity
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Salesforce Opportunity model
+  fields: []
+- table: int_salesforce_opportunity_history
+  table_id: 1777
+  dbt_model: int_salesforce_opportunity_history
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Salesforce Opportunity history (one row per field change per opportunity). Source is Fivetran opportunity_field history.
+  fields: []
+- table: int_salesforce_task
+  table_id: 1778
+  dbt_model: int_salesforce_task
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Salesforce task model
+  fields: []
+- table: int_salesforce_token
+  table_id: 1779
+  dbt_model: int_salesforce_token
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Salesforce Token model
+  fields: []
+- table: int_swoogo_contact_event_history
+  table_id: 1780
+  dbt_model: int_swoogo_contact_event_history
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Complete contact profile with event participation history and engagement metrics. Includes lifetime value, engagement scoring, and behavioral segmentation.
+  fields: []
+- table: int_swoogo_event_summary
+  table_id: 1781
+  dbt_model: int_swoogo_event_summary
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Comprehensive event-level summary with registration, financial, and performance metrics. Aggregates data from registrations and transactions to provide a complete view of event performance.
+  fields: []
+- table: int_swoogo_registration_funnel
+  table_id: 1782
+  dbt_model: int_swoogo_registration_funnel
+  dbt_source: intermediate/schema.yml
+  table_changes:
+    description: Registration funnel analysis showing conversion rates and drop-off points. Provides insights into registration completion, confirmation, and payment rates.
+  fields: []

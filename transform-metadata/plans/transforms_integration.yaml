@@ -1,0 +1,394 @@
+schema: transforms_integration
+tables:
+- table: metabase_admins
+  table_id: 1763
+  dbt_model: metabase_admins
+  dbt_source: data_products/integration/schema.yml
+  table_changes:
+    description: This model generates a list of all cloud and self-hosted admins for email campaigs. The model is synced to a Customer.io segment Metabase Admins, which is used to send email campaigns. **Caveats:** - We cannot know who the admins within self-hosted instances are, so we assume that the first user to sign up in the Metabase Store (i.e. the contact email on the account model) is the admin. **Granularity:** One row per email.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: The unique identifier of the admin (based on the email address).
+  - field: email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Email
+    new:
+      description: The email of the account admin.
+  - field: first_name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: First Name
+    new:
+      description: The first name of the account admin.
+  - field: joined_at
+    current:
+      description: null
+      semantic_type: type/JoinTimestamp
+      display_name: Joined At
+    new:
+      description: The date when the admin joined the Metabase instance
+  - field: canceled_at
+    current:
+      description: null
+      semantic_type: type/CancelationTimestamp
+      display_name: Canceled At
+    new:
+      description: The date when the account was/will be canceled.
+  - field: trial_ended_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Trial Ended At
+    new:
+      description: The date when the account trial ended.
+  - field: is_interactive_embedding_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Interactive Embedding Enabled
+    new:
+      description: Flag indicating if the interactive embedding feature is enabled for the account.
+  - field: is_white_labeled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is White Labeled
+    new:
+      description: Flag indicating if the white labeling feature is enabled for the account.
+  - field: is_token_activated
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Token Activated
+    new:
+      description: Flag indicating if the admin has activated their token (i.e. whether we already saw at least one token check).
+  - field: is_air_gapped
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Air Gapped
+    new:
+      description: Indicates if the account is air-gapped and not connected to the internet, which means they are using a special air-gapped token that includes expiration, usage limits, and feature flags.
+  - field: is_admin
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Admin
+    new:
+      description: Flag indicating if the user is an admin. This is always true for this list. It's not necessary, but just keeping it for consistency with the metabase_users_for_onboarding model. Note that for self-hosted instances, we assume the first user to sign up in the Metabase Store is the admin even though they may not have the admin role in the Metabase app.
+  - field: subscription_status
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription Status
+    new:
+      description: The subscription status of the account.
+  - field: plan_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Plan Name
+    new:
+      description: The name of the plan the account is on.
+  - field: primary_database
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Primary Database
+    new:
+      description: The primary database of the account (e.g. postgres, redshift, snowflake, etc.). For cloud customers, it will have a value when there is a database connected to the instance. For self-hosted customers, we don't know so the value will be 'unknown'.
+  - field: deployment
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Deployment
+    new:
+      description: The type of deployment for the account (i.e. self-hosted or cloud).
+  - field: customer_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Customer Name
+    new:
+      description: The name of the customer.
+  - field: dns_alias
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dns Alias
+    new:
+      description: The DNS alias of the account. Only applicable for cloud instances.
+  - field: instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance ID
+    new:
+      description: The instance ID of the account. Only applicable for cloud instances.
+  - field: user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: User ID
+    new:
+      description: The user ID of the account. Only applicable for cloud instances. Note that a user_id is only unique within an instance (use the it together with the instance_id). As writing this, it is not used by the onboarding emails but we use it for some downstream analysis to understand user behavior changes after the email is sent.
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: The customer ID of the account.
+  - field: synced_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Synced At
+    new:
+      description: The date when the data was last synced. Used by scripts in the data-tool repo to remove outdated emails.
+- table: metabase_users_for_onboarding
+  table_id: 1764
+  dbt_model: metabase_users_for_onboarding
+  dbt_source: data_products/integration/schema.yml
+  table_changes:
+    description: This model generates a list of all cloud users and self-hosted admins for onboarding. It is used in customer.io to send onboarding emails. The model is synced to a Customer.io Segment, which is used to send onboarding emails. **Caveats:** - We cannot know who the admins within self-hosted instances are, so we assume that the first user to sign up in the Metabase Store (i.e. the contact email on the account model) is the admin. **Granularity:** One row per email.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: The unique identifier of the user (based on the email address).
+  - field: email
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email
+    new:
+      description: The email of the account user.
+  - field: first_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Name
+    new:
+      description: The first name of the account user.
+  - field: is_admin
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Admin
+    new:
+      description: Flag indicating if the user is an admin. Note that for self-hosted instances, we assume the first user to sign up in the Metabase Store is the admin even though they may not have the admin role in the Metabase app.
+  - field: is_token_activated
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Token Activated
+    new:
+      description: Flag indicating if the user has activated their token (i.e. whether we already saw at least one token check).
+  - field: is_air_gapped
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Air Gapped
+    new:
+      description: Indicates if the account is air-gapped and not connected to the internet, which means they are using a special air-gapped token that includes expiration, usage limits, and feature flags.
+  - field: joined_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Joined At
+    new:
+      description: The date when the user joined the Metabase instance
+  - field: canceled_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Canceled At
+    new:
+      description: The date when the account was/will be canceled.
+  - field: trial_ended_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Trial Ended At
+    new:
+      description: The date when the account trial ended.
+  - field: subscription_status
+    current:
+      description: null
+      semantic_type: null
+      display_name: Subscription Status
+    new:
+      description: The subscription status of the account.
+  - field: plan_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Plan Name
+    new:
+      description: The name of the plan the account is on.
+  - field: primary_database
+    current:
+      description: null
+      semantic_type: null
+      display_name: Primary Database
+    new:
+      description: The primary database of the account (e.g. postgres, redshift, snowflake, etc.). For cloud customers, it will have a value when there is a database connected to the instance. For self-hosted customers, we don't know so the value will be 'unknown'.
+  - field: deployment
+    current:
+      description: null
+      semantic_type: null
+      display_name: Deployment
+    new:
+      description: The type of deployment for the account (i.e. self-hosted or cloud).
+  - field: customer_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer Name
+    new:
+      description: The name of the customer.
+  - field: dns_alias
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dns Alias
+    new:
+      description: The DNS alias of the account. Only applicable for cloud instances.
+  - field: user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: User ID
+    new:
+      description: The user ID of the account. Only applicable for cloud instances. Note that a user_id is only unique within an instance (use the it together with the instance_id). As writing this, it is not used by the onboarding emails but we use it for some downstream analysis to understand user behavior changes after the email is sent.
+  - field: instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Instance ID
+    new:
+      description: The instance ID of the account. Only applicable for cloud instances.
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: The customer ID of the account.
+  - field: synced_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Synced At
+    new:
+      description: The date when the data was last synced. Used by scripts in the data-tool repo to remove outdated emails.
+- table: metabot_usage_stats
+  table_id: 1765
+  dbt_model: metabot_usage_stats
+  dbt_source: data_products/integration/schema.yml
+  table_changes:
+    description: This table will be used in customer.io to set up an automated email campaign to get customer feedback after 15 days post-activation of Metabot. The integration syncs the Metabot trial activation date, deployment, and plan_name for customers that activated the Metabot feature. **Caveats:** - Only the first account that is associated with the token usage are considered so we don't produce duplicate at the customer level.
+  fields:
+  - field: customer_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer Name
+    new:
+      description: The name of the customer
+  - field: plan_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Plan Name
+    new:
+      description: The name of the plan the account is on
+  - field: contact_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Contact Name
+    new:
+      description: The name of the contact person
+  - field: contact_email
+    current:
+      description: null
+      semantic_type: null
+      display_name: Contact Email
+    new:
+      description: The email of the contact person
+  - field: deployment
+    current:
+      description: null
+      semantic_type: null
+      display_name: Deployment
+    new:
+      description: The type of deployment (self-hosted or cloud)
+  - field: total_tokens
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Tokens
+    new:
+      description: Total number of tokens used across all AI features
+  - field: total_costs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Costs
+    new:
+      description: Total estimated costs in USD for all token usage
+  - field: first_usage_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Usage Date
+    new:
+      description: The first date when Metabot was used
+  - field: last_usage_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Usage Date
+    new:
+      description: The most recent date when Metabot was used
+  - field: days_actively_using_metabot
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days Actively Using Metabot
+    new:
+      description: Number of distinct days the customer actively used Metabot
+  - field: first_activation_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Activation Date
+    new:
+      description: The first date when the customer activated Metabot (from contract creation)
+  - field: total_requests
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Requests
+    new:
+      description: Total number of unique requests made
+  - field: days_since_last_usage
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days Since Last Usage
+    new:
+      description: Number of days since the customer last used Metabot

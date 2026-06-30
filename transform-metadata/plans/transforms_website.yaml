@@ -1,0 +1,748 @@
+schema: transforms_website
+tables:
+- table: website_page_view
+  table_id: 2046
+  dbt_model: website_page_view
+  dbt_source: data_products/website/schema.yml
+  table_changes:
+    description: Summary table for all page views
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: session_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Session ID
+    new:
+      description: Unique session identifier for a given session
+  - field: page_view_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Page View At
+    new:
+      description: When the user lands on a given page
+      semantic_type: type/CreationTimestamp
+  - field: cookie_first_seen_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Cookie First Seen At
+    new:
+      description: When a given cookie was first seen on our website
+  - field: converted_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Converted At
+    new:
+      description: When a given user converted (includes oss, self serve and enterprise)
+  - field: page_url
+    current:
+      description: null
+      semantic_type: null
+      display_name: Page URL
+    new:
+      description: URL for the page the cookie viewed
+  - field: page_title
+    current:
+      description: null
+      semantic_type: null
+      display_name: Page Title
+    new:
+      description: Page title for a given page
+  - field: site_area
+    current:
+      description: null
+      semantic_type: null
+      display_name: Site Area
+    new:
+      description: Area of the site the page is in. This is mostly based on the first part of the url - e.g. /docs/... is "docs".
+      semantic_type: type/Category
+  - field: converted_plan
+    current:
+      description: null
+      semantic_type: null
+      display_name: Converted Plan
+    new:
+      description: Plan a given cookie converted to
+      semantic_type: type/Category
+  - field: days_until_conversion
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days Until Conversion
+    new:
+      description: Time from when a cookie is first seen to when they convert
+      semantic_type: type/Quantity
+  - field: country
+    current:
+      description: null
+      semantic_type: null
+      display_name: Country
+    new:
+      description: Country associated to the cookie
+      semantic_type: type/Country
+  - field: geo_region_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Geo Region Name
+    new:
+      description: Region associated with the country
+  - field: referer_source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Referer Source
+    new:
+      description: Referral source for how the user got to our website, for example - linkedin
+      semantic_type: type/Category
+  - field: referer_medium
+    current:
+      description: null
+      semantic_type: null
+      display_name: Referer Medium
+    new:
+      description: Referrer channel through which the cookie was sent to metabase, for example - social
+      semantic_type: type/Category
+  - field: is_first_page
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is First Page
+    new:
+      description: Boolean for whether this is the first page for a given session
+      semantic_type: type/Category
+  - field: is_gdpr
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Gdpr
+    new:
+      description: Boolean for whether the country tied to the cookie is affected by GDPR
+      semantic_type: type/Category
+  - field: is_top_5_country
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Top 5 Country
+    new:
+      description: Boolean for whether the cookie comes from one of our top 5 countries in page views
+      semantic_type: type/Category
+  - field: is_visited_before_conversion
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Visited Before Conversion
+    new:
+      description: Boolean for whether the particular page was visited prior to the user converting
+      semantic_type: type/Category
+  - field: is_traffic_qualified
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Traffic Qualified
+    new:
+      description: Boolean for whether the traffic is qualified
+      semantic_type: type/Category
+  - field: is_country_with_cookie_policy_restriction
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Country With Cookie Policy Restriction
+    new:
+      description: Boolean for whether the country tied to the user has a cookie restriction
+      semantic_type: type/Category
+  - field: time_engaged_in_s
+    current:
+      description: null
+      semantic_type: null
+      display_name: Time Engaged In S
+    new:
+      description: How many seconds the cookie spent on the given page
+      semantic_type: type/Quantity
+  - field: time_engaged_in_s_tier
+    current:
+      description: null
+      semantic_type: null
+      display_name: Time Engaged In S Tier
+    new:
+      description: Tiered information for how many seconds the cookie spent on the page
+      semantic_type: type/Quantity
+  - field: vertical_percentage_scrolled_tier
+    current:
+      description: null
+      semantic_type: null
+      display_name: Vertical Percentage Scrolled Tier
+    new:
+      description: Tiered information for how much of the page the user scrolled down to
+      semantic_type: type/Category
+  - field: page_url_host
+    current:
+      description: null
+      semantic_type: null
+      display_name: Page URL Host
+    new:
+      description: Host for the url
+  - field: page_url_path
+    current:
+      description: null
+      semantic_type: null
+      display_name: Page URL Path
+    new:
+      description: Path for the page url
+  - field: page_url_query
+    current:
+      description: null
+      semantic_type: null
+      display_name: Page URL Query
+    new:
+      description: Query parameters tied to the URL
+  - field: referer_url
+    current:
+      description: null
+      semantic_type: null
+      display_name: Referer URL
+    new:
+      description: Previous page URL before the current page
+  - field: referer_url_host
+    current:
+      description: null
+      semantic_type: null
+      display_name: Referer URL Host
+    new:
+      description: Host for the referer URL
+  - field: referer_url_query
+    current:
+      description: null
+      semantic_type: null
+      display_name: Referer URL Query
+    new:
+      description: Query parameters tied to the referer URL
+  - field: utm_medium
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Medium
+    new:
+      description: Identifies what type of link was used, such as paid or email.
+      semantic_type: type/Category
+  - field: utm_source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Source
+    new:
+      description: Identifies which site sent the traffic.
+      semantic_type: type/Category
+  - field: utm_campaign
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Campaign
+    new:
+      description: Identifies a specific product promotion or strategic campaign.
+      semantic_type: type/Category
+  - field: utm_content
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Content
+    new:
+      description: Identifies what specifically was clicked to bring the user to the site, such as a banner ad or a text link.
+  - field: utm_term
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Term
+    new:
+      description: Identifies search terms
+  - field: marketing_source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Marketing Source
+    new:
+      description: Marketing source
+      semantic_type: type/Category
+  - field: marketing_campaign
+    current:
+      description: null
+      semantic_type: null
+      display_name: Marketing Campaign
+    new:
+      description: Marketing campaign
+      semantic_type: type/Category
+  - field: browser_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Browser Name
+    new:
+      description: Name of browser
+      semantic_type: type/Category
+  - field: browser_language
+    current:
+      description: null
+      semantic_type: null
+      display_name: Browser Language
+    new:
+      description: Language associated to browser
+      semantic_type: type/Category
+  - field: os_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Os Name
+    new:
+      description: OS tied to the device used
+      semantic_type: type/Category
+  - field: device
+    current:
+      description: null
+      semantic_type: null
+      display_name: Device
+    new:
+      description: Device used to access the website
+      semantic_type: type/Category
+  - field: user_snowplow_domain_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: User Snowplow Domain ID
+    new:
+      description: User domain id for snowplow
+  - field: user_snowplow_crossdomain_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: User Snowplow Crossdomain ID
+    new:
+      description: User crossdomain id for snowplow
+  - field: app_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: App ID
+    new:
+      description: App sending the logs (i.e. discourse, www etc)
+      semantic_type: type/Category
+  - field: stripe_subscription_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stripe Subscription ID
+    new:
+      description: Foreign key for the Stripe Subscription table
+  - field: paid_campaign_keyword_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paid Campaign Keyword ID
+    new:
+      description: Foreign key to Paid Campaign Keyword model
+- table: website_page_view_anonymous
+  table_id: 2047
+  dbt_model: website_page_view_anonymous
+  dbt_source: data_products/website/schema.yml
+  table_changes:
+    description: Summary table for anonymous page views
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: page_view_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Page View At
+    new:
+      description: When the user lands on a given page
+      semantic_type: type/CreationTimestamp
+  - field: page_url
+    current:
+      description: null
+      semantic_type: null
+      display_name: Page URL
+    new:
+      description: URL for the page the cookie viewed
+  - field: page_title
+    current:
+      description: null
+      semantic_type: null
+      display_name: Page Title
+    new:
+      description: Page title for a given page
+  - field: site_area
+    current:
+      description: null
+      semantic_type: null
+      display_name: Site Area
+    new:
+      description: Area of the site the page is in. This is mostly based on the first part of the url - e.g. /docs/... is "docs".
+      semantic_type: type/Category
+  - field: referer_medium
+    current:
+      description: null
+      semantic_type: null
+      display_name: Referer Medium
+    new:
+      description: Referrer channel through which the cookie was sent to metabase, for example - social
+      semantic_type: type/Category
+  - field: referer_source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Referer Source
+    new:
+      description: Referral source for how the user got to our website, for example - linkedin
+      semantic_type: type/Category
+  - field: utm_medium
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Medium
+    new:
+      description: Identifies what type of link was used, such as paid or email.
+      semantic_type: type/Category
+  - field: utm_source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Source
+    new:
+      description: Identifies which site sent the traffic.
+      semantic_type: type/Category
+  - field: utm_campaign
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Campaign
+    new:
+      description: Identifies a specific product promotion or strategic campaign.
+      semantic_type: type/Category
+  - field: utm_content
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Content
+    new:
+      description: Identifies what specifically was clicked to bring the user to the site, such as a banner ad or a text link.
+  - field: utm_term
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Term
+    new:
+      description: Identifies search terms
+  - field: time_engaged_in_s
+    current:
+      description: null
+      semantic_type: null
+      display_name: Time Engaged In S
+    new:
+      description: How many seconds the cookie spent on the given page
+      semantic_type: type/Quantity
+  - field: time_engaged_in_s_tier
+    current:
+      description: null
+      semantic_type: null
+      display_name: Time Engaged In S Tier
+    new:
+      description: Tiered information for how many seconds the cookie spent on the page
+      semantic_type: type/Quantity
+  - field: vertical_percentage_scrolled_tier
+    current:
+      description: null
+      semantic_type: null
+      display_name: Vertical Percentage Scrolled Tier
+    new:
+      description: Tiered information for how much of the page the user scrolled down to
+      semantic_type: type/Category
+  - field: browser_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Browser Name
+    new:
+      description: Name associated to browser
+      semantic_type: type/Category
+  - field: browser_language
+    current:
+      description: null
+      semantic_type: null
+      display_name: Browser Language
+    new:
+      description: Language associated to browser
+      semantic_type: type/Category
+  - field: os_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Os Name
+    new:
+      description: OS tied to the device used
+      semantic_type: type/Category
+  - field: device
+    current:
+      description: null
+      semantic_type: null
+      display_name: Device
+    new:
+      description: Device used to access the website
+      semantic_type: type/Category
+  - field: page_url_host
+    current:
+      description: null
+      semantic_type: null
+      display_name: Page URL Host
+    new:
+      description: Host parameters tied to the URL
+  - field: page_url_path
+    current:
+      description: null
+      semantic_type: null
+      display_name: Page URL Path
+    new:
+      description: Path parameters tied to the URL
+  - field: page_url_query
+    current:
+      description: null
+      semantic_type: null
+      display_name: Page URL Query
+    new:
+      description: Query parameters tied to the URL
+  - field: referer_url
+    current:
+      description: null
+      semantic_type: null
+      display_name: Referer URL
+    new:
+      description: Previous page URL before the current page
+  - field: referer_url_host
+    current:
+      description: null
+      semantic_type: null
+      display_name: Referer URL Host
+    new:
+      description: Host for the referer URL
+  - field: referer_url_query
+    current:
+      description: null
+      semantic_type: null
+      display_name: Referer URL Query
+    new:
+      description: Query parameters tied to the referer URL
+  - field: app_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: App ID
+    new:
+      description: App sending the logs (i.e. discourse, www etc)
+      semantic_type: type/Category
+  - field: stripe_subscription_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stripe Subscription ID
+    new:
+      description: Foreign key for the Stripe Subscription table
+  - field: paid_campaign_keyword_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paid Campaign Keyword ID
+    new:
+      description: Foreign key to Paid Campaign Keyword model
+- table: website_session_intent
+  table_id: 2048
+  dbt_model: website_session_intent
+  dbt_source: data_products/website/schema.yml
+  table_changes:
+    description: A detailed summary of user session intent based on various website interactions. **Granularity:** One row per session.
+  fields:
+  - field: session_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Session ID
+    new:
+      description: The unique identifier of the session.
+      semantic_type: type/PK
+  - field: user_snowplow_crossdomain_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: User Snowplow Crossdomain ID
+    new:
+      description: Cross-domain user ID from Snowplow tracking.
+  - field: session_start_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Session Start At
+    new:
+      description: The start timestamp of the user session.
+      semantic_type: type/CreationTimestamp
+  - field: country
+    current:
+      description: null
+      semantic_type: null
+      display_name: Country
+    new:
+      description: The country from which the user accessed the site.
+      semantic_type: type/Country
+  - field: is_top_5_country
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Top 5 Country
+    new:
+      description: Indicator if the user's country is one of the top 5 countries in terms of traffic.
+      semantic_type: type/Category
+  - field: marketing_source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Marketing Source
+    new:
+      description: The source of the marketing campaign, if applicable.
+      semantic_type: type/Category
+  - field: marketing_medium
+    current:
+      description: null
+      semantic_type: null
+      display_name: Marketing Medium
+    new:
+      description: The medium of the marketing campaign, if applicable.
+      semantic_type: type/Category
+  - field: marketing_campaign
+    current:
+      description: null
+      semantic_type: null
+      display_name: Marketing Campaign
+    new:
+      description: The name of the marketing campaign, if applicable.
+      semantic_type: type/Category
+  - field: referer_medium
+    current:
+      description: null
+      semantic_type: null
+      display_name: Referer Medium
+    new:
+      description: The medium of the referral source.
+      semantic_type: type/Category
+  - field: referer_source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Referer Source
+    new:
+      description: The source of the referral.
+      semantic_type: type/Category
+  - field: referer_url
+    current:
+      description: null
+      semantic_type: null
+      display_name: Referer URL
+    new:
+      description: Previous page URL before the current session.
+  - field: session_first_page_url
+    current:
+      description: null
+      semantic_type: null
+      display_name: Session First Page URL
+    new:
+      description: The URL of the first page the user visited in the session.
+  - field: is_traffic_qualified
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Traffic Qualified
+    new:
+      description: Indicator whether the traffic is qualified (i.e. from specific countries)
+      semantic_type: type/Category
+  - field: is_visitor
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Visitor
+    new:
+      description: Indicator that the user is a visitor (always true).
+      semantic_type: type/Category
+  - field: is_reading
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Reading
+    new:
+      description: Indicator if the user's session involved reading blog, community stories, or learning resources.
+      semantic_type: type/Category
+  - field: is_browsing
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Browsing
+    new:
+      description: Indicator if the user's session involved browsing product-related pages without specific intent to purchase or download.
+      semantic_type: type/Category
+  - field: is_shopping
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Shopping
+    new:
+      description: Indicator if the user's session involved activities related to shopping or purchasing.
+      semantic_type: type/Category
+  - field: is_trying
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Trying
+    new:
+      description: Indicator if the user's session involved trying or downloading the product.
+      semantic_type: type/Category
+  - field: is_shopping_selfservice
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Shopping Selfservice
+    new:
+      description: Indicator if the user's session involved shopping through a self-service portal.
+      semantic_type: type/Category
+  - field: is_trying_oss
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Trying Oss
+    new:
+      description: Indicator if the user's session involved actions related to trying or downloading the open-source software.
+      semantic_type: type/Category
+  - field: is_trialing_selfservice
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Trialing Selfservice
+    new:
+      description: Indicator if the user's session resulted in starting a trial through the self-service checkout.
+      semantic_type: type/Category
+  - field: is_trialing_enterprise
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Trialing Enterprise
+    new:
+      description: Indicator if the user's session involved starting an enterprise trial or submitting a contact form for enterprise edition.
+      semantic_type: type/Category

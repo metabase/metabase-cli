@@ -1,0 +1,495 @@
+schema: transforms_channels
+tables:
+- table: webinar_poll
+  table_id: 1658
+  dbt_model: webinar_poll
+  dbt_source: data_products/channels/schema.yml
+  table_changes:
+    description: Webinar poll details
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: poll_created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Poll Created At
+    new:
+      description: Date and time the user answer the poll
+  - field: email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Email
+    new:
+      description: Email of the poll participant
+  - field: email_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Domain
+    new:
+      description: Domain of the registrant's email
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the webinar event
+  - field: event_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Date
+    new:
+      description: Date of the webinar event
+  - field: question
+    current:
+      description: null
+      semantic_type: null
+      display_name: Question
+    new:
+      description: Question of poll
+  - field: answer
+    current:
+      description: null
+      semantic_type: null
+      display_name: Answer
+    new:
+      description: Answer of poll
+  - field: webinar_registrant_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Webinar Registrant ID
+    new:
+      description: Foreign key to Webinar Registrant model
+  - field: webinar_session_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Webinar Session ID
+    new:
+      description: Foreign key to Webinar Session model
+- table: webinar_registrant
+  table_id: 1659
+  dbt_model: webinar_registrant
+  dbt_source: data_products/channels/schema.yml
+  table_changes:
+    description: Webinar registrant details with account info
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: registered_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Registered At
+    new:
+      description: Date and time the user registered for the webinar
+  - field: email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Email
+    new:
+      description: Email of the registrant
+  - field: first_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Name
+    new:
+      description: First name of the registrant
+  - field: last_name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Last Name
+    new:
+      description: Last name of the registrant
+  - field: event_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Name
+    new:
+      description: Name of the webinar event
+  - field: event_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Event Date
+    new:
+      description: Date of the webinar event
+  - field: event_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Event Type
+    new:
+      description: Type of the webinar event
+  - field: platform
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Platform
+    new:
+      description: Platform the registrant is using
+  - field: email_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Domain
+    new:
+      description: Domain of the registrant's email
+  - field: has_attended
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Attended
+    new:
+      description: Indicates whether the registrant attended the live webinar and watched at least 50% of the session
+  - field: live_completion_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Live Completion Rate
+    new:
+      description: Rate of completion of the live webinar session
+      semantic_type: type/Percentage
+  - field: has_viewed_replay
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Viewed Replay
+    new:
+      description: Indicates whether the registrant viewed the replay of the webinar and watched at least 50% of the replay
+  - field: replay_completion_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Replay Completion Rate
+    new:
+      description: Rate of completion of the replay of the webinar
+      semantic_type: type/Percentage
+  - field: has_viewed_webinar
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Viewed Webinar
+    new:
+      description: Indicates wether the registrant either attended the live webinar or viewed the replay of webinar with at least 50% completion
+  - field: is_existing_customer
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Existing Customer
+    new:
+      description: Indicates whether customer had its account created before the webinar registration
+      display_name: Is Existing Customer (Before Registration)
+  - field: is_existing_active_customer
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Existing Active Customer
+    new:
+      description: Indicates whether customer had an active account on the date of registration
+      display_name: Is Existing Active Customer (On Registration)
+  - field: is_new_customer
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is New Customer
+    new:
+      description: Indicates whether they created the account after they registered for the webinar
+      display_name: Is New Customer (After Registration)
+  - field: is_customer_currently_active
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Customer Currently Active
+    new:
+      description: Indicates whether the customer is currently active
+  - field: plan_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Plan Name
+    new:
+      description: Metabase plan name
+  - field: account_created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Account Created At
+    new:
+      description: Timestamp the registrant's account was created
+  - field: days_before_conversion
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days Before Conversion
+    new:
+      description: Number of days laspsed since the event date until account created date for participating registrants who are new accounts. If value is negative, the account was created between date of registration and event
+  - field: title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Title
+    new:
+      description: Registrant's title from Apollo enriched contact
+  - field: seniority
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Seniority
+    new:
+      description: Registrant's seniority from Apollo enriched contact
+  - field: state
+    current:
+      description: null
+      semantic_type: null
+      display_name: State
+    new:
+      description: Registrant organization's state from Apollo enriched contact
+  - field: country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Country
+    new:
+      description: Registrant organization's country from Apollo enriched contact
+  - field: organization_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization Name
+    new:
+      description: Registrant organization's name from Apollo enriched contact
+  - field: organization_industry
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization Industry
+    new:
+      description: Registrant organization's industry from Apollo enriched contact
+  - field: organization_employees
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization Employees
+    new:
+      description: Registrant organization's estimated employee count from Apollo enriched contact
+  - field: organization_size
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Organization Size
+    new:
+      description: Registrant organization's employee count custom grouping
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Foreign key to Account model
+  - field: current_customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Current Customer ID
+    new:
+      description: Foreign key to Customer model
+  - field: webinar_session_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Webinar Session ID
+    new:
+      description: foreign key of the Webinar Session model
+- table: webinar_session
+  table_id: 1660
+  dbt_model: webinar_session
+  dbt_source: data_products/channels/schema.yml
+  table_changes:
+    description: Webinar sessions and their stats
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Title
+    new:
+      description: Title of the webinar
+  - field: date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Date
+    new:
+      description: Date the webinar was held
+  - field: type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Type
+    new:
+      description: Type of the webinar
+  - field: rating
+    current:
+      description: null
+      semantic_type: type/Score
+      display_name: Rating
+    new:
+      description: Rating of the webinar
+  - field: registrants
+    current:
+      description: null
+      semantic_type: null
+      display_name: Registrants
+    new:
+      description: Number of registrants for the webinar
+  - field: attendees
+    current:
+      description: null
+      semantic_type: null
+      display_name: Attendees
+    new:
+      description: Number of registrants who attended the webinar and watched at least 50% of the sessions
+  - field: replayers
+    current:
+      description: null
+      semantic_type: null
+      display_name: Replayers
+    new:
+      description: Number of registrants who viewed at least 50% of the replay
+  - field: viewers
+    current:
+      description: null
+      semantic_type: null
+      display_name: Viewers
+    new:
+      description: Sum of attendees and replayers. Number of registrants who attended the webinar and watched at least 50% of the sessions and registrants who viewed at least 50% of the replay
+  - field: non_metabase_user_registrant_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Non Metabase User Registrant Rate
+    new:
+      description: Rate of non-Metabase users who registered for the webinar
+      semantic_type: type/Percentage
+      display_name: Non-Metabase User Registrant Rate
+  - field: attendance_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Attendance Rate
+    new:
+      description: Rate of registrants who attended the live webinar
+      semantic_type: type/Percentage
+  - field: replay_rate
+    current:
+      description: null
+      semantic_type: type/Share
+      display_name: Replay Rate
+    new:
+      description: Rate of registrants who viewed the replay of the webinar
+      semantic_type: type/Percentage
+- table: youtube_video
+  table_id: 1661
+  dbt_model: youtube_video
+  dbt_source: data_products/channels/schema.yml
+  table_changes:
+    description: YouTube videos and their stats
+    display_name: YouTube Video
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Title
+    new:
+      description: Title of the video
+  - field: published_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Published At
+    new:
+      description: Date and time the video was published
+  - field: privacy_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Privacy Status
+    new:
+      description: Privacy status of the video
+  - field: description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Description
+    new:
+      description: Description of the video
+  - field: url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: URL
+    new:
+      description: URL of the video
+  - field: views
+    current:
+      description: null
+      semantic_type: null
+      display_name: Views
+    new:
+      description: Number of views the video has
+  - field: likes
+    current:
+      description: null
+      semantic_type: null
+      display_name: Likes
+    new:
+      description: Number of likes the video has
+  - field: dislikes
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dislikes
+    new:
+      description: Number of dislikes the video has
+  - field: comments
+    current:
+      description: null
+      semantic_type: null
+      display_name: Comments
+    new:
+      description: Number of comments the video has

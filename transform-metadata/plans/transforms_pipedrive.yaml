@@ -1,0 +1,1432 @@
+schema: transforms_pipedrive
+tables:
+- table: pipedrive_deal
+  table_id: 1831
+  dbt_model: pipedrive_deal
+  dbt_source: data_products/pipedrive/schema.yml
+  table_changes:
+    description: Summary table for all open, closed and won deals on pipedrive. There is one summary row per deal
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Title
+    new:
+      description: Deal title
+  - field: organization_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization Name
+    new:
+      description: Name of customer organization
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Label for whether the deal is open, lost or won
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationDate
+      display_name: Created At
+    new:
+      description: Date for when the deal was created in pipedrive
+  - field: created_time
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created Time
+    new:
+      description: Datetime for when the deal was created in pipedrive
+  - field: close_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Close At
+    new:
+      description: Date for when the deal was closed, i.e. won or lost
+  - field: first_won_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Won At
+    new:
+      description: Fixed date for when the deal was first won
+  - field: update_at
+    current:
+      description: null
+      semantic_type: type/UpdatedDate
+      display_name: Update At
+    new:
+      description: Date for when the last time the deal was updated
+  - field: update_time
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Update Time
+    new:
+      description: Datetime for when the last time the deal was updated
+  - field: expected_close_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Expected Close Date
+    new:
+      description: Date for when the deal is expected to close
+  - field: first_entered_enterprise_pipeline_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Entered Enterprise Pipeline At
+    new:
+      description: Date for when the deal first entered the Enterprise Pipeline
+  - field: enterprise_sao_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enterprise Sao At
+    new:
+      description: Date for when the enterprise deal first entered the accepted stage
+  - field: enterprise_sqo_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enterprise Sqo At
+    new:
+      description: Date for when the enterprise deal first entered the discovery stage
+  - field: last_changed_pipeline_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Changed Pipeline At
+    new:
+      description: Date for when the deal last changed between two pipelines
+  - field: last_email_received_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Email Received At
+    new:
+      description: Date for when the last time an email was sent by the deal person
+  - field: last_email_sent_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Email Sent At
+    new:
+      description: Date for when the last time an email was sent to the deal person
+  - field: call_scheduled_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Call Scheduled At
+    new:
+      description: Date for when the last call with the prospective customer was scheduled
+  - field: closed_lost_follow_up_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Closed Lost Follow Up At
+    new:
+      description: Date for the team to follow up with a lost client that has future potential
+  - field: creator_name
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Creator Name
+    new:
+      description: Name of Metabase person who started the deal
+  - field: owner_name
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner Name
+    new:
+      description: Deal owner, usually the deal creator
+  - field: person_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Person Name
+    new:
+      description: Name of contact at the customer company
+  - field: person_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Person Email
+    new:
+      description: Email of contact at the customer company
+  - field: pipeline_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Pipeline Name
+    new:
+      description: Name of the pipeline the lead came from
+  - field: stage_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Stage Name
+    new:
+      description: Name of the stage within a given pipeline the deal is at
+  - field: stage_order_number
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Stage Order Number
+    new:
+      description: Order number of the stage within the given pipeline for a given deal
+  - field: organization_size
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Organization Size
+    new:
+      description: Size of the organization according to pipedrive if available
+  - field: lost_reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Lost Reason
+    new:
+      description: Text for why a deal was lost
+  - field: lead_disqualified_reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Lead Disqualified Reason
+    new:
+      description: Text for why a lead was disqualified
+  - field: days_since_inbound_contact
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days Since Inbound Contact
+    new:
+      description: Number of days since there has been inbound contact
+  - field: days_since_outbound_contact
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days Since Outbound Contact
+    new:
+      description: Number of days since there has been outbound contact
+  - field: days_since_last_updated
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days Since Last Updated
+    new:
+      description: Number of days since there has been an update on the deal, relevant for open deals
+  - field: deal_duration
+    current:
+      description: null
+      semantic_type: type/Duration
+      display_name: Deal Duration
+    new:
+      description: How long it took for the deal to move from open to either won or lost
+  - field: deal_value
+    current:
+      description: null
+      semantic_type: null
+      display_name: Deal Value
+    new:
+      description: The value in dollars of the deal
+  - field: next_steps
+    current:
+      description: null
+      semantic_type: null
+      display_name: Next Steps
+    new:
+      description: A field to include next steps on the Metabase side
+  - field: is_current_metabase_customer
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Current Metabase Customer
+    new:
+      description: Boolean for whether the customer is already on metabase
+  - field: current_metabase_plan
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Current Metabase Plan
+    new:
+      description: If they're already already a customer the plan they're currently
+  - field: label
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Label
+    new:
+      description: Lead label
+  - field: bcc_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Bcc Email
+    new:
+      description: Email that needs to be included in bcc for the data to arrive in pipedrive
+  - field: hosting_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Hosting Type
+    new:
+      description: Type of hosting thr customer is interested in
+  - field: sales_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Sales Type
+    new:
+      description: Sales deal type for the deal (i.e. renewal vs new business etc)
+  - field: current_solution
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Current Solution
+    new:
+      description: Name of the current data solution the company currently uses
+  - field: current_internal_bi_solution
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Current Internal Bi Solution
+    new:
+      description: Name of the current internal BI solution the company currently uses
+      display_name: Current Internal BI Solution
+  - field: current_embedding_solution
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Current Embedding Solution
+    new:
+      description: Name of the current embedding solution the company currently uses
+  - field: competitors
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Competitors
+    new:
+      description: Who the competitors for the deal are
+  - field: internal_bi_competition
+    current:
+      description: null
+      semantic_type: null
+      display_name: Internal Bi Competition
+    new:
+      description: Who the competitors are for the internal BI solution
+      display_name: Internal BI Competition
+  - field: embedding_competition
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Embedding Competition
+    new:
+      description: Who the competitors are for the embedding solution
+  - field: additional_notes
+    current:
+      description: null
+      semantic_type: null
+      display_name: Additional Notes
+    new:
+      description: What they're interested in us for
+  - field: database_warehouse
+    current:
+      description: null
+      semantic_type: null
+      display_name: Database Warehouse
+    new:
+      description: The data warehouse the potenital customers currently uses
+  - field: is_data_connected
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Data Connected
+    new:
+      description: Boolean for whether their data is connected
+  - field: is_strong_technical_contact
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Strong Technical Contact
+    new:
+      description: Boolean for whether the sales contact is technical
+  - field: internal_external_both
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Internal External Both
+    new:
+      description: Label for whether they are interested in internal vs external reporting
+  - field: product_plan
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Product Plan
+    new:
+      description: The Metabase plan they are interested in
+  - field: embedding
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Embedding
+    new:
+      description: Label for whether they require embedding and if so which
+  - field: is_large_requirements_doc_or_requirements
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Large Requirements Doc Or Requirements
+    new:
+      description: Boolean for whether or not this deal has large doc requirements
+  - field: sales_motion
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Sales Motion
+    new:
+      description: Label for whether the deal is high touch or low touch
+  - field: deal_type_playbook
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Deal Type Playbook
+    new:
+      description: Type of deal for ex, 'OSS->Enterprise'
+  - field: commercial_red_yellow_green
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Commercial Red Yellow Green
+    new:
+      description: Label for how the deal is going from a commercial team perspective
+  - field: success_red_yellow_green
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Success Red Yellow Green
+    new:
+      description: Label for how the deal is going from the success team's perspective
+  - field: tier
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Tier
+    new:
+      description: Label for the tier of the deal
+  - field: is_poc_live
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Poc Live
+    new:
+      description: Boolean for whether they have a live trial
+  - field: which_form_did_lead_come_from
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Which Form Did Lead Come From
+    new:
+      description: The web form from which the lead came from, such as Talk to a Person, Talk to Sales, Get demo, etc.
+  - field: what_is_driving_the_timing
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: What Is Driving The Timing
+    new:
+      description: Notes for why the customer is reaching out now
+  - field: why_they_talk_to_a_human
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Why They Talk To A Human
+    new:
+      description: Notes for why they talk to a Metabase representative about non-Enterprise plans
+  - field: why_are_they_buying
+    current:
+      description: null
+      semantic_type: null
+      display_name: Why Are They Buying
+    new:
+      description: Notes for why they are buying
+  - field: current_state
+    current:
+      description: null
+      semantic_type: null
+      display_name: Current State
+    new:
+      description: Current state of data at the company
+  - field: future_state
+    current:
+      description: null
+      semantic_type: null
+      display_name: Future State
+    new:
+      description: Desired future state for the customer
+  - field: decision_making_process
+    current:
+      description: null
+      semantic_type: null
+      display_name: Decision Making Process
+    new:
+      description: Notes for what will drive them to purchase metabase
+  - field: nurtured
+    current:
+      description: null
+      semantic_type: null
+      display_name: Nurtured
+    new:
+      description: Whether or not the deal is nurtured
+  - field: meeting_result_if_scheduled
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Meeting Result If Scheduled
+    new:
+      description: Notes on how the meeting went
+  - field: meeting_recap
+    current:
+      description: null
+      semantic_type: null
+      display_name: Meeting Recap
+    new:
+      description: Summary of the meeting
+  - field: how_they_heard_of_metabase
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: How They Heard Of Metabase
+    new:
+      description: how they heard about metabase
+  - field: ms_token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ms Token
+    new:
+      description: Harbormaster token link, if available
+  - field: organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization ID
+    new:
+      description: ID for the Organization. Foreign key of the Organization model
+  - field: creator_id
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Creator ID
+    new:
+      description: ID for the person who created the deal. Foreign key of User model
+  - field: owner_id
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner ID
+    new:
+      description: ID for the person who owns the deal. Foreign key of User model
+  - field: person_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Person ID
+    new:
+      description: ID for the customer POC. Foreign key of Person model
+  - field: pipeline_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Pipeline ID
+    new:
+      description: ID for the pipeline. Foreign key of Pipeline model
+  - field: stage_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stage ID
+    new:
+      description: ID for the stage. Foreign key of Stage model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign Key ID for for the customer model
+  - field: stripe_customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stripe Customer ID
+    new:
+      description: Foreign Key for stripe Customer model. Stripe ID for for the prospective client organization
+- table: pipedrive_deal_field_history
+  table_id: 1832
+  dbt_model: pipedrive_deal_field_history
+  dbt_source: data_products/pipedrive/schema.yml
+  table_changes:
+    description: Summary table for fields
+  fields:
+  - field: deal_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Deal ID
+    new:
+      description: id of deal with its field history
+  - field: current_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Current Status
+    new:
+      description: status that the field changed to
+  - field: previous_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Previous Status
+    new:
+      description: status of the pr
+  - field: current_stage_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Current Stage Name
+    new:
+      description: stage name that the field changed to
+  - field: previous_stage_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Previous Stage Name
+    new:
+      description: previous stage name that the field changed from
+  - field: current_stage_order_number
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Current Stage Order Number
+    new:
+      description: stage order number that the field changed to
+  - field: previous_stage_order_number
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Previous Stage Order Number
+    new:
+      description: previous stage order number that the field changed from
+  - field: current_deal_value
+    current:
+      description: null
+      semantic_type: null
+      display_name: Current Deal Value
+    new:
+      description: deal value that the field changed to
+  - field: previous_deal_value
+    current:
+      description: null
+      semantic_type: null
+      display_name: Previous Deal Value
+    new:
+      description: previous deal value that the field changed from
+  - field: current_expected_close_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Current Expected Close Date
+    new:
+      description: expected close date that the field changed to
+  - field: previous_expected_close_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Previous Expected Close Date
+    new:
+      description: previous expected close date that the field changed from
+  - field: is_status_changed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Status Changed
+    new:
+      description: A boolean indicating whether the status has changed
+  - field: is_stage_name_changed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Stage Name Changed
+    new:
+      description: A boolean indicating whether the stage name has changed
+  - field: is_stage_order_number_changed
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Is Stage Order Number Changed
+    new:
+      description: A boolean indicating whether the stage order number has changed
+  - field: is_deal_value_changed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Deal Value Changed
+    new:
+      description: A boolean indicating whether the deal value has changed
+  - field: is_expected_close_date_changed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Expected Close Date Changed
+    new:
+      description: A boolean indicating whether the expected close date has changed
+- table: pipedrive_lead
+  table_id: 1833
+  dbt_model: pipedrive_lead
+  dbt_source: data_products/pipedrive/schema.yml
+  table_changes:
+    description: Summary table for leads and their information on pipedrive. Unlike other models, this is sync'ed once a day and not adjustable in Fivetran.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key for the Lead table and or model. This is equal to the pipedrive lead id
+  - field: title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Title
+    new:
+      description: Title for the lead as written in pipedrive
+  - field: organization_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization Name
+    new:
+      description: Organization name for the lead
+  - field: organization_size
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Organization Size
+    new:
+      description: Organization size if available in pipedrive
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Label for the staus of the lead, potential values include converted, pending and archived
+  - field: label_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Label Name
+    new:
+      description: Label associated to the lead in pipedrive
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Date for when the lead was created
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Updated At
+    new:
+      description: Date for when the lead was last updated
+  - field: lead_converted_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Lead Converted At
+    new:
+      description: Date for when the lead was converted to a deal if available
+  - field: deal_close_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Deal Close At
+    new:
+      description: Date for when the deal associated to the lead was closed if available
+  - field: first_email_sent_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Email Sent At
+    new:
+      description: Date for when the first email was sent to the lead. Only available once lead is converted to deal.
+  - field: call_scheduled_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Call Scheduled At
+    new:
+      description: Date for when the next call with the lead is scheduled
+  - field: expected_close_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Expected Close At
+    new:
+      description: Date for when to expect the lead will become a deal
+  - field: is_qualified
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Qualified
+    new:
+      description: Indicates a real inquiry for service
+  - field: deal_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Deal Status
+    new:
+      description: Status of the deal associated to the lead, options include won, lost or open
+  - field: deal_value
+    current:
+      description: null
+      semantic_type: null
+      display_name: Deal Value
+    new:
+      description: Value in dollars of the associated deal
+  - field: days_to_lead_conversion
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days To Lead Conversion
+    new:
+      description: Time it took in days for the lead to be converted into a deal
+  - field: first_response_hours
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Response Hours
+    new:
+      description: Time in hours for the first response to the lead. Only available once lead is converted to deal.
+  - field: lead_disqualified_reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Lead Disqualified Reason
+    new:
+      description: Text for why the lead was disqualified
+  - field: lead_source_name
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Lead Source Name
+    new:
+      description: Label for how we got the lead
+  - field: owner_name
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner Name
+    new:
+      description: Name for the metabase employee who manages the lead
+  - field: creator_name
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Creator Name
+    new:
+      description: Name for the metabase employee who created the lead
+  - field: person_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Person Name
+    new:
+      description: POC name at the lead company
+  - field: person_email
+    current:
+      description: null
+      semantic_type: null
+      display_name: Person Email
+    new:
+      description: Email for the POC at the lead company
+  - field: person_email_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Person Email Domain
+    new:
+      description: Email domain for the POC at the lead company
+  - field: person_title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Person Title
+    new:
+      description: Title for the POC at the lead company
+  - field: current_metabase_plan
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Current Metabase Plan
+    new:
+      description: Current metabase plan at the lead company if available
+  - field: current_state
+    current:
+      description: null
+      semantic_type: null
+      display_name: Current State
+    new:
+      description: Current state of data at the lead company
+  - field: current_solution
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Current Solution
+    new:
+      description: Current tools used at the lead company
+  - field: future_state
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Future State
+    new:
+      description: Desired future state of data at the lead company
+  - field: competitors
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Competitors
+    new:
+      description: Competitors we have at the lead company for the account
+  - field: decision_making_process
+    current:
+      description: null
+      semantic_type: null
+      display_name: Decision Making Process
+    new:
+      description: Information on how the lead company will choose a provider
+  - field: bcc_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Bcc Email
+    new:
+      description: Email that needs to be included in emails for pipedrive to include the information in the interface
+  - field: amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Amount
+    new:
+      description: Lead value, if provided
+  - field: sales_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Sales Type
+    new:
+      description: Label for the type of sale this lead would be (for ex New Business)
+  - field: hosting_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Hosting Type
+    new:
+      description: Label for the hosting this lead is interested in using
+  - field: internal_external_both
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Internal External Both
+    new:
+      description: Type of embedding the leads are interested in using
+  - field: embedding
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Embedding
+    new:
+      description: Detailed label for the type of embedding they'd like to use
+  - field: product_plan
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Product Plan
+    new:
+      description: Metabase plan they are interested in if available
+  - field: sales_motion
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Sales Motion
+    new:
+      description: Type of sales motion
+  - field: which_form_did_lead_come_from
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Which Form Did Lead Come From
+    new:
+      description: The webform from which the lead came from, such as Talk to a Person, Talk to Sales, Get demo, etc.
+  - field: prev_page_title_before_submission
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Prev Page Title Before Submission
+    new:
+      description: The title of the Metabase web page the lead was on before submitting the web form
+  - field: what_is_driving_the_timing
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: What Is Driving The Timing
+    new:
+      description: Text for why the lead is interested in a new data analysis provider
+  - field: why_they_talk_to_a_human
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Why They Talk To A Human
+    new:
+      description: Notes for why they talk to a Metabase representative about non-Enterprise plans
+  - field: why_are_they_buying
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Why Are They Buying
+    new:
+      description: Text for what they are looking for in buying
+  - field: professional_service_needs
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Professional Service Needs
+    new:
+      description: Whether or not they need professional servies and if so, which ones
+  - field: additional_notes
+    current:
+      description: null
+      semantic_type: null
+      display_name: Additional Notes
+    new:
+      description: Text for additional details on the use case of the lead
+  - field: meeting_result_if_scheduled
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Meeting Result If Scheduled
+    new:
+      description: Summary text for what happened in the last meeting
+  - field: database_warehouse
+    current:
+      description: null
+      semantic_type: null
+      display_name: Database Warehouse
+    new:
+      description: Current database used by the lead
+  - field: owner_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Owner Email
+    new:
+      description: Email for the metabase owner of the lead
+  - field: creator_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Creator Email
+    new:
+      description: Email for the metabase creator of the lead
+  - field: how_they_heard_of_metabase
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: How They Heard Of Metabase
+    new:
+      description: how they heard about metabase
+  - field: utm_medium
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Medium
+    new:
+      description: Identifies what type of link was used, such as paid or email.
+  - field: utm_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Utm Source
+    new:
+      description: Identifies which site sent the traffic.
+  - field: utm_campaign
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Campaign
+    new:
+      description: Identifies a specific product promotion or strategic campaign.
+  - field: utm_content
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Content
+    new:
+      description: Identifies what specifically was clicked to bring the user to the site, such as a banner ad or a text link.
+  - field: utm_term
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Utm Term
+    new:
+      description: Identifies search terms
+  - field: source_origin
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Source Origin
+    new:
+      description: Source indicates the origin of the lead
+  - field: person_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Person ID
+    new:
+      description: Foreign key for the pipedrive Person model where a person is the POC at the prospective company
+  - field: organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization ID
+    new:
+      description: Foreign key for the pipedrive Organization model
+  - field: owner_id
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner ID
+    new:
+      description: Foreign key for the pipedrive User model where a user is either the metabase side creator or owner. In this case, the owner
+  - field: creator_id
+    current:
+      description: null
+      semantic_type: type/Author
+      display_name: Creator ID
+    new:
+      description: Foreign key for the pipedrive User model where a user is either the metabase side creator or owner. In this case, the creator
+  - field: deal_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Deal ID
+    new:
+      description: Foreign key for the pipedrive Deal model
+  - field: paid_campaign_keyword_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paid Campaign Keyword ID
+    new:
+      description: Foreign key to Paid Campaign Keyword model
+  - field: user_snowplow_crossdomain_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: User Snowplow Crossdomain ID
+    new:
+      description: Cross-domain user ID from Snowplow tracking, also known as cookie_id
+- table: pipedrive_organization
+  table_id: 1834
+  dbt_model: pipedrive_organization
+  dbt_source: data_products/pipedrive/schema.yml
+  table_changes:
+    description: Summary table for organizations and their information on pipedrive
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key for the Organization table and or model. This is equal to the pipedrive organization id
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Organization name
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationDate
+      display_name: Created At
+    new:
+      description: Date for when the company was created in pipedrive
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedDate
+      display_name: Updated At
+    new:
+      description: Last date the company was updated in pipedrive
+  - field: latest_deal_created_at
+    current:
+      description: null
+      semantic_type: type/CreationDate
+      display_name: Latest Deal Created At
+    new:
+      description: Date for when the last deal was created in pipedrive
+  - field: is_active
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Active
+    new:
+      description: Whether the organization is_active in pipedrive
+  - field: company_size
+    current:
+      description: null
+      semantic_type: type/Company
+      display_name: Company Size
+    new:
+      description: Size interval for the company size as written in pipedrive
+  - field: industry
+    current:
+      description: null
+      semantic_type: null
+      display_name: Industry
+    new:
+      description: Industry the company works in
+  - field: use_case
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Use Case
+    new:
+      description: The use case they are interested in Metabase for, e.g. internal or external
+  - field: country_name
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Country Name
+    new:
+      description: Country the organization is based out off
+  - field: label
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Label
+    new:
+      description: Label for the organization as indicated in pipedrive. Options include midsize customer, starter customer etc
+  - field: latest_deal_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Latest Deal Status
+    new:
+      description: Status of the last deal that was created in pipedrive
+  - field: owner_name
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner Name
+    new:
+      description: The name of metabase owner who owns the relationship with this company
+  - field: website_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Website URL
+    new:
+      description: The website URL of the organization used to distinguish between companies with identical names
+  - field: bcc_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Bcc Email
+    new:
+      description: Email that needs to be included in bcc for it to show up in pipedrive metrics
+  - field: ms_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Ms URL
+    new:
+      description: Harbormaster link used by the store
+  - field: stripe_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Stripe URL
+    new:
+      description: Stripe URL for the company
+  - field: support_open_tickets
+    current:
+      description: null
+      semantic_type: null
+      display_name: Support Open Tickets
+    new:
+      description: Number of open support tickets
+  - field: country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Country
+    new:
+      description: 2 digit country code for the country of the organization
+  - field: owner_id
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner ID
+    new:
+      description: Foreign key for the User table which provides information on who owns the company from the Metabase side
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign Key ID for for the customer model
+  - field: latest_deal_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Latest Deal ID
+    new:
+      description: Foreign Key ID for for the deal model. Latest deal the organization has on file
+- table: pipedrive_person
+  table_id: 1835
+  dbt_model: pipedrive_person
+  dbt_source: data_products/pipedrive/schema.yml
+  table_changes:
+    description: Summary table for POCs from prospective customers and their information in pipedrive.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key for the person table
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: POC name
+  - field: organization_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization Name
+    new:
+      description: Name of the organization the POC works for or represents
+  - field: country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Country
+    new:
+      description: Country of the POC
+  - field: phone_number
+    current:
+      description: null
+      semantic_type: null
+      display_name: Phone Number
+    new:
+      description: Phone number of the POC at the prospective company
+  - field: email
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email
+    new:
+      description: Email for the POC
+  - field: bcc_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Bcc Email
+    new:
+      description: Email that needs to be included in bcc for the data to arrive in pipedrive
+  - field: owner_name
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner Name
+    new:
+      description: Owner on the metabase side for the contact
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationDate
+      display_name: Created At
+    new:
+      description: Date for when the contact was created
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedDate
+      display_name: Updated At
+    new:
+      description: Date for when the contact was last updated
+  - field: title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Title
+    new:
+      description: Job title for the POC
+  - field: contact_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Contact Type
+    new:
+      description: Label for type of contact information, e.g. Billing
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key ID for for the Customer model
+  - field: organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization ID
+    new:
+      description: Foreign key ID for the pipedrive Organization model
+  - field: owner_id
+    current:
+      description: null
+      semantic_type: type/Owner
+      display_name: Owner ID
+    new:
+      description: Foreign key ID for the Pipedrive User model

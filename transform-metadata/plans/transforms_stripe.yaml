@@ -1,0 +1,1641 @@
+schema: transforms_stripe
+tables:
+- table: stripe_charge
+  table_id: 2028
+  dbt_model: stripe_charge
+  dbt_source: data_products/stripe/schema.yml
+  table_changes:
+    description: Charges made to a credit or a debit card to pay invoices. Read more at https://stripe.com/docs/api/charges/object
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp for when the charge was created
+  - field: is_paid
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Paid
+    new:
+      description: True if the charge succeeded, or was successfully authorized for later capture.
+  - field: is_refunded
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Refunded
+    new:
+      description: Whether the charge has been fully refunded. If the charge is only partially refunded, this attribute will still be false.
+  - field: is_captured
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Captured
+    new:
+      description: If the charge was created without capturing, this represents whether it is still uncaptured or has since been captured.
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: The status of the payment is either succeeded, pending, or failed.
+  - field: outcome_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Outcome Type
+    new:
+      description: Possible values are authorized, manual_review, issuer_declined, blocked, and invalid.
+  - field: outcome_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Outcome Status
+    new:
+      description: Possible values are approved_by_network, declined_by_network, not_sent_to_network, and reversed_after_approval. The value reversed_after_approval indicates the payment was blocked by Stripe after bank authorization, and may temporarily appear as "pending" on a cardholder’s statement.
+  - field: outcome_reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Outcome Reason
+    new:
+      description: An enumerated value providing a more detailed explanation of the outcome’s type.
+  - field: outcome_risk_level
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Outcome Risk Level
+    new:
+      description: Stripe Radar’s evaluation of the riskiness of the payment. Possible values for evaluated payments are normal, elevated, highest. For non-card payments, and card-based payments predating the public assignment of risk levels, this field will have the value not_assessed.
+  - field: outcome_message
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Outcome Message
+    new:
+      description: A human-readable description of the outcome type and reason, designed for you (the recipient of the payment), not your customer.
+  - field: failure_code
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Failure Code
+    new:
+      description: Error code explaining reason for charge failure if available.
+  - field: failure_message
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Failure Message
+    new:
+      description: Message to user further explaining reason for charge failure if available.
+  - field: receipt_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Receipt Email
+    new:
+      description: This is the email address that the receipt for this charge was sent to.
+  - field: country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Country
+    new:
+      description: The country of the credit/debit card used for the charge
+  - field: amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Amount
+    new:
+      description: Amount intended to be collected by this payment in dollars.
+  - field: amount_refunded
+    current:
+      description: null
+      semantic_type: null
+      display_name: Amount Refunded
+    new:
+      description: Amount in dollars refunded (can be less than the amount on the charge if a partial refund was issued).
+  - field: customer_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer Name
+    new:
+      description: Name of the customer
+  - field: stripe_customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stripe Customer ID
+    new:
+      description: Foreign key to Stripe Customer model
+  - field: invoice_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Invoice ID
+    new:
+      description: Foreign key to Stripe Invoice model
+- table: stripe_credit_note
+  table_id: 2029
+  dbt_model: stripe_credit_note
+  dbt_source: data_products/stripe/schema.yml
+  table_changes:
+    description: Credit note to adjust an invoice's amount after the invoice is finalized. Read more at https://stripe.com/docs/api/credit_notes
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: customer_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Customer Name
+    new:
+      description: Customer's name
+  - field: reference_number
+    current:
+      description: null
+      semantic_type: null
+      display_name: Reference Number
+    new:
+      description: A unique number that identifies this particular credit note and appears on the PDF of the credit note and its associated invoice.
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: The timestamp when the credit note was created
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Status of this credit note, one of issued or void
+  - field: type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Type
+    new:
+      description: Type of this credit note, one of pre_payment or post_payment. A pre_payment credit note means it was issued when the invoice was open. A post_payment credit note means it was issued when the invoice was paid.
+  - field: reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Reason
+    new:
+      description: Reason for issuing this credit note, one of duplicate, fraudulent, order_change, or product_unsatisfactory
+  - field: amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Amount
+    new:
+      description: The integer amount in dollars representing the total amount of the credit note, including tax.
+  - field: discount_amount
+    current:
+      description: null
+      semantic_type: type/Discount
+      display_name: Discount Amount
+    new:
+      description: The aggregate amounts in dollars calculated per discount for all line items.
+  - field: subtotal
+    current:
+      description: null
+      semantic_type: null
+      display_name: Subtotal
+    new:
+      description: The integer amount in dollars representing the amount of the credit note, excluding exclusive tax and invoice level discounts.
+  - field: total
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total
+    new:
+      description: The integer amount in dollars representing the total amount of the credit note, including tax and all discount.
+  - field: memo
+    current:
+      description: null
+      semantic_type: null
+      display_name: Memo
+    new:
+      description: Customer-facing text that appears on the credit note PDF.
+  - field: invoice_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Invoice ID
+    new:
+      description: Foreign key to Stripe Invoice model
+  - field: refund_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Refund ID
+    new:
+      description: Foreign key to Stripe Refund model
+  - field: stripe_customer_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Stripe Customer ID
+    new:
+      description: Foreign key to Stripe Customer model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to Customer model
+- table: stripe_customer
+  table_id: 2030
+  dbt_model: stripe_customer
+  dbt_source: data_products/stripe/schema.yml
+  table_changes:
+    description: Stripe customers. Read more at https://stripe.com/docs/api/customers
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: The timestamp when the customer was created
+  - field: is_delinquent
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Delinquent
+    new:
+      description: Indicates if the customer has any invoices whose payments have failed that have not been manually marked as closed or forgiven or whatever.
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Name of the customer. This is a coalesce of name, description, and email.
+  - field: email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Email
+    new:
+      description: Customer's email
+  - field: country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Country
+    new:
+      description: Customer's country if available -- coalesce from billing, shipping, payment, and tax location.
+  - field: state
+    current:
+      description: null
+      semantic_type: null
+      display_name: State
+    new:
+      description: Customer's state if available -- coalesce between billing, shipping, payment, and tax location.
+  - field: city
+    current:
+      description: null
+      semantic_type: type/City
+      display_name: City
+    new:
+      description: Customer's city if available -- coalesce between billing, shipping, and payment.
+  - field: zip
+    current:
+      description: null
+      semantic_type: null
+      display_name: Zip
+    new:
+      description: Customer's zip if available -- coalesce between billing, shipping, and payment.
+  - field: tax_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Tax Status
+    new:
+      description: 'Describes the customer’s tax exemption status, which is taxable, exempt, or reverse. When set to reverse, invoice and receipt PDFs include the following text: "Reverse charge".'
+  - field: tax_automatic_support
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Tax Automatic Support
+    new:
+      description: Surfaces if automatic tax computation is possible given the current customer location information.
+  - field: tax_location_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Tax Location Country
+    new:
+      description: The customer’s country as identified by Stripe Tax.
+  - field: tax_location_state
+    current:
+      description: null
+      semantic_type: null
+      display_name: Tax Location State
+    new:
+      description: The customer’s state, county, province, or region as identified by Stripe Tax.
+  - field: tax_location_city
+    current:
+      description: null
+      semantic_type: null
+      display_name: Tax Location City
+    new:
+      description: The customer’s city as inferred Tax Location Source
+  - field: tax_location_zip
+    current:
+      description: null
+      semantic_type: null
+      display_name: Tax Location Zip
+    new:
+      description: The customer’s postal code as inferred by Tax Location Source
+  - field: tax_location_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Tax Location Source
+    new:
+      description: The data source used to infer the customer’s location.
+  - field: billing_address_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Billing Address Country
+    new:
+      description: Customer's billing address country
+  - field: billing_address_state
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Address State
+    new:
+      description: Customer's billing address state
+  - field: billing_address_city
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Address City
+    new:
+      description: Customer's billing address city
+  - field: billing_address_zip
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Address Zip
+    new:
+      description: Customer's billing address zip
+  - field: billing_address_line_1
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Address Line 1
+    new:
+      description: Customer's billing address line 1
+  - field: billing_address_line_2
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Address Line 2
+    new:
+      description: Customer's billing address line 2
+  - field: shipping_address_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Shipping Address Country
+    new:
+      description: Customer's shipping address country
+  - field: shipping_address_state
+    current:
+      description: null
+      semantic_type: null
+      display_name: Shipping Address State
+    new:
+      description: Customer's shipping address state
+  - field: shipping_address_city
+    current:
+      description: null
+      semantic_type: null
+      display_name: Shipping Address City
+    new:
+      description: Customer's shipping address city
+  - field: shipping_address_zip
+    current:
+      description: null
+      semantic_type: null
+      display_name: Shipping Address Zip
+    new:
+      description: Customer's shipping address zip
+  - field: shipping_address_line_1
+    current:
+      description: null
+      semantic_type: null
+      display_name: Shipping Address Line 1
+    new:
+      description: Customer's shipping address line 1
+  - field: shipping_address_line_2
+    current:
+      description: null
+      semantic_type: null
+      display_name: Shipping Address Line 2
+    new:
+      description: Customer's shipping address line 2
+  - field: payment_address_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Payment Address Country
+    new:
+      description: Customer's payment address country
+  - field: payment_address_state
+    current:
+      description: null
+      semantic_type: null
+      display_name: Payment Address State
+    new:
+      description: Customer's payment address state
+  - field: payment_address_city
+    current:
+      description: null
+      semantic_type: null
+      display_name: Payment Address City
+    new:
+      description: Customer's payment address city
+  - field: payment_address_zip
+    current:
+      description: null
+      semantic_type: null
+      display_name: Payment Address Zip
+    new:
+      description: Customer's payment address zip
+  - field: payment_address_line_1
+    current:
+      description: null
+      semantic_type: null
+      display_name: Payment Address Line 1
+    new:
+      description: Customer's payment address line 1
+  - field: payment_address_line_2
+    current:
+      description: null
+      semantic_type: null
+      display_name: Payment Address Line 2
+    new:
+      description: Customer's payment address line 2
+  - field: invoice_prefix
+    current:
+      description: null
+      semantic_type: null
+      display_name: Invoice Prefix
+    new:
+      description: The prefix for the customer used to generate unique invoice numbers.
+  - field: balance
+    current:
+      description: null
+      semantic_type: null
+      display_name: Balance
+    new:
+      description: Current balance, if any, being stored on the customer. If negative, the customer has credit to apply to their next invoice. If positive, the customer has an amount owed that will be added to their next invoice. The balance does not refer to any unpaid invoices; it solely takes into account amounts that have yet to be successfully applied to any invoice. This balance is only taken into account as invoices are finalized.
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to Customer model
+- table: stripe_invoice
+  table_id: 2031
+  dbt_model: stripe_invoice
+  dbt_source: data_products/stripe/schema.yml
+  table_changes:
+    description: Invoices are statements of amounts owed by a customer, and are either generated one-off, or generated periodically from a subscription. They contain invoice items, and proration adjustments that may be caused by subscription upgrades/downgrades (if necessary). Read more at https://stripe.com/docs/api/invoices/object
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Account identifier
+  - field: month
+    current:
+      description: null
+      semantic_type: null
+      display_name: Month
+    new:
+      description: Month of the period end. This is the standard month used for revenue recognization.
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: The timestamp when the invoice was created
+  - field: period_started_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Period Started At
+    new:
+      description: Start of the usage period during which invoice items were added to this invoice.
+  - field: period_ended_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Period Ended At
+    new:
+      description: End of the usage period during which invoice items were added to this invoice.
+  - field: due_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Due At
+    new:
+      description: The timestamp on which payment for this invoice is due. This value will be null for invoices where collection_method=charge_automatically.
+  - field: finalized_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Finalized At
+    new:
+      description: The timestamp that the invoice draft was finalized.
+  - field: paid_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Paid At
+    new:
+      description: The timestamp that the invoice was paid.
+  - field: marked_uncollectible_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Marked Uncollectible At
+    new:
+      description: The timestamp that the invoice was marked uncollectible.
+  - field: voided_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Voided At
+    new:
+      description: The timestamp that the invoice was voided.
+  - field: customer_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer Name
+    new:
+      description: Customer's name
+  - field: reference_number
+    current:
+      description: null
+      semantic_type: null
+      display_name: Reference Number
+    new:
+      description: A unique, identifying string that appears on emails sent to the customer for this invoice. This starts with the customer’s unique invoice_prefix if it is specified.
+  - field: is_paid
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Paid
+    new:
+      description: Whether payment was successfully collected for this invoice. An invoice can be paid (most commonly) with a charge or with credit from the customer’s account balance.
+  - field: is_auto_advance
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Auto Advance
+    new:
+      description: Controls whether Stripe will perform automatic collection of the invoice. When false, the invoice’s state will not automatically advance without an explicit action.
+  - field: is_attempted
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Attempted
+    new:
+      description: Whether an attempt has been made to pay the invoice. An invoice is not attempted until 1 hour after creation, for example, so you might not want to display that invoice as unpaid to your users.
+  - field: is_arr_source
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Arr Source
+    new:
+      description: Indicates if the invoice will be used in ARR computation in Monthly Revenue model.
+      display_name: Is ARR Source
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: The status of the invoice, one of draft, open, paid, uncollectible, or void.
+  - field: collection_method
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Collection Method
+    new:
+      description: Either charge_automatically, or send_invoice. When charging automatically, Stripe will attempt to pay this invoice using the default source attached to the customer. When sending an invoice, Stripe will email this invoice to the customer with payment instructions.
+  - field: total
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total
+    new:
+      description: Total after discounts and taxes in dollars.
+  - field: total_excluding_tax
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Excluding Tax
+    new:
+      description: Total after discounts but before taxes in dollars.
+  - field: tax
+    current:
+      description: null
+      semantic_type: null
+      display_name: Tax
+    new:
+      description: Taxes in dollars.
+  - field: amount_due
+    current:
+      description: null
+      semantic_type: null
+      display_name: Amount Due
+    new:
+      description: Final amount due at this time for this invoice in dollars. If the invoice’s total is smaller than the minimum charge amount, for example, or if there is account credit that can be applied to the invoice, the amount_due may be 0. If there is a positive starting_balance for the invoice (the customer owes money), the amount_due will also take that into account. The charge that gets generated for the invoice will be for the amount specified in amount_due.
+  - field: amount_paid
+    current:
+      description: null
+      semantic_type: null
+      display_name: Amount Paid
+    new:
+      description: The amount, in dollars, that was paid.
+  - field: amount_remaining
+    current:
+      description: null
+      semantic_type: null
+      display_name: Amount Remaining
+    new:
+      description: The difference between amount_due and amount_paid.
+  - field: subscription_amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Subscription Amount
+    new:
+      description: The amount for the recurring subscription only included in the total, which excludes true-ups.
+  - field: true_up_amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: True Up Amount
+    new:
+      description: The amount of true-up (additional per-user usage fee above contracted) included in the total.
+  - field: attempt_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Attempt Count
+    new:
+      description: Number of payment attempts for this invoice
+  - field: billing_address_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Billing Address Country
+    new:
+      description: Invoice billing address country
+  - field: billing_address_state
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Address State
+    new:
+      description: Invoice billing address state
+  - field: billing_address_city
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Address City
+    new:
+      description: Invoice billing address city
+  - field: billing_address_zip
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Address Zip
+    new:
+      description: Invoice billing address zip
+  - field: billing_address_line_1
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Address Line 1
+    new:
+      description: Invoice billing address line 1
+  - field: billing_address_line_2
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Address Line 2
+    new:
+      description: Invoice billing address line 2
+  - field: shipping_address_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Shipping Address Country
+    new:
+      description: Invoice shipping address country
+  - field: shipping_address_state
+    current:
+      description: null
+      semantic_type: null
+      display_name: Shipping Address State
+    new:
+      description: Invoice shipping address state
+  - field: shipping_address_city
+    current:
+      description: null
+      semantic_type: null
+      display_name: Shipping Address City
+    new:
+      description: Invoice shipping address city
+  - field: shipping_address_zip
+    current:
+      description: null
+      semantic_type: null
+      display_name: Shipping Address Zip
+    new:
+      description: Invoice shipping address zip
+  - field: shipping_address_line_1
+    current:
+      description: null
+      semantic_type: null
+      display_name: Shipping Address Line 1
+    new:
+      description: Invoice shipping address line 1
+  - field: shipping_address_line_2
+    current:
+      description: null
+      semantic_type: null
+      display_name: Shipping Address Line 2
+    new:
+      description: Invoice shipping address line 2
+  - field: billing_cycle
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Billing Cycle
+    new:
+      description: The billing cycle for the invoice
+  - field: description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Description
+    new:
+      description: A long description on what the invoice is for. Generally, it is just a thank you note.
+  - field: footer
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Footer
+    new:
+      description: Text that appears at the bottom of the invoice. Generally, just Metabase address and tax info.
+  - field: stripe_customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stripe Customer ID
+    new:
+      description: Foreign key to Stripe Customer model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to Customer model
+  - field: subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription ID
+    new:
+      description: Foreign key to Stripe Subscription model
+  - field: charge_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Charge ID
+    new:
+      description: Foreign key to Stripe Charge model
+  - field: plan_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Plan ID
+    new:
+      description: Foreign key to Stripe Plan model
+  - field: plan_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Plan Name
+    new:
+      description: Name of the plan for the invoice
+  - field: purchase_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Purchase Type
+    new:
+      description: Indicates how the subscription was purchased. Either sold or self-service.
+- table: stripe_invoice_item
+  table_id: 2032
+  dbt_model: stripe_invoice_item
+  dbt_source: data_products/stripe/schema.yml
+  table_changes:
+    description: Sometimes you want to add a charge or credit to a customer, but actually charge or credit the customer's card only at the end of a regular billing cycle. This is useful for combining several charges (to minimize per-transaction fees), or for having Stripe tabulate your usage-based billing totals. Read more at https://stripe.com/docs/api/invoiceitems
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp for when the invoice item was created
+  - field: period_start_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Period Start At
+    new:
+      description: The start of the period.
+  - field: period_end_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Period End At
+    new:
+      description: The end of the period, which must be greater than or equal to the start.
+  - field: customer_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer Name
+    new:
+      description: Name of the customer
+  - field: description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Description
+    new:
+      description: An arbitrary string attached to the object. Often useful for displaying to users.
+  - field: is_discountable
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Discountable
+    new:
+      description: If true, discounts will apply to this invoice item. Always false for prorations.
+  - field: is_proration
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Proration
+    new:
+      description: Whether the invoice item was created automatically as a proration adjustment when the customer switched plans.
+  - field: amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Amount
+    new:
+      description: Amount in dollars of the invoice item.
+  - field: unit_amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unit Amount
+    new:
+      description: Unit amount in dollars of the invoice item.
+  - field: quantity
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Quantity
+    new:
+      description: Quantity of units for the invoice item. If the invoice item is a proration, the quantity of the subscription that the proration was computed for.
+  - field: invoice_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Invoice ID
+    new:
+      description: Foreign key for Stripe Invoice model
+  - field: price_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Price ID
+    new:
+      description: Foreign key for Stripe Price model
+  - field: stripe_customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stripe Customer ID
+    new:
+      description: Foreign key to Stripe Customer model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to Customer model
+  - field: subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription ID
+    new:
+      description: Foreign key to Stripe Subscription model
+  - field: subscription_item_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription Item ID
+    new:
+      description: Foreign key to Stripe Subscription Item model
+- table: stripe_price
+  table_id: 2033
+  dbt_model: stripe_price
+  dbt_source: data_products/stripe/schema.yml
+  table_changes:
+    description: Prices define the base price and billing cycle for recurring purchases of products. Read more at https://stripe.com/docs/api/prices/object
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: A short name for the price that is simply the product name. Useful for analytical purpose to slice/dice with other fields, such as deployment.
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: The timestamp when the price was created
+  - field: is_active
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Active
+    new:
+      description: Indictes whether the price can be used for new purchases.
+  - field: alias
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Alias
+    new:
+      description: A user friendly alias for the price. Similar prices will have the same name. Useful to refer to the exact plan in an operational context.
+  - field: description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Description
+    new:
+      description: A brief description of the price, hidden from customers.
+  - field: type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Type
+    new:
+      description: One of one_time or recurring depending on whether the price is for a one-time purchase or a recurring (subscription) purchase.
+  - field: billing_scheme
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Billing Scheme
+    new:
+      description: Describes how to compute the price per period. Either per_unit or tiered.
+  - field: billing_cycle
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Billing Cycle
+    new:
+      description: Describes how often billing is generated. One of monthly, quarterly, biannually, and annually
+  - field: tiers_mode
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Tiers Mode
+    new:
+      description: Defines if the tiering price should be graduated or volume based. In volume-based tiering, the maximum quantity within a period determines the per unit price. In graduated tiering, pricing can change as the quantity grows.
+  - field: purchase_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Purchase Type
+    new:
+      description: Indicates how the subscription was purchased. Either sold or self-service.
+  - field: deployment
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Deployment
+    new:
+      description: Describes how the instance is deployed. Either cloud or self-hosted.
+  - field: feature_set
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Feature Set
+    new:
+      description: Metabase features purchased on the subscription
+  - field: recurring_interval
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Recurring Interval
+    new:
+      description: The frequency at which a subscription is billed. One of day, week, month or year.
+  - field: recurring_interval_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Recurring Interval Count
+    new:
+      description: The number of intervals (specified in the interval attribute) between subscription billings. For example, interval=month and interval_count=3 bills every 3 months.
+  - field: unit_amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unit Amount
+    new:
+      description: The unit amount in dollars to be charged. Only set if billing_scheme=per_unit.
+  - field: upgrade_order
+    current:
+      description: null
+      semantic_type: null
+      display_name: Upgrade Order
+    new:
+      description: Order of plan upgrade
+  - field: product_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Product ID
+    new:
+      description: Foreign key to Stripe Product model
+  - field: product_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Product Name
+    new:
+      description: Name of the product associated with the price
+- table: stripe_price_tier
+  table_id: 2034
+  dbt_model: stripe_price_tier
+  dbt_source: data_products/stripe/schema.yml
+  table_changes:
+    description: Each row represents a pricing tier. Read more at https://stripe.com/docs/api/prices/object#price_object-tiers
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: flat_amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Flat Amount
+    new:
+      description: Price for the entire tier in dollars.
+  - field: unit_amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Unit Amount
+    new:
+      description: Per unit price in dollars for units relevant to the tier.
+  - field: up_to_quantity
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Up To Quantity
+    new:
+      description: Up to and including to this quantity will be contained in the tier.
+  - field: order_index
+    current:
+      description: null
+      semantic_type: null
+      display_name: Order Index
+    new:
+      description: Ordering index for the tier
+  - field: price_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Price ID
+    new:
+      description: Foreign key to the Stripe Price model. This is the price that the customer subscribed to.
+- table: stripe_product
+  table_id: 2035
+  dbt_model: stripe_product
+  dbt_source: data_products/stripe/schema.yml
+  table_changes:
+    description: Products describe the specific goods or services you offer to your customers. Read more at https://stripe.com/docs/api/products
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp for when the product was created
+  - field: is_active
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Active
+    new:
+      description: Indicates whether the product is currently available for purchase.
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: The product’s name
+  - field: alias
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Alias
+    new:
+      description: A short alias for the product name
+  - field: features
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Features
+    new:
+      description: List of features included in the product
+  - field: description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Description
+    new:
+      description: A brief description of the product
+- table: stripe_refund
+  table_id: 2036
+  dbt_model: stripe_refund
+  dbt_source: data_products/stripe/schema.yml
+  table_changes:
+    description: Refund for a charge that has previously been created but not yet refunded. Read more at https://stripe.com/docs/api/refunds
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: The timestamp when the refund was created
+  - field: reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Reason
+    new:
+      description: Reason for the refund, either user-provided (duplicate, fraudulent, or requested_by_customer) or generated by Stripe internally (expired_uncaptured_charge).
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Status of the refund. For credit card refunds, this can be pending, succeeded, or failed. For other types of refunds, it can be pending, requires_action, succeeded, failed, or canceled.
+  - field: amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Amount
+    new:
+      description: Refund amount in dollars.
+  - field: charge_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Charge ID
+    new:
+      description: ID of the charge that was refunded.
+- table: stripe_subscription
+  table_id: 2037
+  dbt_model: stripe_subscription
+  dbt_source: data_products/stripe/schema.yml
+  table_changes:
+    description: Subscriptions allow you to charge a customer on a recurring basis. Read more at https://stripe.com/docs/api/subscriptions
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Account identifier
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp for when the subscription was created
+  - field: billing_cycle_anchored_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Cycle Anchored At
+    new:
+      description: The date of the first full invoice, and, for plans with month or year intervals, the day of the month for subsequent invoices.
+  - field: cancel_at
+    current:
+      description: null
+      semantic_type: type/CancelationTimestamp
+      display_name: Cancel At
+    new:
+      description: Timestamp for when the subscription will be or has already been canceled.
+  - field: current_period_started_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Current Period Started At
+    new:
+      description: Start of the current period that the subscription has been invoiced for.
+  - field: current_period_end_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Current Period End At
+    new:
+      description: End of the current period that the subscription has been invoiced for. At the end of this period, a new invoice will be created.
+  - field: trial_started_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Trial Started At
+    new:
+      description: If the subscription has a trial, the beginning of that trial.
+  - field: trial_end_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Trial End At
+    new:
+      description: If the subscription has a trial, the end of that trial.
+  - field: next_pending_invoice_item_invoice_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Next Pending Invoice Item Invoice At
+    new:
+      description: Specifies the approximate timestamp on which any pending invoice items will be billed according to the schedule provided at pending_invoice_item_interval
+  - field: is_auto_renewal
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Auto Renewal
+    new:
+      description: Indicates if the subscription will auto-renew at end of current period
+  - field: is_cancel_at_period_end
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Cancel At Period End
+    new:
+      description: Indicates if the subscription will cancel at end of period
+  - field: is_automatic_tax_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Automatic Tax Enabled
+    new:
+      description: Indicates if automatic tax calculation is enabled, which will automatically compute tax rates on all invoices generated by the subscription.
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Possible values are incomplete, incomplete_expired, trialing, active, past_due, canceled, or unpaid.
+  - field: collection_method
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Collection Method
+    new:
+      description: Either charge_automatically, or send_invoice. When charging automatically, Stripe will attempt to pay this subscription at the end of the cycle using the default source attached to the customer. When sending an invoice, Stripe will email your customer an invoice with payment instructions and mark the subscription as active.
+  - field: plan_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Plan Name
+    new:
+      description: Name of the plan -- a price name that is not "other". Plan is a consolidated version of all prices
+  - field: product_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Product Name
+    new:
+      description: Name of the product associated with the plan
+  - field: plan_billing_scheme
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Plan Billing Scheme
+    new:
+      description: Describes how to compute the plan per period. Either per_unit or tiered.
+  - field: plan_recurring_interval
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Plan Recurring Interval
+    new:
+      description: The frequency at which a subscription is billed. One of day, week, month or year.
+  - field: plan_recurring_interval_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Plan Recurring Interval Count
+    new:
+      description: The number of intervals (specified in the interval attribute) between subscription billings. For example, interval=month and interval_count=3 bills every 3 months.
+  - field: pending_invoice_item_interval
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Pending Invoice Item Interval
+    new:
+      description: Specifies an interval for how often to bill for any pending invoice items. Either day, week, month or year.
+  - field: pending_invoice_item_interval_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Pending Invoice Item Interval Count
+    new:
+      description: The number of intervals between invoices. For example, interval=month and interval_count=3 bills every 3 months.
+  - field: plan_description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Plan Description
+    new:
+      description: A brief description of the plan, hidden from customers.
+  - field: plan_amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Plan Amount
+    new:
+      description: The total amount of all the prices for the subscription based on quantity and billing scheme. If nothing changes, the customer will be billed this amount in their next invoice.
+  - field: annual_value
+    current:
+      description: null
+      semantic_type: null
+      display_name: Annual Value
+    new:
+      description: Annualized value of the plan amount based on recurring interval and count.
+  - field: token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token
+    new:
+      description: Foreign key to Metabase Store Token model
+  - field: stripe_customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stripe Customer ID
+    new:
+      description: Foreign key to Stripe Customer model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to Customer model
+  - field: plan_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Plan ID
+    new:
+      description: Foreign key to the Stripe Price model. This is the price that the customer subscribed to. Plan is a consolidation of all prices for a subscription, hence this id represents the main price id where the price name is not "other" -- additional usage prices.
+  - field: product_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Product ID
+    new:
+      description: Foreign key to the Stripe Product model.
+  - field: customer_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer Name
+    new:
+      description: Name of the customer
+  - field: payment_method_types
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Payment Method Types
+    new:
+      description: The comma separated list of payment method types to provide to every subscription.
+- table: stripe_subscription_item
+  table_id: 2038
+  dbt_model: stripe_subscription_item
+  dbt_source: data_products/stripe/schema.yml
+  table_changes:
+    description: Subscription items allow you to create customer subscriptions with more than one plan, making it easy to represent complex billing relationships. Read more at https://stripe.com/docs/api/subscription_items
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp for when the subscription item was created
+  - field: price_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Price Name
+    new:
+      description: Name of the price
+  - field: product_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Product Name
+    new:
+      description: Name of the product associated with the price
+  - field: price_billing_scheme
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Price Billing Scheme
+    new:
+      description: Describes how to compute the price per period. Either per_unit or tiered.
+  - field: price_recurring_interval
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Price Recurring Interval
+    new:
+      description: The frequency at which a subscription is billed. One of day, week, month or year.
+  - field: price_recurring_interval_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Price Recurring Interval Count
+    new:
+      description: The number of intervals (specified in the interval attribute) between subscription billings. For example, interval=month and interval_count=3 bills every 3 months.
+  - field: price_description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Price Description
+    new:
+      description: A brief description of the price, hidden from customers.
+  - field: price_quantity
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Price Quantity
+    new:
+      description: The quantity of the price to which the customer should be subscribed.
+  - field: price_amount
+    current:
+      description: null
+      semantic_type: null
+      display_name: Price Amount
+    new:
+      description: The total amount of the price based on quantity and billing scheme.
+  - field: subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription ID
+    new:
+      description: Foreign key to the Stripe Subscription model.
+  - field: price_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Price ID
+    new:
+      description: Foreign key to the Stripe Price model. This is the price that the customer subscribed to.
+  - field: product_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Product ID
+    new:
+      description: Foreign key to the Stripe Product model.

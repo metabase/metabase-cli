@@ -1,0 +1,79 @@
+schema: transforms_infrastructure
+tables:
+- table: aws_aggregated_monthly_cost
+  table_id: 1759
+  dbt_model: aws_aggregated_monthly_cost
+  dbt_source: data_products/infrastructure/schema.yml
+  table_changes:
+    description: Aggregated monthly AWS cost by subaccount and region, sourced from the external table `source('aws_cost', 'aws_aggregated_monthly_cost')`. Used as the canonical monthly cost input for downstream infrastructure cost models.
+  fields:
+  - field: charge_period_end_month
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Charge Period End Month
+    new:
+      description: Month end date of the charge period (billing month)
+  - field: subaccount_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Subaccount Name
+    new:
+      description: Name of the AWS subaccount (e.g., MetabaseProduction, DataTeam, ObservabilityProduction)
+  - field: region_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Region ID
+    new:
+      description: AWS region identifier (e.g., us-east-1)
+  - field: region_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Region Name
+    new:
+      description: AWS region name (e.g., US East (N. Virginia))
+  - field: service_category
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Service Category
+    new:
+      description: High-level AWS service category for the charge
+  - field: service_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Service Name
+    new:
+      description: Specific AWS service name for the charge
+  - field: total_line_items
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Line Items
+    new:
+      description: Number of line items aggregated in the group
+  - field: total_cost
+    current:
+      description: null
+      semantic_type: type/Cost
+      display_name: Total Cost
+    new:
+      description: Total effective cost for the group (in billing currency)
+- table: cloud_unit_economic
+  table_id: 1760
+  dbt_model: cloud_unit_economic
+  dbt_source: data_products/infrastructure/schema.yml
+  table_changes:
+    description: Unit economic for Metabase Cloud production
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key (surrogate key of month, provider, region)

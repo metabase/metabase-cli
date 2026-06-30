@@ -1,0 +1,4113 @@
+schema: transforms_metabase_store
+tables:
+- table: ms_address
+  table_id: 1792
+  dbt_model: ms_address
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Country/city info for organizations
+    display_name: MS Address
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+- table: ms_air_gapped_token
+  table_id: 1793
+  dbt_model: ms_air_gapped_token
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Air-gapped license tokens issued in Metabase Store
+    display_name: MS Air Gapped Token
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: token
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Token
+    new:
+      description: Foreign key to Token model
+  - field: air_gapped_token
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Air Gapped Token
+    new:
+      description: The air-gapped license token
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp of when the token was created
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Updated At
+    new:
+      description: Timestamp of when the token was last updated
+  - field: archived_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Archived At
+    new:
+      description: Timestamp of when the token was archived
+  - field: description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Description
+    new:
+      description: Description for the token
+  - field: valid_thru
+    current:
+      description: null
+      semantic_type: null
+      display_name: Valid Thru
+    new:
+      description: Timestamp of when the token will expire
+- table: ms_audit_event
+  table_id: 1794
+  dbt_model: ms_audit_event
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Audit events from Metabase Store
+    display_name: MS Audit Event
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: parent_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Parent ID
+    new:
+      description: Parent audit event
+  - field: user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: User ID
+    new:
+      description: The ID of the user associated with the event
+  - field: hosted_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Hosted Instance ID
+    new:
+      description: Hosted instance ID
+  - field: actor_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Actor ID
+    new:
+      description: The ID of the actor that triggered the event
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp of when the event was created
+  - field: actor_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Actor Type
+    new:
+      description: Type of actor that triggered the event. Can be one of 'system' (which is initiated by HM itself), 'user' (initiated by customer user), 'admin' (metabase employee).
+  - field: action
+    current:
+      description: null
+      semantic_type: null
+      display_name: Action
+    new:
+      description: The action that was taken
+      semantic_type: type/Category
+  - field: action_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Action Status
+    new:
+      description: The status of the action
+  - field: action_parameters
+    current:
+      description: null
+      semantic_type: type/SerializedJSON
+      display_name: Action Parameters
+    new:
+      description: Parameters for the action
+  - field: related
+    current:
+      description: null
+      semantic_type: null
+      display_name: Related
+    new:
+      description: Related data
+- table: ms_audit_record_version
+  table_id: 1795
+  dbt_model: ms_audit_record_version
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Audit trail for changes to certain tables, such as subscription. It contains old and new record details. This is from the audit.record_version table.
+    display_name: MS Audit Record Version
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+- table: ms_cancellation_survey_response
+  table_id: 1796
+  dbt_model: ms_cancellation_survey_response
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Survey response from users that cancel their Metabase subscription
+    display_name: MS Cancellation Survey Response
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Created At
+    new:
+      description: Timestamp when the response was created
+  - field: category
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Category
+    new:
+      description: Category that describes the type of cancellation
+  - field: alternative
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Alternative
+    new:
+      description: Alternative solution the user is moving to
+  - field: details
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Details
+    new:
+      description: Additional details about why the user canceled
+  - field: subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription ID
+    new:
+      description: Foreign ID to Metabase Store Subscription model
+  - field: organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization ID
+    new:
+      description: Foreign ID to Metabase Store Organization model
+  - field: user_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: User ID
+    new:
+      description: Foreign ID to Metabase Store User model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to Customer model
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Foreign key to Account model
+- table: ms_contact
+  table_id: 1797
+  dbt_model: ms_contact
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Contact info, such as email, for organizations
+    display_name: MS Contact
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the contact was created
+  - field: contact_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Contact Type
+    new:
+      description: Type of contact, e.g. "billing", "technical", "primary", etc.
+  - field: first_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: First Name
+    new:
+      description: First name of the contact
+  - field: last_name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Last Name
+    new:
+      description: Last name of the contact
+  - field: email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Email
+    new:
+      description: Email of the contact
+  - field: email_domain
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Domain
+    new:
+      description: Business domain of the email address. Will be null if free email.
+  - field: organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization ID
+    new:
+      description: Foreign key to the Organization model.
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to the Customer model.
+- table: ms_contract
+  table_id: 1798
+  dbt_model: ms_contract
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Contract info, currently only Enterprise customers have contracts.
+    display_name: MS Contract
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key of the contract.
+  - field: contract_number
+    current:
+      description: null
+      semantic_type: null
+      display_name: Contract Number
+    new:
+      description: Actual contract number, generally in the format of `XXXXX-YY`, where XXXXX is the Metabase Store organization ID, and YY is the number of contracts.
+  - field: organization_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization Name
+    new:
+      description: Name of the Metabase Store organization
+  - field: booked_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Booked At
+    new:
+      description: Date when the contract was booked
+  - field: annual_value
+    current:
+      description: null
+      semantic_type: null
+      display_name: Annual Value
+    new:
+      description: Annual contract value in dollars.
+  - field: is_auto_renewal
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Auto Renewal
+    new:
+      description: Indicates if the contract is set to auto-renew.
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Contract status, with possible values of "active" or "cancelled" (which means expired).
+  - field: novelty
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Novelty
+    new:
+      description: 'Reason why a new contract was created. Possible values and definitions below. new: A new Enterprise customer, and this is their first contract upgrade: Customer upgrade from one Enterprise tier to another,e.g. basic to advanced. contract term update: The contract term needed to be updated from the previous contract, leading to a new one. expansion: Customer expanded their commitment, incurred a higher ARR from the previous contract.'
+  - field: cancelled_reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Cancelled Reason
+    new:
+      description: 'Reason why the contract was cancelled or expired, only populated when status = "cancelled". Possible values and definitions below. churn: No new contract or subscription followed the current contract. upgrade: Customer upgraded to a higher tier within Enterprise. contract term update: Contract term needed to be updated, thus the existing one was cancelled. downgrade: Customer downgraded from Enterprise to either Pro or Starter plan.'
+  - field: product_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Product Type
+    new:
+      description: Product type, e.g. "enterprise" , "embedding"
+  - field: product_tier
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Product Tier
+    new:
+      description: Product tier, e.g. "basic", "standard", "advanced"
+  - field: support_tier
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Support Tier
+    new:
+      description: Support tier, e.g. "standard", "priority"
+  - field: harbormaster_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Harbormaster URL
+    new:
+      description: Link to the contract in Harbormater tools. In the format of "https://tools.metabase.com/contracts/[contract_id]"
+  - field: contract_file_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Contract File URL
+    new:
+      description: Link to the actual contract PDF stored in AWS. In the format of "https://metabase-harbormaster-data-prod.s3.us-east-1.amazonaws.com/contracts/[org_id]/[contract_id].pdf"
+  - field: base_fee
+    current:
+      description: null
+      semantic_type: null
+      display_name: Base Fee
+    new:
+      description: Base fee for the contract
+  - field: total_units
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Units
+    new:
+      description: Current number of units provisioned under the contract for product 1, i.e. included_units + prepaid_units
+  - field: included_units
+    current:
+      description: null
+      semantic_type: null
+      display_name: Included Units
+    new:
+      description: Number of units already included in the base plan for product 1, also called 'cap quantity.'
+  - field: variable_unit
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Variable Unit
+    new:
+      description: Unit of measure for the product 1(e.g., users, accounts, servers, or installations).
+  - field: price_per_unit
+    current:
+      description: null
+      semantic_type: null
+      display_name: Price Per Unit
+    new:
+      description: Price for each unit for product 1
+  - field: prepaid_units
+    current:
+      description: null
+      semantic_type: null
+      display_name: Prepaid Units
+    new:
+      description: Number of units that have been pre-paid for product 1
+  - field: store_organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Store Organization ID
+    new:
+      description: Foreign key to the Organization model.
+  - field: store_subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Store Subscription ID
+    new:
+      description: Foreign key to the Subscriptions model.
+  - field: stripe_customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stripe Customer ID
+    new:
+      description: Foreign key to the Stripe Customer model.
+  - field: stripe_subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Stripe Subscription ID
+    new:
+      description: Foreign key to the Stripe Subscriptions model.
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to the Customer model.
+  - field: new_organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: New Organization ID
+    new:
+      description: Foreign key to the organization model. Points to the new organization if the organization was migrated to a new organization (e.g. on merging).
+  - field: source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Source
+    new:
+      description: ingestion source, either harbormaster or legacy revenue gsheet.
+  - field: salesforce_opportunity_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Salesforce Opportunity ID
+    new:
+      description: Salesforce Opportunity ID
+- table: ms_contracted_product
+  table_id: 1799
+  dbt_model: ms_contracted_product
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Products within customer's contract or subscription that could have custom terms that differ from the products that we sell
+    display_name: MS Contracted Product
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key of the contracted product
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Product name
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp of when the contracted product was created
+  - field: trial_ends_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Trial Ends At
+    new:
+      description: Timestamp of when the trial for the contracted product will end
+  - field: deleted_at
+    current:
+      description: null
+      semantic_type: type/DeletionTimestamp
+      display_name: Deleted At
+    new:
+      description: Timestamp of when the contracted product was deleted
+  - field: product_subscription_status
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Product Subscription Status
+    new:
+      description: Status of the contracted product within the subscription, such as active.
+      semantic_type: type/Category
+  - field: delete_after_trial
+    current:
+      description: null
+      semantic_type: null
+      display_name: Delete After Trial
+    new:
+      description: Whether the contracted product should be deleted after the trial ends
+      semantic_type: type/Category
+  - field: is_metered
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Metered
+    new:
+      description: Whether or not the contracted product is metered
+      semantic_type: type/Category
+  - field: alias
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Alias
+    new:
+      description: Product alias, e.g. "pro-self-hosted-yearly", "starter"
+  - field: type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Type
+    new:
+      description: Product type, e.g. "accounts", "dwh", "servers"
+  - field: billing_cycle
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Billing Cycle
+    new:
+      description: Indicates how often to bill the customer
+  - field: billing_period_months
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Period Months
+    new:
+      description: The interval in number of months that the customer is billed
+      semantic_type: type/Quantity
+  - field: base_fee
+    current:
+      description: null
+      semantic_type: null
+      display_name: Base Fee
+    new:
+      description: Base fee for the contracted product
+      semantic_type: type/Currency
+  - field: annual_value
+    current:
+      description: null
+      semantic_type: null
+      display_name: Annual Value
+    new:
+      description: Annual value in dollars for the contracted product
+      semantic_type: type/Currency
+  - field: total_units
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Units
+    new:
+      description: Current number of units provisioned for the contracted product, i.e. included_units + prepaid_units
+      semantic_type: type/Quantity
+  - field: included_units
+    current:
+      description: null
+      semantic_type: null
+      display_name: Included Units
+    new:
+      description: Number of units already included in the base plan for the contracted product, also called 'cap quantity'
+      semantic_type: type/Quantity
+  - field: variable_unit
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Variable Unit
+    new:
+      description: Unit of measure for the contracted product, e.g., users, accounts, servers, or installations
+      semantic_type: type/Quantity
+  - field: price_per_unit
+    current:
+      description: null
+      semantic_type: null
+      display_name: Price Per Unit
+    new:
+      description: Price for each unit
+      semantic_type: type/Currency
+  - field: prepaid_units
+    current:
+      description: null
+      semantic_type: null
+      display_name: Prepaid Units
+    new:
+      description: Number of units that have been pre-paid for the contracted product
+      semantic_type: type/Quantity
+  - field: tiers
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Tiers
+    new:
+      description: Tiered pricing details
+  - field: subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription ID
+    new:
+      description: Foreign key to the Metabase Store Subscription model
+  - field: contract_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Contract ID
+    new:
+      description: Foreign key to the Metabase Store Contract model
+  - field: product_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Product ID
+    new:
+      description: Foreign key to the Metabase Store Product model
+  - field: stripe_price_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Stripe Price ID
+    new:
+      description: Foreign key to the Stripe Price model
+  - field: stripe_product_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Stripe Product ID
+    new:
+      description: Foreign key to the Stripe Product model
+- table: ms_crm_article_feedback
+  table_id: 1800
+  dbt_model: ms_crm_article_feedback
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: User feedbacks for Learn articles and Metabase documentation
+    display_name: MS CRM Article Feedback
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the feedback was created
+      semantic_type: type/CreationTimestamp
+  - field: article_title
+    current:
+      description: null
+      semantic_type: null
+      display_name: Article Title
+    new:
+      description: The title of the article for which feedback was provided
+  - field: article_section
+    current:
+      description: null
+      semantic_type: null
+      display_name: Article Section
+    new:
+      description: The section of the article for which feedback was provided
+      semantic_type: type/Category
+  - field: site_area
+    current:
+      description: null
+      semantic_type: null
+      display_name: Site Area
+    new:
+      description: Area of the site the page is in. This is mostly based on the first part of the url - e.g. /docs/... is "docs".
+      semantic_type: type/Category
+  - field: article_url
+    current:
+      description: null
+      semantic_type: null
+      display_name: Article URL
+    new:
+      description: The URL of the article for which feedback was provided
+      semantic_type: type/URL
+  - field: helpful
+    current:
+      description: null
+      semantic_type: null
+      display_name: Helpful
+    new:
+      description: Whether or not the article was helpful
+      semantic_type: type/Category
+  - field: comments
+    current:
+      description: null
+      semantic_type: null
+      display_name: Comments
+    new:
+      description: Further comments provided in the feedback
+- table: ms_crm_contact_request
+  table_id: 1801
+  dbt_model: ms_crm_contact_request
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Contact form/request filled out by users
+    display_name: MS CRM Contact Request
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+- table: ms_crm_product_feedback
+  table_id: 1802
+  dbt_model: ms_crm_product_feedback
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: User feedback from within the Metabase product
+    display_name: MS CRM Product Feedback
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Created At
+    new:
+      description: Timestamp of when the feedback was created
+      semantic_type: type/CreationTimestamp
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Updated At
+    new:
+      description: Timestamp of when the row was last updated
+  - field: source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Source
+    new:
+      description: Source where within the product the feedback was given
+      semantic_type: type/Category
+  - field: comments
+    current:
+      description: null
+      semantic_type: type/Comment
+      display_name: Comments
+    new:
+      description: Comments from the user
+  - field: email
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Email
+    new:
+      description: Email of the user
+- table: ms_experiment_entity
+  table_id: 1803
+  dbt_model: ms_experiment_entity
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Associated organization and subscription for experiments. An experiment can be applied at the organization or subscription level.
+    display_name: MS Experiment Entity
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: experiment_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Experiment Name
+    new:
+      description: Name of the experiment
+  - field: organization_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization Name
+    new:
+      description: Name of the organization
+  - field: store_organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Store Organization ID
+    new:
+      description: Foreign key to the Metabase Store Organization model that the experiment applies to.
+  - field: store_subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Store Subscription ID
+    new:
+      description: Foreign key to the Metabase Store Subscription model that the experiment applies to.
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to the Customer model
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Foreign key to the Account model
+- table: ms_first_token_check
+  table_id: 1804
+  dbt_model: ms_first_token_check
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: The first time a token check happened from a Metabase installation
+    display_name: MS First Token Check
+  fields:
+  - field: token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token
+    new:
+      description: Primary key
+- table: ms_free_trial_response
+  table_id: 1805
+  dbt_model: ms_free_trial_response
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Free trials for Enterprise accounts
+    display_name: MS Free Trial Response
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+- table: ms_hosted_instance
+  table_id: 1806
+  dbt_model: ms_hosted_instance
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: AWS instance that hosts Metabase app
+    display_name: MS Hosted Instance
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp when the instance was created
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Updated At
+    new:
+      description: Timestamp when the instance was updated
+  - field: deleted_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Deleted At
+    new:
+      description: Timestamp when the instance was deleted
+  - field: is_auto_update
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Auto Update
+    new:
+      description: Indicates wheather the instance will follow regular and automatic maintenance updates. When false, see `notes` for more details.
+  - field: is_standby
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Standby
+    new:
+      description: Whether the instance is supposed to be in standby, i.e. running but not serving traffic, enabling fast purchase.
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Current status of the instance
+  - field: dns_alias
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dns Alias
+    new:
+      description: DNS alias for the instance
+  - field: alias_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Alias URL
+    new:
+      description: Full URL to the instance
+  - field: custom_domain
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Custom Domain
+    new:
+      description: Custom domain that can access the instance if any
+  - field: custom_memory_limit
+    current:
+      description: null
+      semantic_type: null
+      display_name: Custom Memory Limit
+    new:
+      description: Memory limit that differs from the default
+  - field: provider
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Provider
+    new:
+      description: Type of host setup used to run the instance
+  - field: k8s_cluster
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: K8s Cluster
+    new:
+      description: Kubernetes cluster for the instance
+      display_name: K8S Cluster
+  - field: k8s_namespace
+    current:
+      description: null
+      semantic_type: null
+      display_name: K8s Namespace
+    new:
+      description: Kubernetes namespace for the instance
+      display_name: K8S Namespace
+  - field: region
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Region
+    new:
+      description: Location of the instance
+  - field: primary_database
+    current:
+      description: null
+      semantic_type: null
+      display_name: Primary Database
+    new:
+      description: The database engine with the most questions created in the customer's Metabase instance. There are some instances that are missing the primary database but has_<db_name> is TRUE because the instance is connected to 1+ DB but has no questions created.
+  - field: has_postgres
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Postgres
+    new:
+      description: Indicates if the Metabase instance is connected to a Postgres database
+  - field: has_mysql
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Mysql
+    new:
+      description: Indicates if the Metabase instance is connected to a MySQL database
+  - field: has_bigquery
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Bigquery
+    new:
+      description: Indicates if the Metabase instance is connected to a Big Query database
+  - field: has_snowflake
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Snowflake
+    new:
+      description: Indicates if the Metabase instance is connected to a Snowflake database
+  - field: has_mongo
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Mongo
+    new:
+      description: Indicates if the Metabase instance is connected to a Mongo database
+  - field: has_sqlserver
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Sqlserver
+    new:
+      description: Indicates if the Metabase instance is connected to a SQL Server database
+  - field: has_redshift
+    current:
+      description: null
+      semantic_type: null
+      display_name: Has Redshift
+    new:
+      description: Indicates if the Metabase instance is connected to a Redshift database
+  - field: replica_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Replica Count
+    new:
+      description: '# of replica instances for redundancy'
+  - field: is_google_auth_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Google Auth Enabled
+    new:
+      description: Indicates if Google Auth is enabled for the Metabase instance
+  - field: is_ldap_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Ldap Enabled
+    new:
+      description: Indicates if LDAP is enabled for the Metabase instance
+  - field: is_saml_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Saml Enabled
+    new:
+      description: Indicates if SAML is enabled for the Metabase instance
+  - field: is_jwt_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Jwt Enabled
+    new:
+      description: Indicates if JWT is enabled for the Metabase instance
+  - field: is_embedding_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Embedding Enabled
+    new:
+      description: Indicates if embedding is enabled for the Metabase instance
+  - field: is_static_embedding_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Static Embedding Enabled
+    new:
+      description: Indicates if static embedding is enabled for the Metabase instance. This is conditioned based on `enable-embedding-static` with any embedded questions or dashboards.
+  - field: is_interactive_embedding_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Interactive Embedding Enabled
+    new:
+      description: Indicates if interactive embedding is enabled for the Metabase instance. This is conditioned based on `enable-embedding-interactive`, `embedding-app-origins-interactive`, and any SSO method, such as JWT, SAML, or Google Auth.
+  - field: is_sdk_embedding_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Sdk Embedding Enabled
+    new:
+      description: Indicates if SDK embedding is enabled for the Metabase instance. This is conditioned based on `enable-embedding-sdk`, `embedding-app-origin`, and `jwt-enabled`.
+  - field: is_embedding_origin_set
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Embedding Origin Set
+    new:
+      description: Indicates if embedding-app-origin is set in the Metabase instance
+  - field: is_white_labeled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is White Labeled
+    new:
+      description: Indicates the instance is white-labeled, such as the application name is set to something else instead of Metabase.
+  - field: is_application_name_set
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Application Name Set
+    new:
+      description: Indicates if application-name is set in the Metabase instance. Good indication that it is a white-labeled instance.
+  - field: is_metabot_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Metabot Enabled
+    new:
+      description: Indicates if Metabot is enabled in the Metabase instance
+  - field: is_persisted_models_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Persisted Models Enabled
+    new:
+      description: Indicates if persisted models (caching) is enabled in the Metabase instance
+  - field: is_query_caching_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Query Caching Enabled
+    new:
+      description: Indicates if query caching is enabled in the Metabase instance
+  - field: is_public_sharing_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Public Sharing Enabled
+    new:
+      description: Indicates if public sharing is enabled in the Metabase instance
+  - field: is_smtp_override_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Smtp Override Enabled
+    new:
+      description: Indicates if custom SMTP server is enabled in the Metabase instance
+  - field: questions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Questions
+    new:
+      description: '# of questions created in the Metabase instance'
+  - field: embedding_questions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedding Questions
+    new:
+      description: '# of questions created in the Metabase instance with embedding enabled'
+  - field: models
+    current:
+      description: null
+      semantic_type: null
+      display_name: Models
+    new:
+      description: '# of models created in the Metabase instance'
+  - field: metrics
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metrics
+    new:
+      description: '# of metrics created in the Metabase instance'
+  - field: segments
+    current:
+      description: null
+      semantic_type: null
+      display_name: Segments
+    new:
+      description: '# of segments created in the Metabase instance'
+  - field: dashboards
+    current:
+      description: null
+      semantic_type: null
+      display_name: Dashboards
+    new:
+      description: '# of dashboards created in the Metabase instance'
+  - field: embedding_dashboards
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedding Dashboards
+    new:
+      description: '# of dashboards created in the Metabase instance with embedding enabled'
+  - field: pulses
+    current:
+      description: null
+      semantic_type: null
+      display_name: Pulses
+    new:
+      description: '# of pulses created in the Metabase instance'
+  - field: documents
+    current:
+      description: null
+      semantic_type: null
+      display_name: Documents
+    new:
+      description: '# of documents created in the Metabase instance'
+  - field: glossaries
+    current:
+      description: null
+      semantic_type: null
+      display_name: Glossaries
+    new:
+      description: '# of glossaries created in the Metabase instance'
+  - field: db_routers
+    current:
+      description: null
+      semantic_type: null
+      display_name: Db Routers
+    new:
+      description: '# of database routers created in the Metabase instance'
+  - field: remote_syncs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Remote Syncs
+    new:
+      description: '# of remote syncs ran in the Metabase instance'
+  - field: databases
+    current:
+      description: null
+      semantic_type: null
+      display_name: Databases
+    new:
+      description: '# of databases created in the Metabase instance'
+  - field: sandboxes
+    current:
+      description: null
+      semantic_type: null
+      display_name: Sandboxes
+    new:
+      description: '# of sandboxes created in the Metabase instance'
+  - field: actions
+    current:
+      description: null
+      semantic_type: null
+      display_name: Actions
+    new:
+      description: '# of actions created in the Metabase instance'
+  - field: collections
+    current:
+      description: null
+      semantic_type: null
+      display_name: Collections
+    new:
+      description: '# of collections created in the Metabase instance'
+  - field: impersonations
+    current:
+      description: null
+      semantic_type: null
+      display_name: Impersonations
+    new:
+      description: '# of connection impersonations created in the Metabase instance'
+  - field: channels
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Channels
+    new:
+      description: '# of notification channels created in the Metabase instance'
+  - field: notes
+    current:
+      description: null
+      semantic_type: null
+      display_name: Notes
+    new:
+      description: Additional notes about the instance, such as why it doesn't auto update.
+  - field: metabase_version_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version ID
+    new:
+      description: Foreign key to Metabase Version model
+  - field: subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription ID
+    new:
+      description: Foreign key to Subscription model
+  - field: organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization ID
+    new:
+      description: Foreign key to Organization model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to Customer model
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Foreign key to Account model
+- table: ms_hosted_instance_action
+  table_id: 1807
+  dbt_model: ms_hosted_instance_action
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Action taken against hosted instances and their statuses
+    display_name: MS Hosted Instance Action
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+- table: ms_hosted_instance_healthcheck
+  table_id: 1808
+  dbt_model: ms_hosted_instance_healthcheck
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Healthcheck for hosted instances to show if the instances are healthy or not
+    display_name: MS Hosted Instance Healthcheck
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+- table: ms_hosted_instance_quota_usage
+  table_id: 1809
+  dbt_model: ms_hosted_instance_quota_usage
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: '**Purpose and Utility**: The table tracks the usage of quotas for various hosting features within the platform. It is designed to answer key questions such as: - How much of a particular resource is currently being used by hosted instances? - What are the thresholds for alerting users about approaching or exceeding usage limits? - Which instances are locked due to quota overages? This data supports use cases such as monitoring resource usage, managing hosting capacities, and ensuring that instances operate within their allotted quotas. **Granularity**: One row per instance per hosting feature **Update Frequency**: Every 2 hours'
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Unique identifier for each record in the table. This ID is a UUID that ensures each entry is distinct.
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp indicating when the quota usage record was first created.
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Updated At
+    new:
+      description: Timestamp indicating the last time the record was updated. This can be used to track changes in quota usage over time.
+  - field: deleted_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Deleted At
+    new:
+      description: Timestamp indicating when the record was marked as deleted (soft delete). Records with this field populated are no longer active but are retained for historical analysis.
+  - field: hosting_feature
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Hosting Feature
+    new:
+      description: Describes the specific hosting feature being tracked (e.g., clickhouse-dwh). This field helps in identifying which resource's usage is being monitored.
+  - field: quota_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Quota Type
+    new:
+      description: Indicates the type of quota applied to the hosting feature, such as number of rows for the data warehouse feature.
+  - field: usage
+    current:
+      description: null
+      semantic_type: null
+      display_name: Usage
+    new:
+      description: Represents the current usage of the hosting feature by the instance. The unit of measurement varies depending on the hosting feature and quota_type.
+  - field: next_alert_threshold
+    current:
+      description: null
+      semantic_type: null
+      display_name: Next Alert Threshold
+    new:
+      description: The usage level at which the next alert will be triggered for the hosted instance.
+  - field: locked
+    current:
+      description: null
+      semantic_type: null
+      display_name: Locked
+    new:
+      description: A boolean field that indicates whether the hosted instance is locked due to exceeding its quota.
+  - field: hosted_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Hosted Instance ID
+    new:
+      description: A unique identifier for the hosted instance associated with the quota usage. This ID links the quota usage data to a specific instance.
+- table: ms_hosted_instance_resource
+  table_id: 1810
+  dbt_model: ms_hosted_instance_resource
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Cloud resources provisioned for hosted instances
+    display_name: MS Hosted Instance Resource
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: hosted_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Hosted Instance ID
+    new:
+      description: Foreign key to Hosted Instance model
+  - field: provider
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Provider
+    new:
+      description: Cloud provider for the resource
+  - field: type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Type
+    new:
+      description: Type of cloud resource
+  - field: resource_id
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Resource ID
+    new:
+      description: Identifier of the resource in the cloud provider
+  - field: region
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Region
+    new:
+      description: Cloud region where the resource is provisioned
+  - field: shared_resource_id
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Shared Resource ID
+    new:
+      description: Foreign key to Hosting Shared Resource model, when the resource is shared across instances
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Updated At
+    new:
+      description: Timestamp of when the resource was last updated
+      semantic_type: type/UpdatedTimestamp
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the resource was created
+      semantic_type: type/CreationTimestamp
+  - field: deleted_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Deleted At
+    new:
+      description: Timestamp of when the resource was deleted
+- table: ms_hosted_instance_scheduled_maintenance
+  table_id: 1811
+  dbt_model: ms_hosted_instance_scheduled_maintenance
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Scheduled maintenance for hosted instances
+    display_name: MS Hosted Instance Scheduled Maintenance
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: hosting_scheduled_maintenance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Hosting Scheduled Maintenance ID
+    new:
+      description: Foreign key to Hosting Scheduled Maintenance model
+  - field: start_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Start At
+    new:
+      description: Timestamp of when the maintenance window starts
+  - field: started_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Started At
+    new:
+      description: Timestamp of when the maintenance started
+  - field: finished_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Finished At
+    new:
+      description: Timestamp of when the maintenance finished
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the maintenance was created
+      semantic_type: type/CreationTimestamp
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Updated At
+    new:
+      description: Timestamp of when the maintenance was updated
+      semantic_type: type/UpdatedTimestamp
+  - field: is_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Enabled
+    new:
+      description: Indicates if the maintenance is enabled
+      semantic_type: type/Category
+  - field: is_email_sent
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Email Sent
+    new:
+      description: Indicates if the maintenance email was sent
+      semantic_type: type/Category
+  - field: hosted_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Hosted Instance ID
+    new:
+      description: Foreign key to Hosted Instance model. Refers to the instance that the maintenance is for.
+  - field: hosted_instance_action_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Hosted Instance Action ID
+    new:
+      description: Foreign key to Hosted Instance Action model
+  - field: run_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Run ID
+    new:
+      description: UUID of the run
+- table: ms_hosting_customer_migration
+  table_id: 1812
+  dbt_model: ms_hosting_customer_migration
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Job details for migrating in-house instances to Cloud.
+    display_name: MS Hosting Customer Migration
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: hosted_instance_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Hosted Instance ID
+    new:
+      description: Foreign key to Hosted Instance model
+  - field: hosted_snapshot_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Hosted Snapshot ID
+    new:
+      description: Id of the hosted snapshot
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the migration was created
+      semantic_type: type/CreationTimestamp
+  - field: upload_completed_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Upload Completed At
+    new:
+      description: Timestamp of when the uploaded completed
+  - field: upload_s3_bucket
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Upload S3 Bucket
+    new:
+      description: S3 bucket where the migration was uploaded
+  - field: upload_s3_key
+    current:
+      description: null
+      semantic_type: null
+      display_name: Upload S3 Key
+    new:
+      description: S3 key where the migration was uploaded
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Status of the migration
+  - field: local_mb_version
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Local Mb Version
+    new:
+      description: Version of the Metabase instance that is migrated. Note this is not available for all migrations since it was added later.
+  - field: metabase_version_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Metabase Version ID
+    new:
+      description: Foreign key to Metabase Version model
+- table: ms_hosting_scheduled_maintenance
+  table_id: 1813
+  dbt_model: ms_hosting_scheduled_maintenance
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Scheduled maintenance like version deployments
+    display_name: MS Hosting Scheduled Maintenance
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the maintenance was created
+      semantic_type: type/CreationTimestamp
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Updated At
+    new:
+      description: Timestamp of when the maintenance was updated
+      semantic_type: type/UpdatedTimestamp
+  - field: start_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Start At
+    new:
+      description: Timestamp of when the maintenance window starts
+  - field: is_enabled
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Enabled
+    new:
+      description: Indicates if the maintenance is enabled
+  - field: requires_customer_notification
+    current:
+      description: null
+      semantic_type: null
+      display_name: Requires Customer Notification
+    new:
+      description: Indicates if the maintenance requires customer notification
+  - field: rollout_strategy
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Rollout Strategy
+    new:
+      description: Strategy for rolling out the maintenance
+  - field: maintenance_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Maintenance Type
+    new:
+      description: Type of maintenance
+  - field: email_custom_message
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Email Custom Message
+    new:
+      description: Custom message to be sent in the email
+  - field: batch_size
+    current:
+      description: null
+      semantic_type: null
+      display_name: Batch Size
+    new:
+      description: Batch size for the maintenance
+  - field: metabase_version_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version ID
+    new:
+      description: Foreign key to Metabase Version model
+- table: ms_hosting_shared_resource
+  table_id: 1814
+  dbt_model: ms_hosting_shared_resource
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Shared AWS resources for hosted instances
+    display_name: MS Hosting Shared Resource
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+- table: ms_latest_token_check
+  table_id: 1815
+  dbt_model: ms_latest_token_check
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: The last time a token check happened from Metabase installations
+    display_name: MS Latest Token Check
+  fields:
+  - field: token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token
+    new:
+      description: Primary key
+      semantic_type: type/PK
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the check was done
+      semantic_type: type/CreationTimestamp
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Version of the Metabase instance
+      semantic_type: type/Category
+  - field: cloud_provider
+    current:
+      description: null
+      semantic_type: null
+      display_name: Cloud Provider
+    new:
+      description: Cloud provider where the instance is hosted (inferrred from the IP address). We currently extract the cloud providers using the data from this repo https://github.com/tobilg/public-cloud-provider-ip-ranges. Note that this is not reliable for tokens where the latest check happened way in the past since the IP address might have switched to a different cloud provider in the meanwhile.
+      semantic_type: type/Category
+  - field: hosted_country
+    current:
+      description: null
+      semantic_type: null
+      display_name: Hosted Country
+    new:
+      description: Country where the instance is hosted (inferred from the IP address). Note that this is not reliable for tokens where the latest check happened way in the past since the IP address might have switched to a different cloud provider in the meanwhile.
+      semantic_type: type/Country
+  - field: hosted_continent
+    current:
+      description: null
+      semantic_type: null
+      display_name: Hosted Continent
+    new:
+      description: Continent where the instance is hosted (inferred from the IP address). Note that this is not reliable for tokens where the latest check happened way in the past since the IP address might have switched to a different cloud provider in the meanwhile.
+      semantic_type: type/Category
+  - field: hosted_city
+    current:
+      description: null
+      semantic_type: null
+      display_name: Hosted City
+    new:
+      description: City where the instance is hosted (inferred from the IP address). Note that this is not reliable for tokens where the latest check happened way in the past since the IP address might have switched to a different cloud provider in the meanwhile.
+      semantic_type: type/City
+  - field: user_count
+    current:
+      description: null
+      semantic_type: null
+      display_name: User Count
+    new:
+      description: Number of users on the instance
+      semantic_type: type/Quantity
+  - field: internal_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Internal Users
+    new:
+      description: Count of total non-deactivated users minus external_users
+      semantic_type: type/Quantity
+  - field: external_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: External Users
+    new:
+      description: Count of non-deactivated users with sso_source=jwt and non-admin.
+      semantic_type: type/Quantity
+  - field: domains
+    current:
+      description: null
+      semantic_type: null
+      display_name: Domains
+    new:
+      description: Count of unique email domains in the account
+  - field: tenants
+    current:
+      description: null
+      semantic_type: null
+      display_name: Tenants
+    new:
+      description: Number of tenants that have at least one active user.
+  - field: use_tenants
+    current:
+      description: null
+      semantic_type: null
+      display_name: Use Tenants
+    new:
+      description: Whether tenants is enabled.
+  - field: tenant_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Tenant Users
+    new:
+      description: Number of active users that belong to a tenant.
+  - field: query_executions_internal
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Internal
+    new:
+      description: Count of query executions in time window WHERE embedding client IS NULL or EMPTY and EXECUTOR is NOT NULL
+      semantic_type: type/Quantity
+  - field: query_executions_public_link
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Public Link
+    new:
+      description: Count of query executions in time window WHERE embedding client IS empty or null (?) AND executor IS NULL
+      semantic_type: type/Quantity
+  - field: query_executions_static_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Static Embed
+    new:
+      description: Count of query executions in time window WHERE embedding client = "embedding-iframe" AND executor IS NULL
+      semantic_type: type/Quantity
+  - field: query_executions_interactive_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Interactive Embed
+    new:
+      description: Count of query executions in time window WHERE embedding client = "embedding-iframe" AND executor IS NOT NULL
+      semantic_type: type/Quantity
+  - field: query_executions_sdk_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Sdk Embed
+    new:
+      description: Count of query executions in time window WHERE embedding client = "embedding-sdk-react"
+      semantic_type: type/Quantity
+  - field: query_executions_simple_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Simple Embed
+    new:
+      description: Count of query executions embedding client = "embedding-simple" (Embedded Analytics JS)
+      semantic_type: type/Quantity
+  - field: embedding_dashboard_count
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedding Dashboard Count
+    new:
+      description: Count of embedded dashboards
+      semantic_type: type/Quantity
+  - field: embedding_question_count
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedding Question Count
+    new:
+      description: Count of embedded questions
+      semantic_type: type/Quantity
+  - field: enabled_embedding_static
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enabled Embedding Static
+    new:
+      description: Setting enable_embedding_static with at least one embedded_dashboard or embedded_question
+  - field: enabled_embedding_interactive
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enabled Embedding Interactive
+    new:
+      description: Setting enable_embedding_interactive && embedding_app_origin non-default value && at least one SSO method enabled
+  - field: enabled_embedding_sdk
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enabled Embedding Sdk
+    new:
+      description: Setting enable-embedding-sdk && jwt-enabled && sdk enabled
+  - field: enabled_embedding_simple
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enabled Embedding Simple
+    new:
+      description: Setting enabled-embedding-simple enabled (Embedded Analytics JS)
+  - field: metabot_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Users
+    new:
+      description: Count of distinct users who used Metabot in the previous UTC day (00:00-23:59)
+      semantic_type: type/Quantity
+  - field: metabot_tokens
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Tokens
+    new:
+      description: Total number of tokens consumed by Metabot in the previous UTC day (00:00-23:59)
+      semantic_type: type/Quantity
+  - field: metabot_queries
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Queries
+    new:
+      description: Count of user queries/requests made to Metabot in the previous UTC day (00:00-23:59)
+      semantic_type: type/Quantity
+  - field: metabot_usage_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Usage Date
+    new:
+      description: 'Date corresponding to the metabot usage fields: metabot_users, metabot_tokens and metabot_queries.'
+  - field: transform_usage_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Usage Date
+    new:
+      description: Date corresponding to the transform usage fields (transform_native_runs, transform_python_runs) in the previous UTC day (00:00-23:59).
+  - field: transform_native_runs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Native Runs
+    new:
+      description: Number of successful runs for native/MBQL transforms in the previous UTC day (00:00-23:59).
+      semantic_type: type/Quantity
+  - field: transform_python_runs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Python Runs
+    new:
+      description: Number of successful runs for Python transforms in the previous UTC day (00:00-23:59).
+      semantic_type: type/Quantity
+  - field: transform_rolling_usage_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Rolling Usage Date
+    new:
+      description: Date corresponding to the transform usage fields (transform_rolling_native_runs, transform_rolling_python_runs) for the current UTC day (00:00-23:59).
+  - field: transform_rolling_native_runs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Rolling Native Runs
+    new:
+      description: Number of successful runs for native/MBQL transforms in the current UTC day (00:00-23:59).
+      semantic_type: type/Quantity
+  - field: transform_rolling_python_runs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Rolling Python Runs
+    new:
+      description: Number of successful runs for Python transforms in the current UTC day (00:00-23:59).
+      semantic_type: type/Quantity
+- table: ms_max_user_count
+  table_id: 1816
+  dbt_model: ms_max_user_count
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Count of max Metabase users from last 36 hours (or last check) -- summed from per-site.
+    display_name: MS Max User Count
+  fields:
+  - field: token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token
+    new:
+      description: Token being checked. Foreign key to Token model.
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp when the count was last checked
+  - field: user_count
+    current:
+      description: null
+      semantic_type: null
+      display_name: User Count
+    new:
+      description: '# of active Metabase users for the token'
+      semantic_type: type/Quantity
+  - field: internal_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Internal Users
+    new:
+      description: Count of total non-deactivated users minus external_users
+      semantic_type: type/Quantity
+  - field: external_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: External Users
+    new:
+      description: Count of non-deactivated users with sso_source=jwt and non-admin.
+      semantic_type: type/Quantity
+  - field: domains
+    current:
+      description: null
+      semantic_type: null
+      display_name: Domains
+    new:
+      description: Count of unique email domains in the account
+  - field: query_executions_internal
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Internal
+    new:
+      description: Count of query executions in time window WHERE embedding client IS NULL or EMPTY and EXECUTOR is NOT NULL
+      semantic_type: type/Quantity
+  - field: query_executions_public_link
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Public Link
+    new:
+      description: Count of query executions in time window WHERE embedding client IS empty or null (?) AND executor IS NULL
+      semantic_type: type/Quantity
+  - field: query_executions_static_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Static Embed
+    new:
+      description: Count of query executions in time window WHERE embedding client = "embedding-iframe" AND executor IS NULL
+      semantic_type: type/Quantity
+  - field: query_executions_interactive_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Interactive Embed
+    new:
+      description: Count of query executions in time window WHERE embedding client = "embedding-iframe" AND executor IS NOT NULL
+      semantic_type: type/Quantity
+  - field: query_executions_sdk_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Sdk Embed
+    new:
+      description: Count of query executions in time window WHERE embedding client = "embedding-sdk-react"
+      semantic_type: type/Quantity
+  - field: embedding_dashboard_count
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedding Dashboard Count
+    new:
+      description: Count of embedded dashboards
+      semantic_type: type/Quantity
+  - field: embedding_question_count
+    current:
+      description: null
+      semantic_type: null
+      display_name: Embedding Question Count
+    new:
+      description: Count of embedded questions
+      semantic_type: type/Quantity
+  - field: enabled_embedding_static
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enabled Embedding Static
+    new:
+      description: Setting enable_embedding_static with at least one embedded_dashboard or embedded_question
+  - field: enabled_embedding_interactive
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enabled Embedding Interactive
+    new:
+      description: Setting enable_embedding_interactive && embedding_app_origin non-default value && at least one SSO method enabled
+  - field: enabled_embedding_sdk
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enabled Embedding Sdk
+    new:
+      description: Setting enable-embedding-sdk && jwt-enabled && sdk enabled
+- table: ms_metabase_product_usage
+  table_id: 1817
+  dbt_model: ms_metabase_product_usage
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Daily usage metering stats reported by Metabase instances for each product/meter, keyed by token.
+    display_name: MS Metabase Product Usage
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token
+    new:
+      description: Token associated with the usage record. Foreign key to Token model.
+  - field: product
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Product
+    new:
+      description: Product the usage was reported for (e.g. "metabase-ai", "metabase-ai-managed", "transforms", etc. ).
+  - field: usage_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Usage Date
+    new:
+      description: Date of product usage.
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Name of the specific usage being reported (e.g. "basic-runs", "advanced-runs", "tokens", "users", etc.).
+      semantic_type: type/Category
+  - field: value
+    current:
+      description: null
+      semantic_type: null
+      display_name: Value
+    new:
+      description: Most recent daily total usage count for the given product/meter.
+      semantic_type: type/Quantity
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp of when the usage record was created
+  - field: meter_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Meter Name
+    new:
+      description: Name of the meter the usage belongs to (eg. "metabot-tokens", "metabot-queries", "metabot-users" etc.).
+      semantic_type: type/Category
+- table: ms_metabase_version
+  table_id: 1818
+  dbt_model: ms_metabase_version
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Versions of Metabase and the associated Docker images
+    display_name: MS Metabase Version
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the version was created
+      semantic_type: type/CreationTimestamp
+  - field: version_tag
+    current:
+      description: null
+      semantic_type: null
+      display_name: Version Tag
+    new:
+      description: Version tag of the Metabase version, such as v0.45.0
+  - field: version_image
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Version Image
+    new:
+      description: Docker image of the Metabase version
+  - field: is_default_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Default Version
+    new:
+      description: Indicates if this is the default version for new instances
+  - field: major_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Major Version
+    new:
+      description: Major version of the Metabase version, such as 45 for v0.45.1
+  - field: minor_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Minor Version
+    new:
+      description: Minor version of the Metabase version, such as 1 for v0.45.1
+- table: ms_metabot_feedback
+  table_id: 1819
+  dbt_model: ms_metabot_feedback
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Metabot feedback data from users including conversation context and feedback details
+    display_name: MS Metabot Feedback
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key of the metabot feedback record
+  - field: subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription ID
+    new:
+      description: Foreign key to the Metabase Store Subscription model
+  - field: version_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Version Date
+    new:
+      description: Date of the Metabase version when feedback was given
+      semantic_type: type/CreationDate
+  - field: version_tag
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Version Tag
+    new:
+      description: Version tag of Metabase when feedback was provided
+  - field: version_hash
+    current:
+      description: null
+      semantic_type: null
+      display_name: Version Hash
+    new:
+      description: Git hash of the Metabase version
+  - field: metabot_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot ID
+    new:
+      description: Unique identifier for the metabot session
+  - field: feedback_message_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Feedback Message ID
+    new:
+      description: Identifier for the specific message that received feedback
+  - field: feedback_positive
+    current:
+      description: null
+      semantic_type: null
+      display_name: Feedback Positive
+    new:
+      description: Boolean indicating if the feedback was positive (true) or negative (false)
+      semantic_type: type/Category
+  - field: feedback_freeform_feedback
+    current:
+      description: null
+      semantic_type: null
+      display_name: Feedback Freeform Feedback
+    new:
+      description: Free-form text feedback provided by the user
+  - field: is_admin
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Admin
+    new:
+      description: Boolean indicating if the feedback was provided by an admin user
+      semantic_type: type/Category
+  - field: submission_time
+    current:
+      description: null
+      semantic_type: null
+      display_name: Submission Time
+    new:
+      description: Timestamp when the feedback was submitted
+      semantic_type: type/CreationTimestamp
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp when the record was created
+      semantic_type: type/CreationTimestamp
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Updated At
+    new:
+      description: Timestamp when the record was last updated
+      semantic_type: type/UpdatedTimestamp
+  - field: feedback_issue_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Feedback Issue Type
+    new:
+      description: Category of the issue reported in the feedback
+  - field: conversation_data
+    current:
+      description: null
+      semantic_type: type/SerializedJSON
+      display_name: Conversation Data
+    new:
+      description: Full JSON object containing the conversation context and metadata including messages, charts, queries, tool calls, and user interactions
+- table: ms_organization
+  table_id: 1820
+  dbt_model: ms_organization
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Organizations in Metebase Store that represents customers.
+    display_name: MS Organization
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the organization was created
+      semantic_type: type/CreationTimestamp
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Name of the organization
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Status of the organization, such as active / inactive.
+  - field: is_logo_usage_allowed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Logo Usage Allowed
+    new:
+      description: Indicate if customer allow us to refer to their logo
+  - field: signup_reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Signup Reason
+    new:
+      description: Reason for signing up for Metabase (e.g. 'internal_monitoring', 'documentation', etc.)
+  - field: survey_data_stored_in
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Survey Data Stored In
+    new:
+      description: Onboarding survey response to the question where their data is stored.
+  - field: survey_data_stored_in_freeform
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Survey Data Stored In Freeform
+    new:
+      description: Onboarding survey response to the freeform related to the question where their data is stored.
+  - field: stripe_customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stripe Customer ID
+    new:
+      description: Foreign key to Stripe Customer model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to Customer model
+  - field: new_organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: New Organization ID
+    new:
+      description: Foreign key to the model itself. Points to the new organization if the organization was migrated to a new organization (e.g. on merging).
+- table: ms_product
+  table_id: 1821
+  dbt_model: ms_product
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Products that Metabase offers
+    display_name: MS Product
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key of the product
+  - field: name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: Name
+    new:
+      description: Product name
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Created At
+    new:
+      description: Timestamp of when the product was created
+      semantic_type: type/CreationTimestamp
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Updated At
+    new:
+      description: Timestamp of when the product was updated
+      semantic_type: type/UpdatedTimestamp
+  - field: is_active
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Active
+    new:
+      description: Whether or not the product is active
+      semantic_type: type/Category
+  - field: is_metered
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Metered
+    new:
+      description: Whether or not the product is metered
+      semantic_type: type/Category
+  - field: alias
+    current:
+      description: null
+      semantic_type: null
+      display_name: Alias
+    new:
+      description: Product alias, e.g. "pro-self-hosted-yearly", "starter"
+  - field: description
+    current:
+      description: null
+      semantic_type: type/Description
+      display_name: Description
+    new:
+      description: Product description
+  - field: type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Type
+    new:
+      description: Product type, e.g. "accounts", "dwh", "servers"
+  - field: purchase_type
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Purchase Type
+    new:
+      description: Indicates how the subscription was purchased. Either sold or self-service and NULL for ETL connections
+  - field: deployment
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Deployment
+    new:
+      description: Indicates how the Metabase instance is run. Either on Cloud or self-hosted and NULL for embedding
+  - field: trial_days
+    current:
+      description: null
+      semantic_type: null
+      display_name: Trial Days
+    new:
+      description: Duration of trial in number of days
+      semantic_type: type/Quantity
+  - field: billing_cycle
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Billing Cycle
+    new:
+      description: Indicates how often to bill the customer
+  - field: billing_period_months
+    current:
+      description: null
+      semantic_type: null
+      display_name: Billing Period Months
+    new:
+      description: The interval in number of months that the customer is billed
+      semantic_type: type/Quantity
+  - field: base_fee
+    current:
+      description: null
+      semantic_type: null
+      display_name: Base Fee
+    new:
+      description: Base fee for the product
+      semantic_type: type/Currency
+  - field: total_units
+    current:
+      description: null
+      semantic_type: null
+      display_name: Total Units
+    new:
+      description: Current number of units provisioned for the product, i.e. included_units + prepaid_units
+      semantic_type: type/Quantity
+  - field: included_units
+    current:
+      description: null
+      semantic_type: null
+      display_name: Included Units
+    new:
+      description: Number of units already included in the base plan for the product, also called 'cap quantity'
+      semantic_type: type/Quantity
+  - field: variable_unit
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Variable Unit
+    new:
+      description: Unit of measure for the product, e.g., users, accounts, servers, or installations
+      semantic_type: type/Quantity
+  - field: price_per_unit
+    current:
+      description: null
+      semantic_type: null
+      display_name: Price Per Unit
+    new:
+      description: Price for each unit
+      semantic_type: type/Currency
+  - field: prepaid_units
+    current:
+      description: null
+      semantic_type: null
+      display_name: Prepaid Units
+    new:
+      description: Number of units that have been pre-paid for the product
+      semantic_type: type/Quantity
+  - field: token_features
+    current:
+      description: null
+      semantic_type: type/SerializedJSON
+      display_name: Token Features
+    new:
+      description: Token features
+  - field: hosting_features
+    current:
+      description: null
+      semantic_type: null
+      display_name: Hosting Features
+    new:
+      description: Hosting features
+  - field: stripe_price_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stripe Price ID
+    new:
+      description: Foreign key to the Stripe Price model
+  - field: stripe_product_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stripe Product ID
+    new:
+      description: Foreign key to the Stripe Product model
+- table: ms_stripe_charge
+  table_id: 1822
+  dbt_model: ms_stripe_charge
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Charge/payment details from Stripe for Metabase subscriptions
+    display_name: MS Stripe Charge
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+- table: ms_subscription
+  table_id: 1823
+  dbt_model: ms_subscription
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Customer subscriptions to Metabase Cloud
+    display_name: MS Subscription
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp of when the subscription was created
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Updated At
+    new:
+      description: Timestamp of when the subscription was last updated
+  - field: trial_ends_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Trial Ends At
+    new:
+      description: Timestamp of when the trial will end
+  - field: suspend_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Suspend At
+    new:
+      description: Timestamp of when the subscription will be suspended
+  - field: canceled_at
+    current:
+      description: null
+      semantic_type: type/CancelationTimestamp
+      display_name: Canceled At
+    new:
+      description: Timestamp of when cancellation is initiated
+  - field: cancel_at
+    current:
+      description: null
+      semantic_type: type/CancelationTimestamp
+      display_name: Cancel At
+    new:
+      description: Timestamp of when the subscription ends due to cancellation
+  - field: current_period_end
+    current:
+      description: null
+      semantic_type: null
+      display_name: Current Period End
+    new:
+      description: Timestamp of when the current subscription period ends
+  - field: plan_alias
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Plan Alias
+    new:
+      description: A friendly alias for the Stripe plan
+  - field: product_alias
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Product Alias
+    new:
+      description: Comma-separated list of products under the subscription
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Status of the subscription, such as active.
+  - field: billing_method
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Billing Method
+    new:
+      description: Shows how the customer will be billed, such as auto_charge.
+  - field: active_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Active Users
+    new:
+      description: Number of currently active users on the subscription
+      semantic_type: type/Quantity
+  - field: is_self_service
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Self Service
+    new:
+      description: Indicates if subscription is self managed.
+      semantic_type: type/Category
+  - field: is_sync_variable_unit_to_stripe
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Sync Variable Unit To Stripe
+    new:
+      description: Indicates if user count is sync'ed to Stripe. Optional for enterprise customer that has a different variable_unit count (e.g per installation), so we don’t blow up their invoice.
+      semantic_type: type/Category
+  - field: is_sync_status_from_stripe
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Sync Status From Stripe
+    new:
+      description: Indicates if the status of the subscription (expired/not expired) is synced from Stripe. Optional for enterprise customers as their renewal/PO cycle can be lengthy and we don’t want to nuke their license while they figure stuff out with Sales.
+      semantic_type: type/Category
+  - field: is_standby_holder
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Standby Holder
+    new:
+      description: Indicates whether the subscription contains our standby instances, i.e. hosted instances we prepare ahead of time to enable fast checkout.
+      semantic_type: type/Category
+  - field: token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token
+    new:
+      description: Foreign key to Token model
+  - field: organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization ID
+    new:
+      description: Foreign key to Organization model
+  - field: stripe_charge_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Stripe Charge ID
+    new:
+      description: Foreign key to Stripe Charge model
+  - field: stripe_price_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Stripe Price ID
+    new:
+      description: Foreign key to Stripe Price model
+  - field: stripe_subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Stripe Subscription ID
+    new:
+      description: Foreign key to Stripe Subscription model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to Customer model
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Foreign key to Account model
+- table: ms_subscription_history
+  table_id: 1824
+  dbt_model: ms_subscription_history
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Important changes to Subscription model, such as plan switch.
+    display_name: MS Subscription History
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: valid_from
+    current:
+      description: null
+      semantic_type: null
+      display_name: Valid From
+    new:
+      description: Timestamp from when the change was effective
+  - field: valid_to
+    current:
+      description: null
+      semantic_type: null
+      display_name: Valid To
+    new:
+      description: Timestamp up to, but excluding, when the change was effective
+  - field: plan_alias
+    current:
+      description: null
+      semantic_type: null
+      display_name: Plan Alias
+    new:
+      description: Alias for Stripe subscription plan
+  - field: plan_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Plan Name
+    new:
+      description: Name for Stripe subscription name
+  - field: subscription_status
+    current:
+      description: null
+      semantic_type: null
+      display_name: Subscription Status
+    new:
+      description: Status of the subscription
+  - field: previous_plan_alias
+    current:
+      description: null
+      semantic_type: null
+      display_name: Previous Plan Alias
+    new:
+      description: Alias for Stripe subscription plan before the change. Useful for filtering certain changes.
+  - field: previous_plan_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Previous Plan Name
+    new:
+      description: Name for Stripe subscription name before the change. Useful for filtering certain changes.
+  - field: subscription_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Subscription ID
+    new:
+      description: Foreign key to Metabase Store Subscription model
+  - field: stripe_price_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stripe Price ID
+    new:
+      description: Foreign key to Metabase Store Subscription model
+- table: ms_subscription_version
+  table_id: 1825
+  dbt_model: ms_subscription_version
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Versions of the ms_subscription table. Can be used to track changes to the subscription model. It stores the full history (including the current version). **Granularity:** One row per version of the subscription model instances.
+    display_name: MS Subscription Version
+  fields:
+  - field: version_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Version ID
+    new:
+      description: Primary key
+      semantic_type: type/PK
+  - field: version_created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Version Created At
+    new:
+      description: Timestamp of when the subscription version was created
+      semantic_type: type/CreationTimestamp
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the subscription was created
+  - field: trial_ends_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Trial Ends At
+    new:
+      description: Timestamp of when the trial will end
+  - field: suspend_at
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Suspend At
+    new:
+      description: Timestamp of when the subscription will be suspended
+  - field: canceled_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Canceled At
+    new:
+      description: Timestamp of when the subscription was canceled
+  - field: current_period_end
+    current:
+      description: null
+      semantic_type: null
+      display_name: Current Period End
+    new:
+      description: Timestamp of when the current subscription period ends
+  - field: plan_alias
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Plan Alias
+    new:
+      description: A friendly alias for the Stripe plan
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Status of the subscription, such as active.
+  - field: billing_method
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Billing Method
+    new:
+      description: Shows how the customer will be billed, such as auto_charge.
+  - field: active_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Active Users
+    new:
+      description: Number of active users on the subscription on the date the version was created
+      semantic_type: type/Quantity
+  - field: is_self_service
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Self Service
+    new:
+      description: Indicates if subscription is self managed.
+      semantic_type: type/Category
+  - field: is_sync_variable_unit_to_stripe
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Sync Variable Unit To Stripe
+    new:
+      description: Indicates if user count is sync'ed to Stripe. Optional for enterprise customer that has a different variable_unit count (e.g per installation), so we don’t blow up their invoice.
+      semantic_type: type/Category
+  - field: is_sync_status_from_stripe
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Sync Status From Stripe
+    new:
+      description: Indicates if the status of the subscription (expired/not expired) is synced from Stripe. Optional for enterprise customers as their renewal/PO cycle can be lengthy and we don’t want to nuke their license while they figure stuff out with Sales.
+      semantic_type: type/Category
+  - field: subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription ID
+    new:
+      description: Foreign key to Metabase Store Subscription model
+  - field: token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token
+    new:
+      description: Foreign key to Token model
+  - field: organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization ID
+    new:
+      description: Foreign key to Organization model
+  - field: stripe_charge_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Stripe Charge ID
+    new:
+      description: Foreign key to Stripe Charge model
+  - field: stripe_price_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Stripe Price ID
+    new:
+      description: Foreign key to Stripe Price model
+  - field: stripe_subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Stripe Subscription ID
+    new:
+      description: Foreign key to Stripe Subscription model
+- table: ms_token
+  table_id: 1826
+  dbt_model: ms_token
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Token that activates a Metabase subscription
+    display_name: MS Token
+  fields:
+  - field: token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token
+    new:
+      description: Token being checked. Foreign key to Token model.
+      semantic_type: type/PK
+  - field: is_sync_status_from_stripe
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Sync Status From Stripe
+    new:
+      description: Indicates if the state of the token (expired/not expired) is synced from Stripe. Optional for enterprise customers as their renewal/PO cycle can be lengthy and we don’t want to nuke their license while they figure stuff out with Sales.
+      semantic_type: type/Category
+  - field: valid_thru
+    current:
+      description: null
+      semantic_type: null
+      display_name: Valid Thru
+    new:
+      description: Timestamp of when the token will expire
+  - field: created
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created
+    new:
+      description: Timestamp of when the token was created
+      semantic_type: type/CreationTimestamp
+  - field: updated
+    current:
+      description: null
+      semantic_type: null
+      display_name: Updated
+    new:
+      description: Timestamp of when the token was updated
+      semantic_type: type/UpdatedTimestamp
+  - field: checked_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Checked At
+    new:
+      description: Timestamp of when the token was checked (from token check)
+  - field: state
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: State
+    new:
+      description: Shows if the token is valid or not
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabase Version
+    new:
+      description: Version of the Metabase instance -- most used version (highest user count) since past day or latest token check.
+      semantic_type: type/Category
+  - field: features
+    current:
+      description: null
+      semantic_type: type/SerializedJSON
+      display_name: Features
+    new:
+      description: List of features enabled for the token
+  - field: cloud_provider
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Cloud Provider
+    new:
+      description: Cloud provider where the instance is hosted (inferrred from the IP address). We currently extract the cloud providers using the data from this repo https://github.com/tobilg/public-cloud-provider-ip-ranges. Note that this is not reliable for tokens from inactive instances since the IP address might have switched to a different cloud provider in the meanwhile.
+  - field: hosted_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Hosted Country
+    new:
+      description: Country where the instance is hosted (inferred from the IP address). Note that this is not reliable for tokens where the latest check happened way in the past since the IP address might have switched to a different cloud provider in the meanwhile.
+  - field: hosted_continent
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Hosted Continent
+    new:
+      description: Continent where the instance is hosted (inferred from the IP address). Note that this is not reliable for tokens where the latest check happened way in the past since the IP address might have switched to a different cloud provider in the meanwhile.
+  - field: hosted_city
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Hosted City
+    new:
+      description: City where the instance is hosted (inferred from the IP address). Note that this is not reliable for tokens where the latest check happened way in the past since the IP address might have switched to a different cloud provider in the meanwhile.
+      semantic_type: type/City
+  - field: tenants
+    current:
+      description: null
+      semantic_type: null
+      display_name: Tenants
+    new:
+      description: Number of tenants that have at least one active user.
+  - field: use_tenants
+    current:
+      description: null
+      semantic_type: null
+      display_name: Use Tenants
+    new:
+      description: Whether tenants is enabled.
+  - field: tenant_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Tenant Users
+    new:
+      description: Number of active users that belong to a tenant.
+  - field: metabot_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Users
+    new:
+      description: Count of distinct users who used Metabot in the previous UTC day (00:00-23:59)
+      semantic_type: type/Quantity
+  - field: metabot_tokens
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Tokens
+    new:
+      description: Total number of tokens consumed by Metabot in the previous UTC day (00:00-23:59)
+      semantic_type: type/Quantity
+  - field: metabot_queries
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Queries
+    new:
+      description: Count of user queries/requests made to Metabot in the previous UTC day (00:00-23:59)
+      semantic_type: type/Quantity
+  - field: metabot_usage_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Usage Date
+    new:
+      description: 'Date corresponding to the metabot usage fields: metabot_users, metabot_tokens and metabot_queries.'
+  - field: transform_usage_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Usage Date
+    new:
+      description: Date corresponding to the transform usage fields (transform_native_runs, transform_python_runs) in the previous UTC day (00:00-23:59).
+  - field: transform_native_runs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Native Runs
+    new:
+      description: Number of successful runs for native/MBQL transforms in the previous UTC day (00:00-23:59).
+      semantic_type: type/Quantity
+  - field: transform_python_runs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Python Runs
+    new:
+      description: Number of successful runs for Python transforms in the previous UTC day (00:00-23:59).
+      semantic_type: type/Quantity
+  - field: transform_rolling_usage_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Rolling Usage Date
+    new:
+      description: Date corresponding to the transform usage fields (transform_rolling_native_runs, transform_rolling_python_runs) for the current UTC day (00:00-23:59).
+  - field: transform_rolling_native_runs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Rolling Native Runs
+    new:
+      description: Number of successful runs for native/MBQL transforms in the current UTC day (00:00-23:59).
+      semantic_type: type/Quantity
+  - field: transform_rolling_python_runs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Rolling Python Runs
+    new:
+      description: Number of successful runs for Python transforms in the current UTC day (00:00-23:59).
+      semantic_type: type/Quantity
+  - field: user_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: User Count
+    new:
+      description: Number of users on the instance
+  - field: internal_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Internal Users
+    new:
+      description: Count of total non-deactivated users minus external_users
+      semantic_type: type/Quantity
+  - field: external_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: External Users
+    new:
+      description: Count of non-deactivated users with sso_source=jwt and non-admin.
+      semantic_type: type/Quantity
+  - field: domains
+    current:
+      description: null
+      semantic_type: null
+      display_name: Domains
+    new:
+      description: Count of unique email domains in the account
+  - field: query_executions_internal
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Internal
+    new:
+      description: Count of query executions in time window WHERE embedding client IS NULL or EMPTY and EXECUTOR is NOT NULL
+      semantic_type: type/Quantity
+  - field: query_executions_public_link
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Public Link
+    new:
+      description: Count of query executions in time window WHERE embedding client IS empty or null (?) AND executor IS NULL
+      semantic_type: type/Quantity
+  - field: query_executions_static_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Static Embed
+    new:
+      description: Count of query executions in time window WHERE embedding client = "embedding-iframe" AND executor IS NULL
+      semantic_type: type/Quantity
+  - field: query_executions_interactive_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Interactive Embed
+    new:
+      description: Count of query executions in time window WHERE embedding client = "embedding-iframe" AND executor IS NOT NULL
+      semantic_type: type/Quantity
+  - field: query_executions_sdk_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Sdk Embed
+    new:
+      description: Count of query executions in time window WHERE embedding client = "embedding-sdk-react"
+      semantic_type: type/Quantity
+  - field: embedding_dashboard_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Embedding Dashboard Count
+    new:
+      description: Count of embedded dashboards
+  - field: embedding_question_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Embedding Question Count
+    new:
+      description: Count of embedded questions
+  - field: enabled_embedding_static
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enabled Embedding Static
+    new:
+      description: Setting enable_embedding_static with at least one embedded_dashboard or embedded_question
+  - field: enabled_embedding_interactive
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enabled Embedding Interactive
+    new:
+      description: Setting enable_embedding_interactive && embedding_app_origin non-default value && at least one SSO method enabled
+  - field: enabled_embedding_sdk
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enabled Embedding Sdk
+    new:
+      description: Setting enable-embedding-sdk && jwt-enabled && sdk enabled
+  - field: stripe_subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Stripe Subscription ID
+    new:
+      description: Foreign key to Stripe Subscription model
+  - field: organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization ID
+    new:
+      description: Foreign ID to Metabase Store Organization model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to Customer model
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Foreign key to Account model
+- table: ms_token_check
+  table_id: 1827
+  dbt_model: ms_token_check
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Token checks from Metabase installations with user count and site details. Generally happens hourly.
+    display_name: MS Token Check
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: site_uuid
+    current:
+      description: null
+      semantic_type: null
+      display_name: Site UUID
+    new:
+      description: UUID of the site
+  - field: token
+    current:
+      description: null
+      semantic_type: null
+      display_name: Token
+    new:
+      description: Token being checked. Foreign key to Token model.
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp of when the check was done
+  - field: owner_email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Owner Email
+    new:
+      description: Email of the owner of the instance
+  - field: metabase_version
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Metabase Version
+    new:
+      description: Version of the Metabase instance
+  - field: remote_address
+    current:
+      description: null
+      semantic_type: null
+      display_name: Remote Address
+    new:
+      description: IP address of the instance
+  - field: cloud_provider
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Cloud Provider
+    new:
+      description: Cloud provider where the instance is hosted (inferrred from the IP address). We currently extract the cloud providers using the data from this repo https://github.com/tobilg/public-cloud-provider-ip-ranges. Note that this is not reliable for tokens where the latest check happened way in the past since the IP address might have switched to a different cloud provider in the meanwhile.
+  - field: hosted_country
+    current:
+      description: null
+      semantic_type: type/Country
+      display_name: Hosted Country
+    new:
+      description: Country where the instance is hosted (inferred from the IP address). Note that this is not reliable for tokens where the latest check happened way in the past since the IP address might have switched to a different cloud provider in the meanwhile.
+  - field: hosted_continent
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Hosted Continent
+    new:
+      description: Continent where the instance is hosted (inferred from the IP address). Note that this is not reliable for tokens where the latest check happened way in the past since the IP address might have switched to a different cloud provider in the meanwhile.
+  - field: hosted_city
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Hosted City
+    new:
+      description: City where the instance is hosted (inferred from the IP address). Note that this is not reliable for tokens where the latest check happened way in the past since the IP address might have switched to a different cloud provider in the meanwhile.
+      semantic_type: type/City
+  - field: user_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: User Count
+    new:
+      description: Number of users on the instance
+  - field: internal_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Internal Users
+    new:
+      description: Count of total non-deactivated users minus external_users
+      semantic_type: type/Quantity
+  - field: external_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: External Users
+    new:
+      description: Count of non-deactivated users with sso_source=jwt and non-admin.
+      semantic_type: type/Quantity
+  - field: domains
+    current:
+      description: null
+      semantic_type: null
+      display_name: Domains
+    new:
+      description: Count of unique email domains in the account
+  - field: tenants
+    current:
+      description: null
+      semantic_type: null
+      display_name: Tenants
+    new:
+      description: Number of tenants that have at least one active user.
+  - field: use_tenants
+    current:
+      description: null
+      semantic_type: null
+      display_name: Use Tenants
+    new:
+      description: Whether tenants is enabled.
+  - field: tenant_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Tenant Users
+    new:
+      description: Number of active users that belong to a tenant.
+  - field: query_executions_internal
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Internal
+    new:
+      description: Count of query executions in time window WHERE embedding client IS NULL or EMPTY and EXECUTOR is NOT NULL
+      semantic_type: type/Quantity
+  - field: query_executions_public_link
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Public Link
+    new:
+      description: Count of query executions in time window WHERE embedding client IS empty or null (?) AND executor IS NULL
+      semantic_type: type/Quantity
+  - field: query_executions_static_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Static Embed
+    new:
+      description: Count of query executions in time window WHERE embedding client = "embedding-iframe" AND executor IS NULL
+      semantic_type: type/Quantity
+  - field: query_executions_interactive_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Interactive Embed
+    new:
+      description: Count of query executions in time window WHERE embedding client = "embedding-iframe" AND executor IS NOT NULL
+      semantic_type: type/Quantity
+  - field: query_executions_sdk_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Sdk Embed
+    new:
+      description: Count of query executions in time window WHERE embedding client = "embedding-sdk-react"
+      semantic_type: type/Quantity
+  - field: query_executions_simple_embed
+    current:
+      description: null
+      semantic_type: null
+      display_name: Query Executions Simple Embed
+    new:
+      description: Count of query executions embedding client = "embedding-simple" (Embedded Analytics JS)
+      semantic_type: type/Quantity
+  - field: embedding_dashboard_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Embedding Dashboard Count
+    new:
+      description: Count of embedded dashboards
+  - field: embedding_question_count
+    current:
+      description: null
+      semantic_type: type/Quantity
+      display_name: Embedding Question Count
+    new:
+      description: Count of embedded questions
+  - field: enabled_embedding_static
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enabled Embedding Static
+    new:
+      description: Setting enable_embedding_static with at least one embedded_dashboard or embedded_question
+  - field: enabled_embedding_interactive
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enabled Embedding Interactive
+    new:
+      description: Setting enable_embedding_interactive && embedding_app_origin non-default value && at least one SSO method enabled
+  - field: enabled_embedding_sdk
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enabled Embedding Sdk
+    new:
+      description: Setting enable-embedding-sdk && jwt-enabled && sdk enabled
+  - field: enabled_embedding_simple
+    current:
+      description: null
+      semantic_type: null
+      display_name: Enabled Embedding Simple
+    new:
+      description: Setting enabled-embedding-simple enabled (Embedded Analytics JS)
+  - field: metabot_users
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Users
+    new:
+      description: Count of distinct users who used Metabot in the previous UTC day (00:00-23:59)
+      semantic_type: type/Quantity
+  - field: metabot_tokens
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Tokens
+    new:
+      description: Total number of tokens consumed by Metabot in the previous UTC day (00:00-23:59)
+      semantic_type: type/Quantity
+  - field: metabot_queries
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Queries
+    new:
+      description: Count of user queries/requests made to Metabot in the previous UTC day (00:00-23:59)
+      semantic_type: type/Quantity
+  - field: metabot_usage_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Metabot Usage Date
+    new:
+      description: 'Date corresponding to the metabot usage fields: metabot_users, metabot_tokens and metabot_queries.'
+  - field: transform_usage_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Usage Date
+    new:
+      description: Date corresponding to the transform usage fields (transform_native_runs, transform_python_runs) in the previous UTC day (00:00-23:59).
+  - field: transform_native_runs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Native Runs
+    new:
+      description: Number of successful runs for native/MBQL transforms in the previous UTC day (00:00-23:59).
+  - field: transform_python_runs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Python Runs
+    new:
+      description: Number of successful runs for Python transforms in the previous UTC day (00:00-23:59).
+      semantic_type: type/Quantity
+  - field: transform_rolling_usage_date
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Rolling Usage Date
+    new:
+      description: Date corresponding to the transform usage fields (transform_rolling_native_runs, transform_rolling_python_runs) for the current UTC day (00:00-23:59).
+  - field: transform_rolling_native_runs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Rolling Native Runs
+    new:
+      description: Number of successful runs for native/MBQL transforms in the current UTC day (00:00-23:59).
+  - field: transform_rolling_python_runs
+    current:
+      description: null
+      semantic_type: null
+      display_name: Transform Rolling Python Runs
+    new:
+      description: Number of successful runs for Python transforms in the current UTC day (00:00-23:59).
+- table: ms_trial_up
+  table_id: 1828
+  dbt_model: ms_trial_up
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Upgrade trials, such as trying Pro.
+    display_name: MS Trial Up
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Created At
+    new:
+      description: Timestamp of when the trial was created
+  - field: expires_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Expires At
+    new:
+      description: Timestamp of when the trial will expire
+  - field: status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Status
+    new:
+      description: Status of the trial
+  - field: plan_alias
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Plan Alias
+    new:
+      description: Plan being trialed
+  - field: old_plan_alias
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Old Plan Alias
+    new:
+      description: Plan before the trial
+  - field: subscription_id
+    current:
+      description: null
+      semantic_type: type/Subscription
+      display_name: Subscription ID
+    new:
+      description: Foreign ID to Metabase Store Subscription model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to Customer model
+  - field: account_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Account ID
+    new:
+      description: Foreign key to Account model
+- table: ms_user
+  table_id: 1829
+  dbt_model: ms_user
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: Users for organizations
+    display_name: MS User
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp of when the user was created
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Updated At
+    new:
+      description: Timestamp of when the user was updated
+  - field: first_name
+    current:
+      description: null
+      semantic_type: type/Name
+      display_name: First Name
+    new:
+      description: First name of the user
+  - field: last_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Last Name
+    new:
+      description: Last name of the user
+  - field: email
+    current:
+      description: null
+      semantic_type: type/Email
+      display_name: Email
+    new:
+      description: Email of the user
+  - field: email_hash
+    current:
+      description: null
+      semantic_type: null
+      display_name: Email Hash
+    new:
+      description: Hashed version of email that can be joined to other models with the same, such as Hosting Insights Core User model.
+  - field: organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization ID
+    new:
+      description: Foreign key to Metabase Store Organization model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to Customer model
+- table: ms_utm
+  table_id: 1830
+  dbt_model: ms_utm
+  dbt_source: data_products/metabase_store/schema.yml
+  table_changes:
+    description: UTM info for organization when they are created
+    display_name: MS UTM
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Created At
+    new:
+      description: When the UTM was associated with the org
+  - field: organization_name
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Organization Name
+    new:
+      description: Name of the organization
+  - field: utm_medium
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Medium
+    new:
+      description: Identifies what type of link was used, such as paid or email.
+  - field: utm_source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Utm Source
+    new:
+      description: Identifies which site sent the traffic.
+  - field: utm_campaign
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Campaign
+    new:
+      description: Identifies a specific product promotion or strategic campaign.
+  - field: utm_content
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Content
+    new:
+      description: Identifies what specifically was clicked to bring the user to the site, such as a banner ad or a text link.
+  - field: utm_term
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm Term
+    new:
+      description: Identifies search terms
+  - field: utm_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Utm ID
+    new:
+      description: Unique ID for the campaign used by Google
+  - field: organization_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Organization ID
+    new:
+      description: Foreign key to Metabase Store Organization model
+  - field: customer_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Customer ID
+    new:
+      description: Foreign key to Customer model
+  - field: signup_path
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Signup Path
+    new:
+      description: Metabase store path where signup happened
+  - field: referrer_url
+    current:
+      description: null
+      semantic_type: type/URL
+      display_name: Referrer URL
+    new:
+      description: Referrer url where customer came from when signing up

@@ -1,0 +1,16 @@
+schema: transforms_surveys
+tables:
+- table: nps_survey_response
+  table_id: 2039
+  dbt_model: nps_survey_response
+  dbt_source: data_products/surveys/schema.yml
+  table_changes:
+    description: NPS survey responses from Survey Monkey (new) and Metabase Store (old) combined into a single view. The survey_id for the new responses from Survey Monkey is general-new.
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key

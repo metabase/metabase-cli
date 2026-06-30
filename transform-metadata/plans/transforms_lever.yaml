@@ -1,0 +1,415 @@
+schema: transforms_lever
+tables:
+- table: lever_application
+  table_id: 1783
+  dbt_model: lever_application
+  dbt_source: data_products/lever/schema.yml
+  table_changes:
+    description: Applications filled by candidates to specific jobs and their current status
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: _opportunity_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Opportunity ID
+    new:
+      description: Opportunity ID
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp of when the application was created
+  - field: updated_at
+    current:
+      description: null
+      semantic_type: type/UpdatedTimestamp
+      display_name: Updated At
+    new:
+      description: Timestamp of when the application was last updated
+  - field: archived_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Archived At
+    new:
+      description: Timestamp of when the application was archived at
+  - field: is_archived
+    current:
+      description: null
+      semantic_type: null
+      display_name: Is Archived
+    new:
+      description: Indicates if the application is archived or not
+  - field: last_stage
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Last Stage
+    new:
+      description: Last stage of the application
+  - field: job_title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Job Title
+    new:
+      description: Job being applied for
+  - field: job_team
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Job Team
+    new:
+      description: Team the job belongs to
+  - field: candidate_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Candidate Name
+    new:
+      description: Full name of the candidate that applied
+  - field: candidate_location
+    current:
+      description: null
+      semantic_type: null
+      display_name: Candidate Location
+    new:
+      description: Location of the candidate, such as country.
+  - field: candidate_company
+    current:
+      description: null
+      semantic_type: type/Company
+      display_name: Candidate Company
+    new:
+      description: Current/last company where the candidate worked
+  - field: archived_reason
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Archived Reason
+    new:
+      description: If archived, the reason for doing so.
+  - field: withdrawal_reason
+    current:
+      description: null
+      semantic_type: null
+      display_name: Withdrawal Reason
+    new:
+      description: Reason the candidate withdrew the application
+  - field: hiring_manager
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Hiring Manager
+    new:
+      description: Full name of the manager responsible for hiring
+  - field: triaged_by
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Triaged By
+    new:
+      description: Name of the person that triaged the application (first updated to next stage)
+  - field: origin
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Origin
+    new:
+      description: Shows how the application was created, such as applied or referred.
+  - field: source
+    current:
+      description: null
+      semantic_type: type/Source
+      display_name: Source
+    new:
+      description: From the origin, shows the specific source / location / person.
+  - field: days_old
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days Old
+    new:
+      description: Number of days since application was created until archived or now.
+  - field: stage_order
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stage Order
+    new:
+      description: Numeric value that represents the order of the last stage
+  - field: job_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Job ID
+    new:
+      description: Foreign key to Job model
+  - field: candidate_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Candidate ID
+    new:
+      description: Unique ID for candidate
+- table: lever_application_history
+  table_id: 1784
+  dbt_model: lever_application_history
+  dbt_source: data_products/lever/schema.yml
+  table_changes:
+    description: Tracks the status of each application as they move from one stage to the next
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: started_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Started At
+    new:
+      description: Timestamp of when the stage started
+  - field: ended_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Ended At
+    new:
+      description: Timestamp of when the stage ended
+  - field: job_title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Job Title
+    new:
+      description: Title of the job
+  - field: candidate_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Candidate Name
+    new:
+      description: Name of the candidate
+  - field: hiring_manager
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Hiring Manager
+    new:
+      description: Full name of the manager responsible for hiring
+  - field: stage
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Stage
+    new:
+      description: Stage of the application
+  - field: stage_status
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Stage Status
+    new:
+      description: Status for the stage, such as passed or failed.
+  - field: stage_order
+    current:
+      description: null
+      semantic_type: null
+      display_name: Stage Order
+    new:
+      description: Numeric value that provides sorting orer for the stage
+  - field: days_in_stage
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days In Stage
+    new:
+      description: Number of days in the stage
+  - field: days_to_stage
+    current:
+      description: null
+      semantic_type: null
+      display_name: Days To Stage
+    new:
+      description: Number of days to get into stage from first stage
+  - field: application_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Application ID
+    new:
+      description: Foreign key to Application model
+  - field: job_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Job ID
+    new:
+      description: Foreign key to Job model
+  - field: candidate_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Candidate ID
+    new:
+      description: Unique id for candidate
+- table: lever_interview
+  table_id: 1785
+  dbt_model: lever_interview
+  dbt_source: data_products/lever/schema.yml
+  table_changes:
+    description: Interview details for each application stage and interviewer
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: scheduled_at
+    current:
+      description: null
+      semantic_type: null
+      display_name: Scheduled At
+    new:
+      description: Timestamp of when the interview was scheduled at
+  - field: canceled_at
+    current:
+      description: null
+      semantic_type: type/CancelationTimestamp
+      display_name: Canceled At
+    new:
+      description: Timestamp of when the interview was canceled at
+  - field: job_title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Job Title
+    new:
+      description: Title of the job
+  - field: candidate_name
+    current:
+      description: null
+      semantic_type: null
+      display_name: Candidate Name
+    new:
+      description: Name of the candidate
+  - field: hiring_manager
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Hiring Manager
+    new:
+      description: Full name of the manager responsible for hiring
+  - field: interviewer
+    current:
+      description: null
+      semantic_type: null
+      display_name: Interviewer
+    new:
+      description: Full name of the person doing the interview
+  - field: stage
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Stage
+    new:
+      description: Stage of the application
+  - field: application_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Application ID
+    new:
+      description: Foreign key to Application model
+  - field: job_id
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Job ID
+    new:
+      description: Foreign key to Job model
+  - field: candidate_id
+    current:
+      description: null
+      semantic_type: null
+      display_name: Candidate ID
+    new:
+      description: Unique id for candidate
+- table: lever_job
+  table_id: 1786
+  dbt_model: lever_job
+  dbt_source: data_products/lever/schema.yml
+  table_changes:
+    description: Job postings
+  fields:
+  - field: id
+    current:
+      description: null
+      semantic_type: type/PK
+      display_name: ID
+    new:
+      description: Primary key
+  - field: created_at
+    current:
+      description: null
+      semantic_type: type/CreationTimestamp
+      display_name: Created At
+    new:
+      description: Timestamp of when the job was created
+  - field: state
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: State
+    new:
+      description: Shows the current state of the job
+  - field: title
+    current:
+      description: null
+      semantic_type: type/Title
+      display_name: Title
+    new:
+      description: Title of the job
+  - field: team
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Team
+    new:
+      description: Team of the job
+  - field: location
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Location
+    new:
+      description: Location of the job, such as country.
+  - field: commitment
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Commitment
+    new:
+      description: Commitment of the job, such as full-time.
+  - field: hiring_manager
+    current:
+      description: null
+      semantic_type: type/Category
+      display_name: Hiring Manager
+    new:
+      description: The manager that is hiring for the job
