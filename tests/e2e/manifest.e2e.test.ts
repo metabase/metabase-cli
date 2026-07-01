@@ -60,6 +60,7 @@ describe("__manifest e2e", () => {
       "dashboard list",
       "dashboard get",
       "dashboard cards",
+      "dashboard parameter-values",
       "dashboard create",
       "dashboard update",
       "dashboard update-dashcard",

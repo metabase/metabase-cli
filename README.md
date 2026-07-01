@@ -629,6 +629,27 @@ mb dashboard cards 1
 mb dashboard cards 1 --json
 ```
 
+#### Dashboard parameters (filters)
+
+A dashboard's `parameters` are its filter widgets. They're typed (`Parameter` schema): an invalid `type` is rejected at the CLI boundary with a message that echoes the full allowed enum (`string/=`, `string/contains`, `number/between`, `date/range`, `category`, `id`, `temporal-unit`, …).
+
+Read them off the dashboard with `mb dashboard get <id> --fields parameters --json` (or `--full` for the whole record). There is no separate read verb — they're part of the dashboard.
+
+Editing replaces the **whole** `parameters` array, so it's a read-modify-write loop: read the current set, modify it, and send it all back via `mb dashboard create`/`mb dashboard update --body '{"parameters":[…]}'`; omitting a parameter deletes it. Each parameter's `id` is a descriptive string you choose (reuse the `slug`, e.g. `order_status`), unique within the dashboard — Metabase stores any non-blank string as-is, so there is no need to generate a random id (use `mb uuid` only if you genuinely want an opaque one). Bind a parameter to a card column through a dashcard's `parameter_mappings`, whose `parameter_id` must match a parameter `id` exactly.
+
+### `mb dashboard parameter-values <dashboard-id> <parameter-id>`
+
+Fetch the selectable values for one dashboard parameter (`{values, has_more_values}`). Values come from the parameter's static list, its source card, or — for a parameter mapped to a field — the field's live distinct values (chain-filtered).
+
+```sh
+mb dashboard parameter-values 1 order_status --json
+mb dashboard parameter-values 1 order_status --query Cam --json
+```
+
+| Flag               | Description                                                                            |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| `--query <substr>` | Case-insensitive substring search (first 1000 matches) instead of the full value list. |
+
 ### `mb dashboard create`
 
 The body accepts the same dashboard-level fields as the underlying `POST /api/dashboard` (`name`, `description`, `parameters`, `cache_ttl`, `collection_id`, `collection_position`). It also accepts optional `dashcards` and `tabs`: when either is present, the CLI chains a `PUT /api/dashboard/:id` after the create and returns the updated dashboard with its dashcards/tabs applied. Use a negative `id` on a dashcard to indicate one the server should newly create.
