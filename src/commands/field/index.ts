@@ -1,7 +1,11 @@
-import { defineCommand } from "citty";
+import { defineCommandGroup } from "../group";
 
-export default defineCommand({
-  meta: { name: "field", description: "Manage Metabase fields" },
+export default defineCommandGroup({
+  name: "field",
+  description: "Manage Metabase fields",
+  skills: [
+    { skill: "core", purpose: "field metadata — semantic types, FK targets, cached values" },
+  ],
   subCommands: {
     get: () => import("./get").then((m) => m.default),
     values: () => import("./values").then((m) => m.default),

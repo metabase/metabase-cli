@@ -16,10 +16,17 @@ export const ManifestArg = z.object({
 });
 export type ManifestArg = z.infer<typeof ManifestArg>;
 
+export const ManifestSkill = z.object({
+  skill: z.string(),
+  purpose: z.string(),
+});
+export type ManifestSkill = z.infer<typeof ManifestSkill>;
+
 export const ManifestEntry = z.object({
   command: z.string(),
   description: z.string(),
   details: z.string().optional(),
+  skills: z.array(ManifestSkill),
   examples: z.array(z.string()),
   args: z.array(ManifestArg),
   outputSchema: z.unknown().nullable(),
@@ -62,6 +69,7 @@ async function walk(cmd: CommandDef, path: string[]): Promise<ManifestEntry[]> {
   const entry: ManifestEntry = {
     command: path.join(" "),
     description: readDescription(meta),
+    skills: Array.from(augment.skills),
     examples: Array.from(augment.examples),
     args: convertArgs(args),
     outputSchema: augment.outputSchema ? z.toJSONSchema(augment.outputSchema) : null,

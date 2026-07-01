@@ -27,7 +27,7 @@ import { CapabilityError } from "../core/version/preflight-error";
 import { type ServerInfo } from "../core/version/probe";
 import { reportError } from "../output/error";
 import { warn } from "../output/notice";
-import { setMetabaseAugment } from "../runtime/command-augment";
+import { setMetabaseAugment, type SkillPointer } from "../runtime/command-augment";
 
 import { resolveCommonFlags, type CommonArgs, type CommonContext } from "./context";
 import { assertKnownFlags } from "./known-flags";
@@ -47,6 +47,7 @@ export interface MetabaseCommandDef<A extends ArgsDef> {
   args: A;
   examples?: readonly string[];
   details?: string;
+  skills?: readonly SkillPointer[];
   outputSchema?: ZodType;
   capabilities?: Partial<Capabilities> | null;
   run: (context: MetabaseCommandContext<A>) => Promise<void> | void;
@@ -123,6 +124,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
   setMetabaseAugment(cmd, {
     examples: def.examples ?? [],
     details: def.details ? def.details : null,
+    skills: def.skills ?? [],
     outputSchema: def.outputSchema ?? null,
     capabilities: required,
   });

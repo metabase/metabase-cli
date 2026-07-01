@@ -1,5 +1,17 @@
 # visualization_settings — per-chart key reference
 
+## Contents
+
+- [Cartesian — `bar`, `line`, `area`, `combo`, `scatter`, `waterfall`, `row`, `boxplot`](#cartesian--bar-line-area-combo-scatter-waterfall-row-boxplot) — shared keys (binding, stacking, goal/trend, data labels, axes, tooltip) plus `scatter`, `waterfall`, `row`, `boxplot` extras
+- [Part-to-whole & single value — `pie`, `funnel`, `gauge`, `progress`, `scalar`, `smartscalar`](#part-to-whole--single-value--pie-funnel-gauge-progress-scalar-smartscalar)
+- [Tabular, geographic & flow — `table`, `pivot`, `object`, `map`, `sankey`](#tabular-geographic--flow--table-pivot-object-map-sankey) — includes `table.column_formatting` conditional formatting
+- [`column_settings` — per-column formatting](#column_settings--per-column-formatting) — number/date/currency, `view_as`, alignment, mini bars
+- [`series_settings` — per-series styling (cartesian)](#series_settings--per-series-styling-cartesian)
+- [Virtual cards (dashcards only, `card_id: null`)](#virtual-cards-dashcards-only-card_id-null) — heading/text/link/iframe
+- [Click behavior (dashcards only)](#click-behavior-dashcards-only)
+
+---
+
 Authorable keys per `display`, plus the data shape each chart suits and the minimum needed to render. Set keys only to override defaults — an empty `{}` works for a simple aggregate.
 
 All column-naming keys (`graph.dimensions`, `pie.dimension`, `table.columns[].name`, `map.latitude_column`, …) take **output column-name strings** — the names the query produces. Every key and value below is identical in the API form (`mb card create`) and the portable git-sync form, with two exceptions: `column_settings` `["ref", …]` keys and click-behavior dimension targets carry a numeric field id in the API form and a name-path in the portable form. In a JSON body, `column_settings` keys are escaped strings: `"[\"name\",\"TOTAL\"]"`.

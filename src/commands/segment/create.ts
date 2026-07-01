@@ -16,7 +16,8 @@ export default defineMetabaseCommand({
     description: "Create a segment (saved filter) from JSON",
   },
   details:
-    "A segment is a reusable, saved row filter tied to a table. The JSON body needs `name`, `table_id`, and a `definition` (an MBQL query holding the filter). An MBQL 5 `definition` is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass. See `mb skills get mbql`.",
+    "A segment is a reusable, saved row filter tied to a table. The JSON body needs `name`, `table_id`, and a `definition` (an MBQL query holding the filter). An MBQL 5 `definition` is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass.",
+  skills: [{ skill: "mbql", purpose: "the definition filter clause" }],
   capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,

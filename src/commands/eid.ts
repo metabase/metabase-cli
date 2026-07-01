@@ -19,6 +19,9 @@ export default defineMetabaseCommand({
     name: "eid",
     description: "Translate Metabase entity ids (string EIDs) to numeric ids",
   },
+  details:
+    "Entity ids are NanoIDs that can start with `-`; pass those via `--body` so the positional parser doesn't read them as a flag.",
+  skills: [{ skill: "core", purpose: "entity-id translation and body input" }],
   capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,

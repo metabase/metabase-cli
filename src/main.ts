@@ -3,6 +3,8 @@ import type { CommandDef } from "citty";
 
 import packageJson from "../package.json" with { type: "json" };
 
+import { setMetabaseAugment } from "./runtime/command-augment";
+
 const main: CommandDef = defineCommand({
   meta: {
     name: "mb",
@@ -37,6 +39,20 @@ const main: CommandDef = defineCommand({
     __manifest: (): Promise<CommandDef> =>
       import("./commands/manifest").then((mod) => mod.createManifestCommand(main)),
   },
+});
+
+setMetabaseAugment(main, {
+  examples: [],
+  details: null,
+  skills: [
+    { skill: "core", purpose: "auth, conventions, and per-resource footguns" },
+    {
+      skill: "data-workflow",
+      purpose: "guided end-to-end: raw data → clean tables → metrics → answers → dashboards",
+    },
+  ],
+  outputSchema: null,
+  capabilities: null,
 });
 
 export default main;

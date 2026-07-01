@@ -2,7 +2,7 @@ import { renderUsage } from "citty";
 import type { ArgsDef, CommandDef, SubCommandsDef } from "citty";
 
 import { flagConsumesValue, resolveCitty, toAliasArray } from "../runtime/citty";
-import { getMetabaseAugment } from "../runtime/command-augment";
+import { getMetabaseAugment, type SkillPointer } from "../runtime/command-augment";
 
 export const ANSI_ESC = String.fromCharCode(27);
 const ANSI_PATTERN = new RegExp(`${ANSI_ESC}\\[[0-9;]*m`, "g");
@@ -30,6 +30,9 @@ const HELP_FLAG_DESCRIPTION = "Show help for this command";
 
 const GETTING_STARTED_HINT = `First time? Run \`${CLI_NAME} auth login\` to connect to a Metabase instance.`;
 
+const SKILLS_HEADER = "AGENT SKILLS";
+const SKILLS_LIST_ITEM = `${CLI_NAME} skills list — every bundled skill`;
+
 interface UsageRewrite {
   cittyName: string;
   breadcrumb: string;
@@ -54,6 +57,7 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
   const augment = getMetabaseAugment(cmd);
   const details = augment?.details ?? null;
   const examples = augment?.examples ?? [];
+  const skills = augment?.skills ?? [];
 
   const transformed = transformBody(lines, {
     cittyName,
@@ -65,6 +69,9 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
   const sections = [body];
   if (examples.length > 0) {
     sections.push(renderExamples(examples));
+  }
+  if (skills.length > 0) {
+    sections.push(renderSkillsSection(skills, isRoot));
   }
   if (isRoot) {
     sections.push(GETTING_STARTED_HINT);
@@ -148,6 +155,17 @@ function optionLayout(row: string): OptionLayout | null {
     return null;
   }
   return { flagEnd, descStart: flagEnd + gapRemainder };
+}
+
+export function renderSkillsSection(
+  skills: readonly SkillPointer[],
+  includeListPointer: boolean,
+): string {
+  const items = skills.map((p) => `${LINE_PREFIX}mb skills get ${p.skill} — ${p.purpose}`);
+  if (includeListPointer) {
+    items.push(`${LINE_PREFIX}${SKILLS_LIST_ITEM}`);
+  }
+  return [SKILLS_HEADER, "", ...items].join("\n");
 }
 
 function withDetails(lines: string[], details: string | null): string[] {

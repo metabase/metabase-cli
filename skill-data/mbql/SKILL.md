@@ -1,6 +1,6 @@
 ---
 name: mbql
-description: Author Metabase MBQL 5 query bodies for the `mb` CLI - the only hand-authorable query format. Covers the JSON shape (lib/type mbql/query, flat numeric-id stages), the options-object-always-second clause rule, when lib/uuid is needed (optional - only to reference a clause), the print-schema/dry-run/run loop, where MBQL 5 is consumed (mb query, card dataset_query, transform source.query, measure/segment definition), the flat-vs-legacy-envelope footgun, joins and FK traversal, multi-stage pipelines, naming aggregation columns. Load when building or fixing an MBQL query by hand - "write an MBQL query", "create a card from MBQL", "the dataset_query is wrong", "fix the validation errors", "aggregate and group by", "join two tables", "month-over-month", or any `--dry-run` / `mb query` work.
+description: Author and debug MBQL 5 query bodies for the `mb` CLI — the only hand-authorable query format. Covers the JSON shape (flat numeric-id stages, options-object-second clauses, optional lib/uuid), joins and FK traversal, multi-stage pipelines, aggregation naming, the flat-vs-legacy-envelope footgun, and the print-schema → dry-run → run validation loop. Use when writing or fixing any query body — `mb query`, a card's `dataset_query`, a transform's `source.query`, or a segment/measure `definition` — or when `--dry-run`/run reports validation errors. Triggers — "write an MBQL query", "the dataset_query is wrong", "aggregate and group by", "join two tables", "month-over-month".
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
@@ -10,7 +10,7 @@ MBQL 5 is the **only query format you can author by hand** with confidence — i
 
 Prefer MBQL over native SQL: portable across warehouse engines and pre-flight-validated. Try it first; fall back to native SQL when MBQL can't express what you need, or when an MBQL body keeps failing server-side and you can't resolve it.
 
-General flag conventions, body-input precedence, and output flags live in the `core` skill (`mb skills get core`).
+General flag conventions, body-input precedence, output flags, `./.scratch`, and `mb uuid` mechanics live in `core` (`mb skills get core`).
 
 ## The shape
 
@@ -64,11 +64,7 @@ Set an explicit `lib/uuid` only when you must **reference a clause from elsewher
 
 (`AGG_UUID` is both the aggregation's own `lib/uuid` and the string the ref points at — one value, by string equality. Every other clause omits its UUID. Expression refs work the same way but key off the expression's `lib/expression-name` string, so expressions rarely need an explicit `lib/uuid`.)
 
-When you do need one, **always mint it with `mb uuid` — never write, guess, or copy a UUID yourself.** A hand-authored value is rejected pre-flight as not-a-v4 (`"a1"`, `"uuid-1"`, `"agg-uuid-001"` → `must be a UUID v4 (RFC 4122) — run \`mb uuid\``), or if it looks valid risks colliding with another clause. Only `mb uuid`gives genuine, unique v4s — mint just the few you reference (also covers native template-tag ids and any other`format: "uuid"` slot):
-
-```bash
-mb uuid --count 2 --json     # mint only the clauses you actually reference
-```
+When you do need one, **always mint it with `mb uuid` — never write, guess, or copy a UUID yourself.** A hand-authored value is rejected pre-flight as not-a-v4 (`"a1"`, `"uuid-1"`, `"agg-uuid-001"` → ``must be a UUID v4 (RFC 4122) — run `mb uuid` ``), or if it looks valid risks colliding with another clause. Mint just the few you reference (`mb uuid --count 2 --json`; this also covers native template-tag ids and any other `format: "uuid"` slot).
 
 ## Authoring loop: print-schema → dry-run → run
 
@@ -213,11 +209,3 @@ mb skills path mbql           # → the skill dir; then Read references/operator
 ```
 
 `mb query --print-schema` is the exhaustive-but-heavy fallback (the full JSON Schema, ~1600 lines). The cheat-sheet covers the vocabulary; the `--dry-run` loop settles any disagreement.
-
-## Don't
-
-- Don't mint a `lib/uuid` for every clause — they're optional; omit them and the server fills them in. Mint (with `mb uuid`) only the clause you need to reference; never invent, hard-code, or copy a UUID (duplicates are rejected server-side).
-- Keep the options object in slot 1 of every clause — `[op, {options}, ...args]`, id last (`["field", {}, 1779]`). The legacy `["field", id, opts]` order (id second) is rejected pre-flight.
-- Don't wrap an MBQL 5 body in `{type:"query", query:…}` — `dataset_query` / `source.query` / `definition` is the flat `mbql/query`.
-- Don't author MBQL 4 by hand — build it in the UI and pull it with `… get <id> --full --json`.
-- Don't skip the `--dry-run` loop on a non-trivial query — it's free and exact.
