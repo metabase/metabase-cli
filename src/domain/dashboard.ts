@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { Parameter, ParameterMapping } from "./parameter";
 import type { ResourceView } from "./view";
 
 const DashboardWidth = z.enum(["fixed", "full"]);
@@ -16,7 +17,7 @@ export const Dashcard = z
     size_y: z.number().int(),
     entity_id: z.string().nullable(),
     visualization_settings: z.unknown(),
-    parameter_mappings: z.array(z.unknown()).nullable(),
+    parameter_mappings: z.array(ParameterMapping).nullable(),
     inline_parameters: z.array(z.string()).nullable(),
   })
   .loose();
@@ -80,7 +81,7 @@ export const Dashboard = z
     enable_embedding: z.boolean(),
     public_uuid: z.string().nullable(),
     cache_ttl: z.number().int().nullable(),
-    parameters: z.array(z.unknown()).nullable(),
+    parameters: z.array(Parameter).nullable(),
     dashcards: z.array(Dashcard).optional(),
     tabs: z.array(DashboardTab).optional(),
   })
@@ -88,6 +89,7 @@ export const Dashboard = z
 export type Dashboard = z.infer<typeof Dashboard>;
 
 export const DashboardDetail = Dashboard.extend({
+  parameters: z.array(Parameter),
   dashcards: z.array(Dashcard),
   tabs: z.array(DashboardTab),
 });
@@ -121,7 +123,7 @@ export const DashboardCreateInput = z
   .object({
     name: z.string().min(1),
     description: z.string().nullable().optional(),
-    parameters: z.array(z.unknown()).optional(),
+    parameters: z.array(Parameter).optional(),
     cache_ttl: z.number().int().positive().optional(),
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
@@ -139,7 +141,7 @@ export const DashboardUpdateInput = z
     width: DashboardWidth.optional(),
     enable_embedding: z.boolean().optional(),
     embedding_params: z.unknown().optional(),
-    parameters: z.array(z.unknown()).optional(),
+    parameters: z.array(Parameter).optional(),
     cache_ttl: z.number().int().positive().nullable().optional(),
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
@@ -156,7 +158,7 @@ export const DashcardPatchInput = z
     size_x: z.number().int().positive().optional(),
     size_y: z.number().int().positive().optional(),
     dashboard_tab_id: z.number().int().nullable().optional(),
-    parameter_mappings: z.array(z.unknown()).optional(),
+    parameter_mappings: z.array(ParameterMapping).optional(),
     inline_parameters: z.array(z.string()).optional(),
     visualization_settings: z.unknown().optional(),
     series: z.array(z.unknown()).optional(),

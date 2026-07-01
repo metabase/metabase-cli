@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { FieldBaseType, FieldSemanticType } from "./field";
+import { Parameter, ParameterMapping } from "./parameter";
 import type { ResourceView } from "./view";
 
 const CardType = z.enum(["question", "model", "metric"]);
@@ -78,8 +79,8 @@ export const CardCreateInput = z
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
     dashboard_id: z.number().int().positive().nullable().optional(),
-    parameters: z.array(z.unknown()).optional(),
-    parameter_mappings: z.array(z.unknown()).optional(),
+    parameters: z.array(Parameter).optional(),
+    parameter_mappings: z.array(ParameterMapping).optional(),
   })
   .loose();
 export type CardCreateInput = z.infer<typeof CardCreateInput>;
@@ -102,8 +103,8 @@ export const CardUpdateInput = z
     cache_ttl: z.number().int().positive().nullable().optional(),
     dashboard_id: z.number().int().positive().nullable().optional(),
     dashboard_tab_id: z.number().int().positive().nullable().optional(),
-    parameters: z.array(z.unknown()).optional(),
-    parameter_mappings: z.array(z.unknown()).optional(),
+    parameters: z.array(Parameter).optional(),
+    parameter_mappings: z.array(ParameterMapping).optional(),
     result_metadata: z.array(z.unknown()).nullable().optional(),
   })
   .loose();
