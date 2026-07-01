@@ -33,6 +33,7 @@ describe("buildManifest", () => {
         {
           command: "group leaf",
           description: "a leaf",
+          skills: [],
           examples: [],
           args: [],
           outputSchema: null,
@@ -116,6 +117,7 @@ describe("buildManifest", () => {
         {
           command: "leaf",
           description: "leaf",
+          skills: [],
           examples: ["root leaf --json"],
           args: [],
           outputSchema: {
@@ -164,6 +166,37 @@ describe("buildManifest", () => {
     assert(withoutEntry !== undefined, "expected the 'without' entry in the manifest");
     expect(withEntry?.details).toBe("the long per-command knowledge");
     expect("details" in withoutEntry).toBe(false);
+  });
+
+  it("forwards declared skill pointers and defaults to an empty array otherwise", async () => {
+    const withSkills = defineMetabaseCommand({
+      meta: { name: "with", description: "short" },
+      args: {},
+      skills: [{ skill: "mbql", purpose: "author the dataset_query" }],
+      run() {
+        return;
+      },
+    });
+    const without = defineMetabaseCommand({
+      meta: { name: "without", description: "short" },
+      args: {},
+      run() {
+        return;
+      },
+    });
+    const root = defineCommand({
+      meta: { name: "root" },
+      subCommands: {
+        with: () => Promise.resolve(withSkills),
+        without: () => Promise.resolve(without),
+      },
+    });
+
+    const manifest = await buildManifest(root);
+    const withEntry = manifest.commands.find((entry) => entry.command === "with");
+    const withoutEntry = manifest.commands.find((entry) => entry.command === "without");
+    expect(withEntry?.skills).toEqual([{ skill: "mbql", purpose: "author the dataset_query" }]);
+    expect(withoutEntry?.skills).toEqual([]);
   });
 
   it("skips commands marked meta.hidden = true (and their subtrees)", async () => {

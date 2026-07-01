@@ -2,9 +2,15 @@ import type { ZodType } from "zod";
 
 import type { Capabilities } from "./capabilities";
 
+export interface SkillPointer {
+  skill: string;
+  purpose: string;
+}
+
 export interface MetabaseAugment {
   examples: readonly string[];
   details: string | null;
+  skills: readonly SkillPointer[];
   outputSchema: ZodType | null;
   capabilities: Capabilities | null;
 }

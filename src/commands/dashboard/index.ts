@@ -1,10 +1,12 @@
-import { defineCommand } from "citty";
+import { defineCommandGroup } from "../group";
 
-export default defineCommand({
-  meta: {
-    name: "dashboard",
-    description: "Manage Metabase dashboards",
-  },
+export default defineCommandGroup({
+  name: "dashboard",
+  description: "Manage Metabase dashboards",
+  skills: [
+    { skill: "visualization", purpose: "dashcard display and visualization_settings" },
+    { skill: "core", purpose: "the 24-column dashcard grid layout" },
+  ],
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),
     get: () => import("./get").then((mod) => mod.default),

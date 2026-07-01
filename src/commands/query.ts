@@ -27,7 +27,8 @@ export default defineMetabaseCommand({
     description: "Run an ad-hoc MBQL or native query",
   },
   details:
-    'Reads a JSON query body from --body, --file, or stdin and runs it. MBQL 5 is Metabase\'s structured query format, shaped {"lib/type":"mbql/query", "database": <id>, "stages": [...]}; it is checked against a bundled JSON Schema before sending — --print-schema prints that schema, and --dry-run reports any errors as {ok, errors:[{path, message}]} and exits 2 without sending. Legacy MBQL 4 and native-SQL bodies are not checked and run as-is. Run `mb skills get mbql` for the body shape, clause rules, and the iterate-with-dry-run loop.',
+    'Reads a JSON query body from --body, --file, or stdin and runs it. MBQL 5 is Metabase\'s structured query format, shaped {"lib/type":"mbql/query", "database": <id>, "stages": [...]}; it is checked against a bundled JSON Schema before sending — --print-schema prints that schema, and --dry-run reports any errors as {ok, errors:[{path, message}]} and exits 2 without sending. Legacy MBQL 4 and native-SQL bodies are not checked and run as-is.',
+  skills: [{ skill: "mbql", purpose: "body shape, clause rules, and the dry-run loop" }],
   capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,

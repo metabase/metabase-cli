@@ -16,7 +16,11 @@ export default defineMetabaseCommand({
     description: "Create a card (question, model, or metric) from JSON",
   },
   details:
-    "The JSON body needs `name`, `display` (the visualization — e.g. table, bar, scalar), `dataset_query` (the query powering the card), and `visualization_settings` (`{}` is fine). When `dataset_query` is an MBQL 5 query it is checked against a bundled JSON Schema before sending — fix the reported errors, or pass --skip-validate to send anyway. Native-SQL and legacy queries are sent unchecked. See `mb skills get mbql`.",
+    "The JSON body needs `name`, `display` (the visualization — e.g. table, bar, scalar), `dataset_query` (the query powering the card), and `visualization_settings` (`{}` is fine). When `dataset_query` is an MBQL 5 query it is checked against a bundled JSON Schema before sending — fix the reported errors, or pass --skip-validate to send anyway. Native-SQL and legacy queries are sent unchecked.",
+  skills: [
+    { skill: "mbql", purpose: "author the dataset_query" },
+    { skill: "visualization", purpose: "choose display and visualization_settings" },
+  ],
   capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,

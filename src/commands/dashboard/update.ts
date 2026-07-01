@@ -15,6 +15,9 @@ export default defineMetabaseCommand({
   },
   details:
     "Any positive card_id referenced from dashcards is pre-flight-validated (exists and readable, not archived) before the PUT.",
+  skills: [
+    { skill: "visualization", purpose: "dashcard visualization_settings and the 24-column grid" },
+  ],
   capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,

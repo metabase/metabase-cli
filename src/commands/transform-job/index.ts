@@ -1,10 +1,9 @@
-import { defineCommand } from "citty";
+import { defineCommandGroup } from "../group";
 
-export default defineCommand({
-  meta: {
-    name: "transform-job",
-    description: "Manage Metabase transform jobs",
-  },
+export default defineCommandGroup({
+  name: "transform-job",
+  description: "Manage Metabase transform jobs",
+  skills: [{ skill: "transform", purpose: "tag-driven job schedules" }],
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),
     get: () => import("./get").then((mod) => mod.default),

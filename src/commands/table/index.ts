@@ -1,7 +1,9 @@
-import { defineCommand } from "citty";
+import { defineCommandGroup } from "../group";
 
-export default defineCommand({
-  meta: { name: "table", description: "Manage Metabase tables" },
+export default defineCommandGroup({
+  name: "table",
+  description: "Manage Metabase tables",
+  skills: [{ skill: "core", purpose: "table and column metadata, semantic types" }],
   subCommands: {
     list: () => import("./list").then((m) => m.default),
     get: () => import("./get").then((m) => m.default),

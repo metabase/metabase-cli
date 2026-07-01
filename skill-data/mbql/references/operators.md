@@ -11,6 +11,15 @@ when noted: an operator-specific option named in the row, or an explicit `lib/uu
 you mint to reference the clause. Field refs are numeric: `["field", {…}, <field-id>]`.
 Everything here passes `mb query --dry-run`; when in doubt, that loop is the authority.
 
+**Contents**
+
+- [Filter operators](#filter-operators) — Logical, Comparison, Null/empty, String match, Temporal, Segment
+- [Aggregation functions](#aggregation-functions) — including naming and the `offset` window function
+- [Expression operators](#expression-operators) — Arithmetic, Math, String, Temporal, Type conversion, Conditional
+- [References (within clauses)](#references-within-clauses) — field, expression, aggregation
+- [Field option: temporal bucketing](#field-option-temporal-bucketing)
+- [Field option: binning](#field-option-binning)
+
 > For relative date filters, prefer **`time-interval`** / **`relative-time-interval`**
 > (below). `relative-datetime` / `absolute-datetime` literals (e.g. from a UI-built
 > query) also work.
