@@ -104,6 +104,8 @@ Horizontal bars — use when category labels are long or numerous. Here `graph.d
 
 ## boxplot
 
+_Registered only on **v59+** servers — older ones render `display: boxplot` blank; use a `bar` histogram there._
+
 Use for distribution/spread/outliers, especially across several groups. Needs **unaggregated** rows. **Use for:** ≥3 columns, ≥2 dimensions, ≥1 measure. **Required:** `graph.dimensions`, `graph.metrics`. X-scale is `"ordinal"`.
 
 | Key                        | Type    | Values                                         | Default      |

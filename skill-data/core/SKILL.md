@@ -131,14 +131,17 @@ Routine verb shapes (list / get / create / update), every flag, and output schem
 - **setup is one-shot.** `mb setup` walks `/api/setup` for a **fresh** instance only — errors against an already-configured one. Mostly for bootstrapping local / e2e instances.
 - **eid** translates a string entity id → numeric id: `mb eid --model <model> <eid1,eid2> --json`. Entity ids are NanoIDs that can start with `-`, which the positional form misreads as a flag (shell quotes don't help) — for those, use `--body '{"entity_ids":{"card":["-…"]}}'` (the id is a JSON string value, immune to flag parsing).
 - **library.** EE-only (`library` premium feature, v59+). The Library is a curated subtree (`library-data` "Data" + `library-metrics` "Metrics" under a `library` root): tables published to **Data** appear first in data pickers and rank up in search; metrics saved to **Metrics** are prioritized in nav, search, and the query builder — it's how you tell people (and agents) "start from these, they're trusted." `library get` shows the Library and its Data/Metrics collection ids; `library create` provisions it (idempotent). `library publish --table-ids/--db-ids/--schemas` publishes tables into Data — it **resolves the Data collection itself and creates the Library if absent** (no collection id to find); each `--schemas` entry is `<db-id>:<schema>` (e.g. `1:public`), not a bare name. `publish` cascades to upstream FK dependencies, `unpublish` to downstream dependents; both need **admin or data-analyst** (Curate alone won't publish) and exit **403** without write **and** query permission on every affected table. Publish status shows on the table: `table get`/`table list` carry `is_published` (`collection_id` under `--full`). Good candidates are finished, analysis-ready tables — clean/combine via transforms first, then publish the polished result.
-- **query / uuid.** `mb query` is the ad-hoc MBQL surface (`--print-schema` → `--dry-run` → run); `mb uuid --count <n>` mints the `lib/uuid` values every MBQL 5 clause needs. Both live in `mbql`.
+- **query / uuid.** `mb query` is the ad-hoc MBQL surface (`--print-schema` → `--dry-run` → run); `mb uuid --count <n>` mints the `lib/uuid` values MBQL clauses need. Both live in `mbql`.
 
 ## Specialized skills (load on demand)
 
 This file is enough for any single-command task. For anything deeper, load the relevant skill **proactively** — don't wing an MBQL body, a transform body, or the git-sync workflow from this overview. Load via `mb skills get <name>`.
 
 - **`mbql`** — authoring/fixing any MBQL query body (`mb query`, card `dataset_query`, transform `source.query`, measure/segment `definition`); reading `--dry-run` errors. The query-body reference.
+- **`native-sql`** — authoring a native SQL `dataset_query` with parameters: template tags, field filters vs. raw variables, snippets, card references, and wiring a tag to a dashboard filter. The SQL fallback when MBQL can't express it (`mbql` first).
 - **`visualization`** — choosing a card's `display` and authoring `visualization_settings`. The presentation counterpart to `mbql`.
+- **`dashboard`** — building interactive dashboards: wiring filters (parameters + mappings), linked/cascading filters, cross-filtering, click behavior, series, and tabs. Load beyond a plain card-layout task.
+- **`metadata`** — setting field/table metadata: semantic types, foreign-key targets, dropdown/scan behavior, and column visibility, and the downstream features each unlocks. Load when editing what a column _means_, not its data.
 - **`transform`** — transform body JSON, create + run-with-wait, run inspection, tags, jobs.
 - **`document`** — Metabase documents (TipTap body, embedding cards).
 - **`git-sync`** — round-tripping content to/from a git remote.

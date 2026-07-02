@@ -1,6 +1,6 @@
 ---
 name: transform
-description: Author and run Metabase transforms via `mb` — body shape (native SQL + MBQL 5), create + run-with-wait, run inspection, dependencies, cancel, the `update`-vs-recreate iteration rule, the writable-keys-only PATCH contract, plus transform tags and tag-driven transform-job schedules. Load when the user touches transforms — "create a transform", "run a transform", "fix a failing transform", "list transform runs", "cancel a running transform", "manage transform tags", "run a transform job", or anything `mb transform …` / `mb transform-job …` / `mb transform-tag …`.
+description: Author and run Metabase transforms via `mb` — body shape (native SQL or structured MBQL), create + run-with-wait, run inspection, dependencies, cancel, the `update`-vs-recreate iteration rule, the writable-keys-only PATCH contract, plus transform tags and tag-driven transform-job schedules. Load when the user touches transforms — "create a transform", "run a transform", "fix a failing transform", "list transform runs", "cancel a running transform", "manage transform tags", "run a transform job", or anything `mb transform …` / `mb transform-job …` / `mb transform-tag …`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
@@ -17,11 +17,11 @@ A transform has two halves:
 - `source` — the query to run (`type: "query"`, with `query.type` of `native` or `mbql`).
 - `target` — the warehouse destination (`type: "table"`, with `database`, `schema`, `name`).
 
-Native SQL is the simplest source and the easiest to author by hand. For an **MBQL 5** `source.query` (`lib/type: "mbql/query"`) — the body shape, the options-object-is-always-second clause rule, UUID minting, aggregation/order-by refs, naming aggregation output columns, the `--print-schema` → `--dry-run` validation loop, and the MBQL-5 pre-flight that `transform create`/`update` run (legacy MBQL 4 and native sources skip it) — see `mbql` (**`mb skills get mbql`**). Pull a sample MBQL body with `mb transform get <id> --full --json`. For a transform target, naming aggregation output columns matters more than usual: a bare `count` / `avg_2` becomes the warehouse column name.
+Native SQL is the simplest source — author it as an `mbql.stage/native` stage (the SQL string sits at `source.query.stages[0].native`), the form below. For a **structured** `source.query` (an `mbql.stage/mbql` stage) — the options-object-is-always-second clause rule, UUID minting, aggregation/order-by refs, naming aggregation output columns, and the `--print-schema` → `--dry-run` validation loop — see `mbql` (**`mb skills get mbql`**). Both stage types are the `mbql/query` shape, so `transform create`/`update` pre-flight them (only the legacy flat forms skip it). Pull a sample body with `mb transform get <id> --full --json`. For a transform target, naming aggregation output columns matters more than usual: a bare `count` / `avg_2` becomes the warehouse column name.
 
 ## Create + run (native SQL)
 
-**Keep the SQL formatted.** Author it multi-line in `./.scratch/<name>.sql` and embed with `jq --rawfile` (jq ≥1.6, which JSON-encodes the file so newlines become `\n`). The stored `native.query` is what `mb transform get` and the Metabase editor render — a single-line blob is valid JSON but unreadable when anyone opens the transform. Single-quote the heredoc delimiter (`<<'SQL'`) so the shell leaves `$vars` in the query alone (e.g. Postgres `$1`, `$$`).
+**Keep the SQL formatted.** Author it multi-line in `./.scratch/<name>.sql` and embed with `jq --rawfile` (jq ≥1.6, which JSON-encodes the file so newlines become `\n`). The stored SQL (`source.query.stages[0].native`) is what `mb transform get` and the Metabase editor render — a single-line blob is valid JSON but unreadable when anyone opens the transform. Single-quote the heredoc delimiter (`<<'SQL'`) so the shell leaves `$vars` in the query alone (e.g. Postgres `$1`, `$$`).
 
 ```bash
 cat > ./.scratch/user_counts_by_signup_year.sql <<'SQL'
@@ -36,7 +36,7 @@ SQL
 jq -n --rawfile q ./.scratch/user_counts_by_signup_year.sql \
   '{ name: "user_counts_by_signup_year",
      description: "Sample transform: counts users by year of signup",
-     source: { type: "query", query: { type: "native", database: <db-id>, native: { query: $q } } },
+     source: { type: "query", query: { "lib/type": "mbql/query", database: <db-id>, stages: [{ "lib/type": "mbql.stage/native", native: $q }] } },
      target: { type: "table", database: <db-id>, schema: "public", name: "user_counts_by_signup_year" } }' \
   > ./.scratch/transform.json
 
@@ -124,7 +124,7 @@ SELECT …
 FROM public.orders
 SQL
 jq -n --rawfile q ./.scratch/orders.sql \
-  '{ source: { type: "query", query: { type: "native", database: <db-id>, native: { query: $q } } } }' \
+  '{ source: { type: "query", query: { "lib/type": "mbql/query", database: <db-id>, stages: [{ "lib/type": "mbql.stage/native", native: $q }] } } }' \
   > ./.scratch/patch.json
 mb transform update <id> --file ./.scratch/patch.json --profile <name> --json
 
@@ -162,7 +162,7 @@ cat > ./.scratch/source.sql <<'SQL'
 <fixed SQL, formatted>
 SQL
 jq -n --rawfile q ./.scratch/source.sql \
-  '{ source: { type: "query", query: { type: "native", database: <db-id>, native: { query: $q } } } }' \
+  '{ source: { type: "query", query: { "lib/type": "mbql/query", database: <db-id>, stages: [{ "lib/type": "mbql.stage/native", native: $q }] } } }' \
   > ./.scratch/source-patch.json
 mb transform update "$ID" --file ./.scratch/source-patch.json --profile <n> --json
 

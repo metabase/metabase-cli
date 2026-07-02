@@ -1,14 +1,14 @@
 ---
 name: mbql
-description: Author and debug MBQL 5 query bodies for the `mb` CLI — the only hand-authorable query format. Covers the JSON shape (flat numeric-id stages, options-object-second clauses, optional lib/uuid), joins and FK traversal, multi-stage pipelines, aggregation naming, the flat-vs-legacy-envelope footgun, and the print-schema → dry-run → run validation loop. Use when writing or fixing any query body — `mb query`, a card's `dataset_query`, a transform's `source.query`, or a segment/measure `definition` — or when `--dry-run`/run reports validation errors. Triggers — "write an MBQL query", "the dataset_query is wrong", "aggregate and group by", "join two tables", "month-over-month".
+description: Author and debug MBQL query bodies for the `mb` CLI — the only hand-authorable query format. Covers the JSON shape (flat numeric-id stages, options-object-second clauses, optional lib/uuid), joins and FK traversal, multi-stage pipelines, aggregation naming, the flat-vs-legacy-envelope footgun, and the print-schema → dry-run → run validation loop. Use when writing or fixing any query body — `mb query`, a card's `dataset_query`, a transform's `source.query`, or a segment/measure `definition` — or when `--dry-run`/run reports validation errors. Triggers — "write an MBQL query", "the dataset_query is wrong", "aggregate and group by", "join two tables", "month-over-month".
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
-# MBQL 5
+# MBQL
 
-MBQL 5 is the **only query format you can author by hand** with confidence — it has a bundled JSON Schema, so the CLI pre-flight-validates it before sending. Legacy MBQL 4 and native SQL are accepted but **not** schema-validated (see "Other formats" below).
+MBQL is the query format you author by hand — it has a bundled JSON Schema, so the CLI pre-flight-validates it before sending. A native SQL query is **also** MBQL: its single stage is `mbql.stage/native` (raw SQL) instead of `mbql.stage/mbql` (structured), so it's pre-flight-validated the same way (its SQL string aside) — see `native-sql`. Only the legacy flat forms below skip validation.
 
-Prefer MBQL over native SQL: portable across warehouse engines and pre-flight-validated. Try it first; fall back to native SQL when MBQL can't express what you need, or when an MBQL body keeps failing server-side and you can't resolve it.
+Prefer a **structured** stage over a native SQL stage: portable across warehouse engines. Try it first; fall back to a native stage when structured MBQL can't express what you need, or when a structured body keeps failing server-side and you can't resolve it. For native SQL with parameters (template tags, field filters, snippets), load `native-sql`.
 
 General flag conventions, body-input precedence, output flags, `./.scratch`, and `mb uuid` mechanics live in `core` (`mb skills get core`).
 
@@ -47,7 +47,7 @@ Every clause is `[op, {options}, ...args]`. The options object is element **1**,
 ["asc",   {}, ["field", {}, 42]]
 ```
 
-The legacy MBQL 4 field shape `["field", id, opts]` (id second) is **rejected** here. A slot-1 violation surfaces from `--dry-run` as `must be the field options object` / `must be the clause options object` at `/stages/0/<verb>/<n>/1`.
+The legacy field shape `["field", id, opts]` (id second) is **rejected** here. A slot-1 violation surfaces from `--dry-run` as `must be the field options object` / `must be the clause options object` at `/stages/0/<verb>/<n>/1`.
 
 The same `[op, {options}, …]` rule holds for `aggregation`, `breakout` (a list of field refs), `filters` (implicitly ANDed; nest an explicit `["or", {}, …]` for OR), `order-by`, `expressions`, and join `conditions`.
 
@@ -89,15 +89,15 @@ mb query --file q.json --profile <n> --json                     # 3. validate + 
 - `Invalid :expression reference: no expression named "X"` (or an invalid `:aggregation` reference) → a **ref** points to an expression name / aggregation `lib/uuid` that isn't defined in the query; fix the target string.
 - `Duplicate :lib/uuid` → you reused a `lib/uuid`. Omit them (the server mints unique ones) or give each clause a distinct value.
 
-A successful run emits the compact envelope by default: `data.rows` + slim `data.cols` (`name`, `display_name`, `base_type`, `semantic_type`). Pass `--full` for the raw `/api/dataset` envelope (`results_metadata`, `native_form`, per-column fingerprints/`field_ref`) only when you need that metadata; `--fields data.rows` narrows to rows alone. `mb query` also runs a **native** body — `{database, type:"native", native:{query:"SELECT …"}}` — which skips pre-flight; the quickest way to eyeball warehouse data.
+A successful run emits the compact envelope by default: `data.rows` + slim `data.cols` (`name`, `display_name`, `base_type`, `semantic_type`). Pass `--full` for the raw `/api/dataset` envelope (`results_metadata`, `native_form`, per-column fingerprints/`field_ref`) only when you need that metadata; `--fields data.rows` narrows to rows alone. `mb query` also runs a native query — author it as an `mbql.stage/native` stage (pre-flight-validated like any MBQL body; see `native-sql`).
 
 `--skip-validate` bypasses pre-flight and sends as-is — use only when the bundled schema disagrees with what the server actually accepts (drift / false negative). Mutually exclusive with `--dry-run`. Same flag exists on `card create/update` and `transform create/update`.
 
-## Where MBQL 5 is consumed
+## Where the query is consumed
 
-The same body and pre-flight apply everywhere a query is embedded. Each pre-flights only when the value is MBQL 5 (`lib/type: "mbql/query"`); legacy shapes skip it; `--skip-validate` bypasses.
+The same body and pre-flight apply everywhere a query is embedded. Each pre-flights only when the value is the `mbql/query` shape (`lib/type: "mbql/query"`); legacy shapes skip it; `--skip-validate` bypasses.
 
-| Command                                 | MBQL 5 lives at                                | Notes                                       |
+| Command                                 | The query lives at                             | Notes                                       |
 | --------------------------------------- | ---------------------------------------------- | ------------------------------------------- |
 | `mb query`                              | the whole body                                 | ad-hoc run against `/api/dataset`           |
 | `card create` / `card update`           | `dataset_query`                                | a **flat** `mbql/query` — see footgun below |
@@ -107,7 +107,7 @@ The same body and pre-flight apply everywhere a query is embedded. Each pre-flig
 
 ## Footgun: `dataset_query` is the flat mbql/query, not a legacy envelope
 
-The most common mistake. The legacy MBQL 4 shape `{ "type": "query", "database": N, "query": {…} }` looks similar but is wrong for MBQL 5. `dataset_query` (and `source.query`, and `definition`) **is the `mbql/query` value itself**:
+The most common mistake. The legacy shape `{ "type": "query", "database": N, "query": {…} }` looks similar but is wrong. `dataset_query` (and `source.query`, and `definition`) **is the `mbql/query` value itself**:
 
 ```json
 "dataset_query": {
@@ -118,16 +118,16 @@ The most common mistake. The legacy MBQL 4 shape `{ "type": "query", "database":
 }
 ```
 
-No `type:"query"` wrapper, no `query:` nesting. If you wrap MBQL 5 inside a legacy envelope the CLI rejects it pre-send with a `ConfigError` (no `--skip-validate` gets it past). If it reached the server it would store silently and fail at run time with `Initial MBQL stage must have either :source-table or :source-card`.
+No `type:"query"` wrapper, no `query:` nesting. If you wrap the query inside a legacy envelope the CLI rejects it pre-send with a `ConfigError` (no `--skip-validate` gets it past). If it reached the server it would store silently and fail at run time with `Initial MBQL stage must have either :source-table or :source-card`.
 
-## Other formats skip pre-flight
+## Legacy formats you may encounter
 
-Anything not `lib/type: "mbql/query"` is sent as-is and normalized server-side:
+Older Metabase servers used a different query envelope (sometimes called MBQL 4 / "legacy MBQL"); the `mbql/query` shape above is what recent servers store and return. You won't author the legacy shapes, but you may see them in queries created long ago. Anything not `lib/type: "mbql/query"` is sent as-is and normalized server-side — you lose validation, so don't author these:
 
-- **Legacy MBQL 4** — `{ "type": "query", "database": N, "query": { "source-table": T, … } }`
-- **Native SQL** — `{ "type": "native", "database": N, "native": { "query": "SELECT …" } }`
+- **Legacy structured** — `{ "type": "query", "database": N, "query": { "source-table": T, … } }`
+- **Flat native** — `{ "type": "native", "database": N, "native": { "query": "SELECT …" } }` — the server accepts it, but author the native stage instead (`native-sql`).
 
-`mb query --file probe.json` runs these directly; `--dry-run` on them returns `{ ok: true, errors: [] }`. Don't author MBQL 4 by hand — build a legacy or complex query in the Metabase UI and pull the body with `mb card get <id> --full --json` / `mb transform get <id> --full --json`.
+`mb query --file probe.json` runs these directly; `--dry-run` on them returns `{ ok: true, errors: [] }`. Don't author them by hand — build a legacy or complex query in the Metabase UI and pull the body with `mb card get <id> --full --json` / `mb transform get <id> --full --json` (which returns the `mbql/query` shape).
 
 ## Joins and FK traversal
 
@@ -193,7 +193,7 @@ Later stages address the first stage's aggregation by the `name` you gave it (`"
 
 ## Naming aggregation output columns
 
-Default MBQL 5 aggregations materialize as `count`, `count_where`, `avg`, `avg_2`, `sum`, … — fine for an ad-hoc run, ugly for a transform target table or card column. Set `name` (the warehouse column name) and `display-name` (the UI header) in the aggregation's options:
+Default aggregations materialize as `count`, `count_where`, `avg`, `avg_2`, `sum`, … — fine for an ad-hoc run, ugly for a transform target table or card column. Set `name` (the warehouse column name) and `display-name` (the UI header) in the aggregation's options:
 
 ```json
 ["count", { "name": "shipments_shipped", "display-name": "Shipments shipped" }]

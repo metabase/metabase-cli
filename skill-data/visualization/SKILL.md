@@ -27,7 +27,7 @@ Decide which relationship in the data matters most, then pick the chart. The sha
 - **Compare a measure across categories** → `bar` (vertical). Use `row` (horizontal bar) when labels are long or there are many categories. Sort by value unless the dimension has a natural order.
 - **Change over time / trend** → `line` for a continuous series; `bar`/`area` for a few discrete periods. Two measures on unlike scales → `combo` (line + bar, dual-axis) — only when the metrics are genuinely related.
 - **Part-to-whole, one snapshot** → `pie`, but only for a meaningful whole with **≤5 slices**; beyond that use a sorted `bar`/`row`. Composition over time → stacked `area`/`bar`.
-- **Distribution / spread / outliers** → `boxplot` (especially comparing several groups).
+- **Distribution / spread / outliers** → a `bar` histogram (bin the measure — see `mbql` binning); on **v59+** servers `boxplot` compares several groups' spread directly.
 - **Correlation between two measures** → `scatter` (a third measure → bubble size).
 - **Sequential additive contributions** (start → +/− steps → total) → `waterfall`.
 - **Stage drop-off in an ordered, cumulative funnel** → `funnel`.
@@ -35,7 +35,7 @@ Decide which relationship in the data matters most, then pick the chart. The sha
 - **Geographic** → `map`: region/choropleth (a region dimension + a measure), pin (lat + long), or grid/heat (coordinates + measure).
 - **Precise values, many columns, mixed types, or no chart fits** → `table`; `pivot` for a cross-tab of two dimensions; `object` for a single record's detail.
 
-Valid `display` values — the registered visualizations: `table`, `bar`, `line`, `area`, `row`, `pie`, `scalar`, `smartscalar`, `combo`, `pivot`, `funnel`, `map`, `scatter`, `waterfall`, `progress`, `gauge`, `object`, `sankey`, `boxplot`. The API types `display` as a plain string and accepts any value — it renders an unknown one as nothing. (`scalar` **is** the "Number" viz — `display: number` is a legacy serialization alias, not a registered visualization; use `scalar`. `list` exists but is hidden — don't pick it. `heading`/`text`/`link`/`iframe`/`action` are dashcard virtuals, not standalone cards — see references.) A typo like `bargraph`/`linechart` is accepted and renders blank — the most common "why is my chart blank" cause.
+Valid `display` values — the registered visualizations: `table`, `bar`, `line`, `area`, `row`, `pie`, `scalar`, `smartscalar`, `combo`, `pivot`, `funnel`, `map`, `scatter`, `waterfall`, `progress`, `gauge`, `object`, `sankey`. The API types `display` as a plain string and accepts any value — it renders an unknown one as nothing. (`boxplot` is registered only on **v59+** servers — older ones render it blank; use a `bar` histogram for distributions instead. `scalar` **is** the "Number" viz — `display: number` is a legacy serialization alias, not a registered visualization; use `scalar`. `list` exists but is hidden — don't pick it. `heading`/`text`/`link`/`iframe`/`action` are dashcard virtuals, not standalone cards — see references.) A typo like `bargraph`/`linechart` is accepted and renders blank — the most common "why is my chart blank" cause.
 
 ## Step 2 — bind data columns and set options
 
@@ -53,7 +53,7 @@ Valid `display` values — the registered visualizations: `table`, `bar`, `line`
 | `row`                       | as bar; prefer for long/many category labels              | `graph.dimensions`, `graph.metrics`                        |
 | `scatter`                   | two numeric measures (correlation)                        | `graph.dimensions`, `graph.metrics` (`scatter.bubble` opt) |
 | `waterfall`                 | exactly 1 dimension + ≥1 measure; sequential              | `graph.dimensions` (1), `graph.metrics` (1)                |
-| `boxplot`                   | ≥3 cols, ≥2 dimensions, ≥1 measure                        | `graph.dimensions`, `graph.metrics`                        |
+| `boxplot` _(v59+)_          | ≥3 cols, ≥2 dimensions, ≥1 measure                        | `graph.dimensions`, `graph.metrics`                        |
 | `pie`                       | ≥2 rows, ≥2 cols, ≥1 dimension + ≥1 measure; ≤~5 slices   | `pie.dimension`, `pie.metric`                              |
 | `funnel`                    | 2 columns (stage + value); ordered stages                 | `funnel.dimension`, `funnel.metric`                        |
 | `map` (region)              | a string/region dimension + a measure                     | `map.region`, `map.dimension`, `map.metric`                |

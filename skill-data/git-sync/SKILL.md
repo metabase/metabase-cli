@@ -16,8 +16,8 @@ Always run `status` (or `is-dirty` + `has-remote-changes`) before `import` or `e
 
 ```bash
 mb git-sync status              --profile <n> --json   # → branch, dirty, current task
-mb git-sync is-dirty            --profile <n> --json   # → {dirty: bool}; instance has unexported changes
-mb git-sync has-remote-changes  --profile <n> --json   # → {behind: bool}; remote has unimported commits
+mb git-sync is-dirty            --profile <n> --json   # → {is_dirty: bool}; instance has unexported changes
+mb git-sync has-remote-changes  --profile <n> --json   # → {has_changes: bool, remote_version, local_version, cached}; remote has unimported commits
 mb git-sync dirty               --profile <n> --json   # → list the dirty objects
 mb git-sync current-task        --profile <n> --json   # → in-flight task (or idle)
 ```
@@ -43,8 +43,8 @@ Pulls the configured branch and applies it to the instance. Polls until the task
 
 Workflow:
 
-1. Read state (above) — confirm `dirty: false` (or `--force` is intended).
-2. Confirm `has-remote-changes` reports there's actually something to import.
+1. Read state (above) — confirm `is_dirty: false` (or `--force` is intended).
+2. Confirm `has-remote-changes` reports `has_changes: true` — there's actually something to import.
 3. `git-sync import --branch <branch>` — runs to terminal status by default.
 
 ## Export (instance → remote)
@@ -67,7 +67,7 @@ Workflow:
 1. **Branch guard** (below) — confirm the instance isn't tracking `main`/`master`, or that the user has explicitly accepted exporting to it.
 2. Read state (above) — confirm `is-dirty` reports there's something to export.
 3. `git-sync export -m "..."` — pushes and polls.
-4. (Optional) `git-sync status` — verify `dirty: false` after.
+4. (Optional) `git-sync status` — verify `is_dirty: false` after.
 
 ### Branch guard: don't export to main/master without confirmation
 
