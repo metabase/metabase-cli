@@ -4,7 +4,7 @@ export default defineCommandGroup({
   name: "field",
   description: "Manage Metabase fields",
   skills: [
-    { skill: "core", purpose: "field metadata — semantic types, FK targets, cached values" },
+    { skill: "metadata", purpose: "semantic types, FK targets, visibility, dropdown behavior" },
   ],
   subCommands: {
     get: () => import("./get").then((m) => m.default),

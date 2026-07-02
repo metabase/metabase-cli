@@ -1,4 +1,4 @@
-# MBQL 5 operator reference
+# MBQL operator reference
 
 The complete clause vocabulary the bundled schema accepts, in the CLI's API/numeric
 form. The clause _structure_ and the slot-1-options rule are in the SKILL.md body —
@@ -240,8 +240,9 @@ positional arg is the default.)
 - Truncation: `default`, `millisecond`, `second`, `minute`, `hour`, `day`, `week`,
   `month`, `quarter`, `year`.
 - Extraction (returns an integer): `minute-of-hour`, `hour-of-day`, `day-of-week`,
-  `day-of-week-iso`, `day-of-month`, `day-of-year`, `week-of-year`, `week-of-year-iso`,
-  `month-of-year`, `quarter-of-year`, `year-of-era`, `second-of-minute`.
+  `day-of-month`, `day-of-year`, `week-of-year`, `month-of-year`, `quarter-of-year`,
+  `year-of-era`, `second-of-minute`. (The `*-iso`/`*-us` variants are `temporal-extract`
+  operator modes, not field-option bucketing units.)
 
 ```json
 ["field", { "temporal-unit": "month" }, 22]

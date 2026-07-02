@@ -22,11 +22,11 @@ mb document archive <id> --profile <name> --json         # soft-delete (PUT arch
 
 - `list` returns the standard envelope (`{data, returned, total}`). The compact item is `{id, name, collection_id, archived, creator_id, can_write}` and omits the (potentially huge) `document` body — pull the body with `get --full`.
 - `archive` is the only delete, mirroring `card` / `dashboard`. **Unarchive** with `mb document update <id> --body '{"archived":false}'`.
-- `update` is PATCH — send only the keys you want to change, and only these are accepted: `name`, `document`, `collection_id`, `collection_position`, `archived`. Replacing `document` replaces the **whole** body; there is no partial-node patch.
+- `update` is PATCH — send only the keys you want to change: `name`, `document`, `collection_id`, `collection_position`, `archived`, and `cards` (inline card creation works on update too, not just create — see below). Replacing `document` replaces the **whole** body; there is no partial-node patch.
 
 ## Node ids (`_id`)
 
-The editor anchors only these node types with an `_id` (a UUID): `paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed`, `supportingText`. **`create`/`update` require a non-empty `_id` on every node of those types** and reject a body missing any ("did not match expected schema"). Other node types (`doc`, `text`, `listItem`, `resizeNode`, `flexContainer`, …) take no `_id` and are left alone. Without them the editor backfills ids when the document opens, which makes a freshly-saved document show a spurious "unsaved changes" prompt.
+The editor anchors only these node types with an `_id` (a UUID): `paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed`, `supportingText`. **`create`/`update` require a non-empty `_id` on every node of those types** — the CLI validates before sending and rejects a body missing any (`every … node needs a non-empty string _id (mint with mb uuid)`). Other node types (`doc`, `text`, `listItem`, `resizeNode`, `flexContainer`, …) take no `_id` and are left alone. Without them the editor backfills ids when the document opens, which makes a freshly-saved document show a spurious "unsaved changes" prompt.
 
 Mint the ids with `mb uuid --count <n> --json` (→ `["…", …]`), one per id-bearing node, and set each as that node's `attrs._id`.
 
@@ -81,7 +81,7 @@ Every node is `{ "type": string, "attrs"?: object, "content"?: [nodes], "text"?:
 - **`resizeNode`** — wraps a single `cardEmbed` or `flexContainer` to make it resizable (no `_id`). `attrs: { "height": <px>, "minHeight": <px> }`, `content` is exactly one `cardEmbed`/`flexContainer`.
 - **`flexContainer`** — a horizontal row of 1–3 `cardEmbed` / `supportingText` cells side by side (no `_id`). `attrs.columnWidths` is an array of width percentages.
 - **`supportingText`** — a text column that sits next to a card inside a `flexContainer` (id-bearing); `content` is the usual block nodes (`paragraph`, `heading`, lists, …).
-- **`smartLink`** — an inline reference to a Metabase entity (renders as a live chip). Inline, atomic, no `_id`. `attrs: { "entityId": <id>, "model": <model>, "label": <string|null>, "href": <relative-path> }`. `model` ∈ `card`, `dataset`, `metric`, `dashboard`, `collection`, `table`, `database`, `document`, `transform`, `segment`, `measure`, `user`, `action`, `indexed-entity`.
+- **`smartLink`** — an inline reference to a Metabase entity (renders as a live chip). Inline, atomic, no `_id`. `attrs: { "entityId": <id>, "model": <model>, "label": <string|null>, "href": <relative-path> }`. `model` ∈ `card`, `dataset`, `metric`, `dashboard`, `collection`, `table`, `database`, `document`, `transform`, `segment`, `user`, `action`, `indexed-entity` (plus `measure` on v60+).
 - **`metabot`** — an inline Metabot prompt block.
 
 ## Embedding an existing card

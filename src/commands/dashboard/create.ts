@@ -20,6 +20,7 @@ export default defineMetabaseCommand({
   details:
     "Any positive card_id referenced from dashcards is pre-flight-validated (exists and readable, not archived) before the dashboard is created.",
   skills: [
+    { skill: "dashboard", purpose: "wiring filters, cross-filtering, click behavior, tabs" },
     { skill: "visualization", purpose: "dashcard visualization_settings and the 24-column grid" },
   ],
   capabilities: { minVersion: 58 },

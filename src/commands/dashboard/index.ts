@@ -4,6 +4,10 @@ export default defineCommandGroup({
   name: "dashboard",
   description: "Manage Metabase dashboards",
   skills: [
+    {
+      skill: "dashboard",
+      purpose: "wiring filters, linked filters, cross-filtering, click behavior, tabs",
+    },
     { skill: "visualization", purpose: "dashcard display and visualization_settings" },
     { skill: "core", purpose: "the 24-column dashcard grid layout" },
   ],
