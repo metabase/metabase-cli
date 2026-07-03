@@ -26,6 +26,7 @@ export default defineMetabaseCommand({
       description: `Collection namespace: ${CollectionNamespace.options.join("|")} (omit for a normal collection)`,
     },
   },
+  inputSchema: CollectionCreateInput,
   outputSchema: Collection,
   examples: [
     "cat collection.json | mb collection create",

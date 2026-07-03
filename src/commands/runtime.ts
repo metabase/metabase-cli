@@ -48,6 +48,7 @@ export interface MetabaseCommandDef<A extends ArgsDef> {
   examples?: readonly string[];
   details?: string;
   skills?: readonly SkillPointer[];
+  inputSchema?: ZodType;
   outputSchema?: ZodType;
   capabilities?: Partial<Capabilities> | null;
   run: (context: MetabaseCommandContext<A>) => Promise<void> | void;
@@ -125,6 +126,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
     examples: def.examples ?? [],
     details: def.details ? def.details : null,
     skills: def.skills ?? [],
+    inputSchema: def.inputSchema ?? null,
     outputSchema: def.outputSchema ?? null,
     capabilities: required,
   });

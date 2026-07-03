@@ -326,6 +326,7 @@ describe("showUsage", () => {
       examples: [],
       details: null,
       skills: [{ skill: "core", purpose: "auth and conventions" }],
+      inputSchema: null,
       outputSchema: null,
       capabilities: null,
     });
@@ -416,6 +417,7 @@ describe("showUsageJson", () => {
       skills: [],
       examples: ["mb foo bar --json"],
       args: [],
+      inputSchema: null,
       outputSchema: {
         $schema: "https://json-schema.org/draft/2020-12/schema",
         type: "object",

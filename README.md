@@ -1434,7 +1434,7 @@ When the embedded query (`card.dataset_query`, `transform.source.query` for `sou
 
 Pass `--skip-validate` to bypass the pre-flight on any of `card create`, `card update`, `transform create`, `transform update`, `measure create`, `measure update`, `segment create`, or `segment update` — the body is sent as-is and the server is the authority. Same escape hatch as on `mb query`; use only when the bundled schema disagrees with what the server actually accepts.
 
-Agent discovery path: `mb <command> --help --json` lists a command's args and output schema; the description for `card create`/`update`, `transform create`/`update`, `measure create`/`update`, and `segment create`/`update` references `mb query --print-schema` so an agent can fetch the validating schema directly.
+Agent discovery path: `mb <command> --help --json` lists a command's args, JSON-body input schema, and output schema; the description for `card create`/`update`, `transform create`/`update`, `measure create`/`update`, and `segment create`/`update` references `mb query --print-schema` so an agent can fetch the validating schema directly.
 
 The bundled query schema is synced from a pinned `@metabase/representations` release via `bun run sync:representations`; CI guards against drift.
 
@@ -1566,12 +1566,13 @@ The former `METABASE_`-prefixed names (`METABASE_URL`, `METABASE_API_KEY`, `META
 
 Every node of the command tree answers `--help --json` with machine-readable help, mirroring what text help shows at that level:
 
-- A leaf command emits its full entry — name, description, `details`, examples, citty args with types/defaults/enums, `capabilities` (min server version / token feature), and the output Zod schema rendered as JSON Schema.
+- A leaf command emits its full entry — name, description, `details`, examples, citty args with types/defaults/enums, `capabilities` (min server version / token feature), and the input and output Zod schemas rendered as JSON Schema (`inputSchema` is the exact validator `readBody` enforces on the JSON body, `null` for commands that take none).
 - A command group (and the root) emits a flat `{ commands: [{ command, description }] }` index of every leaf in its subtree, with full-path names.
 
 ```sh
 mb --help --json | jq -r '.commands[].command'    # every command
 mb card query --help --json | jq .outputSchema    # one command's output schema
+mb card create --help --json | jq .inputSchema    # the JSON-body contract it validates
 ```
 
 The entry and index schemas (`CommandHelpEntry`, `CommandHelpIndex`) are exported from `src/runtime/command-help.ts`.

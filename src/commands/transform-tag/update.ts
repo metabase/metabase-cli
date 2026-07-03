@@ -20,6 +20,7 @@ export default defineMetabaseCommand({
     ...bodyInputFlags,
     id: { type: "positional", description: "Transform tag id", required: true },
   },
+  inputSchema: TransformTagUpdateInput,
   outputSchema: TransformTag,
   examples: [
     'mb transform-tag update 5 --body \'{"name":"renamed"}\'',

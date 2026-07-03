@@ -132,6 +132,7 @@ describe("buildHelpEntry", () => {
       skills: [],
       examples: ["root leaf --json"],
       args: [],
+      inputSchema: null,
       outputSchema: {
         $schema: "https://json-schema.org/draft/2020-12/schema",
         type: "object",
@@ -143,6 +144,29 @@ describe("buildHelpEntry", () => {
         additionalProperties: false,
       },
       capabilities: BASELINE_CAPABILITIES,
+    });
+  });
+
+  it("emits the JSON Schema of inputSchema for commands that declare a body contract", async () => {
+    const leaf = defineMetabaseCommand({
+      meta: { name: "create", description: "create" },
+      args: {},
+      inputSchema: z.object({ name: z.string() }),
+      run() {
+        return;
+      },
+    });
+
+    const entry = await buildHelpEntry(leaf, ["create"]);
+
+    expect(entry.inputSchema).toEqual({
+      $schema: "https://json-schema.org/draft/2020-12/schema",
+      type: "object",
+      properties: {
+        name: { type: "string" },
+      },
+      required: ["name"],
+      additionalProperties: false,
     });
   });
 
@@ -211,6 +235,7 @@ describe("buildHelpEntry", () => {
       skills: [],
       examples: [],
       args: [],
+      inputSchema: null,
       outputSchema: null,
       capabilities: null,
     });
@@ -362,6 +387,15 @@ describe("command tree contract", () => {
     for (const entry of await allEntries()) {
       expect(entry.examples.length, `missing examples for ${entry.command}`).toBeGreaterThan(0);
       expect(entry.outputSchema, `missing outputSchema for ${entry.command}`).not.toBeNull();
+    }
+  });
+
+  it("declares an input schema on every command that accepts a JSON body", async () => {
+    for (const entry of await allEntries()) {
+      const acceptsBody = entry.args.some((arg) => arg.name === "body");
+      if (acceptsBody) {
+        expect(entry.inputSchema, `missing inputSchema for ${entry.command}`).not.toBeNull();
+      }
     }
   });
 

@@ -28,6 +28,7 @@ export default defineMetabaseCommand({
     ...skipValidateFlag,
     id: { type: "positional", description: "Measure id", required: true },
   },
+  inputSchema: MeasureUpdateInput,
   outputSchema: Measure,
   examples: [
     "cat patch.json | mb measure update 1",

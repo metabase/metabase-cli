@@ -30,6 +30,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Transform id", required: true },
     ...skipValidateFlag,
   },
+  inputSchema: TransformUpdateInput,
   outputSchema: Transform,
   examples: [
     "cat patch.json | mb transform update 1",

@@ -13,6 +13,7 @@ export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a transform job" },
   capabilities: { minVersion: 59 },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...bodyInputFlags },
+  inputSchema: TransformJobCreateInput,
   outputSchema: TransformJob,
   examples: [
     "cat job.json | mb transform-job create",

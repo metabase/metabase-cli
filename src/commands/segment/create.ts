@@ -26,6 +26,7 @@ export default defineMetabaseCommand({
     ...bodyInputFlags,
     ...skipValidateFlag,
   },
+  inputSchema: SegmentCreateInput,
   outputSchema: Segment,
   examples: [
     "cat segment.json | mb segment create",

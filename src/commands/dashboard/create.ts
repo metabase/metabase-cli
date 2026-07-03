@@ -30,6 +30,7 @@ export default defineMetabaseCommand({
     ...connectionFlags,
     ...bodyInputFlags,
   },
+  inputSchema: DashboardCreateInput,
   outputSchema: Dashboard,
   examples: [
     "cat dashboard.json | mb dashboard create",

@@ -26,6 +26,7 @@ export default defineMetabaseCommand({
     ...bodyInputFlags,
     ...skipValidateFlag,
   },
+  inputSchema: MeasureCreateInput,
   outputSchema: Measure,
   examples: [
     "cat measure.json | mb measure create",

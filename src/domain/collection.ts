@@ -164,7 +164,7 @@ export const CollectionTreeNode: z.ZodType<CollectionTreeNode> = CollectionTreeN
 export const CollectionCreateInput = z
   .object({
     name: z.string().min(1),
-    description: z.string().nullable().optional(),
+    description: z.string().min(1).nullable().optional(),
     parent_id: z.number().int().positive().nullable().optional(),
     namespace: CollectionNamespace.nullable().optional(),
     authority_level: CollectionAuthorityLevel.nullable().optional(),

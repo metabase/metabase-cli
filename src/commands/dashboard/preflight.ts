@@ -19,9 +19,9 @@ interface CardReference {
 type CardCheck = { status: "ok" } | { status: "error"; message: string };
 
 export function collectDashcardCardReferences(
-  dashcards: ReadonlyArray<unknown> | undefined,
+  dashcards: ReadonlyArray<unknown> | null | undefined,
 ): CardReference[] {
-  if (dashcards === undefined) {
+  if (dashcards === undefined || dashcards === null) {
     return [];
   }
   const refs: CardReference[] = [];
@@ -40,7 +40,7 @@ export function collectDashcardCardReferences(
 
 export async function preflightDashcardCardReferences(
   client: Client,
-  dashcards: ReadonlyArray<unknown> | undefined,
+  dashcards: ReadonlyArray<unknown> | null | undefined,
 ): Promise<void> {
   const references = collectDashcardCardReferences(dashcards);
   if (references.length === 0) {

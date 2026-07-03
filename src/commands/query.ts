@@ -17,7 +17,11 @@ import { connectionFlags, outputFlags, profileFlag } from "./flags";
 import { defineMetabaseCommand } from "./runtime";
 import { skipValidateFlag } from "./validate-query";
 
-const QueryBody = z.unknown();
+const QueryBody = z
+  .unknown()
+  .describe(
+    "MBQL 5, legacy MBQL, or native query body — full MBQL 5 schema: mb query --print-schema",
+  );
 
 const QUERY_ENDPOINT = "/api/dataset";
 
@@ -45,6 +49,7 @@ export default defineMetabaseCommand({
     },
     ...skipValidateFlag,
   },
+  inputSchema: QueryBody,
   outputSchema: CardQueryResult,
   examples: [
     "mb query --print-schema",

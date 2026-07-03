@@ -27,6 +27,7 @@ export default defineMetabaseCommand({
     ...bodyInputFlags,
     id: { type: "positional", description: "Dashboard id", required: true },
   },
+  inputSchema: DashboardUpdateInput,
   outputSchema: DashboardDetail,
   examples: [
     "cat patch.json | mb dashboard update 1",

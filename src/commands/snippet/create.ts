@@ -14,6 +14,7 @@ export default defineMetabaseCommand({
     ...connectionFlags,
     ...bodyInputFlags,
   },
+  inputSchema: SnippetCreateInput,
   outputSchema: Snippet,
   examples: [
     "cat snippet.json | mb snippet create",
