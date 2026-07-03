@@ -9,6 +9,8 @@ export default defineMetabaseCommand({
     name: "metadata",
     description: "Get a database with its tables and fields hydrated",
   },
+  details:
+    "Hydrates every table and field — megabytes on a real warehouse. For targeted reads use `db schemas`, `db schema-tables`, then `table get <id> --include fields`.",
   capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,

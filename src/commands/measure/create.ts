@@ -16,7 +16,7 @@ export default defineMetabaseCommand({
     description: "Create a measure (saved aggregation) from JSON",
   },
   details:
-    "A measure is a reusable, saved aggregation tied to a table. The JSON body needs `name`, `table_id`, and a `definition` (an MBQL query holding exactly one aggregation). An MBQL 5 `definition` is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass.",
+    "A measure is a reusable, saved aggregation tied to a table. The JSON body needs `name`, `table_id`, and a `definition` (an MBQL query holding exactly one aggregation). An MBQL 5 `definition` is checked against a bundled JSON Schema (print it with `mb query --print-schema`) before sending; pass --skip-validate to bypass.",
   skills: [{ skill: "mbql", purpose: "the definition aggregation" }],
   capabilities: { minVersion: 59 },
   args: {
