@@ -1,16 +1,38 @@
 ---
 name: dashboard
-description: Build interactive Metabase dashboards via the `mb` CLI — turn cards into a filterable, cross-linked app. Covers wiring filters to cards (parameters + parameter_mappings), the field-filter vs. raw-variable target grammar, linked/cascading filters and their foreign-key requirement, cross-filtering (click a chart to filter the rest), click-through to a question/dashboard/URL, multi-series overlays, and tabs. Grid math, the parameter type enum, and whole-array replace semantics live in `core`. Triggers — "wire a filter to these cards", "make a filter cascade", "click a bar to filter the other charts", "add a dashboard tab", "add a second series", "make clicking a row open another dashboard", "why isn't my filter showing".
+description: Build Metabase dashboards via the `mb` CLI — lay out dashcards on the 24-column grid (`{col,row,size_x,size_y}` math, per-chart default sizes) and turn cards into a filterable, cross-linked app. Covers wiring filters to cards (parameters + parameter_mappings), the field-filter vs. raw-variable target grammar, linked/cascading filters and their foreign-key requirement, cross-filtering, click-through, multi-series overlays, and tabs. The parameter type enum and whole-array replace semantics live in `core`. Triggers — "build a dashboard from these cards", "my dashboard is squished into half the width", "wire a filter to these cards", "make a filter cascade", "click a bar to filter the other charts", "add a dashboard tab", "add a second series", "why isn't my filter showing".
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
 # Dashboard
 
-A dashboard starts as cards on a grid; it becomes an **app** when filters drive the cards, charts cross-filter each other, and clicks navigate. This skill is that interactive layer.
+A dashboard starts as cards on a grid; it becomes an **app** when filters drive the cards, charts cross-filter each other, and clicks navigate. This skill owns both: the grid layout and the interactive layer.
 
-**`core` owns the mechanics** — the 24-column grid and `{col,row,size_x,size_y}` math, the whole-array replace semantics (editing `dashcards` or `parameters` replaces the entire set; omitted entries are deleted; new cards use negative ids), `update-dashcard` for a single safe patch vs. `update --body` for a full replace, the closed `parameter.type` enum, and the `parameter-values` verb. Read it first (`mb skills get core`). **`visualization`** owns each card's chart and the full `click_behavior` key catalog. This file assumes both and focuses on wiring.
+**`core` owns the transport mechanics** — the whole-array replace semantics (editing `dashcards` or `parameters` replaces the entire set; omitted entries are deleted; new cards use negative ids), `update-dashcard` for a single safe patch vs. `update --body` for a full replace, the closed `parameter.type` enum, and the `parameter-values` verb. Read it first (`mb skills get core`). **`visualization`** owns each card's chart and the full `click_behavior` key catalog.
 
 Inspect before you wire: `mb dashboard get <id> --json` hydrates `parameters`, `dashcards`, and `tabs`; `mb dashboard cards <id>` lists just the dashcards.
+
+## Layout: the grid is 24 columns — not 12
+
+Every dashcard carries `{col, row, size_x, size_y}` in grid units: `col` is 0-indexed from the left edge, `row` grows downward, and `col + size_x ≤ 24`. **Full-width is `size_x: 24` — Metabase's per-chart _default_ width of 12 is half a row.** A layout authored on the usual 12-column web-grid assumption crams the whole dashboard into the left half of the viewport. The server stores whatever geometry you send — overlaps and gaps included, no auto-fix.
+
+Default sizes (w×h): `scalar`/`smartscalar` 6×3, `pie` 12×8, `table`/`pivot`/`object` 12×9, `waterfall` 14×6, `sankey` 16×10, `heading` 24×1, `text` 12×3, every other chart 12×6.
+
+The standard shape — a KPI row of scalars across the full 24, charts in halves or thirds below, wide tables full-width:
+
+```jsonc
+"dashcards": [
+  { "id": -1, "card_id": 101, "col": 0,  "row": 0, "size_x": 6,  "size_y": 3 },  // 4 KPIs × 6 = 24
+  { "id": -2, "card_id": 102, "col": 6,  "row": 0, "size_x": 6,  "size_y": 3 },
+  { "id": -3, "card_id": 103, "col": 12, "row": 0, "size_x": 6,  "size_y": 3 },
+  { "id": -4, "card_id": 104, "col": 18, "row": 0, "size_x": 6,  "size_y": 3 },
+  { "id": -5, "card_id": 105, "col": 0,  "row": 3, "size_x": 12, "size_y": 6 },  // two halves
+  { "id": -6, "card_id": 106, "col": 12, "row": 3, "size_x": 12, "size_y": 6 },
+  { "id": -7, "card_id": 107, "col": 0,  "row": 9, "size_x": 24, "size_y": 9 }   // full-width table
+]
+```
+
+**Sanity-check before sending:** rows should fill to 24 and at least one card must end at `col + size_x = 24`. If nothing in the array crosses column 12, you've authored a 12-column layout — double every width.
 
 ## The wiring loop: a filter is a parameter + a mapping per card
 
@@ -101,6 +123,7 @@ Set the **driver** chart's whole-card click behavior to `crossfilter`, mapping t
 
 ## Don't
 
+- Don't lay out on a 12-column assumption — full-width is `size_x: 24`; a layout where no card crosses column 12 renders in the left half of the viewport.
 - Don't declare a parameter and forget the per-card `parameter_mappings` — the widget won't filter anything.
 - Don't expect a linked filter to work off a model/question join, a custom column, or with a static/card value source — it needs a metadata FK and a live source.
 - Don't hand-author a complex `click_behavior` — copy a UI-built one.
