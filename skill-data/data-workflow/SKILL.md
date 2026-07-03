@@ -10,14 +10,14 @@ The front door for turning a raw database into clean tables, reusable definition
 
 A data project moves through stages. A user can start at any of them — detect where their data already is, don't assume.
 
-| Stage                       | What it does                                                                                              | Where the method lives                                                                 |
-| --------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| **Build clean tables**      | Raw, normalized source DB → a small set of wide, clean, analysis-ready tables (built as transforms)       | `references/building-clean-tables.md`                                                  |
-| **Define reusable metrics** | Clean tables → shared segments (saved filters), measures (saved calculations), metrics (official numbers) | `references/reusable-definitions.md`                                                   |
-| **Answer questions**        | Clean tables → a trustworthy plain-language written answer                                                | `references/answering-questions.md`                                                    |
-| **Build dashboards**        | Clean tables / definitions → charts and dashboards people look at                                         | the `visualization` skill (charts) + `dashboard` skill (wiring filters, interactivity) |
+| Stage                       | What it does                                                                                              | Where the method lives                                                                       |
+| --------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **Build clean tables**      | Raw, normalized source DB → a small set of wide, clean, analysis-ready tables (built as transforms)       | `references/building-clean-tables.md`                                                        |
+| **Define reusable metrics** | Clean tables → shared segments (saved filters), measures (saved calculations), metrics (official numbers) | `references/reusable-definitions.md`                                                         |
+| **Answer questions**        | Clean tables → a trustworthy plain-language written answer                                                | `references/answering-questions.md`                                                          |
+| **Build dashboards**        | Clean tables / definitions → charts and dashboards people look at                                         | the `visualization` skill (charts) + `dashboard` skill (grid layout, filters, interactivity) |
 
-The first three methods are references in this skill — read **only the one the current stage needs**: run `mb skills path data-workflow` and Read `references/<file>.md`. (`mb skills get data-workflow --full` appends all three at once — heavier; prefer the single Read.) "Build dashboards" lives in two standalone skills — `visualization` for authoring each chart, `dashboard` for wiring filters and interactivity across the dashboard — both CLI capabilities in their own right.
+The first three methods are references in this skill — read **only the one the current stage needs**: run `mb skills path data-workflow` and Read `references/<file>.md`. (`mb skills get data-workflow --full` appends all three at once — heavier; prefer the single Read.) "Build dashboards" lives in two standalone skills — `visualization` for authoring each chart, `dashboard` for laying cards out on the grid and wiring filters and interactivity — both CLI capabilities in their own right. Load `dashboard` before composing any dashboard, even a plain no-filter layout: the grid geometry lives there.
 
 CLI mechanics come from the reference skills, not from here: `mb skills get core` (auth, inspection, the `field`/`table`/`library`/`segment`/`measure` verbs), `mbql` (query and definition bodies), `transform` (creating/running transforms). This skill owns the _judgment_ — which tables, which definitions, what to keep — and the conventions below.
 
@@ -96,13 +96,13 @@ Don't make the user name a _stage_ — but do find out _where their data lives_ 
 
 **Read the shape to pick a stage.** Raw, normalized, SaaS-synced tables (many tables, coded columns, `*_field`/`*_choice` lookups)? → **build clean tables** first. Already wide, clean, human-readable ones? Then it depends on the goal:
 
-| What the user wants / what's there                                                                             | Stage                                                                     |
-| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| "Clean up / flatten / make sense of" raw, normalized data; no clean tables yet                                 | Build clean tables → `references/building-clean-tables.md`                |
-| Clean tables exist; "make this reusable", "define active customers / revenue / MRR officially"                 | Define reusable metrics → `references/reusable-definitions.md`            |
-| Clean tables exist; "answer this question", "who registered", "analyze / report on X" (wants a written answer) | Answer questions → `references/answering-questions.md`                    |
-| Clean tables (and maybe definitions) exist; "chart this", "build a dashboard", "show me X over time"           | Build dashboards → `visualization` (charts) + `dashboard` (interactivity) |
-| "Do the whole thing" / "set up analytics for X" from raw data                                                  | Start at build-clean-tables, then continue down the stages                |
+| What the user wants / what's there                                                                             | Stage                                                                             |
+| -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| "Clean up / flatten / make sense of" raw, normalized data; no clean tables yet                                 | Build clean tables → `references/building-clean-tables.md`                        |
+| Clean tables exist; "make this reusable", "define active customers / revenue / MRR officially"                 | Define reusable metrics → `references/reusable-definitions.md`                    |
+| Clean tables exist; "answer this question", "who registered", "analyze / report on X" (wants a written answer) | Answer questions → `references/answering-questions.md`                            |
+| Clean tables (and maybe definitions) exist; "chart this", "build a dashboard", "show me X over time"           | Build dashboards → `visualization` (charts) + `dashboard` (layout, interactivity) |
+| "Do the whole thing" / "set up analytics for X" from raw data                                                  | Start at build-clean-tables, then continue down the stages                        |
 
 **Answer and dashboard are alternative endpoints, not a sequence.** Once tables are clean (and maybe defined), answering in prose and building a dashboard are two different things you can do with the data — route to whichever the goal calls for; neither has to precede the other.
 
