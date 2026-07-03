@@ -9,8 +9,12 @@ import type { ListEnvelope, RenderOptions } from "./types";
 
 export { formatScalar } from "./table";
 
+export function jsonLine(value: unknown): string {
+  return JSON.stringify(value, null, 2) + "\n";
+}
+
 export function writeJson(value: unknown): void {
-  process.stdout.write(JSON.stringify(value, null, 2) + "\n");
+  process.stdout.write(jsonLine(value));
 }
 
 export function writeText(text: string): void {

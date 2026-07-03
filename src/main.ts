@@ -36,8 +36,6 @@ const main: CommandDef = defineCommand({
     uuid: () => import("./commands/uuid").then((mod) => mod.default),
     upgrade: () => import("./commands/upgrade").then((mod) => mod.default),
     skills: () => import("./commands/skills").then((mod) => mod.default),
-    __manifest: (): Promise<CommandDef> =>
-      import("./commands/manifest").then((mod) => mod.createManifestCommand(main)),
   },
 });
 

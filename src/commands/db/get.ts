@@ -18,7 +18,7 @@ export default defineMetabaseCommand({
     ...connectionFlags,
     include: {
       type: "string",
-      description: `Hydrate related entities: ${DatabaseGetInclude.options.join("|")}`,
+      description: `Hydrate related entities: ${DatabaseGetInclude.options.join("|")}. tables.fields pulls every table and field — megabytes on a real warehouse; prefer db schemas / db schema-tables / table get --include fields`,
     },
     id: { type: "positional", description: "Database id", required: true },
   },

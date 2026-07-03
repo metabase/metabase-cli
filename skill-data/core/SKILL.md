@@ -1,6 +1,6 @@
 ---
 name: core
-description: Foundations for driving Metabase from the terminal with the `mb` CLI — authentication and named profiles, the flag/output/`--json` conventions every command shares, JSON body input, command discovery via `mb __manifest`, and the per-resource footguns (db, table, field, card, dashboard, collection, segment, measure, library, setting, search, eid). Load first for any `mb` task; it routes to the specialized skills for deeper work.
+description: Foundations for driving Metabase from the terminal with the `mb` CLI — authentication and named profiles, the flag/output/`--json` conventions every command shares, JSON body input, command discovery via `--help` (add `--json` for machine-readable schemas), and the per-resource footguns (db, table, field, card, dashboard, collection, segment, measure, library, setting, search, eid). Load first for any `mb` task; it routes to the specialized skills for deeper work.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
@@ -15,7 +15,7 @@ auth | db | table | field | query | card | dashboard | snippet | segment | measu
 document | transform | transform-job | transform-tag | setting | search | git-sync | setup | eid | uuid | upgrade | skills
 ```
 
-The conventions below — auth, flags, output, body input — hold across **every** group. Per-command flags, examples, and output schemas live in `mb __manifest`. A few flows have their own skills (see "Specialized skills"). When a card needs a query, prefer MBQL over native SQL (portable, pre-flight-validated — load `mbql`); fall back to native SQL when MBQL can't express it.
+The conventions below — auth, flags, output, body input — hold across **every** group. Per-command flags and examples live in each command's `--help`; add `--json` for the machine-readable form with the output JSON Schema. A few flows have their own skills (see "Specialized skills"). When a card needs a query, prefer MBQL over native SQL (portable, pre-flight-validated — load `mbql`); fall back to native SQL when MBQL can't express it.
 
 ## Auth & profiles
 
@@ -99,22 +99,23 @@ Single-quoted `'EOF'` stops the shell interpolating `$vars` inside the JSON.
 
 Write working files to **`./.scratch`** in the current directory (`mkdir -p ./.scratch` first), never `/tmp` — better permissions, they persist across the session, and the user can review them.
 
-## Discover the full surface: `mb __manifest`
+## Discovering commands and schemas
 
-The canonical, machine-readable inventory of every command — name, description, per-command `details`, examples, every flag with type and default, and the output JSON Schema:
+Cheapest source that answers the question wins:
+
+- What groups/verbs exist? → `mb --help`, then `mb <group> --help`. Add `--json` for a machine-readable `{command, description}` index (`mb --help --json` lists every command).
+- What flags does a command take? → `mb <command> --help` — flags with enums and defaults, examples, ~1 KB.
+- Output JSON Schema before parsing, machine-readable arg types, min server version? → `mb <command> --help --json` — that command's full entry.
 
 ```bash
-mb __manifest | jq -r '.commands[].command'                                                  # every command name
-mb __manifest | jq -r '.commands[] | select(.command | startswith("transform")) | .command'  # verbs under "transform"
-mb __manifest | jq '.commands[] | select(.command == "card query") | .args'                  # flags + types for a command
-mb __manifest | jq '.commands[] | select(.command == "card list") | .outputSchema'           # output schema before parsing
+mb card query --help                                    # flags, enums, defaults, examples
+mb card list --help --json | jq .outputSchema           # output schema before parsing
+mb transform --help --json | jq -r '.commands[].command'  # verbs under "transform"
 ```
-
-The leading `__` hides it from `--help`, but it's stable. Reach for it instead of per-command `--help` to enumerate verbs, validate flag names, or read an output schema before parsing.
 
 ## Resource quirks worth memorizing
 
-Routine verb shapes (list / get / create / update), every flag, and output schemas live in `mb __manifest`. Below is only what the manifest does _not_ tell you: footguns and non-obvious behaviors.
+Routine verb shapes (list / get / create / update), every flag, and output schemas live in each command's `--help` (add `--json` for output schemas). Below is only what help does _not_ tell you: footguns and non-obvious behaviors.
 
 - **db traversal vs. rollup.** Default to granular: `database list` → `database schemas <db-id>` → `database schema-tables <db-id> <schema>` → `table get <table-id> --include fields`. The rollup endpoints (`database get --include tables.fields`, `database metadata <db-id>`) pull megabytes and blow the context window on any real warehouse — use them only on a small/dev db. `sync-schema` / `rescan-values` queue async work and return `{status:"ok"}` immediately; `sync-schema --wait` blocks until `initial_sync_status: complete`.
 - **table fields.** `table get` never returns fields on its own — pass `--include fields` (compact) or use `table fields <id>` (list envelope). `table metadata <id>` adds FKs + dimensions (heavier). `table update` patches table-level metadata only; physical columns aren't editable.
