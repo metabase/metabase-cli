@@ -508,6 +508,43 @@ mb field update 100 --body '{"description":"customer email","semantic_type":"typ
 mb field update 100 --file patch.json
 ```
 
+## Upload
+
+Load CSV/TSV data into the warehouse via `/api/upload`. Requires an uploads database configured on the server (Admin → Settings → Uploads); the destination db and schema are set there, not per-command. `append`/`replace` target a table created by a prior upload, and the CSV columns must match.
+
+### `mb upload csv`
+
+Create a new table plus a model over it from a CSV file. Prints the new model id and table id.
+
+```sh
+mb upload csv --file data.csv
+mb upload csv --file data.csv --collection 5
+mb upload csv --file data.csv --json
+```
+
+| Flag                | Description                                                            |
+| ------------------- | ---------------------------------------------------------------------- |
+| `--file <path>`     | Path to the CSV/TSV file to upload (required).                         |
+| `--collection <id>` | Target collection id for the created model, or `root` (default: root). |
+
+### `mb upload append <table-id>`
+
+Insert a CSV file's rows into an existing uploaded table.
+
+```sh
+mb upload append 42 --file more-rows.csv
+mb upload append 42 --file more-rows.csv --json
+```
+
+### `mb upload replace <table-id>`
+
+Replace an existing uploaded table's contents with a CSV file's rows.
+
+```sh
+mb upload replace 42 --file rows.csv
+mb upload replace 42 --file rows.csv --json
+```
+
 ## Cards
 
 CRUD plus query execution on `/api/card`. A "card" is a Metabase question, model, or metric. The `query` subcommand runs the card and either returns Metabase's JSON envelope or streams a raw CSV / XLSX export.

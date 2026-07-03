@@ -88,6 +88,8 @@ The rules every stage follows. The reference files assume this contract rather t
 
 Don't make the user name a _stage_ — but do find out _where their data lives_ before going looking.
 
+**Data not in a database yet?** A local CSV gets in via `mb upload csv --file <path>` (creates a table + model); treat the result as a starting table and clean it with a transform if needed. Uploads must be admin-enabled — check `mb setting get uploads-settings --json` (`db_id: null` ⇒ not configured). See `core`'s **upload** quirk for the rest.
+
 **Ask before you crawl.** If you don't already know which database/schema/table the user means, ask — one plain question short-circuits a dozen tool calls. The asymmetry: if they name a **database**, ask which **schema**; if they name a **table**, ask which **database**. "If you don't know, no problem — I'll look" is the fallback, not the opener.
 
 **When you do crawl,** use `core`'s cheap, narrowest-first ladder (never whole-warehouse rollups): `mb db list` → `db schemas <id>` → `db schema-tables <id> <schema>` → `table list [--db-id]` → `table fields <id>` (or `table metadata <id>` for FK targets and dimensions — heavier). Have a _name_ rather than a tree to walk? `mb search <query> [--models] [--db-id]`. Need to know what's in a column? `mb field summary <id>` (counts) and `field values <id>` (sample values). If a database looks freshly connected or an expected table is missing, offer `mb db sync-schema <id> --wait` before concluding it doesn't exist.
