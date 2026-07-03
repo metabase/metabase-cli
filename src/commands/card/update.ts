@@ -31,6 +31,7 @@ export default defineMetabaseCommand({
     ...skipValidateFlag,
     id: { type: "positional", description: "Card id", required: true },
   },
+  inputSchema: CardUpdateInput,
   outputSchema: Card,
   examples: [
     "cat patch.json | mb card update 1",

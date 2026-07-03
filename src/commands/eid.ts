@@ -38,11 +38,12 @@ export default defineMetabaseCommand({
       description: "Comma-separated EIDs to translate (used with --model)",
     },
   },
+  inputSchema: EidTranslateInput,
   outputSchema: EidTranslateResult,
   examples: [
-    "mb eid --model card abc123XYZ,def456ABC",
+    "mb eid --model card Ss3mHTaWs8T-VLPYEeraG,5oQpn8LO4qXBRZ1Wq3jIp",
     "mb eid --file translate.json",
-    'mb eid --body \'{"entity_ids":{"card":["abc123XYZ"]}}\'',
+    'mb eid --body \'{"entity_ids":{"card":["Ss3mHTaWs8T-VLPYEeraG"]}}\'',
   ],
   async run({ args, ctx, getClient }) {
     const pair = requireBothOrNeither(

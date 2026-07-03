@@ -17,6 +17,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       examples: ["mb card list"],
       details: "see mb skills get mbql",
       skills: [],
+      inputSchema: null,
       outputSchema: z.object({ id: z.number() }),
       capabilities: BASELINE_CAPABILITIES,
     };
@@ -31,6 +32,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       examples: ["a"],
       details: null,
       skills: [],
+      inputSchema: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
     };
@@ -38,6 +40,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       examples: ["b"],
       details: null,
       skills: [],
+      inputSchema: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
     };
@@ -53,6 +56,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       examples: ["before"],
       details: null,
       skills: [],
+      inputSchema: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
     };
@@ -60,6 +64,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       examples: ["after"],
       details: null,
       skills: [],
+      inputSchema: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
     };
@@ -74,6 +79,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       examples: [],
       details: null,
       skills: [],
+      inputSchema: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
     };
@@ -83,6 +89,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       examples: [],
       details: null,
       skills: [],
+      inputSchema: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
     });

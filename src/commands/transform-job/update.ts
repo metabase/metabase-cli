@@ -20,6 +20,7 @@ export default defineMetabaseCommand({
     ...bodyInputFlags,
     id: { type: "positional", description: "Transform job id", required: true },
   },
+  inputSchema: TransformJobUpdateInput,
   outputSchema: TransformJob,
   examples: [
     "cat patch.json | mb transform-job update 1",

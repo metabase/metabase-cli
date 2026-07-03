@@ -28,6 +28,7 @@ export default defineMetabaseCommand({
     ...skipValidateFlag,
     id: { type: "positional", description: "Segment id", required: true },
   },
+  inputSchema: SegmentUpdateInput,
   outputSchema: Segment,
   examples: [
     "cat patch.json | mb segment update 1",

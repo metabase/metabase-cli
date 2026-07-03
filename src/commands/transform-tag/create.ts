@@ -13,6 +13,7 @@ export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a transform tag" },
   capabilities: { minVersion: 59 },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...bodyInputFlags },
+  inputSchema: TransformTagCreateInput,
   outputSchema: TransformTag,
   examples: [
     'mb transform-tag create --body \'{"name":"nightly"}\'',

@@ -105,11 +105,12 @@ Cheapest source that answers the question wins:
 
 - What groups/verbs exist? → `mb --help`, then `mb <group> --help`. Add `--json` for a machine-readable `{command, description}` index (`mb --help --json` lists every command).
 - What flags does a command take? → `mb <command> --help` — flags with enums and defaults, examples, ~1 KB.
-- Output JSON Schema before parsing, machine-readable arg types, min server version? → `mb <command> --help --json` — that command's full entry.
+- Output JSON Schema before parsing, JSON-body input schema before authoring, machine-readable arg types, min server version? → `mb <command> --help --json` — that command's full entry (`inputSchema` is the exact validator the command runs on the body; `null` when it takes none).
 
 ```bash
 mb card query --help                                    # flags, enums, defaults, examples
 mb card list --help --json | jq .outputSchema           # output schema before parsing
+mb card create --help --json | jq .inputSchema          # body schema before authoring
 mb transform --help --json | jq -r '.commands[].command'  # verbs under "transform"
 ```
 

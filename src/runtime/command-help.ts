@@ -29,6 +29,7 @@ export const CommandHelpEntry = z.object({
   skills: z.array(CommandHelpSkill),
   examples: z.array(z.string()),
   args: z.array(CommandHelpArg),
+  inputSchema: z.unknown().nullable(),
   outputSchema: z.unknown().nullable(),
   capabilities: Capabilities.nullable(),
 });
@@ -49,6 +50,7 @@ const EMPTY_AUGMENT: MetabaseAugment = {
   examples: [],
   details: null,
   skills: [],
+  inputSchema: null,
   outputSchema: null,
   capabilities: null,
 };
@@ -66,6 +68,7 @@ export async function buildHelpEntry<T extends ArgsDef = ArgsDef>(
     skills: Array.from(augment.skills),
     examples: Array.from(augment.examples),
     args: convertArgs(args),
+    inputSchema: augment.inputSchema ? z.toJSONSchema(augment.inputSchema) : null,
     outputSchema: augment.outputSchema ? z.toJSONSchema(augment.outputSchema) : null,
     capabilities: augment.capabilities,
   };

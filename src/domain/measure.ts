@@ -42,11 +42,17 @@ export const measureView: ResourceView<Measure> = {
   ],
 };
 
+const MeasureDefinition = z
+  .record(z.string(), z.unknown())
+  .describe(
+    "MBQL query holding exactly one aggregation — full MBQL 5 schema: mb query --print-schema",
+  );
+
 export const MeasureCreateInput = z
   .object({
     name: z.string().min(1),
     table_id: z.number().int().positive(),
-    definition: z.record(z.string(), z.unknown()),
+    definition: MeasureDefinition,
     description: z.string().nullable().optional(),
   })
   .loose();
@@ -54,10 +60,10 @@ export type MeasureCreateInput = z.infer<typeof MeasureCreateInput>;
 
 export const MeasureUpdateInput = z
   .object({
-    name: z.string().min(1).optional(),
-    definition: z.record(z.string(), z.unknown()).optional(),
+    name: z.string().min(1).nullable().optional(),
+    definition: MeasureDefinition.nullable().optional(),
     revision_message: z.string().min(1),
-    archived: z.boolean().optional(),
+    archived: z.boolean().nullable().optional(),
     description: z.string().nullable().optional(),
   })
   .loose();

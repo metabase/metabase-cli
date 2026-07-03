@@ -11,6 +11,7 @@ export interface MetabaseAugment {
   examples: readonly string[];
   details: string | null;
   skills: readonly SkillPointer[];
+  inputSchema: ZodType | null;
   outputSchema: ZodType | null;
   capabilities: Capabilities | null;
 }

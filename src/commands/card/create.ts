@@ -30,6 +30,7 @@ export default defineMetabaseCommand({
     ...bodyInputFlags,
     ...skipValidateFlag,
   },
+  inputSchema: CardCreateInput,
   outputSchema: Card,
   examples: [
     "cat card.json | mb card create",

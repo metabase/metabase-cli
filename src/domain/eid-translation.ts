@@ -32,7 +32,7 @@ export const EidTranslateInput = z
   .object({
     // partialRecord (not record) — Zod 4's z.record(enum, …) treats every
     // enum key as required, but the API accepts any subset of models.
-    entity_ids: z.partialRecord(EidModel, z.array(z.string().min(1)).min(1)),
+    entity_ids: z.partialRecord(EidModel, z.array(z.string().length(21))),
   })
   .loose();
 export type EidTranslateInput = z.infer<typeof EidTranslateInput>;

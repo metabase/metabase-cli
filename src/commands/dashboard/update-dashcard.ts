@@ -26,6 +26,7 @@ export default defineMetabaseCommand({
     "dashboard-id": { type: "positional", description: "Dashboard id", required: true },
     "dashcard-id": { type: "positional", description: "Dashcard id", required: true },
   },
+  inputSchema: DashcardPatchInput,
   outputSchema: Dashcard,
   examples: [
     'mb dashboard update-dashcard 1 5 --body \'{"row":2,"col":0}\'',

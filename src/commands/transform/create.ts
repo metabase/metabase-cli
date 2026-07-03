@@ -28,6 +28,7 @@ export default defineMetabaseCommand({
     ...bodyInputFlags,
     ...skipValidateFlag,
   },
+  inputSchema: TransformCreateInput,
   outputSchema: Transform,
   examples: [
     "cat transform.json | mb transform create",

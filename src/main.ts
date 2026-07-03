@@ -50,6 +50,7 @@ setMetabaseAugment(main, {
       purpose: "guided end-to-end: raw data → clean tables → metrics → answers → dashboards",
     },
   ],
+  inputSchema: null,
   outputSchema: null,
   capabilities: null,
 });
