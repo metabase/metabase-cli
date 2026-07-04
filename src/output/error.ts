@@ -3,6 +3,7 @@ import { toMetabaseError } from "../core/errors";
 import type { ErrorCategory, MetabaseError } from "../core/errors";
 
 import { warn } from "./notice";
+import { serializeJson } from "./render";
 import type { Format } from "./types";
 
 const VERBOSE_BREADCRUMB = "(rerun with MB_VERBOSE=1 for details)";
@@ -39,10 +40,14 @@ function writeTextError(handled: MetabaseError, verbose: boolean): void {
     return;
   }
   if (verbose) {
-    process.stderr.write(JSON.stringify(handled.developerDetail, null, 2) + "\n");
+    process.stderr.write(serializeJson(handled.developerDetail, stderrPretty()) + "\n");
   } else {
     process.stderr.write(VERBOSE_BREADCRUMB + "\n");
   }
+}
+
+function stderrPretty(): boolean {
+  return process.stderr.isTTY === true;
 }
 
 function writeJsonError(handled: MetabaseError, verbose: boolean): void {
@@ -55,5 +60,5 @@ function writeJsonError(handled: MetabaseError, verbose: boolean): void {
     payload.detail = handled.developerDetail;
   }
   const envelope: JsonErrorEnvelope = { ok: false, error: payload };
-  process.stderr.write(JSON.stringify(envelope, null, 2) + "\n");
+  process.stderr.write(serializeJson(envelope, stderrPretty()) + "\n");
 }

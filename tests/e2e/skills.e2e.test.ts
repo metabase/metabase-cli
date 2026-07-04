@@ -107,7 +107,7 @@ describe("skills e2e", () => {
 
   it("get accepts comma-separated names", async () => {
     const result = await runCli({
-      args: ["skills", "get", "git-sync,transform", "--json"],
+      args: ["skills", "get", "git-sync,transform", "--json", "--max-bytes", "0"],
       configHome: await makeIsolatedConfigHome(),
     });
 

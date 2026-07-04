@@ -2,7 +2,10 @@ import { z, type ZodType } from "zod";
 
 export type Format = "json" | "text";
 
-export const DEFAULT_MAX_BYTES = 65536;
+// Sized to stay under agent-harness tool-output truncation (~30k chars in Claude Code's Bash
+// tool): the CLI's own cap must fire, with its teaching error, before the transport silently
+// cuts JSON mid-object.
+export const DEFAULT_MAX_BYTES = 24576;
 
 export interface TruncationInfo {
   reason: "max_bytes";
@@ -41,4 +44,5 @@ export interface RenderOptions {
   full: boolean;
   fields: string[] | undefined;
   maxBytes: number;
+  oversizeHint?: string | undefined;
 }

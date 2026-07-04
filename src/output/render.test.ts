@@ -6,7 +6,7 @@ import type { ResourceView } from "../domain/view";
 import { parseJson } from "../runtime/json";
 import { capListEnvelope } from "./cap";
 import { renderSummary, renderItem, renderList, writeJson, writeText } from "./render";
-import type { ListEnvelope, RenderOptions } from "./types";
+import { DEFAULT_MAX_BYTES, type ListEnvelope, type RenderOptions } from "./types";
 
 const Card = z.object({
   id: z.number().int(),
@@ -27,7 +27,7 @@ const baseOpts: RenderOptions = {
   format: "json",
   full: false,
   fields: undefined,
-  maxBytes: 65536,
+  maxBytes: DEFAULT_MAX_BYTES,
 };
 
 const TruncatedEnvelope = z.object({
@@ -59,6 +59,7 @@ let streams: Streams;
 
 beforeEach(() => {
   streams = { stdout: "", stderr: "" };
+  process.stdout.isTTY = false;
   vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
     streams.stdout += String(chunk);
     return true;
@@ -124,7 +125,7 @@ describe("renderItem", () => {
   it("throws ConfigError and writes nothing when a single item exceeds maxBytes", () => {
     const longName = "x".repeat(200);
     const item: Card = { id: 1, name: longName, archived: false };
-    const expectedBytes = Buffer.byteLength(JSON.stringify(item, null, 2) + "\n", "utf8");
+    const expectedBytes = Buffer.byteLength(JSON.stringify(item) + "\n", "utf8");
     const error = (() => {
       try {
         renderItem(item, cardView, { ...baseOpts, full: true, maxBytes: 50 });
@@ -136,16 +137,40 @@ describe("renderItem", () => {
     expect(error).toBeInstanceOf(ConfigError);
     assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe(
-      `output is ${expectedBytes} bytes, over the 50-byte --max-bytes cap; narrow with --fields, or pass --max-bytes 0 to disable`,
+      `output is ${expectedBytes} bytes, over the 50-byte --max-bytes cap; narrow with --fields or raise the cap with --max-bytes <n>`,
     );
     expect(error.exitCode).toBe(2);
     expect(streams.stdout).toBe("");
   });
 
+  it("surfaces the command-supplied oversize hint in the ConfigError message", () => {
+    const longName = "x".repeat(200);
+    const item: Card = { id: 1, name: longName, archived: false };
+    const expectedBytes = Buffer.byteLength(JSON.stringify(item) + "\n", "utf8");
+    const error = (() => {
+      try {
+        renderItem(item, cardView, {
+          ...baseOpts,
+          full: true,
+          maxBytes: 50,
+          oversizeHint: "use `mb card list` instead",
+        });
+      } catch (caught: unknown) {
+        return caught;
+      }
+      throw new Error("expected renderItem to throw");
+    })();
+    expect(error).toBeInstanceOf(ConfigError);
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toBe(
+      `output is ${expectedBytes} bytes, over the 50-byte --max-bytes cap; use \`mb card list\` instead`,
+    );
+  });
+
   it("does not throw when item fits inside maxBytes", () => {
     renderItem({ id: 1, name: "Sales", archived: false }, cardView, {
       ...baseOpts,
-      maxBytes: 65536,
+      maxBytes: DEFAULT_MAX_BYTES,
     });
     expect(streams.stderr).toBe("");
   });
@@ -256,8 +281,29 @@ describe("renderList — JSON format", () => {
 
     expect(parseJson(streams.stdout, TruncatedEnvelope)).toEqual(expectedCapped);
     expect(streams.stderr).toBe(
-      `… cut at ${expectedCapped.truncated.bytes} bytes; rerun with --max-bytes 0\n`,
+      `… cut at ${expectedCapped.truncated.bytes} bytes; narrow the selection or raise --max-bytes\n`,
     );
+  });
+
+  it("serializes envelope metadata before data so a tail cut cannot hide truncation", () => {
+    const items: Card[] = Array.from({ length: 50 }, (_, index) => ({
+      id: index,
+      name: `card-${"x".repeat(40)}-${index}`,
+      archived: false,
+    }));
+    renderList({ data: items, returned: items.length, total: items.length }, cardView, {
+      ...baseOpts,
+      maxBytes: 500,
+    });
+
+    const projectedItems = items.map(({ id, name }) => ({ id, name }));
+    const expectedCapped = capListEnvelope(
+      { data: projectedItems, returned: items.length, total: items.length },
+      500,
+    );
+    assert(expectedCapped.truncated !== undefined, "fixture should produce truncation");
+    const prefix = `{"returned":${expectedCapped.returned},"total":${expectedCapped.total},"truncated":{"reason":"max_bytes","bytes":${expectedCapped.truncated.bytes}},"data":[`;
+    expect(streams.stdout.slice(0, prefix.length)).toBe(prefix);
   });
 });
 
@@ -348,7 +394,7 @@ describe("renderList — text format", () => {
     assert(expectedCapped.truncated !== undefined, "fixture should produce truncation");
     expect(streams.stdout).toContain("ID");
     expect(streams.stderr).toBe(
-      `… cut at ${expectedCapped.truncated.bytes} bytes; rerun with --max-bytes 0\n`,
+      `… cut at ${expectedCapped.truncated.bytes} bytes; narrow the selection or raise --max-bytes\n`,
     );
   });
 });
@@ -388,8 +434,18 @@ describe("renderList — --fields path errors", () => {
 });
 
 describe("writeJson", () => {
-  it("emits the value pretty-printed with a trailing newline", () => {
+  it("emits single-line JSON with a trailing newline when stdout is not a TTY", () => {
     writeJson({ a: 1, b: ["x", "y"] });
+    expect(streams.stdout).toBe('{"a":1,"b":["x","y"]}\n');
+  });
+
+  it("pretty-prints when stdout is a TTY", () => {
+    process.stdout.isTTY = true;
+    try {
+      writeJson({ a: 1, b: ["x", "y"] });
+    } finally {
+      process.stdout.isTTY = false;
+    }
     expect(streams.stdout).toBe('{\n  "a": 1,\n  "b": [\n    "x",\n    "y"\n  ]\n}\n');
   });
 });

@@ -67,7 +67,7 @@ describe("renderSkillList", () => {
 
     expect(streams.stdout).toBe("core\n  Drive a Metabase instance from the\n  terminal.\n\n");
     expect(streams.stderr).toBe(
-      `… cut at ${Buffer.byteLength(full, "utf8")} bytes; rerun with --max-bytes 0\n`,
+      `… cut at ${Buffer.byteLength(full, "utf8")} bytes; narrow the selection or raise --max-bytes\n`,
     );
   });
 });

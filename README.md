@@ -328,11 +328,11 @@ mb transform-tag delete 5 --yes
 
 ## Databases
 
-Read warehouse metadata from `/api/database`. The `db` group exposes the full database list, the per-database record, schema and table inspection, the two manual-sync triggers, and (rarely useful) full-warehouse rollup endpoints.
+Read warehouse metadata from `/api/database`. The `db` group exposes the full database list, the per-database record with optional table/field hydration, schema and table inspection, and the two manual-sync triggers.
 
 `db` is aliased to `database`.
 
-> **Agent traversal:** prefer the granular path — `db list` → `db schemas <db-id>` → `db schema-tables <db-id> <schema>` → `table get <table-id> --include fields`. On a real warehouse (dozens of schemas, hundreds of tables, dozens of fields per table) the rollup commands (`db metadata`, `db get --include tables.fields`, `db list --include tables`) return megabytes of JSON and exhaust the agent context. Reach for them only on small/dev warehouses where you know the size up front.
+> **Agent traversal — the hydration ladder:** start with `db get <db-id> --include tables`, the compact table map (id, name, schema, description per table) — one call that fits most databases. Pick the relevant tables, then fetch fields per table with `table fields <table-id>` (bounded: a table has at most a few hundred fields). `--include tables.fields` is the full rollup — small databases only. When output outgrows the `--max-bytes` cap, the error message names the next command down the ladder. On warehouses with hundreds of tables, traverse by schema (`db schemas <db-id>` → `db schema-tables <db-id> <schema>`) or find tables by name (`mb search <term> --models table --db-id <db-id>`).
 
 ### `mb db list`
 
@@ -340,34 +340,26 @@ Read warehouse metadata from `/api/database`. The `db` group exposes the full da
 mb db list
 mb db list --json
 mb db list --saved --json
-mb db list --include tables --full --json   # rollup: every db with its full table list
+mb db list --include tables --json   # every db with its compact table map
 ```
 
-| Flag                | Description                                                                                                                                                                                                          |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--include <which>` | Hydrate related entities. Currently only `tables` is supported (each database is returned with its `tables`). On real warehouses this returns hundreds of table records per db — use the granular traversal instead. |
-| `--saved`           | Include the Saved Questions virtual database in the list. The virtual db has id `-1337` and no `engine`.                                                                                                             |
+| Flag                | Description                                                                                                                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--include <which>` | Hydrate related entities. Currently only `tables` is supported (each database is returned with its compact `tables`). To map a single warehouse, prefer `db get <id> --include tables`. |
+| `--saved`           | Include the Saved Questions virtual database in the list. The virtual db has id `-1337` and no `engine`.                                                                                |
 
 ### `mb db get <id>`
 
 ```sh
 mb db get 1
 mb db get 1 --json
-mb db get 1 --include tables --full --json          # rollup: db + every table (compact)
-mb db get 1 --include tables.fields --full --json   # rollup: db + every table + every field
+mb db get 1 --include tables --json          # + compact table map (fits most databases)
+mb db get 1 --include tables.fields --json   # + every field of every table (small databases only)
 ```
 
-| Flag                | Description                                                                                                                                                                                                                                                                       |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--include <which>` | Hydrate related entities. One of `tables` or `tables.fields`. `tables.fields` returns every column of every table in the database in one response — only safe on small/dev warehouses. For a real warehouse use `db schemas` → `db schema-tables` → `table get --include fields`. |
-
-### `mb db metadata <id>`
-
-Equivalent to `GET /api/database/:id/metadata`: a single database with all its tables and fields rolled up in one response. This is the largest read in the `db` group — on a real warehouse the response will exceed the agent context. Use only when you know the database is small (a seeded dev instance, a sample db, a freshly-bootstrapped test fixture). For agent-driven introspection on a real warehouse, walk `db schemas` → `db schema-tables` → `table get --include fields` instead.
-
-```sh
-mb db metadata 1 --json --full --max-bytes 0
-```
+| Flag                | Description                                                                                                                                                                                                                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--include <which>` | Hydrate related entities. `tables` is the compact table map — the recommended first call for schema discovery. `tables.fields` is the full rollup and fits only small databases; on anything larger, take the map and fetch fields per table with `table fields <table-id>`, or traverse by schema (see above). |
 
 ### `mb db schemas <id>`
 
@@ -430,7 +422,7 @@ mb table list --db-id 1 --json
 
 ### `mb table get <id>`
 
-Returns the basic table record (no fields). Pass `--include fields` to route through `/api/table/:id/query_metadata` so the response carries the table's columns compact-projected as `fields` — this is the default agent path for field introspection. Use `mb table fields <id>` if you only want the fields as a list envelope, or `mb table metadata <id>` when you also need FKs and dimensions hydrated.
+Returns the basic table record (no fields). Pass `--include fields` to route through `/api/table/:id/query_metadata` so the response carries the table's columns compact-projected as `fields` — this is the default agent path for field introspection (the response also carries FK targets and dimensions under `--full`). Use `mb table fields <id>` if you only want the fields as a list envelope.
 
 ```sh
 mb table get 42
@@ -449,14 +441,6 @@ List the fields on a table (a thin projection over `query_metadata.fields`). Use
 ```sh
 mb table fields 42
 mb table fields 42 --json
-```
-
-### `mb table metadata <id>`
-
-`GET /api/table/:id/query_metadata`: the table with its fields, FKs, dimensions, segments, and measures all hydrated. Heavier than `table get --include fields` — reach for it only when you actually need the FK / dimension / segment / measure data.
-
-```sh
-mb table metadata 42 --json --full --max-bytes 0
 ```
 
 ### `mb table update <id>`
@@ -1525,7 +1509,7 @@ mb skills path                              # absolute paths for direct Read
 mb skills path core                         # one path
 ```
 
-`mb skills get` honors the shared `--max-bytes` list cap. With the default 65 536 cap, `--all` will return only the first skill and emit a truncation notice — pass `--max-bytes 0` to dump every skill in one envelope.
+`mb skills get` honors the shared `--max-bytes` list cap. With the default 24 576 cap, `--all` will return only the first skill and emit a truncation notice — pass `--max-bytes 0` to dump every skill in one envelope.
 
 Bundled skills:
 

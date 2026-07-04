@@ -18,10 +18,10 @@ type CliErrorEnvelope = z.infer<typeof CliErrorEnvelope>;
 
 // The e2e harness is never a TTY, so the CLI renders errors as a JSON envelope on stderr (the
 // agent-facing path); in a TTY it renders plain text. Any leading warn() lines (e.g. preflight
-// notices) precede the envelope, which always opens with a bare "{" line.
+// notices) precede the envelope, whose first line starts with "{".
 function parseEnvelope(stderr: string): CliErrorEnvelope | null {
   const lines = stderr.split("\n");
-  const start = lines.indexOf("{");
+  const start = lines.findIndex((line) => line.startsWith("{"));
   if (start === -1) {
     return null;
   }
