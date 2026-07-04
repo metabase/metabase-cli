@@ -59,21 +59,24 @@ Every list/get verb supports the same output flags:
 - `--json` — emit the full JSON envelope, safe for `jq`. Default is human-readable text.
 - `--full` — include every field (the compact projection is the default, and is the agent-facing contract).
 - `--fields a,b.c.d` — project specific dot-paths. Mutually exclusive with `--full`. **Paths are relative to each `data[]` item on list verbs, and to the root on single-item verbs.** So it's `--fields id,name` on `… list` / `database schema-tables` (`data.id` and `data[].id` both fail with `unknown field path: "data.id"`), and `--fields id,name,display` on `card get`, `--fields data.rows` on `mb query` (whose `data` is an object).
-- `--max-bytes <n>` — cap **list** output size (drops trailing items, sets `truncated`). Default 65536; `0` disables. Single-item commands (`get`, `metadata`) never truncate — when their output exceeds the cap they throw a `ConfigError` (exit 2: "output is N bytes, over the M-byte --max-bytes cap…"); raise `--max-bytes` or narrow with `--fields`.
+- `--max-bytes <n>` — cap **list** output size (drops trailing items, sets `truncated`). Default 24576 (sized to fit under agent-harness tool-output limits); `0` disables. Single-item commands (`get`) never truncate — when their output exceeds the cap they throw a `ConfigError` (exit 2: "output is N bytes, over the M-byte --max-bytes cap; …") whose tail names the remedy: on schema-shaped commands it is the exact narrower command to run instead — follow it rather than raising the cap.
+- JSON output is a single line when stdout is piped (pretty-printed only at a TTY) — always parse it, never scrape by line position.
 
-List envelope shape:
+List envelope shape (metadata first, so counts and the truncation marker survive if a consumer cuts the tail):
 
 ```json
 {
-  "data": [
-    /* items */
-  ],
   "returned": 10,
   "total": 42,
   "limit": 50,
-  "truncated": false
+  "truncated": { "reason": "max_bytes", "bytes": 123456 },
+  "data": [
+    /* items */
+  ]
 }
 ```
+
+`truncated` is present only when the cap dropped trailing items.
 
 `total` is best-effort and may be `null` (empty / permissions-filtered collections, or `--limit` early-stop); use `returned` for the count you got and `data.length` for the rendered slice.
 
@@ -118,8 +121,8 @@ mb transform --help --json | jq -r '.commands[].command'  # verbs under "transfo
 
 Routine verb shapes (list / get / create / update), every flag, and output schemas live in each command's `--help` (add `--json` for output schemas). Below is only what help does _not_ tell you: footguns and non-obvious behaviors.
 
-- **db traversal vs. rollup.** Default to granular: `database list` → `database schemas <db-id>` → `database schema-tables <db-id> <schema>` → `table get <table-id> --include fields`. The rollup endpoints (`database get --include tables.fields`, `database metadata <db-id>`) pull megabytes and blow the context window on any real warehouse — use them only on a small/dev db. `sync-schema` / `rescan-values` queue async work and return `{status:"ok"}` immediately; `sync-schema --wait` blocks until `initial_sync_status: complete`.
-- **table fields.** `table get` never returns fields on its own — pass `--include fields` (compact) or use `table fields <id>` (list envelope). `table metadata <id>` adds FKs + dimensions (heavier). `table update` patches table-level metadata only; physical columns aren't editable.
+- **db traversal: the hydration ladder.** Start with `database get <db-id> --include tables` — the compact table map (id, name, schema, description per table), one call that fits most databases. Pick the relevant tables, then `table fields <table-id>` per table (bounded: fields are per-table). `--include tables.fields` is the full rollup — small databases only; when either outgrows the cap the error message names the next command down the ladder. Hundreds of tables? Traverse by schema (`database schemas <db-id>` → `database schema-tables <db-id> <schema>`) or look tables up by name (`search <term> --models table --db-id <db-id> --limit 10`). `sync-schema` / `rescan-values` queue async work and return `{status:"ok"}` immediately; `sync-schema --wait` blocks until `initial_sync_status: complete`.
+- **table fields.** `table get` never returns fields on its own — pass `--include fields` (compact; the underlying query_metadata response also carries FK targets and dimensions, visible under `--full`) or use `table fields <id>` (list envelope). `table update` patches table-level metadata only; physical columns aren't editable.
 - **field has no `list`.** Fields are per-table — get them via `table get <id> --include fields`. Never enumerate fields across a whole db (context blow-up). `field summary` is live cardinality `{field_id, count, distincts}`; `field values` is the cached distinct set (`has_more_values: true` ⇒ truncated cache). `field update` patches metadata only (`base_type` isn't editable) — this is where you set a column's `semantic_type` or foreign-key target.
 - **upload (CSV → tables).** `upload csv --file <path>` creates a new table + model (prints `{model_id, table_id}`); `upload append <table-id>` / `upload replace <table-id> --file <path>` add to / overwrite a table **previously created by upload** (columns must match). The destination db+schema is admin-configured, not per-call — check with `mb setting get uploads-settings --json` (`db_id: null` ⇒ uploads off/unconfigured; needs admin to read). `--collection <id|root>` only sets the model's collection. Max 50 MB. Errors: **"The uploads database is not configured."** = no db has uploads enabled; **"Uploads are not enabled."** = the append/replace target isn't an uploaded table.
 - **card.** `dataset_query` is the **flat** `mbql/query` value, not a legacy `{type:"query",query:…}` envelope (→ `mbql`). `--export-format csv|xlsx` streams the raw export (pipe to a file), bypassing the JSON envelope. `archive` is the only delete; unarchive with `update --body '{"archived":false}'`. `visualization_settings` keys are scoped by `display` and aren't pre-flighted — see `visualization`.

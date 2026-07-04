@@ -9,8 +9,18 @@ import type { ListEnvelope, RenderOptions } from "./types";
 
 export { formatScalar } from "./table";
 
+// Pretty-printing is pure token overhead for the machine consumers on the other side of a
+// pipe (~40% of the bytes), so indentation is reserved for humans at a terminal.
+export function serializeJson(value: unknown, pretty: boolean): string {
+  return JSON.stringify(value, null, pretty ? 2 : undefined);
+}
+
+function stdoutPretty(): boolean {
+  return process.stdout.isTTY === true;
+}
+
 export function jsonLine(value: unknown): string {
-  return JSON.stringify(value, null, 2) + "\n";
+  return serializeJson(value, stdoutPretty()) + "\n";
 }
 
 export function writeJson(value: unknown): void {
@@ -26,7 +36,7 @@ type KeyValuePair = readonly [label: string, value: string];
 export function renderItem<T>(item: T, view: ResourceView<T>, opts: RenderOptions): void {
   const projected = applyProjection(item, view, opts.full, opts.fields);
   const body = renderItemBody(item, view, projected, opts) + "\n";
-  assertItemWithinMaxBytes(body, opts.maxBytes);
+  assertItemWithinMaxBytes(body, opts);
   process.stdout.write(body);
 }
 
@@ -48,7 +58,7 @@ export function renderSummary<T>(
     return;
   }
   const body = (typeof summaryText === "function" ? summaryText() : summaryText) + "\n";
-  assertItemWithinMaxBytes(body, opts.maxBytes);
+  assertItemWithinMaxBytes(body, opts);
   process.stdout.write(body);
 }
 
@@ -139,7 +149,16 @@ function renderJsonEnvelope<T>(
   const projectedItems = projectListItems(envelope.data, view, opts.full, opts.fields);
   const projectedEnvelope: ListEnvelope<unknown> = { ...envelope, data: projectedItems };
   const capped = capListEnvelope(projectedEnvelope, opts.maxBytes);
-  process.stdout.write(JSON.stringify(capped, null, 2) + "\n");
+  // Metadata precedes `data` so counts and the truncation marker survive when a downstream
+  // consumer (an agent harness, a pager) cuts the tail of the output.
+  const ordered: ListEnvelope<unknown> = {
+    returned: capped.returned,
+    total: capped.total,
+    limit: capped.limit,
+    truncated: capped.truncated,
+    data: capped.data,
+  };
+  process.stdout.write(serializeJson(ordered, stdoutPretty()) + "\n");
   if (capped.truncated !== undefined) {
     warn(listTruncationNotice(capped.truncated.bytes));
   }
@@ -152,7 +171,7 @@ function renderItemBody<T>(
   opts: RenderOptions,
 ): string {
   if (opts.format === "json") {
-    return JSON.stringify(projected, null, 2);
+    return serializeJson(projected, stdoutPretty());
   }
   if (opts.fields !== undefined || opts.full) {
     return renderKeyValueLines(objectPairs(projected));
@@ -180,13 +199,13 @@ function renderKeyValueLines(pairs: ReadonlyArray<KeyValuePair>): string {
   return pairs.map(([label, value]) => `${label.padEnd(padding)}  ${value}`).join("\n");
 }
 
-function assertItemWithinMaxBytes(body: string, maxBytes: number): void {
-  if (maxBytes <= 0) {
+function assertItemWithinMaxBytes(body: string, opts: RenderOptions): void {
+  if (opts.maxBytes <= 0) {
     return;
   }
   const bytes = Buffer.byteLength(body, "utf8");
-  if (bytes <= maxBytes) {
+  if (bytes <= opts.maxBytes) {
     return;
   }
-  throw new ConfigError(itemOversizeMessage(bytes, maxBytes));
+  throw new ConfigError(itemOversizeMessage(bytes, opts.maxBytes, opts.oversizeHint));
 }

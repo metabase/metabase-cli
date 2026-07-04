@@ -87,6 +87,7 @@ describe("preflightDashcardCardReferences", () => {
 
   beforeEach(() => {
     captured = [];
+    process.stdout.isTTY = false;
     vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
       captured.push(String(chunk));
       return true;
@@ -149,11 +150,10 @@ describe("preflightDashcardCardReferences", () => {
       "dashboard card-reference pre-flight failed: 1 error(s) — fix the dashcard card_id values listed above",
     );
     expect(captured.join("")).toBe(
-      `${JSON.stringify(
-        { ok: false, errors: [{ path: "/dashcards/0/card_id", message: "card 134 is archived" }] },
-        null,
-        2,
-      )}\n`,
+      `${JSON.stringify({
+        ok: false,
+        errors: [{ path: "/dashcards/0/card_id", message: "card 134 is archived" }],
+      })}\n`,
     );
   });
 
@@ -170,17 +170,13 @@ describe("preflightDashcardCardReferences", () => {
       "dashboard card-reference pre-flight failed: 2 error(s) — fix the dashcard card_id values listed above",
     );
     expect(captured.join("")).toBe(
-      `${JSON.stringify(
-        {
-          ok: false,
-          errors: [
-            { path: "/dashcards/0/card_id", message: "card 134 is archived" },
-            { path: "/dashcards/1/card_id", message: "card 134 is archived" },
-          ],
-        },
-        null,
-        2,
-      )}\n`,
+      `${JSON.stringify({
+        ok: false,
+        errors: [
+          { path: "/dashcards/0/card_id", message: "card 134 is archived" },
+          { path: "/dashcards/1/card_id", message: "card 134 is archived" },
+        ],
+      })}\n`,
     );
   });
 
@@ -202,11 +198,10 @@ describe("preflightDashcardCardReferences", () => {
       "dashboard card-reference pre-flight failed: 1 error(s) — fix the dashcard card_id values listed above",
     );
     expect(captured.join("")).toBe(
-      `${JSON.stringify(
-        { ok: false, errors: [{ path: "/dashcards/0/card_id", message: "card 9999 not found" }] },
-        null,
-        2,
-      )}\n`,
+      `${JSON.stringify({
+        ok: false,
+        errors: [{ path: "/dashcards/0/card_id", message: "card 9999 not found" }],
+      })}\n`,
     );
   });
 
@@ -228,19 +223,15 @@ describe("preflightDashcardCardReferences", () => {
       "dashboard card-reference pre-flight failed: 1 error(s) — fix the dashcard card_id values listed above",
     );
     expect(captured.join("")).toBe(
-      `${JSON.stringify(
-        {
-          ok: false,
-          errors: [
-            {
-              path: "/dashcards/0/card_id",
-              message: "card 55 is not readable: You do not have permissions to do that.",
-            },
-          ],
-        },
-        null,
-        2,
-      )}\n`,
+      `${JSON.stringify({
+        ok: false,
+        errors: [
+          {
+            path: "/dashcards/0/card_id",
+            message: "card 55 is not readable: You do not have permissions to do that.",
+          },
+        ],
+      })}\n`,
     );
   });
 

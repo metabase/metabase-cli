@@ -3,9 +3,11 @@ export function warn(message: string): void {
 }
 
 export function listTruncationNotice(bytes: number): string {
-  return `… cut at ${bytes} bytes; rerun with --max-bytes 0`;
+  return `… cut at ${bytes} bytes; narrow the selection or raise --max-bytes`;
 }
 
-export function itemOversizeMessage(bytes: number, maxBytes: number): string {
-  return `output is ${bytes} bytes, over the ${maxBytes}-byte --max-bytes cap; narrow with --fields, or pass --max-bytes 0 to disable`;
+const ITEM_OVERSIZE_REMEDY = "narrow with --fields or raise the cap with --max-bytes <n>";
+
+export function itemOversizeMessage(bytes: number, maxBytes: number, hint?: string): string {
+  return `output is ${bytes} bytes, over the ${maxBytes}-byte --max-bytes cap; ${hint ?? ITEM_OVERSIZE_REMEDY}`;
 }

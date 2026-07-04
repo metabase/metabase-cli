@@ -7,6 +7,8 @@ import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
+import { tableFieldsOversizeHint } from "./hints";
+
 const TableGetInclude = z.enum(["fields"]);
 
 export default defineMetabaseCommand({
@@ -40,7 +42,7 @@ export default defineMetabaseCommand({
         TableQueryMetadata,
         `/api/table/${id}/query_metadata`,
       );
-      renderItem(table, tableView, ctx);
+      renderItem(table, tableView, { ...ctx, oversizeHint: tableFieldsOversizeHint(id) });
       return;
     }
     const table = await client.requestParsed(Table, `/api/table/${id}`);
