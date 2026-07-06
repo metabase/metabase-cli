@@ -1,5 +1,6 @@
 import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
+import { AuthStatus } from "../../src/commands/auth/status";
 import { WorkspaceDestroyResult } from "../../src/commands/workspace/destroy";
 import { WorkspaceListEnvelope } from "../../src/commands/workspace/list";
 import { createClient, type Client } from "../../src/core/http/client";
@@ -80,7 +81,7 @@ describe.skipIf(skipReason !== null)("workspace e2e", () => {
     });
   }
 
-  async function createSeedWorkspace(): Promise<void> {
+  async function createSeedWorkspace(configHome?: string): Promise<void> {
     await enableWorkspacesOnWarehouse();
     const result = await runCli({
       args: [
@@ -92,7 +93,7 @@ describe.skipIf(skipReason !== null)("workspace e2e", () => {
         String(SEEDED.warehouseDbId),
         "--json",
       ],
-      configHome: await makeIsolatedConfigHome(),
+      configHome: configHome ?? (await makeIsolatedConfigHome()),
       env: authEnv(),
       timeoutMs: PROVISION_TIMEOUT_MS,
     });
@@ -130,7 +131,7 @@ describe.skipIf(skipReason !== null)("workspace e2e", () => {
     expect(parseJson(result.stdout, WorkspaceCompact)).toEqual(WORKSPACE_COMPACT);
   });
 
-  it("destroy --yes tears down the workspace; subsequent get returns 404", async () => {
+  it("destroy --yes without a matching local profile warns, skips the dirty check, and tears down", async () => {
     await createSeedWorkspace();
 
     const destroyResult = await runCli({
@@ -140,6 +141,9 @@ describe.skipIf(skipReason !== null)("workspace e2e", () => {
       timeoutMs: PROVISION_TIMEOUT_MS,
     });
     expect(destroyResult.exitCode, destroyResult.stderr).toBe(0);
+    expect(destroyResult.stderr).toContain(
+      `no local profile "ws-${FIRST_WORKSPACE_ID}" for this workspace — skipping the unsynced-work check`,
+    );
     expect(parseJson(destroyResult.stdout, WorkspaceDestroyResult)).toEqual({
       id: FIRST_WORKSPACE_ID,
       deleted: true,
@@ -170,6 +174,88 @@ describe.skipIf(skipReason !== null)("workspace e2e", () => {
       `Not found: GET /api/ee/workspace-manager/${MISSING_WORKSPACE_ID}.`,
     );
     expect(result.stdout).toBe("");
+  });
+
+  // The ws-<id> profile is seeded AFTER create: it targets the same host in this rig, so the
+  // stale-credential sweep would (correctly) refuse the create if it existed beforehand.
+  async function seedWorkspaceProfile(configHome: string, url: string): Promise<void> {
+    const skipVerify = url === bootstrap.baseUrl ? [] : ["--skip-verify"];
+    const login = await runCli({
+      args: [
+        "auth",
+        "login",
+        "--profile",
+        `ws-${FIRST_WORKSPACE_ID}`,
+        "--url",
+        url,
+        ...skipVerify,
+        "--json",
+      ],
+      configHome,
+      stdin: bootstrap.adminApiKey,
+    });
+    expect(login.exitCode, login.stderr).toBe(0);
+  }
+
+  it("destroy runs the dirty check through the ws-<id> profile and drops it after teardown", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await createSeedWorkspace(configHome);
+    await seedWorkspaceProfile(configHome, bootstrap.baseUrl);
+
+    const destroyResult = await runCli({
+      args: ["workspace", "destroy", String(FIRST_WORKSPACE_ID), "--yes", "--json"],
+      configHome,
+      env: authEnv(),
+      timeoutMs: PROVISION_TIMEOUT_MS,
+    });
+    expect(destroyResult.exitCode, destroyResult.stderr).toBe(0);
+    expect(destroyResult.stderr).not.toContain("no local profile");
+    expect(destroyResult.stderr).toContain(`dropped profile "ws-${FIRST_WORKSPACE_ID}"`);
+    expect(parseJson(destroyResult.stdout, WorkspaceDestroyResult)).toEqual({
+      id: FIRST_WORKSPACE_ID,
+      deleted: true,
+      aborted: false,
+    });
+
+    const status = await runCli({
+      args: ["auth", "status", "--profile", `ws-${FIRST_WORKSPACE_ID}`, "--json"],
+      configHome,
+    });
+    expect(status.exitCode, status.stderr).toBe(0);
+    expect(parseJson(status.stdout, AuthStatus).present).toBe(false);
+  });
+
+  it("destroy refuses when the dirty check is impossible, and --discard overrides", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await createSeedWorkspace(configHome);
+    await seedWorkspaceProfile(configHome, "https://unreachable.invalid");
+
+    const refused = await runCli({
+      args: ["workspace", "destroy", String(FIRST_WORKSPACE_ID), "--yes", "--json"],
+      configHome,
+      env: authEnv(),
+      timeoutMs: PROVISION_TIMEOUT_MS,
+    });
+    expect(refused.exitCode).toBe(2);
+    expect(cliErrorMessage(refused.stderr)).toContain(
+      `could not check workspace profile "ws-${FIRST_WORKSPACE_ID}" for unsynced work:`,
+    );
+    expect(cliErrorMessage(refused.stderr)).toContain("— pass --discard to destroy anyway");
+    expect(refused.stdout).toBe("");
+
+    const discarded = await runCli({
+      args: ["workspace", "destroy", String(FIRST_WORKSPACE_ID), "--yes", "--discard", "--json"],
+      configHome,
+      env: authEnv(),
+      timeoutMs: PROVISION_TIMEOUT_MS,
+    });
+    expect(discarded.exitCode, discarded.stderr).toBe(0);
+    expect(discarded.stderr).toContain("--discard given — skipping the unsynced-work check");
+    expect(parseJson(discarded.stdout, WorkspaceDestroyResult)).toEqual({
+      id: FIRST_WORKSPACE_ID,
+      deleted: true,
+      aborted: false,
+    });
   });
 });
 

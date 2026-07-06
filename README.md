@@ -1528,16 +1528,20 @@ Before creating, the profile store is swept for broader credentials against the 
 
 ### `mb workspace destroy <id>`
 
-Tears down each provisioned database's warehouse isolation, then removes the workspace. Prompts unless `--yes`. Refuses (409) while any database is still provisioning/deprovisioning unless `--ignore-pending`, which removes the records and leaves those warehouse objects behind; unreachable-warehouse leftovers are reported as `orphaned_resources`.
+Destroy is the only irreversible moment, so it closes the work-loss window first: when a local profile named `ws-<id>` exists, the child is checked for unsynced work (`remote-sync is-dirty`) and a dirty workspace is auto-exported to its target branch before teardown. `--discard` skips the check and the export; a machine without the workspace's profile warns and proceeds (destroy is the billing-stop lever — ops cleanup must work from anywhere), while a profile whose child can't be reached refuses without `--discard`.
+
+Then each provisioned database's warehouse isolation is torn down and the workspace removed; the matching local profile is dropped on success. Prompts unless `--yes`. Refuses (409) while any database is still provisioning/deprovisioning unless `--ignore-pending`, which removes the records and leaves those warehouse objects behind; unreachable-warehouse leftovers are reported as `orphaned_resources`.
 
 ```sh
 mb workspace destroy 1 --yes
+mb workspace destroy 1 --yes --discard
 mb workspace destroy 1 --yes --ignore-pending
 ```
 
 | Flag               | Description                                                             |
 | ------------------ | ----------------------------------------------------------------------- |
 | `--yes`            | Skip confirmation.                                                      |
+| `--discard`        | Destroy without exporting unsynced work (skips the is-dirty check).     |
 | `--ignore-pending` | Remove workspace records even while databases are mid-(de)provisioning. |
 
 ## Instance setup

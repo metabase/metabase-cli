@@ -11,7 +11,7 @@ import { gitSyncWaitFlags, parseWaitFlags } from "../wait-flags";
 
 import { formatSyncTask, pollSyncTask, REMOTE_SYNC_PATHS, throwIfFailedTask } from "./poll-task";
 
-const SyncExportKickoff = z.object({
+export const SyncExportKickoff = z.object({
   message: z.string(),
   task_id: z.number().int().positive(),
 });
