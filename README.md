@@ -1325,10 +1325,13 @@ mb workspace create --name ws-reports --database-ids 1
 mb workspace create --name ws-etl --database-ids 1,2 --json
 ```
 
-| Flag                   | Description                              |
-| ---------------------- | ---------------------------------------- |
-| `--name <name>`        | Workspace name.                          |
-| `--database-ids <ids>` | Database ids to attach, comma separated. |
+| Flag                   | Description                                                                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `--name <name>`        | Workspace name.                                                                                                               |
+| `--database-ids <ids>` | Database ids to attach, comma separated.                                                                                      |
+| `--keep-existing-auth` | Proceed despite broader same-server credentials in the profile store. Interactive only — refused in non-interactive contexts. |
+
+Before creating, the profile store is swept for broader credentials against the same server: any API key profile, or any OAuth profile wider than `mb:workspace-manager`. Interactive runs offer to revoke the offenders (local clear + best-effort server-side token revocation; API keys must additionally be deleted in Admin settings); non-interactive runs hard-refuse so an agent can't proceed while a full-power credential is in reach.
 
 ### `mb workspace destroy <id>`
 

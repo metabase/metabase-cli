@@ -233,6 +233,117 @@ describe("workspace arg validation e2e (no Metabase contact required)", () => {
   });
 });
 
+describe("workspace credential sweep e2e", () => {
+  let bootstrap: E2EBootstrap;
+  const tempDirs: string[] = [];
+
+  beforeAll(async () => {
+    bootstrap = await readBootstrap();
+  });
+
+  afterEach(async () => {
+    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+  });
+
+  async function makeIsolatedConfigHome(): Promise<string> {
+    const dir = await mkTempConfigHome();
+    tempDirs.push(dir);
+    return dir;
+  }
+
+  async function seedStaleAdminProfile(configHome: string): Promise<void> {
+    const login = await runCli({
+      args: ["auth", "login", "--profile", "stale-admin", "--url", bootstrap.baseUrl, "--json"],
+      configHome,
+      stdin: bootstrap.adminApiKey,
+    });
+    expect(login.exitCode, login.stderr).toBe(0);
+  }
+
+  it("create hard-refuses non-interactively while a broader same-server credential exists", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedStaleAdminProfile(configHome);
+
+    const result = await runCli({
+      args: ["workspace", "create", "--name", "ws", "--database-ids", "1", "--json"],
+      configHome,
+      env: {
+        MB_URL: bootstrap.baseUrl,
+        MB_API_KEY: bootstrap.adminApiKey,
+      },
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain(
+      "refusing to create a workspace: broader credentials for this server exist in the profile store (stale-admin (api key)) — revoke them with `mb auth logout --profile <name>` first; a human can override with --keep-existing-auth",
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("--keep-existing-auth is refused in a non-interactive context (human-only override)", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedStaleAdminProfile(configHome);
+
+    const result = await runCli({
+      args: [
+        "workspace",
+        "create",
+        "--name",
+        "ws",
+        "--database-ids",
+        "1",
+        "--keep-existing-auth",
+        "--json",
+      ],
+      configHome,
+      env: {
+        MB_URL: bootstrap.baseUrl,
+        MB_API_KEY: bootstrap.adminApiKey,
+      },
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain(
+      "--keep-existing-auth requires an interactive terminal; refusing to proceed with broader credentials in a non-interactive context",
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("a credential for a different server does not trip the sweep (fails later, not on the sweep)", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const login = await runCli({
+      args: [
+        "auth",
+        "login",
+        "--profile",
+        "other-host",
+        "--url",
+        "https://other.example.com",
+        "--skip-verify",
+        "--json",
+      ],
+      configHome,
+      stdin: bootstrap.adminApiKey,
+    });
+    expect(login.exitCode, login.stderr).toBe(0);
+
+    const result = await runCli({
+      args: ["workspace", "create", "--name", "ws", "--database-ids", "1", "--json"],
+      configHome,
+      env: {
+        MB_URL: bootstrap.baseUrl,
+        MB_API_KEY: bootstrap.adminApiKey,
+      },
+    });
+
+    // The sweep passes; the create then fails server-side (ineligible database or missing
+    // endpoint depending on the booted image), so the only stable assertions are "not the
+    // sweep's refusal" and the HttpError exit code.
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorMessage(result.stderr)).not.toContain("broader credentials");
+  });
+});
+
 describe.skipIf(!serverVersionBelow(WORKSPACE_MIN_VERSION))(
   "workspace capability gate against a sub-v62 server",
   () => {
