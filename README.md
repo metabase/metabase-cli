@@ -1297,6 +1297,53 @@ mb git-sync remove-collection 12
 mb git-sync remove-collection 12 --json --profile prod
 ```
 
+## Workspaces
+
+Lifecycle for EE workspaces via `/api/ee/workspace-manager` (Metabase v62+, `workspaces` premium feature). A workspace attaches databases and provisions warehouse isolation — a temporary schema + user per database — so work runs against real data without touching prod schemas. Alias: `mb ws`.
+
+### `mb workspace list`
+
+```sh
+mb workspace list
+mb workspace list --json
+```
+
+### `mb workspace get <id>`
+
+Includes per-database provisioning status (`unprovisioned` | `provisioning` | `provisioned` | `deprovisioning`), input schemas, and the isolated output namespace.
+
+```sh
+mb workspace get 1 --json
+```
+
+### `mb workspace create`
+
+Creates the workspace and provisions isolation for each database (blocking). Each database must be eligible for workspaces (driver support + the `database-enable-workspaces` database setting).
+
+```sh
+mb workspace create --name ws-reports --database-ids 1
+mb workspace create --name ws-etl --database-ids 1,2 --json
+```
+
+| Flag                   | Description                              |
+| ---------------------- | ---------------------------------------- |
+| `--name <name>`        | Workspace name.                          |
+| `--database-ids <ids>` | Database ids to attach, comma separated. |
+
+### `mb workspace destroy <id>`
+
+Tears down each provisioned database's warehouse isolation, then removes the workspace. Prompts unless `--yes`. Refuses (409) while any database is still provisioning/deprovisioning unless `--ignore-pending`, which removes the records and leaves those warehouse objects behind; unreachable-warehouse leftovers are reported as `orphaned_resources`.
+
+```sh
+mb workspace destroy 1 --yes
+mb workspace destroy 1 --yes --ignore-pending
+```
+
+| Flag               | Description                                                             |
+| ------------------ | ----------------------------------------------------------------------- |
+| `--yes`            | Skip confirmation.                                                      |
+| `--ignore-pending` | Remove workspace records even while databases are mid-(de)provisioning. |
+
 ## Instance setup
 
 Bootstrapping a fresh, not-yet-configured Metabase instance.
