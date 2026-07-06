@@ -919,6 +919,157 @@ mb measure archive 1 --revision-message "deprecated"
 | --------------------------- | ------------------------------------------- |
 | `--revision-message <text>` | Audit-log message recorded with the change. |
 
+## Timelines
+
+CRUD on `/api/timeline`. A timeline is a named collection of dated events rendered as annotations on time-series charts. Timelines live in collections (`collection_id: null` = root) and carry an icon (`star`, `cake`, `mail`, `warning`, `bell`, `cloud`).
+
+### `mb timeline list`
+
+```sh
+mb timeline list
+mb timeline list --json
+mb timeline list --archived --json
+```
+
+| Flag         | Description                                     |
+| ------------ | ----------------------------------------------- |
+| `--archived` | Show archived timelines instead of active ones. |
+
+### `mb timeline get <id>`
+
+```sh
+mb timeline get 1
+mb timeline get 1 --json --full
+```
+
+### `mb timeline events <id>`
+
+List the events on a timeline. Archived events are excluded unless `--archived` is passed (which returns both).
+
+```sh
+mb timeline events 1
+mb timeline events 1 --archived --json
+```
+
+| Flag         | Description              |
+| ------------ | ------------------------ |
+| `--archived` | Include archived events. |
+
+### `mb timeline create`
+
+```sh
+mb timeline create --body '{"name":"Releases"}'
+cat timeline.json | mb timeline create
+mb timeline create --file timeline.json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+Body fields: `name` (required), `description` (optional), `icon` (optional, default `star`), `collection_id` (optional positive integer, omit for the root collection), `default` (optional boolean marking the collection's default timeline).
+
+### `mb timeline update <id>`
+
+Patch a timeline. Body is a partial subset of the create shape plus `archived`. Only the keys you send are touched. Changing `archived` cascades to every event on the timeline.
+
+```sh
+mb timeline update 1 --body '{"name":"Product releases"}'
+cat patch.json | mb timeline update 1
+mb timeline update 1 --file patch.json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb timeline archive <id>`
+
+Soft-delete a timeline (and, by server-side cascade, all its events) by setting `archived: true`. To unarchive use `mb timeline update <id> --body '{"archived":false}'`.
+
+```sh
+mb timeline archive 1
+mb timeline archive 1 --json
+```
+
+### `mb timeline delete <id>`
+
+Permanently delete a timeline and all its events. Irreversible — prefer `mb timeline archive` unless you mean it. Prompts for confirmation on a TTY; requires `--yes` otherwise.
+
+```sh
+mb timeline delete 1 --yes
+mb timeline delete 1
+```
+
+| Flag    | Description        |
+| ------- | ------------------ |
+| `--yes` | Skip confirmation. |
+
+## Timeline events
+
+CRUD on `/api/timeline-event`. An event is a dated annotation on a timeline. There is no server-side list endpoint — list events with `mb timeline events <id>`.
+
+### `mb timeline-event get <id>`
+
+```sh
+mb timeline-event get 1
+mb timeline-event get 1 --json --full
+```
+
+### `mb timeline-event create`
+
+```sh
+mb timeline-event create --body '{"name":"v2 launch","timestamp":"2026-07-01T00:00:00Z","timezone":"UTC","time_matters":false,"timeline_id":1}'
+cat event.json | mb timeline-event create
+mb timeline-event create --file event.json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+Body fields: `name` (required), `timestamp` (required, ISO 8601), `timezone` (required, IANA name like `UTC` or `America/New_York`), `time_matters` (required boolean — `true` when the time of day is significant, `false` when only the date is), `timeline_id` (required positive integer), `description` (optional), `icon` (optional, default: the timeline's icon).
+
+### `mb timeline-event update <id>`
+
+Patch an event. Body is a partial subset of the create shape plus `archived`. Only the keys you send are touched; `timeline_id` moves the event to another timeline.
+
+```sh
+mb timeline-event update 1 --body '{"name":"v2.1 launch"}'
+cat patch.json | mb timeline-event update 1
+mb timeline-event update 1 --file patch.json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb timeline-event archive <id>`
+
+Soft-delete an event by setting `archived: true`. To unarchive use `mb timeline-event update <id> --body '{"archived":false}'`.
+
+```sh
+mb timeline-event archive 1
+mb timeline-event archive 1 --json
+```
+
+### `mb timeline-event delete <id>`
+
+Permanently delete an event. Prompts for confirmation on a TTY; requires `--yes` otherwise.
+
+```sh
+mb timeline-event delete 1 --yes
+mb timeline-event delete 1
+```
+
+| Flag    | Description        |
+| ------- | ------------------ |
+| `--yes` | Skip confirmation. |
+
 ## Collections
 
 Read collections on `/api/collection`. Collections are the folders that contain cards, dashboards, and other collections. The list endpoint surfaces a virtual root collection (id `"root"`) alongside regular numeric ids; the get endpoint accepts only the numeric id.
