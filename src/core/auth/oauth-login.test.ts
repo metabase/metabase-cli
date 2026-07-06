@@ -3,12 +3,13 @@ import { createHash } from "node:crypto";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { ConfigError } from "../errors";
-import type { CodeExchange, OAuthTokens } from "../http/oauth";
+import type { ClientRegistration, CodeExchange, OAuthTokens } from "../http/oauth";
 
 const hoisted = vi.hoisted<{
   tokens: OAuthTokens;
   metadata: OAuthServerMetadata;
   registerCalls: number;
+  registeredScope: string | null;
   discoverCalls: number;
   exchange: CodeExchange | null;
 }>(() => ({
@@ -25,6 +26,7 @@ const hoisted = vi.hoisted<{
     registration_endpoint: "https://mb.example.com/oauth/register",
   },
   registerCalls: 0,
+  registeredScope: null,
   discoverCalls: 0,
   exchange: null,
 }));
@@ -37,8 +39,9 @@ vi.mock("../http/oauth", async (importOriginal) => {
       hoisted.discoverCalls += 1;
       return hoisted.metadata;
     },
-    registerClient: async () => {
+    registerClient: async (input: ClientRegistration) => {
       hoisted.registerCalls += 1;
+      hoisted.registeredScope = input.scope;
       return { client_id: "client-xyz" };
     },
     exchangeCode: async (input: CodeExchange) => {
@@ -95,6 +98,7 @@ describe("oauthLogin", () => {
     hoisted.tokens = { ...DEFAULT_TOKENS };
     hoisted.metadata = { ...DEFAULT_METADATA };
     hoisted.registerCalls = 0;
+    hoisted.registeredScope = null;
     hoisted.discoverCalls = 0;
     hoisted.exchange = null;
   });
@@ -115,6 +119,7 @@ describe("oauthLogin", () => {
       refreshToken: "ref",
       expiresAt: "2026-06-08T13:00:00.000Z",
       clientId: "client-xyz",
+      scope: "mb:full",
     });
     expect(announced).toHaveLength(1);
     expect(announced[0]).toContain("https://mb.example.com/oauth/authorize?");
@@ -137,6 +142,30 @@ describe("oauthLogin", () => {
     expect(createHash("sha256").update(codeVerifier).digest("base64url")).toBe(
       authorizeParams.get("code_challenge"),
     );
+  });
+
+  it("threads a narrowed scope through registration, the authorize URL, and the credential", async () => {
+    const announced: string[] = [];
+    const credential = await oauthLogin(
+      { baseUrl: "https://mb.example.com", scope: "mb:workspace-manager" },
+      {
+        openBrowser: browserDriver(),
+        onAuthorizeUrl: (url) => announced.push(url),
+        now: () => NOW,
+      },
+    );
+    expect(credential).toEqual({
+      kind: "oauth",
+      accessToken: "acc",
+      refreshToken: "ref",
+      expiresAt: "2026-06-08T13:00:00.000Z",
+      clientId: "client-xyz",
+      scope: "mb:workspace-manager",
+    });
+    expect(hoisted.registeredScope).toBe("mb:workspace-manager");
+    assert(announced[0] !== undefined);
+    const authorizeParams = new URL(announced[0]).searchParams;
+    expect(authorizeParams.get("scope")).toBe("mb:workspace-manager");
   });
 
   it("joins authorize params with & when the endpoint already carries a query", async () => {
@@ -183,6 +212,7 @@ describe("oauthLogin", () => {
       refreshToken: "ref",
       expiresAt: "2026-06-08T13:00:00.000Z",
       clientId: "client-xyz",
+      scope: "mb:full",
     });
   });
 

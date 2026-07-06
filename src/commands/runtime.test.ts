@@ -2,6 +2,7 @@ import { runCommand } from "citty";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setupTempConfigHome, type TempConfigHome } from "../core/auth/temp-config-home";
+import type { ResolvedConfig } from "../core/config";
 import type { ServerInfo } from "../core/version/probe";
 
 const hoisted = vi.hoisted(() => ({
@@ -14,7 +15,10 @@ vi.mock("@napi-rs/keyring", async () => {
   return createKeyringMockModule(hoisted);
 });
 
-const { defineMetabaseCommand, SKIP_PREFLIGHT_ENV } = await import("./runtime");
+const { defineMetabaseCommand, enrichScopeForbiddenError, SKIP_PREFLIGHT_ENV } =
+  await import("./runtime");
+const { ConfigError, errorMessage } = await import("../core/errors");
+const { HttpError } = await import("../core/http/errors");
 const { connectionFlags, outputFlags, profileFlag } = await import("./flags");
 const { writeProbeResult, writeProfile } = await import("../core/auth/storage");
 
@@ -314,5 +318,70 @@ describe("defineMetabaseCommand", () => {
 
     await runCommand(cmd, { rawArgs: [] });
     expect(ran).toHaveBeenCalledOnce();
+  });
+});
+
+describe("enrichScopeForbiddenError", () => {
+  const FORBIDDEN = new HttpError({
+    status: 403,
+    statusText: "Forbidden",
+    method: "POST",
+    url: "https://m.example.com/api/card",
+    responseHeaders: {},
+    rawBody: null,
+  });
+
+  function oauthConfig(scope: string): ResolvedConfig {
+    return {
+      url: "https://m.example.com",
+      profile: "parent",
+      source: "stored",
+      credential: {
+        kind: "oauth",
+        accessToken: "acc",
+        refreshToken: "ref",
+        expiresAt: "2099-01-01T00:00:00.000Z",
+        clientId: "c1",
+        scope,
+      },
+    };
+  }
+
+  it("converts a 403 on a workspace-scoped profile into a ConfigError naming the scope", () => {
+    const result = enrichScopeForbiddenError(FORBIDDEN, oauthConfig("mb:workspace-manager"));
+    expect(result).toBeInstanceOf(ConfigError);
+    expect(errorMessage(result)).toBe(
+      `${FORBIDDEN.userMessage} This profile's login is scoped to mb:workspace-manager, which only allows workspace commands against this server. Run \`mb auth login\` for a full-access login, or point --profile at a workspace profile.`,
+    );
+  });
+
+  it("passes a 403 on a full-scope profile through untouched", () => {
+    expect(enrichScopeForbiddenError(FORBIDDEN, oauthConfig("mb:full"))).toBe(FORBIDDEN);
+  });
+
+  it("passes a 403 on an api-key profile through untouched", () => {
+    const config: ResolvedConfig = {
+      url: "https://m.example.com",
+      profile: "default",
+      source: "stored",
+      credential: { kind: "apiKey", apiKey: "mb_secret" },
+    };
+    expect(enrichScopeForbiddenError(FORBIDDEN, config)).toBe(FORBIDDEN);
+  });
+
+  it("passes a non-403 error through untouched even on a workspace-scoped profile", () => {
+    const notFound = new HttpError({
+      status: 404,
+      statusText: "Not Found",
+      method: "GET",
+      url: "https://m.example.com/api/card/1",
+      responseHeaders: {},
+      rawBody: null,
+    });
+    expect(enrichScopeForbiddenError(notFound, oauthConfig("mb:workspace-manager"))).toBe(notFound);
+  });
+
+  it("passes the error through when no config was resolved yet", () => {
+    expect(enrichScopeForbiddenError(FORBIDDEN, null)).toBe(FORBIDDEN);
   });
 });

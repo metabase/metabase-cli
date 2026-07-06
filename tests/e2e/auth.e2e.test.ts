@@ -416,4 +416,59 @@ describe("auth e2e", () => {
       aborted: false,
     });
   });
+
+  it("login --workspace refuses without a TTY (browser OAuth is the only scoped path)", async () => {
+    const configHome = await makeIsolatedConfigHome();
+
+    const login = await runCli({
+      args: ["auth", "login", "--workspace", "--url", bootstrap.baseUrl, "--json"],
+      configHome,
+    });
+
+    expect(login.exitCode).toBe(2);
+    expect(cliErrorMessage(login.stderr)).toContain(
+      "--workspace login opens a browser and requires a TTY",
+    );
+    expect(login.stdout).toBe("");
+  });
+
+  it("login --workspace refuses an explicit --api-key (a key cannot carry a scope)", async () => {
+    const configHome = await makeIsolatedConfigHome();
+
+    const login = await runCli({
+      args: [
+        "auth",
+        "login",
+        "--workspace",
+        "--url",
+        bootstrap.baseUrl,
+        "--api-key",
+        bootstrap.adminApiKey,
+        "--json",
+      ],
+      configHome,
+    });
+
+    expect(login.exitCode).toBe(2);
+    expect(cliErrorMessage(login.stderr)).toContain(
+      "--workspace login is browser-OAuth only; an API key cannot carry a scope — omit --api-key",
+    );
+    expect(login.stdout).toBe("");
+  });
+
+  it("login --workspace refuses when MB_API_KEY is set rather than silently ignoring it", async () => {
+    const configHome = await makeIsolatedConfigHome();
+
+    const login = await runCli({
+      args: ["auth", "login", "--workspace", "--url", bootstrap.baseUrl, "--json"],
+      configHome,
+      env: { MB_API_KEY: bootstrap.adminApiKey },
+    });
+
+    expect(login.exitCode).toBe(2);
+    expect(cliErrorMessage(login.stderr)).toContain(
+      "--workspace login is browser-OAuth only; unset MB_API_KEY so it cannot shadow the scoped login",
+    );
+    expect(login.stdout).toBe("");
+  });
 });

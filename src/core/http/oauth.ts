@@ -47,9 +47,10 @@ async function oauthFetch(request: OAuthRequest): Promise<Response> {
   }
 }
 
-// The CLI always authorizes with the single full-access scope; it never requests anything narrower,
-// so scope is a fixed constant rather than a per-call parameter.
+// Default login requests the full-access scope; `mb auth login --workspace` narrows the grant to
+// workspace CRUD so the token on an agent's machine structurally cannot mutate parent content.
 export const OAUTH_SCOPE = "mb:full";
+export const WORKSPACE_MANAGER_SCOPE = "mb:workspace-manager";
 
 export const OAuthServerMetadata = z
   .object({
@@ -84,6 +85,7 @@ export interface ClientRegistration {
   registrationEndpoint: string;
   redirectUri: string;
   clientName: string;
+  scope: string;
 }
 
 export interface CodeExchange {
@@ -177,7 +179,10 @@ export const OAUTH_UNSUPPORTED_MESSAGE =
 // The well-known path is appended after any subpath (base + /.well-known/...), not inserted
 // between host and path as RFC 8414 prescribes — Metabase routes it like /api/*, so a
 // subpath-hosted instance serves discovery under its prefix.
-export async function tryDiscoverMetadata(baseUrl: string): Promise<OAuthServerMetadata | null> {
+export async function tryDiscoverMetadata(
+  baseUrl: string,
+  requiredScope: string = OAUTH_SCOPE,
+): Promise<OAuthServerMetadata | null> {
   const url = `${baseUrl}${DISCOVERY_PATH}`;
   const response = await oauthFetch({
     url,
@@ -190,10 +195,11 @@ export async function tryDiscoverMetadata(baseUrl: string): Promise<OAuthServerM
     return null;
   }
   const metadata = await readJson(response, OAuthServerMetadata, "OAuth discovery");
-  // A server that doesn't grant the full-access scope only issues agent-API/MCP-scoped tokens
-  // (Metabase v60–62); the general REST API rejects them, so for the CLI it's "no OAuth support".
+  // A server that doesn't grant the required scope can't mint a usable token for this login: one
+  // without the full-access scope only issues agent-API/MCP-scoped tokens (Metabase v60–62), and
+  // one without the workspace-manager scope predates the workspace defscope.
   const scopes = metadata.scopes_supported;
-  if (scopes !== undefined && !scopes.includes(OAUTH_SCOPE)) {
+  if (scopes !== undefined && !scopes.includes(requiredScope)) {
     return null;
   }
   // Pin every endpoint we will send secrets to back to the configured base URL's origin before
@@ -210,8 +216,11 @@ export async function tryDiscoverMetadata(baseUrl: string): Promise<OAuthServerM
   return metadata;
 }
 
-export async function discoverMetadata(baseUrl: string): Promise<OAuthServerMetadata> {
-  const metadata = await tryDiscoverMetadata(baseUrl);
+export async function discoverMetadata(
+  baseUrl: string,
+  requiredScope: string = OAUTH_SCOPE,
+): Promise<OAuthServerMetadata> {
+  const metadata = await tryDiscoverMetadata(baseUrl, requiredScope);
   if (metadata === null) {
     throw new ConfigError(OAUTH_UNSUPPORTED_MESSAGE);
   }
@@ -230,7 +239,7 @@ export async function registerClient(input: ClientRegistration): Promise<Registe
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: "none",
-      scope: OAUTH_SCOPE,
+      scope: input.scope,
     }),
   });
   if (!response.ok) {

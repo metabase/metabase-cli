@@ -59,6 +59,7 @@ const STORED_OAUTH: OAuthCredential = {
   refreshToken: "old-refresh",
   expiresAt: "2000-01-01T00:00:00.000Z",
   clientId: "c1",
+  scope: "mb:full",
 };
 
 const REFRESHED_OAUTH: OAuthCredential = {
@@ -67,6 +68,7 @@ const REFRESHED_OAUTH: OAuthCredential = {
   refreshToken: "refreshed-refresh",
   expiresAt: "2099-01-01T00:00:00.000Z",
   clientId: "c1",
+  scope: "mb:full",
 };
 
 function clearConfigEnv(): void {

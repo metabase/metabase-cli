@@ -479,6 +479,7 @@ const OAUTH: OAuthCredential = {
   refreshToken: "ref-1",
   expiresAt: "2026-06-08T13:00:00.000Z",
   clientId: "c1",
+  scope: "mb:full",
 };
 
 function unauthorizedResponse(): Response {

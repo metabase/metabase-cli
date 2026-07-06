@@ -13,6 +13,7 @@ import {
   refreshTokens,
   revokeToken,
   tryDiscoverMetadata,
+  WORKSPACE_MANAGER_SCOPE,
 } from "./oauth";
 
 function installFetch(script: FetchScript): FetchCapture {
@@ -80,6 +81,35 @@ describe("oauth HTTP boundary", () => {
       }),
     ]);
     expect(await tryDiscoverMetadata("https://mb.example.com")).toBeNull();
+  });
+
+  it("treats a server that does not advertise the requested narrow scope as unsupported", async () => {
+    installFetch([
+      jsonResponse({
+        issuer: "https://mb.example.com",
+        authorization_endpoint: "https://mb.example.com/oauth/authorize",
+        token_endpoint: TOKEN_ENDPOINT,
+        scopes_supported: ["agent:sql:read", OAUTH_SCOPE],
+      }),
+    ]);
+    expect(await tryDiscoverMetadata("https://mb.example.com", WORKSPACE_MANAGER_SCOPE)).toBeNull();
+  });
+
+  it("accepts a server advertising the requested narrow scope", async () => {
+    installFetch([
+      jsonResponse({
+        issuer: "https://mb.example.com",
+        authorization_endpoint: "https://mb.example.com/oauth/authorize",
+        token_endpoint: TOKEN_ENDPOINT,
+        scopes_supported: [OAUTH_SCOPE, WORKSPACE_MANAGER_SCOPE],
+      }),
+    ]);
+    expect(await tryDiscoverMetadata("https://mb.example.com", WORKSPACE_MANAGER_SCOPE)).toEqual({
+      issuer: "https://mb.example.com",
+      authorization_endpoint: "https://mb.example.com/oauth/authorize",
+      token_endpoint: TOKEN_ENDPOINT,
+      scopes_supported: [OAUTH_SCOPE, WORKSPACE_MANAGER_SCOPE],
+    });
   });
 
   it("accepts a discovery document that omits scopes_supported", async () => {

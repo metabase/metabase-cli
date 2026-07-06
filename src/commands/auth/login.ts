@@ -21,7 +21,12 @@ import { normalizeUrl } from "../../core/url";
 import { ParsedVersionSchema } from "../../core/version/tag";
 import { ProbedUser } from "../../core/auth/profile-record";
 import type { ResourceView } from "../../domain/view";
-import { tryDiscoverMetadata, type OAuthServerMetadata } from "../../core/http/oauth";
+import {
+  OAUTH_SCOPE,
+  tryDiscoverMetadata,
+  WORKSPACE_MANAGER_SCOPE,
+  type OAuthServerMetadata,
+} from "../../core/http/oauth";
 import { warn } from "../../output/notice";
 import { promptPassword, promptSelect, promptText } from "../../output/prompt";
 import { renderSummary } from "../../output/render";
@@ -38,6 +43,7 @@ export const LoginResult = z.object({
   authenticated: z.boolean(),
   user: ProbedUser.nullable(),
   version: ParsedVersionSchema.nullable(),
+  scope: z.string().nullable(),
 });
 export type LoginResultJson = z.infer<typeof LoginResult>;
 
@@ -54,6 +60,11 @@ const loginView: ResourceView<LoginResultJson> = {
     { key: "user", label: "Logged in as", format: (value) => renderUserName(value) },
     { key: "user", label: "Role", format: (value) => renderUserRole(value) },
     { key: "version", label: "Version", format: (value) => renderVersionTag(value) },
+    {
+      key: "scope",
+      label: "Scope",
+      format: (value) => (typeof value === "string" ? value : EMPTY_CELL),
+    },
   ],
 };
 
@@ -76,12 +87,19 @@ export default defineMetabaseCommand({
       default: false,
       description: "Save without contacting the server",
     },
+    workspace: {
+      type: "boolean",
+      default: false,
+      description:
+        "Request a workspace-manager-scoped login (workspace CRUD only, browser OAuth required)",
+    },
   },
   outputSchema: LoginResult,
   examples: [
     "mb auth login --url https://metabase.example.com",
     "echo $MB_API_KEY | mb auth login --url https://metabase.example.com",
     "mb auth login --profile staging --url https://staging.example.com",
+    "mb auth login --workspace --profile parent --url https://metabase.example.com",
   ],
   async run({ args, ctx }) {
     const profileName = await resolveLoginProfile(args.profile);
@@ -94,6 +112,30 @@ export default defineMetabaseCommand({
     }
 
     const url = await resolveUrl(args.url, env.url);
+
+    if (args.workspace) {
+      assertWorkspaceLoginPossible(args.apiKey, env.apiKey);
+      const metadata = await probeOAuthSupport(url, WORKSPACE_MANAGER_SCOPE);
+      if (metadata === null) {
+        throw new ConfigError(
+          `this Metabase does not support workspace-scoped login (no ${WORKSPACE_MANAGER_SCOPE} scope advertised)`,
+        );
+      }
+      const credential = await oauthLogin(
+        {
+          baseUrl: url,
+          metadata,
+          scope: WORKSPACE_MANAGER_SCOPE,
+          ...(args.clientId !== undefined && { clientId: args.clientId }),
+        },
+        { openBrowser, onAuthorizeUrl: announceAuthorizeUrl, now: () => Date.now() },
+      );
+      await completeLogin(profileName, url, credential, args["skip-verify"], ctx, () =>
+        writeOAuthProfile(url, credential, profileName),
+      );
+      return;
+    }
+
     const apiKey = await nonInteractiveApiKey(args.apiKey, env.apiKey);
 
     if (apiKey !== null) {
@@ -146,11 +188,32 @@ export default defineMetabaseCommand({
 
 type LoginMethod = "oauth" | "apiKey";
 
+// A workspace-scoped grant exists to keep content-mutating credentials off the machine; an API
+// key can't carry a scope, so every key-shaped path is refused rather than silently ignored.
+function assertWorkspaceLoginPossible(flagKey: string | undefined, envKey: string | null): void {
+  if (flagKey !== undefined) {
+    throw new ConfigError(
+      "--workspace login is browser-OAuth only; an API key cannot carry a scope — omit --api-key",
+    );
+  }
+  if (envKey !== null) {
+    throw new ConfigError(
+      "--workspace login is browser-OAuth only; unset MB_API_KEY so it cannot shadow the scoped login",
+    );
+  }
+  if (!process.stdin.isTTY) {
+    throw new ConfigError("--workspace login opens a browser and requires a TTY");
+  }
+}
+
 // Reaching the server but finding no CLI-capable OAuth server (pre-v63) degrades to the API key
 // prompt; not reaching it at all is an error worth stopping on before any credential is collected.
-async function probeOAuthSupport(url: string): Promise<OAuthServerMetadata | null> {
+async function probeOAuthSupport(
+  url: string,
+  requiredScope?: string,
+): Promise<OAuthServerMetadata | null> {
   try {
-    return await tryDiscoverMetadata(url);
+    return await tryDiscoverMetadata(url, requiredScope);
   } catch (error) {
     if (error instanceof ConfigError) {
       throw error;
@@ -213,10 +276,11 @@ async function completeLogin(
   ctx: CommonContext,
   persist: PersistCredential,
 ): Promise<void> {
+  const scope = credential.kind === "oauth" ? credential.scope : null;
   if (skipVerify) {
     await persistWithWarning(persist);
     renderSummary(
-      { profile: profileName, url, authenticated: false, user: null, version: null },
+      { profile: profileName, url, authenticated: false, user: null, version: null, scope },
       loginView,
       `Saved credentials for profile "${profileName}" (${url}) without verifying.`,
       ctx,
@@ -238,6 +302,7 @@ async function completeLogin(
   const role = renderUserRole(result.user);
   const versionTag = renderVersionTag(result.server.version);
   const serverClause = versionTag === EMPTY_CELL ? "" : ` Server ${versionTag}.`;
+  const scopeClause = scope === null || scope === OAUTH_SCOPE ? "" : ` Scope: ${scope}.`;
   renderSummary(
     {
       profile: profileName,
@@ -245,9 +310,10 @@ async function completeLogin(
       authenticated: true,
       user: result.user,
       version: result.server.version,
+      scope,
     },
     loginView,
-    `Logged in to ${url} as ${who} (${role}). Saved to profile "${profileName}".${serverClause}`,
+    `Logged in to ${url} as ${who} (${role}). Saved to profile "${profileName}".${serverClause}${scopeClause}`,
     ctx,
   );
 }

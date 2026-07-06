@@ -19,6 +19,7 @@ export interface OAuthLoginInput {
   // when omitted it is discovered here.
   metadata?: OAuthServerMetadata;
   clientId?: string;
+  scope?: string;
   timeoutMs?: number;
 }
 
@@ -38,6 +39,7 @@ async function resolveClientId(
   registrationEndpoint: string | undefined,
   redirectUri: string,
   provided: string | undefined,
+  scope: string,
 ): Promise<string> {
   if (provided !== undefined) {
     return provided;
@@ -51,6 +53,7 @@ async function resolveClientId(
     registrationEndpoint,
     redirectUri,
     clientName: CLIENT_NAME,
+    scope,
   });
   return registered.client_id;
 }
@@ -59,7 +62,8 @@ export async function oauthLogin(
   input: OAuthLoginInput,
   deps: OAuthLoginDeps,
 ): Promise<OAuthCredential> {
-  const metadata = input.metadata ?? (await discoverMetadata(input.baseUrl));
+  const scope = input.scope ?? OAUTH_SCOPE;
+  const metadata = input.metadata ?? (await discoverMetadata(input.baseUrl, scope));
   const pkce = generatePkce();
   const state = randomState();
   // The server validates state in-handler, so a forged callback can't consume the slot.
@@ -69,6 +73,7 @@ export async function oauthLogin(
       metadata.registration_endpoint,
       server.redirectUri,
       input.clientId,
+      scope,
     );
     const authorizeUrl = buildAuthorizeUrl(metadata.authorization_endpoint, {
       response_type: "code",
@@ -77,7 +82,7 @@ export async function oauthLogin(
       code_challenge: pkce.challenge,
       code_challenge_method: "S256",
       state,
-      scope: OAUTH_SCOPE,
+      scope,
     });
 
     const opened = await deps.openBrowser(authorizeUrl);
@@ -97,7 +102,7 @@ export async function oauthLogin(
       throw new ConfigError("token endpoint did not return a refresh token");
     }
 
-    return oauthCredentialFromTokens(tokens, tokens.refresh_token, clientId, deps.now());
+    return oauthCredentialFromTokens(tokens, tokens.refresh_token, clientId, scope, deps.now());
   } finally {
     server.close();
   }
