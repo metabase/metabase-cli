@@ -158,3 +158,4 @@ mb skills path visualization           # → the skill dir; then Read references
 - Don't use the MBQL-5 field-ref order inside a `column_settings` `["ref", …]` key — that key uses the **legacy** `["field", id, opts]` order. Prefer the `["name", …]` form.
 - Don't expect a pre-flight to catch viz mistakes — there is none. Verify by reading the card back.
 - Don't hand-author complex charts when you can pull a working `visualization_settings` from a UI-built card.
+- Don't look for an event/annotation key in `visualization_settings` — vertical event markers on time-series charts come from timelines (`mb timeline` / `mb timeline-event`) living in the question's own collection (same collection only, no sub-collection inheritance; question view only, never dashboard cards).

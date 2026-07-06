@@ -1,6 +1,6 @@
 {
   "name": "@metabase/cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Metabase CLI",
   "license": "AGPL-3.0",
   "repository": {

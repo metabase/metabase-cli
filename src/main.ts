@@ -32,6 +32,8 @@ const main: CommandDef = defineCommand({
     snippet: () => import("./commands/snippet").then((mod) => mod.default),
     segment: () => import("./commands/segment").then((mod) => mod.default),
     measure: () => import("./commands/measure").then((mod) => mod.default),
+    timeline: () => import("./commands/timeline").then((mod) => mod.default),
+    "timeline-event": () => import("./commands/timeline-event").then((mod) => mod.default),
     eid: () => import("./commands/eid").then((mod) => mod.default),
     query: () => import("./commands/query").then((mod) => mod.default),
     uuid: () => import("./commands/uuid").then((mod) => mod.default),
