@@ -7,6 +7,7 @@ import {
 import { refreshOAuthCredential } from "./auth/oauth-session";
 import {
   DEFAULT_PROFILE,
+  readDefaultProfileName,
   readProfileCredential,
   readProfileRecord,
   writeOAuthProfile,
@@ -51,8 +52,14 @@ interface CredentialResolution {
   source: "flag" | "env" | "stored";
 }
 
-export function resolveProfileName(profileFlag: string | undefined): string {
-  return explicitProfileName(profileFlag) ?? DEFAULT_PROFILE;
+// Explicit --profile/MB_PROFILE wins; otherwise the stored default pointer (set by
+// `workspace create --spawn`) decides what bare `mb` targets; "default" is the fallback name.
+export async function resolveActiveProfileName(profileFlag: string | undefined): Promise<string> {
+  const explicit = explicitProfileName(profileFlag);
+  if (explicit !== null) {
+    return explicit;
+  }
+  return (await readDefaultProfileName()) ?? DEFAULT_PROFILE;
 }
 
 export function explicitProfileName(profileFlag: string | undefined): string | null {
@@ -67,7 +74,7 @@ export function readEnvCredentials(): EnvCredentials {
 }
 
 export async function resolveConfig(flags: ConfigFlags): Promise<ResolvedConfig> {
-  const profile = resolveProfileName(flags.profile);
+  const profile = await resolveActiveProfileName(flags.profile);
   const env = readEnvCredentials();
   const hasUrl = Boolean(flags.url ?? env.url);
   const hasKey = Boolean(flags.apiKey ?? env.apiKey);

@@ -31,8 +31,10 @@ const {
   listProfileNames,
   listProfileRecords,
   profilesFilePath,
+  readDefaultProfileName,
   readProfileCredential,
   readProfileRecord,
+  setDefaultProfile,
   writeOAuthProfile,
   writeProbeFailure,
   writeProbeResult,
@@ -95,6 +97,7 @@ describe("profiles (keyring backend)", () => {
           lastFailure: null,
         },
       ],
+      defaultProfile: null,
     });
   });
 
@@ -589,5 +592,46 @@ describe("OAuth profiles (file fallback)", () => {
     expect(await clearProfile()).toBe(true);
     // a failed keyring delete is harmless here — the secret lived in the file we just removed
     expect(consumeKeychainResidualWarning()).toBeNull();
+  });
+});
+
+describe("default profile pointer", () => {
+  let home: TempConfigHome;
+
+  beforeEach(() => {
+    hoisted.store.clear();
+    hoisted.controls.broken = false;
+    home = setupTempConfigHome();
+  });
+
+  afterEach(() => {
+    home.cleanup();
+  });
+
+  it("is null until set", async () => {
+    await writeProfile({ url: "https://child.example.com", apiKey: "mb_child" }, "ws-1");
+    expect(await readDefaultProfileName()).toBeNull();
+  });
+
+  it("round-trips through the profiles file", async () => {
+    await writeProfile({ url: "https://child.example.com", apiKey: "mb_child" }, "ws-1");
+    await setDefaultProfile("ws-1");
+    expect(await readDefaultProfileName()).toBe("ws-1");
+  });
+
+  it("clearProfile unsets the pointer when it names the removed profile", async () => {
+    await writeProfile({ url: "https://parent.example.com", apiKey: "mb_parent" }, "parent");
+    await writeProfile({ url: "https://child.example.com", apiKey: "mb_child" }, "ws-1");
+    await setDefaultProfile("ws-1");
+    expect(await clearProfile("ws-1")).toBe(true);
+    expect(await readDefaultProfileName()).toBeNull();
+  });
+
+  it("clearProfile keeps the pointer when a different profile is removed", async () => {
+    await writeProfile({ url: "https://parent.example.com", apiKey: "mb_parent" }, "parent");
+    await writeProfile({ url: "https://child.example.com", apiKey: "mb_child" }, "ws-1");
+    await setDefaultProfile("ws-1");
+    expect(await clearProfile("parent")).toBe(true);
+    expect(await readDefaultProfileName()).toBe("ws-1");
   });
 });

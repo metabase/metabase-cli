@@ -317,6 +317,28 @@ describe("workspace arg validation e2e (no Metabase contact required)", () => {
     );
     expect(result.stdout).toBe("");
   });
+
+  it("create --spawn refuses while MB_API_KEY is set, before any network call", async () => {
+    const result = await runCli({
+      args: [
+        "workspace",
+        "create",
+        "--name",
+        "shadowed",
+        "--database-ids",
+        "1",
+        "--spawn",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: { MB_API_KEY: "mb_shadowing_admin_key" },
+    });
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain(
+      "--spawn saves the workspace credential as the default profile, but MB_API_KEY is set and would shadow it — unset MB_API_KEY first",
+    );
+    expect(result.stdout).toBe("");
+  });
 });
 
 describe("workspace credential sweep e2e", () => {

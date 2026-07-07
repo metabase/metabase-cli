@@ -1516,15 +1516,19 @@ Creates the workspace and provisions isolation for each database (blocking). Eac
 ```sh
 mb workspace create --name ws-reports --database-ids 1
 mb workspace create --name ws-etl --database-ids 1,2 --json
+mb workspace create --name transform-work --database-ids 1 --spawn
 ```
 
-| Flag                   | Description                                                                                                                   |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `--name <name>`        | Workspace name.                                                                                                               |
-| `--database-ids <ids>` | Database ids to attach, comma separated.                                                                                      |
-| `--keep-existing-auth` | Proceed despite broader same-server credentials in the profile store. Interactive only — refused in non-interactive contexts. |
+| Flag                   | Description                                                                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--name <name>`        | Workspace name.                                                                                                                  |
+| `--database-ids <ids>` | Database ids to attach, comma separated.                                                                                         |
+| `--spawn`              | Also spawn a workspace Metabase; the returned credential is saved to the `ws-<id>` profile (never printed) and made the default. |
+| `--keep-existing-auth` | Proceed despite broader same-server credentials in the profile store. Interactive only — refused in non-interactive contexts.    |
 
 Before creating, the profile store is swept for broader credentials against the same server: any API key profile, or any OAuth profile wider than `mb:workspace-manager`. Interactive runs offer to revoke the offenders (local clear + best-effort server-side token revocation; API keys must additionally be deleted in Admin settings); non-interactive runs hard-refuse so an agent can't proceed while a full-power credential is in reach.
+
+With `--spawn` the parent asks its instance manager for a workspace Metabase (`spawn_instance: true`) and the CLI consumes the returned `url` + `api_key`: the credential is written straight to the profile store as `ws-<id>` — never to stdout, `--json`, or an agent transcript — and that profile becomes the default, so bare `mb` targets the new workspace from then on (explicit `--profile`/`MB_PROFILE` still win). Destroying the workspace (or `mb auth logout` on the profile) unhooks the default again. Because an exported `MB_API_KEY` outranks stored profiles, `--spawn` refuses to run while it is set — it would silently shadow the profile it is about to install.
 
 ### `mb workspace destroy <id>`
 
@@ -1744,7 +1748,7 @@ Exit codes: `0` success, `2` `ConfigError` (missing name, unknown name, `MB_SKIL
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `MB_URL`                 | Default URL for `auth login` and config resolution.                                                                                                                       |
 | `MB_API_KEY`             | Default API key (makes `auth login` non-interactive, skipping the browser flow; not stored).                                                                              |
-| `MB_PROFILE`             | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                     |
+| `MB_PROFILE`             | Default profile when `--profile` is omitted. Falls back to the stored default pointer (set by `workspace create --spawn`), then `default`.                                |
 | `MB_VERBOSE`             | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                            |
 | `MB_CLI_SKIP_PREFLIGHT`  | When set to `1`, bypasses the per-command server version / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
 | `MB_CLI_DISABLE_KEYRING` | When set to `1`, skips the OS keychain and stores credentials as plaintext in the profiles file.                                                                          |

@@ -66,6 +66,10 @@ export type ProfileRecord = z.infer<typeof ProfileRecord>;
 export const ProfilesFile = z
   .object({
     profiles: z.array(ProfileRecord),
+    // Which profile bare `mb` resolves when no --profile/MB_PROFILE is given. Set by
+    // `workspace create --spawn` so a fresh workspace becomes the default target; null
+    // falls back to the profile literally named "default".
+    defaultProfile: z.string().nullable().default(null),
   })
   .loose();
 export type ProfilesFile = z.infer<typeof ProfilesFile>;
