@@ -87,11 +87,11 @@ export function parseColumnList(value: string | undefined): string[] {
 }
 
 function subgraphInputsPath(targetType: TargetType, target: number): string {
-  return `/api/ee/transform-test/${targetType}/${target}/subgraph-inputs`;
+  return `/api/ee/transform-test/${targetType}/${target}/inputs`;
 }
 
 function subgraphPath(targetType: TargetType, target: number): string {
-  return `/api/ee/transform-test/${targetType}/${target}/subgraph`;
+  return `/api/ee/transform-test/${targetType}/${target}/run`;
 }
 
 export async function fetchSubgraphInputs(

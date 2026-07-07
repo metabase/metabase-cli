@@ -29,7 +29,7 @@ function assertion(over: Partial<AssertionResult> & { name: string }): Assertion
 }
 
 function result(over: Partial<TestRunResult>): TestRunResult {
-  return { status: "passed", diff: null, test_run_id: null, ...over };
+  return { status: "passed", diff: null, ...over };
 }
 
 function renderCtx(over: Partial<CommonContext>): CommonContext {

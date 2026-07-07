@@ -5,7 +5,8 @@ import type { ResourceView } from "./view";
 export const TestRunInput = z
   .object({
     table_id: z.number().int().positive(),
-    schema: z.string(),
+    // null on engines without schemas (e.g. MySQL targets with no schema segment).
+    schema: z.string().nullable(),
     name: z.string(),
     columns: z.array(z.string()),
   })
@@ -50,14 +51,12 @@ export const TestRunResult = z
     status: z.enum(["passed", "failed"]),
     diff: z.unknown(),
     assertions: z.array(AssertionResult).nullable().optional(),
-    test_run_id: z.number().int().positive().nullable(),
   })
   .loose();
 export type TestRunResult = z.infer<typeof TestRunResult>;
 
 export const TestRunResultCompact = TestRunResult.pick({
   status: true,
-  test_run_id: true,
   diff: true,
   assertions: true,
 }).strip();
@@ -65,10 +64,7 @@ export type TestRunResultCompact = z.infer<typeof TestRunResultCompact>;
 
 export const testRunResultView: ResourceView<TestRunResult> = {
   compactPick: TestRunResultCompact,
-  tableColumns: [
-    { key: "status", label: "Status" },
-    { key: "test_run_id", label: "Run ID" },
-  ],
+  tableColumns: [{ key: "status", label: "Status" }],
 };
 
 export const AssertionResultCompact = AssertionResult.pick({

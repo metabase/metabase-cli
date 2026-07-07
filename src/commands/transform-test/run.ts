@@ -89,7 +89,7 @@ export default defineMetabaseCommand({
   },
   details:
     "Seeds scratch tables from the --input fixture CSVs (real tables are never touched), runs the sub-graph from the --source transforms up to the target (the positional id) in dependency order, and checks the target's output against the --expected CSV and/or --assert SQL assertions. At least one of --expected or --assert is required. An assertion is a SQL query written to a `.sql` file that passes iff it returns zero rows; it references the synthetic `test_output` relation (the target's output) and/or input table names. A --suite YAML file can declare the whole run (target, inputs, expected, assertions with per-assertion severity) and is parsed entirely client-side; ad-hoc flags compose with it (scalars override, --assert appends). The positional id is a transform id by default, or a card id when --target-type card is set. Use `transform-test inputs` to discover which tables need fixtures. Exits non-zero when the diff fails or any error-severity assertion fails; warn-severity assertion failures are reported but do not affect the exit code.",
-  // Provisional: the test-run/subgraph endpoints are unreleased. minVersion mirrors the
+  // Provisional: the test-run endpoints are unreleased. minVersion mirrors the
   // transforms feature baseline so the command runs against a dev build; bump to the actual
   // release version before this ships.
   capabilities: { minVersion: 59 },
