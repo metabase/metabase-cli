@@ -321,32 +321,32 @@ describe("defineMetabaseCommand", () => {
   });
 });
 
+const FORBIDDEN = new HttpError({
+  status: 403,
+  statusText: "Forbidden",
+  method: "POST",
+  url: "https://m.example.com/api/card",
+  responseHeaders: {},
+  rawBody: null,
+});
+
+function oauthConfig(scope: string): ResolvedConfig {
+  return {
+    url: "https://m.example.com",
+    profile: "parent",
+    source: "stored",
+    credential: {
+      kind: "oauth",
+      accessToken: "acc",
+      refreshToken: "ref",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      clientId: "c1",
+      scope,
+    },
+  };
+}
+
 describe("enrichScopeForbiddenError", () => {
-  const FORBIDDEN = new HttpError({
-    status: 403,
-    statusText: "Forbidden",
-    method: "POST",
-    url: "https://m.example.com/api/card",
-    responseHeaders: {},
-    rawBody: null,
-  });
-
-  function oauthConfig(scope: string): ResolvedConfig {
-    return {
-      url: "https://m.example.com",
-      profile: "parent",
-      source: "stored",
-      credential: {
-        kind: "oauth",
-        accessToken: "acc",
-        refreshToken: "ref",
-        expiresAt: "2099-01-01T00:00:00.000Z",
-        clientId: "c1",
-        scope,
-      },
-    };
-  }
-
   it("converts a 403 on a workspace-scoped profile into a ConfigError naming the scope", () => {
     const result = enrichScopeForbiddenError(FORBIDDEN, oauthConfig("mb:workspace-manager"));
     expect(result).toBeInstanceOf(ConfigError);
