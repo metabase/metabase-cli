@@ -4,6 +4,7 @@ import type { ArgsDef, CommandDef } from "citty";
 
 import { hoistGlobalFlags } from "./commands/global-flags";
 import { ConfigError } from "./core/errors";
+import { trustSystemCa } from "./core/http/system-ca";
 import main from "./main";
 import { reportError } from "./output/error";
 import { findUnknownCommand, resolveBreadcrumb, showUsage, showUsageJson } from "./output/help";
@@ -12,6 +13,7 @@ const HELP_FLAGS: ReadonlySet<string> = new Set(["--help", "-h"]);
 const JSON_HELP_FLAG = "--json";
 
 async function run(): Promise<void> {
+  trustSystemCa();
   const rawArgs = hoistGlobalFlags(process.argv.slice(2));
   const wantsJsonHelp = rawArgs.includes(JSON_HELP_FLAG);
 

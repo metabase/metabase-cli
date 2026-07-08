@@ -45,7 +45,8 @@ function networkMessage(code: string | null, target: NetworkTarget, fallback: st
   if (TLS_ERROR_CODES.has(code)) {
     return (
       `Could not reach Metabase: TLS error contacting ${target.host} (${code}) — ` +
-      `the certificate could not be verified, or https:// was used against a plain-HTTP server.`
+      `the certificate could not be verified, or https:// was used against a plain-HTTP server. ` +
+      `For a certificate the OS does not trust either, set NODE_EXTRA_CA_CERTS to its CA bundle.`
     );
   }
   const hint = NETWORK_HINTS[code];
