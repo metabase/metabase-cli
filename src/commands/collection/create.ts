@@ -11,6 +11,8 @@ import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseEnumFlag } from "../parse-enum";
 import { defineMetabaseCommand } from "../runtime";
 
+import { COLLECTIONS_PATH } from "./listing";
+
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a collection from a JSON spec" },
   details:
@@ -40,7 +42,7 @@ export default defineMetabaseCommand({
       body.namespace = parseEnumFlag(args.namespace, CollectionNamespace, "namespace");
     }
     const client = await getClient();
-    const created = await client.requestParsed(Collection, "/api/collection", {
+    const created = await client.requestParsed(Collection, COLLECTIONS_PATH, {
       method: "POST",
       body,
     });

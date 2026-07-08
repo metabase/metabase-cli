@@ -1177,7 +1177,7 @@ mb library create --json
 
 ### `mb library publish`
 
-Publish tables (and their upstream dependencies) into the Library's Data collection (`POST /api/ee/data-studio/table/publish-tables`). The target Data collection is resolved automatically and the Library is created if it doesn't exist yet — there's no collection id to pass.
+Publish tables (and their upstream dependencies) into the Library's Data collection (`POST /api/ee/data-studio/table/publish-tables`). The target Data collection is resolved automatically and the Library is created if it doesn't exist yet — there's no collection id to pass. Publishing does not add the Data collection to the git-sync scope; on an instance with remote sync configured, the command warns on stderr with the `mb git-sync add-collection <id>` invocation that makes exports carry the published tables' metadata.
 
 ```sh
 mb library publish --table-ids 1,2,3
@@ -1328,7 +1328,7 @@ Drive Metabase Enterprise Remote Sync (`/api/ee/remote-sync`) — import / expor
 
 ### `mb git-sync status`
 
-Roll up the current sync state in one call: configured branch, dirty flag, and the most recent sync task (or `null` if none has ever run).
+Roll up the current sync state in one call: configured branch, dirty flag, the most recent sync task (or `null` if none has ever run), and the collections marked for sync.
 
 ```sh
 mb git-sync status

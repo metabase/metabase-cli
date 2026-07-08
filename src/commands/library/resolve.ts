@@ -4,43 +4,59 @@ import type { Client } from "../../core/http/client";
 import { Collection } from "../../domain/collection";
 import { Library } from "../../domain/library";
 
+import { fetchCollectionsWithLibrary } from "../collection/listing";
+
 export const LIBRARY_ROOT_PATH = "/api/ee/library/";
-const COLLECTION_LIST_PATH = "/api/collection";
 const LIBRARY_DATA_TYPE = "library-data";
 
 const AbsentLibrary = z.object({ data: z.null() });
 const LibraryOrAbsent = z.union([Library, AbsentLibrary]);
 
-const LibraryCollectionEntry = Collection.pick({ id: true, type: true }).strip();
-const LibraryCollections = z.array(LibraryCollectionEntry);
-type LibraryChildType = NonNullable<z.infer<typeof LibraryCollectionEntry>["type"]>;
+const LibraryCollectionEntry = Collection.pick({
+  id: true,
+  type: true,
+  is_remote_synced: true,
+}).strip();
+type LibraryCollectionInfo = z.infer<typeof LibraryCollectionEntry>;
 
 export async function fetchLibrary(client: Client): Promise<Library | null> {
   const result = await client.requestParsed(LibraryOrAbsent, LIBRARY_ROOT_PATH);
   if (!("effective_children" in result)) {
     return null;
   }
-  // GET /api/ee/library/ doesn't send each child's `type` in `effective_children` on released
-  // servers (v0.59-v0.61) — the frontend's own LibraryChild type omits it too. Resolve the type
-  // from the collection list so callers can tell the Data and Metrics collections apart.
-  const typeById = await fetchLibraryCollectionTypes(client);
-  const effective_children = result.effective_children.map((child) =>
-    typeof child.id === "number" ? { ...child, type: typeById.get(child.id) ?? child.type } : child,
-  );
+  // GET /api/ee/library/ doesn't send each child's `type` or `is_remote_synced` in
+  // `effective_children` on released servers (v0.59-v0.61) — the frontend's own LibraryChild
+  // type omits them too. Resolve both from the collection list so callers can tell the Data
+  // and Metrics collections apart and see whether each is in the git-sync scope.
+  const infoById = await fetchLibraryCollectionInfo(client);
+  const effective_children = result.effective_children.map((child) => {
+    if (typeof child.id !== "number") {
+      return child;
+    }
+    const info = infoById.get(child.id);
+    if (info === undefined) {
+      return child;
+    }
+    return {
+      ...child,
+      type: info.type ?? child.type,
+      is_remote_synced: info.is_remote_synced ?? child.is_remote_synced,
+    };
+  });
   return { ...result, effective_children };
 }
 
-async function fetchLibraryCollectionTypes(client: Client): Promise<Map<number, LibraryChildType>> {
-  const collections = await client.requestParsed(LibraryCollections, COLLECTION_LIST_PATH, {
-    query: { "include-library": true },
-  });
-  const typeById = new Map<number, LibraryChildType>();
+async function fetchLibraryCollectionInfo(
+  client: Client,
+): Promise<Map<number, LibraryCollectionInfo>> {
+  const collections = await fetchCollectionsWithLibrary(client, LibraryCollectionEntry);
+  const infoById = new Map<number, LibraryCollectionInfo>();
   for (const collection of collections) {
-    if (typeof collection.id === "number" && collection.type != null) {
-      typeById.set(collection.id, collection.type);
+    if (typeof collection.id === "number") {
+      infoById.set(collection.id, collection);
     }
   }
-  return typeById;
+  return infoById;
 }
 
 export async function createLibrary(client: Client): Promise<Library> {
