@@ -150,7 +150,7 @@ export function enrichScopeForbiddenError(error: unknown, config: ResolvedConfig
     return error;
   }
   return new ConfigError(
-    `${error.userMessage} This profile's login is scoped to ${credential.scope}, which only allows workspace commands against this server. Run \`mb auth login\` for a full-access login, or point --profile at a workspace profile.`,
+    `${error.userMessage} This profile's login is scoped to ${credential.scope}, which only allows workspace commands against this server. Run \`mb auth login\` for a full-access login, or run content commands against the workspace itself via its ws-<id> profile.`,
   );
 }
 
