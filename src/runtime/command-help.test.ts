@@ -312,6 +312,8 @@ const ALL_COMMANDS = [
   "transform-job run",
   "transform-job transforms",
   "transform-job set-active",
+  "transform-test inputs",
+  "transform-test run",
   "transform-tag list",
   "transform-tag create",
   "transform-tag update",
