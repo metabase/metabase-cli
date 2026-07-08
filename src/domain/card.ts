@@ -1,6 +1,8 @@
 import { z } from "zod";
 
+import { EmbeddingParams } from "./embedding";
 import { FieldBaseType, FieldSemanticType } from "./field";
+import { Parameter, ParameterMapping } from "./parameter";
 import type { ResourceView } from "./view";
 
 const CardType = z.enum(["question", "model", "metric"]);
@@ -18,7 +20,8 @@ export const CardDatasetQuery = z
   .refine((value) => "lib/type" in value || "type" in value, {
     message:
       'dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected',
-  });
+  })
+  .describe("MBQL 5, legacy MBQL, or native query — full MBQL 5 schema: mb query --print-schema");
 export type CardDatasetQuery = z.infer<typeof CardDatasetQuery>;
 
 export const Card = z
@@ -67,43 +70,52 @@ export const cardView: ResourceView<Card> = {
   ],
 };
 
+const CollectionIdOrEntityId = z.union([
+  z.number().int().positive(),
+  z.string().length(21).describe("collection entity_id (21-char NanoID)"),
+]);
+
 export const CardCreateInput = z
   .object({
     name: z.string().min(1),
-    type: CardType.optional(),
+    type: CardType.nullable().optional(),
     dataset_query: CardDatasetQuery,
     display: z.string().min(1),
     visualization_settings: z.record(z.string(), z.unknown()),
     description: z.string().min(1).nullable().optional(),
-    collection_id: z.number().int().positive().nullable().optional(),
+    entity_id: z.string().min(1).nullable().optional(),
+    collection_id: CollectionIdOrEntityId.nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
+    cache_ttl: z.number().int().positive().nullable().optional(),
     dashboard_id: z.number().int().positive().nullable().optional(),
-    parameters: z.array(z.unknown()).optional(),
-    parameter_mappings: z.array(z.unknown()).optional(),
+    dashboard_tab_id: z.number().int().positive().nullable().optional(),
+    parameters: z.array(Parameter).nullable().optional(),
+    parameter_mappings: z.array(ParameterMapping).nullable().optional(),
+    result_metadata: z.array(z.unknown()).nullable().optional(),
   })
   .loose();
 export type CardCreateInput = z.infer<typeof CardCreateInput>;
 
 export const CardUpdateInput = z
   .object({
-    name: z.string().min(1).optional(),
-    type: CardType.optional(),
+    name: z.string().min(1).nullable().optional(),
+    type: CardType.nullable().optional(),
     dataset_query: CardDatasetQuery.optional(),
-    display: z.string().min(1).optional(),
-    visualization_settings: z.record(z.string(), z.unknown()).optional(),
+    display: z.string().min(1).nullable().optional(),
+    visualization_settings: z.record(z.string(), z.unknown()).nullable().optional(),
     description: z.string().nullable().optional(),
-    archived: z.boolean().optional(),
-    enable_embedding: z.boolean().optional(),
-    embedding_type: z.string().optional(),
-    embedding_params: z.unknown().optional(),
+    archived: z.boolean().nullable().optional(),
+    enable_embedding: z.boolean().nullable().optional(),
+    embedding_type: z.string().nullable().optional(),
+    embedding_params: EmbeddingParams.nullable().optional(),
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
-    collection_preview: z.boolean().optional(),
+    collection_preview: z.boolean().nullable().optional(),
     cache_ttl: z.number().int().positive().nullable().optional(),
     dashboard_id: z.number().int().positive().nullable().optional(),
     dashboard_tab_id: z.number().int().positive().nullable().optional(),
-    parameters: z.array(z.unknown()).optional(),
-    parameter_mappings: z.array(z.unknown()).optional(),
+    parameters: z.array(Parameter).nullable().optional(),
+    parameter_mappings: z.array(ParameterMapping).nullable().optional(),
     result_metadata: z.array(z.unknown()).nullable().optional(),
   })
   .loose();

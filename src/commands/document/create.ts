@@ -9,6 +9,7 @@ export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a document" },
   capabilities: { minVersion: 58 },
   args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...bodyInputFlags },
+  inputSchema: DocumentCreateInput,
   outputSchema: Document,
   examples: [
     "cat doc.json | mb document create",

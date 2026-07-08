@@ -18,6 +18,7 @@ export default defineMetabaseCommand({
     ...connectionFlags,
     ...bodyInputFlags,
   },
+  inputSchema: SetupInput,
   outputSchema: SetupResult,
   examples: [
     "cat setup.json | mb setup",

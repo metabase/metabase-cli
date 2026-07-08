@@ -20,6 +20,7 @@ const originalVerbose = process.env["MB_VERBOSE"];
 
 beforeEach(() => {
   streams = { stderr: "" };
+  process.stderr.isTTY = false;
   vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
     streams.stderr += String(chunk);
     return true;
@@ -67,7 +68,7 @@ describe("reportError", () => {
     process.env["MB_VERBOSE"] = "1";
     reportError(new UnknownError({ originalMessage: "boom", stack: "trace" }));
     expect(streams.stderr).toBe(
-      "boom\n" + JSON.stringify({ originalMessage: "boom", stack: "trace" }, null, 2) + "\n",
+      "boom\n" + JSON.stringify({ originalMessage: "boom", stack: "trace" }) + "\n",
     );
   });
 
@@ -130,11 +131,10 @@ describe("reportError", () => {
   it("emits a JSON error envelope to stderr (no detail) when format is json", () => {
     reportError(new ConfigError("missing TTY"), "json");
     const expected =
-      JSON.stringify(
-        { ok: false, error: { category: "config", message: "missing TTY", exitCode: 2 } },
-        null,
-        2,
-      ) + "\n";
+      JSON.stringify({
+        ok: false,
+        error: { category: "config", message: "missing TTY", exitCode: 2 },
+      }) + "\n";
     expect(streams.stderr).toBe(expected);
     expect(process.exitCode).toBe(2);
   });
@@ -142,11 +142,10 @@ describe("reportError", () => {
   it("omits detail from the JSON error envelope when MB_VERBOSE is unset", () => {
     reportError(new UnknownError({ originalMessage: "boom", stack: "trace" }), "json");
     const expected =
-      JSON.stringify(
-        { ok: false, error: { category: "unknown", message: "boom", exitCode: 1 } },
-        null,
-        2,
-      ) + "\n";
+      JSON.stringify({
+        ok: false,
+        error: { category: "unknown", message: "boom", exitCode: 1 },
+      }) + "\n";
     expect(streams.stderr).toBe(expected);
     expect(process.exitCode).toBe(1);
   });
@@ -155,19 +154,15 @@ describe("reportError", () => {
     process.env["MB_VERBOSE"] = "1";
     reportError(new UnknownError({ originalMessage: "boom", stack: "trace" }), "json");
     const expected =
-      JSON.stringify(
-        {
-          ok: false,
-          error: {
-            category: "unknown",
-            message: "boom",
-            exitCode: 1,
-            detail: { originalMessage: "boom", stack: "trace" },
-          },
+      JSON.stringify({
+        ok: false,
+        error: {
+          category: "unknown",
+          message: "boom",
+          exitCode: 1,
+          detail: { originalMessage: "boom", stack: "trace" },
         },
-        null,
-        2,
-      ) + "\n";
+      }) + "\n";
     expect(streams.stderr).toBe(expected);
   });
 });

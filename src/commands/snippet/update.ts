@@ -16,6 +16,7 @@ export default defineMetabaseCommand({
     ...bodyInputFlags,
     id: { type: "positional", description: "Snippet id", required: true },
   },
+  inputSchema: SnippetUpdateInput,
   outputSchema: Snippet,
   examples: [
     "cat patch.json | mb snippet update 1",

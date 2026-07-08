@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { FieldListEnvelope } from "../../src/commands/table/fields";
+import { tableFieldsOversizeHint } from "../../src/commands/table/hints";
 import { TableListEnvelope } from "../../src/commands/table/list";
 import { Table, TableCompact } from "../../src/domain/table";
 import { parseJson } from "../../src/runtime/json";
@@ -189,6 +190,29 @@ describe("table e2e", () => {
     });
   });
 
+  it("get --include fields over a tiny cap exits 2 and points at table fields", async () => {
+    const tinyCap = 256;
+    const result = await runCli({
+      args: [
+        "table",
+        "get",
+        String(SEEDED.tables.customers),
+        "--include",
+        "fields",
+        "--json",
+        "--max-bytes",
+        String(tinyCap),
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain(
+      `over the ${tinyCap}-byte --max-bytes cap; ${tableFieldsOversizeHint(SEEDED.tables.customers)}`,
+    );
+  });
+
   it("get rejects an unknown --include value with ConfigError", async () => {
     const result = await runCli({
       args: ["table", "get", String(SEEDED.tables.customers), "--include", "everything", "--json"],
@@ -225,43 +249,6 @@ describe("table e2e", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Not found: GET /api/table/9999999.");
-  });
-
-  it("metadata returns the table with hydrated fields", async () => {
-    const result = await runCli({
-      args: [
-        "table",
-        "metadata",
-        String(SEEDED.tables.customers),
-        "--json",
-        "--full",
-        "--max-bytes",
-        "0",
-      ],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-    const parsed = parseJson(result.stdout, TableCompact);
-    const { fields, ...tableBody } = parsed;
-    const fieldNames = (fields ?? []).map((field) => field.name).toSorted();
-
-    expect({ tableBody, fieldNames }).toEqual({
-      tableBody: CUSTOMERS_COMPACT,
-      fieldNames: CUSTOMERS_FIELD_NAMES,
-    });
-  });
-
-  it("metadata against a missing table id surfaces a 404 HttpError", async () => {
-    const result = await runCli({
-      args: ["table", "metadata", "9999999", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: GET /api/table/9999999/query_metadata.");
   });
 
   it("fields lists every field on the table in compact form", async () => {

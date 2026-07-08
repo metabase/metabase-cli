@@ -17,7 +17,8 @@ export default defineMetabaseCommand({
     description: "Update a segment by id (body must include revision_message)",
   },
   details:
-    "Patches only the fields you send and must include `revision_message` (recorded in the audit log). When `definition` is an MBQL 5 query it is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass. See `mb skills get mbql`.",
+    "Patches only the fields you send and must include `revision_message` (recorded in the audit log). When `definition` is an MBQL 5 query it is checked against a bundled JSON Schema (print it with `mb query --print-schema`) before sending; pass --skip-validate to bypass.",
+  skills: [{ skill: "mbql", purpose: "the definition filter clause" }],
   capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
@@ -27,6 +28,7 @@ export default defineMetabaseCommand({
     ...skipValidateFlag,
     id: { type: "positional", description: "Segment id", required: true },
   },
+  inputSchema: SegmentUpdateInput,
   outputSchema: Segment,
   examples: [
     "cat patch.json | mb segment update 1",

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { EmbeddingParams } from "./embedding";
+import { Parameter, ParameterMapping } from "./parameter";
 import type { ResourceView } from "./view";
 
 const DashboardWidth = z.enum(["fixed", "full"]);
@@ -16,7 +18,7 @@ export const Dashcard = z
     size_y: z.number().int(),
     entity_id: z.string().nullable(),
     visualization_settings: z.unknown(),
-    parameter_mappings: z.array(z.unknown()).nullable(),
+    parameter_mappings: z.array(ParameterMapping).nullable(),
     inline_parameters: z.array(z.string()).nullable(),
   })
   .loose();
@@ -80,7 +82,7 @@ export const Dashboard = z
     enable_embedding: z.boolean(),
     public_uuid: z.string().nullable(),
     cache_ttl: z.number().int().nullable(),
-    parameters: z.array(z.unknown()).nullable(),
+    parameters: z.array(Parameter).nullable(),
     dashcards: z.array(Dashcard).optional(),
     tabs: z.array(DashboardTab).optional(),
   })
@@ -88,6 +90,7 @@ export const Dashboard = z
 export type Dashboard = z.infer<typeof Dashboard>;
 
 export const DashboardDetail = Dashboard.extend({
+  parameters: z.array(Parameter),
   dashcards: z.array(Dashcard),
   tabs: z.array(DashboardTab),
 });
@@ -117,34 +120,61 @@ export const dashboardView: ResourceView<Dashboard> = {
   ],
 };
 
+const DashcardWrite = z
+  .object({
+    id: z.number().int().describe("existing dashcard id; negative to create a new dashcard"),
+    size_x: z.number().int().positive(),
+    size_y: z.number().int().positive(),
+    row: z.number().int().nonnegative(),
+    col: z.number().int().nonnegative(),
+    parameter_mappings: z.array(ParameterMapping).nullable().optional(),
+    inline_parameters: z.array(z.string().min(1)).nullable().optional(),
+    series: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+  })
+  .loose();
+
+const DashboardTabWrite = z
+  .object({
+    id: z.number().int().describe("existing tab id; negative to create a new tab"),
+    name: z.string().min(1),
+  })
+  .loose();
+
+// The server's POST /api/dashboard takes no dashcards/tabs; the create command
+// accepts them anyway and applies them through a follow-up PUT.
 export const DashboardCreateInput = z
   .object({
     name: z.string().min(1),
     description: z.string().nullable().optional(),
-    parameters: z.array(z.unknown()).optional(),
-    cache_ttl: z.number().int().positive().optional(),
+    parameters: z.array(Parameter).nullable().optional(),
+    cache_ttl: z.number().int().positive().nullable().optional(),
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
-    dashcards: z.array(z.unknown()).optional(),
-    tabs: z.array(DashboardTab.partial()).optional(),
+    dashcards: z.array(DashcardWrite).optional(),
+    tabs: z.array(DashboardTabWrite).optional(),
   })
   .loose();
 export type DashboardCreateInput = z.infer<typeof DashboardCreateInput>;
 
 export const DashboardUpdateInput = z
   .object({
-    name: z.string().min(1).optional(),
+    name: z.string().min(1).nullable().optional(),
     description: z.string().nullable().optional(),
-    archived: z.boolean().optional(),
+    caveats: z.string().nullable().optional(),
+    points_of_interest: z.string().nullable().optional(),
+    show_in_getting_started: z.boolean().nullable().optional(),
+    archived: z.boolean().nullable().optional(),
+    position: z.number().int().positive().nullable().optional(),
     width: DashboardWidth.optional(),
-    enable_embedding: z.boolean().optional(),
-    embedding_params: z.unknown().optional(),
-    parameters: z.array(z.unknown()).optional(),
+    enable_embedding: z.boolean().nullable().optional(),
+    embedding_type: z.string().nullable().optional(),
+    embedding_params: EmbeddingParams.nullable().optional(),
+    parameters: z.array(Parameter).nullable().optional(),
     cache_ttl: z.number().int().positive().nullable().optional(),
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
-    dashcards: z.array(z.unknown()).optional(),
-    tabs: z.array(DashboardTab.partial()).optional(),
+    dashcards: z.array(DashcardWrite).nullable().optional(),
+    tabs: z.array(DashboardTabWrite).nullable().optional(),
   })
   .loose();
 export type DashboardUpdateInput = z.infer<typeof DashboardUpdateInput>;
@@ -156,10 +186,10 @@ export const DashcardPatchInput = z
     size_x: z.number().int().positive().optional(),
     size_y: z.number().int().positive().optional(),
     dashboard_tab_id: z.number().int().nullable().optional(),
-    parameter_mappings: z.array(z.unknown()).optional(),
-    inline_parameters: z.array(z.string()).optional(),
+    parameter_mappings: z.array(ParameterMapping).nullable().optional(),
+    inline_parameters: z.array(z.string().min(1)).nullable().optional(),
     visualization_settings: z.unknown().optional(),
-    series: z.array(z.unknown()).optional(),
+    series: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, {

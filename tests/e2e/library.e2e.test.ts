@@ -13,6 +13,9 @@ import { SEEDED } from "./seed/seeded";
 import { requireServer } from "./server-gate";
 
 const LIBRARY_UNAVAILABLE = requireServer({ minVersion: 59, tokenFeature: "library" });
+const REMOTE_SYNC_UNAVAILABLE = requireServer({ minVersion: 60, tokenFeature: "remote_sync" });
+
+const SYNC_SCOPE_HINT_MARKER = "is not marked for git-sync";
 
 const REVIEWS_COMPACT = {
   id: SEEDED.tables.reviews,
@@ -117,6 +120,7 @@ describe("library e2e", () => {
         name: "Data",
         type: "library-data",
         description: null,
+        is_remote_synced: false,
       });
     });
 
@@ -136,6 +140,7 @@ describe("library e2e", () => {
         name: "Data",
         type: "library-data",
         description: null,
+        is_remote_synced: false,
       });
     });
 
@@ -188,5 +193,44 @@ describe("library e2e", () => {
       expect(afterUnpublish.exitCode, afterUnpublish.stderr).toBe(0);
       expect(parseJson(afterUnpublish.stdout, TableCompact)).toEqual(REVIEWS_COMPACT);
     });
+
+    it("publish stays silent about git-sync scope when no remote sync url is configured", async () => {
+      const publish = await runCli({
+        args: ["library", "publish", "--table-ids", String(SEEDED.tables.reviews), "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+
+      expect(publish.exitCode, publish.stderr).toBe(0);
+      expect(publish.stderr).not.toContain(SYNC_SCOPE_HINT_MARKER);
+    });
   });
+
+  describe.skipIf(LIBRARY_UNAVAILABLE !== null || REMOTE_SYNC_UNAVAILABLE !== null)(
+    "with the library and remote_sync features",
+    () => {
+      it("publish warns on stderr when the Data collection is outside the git-sync scope and a remote is configured", async () => {
+        const remoteUrl = "https://github.com/example/e2e-sync.git";
+        const setUrl = await runCli({
+          args: ["setting", "set", "remote-sync-url", JSON.stringify(remoteUrl), "--json"],
+          configHome: await makeIsolatedConfigHome(),
+          env: authEnv(),
+        });
+        expect(setUrl.exitCode, setUrl.stderr).toBe(0);
+
+        const publish = await runCli({
+          args: ["library", "publish", "--table-ids", String(SEEDED.tables.reviews), "--json"],
+          configHome: await makeIsolatedConfigHome(),
+          env: authEnv(),
+        });
+
+        expect(publish.exitCode).toBe(0);
+        expect(publish.stderr).toContain(
+          `Note: collection ${SEEDED.libraryDataCollectionId} "Data" is not marked for git-sync, ` +
+            `so \`mb git-sync export\` will not carry it (or its published tables' metadata) to ${remoteUrl}. ` +
+            `Add it with: mb git-sync add-collection ${SEEDED.libraryDataCollectionId}`,
+        );
+      });
+    },
+  );
 });

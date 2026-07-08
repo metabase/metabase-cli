@@ -22,6 +22,7 @@ const DEFAULT_COMPACT = {
   type: null,
   authority_level: null,
   is_personal: false,
+  is_remote_synced: false,
 } as const;
 
 const ROOT_COMPACT = {
@@ -30,6 +31,7 @@ const ROOT_COMPACT = {
   parent_id: null,
   authority_level: null,
   is_personal: false,
+  is_remote_synced: false,
 } as const;
 
 const TRASH_COMPACT = {
@@ -42,6 +44,7 @@ const TRASH_COMPACT = {
   type: "trash",
   authority_level: null,
   is_personal: false,
+  is_remote_synced: false,
 } as const;
 
 describe("collection e2e", () => {
@@ -509,6 +512,7 @@ describe("collection e2e", () => {
       type: null,
       authority_level: null,
       is_personal: false,
+      is_remote_synced: false,
     });
   });
 

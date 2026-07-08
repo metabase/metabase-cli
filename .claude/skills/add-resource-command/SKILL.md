@@ -30,7 +30,7 @@ For a typical list/get pair on a new resource:
 5. (optional) `src/commands/<r>/<verb>.test.ts` — unit test **only where there is non-orchestration logic to test**.
 6. `tests/e2e/<r>.e2e.test.ts` — comprehensive e2e suite.
 7. Updated `src/main.ts` — register the new top-level subcommand.
-8. Updated `tests/e2e/manifest.e2e.test.ts` — add the new leaf paths to the literal `commandPaths` list.
+8. Updated `src/runtime/command-help.test.ts` — add the new leaf paths to the literal `ALL_COMMANDS` list.
 
 If the resource genuinely has more verbs (e.g. a `<r> values` for fetching distinct values), add them under the same group; the rules below scale per-verb.
 
@@ -137,7 +137,7 @@ export default defineMetabaseCommand({
 });
 ```
 
-The `<Resource>ListEnvelope` export is **mandatory**. It is consumed by the manifest (via `outputSchema`) and by the matching e2e test (which imports it back to parse `--json` output). Do **not** redeclare a `z.object({ data, returned, total })` shape inline anywhere.
+The `<Resource>ListEnvelope` export is **mandatory**. It is consumed by JSON help (`--help --json`, via `outputSchema`) and by the matching e2e test (which imports it back to parse `--json` output). Do **not** redeclare a `z.object({ data, returned, total })` shape inline anywhere.
 
 The API response schema (`<Resource>ApiList` above) is the _server's_ envelope shape (often `{ data: [...], total: N }` or a bare array) and is distinct from the _CLI's_ envelope. Keep it private to the file.
 
@@ -217,9 +217,9 @@ Schemas are imported, never redeclared:
 
 If the command needs auth (the common case), pass `bootstrap.adminApiKey` and `bootstrap.baseUrl` via `runCli({ env: { MB_URL, MB_API_KEY } })` — never via argv.
 
-## Step 5 — Manifest parity
+## Step 5 — Command-list parity
 
-`tests/e2e/manifest.e2e.test.ts` has a literal `commandPaths` list. Add the new entries (`<r> list`, `<r> get`, …) in the same place new commands appear. Without this update the manifest test fails on a clean run.
+`src/runtime/command-help.test.ts` has a literal `ALL_COMMANDS` list. Add the new entries (`<r> list`, `<r> get`, …) in the same place new commands appear. Without this update the command-tree contract test fails on a clean run.
 
 ## Step 6 — Self-grep before close-out (mandatory)
 
@@ -263,9 +263,9 @@ Both are mandatory and must run **after** Step 7 is green. Do not skip either.
 
 1. **`/review`** — runs the strict end-of-task review skill against the diff. Any FAIL must be addressed before continuing. Do not argue with findings; fix them, or skip with an explicit one-line rationale. Re-run `/review` until it returns `RESULT: PASS`.
 
-2. **`/simplify`** — runs the reuse / quality / efficiency review. Apply each finding that survives the rubric; skip false positives with a one-line note. Resolve any structural issues `/simplify` surfaces (redeclared schemas, missing manifest entries, magic-literal duplication, etc.) by going back to the relevant earlier step.
+2. **`/simplify`** — runs the reuse / quality / efficiency review. Apply each finding that survives the rubric; skip false positives with a one-line note. Resolve any structural issues `/simplify` surfaces (redeclared schemas, missing command-list entries, magic-literal duplication, etc.) by going back to the relevant earlier step.
 
-If either skill surfaces a structural issue (missing `.strip()`, redeclared list envelope, missing manifest entry, e2e test missing a coverage axis), the work is unfinished — fix and re-run the close-out from `/review`.
+If either skill surfaces a structural issue (missing `.strip()`, redeclared list envelope, missing command-list entry, e2e test missing a coverage axis), the work is unfinished — fix and re-run the close-out from `/review`.
 
 ## Sanity checks before declaring done
 
@@ -280,7 +280,7 @@ If either skill surfaces a structural issue (missing `.strip()`, redeclared list
 - [ ] Unit test added only where non-orchestration logic exists (or none added, with explicit rationale — "command body is pure orchestration" is acceptable).
 - [ ] **E2E test** at `tests/e2e/<r>.e2e.test.ts` covering at minimum: list default, list filtered (if applicable), get success, get invalid id, get missing id.
 - [ ] E2E test imports schemas from `src/`; no `z.object({...})` redeclaration of any output shape.
-- [ ] `tests/e2e/manifest.e2e.test.ts` `commandPaths` list updated with the new leaves.
+- [ ] `src/runtime/command-help.test.ts` `ALL_COMMANDS` list updated with the new leaves.
 - [ ] Self-grep step (Step 6) ran clean.
 - [ ] `npx tsc --noEmit`, `bun run test`, `bun run build`, `bun run test:e2e <new-files>` all exited 0.
 - [ ] `/review` returned `PASS`.

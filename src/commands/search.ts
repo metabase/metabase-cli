@@ -33,6 +33,9 @@ export default defineMetabaseCommand({
     name: "search",
     description: "Search Metabase content (cards, dashboards, collections, …)",
   },
+  details:
+    "Ranks content against a query string. To simply enumerate a resource, prefer its `… list` verb.",
+  skills: [{ skill: "core", purpose: "search vs. list" }],
   capabilities: { minVersion: 58 },
   args: {
     ...outputFlags,
