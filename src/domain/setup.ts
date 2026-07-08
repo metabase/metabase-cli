@@ -4,10 +4,13 @@ import type { ResourceView } from "./view";
 
 const SetupUserInput = z
   .object({
-    first_name: z.string().nullable().optional(),
-    last_name: z.string().nullable().optional(),
-    email: z.string().min(1),
-    password: z.string().min(1),
+    first_name: z.string().min(1).nullable().optional(),
+    last_name: z.string().min(1).nullable().optional(),
+    email: z.email(),
+    password: z
+      .string()
+      .min(1)
+      .describe("must satisfy the server's password complexity requirements"),
   })
   .loose();
 

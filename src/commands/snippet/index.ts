@@ -1,10 +1,9 @@
-import { defineCommand } from "citty";
+import { defineCommandGroup } from "../group";
 
-export default defineCommand({
-  meta: {
-    name: "snippet",
-    description: "Manage Metabase native query snippets",
-  },
+export default defineCommandGroup({
+  name: "snippet",
+  description: "Manage Metabase native query snippets",
+  skills: [{ skill: "core", purpose: "native-SQL snippets and body input" }],
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),
     get: () => import("./get").then((mod) => mod.default),

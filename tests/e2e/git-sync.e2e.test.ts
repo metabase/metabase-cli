@@ -194,6 +194,7 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
       branch: null,
       is_dirty: false,
       current_task: null,
+      synced_collections: [],
     });
   });
 

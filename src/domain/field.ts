@@ -113,6 +113,8 @@ export const FieldSemanticType = z.enum([
   "type/Birthdate",
   "type/Structured",
   "type/SerializedJSON",
+  "type/JSON",
+  "type/DruidJSON",
   "type/XML",
   "type/User",
   "type/Author",
@@ -203,17 +205,17 @@ const NonBlankNullable = z.string().min(1).nullable();
 
 export const FieldUpdateInput = z
   .object({
-    display_name: z.string().min(1).optional(),
+    display_name: NonBlankNullable.optional(),
     description: NonBlankNullable.optional(),
     caveats: NonBlankNullable.optional(),
     points_of_interest: NonBlankNullable.optional(),
     semantic_type: FieldSemanticType.nullable().optional(),
     coercion_strategy: FieldCoercionStrategy.nullable().optional(),
     fk_target_field_id: z.number().int().positive().nullable().optional(),
-    visibility_type: FieldVisibilityType.optional(),
-    has_field_values: FieldValuesType.optional(),
+    visibility_type: FieldVisibilityType.nullable().optional(),
+    has_field_values: FieldValuesType.nullable().optional(),
     settings: z.record(z.string(), z.unknown()).nullable().optional(),
-    nfc_path: z.array(z.string()).nullable().optional(),
+    nfc_path: z.array(z.string().min(1)).nullable().optional(),
     json_unfolding: z.boolean().nullable().optional(),
   })
   .loose();

@@ -25,14 +25,22 @@ describe("warn", () => {
 
 describe("listTruncationNotice", () => {
   it("formats the byte count and a recovery hint", () => {
-    expect(listTruncationNotice(2048)).toBe("… cut at 2048 bytes; rerun with --max-bytes 0");
+    expect(listTruncationNotice(2048)).toBe(
+      "… cut at 2048 bytes; narrow the selection or raise --max-bytes",
+    );
   });
 });
 
 describe("itemOversizeMessage", () => {
   it("names both the actual byte count and the configured cap alongside the knobs", () => {
     expect(itemOversizeMessage(4096, 1024)).toBe(
-      "output is 4096 bytes, over the 1024-byte --max-bytes cap; narrow with --fields, or pass --max-bytes 0 to disable",
+      "output is 4096 bytes, over the 1024-byte --max-bytes cap; narrow with --fields or raise the cap with --max-bytes <n>",
+    );
+  });
+
+  it("replaces the generic remedy with the command-specific hint when one is supplied", () => {
+    expect(itemOversizeMessage(4096, 1024, "use `mb db get 1 --include tables`")).toBe(
+      "output is 4096 bytes, over the 1024-byte --max-bytes cap; use `mb db get 1 --include tables`",
     );
   });
 });

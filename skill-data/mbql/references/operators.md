@@ -1,4 +1,4 @@
-# MBQL 5 operator reference
+# MBQL operator reference
 
 The complete clause vocabulary the bundled schema accepts, in the CLI's API/numeric
 form. The clause _structure_ and the slot-1-options rule are in the SKILL.md body —
@@ -10,6 +10,15 @@ optional and the server generates it (see the SKILL body). It carries a value on
 when noted: an operator-specific option named in the row, or an explicit `lib/uuid`
 you mint to reference the clause. Field refs are numeric: `["field", {…}, <field-id>]`.
 Everything here passes `mb query --dry-run`; when in doubt, that loop is the authority.
+
+**Contents**
+
+- [Filter operators](#filter-operators) — Logical, Comparison, Null/empty, String match, Temporal, Segment
+- [Aggregation functions](#aggregation-functions) — including naming and the `offset` window function
+- [Expression operators](#expression-operators) — Arithmetic, Math, String, Temporal, Type conversion, Conditional
+- [References (within clauses)](#references-within-clauses) — field, expression, aggregation
+- [Field option: temporal bucketing](#field-option-temporal-bucketing)
+- [Field option: binning](#field-option-binning)
 
 > For relative date filters, prefer **`time-interval`** / **`relative-time-interval`**
 > (below). `relative-datetime` / `absolute-datetime` literals (e.g. from a UI-built
@@ -231,8 +240,9 @@ positional arg is the default.)
 - Truncation: `default`, `millisecond`, `second`, `minute`, `hour`, `day`, `week`,
   `month`, `quarter`, `year`.
 - Extraction (returns an integer): `minute-of-hour`, `hour-of-day`, `day-of-week`,
-  `day-of-week-iso`, `day-of-month`, `day-of-year`, `week-of-year`, `week-of-year-iso`,
-  `month-of-year`, `quarter-of-year`, `year-of-era`, `second-of-minute`.
+  `day-of-month`, `day-of-year`, `week-of-year`, `month-of-year`, `quarter-of-year`,
+  `year-of-era`, `second-of-minute`. (The `*-iso`/`*-us` variants are `temporal-extract`
+  operator modes, not field-option bucketing units.)
 
 ```json
 ["field", { "temporal-unit": "month" }, 22]

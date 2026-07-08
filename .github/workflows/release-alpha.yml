@@ -73,7 +73,7 @@ jobs:
         run: |
           gh pr comment "${{ github.event.pull_request.number }}" --body "Published \`@metabase/cli@${{ steps.version.outputs.version }}\` with dist-tag \`${{ steps.version.outputs.tag }}\`.
 
-          Install: \`npm install @metabase/cli@${{ steps.version.outputs.tag }}\`"
+          Install: \`npm install -g @metabase/cli@${{ steps.version.outputs.tag }}\`"
 
       - name: Generate workflow summary
         if: always()

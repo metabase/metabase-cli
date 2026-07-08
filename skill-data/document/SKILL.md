@@ -6,9 +6,9 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # Documents
 
-A **document** is a Metabase rich-text page (a "report" / notebook) that mixes prose with embedded saved questions and links to other Metabase entities. The body is a **TipTap** JSON tree (TipTap is the editor; the wire format is ProseMirror JSON, and the server stores it under `content_type: "application/json+vnd.prose-mirror"`).
+A **document** is a Metabase rich-text page (a "report" / notebook) that mixes prose with embedded saved questions and links to other Metabase entities. The body is a **TipTap** JSON tree (TipTap is the editor; the wire format is ProseMirror JSON, stored under `content_type: "application/json+vnd.prose-mirror"`).
 
-This skill covers authoring the body and driving the verbs. General flag conventions, body-input precedence, and output flags live in the `core` skill (`mb skills get core`).
+This skill covers authoring the body and driving the verbs. Flag conventions, body-input precedence, `./.scratch`, and `mb uuid` live in `core` (`mb skills get core`).
 
 ## Command surface
 
@@ -20,19 +20,15 @@ mb document update <id> --file patch.json --profile <name> --json   # PATCH sema
 mb document archive <id> --profile <name> --json         # soft-delete (PUT archived:true)
 ```
 
-- `list` returns the standard envelope (`{data, returned, total}`). The compact item is `{id, name, collection_id, archived, creator_id, can_write}` — it does **not** include the (potentially huge) `document` body. Pull the body with `get --full`.
+- `list` returns the standard envelope (`{data, returned, total}`). The compact item is `{id, name, collection_id, archived, creator_id, can_write}` and omits the (potentially huge) `document` body — pull the body with `get --full`.
 - `archive` is the only delete, mirroring `card` / `dashboard`. **Unarchive** with `mb document update <id> --body '{"archived":false}'`.
-- `update` is PATCH — send only the keys you want to change (`name`, `document`, `collection_id`, `collection_position`, `archived`). Replacing `document` replaces the **whole** body; there is no partial-node patch.
+- `update` is PATCH — send only the keys you want to change: `name`, `document`, `collection_id`, `collection_position`, `archived`, and `cards` (inline card creation works on update too, not just create — see below). Replacing `document` replaces the **whole** body; there is no partial-node patch.
 
 ## Node ids (`_id`)
 
-The editor anchors only these node types with an `_id` (a UUID): `paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed`, `supportingText`. **`create`/`update` require a non-empty `_id` on every node of those types** and reject a body missing any; other node types (`doc`, `text`, `listItem`, `resizeNode`, `flexContainer`, …) don't take an `_id` and are left alone. Mint the ids with the bundled `uuid` command — one per id-bearing node:
+The editor anchors only these node types with an `_id` (a UUID): `paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed`, `supportingText`. **`create`/`update` require a non-empty `_id` on every node of those types** — the CLI validates before sending and rejects a body missing any (`every … node needs a non-empty string _id (mint with mb uuid)`). Other node types (`doc`, `text`, `listItem`, `resizeNode`, `flexContainer`, …) take no `_id` and are left alone. Without them the editor backfills ids when the document opens, which makes a freshly-saved document show a spurious "unsaved changes" prompt.
 
-```bash
-mb uuid --count 5 --json     # → ["…", …]   one UUID per id-bearing node
-```
-
-Set each as that node's `attrs._id`. Without them the editor backfills ids when the document opens, which makes a freshly-saved document show a spurious "unsaved changes" prompt.
+Mint the ids with `mb uuid --count <n> --json` (→ `["…", …]`), one per id-bearing node, and set each as that node's `attrs._id`.
 
 ## Body shape (create / update)
 
@@ -85,12 +81,12 @@ Every node is `{ "type": string, "attrs"?: object, "content"?: [nodes], "text"?:
 - **`resizeNode`** — wraps a single `cardEmbed` or `flexContainer` to make it resizable (no `_id`). `attrs: { "height": <px>, "minHeight": <px> }`, `content` is exactly one `cardEmbed`/`flexContainer`.
 - **`flexContainer`** — a horizontal row of 1–3 `cardEmbed` / `supportingText` cells side by side (no `_id`). `attrs.columnWidths` is an array of width percentages.
 - **`supportingText`** — a text column that sits next to a card inside a `flexContainer` (id-bearing); `content` is the usual block nodes (`paragraph`, `heading`, lists, …).
-- **`smartLink`** — an inline reference to a Metabase entity (renders as a live chip). Inline, atomic, no `_id`. `attrs: { "entityId": <id>, "model": <model>, "label": <string|null>, "href": <relative-path> }`. `model` ∈ `card`, `dataset`, `metric`, `dashboard`, `collection`, `table`, `database`, `document`, `transform`, `segment`, `measure`, `user`, `action`, `indexed-entity`.
+- **`smartLink`** — an inline reference to a Metabase entity (renders as a live chip). Inline, atomic, no `_id`. `attrs: { "entityId": <id>, "model": <model>, "label": <string|null>, "href": <relative-path> }`. `model` ∈ `card`, `dataset`, `metric`, `dashboard`, `collection`, `table`, `database`, `document`, `transform`, `segment`, `user`, `action`, `indexed-entity` (plus `measure` on v60+).
 - **`metabot`** — an inline Metabot prompt block.
 
 ## Embedding an existing card
 
-A document embedding an existing card (id 114) under a heading (only the id-bearing nodes carry `_id`):
+Find the id with `mb card list --profile <name> --json` (or `mb search --models card "<text>"`), then reference it in a `cardEmbed`. A document embedding existing card 114 under a heading (only the id-bearing nodes carry `_id`):
 
 ```json
 {
@@ -110,8 +106,6 @@ A document embedding an existing card (id 114) under a heading (only the id-bear
   ]
 }
 ```
-
-To embed an existing card, find its id with `mb card list --profile <name> --json` (or `mb search --models card "<text>"`), then reference it in a `cardEmbed`.
 
 ## Creating brand-new cards inline with the document
 
@@ -138,11 +132,11 @@ You can create cards atomically with the document instead of pre-creating them. 
 }
 ```
 
-Each entry in `cards` needs at least `{name, dataset_query, display, visualization_settings}` (these are card definitions, not TipTap nodes, so they take no `_id`). Author the `dataset_query` with the `mbql` skill (`mb skills get mbql`) and the `visualization_settings` with the `viz` skill. For most edits, prefer embedding cards that already exist (a plain positive `id` in `cardEmbed`) — inline creation is for "build the report and its questions in one shot".
+Each entry in `cards` needs at least `{name, dataset_query, display, visualization_settings}` (these are card definitions, not TipTap nodes, so they take no `_id`). Author the `dataset_query` with `mbql` (`mb skills get mbql`) and the `visualization_settings` with `visualization`. For most edits, prefer embedding cards that already exist (a plain positive `id` in `cardEmbed`) — inline creation is for "build the report and its questions in one shot".
 
 ## Iterating on a document
 
-`update` replaces the whole `document` body, so the safe loop is **read → edit → write**. A fetched body already carries `_id`s on its id-bearing nodes, so preserve them — only mint new ones for id-bearing nodes you add:
+`update` replaces the whole `document` body, so the safe loop is **read → edit → write**. A fetched body already carries `_id`s on its id-bearing nodes — preserve them, and only mint new ones for id-bearing nodes you add. Don't hand-merge a partial node tree into a live document; pull the current `document`, mutate the array, and PUT the whole thing back.
 
 ```bash
 mb document get <id> --full --profile <name> --json | jq '.document' > ./.scratch/body.json
@@ -151,12 +145,8 @@ jq -n --slurpfile d ./.scratch/body.json '{document: $d[0]}' > ./.scratch/patch.
 mb document update <id> --file ./.scratch/patch.json --profile <name> --json
 ```
 
-Don't hand-merge a partial node tree into a live document — pull the current `document`, mutate the array, and PUT the whole thing back. To rename without touching the body, patch only `name`: `mb document update <id> --body '{"name":"New title"}'`.
+To rename without touching the body, patch only `name`: `mb document update <id> --body '{"name":"New title"}'`.
 
 ## Don't
 
-- Don't omit `_id` on an id-bearing node (`paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed`, `supportingText`) — `create`/`update` reject the body ("did not match expected schema"). Mint ids with `mb uuid`.
-- Don't paste a whole `document get` response into `update` — `update` only accepts `name`, `document`, `collection_id`, `collection_position`, `archived`. Send the body under the `document` key, not the full record.
-- Don't put the full `document` body in `list` expectations — `list` is compact and omits it by design; use `get --full`.
 - Don't invent node types. Stick to the inventory above; unknown block types render as empty/broken in the editor even though the response schema is lenient.
-- Don't author a card's `dataset_query` or `visualization_settings` from this skill alone — load `mbql` and `viz`.

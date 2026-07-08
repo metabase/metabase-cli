@@ -19,6 +19,7 @@ export default defineMetabaseCommand({
     ...bodyInputFlags,
     id: { type: "positional", description: "Table id", required: true },
   },
+  inputSchema: TableUpdateInput,
   outputSchema: Table,
   examples: [
     'mb table update 42 --body \'{"display_name":"Customers"}\'',

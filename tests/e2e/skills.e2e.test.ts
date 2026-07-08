@@ -9,13 +9,13 @@ import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 
 const BUNDLED_VISIBLE_NAMES = [
   "core",
-  "data-analysis",
-  "data-transformation",
+  "dashboard",
+  "data-workflow",
   "document",
   "git-sync",
   "mbql",
-  "robot-data-engineer",
-  "semantic-layer",
+  "metadata",
+  "native-sql",
   "transform",
   "visualization",
 ] as const;
@@ -71,7 +71,7 @@ describe("skills e2e", () => {
     expect(envelope.data).toEqual([
       {
         name: "core",
-        description: expect.stringContaining("Drive a Metabase instance"),
+        description: expect.stringContaining("Foundations for driving Metabase from the terminal"),
         body: expect.stringMatching(/^---\nname: core\n[\s\S]*Top-level command groups/),
         references: [],
         templates: [],
@@ -107,7 +107,7 @@ describe("skills e2e", () => {
 
   it("get accepts comma-separated names", async () => {
     const result = await runCli({
-      args: ["skills", "get", "git-sync,transform", "--json"],
+      args: ["skills", "get", "git-sync,transform", "--json", "--max-bytes", "0"],
       configHome: await makeIsolatedConfigHome(),
     });
 
@@ -124,7 +124,7 @@ describe("skills e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain(
-      "unknown skill name(s): does-not-exist (available: core, data-analysis, data-transformation, document, git-sync, mbql, robot-data-engineer, semantic-layer, transform, visualization)",
+      `unknown skill name(s): does-not-exist (available: ${BUNDLED_VISIBLE_NAMES.join(", ")})`,
     );
   });
 

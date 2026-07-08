@@ -13,6 +13,7 @@ import {
   formatSyncTask,
   REMOTE_SYNC_PATHS,
 } from "./poll-task";
+import { fetchSyncedCollections, SyncedCollection } from "./sync-scope";
 
 const RemoteSyncBranch = z.string().nullable();
 
@@ -20,6 +21,7 @@ export const SyncStatus = z.object({
   branch: z.string().nullable(),
   is_dirty: z.boolean(),
   current_task: SyncTask.nullable(),
+  synced_collections: z.array(SyncedCollection),
 });
 type SyncStatus = z.infer<typeof SyncStatus>;
 
@@ -29,6 +31,7 @@ const syncStatusView: ResourceView<SyncStatus> = {
     { key: "branch", label: "Branch" },
     { key: "is_dirty", label: "Dirty" },
     { key: "current_task", label: "Current task" },
+    { key: "synced_collections", label: "Synced collections" },
   ],
 };
 
@@ -43,22 +46,38 @@ export default defineMetabaseCommand({
   examples: ["mb git-sync status", "mb git-sync status --json"],
   async run({ ctx, getClient }) {
     const client = await getClient();
-    const [branch, isDirty, currentTask] = await Promise.all([
+    const [branch, isDirty, currentTask, syncedCollections] = await Promise.all([
       fetchOptionalParsed(client, "/api/setting/remote-sync-branch", RemoteSyncBranch),
       client.requestParsed(IsDirtyResult, REMOTE_SYNC_PATHS.isDirty),
       fetchCurrentTask(client),
+      fetchSyncedCollections(client),
     ]);
 
     const summary: SyncStatus = {
       branch,
       is_dirty: isDirty.is_dirty,
       current_task: currentTask,
+      synced_collections: syncedCollections,
     };
     const branchPart = branch === null ? "git-sync branch not set" : `Branch ${branch}`;
     const dirtyPart = isDirty.is_dirty
       ? "Metabase has unsynced local changes"
       : "in sync with the remote";
     const taskPart = currentTask === null ? "No task running." : formatSyncTask(currentTask);
-    renderSummary(summary, syncStatusView, `${branchPart} — ${dirtyPart}. ${taskPart}`, ctx);
+    const scopePart = formatSyncedCollections(syncedCollections);
+    renderSummary(
+      summary,
+      syncStatusView,
+      `${branchPart} — ${dirtyPart}. ${taskPart} ${scopePart}`,
+      ctx,
+    );
   },
 });
+
+function formatSyncedCollections(collections: SyncedCollection[]): string {
+  if (collections.length === 0) {
+    return "No collections are marked for sync.";
+  }
+  const names = collections.map((collection) => `${collection.name} (${collection.id})`);
+  return `Synced collections: ${names.join(", ")}.`;
+}

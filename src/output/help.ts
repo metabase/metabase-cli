@@ -2,7 +2,9 @@ import { renderUsage } from "citty";
 import type { ArgsDef, CommandDef, SubCommandsDef } from "citty";
 
 import { flagConsumesValue, resolveCitty, toAliasArray } from "../runtime/citty";
-import { getMetabaseAugment } from "../runtime/command-augment";
+import { getMetabaseAugment, type SkillPointer } from "../runtime/command-augment";
+import { buildHelpEntry, buildHelpIndex } from "../runtime/command-help";
+import { jsonLine } from "./render";
 
 export const ANSI_ESC = String.fromCharCode(27);
 const ANSI_PATTERN = new RegExp(`${ANSI_ESC}\\[[0-9;]*m`, "g");
@@ -30,6 +32,9 @@ const HELP_FLAG_DESCRIPTION = "Show help for this command";
 
 const GETTING_STARTED_HINT = `First time? Run \`${CLI_NAME} auth login\` to connect to a Metabase instance.`;
 
+const SKILLS_HEADER = "AGENT SKILLS";
+const SKILLS_LIST_ITEM = `${CLI_NAME} skills list — every bundled skill`;
+
 interface UsageRewrite {
   cittyName: string;
   breadcrumb: string;
@@ -54,6 +59,7 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
   const augment = getMetabaseAugment(cmd);
   const details = augment?.details ?? null;
   const examples = augment?.examples ?? [];
+  const skills = augment?.skills ?? [];
 
   const transformed = transformBody(lines, {
     cittyName,
@@ -66,10 +72,49 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
   if (examples.length > 0) {
     sections.push(renderExamples(examples));
   }
+  if (skills.length > 0) {
+    sections.push(renderSkillsSection(skills, isRoot));
+  }
   if (isRoot) {
     sections.push(GETTING_STARTED_HINT);
   }
-  process.stdout.write(sections.join("\n\n") + "\n");
+  sections.push(machineHelpHint(breadcrumb ?? cittyName, hasSubCommands));
+  await writeUsage(sections.join("\n\n") + "\n");
+}
+
+export async function showUsageJson<T extends ArgsDef = ArgsDef>(
+  cmd: CommandDef<T>,
+  breadcrumb: string,
+): Promise<void> {
+  const path = breadcrumbPath(breadcrumb);
+  const subCommands = await resolveCitty(cmd.subCommands);
+  const hasSubCommands = subCommands !== undefined && Object.keys(subCommands).length > 0;
+  const payload = hasSubCommands
+    ? await buildHelpIndex(cmd, path)
+    : await buildHelpEntry(cmd, path);
+  await writeUsage(jsonLine(payload));
+}
+
+// Citty exits the process right after the showUsage hook returns, which discards any stdout
+// still buffered inside Node — a fire-and-forget write truncates payloads over the pipe
+// buffer size. Resolving on the write callback guarantees the data reached the OS first.
+function writeUsage(text: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    process.stdout.write(text, (error) => (error ? reject(error) : resolve()));
+  });
+}
+
+function breadcrumbPath(breadcrumb: string): string[] {
+  const segments = breadcrumb.split(" ").filter((segment) => segment.length > 0);
+  return segments[0] === CLI_NAME ? segments.slice(1) : segments;
+}
+
+const MACHINE_HELP_LEAF_LABEL = "Machine-readable help (flags, output schema):";
+const MACHINE_HELP_INDEX_LABEL = "Machine-readable command index:";
+
+function machineHelpHint(breadcrumb: string, hasSubCommands: boolean): string {
+  const label = hasSubCommands ? MACHINE_HELP_INDEX_LABEL : MACHINE_HELP_LEAF_LABEL;
+  return `${label} ${breadcrumb} --help --json`;
 }
 
 function transformBody(lines: string[], rewrite: UsageRewrite): string[] {
@@ -148,6 +193,17 @@ function optionLayout(row: string): OptionLayout | null {
     return null;
   }
   return { flagEnd, descStart: flagEnd + gapRemainder };
+}
+
+export function renderSkillsSection(
+  skills: readonly SkillPointer[],
+  includeListPointer: boolean,
+): string {
+  const items = skills.map((p) => `${LINE_PREFIX}mb skills get ${p.skill} — ${p.purpose}`);
+  if (includeListPointer) {
+    items.push(`${LINE_PREFIX}${SKILLS_LIST_ITEM}`);
+  }
+  return [SKILLS_HEADER, "", ...items].join("\n");
 }
 
 function withDetails(lines: string[], details: string | null): string[] {
