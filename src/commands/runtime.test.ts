@@ -351,7 +351,7 @@ describe("enrichScopeForbiddenError", () => {
     const result = enrichScopeForbiddenError(FORBIDDEN, oauthConfig("mb:workspace-manager"));
     expect(result).toBeInstanceOf(ConfigError);
     expect(errorMessage(result)).toBe(
-      `${FORBIDDEN.userMessage} This profile's login is scoped to mb:workspace-manager, which only allows workspace commands against this server. Run \`mb auth login\` for a full-access login, or point --profile at a workspace profile.`,
+      `${FORBIDDEN.userMessage} This profile's login is scoped to mb:workspace-manager, which only allows workspace commands against this server. Run \`mb auth login\` for a full-access login, or run content commands against the workspace itself via its ws-<id> profile.`,
     );
   });
 
