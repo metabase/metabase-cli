@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { FieldListEnvelope } from "../../src/commands/table/fields";
+import { tableFieldsOversizeHint } from "../../src/commands/table/hints";
 import { TableListEnvelope } from "../../src/commands/table/list";
 import { Table, TableCompact } from "../../src/domain/table";
 import { parseJson } from "../../src/runtime/json";
@@ -9,16 +10,31 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
+
+const CUSTOMERS_COMPACT = {
+  id: SEEDED.tables.customers,
+  name: "customers",
+  display_name: "Customers",
+  description: "Customer dimension; mixed types for sync coverage.",
+  db_id: SEEDED.warehouseDbId,
+  schema: "public",
+  entity_type: "entity/GenericTable",
+  is_published: false,
+};
+
+const REVIEWS_COMPACT = {
+  id: SEEDED.tables.reviews,
+  name: "reviews",
+  display_name: "Reviews",
+  description: null,
+  db_id: SEEDED.warehouseDbId,
+  schema: "public",
+  entity_type: "entity/GenericTable",
+  is_published: false,
+};
+
 const SEEDED_WAREHOUSE_TABLES = [
-  {
-    id: SEEDED.tables.customers,
-    name: "customers",
-    display_name: "Customers",
-    description: "Customer dimension; mixed types for sync coverage.",
-    db_id: SEEDED.warehouseDbId,
-    schema: "public",
-    entity_type: "entity/GenericTable",
-  },
+  CUSTOMERS_COMPACT,
   {
     id: SEEDED.tables.dailySales,
     name: "daily_sales",
@@ -27,6 +43,7 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "analytics",
     entity_type: "entity/TransactionTable",
+    is_published: false,
   },
   {
     id: SEEDED.tables.orderItems,
@@ -36,6 +53,7 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    is_published: false,
   },
   {
     id: SEEDED.tables.orderSummary,
@@ -45,6 +63,7 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    is_published: false,
   },
   {
     id: SEEDED.tables.orders,
@@ -54,6 +73,7 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    is_published: false,
   },
   {
     id: SEEDED.tables.products,
@@ -63,16 +83,9 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/ProductTable",
+    is_published: false,
   },
-  {
-    id: SEEDED.tables.reviews,
-    name: "reviews",
-    display_name: "Reviews",
-    description: null,
-    db_id: SEEDED.warehouseDbId,
-    schema: "public",
-    entity_type: "entity/GenericTable",
-  },
+  REVIEWS_COMPACT,
 ];
 
 const CUSTOMERS_FIELD_NAMES = [
@@ -114,8 +127,8 @@ describe("table e2e", () => {
 
   function authEnv(): Record<string, string> {
     return {
-      METABASE_URL: bootstrap.baseUrl,
-      METABASE_API_KEY: bootstrap.adminApiKey,
+      MB_URL: bootstrap.baseUrl,
+      MB_API_KEY: bootstrap.adminApiKey,
     };
   }
 
@@ -144,15 +157,7 @@ describe("table e2e", () => {
     expect(result.exitCode, result.stderr).toBe(0);
     const parsed = parseJson(result.stdout, Table);
     expect(parsed.fields).toBeUndefined();
-    expect(TableCompact.parse(parsed)).toEqual({
-      id: SEEDED.tables.customers,
-      name: "customers",
-      display_name: "Customers",
-      description: "Customer dimension; mixed types for sync coverage.",
-      db_id: SEEDED.warehouseDbId,
-      schema: "public",
-      entity_type: "entity/GenericTable",
-    });
+    expect(TableCompact.parse(parsed)).toEqual(CUSTOMERS_COMPACT);
   });
 
   it("get --include fields hydrates and projects them in compact form", async () => {
@@ -179,18 +184,33 @@ describe("table e2e", () => {
       (field) => field.table_id === SEEDED.tables.customers,
     );
     expect({ tableBody, fieldNames, allFieldsBelongToCustomersTable }).toEqual({
-      tableBody: {
-        id: SEEDED.tables.customers,
-        name: "customers",
-        display_name: "Customers",
-        description: "Customer dimension; mixed types for sync coverage.",
-        db_id: SEEDED.warehouseDbId,
-        schema: "public",
-        entity_type: "entity/GenericTable",
-      },
+      tableBody: CUSTOMERS_COMPACT,
       fieldNames: CUSTOMERS_FIELD_NAMES,
       allFieldsBelongToCustomersTable: true,
     });
+  });
+
+  it("get --include fields over a tiny cap exits 2 and points at table fields", async () => {
+    const tinyCap = 256;
+    const result = await runCli({
+      args: [
+        "table",
+        "get",
+        String(SEEDED.tables.customers),
+        "--include",
+        "fields",
+        "--json",
+        "--max-bytes",
+        String(tinyCap),
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain(
+      `over the ${tinyCap}-byte --max-bytes cap; ${tableFieldsOversizeHint(SEEDED.tables.customers)}`,
+    );
   });
 
   it("get rejects an unknown --include value with ConfigError", async () => {
@@ -229,51 +249,6 @@ describe("table e2e", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Not found: GET /api/table/9999999.");
-  });
-
-  it("metadata returns the table with hydrated fields", async () => {
-    const result = await runCli({
-      args: [
-        "table",
-        "metadata",
-        String(SEEDED.tables.customers),
-        "--json",
-        "--full",
-        "--max-bytes",
-        "0",
-      ],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-    const parsed = parseJson(result.stdout, TableCompact);
-    const { fields, ...tableBody } = parsed;
-    const fieldNames = (fields ?? []).map((field) => field.name).toSorted();
-
-    expect({ tableBody, fieldNames }).toEqual({
-      tableBody: {
-        id: SEEDED.tables.customers,
-        name: "customers",
-        display_name: "Customers",
-        description: "Customer dimension; mixed types for sync coverage.",
-        db_id: SEEDED.warehouseDbId,
-        schema: "public",
-        entity_type: "entity/GenericTable",
-      },
-      fieldNames: CUSTOMERS_FIELD_NAMES,
-    });
-  });
-
-  it("metadata against a missing table id surfaces a 404 HttpError", async () => {
-    const result = await runCli({
-      args: ["table", "metadata", "9999999", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: GET /api/table/9999999/query_metadata.");
   });
 
   it("fields lists every field on the table in compact form", async () => {

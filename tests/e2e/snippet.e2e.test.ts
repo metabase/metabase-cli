@@ -47,8 +47,8 @@ describe("snippet e2e", () => {
 
   function authEnv(): Record<string, string> {
     return {
-      METABASE_URL: bootstrap.baseUrl,
-      METABASE_API_KEY: bootstrap.adminApiKey,
+      MB_URL: bootstrap.baseUrl,
+      MB_API_KEY: bootstrap.adminApiKey,
     };
   }
 

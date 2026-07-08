@@ -7,6 +7,8 @@ import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseEnumFlag } from "../parse-enum";
 import { defineMetabaseCommand } from "../runtime";
 
+import { COLLECTIONS_PATH } from "./listing";
+
 const CollectionApiList = z.array(Collection);
 
 const CollectionListFilter = z.enum(["all", "archived", "personal"]);
@@ -41,7 +43,7 @@ export default defineMetabaseCommand({
   async run({ args, ctx, getClient }) {
     const filter = parseEnumFlag(args.filter, CollectionListFilter, "filter");
     const client = await getClient();
-    const items = await client.requestParsed(CollectionApiList, "/api/collection", {
+    const items = await client.requestParsed(CollectionApiList, COLLECTIONS_PATH, {
       query: COLLECTION_LIST_QUERY[filter],
     });
     renderList(wrapList(items), collectionView, ctx);

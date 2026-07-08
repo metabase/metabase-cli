@@ -11,7 +11,7 @@ Commands that need more than a baseline OSS server declare it — a higher minim
 - the server is older than the command's minimum version, or
 - the command needs a premium feature (e.g. `remote_sync`, `transforms`) that isn't enabled.
 
-Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs but the server version can't be detected (no cached probe), it proceeds with a warning rather than refusing. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `METABASE_CLI_SKIP_PREFLIGHT=1`. Both are footguns — only for servers you know are patched.
+Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs but the server version can't be detected (no cached probe), it proceeds with a warning rather than refusing. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `MB_CLI_SKIP_PREFLIGHT=1`. Both are footguns — only for servers you know are patched.
 
 ## Install
 
@@ -52,15 +52,15 @@ Against a server older than v62 the CLI detects the missing OAuth support and fa
 
 On success the server is probed once — the rendered output shows the user, role (`Admin`/`User`), and Metabase version, and the same values are cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good credential and gains a `lastFailure` entry.
 
-| Flag                     | Description                                                                                                                                          |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `METABASE_URL`, then prompts. |
-| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead.                                                                   |
-| `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                             |
-| `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                            |
-| `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                             |
+| Flag                     | Description                                                                                                                                    |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `MB_URL`, then prompts. |
+| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead.                                                             |
+| `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                       |
+| `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                      |
+| `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                       |
 
-Non-interactive (non-TTY) login requires an API key; resolution order: `--api-key` → piped stdin → `METABASE_API_KEY` (first non-empty wins). Without one, non-interactive login fails rather than prompting.
+Non-interactive (non-TTY) login requires an API key; resolution order: `--api-key` → piped stdin → `MB_API_KEY` (first non-empty wins). Without one, non-interactive login fails rather than prompting.
 
 ```sh
 mb auth login                                            # interactive: browser or API key
@@ -127,6 +127,14 @@ mb transform list --json
 
 ```sh
 mb transform get 1 --json
+```
+
+### `mb transform dependencies <id>`
+
+List the upstream transforms this transform depends on (the ones that must run before it). The positional id is a transform id.
+
+```sh
+mb transform dependencies 1 --json
 ```
 
 ### `mb transform create`
@@ -251,13 +259,80 @@ mb transform-job delete 1 --yes
 | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
+### `mb transform-job run <id>`
+
+Trigger a job manually and return immediately. The job runs every transform carrying one of the job's tags, plus those transforms' dependencies.
+
+```sh
+mb transform-job run 1
+mb transform-job run 1 --force-refresh --json
+```
+
+| Flag              | Description                                                                                         |
+| ----------------- | --------------------------------------------------------------------------------------------------- |
+| `--force-refresh` | Re-run the whole plan, including dependency transforms that are already fresh (skipped by default). |
+
+### `mb transform-job transforms <id>`
+
+List the transforms a job would run, resolved by the job's tags. The positional id is a job id.
+
+```sh
+mb transform-job transforms 1 --json
+```
+
+### `mb transform-job set-active <true|false>`
+
+Activate or deactivate every transform job at once (admin only). Inactive jobs do not run on schedule; manual runs ignore the flag.
+
+```sh
+mb transform-job set-active false
+mb transform-job set-active true --json
+```
+
+## Transform tags
+
+CRUD on `/api/transform-tag`. Tags group transforms and jobs; reference them by id via the `tag_ids` field on a transform or job. The four built-in tags (`hourly`, `daily`, `weekly`, `monthly`) drive the built-in jobs. There is no get-by-id endpoint — use `list`.
+
+### `mb transform-tag list`
+
+```sh
+mb transform-tag list --json
+```
+
+### `mb transform-tag create`
+
+```sh
+mb transform-tag create --body '{"name":"nightly"}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb transform-tag update <id>`
+
+```sh
+mb transform-tag update 5 --body '{"name":"renamed"}'
+```
+
+### `mb transform-tag delete <id>`
+
+```sh
+mb transform-tag delete 5 --yes
+```
+
+| Flag    | Description                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
+
 ## Databases
 
-Read warehouse metadata from `/api/database`. The `db` group exposes the full database list, the per-database record, schema and table inspection, the two manual-sync triggers, and (rarely useful) full-warehouse rollup endpoints.
+Read warehouse metadata from `/api/database`. The `db` group exposes the full database list, the per-database record with optional table/field hydration, schema and table inspection, and the two manual-sync triggers.
 
 `db` is aliased to `database`.
 
-> **Agent traversal:** prefer the granular path — `db list` → `db schemas <db-id>` → `db schema-tables <db-id> <schema>` → `table get <table-id> --include fields`. On a real warehouse (dozens of schemas, hundreds of tables, dozens of fields per table) the rollup commands (`db metadata`, `db get --include tables.fields`, `db list --include tables`) return megabytes of JSON and exhaust the agent context. Reach for them only on small/dev warehouses where you know the size up front.
+> **Agent traversal — the hydration ladder:** start with `db get <db-id> --include tables`, the compact table map (id, name, schema, description per table) — one call that fits most databases. Pick the relevant tables, then fetch fields per table with `table fields <table-id>` (bounded: a table has at most a few hundred fields). `--include tables.fields` is the full rollup — small databases only. When output outgrows the `--max-bytes` cap, the error message names the next command down the ladder. On warehouses with hundreds of tables, traverse by schema (`db schemas <db-id>` → `db schema-tables <db-id> <schema>`) or find tables by name (`mb search <term> --models table --db-id <db-id>`).
 
 ### `mb db list`
 
@@ -265,34 +340,26 @@ Read warehouse metadata from `/api/database`. The `db` group exposes the full da
 mb db list
 mb db list --json
 mb db list --saved --json
-mb db list --include tables --full --json   # rollup: every db with its full table list
+mb db list --include tables --json   # every db with its compact table map
 ```
 
-| Flag                | Description                                                                                                                                                                                                          |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--include <which>` | Hydrate related entities. Currently only `tables` is supported (each database is returned with its `tables`). On real warehouses this returns hundreds of table records per db — use the granular traversal instead. |
-| `--saved`           | Include the Saved Questions virtual database in the list. The virtual db has id `-1337` and no `engine`.                                                                                                             |
+| Flag                | Description                                                                                                                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--include <which>` | Hydrate related entities. Currently only `tables` is supported (each database is returned with its compact `tables`). To map a single warehouse, prefer `db get <id> --include tables`. |
+| `--saved`           | Include the Saved Questions virtual database in the list. The virtual db has id `-1337` and no `engine`.                                                                                |
 
 ### `mb db get <id>`
 
 ```sh
 mb db get 1
 mb db get 1 --json
-mb db get 1 --include tables --full --json          # rollup: db + every table (compact)
-mb db get 1 --include tables.fields --full --json   # rollup: db + every table + every field
+mb db get 1 --include tables --json          # + compact table map (fits most databases)
+mb db get 1 --include tables.fields --json   # + every field of every table (small databases only)
 ```
 
-| Flag                | Description                                                                                                                                                                                                                                                                       |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--include <which>` | Hydrate related entities. One of `tables` or `tables.fields`. `tables.fields` returns every column of every table in the database in one response — only safe on small/dev warehouses. For a real warehouse use `db schemas` → `db schema-tables` → `table get --include fields`. |
-
-### `mb db metadata <id>`
-
-Equivalent to `GET /api/database/:id/metadata`: a single database with all its tables and fields rolled up in one response. This is the largest read in the `db` group — on a real warehouse the response will exceed the agent context. Use only when you know the database is small (a seeded dev instance, a sample db, a freshly-bootstrapped test fixture). For agent-driven introspection on a real warehouse, walk `db schemas` → `db schema-tables` → `table get --include fields` instead.
-
-```sh
-mb db metadata 1 --json --full --max-bytes 0
-```
+| Flag                | Description                                                                                                                                                                                                                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--include <which>` | Hydrate related entities. `tables` is the compact table map — the recommended first call for schema discovery. `tables.fields` is the full rollup and fits only small databases; on anything larger, take the map and fetch fields per table with `table fields <table-id>`, or traverse by schema (see above). |
 
 ### `mb db schemas <id>`
 
@@ -355,7 +422,7 @@ mb table list --db-id 1 --json
 
 ### `mb table get <id>`
 
-Returns the basic table record (no fields). Pass `--include fields` to route through `/api/table/:id/query_metadata` so the response carries the table's columns compact-projected as `fields` — this is the default agent path for field introspection. Use `mb table fields <id>` if you only want the fields as a list envelope, or `mb table metadata <id>` when you also need FKs and dimensions hydrated.
+Returns the basic table record (no fields). Pass `--include fields` to route through `/api/table/:id/query_metadata` so the response carries the table's columns compact-projected as `fields` — this is the default agent path for field introspection (the response also carries FK targets and dimensions under `--full`). Use `mb table fields <id>` if you only want the fields as a list envelope.
 
 ```sh
 mb table get 42
@@ -376,14 +443,6 @@ mb table fields 42
 mb table fields 42 --json
 ```
 
-### `mb table metadata <id>`
-
-`GET /api/table/:id/query_metadata`: the table with its fields, FKs, dimensions, segments, and measures all hydrated. Heavier than `table get --include fields` — reach for it only when you actually need the FK / dimension / segment / measure data.
-
-```sh
-mb table metadata 42 --json --full --max-bytes 0
-```
-
 ### `mb table update <id>`
 
 Patch a table (`PUT /api/table/:id`). Body fields: `display_name`, `description`, `caveats`, `points_of_interest`, `entity_type`, `visibility_type`, `field_order`, `show_in_getting_started`. Pass the body via `--body`, `--file`, or stdin (exactly one).
@@ -393,6 +452,8 @@ mb table update 42 --body '{"display_name":"Customers"}'
 mb table update 42 --file patch.json
 echo '{"description":"Customer dimension"}' | mb table update 42
 ```
+
+Publish status surfaces on the table itself — `table get`/`table list` carry `is_published` (and `collection_id` under `--full`). Publishing tables to the Library is done with [`mb library publish`](#library).
 
 ## Fields
 
@@ -429,6 +490,43 @@ Patch a field (`PUT /api/field/:id`). Body fields: `display_name`, `description`
 ```sh
 mb field update 100 --body '{"description":"customer email","semantic_type":"type/Email"}'
 mb field update 100 --file patch.json
+```
+
+## Upload
+
+Load CSV/TSV data into the warehouse via `/api/upload`. Requires an uploads database configured on the server (Admin → Settings → Uploads); the destination db and schema are set there, not per-command. `append`/`replace` target a table created by a prior upload, and the CSV columns must match.
+
+### `mb upload csv`
+
+Create a new table plus a model over it from a CSV file. Prints the new model id and table id.
+
+```sh
+mb upload csv --file data.csv
+mb upload csv --file data.csv --collection 5
+mb upload csv --file data.csv --json
+```
+
+| Flag                | Description                                                            |
+| ------------------- | ---------------------------------------------------------------------- |
+| `--file <path>`     | Path to the CSV/TSV file to upload (required).                         |
+| `--collection <id>` | Target collection id for the created model, or `root` (default: root). |
+
+### `mb upload append <table-id>`
+
+Insert a CSV file's rows into an existing uploaded table.
+
+```sh
+mb upload append 42 --file more-rows.csv
+mb upload append 42 --file more-rows.csv --json
+```
+
+### `mb upload replace <table-id>`
+
+Replace an existing uploaded table's contents with a CSV file's rows.
+
+```sh
+mb upload replace 42 --file rows.csv
+mb upload replace 42 --file rows.csv --json
 ```
 
 ## Cards
@@ -551,6 +649,27 @@ List the dashcards on a dashboard.
 mb dashboard cards 1
 mb dashboard cards 1 --json
 ```
+
+#### Dashboard parameters (filters)
+
+A dashboard's `parameters` are its filter widgets. They're typed (`Parameter` schema): an invalid `type` is rejected at the CLI boundary with a message that echoes the full allowed enum (`string/=`, `string/contains`, `number/between`, `date/range`, `category`, `id`, `temporal-unit`, …).
+
+Read them off the dashboard with `mb dashboard get <id> --fields parameters --json` (or `--full` for the whole record). There is no separate read verb — they're part of the dashboard.
+
+Editing replaces the **whole** `parameters` array, so it's a read-modify-write loop: read the current set, modify it, and send it all back via `mb dashboard create`/`mb dashboard update --body '{"parameters":[…]}'`; omitting a parameter deletes it. Each parameter's `id` is a descriptive string you choose (reuse the `slug`, e.g. `order_status`), unique within the dashboard — Metabase stores any non-blank string as-is, so there is no need to generate a random id (use `mb uuid` only if you genuinely want an opaque one). Bind a parameter to a card column through a dashcard's `parameter_mappings`, whose `parameter_id` must match a parameter `id` exactly.
+
+### `mb dashboard parameter-values <dashboard-id> <parameter-id>`
+
+Fetch the selectable values for one dashboard parameter (`{values, has_more_values}`). Values come from the parameter's static list, its source card, or — for a parameter mapped to a field — the field's live distinct values (chain-filtered).
+
+```sh
+mb dashboard parameter-values 1 order_status --json
+mb dashboard parameter-values 1 order_status --query Cam --json
+```
+
+| Flag               | Description                                                                            |
+| ------------------ | -------------------------------------------------------------------------------------- |
+| `--query <substr>` | Case-insensitive substring search (first 1000 matches) instead of the full value list. |
 
 ### `mb dashboard create`
 
@@ -800,6 +919,157 @@ mb measure archive 1 --revision-message "deprecated"
 | --------------------------- | ------------------------------------------- |
 | `--revision-message <text>` | Audit-log message recorded with the change. |
 
+## Timelines
+
+CRUD on `/api/timeline`. A timeline is a named collection of dated events rendered as annotations on time-series charts. Timelines live in collections (`collection_id: null` = root) and carry an icon (`star`, `cake`, `mail`, `warning`, `bell`, `cloud`).
+
+### `mb timeline list`
+
+```sh
+mb timeline list
+mb timeline list --json
+mb timeline list --archived --json
+```
+
+| Flag         | Description                                     |
+| ------------ | ----------------------------------------------- |
+| `--archived` | Show archived timelines instead of active ones. |
+
+### `mb timeline get <id>`
+
+```sh
+mb timeline get 1
+mb timeline get 1 --json --full
+```
+
+### `mb timeline events <id>`
+
+List the events on a timeline. Archived events are excluded unless `--archived` is passed (which returns both).
+
+```sh
+mb timeline events 1
+mb timeline events 1 --archived --json
+```
+
+| Flag         | Description              |
+| ------------ | ------------------------ |
+| `--archived` | Include archived events. |
+
+### `mb timeline create`
+
+```sh
+mb timeline create --body '{"name":"Releases"}'
+cat timeline.json | mb timeline create
+mb timeline create --file timeline.json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+Body fields: `name` (required), `description` (optional), `icon` (optional, default `star`), `collection_id` (optional positive integer, omit for the root collection), `default` (optional boolean marking the collection's default timeline).
+
+### `mb timeline update <id>`
+
+Patch a timeline. Body is a partial subset of the create shape plus `archived`. Only the keys you send are touched. Changing `archived` cascades to every event on the timeline.
+
+```sh
+mb timeline update 1 --body '{"name":"Product releases"}'
+cat patch.json | mb timeline update 1
+mb timeline update 1 --file patch.json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb timeline archive <id>`
+
+Soft-delete a timeline (and, by server-side cascade, all its events) by setting `archived: true`. To unarchive use `mb timeline update <id> --body '{"archived":false}'`.
+
+```sh
+mb timeline archive 1
+mb timeline archive 1 --json
+```
+
+### `mb timeline delete <id>`
+
+Permanently delete a timeline and all its events. Irreversible — prefer `mb timeline archive` unless you mean it. Prompts for confirmation on a TTY; requires `--yes` otherwise.
+
+```sh
+mb timeline delete 1 --yes
+mb timeline delete 1
+```
+
+| Flag    | Description        |
+| ------- | ------------------ |
+| `--yes` | Skip confirmation. |
+
+## Timeline events
+
+CRUD on `/api/timeline-event`. An event is a dated annotation on a timeline. There is no server-side list endpoint — list events with `mb timeline events <id>`.
+
+### `mb timeline-event get <id>`
+
+```sh
+mb timeline-event get 1
+mb timeline-event get 1 --json --full
+```
+
+### `mb timeline-event create`
+
+```sh
+mb timeline-event create --body '{"name":"v2 launch","timestamp":"2026-07-01T00:00:00Z","timezone":"UTC","time_matters":false,"timeline_id":1}'
+cat event.json | mb timeline-event create
+mb timeline-event create --file event.json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+Body fields: `name` (required), `timestamp` (required, ISO 8601), `timezone` (required, IANA name like `UTC` or `America/New_York`), `time_matters` (required boolean — `true` when the time of day is significant, `false` when only the date is), `timeline_id` (required positive integer), `description` (optional), `icon` (optional, default: the timeline's icon).
+
+### `mb timeline-event update <id>`
+
+Patch an event. Body is a partial subset of the create shape plus `archived`. Only the keys you send are touched; `timeline_id` moves the event to another timeline.
+
+```sh
+mb timeline-event update 1 --body '{"name":"v2.1 launch"}'
+cat patch.json | mb timeline-event update 1
+mb timeline-event update 1 --file patch.json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb timeline-event archive <id>`
+
+Soft-delete an event by setting `archived: true`. To unarchive use `mb timeline-event update <id> --body '{"archived":false}'`.
+
+```sh
+mb timeline-event archive 1
+mb timeline-event archive 1 --json
+```
+
+### `mb timeline-event delete <id>`
+
+Permanently delete an event. Prompts for confirmation on a TTY; requires `--yes` otherwise.
+
+```sh
+mb timeline-event delete 1 --yes
+mb timeline-event delete 1
+```
+
+| Flag    | Description        |
+| ------- | ------------------ |
+| `--yes` | Skip confirmation. |
+
 ## Collections
 
 Read collections on `/api/collection`. Collections are the folders that contain cards, dashboards, and other collections. The list endpoint surfaces a virtual root collection (id `"root"`) alongside regular numeric ids; the get endpoint accepts only the numeric id.
@@ -881,6 +1151,53 @@ Soft-delete a collection by setting `archived: true`. The archived collection st
 ```sh
 mb collection archive 4
 mb collection archive 4 --json
+```
+
+## Library
+
+Curate the Metabase **Library** — a governed subtree (`library-data` "Data" for published tables, `library-metrics` "Metrics" for official metrics, under a `library` root). Tables published to Data appear first when people pick a data source and rank up in search, steering everyone toward trusted, analysis-ready tables. Requires the `library` premium feature (Pro/Enterprise) and admin or data-analyst permission (Curate alone won't publish tables). Publish status surfaces on the table via `is_published` (`table get`/`table list`).
+
+### `mb library get`
+
+Show the Library and its Data/Metrics collection ids (`GET /api/ee/library/`). Errors if the Library hasn't been created yet.
+
+```sh
+mb library get
+mb library get --json
+```
+
+### `mb library create`
+
+Create the Library subtree (`POST /api/ee/library/`). Idempotent — returns the existing Library when it's already there.
+
+```sh
+mb library create
+mb library create --json
+```
+
+### `mb library publish`
+
+Publish tables (and their upstream dependencies) into the Library's Data collection (`POST /api/ee/data-studio/table/publish-tables`). The target Data collection is resolved automatically and the Library is created if it doesn't exist yet — there's no collection id to pass. Publishing does not add the Data collection to the git-sync scope; on an instance with remote sync configured, the command warns on stderr with the `mb git-sync add-collection <id>` invocation that makes exports carry the published tables' metadata.
+
+```sh
+mb library publish --table-ids 1,2,3
+mb library publish --db-ids 1 --json
+mb library publish --schemas 1:public,1:analytics
+```
+
+| Flag                | Description                                                       |
+| ------------------- | ----------------------------------------------------------------- |
+| `--table-ids <ids>` | Comma-separated table ids.                                        |
+| `--db-ids <ids>`    | Comma-separated database ids.                                     |
+| `--schemas <ids>`   | Comma-separated schema ids, each `<db-id>:<schema>` (`1:public`). |
+
+### `mb library unpublish`
+
+Unpublish tables (and their downstream dependents) from the Library (`POST /api/ee/data-studio/table/unpublish-tables`). Same selector flags as `publish`.
+
+```sh
+mb library unpublish --table-ids 1,2,3
+mb library unpublish --db-ids 1 --json
 ```
 
 ## Documents
@@ -1011,7 +1328,7 @@ Drive Metabase Enterprise Remote Sync (`/api/ee/remote-sync`) — import / expor
 
 ### `mb git-sync status`
 
-Roll up the current sync state in one call: configured branch, dirty flag, and the most recent sync task (or `null` if none has ever run).
+Roll up the current sync state in one call: configured branch, dirty flag, the most recent sync task (or `null` if none has ever run), and the collections marked for sync.
 
 ```sh
 mb git-sync status
@@ -1252,7 +1569,7 @@ When the embedded query (`card.dataset_query`, `transform.source.query` for `sou
 
 Pass `--skip-validate` to bypass the pre-flight on any of `card create`, `card update`, `transform create`, `transform update`, `measure create`, `measure update`, `segment create`, or `segment update` — the body is sent as-is and the server is the authority. Same escape hatch as on `mb query`; use only when the bundled schema disagrees with what the server actually accepts.
 
-Agent discovery path: `mb __manifest` lists every command's args and description; the description for `card create`/`update`, `transform create`/`update`, `measure create`/`update`, and `segment create`/`update` references `mb query --print-schema` so an agent can fetch the validating schema directly.
+Agent discovery path: `mb <command> --help --json` lists a command's args, JSON-body input schema, and output schema; the description for `card create`/`update`, `transform create`/`update`, `measure create`/`update`, and `segment create`/`update` references `mb query --print-schema` so an agent can fetch the validating schema directly.
 
 The bundled query schema is synced from a pinned `@metabase/representations` release via `bun run sync:representations`; CI guards against drift.
 
@@ -1343,7 +1660,7 @@ mb skills path                              # absolute paths for direct Read
 mb skills path core                         # one path
 ```
 
-`mb skills get` honors the shared `--max-bytes` list cap. With the default 65 536 cap, `--all` will return only the first skill and emit a truncation notice — pass `--max-bytes 0` to dump every skill in one envelope.
+`mb skills get` honors the shared `--max-bytes` list cap. With the default 24 576 cap, `--all` will return only the first skill and emit a truncation notice — pass `--max-bytes 0` to dump every skill in one envelope.
 
 Bundled skills:
 
@@ -1366,26 +1683,34 @@ Exit codes: `0` success, `2` `ConfigError` (missing name, unknown name, `MB_SKIL
 
 ## Environment variables
 
-| Variable                      | Effect                                                                                                                                                                    |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `METABASE_URL`                | Default URL for `auth login` and config resolution.                                                                                                                       |
-| `METABASE_API_KEY`            | Default API key (makes `auth login` non-interactive, skipping the browser flow; not stored).                                                                              |
-| `METABASE_PROFILE`            | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                     |
-| `METABASE_VERBOSE`            | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                            |
-| `METABASE_CLI_SKIP_PREFLIGHT` | When set to `1`, bypasses the per-command server version / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
-| `MB_SKILLS_DIR`               | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees).                                                    |
+| Variable                 | Effect                                                                                                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MB_URL`                 | Default URL for `auth login` and config resolution.                                                                                                                       |
+| `MB_API_KEY`             | Default API key (makes `auth login` non-interactive, skipping the browser flow; not stored).                                                                              |
+| `MB_PROFILE`             | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                     |
+| `MB_VERBOSE`             | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                            |
+| `MB_CLI_SKIP_PREFLIGHT`  | When set to `1`, bypasses the per-command server version / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
+| `MB_CLI_DISABLE_KEYRING` | When set to `1`, skips the OS keychain and stores credentials as plaintext in the profiles file.                                                                          |
+| `MB_SKILLS_DIR`          | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees).                                                    |
+
+The former `METABASE_`-prefixed names (`METABASE_URL`, `METABASE_API_KEY`, `METABASE_PROFILE`, `METABASE_VERBOSE`, `METABASE_CLI_SKIP_PREFLIGHT`, `METABASE_CLI_DISABLE_KEYRING`) are deprecated but still honored; the CLI prints a one-line warning to stderr when it falls back to one. Switch to the `MB_`-prefixed names.
 
 ## Agent integration
 
-### `mb __manifest`
+### `--help --json`
 
-Hidden command that emits a machine-readable JSON manifest of every leaf command — name, description, examples, citty args, and the output Zod schema rendered as JSON Schema. Intended for agents that need typed capability discovery instead of scraping `--help`.
+Every node of the command tree answers `--help --json` with machine-readable help, mirroring what text help shows at that level:
+
+- A leaf command emits its full entry — name, description, `details`, examples, citty args with types/defaults/enums, `capabilities` (min server version / token feature), and the input and output Zod schemas rendered as JSON Schema (`inputSchema` is the exact validator `readBody` enforces on the JSON body, `null` for commands that take none).
+- A command group (and the root) emits a flat `{ commands: [{ command, description }] }` index of every leaf in its subtree, with full-path names.
 
 ```sh
-mb __manifest | jq '.commands[].command'
+mb --help --json | jq -r '.commands[].command'    # every command
+mb card query --help --json | jq .outputSchema    # one command's output schema
+mb card create --help --json | jq .inputSchema    # the JSON-body contract it validates
 ```
 
-The manifest schema (`Manifest`) is exported from `src/runtime/manifest.ts`.
+The entry and index schemas (`CommandHelpEntry`, `CommandHelpIndex`) are exported from `src/runtime/command-help.ts`.
 
 ## Exit codes
 

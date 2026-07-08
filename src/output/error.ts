@@ -1,9 +1,12 @@
-import { toMetabaseError, VERBOSE_ENV } from "../core/errors";
+import { consumeLegacyEnvWarnings, ENV_VERBOSE, readEnv } from "../core/env";
+import { toMetabaseError } from "../core/errors";
 import type { ErrorCategory, MetabaseError } from "../core/errors";
 
+import { warn } from "./notice";
+import { serializeJson } from "./render";
 import type { Format } from "./types";
 
-const VERBOSE_BREADCRUMB = "(rerun with METABASE_VERBOSE=1 for details)";
+const VERBOSE_BREADCRUMB = "(rerun with MB_VERBOSE=1 for details)";
 
 interface JsonErrorPayload {
   category: ErrorCategory;
@@ -19,11 +22,14 @@ interface JsonErrorEnvelope {
 
 export function reportError(error: unknown, format?: Format): void {
   const handled = toMetabaseError(error);
-  const verbose = process.env[VERBOSE_ENV] === "1";
+  const verbose = readEnv(ENV_VERBOSE) === "1";
   if (format === "json") {
     writeJsonError(handled, verbose);
   } else {
     writeTextError(handled, verbose);
+  }
+  for (const message of consumeLegacyEnvWarnings()) {
+    warn(message);
   }
   process.exitCode = handled.exitCode;
 }
@@ -34,10 +40,14 @@ function writeTextError(handled: MetabaseError, verbose: boolean): void {
     return;
   }
   if (verbose) {
-    process.stderr.write(JSON.stringify(handled.developerDetail, null, 2) + "\n");
+    process.stderr.write(serializeJson(handled.developerDetail, stderrPretty()) + "\n");
   } else {
     process.stderr.write(VERBOSE_BREADCRUMB + "\n");
   }
+}
+
+function stderrPretty(): boolean {
+  return process.stderr.isTTY === true;
 }
 
 function writeJsonError(handled: MetabaseError, verbose: boolean): void {
@@ -50,5 +60,5 @@ function writeJsonError(handled: MetabaseError, verbose: boolean): void {
     payload.detail = handled.developerDetail;
   }
   const envelope: JsonErrorEnvelope = { ok: false, error: payload };
-  process.stderr.write(JSON.stringify(envelope, null, 2) + "\n");
+  process.stderr.write(serializeJson(envelope, stderrPretty()) + "\n");
 }

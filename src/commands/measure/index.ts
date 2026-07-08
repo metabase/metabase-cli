@@ -1,7 +1,12 @@
-import { defineCommand } from "citty";
+import { defineCommandGroup } from "../group";
 
-export default defineCommand({
-  meta: { name: "measure", description: "Manage Metabase measures" },
+export default defineCommandGroup({
+  name: "measure",
+  description: "Manage Metabase measures",
+  skills: [
+    { skill: "mbql", purpose: "the definition aggregation" },
+    { skill: "data-workflow", purpose: "define reusable measures" },
+  ],
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),
     get: () => import("./get").then((mod) => mod.default),

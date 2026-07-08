@@ -39,9 +39,13 @@ export const snippetView: ResourceView<Snippet> = {
   ],
 };
 
+const SNIPPET_NAME_PATTERN = /^(?!\s)[^}]*$/;
+const SNIPPET_NAME_MESSAGE = "snippet names cannot include '}' or start with spaces";
+const snippetName = z.string().regex(SNIPPET_NAME_PATTERN, SNIPPET_NAME_MESSAGE);
+
 export const SnippetCreateInput = z
   .object({
-    name: z.string().min(1),
+    name: snippetName,
     content: z.string(),
     description: z.string().nullable().optional(),
     collection_id: z.number().int().positive().nullable().optional(),
@@ -51,10 +55,10 @@ export type SnippetCreateInput = z.infer<typeof SnippetCreateInput>;
 
 export const SnippetUpdateInput = z
   .object({
-    name: z.string().min(1).optional(),
-    content: z.string().optional(),
+    name: snippetName.nullable().optional(),
+    content: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
-    archived: z.boolean().optional(),
+    archived: z.boolean().nullable().optional(),
     collection_id: z.number().int().positive().nullable().optional(),
   })
   .loose();

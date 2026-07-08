@@ -1,7 +1,9 @@
-import { defineCommand } from "citty";
+import { defineCommandGroup } from "../group";
 
-export default defineCommand({
-  meta: { name: "git-sync", description: "Sync Metabase content with a git remote" },
+export default defineCommandGroup({
+  name: "git-sync",
+  description: "Sync Metabase content with a git remote",
+  skills: [{ skill: "git-sync", purpose: "import/export round-trip and dirty checks" }],
   subCommands: {
     status: () => import("./status").then((mod) => mod.default),
     "is-dirty": () => import("./is-dirty").then((mod) => mod.default),

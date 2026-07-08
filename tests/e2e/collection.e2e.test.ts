@@ -22,6 +22,7 @@ const DEFAULT_COMPACT = {
   type: null,
   authority_level: null,
   is_personal: false,
+  is_remote_synced: false,
 } as const;
 
 const ROOT_COMPACT = {
@@ -30,6 +31,7 @@ const ROOT_COMPACT = {
   parent_id: null,
   authority_level: null,
   is_personal: false,
+  is_remote_synced: false,
 } as const;
 
 const TRASH_COMPACT = {
@@ -42,6 +44,7 @@ const TRASH_COMPACT = {
   type: "trash",
   authority_level: null,
   is_personal: false,
+  is_remote_synced: false,
 } as const;
 
 describe("collection e2e", () => {
@@ -64,8 +67,8 @@ describe("collection e2e", () => {
 
   function authEnv(): Record<string, string> {
     return {
-      METABASE_URL: bootstrap.baseUrl,
-      METABASE_API_KEY: bootstrap.adminApiKey,
+      MB_URL: bootstrap.baseUrl,
+      MB_API_KEY: bootstrap.adminApiKey,
     };
   }
 
@@ -509,6 +512,7 @@ describe("collection e2e", () => {
       type: null,
       authority_level: null,
       is_personal: false,
+      is_remote_synced: false,
     });
   });
 

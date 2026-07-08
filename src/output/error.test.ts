@@ -16,15 +16,17 @@ interface CapturedStreams {
 
 let streams: CapturedStreams;
 const originalExitCode = process.exitCode;
-const originalVerbose = process.env["METABASE_VERBOSE"];
+const originalVerbose = process.env["MB_VERBOSE"];
 
 beforeEach(() => {
   streams = { stderr: "" };
+  process.stderr.isTTY = false;
   vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
     streams.stderr += String(chunk);
     return true;
   });
   process.exitCode = 0;
+  delete process.env["MB_VERBOSE"];
   delete process.env["METABASE_VERBOSE"];
 });
 
@@ -32,9 +34,9 @@ afterEach(() => {
   vi.restoreAllMocks();
   process.exitCode = originalExitCode;
   if (originalVerbose === undefined) {
-    delete process.env["METABASE_VERBOSE"];
+    delete process.env["MB_VERBOSE"];
   } else {
-    process.env["METABASE_VERBOSE"] = originalVerbose;
+    process.env["MB_VERBOSE"] = originalVerbose;
   }
 });
 
@@ -53,25 +55,25 @@ describe("reportError", () => {
 
   it("sets exit code 1 for UnknownError wrapping a generic Error", () => {
     reportError(new Error("kaboom"));
-    expect(streams.stderr).toBe("kaboom\n(rerun with METABASE_VERBOSE=1 for details)\n");
+    expect(streams.stderr).toBe("kaboom\n(rerun with MB_VERBOSE=1 for details)\n");
     expect(process.exitCode).toBe(1);
   });
 
-  it("appends the verbose breadcrumb (not the detail) when METABASE_VERBOSE is unset and detail exists", () => {
+  it("appends the verbose breadcrumb (not the detail) when MB_VERBOSE is unset and detail exists", () => {
     reportError(new UnknownError({ originalMessage: "boom", stack: "trace" }));
-    expect(streams.stderr).toBe("boom\n(rerun with METABASE_VERBOSE=1 for details)\n");
+    expect(streams.stderr).toBe("boom\n(rerun with MB_VERBOSE=1 for details)\n");
   });
 
-  it("appends developerDetail JSON when METABASE_VERBOSE=1 and the error carries detail", () => {
-    process.env["METABASE_VERBOSE"] = "1";
+  it("appends developerDetail JSON when MB_VERBOSE=1 and the error carries detail", () => {
+    process.env["MB_VERBOSE"] = "1";
     reportError(new UnknownError({ originalMessage: "boom", stack: "trace" }));
     expect(streams.stderr).toBe(
-      "boom\n" + JSON.stringify({ originalMessage: "boom", stack: "trace" }, null, 2) + "\n",
+      "boom\n" + JSON.stringify({ originalMessage: "boom", stack: "trace" }) + "\n",
     );
   });
 
-  it("does not append developerDetail JSON when METABASE_VERBOSE=1 but detail is null", () => {
-    process.env["METABASE_VERBOSE"] = "1";
+  it("does not append developerDetail JSON when MB_VERBOSE=1 but detail is null", () => {
+    process.env["MB_VERBOSE"] = "1";
     reportError(new ConfigError("nope"));
     expect(streams.stderr).toBe("nope\n");
     expect(process.exitCode).toBe(2);
@@ -79,7 +81,7 @@ describe("reportError", () => {
 
   it("normalizes a non-MetabaseError value (string) into an UnknownError envelope", () => {
     reportError("plain string");
-    expect(streams.stderr).toBe("plain string\n(rerun with METABASE_VERBOSE=1 for details)\n");
+    expect(streams.stderr).toBe("plain string\n(rerun with MB_VERBOSE=1 for details)\n");
     expect(process.exitCode).toBe(1);
   });
 
@@ -99,7 +101,7 @@ describe("reportError", () => {
     expect(streams.stderr).toBe(
       "https://m.example.com/api/collection/8/items: value did not match expected schema\n" +
         "  /total: Invalid input: expected number, received null\n" +
-        "(rerun with METABASE_VERBOSE=1 for details)\n",
+        "(rerun with MB_VERBOSE=1 for details)\n",
     );
     expect(process.exitCode).toBe(1);
   });
@@ -121,7 +123,7 @@ describe("reportError", () => {
     expect(streams.stderr).toBe(
       "Metabase returned unexpected response shape:\n" +
         "  version.tag: Invalid input: expected string, received undefined\n" +
-        "(rerun with METABASE_VERBOSE=1 for details)\n",
+        "(rerun with MB_VERBOSE=1 for details)\n",
     );
     expect(process.exitCode).toBe(1);
   });
@@ -129,44 +131,38 @@ describe("reportError", () => {
   it("emits a JSON error envelope to stderr (no detail) when format is json", () => {
     reportError(new ConfigError("missing TTY"), "json");
     const expected =
-      JSON.stringify(
-        { ok: false, error: { category: "config", message: "missing TTY", exitCode: 2 } },
-        null,
-        2,
-      ) + "\n";
+      JSON.stringify({
+        ok: false,
+        error: { category: "config", message: "missing TTY", exitCode: 2 },
+      }) + "\n";
     expect(streams.stderr).toBe(expected);
     expect(process.exitCode).toBe(2);
   });
 
-  it("omits detail from the JSON error envelope when METABASE_VERBOSE is unset", () => {
+  it("omits detail from the JSON error envelope when MB_VERBOSE is unset", () => {
     reportError(new UnknownError({ originalMessage: "boom", stack: "trace" }), "json");
     const expected =
-      JSON.stringify(
-        { ok: false, error: { category: "unknown", message: "boom", exitCode: 1 } },
-        null,
-        2,
-      ) + "\n";
+      JSON.stringify({
+        ok: false,
+        error: { category: "unknown", message: "boom", exitCode: 1 },
+      }) + "\n";
     expect(streams.stderr).toBe(expected);
     expect(process.exitCode).toBe(1);
   });
 
-  it("includes detail in the JSON error envelope when METABASE_VERBOSE=1", () => {
-    process.env["METABASE_VERBOSE"] = "1";
+  it("includes detail in the JSON error envelope when MB_VERBOSE=1", () => {
+    process.env["MB_VERBOSE"] = "1";
     reportError(new UnknownError({ originalMessage: "boom", stack: "trace" }), "json");
     const expected =
-      JSON.stringify(
-        {
-          ok: false,
-          error: {
-            category: "unknown",
-            message: "boom",
-            exitCode: 1,
-            detail: { originalMessage: "boom", stack: "trace" },
-          },
+      JSON.stringify({
+        ok: false,
+        error: {
+          category: "unknown",
+          message: "boom",
+          exitCode: 1,
+          detail: { originalMessage: "boom", stack: "trace" },
         },
-        null,
-        2,
-      ) + "\n";
+      }) + "\n";
     expect(streams.stderr).toBe(expected);
   });
 });

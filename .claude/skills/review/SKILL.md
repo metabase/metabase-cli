@@ -93,7 +93,7 @@ The src-side rules are enforced by `tests/structure.test.ts` for files under `sr
 ## Test-parity rules
 
 - New `src/commands/<noun>/<verb>.ts` ⇒ a `tests/e2e/<noun>.e2e.test.ts` exists and exercises that subcommand end-to-end via `runCli`. Adding a new command without an e2e test is FAIL.
-- New `src/commands/<noun>/<verb>.ts` (any leaf) ⇒ `tests/e2e/manifest.e2e.test.ts`'s literal `commandPaths` list includes the new path. Renaming or deleting a command without updating the list is FAIL.
+- New `src/commands/<noun>/<verb>.ts` (any leaf) ⇒ `src/runtime/command-help.test.ts`'s literal `ALL_COMMANDS` list includes the new path. Renaming or deleting a command without updating the list is FAIL.
 - New `src/domain/<r>.ts` ⇒ no fixture-and-parse-test pair required. A unit test of the form `Schema.parse(fixture).toEqual(fixture)` is a tautology against Zod and is FAIL if introduced. The schema's contract is tested by the e2e tier hitting the live API.
 - New pure helper in `core/`, `output/`, `runtime/` ⇒ a unit test imports from it.
 - New helper with infinite input space (URL parsing, JSON parsing, projection, byte cap, polling) ⇒ a property test (`fast-check`).

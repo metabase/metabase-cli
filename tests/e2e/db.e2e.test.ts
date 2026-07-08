@@ -1,11 +1,12 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { fullRollupOversizeHint, tableMapOversizeHint } from "../../src/commands/db/hints";
 import { DatabaseListEnvelope } from "../../src/commands/db/list";
 import { DatabaseSchemaListEnvelope } from "../../src/commands/db/schemas";
 import { DatabaseSchemaTablesEnvelope } from "../../src/commands/db/schema-tables";
 import { Database, DatabaseCompact, DatabaseSyncResult } from "../../src/domain/database";
 import { TableCompact } from "../../src/domain/table";
-import { listEnvelopeSchema } from "../../src/output/types";
+import { DEFAULT_MAX_BYTES, listEnvelopeSchema } from "../../src/output/types";
 import { parseJson } from "../../src/runtime/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
@@ -23,6 +24,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/GenericTable",
+    is_published: false,
   },
   {
     id: SEEDED.tables.orderItems,
@@ -32,6 +34,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    is_published: false,
   },
   {
     id: SEEDED.tables.orderSummary,
@@ -41,6 +44,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    is_published: false,
   },
   {
     id: SEEDED.tables.orders,
@@ -50,6 +54,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    is_published: false,
   },
   {
     id: SEEDED.tables.products,
@@ -59,6 +64,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/ProductTable",
+    is_published: false,
   },
   {
     id: SEEDED.tables.reviews,
@@ -68,6 +74,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/GenericTable",
+    is_published: false,
   },
 ];
 
@@ -80,8 +87,14 @@ const ANALYTICS_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "analytics",
     entity_type: "entity/TransactionTable",
+    is_published: false,
   },
 ];
+
+const ALL_WAREHOUSE_TABLES_SORTED_BY_ID: TableCompact[] = [
+  ...PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME,
+  ...ANALYTICS_TABLES_SORTED_BY_DISPLAY_NAME,
+].toSorted((a, b) => a.id - b.id);
 
 describe("db e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -103,8 +116,8 @@ describe("db e2e", () => {
 
   function authEnv(): Record<string, string> {
     return {
-      METABASE_URL: bootstrap.baseUrl,
-      METABASE_API_KEY: bootstrap.adminApiKey,
+      MB_URL: bootstrap.baseUrl,
+      MB_API_KEY: bootstrap.adminApiKey,
     };
   }
 
@@ -132,17 +145,16 @@ describe("db e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     const parsed = parseJson(result.stdout, listEnvelopeSchema(Database));
-    expect(parsed.data.length).toBe(1);
     const warehouse = parsed.data[0];
-    expect(warehouse?.id).toBe(SEEDED.warehouseDbId);
-    const tableIds = (warehouse?.tables ?? []).map((table) => table.id).toSorted();
-    const expectedIds = [
-      ...PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME,
-      ...ANALYTICS_TABLES_SORTED_BY_DISPLAY_NAME,
-    ]
-      .map((table) => table.id)
-      .toSorted();
-    expect(tableIds).toEqual(expectedIds);
+    expect({
+      count: parsed.data.length,
+      dbId: warehouse?.id,
+      tableIds: (warehouse?.tables ?? []).map((table) => table.id).toSorted(),
+    }).toEqual({
+      count: 1,
+      dbId: SEEDED.warehouseDbId,
+      tableIds: ALL_WAREHOUSE_TABLES_SORTED_BY_ID.map((table) => table.id),
+    });
   });
 
   it("list --saved includes the Saved Questions virtual database", async () => {
@@ -195,7 +207,42 @@ describe("db e2e", () => {
     });
   });
 
-  it("get --include tables.fields hydrates tables and their fields", async () => {
+  it("get --include tables returns the compact table map under the default cap", async () => {
+    const result = await runCli({
+      args: ["db", "get", String(SEEDED.warehouseDbId), "--include", "tables", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const parsed = parseJson(result.stdout, DatabaseCompact);
+    expect({ ...parsed, tables: (parsed.tables ?? []).toSorted((a, b) => a.id - b.id) }).toEqual({
+      id: SEEDED.warehouseDbId,
+      name: "Warehouse",
+      engine: "postgres",
+      tables: ALL_WAREHOUSE_TABLES_SORTED_BY_ID,
+    });
+  });
+
+  it("get --include tables.fields returns compact tables with compact fields under the default cap", async () => {
+    const result = await runCli({
+      args: ["db", "get", String(SEEDED.warehouseDbId), "--include", "tables.fields", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const parsed = parseJson(result.stdout, DatabaseCompact);
+    expect({
+      tableIds: (parsed.tables ?? []).map((table) => table.id).toSorted(),
+      everyTableHasFields: (parsed.tables ?? []).every((table) => (table.fields ?? []).length > 0),
+    }).toEqual({
+      tableIds: ALL_WAREHOUSE_TABLES_SORTED_BY_ID.map((table) => table.id),
+      everyTableHasFields: true,
+    });
+  });
+
+  it("get --include tables.fields --full over the cap exits 2 and points down the hydration ladder", async () => {
     const result = await runCli({
       args: [
         "db",
@@ -205,20 +252,38 @@ describe("db e2e", () => {
         "tables.fields",
         "--full",
         "--json",
-        "--max-bytes",
-        "0",
       ],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
-    expect(result.exitCode, result.stderr).toBe(0);
-    const parsed = parseJson(result.stdout, Database);
-    expect(parsed.id).toBe(SEEDED.warehouseDbId);
-    const customers = (parsed.tables ?? []).find((table) => table.id === SEEDED.tables.customers);
-    expect(customers).toBeDefined();
-    expect(Array.isArray(customers?.fields)).toBe(true);
-    expect((customers?.fields ?? []).length).toBeGreaterThan(0);
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain(
+      `over the ${DEFAULT_MAX_BYTES}-byte --max-bytes cap; ${fullRollupOversizeHint(SEEDED.warehouseDbId)}`,
+    );
+  });
+
+  it("get --include tables over a tiny cap exits 2 and points at schema traversal and search", async () => {
+    const tinyCap = 512;
+    const result = await runCli({
+      args: [
+        "db",
+        "get",
+        String(SEEDED.warehouseDbId),
+        "--include",
+        "tables",
+        "--json",
+        "--max-bytes",
+        String(tinyCap),
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain(
+      `over the ${tinyCap}-byte --max-bytes cap; ${tableMapOversizeHint(SEEDED.warehouseDbId)}`,
+    );
   });
 
   it("get with a non-integer id fails fast with ConfigError", async () => {
@@ -242,45 +307,6 @@ describe("db e2e", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Not found: GET /api/database/9999999.");
-  });
-
-  it("metadata returns the warehouse with its tables hydrated", async () => {
-    const result = await runCli({
-      args: [
-        "db",
-        "metadata",
-        String(SEEDED.warehouseDbId),
-        "--full",
-        "--json",
-        "--max-bytes",
-        "0",
-      ],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-    const parsed = parseJson(result.stdout, Database);
-    expect(parsed.id).toBe(SEEDED.warehouseDbId);
-    const tableIds = (parsed.tables ?? []).map((table) => table.id).toSorted();
-    const expectedIds = [
-      ...PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME,
-      ...ANALYTICS_TABLES_SORTED_BY_DISPLAY_NAME,
-    ]
-      .map((table) => table.id)
-      .toSorted();
-    expect(tableIds).toEqual(expectedIds);
-  });
-
-  it("metadata against a missing database id surfaces a 404 HttpError", async () => {
-    const result = await runCli({
-      args: ["db", "metadata", "9999999", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: GET /api/database/9999999/metadata.");
   });
 
   it("schemas lists the seeded warehouse schemas alphabetically", async () => {
