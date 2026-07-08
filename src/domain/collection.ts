@@ -68,6 +68,10 @@ export const Collection = z
     entity_id: z.string().nullable().optional(),
     slug: z.string().optional(),
     can_write: z.boolean().optional(),
+    // Nullable in the DB (v58 migration adds it with `nullable: true`); the list/get endpoints
+    // hydrate it to a boolean, but raw-row responses (e.g. publish's target_collection) can
+    // carry the column verbatim.
+    is_remote_synced: z.boolean().nullable().optional(),
   })
   .loose();
 export type Collection = z.infer<typeof Collection>;
@@ -82,6 +86,7 @@ export const CollectionCompact = Collection.pick({
   type: true,
   authority_level: true,
   is_personal: true,
+  is_remote_synced: true,
 }).strip();
 export type CollectionCompact = z.infer<typeof CollectionCompact>;
 
