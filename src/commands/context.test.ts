@@ -107,8 +107,8 @@ describe("resolveCommonFlags — fields CSV parsing", () => {
 });
 
 describe("resolveCommonFlags — maxBytes parsing", () => {
-  it("uses default 65536 when omitted", () => {
-    expect(resolveCommonFlags({}, { isTty: true }).maxBytes).toBe(65536);
+  it("uses default 24576 when omitted", () => {
+    expect(resolveCommonFlags({}, { isTty: true }).maxBytes).toBe(24576);
   });
 
   it("parses '0' as 0 (disables cap)", () => {
@@ -144,7 +144,7 @@ describe("resolveCommonFlags — full result shape", () => {
       format: "text",
       full: false,
       fields: undefined,
-      maxBytes: 65536,
+      maxBytes: 24576,
       url: undefined,
       apiKey: undefined,
       profile: undefined,

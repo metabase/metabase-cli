@@ -4,6 +4,7 @@ import { Collection, CollectionCompact } from "../../domain/collection";
 import type { ResourceView } from "../../domain/view";
 import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { warnIfOutsideSyncScope } from "../git-sync/sync-scope";
 import { defineMetabaseCommand } from "../runtime";
 
 import { ensureLibraryDataCollectionId } from "./resolve";
@@ -35,7 +36,7 @@ export default defineMetabaseCommand({
     description: "Publish tables (and their upstream dependencies) to the Library Data collection",
   },
   details:
-    'Sets each selected table and every upstream table it depends on into the Library Data collection, so they appear first in data pickers and rank up in search. The Library Data collection is resolved automatically (and the Library is created if it doesn\'t exist yet). Select with --table-ids, --db-ids, or --schemas (each schema id is "<db-id>:<schema>", e.g. 1:public); the filters are combined.',
+    "Sets each selected table and every upstream table it depends on into the Library Data collection, so they appear first in data pickers and rank up in search. The Library Data collection is resolved automatically (and the Library is created if it doesn't exist yet). Select with --table-ids, --db-ids, or --schemas (each schema id is \"<db-id>:<schema>\", e.g. 1:public); the filters are combined. Publishing does not add the Library Data collection to the git-sync scope — on an instance with remote sync configured, run `mb git-sync add-collection <collection-id>` so exports carry the published tables' metadata.",
   capabilities: { minVersion: 59, tokenFeature: "library" },
   args: {
     ...outputFlags,
@@ -61,6 +62,7 @@ export default defineMetabaseCommand({
     });
 
     renderSummary(result, libraryPublishResultView, summaryLine(result), ctx);
+    await warnIfOutsideSyncScope(client, result.target_collection);
   },
 });
 

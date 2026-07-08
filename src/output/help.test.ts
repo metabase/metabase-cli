@@ -5,16 +5,22 @@ import { z } from "zod";
 
 import { connectionFlags, outputFlags, profileFlag } from "../commands/flags";
 import { defineMetabaseCommand } from "../commands/runtime";
+import { BASELINE_CAPABILITIES } from "../runtime/capabilities";
+import { setMetabaseAugment } from "../runtime/command-augment";
+import { CommandHelpEntry, CommandHelpIndex } from "../runtime/command-help";
+import { parseJson } from "../runtime/json";
 
-import { findUnknownCommand, resolveBreadcrumb, showUsage } from "./help";
+import { findUnknownCommand, resolveBreadcrumb, showUsage, showUsageJson } from "./help";
 
 describe("showUsage", () => {
   let chunks: string[];
 
   beforeEach(() => {
     chunks = [];
-    vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+    vi.spyOn(process.stdout, "write").mockImplementation((chunk, encoding, callback) => {
       chunks.push(String(chunk));
+      const done = typeof encoding === "function" ? encoding : callback;
+      done?.(null);
       return true;
     });
   });
@@ -154,19 +160,35 @@ describe("showUsage", () => {
     expect(shortRow).toMatch(/Short description$/);
   });
 
-  it("does not advertise the hidden __manifest command on a help page", async () => {
-    const cmd = defineCommand({
-      meta: { name: "demo", description: "demo cmd" },
+  it("appends a machine-readable help hint pointing at --help --json on a leaf page", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "bar", description: "demo bar" },
       args: {},
+      outputSchema: z.object({ ok: z.boolean() }),
       run() {
         return;
       },
     });
 
-    await showUsage(cmd);
+    await showUsage(cmd, undefined, "mb foo bar");
     const out = chunks.join("");
-    expect(out).not.toContain("SCHEMA");
-    expect(out).not.toContain("__manifest");
+    expect(out).toContain("Machine-readable help (flags, output schema): mb foo bar --help --json");
+  });
+
+  it("appends a machine-readable index hint on a command-group page", async () => {
+    const root = defineCommand({
+      meta: { name: "mb", description: "root cmd" },
+      subCommands: {
+        auth: defineCommand({ meta: { name: "auth", description: "auth" }, run() {} }),
+      },
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(root, undefined, "mb");
+    const out = chunks.join("");
+    expect(out).toContain("Machine-readable command index: mb --help --json");
   });
 
   it("separates the EXAMPLES footer from the body with a blank line", async () => {
@@ -256,6 +278,78 @@ describe("showUsage", () => {
     expect(out).not.toContain("auth|card");
   });
 
+  it("renders an AGENT SKILLS section from declared skill pointers, below the body", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "create", description: "demo create" },
+      args: {},
+      skills: [
+        { skill: "mbql", purpose: "author the dataset_query" },
+        { skill: "visualization", purpose: "choose display and settings" },
+      ],
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    const out = chunks.join("");
+    expect(out).toContain("AGENT SKILLS");
+    expect(out).toContain("mb skills get mbql — author the dataset_query");
+    expect(out).toContain("mb skills get visualization — choose display and settings");
+    expect(out.indexOf("AGENT SKILLS")).toBeGreaterThan(out.indexOf("USAGE"));
+  });
+
+  it("omits the AGENT SKILLS section when no skill pointers are declared", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "demo", description: "demo cmd" },
+      args: {},
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd);
+    expect(chunks.join("")).not.toContain("AGENT SKILLS");
+  });
+
+  it("adds the `mb skills list` pointer only on the root AGENT SKILLS section", async () => {
+    const root = defineCommand({
+      meta: { name: "mb", description: "root cmd" },
+      subCommands: {
+        auth: defineCommand({ meta: { name: "auth", description: "auth" }, run() {} }),
+      },
+      run() {
+        return;
+      },
+    });
+    setMetabaseAugment(root, {
+      examples: [],
+      details: null,
+      skills: [{ skill: "core", purpose: "auth and conventions" }],
+      inputSchema: null,
+      outputSchema: null,
+      capabilities: null,
+    });
+    const leaf = defineMetabaseCommand({
+      meta: { name: "list", description: "demo list" },
+      args: {},
+      skills: [{ skill: "core", purpose: "auth and conventions" }],
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(root, undefined, "mb");
+    const rootOut = chunks.join("");
+    chunks = [];
+    await showUsage(leaf);
+    const leafOut = chunks.join("");
+
+    expect(rootOut).toContain("mb skills list — every bundled skill");
+    expect(leafOut).toContain("AGENT SKILLS");
+    expect(leafOut).not.toContain("mb skills list — every bundled skill");
+  });
+
   it("adds a getting-started hint on the root help and omits it elsewhere", async () => {
     const root = defineCommand({
       meta: { name: "mb", description: "root cmd" },
@@ -283,6 +377,90 @@ describe("showUsage", () => {
 
     expect(rootOut).toContain("First time? Run `mb auth login` to connect to a Metabase instance.");
     expect(leafOut).not.toContain("First time?");
+  });
+});
+
+describe("showUsageJson", () => {
+  let chunks: string[];
+
+  beforeEach(() => {
+    chunks = [];
+    vi.spyOn(process.stdout, "write").mockImplementation((chunk, encoding, callback) => {
+      chunks.push(String(chunk));
+      const done = typeof encoding === "function" ? encoding : callback;
+      done?.(null);
+      return true;
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("emits the full entry for a leaf command", async () => {
+    const leaf = defineMetabaseCommand({
+      meta: { name: "bar", description: "demo bar" },
+      args: {},
+      outputSchema: z.object({ ok: z.boolean() }),
+      examples: ["mb foo bar --json"],
+      run() {
+        return;
+      },
+    });
+
+    await showUsageJson(leaf, "mb foo bar");
+    const entry = parseJson(chunks.join(""), CommandHelpEntry, { source: "help json" });
+
+    expect(entry).toEqual({
+      command: "foo bar",
+      description: "demo bar",
+      skills: [],
+      examples: ["mb foo bar --json"],
+      args: [],
+      inputSchema: null,
+      outputSchema: {
+        $schema: "https://json-schema.org/draft/2020-12/schema",
+        type: "object",
+        properties: { ok: { type: "boolean" } },
+        required: ["ok"],
+        additionalProperties: false,
+      },
+      capabilities: BASELINE_CAPABILITIES,
+    });
+  });
+
+  it("emits a full-path index for a command group", async () => {
+    const bar = defineMetabaseCommand({
+      meta: { name: "bar", description: "demo bar" },
+      args: {},
+      run() {
+        return;
+      },
+    });
+    const baz = defineMetabaseCommand({
+      meta: { name: "baz", description: "demo baz" },
+      args: {},
+      run() {
+        return;
+      },
+    });
+    const group = defineCommand({
+      meta: { name: "foo", description: "demo group" },
+      subCommands: {
+        bar: () => Promise.resolve(bar),
+        baz: () => Promise.resolve(baz),
+      },
+    });
+
+    await showUsageJson(group, "mb foo");
+    const index = parseJson(chunks.join(""), CommandHelpIndex, { source: "help json" });
+
+    expect(index).toEqual({
+      commands: [
+        { command: "foo bar", description: "demo bar" },
+        { command: "foo baz", description: "demo baz" },
+      ],
+    });
   });
 });
 

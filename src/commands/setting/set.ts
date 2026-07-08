@@ -8,6 +8,10 @@ import { defineMetabaseCommand } from "../runtime";
 
 import { parseSettingKey, rethrowSettingError } from "./key";
 
+const SettingValueInput = z
+  .unknown()
+  .describe("Any JSON value; the setting's own type constraints are enforced server-side");
+
 export default defineMetabaseCommand({
   meta: { name: "set", description: "Set a setting value (parsed strictly as JSON)" },
   capabilities: { minVersion: 58 },
@@ -19,6 +23,7 @@ export default defineMetabaseCommand({
     key: { type: "positional", description: "Setting key", required: true },
     value: { type: "positional", description: "JSON-encoded value", required: false },
   },
+  inputSchema: SettingValueInput,
   outputSchema: SettingValue,
   examples: [
     `mb setting set remote-sync-branch '"main"'`,
@@ -31,7 +36,7 @@ export default defineMetabaseCommand({
     const key = parseSettingKey(args.key);
     const value = await readBody(
       { file: args.file, positional: args.value, source: `setting ${key} value` },
-      z.unknown(),
+      SettingValueInput,
     );
     const client = await getClient();
     await client

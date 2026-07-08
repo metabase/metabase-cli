@@ -51,10 +51,14 @@ async function readFileSource(path: string): Promise<string> {
     return await readFile(path, "utf8");
   } catch (error) {
     if (isNotFoundError(error)) {
-      throw new ConfigError(`--file not found: ${path}`);
+      throw fileNotFoundError(path);
     }
     throw error;
   }
+}
+
+export function fileNotFoundError(path: string): ConfigError {
+  return new ConfigError(`--file not found: ${path}`);
 }
 
 async function drainStdin(): Promise<string> {

@@ -86,7 +86,7 @@ Whole-tree non-deterministic audit. Where `/review` checks the diff, this checks
 > Required pairings:
 >
 > - For every leaf command at `src/commands/<noun>/<verb>.ts`: a `tests/e2e/<noun>.e2e.test.ts` exists and exercises that subcommand via `runCli`. Adding a new command without an e2e test is a missing pairing.
-> - For every leaf command at `src/commands/<noun>/<verb>.ts`: the literal `commandPaths` list in `tests/e2e/manifest.e2e.test.ts` must include `"<noun> <verb>"`.
+> - For every leaf command at `src/commands/<noun>/<verb>.ts`: the literal `ALL_COMMANDS` list in `src/runtime/command-help.test.ts` must include `"<noun> <verb>"`.
 > - For every `src/domain/<r>.ts`: **no** fixture-and-parse-test pair is required (a unit test of the form `Schema.parse(fixture).toEqual(fixture)` is a tautology). The schema's contract is tested by the e2e tier when a command consuming it runs against the live API. Report a missing pairing only if no command consumes the schema AND no e2e test parses through it.
 > - For every pure helper file in `src/core/**`, `src/output/**`, `src/runtime/**` (excluding `index.ts` re-exports and types-only files): a colocated unit test (`<name>.test.ts` next to `<name>.ts`) exercises it.
 > - For every helper with infinite input space (URL parsing, JSON parsing, projection, byte capping, polling): a property test using `fast-check` should exist.

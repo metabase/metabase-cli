@@ -69,16 +69,24 @@ export const tableView: ResourceView<Table> = {
   ],
 };
 
+const TableDataAuthority = z.enum(["unconfigured", "authoritative", "computed", "ingested"]);
+
 export const TableUpdateInput = z
   .object({
-    display_name: z.string().min(1).optional(),
+    display_name: z.string().min(1).nullable().optional(),
     entity_type: TableEntityType.nullable().optional(),
     visibility_type: TableVisibilityType.nullable().optional(),
     description: z.string().nullable().optional(),
     caveats: z.string().nullable().optional(),
     points_of_interest: z.string().nullable().optional(),
-    show_in_getting_started: z.boolean().optional(),
-    field_order: TableFieldOrder.optional(),
+    show_in_getting_started: z.boolean().nullable().optional(),
+    field_order: TableFieldOrder.nullable().optional(),
+    data_authority: TableDataAuthority.nullable().optional(),
+    data_source: z.string().nullable().optional(),
+    data_layer: z.string().nullable().optional(),
+    owner_email: z.string().nullable().optional(),
+    owner_user_id: z.number().int().nullable().optional(),
+    collection_id: z.number().int().positive().nullable().optional(),
   })
   .loose();
 export type TableUpdateInput = z.infer<typeof TableUpdateInput>;

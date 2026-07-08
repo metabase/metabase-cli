@@ -90,23 +90,53 @@ export const documentView: ResourceView<Document> = {
   ],
 };
 
-export const DocumentCreateInput = z
+const DocumentName = z.string().min(1).max(254);
+
+const DocumentCardInput = z
   .object({
     name: z.string().min(1),
+    dataset_query: z.record(z.string(), z.unknown()),
+    display: z.string().min(1),
+    visualization_settings: z.record(z.string(), z.unknown()),
+    entity_id: z.string().min(1).nullable().optional(),
+    parameters: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+    parameter_mappings: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+    description: z.string().min(1).nullable().optional(),
+    result_metadata: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+    cache_ttl: z.number().int().positive().nullable().optional(),
+  })
+  .loose();
+
+const NEW_CARD_KEY_DESCRIPTION =
+  "cards to create inline, keyed by the negative placeholder id referenced from cardEmbed nodes";
+
+export const DocumentCreateInput = z
+  .object({
+    name: DocumentName,
     document: TipTapNodeInput,
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
+    cards: z
+      .record(z.string().regex(/^-\d+$/), DocumentCardInput)
+      .nullable()
+      .optional()
+      .describe(NEW_CARD_KEY_DESCRIPTION),
   })
   .loose();
 export type DocumentCreateInput = z.infer<typeof DocumentCreateInput>;
 
 export const DocumentUpdateInput = z
   .object({
-    name: z.string().min(1).optional(),
+    name: DocumentName.optional(),
     document: TipTapNodeInput.optional(),
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
     archived: z.boolean().nullable().optional(),
+    cards: z
+      .record(z.string().regex(/^-?\d+$/), DocumentCardInput)
+      .nullable()
+      .optional()
+      .describe("cards keyed by card id; negative ids create new cards"),
   })
   .loose();
 export type DocumentUpdateInput = z.infer<typeof DocumentUpdateInput>;

@@ -42,11 +42,15 @@ export const segmentView: ResourceView<Segment> = {
   ],
 };
 
+const SegmentDefinition = z
+  .record(z.string(), z.unknown())
+  .describe("MBQL query holding the filter — full MBQL 5 schema: mb query --print-schema");
+
 export const SegmentCreateInput = z
   .object({
     name: z.string().min(1),
     table_id: z.number().int().positive(),
-    definition: z.record(z.string(), z.unknown()),
+    definition: SegmentDefinition,
     description: z.string().nullable().optional(),
   })
   .loose();
@@ -54,14 +58,14 @@ export type SegmentCreateInput = z.infer<typeof SegmentCreateInput>;
 
 export const SegmentUpdateInput = z
   .object({
-    name: z.string().min(1).optional(),
-    definition: z.record(z.string(), z.unknown()).optional(),
+    name: z.string().min(1).nullable().optional(),
+    definition: SegmentDefinition.nullable().optional(),
     revision_message: z.string().min(1),
-    archived: z.boolean().optional(),
+    archived: z.boolean().nullable().optional(),
     description: z.string().nullable().optional(),
     caveats: z.string().nullable().optional(),
     points_of_interest: z.string().nullable().optional(),
-    show_in_getting_started: z.boolean().optional(),
+    show_in_getting_started: z.boolean().nullable().optional(),
   })
   .loose();
 export type SegmentUpdateInput = z.infer<typeof SegmentUpdateInput>;

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { Table } from "./table";
+import { Table, TableCompact } from "./table";
 import type { ResourceView } from "./view";
 
 export const Database = z
@@ -20,7 +20,11 @@ export const DatabaseCompact = Database.pick({
   name: true,
   engine: true,
   is_saved_questions: true,
-}).strip();
+})
+  .strip()
+  .extend({
+    tables: z.array(TableCompact).optional(),
+  });
 export type DatabaseCompact = z.infer<typeof DatabaseCompact>;
 
 export const databaseView: ResourceView<Database> = {

@@ -8,6 +8,7 @@ export const LibraryChild = Collection.pick({
   name: true,
   type: true,
   description: true,
+  is_remote_synced: true,
 }).strip();
 export type LibraryChild = z.infer<typeof LibraryChild>;
 

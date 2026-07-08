@@ -16,6 +16,7 @@ export default defineMetabaseCommand({
     ...bodyInputFlags,
     id: { type: "positional", description: "Document id", required: true },
   },
+  inputSchema: DocumentUpdateInput,
   outputSchema: Document,
   examples: [
     "cat patch.json | mb document update 1",

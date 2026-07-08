@@ -1,21 +1,21 @@
 ---
 name: visualization
-description: Pick the right `display` (chart type) for a card's data and author its `visualization_settings` via the `mb` CLI. Covers which chart fits which data shape, the required and optional settings per chart type, the rule that settings reference OUTPUT columns by name, minimum-viable settings per chart family, and the `column_settings` JSON-string-key footgun. The full per-chart key catalog lives in references. Load whenever choosing or shaping how a card renders — "what chart should I use for this", "create a bar chart", "make this a line chart", "turn this into a pie", "map this by state", "format this column as currency", "set the pie dimension and metric", "the card renders as a table instead of a chart", "add conditional formatting", or any `display` / `visualization_settings` work.
+description: Choose a card's `display` (chart type) and author its `visualization_settings` for the `mb` CLI — which chart fits which data shape, the required keys per chart, the rule that settings name OUTPUT columns, and the `column_settings` JSON-string-key footgun; the full per-chart key catalog is in references. Use when deciding or fixing how a card renders — "what chart should I use", "make this a bar/line/pie chart", "map this by state", "format this column as currency", "add conditional formatting", "the card renders as a table instead of a chart", or any `display` / `visualization_settings` work.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
 # Visualization: pick the chart, then set it
 
-> **Shared contract (read first).** This skill is part of the `robot-data-engineer` family and follows its shared rules: audience is a non-technical user, so no database jargon (skip "normalize"/"grain"; ERD/foreign key are fine; explain "wide"/"long" the first time you use them). Ask before showing PII row-by-row (names, emails, phones) — default to aggregates. When asked for something the CLI can't do (alerts, dashboard filters), name the limit instead of erroring into raw SQL. Honor the autonomy mode the user picked. Full text and the autonomy slider live in the router — run `mb skills get robot-data-engineer` and read its **Shared Contract** if you haven't.
+> **Building charts as part of a guided data project?** Follow the `data-workflow` **Shared Contract** — answer-first with detail on demand, ask before showing PII, honor the autonomy mode, name what the CLI can't do instead of erroring into raw SQL: `mb skills get data-workflow`.
 
 A card has two presentation fields alongside its `dataset_query`:
 
-- **`display`** — the chart type (`bar`, `line`, `pie`, `scalar`, `map`, `table`, …). One closed set; pick from the enum below.
+- **`display`** — the chart type (`bar`, `line`, `pie`, `scalar`, `map`, `table`, …); pick from the valid values below.
 - **`visualization_settings`** — a map whose keys are **namespaced by `display`** (`graph.*` for bar/line/area/combo, `pie.*` for pie, `table.*` for table, …). The server stores almost anything and **silently ignores keys that don't apply** to the chosen `display`.
 
 Nothing validates `visualization_settings` — there is no pre-flight to fail past. A `display` typo or a misnamed key is accepted by the API; the card just renders as a default table or drops the setting. So **the feedback loop is read-back, not pre-flight**: after `card create`/`update`, confirm with `mb card get <id> --full --json` (or open the card) that it rendered as intended.
 
-Flag conventions and body-input precedence live in the `core` skill (`mb skills get core`); the `dataset_query` itself is the `mbql` skill's job (`mb skills get mbql`). This skill is only about how the result is displayed.
+Flag conventions and body-input precedence live in `core` (`mb skills get core`); the `dataset_query` itself is the `mbql` skill's job (`mb skills get mbql`). This skill is only about how the result is displayed.
 
 Two steps: **(1) pick the `display` that fits the data**, then **(2) bind the data columns and set options**.
 
@@ -27,7 +27,7 @@ Decide which relationship in the data matters most, then pick the chart. The sha
 - **Compare a measure across categories** → `bar` (vertical). Use `row` (horizontal bar) when labels are long or there are many categories. Sort by value unless the dimension has a natural order.
 - **Change over time / trend** → `line` for a continuous series; `bar`/`area` for a few discrete periods. Two measures on unlike scales → `combo` (line + bar, dual-axis) — only when the metrics are genuinely related.
 - **Part-to-whole, one snapshot** → `pie`, but only for a meaningful whole with **≤5 slices**; beyond that use a sorted `bar`/`row`. Composition over time → stacked `area`/`bar`.
-- **Distribution / spread / outliers** → `boxplot` (especially comparing several groups).
+- **Distribution / spread / outliers** → a `bar` histogram (bin the measure — see `mbql` binning); on **v59+** servers `boxplot` compares several groups' spread directly.
 - **Correlation between two measures** → `scatter` (a third measure → bubble size).
 - **Sequential additive contributions** (start → +/− steps → total) → `waterfall`.
 - **Stage drop-off in an ordered, cumulative funnel** → `funnel`.
@@ -35,7 +35,7 @@ Decide which relationship in the data matters most, then pick the chart. The sha
 - **Geographic** → `map`: region/choropleth (a region dimension + a measure), pin (lat + long), or grid/heat (coordinates + measure).
 - **Precise values, many columns, mixed types, or no chart fits** → `table`; `pivot` for a cross-tab of two dimensions; `object` for a single record's detail.
 
-Closed `display` enum (card-level, non-hidden): `table`, `bar`, `line`, `area`, `row`, `pie`, `scalar`, `smartscalar`, `combo`, `pivot`, `funnel`, `map`, `scatter`, `waterfall`, `progress`, `gauge`, `object`, `sankey`, `boxplot`. (`scalar` **is** the "Number" viz — `display: number` is a legacy serialization alias, not a registered visualization; use `scalar`. `list` exists but is hidden — don't pick it. `heading`/`text`/`link`/`iframe`/`action` are dashcard virtuals, not standalone cards — see references.) An unknown `display` is accepted by the API but renders nothing — typos like `bargraph`/`linechart` are the most common "why is my chart blank" cause.
+Valid `display` values — the registered visualizations: `table`, `bar`, `line`, `area`, `row`, `pie`, `scalar`, `smartscalar`, `combo`, `pivot`, `funnel`, `map`, `scatter`, `waterfall`, `progress`, `gauge`, `object`, `sankey`. The API types `display` as a plain string and accepts any value — it renders an unknown one as nothing. (`boxplot` is registered only on **v59+** servers — older ones render it blank; use a `bar` histogram for distributions instead. `scalar` **is** the "Number" viz — `display: number` is a legacy serialization alias, not a registered visualization; use `scalar`. `list` exists but is hidden — don't pick it. `heading`/`text`/`link`/`iframe`/`action` are dashcard virtuals, not standalone cards — see references.) A typo like `bargraph`/`linechart` is accepted and renders blank — the most common "why is my chart blank" cause.
 
 ## Step 2 — bind data columns and set options
 
@@ -53,7 +53,7 @@ Closed `display` enum (card-level, non-hidden): `table`, `bar`, `line`, `area`, 
 | `row`                       | as bar; prefer for long/many category labels              | `graph.dimensions`, `graph.metrics`                        |
 | `scatter`                   | two numeric measures (correlation)                        | `graph.dimensions`, `graph.metrics` (`scatter.bubble` opt) |
 | `waterfall`                 | exactly 1 dimension + ≥1 measure; sequential              | `graph.dimensions` (1), `graph.metrics` (1)                |
-| `boxplot`                   | ≥3 cols, ≥2 dimensions, ≥1 measure                        | `graph.dimensions`, `graph.metrics`                        |
+| `boxplot` _(v59+)_          | ≥3 cols, ≥2 dimensions, ≥1 measure                        | `graph.dimensions`, `graph.metrics`                        |
 | `pie`                       | ≥2 rows, ≥2 cols, ≥1 dimension + ≥1 measure; ≤~5 slices   | `pie.dimension`, `pie.metric`                              |
 | `funnel`                    | 2 columns (stage + value); ordered stages                 | `funnel.dimension`, `funnel.metric`                        |
 | `map` (region)              | a string/region dimension + a measure                     | `map.region`, `map.dimension`, `map.metric`                |
@@ -151,10 +151,11 @@ mb skills path visualization           # → the skill dir; then Read references
 
 ## Don't
 
-- Don't invent `display` values (`bargraph`, `linechart`, `histogram`) or use `number`/`list` — use the closed non-hidden enum; the API accepts a typo and renders nothing.
+- Don't invent `display` values (`bargraph`, `linechart`, `histogram`) or use `number`/`list` — use a registered value; the API accepts a typo and renders nothing.
 - Don't put numeric field ids in `graph.dimensions`/`pie.metric`/`scalar.field`/`map.latitude_column` etc. — they take **output column-name strings**.
 - Don't reach for a `pie` with >5 slices, a `combo` of unrelated metrics, or a `pie`/`scalar` to show a trend — see Step 1.
 - Don't write a `column_settings` key as an object — it's a JSON **string** (`"[\"name\",\"COL\"]"`), inner quotes escaped.
 - Don't use the MBQL-5 field-ref order inside a `column_settings` `["ref", …]` key — that key uses the **legacy** `["field", id, opts]` order. Prefer the `["name", …]` form.
 - Don't expect a pre-flight to catch viz mistakes — there is none. Verify by reading the card back.
 - Don't hand-author complex charts when you can pull a working `visualization_settings` from a UI-built card.
+- Don't look for an event/annotation key in `visualization_settings` — vertical event markers on time-series charts come from timelines (`mb timeline` / `mb timeline-event`) living in the question's own collection (same collection only, no sub-collection inheritance; question view only, never dashboard cards).

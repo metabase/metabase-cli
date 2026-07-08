@@ -19,6 +19,7 @@ export default defineMetabaseCommand({
     ...bodyInputFlags,
     id: { type: "positional", description: "Field id", required: true },
   },
+  inputSchema: FieldUpdateInput,
   outputSchema: Field,
   examples: [
     'mb field update 100 --body \'{"description":"customer email"}\'',

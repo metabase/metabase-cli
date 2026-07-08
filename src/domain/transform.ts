@@ -17,10 +17,30 @@ const TransformRunMethod = z.enum(["manual", "cron"]);
 
 const TransformRunTrigger = z.enum(["none", "global-schedule"]);
 
+const TransformCheckpointStrategy = z
+  .object({
+    type: z.literal("checkpoint"),
+    "checkpoint-filter-field-id": z.number().int().positive().optional(),
+  })
+  .loose();
+
+const TransformSourceTableEntry = z
+  .object({
+    alias: z.string(),
+    database_id: z.number().int(),
+    schema: z.string().nullable(),
+    table: z.string().optional(),
+    table_id: z.number().int().nullable().optional(),
+  })
+  .loose();
+
 const TransformQuerySource = z
   .object({
     type: z.literal("query"),
-    query: z.unknown(),
+    query: z
+      .unknown()
+      .describe("Native SQL or MBQL query — full MBQL 5 schema: mb query --print-schema"),
+    "source-incremental-strategy": TransformCheckpointStrategy.optional(),
   })
   .loose();
 
@@ -28,16 +48,40 @@ const TransformPythonSource = z
   .object({
     type: z.literal("python"),
     body: z.string(),
+    "source-tables": z.array(TransformSourceTableEntry),
+    "source-database": z.number().int().optional(),
+    "source-incremental-strategy": TransformCheckpointStrategy.optional(),
   })
   .loose();
 
 const TransformSource = z.discriminatedUnion("type", [TransformQuerySource, TransformPythonSource]);
 
+const TransformAppendStrategy = z.object({ type: z.literal("append") }).loose();
+
+const TransformMergeKeyColumn = z
+  .object({
+    name: z.string().min(1).optional(),
+    "field-id": z.number().int().positive().nullable().optional(),
+  })
+  .loose();
+
+const TransformMergeStrategy = z
+  .object({
+    type: z.literal("merge"),
+    "unique-key": z.array(TransformMergeKeyColumn),
+  })
+  .loose();
+
+const TransformTargetIncrementalStrategy = z.discriminatedUnion("type", [
+  TransformAppendStrategy,
+  TransformMergeStrategy,
+]);
+
 const TransformTableTarget = z
   .object({
     type: z.literal("table"),
     database: z.number().int().optional(),
-    schema: z.string().nullable().optional(),
+    schema: z.string().min(1).nullable().optional(),
     name: z.string(),
   })
   .loose();
@@ -46,8 +90,9 @@ const TransformTableIncrementalTarget = z
   .object({
     type: z.literal("table-incremental"),
     database: z.number().int().optional(),
-    schema: z.string().nullable().optional(),
+    schema: z.string().min(1).nullable().optional(),
     name: z.string(),
+    "target-incremental-strategy": TransformTargetIncrementalStrategy,
   })
   .loose();
 
