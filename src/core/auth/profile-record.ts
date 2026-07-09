@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { TokenFeatures } from "../../domain/session-properties";
+import { OAUTH_SCOPE } from "../http/oauth";
 import { ParsedVersionSchema } from "../version/tag";
 
 export const ProbedUser = z.object({
@@ -37,6 +38,9 @@ export const ProfileOAuth = z
     refreshToken: z.string().nullable(),
     expiresAt: z.iso.datetime(),
     clientId: z.string(),
+    // Records written before scoped logins existed were all minted with the full-access scope,
+    // so defaulting an absent field to it is a fact, not a guess.
+    scope: z.string().default(OAUTH_SCOPE),
   })
   .loose();
 export type ProfileOAuth = z.infer<typeof ProfileOAuth>;

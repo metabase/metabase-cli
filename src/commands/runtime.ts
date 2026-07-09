@@ -16,7 +16,10 @@ import {
   type ResolvedConfig,
 } from "../core/config";
 import { consumeLegacyEnvWarnings } from "../core/env";
+import { ConfigError } from "../core/errors";
 import { createClient, type Client } from "../core/http/client";
+import { HttpError } from "../core/http/errors";
+import { OAUTH_SCOPE } from "../core/http/oauth";
 import {
   BASELINE_CAPABILITIES,
   checkCapabilities,
@@ -114,6 +117,8 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
             getResolvedConfig,
             getServerInfo,
           });
+        } catch (error) {
+          throw enrichScopeForbiddenError(error, cachedConfig);
         } finally {
           emitPendingWarnings();
         }
@@ -131,6 +136,22 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
     capabilities: required,
   });
   return cmd;
+}
+
+// A server-side 403 on a scope-narrowed profile is almost always the scope working as designed
+// (the containment model 403s everything outside workspace CRUD), so name the real fix instead
+// of letting the bare "Forbidden." suggest a permissions bug.
+export function enrichScopeForbiddenError(error: unknown, config: ResolvedConfig | null): unknown {
+  if (!(error instanceof HttpError) || error.status !== 403 || config === null) {
+    return error;
+  }
+  const { credential } = config;
+  if (credential.kind !== "oauth" || credential.scope === OAUTH_SCOPE) {
+    return error;
+  }
+  return new ConfigError(
+    `${error.userMessage} This profile's login is scoped to ${credential.scope}, which only allows workspace commands against this server. Run \`mb auth login\` for a full-access login, or run content commands against the workspace itself via its ws-<id> profile.`,
+  );
 }
 
 function emitPendingWarnings(): void {

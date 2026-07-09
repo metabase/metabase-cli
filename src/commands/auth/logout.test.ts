@@ -33,6 +33,7 @@ const OAUTH_CRED: OAuthCredential = {
   refreshToken: "ref-1",
   expiresAt: "2099-01-01T00:00:00.000Z",
   clientId: "client-1",
+  scope: "mb:full",
 };
 
 const METADATA: OAuthServerMetadata = {

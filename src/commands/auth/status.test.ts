@@ -92,6 +92,7 @@ describe("auth status command", () => {
       refreshToken: "ref",
       expiresAt: "2026-06-08T13:00:00.000Z",
       clientId: "c1",
+      scope: "mb:full",
     });
     const capture = captureStdout();
     await runCommand(authStatusCommand, { rawArgs: ["--profile", "default", "--json"] });

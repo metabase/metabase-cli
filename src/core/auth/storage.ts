@@ -341,6 +341,7 @@ export function resolveRecordCredential(record: ProfileRecord): ResolvedCredenti
         refreshToken,
         expiresAt: record.oauth.expiresAt,
         clientId: record.oauth.clientId,
+        scope: record.oauth.scope,
       },
     };
   }
@@ -425,6 +426,7 @@ export async function writeOAuthProfile(
     refreshToken: onFile ? credential.refreshToken : null,
     expiresAt: credential.expiresAt,
     clientId: credential.clientId,
+    scope: credential.scope,
   };
   const file = await readProfilesFile();
   const existing = findRecord(file, name);

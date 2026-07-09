@@ -52,15 +52,18 @@ Against a server older than v62 the CLI detects the missing OAuth support and fa
 
 On success the server is probed once — the rendered output shows the user, role (`Admin`/`User`), and Metabase version, and the same values are cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good credential and gains a `lastFailure` entry.
 
-| Flag                     | Description                                                                                                                                    |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `MB_URL`, then prompts. |
-| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead.                                                             |
-| `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                       |
-| `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                      |
-| `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                       |
+| Flag                     | Description                                                                                                                                                                                                                                                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `MB_URL`, then prompts.                                                                                                                                                                  |
+| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead.                                                                                                                                                                                                                              |
+| `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                                                                                                                                                                                        |
+| `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                                                                                                                                                                                       |
+| `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                                                                                                                                                                                        |
+| `--workspace`            | Request a workspace-manager-scoped login: the stored token can only manage workspaces — every other endpoint 403s server-side. Browser OAuth only (an API key cannot carry a scope), so it requires a TTY and refuses `--api-key`/`MB_API_KEY`. Requires a server advertising the `mb:workspace-manager` scope. |
 
 Non-interactive (non-TTY) login requires an API key; resolution order: `--api-key` → piped stdin → `MB_API_KEY` (first non-empty wins). Without one, non-interactive login fails rather than prompting.
+
+A workspace-scoped profile that hits a 403 on a content command gets an error naming the scope and the fix (re-login without `--workspace`, or use a workspace profile) instead of a bare "Forbidden."
 
 ```sh
 mb auth login                                            # interactive: browser or API key

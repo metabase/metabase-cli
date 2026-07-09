@@ -48,6 +48,7 @@ const OAUTH: OAuthCredential = {
   refreshToken: "refresh-1",
   expiresAt: "2026-06-08T13:00:00.000Z",
   clientId: "client-1",
+  scope: "mb:full",
 };
 
 import { join } from "node:path";
@@ -447,6 +448,7 @@ describe("OAuth profiles (keyring backend)", () => {
         refreshToken: null,
         expiresAt: OAUTH.expiresAt,
         clientId: "client-1",
+        scope: "mb:full",
       },
       lastProbe: null,
       lastFailure: null,
@@ -545,7 +547,37 @@ describe("OAuth profiles (file fallback)", () => {
       refreshToken: "refresh-1",
       expiresAt: OAUTH.expiresAt,
       clientId: "client-1",
+      scope: "mb:full",
     });
+    expect(await readProfileCredential()).toEqual({
+      url: "https://m.example.com",
+      credential: OAUTH,
+    });
+  });
+
+  it("resolves a pre-scope profile record to the full-access scope", async () => {
+    const profilesPath = join(configDir(), "profiles.json");
+    mkdirSync(dirname(profilesPath), { recursive: true });
+    writeFileSync(
+      profilesPath,
+      JSON.stringify({
+        profiles: [
+          {
+            name: "default",
+            url: "https://m.example.com",
+            apiKey: null,
+            oauth: {
+              accessToken: "access-1",
+              refreshToken: "refresh-1",
+              expiresAt: OAUTH.expiresAt,
+              clientId: "client-1",
+            },
+            lastProbe: null,
+            lastFailure: null,
+          },
+        ],
+      }),
+    );
     expect(await readProfileCredential()).toEqual({
       url: "https://m.example.com",
       credential: OAUTH,

@@ -18,6 +18,7 @@ function oauth(overrides: Partial<OAuthCredential> = {}): OAuthCredential {
     refreshToken: "refresh-tok",
     expiresAt: "2026-01-01T00:00:00.000Z",
     clientId: "client-123",
+    scope: "mb:full",
     ...overrides,
   };
 }
