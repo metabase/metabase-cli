@@ -1,8 +1,7 @@
 import { z } from "zod";
 
+import { CronUiDisplayType } from "./cron";
 import type { ResourceView } from "./view";
-
-const JobUiDisplayType = z.enum(["cron/raw", "cron/builder"]);
 
 const JobRunStatus = z.enum(["started", "succeeded", "failed", "timeout"]);
 
@@ -34,7 +33,7 @@ export const TransformJob = z
     name: z.string(),
     description: z.string().nullable(),
     schedule: z.string(),
-    ui_display_type: JobUiDisplayType,
+    ui_display_type: CronUiDisplayType,
     active: z.boolean().optional(),
     entity_id: z.string().nullable(),
     created_at: z.string(),
@@ -76,7 +75,7 @@ export const TransformJobCreateInput = z
     name: z.string().min(1),
     description: z.string().min(1).nullable().optional(),
     schedule: z.string().min(1),
-    ui_display_type: JobUiDisplayType.optional(),
+    ui_display_type: CronUiDisplayType.optional(),
     tag_ids: z.array(z.number().int().positive()).optional(),
   })
   .loose();
@@ -87,7 +86,7 @@ export const TransformJobUpdateInput = z
     name: z.string().min(1).optional(),
     description: z.string().min(1).nullable().optional(),
     schedule: z.string().min(1).optional(),
-    ui_display_type: JobUiDisplayType.optional(),
+    ui_display_type: CronUiDisplayType.optional(),
     active: z.boolean().optional(),
     tag_ids: z.array(z.number().int().positive()).optional(),
   })
