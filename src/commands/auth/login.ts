@@ -118,7 +118,7 @@ export default defineMetabaseCommand({
     const method = await chooseLoginMethod(metadata, args.clientId);
 
     if (method === "apiKey") {
-      const promptedKey = await promptForApiKey();
+      const promptedKey = await promptForApiKey(url);
       await completeLogin(
         profileName,
         url,
@@ -195,9 +195,9 @@ async function chooseLoginMethod(
   });
 }
 
-async function promptForApiKey(): Promise<string> {
+async function promptForApiKey(url: string): Promise<string> {
   return promptPassword({
-    message: "API key",
+    message: `API key - create one at ${url}/admin/settings/authentication/api-keys`,
     mask: "•",
     validate: (input) => (input ? undefined : "API key is required"),
   });
