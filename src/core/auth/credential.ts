@@ -11,6 +11,7 @@ export interface OAuthCredential {
   refreshToken: string;
   expiresAt: string;
   clientId: string;
+  scope: string;
 }
 
 export type Credential = ApiKeyCredential | OAuthCredential;
@@ -68,6 +69,7 @@ export function oauthCredentialFromTokens(
   tokens: Pick<OAuthTokens, "access_token" | "expires_in">,
   refreshToken: string,
   clientId: string,
+  scope: string,
   nowMs: number,
 ): OAuthCredential {
   return {
@@ -76,5 +78,6 @@ export function oauthCredentialFromTokens(
     refreshToken,
     expiresAt: expiresAtFromNow(tokens.expires_in ?? DEFAULT_EXPIRES_IN_SECONDS, nowMs),
     clientId,
+    scope,
   };
 }

@@ -52,15 +52,18 @@ Against a server older than v62 the CLI detects the missing OAuth support and fa
 
 On success the server is probed once — the rendered output shows the user, role (`Admin`/`User`), and Metabase version, and the same values are cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good credential and gains a `lastFailure` entry.
 
-| Flag                     | Description                                                                                                                                    |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `MB_URL`, then prompts. |
-| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead.                                                             |
-| `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                       |
-| `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                      |
-| `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                       |
+| Flag                     | Description                                                                                                                                                                                                                                                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `MB_URL`, then prompts.                                                                                                                                                                  |
+| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead.                                                                                                                                                                                                                              |
+| `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                                                                                                                                                                                        |
+| `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                                                                                                                                                                                       |
+| `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                                                                                                                                                                                        |
+| `--workspace`            | Request a workspace-manager-scoped login: the stored token can only manage workspaces — every other endpoint 403s server-side. Browser OAuth only (an API key cannot carry a scope), so it requires a TTY and refuses `--api-key`/`MB_API_KEY`. Requires a server advertising the `mb:workspace-manager` scope. |
 
 Non-interactive (non-TTY) login requires an API key; resolution order: `--api-key` → piped stdin → `MB_API_KEY` (first non-empty wins). Without one, non-interactive login fails rather than prompting.
+
+A workspace-scoped profile that hits a 403 on a content command gets an error naming the scope and the fix (re-login without `--workspace`, or use a workspace profile) instead of a bare "Forbidden."
 
 ```sh
 mb auth login                                            # interactive: browser or API key
@@ -1487,6 +1490,64 @@ mb git-sync remove-collection 12
 mb git-sync remove-collection 12 --json --profile prod
 ```
 
+## Workspaces
+
+Lifecycle for EE workspaces via `/api/ee/workspace-manager` (Metabase v62+, `workspaces` premium feature). A workspace attaches databases and provisions warehouse isolation — a temporary schema + user per database — so work runs against real data without touching prod schemas. Alias: `mb ws`.
+
+### `mb workspace list`
+
+```sh
+mb workspace list
+mb workspace list --json
+```
+
+### `mb workspace get <id>`
+
+Includes per-database provisioning status (`unprovisioned` | `provisioning` | `provisioned` | `deprovisioning`), input schemas, and the isolated output namespace.
+
+```sh
+mb workspace get 1 --json
+```
+
+### `mb workspace create`
+
+Creates the workspace and provisions isolation for each database (blocking). Each database must be eligible for workspaces (driver support + the `database-enable-workspaces` database setting).
+
+```sh
+mb workspace create --name ws-reports --database-ids 1
+mb workspace create --name ws-etl --database-ids 1,2 --json
+mb workspace create --name transform-work --database-ids 1 --spawn
+```
+
+| Flag                   | Description                                                                                                                      |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--name <name>`        | Workspace name.                                                                                                                  |
+| `--database-ids <ids>` | Database ids to attach, comma separated.                                                                                         |
+| `--spawn`              | Also spawn a workspace Metabase; the returned credential is saved to the `ws-<id>` profile (never printed) and made the default. |
+| `--keep-existing-auth` | Proceed despite broader same-server credentials in the profile store. Interactive only — refused in non-interactive contexts.    |
+
+Before creating, the profile store is swept for broader credentials against the same server: any API key profile, or any OAuth profile wider than `mb:workspace-manager`. Interactive runs offer to revoke the offenders (local clear + best-effort server-side token revocation; API keys must additionally be deleted in Admin settings); non-interactive runs hard-refuse so an agent can't proceed while a full-power credential is in reach.
+
+With `--spawn` the parent asks its instance manager for a workspace Metabase (`spawn_instance: true`) and the CLI consumes the returned `url` + `api_key`: the credential is written straight to the profile store as `ws-<id>` — never to stdout, `--json`, or an agent transcript — and that profile becomes the default, so bare `mb` targets the new workspace from then on (explicit `--profile`/`MB_PROFILE` still win). Destroying the workspace (or `mb auth logout` on the profile) unhooks the default again. Because an exported `MB_API_KEY` outranks stored profiles, `--spawn` refuses to run while it is set — it would silently shadow the profile it is about to install.
+
+### `mb workspace destroy <id>`
+
+Destroy is the only irreversible moment, so it closes the work-loss window first: when a local profile named `ws-<id>` exists, the child is checked for unsynced work (`remote-sync is-dirty`) and a dirty workspace is auto-exported to its target branch before teardown. `--discard` skips the check and the export; a machine without the workspace's profile warns and proceeds (destroy is the billing-stop lever — ops cleanup must work from anywhere), while a profile whose child can't be reached refuses without `--discard`.
+
+Then each provisioned database's warehouse isolation is torn down and the workspace removed; the matching local profile is dropped on success. Prompts unless `--yes`. Refuses (409) while any database is still provisioning/deprovisioning unless `--ignore-pending`, which removes the records and leaves those warehouse objects behind; unreachable-warehouse leftovers are reported as `orphaned_resources`.
+
+```sh
+mb workspace destroy 1 --yes
+mb workspace destroy 1 --yes --discard
+mb workspace destroy 1 --yes --ignore-pending
+```
+
+| Flag               | Description                                                             |
+| ------------------ | ----------------------------------------------------------------------- |
+| `--yes`            | Skip confirmation.                                                      |
+| `--discard`        | Destroy without exporting unsynced work (skips the is-dirty check).     |
+| `--ignore-pending` | Remove workspace records even while databases are mid-(de)provisioning. |
+
 ## Instance setup
 
 Bootstrapping a fresh, not-yet-configured Metabase instance.
@@ -1687,7 +1748,7 @@ Exit codes: `0` success, `2` `ConfigError` (missing name, unknown name, `MB_SKIL
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `MB_URL`                 | Default URL for `auth login` and config resolution.                                                                                                                       |
 | `MB_API_KEY`             | Default API key (makes `auth login` non-interactive, skipping the browser flow; not stored).                                                                              |
-| `MB_PROFILE`             | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                     |
+| `MB_PROFILE`             | Default profile when `--profile` is omitted. Falls back to the stored default pointer (set by `workspace create --spawn`), then `default`.                                |
 | `MB_VERBOSE`             | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                            |
 | `MB_CLI_SKIP_PREFLIGHT`  | When set to `1`, bypasses the per-command server version / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
 | `MB_CLI_DISABLE_KEYRING` | When set to `1`, skips the OS keychain and stores credentials as plaintext in the profiles file.                                                                          |

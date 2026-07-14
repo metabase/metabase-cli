@@ -175,7 +175,7 @@ async function readProfilesFile(): Promise<ProfilesFile> {
   } catch (error) {
     if (isNotFoundError(error)) {
       await detectLegacyArtifacts();
-      return { profiles: [] };
+      return { profiles: [], defaultProfile: null };
     }
     throw error;
   }
@@ -185,7 +185,7 @@ async function readProfilesFile(): Promise<ProfilesFile> {
   }
   if (parsed.error instanceof ValidationError) {
     legacyWarningPending = true;
-    return { profiles: [] };
+    return { profiles: [], defaultProfile: null };
   }
   throw parsed.error;
 }
@@ -341,6 +341,7 @@ export function resolveRecordCredential(record: ProfileRecord): ResolvedCredenti
         refreshToken,
         expiresAt: record.oauth.expiresAt,
         clientId: record.oauth.clientId,
+        scope: record.oauth.scope,
       },
     };
   }
@@ -425,6 +426,7 @@ export async function writeOAuthProfile(
     refreshToken: onFile ? credential.refreshToken : null,
     expiresAt: credential.expiresAt,
     clientId: credential.clientId,
+    scope: credential.scope,
   };
   const file = await readProfilesFile();
   const existing = findRecord(file, name);
@@ -510,6 +512,18 @@ export async function clearProfile(name: string = DEFAULT_PROFILE): Promise<bool
   await writeProfilesFile({
     ...file,
     profiles: file.profiles.filter((entry) => entry.name !== name),
+    // Removing the profile the default pointer names would leave bare `mb` targeting nothing.
+    defaultProfile: file.defaultProfile === name ? null : file.defaultProfile,
   });
   return true;
+}
+
+export async function readDefaultProfileName(): Promise<string | null> {
+  const file = await readProfilesFile();
+  return file.defaultProfile;
+}
+
+export async function setDefaultProfile(name: string): Promise<void> {
+  const file = await readProfilesFile();
+  await writeProfilesFile({ ...file, defaultProfile: name });
 }

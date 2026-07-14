@@ -39,6 +39,7 @@ vi.mock("./auth/oauth-session", () => ({
 import type { OAuthCredential } from "./auth/credential";
 import {
   readProfileCredential,
+  setDefaultProfile,
   writeOAuthProfile,
   writeProbeFailure,
   writeProbeResult,
@@ -48,8 +49,8 @@ import { setupTempConfigHome, type TempConfigHome } from "./auth/temp-config-hom
 import {
   createCredentialRefresher,
   explicitProfileName,
+  resolveActiveProfileName,
   resolveConfig,
-  resolveProfileName,
 } from "./config";
 import { ConfigError } from "./errors";
 
@@ -59,6 +60,7 @@ const STORED_OAUTH: OAuthCredential = {
   refreshToken: "old-refresh",
   expiresAt: "2000-01-01T00:00:00.000Z",
   clientId: "c1",
+  scope: "mb:full",
 };
 
 const REFRESHED_OAUTH: OAuthCredential = {
@@ -67,6 +69,7 @@ const REFRESHED_OAUTH: OAuthCredential = {
   refreshToken: "refreshed-refresh",
   expiresAt: "2099-01-01T00:00:00.000Z",
   clientId: "c1",
+  scope: "mb:full",
 };
 
 function clearConfigEnv(): void {
@@ -260,30 +263,46 @@ describe("resolveConfig", () => {
   });
 });
 
-describe("resolveProfileName", () => {
+describe("resolveActiveProfileName", () => {
   const originalEnv = { ...process.env };
+  let home: TempConfigHome;
 
   beforeEach(() => {
+    hoisted.store.clear();
+    home = setupTempConfigHome();
     delete process.env["MB_PROFILE"];
     delete process.env["METABASE_PROFILE"];
   });
 
   afterEach(() => {
+    home.cleanup();
     process.env = { ...originalEnv };
   });
 
-  it("returns the flag value when provided", () => {
+  it("returns the flag value when provided", async () => {
     process.env["MB_PROFILE"] = "env-profile";
-    expect(resolveProfileName("flag-profile")).toBe("flag-profile");
+    await expect(resolveActiveProfileName("flag-profile")).resolves.toBe("flag-profile");
   });
 
-  it("falls back to MB_PROFILE when no flag", () => {
+  it("falls back to MB_PROFILE when no flag", async () => {
     process.env["MB_PROFILE"] = "env-profile";
-    expect(resolveProfileName(undefined)).toBe("env-profile");
+    await expect(resolveActiveProfileName(undefined)).resolves.toBe("env-profile");
   });
 
-  it("falls back to default when neither flag nor env is set", () => {
-    expect(resolveProfileName(undefined)).toBe("default");
+  it("uses the stored default pointer when neither flag nor env is set", async () => {
+    await writeProfile({ url: "https://child.example.com", apiKey: "mb_child" }, "ws-7");
+    await setDefaultProfile("ws-7");
+    await expect(resolveActiveProfileName(undefined)).resolves.toBe("ws-7");
+  });
+
+  it("explicit flag outranks the stored default pointer", async () => {
+    await writeProfile({ url: "https://child.example.com", apiKey: "mb_child" }, "ws-7");
+    await setDefaultProfile("ws-7");
+    await expect(resolveActiveProfileName("parent")).resolves.toBe("parent");
+  });
+
+  it("falls back to default when nothing else is set", async () => {
+    await expect(resolveActiveProfileName(undefined)).resolves.toBe("default");
   });
 });
 

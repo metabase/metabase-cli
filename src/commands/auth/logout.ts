@@ -6,7 +6,7 @@ import {
   consumeKeychainResidualWarning,
   readProfileCredential,
 } from "../../core/auth/storage";
-import { resolveProfileName } from "../../core/config";
+import { resolveActiveProfileName } from "../../core/config";
 import { errorMessage } from "../../core/errors";
 import type { ResourceView } from "../../domain/view";
 import { warn } from "../../output/notice";
@@ -42,7 +42,7 @@ export default defineMetabaseCommand({
   outputSchema: LogoutResult,
   examples: ["mb auth logout --yes", "mb auth logout --profile staging --yes"],
   async run({ args, ctx }) {
-    const profileName = resolveProfileName(args.profile);
+    const profileName = await resolveActiveProfileName(args.profile);
 
     if (!args.yes && process.stdin.isTTY === true) {
       const ok = await promptConfirm({

@@ -9,16 +9,19 @@ export async function refreshOAuthCredential(
   credential: OAuthCredential,
   nowMs: number,
 ): Promise<OAuthCredential> {
-  const metadata = await discoverMetadata(baseUrl);
+  const metadata = await discoverMetadata(baseUrl, credential.scope);
   const tokens = await refreshTokens({
     tokenEndpoint: metadata.token_endpoint,
     refreshToken: credential.refreshToken,
     clientId: credential.clientId,
   });
+  // The refresh request carries no scope parameter, so the new grant inherits the original
+  // scope — a refresh can never widen it.
   return oauthCredentialFromTokens(
     tokens,
     tokens.refresh_token ?? credential.refreshToken,
     credential.clientId,
+    credential.scope,
     nowMs,
   );
 }
@@ -32,7 +35,7 @@ export async function revokeOAuthCredential(
   baseUrl: string,
   credential: OAuthCredential,
 ): Promise<boolean> {
-  const metadata = await discoverMetadata(baseUrl);
+  const metadata = await discoverMetadata(baseUrl, credential.scope);
   const revocationEndpoint = metadata.revocation_endpoint;
   if (revocationEndpoint === undefined) {
     return false;

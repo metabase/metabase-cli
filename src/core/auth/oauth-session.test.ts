@@ -12,6 +12,7 @@ const CREDENTIAL: OAuthCredential = {
   refreshToken: "ref-1",
   expiresAt: "2026-06-08T12:00:00.000Z",
   clientId: "client-1",
+  scope: "mb:full",
 };
 
 const METADATA: OAuthServerMetadata = {
@@ -48,6 +49,7 @@ describe("refreshOAuthCredential", () => {
       refreshToken: "ref-2",
       expiresAt: "2026-06-08T13:00:00.000Z",
       clientId: "client-1",
+      scope: "mb:full",
     });
   });
 
@@ -63,6 +65,7 @@ describe("refreshOAuthCredential", () => {
       refreshToken: "ref-1",
       expiresAt: "2026-06-08T13:00:00.000Z",
       clientId: "client-1",
+      scope: "mb:full",
     });
   });
 });

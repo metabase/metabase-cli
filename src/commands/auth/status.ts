@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { readProfileRecord } from "../../core/auth/storage";
-import { resolveProfileName } from "../../core/config";
+import { resolveActiveProfileName } from "../../core/config";
 import { displayUrl } from "../../core/url";
 import { ParsedVersionSchema } from "../../core/version/tag";
 import {
@@ -57,7 +57,7 @@ export default defineMetabaseCommand({
   outputSchema: AuthStatus,
   examples: ["mb auth status --json", "mb auth status --profile staging"],
   async run({ args, ctx }) {
-    const profileName = resolveProfileName(args.profile);
+    const profileName = await resolveActiveProfileName(args.profile);
     const record = await readProfileRecord(profileName);
 
     if (record === null) {

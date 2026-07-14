@@ -31,8 +31,10 @@ const {
   listProfileNames,
   listProfileRecords,
   profilesFilePath,
+  readDefaultProfileName,
   readProfileCredential,
   readProfileRecord,
+  setDefaultProfile,
   writeOAuthProfile,
   writeProbeFailure,
   writeProbeResult,
@@ -48,6 +50,7 @@ const OAUTH: OAuthCredential = {
   refreshToken: "refresh-1",
   expiresAt: "2026-06-08T13:00:00.000Z",
   clientId: "client-1",
+  scope: "mb:full",
 };
 
 import { join } from "node:path";
@@ -94,6 +97,7 @@ describe("profiles (keyring backend)", () => {
           lastFailure: null,
         },
       ],
+      defaultProfile: null,
     });
   });
 
@@ -447,6 +451,7 @@ describe("OAuth profiles (keyring backend)", () => {
         refreshToken: null,
         expiresAt: OAUTH.expiresAt,
         clientId: "client-1",
+        scope: "mb:full",
       },
       lastProbe: null,
       lastFailure: null,
@@ -545,7 +550,37 @@ describe("OAuth profiles (file fallback)", () => {
       refreshToken: "refresh-1",
       expiresAt: OAUTH.expiresAt,
       clientId: "client-1",
+      scope: "mb:full",
     });
+    expect(await readProfileCredential()).toEqual({
+      url: "https://m.example.com",
+      credential: OAUTH,
+    });
+  });
+
+  it("resolves a pre-scope profile record to the full-access scope", async () => {
+    const profilesPath = join(configDir(), "profiles.json");
+    mkdirSync(dirname(profilesPath), { recursive: true });
+    writeFileSync(
+      profilesPath,
+      JSON.stringify({
+        profiles: [
+          {
+            name: "default",
+            url: "https://m.example.com",
+            apiKey: null,
+            oauth: {
+              accessToken: "access-1",
+              refreshToken: "refresh-1",
+              expiresAt: OAUTH.expiresAt,
+              clientId: "client-1",
+            },
+            lastProbe: null,
+            lastFailure: null,
+          },
+        ],
+      }),
+    );
     expect(await readProfileCredential()).toEqual({
       url: "https://m.example.com",
       credential: OAUTH,
@@ -557,5 +592,46 @@ describe("OAuth profiles (file fallback)", () => {
     expect(await clearProfile()).toBe(true);
     // a failed keyring delete is harmless here — the secret lived in the file we just removed
     expect(consumeKeychainResidualWarning()).toBeNull();
+  });
+});
+
+describe("default profile pointer", () => {
+  let home: TempConfigHome;
+
+  beforeEach(() => {
+    hoisted.store.clear();
+    hoisted.controls.broken = false;
+    home = setupTempConfigHome();
+  });
+
+  afterEach(() => {
+    home.cleanup();
+  });
+
+  it("is null until set", async () => {
+    await writeProfile({ url: "https://child.example.com", apiKey: "mb_child" }, "ws-1");
+    expect(await readDefaultProfileName()).toBeNull();
+  });
+
+  it("round-trips through the profiles file", async () => {
+    await writeProfile({ url: "https://child.example.com", apiKey: "mb_child" }, "ws-1");
+    await setDefaultProfile("ws-1");
+    expect(await readDefaultProfileName()).toBe("ws-1");
+  });
+
+  it("clearProfile unsets the pointer when it names the removed profile", async () => {
+    await writeProfile({ url: "https://parent.example.com", apiKey: "mb_parent" }, "parent");
+    await writeProfile({ url: "https://child.example.com", apiKey: "mb_child" }, "ws-1");
+    await setDefaultProfile("ws-1");
+    expect(await clearProfile("ws-1")).toBe(true);
+    expect(await readDefaultProfileName()).toBeNull();
+  });
+
+  it("clearProfile keeps the pointer when a different profile is removed", async () => {
+    await writeProfile({ url: "https://parent.example.com", apiKey: "mb_parent" }, "parent");
+    await writeProfile({ url: "https://child.example.com", apiKey: "mb_child" }, "ws-1");
+    await setDefaultProfile("ws-1");
+    expect(await clearProfile("parent")).toBe(true);
+    expect(await readDefaultProfileName()).toBe("ws-1");
   });
 });
