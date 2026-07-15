@@ -574,6 +574,19 @@ mb card query 1 --parameters '[{"type":"category","value":"A","target":["variabl
 | `--format-rows`         | Streamed exports only: apply the card's visualization-settings formatting to values (default `false`). |
 | `--pivot-results`       | Streamed exports only: emit the pivoted output for pivot questions (default `false`).                  |
 
+### `mb card alerts <id>`
+
+List the alerts watching this card. Manage them with `mb alert create|update|send|archive`, which take the alert id printed here.
+
+```sh
+mb card alerts 94
+mb card alerts 94 --include-inactive --json
+```
+
+| Flag                 | Description                         |
+| -------------------- | ----------------------------------- |
+| `--include-inactive` | Include archived (inactive) alerts. |
+
 ### `mb card create`
 
 ```sh
@@ -649,6 +662,19 @@ List the dashcards on a dashboard.
 mb dashboard cards 1
 mb dashboard cards 1 --json
 ```
+
+### `mb dashboard subscriptions <id>`
+
+List the subscriptions delivering this dashboard. Manage them with `mb subscription create|update|archive`, which take the subscription id printed here.
+
+```sh
+mb dashboard subscriptions 10
+mb dashboard subscriptions 10 --json
+```
+
+| Flag         | Description                                         |
+| ------------ | --------------------------------------------------- |
+| `--archived` | Show archived subscriptions instead of active ones. |
 
 #### Dashboard parameters (filters)
 
@@ -1069,6 +1095,163 @@ mb timeline-event delete 1
 | Flag    | Description        |
 | ------- | ------------------ |
 | `--yes` | Skip confirmation. |
+
+## Dashboard subscriptions
+
+Read and write dashboard subscriptions on `/api/pulse`. A subscription delivers a rendered dashboard on a schedule — by email, to a Slack channel, or to an HTTP webhook. It pins the dashboard's cards by both `id` (the card) and `dashboard_card_id` (its placement); `mb dashboard cards <dashboard-id>` prints both.
+
+A subscription's `dashboard_id` and `collection_id` are fixed at creation. There is no delete — archiving is the terminal state, and it also disables every channel.
+
+### `mb subscription list`
+
+```sh
+mb subscription list
+mb subscription list --dashboard-id 10 --json
+mb subscription list --archived --json
+```
+
+| Flag                  | Description                                         |
+| --------------------- | --------------------------------------------------- |
+| `--dashboard-id <id>` | Only subscriptions on this dashboard.               |
+| `--archived`          | Show archived subscriptions instead of active ones. |
+
+Listing from the dashboard side is `mb dashboard subscriptions <dashboard-id>`.
+
+### `mb subscription get <id>`
+
+```sh
+mb subscription get 1
+mb subscription get 1 --full --json
+```
+
+The compact view returns `id`, `name`, `dashboard_id`, `collection_id`, `archived`, `skip_if_empty`, plus the pinned `cards` and the `channels` with their schedules and recipients. `--full` adds the hydrated creator, entity ids, and per-card download permissions.
+
+### `mb subscription create`
+
+The body needs `name`, `dashboard_id`, `cards`, and `channels`.
+
+Each channel names a `channel_type` (`email`, `slack`, `http`) and a `schedule_type` (`hourly`, `daily`, `weekly`, `monthly`) plus the fields that schedule needs: `daily` needs `schedule_hour` (0–23); `weekly` also needs `schedule_day` (`mon`…`sun`); `monthly` also needs `schedule_frame` (`first`, `mid`, `last`). Email recipients are `{"email":"a@b.com"}` or `{"id":<user-id>}`; Slack targets a channel with `"details":{"channel":"#general"}`. A channel is `enabled` unless you say otherwise.
+
+```sh
+mb subscription create --body '{"name":"Weekly orders","dashboard_id":10,"cards":[{"id":94,"dashboard_card_id":87,"include_csv":false,"include_xls":false}],"channels":[{"channel_type":"email","schedule_type":"daily","schedule_hour":8,"recipients":[{"email":"team@example.com"}]}]}'
+cat subscription.json | mb subscription create
+mb subscription create --file subscription.json
+```
+
+| Flag            | Description                                         |
+| --------------- | --------------------------------------------------- |
+| `--body <json>` | Inline JSON body.                                   |
+| `--file <path>` | Path to JSON body file. Use `-` to read from stdin. |
+
+### `mb subscription update <id>`
+
+Patches `name`, `cards`, `channels`, `skip_if_empty`, `parameters`, `archived`. `cards` and `channels` each replace the whole list, so send every one you want to keep — `mb subscription get <id> --full` prints the current set.
+
+The update reads the subscription first and carries `archived` and `skip_if_empty` forward when your patch omits them. That is load-bearing: `PUT /api/pulse/:id` defaults every omitted key, and both of those default to `false`, so a raw name-only PUT would un-archive the subscription and clear `skip_if_empty`.
+
+```sh
+mb subscription update 1 --body '{"name":"Daily orders"}'
+mb subscription update 1 --body '{"channels":[{"channel_type":"email","schedule_type":"weekly","schedule_hour":8,"schedule_day":"mon","recipients":[{"email":"team@example.com"}]}]}'
+mb subscription update 1 --file patch.json
+```
+
+| Flag            | Description                                         |
+| --------------- | --------------------------------------------------- |
+| `--body <json>` | Inline JSON body.                                   |
+| `--file <path>` | Path to JSON body file. Use `-` to read from stdin. |
+
+### `mb subscription archive <id>`
+
+Archive a subscription, stopping all deliveries. Also disables every channel on it, so restoring means un-archiving and then re-enabling the channels.
+
+```sh
+mb subscription archive 1
+mb subscription archive 1 --json
+```
+
+## Question alerts
+
+Read and write question alerts on `/api/notification`. An alert watches one card and delivers it when a send condition fires on a schedule: `has_result` (the card returned any row), or `goal_above` / `goal_below` (both need a goal set on the card's visualization).
+
+Schedules are Quartz cron strings — `0 0 8 * * ? *` is daily at 08:00. `/api/notification` also carries Metabase's internal system-event notifications; `mb alert` scopes every request to card alerts, so they never appear.
+
+Archiving deactivates an alert rather than deleting it: `mb alert list --include-inactive` still finds it, and `mb alert update <id> --body '{"active":true}'` brings it back.
+
+### `mb alert list`
+
+```sh
+mb alert list
+mb alert list --card-id 94 --json
+mb alert list --include-inactive --json
+```
+
+| Flag                  | Description                         |
+| --------------------- | ----------------------------------- |
+| `--card-id <id>`      | Only alerts watching this card.     |
+| `--creator-id <id>`   | Only alerts created by this user.   |
+| `--recipient-id <id>` | Only alerts delivered to this user. |
+| `--include-inactive`  | Include archived (inactive) alerts. |
+
+Listing from the question side is `mb card alerts <card-id>`.
+
+### `mb alert get <id>`
+
+```sh
+mb alert get 9
+mb alert get 9 --full --json
+```
+
+The compact view returns `id`, `active`, `creator_id`, the `payload` (`card_id`, `send_condition`, `send_once`), the cron `subscriptions`, and the `handlers` with their recipients. `--full` adds the hydrated card the alert watches.
+
+### `mb alert create`
+
+The body needs `payload`, `subscriptions`, and `handlers`. Each handler names a `channel_type` (`channel/email`, `channel/slack`, `channel/http`) and its `recipients`; a recipient is `{"type":"notification-recipient/user","user_id":3}` or `{"type":"notification-recipient/raw-value","details":{"value":"a@b.com"}}`.
+
+```sh
+mb alert create --body '{"payload":{"card_id":94,"send_condition":"has_result"},"subscriptions":[{"cron_schedule":"0 0 8 * * ? *"}],"handlers":[{"channel_type":"channel/email","recipients":[{"type":"notification-recipient/raw-value","details":{"value":"team@example.com"}}]}]}'
+cat alert.json | mb alert create
+mb alert create --file alert.json
+```
+
+| Flag            | Description                                         |
+| --------------- | --------------------------------------------------- |
+| `--body <json>` | Inline JSON body.                                   |
+| `--file <path>` | Path to JSON body file. Use `-` to read from stdin. |
+
+### `mb alert update <id>`
+
+Patches the top-level fields you send: `payload`, `subscriptions`, `handlers`, `active`. Fields inside `payload` merge over the current ones, so `{"payload":{"send_condition":"goal_above"}}` keeps the card. `subscriptions` and `handlers` each replace the whole list — `mb alert get <id>` prints the current set. An alert cannot be moved to a different card.
+
+The update reads the alert first and merges your patch over it. That is load-bearing: `PUT /api/notification/:id` is a spec-diff, and a body whose `id` doesn't match the stored one makes Metabase delete the alert and insert a replacement under a fresh id.
+
+```sh
+mb alert update 9 --body '{"payload":{"send_condition":"goal_above"}}'
+mb alert update 9 --body '{"subscriptions":[{"cron_schedule":"0 0 9 * * ? *"}]}'
+mb alert update 9 --body '{"active":true}'
+```
+
+| Flag            | Description                                         |
+| --------------- | --------------------------------------------------- |
+| `--body <json>` | Inline JSON body.                                   |
+| `--file <path>` | Path to JSON body file. Use `-` to read from stdin. |
+
+### `mb alert send <id>`
+
+Send an alert now, off-schedule. Delivers to every handler, ignoring the send condition. The channel must be configured on the server (email needs SMTP set up).
+
+```sh
+mb alert send 9
+mb alert send 9 --json
+```
+
+### `mb alert archive <id>`
+
+Archive an alert, stopping all deliveries and dropping its scheduled trigger.
+
+```sh
+mb alert archive 9
+mb alert archive 9 --json
+```
 
 ## Collections
 
@@ -1664,15 +1847,19 @@ mb skills path core                         # one path
 
 Bundled skills:
 
-| Name                  | Use                                                                                           |
-| --------------------- | --------------------------------------------------------------------------------------------- |
-| `core`                | Top-level guide: auth, flag conventions, output flags, body input, every command group        |
-| `transform`           | Authoring and running transforms (native SQL + MBQL 5), iteration, run inspection             |
-| `data-transformation` | Raw, normalized source database → clean, wide, analysis-ready tables for a non-technical user |
-| `semantic-layer`      | Turning clean tables into reusable segments, measures, and metrics for a non-technical user   |
-| `robot-data-engineer` | Front-door router for the whole journey (raw → tables → definitions → dashboards)             |
-| `document`            | Authoring document bodies: the TipTap JSON tree, embedding cards, entity links                |
-| `git-sync`            | Round-tripping Metabase content to/from a git remote                                          |
+| Name            | Use                                                                                     |
+| --------------- | --------------------------------------------------------------------------------------- |
+| `core`          | Top-level guide: auth, flag conventions, output flags, body input, every command group  |
+| `data-workflow` | Front-door router for the whole journey (raw → clean tables → definitions → dashboards) |
+| `mbql`          | Authoring and fixing MBQL 5 query bodies                                                |
+| `native-sql`    | Native SQL query bodies: template tags, field filters, snippets, card references        |
+| `visualization` | Choosing a card's `display` and authoring `visualization_settings`                      |
+| `dashboard`     | Interactive dashboards: filter wiring, linked filters, cross-filtering, click behavior  |
+| `metadata`      | Semantic types, FK targets, dropdown behavior, and the features each unlocks            |
+| `transform`     | Authoring and running transforms (native SQL + MBQL 5), iteration, run inspection       |
+| `notification`  | Scheduled delivery: question alerts and dashboard subscriptions                         |
+| `document`      | Authoring document bodies: the TipTap JSON tree, embedding cards, entity links          |
+| `git-sync`      | Round-tripping Metabase content to/from a git remote                                    |
 
 Discovery surfaces:
 

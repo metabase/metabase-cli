@@ -1,19 +1,21 @@
 import { defineCommandGroup } from "../group";
 
 export default defineCommandGroup({
-  name: "card",
-  description: "Manage Metabase cards (questions, models, metrics)",
+  name: "alert",
+  description: "Manage Metabase question alerts (scheduled card delivery on a send condition)",
   skills: [
-    { skill: "mbql", purpose: "author the dataset_query" },
-    { skill: "visualization", purpose: "choose display and visualization_settings" },
+    {
+      skill: "notification",
+      purpose: "send conditions, cron schedules, handlers and recipients, testing a send",
+    },
+    { skill: "core", purpose: "the card an alert watches and how to find its id" },
   ],
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),
     get: () => import("./get").then((mod) => mod.default),
-    query: () => import("./query").then((mod) => mod.default),
-    alerts: () => import("./alerts").then((mod) => mod.default),
     create: () => import("./create").then((mod) => mod.default),
     update: () => import("./update").then((mod) => mod.default),
+    send: () => import("./send").then((mod) => mod.default),
     archive: () => import("./archive").then((mod) => mod.default),
   },
 });
