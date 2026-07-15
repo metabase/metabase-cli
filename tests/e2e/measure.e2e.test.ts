@@ -156,7 +156,7 @@ describe.skipIf(skipReason !== null)("measure e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Metabase returned 500");
+    expect(result.stderr).toContain("Value does not match schema");
     expect(result.stdout).toBe("");
   });
 

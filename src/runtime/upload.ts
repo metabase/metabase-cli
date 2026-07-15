@@ -1,9 +1,23 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 
-import { ConfigError, isNotFoundError } from "../core/errors";
+import { ConfigError, errorMessage, isNotFoundError } from "../core/errors";
 
 import { fileNotFoundError } from "./input";
+
+export interface FilePart {
+  blob: Blob;
+  filename: string;
+}
+
+export async function readFilePart(path: string, label: string): Promise<FilePart> {
+  try {
+    const bytes = await readFile(path);
+    return { blob: new Blob([bytes]), filename: basename(path) };
+  } catch (error) {
+    throw new ConfigError(`Cannot read ${label} file '${path}': ${errorMessage(error)}`);
+  }
+}
 
 const CSV_CONTENT_TYPE = "text/csv";
 

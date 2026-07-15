@@ -18,6 +18,7 @@ const BUNDLED_VISIBLE_NAMES = [
   "native-sql",
   "notification",
   "transform",
+  "transform-test",
   "visualization",
 ] as const;
 
