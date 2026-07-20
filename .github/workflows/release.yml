@@ -33,7 +33,7 @@ jobs:
       - name: Check whether local version was already published
         id: check
         run: |
-          LOCAL=$(node -p "require('./package.json').version")
+          LOCAL=$(node -p "require('./packages/cli/package.json').version")
           LATEST=$(npm view @metabase/cli version 2>/dev/null || echo "none")
           ALREADY_PUBLISHED=$(npm view @metabase/cli versions --json 2>/dev/null | node -e "
             let raw = '';
@@ -55,6 +55,7 @@ jobs:
 
       - name: Publish to NPM
         if: steps.check.outputs.changed == 'true'
+        working-directory: packages/cli
         run: npm publish --tag latest --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_RELEASE_TOKEN }}

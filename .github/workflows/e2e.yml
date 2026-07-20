@@ -43,7 +43,7 @@ jobs:
       # snapshot dir is owned by the runner user, so without this Metabase
       # cannot write the per-stack snapshot and bootstrap fails.
       - name: Make snapshot dir writable by Metabase container
-        run: chmod 777 tests/e2e/snapshots
+        run: chmod 777 packages/cli/tests/e2e/snapshots
 
       - name: Run e2e against ${{ matrix.stack }}
         run: bun run e2e:matrix --stack=${{ matrix.stack }}
@@ -54,5 +54,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: metabase-logs-${{ matrix.stack }}
-          path: metabase-${{ matrix.stack }}.log
+          path: packages/cli/metabase-${{ matrix.stack }}.log
           if-no-files-found: ignore

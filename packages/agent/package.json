@@ -1,0 +1,49 @@
+{
+  "name": "@metabase/agent",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Metabase agent",
+  "license": "AGPL-3.0",
+  "bin": {
+    "mb-agent": "./dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "skill-data"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "start": "node dist/cli.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "test": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
+    "test:smoke": "vitest run --project smoke"
+  },
+  "dependencies": {
+    "@earendil-works/pi-agent-core": "0.80.6",
+    "@earendil-works/pi-ai": "0.80.6",
+    "@earendil-works/pi-coding-agent": "0.80.6",
+    "@earendil-works/pi-tui": "0.80.6",
+    "@metabase/cli": "workspace:*",
+    "@napi-rs/keyring": "^1.3.0",
+    "typebox": "1.1.38",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "oxfmt": "^0.47.0",
+    "oxlint": "^1.62.0",
+    "tsdown": "^0.9.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=22.19"
+  }
+}

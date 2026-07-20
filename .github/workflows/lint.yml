@@ -42,5 +42,5 @@ jobs:
       - uses: actions/checkout@v4
       - uses: stbenjam/skillsaw@v0
         with:
-          path: skill-data
+          path: packages/cli/skill-data
           strict: true

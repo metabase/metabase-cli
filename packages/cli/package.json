@@ -1,0 +1,113 @@
+{
+  "name": "@metabase/cli",
+  "version": "0.3.0",
+  "description": "Metabase CLI",
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/metabase/mb-cli.git"
+  },
+  "bin": {
+    "mb": "./dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "skill-data",
+    ".claude-plugin"
+  ],
+  "type": "module",
+  "exports": {
+    "./auth": {
+      "types": "./dist/exports/auth.d.mts",
+      "default": "./dist/exports/auth.mjs"
+    },
+    "./client": {
+      "types": "./dist/exports/client.d.mts",
+      "default": "./dist/exports/client.mjs"
+    },
+    "./domain": {
+      "types": "./dist/exports/domain.d.mts",
+      "default": "./dist/exports/domain.mjs"
+    },
+    "./errors": {
+      "types": "./dist/exports/errors.d.mts",
+      "default": "./dist/exports/errors.mjs"
+    },
+    "./config": {
+      "types": "./dist/exports/config.d.mts",
+      "default": "./dist/exports/config.mjs"
+    },
+    "./paginate": {
+      "types": "./dist/exports/paginate.d.mts",
+      "default": "./dist/exports/paginate.mjs"
+    },
+    "./skills": {
+      "types": "./dist/exports/skills.d.mts",
+      "default": "./dist/exports/skills.mjs"
+    },
+    "./url": {
+      "types": "./dist/exports/url.d.mts",
+      "default": "./dist/exports/url.mjs"
+    },
+    "./version": {
+      "types": "./dist/exports/version.d.mts",
+      "default": "./dist/exports/version.mjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "start": "node dist/cli.mjs",
+    "test": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
+    "test:e2e": "vitest run --project e2e",
+    "test:e2e:watch": "vitest --project e2e",
+    "e2e:up": "docker compose -f tests/e2e/docker-compose.yml up -d --wait",
+    "e2e:down": "docker compose -f tests/e2e/docker-compose.yml down -v",
+    "e2e:bootstrap": "bun tests/e2e/setup/bootstrap.ts",
+    "e2e:matrix": "bun scripts/e2e-matrix.ts",
+    "e2e:logs": "docker compose -f tests/e2e/docker-compose.yml logs -f metabase",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "lint:skills": "uvx skillsaw lint skill-data/ --strict",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "sync:representations": "bun run scripts/sync-representations.ts",
+    "prepublishOnly": "tsdown && publint"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.8.2",
+    "@napi-rs/keyring": "^1.3.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "citty": "^0.2.2",
+    "cli-table3": "^0.6.5",
+    "semver": "^7.8.0",
+    "yaml": "^2.8.4",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.10.0",
+    "@types/semver": "^7.7.1",
+    "execa": "^9.5.2",
+    "fast-check": "^4.7.0",
+    "js-yaml": "^4.1.0",
+    "oxfmt": "^0.47.0",
+    "oxlint": "^1.62.0",
+    "publint": "^0.3.0",
+    "tsdown": "^0.9.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=20.6"
+  }
+}
