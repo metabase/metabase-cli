@@ -329,6 +329,11 @@ const ALL_COMMANDS = [
   "transform-tag create",
   "transform-tag update",
   "transform-tag delete",
+  "transform-index list",
+  "transform-index get",
+  "transform-index create",
+  "transform-index update",
+  "transform-index delete",
   "setting list",
   "setting get",
   "setting set",
@@ -387,6 +392,7 @@ const ALL_COMMANDS = [
 const MEASURE_CAPABILITIES = { minVersion: 59 } as const;
 const TRANSFORM_CAPABILITIES = { minVersion: 59 } as const;
 const TRANSFORM_JOB_SET_ACTIVE_CAPABILITIES = { minVersion: 61 } as const;
+const TRANSFORM_INDEX_CAPABILITIES = { minVersion: 64 } as const;
 
 let cachedEntries: Promise<CommandHelpEntry[]> | null = null;
 
@@ -471,6 +477,22 @@ describe("command tree contract", () => {
       "transform-job run": TRANSFORM_CAPABILITIES,
       "transform-job transforms": TRANSFORM_CAPABILITIES,
       "transform-job set-active": TRANSFORM_JOB_SET_ACTIVE_CAPABILITIES,
+    });
+  });
+
+  it("gates every transform-index command at v64", async () => {
+    const entries = await allEntries();
+    const transformIndexCapabilities = Object.fromEntries(
+      entries
+        .filter((entry) => entry.command.startsWith("transform-index "))
+        .map((entry) => [entry.command, entry.capabilities]),
+    );
+    expect(transformIndexCapabilities).toEqual({
+      "transform-index list": TRANSFORM_INDEX_CAPABILITIES,
+      "transform-index get": TRANSFORM_INDEX_CAPABILITIES,
+      "transform-index create": TRANSFORM_INDEX_CAPABILITIES,
+      "transform-index update": TRANSFORM_INDEX_CAPABILITIES,
+      "transform-index delete": TRANSFORM_INDEX_CAPABILITIES,
     });
   });
 
