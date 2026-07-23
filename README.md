@@ -326,6 +326,55 @@ mb transform-tag delete 5 --yes
 | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
+## Transform indexes
+
+Manage indexes on a transform's target table via `/api/index`. An index request declares a physical index (or clustering/sort/dist key, depending on the warehouse) on a transform's output; Metabase reapplies it on each full transform run. Create, update, and delete only set a pending state — the physical index is created or dropped when the target table is next rebuilt. Requires Metabase v64+.
+
+### `mb transform-index list <transform-id>`
+
+Lists a transform's indexes: those physically in the warehouse, merged with its managed requests.
+
+```sh
+mb transform-index list 1 --json
+```
+
+### `mb transform-index get <id>`
+
+```sh
+mb transform-index get 1 --json
+```
+
+### `mb transform-index create`
+
+The body is `{ transform_id, structured }`, where `structured` is a definition dispatched on `kind` (`btree`, `hash`, `sortkey`, `distkey`, `clustering`, `order-by`, `skip-index`, …).
+
+```sh
+mb transform-index create --body '{"transform_id":1,"structured":{"kind":"btree","name":"idx_id","columns":[{"name":"id"}]}}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb transform-index update <id>`
+
+Replaces the `structured` definition and marks the request update-pending. The index name, kind, and type cannot be changed — delete and recreate to change those.
+
+```sh
+mb transform-index update 1 --body '{"structured":{"kind":"btree","name":"idx_id","columns":[{"name":"id"},{"name":"created_at"}]}}'
+```
+
+### `mb transform-index delete <id>`
+
+```sh
+mb transform-index delete 1 --yes
+```
+
+| Flag    | Description                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
+
 ## Databases
 
 Read warehouse metadata from `/api/database`. The `db` group exposes the full database list, the per-database record with optional table/field hydration, schema and table inspection, and the two manual-sync triggers.
