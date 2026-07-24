@@ -10,7 +10,7 @@ allowed-tools: Read, Write, Edit, Bash
 
 You check the output two ways, and can combine them: an **expected CSV** (`--expected`, exact-output multiset diff) and/or **assertions** (`--assert`, SQL queries that must return zero rows). At least one of `--expected` or `--assert`/`--suite` is required — `--expected` is **not** mandatory on its own anymore.
 
-Authoring and running transforms for real is the `transform` skill (`mb skills get transform`); deciding what to build is `data-transformation` (`mb skills get data-transformation`). Flag/profile/output conventions are in `core` (`mb skills get core`).
+Authoring and running transforms for real is the `transform` skill (`mb skills get transform`); deciding what to build is `data-transformation` (`mb skills get data-transformation`); deciding **what to test** — deriving the fixture cast, assertions, and coverage for a whole chain — is `transform-test-plan` (`mb skills get transform-test-plan`). Flag/profile/output conventions are in `core` (`mb skills get core`).
 
 ## The loop: inputs → fixtures → run
 
