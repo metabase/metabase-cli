@@ -1,0 +1,240 @@
+import { z } from "zod";
+
+const TransformSourceType = z.enum(["native", "mbql", "python"]);
+
+export const TransformRunStatus = z.enum([
+  "started",
+  "succeeded",
+  "failed",
+  "timeout",
+  "canceled",
+  "canceling",
+]);
+export type TransformRunStatus = z.infer<typeof TransformRunStatus>;
+
+const TERMINAL_STATUSES = new Set<TransformRunStatus>([
+  "succeeded",
+  "failed",
+  "timeout",
+  "canceled",
+]);
+
+const FAILURE_STATUSES = new Set<TransformRunStatus>(["failed", "timeout", "canceled"]);
+
+/** Whether the server will report any further progress for a run in this status. */
+export function isTransformRunTerminal(status: TransformRunStatus): boolean {
+  return TERMINAL_STATUSES.has(status);
+}
+
+/** Whether a terminal status means the run did not produce its target table. */
+export function isTransformRunFailed(status: TransformRunStatus): boolean {
+  return FAILURE_STATUSES.has(status);
+}
+
+const TransformRunMethod = z.enum(["manual", "cron"]);
+
+const TransformRunTrigger = z.enum(["none", "global-schedule"]);
+
+const TransformCheckpointStrategy = z
+  .object({
+    type: z.literal("checkpoint"),
+    "checkpoint-filter-field-id": z.number().int().positive().optional(),
+  })
+  .loose();
+
+const TransformSourceTableEntry = z
+  .object({
+    alias: z.string(),
+    database_id: z.number().int(),
+    schema: z.string().nullable(),
+    table: z.string().optional(),
+    table_id: z.number().int().nullable().optional(),
+  })
+  .loose();
+
+const TransformQuerySource = z
+  .object({
+    type: z.literal("query"),
+    query: z.unknown().describe("Native SQL or MBQL query"),
+    "source-incremental-strategy": TransformCheckpointStrategy.optional(),
+  })
+  .loose();
+
+const TransformPythonSource = z
+  .object({
+    type: z.literal("python"),
+    body: z.string(),
+    "source-tables": z.array(TransformSourceTableEntry),
+    "source-database": z.number().int().optional(),
+    "source-incremental-strategy": TransformCheckpointStrategy.optional(),
+  })
+  .loose();
+
+const TransformSource = z.discriminatedUnion("type", [TransformQuerySource, TransformPythonSource]);
+
+const TransformAppendStrategy = z.object({ type: z.literal("append") }).loose();
+
+const TransformMergeKeyColumn = z
+  .object({
+    name: z.string().min(1).optional(),
+    "field-id": z.number().int().positive().nullable().optional(),
+  })
+  .loose();
+
+const TransformMergeStrategy = z
+  .object({
+    type: z.literal("merge"),
+    "unique-key": z.array(TransformMergeKeyColumn),
+  })
+  .loose();
+
+const TransformTargetIncrementalStrategy = z.discriminatedUnion("type", [
+  TransformAppendStrategy,
+  TransformMergeStrategy,
+]);
+
+const TransformTableTarget = z
+  .object({
+    type: z.literal("table"),
+    database: z.number().int().optional(),
+    schema: z.string().min(1).nullable().optional(),
+    name: z.string(),
+  })
+  .loose();
+
+const TransformTableIncrementalTarget = z
+  .object({
+    type: z.literal("table-incremental"),
+    database: z.number().int().optional(),
+    schema: z.string().min(1).nullable().optional(),
+    name: z.string(),
+    "target-incremental-strategy": TransformTargetIncrementalStrategy,
+  })
+  .loose();
+
+export const TransformTarget = z.discriminatedUnion("type", [
+  TransformTableTarget,
+  TransformTableIncrementalTarget,
+]);
+export type TransformTarget = z.infer<typeof TransformTarget>;
+
+const TransformTargetCompact = z.discriminatedUnion("type", [
+  TransformTableTarget.strip(),
+  TransformTableIncrementalTarget.strip(),
+]);
+
+const TransformLastRun = z
+  .object({
+    id: z.number().int(),
+    transform_id: z.number().int(),
+    run_method: TransformRunMethod,
+    status: TransformRunStatus,
+    start_time: z.string(),
+    end_time: z.string().nullable().optional(),
+    message: z.string().nullable(),
+    user_id: z.number().int().nullable(),
+  })
+  .loose();
+
+export const TransformRun = z
+  .object({
+    id: z.number().int(),
+    transform_id: z.number().int().nullable(),
+    run_method: TransformRunMethod,
+    status: TransformRunStatus,
+    is_active: z.boolean().nullable(),
+    start_time: z.string(),
+    end_time: z.string().nullable().optional(),
+    message: z.string().nullable(),
+    user_id: z.number().int().nullable(),
+  })
+  .loose();
+export type TransformRun = z.infer<typeof TransformRun>;
+
+export const TransformRunCompact = TransformRun.pick({
+  id: true,
+  transform_id: true,
+  status: true,
+  run_method: true,
+  start_time: true,
+  end_time: true,
+  message: true,
+}).strip();
+export type TransformRunCompact = z.infer<typeof TransformRunCompact>;
+
+// `run_id` is null when the server accepted the request without starting a run, and `final` is null
+// whenever no run was polled — either because the caller did not ask to wait or because there was
+// no run to wait for. `target_table_id` is present only for a caller that asked to follow the
+// output table, and null when the table was not registered before the wait ran out.
+export const TransformRunResult = z.object({
+  message: z.string(),
+  run_id: z.number().int().positive().nullable(),
+  final: TransformRun.nullable(),
+  target_table_id: z.number().int().nullable().optional(),
+});
+export type TransformRunResult = z.infer<typeof TransformRunResult>;
+
+export const Transform = z
+  .object({
+    id: z.number().int(),
+    name: z.string(),
+    description: z.string().nullable(),
+    source: TransformSource,
+    target: TransformTarget,
+    source_type: TransformSourceType,
+    source_database_id: z.number().int().nullable().optional(),
+    target_db_id: z.number().int().nullable().optional(),
+    target_table_id: z.number().int().nullable().optional(),
+    table: z.object({ id: z.number().int() }).loose().nullable().optional(),
+    entity_id: z.string().nullable(),
+    created_at: z.string(),
+    updated_at: z.string(),
+    creator_id: z.number().int(),
+    collection_id: z.number().int().nullable(),
+    run_trigger: TransformRunTrigger.nullable().optional(),
+    last_run: TransformLastRun.nullable().optional(),
+    tag_ids: z.array(z.number().int()).optional(),
+  })
+  .loose();
+export type Transform = z.infer<typeof Transform>;
+
+export const TransformCompact = Transform.pick({
+  id: true,
+  name: true,
+  description: true,
+  source_type: true,
+  target_db_id: true,
+})
+  .strip()
+  .extend({ target: TransformTargetCompact });
+export type TransformCompact = z.infer<typeof TransformCompact>;
+
+export const TransformCreateInput = z
+  .object({
+    name: z.string().min(1),
+    description: z.string().nullable().optional(),
+    source: TransformSource,
+    target: TransformTarget,
+    run_trigger: TransformRunTrigger.optional(),
+    tag_ids: z.array(z.number().int().positive()).optional(),
+    collection_id: z.number().int().positive().nullable().optional(),
+    owner_user_id: z.number().int().positive().nullable().optional(),
+    owner_email: z.string().nullable().optional(),
+  })
+  .loose();
+export type TransformCreateInput = z.infer<typeof TransformCreateInput>;
+
+export const TransformUpdateInput = z
+  .object({
+    name: z.string().min(1).optional(),
+    description: z.string().nullable().optional(),
+    source: TransformSource.optional(),
+    target: TransformTarget.optional(),
+    run_trigger: TransformRunTrigger.optional(),
+    tag_ids: z.array(z.number().int().positive()).optional(),
+    collection_id: z.number().int().positive().nullable().optional(),
+    owner_user_id: z.number().int().positive().nullable().optional(),
+    owner_email: z.string().nullable().optional(),
+  })
+  .loose();
+export type TransformUpdateInput = z.infer<typeof TransformUpdateInput>;

@@ -1,0 +1,38 @@
+import { Collection } from "@metabase/client/domain/collection";
+import { collectionView } from "../../output/views/collection";
+import { renderItem } from "../../output/render";
+import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { defineMetabaseCommand } from "../runtime";
+
+import { parseCollectionRef } from "./parse-ref";
+
+export default defineMetabaseCommand({
+  meta: {
+    name: "get",
+    description: 'Get a collection by id, 21-char entity id, or "root"/"trash"',
+  },
+  capabilities: { minVersion: 58 },
+  args: {
+    ...outputFlags,
+    ...profileFlag,
+    ...connectionFlags,
+    id: {
+      type: "positional",
+      description: 'Collection id, 21-char entity id, or one of: "root", "trash"',
+      required: true,
+    },
+  },
+  outputSchema: Collection,
+  examples: [
+    "mb collection get 4",
+    "mb collection get root --json",
+    "mb collection get trash --json",
+    "mb collection get voo1If9y8Sld0lXej6xl0 --json",
+  ],
+  async run({ args, ctx, getClient }) {
+    const ref = parseCollectionRef(args.id);
+    const client = await getClient();
+    const collection = await client.collection.get(ref);
+    renderItem(collection, collectionView, ctx);
+  },
+});

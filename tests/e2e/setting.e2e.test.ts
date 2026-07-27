@@ -1,10 +1,12 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { SettingListEnvelope } from "../../src/commands/setting/list";
-import { createClient, type Client } from "../../src/core/http/client";
-import { SettingValue } from "../../src/domain/setting";
-import { parseJson } from "../../src/runtime/json";
+import { SettingValue } from "@metabase/client/domain/setting";
+import { createTransport, type Transport } from "@metabase/client/http/transport";
+import { parseJson } from "@metabase/client/json";
+
+import { SettingListEnvelope } from "../../packages/cli/src/commands/setting/list";
+import { USER_AGENT } from "../../packages/cli/src/core/user-agent";
 
 const IntegerSettingValue = SettingValue.extend({ value: z.number().int() });
 const NumberSettingValue = SettingValue.extend({ value: z.number() });
@@ -15,22 +17,25 @@ import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { requireServer } from "./server-gate";
 
-const remoteSyncSkip = requireServer({ minVersion: 60, tokenFeature: "remote_sync" });
+const remoteSyncSkip = requireServer(
+  "setting › get --json on a string-valued setting wraps the bare server response",
+  { minVersion: 60, tokenFeature: "remote_sync" },
+);
 
 const MUTABLE_KEY = "enable-public-sharing";
 const MUTABLE_KEY_ENV_NAME = "MB_ENABLE_PUBLIC_SHARING";
 
 describe("setting e2e", () => {
   let bootstrap: E2EBootstrap;
-  let adminClient: Client;
+  let adminClient: Transport;
   const tempDirs: string[] = [];
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
-    adminClient = createClient({
-      url: bootstrap.baseUrl,
-      credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey },
-    });
+    adminClient = createTransport(
+      { url: bootstrap.baseUrl, credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey } },
+      { userAgent: USER_AGENT },
+    );
   });
 
   afterEach(async () => {

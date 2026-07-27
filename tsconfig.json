@@ -17,7 +17,20 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    // `@metabase/client`'s export map names its built output, which is what a consumer installs and
+    // nothing this workspace should compile against. Every in-repo importer reads the source.
+    "paths": {
+      "@metabase/client": ["./packages/client/src/index"],
+      "@metabase/client/*": ["./packages/client/src/*"]
+    }
   },
-  "include": ["src/**/*", "tests/**/*", "scripts/**/*", "tsdown.config.ts", "eslint.config.js"]
+  "include": [
+    "packages/cli/src/**/*",
+    "packages/client/src/**/*",
+    "packages/cli/tsdown.config.ts",
+    "packages/client/tsdown.config.ts",
+    "tests/**/*",
+    "scripts/**/*"
+  ]
 }

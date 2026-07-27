@@ -1,19 +1,25 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { LibraryPublishResult } from "../../src/commands/library/publish";
-import { LibraryUnpublishResult } from "../../src/commands/library/unpublish";
-import { Library } from "../../src/domain/library";
-import { TableCompact } from "../../src/domain/table";
-import { parseJson } from "../../src/runtime/json";
+import { Library } from "@metabase/client/domain/library";
+import { TableCompact } from "@metabase/client/domain/table";
+import { parseJson } from "@metabase/client/json";
 
+import { LibraryPublishResult } from "../../packages/cli/src/commands/library/publish";
+import { LibraryUnpublishResult } from "../../packages/cli/src/commands/library/unpublish";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
 import { requireServer } from "./server-gate";
 
-const LIBRARY_UNAVAILABLE = requireServer({ minVersion: 59, tokenFeature: "library" });
-const REMOTE_SYNC_UNAVAILABLE = requireServer({ minVersion: 60, tokenFeature: "remote_sync" });
+const LIBRARY_UNAVAILABLE = requireServer("library › with the library feature", {
+  minVersion: 59,
+  tokenFeature: "library",
+});
+const REMOTE_SYNC_UNAVAILABLE = requireServer(
+  "library › with the library and remote_sync features",
+  { minVersion: 60, tokenFeature: "remote_sync" },
+);
 
 const SYNC_SCOPE_HINT_MARKER = "is not marked for git-sync";
 

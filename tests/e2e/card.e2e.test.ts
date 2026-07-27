@@ -1,20 +1,20 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { CardListEnvelope } from "../../src/commands/card/list";
-import { ValidationOutcome } from "../../src/core/schema/validate";
 import {
   Card,
   CardCompact,
   CardCreateInput,
   CardQueryResult,
   CardQueryResultCompact,
-} from "../../src/domain/card";
-import { parseJson } from "../../src/runtime/json";
+} from "@metabase/client/domain/card";
+import { parseJson } from "@metabase/client/json";
 
+import { CardListEnvelope } from "../../packages/cli/src/commands/card/list";
+import { ValidationOutcome } from "../../packages/cli/src/core/schema/validate";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { assertCompactColumns, assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { cliErrorMessage } from "./cli-error";
+import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 
 const NEW_CARD_NAME = "e2e_card_new";
@@ -117,7 +117,10 @@ describe("card e2e", () => {
     expect(parseJson(result.stdout, CardListEnvelope)).toEqual({
       data: [{ ...ORDERS_BY_STATUS_COMPACT, archived: true }],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -154,6 +157,19 @@ describe("card e2e", () => {
       table_id: null,
       dashboard_id: null,
     });
+  });
+
+  it("list with a rejected --limit fails with a ConfigError envelope and an empty stdout", async () => {
+    const result = await runCli({
+      args: ["card", "list", "--limit", "0", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("config");
+    expect(cliErrorMessage(result.stderr)).toBe("invalid --limit: 0 (must be ≥ 1)");
+    expect(result.stdout).toBe("");
   });
 
   it("get with a non-integer id fails fast with ConfigError", async () => {
@@ -435,7 +451,10 @@ describe("card e2e", () => {
     expect(parseJson(archivedListResult.stdout, CardListEnvelope)).toEqual({
       data: [{ ...ORDERS_BY_STATUS_COMPACT, archived: true }],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 

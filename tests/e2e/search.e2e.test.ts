@@ -1,13 +1,14 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { SearchListEnvelope } from "../../src/commands/search";
-import { SEARCH_MODELS } from "../../src/domain/search";
-import { parseJson } from "../../src/runtime/json";
+import { SEARCH_MODELS } from "@metabase/client/domain/search";
+import { parseJson } from "@metabase/client/json";
 
+import { SearchListEnvelope } from "../../packages/cli/src/commands/search";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { cliErrorMessage } from "./cli-error";
+import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
+
 const ORDERS_BY_STATUS_COMPACT = {
   id: SEEDED.ordersCardId,
   name: "Orders by status",
@@ -52,7 +53,10 @@ describe("search e2e", () => {
     expect(parseJson(result.stdout, SearchListEnvelope)).toEqual({
       data: [ORDERS_BY_STATUS_COMPACT],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
       limit: 10,
     });
   });
@@ -69,7 +73,10 @@ describe("search e2e", () => {
     expect(parseJson(result.stdout, SearchListEnvelope)).toEqual({
       data: [ORDERS_BY_STATUS_COMPACT],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
       limit: 20,
     });
   });
@@ -89,7 +96,7 @@ describe("search e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("--limit with a non-positive integer rejects with ConfigError", async () => {
+  it("--limit with a non-positive integer rejects with a ConfigError envelope", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["search", "--limit", "0", "--json"],
@@ -98,7 +105,8 @@ describe("search e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain("invalid --limit: 0 (must be ≥ 1)");
+    expect(cliErrorCategory(result.stderr)).toBe("config");
+    expect(cliErrorMessage(result.stderr)).toBe("invalid --limit: 0 (must be ≥ 1)");
     expect(result.stdout).toBe("");
   });
 

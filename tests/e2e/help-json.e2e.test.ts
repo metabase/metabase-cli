@@ -1,15 +1,15 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import main from "../../src/main";
+import { parseJson } from "@metabase/client/json";
+
+import main from "../../packages/cli/src/main";
 import {
   buildHelpEntry,
   buildHelpIndex,
   CommandHelpEntry,
   CommandHelpIndex,
   resolveCommandPath,
-} from "../../src/runtime/command-help";
-import { parseJson } from "../../src/runtime/json";
-
+} from "../../packages/cli/src/runtime/command-help";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 
 describe("--help --json e2e", () => {

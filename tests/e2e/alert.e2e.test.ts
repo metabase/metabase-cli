@@ -1,10 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { AlertListEnvelope } from "../../src/commands/alert/list";
-import { AlertSendResult } from "../../src/commands/alert/send";
-import { NotificationCompact, type NotificationCreateInput } from "../../src/domain/notification";
-import { parseJson } from "../../src/runtime/json";
+import {
+  NotificationCompact,
+  type NotificationCreateInput,
+} from "@metabase/client/domain/notification";
+import { parseJson } from "@metabase/client/json";
 
+import { AlertListEnvelope } from "../../packages/cli/src/commands/alert/list";
+import { AlertSendResult } from "../../packages/cli/src/commands/alert/send";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
@@ -103,7 +106,10 @@ describe("alert e2e", () => {
     expect(parseJson(result.stdout, AlertListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -149,7 +155,10 @@ describe("alert e2e", () => {
     expect(parseJson(result.stdout, AlertListEnvelope)).toEqual({
       data: [expectedCompact(created.id, created.creator_id)],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -165,7 +174,10 @@ describe("alert e2e", () => {
     expect(parseJson(matching.stdout, AlertListEnvelope)).toEqual({
       data: [expectedCompact(created.id, created.creator_id)],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
 
     const other = await runCli({
@@ -177,7 +189,10 @@ describe("alert e2e", () => {
     expect(parseJson(other.stdout, AlertListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -194,7 +209,10 @@ describe("alert e2e", () => {
     expect(parseJson(result.stdout, AlertListEnvelope)).toEqual({
       data: [expectedCompact(created.id, created.creator_id)],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -209,7 +227,10 @@ describe("alert e2e", () => {
     expect(parseJson(result.stdout, AlertListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -339,7 +360,10 @@ describe("alert e2e", () => {
     expect(parseJson(activeList.stdout, AlertListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
 
     const inactiveList = await runCli({
@@ -351,7 +375,10 @@ describe("alert e2e", () => {
     expect(parseJson(inactiveList.stdout, AlertListEnvelope)).toEqual({
       data: [inactive],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
 
     const reactivate = await runCli({

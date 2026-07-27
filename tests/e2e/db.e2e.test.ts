@@ -1,18 +1,22 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { fullRollupOversizeHint, tableMapOversizeHint } from "../../src/commands/db/hints";
-import { DatabaseListEnvelope } from "../../src/commands/db/list";
-import { DatabaseSchemaListEnvelope } from "../../src/commands/db/schemas";
-import { DatabaseSchemaTablesEnvelope } from "../../src/commands/db/schema-tables";
-import { Database, DatabaseCompact, DatabaseSyncResult } from "../../src/domain/database";
-import { TableCompact } from "../../src/domain/table";
-import { DEFAULT_MAX_BYTES, listEnvelopeSchema } from "../../src/output/types";
-import { parseJson } from "../../src/runtime/json";
+import { Database, DatabaseCompact, DatabaseSyncResult } from "@metabase/client/domain/database";
+import { TableCompact } from "@metabase/client/domain/table";
+import { parseJson } from "@metabase/client/json";
 
+import {
+  fullRollupOversizeHint,
+  tableMapOversizeHint,
+} from "../../packages/cli/src/commands/db/hints";
+import { DatabaseListEnvelope } from "../../packages/cli/src/commands/db/list";
+import { DatabaseSchemaListEnvelope } from "../../packages/cli/src/commands/db/schemas";
+import { DatabaseSchemaTablesEnvelope } from "../../packages/cli/src/commands/db/schema-tables";
+import { DEFAULT_MAX_BYTES, listEnvelopeSchema } from "../../packages/cli/src/output/types";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
+
 const SAVED_QUESTIONS_VIRTUAL_DB_ID = -1337;
 
 const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
@@ -132,7 +136,10 @@ describe("db e2e", () => {
     expect(parseJson(result.stdout, DatabaseListEnvelope)).toEqual({
       data: [{ id: SEEDED.warehouseDbId, name: "Warehouse", engine: "postgres" }],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -175,7 +182,10 @@ describe("db e2e", () => {
         },
       ],
       returned: 2,
+      offset: 0,
       total: 2,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -320,7 +330,10 @@ describe("db e2e", () => {
     expect(parseJson(result.stdout, DatabaseSchemaListEnvelope)).toEqual({
       data: [{ name: "analytics" }, { name: "public" }],
       returned: 2,
+      offset: 0,
       total: 2,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -346,7 +359,10 @@ describe("db e2e", () => {
     expect(parseJson(result.stdout, DatabaseSchemaTablesEnvelope)).toEqual({
       data: PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME,
       returned: PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME.length,
+      offset: 0,
       total: PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME.length,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -361,7 +377,10 @@ describe("db e2e", () => {
     expect(parseJson(result.stdout, DatabaseSchemaTablesEnvelope)).toEqual({
       data: ANALYTICS_TABLES_SORTED_BY_DISPLAY_NAME,
       returned: ANALYTICS_TABLES_SORTED_BY_DISPLAY_NAME.length,
+      offset: 0,
       total: ANALYTICS_TABLES_SORTED_BY_DISPLAY_NAME.length,
+      has_more: false,
+      next_offset: null,
     });
   });
 

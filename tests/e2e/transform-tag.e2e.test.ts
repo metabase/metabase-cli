@@ -1,10 +1,10 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { DeleteResult } from "../../src/commands/delete-runtime";
-import { TransformTagListEnvelope } from "../../src/commands/transform-tag/list";
-import { TransformTagCompact } from "../../src/domain/transform-tag";
-import { parseJson } from "../../src/runtime/json";
+import { TransformTagCompact } from "@metabase/client/domain/transform-tag";
+import { parseJson } from "@metabase/client/json";
 
+import { DeleteResult } from "../../packages/cli/src/commands/delete-runtime";
+import { TransformTagListEnvelope } from "../../packages/cli/src/commands/transform-tag/list";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
@@ -27,7 +27,7 @@ const USER_TAG_COMPACT = {
   built_in_type: null,
 } as const;
 
-const skipReason = requireServer({ minVersion: 59 });
+const skipReason = requireServer("transform-tag › transform-tag e2e", { minVersion: 59 });
 
 describe.skipIf(skipReason !== null)("transform-tag e2e", () => {
   let bootstrap: E2EBootstrap;

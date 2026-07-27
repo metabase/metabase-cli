@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { writeProbeResult, writeProfile } from "../../src/core/auth/storage";
+import { writeProbeResult, writeProfile } from "../../packages/cli/src/core/auth/storage";
 
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 
@@ -67,7 +67,7 @@ describe("version preflight enforcement e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain(
-      "This command requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase or pin mb-cli to an older release.",
+      "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
     );
   });
 
@@ -78,7 +78,7 @@ describe("version preflight enforcement e2e", () => {
     const result = await runCli({ args: ["measure", "list", "--skip-preflight"], configHome });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).not.toContain("This command requires Metabase");
+    expect(result.stderr).not.toContain("This operation requires Metabase");
     expect(result.stderr).toContain("Could not reach Metabase");
   });
 
@@ -101,7 +101,7 @@ describe("version preflight enforcement e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain(
-      "This command requires the 'remote_sync' premium feature (not enabled on this server).",
+      "This operation requires the 'remote_sync' premium feature (not enabled on this server).",
     );
   });
 
@@ -116,7 +116,7 @@ describe("version preflight enforcement e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).not.toContain("This command requires Metabase");
+    expect(result.stderr).not.toContain("This operation requires Metabase");
     expect(result.stderr).toContain("Could not reach Metabase");
   });
 });

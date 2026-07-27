@@ -1,15 +1,15 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { DeleteResult } from "../../src/commands/delete-runtime";
-import { TimelineEventListEnvelope } from "../../src/commands/timeline/events";
-import { TimelineListEnvelope } from "../../src/commands/timeline/list";
 import {
   TimelineCompact,
   type TimelineCreateInput,
   type TimelineEventCreateInput,
-} from "../../src/domain/timeline";
-import { parseJson } from "../../src/runtime/json";
+} from "@metabase/client/domain/timeline";
+import { parseJson } from "@metabase/client/json";
 
+import { DeleteResult } from "../../packages/cli/src/commands/delete-runtime";
+import { TimelineEventListEnvelope } from "../../packages/cli/src/commands/timeline/events";
+import { TimelineListEnvelope } from "../../packages/cli/src/commands/timeline/list";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
@@ -101,7 +101,10 @@ describe("timeline e2e", () => {
     expect(parseJson(result.stdout, TimelineListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -143,7 +146,10 @@ describe("timeline e2e", () => {
     expect(parseJson(result.stdout, TimelineListEnvelope)).toEqual({
       data: [NEW_TIMELINE_COMPACT],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -223,7 +229,10 @@ describe("timeline e2e", () => {
     expect(parseJson(activeList.stdout, TimelineListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
 
     const archivedList = await runCli({
@@ -235,7 +244,10 @@ describe("timeline e2e", () => {
     expect(parseJson(archivedList.stdout, TimelineListEnvelope)).toEqual({
       data: [{ ...NEW_TIMELINE_COMPACT, archived: true }],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -269,7 +281,10 @@ describe("timeline e2e", () => {
         },
       ],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -286,7 +301,10 @@ describe("timeline e2e", () => {
     expect(parseJson(result.stdout, TimelineEventListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -330,7 +348,10 @@ describe("timeline e2e", () => {
     expect(parseJson(activeResult.stdout, TimelineEventListEnvelope)).toEqual({
       data: [activeCompact],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
 
     const allResult = await runCli({
@@ -346,7 +367,10 @@ describe("timeline e2e", () => {
     }).toEqual({
       data: [activeCompact, archivedCompact],
       returned: 2,
+      offset: 0,
       total: 2,
+      has_more: false,
+      next_offset: null,
     });
   });
 

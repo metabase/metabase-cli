@@ -1,0 +1,39 @@
+import { TransformJob, TransformJobUpdateInput } from "@metabase/client/domain/transform-job";
+import { transformJobView } from "../../output/views/transform-job";
+import { renderSummary } from "../../output/render";
+import { readBody } from "../../runtime/body";
+import { bodyInputFlags } from "../body-flags";
+import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { parseId } from "../parse-id";
+import { defineMetabaseCommand } from "../runtime";
+
+export default defineMetabaseCommand({
+  meta: { name: "update", description: "Update a transform job by id" },
+  capabilities: { minVersion: 59 },
+  args: {
+    ...outputFlags,
+    ...profileFlag,
+    ...connectionFlags,
+    ...bodyInputFlags,
+    id: { type: "positional", description: "Transform job id", required: true },
+  },
+  inputSchema: TransformJobUpdateInput,
+  outputSchema: TransformJob,
+  examples: [
+    "cat patch.json | mb transform-job update 1",
+    "mb transform-job update 1 --file patch.json",
+    'mb transform-job update 1 --body \'{"schedule":"0 0 6 * * ?"}\'',
+  ],
+  async run({ args, ctx, getClient }) {
+    const id = parseId(args.id);
+    const body = await readBody({ flag: args.body, file: args.file }, TransformJobUpdateInput);
+    const client = await getClient();
+    const updated = await client.transformJob.update(id, body);
+    renderSummary(
+      updated,
+      transformJobView,
+      `Updated transform job ${updated.id} "${updated.name}".`,
+      ctx,
+    );
+  },
+});

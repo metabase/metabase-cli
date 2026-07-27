@@ -1,9 +1,10 @@
 import { z } from "zod";
 
-import type { OAuthCredential } from "../../../src/core/auth/credential";
-import { writeOAuthProfile } from "../../../src/core/auth/storage";
-import { CurrentUser } from "../../../src/domain/user";
-import { parseJson } from "../../../src/runtime/json";
+import type { OAuthCredential } from "@metabase/client/auth/credential";
+import { CurrentUser } from "@metabase/client/domain/user";
+import { parseJson } from "@metabase/client/json";
+
+import { writeOAuthProfile } from "../../../packages/cli/src/core/auth/storage";
 import type { E2EBootstrap } from "../bootstrap-data";
 
 // Browser-simulation and raw-protocol helpers for the OAuth e2e suite. They live under setup/

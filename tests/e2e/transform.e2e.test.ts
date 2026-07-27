@@ -1,25 +1,30 @@
 import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
-import { z } from "zod";
+import { Collection } from "@metabase/client/domain/collection";
+import {
+  isTransformRunTerminal,
+  TransformCompact,
+  TransformRun,
+  TransformRunCompact,
+  TransformRunResult,
+} from "@metabase/client/domain/transform";
+import { createTransport, type Transport } from "@metabase/client/http/transport";
+import { parseJson } from "@metabase/client/json";
+import { pollUntil } from "@metabase/client/poll";
 
-import { DeleteResult } from "../../src/commands/delete-runtime";
-import { TransformCancelResult } from "../../src/commands/transform/cancel";
-import { TransformDependenciesEnvelope } from "../../src/commands/transform/dependencies";
-import { TransformListEnvelope } from "../../src/commands/transform/list";
-import { RUN_TERMINAL_STATUSES, TransformRunResult } from "../../src/commands/transform/run";
-import { TransformRunListEnvelope } from "../../src/commands/transform/runs";
-import { createClient, type Client } from "../../src/core/http/client";
-import { ValidationOutcome } from "../../src/core/schema/validate";
-import { Collection } from "../../src/domain/collection";
-import { TransformCompact, TransformRun, TransformRunCompact } from "../../src/domain/transform";
-import { parseJson } from "../../src/runtime/json";
-import { pollUntil } from "../../src/runtime/poll";
-
+import { DeleteResult } from "../../packages/cli/src/commands/delete-runtime";
+import { TransformCancelResult } from "../../packages/cli/src/commands/transform/cancel";
+import { TransformDependenciesEnvelope } from "../../packages/cli/src/commands/transform/dependencies";
+import { TransformListEnvelope } from "../../packages/cli/src/commands/transform/list";
+import { TransformRunListEnvelope } from "../../packages/cli/src/commands/transform/runs";
+import { USER_AGENT } from "../../packages/cli/src/core/user-agent";
+import { ValidationOutcome } from "../../packages/cli/src/core/schema/validate";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 import { requireServer, serverVersionBelow } from "./server-gate";
+
 const FIRST_TRANSFORM_ID = 1;
 const TRANSFORM_NAME = "e2e_transform";
 const TRANSFORM_TARGET_TABLE = "e2e_transform";
@@ -36,19 +41,17 @@ interface TransformBody {
   target: { type: "table"; database: number; schema: string; name: string };
 }
 
-const RunStatusResponse = z.object({ status: z.string() }).loose();
-
-async function waitForRunComplete(client: Client, runId: number): Promise<void> {
+async function waitForRunComplete(client: Transport, runId: number): Promise<void> {
   await pollUntil(
-    async () => client.requestParsed(RunStatusResponse, `/api/transform/run/${runId}`),
-    (run) => RUN_TERMINAL_STATUSES.has(run.status),
+    async () => client.requestParsed(TransformRun, `/api/transform/run/${runId}`),
+    (run) => isTransformRunTerminal(run.status),
     { intervalMs: 500, timeoutMs: 30_000 },
   );
 }
 
-async function waitForRunStarted(client: Client, runId: number): Promise<void> {
+async function waitForRunStarted(client: Transport, runId: number): Promise<void> {
   await pollUntil(
-    async () => client.requestParsed(RunStatusResponse, `/api/transform/run/${runId}`),
+    async () => client.requestParsed(TransformRun, `/api/transform/run/${runId}`),
     (run) => run.status === "started",
     { intervalMs: 200, timeoutMs: 15_000 },
   );
@@ -86,19 +89,19 @@ const TRANSFORM_COMPACT = {
   target_db_id: SEEDED.warehouseDbId,
 } as const;
 
-const skipReason = requireServer({ minVersion: 59 });
+const skipReason = requireServer("transform › transform e2e", { minVersion: 59 });
 
 describe.skipIf(skipReason !== null)("transform e2e", () => {
   let bootstrap: E2EBootstrap;
-  let adminClient: Client;
+  let adminClient: Transport;
   const tempDirs: string[] = [];
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
-    adminClient = createClient({
-      url: bootstrap.baseUrl,
-      credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey },
-    });
+    adminClient = createTransport(
+      { url: bootstrap.baseUrl, credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey } },
+      { userAgent: USER_AGENT },
+    );
   });
 
   afterEach(async () => {
@@ -144,7 +147,10 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     expect(parseJson(result.stdout, TransformListEnvelope)).toEqual({
       data: [TRANSFORM_COMPACT],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -566,7 +572,10 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
         },
       ],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -618,19 +627,26 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
         },
       ],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
-  it("runs --limit caps the result count to the requested page", async () => {
+  it("runs --limit caps the result count and points at the rest", async () => {
     await createSeedTransform();
 
-    const runResult = await runCli({
-      args: ["transform", "run", String(FIRST_TRANSFORM_ID), "--wait", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-    expect(runResult.exitCode, runResult.stderr).toBe(0);
+    const runOnce = async (): Promise<void> => {
+      const runResult = await runCli({
+        args: ["transform", "run", String(FIRST_TRANSFORM_ID), "--wait", "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+      expect(runResult.exitCode, runResult.stderr).toBe(0);
+    };
+    await runOnce();
+    await runOnce();
 
     const result = await runCli({
       args: ["transform", "runs", "--limit", "1", "--json"],
@@ -651,7 +667,50 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
         },
       ],
       returned: 1,
+      offset: 0,
       limit: 1,
+      total: 2,
+      has_more: true,
+      next_offset: 1,
+    });
+  });
+
+  it("runs --offset resumes at the row the unwindowed listing holds there", async () => {
+    await createSeedTransform();
+
+    const runOnce = async (): Promise<void> => {
+      const runResult = await runCli({
+        args: ["transform", "run", String(FIRST_TRANSFORM_ID), "--wait", "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+      expect(runResult.exitCode, runResult.stderr).toBe(0);
+    };
+    await runOnce();
+    await runOnce();
+
+    const unwindowed = await runCli({
+      args: ["transform", "runs", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(unwindowed.exitCode, unwindowed.stderr).toBe(0);
+    const listed = parseJson(unwindowed.stdout, TransformRunListEnvelope);
+    expect(listed.data).toHaveLength(2);
+
+    const result = await runCli({
+      args: ["transform", "runs", "--offset", "1", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TransformRunListEnvelope)).toEqual({
+      data: [listed.data[1]],
+      returned: 1,
+      offset: 1,
+      total: 2,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -834,7 +893,10 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     expect(parseJson(result.stdout, TransformDependenciesEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -908,8 +970,9 @@ describe.skipIf(!serverVersionBelow(GATE_MIN_VERSION))(
       const result = await runCli({ args: ["transform", "list", "--json"], configHome });
 
       expect(result.exitCode).toBe(2);
-      expect(result.stderr).toContain(
-        `This command requires Metabase v${GATE_MIN_VERSION}+ (this server is ${serverTag}). Upgrade Metabase or pin mb-cli to an older release.`,
+      expect(cliErrorMessage(result.stderr)).toBe(
+        `This operation requires Metabase v${GATE_MIN_VERSION}+ (this server is ${serverTag}). Upgrade Metabase to use it.\n` +
+          "Or install an `@metabase/cli` release that targets this server.",
       );
       expect(result.stdout).toBe("");
     });
@@ -925,10 +988,10 @@ describe.skipIf(!serverVersionBelow(GATE_MIN_VERSION))(
       });
 
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain(
+      expect(cliErrorMessage(result.stderr)).toBe(
         `This endpoint is not available on Metabase ${serverTag}: GET /api/transform. ` +
-          `The command may require a newer Metabase major version. ` +
-          `Run 'mb auth list' to see this server's version.`,
+          "It may require a newer Metabase major version.\n" +
+          "Run `mb auth list` to see this server's version.",
       );
       expect(result.stdout).toBe("");
     });

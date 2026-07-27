@@ -1,26 +1,32 @@
 import { promises as fs } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
 import { z } from "zod";
 
-import { errorMessage, isNotFoundError } from "../../../src/core/errors";
-import { createClient, type Client } from "../../../src/core/http/client";
-import { HttpError } from "../../../src/core/http/errors";
-import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries } from "../../../src/core/http/retry";
-import { tryDiscoverMetadata } from "../../../src/core/http/oauth";
-import { probeServer, type ServerInfo } from "../../../src/core/version/probe";
-import { CardQueryResult } from "../../../src/domain/card";
-import { CurrentUser } from "../../../src/domain/user";
-import { parseJsonResult } from "../../../src/runtime/json";
-import { pollUntil } from "../../../src/runtime/poll";
+import { CardQueryResult } from "@metabase/client/domain/card";
+import { CurrentUser } from "@metabase/client/domain/user";
+import { errorMessage, isFileNotFoundError, MetabaseError } from "@metabase/client/errors";
+import { createTransport, type Transport } from "@metabase/client/http/transport";
+import { HttpError } from "@metabase/client/http/errors";
+import { tryDiscoverMetadata } from "@metabase/client/http/oauth";
+import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries } from "@metabase/client/http/retry";
+import { parseJsonResult } from "@metabase/client/json";
+import { pollUntil } from "@metabase/client/poll";
+import { probeServer, type ServerInfo } from "@metabase/client/version/probe";
+
+import { USER_AGENT } from "../../../packages/cli/src/core/user-agent";
 import {
   Bootstrap,
   BOOTSTRAP_FILE_PATH,
   type E2EBootstrap,
   type SeededIds,
 } from "../bootstrap-data";
-import { resolveE2EBaseUrl, resolveSnapshotName } from "../defaults";
+import {
+  DEFAULT_E2E_STACK,
+  resolveE2EBaseUrl,
+  resolveSnapshotName,
+  resolveStackId,
+} from "../defaults";
 import { E2E_GROUPS } from "../seed/ids";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -59,8 +65,14 @@ const ORDERS_OVERVIEW_DASHBOARD_DESCRIPTION = "E2E seeded dashboard with one ord
 const LIMITED_GROUP_NAME = "E2E Limited";
 const LIBRARY_FEATURE = "library";
 const LIBRARY_MIN_VERSION = 59;
+const TRANSFORMS_ENABLED_SETTING = "transforms-enabled";
+const TRANSFORMS_MIN_VERSION = 59;
+const TRANSFORMS_LOCKED_STATUSES: ReadonlySet<number> = new Set([402, 403]);
 
 const BASE_URL = resolveE2EBaseUrl();
+
+const SESSION_HEADER = "x-metabase-session";
+const JSON_CONTENT_TYPE = "application/json";
 
 const SessionPropertiesResponse = z.object({ "setup-token": z.string().nullish() }).loose();
 const SessionResponse = z.object({ id: z.string() });
@@ -72,6 +84,9 @@ const TableMeta = z
   .loose();
 const DatabaseMetadataResponse = z.object({ tables: z.array(TableMeta) }).loose();
 const PermissionsGroupResponse = z.object({ id: z.number().int().positive() }).loose();
+const NamedEntityResponse = z.object({ name: z.string() }).loose();
+const PermissionsGroupListResponse = z.array(NamedEntityResponse);
+const DatabaseListResponse = z.object({ data: z.array(NamedEntityResponse) }).loose();
 const CollectionGraphResponse = z
   .object({ revision: z.number().int(), groups: z.record(z.string(), z.unknown()) })
   .loose();
@@ -82,15 +97,28 @@ const DashboardWithDashcardsResponse = z
   })
   .loose();
 
+// Bun pools connections, and a Metabase still warming up drops an idle one often enough to matter:
+// the close surfaces on the next request, and a POST that may already have landed is one no retry
+// policy can safely replay. A connection per request costs nothing at this volume.
+const seedFetch: typeof fetch = (input, init) => fetch(input, { ...init, keepalive: false });
+
+function apiKeyClient(apiKey: string): Transport {
+  return createTransport(
+    { url: BASE_URL, credential: { kind: "apiKey", apiKey } },
+    { userAgent: USER_AGENT, fetchImpl: seedFetch },
+  );
+}
+
 async function main(): Promise<void> {
   await waitForReady(BASE_URL, HEALTH_TIMEOUT_MS);
 
   const existing = await readStoredBootstrap();
   if (existing && (await canReuseExisting(existing.adminApiKey))) {
     assertSnapshotMatchesSeed(existing);
+    await reportSnapshotTransforms(apiKeyClient(existing.adminApiKey), existing.server);
     // OAuth support depends on the booted image, not on the reused credentials — re-probe it so a
     // stale bootstrap file (or an image swap on the same stack) can't pin the wrong answer.
-    const oauthSupported = (await tryDiscoverMetadata(BASE_URL)) !== null;
+    const oauthSupported = (await tryDiscoverMetadata(BASE_URL, USER_AGENT)) !== null;
     if (existing.server.oauthSupported !== oauthSupported) {
       await writeStoredBootstrap({ ...existing, server: { ...existing.server, oauthSupported } });
     }
@@ -99,25 +127,24 @@ async function main(): Promise<void> {
   }
 
   const sessionId = await ensureAdminSessionId();
+  await assertServerNotSeeded(sessionId);
   const adminApiKey = await mintApiKey(sessionId, "e2e-admin-key", E2E_GROUPS.ADMIN);
-  const client = createClient({
-    url: BASE_URL,
-    credential: { kind: "apiKey", apiKey: adminApiKey },
-  });
+  const client = apiKeyClient(adminApiKey);
 
   const apiKeyUser = await client.requestParsed(CurrentUser, "/api/user/current");
   const probed = await probeServer(client, { retries: DEFAULT_MAX_RETRIES });
+  if (transformsReady(probed)) {
+    await enableTransforms(client);
+    await reportTransformsUsable(client);
+  }
   const seeded = await seedContent(client, libraryReady(probed));
-  const oauthSupported = (await tryDiscoverMetadata(BASE_URL)) !== null;
+  const oauthSupported = (await tryDiscoverMetadata(BASE_URL, USER_AGENT)) !== null;
   const server = { ...probed, oauthSupported };
 
   const limitedGroupId = await createLimitedGroup(client);
   await revokeDefaultCollectionAccess(client, limitedGroupId, seeded.defaultCollectionId);
   const limitedApiKey = await mintApiKey(sessionId, "e2e-limited-key", limitedGroupId);
-  const limitedClient = createClient({
-    url: BASE_URL,
-    credential: { kind: "apiKey", apiKey: limitedApiKey },
-  });
+  const limitedClient = apiKeyClient(limitedApiKey);
   const limitedKeyUser = await limitedClient.requestParsed(CurrentUser, "/api/user/current");
   await assertLimitedKeyCannotQueryOrdersCard(limitedClient, seeded.ordersCardId);
 
@@ -149,10 +176,10 @@ async function ensureAdminSessionId(): Promise<string> {
     return direct.id;
   }
 
-  const sessionProps = await postOrGetPreAuthJson(
+  const sessionProps = await fetchJson(
     `${BASE_URL}/api/session/properties`,
     SessionPropertiesResponse,
-    "GET",
+    { method: "GET" },
   );
   const setupToken = sessionProps["setup-token"];
   if (typeof setupToken !== "string" || setupToken.length === 0) {
@@ -162,17 +189,21 @@ async function ensureAdminSessionId(): Promise<string> {
     );
   }
 
-  await postOrGetPreAuthJson(`${BASE_URL}/api/setup`, z.unknown(), "POST", {
-    token: setupToken,
-    user: {
-      first_name: ADMIN.first_name,
-      last_name: ADMIN.last_name,
-      email: ADMIN.email,
-      password: ADMIN.password,
-      site_name: ADMIN.site_name,
-    },
-    prefs: { site_name: ADMIN.site_name, allow_tracking: false },
-    database: null,
+  await fetchJson(`${BASE_URL}/api/setup`, z.unknown(), {
+    method: "POST",
+    headers: { "content-type": JSON_CONTENT_TYPE },
+    body: JSON.stringify({
+      token: setupToken,
+      user: {
+        first_name: ADMIN.first_name,
+        last_name: ADMIN.last_name,
+        email: ADMIN.email,
+        password: ADMIN.password,
+        site_name: ADMIN.site_name,
+      },
+      prefs: { site_name: ADMIN.site_name, allow_tracking: false },
+      database: null,
+    }),
   });
 
   const after = await tryLogin();
@@ -182,13 +213,13 @@ async function ensureAdminSessionId(): Promise<string> {
   return after.id;
 }
 
-// These requests can't use the api-key `Client`: setup is pre-auth (no key yet) and
-// `mintApiKey` authenticates with an `x-metabase-session` header the client doesn't model.
-// They still share the client's retry loop via `runWithRetries`.
+// These requests can't use the api-key `Transport`: setup is pre-auth (no key yet), and everything
+// that runs before the admin key exists authenticates with an `x-metabase-session` header the
+// client doesn't model. They still share the client's retry loop via `runWithRetries`.
 async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
   return runWithRetries(async (attempt) => {
     try {
-      return { kind: "success", response: await fetch(url, init) };
+      return { kind: "success", response: await seedFetch(url, init) };
     } catch (error) {
       if (attempt >= DEFAULT_MAX_RETRIES) {
         const method = init.method ?? "GET";
@@ -205,7 +236,7 @@ async function fetchWithRetry(url: string, init: RequestInit): Promise<Response>
 async function mintApiKey(sessionId: string, namePrefix: string, groupId: number): Promise<string> {
   const response = await fetchWithRetry(`${BASE_URL}/api/api-key`, {
     method: "POST",
-    headers: { "content-type": "application/json", "x-metabase-session": sessionId },
+    headers: { "content-type": JSON_CONTENT_TYPE, [SESSION_HEADER]: sessionId },
     body: JSON.stringify({
       name: `${namePrefix}-${Date.now()}`,
       group_id: groupId,
@@ -217,7 +248,7 @@ async function mintApiKey(sessionId: string, namePrefix: string, groupId: number
   return ApiKeyResponse.parse(await response.json()).unmasked_key;
 }
 
-async function createLimitedGroup(client: Client): Promise<number> {
+async function createLimitedGroup(client: Transport): Promise<number> {
   const created = await client.requestParsed(PermissionsGroupResponse, "/api/permissions/group", {
     method: "POST",
     body: { name: LIMITED_GROUP_NAME },
@@ -226,7 +257,7 @@ async function createLimitedGroup(client: Client): Promise<number> {
 }
 
 async function revokeDefaultCollectionAccess(
-  client: Client,
+  client: Transport,
   limitedGroupId: number,
   defaultCollectionId: number,
 ): Promise<void> {
@@ -250,7 +281,7 @@ async function revokeDefaultCollectionAccess(
 }
 
 async function assertLimitedKeyCannotQueryOrdersCard(
-  client: Client,
+  client: Transport,
   ordersCardId: number,
 ): Promise<void> {
   try {
@@ -267,6 +298,65 @@ async function assertLimitedKeyCannotQueryOrdersCard(
   throw new Error(
     "bootstrap precondition failed: limited api key was able to query the orders-by-status card",
   );
+}
+
+// The bootstrap artifact and the snapshot are working-tree state while the app-db is a docker
+// volume under a compose project that no stack id namespaces, so nothing keeps the two in step: a
+// fresh worktree, a `git clean -x`, or a METABASE_CLI_E2E_STACK that renames both artifacts without
+// renaming the volume all leave a seeded server whose bootstrap file is gone. The seed path assumes
+// an empty server. `/api/database`, `/api/collection`, `/api/card` and `/api/dashboard` all accept
+// duplicate names, so re-seeding would create a second copy of each and `captureSnapshot` would
+// freeze that into the fixture every suite restores; only `createLimitedGroup` fails loudly, and it
+// runs last. Refusing up front is the one outcome that neither corrupts the fixture nor adopts an
+// app-db of unknown provenance. It reads on the admin session rather than an api key so that it
+// precedes the first thing the seed path creates: a refused bootstrap must leave the server as it
+// found it, and refusals come in runs because retrying is what a developer reaches for.
+async function assertServerNotSeeded(sessionId: string): Promise<void> {
+  const residue = await findSeedResidue(sessionId);
+  if (residue.length === 0) {
+    return;
+  }
+  const sentences = [
+    `bootstrap: ${BASE_URL} already holds seed content (${residue.join(", ")}), but ${BOOTSTRAP_FILE_PATH} and snapshot ${SNAPSHOT_NAME} are not both present, so seeding again would duplicate every entity it creates.`,
+    "Rebuild from empty with `bun run e2e:down && bun run e2e:up && bun run e2e:bootstrap`.",
+  ];
+  const stackHint = stackScopeHint();
+  if (stackHint !== null) {
+    sentences.push(stackHint);
+  }
+  throw new Error(sentences.join(" "));
+}
+
+// The stack id scopes the bootstrap file and the snapshot name but not the compose project, so
+// `bun run e2e:up` under a non-default stack id boots — and seeds — the default stack's containers.
+function stackScopeHint(): string | null {
+  const stack = resolveStackId();
+  if (stack === DEFAULT_E2E_STACK) {
+    return null;
+  }
+  return `METABASE_CLI_E2E_STACK=${stack} names those two paths but not the compose project, so \`bun run e2e:up\` reached the ${DEFAULT_E2E_STACK} stack's containers; run a non-default stack through \`bun run e2e:matrix --stack=${stack}\`.`;
+}
+
+// The warehouse database is the first entity `seedContent` creates and the limited group is the last
+// entity the seed creates at all, so between them they witness a seed run that got anywhere: the
+// collection, card and dashboard are only ever created after the database, and the limited api key
+// only after the group.
+async function findSeedResidue(sessionId: string): Promise<string[]> {
+  const asAdmin: RequestInit = { headers: { [SESSION_HEADER]: sessionId } };
+  const [databases, groups] = await Promise.all([
+    fetchJson(`${BASE_URL}/api/database`, DatabaseListResponse, asAdmin),
+    fetchJson(`${BASE_URL}/api/permissions/group`, PermissionsGroupListResponse, asAdmin),
+  ]);
+  const residue: string[] = [];
+  if (databases.data.some((database) => database.name === WAREHOUSE_DB_NAME)) {
+    residue.push(`database "${WAREHOUSE_DB_NAME}"`);
+  }
+  // Metabase rejects a duplicate group name case-insensitively, so detect it the way the server does.
+  const limitedGroupName = LIMITED_GROUP_NAME.toLowerCase();
+  if (groups.some((group) => group.name.toLowerCase() === limitedGroupName)) {
+    residue.push(`permissions group "${LIMITED_GROUP_NAME}"`);
+  }
+  return residue;
 }
 
 // Mirrors tests/e2e/server-gate.ts: a null (unparseable head/dev) version counts as the latest, so
@@ -291,7 +381,86 @@ function libraryReady(server: ServerInfo): boolean {
   return server.version === null || server.version.major >= LIBRARY_MIN_VERSION;
 }
 
-async function seedContent(client: Client, libraryEnabled: boolean): Promise<SeededIds> {
+function transformsReady(server: ServerInfo): boolean {
+  return server.version === null || server.version.major >= TRANSFORMS_MIN_VERSION;
+}
+
+// Only the transform suites turn on the opt-in, so a stack that will not take it costs those suites
+// and nothing else. Bootstrap runs inside globalSetup, where a throw ends the run for every suite in
+// the stack — a warning names the cause without taking the other forty suites down with it.
+function warnTransformsUnavailable(detail: string): void {
+  process.stderr.write(`bootstrap: transform suites will fail — ${detail}\n`);
+}
+
+// The opt-in lives in the app DB, so the snapshot every suite restores is what decides whether
+// transforms work. Nothing has run yet at bootstrap time, so the live server still reflects what the
+// snapshot holds — ask it rather than reading the setting back, because releases through v61 serve
+// transforms whether or not it is set and their snapshots need nothing.
+async function reportSnapshotTransforms(client: Transport, server: ServerInfo): Promise<void> {
+  if (!transformsReady(server)) {
+    return;
+  }
+  const blocked = await transformsBlockedStatus(client);
+  if (blocked !== null) {
+    warnTransformsUnavailable(
+      `snapshot ${SNAPSHOT_NAME} leaves transforms locked (HTTP ${blocked}) — rebuild it with \`bun run e2e:down && bun run e2e:up && bun run e2e:bootstrap\``,
+    );
+  }
+}
+
+// Enabling the setting is the whole opt-in on a self-hosted stack; anything else that keeps
+// transforms locked (a hosted instance missing the add-on, a caller the server won't treat as a
+// data analyst) is a stack we cannot run the transform suites against, and saying so here beats
+// discovering it one 402 at a time.
+async function reportTransformsUsable(client: Transport): Promise<void> {
+  const blocked = await transformsBlockedStatus(client);
+  if (blocked !== null) {
+    warnTransformsUnavailable(
+      `${BASE_URL} still refuses transforms (HTTP ${blocked}) after enabling ${TRANSFORMS_ENABLED_SETTING}`,
+    );
+  }
+}
+
+// The statuses a server that will not serve transforms answers to a plain transform read: 402 for
+// the feature itself, 403 when the disabled setting leaves no enabled transform source types.
+async function transformsBlockedStatus(client: Transport): Promise<number | null> {
+  try {
+    await client.requestRaw("/api/transform", { expectContentType: "binary" });
+    return null;
+  } catch (error) {
+    if (error instanceof HttpError && TRANSFORMS_LOCKED_STATUSES.has(error.status)) {
+      return error.status;
+    }
+    throw error;
+  }
+}
+
+// Query transforms need no license — but a self-hosted instance must opt in via this setting, and
+// the server answers every transform endpoint with 402 until it does. Setting it before the snapshot
+// is captured is what makes the transform suites exercise transforms instead of skipping them. A
+// server that will not take the write (an unregistered key on a dev jar older than the probed
+// version suggests, a read-only value pinned by env) is left to `reportTransformsUsable`, which says
+// what the server actually does with transforms afterwards.
+async function enableTransforms(client: Transport): Promise<void> {
+  try {
+    await client.requestRaw(`/api/setting/${TRANSFORMS_ENABLED_SETTING}`, {
+      method: "PUT",
+      body: { value: true },
+      idempotent: true,
+      expectContentType: "binary",
+    });
+  } catch (error) {
+    if (error instanceof HttpError) {
+      warnTransformsUnavailable(
+        `${BASE_URL} refused to set ${TRANSFORMS_ENABLED_SETTING} (HTTP ${error.status})`,
+      );
+      return;
+    }
+    throw error;
+  }
+}
+
+async function seedContent(client: Transport, libraryEnabled: boolean): Promise<SeededIds> {
   const warehouseDbId = await createEntityId(client, "/api/database", {
     name: WAREHOUSE_DB_NAME,
     engine: "postgres",
@@ -381,7 +550,7 @@ const LibraryCollectionListResponse = z.array(LibraryCollectionResponse);
 // The Library's Data/Metrics collections don't exist until the Library is created. POST
 // /api/ee/library/ is the one-time initializer (it 4xxs if already created), so check for the
 // `library-data` collection first and only create when absent.
-async function ensureLibraryDataCollection(client: Client): Promise<number> {
+async function ensureLibraryDataCollection(client: Transport): Promise<number> {
   const existing = await findLibraryDataCollectionId(client);
   if (existing !== null) {
     return existing;
@@ -394,7 +563,7 @@ async function ensureLibraryDataCollection(client: Client): Promise<number> {
   return created;
 }
 
-async function findLibraryDataCollectionId(client: Client): Promise<number | null> {
+async function findLibraryDataCollectionId(client: Transport): Promise<number | null> {
   const collections = await client.requestParsed(LibraryCollectionListResponse, "/api/collection", {
     query: { "include-library": true },
   });
@@ -410,12 +579,12 @@ async function findLibraryDataCollectionId(client: Client): Promise<number | nul
   return dataCollection.id;
 }
 
-async function createEntityId(client: Client, path: string, body: unknown): Promise<number> {
+async function createEntityId(client: Transport, path: string, body: unknown): Promise<number> {
   const created = await client.requestParsed(EntityWithIdResponse, path, { method: "POST", body });
   return created.id;
 }
 
-async function waitForDatabaseSync(client: Client, databaseId: number): Promise<void> {
+async function waitForDatabaseSync(client: Transport, databaseId: number): Promise<void> {
   await pollUntil(
     async () =>
       client.requestParsed(DatabaseMetadataResponse, `/api/database/${databaseId}/metadata`),
@@ -438,7 +607,7 @@ const ORDERS_ID_FIELD_NAME = "id";
 type WarehouseSchema = Pick<SeededIds, "tables" | "fields">;
 
 async function discoverWarehouseSchema(
-  client: Client,
+  client: Transport,
   databaseId: number,
 ): Promise<WarehouseSchema> {
   const metadata = await client.requestParsed(
@@ -478,7 +647,7 @@ function requireTableId(tableIdByName: Map<string, number>, name: string): numbe
   return id;
 }
 
-async function captureSnapshot(client: Client): Promise<void> {
+async function captureSnapshot(client: Transport): Promise<void> {
   await client.requestRaw(`/api/testing/snapshot/${SNAPSHOT_NAME}`, {
     method: "POST",
     idempotent: true,
@@ -490,7 +659,7 @@ async function snapshotFileExists(): Promise<boolean> {
     await fs.stat(SNAPSHOT_FILE_PATH);
     return true;
   } catch (error) {
-    if (isNotFoundError(error)) {
+    if (isFileNotFoundError(error)) {
       return false;
     }
     throw error;
@@ -501,14 +670,14 @@ async function waitForReady(baseUrl: string, timeoutMs: number): Promise<void> {
   await pollUntil(
     async (signal) => {
       try {
-        const health = await fetch(`${baseUrl}/api/health`, { signal });
+        const health = await seedFetch(`${baseUrl}/api/health`, { signal });
         if (!health.ok) {
           return false;
         }
         // /api/health goes green before the app reliably serves real endpoints; gating on
         // the settings endpoint the probe + setup depend on keeps a slow (especially EE)
         // startup from resetting connections mid-bootstrap.
-        const properties = await fetch(`${baseUrl}/api/session/properties`, { signal });
+        const properties = await seedFetch(`${baseUrl}/api/session/properties`, { signal });
         return properties.ok;
       } catch {
         return false;
@@ -519,19 +688,10 @@ async function waitForReady(baseUrl: string, timeoutMs: number): Promise<void> {
   );
 }
 
-async function postOrGetPreAuthJson<T>(
-  url: string,
-  schema: z.ZodType<T>,
-  method: "GET" | "POST",
-  body?: unknown,
-): Promise<T> {
-  const init: RequestInit = { method };
-  if (body !== undefined) {
-    init.headers = { "content-type": "application/json" };
-    init.body = JSON.stringify(body);
-  }
+async function fetchJson<T>(url: string, schema: z.ZodType<T>, init: RequestInit): Promise<T> {
   const response = await fetchWithRetry(url, init);
   if (!response.ok) {
+    const method = init.method ?? "GET";
     throw new Error(`${method} ${url} -> ${response.status}: ${await response.text()}`);
   }
   return schema.parse(await response.json());
@@ -540,7 +700,7 @@ async function postOrGetPreAuthJson<T>(
 async function tryLogin(): Promise<z.infer<typeof SessionResponse> | null> {
   const response = await fetchWithRetry(`${BASE_URL}/api/session`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": JSON_CONTENT_TYPE },
     body: JSON.stringify({ username: ADMIN.email, password: ADMIN.password }),
   });
   if (!response.ok) {
@@ -551,7 +711,7 @@ async function tryLogin(): Promise<z.infer<typeof SessionResponse> | null> {
 }
 
 async function keyStillWorks(apiKey: string): Promise<boolean> {
-  const client = createClient({ url: BASE_URL, credential: { kind: "apiKey", apiKey } });
+  const client = apiKeyClient(apiKey);
   try {
     await client.requestParsed(CurrentUser, "/api/user/current");
     return true;
@@ -568,7 +728,7 @@ async function readStoredBootstrap(): Promise<E2EBootstrap | null> {
   try {
     raw = await fs.readFile(BOOTSTRAP_FILE_PATH, "utf8");
   } catch (error) {
-    if (isNotFoundError(error)) {
+    if (isFileNotFoundError(error)) {
       return null;
     }
     throw error;
@@ -587,8 +747,16 @@ async function writeStoredBootstrap(data: E2EBootstrap): Promise<void> {
   await fs.writeFile(BOOTSTRAP_FILE_PATH, JSON.stringify(data, null, 2) + "\n", { mode: 0o600 });
 }
 
+// The developer detail names the request that failed; without it a transport failure reads as a
+// bare "Could not reach Metabase" with no way to tell which step of the seed it came from.
+function failureDetail(error: unknown): string {
+  if (!(error instanceof MetabaseError)) {
+    return "";
+  }
+  return ` (${JSON.stringify(error.developerDetail)})`;
+}
+
 main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`bootstrap failed: ${message}\n`);
+  process.stderr.write(`bootstrap failed: ${errorMessage(error)}${failureDetail(error)}\n`);
   process.exit(1);
 });
