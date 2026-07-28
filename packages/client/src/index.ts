@@ -258,6 +258,15 @@ export {
   TransformUpdateInput,
 } from "./domain/transform";
 export {
+  TransformIndex,
+  TransformIndexCompact,
+  TransformIndexCreateInput,
+  TransformIndexRequest,
+  TransformIndexRequestCompact,
+  TransformIndexStructured,
+  TransformIndexUpdateInput,
+} from "./domain/transform-index";
+export {
   TransformJob,
   TransformJobActiveResult,
   TransformJobCompact,

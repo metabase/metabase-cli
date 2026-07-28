@@ -396,7 +396,8 @@ Every Metabase resource exports a full schema and a compact projection: `Card`/`
 `Collection`/`CollectionCompact`, `Dashboard`/`DashboardCompact`, `Database`/`DatabaseCompact`,
 `Document`, `Field`, `FieldValues`, `Library`, `Measure`, `Notification`, `ParameterValues`, `Pulse`,
 `SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`, `TimelineEvent`, `Transform`,
-`TransformRun`, `TransformJob`, `TransformTag`, `CurrentUser`, `CardQueryResult`,
+`TransformRun`, `TransformJob`, `TransformTag`, `TransformIndex`, `TransformIndexRequest`,
+`CurrentUser`, `CardQueryResult`,
 `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`, `DashboardTab`, and the nested
 shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`, `NotificationHandler`, …).
 

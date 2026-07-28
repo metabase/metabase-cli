@@ -188,6 +188,21 @@ mb transform delete <id> --yes --profile <name>
 
 Removes the definition. Whether the materialized table is dropped depends on the server — check with `mb table list --db-id <db-id> --profile <name> --json` if it matters. Same `--yes` rule and message as `delete-table`.
 
+## Indexes on the target table
+
+Metabase v64+. An **index request** (`transform-index`) declares a physical index — or a clustering / sort / dist key, whichever the warehouse speaks — on a transform's output table, and reapplies it on every full run. Create, update and delete only move the request's `status`; the warehouse changes when the target table is next rebuilt in full, so a fresh request reads `create-pending` and `present_in_warehouse: false` until then.
+
+```bash
+mb transform-index list <transform-id> --profile <name> --json   # warehouse indexes merged with managed requests
+mb transform-index create --body '{"transform_id":1,"structured":{"kind":"btree","name":"idx_id","columns":[{"name":"id"}]}}' --profile <name> --json
+mb transform-index update <id> --body '{"structured":{"kind":"btree","name":"idx_id","columns":[{"name":"id"},{"name":"created_at"}]}}' --profile <name> --json
+mb transform-index delete <id> --yes --profile <name>
+```
+
+`structured` dispatches on `kind`: `btree`/`hash`/`gin`/`gist`/`brin`/`spgist`/`fulltext`/`spatial`/`clustered`/`nonclustered`/`columnstore` take `name` + `columns` (plus optional `include`, `unique`); `sortkey` and `distkey` take a `style`; `clustering` and `order-by` take `columns` alone; `skip-index` adds a `type` of `minmax` or `bloom_filter`.
+
+Two rules the server enforces: an index name is unique per transform, and `update` may not change a request's name, kind or type — delete it and create another instead. Both answer 400. Read `status` and `error_message` off `transform-index get <id>` to see how the last rebuild went.
+
 ## Transform jobs (schedules)
 
 A schedule lives in a separate resource (`transform-job`). A job carries **tags** (`tag_ids`), not transform ids: each run executes every transform carrying one of the job's tags. You add a transform to a job by tagging the transform (`transform update <id> --body '{"tag_ids":[…]}'`), not by listing it on the job. Create/update with the same body-input pattern (`--file body.json`).

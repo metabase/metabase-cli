@@ -20,6 +20,7 @@ import { snippetResource } from "./resources/snippet";
 import { tableResource } from "./resources/table";
 import { timelineEventResource } from "./resources/timeline-event";
 import { timelineResource } from "./resources/timeline";
+import { transformIndexResource } from "./resources/transform-index";
 import { transformJobResource } from "./resources/transform-job";
 import { transformResource } from "./resources/transform";
 import { transformTagResource } from "./resources/transform-tag";
@@ -54,6 +55,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     timeline: timelineResource(transport),
     timelineEvent: timelineEventResource(transport),
     transform: transformResource(transport),
+    transformIndex: transformIndexResource(transport),
     transformJob: transformJobResource(transport),
     transformTag: transformTagResource(transport),
     upload: uploadResource(transport),
