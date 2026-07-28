@@ -1,11 +1,11 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { FieldListEnvelope } from "../../src/commands/table/fields";
-import { tableFieldsOversizeHint } from "../../src/commands/table/hints";
-import { TableListEnvelope } from "../../src/commands/table/list";
-import { Table, TableCompact } from "../../src/domain/table";
-import { parseJson } from "../../src/runtime/json";
+import { Table, TableCompact } from "@metabase/client/domain/table";
+import { parseJson } from "@metabase/client/json";
 
+import { FieldListEnvelope } from "../../packages/cli/src/commands/table/fields";
+import { tableFieldsOversizeHint } from "../../packages/cli/src/commands/table/hints";
+import { TableListEnvelope } from "../../packages/cli/src/commands/table/list";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
@@ -143,7 +143,66 @@ describe("table e2e", () => {
     expect(parseJson(result.stdout, TableListEnvelope)).toEqual({
       data: SEEDED_WAREHOUSE_TABLES,
       returned: SEEDED_WAREHOUSE_TABLES.length,
+      offset: 0,
       total: SEEDED_WAREHOUSE_TABLES.length,
+      has_more: false,
+      next_offset: null,
+    });
+  });
+
+  it("list --limit with --offset returns the matching slice and points at the rest", async () => {
+    const result = await runCli({
+      args: [
+        "table",
+        "list",
+        "--db-id",
+        String(SEEDED.warehouseDbId),
+        "--json",
+        "--limit",
+        "2",
+        "--offset",
+        "2",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TableListEnvelope)).toEqual({
+      data: SEEDED_WAREHOUSE_TABLES.slice(2, 4),
+      returned: 2,
+      offset: 2,
+      limit: 2,
+      total: SEEDED_WAREHOUSE_TABLES.length,
+      has_more: true,
+      next_offset: 4,
+    });
+  });
+
+  it("list --offset onto the last page reports no further items", async () => {
+    const offset = SEEDED_WAREHOUSE_TABLES.length - 2;
+    const result = await runCli({
+      args: [
+        "table",
+        "list",
+        "--db-id",
+        String(SEEDED.warehouseDbId),
+        "--json",
+        "--offset",
+        String(offset),
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TableListEnvelope)).toEqual({
+      data: SEEDED_WAREHOUSE_TABLES.slice(offset),
+      returned: 2,
+      offset,
+      total: SEEDED_WAREHOUSE_TABLES.length,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -263,14 +322,20 @@ describe("table e2e", () => {
     const fieldNames = envelope.data.map((field) => field.name).toSorted();
     expect({
       returned: envelope.returned,
+      offset: envelope.offset,
       total: envelope.total,
+      has_more: envelope.has_more,
+      next_offset: envelope.next_offset,
       fieldNames,
       everyFieldHasCustomersTableId: envelope.data.every(
         (field) => field.table_id === SEEDED.tables.customers,
       ),
     }).toEqual({
       returned: CUSTOMERS_FIELD_NAMES.length,
+      offset: 0,
       total: CUSTOMERS_FIELD_NAMES.length,
+      has_more: false,
+      next_offset: null,
       fieldNames: CUSTOMERS_FIELD_NAMES,
       everyFieldHasCustomersTableId: true,
     });

@@ -1,15 +1,14 @@
-import { join } from "node:path";
 import { promises as fs } from "node:fs";
-
+import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { LoginResult } from "../../src/commands/auth/login";
-import { AuthProfileListEnvelope } from "../../src/commands/auth/list";
-import { LogoutResult } from "../../src/commands/auth/logout";
-import { AuthStatus } from "../../src/commands/auth/status";
-import { ProfilesFile } from "../../src/core/auth/profile-record";
-import { parseJson } from "../../src/runtime/json";
+import { parseJson } from "@metabase/client/json";
 
+import { LoginResult } from "../../packages/cli/src/commands/auth/login";
+import { AuthProfileListEnvelope } from "../../packages/cli/src/commands/auth/list";
+import { LogoutResult } from "../../packages/cli/src/commands/auth/logout";
+import { AuthStatus } from "../../packages/cli/src/commands/auth/status";
+import { ProfilesFile } from "../../packages/cli/src/core/auth/profile-record";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";

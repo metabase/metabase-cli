@@ -1,0 +1,44 @@
+{
+  "name": "@metabase/cli",
+  "version": "0.3.0",
+  "description": "Metabase CLI",
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/metabase/mb-cli.git",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "mb": "./dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "skill-data"
+  ],
+  "type": "module",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "start": "node dist/cli.mjs",
+    "prepublishOnly": "tsdown && publint && ! grep -rE \"(from|import|require)[[:space:]]*\\(?['\\\"]@metabase\" dist/"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.8.2",
+    "@napi-rs/keyring": "^1.3.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "citty": "^0.2.2",
+    "cli-table3": "^0.6.5",
+    "semver": "^7.8.0",
+    "yaml": "^2.8.4",
+    "zod": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=20.6"
+  }
+}

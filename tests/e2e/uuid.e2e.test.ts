@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { parseJson } from "../../src/runtime/json";
-import { UuidList } from "../../src/commands/uuid";
+import { parseJson } from "@metabase/client/json";
 
+import { UuidList } from "../../packages/cli/src/commands/uuid";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 
 describe("uuid e2e", () => {

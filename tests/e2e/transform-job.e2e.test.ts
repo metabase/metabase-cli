@@ -1,13 +1,16 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { DeleteResult } from "../../src/commands/delete-runtime";
-import { TransformJobListEnvelope } from "../../src/commands/transform-job/list";
-import { TransformJobRunResult } from "../../src/commands/transform-job/run";
-import { TransformJobActiveResult } from "../../src/commands/transform-job/set-active";
-import { TransformJobTransformsEnvelope } from "../../src/commands/transform-job/transforms";
-import { TransformJobCompact } from "../../src/domain/transform-job";
-import { parseJson } from "../../src/runtime/json";
+import { TransformJobCompact } from "@metabase/client/domain/transform-job";
+import { parseJson } from "@metabase/client/json";
 
+import { DeleteResult } from "../../packages/cli/src/commands/delete-runtime";
+import { TransformJobListEnvelope } from "../../packages/cli/src/commands/transform-job/list";
+import {
+  TransformJobRunResult,
+  type TransformJobRunResultJson,
+} from "../../packages/cli/src/commands/transform-job/run";
+import { TransformJobActiveResult } from "../../packages/cli/src/commands/transform-job/set-active";
+import { TransformJobTransformsEnvelope } from "../../packages/cli/src/commands/transform-job/transforms";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
@@ -22,6 +25,39 @@ const HOURLY_JOB_ID = 1;
 const DAILY_JOB_ID = 2;
 const DAILY_TAG_ID = 2;
 const JOB_TRANSFORM_NAME = "e2e_job_transform";
+const FIRST_JOB_RUN_ID = 1;
+const RUN_STARTED_MESSAGE = "Job run started";
+
+// Every shipped release answers POST /run with an opaque `stub-<jobId>-<epochMillis>` string; the
+// real run id — and the null that reports nothing was started — arrived on the v64 line.
+const NUMERIC_RUN_ID_MIN_VERSION = 64;
+const numericRunIdSkip = requireServer("transform-job › job_run_id", {
+  minVersion: NUMERIC_RUN_ID_MIN_VERSION,
+});
+const returnsStubRunId = numericRunIdSkip !== null;
+
+function stubRunIdPrefix(jobId: number): string {
+  return `stub-${jobId}-`;
+}
+
+// The stub run id carries a wall-clock suffix, so trim it back to its deterministic prefix and let
+// the envelope be asserted whole.
+function withoutStubTimestamp(
+  result: TransformJobRunResultJson,
+  jobId: number,
+): TransformJobRunResultJson {
+  if (typeof result.job_run_id !== "string") {
+    return result;
+  }
+  return {
+    ...result,
+    job_run_id: result.job_run_id.slice(0, stubRunIdPrefix(jobId).length),
+  };
+}
+
+function expectedRunId(jobId: number): string | null {
+  return returnsStubRunId ? stubRunIdPrefix(jobId) : null;
+}
 
 interface JobTransformNativeQuery {
   type: "native";
@@ -133,7 +169,8 @@ function withoutActive(job: TransformJobCompact): Omit<TransformJobCompact, "act
   };
 }
 
-const skipReason = requireServer({ minVersion: 59 });
+const skipReason = requireServer("transform-job › transform-job e2e", { minVersion: 59 });
+const setActiveSkipReason = requireServer("transform-job › set-active", { minVersion: 61 });
 
 describe.skipIf(skipReason !== null)("transform-job e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -322,7 +359,12 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, TransformJobRunResult).message).toBe("Job run started");
+    expect(
+      withoutStubTimestamp(parseJson(result.stdout, TransformJobRunResult), HOURLY_JOB_ID),
+    ).toEqual({
+      message: RUN_STARTED_MESSAGE,
+      job_run_id: expectedRunId(HOURLY_JOB_ID),
+    });
   });
 
   it("run --force-refresh triggers a manual job run", async () => {
@@ -332,7 +374,43 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, TransformJobRunResult).message).toBe("Job run started");
+    expect(
+      withoutStubTimestamp(parseJson(result.stdout, TransformJobRunResult), HOURLY_JOB_ID),
+    ).toEqual({
+      message: RUN_STARTED_MESSAGE,
+      job_run_id: expectedRunId(HOURLY_JOB_ID),
+    });
+  });
+
+  // Only the v64 line reports whether anything actually started; every earlier release answers with
+  // the stub id whether or not the job resolved to a transform, so there is nothing to distinguish.
+  describe.skipIf(numericRunIdSkip !== null)("job_run_id", () => {
+    it("run returns the numeric run id when the job resolves to transforms", async () => {
+      await createJobTransform();
+
+      const result = await runCli({
+        args: ["transform-job", "run", String(DAILY_JOB_ID), "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, TransformJobRunResult)).toEqual({
+        message: RUN_STARTED_MESSAGE,
+        job_run_id: FIRST_JOB_RUN_ID,
+      });
+    });
+
+    it("run says the job was not started when it resolves to no transforms", async () => {
+      const result = await runCli({
+        args: ["transform-job", "run", String(HOURLY_JOB_ID), "--format", "text"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(result.stdout).toContain(
+        `Transform job ${HOURLY_JOB_ID} was not started (already running, or it resolves to no transforms).`,
+      );
+    });
   });
 
   it("run with a non-integer id fails fast with ConfigError", async () => {
@@ -368,7 +446,10 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
     expect(parseJson(result.stdout, TransformJobTransformsEnvelope)).toEqual({
       data: [JOB_TRANSFORM_COMPACT],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -382,7 +463,10 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
     expect(parseJson(result.stdout, TransformJobTransformsEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -407,7 +491,7 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
     expect(result.stderr).toContain("Not found: GET /api/transform-job/9999999/transforms.");
   });
 
-  describe.skipIf(requireServer({ minVersion: 61 }) !== null)("set-active", () => {
+  describe.skipIf(setActiveSkipReason !== null)("set-active", () => {
     it("set-active false deactivates every job", async () => {
       const result = await runCli({
         args: ["transform-job", "set-active", "false", "--json"],

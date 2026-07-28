@@ -4,10 +4,10 @@ import { fileURLToPath } from "node:url";
 
 import { z } from "zod";
 
-import { isNotFoundError } from "../../src/core/errors";
-import { ParsedVersionSchema } from "../../src/core/version/tag";
-import { TokenFeatures } from "../../src/domain/session-properties";
-import { parseJson } from "../../src/runtime/json";
+import { isFileNotFoundError } from "@metabase/client/errors";
+import { ParsedVersion } from "@metabase/client/version/tag";
+import { TokenFeatures } from "@metabase/client/domain/session-properties";
+import { parseJson } from "@metabase/client/json";
 
 import { resolveStackId } from "./defaults";
 
@@ -41,7 +41,7 @@ export const SeededIds = z.object({
 export type SeededIds = z.infer<typeof SeededIds>;
 
 export const ServerIdentity = z.object({
-  version: ParsedVersionSchema.nullable(),
+  version: ParsedVersion.nullable(),
   tokenFeatures: TokenFeatures.nullable(),
   // Whether the server supports full-API OAuth login (Metabase v63+, full-access scope advertised
   // in discovery); probed live during bootstrap. Defaults false for bootstrap files written before
@@ -78,7 +78,7 @@ export async function readBootstrap(): Promise<E2EBootstrap> {
   try {
     raw = await fs.readFile(BOOTSTRAP_FILE_PATH, "utf8");
   } catch (error) {
-    if (isNotFoundError(error)) {
+    if (isFileNotFoundError(error)) {
       throw missingBootstrapError(error);
     }
     throw error;
@@ -91,7 +91,7 @@ export function readBootstrapSync(): E2EBootstrap {
   try {
     raw = readFileSync(BOOTSTRAP_FILE_PATH, "utf8");
   } catch (error) {
-    if (isNotFoundError(error)) {
+    if (isFileNotFoundError(error)) {
       throw missingBootstrapError(error);
     }
     throw error;

@@ -1,20 +1,20 @@
 import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { DashcardListEnvelope } from "../../src/commands/dashboard/cards";
-import { DashboardListEnvelope } from "../../src/commands/dashboard/list";
-import { ValidationOutcome } from "../../src/core/schema/validate";
-import { CardCompact } from "../../src/domain/card";
+import { CardCompact } from "@metabase/client/domain/card";
 import {
   Dashboard,
   DashboardCompact,
   DashboardDetail,
   Dashcard,
   DashcardCompact,
-} from "../../src/domain/dashboard";
-import { listEnvelopeSchema } from "../../src/output/types";
-import { parseJson } from "../../src/runtime/json";
+} from "@metabase/client/domain/dashboard";
+import { parseJson } from "@metabase/client/json";
 
+import { DashcardListEnvelope } from "../../packages/cli/src/commands/dashboard/cards";
+import { DashboardListEnvelope } from "../../packages/cli/src/commands/dashboard/list";
+import { ValidationOutcome } from "../../packages/cli/src/core/schema/validate";
+import { listEnvelopeSchema } from "../../packages/cli/src/output/types";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
@@ -150,7 +150,10 @@ describe("dashboard e2e", () => {
     expect(parseJson(result.stdout, DashboardListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -335,7 +338,10 @@ describe("dashboard e2e", () => {
         },
       ],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -849,7 +855,10 @@ describe("dashboard e2e", () => {
     expect(parseJson(archivedListResult.stdout, DashboardListEnvelope)).toEqual({
       data: [{ ...ORDERS_OVERVIEW_COMPACT, archived: true }],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -874,7 +883,10 @@ describe("dashboard e2e", () => {
     expect(parseJson(archivedListResult.stdout, DashboardListEnvelope)).toEqual({
       data: [{ ...ORDERS_OVERVIEW_COMPACT, archived: true }],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 });

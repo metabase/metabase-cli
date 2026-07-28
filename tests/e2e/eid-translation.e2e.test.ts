@@ -1,8 +1,8 @@
 import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
-import { Card } from "../../src/domain/card";
-import { EidTranslateResult } from "../../src/domain/eid-translation";
-import { parseJson } from "../../src/runtime/json";
+import { Card } from "@metabase/client/domain/card";
+import { EidTranslateResult } from "@metabase/client/domain/eid-translation";
+import { parseJson } from "@metabase/client/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
@@ -10,7 +10,10 @@ import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 import { requireServer } from "./server-gate";
 
-const transformsSkip = requireServer({ minVersion: 59 });
+const transformsSkip = requireServer(
+  "eid-translation › accepts the previously-missing transform model in the closed enum",
+  { minVersion: 59 },
+);
 
 describe("eid e2e", () => {
   let bootstrap: E2EBootstrap;

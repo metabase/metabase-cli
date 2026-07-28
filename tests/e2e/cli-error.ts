@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { parseJson } from "../../src/runtime/json";
+import { parseJson } from "@metabase/client/json";
 
 const CliErrorEnvelope = z
   .object({

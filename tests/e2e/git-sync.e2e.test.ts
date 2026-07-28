@@ -1,13 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { SyncSettingsUpdateResult } from "../../src/commands/git-sync/add-collection";
-import { CurrentTaskResult } from "../../src/commands/git-sync/current-task";
-import { SyncDirtyListEnvelope } from "../../src/commands/git-sync/dirty";
-import { IsDirtyResult } from "../../src/commands/git-sync/is-dirty";
-import { SyncStatus } from "../../src/commands/git-sync/status";
-import { WaitResult } from "../../src/commands/git-sync/wait";
-import { parseJson } from "../../src/runtime/json";
+import { parseJson } from "@metabase/client/json";
 
+import { SyncSettingsUpdateResult } from "../../packages/cli/src/commands/git-sync/add-collection";
+import { CurrentTaskResult } from "../../packages/cli/src/commands/git-sync/current-task";
+import { SyncDirtyListEnvelope } from "../../packages/cli/src/commands/git-sync/dirty";
+import { IsDirtyResult } from "../../packages/cli/src/commands/git-sync/is-dirty";
+import { SyncStatus } from "../../packages/cli/src/commands/git-sync/status";
+import { WaitResult } from "../../packages/cli/src/commands/git-sync/wait";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
@@ -16,7 +16,10 @@ import { requireServer } from "./server-gate";
 // The remote-sync API has breaking server-side differences through v59 (the git source layer
 // was reworked and v59 NPEs on the idempotent `remove-collection` no-op path); it settles at
 // v60, which is the minVersion every git-sync command declares.
-const skipReason = requireServer({ minVersion: 60, tokenFeature: "remote_sync" });
+const skipReason = requireServer("git-sync › git-sync e2e against EE git-sync endpoints", {
+  minVersion: 60,
+  tokenFeature: "remote_sync",
+});
 
 describe("git-sync arg validation e2e (no Metabase contact required)", () => {
   const tempDirs: string[] = [];
@@ -178,7 +181,10 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
     expect(parseJson(result.stdout, SyncDirtyListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 

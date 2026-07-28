@@ -1,9 +1,9 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { SnippetListEnvelope } from "../../src/commands/snippet/list";
-import { Snippet, SnippetCompact, type SnippetCreateInput } from "../../src/domain/snippet";
-import { parseJson } from "../../src/runtime/json";
+import { Snippet, SnippetCompact, type SnippetCreateInput } from "@metabase/client/domain/snippet";
+import { parseJson } from "@metabase/client/json";
 
+import { SnippetListEnvelope } from "../../packages/cli/src/commands/snippet/list";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
@@ -73,7 +73,10 @@ describe("snippet e2e", () => {
     expect(parseJson(result.stdout, SnippetListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -102,7 +105,10 @@ describe("snippet e2e", () => {
     expect(parseJson(listResult.stdout, SnippetListEnvelope)).toEqual({
       data: [NEW_SNIPPET_COMPACT],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -221,7 +227,10 @@ describe("snippet e2e", () => {
     expect(parseJson(listResult.stdout, SnippetListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -244,7 +253,10 @@ describe("snippet e2e", () => {
     expect(parseJson(listResult.stdout, SnippetListEnvelope)).toEqual({
       data: [{ ...NEW_SNIPPET_COMPACT, archived: true }],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 

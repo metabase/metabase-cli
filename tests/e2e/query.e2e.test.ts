@@ -1,18 +1,19 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { CardQueryResult, CardQueryResultCompact } from "@metabase/client/domain/card";
+import { parseJson } from "@metabase/client/json";
+
 import {
   getQuerySchemaBundle,
   QuerySchemaBundle,
   ValidationOutcome,
-} from "../../src/core/schema/validate";
-import { CardQueryResult, CardQueryResultCompact } from "../../src/domain/card";
-import { parseJson } from "../../src/runtime/json";
-
+} from "../../packages/cli/src/core/schema/validate";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { assertCompactColumns, assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
+
 const VALID_QUERY = {
   "lib/type": "mbql/query",
   database: 1,

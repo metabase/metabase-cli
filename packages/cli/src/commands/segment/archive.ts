@@ -1,0 +1,27 @@
+import { Segment } from "@metabase/client/domain/segment";
+import { segmentView } from "../../output/views/segment";
+import { renderSummary } from "../../output/render";
+import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { parseId } from "../parse-id";
+import { revisionMessageFlag } from "../revision-message-flag";
+import { defineMetabaseCommand } from "../runtime";
+
+export default defineMetabaseCommand({
+  meta: { name: "archive", description: "Archive (soft-delete) a segment by id" },
+  capabilities: { minVersion: 58 },
+  args: {
+    ...outputFlags,
+    ...profileFlag,
+    ...connectionFlags,
+    ...revisionMessageFlag,
+    id: { type: "positional", description: "Segment id", required: true },
+  },
+  outputSchema: Segment,
+  examples: ["mb segment archive 1", 'mb segment archive 1 --revision-message "deprecated"'],
+  async run({ args, ctx, getClient }) {
+    const id = parseId(args.id);
+    const client = await getClient();
+    const updated = await client.segment.archive(id, { revision_message: args.revisionMessage });
+    renderSummary(updated, segmentView, `Archived segment ${updated.id} "${updated.name}".`, ctx);
+  },
+});

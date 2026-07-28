@@ -1,4 +1,6 @@
-// Idempotent — CI runs this and asserts no diff. Requires `npm` and `tar` on PATH.
+// Requires `npm` and `tar` on PATH; run by hand, no workflow invokes it. Idempotent, and the sole
+// owner of the formatting of what it writes — `.oxfmtrc.json` ignores
+// `packages/cli/src/core/schema/data/**`, so oxfmt never reformats a vendored payload.
 import { execFileSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { mkdtempSync } from "node:fs";
@@ -9,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import yaml from "js-yaml";
 import { z } from "zod";
 
-import { isNotFoundError } from "../src/core/errors";
+import { isFileNotFoundError } from "@metabase/client/errors";
 
 const YamlObject = z.record(z.string(), z.unknown());
 
@@ -17,7 +19,7 @@ const REPRESENTATIONS_VERSION = "1.1.7";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
-const DATA_DIR = resolve(REPO_ROOT, "src/core/schema/data");
+const DATA_DIR = resolve(REPO_ROOT, "packages/cli/src/core/schema/data");
 const COMMON_DIR = resolve(DATA_DIR, "schemas/common");
 
 async function main(): Promise<void> {
@@ -56,7 +58,7 @@ async function copyLicense(packageRoot: string): Promise<void> {
   try {
     text = await fs.readFile(sourceLicense, "utf8");
   } catch (error) {
-    if (isNotFoundError(error)) {
+    if (isFileNotFoundError(error)) {
       return;
     }
     throw error;

@@ -1,14 +1,16 @@
 import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
-import { createClient } from "../../src/core/http/client";
-import { Field, FieldCompact, FieldSummary, FieldValues } from "../../src/domain/field";
-import { TableQueryMetadata } from "../../src/domain/table";
-import { parseJson } from "../../src/runtime/json";
+import { Field, FieldCompact, FieldSummary, FieldValues } from "@metabase/client/domain/field";
+import { TableQueryMetadata } from "@metabase/client/domain/table";
+import { createTransport } from "@metabase/client/http/transport";
+import { parseJson } from "@metabase/client/json";
 
+import { USER_AGENT } from "../../packages/cli/src/core/user-agent";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
+
 describe("field e2e", () => {
   let bootstrap: E2EBootstrap;
   let customersEmailFieldId: number;
@@ -20,10 +22,10 @@ describe("field e2e", () => {
   });
 
   async function resolveFieldId(tableId: number, fieldName: string): Promise<number> {
-    const client = createClient({
-      url: bootstrap.baseUrl,
-      credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey },
-    });
+    const client = createTransport(
+      { url: bootstrap.baseUrl, credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey } },
+      { userAgent: USER_AGENT },
+    );
     const metadata = await client.requestParsed(
       TableQueryMetadata,
       `/api/table/${tableId}/query_metadata`,

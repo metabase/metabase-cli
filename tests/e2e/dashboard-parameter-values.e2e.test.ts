@@ -1,8 +1,8 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { DashboardCompact } from "../../src/domain/dashboard";
-import { ParameterValues } from "../../src/domain/parameter";
-import { parseJson } from "../../src/runtime/json";
+import { DashboardCompact } from "@metabase/client/domain/dashboard";
+import { ParameterValues } from "@metabase/client/domain/parameter";
+import { parseJson } from "@metabase/client/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";

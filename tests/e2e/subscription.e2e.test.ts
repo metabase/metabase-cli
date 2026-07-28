@@ -1,13 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { SubscriptionListEnvelope } from "../../src/commands/subscription/list";
 import {
   PulseCompact,
   type PulseChannelCompact,
   type PulseCreateInput,
-} from "../../src/domain/pulse";
-import { parseJson } from "../../src/runtime/json";
+} from "@metabase/client/domain/pulse";
+import { parseJson } from "@metabase/client/json";
 
+import { SubscriptionListEnvelope } from "../../packages/cli/src/commands/subscription/list";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
@@ -119,7 +119,10 @@ describe("subscription e2e", () => {
     expect(parseJson(result.stdout, SubscriptionListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -165,7 +168,10 @@ describe("subscription e2e", () => {
     expect(parseJson(result.stdout, SubscriptionListEnvelope)).toEqual({
       data: [expectedCompact(id)],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -181,7 +187,10 @@ describe("subscription e2e", () => {
     expect(parseJson(matching.stdout, SubscriptionListEnvelope)).toEqual({
       data: [expectedCompact(id)],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
 
     const other = await runCli({
@@ -193,7 +202,10 @@ describe("subscription e2e", () => {
     expect(parseJson(other.stdout, SubscriptionListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -210,7 +222,10 @@ describe("subscription e2e", () => {
     expect(parseJson(result.stdout, SubscriptionListEnvelope)).toEqual({
       data: [expectedCompact(id)],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -225,7 +240,10 @@ describe("subscription e2e", () => {
     expect(parseJson(result.stdout, SubscriptionListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -423,7 +441,10 @@ describe("subscription e2e", () => {
     expect(parseJson(activeList.stdout, SubscriptionListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
 
     const archivedList = await runCli({
@@ -435,7 +456,10 @@ describe("subscription e2e", () => {
     expect(parseJson(archivedList.stdout, SubscriptionListEnvelope)).toEqual({
       data: [archivedCompact],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 });
