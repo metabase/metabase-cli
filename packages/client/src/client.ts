@@ -4,6 +4,7 @@ import { collectionResource } from "./resources/collection";
 import { dashboardResource } from "./resources/dashboard";
 import { databaseResource } from "./resources/database";
 import { datasetResource } from "./resources/dataset";
+import { dependencyResource } from "./resources/dependency";
 import { documentResource } from "./resources/document";
 import { eidTranslationResource } from "./resources/eid-translation";
 import { fieldResource } from "./resources/field";
@@ -37,6 +38,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     dashboard: dashboardResource(transport),
     database: databaseResource(transport),
     dataset: datasetResource(transport),
+    dependency: dependencyResource(transport),
     document: documentResource(transport),
     eidTranslation: eidTranslationResource(transport),
     field: fieldResource(transport),

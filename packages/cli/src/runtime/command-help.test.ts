@@ -316,6 +316,7 @@ const ALL_COMMANDS = [
   "table get",
   "table fields",
   "table update",
+  "lineage dependents",
   "field get",
   "field values",
   "field summary",
