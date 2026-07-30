@@ -1,13 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { DeleteResult } from "../../src/commands/delete-runtime";
 import {
   TimelineEventCompact,
   type TimelineCreateInput,
   type TimelineEventCreateInput,
-} from "../../src/domain/timeline";
-import { parseJson } from "../../src/runtime/json";
+} from "@metabase/client/domain/timeline";
+import { parseJson } from "@metabase/client/json";
 
+import { DeleteResult } from "../../packages/cli/src/commands/delete-runtime";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";

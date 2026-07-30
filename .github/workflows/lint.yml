@@ -5,11 +5,18 @@ on:
     branches: [main]
   pull_request:
 
+# Each gate is its own job so a red check names what broke, and each runs at the root manifest's
+# declared floor. Whether the whole declared range holds is a different question, answered by
+# test.yml's `toolchain` matrix.
 jobs:
   typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.5
+      - run: node --version
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -20,6 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.5
+      - run: node --version
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -30,6 +41,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.5
+      - run: node --version
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -40,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: stbenjam/skillsaw@v0
+      - uses: stbenjam/skillsaw@v0.17.0
         with:
-          path: skill-data
+          path: packages/cli/skill-data
           strict: true

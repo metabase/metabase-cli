@@ -1,15 +1,16 @@
 import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
-import { CollectionItemListEnvelope } from "../../src/commands/collection/items";
-import { CollectionListEnvelope } from "../../src/commands/collection/list";
-import { CollectionTreeResponse } from "../../src/commands/collection/tree";
-import { Collection, CollectionCompact } from "../../src/domain/collection";
-import { parseJson } from "../../src/runtime/json";
+import { Collection, CollectionCompact } from "@metabase/client/domain/collection";
+import { parseJson } from "@metabase/client/json";
 
+import { CollectionItemListEnvelope } from "../../packages/cli/src/commands/collection/items";
+import { CollectionListEnvelope } from "../../packages/cli/src/commands/collection/list";
+import { CollectionTreeResponse } from "../../packages/cli/src/commands/collection/tree";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
+
 const DEFAULT_COLLECTION_NAME = "E2E Default";
 
 const DEFAULT_COMPACT = {
@@ -98,7 +99,10 @@ describe("collection e2e", () => {
     expect(parseJson(result.stdout, CollectionListEnvelope)).toEqual({
       data: [TRASH_COMPACT],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -127,7 +131,10 @@ describe("collection e2e", () => {
     expect(parseJson(result.stdout, CollectionListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -316,11 +323,14 @@ describe("collection e2e", () => {
         },
       ],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
-  it("items --limit caps the returned page", async () => {
+  it("items --limit caps the returned page and points at the rest", async () => {
     const result = await runCli({
       args: ["collection", "items", String(SEEDED.defaultCollectionId), "--limit", "1", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -331,7 +341,44 @@ describe("collection e2e", () => {
     const envelope = parseJson(result.stdout, CollectionItemListEnvelope);
     const { data, ...meta } = envelope;
     expect(data).toHaveLength(1);
-    expect(meta).toEqual({ returned: 1, limit: 1 });
+    expect(meta).toEqual({
+      returned: 1,
+      offset: 0,
+      limit: 1,
+      total: 2,
+      has_more: true,
+      next_offset: 1,
+    });
+  });
+
+  it("items --offset resumes at next_offset and reports the end of the collection", async () => {
+    const result = await runCli({
+      args: [
+        "collection",
+        "items",
+        String(SEEDED.defaultCollectionId),
+        "--limit",
+        "1",
+        "--offset",
+        "1",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const envelope = parseJson(result.stdout, CollectionItemListEnvelope);
+    const { data, ...meta } = envelope;
+    expect(data).toHaveLength(1);
+    expect(meta).toEqual({
+      returned: 1,
+      offset: 1,
+      limit: 1,
+      total: 2,
+      has_more: false,
+      next_offset: null,
+    });
   });
 
   it("items --models rejects an unknown model with ConfigError", async () => {
@@ -410,7 +457,10 @@ describe("collection e2e", () => {
     expect(parseJson(itemsResult.stdout, CollectionItemListEnvelope)).toEqual({
       data: [],
       returned: 0,
-      total: 0,
+      offset: 0,
+      total: null,
+      has_more: false,
+      next_offset: null,
     });
   });
 

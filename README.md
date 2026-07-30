@@ -1,6 +1,6 @@
 # metabase-cli
 
-Command-line client for Metabase. Logs in to an instance in your browser (OAuth, Metabase v62+) or with an API key, and stores credentials securely on your machine.
+Command-line client for Metabase. Logs in to an instance in your browser (OAuth, Metabase v63+) or with an API key, and stores credentials securely on your machine.
 
 ## Supported Metabase versions
 
@@ -9,7 +9,7 @@ The minimum supported server is **Metabase v0.58** (major `58`). Anything older 
 Commands that need more than a baseline OSS server declare it — a higher minimum major version or a premium token feature. The server version and token features are detected and cached when you run `mb auth login` (or `mb auth list`). For those commands, a preflight check runs before the first request and refuses with an actionable message (exit code `2`) when:
 
 - the server is older than the command's minimum version, or
-- the command needs a premium feature (e.g. `remote_sync`, `transforms`) that isn't enabled.
+- the command needs a premium feature (e.g. `remote_sync`, `library`) that isn't enabled.
 
 Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs but the server version can't be detected (no cached probe), it proceeds with a warning rather than refusing. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `MB_CLI_SKIP_PREFLIGHT=1`. Both are footguns — only for servers you know are patched.
 
@@ -25,10 +25,12 @@ Or build from source:
 ```sh
 bun install
 bun run build
-node dist/cli.mjs --help
+node packages/cli/dist/cli.mjs --help
 ```
 
 The binary is `mb`. Examples below use that name.
+
+File paths in this document are relative to the repository root, so they resolve in a checkout of <https://github.com/metabase/mb-cli> rather than in the installed package — the npm tarball carries only `dist`, `skills` and `skill-data`.
 
 ## Quick start
 
@@ -36,6 +38,56 @@ The binary is `mb`. Examples below use that name.
 mb auth login --url https://metabase.example.com
 mb auth status
 ```
+
+## Output
+
+Every `list` and `get` verb takes the same output flags. The per-command flag tables below list only what is specific to that command.
+
+| Flag                | Description                                                                                                                      |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`            | Emit JSON. Auto-enabled on non-TTY. Shorthand for `--format json`.                                                               |
+| `--format <format>` | `auto` \| `json` \| `text` (default `auto`).                                                                                     |
+| `--full`            | Return every field. The default is a compact projection.                                                                         |
+| `--fields <paths>`  | Project comma-separated dot-paths. Mutually exclusive with `--full`. On list verbs the paths are relative to each `data[]` item. |
+| `--max-bytes <n>`   | Output size cap, default `24576`; `0` disables. On a list, trailing items are dropped and `truncated` is set.                    |
+| `-p, --profile <n>` | Named profile (default `default`).                                                                                               |
+
+Every `list` verb additionally takes a window:
+
+| Flag           | Description                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| `--limit <n>`  | How many items this call returns. Default: as many as fit the output cap.                  |
+| `--offset <n>` | Where the window starts (default `0`). Pass the previous call's `next_offset` to continue. |
+
+### List envelope
+
+List verbs answer with a single envelope:
+
+```json
+{
+  "returned": 2,
+  "offset": 0,
+  "limit": 2,
+  "total": 42,
+  "has_more": true,
+  "next_offset": 2,
+  "truncated": { "reason": "max_bytes", "bytes": 123456 },
+  "data": []
+}
+```
+
+| Field         | Meaning                                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------------------------- |
+| `data`        | The items in this window.                                                                               |
+| `returned`    | How many items are in `data`.                                                                           |
+| `offset`      | Where this window starts.                                                                               |
+| `limit`       | Present only when you passed `--limit`.                                                                 |
+| `total`       | The server's count where the endpoint reports one, otherwise `null`. A display value, not a bound.      |
+| `has_more`    | Whether more items remain. This — not `returned` against `total` — is what says to keep going.          |
+| `next_offset` | Pass back as `--offset` for the next window; `null` when the walk is over.                              |
+| `truncated`   | Present when `--max-bytes` dropped trailing items; `bytes` is what the full answer would have measured. |
+
+When the cap leaves no room for even one item, the list comes back empty with `next_offset: null` — narrow it with `--fields` or raise the cap. A `get` whose single item is over the cap fails instead, with exit `2`.
 
 ## Authentication
 
@@ -45,10 +97,10 @@ Credentials are stored per-profile. The default profile is named `default`. Use 
 
 Log in to a Metabase instance and save the credential to a profile. Interactive login offers two methods:
 
-- **In your browser** (recommended; requires Metabase v62 or newer) — the CLI opens Metabase, you sign in with your password or SSO and approve the CLI, and a short-lived access token plus a rotating refresh token are stored. Tokens refresh automatically; you never paste a secret.
+- **In your browser** (recommended; requires Metabase v63 or newer) — the CLI opens Metabase, you sign in with your password or SSO and approve the CLI, and a short-lived access token plus a rotating refresh token are stored. Tokens refresh automatically; you never paste a secret.
 - **With an API key** — paste a key from Admin settings → Authentication → API keys.
 
-Against a server older than v62 the CLI detects the missing OAuth support and falls back to the API key prompt automatically. Supplying an API key (flag, env, or stdin) always skips the browser flow, so CI and scripts behave exactly as before.
+Against a server older than v63 the CLI detects the missing OAuth support and falls back to the API key prompt automatically. Supplying an API key (flag, env, or stdin) always skips the browser flow, so CI and scripts behave exactly as before.
 
 On success the server is probed once — the rendered output shows the user, role (`Admin`/`User`), and Metabase version, and the same values are cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good credential and gains a `lastFailure` entry.
 
@@ -114,7 +166,7 @@ mb auth logout --profile staging --yes
 
 ## Transforms
 
-CRUD on `/api/transform`. Bodies for `create` / `update` are JSON; resolution order: `--body` → `--file` → piped stdin (auto-detected when stdin is not a TTY).
+CRUD on `/api/transform`. Requires Metabase v59 or newer. Bodies for `create` / `update` are JSON; resolution order: `--body` → `--file` → piped stdin (auto-detected when stdin is not a TTY).
 
 ### `mb transform list`
 
@@ -203,7 +255,7 @@ mb transform get-run 1 --json
 
 ### `mb transform runs`
 
-List recent transform runs across all transforms, or filter to one. Drains all pages by default; pass `--limit` to cap.
+List recent transform runs across all transforms, or filter to one. `/api/transform/run` is server-paged: the CLI pulls only as far as the output cap can display, then reports `has_more` / `next_offset` so you can continue.
 
 ```sh
 mb transform runs
@@ -211,14 +263,15 @@ mb transform runs --transform-id 1 --json
 mb transform runs --limit 10 --json
 ```
 
-| Flag                  | Description                                         |
-| --------------------- | --------------------------------------------------- |
-| `--transform-id <id>` | Filter to runs of a single transform id.            |
-| `--limit <n>`         | Cap total runs returned (default: drain all pages). |
+| Flag                  | Description                              |
+| --------------------- | ---------------------------------------- |
+| `--transform-id <id>` | Filter to runs of a single transform id. |
+
+Plus the shared output and window flags — see [Output](#output).
 
 ## Transform jobs
 
-CRUD on `/api/transform-job`. Bodies for `create` / `update` follow the same `--body` / `--file` / stdin pattern as transforms.
+CRUD on `/api/transform-job`. Requires Metabase v59 or newer. Bodies for `create` / `update` follow the same `--body` / `--file` / stdin pattern as transforms.
 
 ### `mb transform-job list`
 
@@ -282,7 +335,7 @@ mb transform-job transforms 1 --json
 
 ### `mb transform-job set-active <true|false>`
 
-Activate or deactivate every transform job at once (admin only). Inactive jobs do not run on schedule; manual runs ignore the flag.
+Activate or deactivate every transform job at once (admin only; requires Metabase v61 or newer). Inactive jobs do not run on schedule; manual runs ignore the flag.
 
 ```sh
 mb transform-job set-active false
@@ -291,7 +344,7 @@ mb transform-job set-active true --json
 
 ## Transform tags
 
-CRUD on `/api/transform-tag`. Tags group transforms and jobs; reference them by id via the `tag_ids` field on a transform or job. The four built-in tags (`hourly`, `daily`, `weekly`, `monthly`) drive the built-in jobs. There is no get-by-id endpoint — use `list`.
+CRUD on `/api/transform-tag`. Requires Metabase v59 or newer. Tags group transforms and jobs; reference them by id via the `tag_ids` field on a transform or job. The four built-in tags (`hourly`, `daily`, `weekly`, `monthly`) drive the built-in jobs. There is no get-by-id endpoint — use `list`.
 
 ### `mb transform-tag list`
 
@@ -574,6 +627,19 @@ mb card query 1 --parameters '[{"type":"category","value":"A","target":["variabl
 | `--format-rows`         | Streamed exports only: apply the card's visualization-settings formatting to values (default `false`). |
 | `--pivot-results`       | Streamed exports only: emit the pivoted output for pivot questions (default `false`).                  |
 
+### `mb card alerts <id>`
+
+List the alerts watching this card. Manage them with `mb alert create|update|send|archive`, which take the alert id printed here.
+
+```sh
+mb card alerts 94
+mb card alerts 94 --include-inactive --json
+```
+
+| Flag                 | Description                         |
+| -------------------- | ----------------------------------- |
+| `--include-inactive` | Include archived (inactive) alerts. |
+
 ### `mb card create`
 
 ```sh
@@ -649,6 +715,19 @@ List the dashcards on a dashboard.
 mb dashboard cards 1
 mb dashboard cards 1 --json
 ```
+
+### `mb dashboard subscriptions <id>`
+
+List the subscriptions delivering this dashboard. Manage them with `mb subscription create|update|archive`, which take the subscription id printed here.
+
+```sh
+mb dashboard subscriptions 10
+mb dashboard subscriptions 10 --json
+```
+
+| Flag         | Description                                         |
+| ------------ | --------------------------------------------------- |
+| `--archived` | Show archived subscriptions instead of active ones. |
 
 #### Dashboard parameters (filters)
 
@@ -857,7 +936,7 @@ mb segment archive 1 --revision-message "deprecated"
 
 ## Measures
 
-CRUD on `/api/measure`. A measure is a saved MBQL aggregation (a single `:aggregation` clause) tied to a table — referenced from cards and metrics to share a reusable computation. Mutating endpoints require a `revision_message` for the audit log.
+CRUD on `/api/measure`. Requires Metabase v59 or newer. A measure is a saved MBQL aggregation (a single `:aggregation` clause) tied to a table — referenced from cards and metrics to share a reusable computation. Mutating endpoints require a `revision_message` for the audit log.
 
 ### `mb measure list`
 
@@ -1070,6 +1149,163 @@ mb timeline-event delete 1
 | ------- | ------------------ |
 | `--yes` | Skip confirmation. |
 
+## Dashboard subscriptions
+
+Read and write dashboard subscriptions on `/api/pulse`. A subscription delivers a rendered dashboard on a schedule — by email, to a Slack channel, or to an HTTP webhook. It pins the dashboard's cards by both `id` (the card) and `dashboard_card_id` (its placement); `mb dashboard cards <dashboard-id>` prints both.
+
+A subscription's `dashboard_id` and `collection_id` are fixed at creation. There is no delete — archiving is the terminal state, and it also disables every channel.
+
+### `mb subscription list`
+
+```sh
+mb subscription list
+mb subscription list --dashboard-id 10 --json
+mb subscription list --archived --json
+```
+
+| Flag                  | Description                                         |
+| --------------------- | --------------------------------------------------- |
+| `--dashboard-id <id>` | Only subscriptions on this dashboard.               |
+| `--archived`          | Show archived subscriptions instead of active ones. |
+
+Listing from the dashboard side is `mb dashboard subscriptions <dashboard-id>`.
+
+### `mb subscription get <id>`
+
+```sh
+mb subscription get 1
+mb subscription get 1 --full --json
+```
+
+The compact view returns `id`, `name`, `dashboard_id`, `collection_id`, `archived`, `skip_if_empty`, plus the pinned `cards` and the `channels` with their schedules and recipients. `--full` adds the hydrated creator, entity ids, and per-card download permissions.
+
+### `mb subscription create`
+
+The body needs `name`, `dashboard_id`, `cards`, and `channels`.
+
+Each channel names a `channel_type` (`email`, `slack`, `http`) and a `schedule_type` (`hourly`, `daily`, `weekly`, `monthly`) plus the fields that schedule needs: `daily` needs `schedule_hour` (0–23); `weekly` also needs `schedule_day` (`mon`…`sun`); `monthly` also needs `schedule_frame` (`first`, `mid`, `last`). Email recipients are `{"email":"a@b.com"}` or `{"id":<user-id>}`; Slack targets a channel with `"details":{"channel":"#general"}`. A channel is `enabled` unless you say otherwise.
+
+```sh
+mb subscription create --body '{"name":"Weekly orders","dashboard_id":10,"cards":[{"id":94,"dashboard_card_id":87,"include_csv":false,"include_xls":false}],"channels":[{"channel_type":"email","schedule_type":"daily","schedule_hour":8,"recipients":[{"email":"team@example.com"}]}]}'
+cat subscription.json | mb subscription create
+mb subscription create --file subscription.json
+```
+
+| Flag            | Description                                         |
+| --------------- | --------------------------------------------------- |
+| `--body <json>` | Inline JSON body.                                   |
+| `--file <path>` | Path to JSON body file. Use `-` to read from stdin. |
+
+### `mb subscription update <id>`
+
+Patches `name`, `cards`, `channels`, `skip_if_empty`, `parameters`, `archived`. `cards` and `channels` each replace the whole list, so send every one you want to keep — `mb subscription get <id> --full` prints the current set.
+
+The update reads the subscription first and carries `archived` and `skip_if_empty` forward when your patch omits them. That is load-bearing: `PUT /api/pulse/:id` defaults every omitted key, and both of those default to `false`, so a raw name-only PUT would un-archive the subscription and clear `skip_if_empty`.
+
+```sh
+mb subscription update 1 --body '{"name":"Daily orders"}'
+mb subscription update 1 --body '{"channels":[{"channel_type":"email","schedule_type":"weekly","schedule_hour":8,"schedule_day":"mon","recipients":[{"email":"team@example.com"}]}]}'
+mb subscription update 1 --file patch.json
+```
+
+| Flag            | Description                                         |
+| --------------- | --------------------------------------------------- |
+| `--body <json>` | Inline JSON body.                                   |
+| `--file <path>` | Path to JSON body file. Use `-` to read from stdin. |
+
+### `mb subscription archive <id>`
+
+Archive a subscription, stopping all deliveries. Also disables every channel on it, so restoring means un-archiving and then re-enabling the channels.
+
+```sh
+mb subscription archive 1
+mb subscription archive 1 --json
+```
+
+## Question alerts
+
+Read and write question alerts on `/api/notification`. An alert watches one card and delivers it when a send condition fires on a schedule: `has_result` (the card returned any row), or `goal_above` / `goal_below` (both need a goal set on the card's visualization).
+
+Schedules are Quartz cron strings — `0 0 8 * * ? *` is daily at 08:00. `/api/notification` also carries Metabase's internal system-event notifications; `mb alert` scopes every request to card alerts, so they never appear.
+
+Archiving deactivates an alert rather than deleting it: `mb alert list --include-inactive` still finds it, and `mb alert update <id> --body '{"active":true}'` brings it back.
+
+### `mb alert list`
+
+```sh
+mb alert list
+mb alert list --card-id 94 --json
+mb alert list --include-inactive --json
+```
+
+| Flag                  | Description                         |
+| --------------------- | ----------------------------------- |
+| `--card-id <id>`      | Only alerts watching this card.     |
+| `--creator-id <id>`   | Only alerts created by this user.   |
+| `--recipient-id <id>` | Only alerts delivered to this user. |
+| `--include-inactive`  | Include archived (inactive) alerts. |
+
+Listing from the question side is `mb card alerts <card-id>`.
+
+### `mb alert get <id>`
+
+```sh
+mb alert get 9
+mb alert get 9 --full --json
+```
+
+The compact view returns `id`, `active`, `creator_id`, the `payload` (`card_id`, `send_condition`, `send_once`), the cron `subscriptions`, and the `handlers` with their recipients. `--full` adds the hydrated card the alert watches.
+
+### `mb alert create`
+
+The body needs `payload`, `subscriptions`, and `handlers`. Each handler names a `channel_type` (`channel/email`, `channel/slack`, `channel/http`) and its `recipients`; a recipient is `{"type":"notification-recipient/user","user_id":3}` or `{"type":"notification-recipient/raw-value","details":{"value":"a@b.com"}}`.
+
+```sh
+mb alert create --body '{"payload":{"card_id":94,"send_condition":"has_result"},"subscriptions":[{"cron_schedule":"0 0 8 * * ? *"}],"handlers":[{"channel_type":"channel/email","recipients":[{"type":"notification-recipient/raw-value","details":{"value":"team@example.com"}}]}]}'
+cat alert.json | mb alert create
+mb alert create --file alert.json
+```
+
+| Flag            | Description                                         |
+| --------------- | --------------------------------------------------- |
+| `--body <json>` | Inline JSON body.                                   |
+| `--file <path>` | Path to JSON body file. Use `-` to read from stdin. |
+
+### `mb alert update <id>`
+
+Patches the top-level fields you send: `payload`, `subscriptions`, `handlers`, `active`. Fields inside `payload` merge over the current ones, so `{"payload":{"send_condition":"goal_above"}}` keeps the card. `subscriptions` and `handlers` each replace the whole list — `mb alert get <id>` prints the current set. An alert cannot be moved to a different card.
+
+The update reads the alert first and merges your patch over it. That is load-bearing: `PUT /api/notification/:id` is a spec-diff, and a body whose `id` doesn't match the stored one makes Metabase delete the alert and insert a replacement under a fresh id.
+
+```sh
+mb alert update 9 --body '{"payload":{"send_condition":"goal_above"}}'
+mb alert update 9 --body '{"subscriptions":[{"cron_schedule":"0 0 9 * * ? *"}]}'
+mb alert update 9 --body '{"active":true}'
+```
+
+| Flag            | Description                                         |
+| --------------- | --------------------------------------------------- |
+| `--body <json>` | Inline JSON body.                                   |
+| `--file <path>` | Path to JSON body file. Use `-` to read from stdin. |
+
+### `mb alert send <id>`
+
+Send an alert now, off-schedule. Delivers to every handler, ignoring the send condition. The channel must be configured on the server (email needs SMTP set up).
+
+```sh
+mb alert send 9
+mb alert send 9 --json
+```
+
+### `mb alert archive <id>`
+
+Archive an alert, stopping all deliveries and dropping its scheduled trigger.
+
+```sh
+mb alert archive 9
+mb alert archive 9 --json
+```
+
 ## Collections
 
 Read collections on `/api/collection`. Collections are the folders that contain cards, dashboards, and other collections. The list endpoint surfaces a virtual root collection (id `"root"`) alongside regular numeric ids; the get endpoint accepts only the numeric id.
@@ -1102,7 +1338,7 @@ mb collection get 4 --json --full
 
 ### `mb collection items <id>`
 
-List the cards, dashboards, sub-collections, and other content stored inside a collection. The CLI drains all pages of `/api/collection/:id/items`; pass `--limit` to cap the result. `<id>` accepts the same forms as `collection get` — including `root` for top-level content (items there have `collection_id: null`).
+List the cards, dashboards, sub-collections, and other content stored inside a collection. `/api/collection/:id/items` is server-paged: the CLI pulls only as far as the output cap can display, then reports `has_more` / `next_offset` so you can continue. `<id>` accepts the same forms as `collection get` — including `root` for top-level content (items there have `collection_id: null`).
 
 ```sh
 mb collection items 4
@@ -1116,7 +1352,8 @@ mb collection items 4 --pinned-state is_pinned --json
 | `--models <csv>`         | Restrict to one or more models (`card`, `dataset`, `metric`, `dashboard`, `snippet`, `collection`, `document`, …). |
 | `--archived`             | Return archived items instead of unarchived.                                                                       |
 | `--pinned-state <state>` | One of `all`, `is_pinned`, `is_not_pinned`.                                                                        |
-| `--limit <n>`            | Cap total items returned. Default: drain all pages.                                                                |
+
+Plus the shared output and window flags — see [Output](#output).
 
 ### `mb collection tree`
 
@@ -1155,7 +1392,7 @@ mb collection archive 4 --json
 
 ## Library
 
-Curate the Metabase **Library** — a governed subtree (`library-data` "Data" for published tables, `library-metrics` "Metrics" for official metrics, under a `library` root). Tables published to Data appear first when people pick a data source and rank up in search, steering everyone toward trusted, analysis-ready tables. Requires the `library` premium feature (Pro/Enterprise) and admin or data-analyst permission (Curate alone won't publish tables). Publish status surfaces on the table via `is_published` (`table get`/`table list`).
+Curate the Metabase **Library** — a governed subtree (`library-data` "Data" for published tables, `library-metrics` "Metrics" for official metrics, under a `library` root). Tables published to Data appear first when people pick a data source and rank up in search, steering everyone toward trusted, analysis-ready tables. Requires Metabase v59 or newer, the `library` premium feature (Pro/Enterprise), and admin or data-analyst permission (Curate alone won't publish tables). Publish status surfaces on the table via `is_published` (`table get`/`table list`).
 
 ### `mb library get`
 
@@ -1314,17 +1551,18 @@ mb search --models card,dashboard --limit 10 --json
 mb search products --archived
 ```
 
-| Flag             | Description                                                                                                                                               |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--models`, `-m` | Comma-separated model filter: `card,dataset,metric,dashboard,collection,database,table,segment,measure,snippet,document,action,transform,indexed-entity`. |
-| `--archived`     | Include archived items only.                                                                                                                              |
-| `--limit`        | Max results to return (default `20`).                                                                                                                     |
-| `--db-id`        | Restrict to items on a given database id.                                                                                                                 |
-| `--verified`     | Only verified content.                                                                                                                                    |
+| Flag             | Description                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--models`, `-m` | Comma-separated model filter: `card,dataset,metric,dashboard,collection,database,table,segment,measure,document,action,transform,indexed-entity`. |
+| `--archived`     | Include archived items only.                                                                                                                      |
+| `--limit`        | Max results to return (default `20` — `search` is the one list verb with its own default).                                                        |
+| `--offset`       | Where the window starts, applied by the server (default `0`).                                                                                     |
+| `--db-id`        | Restrict to items on a given database id.                                                                                                         |
+| `--verified`     | Only verified content.                                                                                                                            |
 
 ## Git Sync
 
-Drive Metabase Enterprise Remote Sync (`/api/ee/remote-sync`) — import / export Metabase content against a configured git remote, inspect dirty state, and manage branches. All git-sync commands require an active EE token and superuser credentials.
+Drive Metabase Enterprise Remote Sync (`/api/ee/remote-sync`) — import / export Metabase content against a configured git remote, inspect dirty state, and manage branches. All git-sync commands require Metabase v60 or newer, the `remote_sync` premium feature on an active EE token, and superuser credentials.
 
 ### `mb git-sync status`
 
@@ -1664,20 +1902,24 @@ mb skills path core                         # one path
 
 Bundled skills:
 
-| Name                  | Use                                                                                           |
-| --------------------- | --------------------------------------------------------------------------------------------- |
-| `core`                | Top-level guide: auth, flag conventions, output flags, body input, every command group        |
-| `transform`           | Authoring and running transforms (native SQL + MBQL 5), iteration, run inspection             |
-| `data-transformation` | Raw, normalized source database → clean, wide, analysis-ready tables for a non-technical user |
-| `semantic-layer`      | Turning clean tables into reusable segments, measures, and metrics for a non-technical user   |
-| `robot-data-engineer` | Front-door router for the whole journey (raw → tables → definitions → dashboards)             |
-| `document`            | Authoring document bodies: the TipTap JSON tree, embedding cards, entity links                |
-| `git-sync`            | Round-tripping Metabase content to/from a git remote                                          |
+| Name            | Use                                                                                     |
+| --------------- | --------------------------------------------------------------------------------------- |
+| `core`          | Top-level guide: auth, flag conventions, output flags, body input, every command group  |
+| `data-workflow` | Front-door router for the whole journey (raw → clean tables → definitions → dashboards) |
+| `mbql`          | Authoring and fixing MBQL 5 query bodies                                                |
+| `native-sql`    | Native SQL query bodies: template tags, field filters, snippets, card references        |
+| `visualization` | Choosing a card's `display` and authoring `visualization_settings`                      |
+| `dashboard`     | Interactive dashboards: filter wiring, linked filters, cross-filtering, click behavior  |
+| `metadata`      | Semantic types, FK targets, dropdown behavior, and the features each unlocks            |
+| `transform`     | Authoring and running transforms (native SQL + MBQL 5), iteration, run inspection       |
+| `notification`  | Scheduled delivery: question alerts and dashboard subscriptions                         |
+| `document`      | Authoring document bodies: the TipTap JSON tree, embedding cards, entity links          |
+| `git-sync`      | Round-tripping Metabase content to/from a git remote                                    |
 
 Discovery surfaces:
 
-- **Claude Code plugin marketplace**: `.claude-plugin/marketplace.json` declares a `metabase-cli` plugin pointing at the in-repo discovery stub. Users install with `/plugin marketplace add metabase/mb-cli` then `/plugin install metabase-cli@metabase`.
-- **`npx skills add`**: the same stub at `skills/metabase-cli/SKILL.md` is picked up by `npx skills add metabase/mb-cli`. The stub is intentionally minimal — it redirects the agent at `mb skills get core` so the real workflow content always comes from the installed CLI version.
+- **Claude Code plugin marketplace**: `.claude-plugin/marketplace.json` declares a `metabase-cli` plugin pointing at the in-repo discovery stub. Users install with `/plugin marketplace add metabase/mb-cli` then `/plugin install metabase-cli@metabase`. The manifest lives at the repo root and is served from GitHub, not from the npm tarball: its `source: "./packages/cli"` is resolved relative to the repo checkout, so a copy inside the published package would point at nothing. `files` in `packages/cli/package.json` therefore omits `.claude-plugin` by design.
+- **`npx skills add`**: the same stub at `packages/cli/skills/metabase-cli/SKILL.md` is picked up by `npx skills add metabase/mb-cli`. The stub is intentionally minimal — it redirects the agent at `mb skills get core` so the real workflow content always comes from the installed CLI version.
 
 Exit codes: `0` success, `2` `ConfigError` (missing name, unknown name, `MB_SKILLS_DIR` not a directory), `1` unexpected I/O.
 
@@ -1702,7 +1944,7 @@ The former `METABASE_`-prefixed names (`METABASE_URL`, `METABASE_API_KEY`, `META
 Every node of the command tree answers `--help --json` with machine-readable help, mirroring what text help shows at that level:
 
 - A leaf command emits its full entry — name, description, `details`, examples, citty args with types/defaults/enums, `capabilities` (min server version / token feature), and the input and output Zod schemas rendered as JSON Schema (`inputSchema` is the exact validator `readBody` enforces on the JSON body, `null` for commands that take none).
-- A command group (and the root) emits a flat `{ commands: [{ command, description }] }` index of every leaf in its subtree, with full-path names.
+- A command group (and the root) emits `{ description, skills, commands }` — its own sentence (`null` when it declares none), its own agent-skill pointers, and a flat `commands: [{ command, description }]` index of every leaf in its subtree, with full-path names.
 
 ```sh
 mb --help --json | jq -r '.commands[].command'    # every command
@@ -1710,7 +1952,7 @@ mb card query --help --json | jq .outputSchema    # one command's output schema
 mb card create --help --json | jq .inputSchema    # the JSON-body contract it validates
 ```
 
-The entry and index schemas (`CommandHelpEntry`, `CommandHelpIndex`) are exported from `src/runtime/command-help.ts`.
+The entry and index schemas (`CommandHelpEntry`, `CommandHelpIndex`) are exported from `packages/cli/src/runtime/command-help.ts`.
 
 ## Exit codes
 
@@ -1720,3 +1962,35 @@ The entry and index schemas (`CommandHelpEntry`, `CommandHelpIndex`) are exporte
 | `1`   | Verification or operation failed.                      |
 | `2`   | Configuration error (invalid flag, missing TTY, etc.). |
 | `130` | Interactive prompt cancelled (Ctrl+C).                 |
+
+## Working in the repo
+
+```sh
+bun install
+bun run check          # the full gate: typecheck, lint, format, unit tests, skill lint
+bun run build
+bun run test           # unit tests
+bun run typecheck
+bun run lint
+```
+
+`bin/mb-dev` runs the CLI straight from source against a scratch config directory, so a
+dev run never touches your real profiles or the OS keychain.
+
+The e2e tier drives the built binary against a real Metabase in docker compose:
+
+```sh
+bun run e2e:up
+bun run e2e:bootstrap
+bun run test:e2e
+```
+
+`bun run e2e:down` wipes the stack's volumes, and is the routine way back to a
+known-good stack: the app-db lives in a docker volume while `bun run e2e:bootstrap`
+writes its record of the seed into the working tree, so a fresh worktree or a
+`git clean -x` leaves a seeded server the bootstrap can no longer recognise. It
+refuses to re-seed one and names this command. `bun run e2e:matrix` runs the suite
+across the supported version/edition matrix.
+
+`docs/architecture.md` explains how the repo is laid out and why; `CLAUDE.md` carries the
+binding rules.

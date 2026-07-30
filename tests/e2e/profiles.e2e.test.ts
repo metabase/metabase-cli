@@ -1,17 +1,18 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { AuthProfileListEnvelope } from "../../src/commands/auth/list";
-import { LoginResult } from "../../src/commands/auth/login";
-import { LogoutResult } from "../../src/commands/auth/logout";
-import { AuthStatus } from "../../src/commands/auth/status";
-import { DatabaseListEnvelope } from "../../src/commands/db/list";
-import { CardQueryResult } from "../../src/domain/card";
-import { parseJson } from "../../src/runtime/json";
+import { CardQueryResult } from "@metabase/client/domain/card";
+import { parseJson } from "@metabase/client/json";
 
+import { AuthProfileListEnvelope } from "../../packages/cli/src/commands/auth/list";
+import { LoginResult } from "../../packages/cli/src/commands/auth/login";
+import { LogoutResult } from "../../packages/cli/src/commands/auth/logout";
+import { AuthStatus } from "../../packages/cli/src/commands/auth/status";
+import { DatabaseListEnvelope } from "../../packages/cli/src/commands/db/list";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
+
 describe("profiles e2e", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
@@ -173,7 +174,10 @@ describe("profiles e2e", () => {
     expect(parseJson(result.stdout, DatabaseListEnvelope)).toEqual({
       data: [{ id: SEEDED.warehouseDbId, name: "Warehouse", engine: "postgres" }],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -210,7 +214,10 @@ describe("profiles e2e", () => {
     expect(parseJson(result.stdout, AuthProfileListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 

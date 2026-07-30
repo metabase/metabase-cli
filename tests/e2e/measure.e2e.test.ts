@@ -1,15 +1,16 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { MeasureListEnvelope } from "../../src/commands/measure/list";
-import { ValidationOutcome } from "../../src/core/schema/validate";
-import { MeasureCompact, type MeasureCreateInput } from "../../src/domain/measure";
-import { parseJson } from "../../src/runtime/json";
+import { MeasureCompact, type MeasureCreateInput } from "@metabase/client/domain/measure";
+import { parseJson } from "@metabase/client/json";
 
+import { MeasureListEnvelope } from "../../packages/cli/src/commands/measure/list";
+import { ValidationOutcome } from "../../packages/cli/src/core/schema/validate";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 import { requireServer } from "./server-gate";
+
 const FIRST_NEW_MEASURE_ID = 1;
 const MEASURE_NAME = "OrderCount";
 const MEASURE_DESCRIPTION = "Count of orders rows.";
@@ -32,7 +33,7 @@ const NEW_MEASURE_BODY: MeasureCreateInput = {
   },
 };
 
-const skipReason = requireServer({ minVersion: 59 });
+const skipReason = requireServer("measure › measure e2e", { minVersion: 59 });
 
 describe.skipIf(skipReason !== null)("measure e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -80,7 +81,10 @@ describe.skipIf(skipReason !== null)("measure e2e", () => {
     expect(parseJson(result.stdout, MeasureListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -109,7 +113,10 @@ describe.skipIf(skipReason !== null)("measure e2e", () => {
     expect(parseJson(listResult.stdout, MeasureListEnvelope)).toEqual({
       data: [NEW_MEASURE_COMPACT],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -304,7 +311,10 @@ describe.skipIf(skipReason !== null)("measure e2e", () => {
     expect(parseJson(listResult.stdout, MeasureListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 

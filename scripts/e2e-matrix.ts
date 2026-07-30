@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { execa } from "execa";
 
-import { errorMessage } from "../src/core/errors";
+import { errorMessage } from "@metabase/client/errors";
 
 interface Stack {
   id: string;
@@ -37,7 +37,7 @@ const DEFAULT_PARALLELISM = 2;
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
 const COMPOSE_FILE = resolve(REPO_ROOT, "tests/e2e/docker-compose.yml");
-const DIST_CLI = resolve(REPO_ROOT, "dist", "cli.mjs");
+const DIST_CLI = resolve(REPO_ROOT, "packages", "cli", "dist", "cli.mjs");
 
 interface CliOptions {
   stacks: Stack[];

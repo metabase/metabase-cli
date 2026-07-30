@@ -2,10 +2,10 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import packageJson from "../../package.json" with { type: "json" };
-import { UpgradeStatus } from "../../src/commands/upgrade";
-import { parseJson } from "../../src/runtime/json";
+import { parseJson } from "@metabase/client/json";
 
+import packageJson from "../../packages/cli/package.json" with { type: "json" };
+import { UpgradeStatus } from "../../packages/cli/src/commands/upgrade";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 
 interface RegistryFixture {

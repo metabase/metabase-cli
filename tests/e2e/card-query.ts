@@ -1,4 +1,4 @@
-import { CardQueryResult } from "../../src/domain/card";
+import { CardQueryResult } from "@metabase/client/domain/card";
 
 type CompletedCardQueryResult = CardQueryResult & { data: NonNullable<CardQueryResult["data"]> };
 

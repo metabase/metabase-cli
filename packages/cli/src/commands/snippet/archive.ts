@@ -1,0 +1,25 @@
+import { Snippet } from "@metabase/client/domain/snippet";
+import { snippetView } from "../../output/views/snippet";
+import { renderSummary } from "../../output/render";
+import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { parseId } from "../parse-id";
+import { defineMetabaseCommand } from "../runtime";
+
+export default defineMetabaseCommand({
+  meta: { name: "archive", description: "Archive (soft-delete) a native query snippet by id" },
+  capabilities: { minVersion: 58 },
+  args: {
+    ...outputFlags,
+    ...profileFlag,
+    ...connectionFlags,
+    id: { type: "positional", description: "Snippet id", required: true },
+  },
+  outputSchema: Snippet,
+  examples: ["mb snippet archive 1", "mb snippet archive 1 --json"],
+  async run({ args, ctx, getClient }) {
+    const id = parseId(args.id);
+    const client = await getClient();
+    const updated = await client.snippet.archive(id);
+    renderSummary(updated, snippetView, `Archived snippet ${updated.id} "${updated.name}".`, ctx);
+  },
+});

@@ -1,18 +1,20 @@
-import { createClient, type Client } from "../../../src/core/http/client";
+import { createTransport, type Transport } from "@metabase/client/http/transport";
+
+import { USER_AGENT } from "../../../packages/cli/src/core/user-agent";
 import { readBootstrap } from "../bootstrap-data";
 import { resolveSnapshotName } from "../defaults";
 
-let cachedClient: Client | null = null;
+let cachedClient: Transport | null = null;
 
-async function adminClient(): Promise<Client> {
+async function adminClient(): Promise<Transport> {
   if (cachedClient !== null) {
     return cachedClient;
   }
   const bootstrap = await readBootstrap();
-  cachedClient = createClient({
-    url: bootstrap.baseUrl,
-    credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey },
-  });
+  cachedClient = createTransport(
+    { url: bootstrap.baseUrl, credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey } },
+    { userAgent: USER_AGENT },
+  );
   return cachedClient;
 }
 

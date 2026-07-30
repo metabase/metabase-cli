@@ -1,8 +1,11 @@
 # skillsaw configuration — https://github.com/stbenjam/skillsaw
-# Lints the skill collection under skill-data/. Pinned so a skillsaw
-# release can't silently change token math and break CI.
+# Lints the skill collection under packages/cli/skill-data/. The tool version is
+# pinned at both call sites — `lint:skills` in package.json and the action tag in
+# .github/workflows/lint.yml — so a skillsaw release can't silently change token
+# math and break CI. This field records the version those two pins name; keep the
+# three in step.
 
-version: "0.11.4"
+version: "0.17.0"
 
 rules:
   context-budget:

@@ -1,11 +1,12 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import type { OAuthCredential } from "../../src/core/auth/credential";
-import { oauthLogin } from "../../src/core/auth/oauth-login";
-import { refreshOAuthCredential, revokeOAuthCredential } from "../../src/core/auth/oauth-session";
-import { AuthProfileListEnvelope } from "../../src/commands/auth/list";
-import { parseJson } from "../../src/runtime/json";
+import type { OAuthCredential } from "@metabase/client/auth/credential";
+import { oauthLogin } from "@metabase/client/auth/oauth-login";
+import { refreshOAuthCredential, revokeOAuthCredential } from "@metabase/client/auth/oauth-session";
+import { parseJson } from "@metabase/client/json";
 
+import { OAUTH_CLIENT_NAME, USER_AGENT } from "../../packages/cli/src/core/user-agent";
+import { AuthProfileListEnvelope } from "../../packages/cli/src/commands/auth/list";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { requireOAuthServer } from "./server-gate";
@@ -27,7 +28,7 @@ import {
 // completes the consent decision against the live server, then assert the real bearer/refresh/revoke
 // lifecycle — the parts unit tests can only mock.
 
-describe.skipIf(requireOAuthServer() !== null)("oauth e2e", () => {
+describe.skipIf(requireOAuthServer("oauth › oauth e2e") !== null)("oauth e2e", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
 
@@ -41,7 +42,7 @@ describe.skipIf(requireOAuthServer() !== null)("oauth e2e", () => {
 
   async function login(): Promise<OAuthCredential> {
     return oauthLogin(
-      { baseUrl: bootstrap.baseUrl },
+      { baseUrl: bootstrap.baseUrl, userAgent: USER_AGENT, clientName: OAUTH_CLIENT_NAME },
       {
         openBrowser: consentingBrowser(bootstrap.baseUrl, bootstrap.admin),
         onAuthorizeUrl: () => undefined,
@@ -64,7 +65,12 @@ describe.skipIf(requireOAuthServer() !== null)("oauth e2e", () => {
 
   it("refreshes the access token against the real token endpoint and the new token works", async () => {
     const credential = await login();
-    const refreshed = await refreshOAuthCredential(bootstrap.baseUrl, credential, Date.now());
+    const refreshed = await refreshOAuthCredential(
+      bootstrap.baseUrl,
+      credential,
+      Date.now(),
+      USER_AGENT,
+    );
 
     expect(refreshed.accessToken).not.toBe(credential.accessToken);
     expect(refreshed.refreshToken).not.toBe(""); // rotation-aware (new or retained)
@@ -76,7 +82,7 @@ describe.skipIf(requireOAuthServer() !== null)("oauth e2e", () => {
   it("revokes both tokens server-side so neither survives logout", async () => {
     const credential = await login();
 
-    const revoked = await revokeOAuthCredential(bootstrap.baseUrl, credential);
+    const revoked = await revokeOAuthCredential(bootstrap.baseUrl, credential, USER_AGENT);
     expect(revoked).toBe(true);
 
     // The revoked grant is rejected outright: 400 invalid_grant.

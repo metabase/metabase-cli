@@ -1,10 +1,10 @@
 import { afterEach, assert, describe, expect, it } from "vitest";
 
-import { SkillGetEnvelope } from "../../src/commands/skills/get";
-import { SkillListEnvelope } from "../../src/commands/skills/list";
-import { SkillPathListEnvelope } from "../../src/commands/skills/path";
-import { parseJson } from "../../src/runtime/json";
+import { parseJson } from "@metabase/client/json";
 
+import { SkillGetEnvelope } from "../../packages/cli/src/commands/skills/get";
+import { SkillListEnvelope } from "../../packages/cli/src/commands/skills/list";
+import { SkillPathListEnvelope } from "../../packages/cli/src/commands/skills/path";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 
 const BUNDLED_VISIBLE_NAMES = [
@@ -16,6 +16,7 @@ const BUNDLED_VISIBLE_NAMES = [
   "mbql",
   "metadata",
   "native-sql",
+  "notification",
   "transform",
   "transform-test",
   "transform-test-plan",
@@ -35,7 +36,7 @@ describe("skills e2e", () => {
     return dir;
   }
 
-  it("list returns the twelve bundled non-hidden skills, sorted by name", async () => {
+  it("list returns the thirteen bundled non-hidden skills, sorted by name", async () => {
     const result = await runCli({
       args: ["skills", "list", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -105,6 +106,62 @@ describe("skills e2e", () => {
     expect(envelope.returned).toBeLessThan(BUNDLED_VISIBLE_NAMES.length);
     expect(envelope.truncated?.reason).toBe("max_bytes");
     expect(result.stderr).toContain("cut at");
+  });
+
+  it("get answers a cap too small for even one skill with an empty window and no resumption point", async () => {
+    const result = await runCli({
+      args: ["skills", "get", "core", "--json", "--max-bytes", "200"],
+      configHome: await makeIsolatedConfigHome(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    // What the answer would have measured is the answer itself, uncapped: the notice quotes it so
+    // a caller can size the cap that would carry it.
+    const uncapped = await runCli({
+      args: ["skills", "get", "core", "--json", "--max-bytes", "0"],
+      configHome: await makeIsolatedConfigHome(),
+    });
+    const fullBytes = Buffer.byteLength(uncapped.stdout.trimEnd(), "utf8");
+
+    expect(parseJson(result.stdout, SkillGetEnvelope)).toEqual({
+      data: [],
+      returned: 0,
+      offset: 0,
+      total: 1,
+      has_more: true,
+      next_offset: null,
+      truncated: { reason: "max_bytes", bytes: fullBytes },
+    });
+    expect(result.stderr).toBe(
+      `… cut at ${fullBytes} bytes; a skill body is indivisible — pass --max-bytes 0 to print it whole, or \`mb skills path <name>\` to read it from disk`,
+    );
+  });
+
+  it("get --all walking next_offset under the default cap terminates and yields every skill once", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const names: string[] = [];
+    let offset = 0;
+
+    for (let iteration = 0; iteration < BUNDLED_VISIBLE_NAMES.length; iteration += 1) {
+      const result = await runCli({
+        args: ["skills", "get", "--all", "--json", "--offset", String(offset)],
+        configHome,
+      });
+      expect(result.exitCode, result.stderr).toBe(0);
+      const envelope = parseJson(result.stdout, SkillGetEnvelope);
+      expect(envelope.returned).toBeGreaterThan(0);
+      names.push(...envelope.data.map((skill) => skill.name));
+      if (!envelope.has_more) {
+        expect(names).toEqual([...BUNDLED_VISIBLE_NAMES]);
+        return;
+      }
+      const next = envelope.next_offset;
+      assert(next !== null && next !== undefined, "has_more must come with a next_offset");
+      expect(next).toBe(offset + envelope.returned);
+      offset = next;
+    }
+
+    throw new Error(`walk did not terminate; collected ${names.length} skills`);
   });
 
   it("get accepts comma-separated names", async () => {

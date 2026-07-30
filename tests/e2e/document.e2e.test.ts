@@ -1,9 +1,9 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { DocumentListEnvelope } from "../../src/commands/document/list";
-import { DocumentCompact } from "../../src/domain/document";
-import { parseJson } from "../../src/runtime/json";
+import { DocumentCompact } from "@metabase/client/domain/document";
+import { parseJson } from "@metabase/client/json";
 
+import { DocumentListEnvelope } from "../../packages/cli/src/commands/document/list";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";

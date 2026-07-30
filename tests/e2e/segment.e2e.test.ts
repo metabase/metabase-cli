@@ -1,14 +1,15 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { SegmentListEnvelope } from "../../src/commands/segment/list";
-import { ValidationOutcome } from "../../src/core/schema/validate";
-import { SegmentCompact, type SegmentCreateInput } from "../../src/domain/segment";
-import { parseJson } from "../../src/runtime/json";
+import { SegmentCompact, type SegmentCreateInput } from "@metabase/client/domain/segment";
+import { parseJson } from "@metabase/client/json";
 
+import { SegmentListEnvelope } from "../../packages/cli/src/commands/segment/list";
+import { ValidationOutcome } from "../../packages/cli/src/core/schema/validate";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
+
 const FIRST_NEW_SEGMENT_ID = 1;
 const SEGMENT_NAME = "PositiveIdOrders";
 const SEGMENT_DESCRIPTION = "Orders with a positive id.";
@@ -77,7 +78,10 @@ describe("segment e2e", () => {
     expect(parseJson(result.stdout, SegmentListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -106,7 +110,10 @@ describe("segment e2e", () => {
     expect(parseJson(listResult.stdout, SegmentListEnvelope)).toEqual({
       data: [NEW_SEGMENT_COMPACT],
       returned: 1,
+      offset: 0,
       total: 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -301,7 +308,10 @@ describe("segment e2e", () => {
     expect(parseJson(listResult.stdout, SegmentListEnvelope)).toEqual({
       data: [],
       returned: 0,
+      offset: 0,
       total: 0,
+      has_more: false,
+      next_offset: null,
     });
   });
 

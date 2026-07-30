@@ -10,5 +10,8 @@ coverage/
 plan
 .dev-state/
 tests/e2e/.bootstrap*.json
+tests/e2e/.gate-skips*.json
 tests/e2e/snapshots/*.sql
 metabase-*.log
+*.tgz
+.claude/worktrees/
