@@ -23,6 +23,7 @@ import { timelineResource } from "./resources/timeline";
 import { transformJobResource } from "./resources/transform-job";
 import { transformResource } from "./resources/transform";
 import { transformTagResource } from "./resources/transform-tag";
+import { transformTestResource } from "./resources/transform-test";
 import { uploadResource } from "./resources/upload";
 import { userResource } from "./resources/user";
 
@@ -56,6 +57,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     transform: transformResource(transport),
     transformJob: transformJobResource(transport),
     transformTag: transformTagResource(transport),
+    transformTest: transformTestResource(transport),
     upload: uploadResource(transport),
     user: userResource(transport),
     // The escape hatch: an endpoint the client never models still has to cost a consumer nothing.

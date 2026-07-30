@@ -18,6 +18,8 @@ const BUNDLED_VISIBLE_NAMES = [
   "native-sql",
   "notification",
   "transform",
+  "transform-test",
+  "transform-test-plan",
   "visualization",
 ] as const;
 
@@ -34,7 +36,7 @@ describe("skills e2e", () => {
     return dir;
   }
 
-  it("list returns the eleven bundled non-hidden skills, sorted by name", async () => {
+  it("list returns the thirteen bundled non-hidden skills, sorted by name", async () => {
     const result = await runCli({
       args: ["skills", "list", "--json"],
       configHome: await makeIsolatedConfigHome(),

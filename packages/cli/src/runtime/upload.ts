@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 
-import { ConfigError, isFileNotFoundError } from "@metabase/client/errors";
+import { ConfigError, errorMessage, isFileNotFoundError } from "@metabase/client/errors";
 import type { CsvFile } from "@metabase/client/resources/csv-upload";
 
 import { fileNotFoundError } from "./input";
@@ -22,5 +22,14 @@ export async function readCsvFile(path: string): Promise<CsvFile> {
       throw fileNotFoundError(path);
     }
     throw error;
+  }
+}
+
+export async function readFixtureFile(path: string, label: string): Promise<CsvFile> {
+  try {
+    const bytes = await readFile(path);
+    return { filename: basename(path), bytes };
+  } catch (error) {
+    throw new ConfigError(`Cannot read ${label} file '${path}': ${errorMessage(error)}`);
   }
 }

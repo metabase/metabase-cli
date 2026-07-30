@@ -143,7 +143,7 @@ When refining a built transform _with_ the user, open its inspector so you're lo
 
 **Check the output before handing back — the user can't.** Two passes, in order.
 
-**Pass 1 — Correctness (did it run right).** After each transform runs, run quick ad-hoc tests against what Phase 0 led you to expect: row counts in the right ballpark, decoded columns readable (no stray codes), linking ids that resolve to the other tables, no column unexpectedly all-null or blown up in count. Treat surprises as bugs to chase, not noise. A table that can't combine with the others — a dropped id, or the same id named two ways — is a silent failure; catch it here.
+**Pass 1 — Correctness (did it run right).** After each transform runs, run quick ad-hoc tests against what Phase 0 led you to expect: row counts in the right ballpark, decoded columns readable (no stray codes), linking ids that resolve to the other tables, no column unexpectedly all-null or blown up in count. Treat surprises as bugs to chase, not noise. A table that can't combine with the others — a dropped id, or the same id named two ways — is a silent failure; catch it here. To go beyond ad-hoc — durable fixture suites, assertions, a coverage matrix, tests the user can re-run — load `transform-test-plan` (`mb skills get transform-test-plan`); its checklist questions double as design questions while you build.
 
 **Pass 2 — Fitness (is it nice to use).** Correct isn't the bar; _usable_ is. `SELECT * FROM <table> LIMIT 20` and read every column as if you'd never seen the source: would a business reader find each one readable? Smells that say not-yet, even though nothing errored:
 

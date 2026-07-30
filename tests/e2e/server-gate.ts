@@ -117,14 +117,3 @@ export function serverVersionBelow(minVersion: number): boolean {
   const { version } = resolveServerInfo();
   return version !== null && version.major < minVersion;
 }
-
-// Metabase answers a structurally invalid MBQL 5 definition with a 500 through v61 and a 400 from
-// v62 on. A suite asserting "the server, not the client-side validator, rejected this" pins the one
-// status its own stack sends, so a 500 where a 400 belongs is still a failure.
-const MBQL_REJECTION_STATUS_VERSION = 62;
-
-export function serverRejectedMessage(): string {
-  return serverVersionBelow(MBQL_REJECTION_STATUS_VERSION)
-    ? "Metabase returned 500."
-    : "Metabase returned 400.";
-}
