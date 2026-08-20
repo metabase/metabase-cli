@@ -17,6 +17,8 @@ const main: CommandDef = defineCommand({
     table: () => import("./commands/table").then((mod) => mod.default),
     field: () => import("./commands/field").then((mod) => mod.default),
     upload: () => import("./commands/upload").then((mod) => mod.default),
+    "content-translation": () =>
+      import("./commands/content-translation").then((mod) => mod.default),
     card: () => import("./commands/card").then((mod) => mod.default),
     dashboard: () => import("./commands/dashboard").then((mod) => mod.default),
     subscription: () => import("./commands/subscription").then((mod) => mod.default),

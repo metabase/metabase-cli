@@ -9,7 +9,7 @@ The minimum supported server is **Metabase v0.58** (major `58`). Anything older 
 Commands that need more than a baseline OSS server declare it — a higher minimum major version or a premium token feature. The server version and token features are detected and cached when you run `mb auth login` (or `mb auth list`). For those commands, a preflight check runs before the first request and refuses with an actionable message (exit code `2`) when:
 
 - the server is older than the command's minimum version, or
-- the command needs a premium feature (e.g. `remote_sync`, `library`) that isn't enabled.
+- the command needs a premium feature (e.g. `remote_sync`, `content_translation`, `library`) that isn't enabled.
 
 Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs but the server version can't be detected (no cached probe), it proceeds with a warning rather than refusing. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `MB_CLI_SKIP_PREFLIGHT=1`. Both are footguns — only for servers you know are patched.
 
@@ -581,6 +581,32 @@ Replace an existing uploaded table's contents with a CSV file's rows.
 mb upload replace 42 --file rows.csv
 mb upload replace 42 --file rows.csv --json
 ```
+
+## Content translation
+
+Download and replace Metabase's content translation dictionary through `/api/ee/content-translation`. These commands require an admin credential and the `content_translation` premium feature. The dictionary is independent of Remote Sync: importing or exporting a Git repository does not deploy it.
+
+### `mb content-translation download`
+
+Stream the complete active dictionary as CSV. Redirect stdout to keep it as a file.
+
+```sh
+mb content-translation download > metabase-content-translations.csv
+mb content-translation download --profile prod > translations.csv
+```
+
+### `mb content-translation upload`
+
+Replace every active content translation with one complete CSV. The upload is not a partial merge; keep the canonical complete dictionary in version control and download the active dictionary before replacing it. Metabase accepts dictionaries up to 1.5 MiB.
+
+```sh
+mb content-translation upload --file translations.csv
+mb content-translation upload --file translations.csv --profile prod --json
+```
+
+| Flag            | Description                                             |
+| --------------- | ------------------------------------------------------- |
+| `--file <path>` | Complete content translation dictionary CSV (required). |
 
 ## Cards
 

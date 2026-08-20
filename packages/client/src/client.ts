@@ -1,6 +1,7 @@
 import { type ClientCredentials, type ClientOptions, createTransport } from "./http/transport";
 import { cardResource } from "./resources/card";
 import { collectionResource } from "./resources/collection";
+import { contentTranslationResource } from "./resources/content-translation";
 import { dashboardResource } from "./resources/dashboard";
 import { databaseResource } from "./resources/database";
 import { datasetResource } from "./resources/dataset";
@@ -34,6 +35,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
   return {
     card: cardResource(transport),
     collection: collectionResource(transport),
+    contentTranslation: contentTranslationResource(transport),
     dashboard: dashboardResource(transport),
     database: databaseResource(transport),
     dataset: datasetResource(transport),
