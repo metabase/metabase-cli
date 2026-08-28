@@ -8,7 +8,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 A dashboard starts as cards on a grid; it becomes an **app** when filters drive the cards, charts cross-filter each other, and clicks navigate. This skill owns both: the grid layout and the interactive layer.
 
-**`core` owns the transport mechanics** — the whole-array replace semantics (editing `dashcards` or `parameters` replaces the entire set; omitted entries are deleted; new cards use negative ids), `update-dashcard` for a single safe patch vs. `update --body` for a full replace, and the `parameter-values` verb. Read it first (`mb skills get core`). **`visualization`** owns each card's chart and the full `click_behavior` key catalog.
+**`core` owns the transport mechanics** — the whole-array replace semantics (editing `dashcards` or `parameters` replaces the entire set; omitted entries are deleted; every dashcard carries `card_id`, with `null` for virtual cards; new cards use negative ids), `update-dashcard` for a single safe patch vs. `update --body` for a full replace, and the `parameter-values` verb. Read it first (`mb skills get core`). **`visualization`** owns each card's chart and the full `click_behavior` key catalog.
 
 Inspect before you wire: `mb dashboard get <id> --json` hydrates `parameters`, `dashcards`, and `tabs`; `mb dashboard cards <id>` lists just the dashcards.
 
@@ -123,7 +123,7 @@ Set the **driver** chart's whole-card click behavior to `crossfilter`, mapping t
 - **Auto-connect / the missing map:** a filter that "does nothing" or "won't show" is almost always unmapped, or mapped only to cards on another tab.
 - **Time-grouping parameters** (`temporal-unit`) bind only to a datetime column in the query's **last** stage — add one after a time-bucketed summary and it can't attach.
 - **Required + default:** a `required: true` parameter with no `default` blocks its cards until a value is chosen; give it a `default` for expensive queries you don't want running unfiltered.
-- **Whole-array replace:** never send a partial `parameters`/`dashcards` array to `update` — you'll delete what you omit. Use `update-dashcard` for a single-card change.
+- **Whole-array replace:** never send a partial `parameters`/`dashcards` array to `update` — you'll delete what you omit. Include `card_id` on every dashcard (`null` for virtual cards). Use `update-dashcard` for a single-card change.
 
 ## Don't
 
