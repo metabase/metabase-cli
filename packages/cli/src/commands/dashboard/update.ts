@@ -15,7 +15,7 @@ export default defineMetabaseCommand({
     description: "Update a dashboard (and optionally its dashcards/tabs) by id",
   },
   details:
-    "Any positive card_id referenced from dashcards is pre-flight-validated (exists and readable, not archived) before the PUT.",
+    "Every dashcard must include card_id (a card id, or null for a virtual card). Any positive card_id is pre-flight-validated (exists and readable, not archived) before the PUT.",
   skills: [
     { skill: "dashboard", purpose: "wiring filters, cross-filtering, click behavior, tabs" },
     { skill: "visualization", purpose: "dashcard visualization_settings and the 24-column grid" },

@@ -752,7 +752,7 @@ mb dashboard parameter-values 1 order_status --query Cam --json
 
 ### `mb dashboard create`
 
-The body accepts the same dashboard-level fields as the underlying `POST /api/dashboard` (`name`, `description`, `parameters`, `cache_ttl`, `collection_id`, `collection_position`). It also accepts optional `dashcards` and `tabs`: when either is present, the CLI chains a `PUT /api/dashboard/:id` after the create and returns the updated dashboard with its dashcards/tabs applied. Use a negative `id` on a dashcard to indicate one the server should newly create.
+The body accepts the same dashboard-level fields as the underlying `POST /api/dashboard` (`name`, `description`, `parameters`, `cache_ttl`, `collection_id`, `collection_position`). It also accepts optional `dashcards` and `tabs`: when either is present, the CLI chains a `PUT /api/dashboard/:id` after the create and returns the updated dashboard with its dashcards/tabs applied. Every dashcard must carry `card_id` explicitly: use a positive card id for a saved question or `null` for a virtual card. Use a negative `id` on a dashcard to indicate one the server should newly create.
 
 ```sh
 cat dashboard.json | mb dashboard create
@@ -768,7 +768,7 @@ mb dashboard create --body '{"name":"D","dashcards":[{"id":-1,"card_id":42,"row"
 
 ### `mb dashboard update <id>`
 
-Patch a dashboard. To edit the dashcard set, send the entire `dashcards` array — IDs not in the array get deleted, and a negative `id` indicates a new dashcard the server should create.
+Patch a dashboard. To edit the dashcard set, send the entire `dashcards` array — IDs not in the array get deleted, and a negative `id` indicates a new dashcard the server should create. Every entry must carry `card_id` explicitly, including existing dashcards; use `null` for virtual cards.
 
 ```sh
 cat patch.json | mb dashboard update 1

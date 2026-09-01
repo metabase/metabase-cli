@@ -22,7 +22,7 @@ import { cardResource } from "./card";
 const DashboardApiList = z.array(Dashboard);
 
 // A dashcard as the reference check reads it: the id it points at, whatever else the caller is about
-// to send. The write shapes carry `card_id` under a loose catchall, so it arrives untyped.
+// to send. This also accepts raw callers that have not passed through a dashboard write schema.
 const PreflightDashcard = z.looseObject({
   card_id: z.number().int().nullable().optional(),
 });
