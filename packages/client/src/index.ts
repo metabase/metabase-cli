@@ -102,6 +102,7 @@ export {
   CollectionTreeNode,
   CollectionUpdateInput,
 } from "./domain/collection";
+export { ContentTranslationUploadResult } from "./domain/content-translation";
 export { CronUiDisplayType } from "./domain/cron";
 export {
   Dashboard,

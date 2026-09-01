@@ -323,6 +323,8 @@ const ALL_COMMANDS = [
   "upload csv",
   "upload append",
   "upload replace",
+  "content-translation download",
+  "content-translation upload",
   "card list",
   "card get",
   "card query",
@@ -444,6 +446,10 @@ const ALL_COMMANDS = [
 ];
 
 const MEASURE_CAPABILITIES = { minVersion: 59 } as const;
+const CONTENT_TRANSLATION_CAPABILITIES = {
+  minVersion: 58,
+  tokenFeature: "content_translation",
+} as const;
 const TRANSFORM_CAPABILITIES = { minVersion: 59 } as const;
 const TRANSFORM_JOB_SET_ACTIVE_CAPABILITIES = { minVersion: 61 } as const;
 
@@ -504,6 +510,19 @@ describe("command tree contract", () => {
 
     const cardList = entries.find((entry) => entry.command === "card list");
     expect(cardList?.capabilities).toEqual(BASELINE_CAPABILITIES);
+  });
+
+  it("gates every content translation command on its premium feature", async () => {
+    const entries = await allEntries();
+    const capabilities = Object.fromEntries(
+      entries
+        .filter((entry) => entry.command.startsWith("content-translation "))
+        .map((entry) => [entry.command, entry.capabilities]),
+    );
+    expect(capabilities).toEqual({
+      "content-translation download": CONTENT_TRANSLATION_CAPABILITIES,
+      "content-translation upload": CONTENT_TRANSLATION_CAPABILITIES,
+    });
   });
 
   it("carries the transform version gates through to every transform command", async () => {
