@@ -588,7 +588,7 @@ Download and replace Metabase's content translation dictionary through `/api/ee/
 
 ### `mb content-translation download`
 
-Stream the complete active dictionary as CSV. Redirect stdout to keep it as a file.
+Stream the complete active dictionary as CSV. Redirect stdout to keep it as a file. An empty dictionary downloads as Metabase's four-row sample, not a header-only file.
 
 ```sh
 mb content-translation download > metabase-content-translations.csv

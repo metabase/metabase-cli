@@ -13,6 +13,8 @@ import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { requireServer } from "./server-gate";
 
 const CSV_CONTENT = "Language,String,Translation\nsv,Title,Rubrik\nar,Cat,قطة\n";
+const REPLACEMENT_CSV_CONTENT = "Language,String,Translation\nde,Title,Titel\n";
+const INVALID_LOCALE_CSV = "Language,String,Translation\nxx,Title,Rubrik\n";
 
 const skipReason = requireServer(
   "content-translation › content translation e2e against EE endpoints",
@@ -79,11 +81,11 @@ describe.skipIf(skipReason !== null)("content translation e2e against EE endpoin
     return dir;
   }
 
-  async function tempCsv(): Promise<string> {
+  async function tempCsv(content: string = CSV_CONTENT): Promise<string> {
     const dir = await mkdtemp(join(tmpdir(), "mb-content-translation-e2e-"));
     tempDirs.push(dir);
     const path = join(dir, "translations.csv");
-    await writeFile(path, CSV_CONTENT);
+    await writeFile(path, content);
     return path;
   }
 
@@ -125,5 +127,55 @@ describe.skipIf(skipReason !== null)("content translation e2e against EE endpoin
     expect(download.exitCode, download.stderr).toBe(0);
     expect(download.stdout).toContain("sv,Title,Rubrik");
     expect(download.stdout).toContain("ar,Cat,قطة");
+  });
+
+  it("a second upload replaces the previous dictionary rather than merging into it", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const first = await runCli({
+      args: ["content-translation", "upload", "--file", await tempCsv(), "--json"],
+      configHome,
+      env: authEnv(),
+    });
+    expect(first.exitCode, first.stderr).toBe(0);
+
+    const second = await runCli({
+      args: [
+        "content-translation",
+        "upload",
+        "--file",
+        await tempCsv(REPLACEMENT_CSV_CONTENT),
+        "--json",
+      ],
+      configHome,
+      env: authEnv(),
+    });
+    expect(second.exitCode, second.stderr).toBe(0);
+
+    const download = await runCli({
+      args: ["content-translation", "download"],
+      configHome,
+      env: authEnv(),
+    });
+    expect(download.exitCode, download.stderr).toBe(0);
+    expect(download.stdout).toContain("de,Title,Titel");
+    expect(download.stdout).not.toContain("sv,Title,Rubrik");
+  });
+
+  it("upload of a dictionary with an unknown locale fails with the server's row error", async () => {
+    const result = await runCli({
+      args: [
+        "content-translation",
+        "upload",
+        "--file",
+        await tempCsv(INVALID_LOCALE_CSV),
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorMessage(result.stderr)).toBe("Row 2: Invalid locale: xx");
+    expect(result.stdout).toBe("");
   });
 });
