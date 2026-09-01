@@ -103,7 +103,14 @@ export type DashboardCompact = z.infer<typeof DashboardCompact>;
 const DashcardWrite = z
   .object({
     id: z.number().int().describe("existing dashcard id; negative to create a new dashcard"),
-    card_id: z.number().int().positive().nullable(),
+    card_id: z
+      .number()
+      .int()
+      .positive()
+      .nullable()
+      .describe(
+        "card the dashcard renders; null for a virtual (text, heading, link) or action dashcard",
+      ),
     size_x: z.number().int().positive(),
     size_y: z.number().int().positive(),
     row: z.number().int().nonnegative(),

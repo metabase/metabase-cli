@@ -611,6 +611,40 @@ describe("dashboard e2e", () => {
     expect(afterDetail.tabs).toEqual(beforeDetail.tabs);
   });
 
+  it("update with a dashcard missing card_id is rejected before any request is sent", async () => {
+    const beforeGet = await runCli({
+      args: ["dashboard", "get", String(SEEDED.ordersDashboardId), "--json", "--full"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(beforeGet.exitCode, beforeGet.stderr).toBe(0);
+    const beforeDetail = parseJson(beforeGet.stdout, DashboardDetail);
+
+    const result = await runCli({
+      args: ["dashboard", "update", String(SEEDED.ordersDashboardId), "--json"],
+      stdin: JSON.stringify({
+        dashcards: [{ id: SEEDED.ordersDashcardId, row: 0, col: 0, size_x: 12, size_y: 6 }],
+        tabs: [],
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(result.stdout).toBe("");
+
+    const afterGet = await runCli({
+      args: ["dashboard", "get", String(SEEDED.ordersDashboardId), "--json", "--full"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(afterGet.exitCode, afterGet.stderr).toBe(0);
+    const afterDetail = parseJson(afterGet.stdout, DashboardDetail);
+    expect(afterDetail.dashcards).toEqual(beforeDetail.dashcards);
+    expect(afterDetail.tabs).toEqual(beforeDetail.tabs);
+  });
+
   it("update with a non-integer id fails fast with ConfigError", async () => {
     const result = await runCli({
       args: ["dashboard", "update", "abc", "--json"],
