@@ -237,7 +237,7 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
     expect(cliErrorCategory(result.stderr)).toBe("http");
   });
 
-  it("has-remote-changes without git-sync configured surfaces a 400 HttpError", async () => {
+  it("has-remote-changes without git-sync configured surfaces the server's 400 message", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "has-remote-changes", "--json"],
@@ -245,10 +245,10 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Metabase returned 400");
+    expect(cliErrorMessage(result.stderr)).toBe("Remote sync is not configured.");
   });
 
-  it("cancel-task surfaces a 400 HttpError when there is no running task", async () => {
+  it("cancel-task surfaces the server's 400 message when there is no running task", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "cancel-task", "--json"],
@@ -256,10 +256,10 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Metabase returned 400");
+    expect(cliErrorMessage(result.stderr)).toBe("No active task to cancel");
   });
 
-  it("stash surfaces a 400 HttpError when remote-sync-type is not read-write", async () => {
+  it("stash surfaces the server's 400 message when remote-sync-type is not read-write", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "stash", "--new-branch", "wip", "--message", "x", "--no-wait", "--json"],
@@ -267,7 +267,9 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Metabase returned 400");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "Stash is only allowed when remote-sync-type is set to 'read-write'",
+    );
   });
 
   it("branches surfaces an HttpError when no source URL is configured", async () => {
@@ -281,7 +283,7 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
     expect(result.stderr).toContain("Failed to clone git repository");
   });
 
-  it("add-collection surfaces a 400 HttpError in the default config (read-only or paywall)", async () => {
+  it("add-collection surfaces the server's read-only 400 message in the default config", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "add-collection", "1", "--json"],
@@ -289,7 +291,9 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Metabase returned 400");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "Cannot change synced collections when remote-sync-type is read-only.",
+    );
   });
 
   it("remove-collection is idempotent when the collection is not in the sync config", async () => {

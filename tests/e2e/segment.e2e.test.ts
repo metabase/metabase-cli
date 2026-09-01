@@ -28,8 +28,12 @@ const NEW_SEGMENT_BODY: SegmentCreateInput = {
   table_id: SEEDED.tables.orders,
   description: SEGMENT_DESCRIPTION,
   definition: {
-    "source-table": SEEDED.tables.orders,
-    filter: [">", ["field", SEEDED.fields.ordersId, null], 0],
+    database: SEEDED.warehouseDbId,
+    type: "query",
+    query: {
+      "source-table": SEEDED.tables.orders,
+      filter: [">", ["field", SEEDED.fields.ordersId, null], 0],
+    },
   },
 };
 

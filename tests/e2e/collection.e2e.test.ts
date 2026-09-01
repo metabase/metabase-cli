@@ -10,6 +10,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
+import { serverVersionBelow } from "./server-gate";
 
 const DEFAULT_COLLECTION_NAME = "E2E Default";
 
@@ -35,6 +36,19 @@ const ROOT_COMPACT = {
   is_remote_synced: false,
 } as const;
 
+const ADMIN_PERSONAL_COMPACT = {
+  id: SEEDED.adminPersonalCollectionId,
+  name: "Admin E2E's Personal Collection",
+  description: null,
+  archived: false,
+  location: "/",
+  parent_id: null,
+  type: null,
+  authority_level: null,
+  is_personal: true,
+  is_remote_synced: false,
+} as const;
+
 const TRASH_COMPACT = {
   id: 1,
   name: "Trash",
@@ -47,6 +61,14 @@ const TRASH_COMPACT = {
   is_personal: false,
   is_remote_synced: false,
 } as const;
+
+// Through v61 the items endpoint reads its total off the first row's window column, so an empty
+// page reports no total at all; from v62 it reports 0.
+const EMPTY_ITEMS_TOTAL_VERSION = 62;
+
+function emptyItemsPageTotal(): number | null {
+  return serverVersionBelow(EMPTY_ITEMS_TOTAL_VERSION) ? null : 0;
+}
 
 describe("collection e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -120,7 +142,7 @@ describe("collection e2e", () => {
     });
   });
 
-  it("list --filter personal returns no rows for the synthetic api-key user", async () => {
+  it("list --filter personal returns only the admin's personal collection", async () => {
     const result = await runCli({
       args: ["collection", "list", "--filter", "personal", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -129,10 +151,10 @@ describe("collection e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, CollectionListEnvelope)).toEqual({
-      data: [],
-      returned: 0,
+      data: [ADMIN_PERSONAL_COMPACT],
+      returned: 1,
       offset: 0,
-      total: 0,
+      total: 1,
       has_more: false,
       next_offset: null,
     });
@@ -433,7 +455,7 @@ describe("collection e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("items on a freshly-created empty collection returns an empty envelope (server total: null)", async () => {
+  it("items on a freshly-created empty collection returns an empty envelope", async () => {
     const configHome = await makeIsolatedConfigHome();
     const createResult = await runCli({
       args: ["collection", "create", "--json"],
@@ -458,7 +480,7 @@ describe("collection e2e", () => {
       data: [],
       returned: 0,
       offset: 0,
-      total: null,
+      total: emptyItemsPageTotal(),
       has_more: false,
       next_offset: null,
     });

@@ -31,6 +31,9 @@ services:
       MB_LOAD_SAMPLE_CONTENT: "false"
       MB_CHECK_FOR_UPDATES: "false"
       MB_ANON_TRACKING_ENABLED: "false"
+      # The warehouse lives on the compose network, which the connection-host policy classes as private
+      # and refuses by default whenever the license token carries `hosting` (the CI token does).
+      MB_WAREHOUSE_ALLOWED_NETWORKS: allow-all
       # `dev` so Metabase honors METASTORE_DEV_SERVER_URL for token checks;
       # the prod default is hard-pinned to https://token-check.metabase.com.
       MB_RUN_MODE: dev

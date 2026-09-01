@@ -28,8 +28,12 @@ const NEW_MEASURE_BODY: MeasureCreateInput = {
   table_id: SEEDED.tables.orders,
   description: MEASURE_DESCRIPTION,
   definition: {
-    "source-table": SEEDED.tables.orders,
-    aggregation: [["count"]],
+    database: SEEDED.warehouseDbId,
+    type: "query",
+    query: {
+      "source-table": SEEDED.tables.orders,
+      aggregation: [["count"]],
+    },
   },
 };
 

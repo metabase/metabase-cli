@@ -77,6 +77,7 @@ const JSON_CONTENT_TYPE = "application/json";
 const SessionPropertiesResponse = z.object({ "setup-token": z.string().nullish() }).loose();
 const SessionResponse = z.object({ id: z.string() });
 const ApiKeyResponse = z.object({ unmasked_key: z.string() }).loose();
+const AdminUserResponse = z.object({ personal_collection_id: z.number().int().positive() }).loose();
 const EntityWithIdResponse = z.object({ id: z.number() }).loose();
 const FieldMeta = z.object({ id: z.number().int(), name: z.string() }).loose();
 const TableMeta = z
@@ -128,6 +129,7 @@ async function main(): Promise<void> {
 
   const sessionId = await ensureAdminSessionId();
   await assertServerNotSeeded(sessionId);
+  const adminPersonalCollectionId = await ensureAdminPersonalCollection(sessionId);
   const adminApiKey = await mintApiKey(sessionId, "e2e-admin-key", E2E_GROUPS.ADMIN);
   const client = apiKeyClient(adminApiKey);
 
@@ -137,7 +139,7 @@ async function main(): Promise<void> {
     await enableTransforms(client);
     await reportTransformsUsable(client);
   }
-  const seeded = await seedContent(client, libraryReady(probed));
+  const seeded = await seedContent(client, libraryReady(probed), adminPersonalCollectionId);
   const oauthSupported = (await tryDiscoverMetadata(BASE_URL, USER_AGENT)) !== null;
   const server = { ...probed, oauthSupported };
 
@@ -460,7 +462,11 @@ async function enableTransforms(client: Transport): Promise<void> {
   }
 }
 
-async function seedContent(client: Transport, libraryEnabled: boolean): Promise<SeededIds> {
+async function seedContent(
+  client: Transport,
+  libraryEnabled: boolean,
+  adminPersonalCollectionId: number,
+): Promise<SeededIds> {
   const warehouseDbId = await createEntityId(client, "/api/database", {
     name: WAREHOUSE_DB_NAME,
     engine: "postgres",
@@ -532,6 +538,7 @@ async function seedContent(client: Transport, libraryEnabled: boolean): Promise<
     tables,
     fields,
     libraryDataCollectionId,
+    adminPersonalCollectionId,
   };
 }
 
@@ -708,6 +715,18 @@ async function tryLogin(): Promise<z.infer<typeof SessionResponse> | null> {
   }
   const parsed = SessionResponse.safeParse(await response.json());
   return parsed.success ? parsed.data : null;
+}
+
+// Metabase creates a user's personal collection on the first request that hydrates it, and a
+// collection listing on an instance that has none trips a nil-set bug in the `is_personal`
+// hydration (Metabase master, 2026-08) once more than one collection exists. Nothing else here
+// would create one: every seed request runs on an api key, and an api-key user gets no personal
+// collection. So ask for the admin once on the session before anything lists collections.
+async function ensureAdminPersonalCollection(sessionId: string): Promise<number> {
+  const admin = await fetchJson(`${BASE_URL}/api/user/current`, AdminUserResponse, {
+    headers: { [SESSION_HEADER]: sessionId },
+  });
+  return admin.personal_collection_id;
 }
 
 async function keyStillWorks(apiKey: string): Promise<boolean> {

@@ -43,6 +43,22 @@ function textHeaders(): Headers {
 }
 
 describe("HttpError message extraction", () => {
+  it("uses a text/plain body as the message when there is no envelope", () => {
+    const error = buildHttpError({
+      responseHeaders: textHeaders(),
+      rawBody: "Invalid query: missing or invalid Database ID (:database)\n",
+    });
+    expect(error.message).toBe("Invalid query: missing or invalid Database ID (:database)");
+  });
+
+  it("does not read a non-JSON body of another content type as the message", () => {
+    const error = buildHttpError({
+      responseHeaders: new Headers({ "content-type": "text/html" }),
+      rawBody: "<html><body>Bad Request</body></html>",
+    });
+    expect(error.message).toBe("Metabase returned 400.");
+  });
+
   it("prefers top-level message over other fields", () => {
     const body = JSON.stringify({
       message: "top-level wins",

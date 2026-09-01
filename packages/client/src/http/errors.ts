@@ -21,6 +21,7 @@ interface StatusClassification {
 
 const NOT_FOUND_STATUS = 404;
 
+const TEXT_CONTENT_TYPE = "text/plain";
 const ROUTE_MISSING_LITERAL = "API endpoint does not exist.";
 const RESOURCE_MISSING_LITERAL = "Not found.";
 
@@ -103,7 +104,9 @@ export class HttpError extends MetabaseError {
     const sanitizedBody = sanitizeBody(input.rawBody, input.redactionContext);
     const redactedHeaders = redactHeaders(input.responseHeaders);
     const kind = classifyKind(input.status, sanitizedBody, redactedHeaders);
-    super(input.overrideUserMessage ?? buildUserMessage(kind, input, sanitizedBody));
+    super(
+      input.overrideUserMessage ?? buildUserMessage(kind, input, sanitizedBody, redactedHeaders),
+    );
     const fields = extractFieldErrors(sanitizedBody);
     this.name = "HttpError";
     this.status = input.status;
@@ -225,6 +228,7 @@ function buildUserMessage(
   kind: HttpErrorKind,
   input: HttpErrorInput,
   sanitizedBody: string | null,
+  redactedHeaders: Record<string, string>,
 ): string {
   if (kind === "route-missing") {
     return buildRouteMissingMessage(input);
@@ -241,7 +245,25 @@ function buildUserMessage(
   if (kind === "auth") {
     return `Invalid or unauthorized API key (host: ${hostFromUrl(input.url)}).`;
   }
+  const fromText = plainTextMessage(sanitizedBody, redactedHeaders);
+  if (fromText !== null) {
+    return fromText;
+  }
   return defaultMessageForStatus(input.status);
+}
+
+// Metabase answers some rejections — a query that fails normalization, for one — with a text/plain
+// body that is nothing but the message. Only that content type is read as one: an HTML error page
+// from whatever sits in front of Metabase is never a message.
+function plainTextMessage(
+  sanitizedBody: string | null,
+  redactedHeaders: Record<string, string>,
+): string | null {
+  if (sanitizedBody === null || !redactedHeaders["content-type"]?.includes(TEXT_CONTENT_TYPE)) {
+    return null;
+  }
+  const trimmed = sanitizedBody.trim();
+  return trimmed === "" ? null : capLength(trimmed);
 }
 
 function buildRouteMissingMessage(input: HttpErrorInput): string {
