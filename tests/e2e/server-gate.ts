@@ -128,3 +128,15 @@ export function serverRejectedMessage(): string {
     ? "Metabase returned 500."
     : "Metabase returned 400.";
 }
+
+// From v62 a query the server cannot normalize — a database id that is not an integer, say — is
+// refused with one message for the whole query before any field-level schema check runs; through
+// v61 the schema check runs first and names the field it rejected.
+const QUERY_NORMALIZATION_VERSION = 62;
+const QUERY_NORMALIZATION_MESSAGE = "Invalid query: missing or invalid Database ID (:database)";
+
+export function invalidDatabaseRejection(fieldLevelMessage: string): string {
+  return serverVersionBelow(QUERY_NORMALIZATION_VERSION)
+    ? fieldLevelMessage
+    : QUERY_NORMALIZATION_MESSAGE;
+}

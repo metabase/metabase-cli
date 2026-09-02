@@ -37,6 +37,8 @@ export const SeededIds = z.object({
   // `library` premium feature; null otherwise. Defaults null for bootstrap files written before
   // this field existed. Target for `table publish`.
   libraryDataCollectionId: z.number().int().positive().nullable().default(null),
+  // The admin's personal collection, the only personal collection a snapshot holds.
+  adminPersonalCollectionId: z.number().int().positive(),
 });
 export type SeededIds = z.infer<typeof SeededIds>;
 

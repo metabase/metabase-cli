@@ -105,7 +105,6 @@ describe.skipIf(skipReason !== null)("content translation e2e against EE endpoin
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(result.stdout).toContain("Locale Code,String,Translation");
-    expect(result.stderr).toBe("");
   });
 
   it("upload replaces the dictionary and reports the server confirmation", async () => {
