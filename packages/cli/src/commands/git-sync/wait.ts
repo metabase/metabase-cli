@@ -2,9 +2,10 @@ import { DEFAULT_INTERVAL_MS, DEFAULT_TIMEOUT_MS } from "@metabase/client/poll";
 
 import { renderSummary } from "../../output/render";
 import { syncTaskView } from "../../output/views/git-sync";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { connectionFlags, outputFlags, profileFlag, worktreeFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 import { parseWaitSchedule } from "../wait-flags";
+import { scopeQuery, WORKTREE_SCOPE_DETAIL } from "../worktree-scope";
 
 import {
   formatSyncTask,
@@ -23,10 +24,13 @@ export default defineMetabaseCommand({
     description: "Poll the current git-sync task until it reaches a terminal status",
   },
   capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
+  worktree: "scoped",
+  details: WORKTREE_SCOPE_DETAIL,
   args: {
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
+    ...worktreeFlag,
     timeout: {
       type: "string",
       description: "Polling timeout in ms",
@@ -40,10 +44,11 @@ export default defineMetabaseCommand({
   },
   outputSchema: WaitResult,
   examples: ["mb git-sync wait", "mb git-sync wait --timeout 300000 --json"],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, getWorktree }) {
     const schedule = parseWaitSchedule(args);
     const mb = await getClient();
-    const final = await mb.gitSync.waitForTask(taskPollOptions(schedule));
+    const scope = await getWorktree();
+    const final = await mb.gitSync.waitForTask(taskPollOptions(schedule), scopeQuery(scope));
 
     if (final === null) {
       const idle: SyncTaskIdle = { status: "idle" };

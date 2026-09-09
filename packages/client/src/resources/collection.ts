@@ -33,12 +33,18 @@ const DEFAULT_LIST_FILTER = "all";
 
 export interface CollectionListParams {
   filter?: CollectionListFilter | undefined;
+  "worktree-id"?: number | undefined;
 }
 
 export interface CollectionItemListParams {
   models?: CollectionItemFilterModel[] | undefined;
   archived?: boolean | undefined;
   pinned_state?: CollectionPinnedState | undefined;
+  "worktree-id"?: number | undefined;
+}
+
+export interface CollectionTreeParams {
+  "worktree-id"?: number | undefined;
 }
 
 // The walk's own settings, minus the query the method builds from `CollectionItemListParams`.
@@ -69,14 +75,18 @@ export async function listCollectionsWithLibrary<T>(
 }
 
 export function collectionResource(transport: Transport) {
-  /** List collections. `filter` picks a server-side preset: everything, archived, or personal. */
+  /**
+   * List collections. `filter` picks a server-side preset — everything, archived, or personal — and
+   * `worktree-id` lists only the collections checked out into that remote-sync worktree.
+   */
   async function list(
     params: CollectionListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Collection>> {
+    const preset = COLLECTION_LIST_QUERY[params.filter ?? DEFAULT_LIST_FILTER];
     const data = await transport.requestParsed(CollectionApiList, "/api/collection", {
       ...options,
-      query: COLLECTION_LIST_QUERY[params.filter ?? DEFAULT_LIST_FILTER],
+      query: { ...preset, "worktree-id": params["worktree-id"] },
     });
     return { data, total: null };
   }
@@ -128,7 +138,8 @@ export function collectionResource(transport: Transport) {
 
   /**
    * Walk the items inside a collection one page at a time. This endpoint pages on the server, so
-   * the caller consumes pages rather than a single list and decides how far to pull.
+   * the caller consumes pages rather than a single list and decides how far to pull. `worktree-id`
+   * walks the `root` alias inside a remote-sync worktree rather than the main app.
    */
   function itemPages(
     ref: CollectionId,
@@ -140,6 +151,7 @@ export function collectionResource(transport: Transport) {
         models: params.models,
         archived: params.archived,
         pinned_state: params.pinned_state,
+        "worktree-id": params["worktree-id"],
       },
       ...(options.offset !== undefined && { offset: options.offset }),
       ...(options.max !== undefined && { max: options.max }),
@@ -148,10 +160,17 @@ export function collectionResource(transport: Transport) {
     });
   }
 
-  /** Fetch the collection hierarchy as a forest of nested nodes. */
-  async function tree(options: RequestOptions = {}): Promise<ListResult<CollectionTreeNode>> {
+  /**
+   * Fetch the collection hierarchy as a forest of nested nodes. `worktree-id` fetches the hierarchy
+   * a remote-sync worktree checked out rather than the main app's.
+   */
+  async function tree(
+    params: CollectionTreeParams = {},
+    options: RequestOptions = {},
+  ): Promise<ListResult<CollectionTreeNode>> {
     const data = await transport.requestParsed(CollectionTreeApiList, "/api/collection/tree", {
       ...options,
+      query: { "worktree-id": params["worktree-id"] },
     });
     return { data, total: null };
   }

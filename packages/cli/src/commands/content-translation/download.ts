@@ -14,6 +14,7 @@ export default defineMetabaseCommand({
   details:
     "Streams the active dictionary to stdout with the server's CSV formatting. Redirect stdout to preserve it as a file that can be reviewed, versioned, or uploaded later. An empty dictionary downloads as Metabase's four-row sample dictionary, not a header-only file.",
   capabilities: { minVersion: 58, tokenFeature: "content_translation" },
+  worktree: "any",
   args: {
     ...profileFlag,
     ...connectionFlags,

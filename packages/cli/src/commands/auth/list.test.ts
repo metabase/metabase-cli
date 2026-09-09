@@ -216,6 +216,7 @@ describe("auth list command", () => {
           tokenFeatures: null,
           lastProbedAt: envelope.data[0]?.lastProbedAt,
           lastFailure: null,
+          worktree: null,
         },
       ],
       returned: 1,

@@ -10,7 +10,7 @@ import { SyncStatus } from "../../packages/cli/src/commands/git-sync/status";
 import { WaitResult } from "../../packages/cli/src/commands/git-sync/wait";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { cliErrorCategory, cliErrorMessage } from "./cli-error";
+import { cliErrorMessage } from "./cli-error";
 import { requireServer } from "./server-gate";
 
 // The remote-sync API has breaking server-side differences through v59 (the git source layer
@@ -198,6 +198,7 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, SyncStatus)).toEqual({
       branch: null,
+      worktree: null,
       is_dirty: false,
       current_task: null,
       synced_collections: [],
@@ -215,26 +216,32 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
     expect(parseJson(result.stdout, WaitResult)).toEqual({ status: "idle" });
   });
 
-  it("import without git-sync configured surfaces an HttpError", async () => {
+  it("import refuses before any request when remote-sync-branch is unset", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "import", "--no-wait", "--json"],
       configHome,
       env: authEnv(),
     });
-    expect(result.exitCode).toBe(1);
-    expect(cliErrorCategory(result.stderr)).toBe("http");
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "remote-sync-branch is not set; configure git-sync first",
+    );
+    expect(result.stdout).toBe("");
   });
 
-  it("export without git-sync configured surfaces an HttpError", async () => {
+  it("export refuses before any request when remote-sync-branch is unset", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "export", "--no-wait", "--json"],
       configHome,
       env: authEnv(),
     });
-    expect(result.exitCode).toBe(1);
-    expect(cliErrorCategory(result.stderr)).toBe("http");
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "remote-sync-branch is not set; configure git-sync first",
+    );
+    expect(result.stdout).toBe("");
   });
 
   it("has-remote-changes without git-sync configured surfaces the server's 400 message", async () => {
@@ -307,3 +314,41 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
     expect(parseJson(result.stdout, SyncSettingsUpdateResult)).toEqual({ success: true });
   });
 });
+
+// `export-preflight` reaches the remote-sync API only from v63; below that the command's own
+// preflight refuses first, so the branch-resolution path this asserts is not reachable.
+const preflightSkipReason = requireServer(
+  "git-sync › export-preflight against EE remote-sync endpoints",
+  { minVersion: 63, tokenFeature: "remote_sync" },
+);
+
+describe.skipIf(preflightSkipReason !== null)(
+  "git-sync export-preflight against EE remote-sync endpoints",
+  () => {
+    let bootstrap: E2EBootstrap;
+    const tempDirs: string[] = [];
+
+    beforeAll(async () => {
+      bootstrap = await readBootstrap();
+    });
+
+    afterEach(async () => {
+      await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+    });
+
+    it("refuses before any request when remote-sync-branch is unset", async () => {
+      const configHome = await mkTempConfigHome();
+      tempDirs.push(configHome);
+      const result = await runCli({
+        args: ["git-sync", "export-preflight", "--json"],
+        configHome,
+        env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey },
+      });
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "remote-sync-branch is not set; configure git-sync first",
+      );
+      expect(result.stdout).toBe("");
+    });
+  },
+);

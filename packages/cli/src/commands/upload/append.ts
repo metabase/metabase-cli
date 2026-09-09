@@ -12,6 +12,7 @@ export default defineMetabaseCommand({
   details:
     "Inserts the rows of the CSV into the table with the given id. The table must have been created by a CSV upload and the CSV columns must match.",
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

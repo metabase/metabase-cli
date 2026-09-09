@@ -11,6 +11,7 @@ export default defineMetabaseCommand({
     description: "Archive (soft-delete) a timeline and all its events by id",
   },
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

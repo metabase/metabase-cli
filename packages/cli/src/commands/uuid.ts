@@ -21,6 +21,7 @@ export default defineMetabaseCommand({
     "For MBQL `lib/uuid` slots, native template-tag ids, and other UUID fields. Mint fresh values here rather than authoring them by hand — the MBQL 5 schema rejects placeholder strings.",
   skills: [{ skill: "mbql", purpose: "where lib/uuid values are used" }],
   capabilities: null,
+  worktree: "any",
   args: {
     ...outputFlags,
     count: {

@@ -24,6 +24,7 @@ export default defineMetabaseCommand({
     { skill: "visualization", purpose: "choose display and visualization_settings" },
   ],
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

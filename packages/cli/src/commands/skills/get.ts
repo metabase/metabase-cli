@@ -38,6 +38,7 @@ export default defineMetabaseCommand({
       "Print one or more skills' SKILL.md content. Pass comma-separated names, or --all for every non-hidden skill. --full includes references and templates.",
   },
   capabilities: null,
+  worktree: "any",
   args: {
     ...outputFlags,
     ...listFlags,

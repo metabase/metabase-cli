@@ -14,6 +14,7 @@ export default defineCommandGroup({
     wait: () => import("./wait").then((mod) => mod.default),
     import: () => import("./import").then((mod) => mod.default),
     export: () => import("./export").then((mod) => mod.default),
+    "export-preflight": () => import("./export-preflight").then((mod) => mod.default),
     stash: () => import("./stash").then((mod) => mod.default),
     branches: () => import("./branches").then((mod) => mod.default),
     "create-branch": () => import("./create-branch").then((mod) => mod.default),

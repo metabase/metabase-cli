@@ -65,6 +65,7 @@ describe("auth status command", () => {
       tokenFeatures: null,
       lastProbedAt: null,
       lastFailure: null,
+      worktree: null,
     });
   });
 
@@ -82,6 +83,7 @@ describe("auth status command", () => {
       tokenFeatures: null,
       lastProbedAt: null,
       lastFailure: null,
+      worktree: null,
     });
   });
 
@@ -120,6 +122,7 @@ describe("auth status command", () => {
       tokenFeatures: null,
       lastProbedAt: probe?.at ?? null,
       lastFailure: null,
+      worktree: null,
     });
   });
 });

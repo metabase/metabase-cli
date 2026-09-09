@@ -13,6 +13,7 @@ export default defineMetabaseCommand({
     description: "Patch a single dashcard's layout or settings on a dashboard",
   },
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -8,6 +8,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a measure by id" },
   capabilities: { minVersion: 59 },
+  worktree: "any",
   args: {
     ...outputFlags,
     ...profileFlag,

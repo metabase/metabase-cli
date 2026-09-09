@@ -11,6 +11,7 @@ import {
   profileAuthMethod,
   ProfileAuthMethod,
   ProfileLastFailure,
+  ProfilePin,
 } from "../../core/auth/profile-record";
 import { renderItem } from "../../output/render";
 import type { ResourceView } from "../../output/view";
@@ -22,6 +23,7 @@ import {
   renderUserName,
   renderUserRole,
   renderVersionTag,
+  renderWorktreePin,
 } from "./render";
 
 export const AuthStatus = z.object({
@@ -34,6 +36,7 @@ export const AuthStatus = z.object({
   tokenFeatures: TokenFeatures.nullable(),
   lastProbedAt: z.iso.datetime().nullable(),
   lastFailure: ProfileLastFailure.nullable(),
+  worktree: ProfilePin.nullable(),
 });
 type AuthStatusJson = z.infer<typeof AuthStatus>;
 
@@ -48,12 +51,14 @@ const authStatusView: ResourceView<AuthStatusJson> = {
     { key: "user", label: "Role", format: (value) => renderUserRole(value) },
     { key: "version", label: "Version", format: (value) => renderVersionTag(value) },
     { key: "lastProbedAt", label: "Last probed", format: (value) => renderTimestamp(value) },
+    { key: "worktree", label: "Worktree pin", format: (value) => renderWorktreePin(value) },
   ],
 };
 
 export default defineMetabaseCommand({
   meta: { name: "status", description: "Show authentication status for a profile" },
   capabilities: null,
+  worktree: "any",
   args: { ...outputFlags, ...profileFlag },
   outputSchema: AuthStatus,
   examples: ["mb auth status --json", "mb auth status --profile staging"],
@@ -73,6 +78,7 @@ export default defineMetabaseCommand({
           tokenFeatures: null,
           lastProbedAt: null,
           lastFailure: null,
+          worktree: null,
         },
         authStatusView,
         ctx,
@@ -92,6 +98,7 @@ export default defineMetabaseCommand({
         tokenFeatures: probe?.tokenFeatures ?? null,
         lastProbedAt: probe?.at ?? null,
         lastFailure: record.lastFailure,
+        worktree: record.worktree,
       },
       authStatusView,
       ctx,

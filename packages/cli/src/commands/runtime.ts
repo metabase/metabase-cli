@@ -9,6 +9,7 @@ import {
   mergeCapabilities,
   type Capabilities,
 } from "@metabase/client/version/capabilities";
+import { ConfigError } from "@metabase/client/errors";
 import { CapabilityError } from "@metabase/client/version/preflight-error";
 import { type ServerInfo } from "@metabase/client/version/probe";
 
@@ -25,12 +26,20 @@ import {
   type ConfigFlags,
   type ResolvedConfig,
 } from "../core/config";
-import { consumeLegacyEnvWarnings } from "../core/env";
+import { ENV_WORKTREE, consumeLegacyEnvWarnings, readEnv } from "../core/env";
 import { USER_AGENT } from "../core/user-agent";
+import {
+  mainOnlyRefusal,
+  resolveScopeSource,
+  type WorktreePolicy,
+  type WorktreeScope,
+  type WorktreeScopeSource,
+} from "../core/worktree-scope";
 import { reportError } from "../output/error";
 import { warn } from "../output/notice";
 import { setMetabaseAugment, type SkillPointer } from "../runtime/command-augment";
 import { interruptSignal } from "../runtime/interrupt";
+import { readVerbChain } from "../runtime/verb-chain";
 import {
   resolveCommonFlags,
   resolveOutputFormat,
@@ -38,8 +47,13 @@ import {
   type CommonContext,
 } from "./context";
 import { assertKnownFlags } from "./known-flags";
+import { resolveWorktreeScope } from "./worktree-scope";
 
 export { SKIP_PREFLIGHT_ENV };
+
+// A refusal reaches the user before any verb chain is recorded only when the command tree was never
+// walked, which outside the entry point means a test driving one command definition directly.
+const UNNAMED_COMMAND = "this command";
 
 interface MetabaseCommandContext<A extends ArgsDef> {
   args: ParsedArgs<A>;
@@ -47,6 +61,7 @@ interface MetabaseCommandContext<A extends ArgsDef> {
   getClient: () => Promise<MetabaseClient>;
   getResolvedConfig: () => Promise<ResolvedConfig>;
   getServerInfo: () => Promise<ServerInfo | null>;
+  getWorktree: () => Promise<WorktreeScope | null>;
 }
 
 interface MetabaseCommandDef<A extends ArgsDef> {
@@ -58,6 +73,7 @@ interface MetabaseCommandDef<A extends ArgsDef> {
   inputSchema?: ZodType;
   outputSchema?: ZodType;
   capabilities: Partial<Capabilities> | null;
+  worktree: WorktreePolicy;
   run: (context: MetabaseCommandContext<A>) => Promise<void> | void;
 }
 
@@ -115,10 +131,36 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
           getServerInfo,
           ctx.skipPreflight,
         );
+        let cachedScopeSource: Promise<WorktreeScopeSource | null> | null = null;
+        const getScopeSource = (): Promise<WorktreeScopeSource | null> => {
+          if (cachedScopeSource === null) {
+            cachedScopeSource = loadScopeSource(ctx, getResolvedConfig);
+          }
+          return cachedScopeSource;
+        };
+        // Resolving the scope source is what enforces the pin lock, and the main-only refusal has
+        // to land before the command can reach the network. Both need no more than the pin and the
+        // environment, so they ride on `getClient`, which every server-touching command goes
+        // through and which has itself opened no socket yet.
+        const enforceWorktreePolicy = async (): Promise<void> => {
+          const source = await getScopeSource();
+          if (source === null || def.worktree !== "main-only") {
+            return;
+          }
+          throw new ConfigError(mainOnlyRefusal(commandName(def.meta), source));
+        };
         const getClient = async (): Promise<MetabaseClient> => {
           const client = await rawGetClient();
+          await enforceWorktreePolicy();
           await enforcePreflight();
           return client;
+        };
+        let cachedScope: Promise<WorktreeScope | null> | null = null;
+        const getWorktree = (): Promise<WorktreeScope | null> => {
+          if (cachedScope === null) {
+            cachedScope = loadWorktreeScope(getScopeSource, getClient);
+          }
+          return cachedScope;
         };
         try {
           await def.run({
@@ -127,6 +169,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
             getClient,
             getResolvedConfig,
             getServerInfo,
+            getWorktree,
           });
         } finally {
           emitPendingWarnings();
@@ -143,8 +186,46 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
     inputSchema: def.inputSchema ?? null,
     outputSchema: def.outputSchema ?? null,
     capabilities: required,
+    worktree: def.worktree,
   });
   return cmd;
+}
+
+// The verb chain the user typed is what identifies the command; the leaf's own name is the fallback
+// for a definition run outside the CLI entry.
+function commandName(meta: CommandMeta): string {
+  const chain = readVerbChain();
+  if (chain !== null) {
+    return chain;
+  }
+  return typeof meta.name === "string" && meta.name !== "" ? meta.name : UNNAMED_COMMAND;
+}
+
+// The pin lives on the profile record, which is read straight off disk; resolving the config first
+// is what names the profile whose pin applies.
+async function loadScopeSource(
+  ctx: CommonContext,
+  getResolvedConfig: () => Promise<ResolvedConfig>,
+): Promise<WorktreeScopeSource | null> {
+  const resolved = await getResolvedConfig();
+  const record = await readProfileRecord(resolved.profile);
+  return resolveScopeSource({
+    profile: resolved.profile,
+    flag: ctx.worktree,
+    env: readEnv(ENV_WORKTREE),
+    pin: record?.worktree ?? null,
+  });
+}
+
+async function loadWorktreeScope(
+  getScopeSource: () => Promise<WorktreeScopeSource | null>,
+  getClient: () => Promise<MetabaseClient>,
+): Promise<WorktreeScope | null> {
+  const source = await getScopeSource();
+  if (source === null) {
+    return null;
+  }
+  return resolveWorktreeScope(source, await getClient());
 }
 
 function emitPendingWarnings(): void {
@@ -236,6 +317,9 @@ function pickCommonArgs<A extends ArgsDef>(args: ParsedArgs<A>): CommonArgs {
   }
   if (typeof args["profile"] === "string") {
     out.profile = args["profile"];
+  }
+  if (typeof args["worktree"] === "string") {
+    out.worktree = args["worktree"];
   }
   if (typeof args["url"] === "string") {
     out.url = args["url"];

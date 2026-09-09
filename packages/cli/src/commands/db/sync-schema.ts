@@ -15,6 +15,7 @@ export default defineMetabaseCommand({
   details:
     "Queues an async schema sync and returns immediately. Pass --wait to poll the database until its initial_sync_status reports `complete` (a database that has already finished its initial sync returns at once). To wait for a specific newly-materialized transform table to register, prefer `mb transform run <id> --sync`.",
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

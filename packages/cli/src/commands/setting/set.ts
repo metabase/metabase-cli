@@ -16,6 +16,7 @@ const SettingValueInput = z
 export default defineMetabaseCommand({
   meta: { name: "set", description: "Set a setting value (parsed strictly as JSON)" },
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

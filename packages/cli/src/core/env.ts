@@ -8,6 +8,7 @@ export const ENV_VERBOSE = "MB_VERBOSE";
 export const ENV_SKIP_PREFLIGHT = "MB_CLI_SKIP_PREFLIGHT";
 export const ENV_DISABLE_KEYRING = "MB_CLI_DISABLE_KEYRING";
 export const ENV_SKILLS_DIR = "MB_SKILLS_DIR";
+export const ENV_WORKTREE = "MB_WORKTREE";
 
 function legacyNameFor(canonical: string): string {
   return LEGACY_PREFIX + canonical.slice(CANONICAL_PREFIX.length);

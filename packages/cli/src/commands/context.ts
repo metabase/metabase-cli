@@ -3,7 +3,7 @@ import { resolveFormat } from "../output/format";
 import { DEFAULT_MAX_BYTES, type Format, type ListRange } from "../output/types";
 import { parseCsv } from "../runtime/csv";
 
-import type { connectionFlags, listFlags, outputFlags, profileFlag } from "./flags";
+import type { connectionFlags, listFlags, outputFlags, profileFlag, worktreeFlag } from "./flags";
 import { parseInteger, parseOptionalInteger } from "./parse-integer";
 
 type FlagValue<T> = T extends { type: "boolean" }
@@ -15,7 +15,8 @@ type FlagValue<T> = T extends { type: "boolean" }
 type AllKnownFlags = typeof outputFlags &
   typeof profileFlag &
   typeof connectionFlags &
-  typeof listFlags;
+  typeof listFlags &
+  typeof worktreeFlag;
 
 export type CommonArgs = {
   -readonly [K in keyof AllKnownFlags]?: FlagValue<AllKnownFlags[K]>;
@@ -30,6 +31,7 @@ export interface CommonContext {
   url: string | undefined;
   apiKey: string | undefined;
   profile: string | undefined;
+  worktree: string | undefined;
   skipPreflight: boolean;
 }
 
@@ -63,6 +65,7 @@ export function resolveCommonFlags(args: CommonArgs, options: ResolveOptions = {
     url: args.url,
     apiKey: args.apiKey,
     profile: args.profile,
+    worktree: args.worktree,
     skipPreflight: args.skipPreflight === true,
   };
 }

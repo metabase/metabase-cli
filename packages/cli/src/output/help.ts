@@ -259,19 +259,26 @@ async function walkCommandPath(root: CommandDef, rawArgs: readonly string[]): Pr
   return { segments, unknownToken: null };
 }
 
-export async function resolveBreadcrumb(
-  root: CommandDef,
-  rawArgs: readonly string[],
-): Promise<string> {
-  const { segments } = await walkCommandPath(root, rawArgs);
-  return segments.length > 0 ? segments.join(" ") : CLI_NAME;
+interface CommandInvocation {
+  breadcrumb: string;
+  // The verb chain alone, without the CLI name — `null` when the args named no subcommand.
+  verbs: string | null;
+  unknownToken: string | null;
 }
 
-export async function findUnknownCommand(
+// Citty resolves the leaf itself but exposes neither the path it took nor the token it choked on,
+// so the entry re-walks the tree against the raw argv for both.
+export async function resolveInvocation(
   root: CommandDef,
   rawArgs: readonly string[],
-): Promise<string | null> {
-  return (await walkCommandPath(root, rawArgs)).unknownToken;
+): Promise<CommandInvocation> {
+  const { segments, unknownToken } = await walkCommandPath(root, rawArgs);
+  const verbs = segments[0] === CLI_NAME ? segments.slice(1) : segments;
+  return {
+    breadcrumb: segments.length > 0 ? segments.join(" ") : CLI_NAME,
+    verbs: verbs.length > 0 ? verbs.join(" ") : null,
+    unknownToken,
+  };
 }
 
 function skipFlags(rawArgs: readonly string[], start: number, argsDef: ArgsDef): number {

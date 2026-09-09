@@ -2,6 +2,8 @@ import type { ZodType } from "zod";
 
 import type { Capabilities } from "@metabase/client/version/capabilities";
 
+import type { WorktreePolicy } from "../core/worktree-scope";
+
 export interface SkillPointer {
   skill: string;
   purpose: string;
@@ -14,6 +16,7 @@ export interface MetabaseAugment {
   inputSchema: ZodType | null;
   outputSchema: ZodType | null;
   capabilities: Capabilities | null;
+  worktree: WorktreePolicy;
 }
 
 const augments = new WeakMap<object, MetabaseAugment>();

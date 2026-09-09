@@ -33,6 +33,7 @@ export default defineMetabaseCommand({
   details:
     'Clears the Library collection for each selected table and recursively for every downstream table that depends on it. Select with --table-ids, --db-ids, or --schemas (each schema id is "<db-id>:<schema>", e.g. 1:public); the filters are combined.',
   capabilities: { minVersion: 59, tokenFeature: "library" },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

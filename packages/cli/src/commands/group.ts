@@ -29,6 +29,7 @@ export function defineCommandGroup(def: CommandGroupDef): CommandDef {
     inputSchema: null,
     outputSchema: null,
     capabilities: null,
+    worktree: "any",
   });
   return cmd;
 }

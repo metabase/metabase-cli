@@ -47,6 +47,7 @@ export const SyncTask = z
     cancelled: z.boolean().nullable().optional(),
     error_message: z.string().nullable().optional(),
     conflicts: z.array(z.string()).nullable().optional(),
+    worktree_id: z.number().int().positive().nullable().optional(),
   })
   .loose();
 export type SyncTask = z.infer<typeof SyncTask>;
@@ -91,8 +92,36 @@ export const SyncRemoteChanges = z.object({
   remote_version: z.string().nullable(),
   local_version: z.string().nullable(),
   cached: z.boolean(),
+  branch_missing: z.boolean().optional(),
 });
 export type SyncRemoteChanges = z.infer<typeof SyncRemoteChanges>;
+
+export const SyncMergeSummary = z.object({
+  added: z.number().int(),
+  updated: z.number().int(),
+  removed: z.number().int(),
+});
+export type SyncMergeSummary = z.infer<typeof SyncMergeSummary>;
+
+// Remote content a force push would discard, as human-readable entity labels: `deleted` is what
+// would go away entirely, `overwritten` what would lose its remote-side edits.
+export const SyncForcePushCasualties = z.object({
+  deleted: z.array(z.string()),
+  overwritten: z.array(z.string()),
+});
+export type SyncForcePushCasualties = z.infer<typeof SyncForcePushCasualties>;
+
+// `reason` is "history-rewritten" when the remote was force-pushed or rebased, so there is no merge
+// base to compare against, and null when the comparison ran normally.
+export const SyncExportPreflight = z.object({
+  has_changes: z.boolean(),
+  clean: z.boolean(),
+  conflicts: z.array(z.string()),
+  summary: SyncMergeSummary,
+  force_push_casualties: SyncForcePushCasualties,
+  reason: z.string().nullable(),
+});
+export type SyncExportPreflight = z.infer<typeof SyncExportPreflight>;
 
 export const SyncBranchCreated = z.object({
   status: z.literal("success"),

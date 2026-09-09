@@ -396,9 +396,14 @@ Every Metabase resource exports a full schema and a compact projection: `Card`/`
 `Collection`/`CollectionCompact`, `Dashboard`/`DashboardCompact`, `Database`/`DatabaseCompact`,
 `Document`, `Field`, `FieldValues`, `Library`, `Measure`, `Notification`, `ParameterValues`, `Pulse`,
 `SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`, `TimelineEvent`, `Transform`,
-`TransformRun`, `TransformJob`, `TransformTag`, `CurrentUser`, `CardQueryResult`,
+`TransformRun`, `TransformJob`, `TransformTag`, `Worktree`, `CurrentUser`, `CardQueryResult`,
 `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`, `DashboardTab`, and the nested
 shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`, `NotificationHandler`, …).
+
+Content that git-sync can check out onto a branch carries a `worktree_id`: null in the main app, and
+the id of the remote-sync worktree the row belongs to otherwise. It is on `Transform`, `TransformTag`,
+`Snippet`, `Collection` and `Card`, and the matching list methods take the server's own `"worktree-id"`
+query parameter to list one worktree's rows instead of the main app's.
 
 The full schema is `.loose()`, so server-side additions do not break parsing. The compact projection
 is `.pick(…).strip()` — the agent-facing contract, and the shape list commands render. Schemas carry
@@ -407,7 +412,8 @@ deliberately absent.
 
 A second class of schema describes a single response shape that has no compact pair:
 `DashboardDetail`, `DatabaseSyncResult`, `CollectionTreeNode`, `FieldSummary`, `SettingValue`,
-`TableQueryMetadata`, `SessionProperties`, and `TokenFeatures`.
+`TableQueryMetadata`, `SessionProperties`, `TokenFeatures`, and `SyncExportPreflight` with the
+`SyncMergeSummary` and `SyncForcePushCasualties` it composes.
 
 Request bodies (`<Resource>CreateInput`, `<Resource>UpdateInput`) and the domain vocabulary enums
 (`FieldBaseType`, `SearchModel`, `CollectionItemModel`, …) live in the same modules and are reached

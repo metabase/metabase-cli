@@ -6,6 +6,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "delete", description: "Delete a transform job by id" },
   capabilities: { minVersion: 59 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

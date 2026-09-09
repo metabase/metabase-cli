@@ -73,6 +73,7 @@ export const Collection = z
     // hydrate it to a boolean, but raw-row responses (e.g. publish's target_collection) can
     // carry the column verbatim.
     is_remote_synced: z.boolean().nullable().optional(),
+    worktree_id: z.number().int().positive().nullable().optional(),
   })
   .loose();
 export type Collection = z.infer<typeof Collection>;
@@ -88,6 +89,7 @@ export const CollectionCompact = Collection.pick({
   authority_level: true,
   is_personal: true,
   is_remote_synced: true,
+  worktree_id: true,
 }).strip();
 export type CollectionCompact = z.infer<typeof CollectionCompact>;
 
@@ -151,6 +153,7 @@ export const CollectionCreateInput = z
     parent_id: z.number().int().positive().nullable().optional(),
     namespace: CollectionNamespace.nullable().optional(),
     authority_level: CollectionAuthorityLevel.nullable().optional(),
+    worktree_id: z.number().int().positive().nullable().optional(),
   })
   .loose();
 export type CollectionCreateInput = z.infer<typeof CollectionCreateInput>;

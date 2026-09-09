@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ConfigError } from "@metabase/client/errors";
 import { parseJson } from "@metabase/client/json";
 
 import { ProfilesFile } from "./profile-record";
@@ -37,6 +38,7 @@ const {
   writeProbeFailure,
   writeProbeResult,
   writeProfile,
+  writeProfileWorktree,
 } = storage;
 
 import type { OAuthCredential } from "@metabase/client/auth/credential";
@@ -92,6 +94,7 @@ describe("profiles (keyring backend)", () => {
           oauth: null,
           lastProbe: null,
           lastFailure: null,
+          worktree: null,
         },
       ],
     });
@@ -233,6 +236,38 @@ describe("readProfileRecord and listProfileRecords", () => {
       oauth: null,
       lastProbe: null,
       lastFailure: null,
+      worktree: null,
+    });
+  });
+
+  it("round-trips a worktree pin onto an existing profile", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "k" }, "agent");
+    await writeProfileWorktree("agent", { id: 4, branch: "feat/transforms" });
+    expect((await readProfileRecord("agent"))?.worktree).toEqual({
+      id: 4,
+      branch: "feat/transforms",
+    });
+  });
+
+  it("clears a worktree pin when passed null", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "k" }, "agent");
+    await writeProfileWorktree("agent", { id: 4, branch: "feat/transforms" });
+    await writeProfileWorktree("agent", null);
+    expect((await readProfileRecord("agent"))?.worktree).toBeNull();
+  });
+
+  it("refuses to pin a profile that does not exist", async () => {
+    await expect(writeProfileWorktree("missing", { id: 1, branch: "main" })).rejects.toThrow(
+      new ConfigError('no such profile "missing"; run `mb auth login --profile missing` first'),
+    );
+  });
+
+  it("leaves the stored credential untouched when the pin changes", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "k" }, "agent");
+    await writeProfileWorktree("agent", { id: 4, branch: "feat/transforms" });
+    expect(await readProfileCredential("agent")).toEqual({
+      url: "https://m.example.com",
+      credential: { kind: "apiKey", apiKey: "k" },
     });
   });
 
@@ -450,6 +485,7 @@ describe("OAuth profiles (keyring backend)", () => {
       },
       lastProbe: null,
       lastFailure: null,
+      worktree: null,
     });
     expect(hoisted.store.get("metabase-cli:profile:default:oauthAccess")).toBe("access-1");
     expect(hoisted.store.get("metabase-cli:profile:default:oauthRefresh")).toBe("refresh-1");

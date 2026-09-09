@@ -26,14 +26,16 @@ export interface SearchParams {
   offset?: number | undefined;
   table_db_id?: number | undefined;
   verified?: boolean | undefined;
+  "worktree-id"?: number | undefined;
 }
 
 export function searchResource(transport: Transport) {
   /**
    * Search over the instance's content, ranked against `q`. `models` narrows which kinds of entity
    * may match, `archived` swaps the active set for the archived one, `table_db_id` restricts to
-   * items on one database, `verified` to verified content, and `limit`/`offset` are the window the
-   * server applies before ranking hydration.
+   * items on one database, `verified` to verified content, `worktree-id` searches inside one
+   * remote-sync worktree rather than the main app, and `limit`/`offset` are the window the server
+   * applies before ranking hydration.
    */
   async function query(
     params: SearchParams = {},
@@ -49,6 +51,7 @@ export function searchResource(transport: Transport) {
         offset: params.offset,
         table_db_id: params.table_db_id,
         verified: params.verified,
+        "worktree-id": params["worktree-id"],
       },
     });
     return { data: response.data, total: response.total };

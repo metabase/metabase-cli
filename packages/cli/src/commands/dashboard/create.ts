@@ -20,6 +20,7 @@ export default defineMetabaseCommand({
     { skill: "visualization", purpose: "dashcard visualization_settings and the 24-column grid" },
   ],
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

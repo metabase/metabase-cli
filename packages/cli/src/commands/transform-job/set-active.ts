@@ -26,6 +26,7 @@ export default defineMetabaseCommand({
   details:
     "Flips the active flag on every transform job at once. Inactive jobs do not run on schedule; manual runs ignore the flag. Requires admin.",
   capabilities: { minVersion: 61 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

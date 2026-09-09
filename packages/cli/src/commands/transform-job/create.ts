@@ -9,6 +9,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a transform job" },
   capabilities: { minVersion: 59 },
+  worktree: "main-only",
   args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...bodyInputFlags },
   inputSchema: TransformJobCreateInput,
   outputSchema: TransformJob,

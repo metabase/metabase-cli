@@ -54,6 +54,7 @@ export const Card = z
     database_id: z.number().int().nullable(),
     table_id: z.number().int().nullable(),
     collection_id: z.number().int().nullable(),
+    worktree_id: z.number().int().positive().nullable().optional(),
     dashboard_id: z.number().int().nullable().optional(),
     entity_id: z.string().nullable(),
     creator_id: z.number().int(),

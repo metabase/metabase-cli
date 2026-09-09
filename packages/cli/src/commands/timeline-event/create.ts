@@ -11,6 +11,7 @@ export default defineMetabaseCommand({
   details:
     "The JSON body needs `name`, `timestamp` (ISO 8601), `timezone` (IANA name like UTC or America/New_York), `time_matters` (true when the time of day is significant, false when only the date is), and `timeline_id`; optional fields: `description`, `icon` (star|cake|mail|warning|bell|cloud, default: the timeline's icon).",
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

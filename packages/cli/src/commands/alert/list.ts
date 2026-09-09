@@ -14,6 +14,7 @@ export default defineMetabaseCommand({
   details:
     "Archived (inactive) alerts are hidden unless you pass --include-inactive. System-event notifications, which share the same API, are never listed here.",
   capabilities: { minVersion: 58 },
+  worktree: "any",
   args: {
     ...outputFlags,
     ...listFlags,

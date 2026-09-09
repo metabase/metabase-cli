@@ -18,6 +18,7 @@ import {
   profileAuthMethod,
   ProfileAuthMethod,
   ProfileLastFailure,
+  ProfilePin,
   type ProfileLastProbe,
   type ProfileRecord,
 } from "../../core/auth/profile-record";
@@ -28,7 +29,13 @@ import type { ResourceView } from "../../output/view";
 import { windowList } from "../../output/window";
 import { interruptSignal } from "../../runtime/interrupt";
 import { listFlags, outputFlags } from "../flags";
-import { renderAuthMethod, renderTimestamp, renderUserRole, renderVersionTag } from "./render";
+import {
+  renderAuthMethod,
+  renderTimestamp,
+  renderUserRole,
+  renderVersionTag,
+  renderWorktreePin,
+} from "./render";
 import { defineMetabaseCommand } from "../runtime";
 
 const AuthProfileStatus = z.enum([
@@ -51,6 +58,7 @@ const AuthProfile = z.object({
   tokenFeatures: TokenFeatures.nullable(),
   lastProbedAt: z.iso.datetime().nullable(),
   lastFailure: ProfileLastFailure.nullable(),
+  worktree: ProfilePin.nullable(),
 });
 type AuthProfileJson = z.infer<typeof AuthProfile>;
 
@@ -74,6 +82,7 @@ const authProfileView: ResourceView<AuthProfileJson> = {
     { key: "user", label: "Role", format: (value) => renderUserRole(value) },
     { key: "version", label: "Version", format: (value) => renderVersionTag(value) },
     { key: "lastProbedAt", label: "Last probed", format: (value) => renderTimestamp(value) },
+    { key: "worktree", label: "Worktree pin", format: (value) => renderWorktreePin(value) },
   ],
 };
 
@@ -85,6 +94,7 @@ function renderStatus(value: unknown): string {
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List configured authentication profiles" },
   capabilities: { minVersion: 58 },
+  worktree: "any",
   args: { ...outputFlags, ...listFlags },
   outputSchema: AuthProfileListEnvelope,
   examples: ["mb auth list", "mb auth list --json"],
@@ -198,6 +208,7 @@ function projectSuccess(
     tokenFeatures: probe.tokenFeatures,
     lastProbedAt: probe.at,
     lastFailure: null,
+    worktree: record.worktree,
   };
 }
 
@@ -214,6 +225,7 @@ function toJson(record: ProfileRecord, status: AuthProfileStatusValue): AuthProf
     tokenFeatures: probe?.tokenFeatures ?? null,
     lastProbedAt: probe?.at ?? null,
     lastFailure: record.lastFailure,
+    worktree: record.worktree,
   };
 }
 

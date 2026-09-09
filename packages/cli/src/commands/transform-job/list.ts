@@ -11,6 +11,7 @@ export const TransformJobListEnvelope = listEnvelopeSchema(TransformJobCompact);
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List transform jobs" },
   capabilities: { minVersion: 59 },
+  worktree: "any",
   args: { ...outputFlags, ...listFlags, ...profileFlag, ...connectionFlags },
   outputSchema: TransformJobListEnvelope,
   examples: ["mb transform-job list", "mb transform-job list --json"],

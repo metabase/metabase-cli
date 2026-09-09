@@ -21,6 +21,7 @@ export default defineMetabaseCommand({
   details:
     "Starts a run and returns immediately. --wait polls the run to a terminal status. --sync additionally waits until the run's output table is registered and returns its `target_table_id`, so you can build MBQL cards against it — the run registers the table itself, so no separate `db sync-schema` is needed; --sync implies waiting for the run.",
   capabilities: { minVersion: 59 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

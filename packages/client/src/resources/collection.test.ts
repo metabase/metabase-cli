@@ -121,6 +121,21 @@ describe("collection resource wire requests", () => {
     ]);
   });
 
+  it("sends the worktree scope alongside the filter preset as query parameters", async () => {
+    const { mb, capture } = clientOver([jsonResponse([{ ...COLLECTION, worktree_id: 3 }])]);
+
+    await mb.collection.list({ filter: "archived", "worktree-id": 3 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/collection?archived=true&worktree-id=3",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
   it("sends the get request for a numeric id", async () => {
     const { mb, capture } = clientOver([jsonResponse(COLLECTION)]);
 
@@ -235,6 +250,22 @@ describe("collection resource wire requests", () => {
     ]);
   });
 
+  it("sends the worktree scope as a worktree-id items query parameter", async () => {
+    const { mb, capture } = clientOver([jsonResponse({ data: [COLLECTION_ITEM], total: 1 })]);
+
+    const pages = mb.collection.itemPages("root", { "worktree-id": 3 });
+    await pages[Symbol.asyncIterator]().next();
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/collection/root/items?worktree-id=3&limit=50&offset=0",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
   it("sends the tree request", async () => {
     const { mb, capture } = clientOver([jsonResponse([TREE_NODE])]);
 
@@ -243,6 +274,21 @@ describe("collection resource wire requests", () => {
     expect(capture.calls).toEqual([
       {
         url: "https://mb.example.com/metabase/api/collection/tree",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("sends the worktree scope as a worktree-id tree query parameter", async () => {
+    const { mb, capture } = clientOver([jsonResponse([TREE_NODE])]);
+
+    await mb.collection.tree({ "worktree-id": 3 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/collection/tree?worktree-id=3",
         method: "GET",
         headers: JSON_READ_HEADERS,
         body: null,

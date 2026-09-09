@@ -11,6 +11,7 @@ export default defineMetabaseCommand({
   details:
     "Manage them with `mb subscription create|update|archive`, which take the subscription id printed here.",
   capabilities: { minVersion: 58 },
+  worktree: "any",
   args: {
     ...outputFlags,
     ...listFlags,

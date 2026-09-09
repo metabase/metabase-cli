@@ -65,6 +65,21 @@ describe("transform-tag resource wire requests", () => {
     ]);
   });
 
+  it("sends the worktree scope as a worktree-id list query parameter", async () => {
+    const { mb, capture } = clientOver([jsonResponse([{ ...TAG, worktree_id: 3 }])]);
+
+    await mb.transformTag.list({ "worktree-id": 3 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/transform-tag?worktree-id=3",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
   it("reports no total for the listing, which the server does not count", async () => {
     const { mb } = clientOver([jsonResponse([TAG])]);
 

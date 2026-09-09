@@ -25,6 +25,7 @@ export default defineMetabaseCommand({
   details:
     "Delivers to every handler on the alert, ignoring its send condition and schedule. Requires the channel to be configured on the server (email needs SMTP set up).",
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

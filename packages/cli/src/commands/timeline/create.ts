@@ -11,6 +11,7 @@ export default defineMetabaseCommand({
   details:
     "The JSON body needs `name`; optional fields: `description`, `icon` (star|cake|mail|warning|bell|cloud, default star), `collection_id` (null = root collection), `default`.",
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

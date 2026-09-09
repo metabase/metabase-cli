@@ -11,6 +11,7 @@ export default defineMetabaseCommand({
     description: "Get the row count and distinct count for a field",
   },
   capabilities: { minVersion: 58 },
+  worktree: "any",
   args: {
     ...outputFlags,
     ...profileFlag,

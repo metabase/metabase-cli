@@ -18,6 +18,7 @@ export default defineMetabaseCommand({
     "`mb alert get <id>` prints the current ones. An alert's card cannot be moved to a different card.",
   ].join(" "),
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

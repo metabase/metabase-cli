@@ -43,14 +43,15 @@ mb auth status
 
 Every `list` and `get` verb takes the same output flags. The per-command flag tables below list only what is specific to that command.
 
-| Flag                | Description                                                                                                                      |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`            | Emit JSON. Auto-enabled on non-TTY. Shorthand for `--format json`.                                                               |
-| `--format <format>` | `auto` \| `json` \| `text` (default `auto`).                                                                                     |
-| `--full`            | Return every field. The default is a compact projection.                                                                         |
-| `--fields <paths>`  | Project comma-separated dot-paths. Mutually exclusive with `--full`. On list verbs the paths are relative to each `data[]` item. |
-| `--max-bytes <n>`   | Output size cap, default `24576`; `0` disables. On a list, trailing items are dropped and `truncated` is set.                    |
-| `-p, --profile <n>` | Named profile (default `default`).                                                                                               |
+| Flag                | Description                                                                                                                             |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`            | Emit JSON. Auto-enabled on non-TTY. Shorthand for `--format json`.                                                                      |
+| `--format <format>` | `auto` \| `json` \| `text` (default `auto`).                                                                                            |
+| `--full`            | Return every field. The default is a compact projection.                                                                                |
+| `--fields <paths>`  | Project comma-separated dot-paths. Mutually exclusive with `--full`. On list verbs the paths are relative to each `data[]` item.        |
+| `--max-bytes <n>`   | Output size cap, default `24576`; `0` disables. On a list, trailing items are dropped and `truncated` is set.                           |
+| `-p, --profile <n>` | Named profile (default `default`).                                                                                                      |
+| `--worktree <ref>`  | Run against a git-sync worktree (id or branch) instead of the main app. Only on worktree-scoped commands — see [Worktrees](#worktrees). |
 
 Every `list` verb additionally takes a window:
 
@@ -1590,9 +1591,13 @@ mb search products --archived
 
 Drive Metabase Enterprise Remote Sync (`/api/ee/remote-sync`) — import / export Metabase content against a configured git remote, inspect dirty state, and manage branches. All git-sync commands require Metabase v60 or newer, the `remote_sync` premium feature on an active EE token, and superuser credentials.
 
+`status`, `is-dirty`, `dirty`, `current-task`, `cancel-task`, `wait`, `has-remote-changes`, `import`, `export`, and `export-preflight` take `--worktree <id|branch>` and then read and push that worktree's checkout instead of the main app's; the worktree path needs a v64 server. `stash`, `create-branch`, `add-collection`, and `remove-collection` change main-app state and refuse to run while a worktree scope is in force. See [Worktrees](#worktrees).
+
 ### `mb git-sync status`
 
 Roll up the current sync state in one call: configured branch, dirty flag, the most recent sync task (or `null` if none has ever run), and the collections marked for sync.
+
+The `worktree` field carries `{ id, branch }` when a worktree scope is in force and `null` in the main app. Under a scope `branch` is the worktree's own branch, `is_dirty` and `current_task` are that worktree's, `synced_collections` is empty (the sync scope is a main-app setting), and the summary line opens with `Worktree <id> (<branch>) —`.
 
 ```sh
 mb git-sync status
@@ -1674,9 +1679,12 @@ mb git-sync import --force --no-wait
 | ----------------------- | --------------------------------------------------------------------- |
 | `--branch <name>`, `-b` | Branch to import from (defaults to the `remote-sync-branch` setting). |
 | `--force`               | Discard local Metabase-side dirty changes before importing (LOSSY).   |
+| `--merge`               | Three-way merge remote changes instead of failing on divergence.      |
 | `--wait` / `--no-wait`  | Poll until the task reaches a terminal status (default: wait).        |
 | `--timeout <ms>`        | Polling timeout in ms (default 600000). Used with `--wait`.           |
 | `--interval <ms>`       | Polling interval in ms (default 2000). Used with `--wait`.            |
+
+In the main app the `remote-sync-branch` setting is always read and sent as `expected_branch` — the branch the server verifies it is still on — while `--branch` chooses where the content moves. `--branch` is not a substitute for the setting: with it unset the command exits `2` with `remote-sync-branch is not set; configure git-sync first`, before any request. Under a worktree scope the branch is the worktree's own, and `--branch` exits `2` with `a worktree is pinned to its branch; drop --branch`.
 
 ### `mb git-sync export`
 
@@ -1693,9 +1701,29 @@ mb git-sync export --no-wait
 | `--branch <name>`, `-b` | Branch to export to (defaults to the `remote-sync-branch` setting). |
 | `--message <msg>`, `-m` | Commit message for the export.                                      |
 | `--force`               | Force-push / overwrite the remote branch.                           |
+| `--merge`               | Three-way merge remote changes instead of failing on divergence.    |
 | `--wait` / `--no-wait`  | Poll until the task reaches a terminal status (default: wait).      |
 | `--timeout <ms>`        | Polling timeout in ms (default 600000). Used with `--wait`.         |
 | `--interval <ms>`       | Polling interval in ms (default 2000). Used with `--wait`.          |
+
+Branch resolution matches `import`: the `remote-sync-branch` setting is the expected branch and `--branch` the destination, an unset setting exits `2` with `remote-sync-branch is not set; configure git-sync first`, and under a worktree scope `--branch` exits `2` with `a worktree is pinned to its branch; drop --branch`.
+
+### `mb git-sync export-preflight`
+
+Ask the server what an export would do, without doing it. Requires Metabase v63 or newer.
+
+```sh
+mb git-sync export-preflight
+mb git-sync export-preflight --json
+mb git-sync export-preflight --worktree feat/order-metrics --json
+```
+
+| Flag                    | Description                                                             |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `--branch <name>`, `-b` | Branch to check against (defaults to the `remote-sync-branch` setting). |
+| `--worktree <ref>`      | Check that worktree's checkout, against its own branch.                 |
+
+The answer is `{ has_changes, clean, conflicts, summary: { added, updated, removed }, force_push_casualties: { deleted, overwritten }, reason }`. `clean: true` with an empty `conflicts` means the export applies without a force-push; `conflicts` names the paths that diverged, `force_push_casualties` names what a `--force` export would delete or overwrite on the remote, and `reason` carries the server's explanation when the export cannot proceed cleanly (`null` otherwise).
 
 ### `mb git-sync stash`
 
@@ -1729,7 +1757,12 @@ Create a new branch on the git remote (from the last imported version) and switc
 ```sh
 mb git-sync create-branch feat/dashboards
 mb git-sync create-branch feat/x --json
+mb git-sync create-branch feat/x --no-checkout
 ```
+
+| Flag                           | Description                                                                                                                         |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `--checkout` / `--no-checkout` | Switch git-sync to the branch it creates (default: checkout). `--no-checkout` mints the branch and leaves the tracked branch alone. |
 
 ### `mb git-sync add-collection <id>`
 
@@ -1750,6 +1783,173 @@ Unmark a collection as git-synced. Same cascade and same `read-only` preconditio
 mb git-sync remove-collection 12
 mb git-sync remove-collection 12 --json --profile prod
 ```
+
+## Worktrees
+
+A worktree is a self-contained checkout of one branch's content inside the same Metabase instance. Every checked-out row carries the worktree's id; the main app is everything that carries none. Transforms, transform tags, transform↔tag links, collections in the `transforms` namespace, the Library, snippets, the Python library, cards, dashboards, documents, measures, segments, and timelines are checked out into a worktree; tables and fields are shared with the main app and are never part of one. Worktrees are **admin-only** and require Metabase v64 or newer plus the `remote_sync` premium feature on an active EE token.
+
+The point is isolation: an agent (or a person) edits a chain of transforms in a worktree, exports the branch, a human reviews and merges the PR, and the main app pulls the result. Production transforms and their tables are never touched by worktree edits.
+
+Two limits are worth stating up front:
+
+- **A worktree is bound to its branch for life.** There is no branch switching inside one; a different branch means a different worktree.
+- **A worktree's transforms cannot be run.** The server rejects the run, and `mb transform run` refuses before it sends anything while a scope is in force. Edit and export in the worktree; run the transforms in the main app once the branch is merged and imported.
+
+### Scoping a command to a worktree
+
+A command runs either against the main app or inside exactly one worktree. The scope comes from, in precedence order:
+
+1. `--worktree <id|branch>`,
+2. the `MB_WORKTREE` environment variable,
+3. the profile's pin, written by `mb worktree pin`.
+
+A pin is a lock, not a default: while it stands, `--worktree` and `MB_WORKTREE` may only re-state it, and naming a different worktree fails with exit `2`:
+
+```
+profile "agent" is pinned to worktree 3 (feat/order-metrics); refusing --worktree 5
+```
+
+Every command declares how it relates to the split, and `mb <command> --help --json` reports it as `worktree`:
+
+| Policy      | Meaning                                                                                                                                                                            |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scoped`    | Takes `--worktree` and honours a resolved scope: lists are filtered to the worktree, creates are tagged with it, and a `get` / `update` / `delete` of a row outside it is refused. |
+| `any`       | Indifferent to a scope — reads of resources that are never checked out, and local-only commands. Runs unchanged either way; `--worktree` is an unknown flag on one.                |
+| `main-only` | Changes or runs main-app state, so it refuses to execute while a scope is in force. The refusal lands before any request, on the profile pin and the environment alone.            |
+
+The scoped commands are `transform list|get|create|update|delete|delete-table|dependencies`, `transform-tag list|create|update|delete`, `snippet list|get|create|update|archive`, `collection list|tree|get|items|create|archive`, `card list`, `search`, `library get`, and the git-sync verbs `status|is-dirty|dirty|current-task|cancel-task|wait|import|export|has-remote-changes|export-preflight`.
+
+A `main-only` command under a scope exits `2` with the reason and both ways out:
+
+```
+transform run is not available inside a worktree (scope: worktree 3 (feat/order-metrics) from the profile pin); it changes main-app content. Unpin the profile (`mb worktree unpin`) or drop MB_WORKTREE to run it against the main app.
+```
+
+A scoped command that fetches a row by id checks the row's own tag before touching it — the server answers by id for an admin whatever scope the row belongs to, so membership is the CLI's to enforce:
+
+```
+transform 12 is not in worktree 3 (feat/order-metrics); refusing to touch main-app content
+```
+
+### `mb worktree list`
+
+List the worktrees on the instance (compact list envelope; columns `ID | Branch | Creator | Created`).
+
+```sh
+mb worktree list
+mb worktree list --json
+```
+
+### `mb worktree get <ref>`
+
+Get one worktree by id or by branch name.
+
+```sh
+mb worktree get 3
+mb worktree get feat/order-metrics --json
+```
+
+### `mb worktree create <branch>`
+
+Create a worktree for a branch and pull the branch into it, so the checkout starts in sync. The branch is created on the remote first when it is missing (`create-branch --no-checkout`, which leaves the main app's tracked branch alone).
+
+```sh
+mb worktree create feat/order-metrics
+mb worktree create feat/order-metrics --pin --json
+mb worktree create feat/order-metrics --no-create-branch --no-pull
+```
+
+| Flag                   | Description                                                                                        |
+| ---------------------- | -------------------------------------------------------------------------------------------------- |
+| `--no-pull`            | Skip the initial import. The worktree stays empty until something is imported into it.             |
+| `--no-create-branch`   | Assume the branch already exists on the remote; skip the branch listing and creation.              |
+| `--pin`                | Pin the profile to the created worktree, so every later command under that profile runs inside it. |
+| `--wait` / `--no-wait` | Poll the initial import until the task reaches a terminal status (default: wait).                  |
+| `--timeout <ms>`       | Polling timeout in ms (default 600000). Used with `--wait`.                                        |
+| `--interval <ms>`      | Polling interval in ms (default 2000). Used with `--wait`.                                         |
+
+The result is `{ worktree, branch_created, pull }` — `branch_created` says whether the remote branch was minted here, and `pull` is the import result (`null` under `--no-pull`). Creating a worktree for a branch other than the pinned one is refused, since a second worktree from a pinned session would escape the pin.
+
+### `mb worktree delete <ref>`
+
+Delete a worktree and every row checked out into it. A worktree holding unpushed changes is refused unless `--force`:
+
+```
+worktree 3 (feat/order-metrics) has unpushed changes; push them with `mb git-sync export` or pass --force to discard
+```
+
+```sh
+mb worktree delete 3
+mb worktree delete feat/order-metrics --force --json
+```
+
+| Flag      | Description                                                   |
+| --------- | ------------------------------------------------------------- |
+| `--force` | Delete even when the worktree holds unpushed changes (LOSSY). |
+
+The result is `{ id, branch, deleted, unpinned }`. When the profile was pinned to the deleted worktree the pin is cleared and `unpinned` is `true`. Under a scope, deleting any worktree other than the one in scope is refused.
+
+### `mb worktree pin <ref>`
+
+Confine every command run under a profile to one worktree. The pin lives on the profile record and shows up in `mb auth status` / `mb auth list`.
+
+```sh
+mb worktree pin 3
+mb worktree pin feat/order-metrics --profile agent
+```
+
+### `mb worktree unpin`
+
+Release a profile's pin. Idempotent, and the one worktree verb that never contacts the server.
+
+```sh
+mb worktree unpin
+mb worktree unpin --profile agent --json
+```
+
+### Working in a worktree
+
+```sh
+# 1. Create the worktree: mints the branch on the remote if it is missing, pulls it in, pins the profile to it.
+mb worktree create feat/order-metrics --pin --profile agent
+
+# 2. Edit transforms. Every scoped command runs inside the worktree with no extra flag.
+mb transform create --file ./.scratch/transform.json --profile agent --json
+mb transform list --profile agent --json          # only this worktree's transforms
+mb transform update 42 --file ./.scratch/patch.json --profile agent --json
+
+# 3. Check what the worktree holds before pushing.
+mb git-sync status --profile agent --json         # branch, dirty flag and task for the worktree
+mb git-sync dirty --profile agent --json          # the objects that will be committed
+
+# 4. Dry-run the push, then push.
+mb git-sync export-preflight --profile agent --json
+mb git-sync export -m "add order metrics transforms" --profile agent
+
+# 5. Open a PR from feat/order-metrics and have it reviewed and merged (plain git / gh against the repo).
+
+# 6. The main app pulls the merged branch, from an unpinned profile, and runs the transforms.
+mb git-sync import --profile prod
+mb transform list --profile prod --json           # the imported rows carry main-app ids
+mb transform run <id> --wait --profile prod --json
+
+# 7. Retire the worktree. This also clears the pin it was holding.
+mb worktree delete feat/order-metrics --profile agent
+```
+
+Step 6 is a different profile on purpose: `git-sync import` into the main app and `transform run` are `main-only`, so a pinned profile refuses both.
+
+### Isolating an agent
+
+The server has no per-worktree credential, so the CLI's isolation boundary is the credential set the process can reach. A harness confines an agent to one worktree by giving it a config home of its own that holds a single pinned profile, and no `MB_URL` / `MB_API_KEY` in the environment:
+
+```sh
+export XDG_CONFIG_HOME=/run/agent/config     # a profiles.json with exactly one profile
+unset MB_URL MB_API_KEY                      # nothing the agent can point elsewhere
+mb worktree pin feat/order-metrics           # once, at setup
+```
+
+Every command that process can run is then confined to that worktree: main-app writes and runs refuse, scoped reads and writes carry the scope, and `--worktree` / `MB_WORKTREE` can only re-state the pin. Dropping the pin is a deliberate act (`mb worktree unpin`), not a flag the agent can pass in passing.
 
 ## Instance setup
 
@@ -1956,6 +2156,7 @@ Exit codes: `0` success, `2` `ConfigError` (missing name, unknown name, `MB_SKIL
 | `MB_URL`                 | Default URL for `auth login` and config resolution.                                                                                                                       |
 | `MB_API_KEY`             | Default API key (makes `auth login` non-interactive, skipping the browser flow; not stored).                                                                              |
 | `MB_PROFILE`             | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                     |
+| `MB_WORKTREE`            | Worktree to scope commands to, as an id or a branch name. `--worktree` overrides it; a profile pinned to a different worktree refuses it.                                 |
 | `MB_VERBOSE`             | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                            |
 | `MB_CLI_SKIP_PREFLIGHT`  | When set to `1`, bypasses the per-command server version / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
 | `MB_CLI_DISABLE_KEYRING` | When set to `1`, skips the OS keychain and stores credentials as plaintext in the profiles file.                                                                          |

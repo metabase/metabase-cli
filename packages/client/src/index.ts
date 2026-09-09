@@ -158,8 +158,11 @@ export {
   SyncBranchCreated,
   SyncDirtyItem,
   SyncDirtyItemCompact,
+  SyncExportPreflight,
   SyncExportResult,
+  SyncForcePushCasualties,
   SyncImportResult,
+  SyncMergeSummary,
   SyncRemoteChanges,
   SyncSettingsUpdateResult,
   SyncStashResult,
@@ -274,3 +277,4 @@ export {
 } from "./domain/transform-tag";
 export { UploadResult, UploadUpdateAction, UploadUpdateResult } from "./domain/upload";
 export { CurrentUser, CurrentUserCompact } from "./domain/user";
+export { Worktree, WorktreeCompact, WorktreeCreateInput } from "./domain/worktree";

@@ -7,19 +7,23 @@ import { collectionView } from "../../output/views/collection";
 import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { connectionFlags, outputFlags, profileFlag, worktreeFlag } from "../flags";
 import { parseEnumFlag } from "../parse-enum";
 import { defineMetabaseCommand } from "../runtime";
+import { scopeBody, WORKTREE_SCOPE_DETAIL } from "../worktree-scope";
 
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a collection from a JSON spec" },
   details:
-    'Body keys: `name` (required), `description`, `parent_id`, `authority_level`, `namespace`. Most collections use the default namespace (omit it). Pass `namespace: "transforms"` (or `--namespace transforms`) to create the kind of collection a transform\'s `collection_id` can point at — a regular collection is rejected there.',
+    'Body keys: `name` (required), `description`, `parent_id`, `authority_level`, `namespace`. Most collections use the default namespace (omit it). Pass `namespace: "transforms"` (or `--namespace transforms`) to create the kind of collection a transform\'s `collection_id` can point at — a regular collection is rejected there. ' +
+    WORKTREE_SCOPE_DETAIL,
   capabilities: { minVersion: 58 },
+  worktree: "scoped",
   args: {
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
+    ...worktreeFlag,
     ...bodyInputFlags,
     namespace: {
       type: "string",
@@ -33,14 +37,16 @@ export default defineMetabaseCommand({
     "mb collection create --file collection.json",
     'mb collection create --body \'{"name":"My Collection","parent_id":4}\'',
     'mb collection create --body \'{"name":"ETL"}\' --namespace transforms',
+    'mb collection create --body \'{"name":"ETL"}\' --worktree feat/transforms',
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, getWorktree }) {
     const body = await readBody({ flag: args.body, file: args.file }, CollectionCreateInput);
     if (typeof args.namespace === "string" && args.namespace !== "") {
       body.namespace = parseEnumFlag(args.namespace, CollectionNamespace, "namespace");
     }
     const client = await getClient();
-    const created = await client.collection.create(body);
+    const scope = await getWorktree();
+    const created = await client.collection.create(scopeBody(body, scope));
     renderSummary(
       created,
       collectionView,

@@ -5,9 +5,16 @@ import { listEnvelopeSchema } from "../output/types";
 import { windowServerPage } from "../output/window";
 import { parseEnumCsv } from "../runtime/csv";
 
-import { connectionFlags, listFlagsWithDefaultLimit, outputFlags, profileFlag } from "./flags";
+import {
+  connectionFlags,
+  listFlagsWithDefaultLimit,
+  outputFlags,
+  profileFlag,
+  worktreeFlag,
+} from "./flags";
 import { parseId } from "./parse-id";
 import { defineMetabaseCommand } from "./runtime";
+import { scopeQuery, WORKTREE_SCOPE_DETAIL } from "./worktree-scope";
 
 // Unbounded, the server ranks and then hydrates up to `max-filtered-results` (1000) rows, running
 // the per-row `can_write` permission check on every one — a cost the output cap would then throw
@@ -23,14 +30,17 @@ export default defineMetabaseCommand({
     description: "Search Metabase content (cards, dashboards, collections, …)",
   },
   details:
-    "Ranks content against a query string. To simply enumerate a resource, prefer its `… list` verb.",
+    "Ranks content against a query string. To simply enumerate a resource, prefer its `… list` verb. " +
+    WORKTREE_SCOPE_DETAIL,
   skills: [{ skill: "core", purpose: "search vs. list" }],
   capabilities: { minVersion: 58 },
+  worktree: "scoped",
   args: {
     ...outputFlags,
     ...listFlagsWithDefaultLimit(DEFAULT_LIMIT),
     ...profileFlag,
     ...connectionFlags,
+    ...worktreeFlag,
     query: {
       type: "positional",
       description: "Search query string",
@@ -60,14 +70,17 @@ export default defineMetabaseCommand({
     "mb search orders",
     "mb search --models card,dashboard --limit 10 --json",
     "mb search products --archived",
+    "mb search orders --worktree feat/transforms",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, getWorktree }) {
     const tableDbIdRaw = args["db-id"];
     const tableDbId = tableDbIdRaw ? parseId(tableDbIdRaw, "--db-id") : undefined;
     const models = parseEnumCsv(args.models, SearchModel, "--models");
     const client = await getClient();
+    const scope = await getWorktree();
 
     const { data, total } = await client.search.query({
+      ...scopeQuery(scope),
       q: nonEmpty(args.query),
       models,
       archived: args.archived ? true : undefined,

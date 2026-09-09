@@ -26,6 +26,7 @@ export default defineMetabaseCommand({
   details:
     "`--include tables` returns the table map (id, name, schema, description per table) — one call that fits most databases. `--include tables.fields` is the full rollup; on all but small databases prefer the map plus `mb table fields <table-id>` per table of interest.",
   capabilities: { minVersion: 58 },
+  worktree: "any",
   args: {
     ...outputFlags,
     ...profileFlag,

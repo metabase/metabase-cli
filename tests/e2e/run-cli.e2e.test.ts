@@ -63,6 +63,7 @@ describe("runCli env isolation e2e", () => {
       tokenFeatures: null,
       lastProbedAt: null,
       lastFailure: null,
+      worktree: null,
     });
   });
 

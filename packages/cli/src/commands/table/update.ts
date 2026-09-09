@@ -13,6 +13,7 @@ export default defineMetabaseCommand({
     description: "Update a table (display name, description, visibility, etc.)",
   },
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

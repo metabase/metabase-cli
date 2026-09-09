@@ -150,6 +150,7 @@ describe("resolveCommonFlags — full result shape", () => {
       url: undefined,
       apiKey: undefined,
       profile: undefined,
+      worktree: undefined,
       skipPreflight: false,
     });
   });
@@ -160,6 +161,7 @@ describe("resolveCommonFlags — full result shape", () => {
         url: "https://m.example.com",
         apiKey: "secret",
         profile: "prod",
+        worktree: "feat/transforms",
         format: "text",
         fields: "id,name",
         maxBytes: "1024",
@@ -178,6 +180,7 @@ describe("resolveCommonFlags — full result shape", () => {
       url: "https://m.example.com",
       apiKey: "secret",
       profile: "prod",
+      worktree: "feat/transforms",
       skipPreflight: true,
     });
   });

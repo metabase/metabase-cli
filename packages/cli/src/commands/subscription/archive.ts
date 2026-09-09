@@ -13,6 +13,7 @@ export default defineMetabaseCommand({
   details:
     "Archiving also disables every channel on the subscription. Restore it with `mb subscription update <id> --body '{\"archived\":false}'`, then re-enable its channels.",
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

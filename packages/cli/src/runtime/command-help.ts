@@ -2,6 +2,7 @@ import type { ArgDef, ArgsDef, CommandDef, CommandMeta } from "citty";
 import { z } from "zod";
 
 import { Capabilities } from "@metabase/client/version/capabilities";
+import { WorktreePolicy } from "../core/worktree-scope";
 import { resolveCitty, toAliasArray } from "./citty";
 import { getMetabaseAugment, type MetabaseAugment } from "./command-augment";
 
@@ -32,6 +33,7 @@ export const CommandHelpEntry = z.object({
   inputSchema: z.unknown().nullable(),
   outputSchema: z.unknown().nullable(),
   capabilities: Capabilities.nullable(),
+  worktree: WorktreePolicy,
 });
 export type CommandHelpEntry = z.infer<typeof CommandHelpEntry>;
 
@@ -55,6 +57,7 @@ const EMPTY_AUGMENT: MetabaseAugment = {
   inputSchema: null,
   outputSchema: null,
   capabilities: null,
+  worktree: "any",
 };
 
 export async function buildHelpEntry<T extends ArgsDef = ArgsDef>(
@@ -73,6 +76,7 @@ export async function buildHelpEntry<T extends ArgsDef = ArgsDef>(
     inputSchema: augment.inputSchema ? z.toJSONSchema(augment.inputSchema) : null,
     outputSchema: augment.outputSchema ? z.toJSONSchema(augment.outputSchema) : null,
     capabilities: augment.capabilities,
+    worktree: augment.worktree,
   };
   if (augment.details !== null) {
     entry.details = augment.details;

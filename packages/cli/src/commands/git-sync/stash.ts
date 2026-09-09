@@ -18,6 +18,7 @@ export default defineMetabaseCommand({
     description: "Export current Metabase state to a new branch on the git remote",
   },
   capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,
