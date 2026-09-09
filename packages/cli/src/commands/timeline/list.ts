@@ -11,6 +11,7 @@ export const TimelineListEnvelope = listEnvelopeSchema(TimelineCompact);
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List timelines" },
   capabilities: { minVersion: 58 },
+  worktree: "any",
   args: {
     ...outputFlags,
     ...listFlags,

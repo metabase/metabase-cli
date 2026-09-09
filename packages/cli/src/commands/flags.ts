@@ -49,6 +49,14 @@ export const profileFlag = {
   profile: { type: "string", description: "Named profile (default: 'default')", alias: "p" },
 } as const;
 
+export const worktreeFlag = {
+  worktree: {
+    type: "string",
+    description:
+      "Scope to a git-sync worktree (id or branch); defaults to MB_WORKTREE or the profile's pinned worktree",
+  },
+} as const;
+
 export const connectionFlags = {
   url: { type: "string", description: "Metabase URL" },
   apiKey: { type: "string", description: "API key", alias: "api-key" },

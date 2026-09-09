@@ -13,6 +13,7 @@ export default defineMetabaseCommand({
     description: "Update a field (description, semantic_type, FK target, visibility, etc.)",
   },
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

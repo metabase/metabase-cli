@@ -44,6 +44,15 @@ export function renderVersionTag(value: unknown): string {
   return pickString(value, "tag") ?? EMPTY_CELL;
 }
 
+export function renderWorktreePin(value: unknown): string {
+  const id = pickProperty(value, "id");
+  const branch = pickString(value, "branch");
+  if (typeof id !== "number" || branch === null) {
+    return EMPTY_CELL;
+  }
+  return `${id} (${branch})`;
+}
+
 export function renderTimestamp(value: unknown): string {
   return typeof value === "string" ? value : EMPTY_CELL;
 }

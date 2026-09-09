@@ -10,6 +10,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a transform job by id" },
   capabilities: { minVersion: 59 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

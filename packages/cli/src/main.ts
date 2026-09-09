@@ -32,6 +32,7 @@ const main: CommandDef = defineCommand({
     setting: () => import("./commands/setting").then((mod) => mod.default),
     search: () => import("./commands/search").then((mod) => mod.default),
     "git-sync": () => import("./commands/git-sync").then((mod) => mod.default),
+    worktree: () => import("./commands/worktree").then((mod) => mod.default),
     setup: () => import("./commands/setup").then((mod) => mod.default),
     snippet: () => import("./commands/snippet").then((mod) => mod.default),
     segment: () => import("./commands/segment").then((mod) => mod.default),
@@ -59,6 +60,7 @@ setMetabaseAugment(main, {
   inputSchema: null,
   outputSchema: null,
   capabilities: null,
+  worktree: "any",
 });
 
 export default main;

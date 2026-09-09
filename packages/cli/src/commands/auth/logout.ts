@@ -36,6 +36,7 @@ const logoutView: ResourceView<LogoutResultJson> = {
 export default defineMetabaseCommand({
   meta: { name: "logout", description: "Clear stored credentials for a profile" },
   capabilities: { minVersion: 58 },
+  worktree: "any",
   args: {
     ...outputFlags,
     ...profileFlag,

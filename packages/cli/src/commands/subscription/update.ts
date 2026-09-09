@@ -16,6 +16,7 @@ export default defineMetabaseCommand({
     "A subscription's `dashboard_id` and `collection_id` are fixed at creation and cannot be changed.",
   ].join(" "),
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

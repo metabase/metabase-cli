@@ -32,6 +32,7 @@ export default defineMetabaseCommand({
       "Print the absolute path to a skill (or all skills). Useful when an agent needs to read the SKILL.md or its references with the Read tool directly.",
   },
   capabilities: null,
+  worktree: "any",
   args: {
     ...outputFlags,
     ...listFlags,

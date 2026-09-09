@@ -12,6 +12,7 @@ export default defineMetabaseCommand({
   details:
     "Patches only the fields you send: `name`, `description`, `icon`, `collection_id`, `default`, `archived`. Changing `archived` cascades to every event on the timeline.",
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

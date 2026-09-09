@@ -76,6 +76,21 @@ describe("snippet resource wire requests", () => {
     ]);
   });
 
+  it("sends the worktree scope as a worktree-id list query parameter", async () => {
+    const { mb, capture } = clientOver([jsonResponse([{ ...SNIPPET, worktree_id: 3 }])]);
+
+    await mb.snippet.list({ "worktree-id": 3 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/native-query-snippet?worktree-id=3",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
   it("wraps the bare list array in a ListResult that claims no server count", async () => {
     const { mb } = clientOver([jsonResponse([SNIPPET])]);
 

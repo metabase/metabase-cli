@@ -20,6 +20,7 @@ const SyncBranchListEnvelope = listEnvelopeSchema(BranchRow);
 export default defineMetabaseCommand({
   meta: { name: "branches", description: "List branches on the configured git remote" },
   capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
+  worktree: "any",
   args: { ...outputFlags, ...listFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SyncBranchListEnvelope,
   examples: ["mb git-sync branches", "mb git-sync branches --json"],

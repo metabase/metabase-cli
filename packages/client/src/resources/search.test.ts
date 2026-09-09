@@ -57,6 +57,21 @@ describe("search resource wire requests", () => {
     ]);
   });
 
+  it("sends the worktree scope as a worktree-id search query parameter", async () => {
+    const { mb, capture } = clientOver([jsonResponse({ data: [SEARCH_RESULT], total: 1 })]);
+
+    await mb.search.query({ q: "orders", "worktree-id": 3 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/search?q=orders&worktree-id=3",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
   it("omits every unset search parameter from the query string", async () => {
     const { mb, capture } = clientOver([jsonResponse({ data: [], total: 0 })]);
 

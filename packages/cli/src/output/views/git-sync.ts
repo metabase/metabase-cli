@@ -2,6 +2,7 @@ import {
   SyncBranchCreated,
   type SyncDirtyItem,
   SyncDirtyItemCompact,
+  SyncExportPreflight,
   SyncExportResult,
   SyncImportResult,
   SyncRemoteChanges,
@@ -75,6 +76,18 @@ export const syncExportView: ResourceView<SyncExportResult> = {
   tableColumns: [
     { key: "task_id", label: "Task ID" },
     { key: "message", label: "Message" },
+  ],
+};
+
+export const syncExportPreflightView: ResourceView<SyncExportPreflight> = {
+  compactPick: SyncExportPreflight,
+  tableColumns: [
+    { key: "has_changes", label: "Has changes" },
+    { key: "clean", label: "Clean" },
+    { key: "summary", label: "Summary" },
+    { key: "conflicts", label: "Conflicts" },
+    { key: "force_push_casualties", label: "Force-push casualties" },
+    { key: "reason", label: "Reason" },
   ],
 };
 

@@ -115,6 +115,20 @@ describe("library resource wire requests", () => {
     expect(capture.calls).toEqual([READ_ROOT_CALL, READ_COLLECTIONS_CALL]);
   });
 
+  it("sends the worktree scope as a worktree-id query parameter on the Library read", async () => {
+    const { mb, capture } = clientOver([
+      jsonResponse(UNHYDRATED_LIBRARY),
+      jsonResponse(LIBRARY_COLLECTIONS),
+    ]);
+
+    await mb.library.get({ "worktree-id": 3 });
+
+    expect(capture.calls).toEqual([
+      { ...READ_ROOT_CALL, url: `${ROOT_URL}?worktree-id=3` },
+      READ_COLLECTIONS_CALL,
+    ]);
+  });
+
   it("sends the bodyless create POST and refetches when no Library exists", async () => {
     const { mb, capture } = clientOver([
       jsonResponse(ABSENT_LIBRARY),

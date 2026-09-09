@@ -18,6 +18,7 @@ export default defineMetabaseCommand({
     'each recipient is `{type: "notification-recipient/user", user_id}` or `{type: "notification-recipient/raw-value", details: {value: "a@b.com"}}`.',
   ].join(" "),
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -60,6 +60,14 @@ The server version and token features are probed once on `auth login` / `auth li
 
 To find the right `minVersion` for a new endpoint, validate against `../metabase` at `origin/release-x.58.x` — route files `src/metabase/api_routes/routes.clj` and `enterprise/backend/src/metabase_enterprise/api_routes/routes.clj`. Token-feature keys are the underscored map keys in `src/metabase/premium_features/settings.clj`.
 
+## Worktree scope and pinning
+
+A git-sync worktree is a self-contained checkout of one branch's content in the same app DB, tagged with `worktree_id`; the main app is `worktree_id = null`. Every command therefore runs either against the main app or inside exactly one worktree, and `defineMetabaseCommand` makes each one say which it tolerates: `worktree: "scoped"` honours a resolved scope, `"any"` is indifferent to one, and `"main-only"` changes or runs main-app state and refuses to execute while a scope is in force. The field is required, so a new command cannot silently inherit a classification.
+
+A scope comes from `--worktree <id|branch>`, then `MB_WORKTREE`, then the profile's pin (`worktree: { id, branch }` on the profile record). A pin is a lock rather than a default: while it stands, the flag and the env var may only re-state it, and naming a different worktree is a `ConfigError`. The server has no per-worktree credential, so the CLI's isolation boundary is the credential set the process can reach: a harness gives an agent an `XDG_CONFIG_HOME` holding one pinned profile and no `MB_URL`/`MB_API_KEY`, and every command that process can run is then confined to that worktree — main-app writes refuse, and reads and writes of scoped resources carry the scope.
+
+Both the lock and the main-only refusal are enforced in `getClient()`, before the transport is used, and they need only the profile record and the environment to decide. Resolving a scope _ref_ into an id/branch pair may cost a request, so `ctx.getWorktree()` is memoised and returns the pin's own pair without asking the server.
+
 ## The e2e stack
 
 The suite drives the built binary against a real Metabase in docker compose, with no mocks. `scripts/e2e-matrix.ts` namespaces the compose project and its volumes per stack, so each matrix entry gets its own server, app-db volume, bootstrap artifact and snapshot. `bun run e2e:up` sets no project name and therefore always targets the default stack's containers, whatever `METABASE_CLI_E2E_STACK` says — reach for `e2e:matrix --stack=<id>` when you need a genuinely separate server.

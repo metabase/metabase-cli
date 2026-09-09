@@ -36,6 +36,10 @@ export interface TransformRunParams {
   syncTarget?: boolean | undefined;
 }
 
+export interface TransformListParams {
+  "worktree-id"?: number | undefined;
+}
+
 export interface TransformRunPageParams {
   "transform-ids"?: number | undefined;
 }
@@ -45,9 +49,18 @@ export type TransformRunPageOptions = Omit<PaginateOptions, "query">;
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function transformResource(transport: Transport) {
-  /** List every transform the caller can see. */
-  async function list(options: RequestOptions = {}): Promise<ListResult<Transform>> {
-    const data = await transport.requestParsed(TransformApiList, "/api/transform", { ...options });
+  /**
+   * List every transform the caller can see. `worktree-id` lists only the transforms checked out
+   * into that remote-sync worktree; without it the listing is the main app's.
+   */
+  async function list(
+    params: TransformListParams = {},
+    options: RequestOptions = {},
+  ): Promise<ListResult<Transform>> {
+    const data = await transport.requestParsed(TransformApiList, "/api/transform", {
+      ...options,
+      query: { "worktree-id": params["worktree-id"] },
+    });
     return { data, total: null };
   }
 

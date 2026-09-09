@@ -15,6 +15,7 @@ export default defineMetabaseCommand({
     description: "List tables in a database schema",
   },
   capabilities: { minVersion: 58 },
+  worktree: "any",
   args: {
     ...outputFlags,
     ...listFlags,

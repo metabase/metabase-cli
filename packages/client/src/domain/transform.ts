@@ -191,6 +191,7 @@ export const Transform = z
     updated_at: z.string(),
     creator_id: z.number().int(),
     collection_id: z.number().int().nullable(),
+    worktree_id: z.number().int().positive().nullable().optional(),
     run_trigger: TransformRunTrigger.nullable().optional(),
     last_run: TransformLastRun.nullable().optional(),
     tag_ids: z.array(z.number().int()).optional(),
@@ -204,6 +205,7 @@ export const TransformCompact = Transform.pick({
   description: true,
   source_type: true,
   target_db_id: true,
+  worktree_id: true,
 })
   .strip()
   .extend({ target: TransformTargetCompact });
@@ -218,6 +220,7 @@ export const TransformCreateInput = z
     run_trigger: TransformRunTrigger.optional(),
     tag_ids: z.array(z.number().int().positive()).optional(),
     collection_id: z.number().int().positive().nullable().optional(),
+    worktree_id: z.number().int().positive().nullable().optional(),
     owner_user_id: z.number().int().positive().nullable().optional(),
     owner_email: z.string().nullable().optional(),
   })

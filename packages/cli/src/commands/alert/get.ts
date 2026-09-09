@@ -10,6 +10,7 @@ export default defineMetabaseCommand({
   details:
     "`--full` includes the hydrated card the alert watches, alongside its schedules and handlers.",
   capabilities: { minVersion: 58 },
+  worktree: "any",
   args: {
     ...outputFlags,
     ...profileFlag,

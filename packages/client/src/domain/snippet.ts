@@ -8,6 +8,7 @@ export const Snippet = z
     content: z.string(),
     archived: z.boolean(),
     collection_id: z.number().int().nullable(),
+    worktree_id: z.number().int().positive().nullable().optional(),
     creator_id: z.number().int(),
     entity_id: z.string().nullable(),
     template_tags: z.record(z.string(), z.unknown()).nullable(),
@@ -23,6 +24,7 @@ export const SnippetCompact = Snippet.pick({
   description: true,
   archived: true,
   collection_id: true,
+  worktree_id: true,
 }).strip();
 export type SnippetCompact = z.infer<typeof SnippetCompact>;
 
@@ -36,6 +38,7 @@ export const SnippetCreateInput = z
     content: z.string(),
     description: z.string().nullable().optional(),
     collection_id: z.number().int().positive().nullable().optional(),
+    worktree_id: z.number().int().positive().nullable().optional(),
   })
   .loose();
 export type SnippetCreateInput = z.infer<typeof SnippetCreateInput>;

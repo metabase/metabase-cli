@@ -50,6 +50,22 @@ describe("--help --json e2e", () => {
     expect(index).toEqual(await buildHelpIndex(card, ["card"]));
   });
 
+  it("exposes each command's worktree policy so an agent can see what a scope refuses", async () => {
+    const scoped = await runCli({
+      args: ["transform", "list", "--help", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+    });
+    const mainOnly = await runCli({
+      args: ["transform", "run", "--help", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+    });
+
+    expect(scoped.exitCode, scoped.stderr).toBe(0);
+    expect(mainOnly.exitCode, mainOnly.stderr).toBe(0);
+    expect(parseJson(scoped.stdout, CommandHelpEntry).worktree).toBe("scoped");
+    expect(parseJson(mainOnly.stdout, CommandHelpEntry).worktree).toBe("main-only");
+  });
+
   it("emits the full entry with output schema and examples for a leaf command", async () => {
     const result = await runCli({
       args: ["card", "query", "--help", "--json"],

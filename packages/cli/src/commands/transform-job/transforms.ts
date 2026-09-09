@@ -14,6 +14,7 @@ export default defineMetabaseCommand({
   details:
     "Resolves the transforms a job would execute, matched by the job's tags. The positional id is a JOB id, not a transform id.",
   capabilities: { minVersion: 59 },
+  worktree: "any",
   args: {
     ...outputFlags,
     ...listFlags,

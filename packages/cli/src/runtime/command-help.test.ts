@@ -14,6 +14,7 @@ describe("buildHelpIndex", () => {
     const leaf = defineMetabaseCommand({
       meta: { name: "leaf", description: "a leaf" },
       capabilities: {},
+      worktree: "any",
       args: {},
       run() {
         return;
@@ -41,6 +42,7 @@ describe("buildHelpIndex", () => {
     const visible = defineMetabaseCommand({
       meta: { name: "visible", description: "visible" },
       capabilities: {},
+      worktree: "any",
       args: {},
       run() {
         return;
@@ -49,6 +51,7 @@ describe("buildHelpIndex", () => {
     const hidden = defineMetabaseCommand({
       meta: { name: "hidden", description: "hidden", hidden: true },
       capabilities: {},
+      worktree: "any",
       args: {},
       run() {
         return;
@@ -99,6 +102,7 @@ describe("buildHelpEntry", () => {
     const leaf = defineMetabaseCommand({
       meta: { name: "leaf", description: "leaf" },
       capabilities: {},
+      worktree: "any",
       args: {
         flag: { type: "string", description: "a flag", alias: "f" },
         toggle: { type: "boolean", description: "toggle", default: false },
@@ -147,6 +151,7 @@ describe("buildHelpEntry", () => {
     const leaf = defineMetabaseCommand({
       meta: { name: "leaf", description: "leaf" },
       capabilities: {},
+      worktree: "any",
       args: {},
       outputSchema: z.object({ ok: z.boolean(), name: z.string() }),
       examples: ["root leaf --json"],
@@ -175,13 +180,31 @@ describe("buildHelpEntry", () => {
         additionalProperties: false,
       },
       capabilities: BASELINE_CAPABILITIES,
+      worktree: "any",
     });
+  });
+
+  it("forwards the declared worktree policy so an agent can see what a scope refuses", async () => {
+    const leaf = defineMetabaseCommand({
+      meta: { name: "run", description: "run" },
+      capabilities: {},
+      worktree: "main-only",
+      args: {},
+      run() {
+        return;
+      },
+    });
+
+    const entry = await buildHelpEntry(leaf, ["run"]);
+
+    expect(entry.worktree).toBe("main-only");
   });
 
   it("emits the JSON Schema of inputSchema for commands that declare a body contract", async () => {
     const leaf = defineMetabaseCommand({
       meta: { name: "create", description: "create" },
       capabilities: {},
+      worktree: "any",
       args: {},
       inputSchema: z.object({ name: z.string() }),
       run() {
@@ -206,6 +229,7 @@ describe("buildHelpEntry", () => {
     const withDetails = defineMetabaseCommand({
       meta: { name: "with", description: "short" },
       capabilities: {},
+      worktree: "any",
       args: {},
       details: "the long per-command knowledge",
       run() {
@@ -215,6 +239,7 @@ describe("buildHelpEntry", () => {
     const without = defineMetabaseCommand({
       meta: { name: "without", description: "short" },
       capabilities: {},
+      worktree: "any",
       args: {},
       run() {
         return;
@@ -232,6 +257,7 @@ describe("buildHelpEntry", () => {
     const withSkills = defineMetabaseCommand({
       meta: { name: "with", description: "short" },
       capabilities: {},
+      worktree: "any",
       args: {},
       skills: [{ skill: "mbql", purpose: "author the dataset_query" }],
       run() {
@@ -241,6 +267,7 @@ describe("buildHelpEntry", () => {
     const without = defineMetabaseCommand({
       meta: { name: "without", description: "short" },
       capabilities: {},
+      worktree: "any",
       args: {},
       run() {
         return;
@@ -274,6 +301,7 @@ describe("buildHelpEntry", () => {
       inputSchema: null,
       outputSchema: null,
       capabilities: null,
+      worktree: "any",
     });
   });
 
@@ -297,6 +325,7 @@ describe("buildHelpEntry", () => {
       inputSchema: null,
       outputSchema: null,
       capabilities: null,
+      worktree: "any",
     });
   });
 });
@@ -403,11 +432,18 @@ const ALL_COMMANDS = [
   "git-sync wait",
   "git-sync import",
   "git-sync export",
+  "git-sync export-preflight",
   "git-sync stash",
   "git-sync branches",
   "git-sync create-branch",
   "git-sync add-collection",
   "git-sync remove-collection",
+  "worktree list",
+  "worktree get",
+  "worktree create",
+  "worktree delete",
+  "worktree pin",
+  "worktree unpin",
   "setup",
   "snippet list",
   "snippet get",
@@ -576,6 +612,14 @@ describe("command tree contract", () => {
     });
   });
 
+  it("declares every command that never reaches a server as scope-agnostic", async () => {
+    for (const entry of await allEntries()) {
+      if (entry.capabilities === null) {
+        expect(entry.worktree, `${entry.command} never reaches a server`).toBe("any");
+      }
+    }
+  });
+
   it("reports null capabilities for exactly the commands that never touch a Metabase server", async () => {
     const entries = await allEntries();
     const local = entries
@@ -588,6 +632,7 @@ describe("command tree contract", () => {
       "skills path",
       "upgrade",
       "uuid",
+      "worktree unpin",
     ]);
   });
 });

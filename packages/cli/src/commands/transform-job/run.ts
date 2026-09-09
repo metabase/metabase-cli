@@ -23,6 +23,7 @@ export default defineMetabaseCommand({
   details:
     "Starts the job and returns immediately. The job runs every transform carrying one of its tags, plus those transforms' dependencies. Dependencies that are already fresh are skipped by default; --force-refresh re-runs the whole plan including them.",
   capabilities: { minVersion: 59 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

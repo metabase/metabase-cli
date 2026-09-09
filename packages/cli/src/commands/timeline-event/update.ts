@@ -12,6 +12,7 @@ export default defineMetabaseCommand({
   details:
     "Patches only the fields you send: `name`, `description`, `timestamp`, `timezone`, `time_matters`, `icon`, `timeline_id` (moves the event to another timeline), `archived`.",
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -10,17 +10,21 @@ const SnippetApiList = z.array(Snippet);
 
 export interface SnippetListParams {
   archived?: boolean | undefined;
+  "worktree-id"?: number | undefined;
 }
 
 export function snippetResource(transport: Transport) {
-  /** List native query snippets. `archived` swaps the listing to archived snippets. */
+  /**
+   * List native query snippets. `archived` swaps the listing to archived snippets, and
+   * `worktree-id` lists only the snippets checked out into that remote-sync worktree.
+   */
   async function list(
     params: SnippetListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Snippet>> {
     const data = await transport.requestParsed(SnippetApiList, "/api/native-query-snippet", {
       ...options,
-      query: { archived: params.archived },
+      query: { archived: params.archived, "worktree-id": params["worktree-id"] },
     });
     return { data, total: null };
   }

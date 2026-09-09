@@ -11,6 +11,7 @@ export default defineMetabaseCommand({
   details:
     "Manage them with `mb alert create|update|send|archive`, which take the alert id printed here.",
   capabilities: { minVersion: 58 },
+  worktree: "any",
   args: {
     ...outputFlags,
     ...listFlags,

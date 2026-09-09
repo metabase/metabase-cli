@@ -11,7 +11,7 @@ import { defineCommandGroup } from "../commands/group";
 import { defineMetabaseCommand } from "../commands/runtime";
 import { setMetabaseAugment } from "../runtime/command-augment";
 import { CommandHelpEntry, CommandHelpIndex } from "../runtime/command-help";
-import { findUnknownCommand, resolveBreadcrumb, showUsage, showUsageJson } from "./help";
+import { resolveInvocation, showUsage, showUsageJson } from "./help";
 
 describe("showUsage", () => {
   let chunks: string[];
@@ -65,6 +65,7 @@ describe("showUsage", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "demo cmd" },
       capabilities: {},
+      worktree: "any",
       args: {},
       examples: ["mb demo --json", "mb demo --profile staging"],
       outputSchema: z.object({ ok: z.boolean() }),
@@ -84,6 +85,7 @@ describe("showUsage", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "demo cmd" },
       capabilities: {},
+      worktree: "any",
       args: {},
       run() {
         return;
@@ -99,6 +101,7 @@ describe("showUsage", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "Short summary" },
       capabilities: {},
+      worktree: "any",
       args: {},
       details: "Longer per-command knowledge shown only on this page.",
       run() {
@@ -120,6 +123,7 @@ describe("showUsage", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "Short summary" },
       capabilities: {},
+      worktree: "any",
       args: {},
       run() {
         return;
@@ -169,6 +173,7 @@ describe("showUsage", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "bar", description: "demo bar" },
       capabilities: {},
+      worktree: "any",
       args: {},
       outputSchema: z.object({ ok: z.boolean() }),
       run() {
@@ -201,6 +206,7 @@ describe("showUsage", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "demo cmd" },
       capabilities: {},
+      worktree: "any",
       args: {},
       examples: ["mb demo --json"],
       outputSchema: z.object({ ok: z.boolean() }),
@@ -218,6 +224,7 @@ describe("showUsage", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "list", description: "demo list" },
       capabilities: {},
+      worktree: "any",
       args: { ...outputFlags, ...profileFlag, ...connectionFlags },
       outputSchema: z.object({ ok: z.boolean() }),
       run() {
@@ -241,6 +248,7 @@ describe("showUsage", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "list", description: "demo list" },
       capabilities: {},
+      worktree: "any",
       args: { ...outputFlags, ...profileFlag, ...connectionFlags },
       outputSchema: z.object({ ok: z.boolean() }),
       run() {
@@ -258,6 +266,7 @@ describe("showUsage", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "bar", description: "demo bar" },
       capabilities: {},
+      worktree: "any",
       args: { ...outputFlags },
       outputSchema: z.object({ ok: z.boolean() }),
       run() {
@@ -292,6 +301,7 @@ describe("showUsage", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "create", description: "demo create" },
       capabilities: {},
+      worktree: "any",
       args: {},
       skills: [
         { skill: "mbql", purpose: "author the dataset_query" },
@@ -314,6 +324,7 @@ describe("showUsage", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "demo cmd" },
       capabilities: {},
+      worktree: "any",
       args: {},
       run() {
         return;
@@ -341,10 +352,12 @@ describe("showUsage", () => {
       inputSchema: null,
       outputSchema: null,
       capabilities: null,
+      worktree: "any",
     });
     const leaf = defineMetabaseCommand({
       meta: { name: "list", description: "demo list" },
       capabilities: {},
+      worktree: "any",
       args: {},
       skills: [{ skill: "core", purpose: "auth and conventions" }],
       run() {
@@ -376,6 +389,7 @@ describe("showUsage", () => {
     const leaf = defineMetabaseCommand({
       meta: { name: "list", description: "demo list" },
       capabilities: {},
+      worktree: "any",
       args: {},
       outputSchema: z.object({ ok: z.boolean() }),
       run() {
@@ -415,6 +429,7 @@ describe("showUsageJson", () => {
     const leaf = defineMetabaseCommand({
       meta: { name: "bar", description: "demo bar" },
       capabilities: {},
+      worktree: "any",
       args: {},
       outputSchema: z.object({ ok: z.boolean() }),
       examples: ["mb foo bar --json"],
@@ -441,6 +456,7 @@ describe("showUsageJson", () => {
         additionalProperties: false,
       },
       capabilities: BASELINE_CAPABILITIES,
+      worktree: "any",
     });
   });
 
@@ -448,6 +464,7 @@ describe("showUsageJson", () => {
     const bar = defineMetabaseCommand({
       meta: { name: "bar", description: "demo bar" },
       capabilities: {},
+      worktree: "any",
       args: {},
       run() {
         return;
@@ -456,6 +473,7 @@ describe("showUsageJson", () => {
     const baz = defineMetabaseCommand({
       meta: { name: "baz", description: "demo baz" },
       capabilities: {},
+      worktree: "any",
       args: {},
       run() {
         return;
@@ -485,7 +503,7 @@ describe("showUsageJson", () => {
   });
 });
 
-describe("resolveBreadcrumb", () => {
+describe("resolveInvocation", () => {
   function tree(): CommandDef {
     const leaf = defineCommand({
       meta: { name: "bar" },
@@ -502,59 +520,51 @@ describe("resolveBreadcrumb", () => {
     });
   }
 
-  it("walks subcommand tokens into a full breadcrumb", async () => {
-    expect(await resolveBreadcrumb(tree(), ["foo", "bar", "123"])).toBe("mb foo bar");
+  it("walks subcommand tokens past a trailing positional", async () => {
+    expect(await resolveInvocation(tree(), ["foo", "bar", "123"])).toEqual({
+      breadcrumb: "mb foo bar",
+      verbs: "foo bar",
+      unknownToken: null,
+    });
   });
 
   it("resolves a command alias to its canonical name", async () => {
-    expect(await resolveBreadcrumb(tree(), ["f", "bar"])).toBe("mb foo bar");
+    expect(await resolveInvocation(tree(), ["f", "bar"])).toEqual({
+      breadcrumb: "mb foo bar",
+      verbs: "foo bar",
+      unknownToken: null,
+    });
   });
 
   it("skips a value-taking flag and its argument before the subcommand", async () => {
-    expect(await resolveBreadcrumb(tree(), ["--profile", "staging", "foo", "bar"])).toBe(
-      "mb foo bar",
-    );
-  });
-
-  it("stops at the first unknown token", async () => {
-    expect(await resolveBreadcrumb(tree(), ["nope", "bar"])).toBe("mb");
-  });
-});
-
-describe("findUnknownCommand", () => {
-  function tree(): CommandDef {
-    const leaf = defineCommand({
-      meta: { name: "bar" },
-      args: { id: { type: "positional", required: false } },
+    expect(await resolveInvocation(tree(), ["--profile", "staging", "foo", "bar"])).toEqual({
+      breadcrumb: "mb foo bar",
+      verbs: "foo bar",
+      unknownToken: null,
     });
-    const group = defineCommand({
-      meta: { name: "foo", alias: "f" },
-      subCommands: { bar: leaf },
+  });
+
+  it("reports no verbs when only flags are present (a missing command, not an unknown one)", async () => {
+    expect(await resolveInvocation(tree(), ["--profile", "staging"])).toEqual({
+      breadcrumb: "mb",
+      verbs: null,
+      unknownToken: null,
     });
-    return defineCommand<ArgsDef>({
-      meta: { name: "mb" },
-      args: { profile: { type: "string" } },
-      subCommands: { foo: group },
+  });
+
+  it("stops at an unknown token at the root", async () => {
+    expect(await resolveInvocation(tree(), ["nope", "bar"])).toEqual({
+      breadcrumb: "mb",
+      verbs: null,
+      unknownToken: "nope",
     });
-  }
-
-  it("returns null for a valid subcommand path with a trailing positional", async () => {
-    expect(await findUnknownCommand(tree(), ["foo", "bar", "123"])).toBeNull();
   });
 
-  it("returns null when a command alias is used", async () => {
-    expect(await findUnknownCommand(tree(), ["f", "bar"])).toBeNull();
-  });
-
-  it("returns null when only flags are present (a missing command, not an unknown one)", async () => {
-    expect(await findUnknownCommand(tree(), ["--profile", "staging"])).toBeNull();
-  });
-
-  it("returns the unknown token at the root", async () => {
-    expect(await findUnknownCommand(tree(), ["nope"])).toBe("nope");
-  });
-
-  it("returns the unknown token nested under a group", async () => {
-    expect(await findUnknownCommand(tree(), ["foo", "frob"])).toBe("frob");
+  it("stops at an unknown token nested under a group", async () => {
+    expect(await resolveInvocation(tree(), ["foo", "frob"])).toEqual({
+      breadcrumb: "mb foo",
+      verbs: "foo",
+      unknownToken: "frob",
+    });
   });
 });

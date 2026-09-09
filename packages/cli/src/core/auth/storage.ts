@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import { dirname, join } from "node:path";
 
 import type { Credential, OAuthCredential } from "@metabase/client/auth/credential";
-import { isFileNotFoundError, ValidationError } from "@metabase/client/errors";
+import { ConfigError, isFileNotFoundError, ValidationError } from "@metabase/client/errors";
 import { parseJsonResult } from "@metabase/client/json";
 import type { ServerInfo } from "@metabase/client/version/probe";
 
@@ -16,6 +16,7 @@ import {
   type ProbedUser,
   type ProfileFailureKind,
   type ProfileOAuth,
+  type ProfilePin,
   type ProfileRecord,
 } from "./profile-record";
 
@@ -402,6 +403,7 @@ export async function writeProfile(
           oauth: null,
           lastProbe: null,
           lastFailure: null,
+          worktree: null,
         }
       : { ...existing, url: profile.url, apiKey: inlineApiKey, oauth: null };
   await upsertRecord(file, name, updated);
@@ -436,7 +438,7 @@ export async function writeOAuthProfile(
   flagResidualIfUnconfirmed(existing, "apiKey", [removeKeyringEntry(account.profileApiKey(name))]);
   const updated: ProfileRecord =
     existing === null
-      ? { name, url, apiKey: null, oauth, lastProbe: null, lastFailure: null }
+      ? { name, url, apiKey: null, oauth, lastProbe: null, lastFailure: null, worktree: null }
       : { ...existing, url, apiKey: null, oauth };
   await upsertRecord(file, name, updated);
   return onFile
@@ -490,6 +492,21 @@ export async function writeProbeFailure(
   );
   await writeProfilesFile({ ...file, profiles });
   return failure;
+}
+
+// Pinning is a property of the credential set the process can reach, so it is written onto the
+// profile record itself rather than held for one invocation.
+export async function writeProfileWorktree(name: string, pin: ProfilePin | null): Promise<void> {
+  const file = await readProfilesFile();
+  if (findRecord(file, name) === null) {
+    throw new ConfigError(
+      `no such profile "${name}"; run \`mb auth login --profile ${name}\` first`,
+    );
+  }
+  const profiles = file.profiles.map((entry) =>
+    entry.name === name ? { ...entry, worktree: pin } : entry,
+  );
+  await writeProfilesFile({ ...file, profiles });
 }
 
 export async function clearProfile(name: string = DEFAULT_PROFILE): Promise<boolean> {

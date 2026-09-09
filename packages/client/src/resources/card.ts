@@ -18,6 +18,7 @@ const CardApiList = z.array(Card);
 export interface CardListParams {
   f?: CardListFilter | undefined;
   model_id?: string | undefined;
+  "worktree-id"?: number | undefined;
 }
 
 export interface CardQueryParams {
@@ -31,14 +32,17 @@ export interface CardExportParams {
 }
 
 export function cardResource(transport: Transport) {
-  /** List cards. `f` picks a server-side preset; `model_id` scopes the presets that need an id. */
+  /**
+   * List cards. `f` picks a server-side preset, `model_id` scopes the presets that need an id, and
+   * `worktree-id` lists only the cards checked out into that remote-sync worktree.
+   */
   async function list(
     params: CardListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Card>> {
     const data = await transport.requestParsed(CardApiList, "/api/card", {
       ...options,
-      query: { f: params.f, model_id: params.model_id },
+      query: { f: params.f, model_id: params.model_id, "worktree-id": params["worktree-id"] },
     });
     return { data, total: null };
   }

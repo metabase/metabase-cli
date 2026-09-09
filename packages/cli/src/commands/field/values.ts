@@ -11,6 +11,7 @@ export default defineMetabaseCommand({
     description: "Fetch the cached distinct values for a field (FieldValues list)",
   },
   capabilities: { minVersion: 58 },
+  worktree: "any",
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -12,6 +12,7 @@ export const DashboardListEnvelope = listEnvelopeSchema(DashboardCompact);
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List dashboards" },
   capabilities: { minVersion: 58 },
+  worktree: "any",
   args: {
     ...outputFlags,
     ...listFlags,

@@ -8,8 +8,9 @@ import { hoistGlobalFlags } from "./commands/global-flags";
 import { trustSystemCa } from "./core/system-ca";
 import main from "./main";
 import { reportError } from "./output/error";
-import { findUnknownCommand, resolveBreadcrumb, showUsage, showUsageJson } from "./output/help";
+import { resolveInvocation, showUsage, showUsageJson } from "./output/help";
 import { installInterruptHandler } from "./runtime/interrupt";
+import { setVerbChain } from "./runtime/verb-chain";
 
 const HELP_FLAGS: ReadonlySet<string> = new Set(["--help", "-h"]);
 const JSON_HELP_FLAG = "--json";
@@ -24,7 +25,7 @@ async function run(): Promise<void> {
     cmd: CommandDef<T>,
     parent?: CommandDef<T>,
   ): Promise<void> => {
-    const breadcrumb = await resolveBreadcrumb(main, rawArgs);
+    const { breadcrumb } = await resolveInvocation(main, rawArgs);
     if (wantsJsonHelp) {
       await showUsageJson(cmd, breadcrumb);
       return;
@@ -37,11 +38,12 @@ async function run(): Promise<void> {
     return;
   }
   if (!rawArgs.some((arg) => HELP_FLAGS.has(arg))) {
-    const unknown = await findUnknownCommand(main, rawArgs);
-    if (unknown !== null) {
-      reportError(new ConfigError(`unknown command: ${unknown}`));
+    const { unknownToken, verbs } = await resolveInvocation(main, rawArgs);
+    if (unknownToken !== null) {
+      reportError(new ConfigError(`unknown command: ${unknownToken}`));
       return;
     }
+    setVerbChain(verbs);
   }
   await runMain(main, { showUsage: showUsageWithBreadcrumb, rawArgs });
 }

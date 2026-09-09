@@ -2,7 +2,7 @@ import type { ArgsDef } from "citty";
 
 import { flagConsumesValue, normalizeFlag, toAliasArray } from "../runtime/citty";
 
-import { connectionFlags, listFlags, outputFlags, profileFlag } from "./flags";
+import { connectionFlags, listFlags, outputFlags, profileFlag, worktreeFlag } from "./flags";
 
 const ARGUMENT_SEPARATOR = "--";
 const NEGATION_PREFIX = "no-";
@@ -12,6 +12,7 @@ const GLOBAL_FLAG_ARGS: ArgsDef = {
   ...listFlags,
   ...profileFlag,
   ...connectionFlags,
+  ...worktreeFlag,
 };
 
 const GLOBAL_FLAG_NAMES: ReadonlySet<string> = buildGlobalFlagNames();

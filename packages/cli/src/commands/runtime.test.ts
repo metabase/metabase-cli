@@ -16,8 +16,11 @@ vi.mock("@napi-rs/keyring", async () => {
 });
 
 const { defineMetabaseCommand, SKIP_PREFLIGHT_ENV } = await import("./runtime");
-const { connectionFlags, listFlags, outputFlags, profileFlag } = await import("./flags");
-const { writeProbeResult, writeProfile } = await import("../core/auth/storage");
+const { connectionFlags, listFlags, outputFlags, profileFlag, worktreeFlag } =
+  await import("./flags");
+const { writeProbeResult, writeProfile, writeProfileWorktree } =
+  await import("../core/auth/storage");
+const { setVerbChain } = await import("../runtime/verb-chain");
 
 async function seedProbedProfile(name: string, info: ServerInfo): Promise<void> {
   await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" }, name);
@@ -50,11 +53,13 @@ describe("defineMetabaseCommand", () => {
   beforeEach(() => {
     hoisted.store.clear();
     home = setupTempConfigHome();
+    delete process.env["MB_WORKTREE"];
     for (const name of ["URL", "API_KEY", "PROFILE"]) {
       delete process.env[`MB_${name}`];
       delete process.env[`METABASE_${name}`];
     }
     delete process.env[SKIP_PREFLIGHT_ENV];
+    setVerbChain(null);
     previousExitCode = process.exitCode;
     process.exitCode = 0;
   });
@@ -62,6 +67,8 @@ describe("defineMetabaseCommand", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     home.cleanup();
+    setVerbChain(null);
+    delete process.env["MB_WORKTREE"];
     delete process.env[SKIP_PREFLIGHT_ENV];
     process.exitCode = previousExitCode;
   });
@@ -72,6 +79,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "demo" },
       capabilities: {},
+      worktree: "any",
       args: { ...outputFlags, custom: { type: "string", description: "custom flag" } },
       run({ args, ctx }) {
         observed(ctx.format, args.custom);
@@ -87,6 +95,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "bare", description: "no opt-ins" },
       capabilities: {},
+      worktree: "any",
       args: {},
       run({ ctx }) {
         observed(ctx.profile, ctx.url);
@@ -104,6 +113,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "uses-client", description: "uses the client" },
       capabilities: {},
+      worktree: "any",
       args: { ...profileFlag },
       async run({ getClient }) {
         const client = await getClient();
@@ -119,6 +129,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "no-client", description: "does not need the client" },
       capabilities: {},
+      worktree: "any",
       args: {},
       run() {
         return;
@@ -135,6 +146,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "cached", description: "client is cached" },
       capabilities: {},
+      worktree: "any",
       args: {},
       async run({ getClient }) {
         first = await getClient();
@@ -149,6 +161,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "needs-creds", description: "needs creds" },
       capabilities: {},
+      worktree: "any",
       args: {},
       async run({ getClient }) {
         await getClient();
@@ -176,6 +189,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "ranged", description: "takes a range" },
       capabilities: {},
+      worktree: "any",
       args: { ...outputFlags, ...listFlags },
       run() {
         ran();
@@ -202,6 +216,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "capped", description: "takes a cap" },
       capabilities: {},
+      worktree: "any",
       args: { ...outputFlags },
       run() {
         return;
@@ -227,6 +242,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "misformatted", description: "bad format" },
       capabilities: {},
+      worktree: "any",
       args: { ...outputFlags },
       run() {
         return;
@@ -248,6 +264,7 @@ describe("defineMetabaseCommand", () => {
       meta: { name: "needs-v60", description: "wants v60" },
       args: {},
       capabilities: { minVersion: 60 },
+      worktree: "any",
       async run({ getClient }) {
         await getClient();
         ran();
@@ -272,6 +289,7 @@ describe("defineMetabaseCommand", () => {
       meta: { name: "needs-transforms", description: "wants transforms" },
       args: {},
       capabilities: { tokenFeature: "transforms" },
+      worktree: "any",
       async run({ getClient }) {
         await getClient();
         ran();
@@ -295,6 +313,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "no-caps", description: "no caps" },
       capabilities: {},
+      worktree: "any",
       args: {},
       async run({ getClient }) {
         await getClient();
@@ -314,6 +333,7 @@ describe("defineMetabaseCommand", () => {
       meta: { name: "needs-v60-warn", description: "wants v60" },
       args: {},
       capabilities: { minVersion: 60 },
+      worktree: "any",
       async run({ getClient }) {
         await getClient();
         ran();
@@ -342,6 +362,7 @@ describe("defineMetabaseCommand", () => {
       meta: { name: "needs-v60-unknown", description: "wants v60" },
       args: {},
       capabilities: { minVersion: 60 },
+      worktree: "any",
       async run({ getClient }) {
         await getClient();
         ran();
@@ -364,6 +385,7 @@ describe("defineMetabaseCommand", () => {
       meta: { name: "skip-preflight-flag", description: "skip via flag" },
       args: { ...connectionFlags },
       capabilities: { minVersion: 99 },
+      worktree: "any",
       async run({ getClient }) {
         await getClient();
         ran();
@@ -372,6 +394,160 @@ describe("defineMetabaseCommand", () => {
 
     await runCommand(cmd, { rawArgs: ["--skip-preflight"] });
     expect(ran).toHaveBeenCalledOnce();
+  });
+
+  it("refuses a main-only command under an MB_WORKTREE scope before any request", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
+    process.env["MB_WORKTREE"] = "feat/transforms";
+    setVerbChain("transform run");
+
+    const ran = vi.fn();
+    const cmd = defineMetabaseCommand({
+      meta: { name: "run", description: "runs main-app content" },
+      capabilities: {},
+      worktree: "main-only",
+      args: {},
+      async run({ getClient }) {
+        await getClient();
+        ran();
+      },
+    });
+    const stderr = captureStderr();
+
+    await runCommand(cmd, { rawArgs: [] });
+
+    const parsed: unknown = JSON.parse(stderr.join(""));
+    expect(parsed).toEqual({
+      ok: false,
+      error: {
+        category: "config",
+        message:
+          'transform run is not available inside a worktree (scope: worktree "feat/transforms" ' +
+          "from MB_WORKTREE); it changes main-app content. Unpin the profile " +
+          "(`mb worktree unpin`) or drop MB_WORKTREE to run it against the main app.",
+        exitCode: 2,
+      },
+    });
+    expect(ran).not.toHaveBeenCalled();
+  });
+
+  it("names the leaf in a main-only refusal when no verb chain was recorded", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
+    process.env["MB_WORKTREE"] = "feat/transforms";
+
+    const cmd = defineMetabaseCommand({
+      meta: { name: "run", description: "runs main-app content" },
+      capabilities: {},
+      worktree: "main-only",
+      args: {},
+      async run({ getClient }) {
+        await getClient();
+      },
+    });
+    const stderr = captureStderr();
+
+    await runCommand(cmd, { rawArgs: [] });
+
+    const parsed: unknown = JSON.parse(stderr.join(""));
+    expect(parsed).toEqual({
+      ok: false,
+      error: {
+        category: "config",
+        message:
+          'run is not available inside a worktree (scope: worktree "feat/transforms" from ' +
+          "MB_WORKTREE); it changes main-app content. Unpin the profile (`mb worktree unpin`) or " +
+          "drop MB_WORKTREE to run it against the main app.",
+        exitCode: 2,
+      },
+    });
+  });
+
+  it("runs a main-only command untouched when nothing names a worktree", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
+
+    const ran = vi.fn();
+    const cmd = defineMetabaseCommand({
+      meta: { name: "run", description: "runs main-app content" },
+      capabilities: {},
+      worktree: "main-only",
+      args: {},
+      async run({ getClient }) {
+        await getClient();
+        ran();
+      },
+    });
+
+    await runCommand(cmd, { rawArgs: [] });
+    expect(ran).toHaveBeenCalledOnce();
+  });
+
+  it("hands a scoped command the pinned worktree without contacting the server", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
+    await writeProfileWorktree("default", { id: 3, branch: "feat/transforms" });
+
+    const observed = vi.fn<(scope: unknown) => void>();
+    const cmd = defineMetabaseCommand({
+      meta: { name: "scoped", description: "honours a scope" },
+      capabilities: {},
+      worktree: "scoped",
+      args: { ...worktreeFlag },
+      async run({ getWorktree }) {
+        observed(await getWorktree());
+      },
+    });
+
+    await runCommand(cmd, { rawArgs: [] });
+    expect(observed).toHaveBeenCalledWith({ id: 3, branch: "feat/transforms" });
+  });
+
+  it("hands a scoped command a null scope when nothing names a worktree", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
+
+    const observed = vi.fn<(scope: unknown) => void>();
+    const cmd = defineMetabaseCommand({
+      meta: { name: "scoped", description: "honours a scope" },
+      capabilities: {},
+      worktree: "scoped",
+      args: { ...worktreeFlag },
+      async run({ getWorktree }) {
+        observed(await getWorktree());
+      },
+    });
+
+    await runCommand(cmd, { rawArgs: [] });
+    expect(observed).toHaveBeenCalledWith(null);
+  });
+
+  it("refuses a --worktree that names a worktree other than the profile's pin", async () => {
+    await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
+    await writeProfileWorktree("default", { id: 3, branch: "feat/transforms" });
+
+    const ran = vi.fn();
+    const cmd = defineMetabaseCommand({
+      meta: { name: "scoped", description: "honours a scope" },
+      capabilities: {},
+      worktree: "scoped",
+      args: { ...worktreeFlag },
+      async run({ getWorktree }) {
+        await getWorktree();
+        ran();
+      },
+    });
+    const stderr = captureStderr();
+
+    await runCommand(cmd, { rawArgs: ["--worktree", "9"] });
+
+    const parsed: unknown = JSON.parse(stderr.join(""));
+    expect(parsed).toEqual({
+      ok: false,
+      error: {
+        category: "config",
+        message:
+          'profile "default" is pinned to worktree 3 (feat/transforms); refusing --worktree 9',
+        exitCode: 2,
+      },
+    });
+    expect(ran).not.toHaveBeenCalled();
   });
 
   it("bypasses the preflight check when MB_CLI_SKIP_PREFLIGHT=1 is set", async () => {
@@ -383,6 +559,7 @@ describe("defineMetabaseCommand", () => {
       meta: { name: "skip-preflight", description: "skip" },
       args: {},
       capabilities: { minVersion: 99 },
+      worktree: "any",
       async run({ getClient }) {
         await getClient();
         ran();

@@ -5,10 +5,12 @@ import { warn } from "../../output/notice";
 import { renderSummary } from "../../output/render";
 import { syncExportView } from "../../output/views/git-sync";
 import type { CommonContext } from "../context";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { connectionFlags, outputFlags, profileFlag, worktreeFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 import { gitSyncWaitFlags, parseWaitFlags } from "../wait-flags";
+import { WORKTREE_SCOPE_DETAIL } from "../worktree-scope";
 
+import { resolveSyncBranch } from "./branch";
 import { formatSyncTask, taskPollOptions, throwIfFailedTask } from "./sync-task";
 
 export default defineMetabaseCommand({
@@ -17,10 +19,16 @@ export default defineMetabaseCommand({
     description: "Export Metabase changes back to the configured git remote",
   },
   capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
+  worktree: "scoped",
+  details:
+    "Inside a worktree the branch is the worktree's own, so --branch is refused there. " +
+    "Preview what a push would do with `mb git-sync export-preflight` first. " +
+    WORKTREE_SCOPE_DETAIL,
   args: {
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
+    ...worktreeFlag,
     branch: {
       type: "string",
       description: "Branch to export to (defaults to remote-sync-branch setting)",
@@ -36,6 +44,11 @@ export default defineMetabaseCommand({
       description: "Force-push / overwrite remote",
       default: false,
     },
+    merge: {
+      type: "boolean",
+      description: "Three-way merge remote changes instead of failing on divergence",
+      default: false,
+    },
     ...gitSyncWaitFlags,
   },
   outputSchema: SyncExportResult,
@@ -43,12 +56,17 @@ export default defineMetabaseCommand({
     'mb git-sync export -m "update dashboards"',
     "mb git-sync export --branch main --json",
     "mb git-sync export --no-wait",
+    'mb git-sync export --worktree feat/transforms -m "new transforms"',
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, getWorktree }) {
     const wait = parseWaitFlags(args);
-    const params: SyncExportParams = {};
-    if (args.branch !== undefined && args.branch !== "") {
-      params.branch = args.branch;
+    const mb = await getClient();
+    const scope = await getWorktree();
+    const target = await resolveSyncBranch(mb, scope, args.branch);
+
+    const params: SyncExportParams = { branch: target.branch };
+    if (scope !== null) {
+      params.worktree_id = scope.id;
     }
     if (args.message !== undefined && args.message !== "") {
       params.message = args.message;
@@ -56,11 +74,13 @@ export default defineMetabaseCommand({
     if (args.force) {
       params.force = true;
     }
+    if (args.merge) {
+      params.merge = true;
+    }
     if (wait.enabled) {
       params.wait = taskPollOptions(wait.schedule);
     }
 
-    const mb = await getClient();
     const result = await mb.gitSync.export(params);
 
     if (!wait.enabled) {
@@ -72,10 +92,13 @@ export default defineMetabaseCommand({
       renderSummary(result, syncExportView, text, ctx);
       throwIfFailedTask(final, "export");
     }
-    emitRealignHint(ctx);
+    if (scope === null) {
+      emitRealignHint(ctx);
+    }
   },
 });
 
+// A worktree is not the instance's own checkout, so nothing on the host tree moved with it.
 function emitRealignHint(ctx: CommonContext): void {
   if (ctx.format !== "text") {
     return;

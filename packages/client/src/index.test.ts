@@ -43,6 +43,7 @@ import {
   TransformTagCreateInput,
   TransformTagUpdateInput,
   TransformUpdateInput,
+  WorktreeCreateInput,
 } from "./index";
 import type {
   ClientCredentials,
@@ -106,6 +107,7 @@ const writePath = {
   TransformTagCreateInput: pin<TransformTagCreateInput>(TransformTagCreateInput),
   TransformTagUpdateInput: pin<TransformTagUpdateInput>(TransformTagUpdateInput),
   TransformUpdateInput: pin<TransformUpdateInput>(TransformUpdateInput),
+  WorktreeCreateInput: pin<WorktreeCreateInput>(WorktreeCreateInput),
 };
 
 const INPUT_SUFFIX = "Input";

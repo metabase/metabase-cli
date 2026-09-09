@@ -14,6 +14,7 @@ export default defineMetabaseCommand({
     description: "Mark a collection as git-synced; cascades to descendants by location prefix",
   },
   capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

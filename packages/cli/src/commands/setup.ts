@@ -13,6 +13,7 @@ export default defineMetabaseCommand({
     description: "Complete the initial Metabase setup wizard with a default user",
   },
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

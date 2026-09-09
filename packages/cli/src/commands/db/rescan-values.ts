@@ -11,6 +11,7 @@ export default defineMetabaseCommand({
     description: "Trigger a rescan of cached field values for a database",
   },
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

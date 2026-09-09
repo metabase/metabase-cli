@@ -44,6 +44,15 @@ export type ProfileOAuth = z.infer<typeof ProfileOAuth>;
 export const ProfileAuthMethod = z.enum(["oauth", "apiKey"]);
 export type ProfileAuthMethod = z.infer<typeof ProfileAuthMethod>;
 
+// The worktree every command run under this profile is confined to. Both halves are stored so a
+// pinned session knows its scope without asking the server, and `.default(null)` keeps profiles
+// written before pinning existed parseable.
+export const ProfilePin = z.object({
+  id: z.number().int().positive(),
+  branch: z.string(),
+});
+export type ProfilePin = z.infer<typeof ProfilePin>;
+
 // `.loose()` so fields written by a newer CLI survive an older CLI's read-modify-write of the
 // shared profiles.json. Every write path round-trips the whole file; a strict-strip schema would
 // silently drop unknown keys (e.g. a future `oauth`-style block) and force a re-login.
@@ -55,6 +64,7 @@ export const ProfileRecord = z
     oauth: ProfileOAuth.nullable().default(null),
     lastProbe: ProfileLastProbe.nullable(),
     lastFailure: ProfileLastFailure.nullable(),
+    worktree: ProfilePin.nullable().default(null),
   })
   .loose();
 export type ProfileRecord = z.infer<typeof ProfileRecord>;

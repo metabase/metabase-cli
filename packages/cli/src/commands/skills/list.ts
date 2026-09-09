@@ -33,6 +33,7 @@ export default defineMetabaseCommand({
       "List CLI-bundled skills — always consult the matching skill before acting on a task; they are the source of truth for every workflow.",
   },
   capabilities: null,
+  worktree: "any",
   args: { ...outputFlags, ...listFlags },
   outputSchema: SkillListEnvelope,
   examples: ["mb skills list", "mb skills list --json"],

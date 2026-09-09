@@ -20,6 +20,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       inputSchema: null,
       outputSchema: z.object({ id: z.number() }),
       capabilities: BASELINE_CAPABILITIES,
+      worktree: "any",
     };
     setMetabaseAugment(cmd, augment);
     expect(getMetabaseAugment(cmd)).toBe(augment);
@@ -35,6 +36,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       inputSchema: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
+      worktree: "any",
     };
     const secondAugment: MetabaseAugment = {
       examples: ["b"],
@@ -43,6 +45,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       inputSchema: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
+      worktree: "any",
     };
     setMetabaseAugment(first, firstAugment);
     setMetabaseAugment(second, secondAugment);
@@ -59,6 +62,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       inputSchema: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
+      worktree: "any",
     };
     const replacement: MetabaseAugment = {
       examples: ["after"],
@@ -67,6 +71,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       inputSchema: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
+      worktree: "any",
     };
     setMetabaseAugment(cmd, initial);
     setMetabaseAugment(cmd, replacement);
@@ -82,6 +87,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       inputSchema: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
+      worktree: "any",
     };
     setMetabaseAugment(cmd, augment);
     const recalled = getMetabaseAugment(cmd);
@@ -92,6 +98,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       inputSchema: null,
       outputSchema: null,
       capabilities: BASELINE_CAPABILITIES,
+      worktree: "any",
     });
   });
 });

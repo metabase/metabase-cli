@@ -19,6 +19,7 @@ const CTX: CommonContext = {
   url: undefined,
   apiKey: undefined,
   profile: undefined,
+  worktree: undefined,
   skipPreflight: false,
 };
 

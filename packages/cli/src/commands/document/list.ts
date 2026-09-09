@@ -11,6 +11,7 @@ export const DocumentListEnvelope = listEnvelopeSchema(DocumentCompact);
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List documents" },
   capabilities: { minVersion: 58 },
+  worktree: "any",
   args: { ...outputFlags, ...listFlags, ...profileFlag, ...connectionFlags },
   outputSchema: DocumentListEnvelope,
   examples: ["mb document list", "mb document list --json"],

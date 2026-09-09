@@ -12,12 +12,23 @@ import type { ListResult } from "../list";
 // count a caller reads off `ListResult` is the array's own length and the server reports none.
 const TransformTagApiList = z.array(TransformTag);
 
+export interface TransformTagListParams {
+  "worktree-id"?: number | undefined;
+}
+
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function transformTagResource(transport: Transport) {
-  /** List every transform tag the caller can see, built-in tags included. */
-  async function list(options: RequestOptions = {}): Promise<ListResult<TransformTag>> {
+  /**
+   * List every transform tag the caller can see, built-in tags included. `worktree-id` lists only
+   * the tags checked out into that remote-sync worktree; without it the listing is the main app's.
+   */
+  async function list(
+    params: TransformTagListParams = {},
+    options: RequestOptions = {},
+  ): Promise<ListResult<TransformTag>> {
     const data = await transport.requestParsed(TransformTagApiList, "/api/transform-tag", {
       ...options,
+      query: { "worktree-id": params["worktree-id"] },
     });
     return { data, total: null };
   }

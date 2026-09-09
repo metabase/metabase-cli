@@ -23,6 +23,7 @@ const transformCancelView: ResourceView<TransformCancelResultJson> = {
 export default defineMetabaseCommand({
   meta: { name: "cancel", description: "Cancel the current run for a transform" },
   capabilities: { minVersion: 59 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

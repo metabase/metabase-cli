@@ -14,6 +14,7 @@ export default defineMetabaseCommand({
   details:
     "Uploads one complete dictionary and replaces every active content translation on the server. Keep the canonical full CSV in version control and download the current dictionary before replacing it. Metabase accepts dictionaries up to 1.5 MiB.",
   capabilities: { minVersion: 58, tokenFeature: "content_translation" },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

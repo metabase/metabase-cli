@@ -16,6 +16,7 @@ export default defineMetabaseCommand({
     'Email recipients are `[{email: "a@b.com"} | {id: <user-id>}]`; Slack targets a channel via `details: {channel: "#general"}`.',
   ].join(" "),
   capabilities: { minVersion: 58 },
+  worktree: "main-only",
   args: {
     ...outputFlags,
     ...profileFlag,

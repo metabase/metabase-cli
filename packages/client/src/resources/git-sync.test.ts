@@ -20,6 +20,23 @@ const RUNNING_TASK = {
 
 const SETTLED_TASK = { ...RUNNING_TASK, status: "successful", progress: 1 };
 
+const WORKTREE = {
+  id: 3,
+  branch: "feat/pricing",
+  creator_id: 1,
+  created_at: "2026-05-21T00:00:00Z",
+  updated_at: "2026-05-21T00:00:00Z",
+};
+
+const EXPORT_PREFLIGHT = {
+  has_changes: true,
+  clean: false,
+  conflicts: ["Transform Daily orders"],
+  summary: { added: 2, updated: 1, removed: 0 },
+  force_push_casualties: { deleted: ["Card Revenue"], overwritten: ["Transform Daily orders"] },
+  reason: null,
+};
+
 const DIRTY_ITEM = {
   id: 4,
   name: "Orders",
@@ -100,7 +117,22 @@ describe("git-sync resource wire requests", () => {
     expect(await mb.gitSync.currentTask()).toBeNull();
   });
 
-  it("sends the cancel request as a POST without a body", async () => {
+  it("sends the current-task request in a worktree scope as a worktree-id query", async () => {
+    const { mb, capture } = clientOver([jsonResponse({ ...RUNNING_TASK, worktree_id: 3 })]);
+
+    await mb.gitSync.currentTask({ "worktree-id": 3 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/current-task?worktree-id=3",
+        method: "GET",
+        headers: BINARY_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("sends the cancel request as a POST carrying the scope it cancels in", async () => {
     const { mb, capture } = clientOver([jsonResponse({ ...RUNNING_TASK, cancelled: true })]);
 
     await mb.gitSync.cancelTask();
@@ -109,8 +141,25 @@ describe("git-sync resource wire requests", () => {
       {
         url: "https://mb.example.com/metabase/api/ee/remote-sync/current-task/cancel",
         method: "POST",
-        headers: JSON_READ_HEADERS,
-        body: null,
+        headers: JSON_WRITE_HEADERS,
+        body: "{}",
+      },
+    ]);
+  });
+
+  it("names the worktree to cancel in as a worktree_id body field", async () => {
+    const { mb, capture } = clientOver([
+      jsonResponse({ ...RUNNING_TASK, worktree_id: 3, cancelled: true }),
+    ]);
+
+    await mb.gitSync.cancelTask({ worktree_id: 3 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/current-task/cancel",
+        method: "POST",
+        headers: JSON_WRITE_HEADERS,
+        body: '{"worktree_id":3}',
       },
     ]);
   });
@@ -123,6 +172,21 @@ describe("git-sync resource wire requests", () => {
     expect(capture.calls).toEqual([
       {
         url: "https://mb.example.com/metabase/api/ee/remote-sync/is-dirty",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("sends the is-dirty request for a worktree as a worktree-id query", async () => {
+    const { mb, capture } = clientOver([jsonResponse({ is_dirty: false })]);
+
+    await mb.gitSync.isDirty({ "worktree-id": 3 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/is-dirty?worktree-id=3",
         method: "GET",
         headers: JSON_READ_HEADERS,
         body: null,
@@ -144,6 +208,21 @@ describe("git-sync resource wire requests", () => {
     expect(capture.calls).toEqual([
       {
         url: "https://mb.example.com/metabase/api/ee/remote-sync/dirty",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("sends the dirty listing request for a worktree as a worktree-id query", async () => {
+    const { mb, capture } = clientOver([jsonResponse({ dirty: [DIRTY_ITEM] })]);
+
+    await mb.gitSync.dirty({ "worktree-id": 3 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/dirty?worktree-id=3",
         method: "GET",
         headers: JSON_READ_HEADERS,
         body: null,
@@ -201,19 +280,100 @@ describe("git-sync resource wire requests", () => {
     ]);
   });
 
+  it("sends both the force-refresh flag and the worktree scope as query parameters", async () => {
+    const { mb, capture } = clientOver([
+      jsonResponse({
+        has_changes: false,
+        remote_version: null,
+        local_version: null,
+        cached: false,
+        branch_missing: true,
+      }),
+    ]);
+
+    await mb.gitSync.hasRemoteChanges({ "force-refresh": true, "worktree-id": 3 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/has-remote-changes?force-refresh=true&worktree-id=3",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("reads the branch_missing flag a server sends for a branch the remote has dropped", async () => {
+    const { mb } = clientOver([
+      jsonResponse({
+        has_changes: false,
+        remote_version: null,
+        local_version: "abc123",
+        cached: false,
+        branch_missing: true,
+      }),
+    ]);
+
+    expect(await mb.gitSync.hasRemoteChanges()).toEqual({
+      has_changes: false,
+      remote_version: null,
+      local_version: "abc123",
+      cached: false,
+      branch_missing: true,
+    });
+  });
+
+  it("sends the export-preflight branch and worktree scope as query parameters", async () => {
+    const { mb, capture } = clientOver([jsonResponse(EXPORT_PREFLIGHT)]);
+
+    await mb.gitSync.exportPreflight({ branch: "feat/pricing", "worktree-id": 3 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/export-preflight?branch=feat%2Fpricing&worktree-id=3",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("answers the export preflight with its conflicts, counts and force-push casualties", async () => {
+    const { mb } = clientOver([jsonResponse(EXPORT_PREFLIGHT)]);
+
+    expect(await mb.gitSync.exportPreflight({ branch: "feat/pricing" })).toEqual(EXPORT_PREFLIGHT);
+  });
+
   it("sends the import request with the branch and force fields it was given", async () => {
     const { mb, capture } = clientOver([
       jsonResponse({ status: "success", task_id: 12, message: "Import queued" }),
     ]);
 
-    await mb.gitSync.import({ branch: "main", force: true });
+    await mb.gitSync.import({ branch: "main", expected_branch: "main", force: true });
 
     expect(capture.calls).toEqual([
       {
         url: "https://mb.example.com/metabase/api/ee/remote-sync/import",
         method: "POST",
         headers: JSON_WRITE_HEADERS,
-        body: '{"branch":"main","force":true}',
+        body: '{"branch":"main","expected_branch":"main","force":true}',
+      },
+    ]);
+  });
+
+  it("sends the merge flag and the worktree the import targets in the body", async () => {
+    const { mb, capture } = clientOver([
+      jsonResponse({ status: "success", task_id: 12, message: "Import queued" }),
+    ]);
+
+    await mb.gitSync.import({ expected_branch: "feat/pricing", merge: true, worktree_id: 3 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/import",
+        method: "POST",
+        headers: JSON_WRITE_HEADERS,
+        body: '{"expected_branch":"feat/pricing","merge":true,"worktree_id":3}',
       },
     ]);
   });
@@ -223,7 +383,10 @@ describe("git-sync resource wire requests", () => {
       jsonResponse({ status: "success", task_id: 12, message: "Import queued" }),
     ]);
 
-    expect(await mb.gitSync.import()).toEqual({ message: "Import queued", task_id: 12 });
+    expect(await mb.gitSync.import({ expected_branch: "main" })).toEqual({
+      message: "Import queued",
+      task_id: 12,
+    });
   });
 
   it("polls the current task after the import POST when a wait schedule is given", async () => {
@@ -233,14 +396,14 @@ describe("git-sync resource wire requests", () => {
       jsonResponse(SETTLED_TASK),
     ]);
 
-    await mb.gitSync.import({ wait: IMMEDIATE_POLL });
+    await mb.gitSync.import({ expected_branch: "main", wait: IMMEDIATE_POLL });
 
     expect(capture.calls).toEqual([
       {
         url: "https://mb.example.com/metabase/api/ee/remote-sync/import",
         method: "POST",
         headers: JSON_WRITE_HEADERS,
-        body: "{}",
+        body: '{"expected_branch":"main"}',
       },
       {
         url: "https://mb.example.com/metabase/api/ee/remote-sync/current-task",
@@ -250,6 +413,34 @@ describe("git-sync resource wire requests", () => {
       },
       {
         url: "https://mb.example.com/metabase/api/ee/remote-sync/current-task",
+        method: "GET",
+        headers: BINARY_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("polls the worktree's own task after an import into that worktree", async () => {
+    const { mb, capture } = clientOver([
+      jsonResponse({ status: "success", task_id: 12, message: "Import queued" }),
+      jsonResponse({ ...SETTLED_TASK, worktree_id: 3 }),
+    ]);
+
+    await mb.gitSync.import({
+      expected_branch: "feat/pricing",
+      worktree_id: 3,
+      wait: IMMEDIATE_POLL,
+    });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/import",
+        method: "POST",
+        headers: JSON_WRITE_HEADERS,
+        body: '{"expected_branch":"feat/pricing","worktree_id":3}',
+      },
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/current-task?worktree-id=3",
         method: "GET",
         headers: BINARY_READ_HEADERS,
         body: null,
@@ -263,7 +454,7 @@ describe("git-sync resource wire requests", () => {
       jsonResponse(SETTLED_TASK),
     ]);
 
-    expect(await mb.gitSync.import({ wait: IMMEDIATE_POLL })).toEqual({
+    expect(await mb.gitSync.import({ expected_branch: "main", wait: IMMEDIATE_POLL })).toEqual({
       message: "Import queued",
       task_id: 12,
       final: SETTLED_TASK,
@@ -275,14 +466,14 @@ describe("git-sync resource wire requests", () => {
       jsonResponse({ status: "success", task_id: null, message: "Already up to date" }),
     ]);
 
-    await mb.gitSync.import({ wait: IMMEDIATE_POLL });
+    await mb.gitSync.import({ expected_branch: "main", wait: IMMEDIATE_POLL });
 
     expect(capture.calls).toEqual([
       {
         url: "https://mb.example.com/metabase/api/ee/remote-sync/import",
         method: "POST",
         headers: JSON_WRITE_HEADERS,
-        body: "{}",
+        body: '{"expected_branch":"main"}',
       },
     ]);
   });
@@ -302,13 +493,28 @@ describe("git-sync resource wire requests", () => {
     ]);
   });
 
+  it("sends the merge flag and the worktree the export pushes from in the body", async () => {
+    const { mb, capture } = clientOver([jsonResponse({ message: "Export queued", task_id: 8 })]);
+
+    await mb.gitSync.export({ branch: "feat/pricing", merge: true, worktree_id: 3 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/export",
+        method: "POST",
+        headers: JSON_WRITE_HEADERS,
+        body: '{"branch":"feat/pricing","merge":true,"worktree_id":3}',
+      },
+    ]);
+  });
+
   it("reports the settled task alongside the export that started it", async () => {
     const { mb } = clientOver([
       jsonResponse({ message: "Export queued", task_id: 8 }),
       jsonResponse(SETTLED_TASK),
     ]);
 
-    expect(await mb.gitSync.export({ wait: IMMEDIATE_POLL })).toEqual({
+    expect(await mb.gitSync.export({ branch: "main", wait: IMMEDIATE_POLL })).toEqual({
       message: "Export queued",
       task_id: 8,
       final: SETTLED_TASK,
@@ -377,6 +583,89 @@ describe("git-sync resource wire requests", () => {
         method: "POST",
         headers: JSON_WRITE_HEADERS,
         body: '{"name":"feat/x"}',
+      },
+    ]);
+  });
+
+  it("sends create-branch with checkout false to leave the instance where it is", async () => {
+    const { mb, capture } = clientOver([
+      jsonResponse({ status: "success", message: "Created feat/x" }),
+    ]);
+
+    await mb.gitSync.createBranch({ name: "feat/x", checkout: false });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/create-branch",
+        method: "POST",
+        headers: JSON_WRITE_HEADERS,
+        body: '{"name":"feat/x","checkout":false}',
+      },
+    ]);
+  });
+
+  it("sends the worktree listing request", async () => {
+    const { mb, capture } = clientOver([jsonResponse([WORKTREE])]);
+
+    await mb.gitSync.worktrees();
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/worktree",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("reports no total for the worktree listing, which the server does not count", async () => {
+    const { mb } = clientOver([jsonResponse([WORKTREE])]);
+
+    expect(await mb.gitSync.worktrees()).toEqual({ data: [WORKTREE], total: null });
+  });
+
+  it("sends the single-worktree request under the worktree's id", async () => {
+    const { mb, capture } = clientOver([jsonResponse(WORKTREE)]);
+
+    await mb.gitSync.getWorktree(3);
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/worktree/3",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("sends the worktree create request with only the branch in the body", async () => {
+    const { mb, capture } = clientOver([jsonResponse(WORKTREE)]);
+
+    await mb.gitSync.createWorktree({ branch: "feat/pricing" });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/worktree",
+        method: "POST",
+        headers: JSON_WRITE_HEADERS,
+        body: '{"branch":"feat/pricing"}',
+      },
+    ]);
+  });
+
+  it("sends the worktree delete request and expects no JSON back", async () => {
+    const { mb, capture } = clientOver([noContent()]);
+
+    await mb.gitSync.deleteWorktree(3);
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/worktree/3",
+        method: "DELETE",
+        headers: BINARY_READ_HEADERS,
+        body: null,
       },
     ]);
   });
@@ -550,6 +839,21 @@ describe("git-sync resource wire requests", () => {
       },
       {
         url: "https://mb.example.com/metabase/api/ee/remote-sync/current-task",
+        method: "GET",
+        headers: BINARY_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("polls the worktree's own current task when the wait is scoped to one", async () => {
+    const { mb, capture } = clientOver([jsonResponse({ ...SETTLED_TASK, worktree_id: 3 })]);
+
+    await mb.gitSync.waitForTask(IMMEDIATE_POLL, { "worktree-id": 3 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/current-task?worktree-id=3",
         method: "GET",
         headers: BINARY_READ_HEADERS,
         body: null,
