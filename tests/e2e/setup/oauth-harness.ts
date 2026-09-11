@@ -6,7 +6,6 @@ import { parseJson } from "@metabase/client/json";
 
 import { writeOAuthProfile } from "../../../packages/cli/src/core/auth/storage";
 import type { E2EBootstrap } from "../bootstrap-data";
-import { withConfigHomeEnv } from "../config-home-env";
 
 // Browser-simulation and raw-protocol helpers for the OAuth e2e suite. They live under setup/
 // because they speak HTTP to Metabase directly — the sanctioned home for fetch in the e2e tier:
@@ -119,5 +118,22 @@ export async function writeOAuthProfileIntoConfigHome(
   baseUrl: string,
   credential: OAuthCredential,
 ): Promise<void> {
-  await withConfigHomeEnv(configHome, () => writeOAuthProfile(baseUrl, credential));
+  const prevXdg = process.env["XDG_CONFIG_HOME"];
+  const prevKeyring = process.env["MB_CLI_DISABLE_KEYRING"];
+  process.env["XDG_CONFIG_HOME"] = configHome;
+  process.env["MB_CLI_DISABLE_KEYRING"] = "1";
+  try {
+    await writeOAuthProfile(baseUrl, credential);
+  } finally {
+    restoreEnv("XDG_CONFIG_HOME", prevXdg);
+    restoreEnv("MB_CLI_DISABLE_KEYRING", prevKeyring);
+  }
+}
+
+function restoreEnv(key: string, previous: string | undefined): void {
+  if (previous === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = previous;
+  }
 }

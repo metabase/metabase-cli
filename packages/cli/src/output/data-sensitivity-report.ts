@@ -2,7 +2,7 @@ import {
   type DataSensitivityCounts,
   type DataSensitivityDatabaseResult,
   type DataSensitivityFieldResult,
-  DataSensitivityStatus,
+  type DataSensitivityStatus,
   type DataSensitivityTableEntry,
   type DataSensitivityTableResult,
   isDataSensitivityTableError,
@@ -14,37 +14,81 @@ import type { ColumnDef } from "./view";
 
 type DataSensitivityResult = DataSensitivityTableResult | DataSensitivityDatabaseResult;
 
-// Text output is for a person deciding what to change, so the fields the model agreed with stay
-// out unless asked for; JSON is unfiltered so an agent sees the whole diff.
-export const DEFAULT_TEXT_STATUSES: readonly DataSensitivityStatus[] =
-  DataSensitivityStatus.options.filter((status) => status !== "agree");
+type StatusFilter = ReadonlyArray<DataSensitivityStatus> | null;
 
-type DataSensitivityRowStatus = DataSensitivityStatus | "error";
+const ARROW = "->";
+const UNSURE_CELL = "?";
+const NO_ANSWER_CELL = "(no answer)";
+const HUMAN_SET_MARK = "*";
+const HUMAN_SET_FOOTNOTE = `${HUMAN_SET_MARK} set by a person`;
+const TYPE_PREFIX = "type/";
 
-// An error row has no field, so its field-level cells are null and its proposal cell carries the
-// message.
-export interface DataSensitivityRow {
+// Each LLM output gets one cell: the value alone when nothing changes, `current -> proposed` when
+// it does. An error row has no field, so its field-level cells are null and the sensitivity cell
+// carries the message.
+interface DataSensitivityRow {
   table: string;
   field: string | null;
   base_type: string | null;
-  current: string | null;
-  proposed: string | null;
-  confidence: string | null;
-  status: DataSensitivityRowStatus;
+  sensitivity: string | null;
+  semantic_type: string | null;
+  human_set: boolean;
 }
 
-const rowColumns: ColumnDef<DataSensitivityRow>[] = [
-  { key: "table", label: "Table" },
+const fieldColumns: ColumnDef<DataSensitivityRow>[] = [
   { key: "field", label: "Field" },
-  { key: "base_type", label: "Type" },
-  { key: "current", label: "Current" },
-  { key: "proposed", label: "Proposed" },
-  { key: "confidence", label: "Confidence" },
-  { key: "status", label: "Status" },
+  { key: "base_type", label: "Base type" },
+  { key: "sensitivity", label: "Sensitivity" },
+  { key: "semantic_type", label: "Semantic type" },
 ];
+
+const tableColumn: ColumnDef<DataSensitivityRow> = { key: "table", label: "Table" };
 
 function isDatabaseResult(result: DataSensitivityResult): result is DataSensitivityDatabaseResult {
   return "tables" in result;
+}
+
+function stripTypePrefix(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+  return value.startsWith(TYPE_PREFIX) ? value.slice(TYPE_PREFIX.length) : value;
+}
+
+function diffCell(
+  current: string | null,
+  proposed: string | null,
+  humanSet: boolean,
+): string | null {
+  const shown = current === null ? null : `${current}${humanSet ? HUMAN_SET_MARK : ""}`;
+  if (proposed === null || proposed === current) {
+    return shown;
+  }
+  return shown === null ? `${ARROW} ${proposed}` : `${shown} ${ARROW} ${proposed}`;
+}
+
+function sensitivityCell(field: DataSensitivityFieldResult): string | null {
+  const current = field.current.data_sensitivity;
+  const humanSet = field.current.human_set;
+  switch (field.status) {
+    case "abstain": {
+      return diffCell(current, UNSURE_CELL, humanSet);
+    }
+    case "dropped": {
+      return diffCell(current, NO_ANSWER_CELL, humanSet);
+    }
+    default: {
+      return diffCell(current, field.proposed.data_sensitivity, humanSet);
+    }
+  }
+}
+
+// The server reports the effective semantic type as the proposal, so a null proposal only happens
+// when the field has none and none was suggested.
+function semanticTypeCell(field: DataSensitivityFieldResult): string | null {
+  const current = stripTypePrefix(field.current.semantic_type);
+  const proposed = stripTypePrefix(field.proposed.semantic_type);
+  return diffCell(current, proposed ?? current, false);
 }
 
 function entryRows(entry: DataSensitivityTableEntry): DataSensitivityRow[] {
@@ -55,81 +99,79 @@ function entryRows(entry: DataSensitivityTableEntry): DataSensitivityRow[] {
         table,
         field: null,
         base_type: null,
-        current: null,
-        proposed: entry.error,
-        confidence: null,
-        status: "error",
+        sensitivity: entry.error,
+        semantic_type: null,
+        human_set: false,
       },
     ];
   }
   return entry.fields.map((field) => ({
     table,
     field: field.name,
-    base_type: field.base_type,
-    current: field.current.data_sensitivity,
-    proposed: field.proposed.data_sensitivity,
-    confidence: field.proposed.confidence,
-    status: field.status,
+    base_type: stripTypePrefix(field.base_type),
+    sensitivity: sensitivityCell(field),
+    semantic_type: semanticTypeCell(field),
+    human_set: field.current.human_set,
   }));
 }
 
-export function flattenRows(result: DataSensitivityResult): DataSensitivityRow[] {
+function flattenRows(result: DataSensitivityResult): DataSensitivityRow[] {
   const entries: DataSensitivityTableEntry[] = isDatabaseResult(result) ? result.tables : [result];
   return entries.flatMap(entryRows);
 }
 
-type StatusFilter = ReadonlyArray<DataSensitivityStatus> | null;
+type FieldPredicate = (field: DataSensitivityFieldResult) => boolean;
 
-function keptFields(
-  fields: DataSensitivityFieldResult[],
-  keep: ReadonlySet<DataSensitivityStatus>,
-): DataSensitivityFieldResult[] {
-  return fields.filter((field) => keep.has(field.status));
-}
-
-// A null filter keeps every field and hands the result back untouched; table errors are not
-// field rows, so no filter drops them.
-export function filterTableResult(
-  table: DataSensitivityTableResult,
-  statuses: StatusFilter,
-): DataSensitivityTableResult {
-  if (statuses === null) {
-    return table;
+// Table errors are not field rows, so no filter drops them.
+function filterFields(result: DataSensitivityResult, keep: FieldPredicate): DataSensitivityResult {
+  if (isDatabaseResult(result)) {
+    return {
+      ...result,
+      tables: result.tables.map((entry) =>
+        isDataSensitivityTableError(entry)
+          ? entry
+          : { ...entry, fields: entry.fields.filter(keep) },
+      ),
+    };
   }
-  return { ...table, fields: keptFields(table.fields, new Set(statuses)) };
+  return { ...result, fields: result.fields.filter(keep) };
 }
 
-export function filterDatabaseResult(
+// A null filter keeps every field and hands the result back untouched.
+export function filterResult(
+  result: DataSensitivityTableResult,
+  statuses: StatusFilter,
+): DataSensitivityTableResult;
+export function filterResult(
   result: DataSensitivityDatabaseResult,
   statuses: StatusFilter,
-): DataSensitivityDatabaseResult {
+): DataSensitivityDatabaseResult;
+export function filterResult(
+  result: DataSensitivityResult,
+  statuses: StatusFilter,
+): DataSensitivityResult;
+export function filterResult(
+  result: DataSensitivityResult,
+  statuses: StatusFilter,
+): DataSensitivityResult {
   if (statuses === null) {
     return result;
   }
   const keep = new Set(statuses);
-  return {
-    ...result,
-    tables: result.tables.map((entry) =>
-      isDataSensitivityTableError(entry)
-        ? entry
-        : { ...entry, fields: keptFields(entry.fields, keep) },
-    ),
-  };
+  return filterFields(result, (field) => keep.has(field.status));
 }
 
-function filterResult(
-  result: DataSensitivityResult,
-  statuses: StatusFilter,
-): DataSensitivityResult {
-  return isDatabaseResult(result)
-    ? filterDatabaseResult(result, statuses)
-    : filterTableResult(result, statuses);
+// Text output is for a person deciding what to change, so without an explicit filter it shows
+// every field where either LLM output differs from what is stored.
+function hasProposedChange(field: DataSensitivityFieldResult): boolean {
+  return field.status !== "agree" || field.semantic_changed;
 }
 
 function countsSentence(counts: DataSensitivityCounts): string {
   return (
     `${plural(counts.fields, "field")}: ${counts.agree} agree, ${counts.disagree} disagree, ` +
-    `${counts.new} new, ${counts.abstain} unsure, ${counts.dropped} no answer.`
+    `${counts.new} new, ${counts.abstain} unsure, ${counts.dropped} no answer, ` +
+    `${plural(counts.semantic_changed, "semantic type change")}.`
   );
 }
 
@@ -162,10 +204,14 @@ export function formatDataSensitivityReport(
   result: DataSensitivityResult,
   statuses: StatusFilter,
 ): string {
-  const rows = flattenRows(filterResult(result, statuses ?? DEFAULT_TEXT_STATUSES));
+  const shown =
+    statuses === null ? filterFields(result, hasProposedChange) : filterResult(result, statuses);
+  const rows = flattenRows(shown);
   const summary = summaryLine(result);
   if (rows.length === 0) {
     return summary;
   }
-  return `${summary}\n${renderTable(rows, rowColumns)}`;
+  const columns = isDatabaseResult(result) ? [tableColumn, ...fieldColumns] : fieldColumns;
+  const footnote = rows.some((row) => row.human_set) ? `\n${HUMAN_SET_FOOTNOTE}` : "";
+  return `${summary}\n${renderTable(rows, columns)}${footnote}`;
 }

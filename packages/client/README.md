@@ -397,9 +397,8 @@ Every Metabase resource exports a full schema and a compact projection: `Card`/`
 `Document`, `Field`, `FieldValues`, `Library`, `Measure`, `Notification`, `ParameterValues`, `Pulse`,
 `SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`, `TimelineEvent`, `Transform`,
 `TransformRun`, `TransformJob`, `TransformTag`, `CurrentUser`, `CardQueryResult`,
-`EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`, `DashboardTab`,
-`DataSensitivityTableResult`, `DataSensitivityDatabaseResult`, and the nested shapes they compose
-(`Dashcard`, `CollectionItem`, `PulseChannel`, `NotificationHandler`, `DataSensitivityFieldResult`, …).
+`EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`, `DashboardTab`, and the nested
+shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`, `NotificationHandler`, …).
 
 The full schema is `.loose()`, so server-side additions do not break parsing. The compact projection
 is `.pick(…).strip()` — the agent-facing contract, and the shape list commands render. Schemas carry
@@ -408,8 +407,9 @@ deliberately absent.
 
 A second class of schema describes a single response shape that has no compact pair:
 `DashboardDetail`, `DatabaseSyncResult`, `CollectionTreeNode`, `FieldSummary`, `SettingValue`,
-`TableQueryMetadata`, `SessionProperties`, `TokenFeatures`, `DataSensitivityTableError`, and
-`DataSensitivityCounts`.
+`TableQueryMetadata`, `SessionProperties`, `TokenFeatures`, `DataSensitivityTableResult`,
+`DataSensitivityDatabaseResult`, and the `DataSensitivityFieldResult`, `DataSensitivityTableError`,
+and `DataSensitivityCounts` shapes they compose.
 
 Request bodies (`<Resource>CreateInput`, `<Resource>UpdateInput`) and the domain vocabulary enums
 (`FieldBaseType`, `DataSensitivityLabel`, `DataSensitivityStatus`, `SearchModel`,

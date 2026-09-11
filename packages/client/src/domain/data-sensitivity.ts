@@ -1,6 +1,22 @@
 import { z } from "zod";
 
-import { DataSensitivityLabel, FieldBaseType, FieldSemanticType } from "./field";
+import { FieldBaseType, FieldSemanticType } from "./field";
+
+// Most severe first: the order is the precedence an automated classifier applies when several
+// categories match one column. `null` is unscanned; `PUBLIC` is scanned and found clean.
+export const DataSensitivityLabel = z.enum([
+  "SEC_KEY",
+  "SYS_TELEMETRY",
+  "PHI",
+  "BIO_GEN",
+  "PCI_FIN",
+  "SENS_PERS",
+  "PII",
+  "CORP_IP",
+  "BIZ_CONF",
+  "PUBLIC",
+]);
+export type DataSensitivityLabel = z.infer<typeof DataSensitivityLabel>;
 
 export const DataSensitivityStatus = z.enum(["agree", "disagree", "new", "abstain", "dropped"]);
 export type DataSensitivityStatus = z.infer<typeof DataSensitivityStatus>;
@@ -68,18 +84,6 @@ export const DataSensitivityTableResult = z
   .loose();
 export type DataSensitivityTableResult = z.infer<typeof DataSensitivityTableResult>;
 
-export const DataSensitivityTableResultCompact = DataSensitivityTableResult.pick({
-  table_id: true,
-  table_name: true,
-  schema: true,
-  database_id: true,
-  requests: true,
-  sample_error: true,
-  counts: true,
-  fields: true,
-}).strip();
-export type DataSensitivityTableResultCompact = z.infer<typeof DataSensitivityTableResultCompact>;
-
 export const DataSensitivityTableError = z
   .object({
     table_id: z.number().int().positive(),
@@ -111,18 +115,3 @@ export const DataSensitivityDatabaseResult = z
   })
   .loose();
 export type DataSensitivityDatabaseResult = z.infer<typeof DataSensitivityDatabaseResult>;
-
-export const DataSensitivityDatabaseResultCompact = DataSensitivityDatabaseResult.pick({
-  database_id: true,
-  schema: true,
-  counts: true,
-  requests: true,
-  failed: true,
-})
-  .strip()
-  .extend({
-    tables: z.array(z.union([DataSensitivityTableResultCompact, DataSensitivityTableError])),
-  });
-export type DataSensitivityDatabaseResultCompact = z.infer<
-  typeof DataSensitivityDatabaseResultCompact
->;

@@ -108,12 +108,11 @@ export {
   DataSensitivityConfidence,
   DataSensitivityCounts,
   DataSensitivityDatabaseResult,
-  DataSensitivityDatabaseResultCompact,
   DataSensitivityFieldResult,
+  DataSensitivityLabel,
   DataSensitivityStatus,
   DataSensitivityTableError,
   DataSensitivityTableResult,
-  DataSensitivityTableResultCompact,
   isDataSensitivityTableError,
 } from "./domain/data-sensitivity";
 export {
@@ -154,7 +153,6 @@ export {
 } from "./domain/eid-translation";
 export { EmbeddingParams } from "./domain/embedding";
 export {
-  DataSensitivityLabel,
   Field,
   FieldBaseType,
   FieldCoercionStrategy,

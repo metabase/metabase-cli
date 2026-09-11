@@ -1,9 +1,6 @@
 import { DataSensitivityTableResult } from "@metabase/client/domain/data-sensitivity";
 
-import {
-  filterTableResult,
-  formatDataSensitivityReport,
-} from "../../output/data-sensitivity-report";
+import { filterResult, formatDataSensitivityReport } from "../../output/data-sensitivity-report";
 import { renderSummary } from "../../output/render";
 import { dataSensitivityTableView } from "../../output/views/data-sensitivity";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -19,7 +16,7 @@ export default defineMetabaseCommand({
       "Propose a data sensitivity label for every field of a table with the LLM (dry run)",
   },
   details:
-    "Dry run: nothing is written, the response is the proposal. The server builds one packet of the table's names, types, descriptions, fingerprints and a few sample values, makes one structured LLM request per 60 fields, and diffs each proposal against the field's current data_sensitivity label, which the model never sees. Statuses: agree, disagree, new (no current label yet), abstain (model unsure), dropped (no usable answer). The request is synchronous and spends provider tokens. Apply a proposal with `mb field update <field-id> --body '{\"data_sensitivity\":\"PII\"}'`.",
+    "Dry run: nothing is written, the response is the proposal. The server builds one packet of the table's names, types, descriptions, fingerprints and a few sample values, asks the LLM for a label per field, and diffs each proposal against the field's current data_sensitivity label, which the model never sees. Statuses: agree, disagree, new (no current label yet), abstain (model unsure), dropped (no usable answer). The request is synchronous and spends provider tokens. Apply a proposal with `mb field update <field-id> --body '{\"data_sensitivity\":\"PII\"}'`.",
   capabilities: { minVersion: 64, tokenFeature: "data_sensitivity" },
   args: {
     ...outputFlags,
@@ -32,7 +29,7 @@ export default defineMetabaseCommand({
   examples: [
     "mb data-sensitivity scan-table 3",
     "mb data-sensitivity scan-table 3 --status disagree,new --json",
-    "mb data-sensitivity scan-table 3 --json --fields fields.name,fields.proposed",
+    "mb data-sensitivity scan-table 3 --json --fields counts,usage",
   ],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
@@ -40,7 +37,7 @@ export default defineMetabaseCommand({
     const client = await getClient();
     const result = await client.dataSensitivity.classifyTable(id, { timeoutMs: scan.timeoutMs });
     renderSummary(
-      filterTableResult(result, scan.statuses),
+      filterResult(result, scan.statuses),
       dataSensitivityTableView,
       () => formatDataSensitivityReport(result, scan.statuses),
       ctx,

@@ -147,22 +147,6 @@ export const FieldCoercionStrategy = z.enum([
 ]);
 export type FieldCoercionStrategy = z.infer<typeof FieldCoercionStrategy>;
 
-// Most severe first: the order is the precedence an automated classifier applies when several
-// categories match one column. `null` is unscanned; `PUBLIC` is scanned and found clean.
-export const DataSensitivityLabel = z.enum([
-  "SEC_KEY",
-  "SYS_TELEMETRY",
-  "PHI",
-  "BIO_GEN",
-  "PCI_FIN",
-  "SENS_PERS",
-  "PII",
-  "CORP_IP",
-  "BIZ_CONF",
-  "PUBLIC",
-]);
-export type DataSensitivityLabel = z.infer<typeof DataSensitivityLabel>;
-
 export const Field = z
   .object({
     id: z.number().int(),
@@ -174,8 +158,6 @@ export const Field = z
     base_type: FieldBaseType,
     semantic_type: FieldSemanticType.nullable(),
     fk_target_field_id: z.number().int().nullable(),
-    // Servers before v64 have no such column and omit the key.
-    data_sensitivity: DataSensitivityLabel.nullable().optional(),
     has_field_values: FieldValuesType.nullable().optional(),
     visibility_type: FieldVisibilityType.nullable().optional(),
     active: z.boolean().optional(),
@@ -207,7 +189,6 @@ export const FieldUpdateInput = z
     semantic_type: FieldSemanticType.nullable().optional(),
     coercion_strategy: FieldCoercionStrategy.nullable().optional(),
     fk_target_field_id: z.number().int().positive().nullable().optional(),
-    data_sensitivity: DataSensitivityLabel.nullable().optional(),
     visibility_type: FieldVisibilityType.nullable().optional(),
     has_field_values: FieldValuesType.nullable().optional(),
     settings: z.record(z.string(), z.unknown()).nullable().optional(),

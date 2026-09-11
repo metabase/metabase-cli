@@ -6,13 +6,7 @@ import type {
   DataSensitivityTableResult,
 } from "@metabase/client/domain/data-sensitivity";
 
-import {
-  DEFAULT_TEXT_STATUSES,
-  filterDatabaseResult,
-  filterTableResult,
-  flattenRows,
-  formatDataSensitivityReport,
-} from "./data-sensitivity-report";
+import { filterResult, formatDataSensitivityReport } from "./data-sensitivity-report";
 
 const USAGE = {
   input_tokens: 1200,
@@ -21,33 +15,104 @@ const USAGE = {
   cache_creation_tokens: 0,
 };
 
-function field(
-  name: string,
-  status: DataSensitivityFieldResult["status"],
-  current: DataSensitivityFieldResult["current"]["data_sensitivity"],
-  proposed: DataSensitivityFieldResult["proposed"]["data_sensitivity"],
-): DataSensitivityFieldResult {
+interface FieldSpec {
+  name: string;
+  status: DataSensitivityFieldResult["status"];
+  current: DataSensitivityFieldResult["current"];
+  proposed: DataSensitivityFieldResult["proposed"];
+  semantic_changed: boolean;
+}
+
+function field(spec: FieldSpec): DataSensitivityFieldResult {
   return {
-    field_id: name.length,
-    name,
+    field_id: spec.name.length,
+    name: spec.name,
     display_name: null,
     base_type: "type/Text",
-    current: {
-      data_sensitivity: current,
-      human_set: false,
-      state: "classifier",
-      semantic_type: null,
-    },
-    proposed: {
-      data_sensitivity: proposed,
-      confidence: proposed === null ? null : "high",
-      semantic_type: null,
-      reasoning: null,
-    },
-    status,
-    semantic_changed: false,
+    current: spec.current,
+    proposed: spec.proposed,
+    status: spec.status,
+    semantic_changed: spec.semantic_changed,
   };
 }
+
+const ID = field({
+  name: "ID",
+  status: "agree",
+  current: {
+    data_sensitivity: "PUBLIC",
+    human_set: false,
+    state: "classifier",
+    semantic_type: "type/PK",
+  },
+  proposed: {
+    data_sensitivity: "PUBLIC",
+    confidence: "high",
+    semantic_type: "type/PK",
+    reasoning: null,
+  },
+  semantic_changed: false,
+});
+
+const CITY = field({
+  name: "CITY",
+  status: "disagree",
+  current: {
+    data_sensitivity: "PUBLIC",
+    human_set: false,
+    state: "classifier",
+    semantic_type: null,
+  },
+  proposed: { data_sensitivity: "PII", confidence: "high", semantic_type: null, reasoning: null },
+  semantic_changed: false,
+});
+
+const EMAIL = field({
+  name: "EMAIL",
+  status: "new",
+  current: { data_sensitivity: null, human_set: false, state: "unscanned", semantic_type: null },
+  proposed: {
+    data_sensitivity: "PII",
+    confidence: "high",
+    semantic_type: "type/Email",
+    reasoning: null,
+  },
+  semantic_changed: true,
+});
+
+const NOTES = field({
+  name: "NOTES",
+  status: "abstain",
+  current: {
+    data_sensitivity: "PUBLIC",
+    human_set: false,
+    state: "classifier",
+    semantic_type: null,
+  },
+  proposed: { data_sensitivity: null, confidence: "low", semantic_type: null, reasoning: null },
+  semantic_changed: false,
+});
+
+const BLOB = field({
+  name: "BLOB",
+  status: "dropped",
+  current: { data_sensitivity: null, human_set: false, state: "unscanned", semantic_type: null },
+  proposed: { data_sensitivity: null, confidence: null, semantic_type: null, reasoning: null },
+  semantic_changed: false,
+});
+
+const SSN = field({
+  name: "SSN",
+  status: "agree",
+  current: { data_sensitivity: "PII", human_set: true, state: "human", semantic_type: "type/Name" },
+  proposed: {
+    data_sensitivity: "PII",
+    confidence: "high",
+    semantic_type: "type/Category",
+    reasoning: null,
+  },
+  semantic_changed: true,
+});
 
 const PEOPLE: DataSensitivityTableResult = {
   table_id: 3,
@@ -58,152 +123,115 @@ const PEOPLE: DataSensitivityTableResult = {
   requests: 1,
   usage: USAGE,
   sample_error: null,
-  counts: { fields: 3, agree: 1, disagree: 1, new: 0, abstain: 1, dropped: 0, semantic_changed: 0 },
-  fields: [
-    field("ID", "agree", "PUBLIC", "PUBLIC"),
-    field("CITY", "disagree", "PUBLIC", "PII"),
-    field("NOTES", "abstain", "PUBLIC", null),
-  ],
+  counts: { fields: 6, agree: 2, disagree: 1, new: 1, abstain: 1, dropped: 1, semantic_changed: 2 },
+  fields: [ID, CITY, EMAIL, NOTES, BLOB, SSN],
+};
+
+const ORDERS_ERROR = {
+  table_id: 4,
+  table_name: "ORDERS",
+  schema: null,
+  error: "boom",
+  error_code: "skipped",
 };
 
 const DATABASE: DataSensitivityDatabaseResult = {
   database_id: 1,
   schema: null,
-  tables: [
-    PEOPLE,
-    { table_id: 4, table_name: "ORDERS", schema: null, error: "boom", error_code: "skipped" },
-  ],
+  tables: [PEOPLE, ORDERS_ERROR],
   counts: PEOPLE.counts,
   usage: USAGE,
   requests: 1,
   failed: 1,
 };
 
-const SUMMARY =
-  "Scanned 2 tables (1 failed), 3 fields: 1 agree, 1 disagree, 0 new, 1 unsure, 0 no answer. 1 request, 1200 in / 90 out tokens.";
+const TABLE_SUMMARY =
+  "Scanned table PUBLIC.PEOPLE, 6 fields: 2 agree, 1 disagree, 1 new, 1 unsure, 1 no answer, 2 semantic type changes. 1 request, 1200 in / 90 out tokens.";
 
-describe("DEFAULT_TEXT_STATUSES", () => {
-  it("is every status but agree", () => {
-    expect(DEFAULT_TEXT_STATUSES).toEqual(["disagree", "new", "abstain", "dropped"]);
-  });
-});
+const DATABASE_SUMMARY =
+  "Scanned 2 tables (1 failed), 6 fields: 2 agree, 1 disagree, 1 new, 1 unsure, 1 no answer, 2 semantic type changes. 1 request, 1200 in / 90 out tokens.";
 
-describe("flattenRows", () => {
-  it("emits one row per field and one error row per failed table", () => {
-    expect(flattenRows(DATABASE)).toEqual([
-      {
-        table: "PUBLIC.PEOPLE",
-        field: "ID",
-        base_type: "type/Text",
-        current: "PUBLIC",
-        proposed: "PUBLIC",
-        confidence: "high",
-        status: "agree",
-      },
-      {
-        table: "PUBLIC.PEOPLE",
-        field: "CITY",
-        base_type: "type/Text",
-        current: "PUBLIC",
-        proposed: "PII",
-        confidence: "high",
-        status: "disagree",
-      },
-      {
-        table: "PUBLIC.PEOPLE",
-        field: "NOTES",
-        base_type: "type/Text",
-        current: "PUBLIC",
-        proposed: null,
-        confidence: null,
-        status: "abstain",
-      },
-      {
-        table: "ORDERS",
-        field: null,
-        base_type: null,
-        current: null,
-        proposed: "boom",
-        confidence: null,
-        status: "error",
-      },
-    ]);
-  });
-});
-
-describe("filterTableResult", () => {
-  it("keeps only the fields whose status was asked for and leaves the counts as the server sent them", () => {
-    expect(filterTableResult(PEOPLE, ["disagree"])).toEqual({
-      ...PEOPLE,
-      fields: [field("CITY", "disagree", "PUBLIC", "PII")],
-    });
-  });
-});
-
-describe("filterDatabaseResult", () => {
+describe("filterResult", () => {
   it("hands the result back untouched when no filter was asked for", () => {
-    expect(filterDatabaseResult(DATABASE, null)).toBe(DATABASE);
+    expect(filterResult(DATABASE, null)).toBe(DATABASE);
+  });
+
+  it("keeps only the fields whose status was asked for and leaves the counts as the server sent them", () => {
+    expect(filterResult(PEOPLE, ["disagree", "new"])).toEqual({
+      ...PEOPLE,
+      fields: [CITY, EMAIL],
+    });
   });
 
   it("filters every table's fields and keeps the table errors", () => {
-    expect(filterDatabaseResult(DATABASE, ["abstain"])).toEqual({
+    expect(filterResult(DATABASE, ["abstain"])).toEqual({
       ...DATABASE,
-      tables: [
-        { ...PEOPLE, fields: [field("NOTES", "abstain", "PUBLIC", null)] },
-        { table_id: 4, table_name: "ORDERS", schema: null, error: "boom", error_code: "skipped" },
-      ],
+      tables: [{ ...PEOPLE, fields: [NOTES] }, ORDERS_ERROR],
     });
-  });
-});
-
-describe("filterTableResult (no filter)", () => {
-  it("hands the result back untouched when no filter was asked for", () => {
-    expect(filterTableResult(PEOPLE, null)).toBe(PEOPLE);
   });
 });
 
 describe("formatDataSensitivityReport", () => {
-  it("leaves the agreed fields out when no filter was asked for", () => {
-    expect(formatDataSensitivityReport(DATABASE, null)).toBe(
+  it("shows every field with a changed label or semantic type when no filter was asked for", () => {
+    expect(formatDataSensitivityReport(PEOPLE, null)).toBe(
       [
-        SUMMARY,
-        "┌───────────────┬───────┬───────────┬─────────┬──────────┬────────────┬──────────┐",
-        "│ Table         │ Field │ Type      │ Current │ Proposed │ Confidence │ Status   │",
-        "├───────────────┼───────┼───────────┼─────────┼──────────┼────────────┼──────────┤",
-        "│ PUBLIC.PEOPLE │ CITY  │ type/Text │ PUBLIC  │ PII      │ high       │ disagree │",
-        "├───────────────┼───────┼───────────┼─────────┼──────────┼────────────┼──────────┤",
-        "│ PUBLIC.PEOPLE │ NOTES │ type/Text │ PUBLIC  │          │            │ abstain  │",
-        "├───────────────┼───────┼───────────┼─────────┼──────────┼────────────┼──────────┤",
-        "│ ORDERS        │       │           │         │ boom     │            │ error    │",
-        "└───────────────┴───────┴───────────┴─────────┴──────────┴────────────┴──────────┘",
+        TABLE_SUMMARY,
+        "┌───────┬───────────┬────────────────┬──────────────────┐",
+        "│ Field │ Base type │ Sensitivity    │ Semantic type    │",
+        "├───────┼───────────┼────────────────┼──────────────────┤",
+        "│ CITY  │ Text      │ PUBLIC -> PII  │                  │",
+        "├───────┼───────────┼────────────────┼──────────────────┤",
+        "│ EMAIL │ Text      │ -> PII         │ -> Email         │",
+        "├───────┼───────────┼────────────────┼──────────────────┤",
+        "│ NOTES │ Text      │ PUBLIC -> ?    │                  │",
+        "├───────┼───────────┼────────────────┼──────────────────┤",
+        "│ BLOB  │ Text      │ -> (no answer) │                  │",
+        "├───────┼───────────┼────────────────┼──────────────────┤",
+        "│ SSN   │ Text      │ PII*           │ Name -> Category │",
+        "└───────┴───────────┴────────────────┴──────────────────┘",
+        "* set by a person",
       ].join("\n"),
     );
   });
 
-  it("leads with the server totals and tables only the requested statuses plus errors", () => {
-    expect(formatDataSensitivityReport(DATABASE, ["disagree"])).toBe(
+  it("adds the table column in database scope and renders a failed table as one row", () => {
+    expect(formatDataSensitivityReport(DATABASE, ["agree"])).toBe(
       [
-        SUMMARY,
-        "┌───────────────┬───────┬───────────┬─────────┬──────────┬────────────┬──────────┐",
-        "│ Table         │ Field │ Type      │ Current │ Proposed │ Confidence │ Status   │",
-        "├───────────────┼───────┼───────────┼─────────┼──────────┼────────────┼──────────┤",
-        "│ PUBLIC.PEOPLE │ CITY  │ type/Text │ PUBLIC  │ PII      │ high       │ disagree │",
-        "├───────────────┼───────┼───────────┼─────────┼──────────┼────────────┼──────────┤",
-        "│ ORDERS        │       │           │         │ boom     │            │ error    │",
-        "└───────────────┴───────┴───────────┴─────────┴──────────┴────────────┴──────────┘",
+        DATABASE_SUMMARY,
+        "┌───────────────┬───────┬───────────┬─────────────┬──────────────────┐",
+        "│ Table         │ Field │ Base type │ Sensitivity │ Semantic type    │",
+        "├───────────────┼───────┼───────────┼─────────────┼──────────────────┤",
+        "│ PUBLIC.PEOPLE │ ID    │ Text      │ PUBLIC      │ PK               │",
+        "├───────────────┼───────┼───────────┼─────────────┼──────────────────┤",
+        "│ PUBLIC.PEOPLE │ SSN   │ Text      │ PII*        │ Name -> Category │",
+        "├───────────────┼───────┼───────────┼─────────────┼──────────────────┤",
+        "│ ORDERS        │       │           │ boom        │                  │",
+        "└───────────────┴───────┴───────────┴─────────────┴──────────────────┘",
+        "* set by a person",
+      ].join("\n"),
+    );
+  });
+
+  it("omits the footnote when no shown label was set by a person", () => {
+    expect(formatDataSensitivityReport(PEOPLE, ["new"])).toBe(
+      [
+        TABLE_SUMMARY,
+        "┌───────┬───────────┬─────────────┬───────────────┐",
+        "│ Field │ Base type │ Sensitivity │ Semantic type │",
+        "├───────┼───────────┼─────────────┼───────────────┤",
+        "│ EMAIL │ Text      │ -> PII      │ -> Email      │",
+        "└───────┴───────────┴─────────────┴───────────────┘",
       ].join("\n"),
     );
   });
 
   it("prints only the summary when no row survives the filter", () => {
-    expect(formatDataSensitivityReport(PEOPLE, ["new"])).toBe(
-      "Scanned table PUBLIC.PEOPLE, 3 fields: 1 agree, 1 disagree, 0 new, 1 unsure, 0 no answer. 1 request, 1200 in / 90 out tokens.",
-    );
+    expect(formatDataSensitivityReport({ ...PEOPLE, fields: [ID] }, null)).toBe(TABLE_SUMMARY);
   });
 
   it("reports a failed sample on a table scan", () => {
-    expect(formatDataSensitivityReport({ ...PEOPLE, sample_error: "timeout" }, ["new"])).toBe(
-      "Scanned table PUBLIC.PEOPLE, 3 fields: 1 agree, 1 disagree, 0 new, 1 unsure, 0 no answer. 1 request, 1200 in / 90 out tokens. Sample values unavailable: timeout",
-    );
+    expect(
+      formatDataSensitivityReport({ ...PEOPLE, fields: [ID], sample_error: "timeout" }, null),
+    ).toBe(`${TABLE_SUMMARY} Sample values unavailable: timeout`);
   });
 });

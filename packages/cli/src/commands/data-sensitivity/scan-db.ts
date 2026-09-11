@@ -1,9 +1,6 @@
 import { DataSensitivityDatabaseResult } from "@metabase/client/domain/data-sensitivity";
 
-import {
-  filterDatabaseResult,
-  formatDataSensitivityReport,
-} from "../../output/data-sensitivity-report";
+import { filterResult, formatDataSensitivityReport } from "../../output/data-sensitivity-report";
 import { renderSummary } from "../../output/render";
 import { dataSensitivityDatabaseView } from "../../output/views/data-sensitivity";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -13,8 +10,8 @@ import { defineMetabaseCommand } from "../runtime";
 import { parseScanFlags, scanFlags } from "./scan-flags";
 
 const OVERSIZE_HINT =
-  "narrow the scan with `--schema <name>`, keep fewer rows with `--status disagree,new`, " +
-  "select keys with `--fields`, or scan one table at a time with `mb data-sensitivity scan-table <table-id>`";
+  "narrow the scan with `--schema <name>`, keep fewer rows with `--status disagree,new`, raise " +
+  "`--max-bytes`, or scan one table at a time with `mb data-sensitivity scan-table <table-id>`";
 
 export default defineMetabaseCommand({
   meta: {
@@ -23,7 +20,7 @@ export default defineMetabaseCommand({
       "Propose a data sensitivity label for every field of a database with the LLM (dry run)",
   },
   details:
-    'Dry run: nothing is written, the response is the proposal. For every active table (or only those in --schema) the server builds one packet of names, types, descriptions, fingerprints and a few sample values, makes one structured LLM request per 60 fields, and diffs each proposal against the field\'s current data_sensitivity label, which the model never sees. Statuses: agree, disagree, new (no current label yet), abstain (model unsure), dropped (no usable answer). The request is synchronous and runs as long as the scan, so raise --timeout for large databases; every request spends provider tokens. A table the server could not classify appears as an error entry and the run still exits 0. Apply a proposal with `mb field update <field-id> --body \'{"data_sensitivity":"PII"}\'`.',
+    'Dry run: nothing is written, the response is the proposal. For every active table (or only those in --schema) the server builds one packet of names, types, descriptions, fingerprints and a few sample values, asks the LLM for a label per field, and diffs each proposal against the field\'s current data_sensitivity label, which the model never sees. Statuses: agree, disagree, new (no current label yet), abstain (model unsure), dropped (no usable answer). The request is synchronous and runs as long as the scan, so raise --timeout for large databases; every request spends provider tokens. A table the server could not classify appears as an error entry and the run still exits 0. Apply a proposal with `mb field update <field-id> --body \'{"data_sensitivity":"PII"}\'`.',
   capabilities: { minVersion: 64, tokenFeature: "data_sensitivity" },
   args: {
     ...outputFlags,
@@ -38,7 +35,7 @@ export default defineMetabaseCommand({
     "mb data-sensitivity scan-db 1",
     "mb data-sensitivity scan-db 1 --schema public",
     "mb data-sensitivity scan-db 1 --status disagree,new --json",
-    "mb data-sensitivity scan-db 1 --json --fields tables.table_name,tables.fields.name,tables.fields.proposed",
+    "mb data-sensitivity scan-db 1 --json --fields counts,failed",
   ],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
@@ -50,7 +47,7 @@ export default defineMetabaseCommand({
       { timeoutMs: scan.timeoutMs },
     );
     renderSummary(
-      filterDatabaseResult(result, scan.statuses),
+      filterResult(result, scan.statuses),
       dataSensitivityDatabaseView,
       () => formatDataSensitivityReport(result, scan.statuses),
       { ...ctx, oversizeHint: OVERSIZE_HINT },

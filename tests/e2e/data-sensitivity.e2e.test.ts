@@ -2,7 +2,6 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
-import { seedProbedProfile } from "./probed-profile";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
 import { requireServer } from "./server-gate";
@@ -16,7 +15,7 @@ const EE_UNAVAILABLE = requireServer("data-sensitivity › against EE endpoints"
 // gate the scan reaches after the write check is the provider pre-flight.
 const NO_PROVIDER_MESSAGE = "No AI provider is configured for Metabot.";
 
-describe("data-sensitivity arg validation and preflight e2e (no Metabase contact required)", () => {
+describe("data-sensitivity arg validation e2e (no Metabase contact required)", () => {
   const tempDirs: string[] = [];
 
   afterEach(async () => {
@@ -61,38 +60,6 @@ describe("data-sensitivity arg validation and preflight e2e (no Metabase contact
 
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe("invalid timeout: 0 (must be ≥ 1)");
-    expect(result.stdout).toBe("");
-  });
-
-  it("refuses a v63 server before the feature check (exit 2)", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfile(configHome, { major: 63, tokenFeatures: { data_sensitivity: true } });
-
-    const result = await runCli({
-      args: ["data-sensitivity", "scan-db", String(SEEDED.warehouseDbId)],
-      configHome,
-    });
-
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
-      "This operation requires Metabase v64+ (this server is v0.63.0). Upgrade Metabase to use it.",
-    );
-    expect(result.stdout).toBe("");
-  });
-
-  it("refuses a v64 server that lacks the data_sensitivity feature (exit 2)", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfile(configHome, { major: 64, tokenFeatures: null });
-
-    const result = await runCli({
-      args: ["data-sensitivity", "scan-table", String(SEEDED.tables.customers)],
-      configHome,
-    });
-
-    expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
-      "This operation requires the 'data_sensitivity' premium feature (not enabled on this server).",
-    );
     expect(result.stdout).toBe("");
   });
 });

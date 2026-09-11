@@ -9,7 +9,7 @@ import { parseId } from "../parse-id";
 export const scanFlags = {
   status: {
     type: "string",
-    description: `Keep only fields with these statuses, comma separated: ${DataSensitivityStatus.options.join(" | ")} (text default: all but agree; JSON default: all)`,
+    description: `Keep only fields with these statuses, comma separated: ${DataSensitivityStatus.options.join(" | ")} (text default: every field with a changed label or semantic type; JSON default: all)`,
   },
   timeout: {
     type: "string",
