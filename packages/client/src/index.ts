@@ -105,6 +105,17 @@ export {
 export { ContentTranslationUploadResult } from "./domain/content-translation";
 export { CronUiDisplayType } from "./domain/cron";
 export {
+  DataSensitivityConfidence,
+  DataSensitivityCounts,
+  DataSensitivityDatabaseResult,
+  DataSensitivityFieldResult,
+  DataSensitivityLabel,
+  DataSensitivityStatus,
+  DataSensitivityTableError,
+  DataSensitivityTableResult,
+  isDataSensitivityTableError,
+} from "./domain/data-sensitivity";
+export {
   Dashboard,
   DashboardCompact,
   DashboardCreateInput,

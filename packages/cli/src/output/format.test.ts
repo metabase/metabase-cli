@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ConfigError } from "@metabase/client/errors";
-import { resolveFormat } from "./format";
+import { plural, qualifiedName, resolveFormat } from "./format";
 
 describe("resolveFormat", () => {
   it("forces json when --json is set", () => {
@@ -32,5 +32,25 @@ describe("resolveFormat", () => {
     expect(resolveFormat({ json: undefined, format: "auto", isTty: false })).toBe("json");
     expect(resolveFormat({ json: undefined, format: undefined, isTty: true })).toBe("text");
     expect(resolveFormat({ json: undefined, format: undefined, isTty: false })).toBe("json");
+  });
+});
+
+describe("plural", () => {
+  it("leaves the noun singular for exactly one and pluralizes every other count", () => {
+    expect([plural(0, "table"), plural(1, "table"), plural(2, "table")]).toEqual([
+      "0 tables",
+      "1 table",
+      "2 tables",
+    ]);
+  });
+});
+
+describe("qualifiedName", () => {
+  it("prefixes the schema when there is one and leaves a bare name otherwise", () => {
+    expect([
+      qualifiedName("public", "orders"),
+      qualifiedName(null, "orders"),
+      qualifiedName(undefined, "orders"),
+    ]).toEqual(["public.orders", "orders", "orders"]);
   });
 });

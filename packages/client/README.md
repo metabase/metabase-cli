@@ -407,10 +407,13 @@ deliberately absent.
 
 A second class of schema describes a single response shape that has no compact pair:
 `DashboardDetail`, `DatabaseSyncResult`, `CollectionTreeNode`, `FieldSummary`, `SettingValue`,
-`TableQueryMetadata`, `SessionProperties`, and `TokenFeatures`.
+`TableQueryMetadata`, `SessionProperties`, `TokenFeatures`, `DataSensitivityTableResult`,
+`DataSensitivityDatabaseResult`, and the `DataSensitivityFieldResult`, `DataSensitivityTableError`,
+and `DataSensitivityCounts` shapes they compose.
 
 Request bodies (`<Resource>CreateInput`, `<Resource>UpdateInput`) and the domain vocabulary enums
-(`FieldBaseType`, `SearchModel`, `CollectionItemModel`, …) live in the same modules and are reached
+(`FieldBaseType`, `DataSensitivityLabel`, `DataSensitivityStatus`, `SearchModel`,
+`CollectionItemModel`, …) live in the same modules and are reached
 at `@metabase/client/domain/<resource>`.
 
 ### Utilities

@@ -1,4 +1,5 @@
 import { FieldValues } from "@metabase/client/domain/field";
+import { plural } from "../../output/format";
 import { fieldValuesView } from "../../output/views/field";
 import { formatScalar, renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -34,7 +35,7 @@ export default defineMetabaseCommand({
         }
         const more =
           values.has_more_values === true ? " (more available; rescan for the full set)" : "";
-        const header = `Field ${fieldId} has ${count} cached value${count === 1 ? "" : "s"}${more}:`;
+        const header = `Field ${fieldId} has ${plural(count, "cached value")}${more}:`;
         const lines = values.values.map((row) => `  ${formatScalar(row[0])}`);
         return [header, ...lines].join("\n");
       },

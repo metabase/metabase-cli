@@ -325,6 +325,8 @@ const ALL_COMMANDS = [
   "upload replace",
   "content-translation download",
   "content-translation upload",
+  "data-sensitivity scan-db",
+  "data-sensitivity scan-table",
   "card list",
   "card get",
   "card query",
@@ -450,6 +452,7 @@ const CONTENT_TRANSLATION_CAPABILITIES = {
   minVersion: 58,
   tokenFeature: "content_translation",
 } as const;
+const DATA_SENSITIVITY_CAPABILITIES = { minVersion: 64, tokenFeature: "data_sensitivity" } as const;
 const TRANSFORM_CAPABILITIES = { minVersion: 59 } as const;
 const TRANSFORM_JOB_SET_ACTIVE_CAPABILITIES = { minVersion: 61 } as const;
 
@@ -522,6 +525,19 @@ describe("command tree contract", () => {
     expect(capabilities).toEqual({
       "content-translation download": CONTENT_TRANSLATION_CAPABILITIES,
       "content-translation upload": CONTENT_TRANSLATION_CAPABILITIES,
+    });
+  });
+
+  it("gates every data sensitivity command on v64 and its premium feature", async () => {
+    const entries = await allEntries();
+    const capabilities = Object.fromEntries(
+      entries
+        .filter((entry) => entry.command.startsWith("data-sensitivity "))
+        .map((entry) => [entry.command, entry.capabilities]),
+    );
+    expect(capabilities).toEqual({
+      "data-sensitivity scan-db": DATA_SENSITIVITY_CAPABILITIES,
+      "data-sensitivity scan-table": DATA_SENSITIVITY_CAPABILITIES,
     });
   });
 

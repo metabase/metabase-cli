@@ -23,3 +23,11 @@ export function resolveFormat({ json, format, isTty }: FormatInputs): Format {
   }
   return isTty ? "text" : "json";
 }
+
+export function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+export function qualifiedName(schema: string | null | undefined, name: string): string {
+  return schema ? `${schema}.${name}` : name;
+}

@@ -3,6 +3,7 @@ import { cardResource } from "./resources/card";
 import { collectionResource } from "./resources/collection";
 import { contentTranslationResource } from "./resources/content-translation";
 import { dashboardResource } from "./resources/dashboard";
+import { dataSensitivityResource } from "./resources/data-sensitivity";
 import { databaseResource } from "./resources/database";
 import { datasetResource } from "./resources/dataset";
 import { documentResource } from "./resources/document";
@@ -37,6 +38,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     collection: collectionResource(transport),
     contentTranslation: contentTranslationResource(transport),
     dashboard: dashboardResource(transport),
+    dataSensitivity: dataSensitivityResource(transport),
     database: databaseResource(transport),
     dataset: datasetResource(transport),
     document: documentResource(transport),
