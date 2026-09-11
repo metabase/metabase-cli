@@ -1,50 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { writeProbeResult, writeProfile } from "../../packages/cli/src/core/auth/storage";
-
+import { seedProbedProfile, seedProfile } from "./probed-profile";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-
-const UNREACHABLE_URL = "http://127.0.0.1:1";
-
-function restoreEnv(key: string, value: string | undefined): void {
-  if (value === undefined) {
-    delete process.env[key];
-  } else {
-    process.env[key] = value;
-  }
-}
-
-async function withSeedEnv(configHome: string, seed: () => Promise<void>): Promise<void> {
-  const prevXdg = process.env["XDG_CONFIG_HOME"];
-  const prevKeyring = process.env["MB_CLI_DISABLE_KEYRING"];
-  process.env["XDG_CONFIG_HOME"] = configHome;
-  process.env["MB_CLI_DISABLE_KEYRING"] = "1";
-  try {
-    await seed();
-  } finally {
-    restoreEnv("XDG_CONFIG_HOME", prevXdg);
-    restoreEnv("MB_CLI_DISABLE_KEYRING", prevKeyring);
-  }
-}
-
-async function seedProfile(configHome: string): Promise<void> {
-  await withSeedEnv(configHome, async () => {
-    await writeProfile({ url: UNREACHABLE_URL, apiKey: "secret-key" }, "default");
-  });
-}
-
-async function seedProbedProfile(configHome: string, major: number): Promise<void> {
-  await withSeedEnv(configHome, async () => {
-    await writeProfile({ url: UNREACHABLE_URL, apiKey: "secret-key" }, "default");
-    await writeProbeResult("default", {
-      user: { id: 1, name: "Tester", isAdmin: true },
-      server: {
-        version: { tag: `v0.${major}.0`, major, patch: 0 },
-        tokenFeatures: null,
-      },
-    });
-  });
-}
 
 describe("version preflight enforcement e2e", () => {
   const tempDirs: string[] = [];
@@ -61,7 +18,7 @@ describe("version preflight enforcement e2e", () => {
 
   it("refuses a command whose minVersion exceeds the cached server version (exit 2)", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfile(configHome, 58);
+    await seedProbedProfile(configHome, { major: 58, tokenFeatures: null });
 
     const result = await runCli({ args: ["measure", "list"], configHome });
 
@@ -73,7 +30,7 @@ describe("version preflight enforcement e2e", () => {
 
   it("bypasses the refusal and reaches the network layer when --skip-preflight is passed", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfile(configHome, 58);
+    await seedProbedProfile(configHome, { major: 58, tokenFeatures: null });
 
     const result = await runCli({ args: ["measure", "list", "--skip-preflight"], configHome });
 
@@ -95,7 +52,7 @@ describe("version preflight enforcement e2e", () => {
 
   it("refuses a token-gated command when the cached server lacks the premium feature (exit 2)", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfile(configHome, 60);
+    await seedProbedProfile(configHome, { major: 60, tokenFeatures: null });
 
     const result = await runCli({ args: ["git-sync", "status"], configHome });
 
@@ -107,7 +64,7 @@ describe("version preflight enforcement e2e", () => {
 
   it("bypasses the refusal via MB_CLI_SKIP_PREFLIGHT=1 and reaches the network layer", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfile(configHome, 58);
+    await seedProbedProfile(configHome, { major: 58, tokenFeatures: null });
 
     const result = await runCli({
       args: ["measure", "list"],

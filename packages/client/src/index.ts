@@ -105,6 +105,18 @@ export {
 export { ContentTranslationUploadResult } from "./domain/content-translation";
 export { CronUiDisplayType } from "./domain/cron";
 export {
+  DataSensitivityConfidence,
+  DataSensitivityCounts,
+  DataSensitivityDatabaseResult,
+  DataSensitivityDatabaseResultCompact,
+  DataSensitivityFieldResult,
+  DataSensitivityStatus,
+  DataSensitivityTableError,
+  DataSensitivityTableResult,
+  DataSensitivityTableResultCompact,
+  isDataSensitivityTableError,
+} from "./domain/data-sensitivity";
+export {
   Dashboard,
   DashboardCompact,
   DashboardCreateInput,
@@ -142,6 +154,7 @@ export {
 } from "./domain/eid-translation";
 export { EmbeddingParams } from "./domain/embedding";
 export {
+  DataSensitivityLabel,
   Field,
   FieldBaseType,
   FieldCoercionStrategy,

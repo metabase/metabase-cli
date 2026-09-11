@@ -1,5 +1,6 @@
 import type { CardQueryResult } from "@metabase/client/domain/card";
 
+import { plural } from "./format";
 import { formatScalar, renderRows } from "./table";
 
 export function formatQueryResult(result: CardQueryResult): string {
@@ -10,7 +11,7 @@ export function formatQueryResult(result: CardQueryResult): string {
   }
   const head = result.data.cols.map((col) => col.display_name ?? col.name);
   const rowCount = result.row_count ?? result.data.rows.length;
-  const summary = `${rowCount} row${rowCount === 1 ? "" : "s"}.`;
+  const summary = `${plural(rowCount, "row")}.`;
   if (result.data.rows.length === 0) {
     return summary;
   }

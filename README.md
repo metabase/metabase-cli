@@ -608,6 +608,44 @@ mb content-translation upload --file translations.csv --profile prod --json
 | --------------- | ------------------------------------------------------- |
 | `--file <path>` | Complete content translation dictionary CSV (required). |
 
+## Data sensitivity
+
+Propose a `data_sensitivity` label for every field of a table or database with Metabot's LLM through `/api/ee/data-sensitivity`. These commands require write access to the database, the `data_sensitivity` premium feature (Metabase v64+), and a configured AI provider. A scan is a dry run: nothing is written, the response is the proposal diffed against each field's current label. Apply one with `mb field update <field-id> --body '{"data_sensitivity":"PII"}'`.
+
+Each field comes back with a status: `agree` (the proposal matches the current label), `disagree`, `new` (no current label yet), `abstain` (the model was unsure), or `dropped` (no usable answer). Text output prints a summary line and a table of every row but `agree`; `--json` returns the whole result. A scan sends one LLM request per 60 fields and every request spends provider tokens.
+
+### `mb data-sensitivity scan-db <id>`
+
+Scan every active table of a database, or only those in one schema. The request is synchronous and runs as long as the scan, so raise `--timeout` for a large database. A table the server could not classify appears as an error entry (status `error` in the text table) and the run still exits 0.
+
+```sh
+mb data-sensitivity scan-db 1
+mb data-sensitivity scan-db 1 --schema public
+mb data-sensitivity scan-db 1 --status disagree,new --json
+mb data-sensitivity scan-db 1 --json --fields tables.table_name,tables.fields.name,tables.fields.proposed
+```
+
+| Flag              | Description                                                                                                                                                                                                     |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--schema <name>` | Scan only the tables in this schema.                                                                                                                                                                            |
+| `--status <a,b>`  | Keep only fields with these statuses (`agree`, `disagree`, `new`, `abstain`, `dropped`). Text default: everything but `agree`; JSON default: all. Counts and token usage stay the server's totals for the scan. |
+| `--timeout <ms>`  | HTTP timeout for the single scan request (default 600000).                                                                                                                                                      |
+
+### `mb data-sensitivity scan-table <id>`
+
+Scan every active field of one table.
+
+```sh
+mb data-sensitivity scan-table 3
+mb data-sensitivity scan-table 3 --status disagree,new --json
+mb data-sensitivity scan-table 3 --json --fields fields.name,fields.proposed
+```
+
+| Flag             | Description                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--status <a,b>` | Keep only fields with these statuses (`agree`, `disagree`, `new`, `abstain`, `dropped`). Text default: everything but `agree`; JSON default: all. |
+| `--timeout <ms>` | HTTP timeout for the single scan request (default 600000).                                                                                        |
+
 ## Cards
 
 CRUD plus query execution on `/api/card`. A "card" is a Metabase question, model, or metric. The `query` subcommand runs the card and either returns Metabase's JSON envelope or streams a raw CSV / XLSX export.

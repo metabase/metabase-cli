@@ -27,6 +27,7 @@ This is the whole point of the skill. Each edit below is a key in the `field upd
 | `visibility_type: "details-only"`                                    | hidden in table views, shown in the single-record detail view (for long blobs)                                                                 |
 | `coercion_strategy: <strategy>`                                      | **actually casts** the column — the only entry here that changes the value's type (below)                                                      |
 | `display_name` / `description`                                       | the human label and help text shown everywhere                                                                                                 |
+| `data_sensitivity: "PII"` (or `"PCI_FIN"`, …, `"PUBLIC"`, `null`)    | records how sensitive the column is — metadata only, no query or display effect; `null` means never scanned, `PUBLIC` reviewed and clean       |
 
 `table update` carries the table-level equivalents: `display_name`, `description`, `visibility_type` (`hidden` / `technical` / `cruft` — hides the whole table from the builder), `field_order`, and `entity_type`.
 
@@ -58,6 +59,14 @@ mb field update 42 --body '{"coercion_strategy":"Coercion/UNIXSeconds->DateTime"
 `base_type`, `effective_type`, and the physical `name` are **read-only** — set by warehouse sync, never editable here. For a durable transformation (splitting, combining, recomputing columns), build a `transform` rather than leaning on coercion.
 
 The full semantic-type catalog — every value grouped by the base type it attaches to, plus the `has_field_values` and `visibility_type` value tables and the exact writable-key lists — is in `references/semantic-types.md` (`mb skills get metadata --full`).
+
+## Data sensitivity labels
+
+`data_sensitivity` is a per-column label (`SEC_KEY`, `SYS_TELEMETRY`, `PHI`, `BIO_GEN`, `PCI_FIN`, `SENS_PERS`, `PII`, `CORP_IP`, `BIZ_CONF`, `PUBLIC`, most severe first) recorded as metadata: it changes nothing about queries, formatting, or access. `null` means the column has never been scanned; `PUBLIC` means it was scanned or reviewed and nothing sensitive was found. A value a person set through `field update` is ground truth; a scanner reports where it differs but never overrides it. `mb data-sensitivity scan-table <id>` / `scan-db <id>` (EE, `data_sensitivity` feature, v64+) ask the LLM to propose a label per field as a dry run; apply one with:
+
+```bash
+mb field update 42 --body '{"data_sensitivity":"PII"}' --profile <n> --json
+```
 
 ## Sync, scan, fingerprint — three different refreshes
 

@@ -6,6 +6,7 @@ import {
   TransformTarget,
 } from "@metabase/client/domain/transform";
 
+import { qualifiedName } from "../format";
 import { MALFORMED_CELL } from "../table";
 import type { ResourceView } from "../view";
 
@@ -14,8 +15,7 @@ function formatTarget(value: unknown): string {
   if (!parsed.success) {
     return MALFORMED_CELL;
   }
-  const { schema, name } = parsed.data;
-  return schema ? `${schema}.${name}` : name;
+  return qualifiedName(parsed.data.schema, parsed.data.name);
 }
 
 export const transformRunView: ResourceView<TransformRun> = {
