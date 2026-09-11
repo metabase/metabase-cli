@@ -31,6 +31,7 @@ const DataSensitivityUsage = z.object({
   output_tokens: z.number().int(),
   cache_read_tokens: z.number().int(),
   cache_creation_tokens: z.number().int(),
+  total_tokens: z.number().int(),
 });
 
 export const DataSensitivityCounts = z.object({

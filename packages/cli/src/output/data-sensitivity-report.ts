@@ -175,11 +175,15 @@ function countsSentence(counts: DataSensitivityCounts): string {
   );
 }
 
+// `input_tokens` is the total prompt, cache buckets included, so the breakdown only appears when
+// the provider cached any of it.
 function usageSentence(result: DataSensitivityResult): string {
-  return (
-    `${plural(result.requests, "request")}, ` +
-    `${result.usage.input_tokens} in / ${result.usage.output_tokens} out tokens.`
-  );
+  const { input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens } = result.usage;
+  const cached =
+    cache_creation_tokens === 0 && cache_read_tokens === 0
+      ? ""
+      : ` (${cache_creation_tokens} cache write, ${cache_read_tokens} cache read)`;
+  return `${plural(result.requests, "request")}, ${input_tokens} in${cached} / ${output_tokens} out tokens.`;
 }
 
 // Counts and usage are the server's totals for the whole scan, so the summary is the same

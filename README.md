@@ -612,7 +612,7 @@ mb content-translation upload --file translations.csv --profile prod --json
 
 Propose a `data_sensitivity` label for every field of a table, a schema, or a database with Metabot's LLM through `/api/ee/data-sensitivity`. These commands require write access to the database, the `data_sensitivity` premium feature (Metabase v64+), and a configured AI provider. A scan is a dry run: nothing is written, the response is the proposal diffed against each field's current label. Apply one with `mb field update <field-id> --body '{"data_sensitivity":"PII"}'`.
 
-Each field comes back with a status: `agree` (the proposal matches the current label), `disagree`, `new` (no current label yet), `abstain` (the model was unsure), or `dropped` (no usable answer). Text output prints a summary line and a table with one cell per LLM output, `current -> proposed` where they differ, covering every field with a changed label or semantic type; `--json` returns the whole result. Every scan spends provider tokens. A whole-database result is often larger than the default `--max-bytes`, so narrow it with `--status disagree,new` or `--schema`, raise `--max-bytes`, or scan one table at a time.
+Each field comes back with a status: `agree` (the proposal matches the current label), `disagree`, `new` (no current label yet), `abstain` (the model was unsure), or `dropped` (no usable answer). Text output prints a summary line and a table with one cell per LLM output, `current -> proposed` where they differ, covering every field with a changed label or semantic type; `--json` returns the whole result, including `usage` with `input_tokens` (the whole prompt, cache buckets included), `output_tokens`, `cache_creation_tokens`, `cache_read_tokens`, and `total_tokens`; the text summary breaks the input down by cache bucket when any of it was cached. Every scan spends provider tokens. A whole-database result is often larger than the default `--max-bytes`, so narrow it with `--status disagree,new` or `--schema`, raise `--max-bytes`, or scan one table at a time.
 
 | Flag              | Description                                                                                                                                                                                                                                |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -622,7 +622,7 @@ Each field comes back with a status: `agree` (the proposal matches the current l
 
 ### `mb data-sensitivity scan-db <id>`
 
-Scan every active table of a database, or only those in one schema. The request is synchronous and runs as long as the scan, so raise `--timeout` for a large database. A table the server could not classify appears as an error entry (status `error` in the text table) and the run still exits 0.
+Scan every active table of a database, or only those in one schema. The request is synchronous and runs as long as the scan, so raise `--timeout` for a large database. A table the server could not classify appears as one row with the error message in the Sensitivity cell, and the run still exits 0.
 
 ```sh
 mb data-sensitivity scan-db 1

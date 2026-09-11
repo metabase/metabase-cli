@@ -13,6 +13,7 @@ const USAGE = {
   output_tokens: 90,
   cache_read_tokens: 0,
   cache_creation_tokens: 0,
+  total_tokens: 1290,
 };
 
 interface FieldSpec {
@@ -172,6 +173,13 @@ describe("filterResult", () => {
 });
 
 describe("formatDataSensitivityReport", () => {
+  it("breaks the input tokens down by cache bucket when the provider cached part of the prompt", () => {
+    const cached = { ...PEOPLE, usage: { ...USAGE, cache_read_tokens: 1100 } };
+    expect(formatDataSensitivityReport(cached, [])).toBe(
+      TABLE_SUMMARY.replace("1200 in", "1200 in (0 cache write, 1100 cache read)"),
+    );
+  });
+
   it("shows every field with a changed label or semantic type when no filter was asked for", () => {
     expect(formatDataSensitivityReport(PEOPLE, null)).toBe(
       [

@@ -14,6 +14,7 @@ const USAGE = {
   output_tokens: 90,
   cache_read_tokens: 0,
   cache_creation_tokens: 0,
+  total_tokens: 1290,
 };
 
 const COUNTS = {
