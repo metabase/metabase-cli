@@ -4,10 +4,7 @@ export default defineCommandGroup({
   name: "db",
   description: "Inspect and sync Metabase databases",
   alias: "database",
-  skills: [
-    { skill: "core", purpose: "the database traversal ladder and schema sync" },
-    { skill: "data-workflow", purpose: "model a raw database into clean tables" },
-  ],
+  skills: [{ skill: "core", purpose: "the database traversal ladder and schema sync" }],
   subCommands: {
     list: () => import("./list").then((m) => m.default),
     get: () => import("./get").then((m) => m.default),

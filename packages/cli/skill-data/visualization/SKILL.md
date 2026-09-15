@@ -6,8 +6,6 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # Visualization: pick the chart, then set it
 
-> **Building charts as part of a guided data project?** Follow the `data-workflow` **Shared Contract** — answer-first with detail on demand, ask before showing PII, honor the autonomy mode, name what the CLI can't do instead of erroring into raw SQL: `mb skills get data-workflow`.
-
 A card has two presentation fields alongside its `dataset_query`:
 
 - **`display`** — the chart type (`bar`, `line`, `pie`, `scalar`, `map`, `table`, …); pick from the valid values below.

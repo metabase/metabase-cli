@@ -20,8 +20,10 @@ mb skills get core    # auth, flag conventions, every command group
 mb skills list        # everything available on the installed version
 ```
 
-**Doing a whole job, not one command?** If the user wants an outcome — "make sense of my data", "build a data model", "go from raw data to a dashboard", "answer questions about my data", "be my data analyst", "set up analytics for X" — load the guided end-to-end skill instead and let it drive:
+**Doing a whole job, not one command?** Higher-level data-engineering workflows — raw data to clean tables, the semantic layer, dashboards — live in the `rde` skill, which drives this CLI:
 
 ```bash
-mb skills get data-workflow
+npx skills add metabase/agent-skills --skill rde -a claude-code
 ```
+
+When it is installed, follow it; it loads the bundled skills it needs.
