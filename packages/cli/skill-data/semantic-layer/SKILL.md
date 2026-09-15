@@ -46,10 +46,17 @@ mb card create --body '{
   "type": "metric",
   "collection_id": 7,
   "display": "scalar",
-  "dataset_query": { ... },
+  "dataset_query": {
+    "lib/type": "mbql/query", "database": 1,
+    "stages": [{ "lib/type": "mbql.stage/mbql", "source-table": 42,
+      "aggregation": [["sum", {}, ["field", {}, 1715]]],
+      "breakout": [["field", { "temporal-unit": "month" }, 1702]] }]
+  },
   "visualization_settings": {}
 }' --profile <n> --json
 ```
+
+A card **uses** a metric, measure, or segment by id instead of restating its formula, so one definition feeds every card: `"aggregation": [["metric", {}, <metric-card-id>]]`, `[["measure", {}, <measure-id>]]`, and `"filters": [["segment", {}, <segment-id>]]` in the same stage (v59+ for `measure`). Pre-flight with `--dry-run`; a rejected id is not a metric or sits on another table.
 
 `display` is required even for a metric — `scalar` for a headline number, `line` when it carries a time dimension people will chart. A temporal breakout in the metric's `dataset_query` is its default time dimension: opening the metric charts it by that column.
 

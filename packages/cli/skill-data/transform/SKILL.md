@@ -193,6 +193,25 @@ mb transform delete-table <id> --yes --profile <name>
 
 Useful when you've changed the SELECT and want a fresh `CREATE TABLE` on the next run. **`--yes` is required** non-interactively; without it the command exits with `refusing to delete <id> without confirmation — pass --yes to proceed non-interactively`.
 
+## Incremental targets
+
+`target.type: "table-incremental"` keeps the table across runs and writes only rows past a checkpoint:
+
+```json
+"source": { "type": "query", "query": { … }, "source-incremental-strategy": { "type": "checkpoint", "checkpoint-filter-field-id": <field-id> } },
+"target": { "type": "table-incremental", "database": <db-id>, "schema": "public", "name": "orders_daily", "target-incremental-strategy": { "type": "merge", "unique-key": [{ "name": "order_id" }] } }
+```
+
+| Strategy | Each run                                       |
+| -------- | ---------------------------------------------- |
+| `append` | inserts the new rows                           |
+| `merge`  | replaces rows sharing a new row's `unique-key` |
+
+- A run reads `checkpoint > watermark AND checkpoint <= max(checkpoint)`; that max becomes the watermark. The field must be numeric or date/datetime and **monotone** — a load timestamp, not an event time, or a late row below the watermark is never read.
+- A native source reads the checkpoint table through a table variable (`FROM {{orders}}` + `template-tags` entry `{"type": "table", "table-id": <id>}`); MBQL needs nothing.
+- **No watermark ⇒ full refresh** (drop and recreate): the first run, and the run after `checkpoint-filter-field-id` changes. `delete-table` **keeps the watermark**, so the next run rebuilds with only newer rows — no CLI reset; change the checkpoint field or delete + create.
+- Checks read the whole table; `final.message` describes the batch.
+
 ## Delete the transform
 
 ```bash
