@@ -52,8 +52,8 @@ setMetabaseAugment(main, {
   skills: [
     { skill: "core", purpose: "auth, conventions, and per-resource footguns" },
     {
-      skill: "data-workflow",
-      purpose: "guided end-to-end: raw data → clean tables → metrics → answers → dashboards",
+      skill: "semantic-layer",
+      purpose: "models, metrics, measures, segments, Library publishing",
     },
   ],
   inputSchema: null,

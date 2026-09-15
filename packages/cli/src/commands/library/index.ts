@@ -5,7 +5,7 @@ export default defineCommandGroup({
   description: "Curate the Metabase Library — publish trusted tables to its Data collection",
   skills: [
     { skill: "core", purpose: "publish tables to the Library" },
-    { skill: "data-workflow", purpose: "which tables are worth publishing" },
+    { skill: "semantic-layer", purpose: "which tables are worth publishing" },
   ],
   subCommands: {
     get: () => import("./get").then((m) => m.default),

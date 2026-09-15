@@ -8,7 +8,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 A **transform** persists the result of a query (native SQL or MBQL) to a warehouse table the user can read from cards, dashboards, and other transforms. It runs on a schedule (via `transform-job`) or on-demand (`transform run`).
 
-Flag conventions, body-input precedence, and the `./.scratch` convention live in `core` (`mb skills get core`). Deciding _which_ transforms to build — modeling a whole raw database into clean, analysis-ready tables — is the `data-workflow` skill's build-clean-tables stage (`mb skills get data-workflow`).
+Flag conventions, body-input precedence, and the `./.scratch` convention live in `core` (`mb skills get core`). Deciding _which_ transforms to build — modeling a whole raw database into clean, analysis-ready tables — is the external `rde` skill's subject: `npx skills add metabase/agent-skills --skill rde -a claude-code`.
 
 ## Body shape
 
@@ -46,7 +46,7 @@ mb transform run "$TRANSFORM_ID" --wait --profile <name> --json
 
 - `<db-id>` comes from `mb database list --profile <name> --json`; ids are per-instance. Target `schema` is the schema the result table is written into (e.g. `public`).
 - `--wait` polls until status is `succeeded` or `failed`. Without it you get only `{message: "Transform run started", run_id, final: null}` and must poll yourself — don't put bare `transform run` in a tight loop; let `--wait` do the polling.
-- `--sync` implies `--wait`, then waits until the run registers its output table (the run registers it itself — no `db sync-schema` needed), adding `target_table_id` to the envelope. Use it when you'll build MBQL on the output (see "Inspect").
+- `--sync` implies `--wait`, then waits until the run registers its output table (the run registers it itself — no `db sync-schema` needed), adding `target_table_id` to the envelope. Use it when you'll build MBQL on the output (see "Inspect"). **The run registers this transform's target table and nothing else** — `--sync` is not a database-wide schema sync, so other tables that appeared in the warehouse stay invisible until `mb db sync-schema <db-id> --wait`.
 - The `--json` envelope is shape-stable: `{message, run_id, final}` (plus `target_table_id` under `--sync` — a number, or `null` if the table didn't register before the timeout). `final` is `null` when `--wait` is omitted or the run never started, otherwise a full `TransformRun` with `status` and `message`. On a failed run (`final.status` ∈ {`failed`, `timeout`, `canceled`}) the CLI exits 1 and writes a one-line `transform run <id> failed` to stderr; the failure detail lives only in `final.message` on stdout, so `jq -r '.final.message'` is where to look.
 - `transform create --json` returns the agent-facing compact projection: `{id, name, description, source_type, target: {type, database, schema, name}, target_db_id}`. Read `target.schema`/`target.name` directly off it — no follow-up `transform get`.
 - If a transform with the same `name` already has a YAML representation on disk under the configured remote-sync repo, `create` mints a `_2` suffix on the exported filename (the new transform gets a fresh `entity_id`; the prior one isn't touched). For "iterate on the same concept", prefer `transform update <id>` — see "Iterating on a failing transform".
@@ -56,9 +56,12 @@ mb transform run "$TRANSFORM_ID" --wait --profile <name> --json
 
 ```bash
 mb transform list --profile <name> --json
+mb transform list --fields id,name,collection_id --profile <name> --json   # verify placement
 mb transform get <id> --profile <name> --full --json          # full transform incl. last run summary
 mb transform dependencies <id> --profile <name> --json        # upstream transforms this one must run after
 ```
+
+The compact `transform list` projection is `{id, name, description, source_type, target, target_db_id}` — **no `collection_id`**, so a list that looks right tells you nothing about where the transforms are filed. Ask for it with `--fields id,name,collection_id` (or `--full`) whenever placement is the question.
 
 After a run the table physically exists in the warehouse, but Metabase addresses tables/columns by numeric id, so **MBQL and the UI can't reference a brand-new table until the instance syncs** (native SQL — a native `card` or `mb query` against `<schema>.<name>` — reads it immediately). Run and register in one step with `--sync`:
 
@@ -70,6 +73,14 @@ mb table get "$TABLE_ID" --include fields --profile <name> --json   # field ids 
 On `target_table_id: null` (still syncing when the poll timed out; exit 0) re-poll `mb transform get <id> --full --json` until the `target_table_id` / `table` linkage lands.
 
 Columns and types are inferred from the result set; change the SELECT shape and the next run fails on a column mismatch — drop the table first (`transform delete-table <id>`). A changed shape also needs a re-run with `--sync` before MBQL sees the new/renamed columns.
+
+## Building a DAG
+
+Dependency order is a property of the transforms, not something you schedule by hand. A transform whose source reads another transform's output table is downstream of it; `mb transform dependencies <id> --json` reports the upstream set that must run first.
+
+**Tags plus a job are how that order gets executed.** A `transform-job` carries `tag_ids`, a transform carries tags (`transform update <id> --body '{"tag_ids":[…]}'`), and a job run executes every transform carrying one of its tags **plus those transforms' dependencies**, in plan order, skipping dependencies that are already fresh (`--force-refresh` re-runs the whole plan). So one tag on each member of a chain, one job over that tag, is the whole DAG — see "Transform jobs (schedules)".
+
+**Re-running a chain by hand: stop at the first failure.** A downstream `transform run` succeeds happily against its upstream's _stale_ table, so a loop that keeps going past a failure produces a green log and silently wrong data. Check `final.status` after each run and abort on anything but `succeeded` — and prefer a job over the hand-rolled loop, since the server orders the plan and refuses to run a step whose upstream did not land.
 
 ## Inspect runs and cancel an in-flight run
 
@@ -144,6 +155,8 @@ mb transform get <id> --full --profile <name> --json \
 ```
 
 ## Iterating on a failing transform
+
+The browser inspector for a transform is `<base-url>/data-studio/transforms/<transform-id>/inspect`; open or paste it when refining a transform with the user.
 
 When `transform run` fails and you want to retry with a fixed body, **prefer `transform update <id> --file body.json` over `transform delete <id>` + `transform create`.** Update keeps the same row, `entity_id`, materialized table, and on-disk YAML filename:
 

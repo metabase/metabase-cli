@@ -10,13 +10,13 @@ import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 const BUNDLED_VISIBLE_NAMES = [
   "core",
   "dashboard",
-  "data-workflow",
   "document",
   "git-sync",
   "mbql",
   "metadata",
   "native-sql",
   "notification",
+  "semantic-layer",
   "transform",
   "visualization",
 ] as const;
