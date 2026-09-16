@@ -42,6 +42,9 @@ import {
   TransformJobUpdateInput,
   TransformTagCreateInput,
   TransformTagUpdateInput,
+  TransformTestCreateInput,
+  TransformTestInput,
+  TransformTestUpdateInput,
   TransformUpdateInput,
 } from "./index";
 import type {
@@ -105,6 +108,9 @@ const writePath = {
   TransformJobUpdateInput: pin<TransformJobUpdateInput>(TransformJobUpdateInput),
   TransformTagCreateInput: pin<TransformTagCreateInput>(TransformTagCreateInput),
   TransformTagUpdateInput: pin<TransformTagUpdateInput>(TransformTagUpdateInput),
+  TransformTestCreateInput: pin<TransformTestCreateInput>(TransformTestCreateInput),
+  TransformTestInput: pin<TransformTestInput>(TransformTestInput),
+  TransformTestUpdateInput: pin<TransformTestUpdateInput>(TransformTestUpdateInput),
   TransformUpdateInput: pin<TransformUpdateInput>(TransformUpdateInput),
 };
 
