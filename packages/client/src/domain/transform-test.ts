@@ -89,6 +89,11 @@ export const TransformTestCompact = TransformTest.pick({
 }).strip();
 export type TransformTestCompact = z.infer<typeof TransformTestCompact>;
 
+/**
+ * The server closes this map, so an unrecognized key is a 400 there. Refusing it here names the key
+ * instead: a body cloned from `get` has to shed `id`, `entity_id`, `creator_id`, `created_at` and
+ * `updated_at` before it can be sent back.
+ */
 export const TransformTestCreateInput = z
   .object({
     transform_id: z.number().int().positive(),
@@ -97,9 +102,10 @@ export const TransformTestCreateInput = z
     inputs: z.array(TransformTestInput),
     expectations: z.array(TransformTestExpectation),
   })
-  .loose();
+  .strict();
 export type TransformTestCreateInput = z.infer<typeof TransformTestCreateInput>;
 
+/** Closed for the same reason as [[TransformTestCreateInput]]; every field is optional. */
 export const TransformTestUpdateInput = z
   .object({
     transform_id: z.number().int().positive().optional(),
@@ -108,7 +114,7 @@ export const TransformTestUpdateInput = z
     inputs: z.array(TransformTestInput).optional(),
     expectations: z.array(TransformTestExpectation).optional(),
   })
-  .loose();
+  .strict();
 export type TransformTestUpdateInput = z.infer<typeof TransformTestUpdateInput>;
 
 /**
