@@ -385,7 +385,17 @@ mb transform-tag delete 5 --yes
 
 CRUD and run on `/api/transform-test`. Requires Metabase v64 or newer. A transform test pins a transform's behaviour without touching real data: every table the transform reads is replaced by an `input` fixture, the transform runs into a temp table, and each `expectation` checks that output. The temp tables are dropped when the run ends.
 
-An input names its `table` and carries either `format: "sql"` with a `sql` query or `format: "rows"` with `columns` (each with a `database_type` the warehouse accepts as a `CAST` target) and `rows`. An expectation is either `type: "empty"` with the `sql` that must return no rows, or `type: "equals"` with the rows the output must hold exactly.
+An input names its `table` and carries either `format: "sql"` with a `sql` query or `format: "rows"` with `columns` (each with a `database_type` the warehouse accepts as a `CAST` target) and `rows`.
+
+An expectation is either `type: "empty"` with the `sql` that must return no rows, or `type: "equals"`, which takes the same `format` split as an input — `format: "rows"` with the `columns` and `rows` the output must hold exactly, or `format: "sql"` with a query returning them. An `equals` without a `format` is refused.
+
+Create and update bodies are closed, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it can be sent back:
+
+```sh
+mb transform-test get 1 --full --json \
+  | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at)' \
+  | mb transform-test update 1
+```
 
 ### `mb transform-test list`
 
@@ -400,8 +410,11 @@ mb transform-test list --transform 1
 
 ### `mb transform-test get <id>`
 
+The compact form carries the id, transform, name and description; `--full` adds the `inputs` and `expectations` themselves.
+
 ```sh
-mb transform-test get 1 --json
+mb transform-test get 1
+mb transform-test get 1 --full --json
 ```
 
 ### `mb transform-test create`
