@@ -210,15 +210,15 @@ mb transform-test run <id> --profile <n> --json               # exits non-zero u
   "expectations": [
     {
       "type": "equals",
-      "name": "keeps only the adult",
+      "name": "exactly one row, id 1",
       "format": "rows",
       "columns": [{ "name": "id", "database_type": "INTEGER" }],
       "rows": [{ "id": 1 }]
     },
     {
       "type": "empty",
-      "name": "no minor survived the filter",
-      "sql": "SELECT * FROM public.adults WHERE age < 18"
+      "name": "no null ids",
+      "sql": "SELECT * FROM public.adults WHERE id IS NULL"
     }
   ]
 }
