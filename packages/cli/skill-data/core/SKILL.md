@@ -12,7 +12,7 @@ Top-level command groups (run `mb <group> --help` to discover verbs):
 
 ```
 auth | db | table | field | upload | content-translation | query | card | dashboard | snippet | segment | measure | collection | library
-document | timeline | timeline-event | transform | transform-job | transform-tag | alert | subscription | setting
+document | timeline | timeline-event | transform | transform-job | transform-tag | transform-test | alert | subscription | setting
 search | git-sync | setup | eid | uuid | upgrade | skills
 ```
 

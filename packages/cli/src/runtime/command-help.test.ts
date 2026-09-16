@@ -390,6 +390,12 @@ const ALL_COMMANDS = [
   "transform-tag create",
   "transform-tag update",
   "transform-tag delete",
+  "transform-test list",
+  "transform-test get",
+  "transform-test create",
+  "transform-test update",
+  "transform-test delete",
+  "transform-test run",
   "setting list",
   "setting get",
   "setting set",
@@ -609,6 +615,23 @@ describe("command tree contract", () => {
       "transform-job run": requiresOf("transformJob.run"),
       "transform-job transforms": requiresOf("transformJob.transforms"),
       "transform-job set-active": requiresOf("transformJob.setActive"),
+    });
+  });
+
+  it("gates every transform-test command at the version that first serves the endpoint", async () => {
+    const entries = await allEntries();
+    const capabilities = Object.fromEntries(
+      entries
+        .filter((entry) => entry.command.startsWith("transform-test "))
+        .map((entry) => [entry.command, entry.capabilities]),
+    );
+    expect(capabilities).toEqual({
+      "transform-test list": TRANSFORM_TEST_CAPABILITIES,
+      "transform-test get": TRANSFORM_TEST_CAPABILITIES,
+      "transform-test create": TRANSFORM_TEST_CAPABILITIES,
+      "transform-test update": TRANSFORM_TEST_CAPABILITIES,
+      "transform-test delete": TRANSFORM_TEST_CAPABILITIES,
+      "transform-test run": TRANSFORM_TEST_CAPABILITIES,
     });
   });
 
