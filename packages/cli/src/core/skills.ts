@@ -4,7 +4,17 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 import { ConfigError, isFileNotFoundError } from "@metabase/client/errors";
+import {
+  FEATURE_NAMES,
+  type FeatureName,
+  type Features,
+  isFeatureName,
+} from "@metabase/client/version/features";
+import type { RequirementFailure } from "@metabase/client/version/preflight-error";
+import type { ServerProfile } from "@metabase/client/version/profile";
+import { checkFeatures } from "@metabase/client/version/requirement-check";
 
+import { parseCsv } from "../runtime/csv";
 import { parseYamlResult } from "../runtime/yaml";
 import { ENV_SKILLS_DIR, readEnv } from "./env";
 
@@ -13,6 +23,7 @@ const Frontmatter = z
     name: z.string().min(1),
     description: z.string().default(""),
     hidden: z.boolean().default(false),
+    requires: z.array(z.string()).default([]),
   })
   .loose();
 type Frontmatter = z.infer<typeof Frontmatter>;
@@ -36,11 +47,26 @@ export interface SkillInfo {
   name: string;
   description: string;
   hidden: boolean;
+  requires: FeatureName[];
   dir: string;
+}
+
+// A skill the connected server cannot use, with the client's own account of the first feature it
+// lacks — the same refusal the skill's commands would meet.
+export interface UnavailableSkill {
+  name: string;
+  failure: RequirementFailure;
+}
+
+// `unavailable` is `null` when nothing was filtered out because there was no server to filter by.
+export interface SkillSelection {
+  skills: SkillInfo[];
+  unavailable: UnavailableSkill[] | null;
 }
 
 interface ReadSkillContentOptions {
   includeExtras: boolean;
+  profile: ServerProfile | null;
 }
 
 const SKILL_DIR_NAMES = ["skills", "skill-data"] as const;
@@ -51,12 +77,38 @@ const SKILL_TEMPLATES_DIR = "templates";
 const FRONTMATTER_PREFIX_BYTES = 8192;
 const FRONTMATTER_FENCE = "---";
 
+const SECTION_OPEN_PREFIX = /^<!--\s*requires:\s*/;
+const MARKER_END = /\s*-->$/;
+const SECTION_OPEN = /^<!--\s*requires:.*-->$/;
+const SECTION_CLOSE = /^<!--\s*\/requires\s*-->$/;
+const SECTION_MARKER_TEXT = /<!--\s*\/?requires\b/;
+
 export function loadAllSkills(): SkillInfo[] {
   return discoverSkills(resolveSkillDirs());
 }
 
 export function loadVisibleSkills(): SkillInfo[] {
   return loadAllSkills().filter((s) => !s.hidden);
+}
+
+export function selectForProfile(
+  skills: readonly SkillInfo[],
+  profile: ServerProfile | null,
+): SkillSelection {
+  if (profile === null) {
+    return { skills: [...skills], unavailable: null };
+  }
+  const available: SkillInfo[] = [];
+  const unavailable: UnavailableSkill[] = [];
+  for (const skill of skills) {
+    const failure = checkFeatures(skill.requires, profile);
+    if (failure === null) {
+      available.push(skill);
+    } else {
+      unavailable.push({ name: skill.name, failure });
+    }
+  }
+  return { skills: available, unavailable };
 }
 
 export function findSkillByName(all: readonly SkillInfo[], name: string): SkillInfo {
@@ -148,7 +200,13 @@ export function discoverSkills(dirs: readonly string[]): SkillInfo[] {
       if (fm === null) {
         continue;
       }
-      skills.push({ name: fm.name, description: fm.description, hidden: fm.hidden, dir: skillDir });
+      skills.push({
+        name: fm.name,
+        description: fm.description,
+        hidden: fm.hidden,
+        requires: parseFeatureNames(fm.requires, `skill ${fm.name}`),
+        dir: skillDir,
+      });
     }
   }
   skills.sort((a, b) => a.name.localeCompare(b.name));
@@ -202,7 +260,9 @@ export function parseFrontmatter(content: string): Frontmatter | null {
 }
 
 export function readSkillContent(info: SkillInfo, opts: ReadSkillContentOptions): SkillContent {
-  const body = readFileSync(join(info.dir, SKILL_MD_FILENAME), "utf8");
+  const features = opts.profile === null ? null : opts.profile.features;
+  const raw = readFileSync(join(info.dir, SKILL_MD_FILENAME), "utf8");
+  const body = resolveSections(raw, features, `skill ${info.name}`);
   if (!opts.includeExtras) {
     return {
       name: info.name,
@@ -212,13 +272,112 @@ export function readSkillContent(info: SkillInfo, opts: ReadSkillContentOptions)
       templates: [],
     };
   }
+  const references = collectExtraFiles(info.dir, SKILL_REFERENCES_DIR).map((file) => ({
+    path: file.path,
+    content: resolveSections(file.content, features, `skill ${info.name} (${file.path})`),
+  }));
   return {
     name: info.name,
     description: info.description,
     body,
-    references: collectExtraFiles(info.dir, SKILL_REFERENCES_DIR),
+    references,
     templates: collectExtraFiles(info.dir, SKILL_TEMPLATES_DIR),
   };
+}
+
+function parseFeatureNames(names: readonly string[], where: string): FeatureName[] {
+  const known: FeatureName[] = [];
+  const unknown: string[] = [];
+  for (const name of names) {
+    if (isFeatureName(name)) {
+      known.push(name);
+    } else {
+      unknown.push(name);
+    }
+  }
+  if (unknown.length > 0) {
+    throw new ConfigError(
+      `${where}: unknown feature in requires: ${unknown.join(", ")} (known: ${FEATURE_NAMES.join(", ")})`,
+    );
+  }
+  return known;
+}
+
+interface OpenSection {
+  line: number;
+  met: boolean;
+}
+
+// A `<!-- requires: a, b -->` … `<!-- /requires -->` pair marks text only a server with every
+// named feature can use. With features in hand the markers are resolved: a met section keeps its
+// text and loses its markers, an unmet one goes entirely, and a blank line that only separated a
+// removed line from a blank one goes with it. Without features the text is returned as written,
+// markers included, so a reader still sees what each section needs. The markers are validated
+// either way, so a typo fails on every read rather than only against some server.
+export function resolveSections(text: string, features: Features | null, where: string): string {
+  const out: string[] = [];
+  let open: OpenSection | null = null;
+  let collapseBlank = false;
+  for (const [index, line] of text.split("\n").entries()) {
+    const lineNumber = index + 1;
+    const trimmed = line.trim();
+    if (SECTION_OPEN.test(trimmed)) {
+      if (open !== null) {
+        throw new ConfigError(
+          `${where}: nested requires section at line ${lineNumber} (opened at line ${open.line})`,
+        );
+      }
+      const named = parseFeatureNames(sectionFeatureNames(trimmed), `${where} line ${lineNumber}`);
+      if (named.length === 0) {
+        throw new ConfigError(`${where}: requires section at line ${lineNumber} names no feature`);
+      }
+      open = { line: lineNumber, met: features === null || named.every((name) => features[name]) };
+      collapseBlank = dropMarker(out, line, features);
+      continue;
+    }
+    if (SECTION_CLOSE.test(trimmed)) {
+      if (open === null) {
+        throw new ConfigError(
+          `${where}: requires section closed at line ${lineNumber} was never opened`,
+        );
+      }
+      collapseBlank = dropMarker(out, line, features);
+      open = null;
+      continue;
+    }
+    if (SECTION_MARKER_TEXT.test(line)) {
+      throw new ConfigError(
+        `${where}: a requires marker must be on its own line (line ${lineNumber})`,
+      );
+    }
+    if (collapseBlank) {
+      collapseBlank = false;
+      if (trimmed === "") {
+        continue;
+      }
+    }
+    if (open === null || open.met) {
+      out.push(line);
+    }
+  }
+  if (open !== null) {
+    throw new ConfigError(`${where}: requires section opened at line ${open.line} is never closed`);
+  }
+  return out.join("\n");
+}
+
+// Keeps the marker when nothing is being resolved; otherwise leaves it out and says whether the
+// line after it, if blank, would now only double a blank line already kept.
+function dropMarker(out: string[], marker: string, features: Features | null): boolean {
+  if (features === null) {
+    out.push(marker);
+    return false;
+  }
+  return out.length === 0 || out[out.length - 1] === "";
+}
+
+function sectionFeatureNames(marker: string): string[] {
+  return parseCsv(marker.replace(SECTION_OPEN_PREFIX, "").replace(MARKER_END, ""));
 }
 
 function collectExtraFiles(skillDir: string, subdirName: string): SkillExtraFile[] {

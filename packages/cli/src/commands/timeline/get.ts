@@ -7,7 +7,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a timeline by id" },
-  capabilities: { minVersion: 58 },
+  requires: ["timeline.get"],
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -209,9 +209,10 @@ function isRouteMissingResponse(
   if (sanitizedBody?.includes(ROUTE_MISSING_LITERAL)) {
     return true;
   }
-  // Metabase ≤ v0.58 serves resource-missing 404s as text/plain "Not found." (newer
-  // versions use a JSON envelope); without this the plain-text body falls through to the
-  // non-JSON branch below and is misread as a missing route.
+  // Every supported Metabase answers a missing row through `check-404`, whose bare "Not found."
+  // message is served as text/plain; a JSON envelope only appears when the throw site attached
+  // data of its own. Without this the plain-text body falls through to the non-JSON branch below
+  // and is misread as a missing route.
   if (sanitizedBody?.includes(RESOURCE_MISSING_LITERAL)) {
     return false;
   }

@@ -1,6 +1,7 @@
 import { core as zodCore, ZodError } from "zod";
 
 import { escapeJsonPointerSegment } from "./json-pointer";
+import { KNOWN_RANGE, type Skew } from "./version/profile";
 
 export type ErrorCategory =
   | "network"
@@ -47,6 +48,7 @@ export interface ZodResponseShapeDetail {
   status: number;
   zodIssues: ZodError["issues"];
   serverTag: string | null;
+  serverSkew: Skew | null;
 }
 
 export interface DecodedResponseShapeDetail {
@@ -164,22 +166,29 @@ export class ResponseShapeError extends MetabaseError {
   }
 
   static fromZodIssues(developerDetail: ZodResponseShapeDetail): ResponseShapeError {
-    return new ResponseShapeError(
-      formatResponseShapeMessage(developerDetail.zodIssues, developerDetail.serverTag),
-      developerDetail,
-    );
+    return new ResponseShapeError(formatResponseShapeMessage(developerDetail), developerDetail);
   }
 }
 
-function formatResponseShapeMessage(issues: ZodError["issues"], serverTag: string | null): string {
+function formatResponseShapeMessage(detail: ZodResponseShapeDetail): string {
+  const { zodIssues: issues, serverTag, serverSkew } = detail;
   const lead =
     serverTag === null
       ? RESPONSE_SHAPE_LEAD_UNKNOWN_VERSION
-      : `On Metabase ${serverTag} the response shape was unexpected`;
+      : `On Metabase ${describeServer(serverTag, serverSkew)} the response shape was unexpected`;
   if (issues.length === 0) {
     return lead;
   }
   return `${lead}:\n${formatIssueLines(issues, RESPONSE_SHAPE_ISSUE_FORMAT)}`;
+}
+
+// A server above the known range answers with shapes this client has never been taught, so the
+// lead says so before the issues are listed.
+function describeServer(tag: string, skew: Skew | null): string {
+  if (skew === "newer-than-known") {
+    return `${tag} (newer than this client supports, up to v${KNOWN_RANGE.max})`;
+  }
+  return tag;
 }
 
 export class ConfigError extends MetabaseError {

@@ -22,6 +22,7 @@ export function uploadResource(transport: Transport) {
     params: UploadCsvParams,
     options: RequestOptions = {},
   ): Promise<UploadResult> {
+    await transport.require("upload.createFromCsv");
     const form = buildCsvFormData(file);
     form.append("collection_id", params.collection_id);
     const response = await transport.requestRaw("/api/upload/csv", {

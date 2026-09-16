@@ -42,6 +42,14 @@ const BINARY_WRITE_HEADERS = {
 // Metabase rejects an unknown key with a 400 that names it as a Clojure keyword.
 const UNKNOWN_SETTING_RESPONSE = { message: "Unknown setting: :totally-bogus" };
 
+// The server encodes a setting's value by its runtime type: a string arrives bare as text/plain,
+// everything else under application/json — a keyword as its bare name, the rest as JSON.
+function wireResponse(body: string, contentType: string): Response {
+  return new Response(body, { status: 200, headers: { "content-type": contentType } });
+}
+
+const JSON_CHARSET_CONTENT_TYPE = "application/json;charset=utf-8";
+
 function clientOver(responses: Array<Response>) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
@@ -95,6 +103,49 @@ describe("setting resource wire requests", () => {
     const { mb } = clientOver([new Response(null, { status: 204 })]);
 
     expect(await mb.setting.get("remote-sync-branch")).toBeNull();
+  });
+
+  it("reads a string setting's bare text/plain body as the string", async () => {
+    const { mb } = clientOver([wireResponse("admin@e2e.test", "text/plain")]);
+
+    expect(await mb.setting.get("admin-email")).toBe("admin@e2e.test");
+  });
+
+  it("keeps a string setting's text/plain body a string even when it reads as JSON", async () => {
+    const { mb } = clientOver([wireResponse("123", "text/plain")]);
+
+    expect(await mb.setting.get("email-from-name")).toBe("123");
+  });
+
+  it("reads a boolean setting's JSON literal as the boolean", async () => {
+    const { mb } = clientOver([wireResponse("false", JSON_CHARSET_CONTENT_TYPE)]);
+
+    expect(await mb.setting.get("enable-public-sharing")).toBe(false);
+  });
+
+  it("reads a numeric setting's JSON literal as the number", async () => {
+    const { mb } = clientOver([wireResponse("15152.63298", JSON_CHARSET_CONTENT_TYPE)]);
+
+    expect(await mb.setting.get("startup-time-millis")).toBe(15152.63298);
+  });
+
+  it("reads a keyword setting's bare name under application/json as the string", async () => {
+    const { mb } = clientOver([wireResponse("strict", JSON_CHARSET_CONTENT_TYPE)]);
+
+    expect(await mb.setting.get("session-cookie-samesite")).toBe("strict");
+  });
+
+  it("reads a JSON setting's document as the parsed value", async () => {
+    const { mb } = clientOver([
+      wireResponse(
+        '{"us_states":{"name":"United States","builtin":true}}',
+        JSON_CHARSET_CONTENT_TYPE,
+      ),
+    ]);
+
+    expect(await mb.setting.get("custom-geojson")).toEqual({
+      us_states: { name: "United States", builtin: true },
+    });
   });
 
   it("percent-encodes the key into the set path and wraps the value in the body", async () => {

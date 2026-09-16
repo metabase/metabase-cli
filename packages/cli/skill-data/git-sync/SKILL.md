@@ -2,6 +2,7 @@
 name: git-sync
 description: Round-trip Metabase content (cards, dashboards, transforms, snippets, collections, Library-published table/field metadata) between an instance and a git remote via `mb git-sync …` — status, dirty / has-remote-changes checks, import, export (with branch guard), branches, stash, add/remove a collection from sync. Load when the user wants to "import the latest changes", "export to git", "push my changes to the repo", "open a PR with my Metabase changes", "git sync", "dirty check", "stash before pulling", "add a collection to sync", or anything `mb git-sync …`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
+requires: [remoteSync]
 ---
 
 # git-sync (representations ↔ instance)
@@ -130,6 +131,8 @@ mb setting set remote-sync-type '"read-write"' --profile <n>
 
 **Verifying the result.** `mb git-sync status --profile <n> --json` lists the flagged collections under `synced_collections`, and `mb collection get <id> --json` shows the per-collection `is_remote_synced` flag.
 
+<!-- requires: library -->
+
 ## Published table metadata (Library) and sync scope
 
 Table and field metadata — table/field descriptions, semantic types (`type/PK`, `type/FK`), FK targets, plus segments and measures on the table — serializes for **Library-published tables only**, under `databases/<db>/schemas/<schema>/tables/<table>/…` in the repo. Eligibility is two-gated: the table must be published (`mb library publish`), **and** the Library collection holding it must itself carry `is_remote_synced: true`. An ordinary warehouse table, or a transform's target table that isn't published, never serializes — a transform's YAML carries only the transform definition (query, target, description), not the output table's field metadata.
@@ -143,6 +146,8 @@ mb git-sync stash --new-branch <branch> -m "..." --profile <n>     # or create-b
 ```
 
 Flagging the collection records it for the next export, which serializes its current content — including already-published tables and their field metadata. `mb library publish` prints a reminder when the target collection is outside the sync scope on an instance with a configured remote.
+
+<!-- /requires -->
 
 ## Don't (git-sync-specific)
 

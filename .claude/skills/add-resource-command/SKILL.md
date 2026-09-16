@@ -16,9 +16,9 @@ A resource straddles both workspace packages. The schema and the endpoint knowle
 Anchor to the existing house style. **Skip this and you will produce drift the type-checker won't catch.**
 
 1. `ls packages/client/src/domain/` and read **one** existing resource schema file end-to-end (e.g. `packages/client/src/domain/segment.ts`).
-2. Read the matching `packages/client/src/resources/segment.ts` and its wire test `packages/client/src/resources/segment.test.ts`, then `packages/client/src/client.ts` for how a namespace is composed onto the client.
+2. Read the matching `packages/client/src/resources/segment.ts` and its wire test `packages/client/src/resources/segment.test.ts`, then `packages/client/src/client.ts` for how a namespace is composed onto the client, and `packages/client/src/version/requirements.ts` for how every method is keyed there. If the resource's routes or shapes differ between supported Metabase majors, also read `packages/client/src/version/features.ts` and the drift site in `packages/client/src/domain/transform.ts` + `packages/client/src/resources/transform.ts`.
 3. Read `packages/cli/src/output/view.ts` (the CLI-side `ColumnDef<T>` / `ResourceView<T>` contract) and one existing `packages/cli/src/output/views/<r>.ts` presentation binding.
-4. Read **one** existing list command and **one** existing get command (look under `packages/cli/src/commands/<noun>/`). Note how `<Resource>ListEnvelope`, `outputSchema`, `capabilities`, `parseId`, `renderList`, `renderItem`, and `defineMetabaseCommand` compose.
+4. Read **one** existing list command and **one** existing get command (look under `packages/cli/src/commands/<noun>/`). Note how `<Resource>ListEnvelope`, `outputSchema`, `requires`, `parseId`, `renderList`, `renderItem`, and `defineMetabaseCommand` compose.
 5. Read **one** existing e2e test (`tests/e2e/<noun>.e2e.test.ts`) and the harness (`tests/e2e/run-cli.ts`, `tests/e2e/bootstrap-data.ts`). The `add-e2e-test` skill's runtime contract is binding here — re-read it before writing the e2e file.
 6. Read `packages/cli/src/output/types.ts` for `listEnvelopeSchema`, the `ListEnvelope<T>` interface, and `ListRange`; then `packages/cli/src/output/window.ts` for the three window helpers (`windowList`, `windowServerPage`, `collectForOutput`) and the `PageSource<T>` / `PageRequest` contract.
 
@@ -28,17 +28,18 @@ For a typical list/get pair on a new resource:
 
 1. `packages/client/src/domain/<r>.ts` — the schema pair (`<Resource>` + `<Resource>Compact`). No fixture, no schema-parse unit test.
 2. Updated `packages/client/src/index.ts` — re-export every value the domain file exports from the public barrel.
-3. `packages/client/src/resources/<r>.ts` — `<r>Resource(transport)`, one method per endpoint.
-4. Updated `packages/client/src/client.ts` — compose the namespace onto the client as `<r>: <r>Resource(transport)`.
-5. `packages/client/src/resources/<r>.test.ts` — the wire test: one `it` per method, asserting the exact URL, method, headers and body through `captureFetch`.
-6. `packages/cli/src/output/views/<r>.ts` — the CLI-side `<resource>View` presentation binding.
-7. `packages/cli/src/commands/<r>/index.ts` — citty group with subcommands.
-8. `packages/cli/src/commands/<r>/list.ts` — exports `<Resource>ListEnvelope`, uses `renderList`.
-9. `packages/cli/src/commands/<r>/get.ts` — uses `parseId` for the positional id, uses `renderItem`.
-10. (optional) `packages/cli/src/commands/<r>/<verb>.test.ts` — unit test **only where there is non-orchestration logic to test**.
-11. `tests/e2e/<r>.e2e.test.ts` — comprehensive e2e suite.
-12. Updated `packages/cli/src/main.ts` — register the new top-level subcommand.
-13. Updated `packages/cli/src/runtime/command-help.test.ts` — add the new leaf paths to the literal `ALL_COMMANDS` list.
+3. `packages/client/src/resources/<r>.ts` — `<r>Resource(transport)`, one method per endpoint, each opening with `await transport.require("<r>.<method>")`.
+4. Updated `packages/client/src/version/requirements.ts` — one `"<r>.<method>"` entry per method in `METHOD_REQUIREMENTS`, and a rule in `packages/client/src/version/features.ts` if the route is gated by a major or a token feature.
+5. Updated `packages/client/src/client.ts` — compose the namespace onto the client as `<r>: <r>Resource(transport)`.
+6. `packages/client/src/resources/<r>.test.ts` — the wire test: one `it` per method, asserting the exact URL, method, headers and body through `captureFetch`.
+7. `packages/cli/src/output/views/<r>.ts` — the CLI-side `<resource>View` presentation binding.
+8. `packages/cli/src/commands/<r>/index.ts` — citty group with subcommands.
+9. `packages/cli/src/commands/<r>/list.ts` — exports `<Resource>ListEnvelope`, uses `renderList`.
+10. `packages/cli/src/commands/<r>/get.ts` — uses `parseId` for the positional id, uses `renderItem`.
+11. (optional) `packages/cli/src/commands/<r>/<verb>.test.ts` — unit test **only where there is non-orchestration logic to test**.
+12. `tests/e2e/<r>.e2e.test.ts` — comprehensive e2e suite.
+13. Updated `packages/cli/src/main.ts` — register the new top-level subcommand.
+14. Updated `packages/cli/src/runtime/command-help.test.ts` — add the new leaf paths to the literal `ALL_COMMANDS` list.
 
 If the resource genuinely has more verbs (e.g. a `<r> values` for fetching distinct values), add them under the same group; the rules below scale per-verb.
 
@@ -46,7 +47,7 @@ If the resource genuinely has more verbs (e.g. a `<r> values` for fetching disti
 
 The domain file is client surface, so it lives in `@metabase/client`, not the CLI. Two constraints follow from that:
 
-- **A domain file imports `zod` and sibling `domain/*` files, nothing else.** Not the rest of the client (`../json`, `../poll`), not `node:` builtins, and never `packages/cli` — a client file that reaches into the CLI inverts the dependency between the two packages. The wider `zod` + `semver` + `node:` budget is the client package's ceiling; `domain/` sits well inside it.
+- **A domain file imports `zod`, sibling `domain/*` files and — only for a reader that selects a wire shape by generation — `import type { Features } from "../version/features"`, nothing else.** Not the rest of the client (`../json`, `../poll`), not `node:` builtins, and never `packages/cli` — a client file that reaches into the CLI inverts the dependency between the two packages. The wider `zod` + `semver` + `node:` budget is the client package's ceiling; `domain/` sits well inside it.
 - **Nothing CLI-shaped leaks in.** No `@clack/prompts`, no `process.stdout.write`, no `process.exit` — the client never owns presentation or process control.
 
 A single file in `packages/client/src/domain/` may host multiple resources (e.g. `domain/user.ts` exports `CurrentUser` / `CurrentUserCompact`). The pair holds **per resource**, not per file. `<Resource>` is PascalCase.
@@ -74,7 +75,7 @@ Rules:
 - **`.strip()` after `.pick()` is mandatory on the Compact**, not optional. `.pick({...})` on a `.loose()` parent inherits the loose catchall, and the picked schema then _passes every API field through unchanged at parse time_ — your "compact" projection silently leaks the full payload into list output and default (compact) JSON. The bug is invisible until you eyeball the rendered output. Always end with `.strip()`.
 - The compact projection is the **agent-facing contract** — it shows up in list output and default (compact) JSON. Pick the smallest set of fields that uniquely identifies + describes the resource for an LLM caller.
 - Type aliases via `z.infer<typeof X>`. Never hand-write a parallel `interface` — it will drift silently.
-- **Optional vs. nullable.** Metabase returns `null` for absent values; it rarely omits the key. Default to `z.<base>().nullable()` and reach for `.optional()` only when you have observed the key actually missing in a real response. Wrong here causes silent parse failures on real payloads.
+- **Optional vs. nullable.** Metabase returns `null` for absent values; it rarely omits the key. Default to `z.<base>().nullable()` and reach for `.optional()` only when you have observed the key actually missing in a real response **on every supported server**. `.optional()` means "any server may omit this"; a key that one generation sends and another does not is version drift and takes the wire-variant path below, never an optional. Wrong here causes silent parse failures on real payloads.
 - **Schema scope is principal-engineer judgment, not "mirror the frontend type."** Pick the fields the agent needs to do its job (write queries, choose content). Drop sync flags, fingerprints, JSON-unfolding metadata, audit timestamps, and other internal plumbing. `.loose()` keeps the door open for fields the agent doesn't need declared. The schema's job is to declare what's required and what's typed — not to recapitulate the API.
 - **Request-body schemas belong here too.** A create or update verb takes a `<Resource>CreateInput` / `<Resource>UpdateInput` declared alongside the resource, and both the CLI's `readBody` and the resource method's parameter type read it from this one place.
 - **Re-export every value the domain file exports from `packages/client/src/index.ts`**, in the alphabetical `./domain/<r>` block. A `domain/` value the barrel does not name is not public client surface — a domain file alone does not make one.
@@ -88,6 +89,44 @@ Forbidden:
 - Declaring the server's **wire envelope** here. `{ data: [...], total: N }` around a list, or any other shape the transport unwraps and never hands back, is module-private to `resources/` (Step 2). `domain/` holds only what a caller receives.
 - Editing an existing command to wire the schema in. Every layer here is purely additive; the command in Step 3 is the one that consumes it.
 - Adding a `packages/client/tests/fixtures/<r>/sample.json` + colocated parse-test pair. `Schema.parse(fixture).toEqual(fixture)` is a tautology against Zod itself, with zero signal about whether the schema matches a real response. The schema is contract-tested by the e2e tier in Step 5.
+
+### Step 1a — When a shape differs between supported Metabase majors
+
+Establish the fact first: read the endpoint on each release branch of the reference Metabase checkout (`origin/release-x.58.x` … the newest, and `master`), or `curl` the matrix stacks, and write down which majors answer which shape. Then:
+
+1. Add a rule to `FEATURE_RULES` in `packages/client/src/version/features.ts`, named after the behaviour (`transformTargetTableId`, `libraryChildrenCarryType`) and never after a version. `{ since }` for a shape that arrived, `{ since, until }` for one only older servers have, `tokenFeature` when a premium feature gates it. `features.test.ts` fails a rule that is constant across `KNOWN_RANGE`, and `major-comparison-guard.test.ts` fails a `.major` comparison anywhere else — the rule is the only place the major is read.
+2. The canonical `<Resource>` is the **newest** supported server's shape. A field an older server cannot report is `.nullable()` on the canonical, `null` meaning "this server cannot say".
+3. Each older generation gets a module-private `<Resource>WireV<N>` schema (N is the first major answering that shape) that parses exactly what that server sends, and a converter to the canonical shape. A converter may add fields but never maps two distinguishable wire states onto one canonical state, and it strips the wire fields it owns so the canonical JSON is the same on every server.
+4. Export a reader, `<resource><Endpoint>Schema(features: Features): z.ZodType<Resource>`, that returns the canonical schema on the newest generation and `wire.transform(converter)` on the others. The resource hands it to `transport.requestParsed`, so a mismatch is the transport's `ResponseShapeError` naming the server tag.
+
+```ts
+import type { Features } from "../version/features";
+
+const TransformBase = z.object({ id: z.number().int(), name: z.string() /* … */ }).loose();
+
+export const Transform = TransformBase.extend({ target_table_id: z.number().int().nullable() });
+export type Transform = z.infer<typeof Transform>;
+
+const TransformWireV59Detail = TransformBase.extend({
+  table: z.object({ id: z.number().int() }).loose().nullable(),
+});
+
+function fromHydratedTable(wire: z.infer<typeof TransformWireV59Detail>): Transform {
+  const { table, ...rest } = wire;
+  return { ...rest, target_table_id: table === null ? null : table.id };
+}
+
+/** The shape `GET /api/transform/{id}` answers on a server with `features`, read as `Transform`. */
+export function transformDetailSchema(features: Features): z.ZodType<Transform> {
+  return features.transformTargetTableId
+    ? Transform
+    : TransformWireV59Detail.transform(fromHydratedTable);
+}
+```
+
+When the converter needs a second request (the canonical field is on no generation's wire), the reader returns a tagged wire (`{ childrenCarryType: true, root }`) and a separate exported converter takes the extra input — `libraryWireSchema(features)` + `toLibrary(wire, listing)` in `packages/client/src/domain/library.ts` is the model. Unit-test the converters in `packages/client/src/domain/<r>.test.ts` over `evaluateFeatures(<major>, <tokenFeatures>)` with exact `toEqual` per generation, and the refusal direction (an older wire on a newer profile) in the resource wire test with the exact `ResponseShapeError` message.
+
+Two things that look like drift are not: a setting value's encoding and a 404's content type are dispatched on runtime type and handler, identical on every supported server. Verify against the server's middleware before adding a switch.
 
 ## Step 2 — Resource methods (`packages/client/src/resources/<r>.ts`)
 
@@ -120,6 +159,7 @@ export function cardResource(transport: Transport) {
     params: CardListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Card>> {
+    await transport.require("card.list");
     const data = await transport.requestParsed(CardApiList, "/api/card", {
       ...options,
       query: { f: params.f, model_id: params.model_id },
@@ -129,11 +169,13 @@ export function cardResource(transport: Transport) {
 
   /** Get one card by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<Card> {
+    await transport.require("card.get");
     return transport.requestParsed(Card, `/api/card/${id}`, { ...options });
   }
 
   /** Create a card — a question, a model, or a metric — from a full card body. */
   async function create(params: CardCreateInput, options: RequestOptions = {}): Promise<Card> {
+    await transport.require("card.create");
     return transport.requestParsed(Card, "/api/card", { ...options, method: "POST", body: params });
   }
 
@@ -143,6 +185,7 @@ export function cardResource(transport: Transport) {
     params: CardUpdateInput,
     options: RequestOptions = {},
   ): Promise<Card> {
+    await transport.require("card.update");
     return transport.requestParsed(Card, `/api/card/${id}`, {
       ...options,
       method: "PUT",
@@ -152,6 +195,7 @@ export function cardResource(transport: Transport) {
 
   /** Archive (soft-delete) a card by id. Metabase models this as an update, not its own endpoint. */
   async function archive(id: number, options: RequestOptions = {}): Promise<Card> {
+    await transport.require("card.archive");
     return update(id, { archived: true }, options);
   }
 
@@ -159,7 +203,7 @@ export function cardResource(transport: Transport) {
 }
 ```
 
-The eight conventions every method follows:
+The nine conventions every method follows:
 
 1. `client.<resource>.<method>(...)`, namespace named after the API resource (`mb.card`, singular).
    The resource is what Metabase calls the thing, not what it calls the route: the file and the
@@ -175,6 +219,7 @@ The eight conventions every method follows:
    `ListResult<T>` = `{ data, total }`.
 7. A string path parameter always goes through `encodeURIComponent`.
 8. Every method carries the endpoint's description as a doc comment.
+9. Every method opens with `await transport.require("<r>.<method>")`, keyed exactly as the method is reached on the client, and that key has an entry in `METHOD_REQUIREMENTS` (`packages/client/src/version/requirements.ts`): `[]` when every supported server answers the route, otherwise the feature names it needs, strictest first. `requirements.test.ts` fails a key the table lacks, a table key no method requires, and a method requiring a key from another resource's namespace. A method whose wire shape is selected by generation then reads `const { features } = await transport.server()` and parses with the reader from Step 1a.
 
 Convention 7 has a companion habit: when every path parameter on a resource is a numeric id, say so in a one-line comment at the top of the factory, so a reader knows the omission was decided rather than forgotten.
 
@@ -266,7 +311,7 @@ export const <Resource>ListEnvelope = listEnvelopeSchema(<Resource>Compact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List <resource-plural>" },
-  capabilities: { minVersion: 58 },
+  requires: ["<r>.list"],
   args: { ...outputFlags, ...listFlags, ...profileFlag, ...connectionFlags /* + filter flags */ },
   outputSchema: <Resource>ListEnvelope,
   examples: ["mb <r> list", "mb <r> list --json"],
@@ -306,7 +351,7 @@ renderList(envelope, collectionItemView, ctx);
 
 `collectForOutput` pulls only as far as the output byte budget can display, so an unbounded listing over a large collection costs a page or two rather than a full drain the cap then discards. It sizes each request through the `PageRequest` it hands the source — forward `max` and `pageSize` verbatim, or the budget cannot bound the walk.
 
-Every command declares `capabilities`: `{ minVersion: 58 }` is the supported baseline (no probe, no enforcement), a higher `minVersion` or a `tokenFeature` gates the command behind the preflight check, and `null` marks a command that never touches a Metabase server. Validate the right `minVersion` against the Metabase route files before picking one.
+Every command declares `requires`: the list of `"<r>.<method>"` keys its `run` body reaches (plus the methods of any helper it hands the client to), or `null` for a command that never touches a Metabase server. `packages/cli/src/commands/requires-guard.test.ts` reads the body and fails a declaration that differs from the calls in it, so the list is transcribed, not chosen. The preflight derives the features from `METHOD_REQUIREMENTS`, runs once per command against the profile's cached probe (or one live probe), and refuses with the client's own message and exit code 2; a command whose methods need nothing never preflights. `help --json` reports the derived `requires: { methods, features }` and a `capabilities` summary. Nothing on the command names a version.
 
 The `<Resource>ListEnvelope` export is **mandatory**. It is consumed by JSON help (`--help --json`, via `outputSchema`) and by the matching e2e test (which imports it back to parse `--json` output). Do **not** redeclare the envelope shape inline anywhere. It is the _CLI's_ envelope — `{ data, returned, offset, limit?, total?, has_more, next_offset?, truncated? }`, declared in `packages/cli/src/output/types.ts` — and has nothing to do with the server's wire envelope, which stayed module-private in Step 2.
 
@@ -323,7 +368,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a <r> by id" },
-  capabilities: { minVersion: 58 },
+  requires: ["<r>.get"],
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -375,6 +420,7 @@ A comprehensive suite for a typical list/get pair covers, at minimum:
 3. **Get, success** — `exitCode === 0`, parsed via `<Resource>` (with `--full`) or `<Resource>Compact` (default). Assert the parsed object with one `toEqual({ ... })` over the full expected payload, **never** a sequence of `expect(parsed.id).toBe(...)`/`expect(parsed.name).toBe(...)` field pokes. Use a seeded id from `tests/e2e/seed/seeded.ts` (`SEEDED`) or a pinned constant from `tests/e2e/seed/ids.ts`, otherwise look up the id dynamically by listing first and filtering by a known name.
 4. **Get, invalid positional** (`abc`, empty, negative, zero) — `exitCode === 2` (`ConfigError`), `stderr.toContain('invalid id: "<value>" (expected integer)')` (the literal message from `packages/cli/src/commands/parse-integer.ts`, which `parseId` delegates to), stdout empty.
 5. **Get, valid format but missing on server** (e.g. `9999999`) — `exitCode === 1` (`HttpError`), `stderr.toContain("Not found.")` (the literal `userMessage` from Metabase's 404 envelope; see `packages/client/src/http/errors.ts` for the taxonomy).
+6. **Gating and generations.** A suite whose methods need a feature gates itself with `requireServer("<noun> › <lane>", ["<feature>"])` from `tests/e2e/server-gate.ts` via `describe.skipIf`, so a stack that lacks the route reports a skip rather than a failure. Where every stack answers but the answers differ (a drift site from Step 1a), branch with `serverHas("<feature>")` and assert the exact outcome for each generation — the canonical JSON is the same shape on every server, so the assertion usually differs only in a value (`expect.any(Number)` vs `null`).
 
 Assertions are exact at every level — these are not stylistic preferences, they are hard rules from CLAUDE.md and the `add-e2e-test` skill:
 
@@ -415,11 +461,15 @@ rg -n "/api/" packages/client/src/domain/<r>.ts && echo FAIL || echo OK   # endp
 rg -n "\.request(Parsed|Raw|Stream)\(" packages/client/src/resources/<r>.ts || echo "FAIL: no transport call — is this file doing anything?"
 rg -n "\$\{[a-zA-Z_$][\w$]*\}" packages/client/src/resources/<r>.ts   # every string interpolation: numeric id, or encodeURIComponent?
 rg -n "<r>Resource" packages/client/src/client.ts || echo "FAIL: namespace not composed onto the client"
+rg -n "transport\.require\(\"<r>\." packages/client/src/resources/<r>.ts || echo "FAIL: no require() — every method opens with one"
+rg -n "\"<r>\." packages/client/src/version/requirements.ts || echo "FAIL: no METHOD_REQUIREMENTS entries for <r>"
+rg -n "\.major\s*(<|>|=)" packages/client/src/domain/<r>.ts packages/client/src/resources/<r>.ts && echo FAIL || echo OK   # only version/features.ts compares a major
 
 # Command files (CLI surface — flags in, client call, render out):
 rg -n '["`]/api/' packages/cli/src/commands/<r>/ && echo FAIL || echo OK   # the API-path rule
 rg -n "\.request(Parsed|Raw|Stream)\(|paginatePages\(" packages/cli/src/commands/<r>/ && echo FAIL || echo OK   # the transport rule
 rg -n "from \"\.\./\.\./domain/" packages/cli/src/commands/<r>/ && echo FAIL || echo OK   # use @metabase/client/domain/<r>
+rg -n "minVersion|capabilities:" packages/cli/src/commands/<r>/ && echo FAIL || echo OK   # commands declare `requires`, never a version
 
 # E2E test:
 rg -n 'from\s+"execa"|from\s+"node:child_process"|from\s+"child_process"' tests/e2e/<r>.e2e.test.ts && echo FAIL || echo OK
@@ -458,13 +508,14 @@ If either skill surfaces a structural issue (missing `.strip()`, a request built
 ## Sanity checks before declaring done
 
 - [ ] Step 0 actually performed (read existing domain file, resource file + wire test, `client.ts`, list command, get command, e2e test, `packages/cli/src/output/types.ts`, `packages/cli/src/output/window.ts`).
-- [ ] Domain file landed in `packages/client/src/domain/`, importing only `zod` and sibling `domain/*` files.
+- [ ] Domain file landed in `packages/client/src/domain/`, importing only `zod`, sibling `domain/*` files and (for a generation reader) `import type { Features }`.
 - [ ] **Domain pair**: `<Resource>` with `.loose()`, `<Resource>Compact` with `.pick({...}).strip()`. No hand-written parallel interface.
 - [ ] Every value the domain file exports is re-exported from `packages/client/src/index.ts`.
 - [ ] Closed enums pinned via `z.enum([...])` where the backend defines a closed set.
 - [ ] Schema scope is query/agent-relevant fields only — no sync flags, fingerprints, audit timestamps, or other internal plumbing unless they drive an actual decision.
 - [ ] No fixture or schema-parse unit test added.
-- [ ] **Resource file** `packages/client/src/resources/<r>.ts` exports `<r>Resource(transport)`, holds every `/api/` path and every transport call, and follows all eight conventions — positional path params then params then options, Metabase's own field names, transport concerns in `options`, wire envelopes module-private, domain values returned, `ListResult<T>` for a non-paginated list, `encodeURIComponent` on every string path param, a doc comment per method.
+- [ ] **Resource file** `packages/client/src/resources/<r>.ts` exports `<r>Resource(transport)`, holds every `/api/` path and every transport call, and follows all nine conventions — positional path params then params then options, Metabase's own field names, transport concerns in `options`, wire envelopes module-private, domain values returned, `ListResult<T>` for a non-paginated list, `encodeURIComponent` on every string path param, a doc comment per method, `await transport.require("<r>.<method>")` first in every method.
+- [ ] **Requirements** — every method has its `"<r>.<method>"` entry in `METHOD_REQUIREMENTS`; a gated route has a behaviour-named rule in `FEATURE_RULES` verified against the Metabase release branches; a shape that differs by generation has its `<Resource>WireV<N>` + converter + exported reader, with converter unit tests per generation.
 - [ ] **Namespace composed** onto `packages/client/src/client.ts` as `<r>: <r>Resource(transport)`.
 - [ ] **Wire test** `packages/client/src/resources/<r>.test.ts` asserts URL, method, headers and body for every method through `captureFetch`.
 - [ ] **View binding** `<resource>View` landed in `packages/cli/src/output/views/<r>.ts` (not the domain file, not the resource file), with any `format:` cell helpers colocated there.
@@ -472,10 +523,10 @@ If either skill surfaces a structural issue (missing `.strip()`, a request built
 - [ ] **List command** exports `<Resource>ListEnvelope = listEnvelopeSchema(<Resource>Compact)` and uses it as `outputSchema`.
 - [ ] **List command** spreads `...listFlags` and builds its envelope with the window helper that matches who applied the window (`windowList` / `windowServerPage` / `collectForOutput`) — never a hand-rolled object.
 - [ ] **Get command** uses `parseId` for the positional integer id.
-- [ ] Every leaf command declares `capabilities` explicitly (`{ minVersion: … }` or `null`).
+- [ ] Every leaf command declares `requires` (the method keys its body reaches, or `null`) and names no version.
 - [ ] `packages/cli/src/main.ts` registers the new subcommand.
 - [ ] Command unit test added only where non-orchestration logic exists (or none added, with explicit rationale — "command body is pure orchestration" is acceptable).
-- [ ] **E2E test** at `tests/e2e/<r>.e2e.test.ts` covering at minimum: list default, list filtered (if applicable), get success, get invalid id, get missing id.
+- [ ] **E2E test** at `tests/e2e/<r>.e2e.test.ts` covering at minimum: list default, list filtered (if applicable), get success, get invalid id, get missing id; gated with `requireServer` where a stack may lack the route, branched with `serverHas` where generations differ.
 - [ ] E2E test imports schemas from `@metabase/client/domain/<r>` and `../../packages/cli/src/commands/<r>/list`; no `z.object({...})` redeclaration of any output shape.
 - [ ] `packages/cli/src/runtime/command-help.test.ts` `ALL_COMMANDS` list updated with the new leaves.
 - [ ] Self-grep step (Step 7) ran clean.

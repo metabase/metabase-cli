@@ -2,6 +2,7 @@ import type { ZodType } from "zod";
 
 import { ResponseShapeError, ValidationError } from "../errors";
 import { parseJson } from "../json";
+import type { Skew } from "../version/profile";
 
 import type { HttpMethod, ServerTagResolver } from "./transport";
 
@@ -12,6 +13,7 @@ export interface ResponseContext {
   url: string;
   status: number;
   getServerTag: ServerTagResolver;
+  serverSkew: Skew | null;
 }
 
 // The server tag is resolved lazily: naming the version costs a request, and only a failed parse
@@ -32,6 +34,7 @@ export async function parseJsonResponse<T>(
         status: context.status,
         zodIssues: error.developerDetail.zodIssues,
         serverTag: await context.getServerTag(),
+        serverSkew: context.serverSkew,
       });
     }
     throw error;

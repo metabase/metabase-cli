@@ -13,13 +13,9 @@ import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { requireServer } from "./server-gate";
 
-// The remote-sync API has breaking server-side differences through v59 (the git source layer
-// was reworked and v59 NPEs on the idempotent `remove-collection` no-op path); it settles at
-// v60, which is the minVersion every git-sync command declares.
-const skipReason = requireServer("git-sync › git-sync e2e against EE git-sync endpoints", {
-  minVersion: 60,
-  tokenFeature: "remote_sync",
-});
+const skipReason = requireServer("git-sync › git-sync e2e against EE git-sync endpoints", [
+  "remoteSync",
+]);
 
 describe("git-sync arg validation e2e (no Metabase contact required)", () => {
   const tempDirs: string[] = [];

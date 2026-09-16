@@ -1,50 +1,30 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { writeProbeResult, writeProfile } from "../../packages/cli/src/core/auth/storage";
+import { parseJson } from "@metabase/client/json";
+import { KNOWN_RANGE } from "@metabase/client/version/profile";
 
+import { AuthStatus } from "../../packages/cli/src/commands/auth/status";
+import { CardListEnvelope } from "../../packages/cli/src/commands/card/list";
+import { summarizeServer } from "../../packages/cli/src/core/auth/server-summary";
+
+import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
+import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import {
+  SEED_USER,
+  seedProbedProfile,
+  seedProbedProfileAt,
+  seedProfile,
+  type SeedTarget,
+  versionAt,
+} from "./seed-profile";
+import { E2E_BUILTIN_TRANSFORM_JOBS } from "./seed/ids";
+import { requireServer } from "./server-gate";
 
-const UNREACHABLE_URL = "http://127.0.0.1:1";
+const BEYOND_KNOWN = KNOWN_RANGE.max + 5;
 
-function restoreEnv(key: string, value: string | undefined): void {
-  if (value === undefined) {
-    delete process.env[key];
-  } else {
-    process.env[key] = value;
-  }
-}
-
-async function withSeedEnv(configHome: string, seed: () => Promise<void>): Promise<void> {
-  const prevXdg = process.env["XDG_CONFIG_HOME"];
-  const prevKeyring = process.env["MB_CLI_DISABLE_KEYRING"];
-  process.env["XDG_CONFIG_HOME"] = configHome;
-  process.env["MB_CLI_DISABLE_KEYRING"] = "1";
-  try {
-    await seed();
-  } finally {
-    restoreEnv("XDG_CONFIG_HOME", prevXdg);
-    restoreEnv("MB_CLI_DISABLE_KEYRING", prevKeyring);
-  }
-}
-
-async function seedProfile(configHome: string): Promise<void> {
-  await withSeedEnv(configHome, async () => {
-    await writeProfile({ url: UNREACHABLE_URL, apiKey: "secret-key" }, "default");
-  });
-}
-
-async function seedProbedProfile(configHome: string, major: number): Promise<void> {
-  await withSeedEnv(configHome, async () => {
-    await writeProfile({ url: UNREACHABLE_URL, apiKey: "secret-key" }, "default");
-    await writeProbeResult("default", {
-      user: { id: 1, name: "Tester", isAdmin: true },
-      server: {
-        version: { tag: `v0.${major}.0`, major, patch: 0 },
-        tokenFeatures: null,
-      },
-    });
-  });
-}
+const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were v${KNOWN_RANGE.max}. Run \`mb upgrade\` for a newer CLI.`;
+const UNKNOWN_NOTICE = `Could not parse the Metabase version; assuming the newest supported (v${KNOWN_RANGE.max}).`;
 
 describe("version preflight enforcement e2e", () => {
   const tempDirs: string[] = [];
@@ -59,7 +39,7 @@ describe("version preflight enforcement e2e", () => {
     return dir;
   }
 
-  it("refuses a command whose minVersion exceeds the cached server version (exit 2)", async () => {
+  it("refuses a command whose feature the cached server version predates (exit 2)", async () => {
     const configHome = await makeIsolatedConfigHome();
     await seedProbedProfile(configHome, 58);
 
@@ -82,15 +62,16 @@ describe("version preflight enforcement e2e", () => {
     expect(result.stderr).toContain("Could not reach Metabase");
   });
 
-  it("warns but proceeds when a gated command runs without a cached probe", async () => {
+  it("probes the server itself when a gated command runs without a cached probe and fails on the network layer", async () => {
     const configHome = await makeIsolatedConfigHome();
     await seedProfile(configHome);
 
     const result = await runCli({ args: ["measure", "list"], configHome });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Could not detect Metabase server version");
-    expect(result.stderr).toContain("Could not reach Metabase");
+    expect(cliErrorMessage(result.stderr)).toBe("Could not reach Metabase: fetch failed");
+    expect(result.stderr).not.toContain("Could not detect Metabase server version");
+    expect(result.stdout).toBe("");
   });
 
   it("refuses a token-gated command when the cached server lacks the premium feature (exit 2)", async () => {
@@ -118,5 +99,105 @@ describe("version preflight enforcement e2e", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).not.toContain("This operation requires Metabase");
     expect(result.stderr).toContain("Could not reach Metabase");
+  });
+});
+
+describe("version skew notices e2e", () => {
+  let bootstrap: E2EBootstrap;
+  const tempDirs: string[] = [];
+
+  beforeAll(async () => {
+    bootstrap = await readBootstrap();
+  });
+
+  afterEach(async () => {
+    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+  });
+
+  async function makeIsolatedConfigHome(): Promise<string> {
+    const dir = await mkTempConfigHome();
+    tempDirs.push(dir);
+    return dir;
+  }
+
+  function liveTarget(): SeedTarget {
+    return { url: bootstrap.baseUrl, apiKey: bootstrap.adminApiKey };
+  }
+
+  it("prints exactly one newer-server notice on stderr and succeeds when the cached probe is above the known range", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfileAt(configHome, liveTarget(), versionAt(BEYOND_KNOWN));
+
+    const result = await runCli({ args: ["card", "list", "--limit", "1", "--json"], configHome });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.stderr).toBe(NEWER_NOTICE);
+    expect(parseJson(result.stdout, CardListEnvelope).returned).toBe(1);
+  });
+
+  it("prints exactly one unknown-version notice on stderr and succeeds when the cached probe carries no parseable version", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfileAt(configHome, liveTarget(), null);
+
+    const result = await runCli({ args: ["card", "list", "--limit", "1", "--json"], configHome });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.stderr).toBe(UNKNOWN_NOTICE);
+    expect(parseJson(result.stdout, CardListEnvelope).returned).toBe(1);
+  });
+
+  it("prints no notice when the cached probe is inside the known range", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfileAt(configHome, liveTarget(), versionAt(KNOWN_RANGE.max));
+
+    const result = await runCli({ args: ["card", "list", "--limit", "1", "--json"], configHome });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.stderr).toBe("");
+  });
+
+  // A cached v59 profile reads a job run as the stub-string generation; a head server answers with
+  // the numeric one, so the parse fails against the stale cache and the CLI must notice the server
+  // moved. Head reports no parseable tag, which is what the refreshed profile then records.
+  const reprobeSkipReason = requireServer("version › re-probe on a shape error", [
+    "transformJobRunIdIsNumeric",
+  ]);
+
+  describe.skipIf(reprobeSkipReason !== null)("re-probe on a shape error", () => {
+    it("re-probes once, refreshes the stale profile, and appends the change to the error", async () => {
+      const configHome = await makeIsolatedConfigHome();
+      await seedProbedProfileAt(configHome, liveTarget(), versionAt(59));
+
+      const result = await runCli({
+        args: ["transform-job", "run", String(E2E_BUILTIN_TRANSFORM_JOBS.DAILY), "--json"],
+        configHome,
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "On Metabase v0.59.0 the response shape was unexpected:\n" +
+          "  job_run_id: Invalid input: expected string, received null\n" +
+          "The server's version changed since the last probe (was v0.59.0, now an unparseable version); the profile was refreshed — retry the command.",
+      );
+
+      const status = await runCli({ args: ["auth", "status", "--json"], configHome });
+      expect(status.exitCode, status.stderr).toBe(0);
+      const payload = parseJson(status.stdout, AuthStatus);
+      expect(payload).toEqual({
+        profile: "default",
+        present: true,
+        url: bootstrap.baseUrl,
+        method: "apiKey",
+        user: SEED_USER,
+        ...summarizeServer({
+          version: null,
+          date: bootstrap.server.date,
+          hash: bootstrap.server.hash,
+          tokenFeatures: bootstrap.server.tokenFeatures,
+        }),
+        lastProbedAt: payload.lastProbedAt,
+        lastFailure: null,
+      });
+    });
   });
 });

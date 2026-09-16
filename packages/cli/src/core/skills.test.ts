@@ -2,26 +2,45 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import * as fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { ConfigError } from "@metabase/client/errors";
+import { FEATURE_NAMES } from "@metabase/client/version/features";
+import type { ServerInfo } from "@metabase/client/version/probe";
+import { createServerProfile, type ServerProfile } from "@metabase/client/version/profile";
 import { ENV_SKILLS_DIR } from "./env";
 import {
   availableSkillNames,
   discoverSkills,
   findSkillByName,
+  loadAllSkills,
   parseFrontmatter,
   readSkillContent,
+  resolveSections,
   resolveSkillDirs,
+  selectForProfile,
   selectSkillsByNames,
   type SkillInfo,
 } from "./skills";
+
+function profileAt(
+  major: number,
+  tokenFeatures: ServerInfo["tokenFeatures"] = null,
+): ServerProfile {
+  return createServerProfile({
+    version: { tag: `v0.${major}.0`, major, patch: 0 },
+    date: null,
+    hash: null,
+    tokenFeatures,
+  });
+}
 
 describe("parseFrontmatter", () => {
   it("parses a minimal frontmatter block", () => {
     expect(
       parseFrontmatter("---\nname: test-skill\ndescription: A test skill.\n---\n\nBody."),
-    ).toEqual({ name: "test-skill", description: "A test skill.", hidden: false });
+    ).toEqual({ name: "test-skill", description: "A test skill.", hidden: false, requires: [] });
   });
 
   it("returns null when there is no frontmatter delimiter", () => {
@@ -46,6 +65,7 @@ describe("parseFrontmatter", () => {
       name: "multi",
       description: "First sentence. Second line. Third line.",
       hidden: false,
+      requires: [],
     });
   });
 
@@ -54,16 +74,19 @@ describe("parseFrontmatter", () => {
       name: "a",
       description: "x",
       hidden: true,
+      requires: [],
     });
     expect(parseFrontmatter("---\nname: b\ndescription: x\nhidden: false\n---\n")).toEqual({
       name: "b",
       description: "x",
       hidden: false,
+      requires: [],
     });
     expect(parseFrontmatter("---\nname: c\ndescription: x\n---\n")).toEqual({
       name: "c",
       description: "x",
       hidden: false,
+      requires: [],
     });
   });
 
@@ -91,6 +114,7 @@ interface WriteSkillFrontmatter {
   name: string;
   description: string;
   hidden?: boolean;
+  requires?: readonly string[];
 }
 
 function writeSkill(
@@ -104,6 +128,9 @@ function writeSkill(
   const lines = ["---", `name: ${frontmatter.name}`, `description: ${frontmatter.description}`];
   if (frontmatter.hidden === true) {
     lines.push("hidden: true");
+  }
+  if (frontmatter.requires !== undefined) {
+    lines.push(`requires: [${frontmatter.requires.join(", ")}]`);
   }
   lines.push("---", "", body);
   writeFileSync(join(dir, "SKILL.md"), lines.join("\n"), "utf8");
@@ -137,17 +164,25 @@ describe("discoverSkills", () => {
     );
 
     expect(discoverSkills([temp.skills, temp.skillData])).toEqual([
-      { name: "core", description: "Core.", hidden: false, dir: join(temp.skillData, "core") },
+      {
+        name: "core",
+        description: "Core.",
+        hidden: false,
+        requires: [],
+        dir: join(temp.skillData, "core"),
+      },
       {
         name: "metabase-cli",
         description: "Stub.",
         hidden: true,
+        requires: [],
         dir: join(temp.skills, "metabase-cli"),
       },
       {
         name: "transform",
         description: "Transforms.",
         hidden: false,
+        requires: [],
         dir: join(temp.skillData, "transform"),
       },
     ]);
@@ -161,7 +196,13 @@ describe("discoverSkills", () => {
     writeSkill(temp.skillData, "real", { name: "real", description: "Real." }, "real body");
 
     expect(discoverSkills([temp.skillData])).toEqual([
-      { name: "real", description: "Real.", hidden: false, dir: join(temp.skillData, "real") },
+      {
+        name: "real",
+        description: "Real.",
+        hidden: false,
+        requires: [],
+        dir: join(temp.skillData, "real"),
+      },
     ]);
   });
 
@@ -169,6 +210,241 @@ describe("discoverSkills", () => {
     expect(discoverSkills([join(temp.root, "missing-1"), join(temp.root, "missing-2")])).toEqual(
       [],
     );
+  });
+
+  it("reads `requires` as feature names", () => {
+    writeSkill(
+      temp.skillData,
+      "transform",
+      { name: "transform", description: "Transforms.", requires: ["transforms", "measures"] },
+      "body",
+    );
+
+    expect(discoverSkills([temp.skillData])).toEqual([
+      {
+        name: "transform",
+        description: "Transforms.",
+        hidden: false,
+        requires: ["transforms", "measures"],
+        dir: join(temp.skillData, "transform"),
+      },
+    ]);
+  });
+
+  it("throws ConfigError naming an unknown feature in `requires` rather than skipping the skill", () => {
+    writeSkill(
+      temp.skillData,
+      "typo",
+      { name: "typo", description: "Typo.", requires: ["transforms", "transfroms"] },
+      "body",
+    );
+
+    expect(() => discoverSkills([temp.skillData])).toThrow(
+      new ConfigError(
+        `skill typo: unknown feature in requires: transfroms (known: ${FEATURE_NAMES.join(", ")})`,
+      ),
+    );
+  });
+});
+
+describe("resolveSections", () => {
+  const TEXT = [
+    "Intro.",
+    "",
+    "<!-- requires: transforms -->",
+    "## Transforms",
+    "",
+    "Run one.",
+    "<!-- /requires -->",
+    "",
+    "<!--requires: library,remoteSync-->",
+    "Publish it.",
+    "<!-- /requires -->",
+    "",
+    "Outro.",
+  ].join("\n");
+
+  it("returns the text as written, markers included, without features to resolve against", () => {
+    expect(resolveSections(TEXT, null, "skill x")).toBe(TEXT);
+  });
+
+  it("keeps a met section without its markers and drops an unmet one with the blank line after it", () => {
+    expect(resolveSections(TEXT, profileAt(61).features, "skill x")).toBe(
+      ["Intro.", "", "## Transforms", "", "Run one.", "", "Outro."].join("\n"),
+    );
+  });
+
+  it("needs every feature a section names", () => {
+    const withLibraryOnly = profileAt(61, { library: true }).features;
+    const withBoth = profileAt(61, { library: true, remote_sync: true }).features;
+
+    expect(resolveSections(TEXT, withLibraryOnly, "skill x")).not.toContain("Publish it.");
+    expect(resolveSections(TEXT, withBoth, "skill x")).toBe(
+      ["Intro.", "", "## Transforms", "", "Run one.", "", "Publish it.", "", "Outro."].join("\n"),
+    );
+  });
+
+  it("drops every section on a server that has none of the features", () => {
+    expect(resolveSections(TEXT, profileAt(58).features, "skill x")).toBe(
+      ["Intro.", "", "Outro."].join("\n"),
+    );
+  });
+
+  it("resolves markers the formatter surrounded with blank lines to single blank lines either way", () => {
+    const text = [
+      "A",
+      "",
+      "<!-- requires: transforms -->",
+      "",
+      "B",
+      "",
+      "<!-- /requires -->",
+      "",
+      "C",
+    ].join("\n");
+
+    expect(resolveSections(text, profileAt(61).features, "skill x")).toBe("A\n\nB\n\nC");
+    expect(resolveSections(text, profileAt(58).features, "skill x")).toBe("A\n\nC");
+  });
+
+  it("keeps the single blank line between neighbours when a dropped section sat between them", () => {
+    const text = ["A", "<!-- requires: transforms -->", "B", "<!-- /requires -->", "C"].join("\n");
+    expect(resolveSections(text, profileAt(58).features, "skill x")).toBe("A\nC");
+  });
+
+  it("returns any text without a marker unchanged, whatever the features", () => {
+    const plainLine = fc.string().filter((line) => !line.includes("<!--"));
+    fc.assert(
+      fc.property(
+        fc.array(plainLine),
+        fc.constantFrom(null, profileAt(58).features, profileAt(63).features),
+        (lines, features) => {
+          const text = lines.join("\n");
+          expect(resolveSections(text, features, "skill x")).toBe(text);
+        },
+      ),
+    );
+  });
+
+  it("returns balanced sections as written without features, and marker-free with them", () => {
+    const plainLine = fc.string().filter((line) => !line.includes("<!--") && line.trim() !== "");
+    const section = fc
+      .tuple(fc.constantFrom("transforms", "library"), fc.array(plainLine))
+      .map(([feature, inner]) =>
+        [`<!-- requires: ${feature} -->`].concat(inner, ["<!-- /requires -->"]),
+      );
+    const document = fc
+      .array(fc.oneof(fc.array(plainLine, { maxLength: 3 }), section))
+      .map((blocks) => blocks.flat().join("\n"));
+    fc.assert(
+      fc.property(document, (text) => {
+        expect(resolveSections(text, null, "skill x")).toBe(text);
+        const resolved = resolveSections(text, profileAt(61).features, "skill x");
+        expect(resolved).not.toContain("<!-- requires");
+        expect(resolved).not.toContain("<!-- /requires");
+      }),
+    );
+  });
+
+  it("throws ConfigError on a nested section", () => {
+    const text = [
+      "<!-- requires: transforms -->",
+      "<!-- requires: measures -->",
+      "<!-- /requires -->",
+      "<!-- /requires -->",
+    ].join("\n");
+    expect(() => resolveSections(text, null, "skill x")).toThrow(
+      new ConfigError("skill x: nested requires section at line 2 (opened at line 1)"),
+    );
+  });
+
+  it("throws ConfigError on a close without an open", () => {
+    expect(() => resolveSections("text\n<!-- /requires -->", null, "skill x")).toThrow(
+      new ConfigError("skill x: requires section closed at line 2 was never opened"),
+    );
+  });
+
+  it("throws ConfigError on an open that is never closed", () => {
+    expect(() =>
+      resolveSections("<!-- requires: transforms -->\ntext", profileAt(61).features, "skill x"),
+    ).toThrow(new ConfigError("skill x: requires section opened at line 1 is never closed"));
+  });
+
+  it("throws ConfigError on a marker sharing a line with other text", () => {
+    expect(() =>
+      resolveSections(
+        "Only <!-- requires: transforms --> here\n<!-- /requires -->",
+        null,
+        "skill x",
+      ),
+    ).toThrow(new ConfigError("skill x: a requires marker must be on its own line (line 1)"));
+  });
+
+  it("throws ConfigError on a section naming no feature", () => {
+    expect(() =>
+      resolveSections("<!-- requires: -->\n<!-- /requires -->", null, "skill x"),
+    ).toThrow(new ConfigError("skill x: requires section at line 1 names no feature"));
+  });
+
+  it("throws ConfigError on an unknown feature even when nothing is being resolved", () => {
+    expect(() =>
+      resolveSections("<!-- requires: transfroms -->\n<!-- /requires -->", null, "skill x"),
+    ).toThrow(
+      new ConfigError(
+        `skill x line 1: unknown feature in requires: transfroms (known: ${FEATURE_NAMES.join(", ")})`,
+      ),
+    );
+  });
+});
+
+describe("selectForProfile", () => {
+  const skills: SkillInfo[] = [
+    { name: "core", description: "Core.", hidden: false, requires: [], dir: "/x/core" },
+    {
+      name: "git-sync",
+      description: "Sync.",
+      hidden: false,
+      requires: ["remoteSync"],
+      dir: "/x/git-sync",
+    },
+    {
+      name: "transform",
+      description: "Transforms.",
+      hidden: false,
+      requires: ["transforms"],
+      dir: "/x/transform",
+    },
+  ];
+
+  it("filters nothing and reports `null` without a profile", () => {
+    expect(selectForProfile(skills, null)).toEqual({ skills, unavailable: null });
+  });
+
+  it("sets aside each skill the profile lacks a feature for, with the client's own failure", () => {
+    expect(selectForProfile(skills, profileAt(61))).toEqual({
+      skills: [skills[0], skills[2]],
+      unavailable: [
+        {
+          name: "git-sync",
+          failure: {
+            reason: "missing-token-feature",
+            detail:
+              "This operation requires the 'remote_sync' premium feature (not enabled on this server).",
+            feature: "remoteSync",
+            since: 60,
+            tokenFeature: "remote_sync",
+            serverVersion: "v0.61.0",
+          },
+        },
+      ],
+    });
+  });
+
+  it("reports an empty `unavailable` when the profile has every feature", () => {
+    expect(selectForProfile(skills, profileAt(61, { remote_sync: true }))).toEqual({
+      skills,
+      unavailable: [],
+    });
   });
 });
 
@@ -200,10 +476,11 @@ describe("readSkillContent", () => {
       name: "core",
       description: "Core skill.",
       hidden: false,
+      requires: [],
       dir: skillDir,
     };
 
-    expect(readSkillContent(info, { includeExtras: true })).toEqual({
+    expect(readSkillContent(info, { includeExtras: true, profile: null })).toEqual({
       name: "core",
       description: "Core skill.",
       body: "---\nname: core\ndescription: Core skill.\n---\n\nmain body content",
@@ -229,10 +506,11 @@ describe("readSkillContent", () => {
       name: "core",
       description: "Core skill.",
       hidden: false,
+      requires: [],
       dir: skillDir,
     };
 
-    expect(readSkillContent(info, { includeExtras: false })).toEqual({
+    expect(readSkillContent(info, { includeExtras: false, profile: null })).toEqual({
       name: "core",
       description: "Core skill.",
       body: "---\nname: core\ndescription: Core skill.\n---\n\nbody",
@@ -242,12 +520,97 @@ describe("readSkillContent", () => {
   });
 });
 
+describe("readSkillContent against a profile", () => {
+  let temp: TempDirs;
+
+  beforeEach(() => {
+    temp = makeSkillsRoot();
+  });
+
+  afterEach(() => {
+    rmSync(temp.root, { recursive: true, force: true });
+  });
+
+  it("resolves the sections of the body and of every reference, never of a template", () => {
+    const skillDir = writeSkill(
+      temp.skillData,
+      "core",
+      { name: "core", description: "Core skill." },
+      "body\n<!-- requires: transforms -->\ngated\n<!-- /requires -->",
+    );
+    mkdirSync(join(skillDir, "references"));
+    writeFileSync(
+      join(skillDir, "references", "a.md"),
+      "ref\n<!-- requires: transforms -->\ngated ref\n<!-- /requires -->",
+      "utf8",
+    );
+    mkdirSync(join(skillDir, "templates"));
+    writeFileSync(join(skillDir, "templates", "t.md"), "<!-- requires: transforms -->", "utf8");
+    const info: SkillInfo = {
+      name: "core",
+      description: "Core skill.",
+      hidden: false,
+      requires: [],
+      dir: skillDir,
+    };
+
+    expect(readSkillContent(info, { includeExtras: true, profile: profileAt(58) })).toEqual({
+      name: "core",
+      description: "Core skill.",
+      body: "---\nname: core\ndescription: Core skill.\n---\n\nbody",
+      references: [{ path: "references/a.md", content: "ref" }],
+      templates: [{ path: "templates/t.md", content: "<!-- requires: transforms -->" }],
+    });
+  });
+
+  it("names the reference file in a marker error", () => {
+    const skillDir = writeSkill(
+      temp.skillData,
+      "core",
+      { name: "core", description: "C." },
+      "body",
+    );
+    mkdirSync(join(skillDir, "references"));
+    writeFileSync(join(skillDir, "references", "a.md"), "<!-- /requires -->", "utf8");
+    const info: SkillInfo = {
+      name: "core",
+      description: "C.",
+      hidden: false,
+      requires: [],
+      dir: skillDir,
+    };
+
+    expect(() => readSkillContent(info, { includeExtras: true, profile: null })).toThrow(
+      new ConfigError(
+        "skill core (references/a.md): requires section closed at line 1 was never opened",
+      ),
+    );
+  });
+});
+
+// The shipped skills are read here in full so a typo in a `requires` list or an unbalanced marker
+// fails the gate instead of hiding a skill or a section from every user.
+describe("the shipped skills", () => {
+  it("declare exactly these skill-level requirements and carry only well-formed section markers", () => {
+    const all = loadAllSkills();
+    const bound = Object.fromEntries(
+      all.filter((skill) => skill.requires.length > 0).map((skill) => [skill.name, skill.requires]),
+    );
+
+    expect(bound).toEqual({ "git-sync": ["remoteSync"], transform: ["transforms"] });
+    for (const skill of all) {
+      const content = readSkillContent(skill, { includeExtras: true, profile: profileAt(58) });
+      expect(content.body).not.toContain("<!-- requires");
+    }
+  });
+});
+
 describe("availableSkillNames", () => {
   it('formats the visible skill list as "available: a, b"', () => {
     const skills: SkillInfo[] = [
-      { name: "core", description: "", hidden: false, dir: "/x/core" },
-      { name: "transform", description: "", hidden: false, dir: "/x/transform" },
-      { name: "metabase-cli", description: "", hidden: true, dir: "/x/metabase-cli" },
+      { name: "core", description: "", hidden: false, requires: [], dir: "/x/core" },
+      { name: "transform", description: "", hidden: false, requires: [], dir: "/x/transform" },
+      { name: "metabase-cli", description: "", hidden: true, requires: [], dir: "/x/metabase-cli" },
     ];
     expect(availableSkillNames(skills)).toBe("available: core, transform");
   });
@@ -255,15 +618,23 @@ describe("availableSkillNames", () => {
   it('falls back to "available: none" when no visible skills exist', () => {
     expect(availableSkillNames([])).toBe("available: none");
     expect(
-      availableSkillNames([{ name: "stub", description: "", hidden: true, dir: "/x/stub" }]),
+      availableSkillNames([
+        { name: "stub", description: "", hidden: true, requires: [], dir: "/x/stub" },
+      ]),
     ).toBe("available: none");
   });
 });
 
 describe("findSkillByName", () => {
   const skills: SkillInfo[] = [
-    { name: "core", description: "Core.", hidden: false, dir: "/x/core" },
-    { name: "transform", description: "Transforms.", hidden: false, dir: "/x/transform" },
+    { name: "core", description: "Core.", hidden: false, requires: [], dir: "/x/core" },
+    {
+      name: "transform",
+      description: "Transforms.",
+      hidden: false,
+      requires: [],
+      dir: "/x/transform",
+    },
   ];
 
   it("returns the matching skill", () => {
@@ -279,9 +650,9 @@ describe("findSkillByName", () => {
 
 describe("selectSkillsByNames", () => {
   const skills: SkillInfo[] = [
-    { name: "core", description: "", hidden: false, dir: "/x/core" },
-    { name: "git-sync", description: "", hidden: false, dir: "/x/git-sync" },
-    { name: "transform", description: "", hidden: false, dir: "/x/transform" },
+    { name: "core", description: "", hidden: false, requires: [], dir: "/x/core" },
+    { name: "git-sync", description: "", hidden: false, requires: [], dir: "/x/git-sync" },
+    { name: "transform", description: "", hidden: false, requires: [], dir: "/x/transform" },
   ];
 
   it("returns selected skills in the requested order", () => {

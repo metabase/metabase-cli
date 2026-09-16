@@ -1,7 +1,7 @@
 # @metabase/client
 
 The Metabase API client behind [`@metabase/cli`](../../README.md). It owns the HTTP boundary, a Zod
-schema per Metabase resource, the OAuth login flow, and the server version/capability model.
+schema per Metabase resource, the OAuth login flow, and the server version model.
 
 The package is workspace-internal (`private: true`). `@metabase/cli` consumes it from source and
 inlines it at build time via tsdown's `noExternal`, so the published CLI has no runtime dependency
@@ -282,6 +282,34 @@ console.log(cards.data.length, finished.status);
 A poll that ends because the caller's signal aborted rethrows that signal's own reason, so a
 cancellation is never reported back as a polling `TimeoutError`.
 
+### Servers of different versions
+
+The client supports a window of Metabase majors, `KNOWN_RANGE`, and resolves a `ServerProfile` for the server it talks to — from `/api/session/properties` on the first call that needs it, or from a profile the host cached earlier and passes as `ClientOptions.server`. Every resource method declares the features it needs and refuses before any request leaves when the profile lacks one, so a consumer never sends a request the server cannot answer.
+
+```ts
+import { CapabilityError, createClient } from "@metabase/client";
+
+const mb = createClient(
+  { url: "https://metabase.example.com", credential: { kind: "apiKey", apiKey: "mb_..." } },
+  { userAgent: "my-app/1.0.0" },
+);
+
+const server = await mb.server();
+console.log(server.version?.tag, server.edition, server.skew, server.features.transforms);
+
+try {
+  await mb.transformJob.setActive(true);
+} catch (error) {
+  if (error instanceof CapabilityError) {
+    console.log(error.developerDetail.reason, error.developerDetail.feature, error.message);
+  }
+}
+```
+
+A method's return type is the shape the newest supported server answers. Where an older server answers differently, the method parses that server's exact wire shape and converts it forward, so `mb.transform.get(5)` carries `target_table_id` on every server (a hydrated `table` on the oldest generations, the column on the rest), `mb.transformJob.run(2)` answers `{ message, started, run_id }` whether the server reports an opaque stub or a numeric run id, and each of `mb.library.get()`'s `effective_children` is `{ id, name, description, type, is_remote_synced }`. A field the server cannot report is `null`; the profile's `features` say why. A response that fails its generation's schema is a `ResponseShapeError` naming the server version and the fields that were off — never a silent fallback to another shape.
+
+A server newer than the window, or a head build whose tag does not parse, is treated as the newest known major with `skew` set to `"newer-than-known"` or `"unknown"`; its additions pass through the loose schemas, and only a token feature can refuse it. The client never takes a version from the caller: a profile comes from a probe, so two consumers of one server cannot disagree about what it is.
+
 ### Endpoints the client does not model
 
 `createClient` forwards `requestParsed`, `requestRaw` and `requestStream` off the transport it builds,
@@ -337,7 +365,7 @@ on network and timeout failures, and `RequestOptions.idempotent` overrides eithe
 `TransportRequestOptions` is the whole wire request the three methods accept. `RequestOptions` is the
 `{ signal, timeoutMs, retries, idempotent }` subset a caller hands to a higher-level method, leaving
 `method`, `query`, `body` and `expectContentType` to that method. `ClientOptions.getServerTag` (a
-`ServerTagResolver`) lets the host name the Metabase version a `ResponseShapeError` reports.
+`ServerTagResolver`) lets the host name the Metabase version a `ResponseShapeError` reports; the error's `serverSkew` is the profile's `skew`, and a `newer-than-known` server is named as newer than the client supports in the message's lead line.
 
 Types: `MetabaseClient`, `Transport`, `ClientCredentials`, `ClientOptions`, `RequestOptions`,
 `TransportRequestOptions`, `ServerTagResolver`, `HttpMethod`, `ExpectedContentType`, `QueryValue`,
@@ -382,13 +410,19 @@ revocation endpoint. Types: `Credential` (the `ApiKeyCredential | OAuthCredentia
 
 ### Version and capabilities
 
-`probeServer(client)` reads `/api/session/properties` and returns a `ServerInfo` — the parsed
-version tag and the token-feature map, each `null` when the server does not report it.
-`checkCapabilities(info, required)` returns a `PreflightFailure` or `null`. `Capabilities` is the
-`{ minVersion, tokenFeature? }` schema, `ParsedVersion` the `{ tag, major, patch }` schema a probed
-version tag parses to, `BASELINE_CAPABILITIES` the minimum supported server, and `mergeCapabilities`
-fills a partial declaration from it. `CapabilityError` is what a caller throws on a failed
-preflight. Types: `ServerInfo`, `PreflightFailure`.
+`probeServer(client)` reads `/api/session/properties` and returns a `ServerInfo` — the parsed version tag, the build date and hash, and the token-feature map, each `null` when the server does not report it. `ParsedVersion` is the `{ tag, major, patch }` schema a probed version tag parses to; `editionFromTag(tag)` reads the `Edition` (`"oss"` | `"ee"`) Metabase stamps into the tag's semver major, `null` when the tag carries none.
+
+`createServerProfile(info)` turns a `ServerInfo` into the `ServerProfile` the client reasons with: the raw facts (`version`, `buildDate`, `hash`, `edition`, `tokenFeatures`), the derived `features`, and `skew` (`Skew`) — `"supported"` inside `KNOWN_RANGE` (`{ min, max }`, the majors the client is built against), `"newer-than-known"` above it, `"unknown"` when the tag did not parse. A newer or unparseable server is evaluated as `KNOWN_RANGE.max + 1`; the edition of a server whose tag carries none is `"ee"` when any premium feature is granted and `"oss"` otherwise. `client.server()` returns the profile passed as `ClientOptions.server`, or probes once on first call and shares the result; `getServerTag` defaults to that profile's tag. There is no option to assume a version.
+
+`Features` is a record of named booleans over `FEATURE_RULES`, the one table that relates a behaviour to the majors and token feature it needs (`FeatureRule`: `{ since, until?, tokenFeature? }`); `evaluateFeatures(effectiveMajor, tokenFeatures)` evaluates it, `FEATURE_NAMES` lists the keys, and `isFeatureName` narrows a string to one. Names describe behaviour (`transformTargetTableId`, `libraryChildrenCarryType`), never a version. Consumers branch on a feature, never on a major — `features.ts` is the only module that compares one.
+
+`METHOD_REQUIREMENTS` names, per client method (`"transform.get"`, `"gitSync.branches"` — the `MethodKey` as the method is reached on the client), the features it needs, strictest first; `methodRequirements(key)` reads one entry, `METHOD_KEYS` lists the keys, and `isMethodKey` narrows a string to one. Every resource method starts by asking `transport.require(key)`, which throws a `CapabilityError` before any request leaves when the connected profile lacks a feature — a version gate reads `This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.`, a token gate `This operation requires the 'remote_sync' premium feature (not enabled on this server).` — and the error's `developerDetail` is a `RequirementFailure` carrying `reason`, `detail`, `feature`, `since`, `tokenFeature` and `serverVersion` — a Zod schema as well as a type (with `RequirementReason` for its `reason` enum), so a consumer that reports the refusal in its own output can describe it. A method that needs nothing never consults the server; a newer or unparseable server is placed at the newest known major, so only a token can refuse it. `ClientOptions.enforceRequirements: false` sends every method to the wire and leaves the server to answer for itself; a method whose wire shape is chosen by generation still reads the profile. `checkRequirements(key, profile)` is the check itself, `checkFeatures(features, profile)` the same check over a bare feature list, `featureGap(profile, feature)` says which half of a rule the profile fails (`FeatureGap`: `{ kind: "version" }` or `{ kind: "token", tokenFeature }`), and `ruleGap` is the same question asked of a bare rule. A consumer that anticipates the refusal — a CLI preflight, say — throws the same `CapabilityError` from the same `RequirementFailure`.
+
+`summarizeCapabilities(features)` collapses a feature list into a `CapabilitySummary` — `{ minVersion, tokenFeature? }`, the oldest server that has every feature and the one premium feature it must grant — for a consumer that wants a single floor rather than named switches.
+
+A resource whose wire shape differs between generations exports from its `@metabase/client/domain/<r>` module, beside the canonical schema, a reader that picks the exact schema for a `Features` and converts forward: `transformDetailSchema(features)` and `transformRowSchema(features)` read a `Transform` (the older generations' hydrated `table` on the detail endpoint, and no link on the rest, become `target_table_id`), `transformJobRunResultSchema(features)` reads a `TransformJobRunResult` (`{ message, started, run_id }` — a stub id is `started: true, run_id: null`; a numeric or null id is `started: id !== null, run_id: id`), and `libraryWireSchema(features)` with `toLibrary(wire, listing)` reads a `Library` whose `LibraryChild` entries carry `type` from the wire where the generation sends it and `is_remote_synced` from the collection listing on every generation (`LibraryCollectionInfo`, `LibraryListing`). Each `null` in a canonical field means "this server cannot say". `ResponseShapeError.developerDetail.serverSkew` carries the profile's `skew`, and a `newer-than-known` server is named as such in the message's lead line.
+
+Types: `ServerInfo`, `ServerProfile`, `Skew`, `Edition`, `FeatureName`, `FeatureRule`, `Features`, `FeatureGap`, `MethodKey`, `RequirementFailure`, `RequirementReason`, `CapabilitySummary`.
 
 ### Resource schemas
 

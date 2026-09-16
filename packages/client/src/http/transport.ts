@@ -4,6 +4,11 @@ import { errorMessage, NetworkError, TimeoutError } from "../errors";
 import { JSON_CONTENT_TYPE } from "../json";
 import { combineAborts, throwIfAborted } from "../signal";
 import { normalizeUrl } from "../url";
+import { CapabilityError } from "../version/preflight-error";
+import { probeServer } from "../version/probe";
+import { createServerProfile, type ServerProfile, type Skew } from "../version/profile";
+import { checkRequirements } from "../version/requirement-check";
+import { type MethodKey, methodRequirements } from "../version/requirements";
 
 import {
   assertCredentialHeaderSafe,
@@ -57,6 +62,12 @@ export interface Transport {
   requestParsed<T>(schema: ZodType<T>, path: string, opts?: TransportRequestOptions): Promise<T>;
   requestRaw(path: string, opts?: TransportRequestOptions): Promise<Response>;
   requestStream(path: string, opts?: TransportRequestOptions): Promise<ReadableStream<Uint8Array>>;
+  // The profile handed in at construction, or else the one the first call probes and every later
+  // call shares.
+  server(): Promise<ServerProfile>;
+  // Throws `CapabilityError` when the server lacks a feature the method needs, before any request
+  // leaves. A method that needs nothing resolves without consulting the server.
+  require(key: MethodKey): Promise<void>;
 }
 
 export interface ClientCredentials {
@@ -90,18 +101,27 @@ export type ServerTagResolver = () => Promise<string | null>;
 export interface ClientOptions {
   userAgent: string;
   fetchImpl?: typeof fetch;
+  // A profile the caller already holds — from its own cache, or from a probe it ran to verify the
+  // credential — so the client never asks the server what the caller can tell it.
+  server?: ServerProfile;
+  // Names the server in a shape error. Defaults to the tag of `server`; a caller that resolves
+  // the tag some other way passes its own.
   getServerTag?: ServerTagResolver;
   refreshCredential?: CredentialRefresher;
   // Cancels every request this client makes; composed with the per-request `signal` and the
   // timeout. A process-level interrupt is the caller's to own and to hand over here.
   signal?: AbortSignal;
+  // `false` sends every method to the wire whatever the profile says, leaving the server to answer
+  // for itself. Defaults to `true`.
+  enforceRequirements?: boolean;
 }
 
 export function createTransport(config: ClientCredentials, options: ClientOptions): Transport {
   const baseUrl = normalizeUrl(config.url);
   assertCredentialHeaderSafe(config.credential);
   const fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
-  const getServerTag = options.getServerTag ?? NO_SERVER_TAG;
+  const getServerTag = options.getServerTag ?? tagResolverFor(options.server);
+  const serverSkew: Skew | null = options.server === undefined ? null : options.server.skew;
   const refreshCredential = options.refreshCredential;
   let credential = config.credential;
   const knownSecrets = new Set(credentialSecrets(credential));
@@ -277,7 +297,37 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     };
   }
 
-  return {
+  let serverProfile: Promise<ServerProfile> | null =
+    options.server === undefined ? null : Promise.resolve(options.server);
+
+  // A failed probe is not memoized: the next call asks again rather than replaying one transient
+  // failure for the life of the client.
+  function server(): Promise<ServerProfile> {
+    if (serverProfile === null) {
+      const probe = probeServer(transport).then(createServerProfile);
+      probe.catch(() => {
+        serverProfile = null;
+      });
+      serverProfile = probe;
+    }
+    return serverProfile;
+  }
+
+  const enforceRequirements = options.enforceRequirements ?? true;
+
+  async function requireFeatures(key: MethodKey): Promise<void> {
+    if (!enforceRequirements || methodRequirements(key).length === 0) {
+      return;
+    }
+    const failure = checkRequirements(key, await server());
+    if (failure !== null) {
+      throw new CapabilityError(failure);
+    }
+  }
+
+  const transport: Transport = {
+    server,
+    require: requireFeatures,
     async requestRaw(path, opts) {
       return (await executeWithAuthRefresh(path, opts ?? {})).response;
     },
@@ -292,6 +342,7 @@ export function createTransport(config: ClientCredentials, options: ClientOption
         url: prepared.url,
         status: response.status,
         getServerTag,
+        serverSkew,
       });
     },
     async requestStream(path, opts) {
@@ -309,6 +360,15 @@ export function createTransport(config: ClientCredentials, options: ClientOption
       return response.body;
     },
   };
+  return transport;
+}
+
+function tagResolverFor(server: ServerProfile | undefined): ServerTagResolver {
+  if (server === undefined) {
+    return NO_SERVER_TAG;
+  }
+  const tag = server.version === null ? null : server.version.tag;
+  return async () => tag;
 }
 
 function buildUrl(

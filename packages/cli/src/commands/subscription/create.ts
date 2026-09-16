@@ -15,7 +15,7 @@ export default defineMetabaseCommand({
     "`daily` needs `schedule_hour` (0-23); `weekly` also needs `schedule_day` (mon..sun); `monthly` also needs `schedule_frame` (first|mid|last).",
     'Email recipients are `[{email: "a@b.com"} | {id: <user-id>}]`; Slack targets a channel via `details: {channel: "#general"}`.',
   ].join(" "),
-  capabilities: { minVersion: 58 },
+  requires: ["pulse.create"],
   args: {
     ...outputFlags,
     ...profileFlag,

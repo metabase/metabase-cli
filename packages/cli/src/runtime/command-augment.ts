@@ -1,10 +1,17 @@
 import type { ZodType } from "zod";
 
-import type { Capabilities } from "@metabase/client/version/capabilities";
+import type { CapabilitySummary } from "@metabase/client/version/capability-summary";
+import type { FeatureName } from "@metabase/client/version/features";
+import type { MethodKey } from "@metabase/client/version/requirements";
 
 export interface SkillPointer {
   skill: string;
   purpose: string;
+}
+
+export interface CommandRequirements {
+  methods: readonly MethodKey[];
+  features: readonly FeatureName[];
 }
 
 export interface MetabaseAugment {
@@ -13,7 +20,8 @@ export interface MetabaseAugment {
   skills: readonly SkillPointer[];
   inputSchema: ZodType | null;
   outputSchema: ZodType | null;
-  capabilities: Capabilities | null;
+  requires: CommandRequirements | null;
+  capabilities: CapabilitySummary | null;
 }
 
 const augments = new WeakMap<object, MetabaseAugment>();

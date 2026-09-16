@@ -71,7 +71,13 @@ Everything else on a field/table (physical `name`, `base_type`, `effective_type`
 `display_name` · `description` · `caveats` · `points_of_interest` · `semantic_type` · `coercion_strategy` · `fk_target_field_id` · `visibility_type` · `has_field_values` · `settings` · `nfc_path` · `json_unfolding`
 
 **`PUT /api/table/:id` (`mb table update`)**
-`display_name` · `description` · `visibility_type` · `field_order` (`database` / `alphabetical` / `custom` / `smart`) · `entity_type` · `caveats` · `points_of_interest` · `show_in_getting_started` · `owner_user_id` / `owner_email` (ownership) · `data_layer` / `data_authority` / `data_source` (data-governance tiers) · `collection_id` (v62+)
+`display_name` · `description` · `visibility_type` · `field_order` (`database` / `alphabetical` / `custom` / `smart`) · `entity_type` · `caveats` · `points_of_interest` · `show_in_getting_started` · `owner_user_id` / `owner_email` (ownership) · `data_layer` / `data_authority` / `data_source` (data-governance tiers)
+
+<!-- requires: library -->
+
+· `collection_id` — the Library **Data** collection a published table sits in (`mb library publish` sets it; see `core`)
+
+<!-- /requires -->
 
 ## Coercion strategies (common)
 

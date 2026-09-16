@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { parseJson } from "@metabase/client/json";
-import { BASELINE_CAPABILITIES } from "@metabase/client/version/capabilities";
+import { summarizeCapabilities } from "@metabase/client/version/capability-summary";
 
 import { connectionFlags, outputFlags, profileFlag } from "../commands/flags";
 import { defineCommandGroup } from "../commands/group";
@@ -64,7 +64,7 @@ describe("showUsage", () => {
   it("appends an EXAMPLES section when defineMetabaseCommand declares examples", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "demo cmd" },
-      capabilities: {},
+      requires: [],
       args: {},
       examples: ["mb demo --json", "mb demo --profile staging"],
       outputSchema: z.object({ ok: z.boolean() }),
@@ -83,7 +83,7 @@ describe("showUsage", () => {
   it("omits the EXAMPLES section when no examples are declared", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "demo cmd" },
-      capabilities: {},
+      requires: [],
       args: {},
       run() {
         return;
@@ -98,7 +98,7 @@ describe("showUsage", () => {
   it("renders the details block after the description and before USAGE when declared", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "Short summary" },
-      capabilities: {},
+      requires: [],
       args: {},
       details: "Longer per-command knowledge shown only on this page.",
       run() {
@@ -119,7 +119,7 @@ describe("showUsage", () => {
   it("omits the details block when none is declared", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "Short summary" },
-      capabilities: {},
+      requires: [],
       args: {},
       run() {
         return;
@@ -168,7 +168,7 @@ describe("showUsage", () => {
   it("appends a machine-readable help hint pointing at --help --json on a leaf page", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "bar", description: "demo bar" },
-      capabilities: {},
+      requires: [],
       args: {},
       outputSchema: z.object({ ok: z.boolean() }),
       run() {
@@ -200,7 +200,7 @@ describe("showUsage", () => {
   it("separates the EXAMPLES footer from the body with a blank line", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "demo cmd" },
-      capabilities: {},
+      requires: [],
       args: {},
       examples: ["mb demo --json"],
       outputSchema: z.object({ ok: z.boolean() }),
@@ -217,7 +217,7 @@ describe("showUsage", () => {
   it("renders multi-character flag aliases as a single working --kebab form", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "list", description: "demo list" },
-      capabilities: {},
+      requires: [],
       args: { ...outputFlags, ...profileFlag, ...connectionFlags },
       outputSchema: z.object({ ok: z.boolean() }),
       run() {
@@ -240,7 +240,7 @@ describe("showUsage", () => {
   it("lists -h, --help in the OPTIONS block", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "list", description: "demo list" },
-      capabilities: {},
+      requires: [],
       args: { ...outputFlags, ...profileFlag, ...connectionFlags },
       outputSchema: z.object({ ok: z.boolean() }),
       run() {
@@ -257,7 +257,7 @@ describe("showUsage", () => {
   it("prepends the full breadcrumb to a leaf USAGE line", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "bar", description: "demo bar" },
-      capabilities: {},
+      requires: [],
       args: { ...outputFlags },
       outputSchema: z.object({ ok: z.boolean() }),
       run() {
@@ -291,7 +291,7 @@ describe("showUsage", () => {
   it("renders an AGENT SKILLS section from declared skill pointers, below the body", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "create", description: "demo create" },
-      capabilities: {},
+      requires: [],
       args: {},
       skills: [
         { skill: "mbql", purpose: "author the dataset_query" },
@@ -313,7 +313,7 @@ describe("showUsage", () => {
   it("omits the AGENT SKILLS section when no skill pointers are declared", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "demo", description: "demo cmd" },
-      capabilities: {},
+      requires: [],
       args: {},
       run() {
         return;
@@ -340,11 +340,12 @@ describe("showUsage", () => {
       skills: [{ skill: "core", purpose: "auth and conventions" }],
       inputSchema: null,
       outputSchema: null,
+      requires: null,
       capabilities: null,
     });
     const leaf = defineMetabaseCommand({
       meta: { name: "list", description: "demo list" },
-      capabilities: {},
+      requires: [],
       args: {},
       skills: [{ skill: "core", purpose: "auth and conventions" }],
       run() {
@@ -375,7 +376,7 @@ describe("showUsage", () => {
     });
     const leaf = defineMetabaseCommand({
       meta: { name: "list", description: "demo list" },
-      capabilities: {},
+      requires: [],
       args: {},
       outputSchema: z.object({ ok: z.boolean() }),
       run() {
@@ -414,7 +415,7 @@ describe("showUsageJson", () => {
   it("emits the full entry for a leaf command", async () => {
     const leaf = defineMetabaseCommand({
       meta: { name: "bar", description: "demo bar" },
-      capabilities: {},
+      requires: ["card.list"],
       args: {},
       outputSchema: z.object({ ok: z.boolean() }),
       examples: ["mb foo bar --json"],
@@ -440,14 +441,15 @@ describe("showUsageJson", () => {
         required: ["ok"],
         additionalProperties: false,
       },
-      capabilities: BASELINE_CAPABILITIES,
+      requires: { methods: ["card.list"], features: [] },
+      capabilities: summarizeCapabilities([]),
     });
   });
 
   it("emits the group's own description and skills alongside a full-path index", async () => {
     const bar = defineMetabaseCommand({
       meta: { name: "bar", description: "demo bar" },
-      capabilities: {},
+      requires: [],
       args: {},
       run() {
         return;
@@ -455,7 +457,7 @@ describe("showUsageJson", () => {
     });
     const baz = defineMetabaseCommand({
       meta: { name: "baz", description: "demo baz" },
-      capabilities: {},
+      requires: [],
       args: {},
       run() {
         return;

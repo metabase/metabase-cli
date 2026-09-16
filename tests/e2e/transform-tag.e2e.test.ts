@@ -27,7 +27,7 @@ const USER_TAG_COMPACT = {
   built_in_type: null,
 } as const;
 
-const skipReason = requireServer("transform-tag › transform-tag e2e", { minVersion: 59 });
+const skipReason = requireServer("transform-tag › transform-tag e2e", ["transforms"]);
 
 describe.skipIf(skipReason !== null)("transform-tag e2e", () => {
   let bootstrap: E2EBootstrap;

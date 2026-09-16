@@ -56,15 +56,39 @@ export type {
 
 export { probeServer } from "./version/probe";
 export type { ServerInfo } from "./version/probe";
-export { ParsedVersion } from "./version/tag";
+export { Edition, editionFromTag, ParsedVersion } from "./version/tag";
 export {
-  BASELINE_CAPABILITIES,
-  Capabilities,
-  checkCapabilities,
-  mergeCapabilities,
-} from "./version/capabilities";
-export type { PreflightFailure } from "./version/capabilities";
-export { CapabilityError } from "./version/preflight-error";
+  evaluateFeatures,
+  FEATURE_NAMES,
+  FEATURE_RULES,
+  Features,
+  isFeatureName,
+  ruleGap,
+} from "./version/features";
+export type {
+  FeatureGap,
+  FeatureName,
+  FeatureRule,
+  TokenGap,
+  VersionGap,
+} from "./version/features";
+export {
+  createServerProfile,
+  featureGap,
+  KNOWN_RANGE,
+  ServerProfile,
+  Skew,
+} from "./version/profile";
+export {
+  isMethodKey,
+  METHOD_KEYS,
+  METHOD_REQUIREMENTS,
+  methodRequirements,
+} from "./version/requirements";
+export type { MethodKey } from "./version/requirements";
+export { checkFeatures, checkRequirements } from "./version/requirement-check";
+export { CapabilitySummary, summarizeCapabilities } from "./version/capability-summary";
+export { CapabilityError, RequirementFailure, RequirementReason } from "./version/preflight-error";
 
 export type { Page, PaginateOptions } from "./paginate";
 export { pollUntil } from "./poll";

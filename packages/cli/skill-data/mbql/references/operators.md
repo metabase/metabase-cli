@@ -106,21 +106,26 @@ Units (truncation only): `millisecond`, `second`, `minute`, `hour`, `day`, `week
 
 A stage's `aggregation` is a list of aggregation clauses.
 
-| Op                      | Args                       | Notes                            |
-| ----------------------- | -------------------------- | -------------------------------- |
-| `count`                 | none, or 1 expression      | with arg: count non-NULL         |
-| `sum` `avg` `min` `max` | 1 numeric/orderable        |                                  |
-| `distinct`              | 1 expression               | count of distinct values         |
-| `cum-count`             | none or 1 expression       | running count                    |
-| `cum-sum`               | 1 numeric                  | running sum                      |
-| `stddev` `var` `median` | 1 numeric                  |                                  |
-| `percentile`            | numeric, p (0.0–1.0)       |                                  |
-| `count-where`           | 1 boolean clause           |                                  |
-| `sum-where`             | numeric, boolean clause    |                                  |
-| `distinct-where`        | expression, boolean clause |                                  |
-| `share`                 | 1 boolean clause           | proportion 0–1                   |
-| `metric`                | metric id                  | reference a saved metric card    |
-| `measure`               | measure id                 | reference a saved measure (v59+) |
+| Op                      | Args                       | Notes                         |
+| ----------------------- | -------------------------- | ----------------------------- |
+| `count`                 | none, or 1 expression      | with arg: count non-NULL      |
+| `sum` `avg` `min` `max` | 1 numeric/orderable        |                               |
+| `distinct`              | 1 expression               | count of distinct values      |
+| `cum-count`             | none or 1 expression       | running count                 |
+| `cum-sum`               | 1 numeric                  | running sum                   |
+| `stddev` `var` `median` | 1 numeric                  |                               |
+| `percentile`            | numeric, p (0.0–1.0)       |                               |
+| `count-where`           | 1 boolean clause           |                               |
+| `sum-where`             | numeric, boolean clause    |                               |
+| `distinct-where`        | expression, boolean clause |                               |
+| `share`                 | 1 boolean clause           | proportion 0–1                |
+| `metric`                | metric id                  | reference a saved metric card |
+
+<!-- requires: measures -->
+
+`measure` takes a measure id and references a saved measure.
+
+<!-- /requires -->
 
 ```json
 ["count", {…}]

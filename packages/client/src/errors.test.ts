@@ -230,6 +230,7 @@ function buildResponseShapeError(
     status: 200,
     zodIssues,
     serverTag,
+    serverSkew: serverTag === null ? null : "supported",
   });
 }
 

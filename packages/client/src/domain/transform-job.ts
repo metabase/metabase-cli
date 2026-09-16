@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { Features } from "../version/features";
 import { CronUiDisplayType } from "./cron";
 
 const JobRunStatus = z.enum(["started", "succeeded", "failed", "timeout"]);
@@ -79,14 +80,41 @@ export const TransformJobUpdateInput = z
   .loose();
 export type TransformJobUpdateInput = z.infer<typeof TransformJobUpdateInput>;
 
-// Released servers answer with an opaque stub string; head returns the numeric run id, or null when
-// nothing was started — the job is already running, or resolves to no transforms. `message` is the
-// constant "Job run started" in every case, so `job_run_id` is the only signal a caller can read.
+// One generation of servers answers `job_run_id` as an opaque stub string that only says a run was
+// started; the other answers the run's numeric id, or null when nothing was started (the job is
+// already running, or it resolves to no transforms). `started` keeps the first generation's one bit
+// and `run_id` the second's, so neither answer is folded into the other.
 export const TransformJobRunResult = z.object({
   message: z.string(),
-  job_run_id: z.union([z.string(), z.number().int().positive()]).nullable(),
+  started: z.boolean(),
+  run_id: z.number().int().positive().nullable(),
 });
 export type TransformJobRunResult = z.infer<typeof TransformJobRunResult>;
+
+const TransformJobRunWireV59 = z.object({
+  message: z.string(),
+  job_run_id: z.string(),
+});
+
+const TransformJobRunWireV64 = z.object({
+  message: z.string(),
+  job_run_id: z.number().int().positive().nullable(),
+});
+
+function fromStubRunId(wire: z.infer<typeof TransformJobRunWireV59>): TransformJobRunResult {
+  return { message: wire.message, started: true, run_id: null };
+}
+
+function fromNumericRunId(wire: z.infer<typeof TransformJobRunWireV64>): TransformJobRunResult {
+  return { message: wire.message, started: wire.job_run_id !== null, run_id: wire.job_run_id };
+}
+
+/** The shape `POST /api/transform-job/{id}/run` answers on a server with `features`, read as `TransformJobRunResult`. */
+export function transformJobRunResultSchema(features: Features): z.ZodType<TransformJobRunResult> {
+  return features.transformJobRunIdIsNumeric
+    ? TransformJobRunWireV64.transform(fromNumericRunId)
+    : TransformJobRunWireV59.transform(fromStubRunId);
+}
 
 export const TransformJobActiveResult = z.object({
   updated: z.number().int(),

@@ -6,22 +6,12 @@ import { z } from "zod";
 
 import { isFileNotFoundError } from "@metabase/client/errors";
 import { parseJson } from "@metabase/client/json";
-import {
-  checkCapabilities,
-  mergeCapabilities,
-  type Capabilities,
-} from "@metabase/client/version/capabilities";
-import type { ServerInfo } from "@metabase/client/version/probe";
+import type { FeatureName } from "@metabase/client/version/features";
+import { createServerProfile, type ServerProfile } from "@metabase/client/version/profile";
+import { checkFeatures } from "@metabase/client/version/requirement-check";
 
 import { readBootstrapSync } from "./bootstrap-data";
 import { resolveStackId } from "./defaults";
-
-// A dev/head build ("vUNKNOWN", "vLOCAL_DEV", or any "-SNAPSHOT" tag) probes to
-// version: null. Treat that as the latest version so every version-gated suite runs — head and
-// local dev builds carry the newest features, and skipping them would hide regressions there.
-// The premium token-feature is still checked against the live probe, so this only relaxes the
-// version that genuinely can't be parsed; a suite whose token-feature the server lacks still skips.
-const HEAD_ASSUMED_MAJOR = 9999;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -70,22 +60,18 @@ function recordGateSkip(lane: string, reason: string): void {
   writeFileSync(GATE_SKIP_FILE_PATH, `${JSON.stringify([...logged, { lane, reason }], null, 2)}\n`);
 }
 
-function resolveServerInfo(): ServerInfo {
-  const { server } = readBootstrapSync();
-  if (server.version !== null) {
-    return server;
-  }
-  return {
-    version: { tag: "vHEAD", major: HEAD_ASSUMED_MAJOR, patch: 0 },
-    tokenFeatures: server.tokenFeatures,
-  };
+// The same profile the CLI builds from a cached probe, so a gate and the command it guards agree:
+// a head build's unparseable tag lands on the newest known major and every version-gated suite
+// runs there, while a token feature the server lacks still skips.
+function resolveServerProfile(): ServerProfile {
+  return createServerProfile(readBootstrapSync().server);
 }
 
 // `lane` names the describe or test the caller guards with the returned reason. It is what the
 // closing report prints, so an unmet gate says which coverage went dark rather than adding one
 // more anonymous digit to vitest's skip count.
-export function requireServer(lane: string, required: Partial<Capabilities>): string | null {
-  const failure = checkCapabilities(resolveServerInfo(), mergeCapabilities(required));
+export function requireServer(lane: string, required: readonly FeatureName[]): string | null {
+  const failure = checkFeatures(required, resolveServerProfile());
   if (failure === null) {
     return null;
   }
@@ -108,35 +94,26 @@ export function requireOAuthServer(lane: string): string | null {
   return OAUTH_UNSUPPORTED_REASON;
 }
 
-// True only when the server version is known AND below `minVersion` — the exact condition under
-// which a non-baseline command's preflight raises a CapabilityError (exit 2) rather than warning
-// and proceeding on an unknown version. Lets a suite assert the gate fires on the sub-version
-// stacks the matrix boots, inverse to the `requireServer` skip the happy-path suite uses. It logs
-// nothing: the branch it selects against is the complementary one, not coverage that went missing.
-export function serverVersionBelow(minVersion: number): boolean {
-  const { version } = resolveServerInfo();
-  return version !== null && version.major < minVersion;
+// Whether the connected server has a feature — the exact question the CLI's preflight and the
+// client's `require()` ask, so a suite can select the branch its stack takes. It logs nothing: a
+// suite reading it asserts one of two exact outcomes rather than skipping coverage.
+export function serverHas(feature: FeatureName): boolean {
+  return resolveServerProfile().features[feature];
 }
 
-// Metabase answers a structurally invalid MBQL 5 definition with a 500 through v61 and a 400 from
-// v62 on. A suite asserting "the server, not the client-side validator, rejected this" pins the one
-// status its own stack sends, so a 500 where a 400 belongs is still a failure.
-const MBQL_REJECTION_STATUS_VERSION = 62;
-
+// A suite asserting "the server, not the client-side validator, rejected this" pins the one status
+// its own stack sends, so a 500 where a 400 belongs is still a failure.
 export function serverRejectedMessage(): string {
-  return serverVersionBelow(MBQL_REJECTION_STATUS_VERSION)
-    ? "Metabase returned 500."
-    : "Metabase returned 400.";
+  return serverHas("invalidMbqlIsBadRequest") ? "Metabase returned 400." : "Metabase returned 500.";
 }
 
-// From v62 a query the server cannot normalize — a database id that is not an integer, say — is
-// refused with one message for the whole query before any field-level schema check runs; through
-// v61 the schema check runs first and names the field it rejected.
-const QUERY_NORMALIZATION_VERSION = 62;
+// A query the server cannot normalize — a database id that is not an integer, say — is refused with
+// one message for the whole query where normalization runs before the field-level schema check, and
+// with the field the schema check rejected where it does not.
 const QUERY_NORMALIZATION_MESSAGE = "Invalid query: missing or invalid Database ID (:database)";
 
 export function invalidDatabaseRejection(fieldLevelMessage: string): string {
-  return serverVersionBelow(QUERY_NORMALIZATION_VERSION)
-    ? fieldLevelMessage
-    : QUERY_NORMALIZATION_MESSAGE;
+  return serverHas("queryNormalizedBeforeValidation")
+    ? QUERY_NORMALIZATION_MESSAGE
+    : fieldLevelMessage;
 }

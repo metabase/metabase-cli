@@ -23,7 +23,7 @@ export default defineMetabaseCommand({
     { skill: "mbql", purpose: "author the dataset_query" },
     { skill: "visualization", purpose: "choose display and visualization_settings" },
   ],
-  capabilities: { minVersion: 58 },
+  requires: ["card.update"],
   args: {
     ...outputFlags,
     ...profileFlag,

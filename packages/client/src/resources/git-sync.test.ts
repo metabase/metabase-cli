@@ -4,6 +4,7 @@ import { createClient } from "../client";
 import { HttpError } from "../http/errors";
 import type { ClientCredentials } from "../http/transport";
 import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
+import { createServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
   url: "https://mb.example.com/metabase",
@@ -56,11 +57,21 @@ const BINARY_READ_HEADERS = {
 
 const IMMEDIATE_POLL = { intervalMs: 1, timeoutMs: 1_000 };
 
+// The least server that answers this resource, so a method asking for more than the resource's
+// own feature is refused here before it reaches the scripted wire.
+const SERVER = createServerProfile({
+  version: { tag: "v1.60.0", major: 60, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: { remote_sync: true },
+});
+
 function clientOver(responses: Array<Response>) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
     userAgent: TEST_USER_AGENT,
     fetchImpl: capture.fetch,
+    server: SERVER,
   });
   return { mb, capture };
 }

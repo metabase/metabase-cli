@@ -10,7 +10,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
-import { serverVersionBelow } from "./server-gate";
+import { serverHas } from "./server-gate";
 
 const DEFAULT_COLLECTION_NAME = "E2E Default";
 
@@ -62,12 +62,10 @@ const TRASH_COMPACT = {
   is_remote_synced: false,
 } as const;
 
-// Through v61 the items endpoint reads its total off the first row's window column, so an empty
-// page reports no total at all; from v62 it reports 0.
-const EMPTY_ITEMS_TOTAL_VERSION = 62;
-
+// A server that reads the total off the first row's window column has none to report for an
+// empty page.
 function emptyItemsPageTotal(): number | null {
-  return serverVersionBelow(EMPTY_ITEMS_TOTAL_VERSION) ? null : 0;
+  return serverHas("collectionItemsTotalOnEmptyPage") ? 0 : null;
 }
 
 describe("collection e2e", () => {

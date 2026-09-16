@@ -11,7 +11,7 @@ export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a timeline event by id" },
   details:
     "Patches only the fields you send: `name`, `description`, `timestamp`, `timezone`, `time_matters`, `icon`, `timeline_id` (moves the event to another timeline), `archived`.",
-  capabilities: { minVersion: 58 },
+  requires: ["timelineEvent.update"],
   args: {
     ...outputFlags,
     ...profileFlag,

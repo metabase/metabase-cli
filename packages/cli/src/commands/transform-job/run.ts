@@ -13,16 +13,27 @@ export type TransformJobRunResultJson = TransformJobRunResult;
 const transformJobRunResultView: ResourceView<TransformJobRunResultJson> = {
   compactPick: TransformJobRunResult,
   tableColumns: [
-    { key: "job_run_id", label: "Job run" },
+    { key: "started", label: "Started" },
+    { key: "run_id", label: "Run" },
     { key: "message", label: "Message" },
   ],
 };
+
+function runSummary(id: number, result: TransformJobRunResult): string {
+  if (!result.started) {
+    return `Transform job ${id} was not started (already running, or it resolves to no transforms).`;
+  }
+  if (result.run_id === null) {
+    return `Started transform job ${id}.`;
+  }
+  return `Started transform job ${id} as run ${result.run_id}.`;
+}
 
 export default defineMetabaseCommand({
   meta: { name: "run", description: "Trigger a transform job run by id" },
   details:
     "Starts the job and returns immediately. The job runs every transform carrying one of its tags, plus those transforms' dependencies. Dependencies that are already fresh are skipped by default; --force-refresh re-runs the whole plan including them.",
-  capabilities: { minVersion: 59 },
+  requires: ["transformJob.run"],
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -40,10 +51,6 @@ export default defineMetabaseCommand({
     const id = parseId(args.id);
     const client = await getClient();
     const result = await client.transformJob.run(id, { run_all: args["force-refresh"] === true });
-    const summary =
-      result.job_run_id === null
-        ? `Transform job ${id} was not started (already running, or it resolves to no transforms).`
-        : `Started transform job ${id}.`;
-    renderSummary(result, transformJobRunResultView, summary, ctx);
+    renderSummary(result, transformJobRunResultView, runSummary(id, result), ctx);
   },
 });

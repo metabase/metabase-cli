@@ -29,11 +29,11 @@ This file is rules only. Architecture and rationale live in `docs/architecture.m
 
 ## Layout
 
-| Path              | What                                                                                                                    |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `packages/client` | Private Metabase API client: Zod `domain/` schemas, `resources/` methods, `http/` boundary, OAuth, version/capabilities |
-| `packages/cli`    | Publishable CLI: `commands/` (shell only), `core/` (pure logic), `output/` (presentation), `runtime/` (platform glue)   |
-| `tests/e2e`       | Built-binary tier against a live Metabase                                                                               |
+| Path              | What                                                                                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/client` | Private Metabase API client: Zod `domain/` schemas, `resources/` methods, `http/` boundary, OAuth, `version/` (server profile, feature rules, method requirements) |
+| `packages/cli`    | Publishable CLI: `commands/` (shell only), `core/` (pure logic), `output/` (presentation), `runtime/` (platform glue)                                              |
+| `tests/e2e`       | Built-binary tier against a live Metabase                                                                                                                          |
 
 - Nothing in `packages/client` may import from `packages/cli`, touch `process`, or mutate process-global state. Its dependency budget is `zod` (peer) + `semver` + `node:` builtins.
 - Within `packages/client`, only `client.ts` and `resources/` may import from `resources/`. The CLI may `import type` from the resource subpaths the `exports` map publishes.
@@ -47,9 +47,9 @@ This file is rules only. Architecture and rationale live in `docs/architecture.m
 
 ## Commands
 
-- Use `defineMetabaseCommand({ meta, args, capabilities, run })` from `commands/runtime.ts`, never citty's `defineCommand`. Spread the shared flag sets from `commands/flags.ts` (`outputFlags`, `profileFlag`, `connectionFlags`, plus `listFlags` for a list command). A new global flag must also be added to `GLOBAL_FLAG_ARGS` in `commands/global-flags.ts` or it will not survive hoisting.
+- Use `defineMetabaseCommand({ meta, args, requires, run })` from `commands/runtime.ts`, never citty's `defineCommand`. Spread the shared flag sets from `commands/flags.ts` (`outputFlags`, `profileFlag`, `connectionFlags`, plus `listFlags` for a list command). A new global flag must also be added to `GLOBAL_FLAG_ARGS` in `commands/global-flags.ts` or it will not survive hoisting.
 - Commands call the client, never the wire. An `/api/` path literal or a `requestParsed` / `requestRaw` / `requestStream` / `paginatePages` call inside `src/commands/` belongs in `resources/`. Both rules are absolute and carry no allowlist. The one sanctioned request a command issues by name is `tryDiscoverMetadata` in `auth/login.ts`, which runs before there is a transport to hang it on.
-- Every command declares `capabilities` explicitly: `{ minVersion }` (bare Metabase major, e.g. `58`) and/or `{ tokenFeature }`, `{}` for the v58 baseline, or `null` for a command that never reaches a server. The field is required, so an omission is a compile error. Baseline and `null` commands never preflight.
+- Every command declares `requires`: the `MethodKey` list of every `client.<ns>.<method>(` its body reaches (plus the methods of any helper it hands the client to), or `null` for a command that never reaches a server. The field is required, so an omission is a compile error. `commands/requires-guard.test.ts` asserts the declaration equals the calls in the body, so a list is never guessed. The preflight derives the features from `METHOD_REQUIREMENTS`, checks them through the client's own `checkFeatures` and throws its `RequirementFailure`; a command whose methods need nothing, and a `null` command, never preflight.
 - Import prompts from `output/prompt.ts`, never `@clack/prompts` directly — that is where cancel becomes `AbortError`.
 - Anything that can block takes `interruptSignal` explicitly: client construction, every `WaitSchedule`, any long-running fetch.
 
@@ -62,10 +62,18 @@ Every resource lives in `packages/client/src/domain/<resource-singular>.ts` and 
 
 - Trim to what an agent needs: ids, names, FK targets, base/semantic types, descriptions. Drop sync flags, fingerprints, timestamps, internal plumbing.
 - Pin closed enums with `z.enum([...])` where the backend enumerates the values, so a new server value fails loudly instead of passing as an untyped string.
+- `.optional()` on a domain field means every supported server may omit it. Absence or a different shape on some majors is never an optional: it is a module-private `<Resource>WireV<N>` schema for that generation plus a converter to the canonical shape, selected by a feature and handed to the transport as a reader (`<resource><Endpoint>Schema(features): z.ZodType<Resource>`), and the canonical field is `nullable`, where `null` means "this server cannot say".
+- Canonical is the newest supported server's shape. A converter may add fields but never collapses two distinguishable wire states into one canonical state, and it strips the wire fields it owns so the canonical JSON is identical on every server.
+- Only `version/features.ts` compares a Metabase major (`major-comparison-guard.test.ts` enforces it; `profile.ts` and `tag.ts` place and parse). Everything else branches on a named feature from `FEATURE_RULES`. A feature name describes a behaviour (`transformTargetTableId`), never a version, and every version-gated rule must be non-constant across `KNOWN_RANGE` (`features.test.ts`), so a rule that stops flipping is deleted with its wire variant and converter.
+- Every resource method declares its features in `version/requirements.ts` (strictest first) and opens with `await transport.require("<ns>.<method>")`, which refuses with `CapabilityError` before any request; `requirements.test.ts` asserts the literal set equals the table. A method that reads a version-selected shape then reads `(await transport.server()).features` and parses with the reader.
 - Presentation is the CLI's: the terminal binding is `<resource>View` in `packages/cli/src/output/views/<r>.ts`. Never inline a column list in a command; never put a `ColumnDef` on the client surface.
 - Resource methods (`packages/client/src/resources/<r>.ts`) are the only layer naming an `/api/` path. Path params positional, then params, then options; params use Metabase's own field names verbatim with no mapping layer; transport concerns (`signal`, `timeoutMs`, `retries`) only in the trailing options; wire envelopes stay module-private; methods return domain values, and a non-paginated list returns `ListResult<T>`; every string path param goes through `encodeURIComponent`; every method carries the endpoint's description as a doc comment.
 - List commands wrap items in `ListEnvelope<T>` via one of `windowList` / `windowServerPage` / `collectForOutput` (`packages/cli/src/output/window.ts`), and export the envelope schema as a named const used both as the command's `outputSchema` and by its e2e test. `has_more` reports what the walk observed — only a source that ran dry may report `false`, and a server count never overrides rows already in hand. `has_more: true` carries a `next_offset` greater than `offset`, or `null` when `--max-bytes` left no room for a single row — an empty window has nowhere to resume from, so it reports the rows that remain and offers no offset to repeat.
 - The client is embeddable: no message it produces may name the CLI, an `mb` command, or a CLI flag.
+
+## Skills
+
+- A shipped skill under `packages/cli/skill-data/` describes the newest Metabase plainly, with no version prose. What it relies on is declared: `requires: [<FeatureName>, …]` in frontmatter for the whole skill, and `<!-- requires: a, b -->` … `<!-- /requires -->` around a passage, each marker on its own line and never inside a Markdown table. `core/skills.ts` validates both on every read; `core/skills.test.ts` pins the shipped skill-level map, so a new feature-bound skill is added there.
 
 ## Tests
 

@@ -1,8 +1,58 @@
+import { z } from "zod";
+
+import { RequirementFailure } from "@metabase/client/version/preflight-error";
+
+import type { UnavailableSkill } from "../core/skills";
 import { listTruncationNotice, warn } from "./notice";
 
 export interface SkillListRow {
   name: string;
   description: string;
+}
+
+const UnavailableSkillJson: z.ZodType<UnavailableSkill> = z.object({
+  name: z.string(),
+  failure: RequirementFailure,
+});
+
+export const UnavailableSkills = z
+  .array(UnavailableSkillJson)
+  .nullable()
+  .describe(
+    "Skills left out because the profile's server lacks a feature they need, each with the client's account of the first one missing; `null` when nothing was filtered — `--all` was passed, or the profile has no cached server probe to filter by.",
+  );
+
+export const unavailableSkillsFlag = {
+  all: {
+    type: "boolean",
+    description:
+      "Every non-hidden skill, in full, regardless of what the profile's server supports",
+  },
+} as const;
+
+interface SkillFilterContext {
+  profileName: string;
+  bypassed: boolean;
+}
+
+// What the text rendering says beyond the rows: that nothing was filtered because there was no
+// server to filter by, or which skills were and why. `--all` asked for the lot and gets no note.
+export function skillFilterNotices(
+  unavailable: readonly UnavailableSkill[] | null,
+  context: SkillFilterContext,
+): string[] {
+  if (context.bypassed) {
+    return [];
+  }
+  if (unavailable === null) {
+    return [
+      `Skills are unfiltered: profile "${context.profileName}" has no cached server probe (run \`mb auth list\` to record one).`,
+    ];
+  }
+  return unavailable.map(
+    (skill) =>
+      `Skipped skill "${skill.name}": ${skill.failure.detail} Pass --all to print it anyway.`,
+  );
 }
 
 const DEFAULT_TERMINAL_WIDTH = 80;

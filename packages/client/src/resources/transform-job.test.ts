@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
+import { ResponseShapeError } from "../errors";
 import type { ClientCredentials } from "../http/transport";
 import {
   captureFetch,
@@ -8,6 +9,7 @@ import {
   jsonResponse,
   TEST_USER_AGENT,
 } from "../testing/fetch-capture";
+import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
   url: "https://mb.example.com/metabase",
@@ -39,6 +41,7 @@ const TRANSFORM = {
   updated_at: "2026-01-01T00:00:00Z",
   creator_id: 1,
   collection_id: null,
+  target_table_id: 42,
 };
 
 const JSON_REQUEST_HEADERS = {
@@ -60,11 +63,33 @@ const BINARY_READ_HEADERS = {
   "x-api-key": "mb_wire_test_key",
 };
 
-function clientOver(responses: FetchScript) {
+// The least server that answers this resource, so a method asking for more than the resource's
+// own feature is refused here before it reaches the scripted wire. It is also of the generation
+// that answers a job run with an opaque stub id.
+const SERVER = createServerProfile({
+  version: { tag: "v0.61.0", major: 61, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: null,
+});
+
+// The first generation answering a job run with the run's numeric id, or null for no run.
+const NUMERIC_RUN_ID_SERVER = createServerProfile({
+  version: { tag: "v0.64.0", major: 64, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: null,
+});
+
+const STUB_RUN_RESPONSE = { message: "Job run started", job_run_id: "stub-3-1767225600000" };
+const NUMERIC_RUN_RESPONSE = { message: "Job run started", job_run_id: 11 };
+
+function clientOver(responses: FetchScript, server: ServerProfile = SERVER) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
     userAgent: TEST_USER_AGENT,
     fetchImpl: capture.fetch,
+    server,
   });
   return { mb, capture };
 }
@@ -152,9 +177,7 @@ describe("transform-job resource wire requests", () => {
   });
 
   it("sends the run request as a POST carrying the run_all flag", async () => {
-    const { mb, capture } = clientOver([
-      jsonResponse({ message: "Job run started", job_run_id: 11 }),
-    ]);
+    const { mb, capture } = clientOver([jsonResponse(STUB_RUN_RESPONSE)]);
 
     await mb.transformJob.run(3, { run_all: true });
 
@@ -168,27 +191,30 @@ describe("transform-job resource wire requests", () => {
     ]);
   });
 
-  it("reads the numeric run id head answers", async () => {
-    const { mb } = clientOver([jsonResponse({ message: "Job run started", job_run_id: 11 })]);
+  it("refuses a numeric run id from a server that answers a stub", async () => {
+    const { mb } = clientOver([jsonResponse(NUMERIC_RUN_RESPONSE)]);
 
-    expect(await mb.transformJob.run(3)).toEqual({ message: "Job run started", job_run_id: 11 });
+    const error = await mb.transformJob.run(3).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ResponseShapeError);
+    assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
+    expect(error.userMessage).toBe(
+      "On Metabase v0.61.0 the response shape was unexpected:\n" +
+        "  job_run_id: Invalid input: expected string, received number",
+    );
   });
 
-  it("reads the opaque stub id released servers answer", async () => {
-    const { mb } = clientOver([
-      jsonResponse({ message: "Job run started", job_run_id: "job-3-1767225600000" }),
-    ]);
+  it("refuses a stub run id from a server that answers a number", async () => {
+    const { mb } = clientOver([jsonResponse(STUB_RUN_RESPONSE)], NUMERIC_RUN_ID_SERVER);
 
-    expect(await mb.transformJob.run(3)).toEqual({
-      message: "Job run started",
-      job_run_id: "job-3-1767225600000",
-    });
-  });
+    const error = await mb.transformJob.run(3).catch((caught: unknown) => caught);
 
-  it("reads the null run id a server answers when it started nothing", async () => {
-    const { mb } = clientOver([jsonResponse({ message: "Job run started", job_run_id: null })]);
-
-    expect(await mb.transformJob.run(3)).toEqual({ message: "Job run started", job_run_id: null });
+    expect(error).toBeInstanceOf(ResponseShapeError);
+    assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
+    expect(error.userMessage).toBe(
+      "On Metabase v0.64.0 (newer than this client supports, up to v63) the response shape was unexpected:\n" +
+        "  job_run_id: Invalid input: expected number, received string",
+    );
   });
 
   it("sends the transforms request against the job id", async () => {

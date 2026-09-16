@@ -250,6 +250,20 @@ describe("parseJsonOrPlain", () => {
     );
   });
 
+  it("keeps a text/plain body that happens to be valid JSON as the string it is", () => {
+    expect(parseJsonOrPlain("123", "text/plain", z.string())).toBe("123");
+  });
+
+  it("parses a bare boolean literal under application/json as a boolean", () => {
+    expect(parseJsonOrPlain("false", "application/json; charset=utf-8", z.boolean())).toBe(false);
+  });
+
+  it("parses a bare number literal under application/json as a number", () => {
+    expect(parseJsonOrPlain("15152.63298", "application/json; charset=utf-8", z.number())).toBe(
+      15152.63298,
+    );
+  });
+
   it("rejects schema mismatches on JSON content with ValidationError", () => {
     const error = captureThrown(() =>
       parseJsonOrPlain('{"id":"x","name":"y"}', "application/json", Person, { source: "fixture" }),

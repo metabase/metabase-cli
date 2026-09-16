@@ -24,7 +24,7 @@ export default defineMetabaseCommand({
   meta: { name: "send", description: "Send a question alert now, off-schedule" },
   details:
     "Delivers to every handler on the alert, ignoring its send condition and schedule. Requires the channel to be configured on the server (email needs SMTP set up).",
-  capabilities: { minVersion: 58 },
+  requires: ["notification.send"],
   args: {
     ...outputFlags,
     ...profileFlag,

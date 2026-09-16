@@ -1,6 +1,6 @@
 import { AbortError, toMetabaseError } from "@metabase/client/errors";
 import type { ErrorCategory, MetabaseError } from "@metabase/client/errors";
-import type { PreflightFailure } from "@metabase/client/version/capabilities";
+import type { RequirementFailure } from "@metabase/client/version/preflight-error";
 
 import { consumeLegacyEnvWarnings, ENV_VERBOSE, readEnv } from "../core/env";
 import { warn } from "./notice";
@@ -74,7 +74,7 @@ export function reportError(error: unknown, format?: Format): void {
   process.exitCode = exitCode;
 }
 
-function isVersionTooOld(detail: unknown): detail is PreflightFailure {
+function isVersionTooOld(detail: unknown): detail is RequirementFailure {
   return (
     typeof detail === "object" &&
     detail !== null &&

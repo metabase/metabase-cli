@@ -17,7 +17,7 @@ export default defineMetabaseCommand({
     "`handlers` is a list of `{channel_type: channel/email|channel/slack|channel/http, recipients}`;",
     'each recipient is `{type: "notification-recipient/user", user_id}` or `{type: "notification-recipient/raw-value", details: {value: "a@b.com"}}`.',
   ].join(" "),
-  capabilities: { minVersion: 58 },
+  requires: ["notification.create"],
   args: {
     ...outputFlags,
     ...profileFlag,

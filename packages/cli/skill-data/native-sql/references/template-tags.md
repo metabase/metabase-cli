@@ -86,9 +86,13 @@ SQL: `{{snippet: Active Rows}}`. Create/manage the fragment with `mb snippet` (`
 
 SQL: `{{#42}}` or `{{#42-slug}}`, used where a table/subquery goes (`FROM {{#42}}`, `WITH x AS {{#42}}`). Runs with the referenced card's own defaults; no user value.
 
-### Source table — `table` (v59+)
+<!-- requires: nativeTableTemplateTag -->
 
-A niche v59+ type that references a warehouse table by id (`{type: "table", table-id: <id>}`, optional `source-filters`) where a table/subquery goes — analogous to a card reference but pointing at a raw table. Absent on v0.58. Reach for a card reference (`card`) unless you specifically need a bare-table source tag.
+### Source table — `table`
+
+A niche type that references a warehouse table by id (`{type: "table", table-id: <id>}`, optional `source-filters`) where a table/subquery goes — analogous to a card reference but pointing at a raw table. Reach for a card reference (`card`) unless you specifically need a bare-table source tag.
+
+<!-- /requires -->
 
 ### Temporal unit — `temporal-unit`
 

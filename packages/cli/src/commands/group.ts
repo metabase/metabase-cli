@@ -28,6 +28,7 @@ export function defineCommandGroup(def: CommandGroupDef): CommandDef {
     skills: def.skills ?? [],
     inputSchema: null,
     outputSchema: null,
+    requires: null,
     capabilities: null,
   });
   return cmd;

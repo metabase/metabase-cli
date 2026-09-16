@@ -4,6 +4,8 @@ import type { ZodType } from "zod";
 
 import type { Credential } from "@metabase/client/auth/credential";
 import { parseJson } from "@metabase/client/json";
+import type { ServerInfo } from "@metabase/client/version/probe";
+import { createServerProfile, KNOWN_RANGE } from "@metabase/client/version/profile";
 import type { Verification } from "../../core/auth/verify";
 
 const hoisted = vi.hoisted(() => {
@@ -66,14 +68,20 @@ function captureStderr(): string[] {
   return captured;
 }
 
+function successServer(): ServerInfo {
+  return {
+    version: { tag: "v0.58.7", major: 58, patch: 7 },
+    date: null,
+    hash: null,
+    tokenFeatures: null,
+  };
+}
+
 function successVerify(): Verification {
   return {
     ok: true,
     user: { id: 1, name: "Tester", isAdmin: true },
-    server: {
-      version: { tag: "v0.58.7", major: 58, patch: 7 },
-      tokenFeatures: null,
-    },
+    server: successServer(),
   };
 }
 
@@ -213,7 +221,11 @@ describe("auth list command", () => {
           status: "ok",
           user: { id: 1, name: "Tester", isAdmin: true },
           version: { tag: "v0.58.7", major: 58, patch: 7 },
+          edition: "oss",
+          skew: "supported",
+          knownRange: KNOWN_RANGE,
           tokenFeatures: null,
+          features: createServerProfile(successServer()).features,
           lastProbedAt: envelope.data[0]?.lastProbedAt,
           lastFailure: null,
         },

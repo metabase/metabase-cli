@@ -13,6 +13,7 @@ import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries } from "@metabase/cli
 import { parseJsonResult } from "@metabase/client/json";
 import { pollUntil } from "@metabase/client/poll";
 import { probeServer, type ServerInfo } from "@metabase/client/version/probe";
+import { createServerProfile } from "@metabase/client/version/profile";
 
 import { USER_AGENT } from "../../../packages/cli/src/core/user-agent";
 import {
@@ -63,10 +64,7 @@ const ORDERS_BY_STATUS_SQL = "SELECT status, COUNT(*) AS n FROM orders GROUP BY 
 const ORDERS_OVERVIEW_DASHBOARD_NAME = "Orders Overview";
 const ORDERS_OVERVIEW_DASHBOARD_DESCRIPTION = "E2E seeded dashboard with one orders dashcard.";
 const LIMITED_GROUP_NAME = "E2E Limited";
-const LIBRARY_FEATURE = "library";
-const LIBRARY_MIN_VERSION = 59;
 const TRANSFORMS_ENABLED_SETTING = "transforms-enabled";
-const TRANSFORMS_MIN_VERSION = 59;
 const TRANSFORMS_LOCKED_STATUSES: ReadonlySet<number> = new Set([402, 403]);
 
 const BASE_URL = resolveE2EBaseUrl();
@@ -361,9 +359,6 @@ async function findSeedResidue(sessionId: string): Promise<string[]> {
   return residue;
 }
 
-// Mirrors tests/e2e/server-gate.ts: a null (unparseable head/dev) version counts as the latest, so
-// the library round-trip seeds and runs on head images; real sub-59 images parse to a major below
-// the floor and skip seeding, since their `/api/ee/library` endpoints don't exist yet.
 // A reused snapshot must already contain everything the current seed produces for this server. A
 // library-capable server whose stored snapshot has no library Data collection cannot satisfy the
 // library suite (every test resets to a state that never had it), so refuse it with an actionable
@@ -377,14 +372,11 @@ function assertSnapshotMatchesSeed(existing: E2EBootstrap): void {
 }
 
 function libraryReady(server: ServerInfo): boolean {
-  if (server.tokenFeatures?.[LIBRARY_FEATURE] !== true) {
-    return false;
-  }
-  return server.version === null || server.version.major >= LIBRARY_MIN_VERSION;
+  return createServerProfile(server).features.library;
 }
 
 function transformsReady(server: ServerInfo): boolean {
-  return server.version === null || server.version.major >= TRANSFORMS_MIN_VERSION;
+  return createServerProfile(server).features.transforms;
 }
 
 // Only the transform suites turn on the opt-in, so a stack that will not take it costs those suites

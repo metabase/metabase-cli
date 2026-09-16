@@ -122,7 +122,7 @@ No `type:"query"` wrapper, no `query:` nesting. If you wrap the query inside a l
 
 ## Legacy formats you may encounter
 
-Older Metabase servers used a different query envelope (sometimes called MBQL 4 / "legacy MBQL"); the `mbql/query` shape above is what recent servers store and return. You won't author the legacy shapes, but you may see them in queries created long ago. Anything not `lib/type: "mbql/query"` is sent as-is and normalized server-side — you lose validation, so don't author these:
+Queries created long ago may carry a different envelope (sometimes called MBQL 4 / "legacy MBQL"); the `mbql/query` shape above is what the server stores and returns. You won't author the legacy shapes, but you may see them in old content. Anything not `lib/type: "mbql/query"` is sent as-is and normalized server-side — you lose validation, so don't author these:
 
 - **Legacy structured** — `{ "type": "query", "database": N, "query": { "source-table": T, … } }`
 - **Flat native** — `{ "type": "native", "database": N, "native": { "query": "SELECT …" } }` — the server accepts it, but author the native stage instead (`native-sql`).

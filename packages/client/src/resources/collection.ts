@@ -74,6 +74,7 @@ export function collectionResource(transport: Transport) {
     params: CollectionListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Collection>> {
+    await transport.require("collection.list");
     const data = await transport.requestParsed(CollectionApiList, "/api/collection", {
       ...options,
       query: COLLECTION_LIST_QUERY[params.filter ?? DEFAULT_LIST_FILTER],
@@ -87,12 +88,14 @@ export function collectionResource(transport: Transport) {
    * caller resolves both.
    */
   async function listWithLibrary(options: RequestOptions = {}): Promise<ListResult<Collection>> {
+    await transport.require("collection.listWithLibrary");
     const data = await listCollectionsWithLibrary(transport, Collection, options);
     return { data, total: null };
   }
 
   /** Get one collection by id, entity id, or the `root`/`trash` alias. */
   async function get(ref: CollectionId, options: RequestOptions = {}): Promise<Collection> {
+    await transport.require("collection.get");
     return transport.requestParsed(Collection, `/api/collection/${refPath(ref)}`, { ...options });
   }
 
@@ -101,6 +104,7 @@ export function collectionResource(transport: Transport) {
     params: CollectionCreateInput,
     options: RequestOptions = {},
   ): Promise<Collection> {
+    await transport.require("collection.create");
     return transport.requestParsed(Collection, "/api/collection", {
       ...options,
       method: "POST",
@@ -114,6 +118,7 @@ export function collectionResource(transport: Transport) {
     params: CollectionUpdateInput,
     options: RequestOptions = {},
   ): Promise<Collection> {
+    await transport.require("collection.update");
     return transport.requestParsed(Collection, `/api/collection/${refPath(ref)}`, {
       ...options,
       method: "PUT",
@@ -123,6 +128,7 @@ export function collectionResource(transport: Transport) {
 
   /** Archive (soft-delete) a collection. Metabase models this as an update, not its own endpoint. */
   async function archive(ref: CollectionId, options: RequestOptions = {}): Promise<Collection> {
+    await transport.require("collection.archive");
     return update(ref, { archived: true }, options);
   }
 
@@ -130,12 +136,13 @@ export function collectionResource(transport: Transport) {
    * Walk the items inside a collection one page at a time. This endpoint pages on the server, so
    * the caller consumes pages rather than a single list and decides how far to pull.
    */
-  function itemPages(
+  async function* itemPages(
     ref: CollectionId,
     params: CollectionItemListParams = {},
     options: CollectionItemPageOptions = {},
   ): AsyncIterable<Page<CollectionItem>> {
-    return paginatePages(transport, `/api/collection/${refPath(ref)}/items`, CollectionItem, {
+    await transport.require("collection.itemPages");
+    yield* paginatePages(transport, `/api/collection/${refPath(ref)}/items`, CollectionItem, {
       query: {
         models: params.models,
         archived: params.archived,
@@ -150,6 +157,7 @@ export function collectionResource(transport: Transport) {
 
   /** Fetch the collection hierarchy as a forest of nested nodes. */
   async function tree(options: RequestOptions = {}): Promise<ListResult<CollectionTreeNode>> {
+    await transport.require("collection.tree");
     const data = await transport.requestParsed(CollectionTreeApiList, "/api/collection/tree", {
       ...options,
     });

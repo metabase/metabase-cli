@@ -9,6 +9,10 @@ import { AuthProfileListEnvelope } from "../../packages/cli/src/commands/auth/li
 import { LogoutResult } from "../../packages/cli/src/commands/auth/logout";
 import { AuthStatus } from "../../packages/cli/src/commands/auth/status";
 import { ProfilesFile } from "../../packages/cli/src/core/auth/profile-record";
+import {
+  type ServerSummary,
+  summarizeServer,
+} from "../../packages/cli/src/core/auth/server-summary";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
@@ -17,6 +21,17 @@ const BAD_API_KEY = "mb_definitely_not_valid_key_aaaaaaaaaa";
 
 function profilesPath(configHome: string): string {
   return join(configHome, "metabase-cli", "profiles.json");
+}
+
+function serverFields(payload: ServerSummary): ServerSummary {
+  return {
+    version: payload.version,
+    edition: payload.edition,
+    skew: payload.skew,
+    knownRange: payload.knownRange,
+    tokenFeatures: payload.tokenFeatures,
+    features: payload.features,
+  };
 }
 
 async function readProfilesJson(configHome: string): Promise<ProfilesFile> {
@@ -72,6 +87,8 @@ describe("auth e2e", () => {
     if (loginPayload.version !== null) {
       expect(loginPayload.version.tag.startsWith("v")).toBe(true);
     }
+    const expectedServer = summarizeServer(bootstrap.server);
+    expect(serverFields(loginPayload)).toEqual(expectedServer);
 
     const fileAfterLogin = await readProfilesJson(configHome);
     expect(fileAfterLogin.profiles).toHaveLength(1);
@@ -89,8 +106,13 @@ describe("auth e2e", () => {
     expect(statusPayload.present).toBe(true);
     expect(statusPayload.url).toBe(bootstrap.baseUrl);
     expect(statusPayload.user?.id).toBe(loginPayload.user?.id);
-    expect(statusPayload.version?.tag).toBe(loginPayload.version?.tag);
+    expect(serverFields(statusPayload)).toEqual(expectedServer);
     expect(statusPayload.lastFailure).toBeNull();
+
+    const list = await runCli({ args: ["auth", "list", "--json"], configHome });
+    expect(list.exitCode, list.stderr).toBe(0);
+    const listed = parseJson(list.stdout, AuthProfileListEnvelope).data.map(serverFields);
+    expect(listed).toEqual([expectedServer]);
   });
 
   it("first-time login with an invalid api key fails verification and leaves profiles.json untouched", async () => {

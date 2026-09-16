@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { tryParseTag } from "./tag";
+import { editionFromTag, tryParseTag } from "./tag";
 
 describe("tryParseTag", () => {
   it("parses a v0.* (OSS-prefixed) tag", () => {
@@ -31,5 +31,24 @@ describe("tryParseTag", () => {
     ["a snapshot build of a released line", "v0.59.12-SNAPSHOT"],
   ])("returns null on %s", (_label, input) => {
     expect(tryParseTag(input)).toBeNull();
+  });
+});
+
+describe("editionFromTag", () => {
+  it.each([
+    ["a released OSS tag", "v0.61.2", "oss"],
+    ["a released EE tag", "v1.61.2", "ee"],
+    ["a locally built OSS jar", "v0.62.0-SNAPSHOT", "oss"],
+    ["a locally built EE jar", "v1.62.0-SNAPSHOT", "ee"],
+  ])("reads the edition off %s", (_label, input, expected) => {
+    expect(editionFromTag(input)).toBe(expected);
+  });
+
+  it.each([
+    ["a head/nightly build tag", "vUNKNOWN"],
+    ["a dev checkout tag", "vLOCAL_DEV"],
+    ["a semver major outside 0|1", "v2.58.7"],
+  ])("returns null on %s", (_label, input) => {
+    expect(editionFromTag(input)).toBeNull();
   });
 });

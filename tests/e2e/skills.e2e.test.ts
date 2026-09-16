@@ -6,6 +6,7 @@ import { SkillGetEnvelope } from "../../packages/cli/src/commands/skills/get";
 import { SkillListEnvelope } from "../../packages/cli/src/commands/skills/list";
 import { SkillPathListEnvelope } from "../../packages/cli/src/commands/skills/path";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { seedProbedProfile, seedProbedProfileAt, UNREACHABLE, versionAt } from "./seed-profile";
 
 const BUNDLED_VISIBLE_NAMES = [
   "core",
@@ -20,6 +21,35 @@ const BUNDLED_VISIBLE_NAMES = [
   "transform",
   "visualization",
 ] as const;
+
+const UNFILTERED_NOTE =
+  'Skills are unfiltered: profile "default" has no cached server probe (run `mb auth list` to record one).';
+
+const TRANSFORM_UNAVAILABLE_ON_58 = {
+  name: "transform",
+  failure: {
+    reason: "version-too-old",
+    detail:
+      "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
+    feature: "transforms",
+    since: 59,
+    tokenFeature: null,
+    serverVersion: "v0.58.0",
+  },
+};
+
+const GIT_SYNC_UNAVAILABLE_ON_58 = {
+  name: "git-sync",
+  failure: {
+    reason: "version-too-old",
+    detail:
+      "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.",
+    feature: "remoteSync",
+    since: 60,
+    tokenFeature: "remote_sync",
+    serverVersion: "v0.58.0",
+  },
+};
 
 describe("skills e2e", () => {
   const tempDirs: string[] = [];
@@ -47,6 +77,136 @@ describe("skills e2e", () => {
     for (const item of envelope.data) {
       expect(item.description.length).toBeGreaterThan(20);
     }
+  });
+
+  it("list reports `unavailable: null` and keeps stdout clean when there is no cached probe", async () => {
+    const result = await runCli({
+      args: ["skills", "list", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, SkillListEnvelope).unavailable).toBeNull();
+    expect(result.stderr).toBe("");
+  });
+
+  it("list in text mode notes that nothing was filtered when there is no cached probe", async () => {
+    const result = await runCli({
+      args: ["skills", "list", "--format", "text"],
+      configHome: await makeIsolatedConfigHome(),
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.startsWith("core\n")).toBe(true);
+    expect(result.stderr).toBe(UNFILTERED_NOTE);
+  });
+
+  it("list against a v58 profile omits the feature-bound skills and reports them under `unavailable`", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfile(configHome, 58);
+
+    const result = await runCli({ args: ["skills", "list", "--json"], configHome });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const envelope = parseJson(result.stdout, SkillListEnvelope);
+    expect(envelope.data.map((s) => s.name)).toEqual(
+      BUNDLED_VISIBLE_NAMES.filter((name) => name !== "git-sync" && name !== "transform"),
+    );
+    expect(envelope.unavailable).toEqual([GIT_SYNC_UNAVAILABLE_ON_58, TRANSFORM_UNAVAILABLE_ON_58]);
+    expect(result.stderr).toBe("");
+  });
+
+  it("list --all against a v58 profile lists every skill and reports `unavailable: null`", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfile(configHome, 58);
+
+    const result = await runCli({ args: ["skills", "list", "--all", "--json"], configHome });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const envelope = parseJson(result.stdout, SkillListEnvelope);
+    expect(envelope.data.map((s) => s.name)).toEqual([...BUNDLED_VISIBLE_NAMES]);
+    expect(envelope.unavailable).toBeNull();
+  });
+
+  it("list in text mode against a v58 profile names each skipped skill on stderr", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfile(configHome, 58);
+
+    const result = await runCli({ args: ["skills", "list", "--format", "text"], configHome });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).not.toContain("transform\n");
+    expect(result.stderr).toBe(
+      [
+        `Skipped skill "git-sync": ${GIT_SYNC_UNAVAILABLE_ON_58.failure.detail} Pass --all to print it anyway.`,
+        `Skipped skill "transform": ${TRANSFORM_UNAVAILABLE_ON_58.failure.detail} Pass --all to print it anyway.`,
+      ].join("\n"),
+    );
+  });
+
+  it("get transform against a v58 profile withholds the body, and --all prints it", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfile(configHome, 58);
+
+    const withheld = await runCli({ args: ["skills", "get", "transform", "--json"], configHome });
+    expect(withheld.exitCode, withheld.stderr).toBe(0);
+    expect(parseJson(withheld.stdout, SkillGetEnvelope)).toEqual({
+      data: [],
+      returned: 0,
+      offset: 0,
+      total: 0,
+      has_more: false,
+      next_offset: null,
+      unavailable: [TRANSFORM_UNAVAILABLE_ON_58],
+    });
+
+    const printed = await runCli({
+      args: ["skills", "get", "transform", "--all", "--json", "--max-bytes", "0"],
+      configHome,
+    });
+    expect(printed.exitCode, printed.stderr).toBe(0);
+    const envelope = parseJson(printed.stdout, SkillGetEnvelope);
+    expect(envelope.unavailable).toBeNull();
+    expect(envelope.data.map((s) => s.name)).toEqual(["transform"]);
+  });
+
+  it("get core resolves its sections against the cached server: an OSS v58 loses the library bullet, an EE v63 keeps it without markers", async () => {
+    const oss58 = await makeIsolatedConfigHome();
+    await seedProbedProfile(oss58, 58);
+    const ee63 = await makeIsolatedConfigHome();
+    await seedProbedProfileAt(ee63, UNREACHABLE, versionAt(63), {
+      library: true,
+      remote_sync: true,
+      content_translation: true,
+    });
+
+    const onOss58 = await runCli({ args: ["skills", "get", "core", "--json"], configHome: oss58 });
+    const onEe63 = await runCli({ args: ["skills", "get", "core", "--json"], configHome: ee63 });
+    const unfiltered = await runCli({
+      args: ["skills", "get", "core", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+    });
+
+    for (const result of [onOss58, onEe63, unfiltered]) {
+      expect(result.exitCode, result.stderr).toBe(0);
+    }
+    const bodyOf = (stdout: string): string => {
+      const item = parseJson(stdout, SkillGetEnvelope).data[0];
+      assert(item !== undefined, "expected the core skill in the envelope");
+      return item.body;
+    };
+    const oss58Body = bodyOf(onOss58.stdout);
+    const ee63Body = bodyOf(onEe63.stdout);
+    const unfilteredBody = bodyOf(unfiltered.stdout);
+
+    expect(oss58Body).not.toContain("**library.**");
+    expect(oss58Body).not.toContain("**transform.**");
+    expect(oss58Body).not.toContain("<!-- requires");
+    expect(ee63Body).toContain("**library.**");
+    expect(ee63Body).toContain("**transform.**");
+    expect(ee63Body).not.toContain("<!-- requires");
+    expect(unfilteredBody).toContain("<!-- requires: library -->");
+    expect(unfilteredBody).toContain("<!-- /requires -->");
   });
 
   it("list hides the metabase-cli discovery stub", async () => {
@@ -129,6 +289,7 @@ describe("skills e2e", () => {
       has_more: true,
       next_offset: null,
       truncated: { reason: "max_bytes", bytes: fullBytes },
+      unavailable: null,
     });
     expect(result.stderr).toBe(
       `… cut at ${fullBytes} bytes; a skill body is indivisible — pass --max-bytes 0 to print it whole, or \`mb skills path <name>\` to read it from disk`,

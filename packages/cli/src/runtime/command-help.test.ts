@@ -2,7 +2,8 @@ import { defineCommand } from "citty";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { BASELINE_CAPABILITIES } from "@metabase/client/version/capabilities";
+import { summarizeCapabilities } from "@metabase/client/version/capability-summary";
+import { type MethodKey, methodRequirements } from "@metabase/client/version/requirements";
 
 import { defineMetabaseCommand } from "../commands/runtime";
 import main from "../main";
@@ -13,7 +14,7 @@ describe("buildHelpIndex", () => {
   it("walks lazy subCommands into full-path index entries", async () => {
     const leaf = defineMetabaseCommand({
       meta: { name: "leaf", description: "a leaf" },
-      capabilities: {},
+      requires: [],
       args: {},
       run() {
         return;
@@ -40,7 +41,7 @@ describe("buildHelpIndex", () => {
   it("skips commands marked meta.hidden = true (and their subtrees)", async () => {
     const visible = defineMetabaseCommand({
       meta: { name: "visible", description: "visible" },
-      capabilities: {},
+      requires: [],
       args: {},
       run() {
         return;
@@ -48,7 +49,7 @@ describe("buildHelpIndex", () => {
     });
     const hidden = defineMetabaseCommand({
       meta: { name: "hidden", description: "hidden", hidden: true },
-      capabilities: {},
+      requires: [],
       args: {},
       run() {
         return;
@@ -98,7 +99,7 @@ describe("buildHelpEntry", () => {
   it("converts citty args to entries with type, required, default, alias, options", async () => {
     const leaf = defineMetabaseCommand({
       meta: { name: "leaf", description: "leaf" },
-      capabilities: {},
+      requires: [],
       args: {
         flag: { type: "string", description: "a flag", alias: "f" },
         toggle: { type: "boolean", description: "toggle", default: false },
@@ -146,7 +147,7 @@ describe("buildHelpEntry", () => {
   it("emits the JSON Schema of outputSchema and forwards examples for metabase commands", async () => {
     const leaf = defineMetabaseCommand({
       meta: { name: "leaf", description: "leaf" },
-      capabilities: {},
+      requires: [],
       args: {},
       outputSchema: z.object({ ok: z.boolean(), name: z.string() }),
       examples: ["root leaf --json"],
@@ -174,14 +175,15 @@ describe("buildHelpEntry", () => {
         required: ["ok", "name"],
         additionalProperties: false,
       },
-      capabilities: BASELINE_CAPABILITIES,
+      requires: { methods: [], features: [] },
+      capabilities: summarizeCapabilities([]),
     });
   });
 
   it("emits the JSON Schema of inputSchema for commands that declare a body contract", async () => {
     const leaf = defineMetabaseCommand({
       meta: { name: "create", description: "create" },
-      capabilities: {},
+      requires: [],
       args: {},
       inputSchema: z.object({ name: z.string() }),
       run() {
@@ -205,7 +207,7 @@ describe("buildHelpEntry", () => {
   it("forwards details for metabase commands that declare it and omits the key otherwise", async () => {
     const withDetails = defineMetabaseCommand({
       meta: { name: "with", description: "short" },
-      capabilities: {},
+      requires: [],
       args: {},
       details: "the long per-command knowledge",
       run() {
@@ -214,7 +216,7 @@ describe("buildHelpEntry", () => {
     });
     const without = defineMetabaseCommand({
       meta: { name: "without", description: "short" },
-      capabilities: {},
+      requires: [],
       args: {},
       run() {
         return;
@@ -231,7 +233,7 @@ describe("buildHelpEntry", () => {
   it("forwards declared skill pointers and defaults to an empty array otherwise", async () => {
     const withSkills = defineMetabaseCommand({
       meta: { name: "with", description: "short" },
-      capabilities: {},
+      requires: [],
       args: {},
       skills: [{ skill: "mbql", purpose: "author the dataset_query" }],
       run() {
@@ -240,7 +242,7 @@ describe("buildHelpEntry", () => {
     });
     const without = defineMetabaseCommand({
       meta: { name: "without", description: "short" },
-      capabilities: {},
+      requires: [],
       args: {},
       run() {
         return;
@@ -273,6 +275,7 @@ describe("buildHelpEntry", () => {
       args: [],
       inputSchema: null,
       outputSchema: null,
+      requires: null,
       capabilities: null,
     });
   });
@@ -296,6 +299,7 @@ describe("buildHelpEntry", () => {
       args: [],
       inputSchema: null,
       outputSchema: null,
+      requires: null,
       capabilities: null,
     });
   });
@@ -445,13 +449,9 @@ const ALL_COMMANDS = [
   "skills path",
 ];
 
-const MEASURE_CAPABILITIES = { minVersion: 59 } as const;
-const CONTENT_TRANSLATION_CAPABILITIES = {
-  minVersion: 58,
-  tokenFeature: "content_translation",
-} as const;
-const TRANSFORM_CAPABILITIES = { minVersion: 59 } as const;
-const TRANSFORM_JOB_SET_ACTIVE_CAPABILITIES = { minVersion: 61 } as const;
+function requiresOf(method: MethodKey): CommandHelpEntry["requires"] {
+  return { methods: [method], features: Array.from(methodRequirements(method)) };
+}
 
 let cachedEntries: Promise<CommandHelpEntry[]> | null = null;
 
@@ -493,68 +493,93 @@ describe("command tree contract", () => {
     }
   });
 
-  it("gates every measure command at v59 and keeps card commands at baseline", async () => {
+  it("reports the measure methods and the feature they need, and card list as baseline", async () => {
     const entries = await allEntries();
-    const measureCapabilities = Object.fromEntries(
+    const measureRequires = Object.fromEntries(
       entries
         .filter((entry) => entry.command.startsWith("measure "))
-        .map((entry) => [entry.command, entry.capabilities]),
+        .map((entry) => [entry.command, entry.requires]),
     );
-    expect(measureCapabilities).toEqual({
-      "measure list": MEASURE_CAPABILITIES,
-      "measure get": MEASURE_CAPABILITIES,
-      "measure create": MEASURE_CAPABILITIES,
-      "measure update": MEASURE_CAPABILITIES,
-      "measure archive": MEASURE_CAPABILITIES,
+    expect(measureRequires).toEqual({
+      "measure list": { methods: ["measure.list"], features: ["measures"] },
+      "measure get": { methods: ["measure.get"], features: ["measures"] },
+      "measure create": { methods: ["measure.create"], features: ["measures"] },
+      "measure update": { methods: ["measure.update"], features: ["measures"] },
+      "measure archive": { methods: ["measure.archive"], features: ["measures"] },
     });
 
     const cardList = entries.find((entry) => entry.command === "card list");
-    expect(cardList?.capabilities).toEqual(BASELINE_CAPABILITIES);
+    expect(cardList?.requires).toEqual({ methods: ["card.list"], features: [] });
   });
 
-  it("gates every content translation command on its premium feature", async () => {
+  it("reports the premium feature behind every content translation command", async () => {
     const entries = await allEntries();
-    const capabilities = Object.fromEntries(
+    const requires = Object.fromEntries(
       entries
         .filter((entry) => entry.command.startsWith("content-translation "))
-        .map((entry) => [entry.command, entry.capabilities]),
+        .map((entry) => [entry.command, entry.requires]),
     );
-    expect(capabilities).toEqual({
-      "content-translation download": CONTENT_TRANSLATION_CAPABILITIES,
-      "content-translation upload": CONTENT_TRANSLATION_CAPABILITIES,
+    expect(requires).toEqual({
+      "content-translation download": {
+        methods: ["contentTranslation.download"],
+        features: ["contentTranslation"],
+      },
+      "content-translation upload": {
+        methods: ["contentTranslation.upload"],
+        features: ["contentTranslation"],
+      },
     });
   });
 
-  it("carries the transform version gates through to every transform command", async () => {
+  it("carries each transform method's requirements through to its command", async () => {
     const entries = await allEntries();
-    const transformCapabilities = Object.fromEntries(
+    const transformRequires = Object.fromEntries(
       entries
         .filter(
           (entry) =>
             entry.command.startsWith("transform ") || entry.command.startsWith("transform-job "),
         )
+        .map((entry) => [entry.command, entry.requires]),
+    );
+    expect(transformRequires).toEqual({
+      "transform list": requiresOf("transform.list"),
+      "transform get": requiresOf("transform.get"),
+      "transform dependencies": requiresOf("transform.dependencies"),
+      "transform create": requiresOf("transform.create"),
+      "transform update": requiresOf("transform.update"),
+      "transform delete": requiresOf("transform.delete"),
+      "transform run": requiresOf("transform.run"),
+      "transform runs": requiresOf("transform.runPages"),
+      "transform get-run": requiresOf("transform.getRun"),
+      "transform cancel": requiresOf("transform.cancel"),
+      "transform delete-table": requiresOf("transform.deleteTable"),
+      "transform-job list": requiresOf("transformJob.list"),
+      "transform-job get": requiresOf("transformJob.get"),
+      "transform-job create": requiresOf("transformJob.create"),
+      "transform-job update": requiresOf("transformJob.update"),
+      "transform-job delete": requiresOf("transformJob.delete"),
+      "transform-job run": requiresOf("transformJob.run"),
+      "transform-job transforms": requiresOf("transformJob.transforms"),
+      "transform-job set-active": requiresOf("transformJob.setActive"),
+    });
+  });
+
+  it("summarizes a command's features as the single floor and token its capabilities carry", async () => {
+    const entries = await allEntries();
+    const summaries = Object.fromEntries(
+      entries
+        .filter((entry) =>
+          ["card list", "measure list", "transform-job set-active", "library get"].includes(
+            entry.command,
+          ),
+        )
         .map((entry) => [entry.command, entry.capabilities]),
     );
-    expect(transformCapabilities).toEqual({
-      "transform list": TRANSFORM_CAPABILITIES,
-      "transform get": TRANSFORM_CAPABILITIES,
-      "transform dependencies": TRANSFORM_CAPABILITIES,
-      "transform create": TRANSFORM_CAPABILITIES,
-      "transform update": TRANSFORM_CAPABILITIES,
-      "transform delete": TRANSFORM_CAPABILITIES,
-      "transform run": TRANSFORM_CAPABILITIES,
-      "transform runs": TRANSFORM_CAPABILITIES,
-      "transform get-run": TRANSFORM_CAPABILITIES,
-      "transform cancel": TRANSFORM_CAPABILITIES,
-      "transform delete-table": TRANSFORM_CAPABILITIES,
-      "transform-job list": TRANSFORM_CAPABILITIES,
-      "transform-job get": TRANSFORM_CAPABILITIES,
-      "transform-job create": TRANSFORM_CAPABILITIES,
-      "transform-job update": TRANSFORM_CAPABILITIES,
-      "transform-job delete": TRANSFORM_CAPABILITIES,
-      "transform-job run": TRANSFORM_CAPABILITIES,
-      "transform-job transforms": TRANSFORM_CAPABILITIES,
-      "transform-job set-active": TRANSFORM_JOB_SET_ACTIVE_CAPABILITIES,
+    expect(summaries).toEqual({
+      "card list": summarizeCapabilities([]),
+      "measure list": summarizeCapabilities(["measures"]),
+      "transform-job set-active": summarizeCapabilities(["transformJobActivation", "transforms"]),
+      "library get": summarizeCapabilities(["library"]),
     });
   });
 
@@ -576,11 +601,12 @@ describe("command tree contract", () => {
     });
   });
 
-  it("reports null capabilities for exactly the commands that never touch a Metabase server", async () => {
+  it("reports null requires and capabilities for exactly the commands that never touch a Metabase server", async () => {
     const entries = await allEntries();
-    const local = entries
-      .filter((entry) => entry.capabilities === null)
-      .map((entry) => entry.command);
+    const local = entries.filter((entry) => entry.requires === null).map((entry) => entry.command);
+    expect(
+      entries.filter((entry) => entry.capabilities === null).map((entry) => entry.command),
+    ).toEqual(local);
     expect(local.toSorted()).toEqual([
       "auth status",
       "skills get",

@@ -10,7 +10,7 @@ export default defineMetabaseCommand({
   meta: { name: "alerts", description: "List alerts watching a card" },
   details:
     "Manage them with `mb alert create|update|send|archive`, which take the alert id printed here.",
-  capabilities: { minVersion: 58 },
+  requires: ["notification.list"],
   args: {
     ...outputFlags,
     ...listFlags,

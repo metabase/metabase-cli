@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
   meta: { name: "csv", description: "Upload a CSV file as a new table and model" },
   details:
     "Uploads the CSV to the server's configured uploads database, creating a new table plus a model over it, and prints the new model id and table id. Requires an uploads database to be configured on the server. Pass --collection to place the model in a specific collection (defaults to root).",
-  capabilities: { minVersion: 58 },
+  requires: ["upload.createFromCsv"],
   args: {
     ...outputFlags,
     ...profileFlag,

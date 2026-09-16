@@ -44,6 +44,8 @@ export type SeededIds = z.infer<typeof SeededIds>;
 
 export const ServerIdentity = z.object({
   version: ParsedVersion.nullable(),
+  date: z.string().nullable().default(null),
+  hash: z.string().nullable().default(null),
   tokenFeatures: TokenFeatures.nullable(),
   // Whether the server supports full-API OAuth login (Metabase v63+, full-access scope advertised
   // in discovery); probed live during bootstrap. Defaults false for bootstrap files written before

@@ -60,7 +60,7 @@ export default defineMetabaseCommand({
     name: "upgrade",
     description: "Upgrade the Metabase CLI itself to the latest published release",
   },
-  capabilities: null,
+  requires: null,
   args: {
     ...outputFlags,
     check: {

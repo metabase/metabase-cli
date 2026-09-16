@@ -58,6 +58,7 @@ setMetabaseAugment(main, {
   ],
   inputSchema: null,
   outputSchema: null,
+  requires: null,
   capabilities: null,
 });
 

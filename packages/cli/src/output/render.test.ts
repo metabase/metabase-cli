@@ -5,12 +5,20 @@ import { ConfigError } from "@metabase/client/errors";
 import { parseJson } from "@metabase/client/json";
 
 import { capListEnvelope } from "./cap";
-import { renderSummary, renderItem, renderList, writeJson, writeText } from "./render";
+import {
+  renderItem,
+  renderList,
+  renderListWithExtras,
+  renderSummary,
+  writeJson,
+  writeText,
+} from "./render";
 import { renderTable } from "./table";
 import {
   DEFAULT_MAX_BYTES,
   FULL_RANGE,
   listEnvelopeSchema,
+  listEnvelopeSchemaWithExtras,
   type ListEnvelope,
   type RenderOptions,
 } from "./types";
@@ -327,6 +335,51 @@ describe("renderList — JSON format", () => {
     assert(expectedCapped.truncated !== undefined, "fixture should produce truncation");
     const prefix = `{"returned":${expectedCapped.returned},"offset":${expectedCapped.offset},"total":${expectedCapped.total},"has_more":${expectedCapped.has_more},"next_offset":${expectedCapped.next_offset},"truncated":{"reason":"max_bytes","bytes":${expectedCapped.truncated.bytes}},"data":[`;
     expect(streams.stdout.slice(0, prefix.length)).toBe(prefix);
+  });
+});
+
+describe("renderListWithExtras", () => {
+  const CardListWithNote = listEnvelopeSchemaWithExtras(CardCompact, { note: z.string() });
+
+  it("emits the extras between the metadata and `data`, and measures the cap over them", () => {
+    const item = { id: 1, name: "x".repeat(400), archived: false };
+    const note = "n".repeat(50);
+    const fullBytes = Buffer.byteLength(
+      JSON.stringify({ ...windowList([{ id: item.id, name: item.name }], FULL_RANGE), note }),
+      "utf8",
+    );
+
+    renderListWithExtras(windowList([item], FULL_RANGE), { note }, cardView, {
+      ...baseOpts,
+      maxBytes: 100,
+    });
+
+    expect(parseJson(streams.stdout, CardListWithNote)).toEqual({
+      data: [],
+      returned: 0,
+      offset: 0,
+      total: 1,
+      has_more: true,
+      next_offset: null,
+      truncated: { reason: "max_bytes", bytes: fullBytes },
+      note,
+    });
+    const prefix = `{"returned":0,"offset":0,"total":1,"has_more":true,"next_offset":null,"truncated":{"reason":"max_bytes","bytes":${fullBytes}},"note":"${note}","data":[]}`;
+    expect(streams.stdout).toBe(`${prefix}\n`);
+  });
+
+  it("renders the window alone in text mode", () => {
+    renderListWithExtras(
+      windowList([{ id: 1, name: "one", archived: false }], FULL_RANGE),
+      { note: "ignored" },
+      cardView,
+      { ...baseOpts, format: "text" },
+    );
+
+    expect(streams.stdout).toBe(
+      renderTable([{ id: 1, name: "one", archived: false }], cardView.tableColumns) + "\n",
+    );
+    expect(streams.stdout).not.toContain("ignored");
   });
 });
 

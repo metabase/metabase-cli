@@ -15,14 +15,24 @@ interface SkillFixture {
   body: string;
 }
 
+const GAMMA_FRONTMATTER =
+  "---\nname: gamma\ndescription: The transform skill.\nrequires: [transforms]\n---\n\n";
+
+// The gamma SKILL.md as written, and as `readSkillContent` resolves it against a server with and
+// without the section's feature.
+export const GAMMA_SKILL_MD = `${GAMMA_FRONTMATTER}Gamma instructions.\n<!-- requires: transformJobActivation -->\nGamma on activation.\n<!-- /requires -->\n`;
+export const GAMMA_WITH_ACTIVATION = `${GAMMA_FRONTMATTER}Gamma instructions.\nGamma on activation.\n`;
+export const GAMMA_WITHOUT_ACTIVATION = `${GAMMA_FRONTMATTER}Gamma instructions.\n`;
+
+// Two skills is the smallest collection that can show a window dropping one, and a third one bound
+// to a feature is the smallest that can show the profile filter at work. Pointing MB_SKILLS_DIR
+// here keeps an assertion over rendered output independent of whatever skill-data/ happens to
+// ship.
 const FIXTURES: readonly SkillFixture[] = [
-  { name: "alpha", description: "The first skill.", body: "Alpha instructions." },
-  { name: "beta", description: "The second skill.", body: "Beta instructions." },
+  { name: "alpha", description: "The first skill.", body: "Alpha instructions.\n" },
+  { name: "beta", description: "The second skill.", body: "Beta instructions.\n" },
 ];
 
-// Two skills is the smallest collection that can show a window dropping one. Pointing
-// MB_SKILLS_DIR here keeps an assertion over rendered output independent of whatever
-// skill-data/ happens to ship.
 export function createTempSkillsDir(): TempSkillsDir {
   const path = mkdtempSync(join(tmpdir(), "mb-skills-"));
   for (const fixture of FIXTURES) {
@@ -30,6 +40,8 @@ export function createTempSkillsDir(): TempSkillsDir {
     mkdirSync(dir);
     writeFileSync(join(dir, SKILL_MD_FILENAME), skillMarkdown(fixture), "utf8");
   }
+  mkdirSync(join(path, "gamma"));
+  writeFileSync(join(path, "gamma", SKILL_MD_FILENAME), GAMMA_SKILL_MD, "utf8");
   return {
     path,
     cleanup() {
@@ -39,5 +51,5 @@ export function createTempSkillsDir(): TempSkillsDir {
 }
 
 function skillMarkdown(fixture: SkillFixture): string {
-  return `---\nname: ${fixture.name}\ndescription: ${fixture.description}\n---\n\n${fixture.body}\n`;
+  return `---\nname: ${fixture.name}\ndescription: ${fixture.description}\n---\n\n${fixture.body}`;
 }

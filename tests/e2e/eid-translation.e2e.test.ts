@@ -12,7 +12,7 @@ import { requireServer } from "./server-gate";
 
 const transformsSkip = requireServer(
   "eid-translation › accepts the previously-missing transform model in the closed enum",
-  { minVersion: 59 },
+  ["transforms"],
 );
 
 describe("eid e2e", () => {

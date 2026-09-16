@@ -12,7 +12,7 @@ export default defineMetabaseCommand({
     name: "current-task",
     description: "Get the most recent git-sync task (or idle if none)",
   },
-  capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
+  requires: ["gitSync.currentTask"],
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: CurrentTaskResult,
   examples: ["mb git-sync current-task", "mb git-sync current-task --json"],

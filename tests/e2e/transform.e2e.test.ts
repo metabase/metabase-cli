@@ -23,7 +23,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
-import { invalidDatabaseRejection, requireServer, serverVersionBelow } from "./server-gate";
+import { invalidDatabaseRejection, requireServer, serverHas } from "./server-gate";
 
 const FIRST_TRANSFORM_ID = 1;
 const TRANSFORM_NAME = "e2e_transform";
@@ -75,6 +75,11 @@ const TRANSFORM_BODY: TransformBody = {
   },
 };
 
+// One generation provisions the output table's row at creation, so its link is live before any run.
+const CREATED_TARGET_TABLE_ID = serverHas("transformTargetTableLinkedOnCreate")
+  ? expect.any(Number)
+  : null;
+
 const TRANSFORM_COMPACT = {
   id: FIRST_TRANSFORM_ID,
   name: TRANSFORM_NAME,
@@ -87,9 +92,10 @@ const TRANSFORM_COMPACT = {
     name: TRANSFORM_TARGET_TABLE,
   },
   target_db_id: SEEDED.warehouseDbId,
+  target_table_id: CREATED_TARGET_TABLE_ID,
 } as const;
 
-const skipReason = requireServer("transform › transform e2e", { minVersion: 59 });
+const skipReason = requireServer("transform › transform e2e", ["transforms"]);
 
 describe.skipIf(skipReason !== null)("transform e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -256,11 +262,40 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     const parsed = parseJson(result.stdout, TransformRunResult);
     expect(parsed.message).toBe("Transform run started");
     expect(parsed.final?.status).toBe("succeeded");
-    assert(
-      parsed.target_table_id !== null && parsed.target_table_id !== undefined,
-      `expected --sync to register a target table; got ${JSON.stringify(parsed.target_table_id)}`,
-    );
-    expect(parsed.target_table_id).toBeGreaterThan(0);
+    expect(parsed.target_table_id).toEqual(expect.any(Number));
+  });
+
+  it("get reports the table a run registered as target_table_id", async () => {
+    await createSeedTransform();
+
+    const runResult = await runCli({
+      args: [
+        "transform",
+        "run",
+        String(FIRST_TRANSFORM_ID),
+        "--sync",
+        "--interval",
+        "1000",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+      timeoutMs: 60_000,
+    });
+    expect(runResult.exitCode, runResult.stderr).toBe(0);
+    const registered = parseJson(runResult.stdout, TransformRunResult).target_table_id;
+    expect(registered).toEqual(expect.any(Number));
+
+    const getResult = await runCli({
+      args: ["transform", "get", String(FIRST_TRANSFORM_ID), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(getResult.exitCode, getResult.stderr).toBe(0);
+    expect(parseJson(getResult.stdout, TransformCompact)).toEqual({
+      ...TRANSFORM_COMPACT,
+      target_table_id: registered,
+    });
   });
 
   it("run --wait --json on a failing transform exits 1 with a stderr summary that does not duplicate final.message", async () => {
@@ -332,11 +367,22 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     await createSeedTransform();
 
     const runResult = await runCli({
-      args: ["transform", "run", String(FIRST_TRANSFORM_ID), "--wait", "--json"],
+      args: [
+        "transform",
+        "run",
+        String(FIRST_TRANSFORM_ID),
+        "--sync",
+        "--interval",
+        "1000",
+        "--json",
+      ],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
+      timeoutMs: 60_000,
     });
     expect(runResult.exitCode, runResult.stderr).toBe(0);
+    const registered = parseJson(runResult.stdout, TransformRunResult).target_table_id;
+    expect(registered).toEqual(expect.any(Number));
 
     const dropResult = await runCli({
       args: ["transform", "delete-table", String(FIRST_TRANSFORM_ID), "--yes", "--json"],
@@ -350,13 +396,18 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       id: FIRST_TRANSFORM_ID,
     });
 
+    // A server with the column keeps naming the dropped table's row; one that hydrates the link
+    // only ever names an active table.
     const getResult = await runCli({
       args: ["transform", "get", String(FIRST_TRANSFORM_ID), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
     expect(getResult.exitCode, getResult.stderr).toBe(0);
-    expect(parseJson(getResult.stdout, TransformCompact)).toEqual(TRANSFORM_COMPACT);
+    expect(parseJson(getResult.stdout, TransformCompact)).toEqual({
+      ...TRANSFORM_COMPACT,
+      target_table_id: serverHas("transformTargetTableId") ? registered : null,
+    });
   });
 
   it("create with body missing required fields fails on Zod validation", async () => {
@@ -924,10 +975,8 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
   });
 });
 
-const GATE_MIN_VERSION = 59;
-
-describe.skipIf(!serverVersionBelow(GATE_MIN_VERSION))(
-  "transform capability gate against a sub-v59 server",
+describe.skipIf(serverHas("transforms"))(
+  "transform capability gate against a server without transforms",
   () => {
     let bootstrap: E2EBootstrap;
     const tempDirs: string[] = [];
@@ -973,7 +1022,26 @@ describe.skipIf(!serverVersionBelow(GATE_MIN_VERSION))(
 
       expect(result.exitCode).toBe(2);
       expect(cliErrorMessage(result.stderr)).toBe(
-        `This operation requires Metabase v${GATE_MIN_VERSION}+ (this server is ${serverTag}). Upgrade Metabase to use it.\n` +
+        `This operation requires Metabase v59+ (this server is ${serverTag}). Upgrade Metabase to use it.\n` +
+          "Or install an `@metabase/cli` release that targets this server.",
+      );
+      expect(result.stdout).toBe("");
+    });
+
+    it("transform list without a cached probe asks the server once and refuses the same way", async () => {
+      const serverTag = bootstrap.server.version?.tag;
+      assert(serverTag !== undefined, "gate block requires a known cached server version");
+      const configHome = await makeIsolatedConfigHome();
+
+      const result = await runCli({
+        args: ["transform", "list", "--json"],
+        configHome,
+        env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey },
+      });
+
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorMessage(result.stderr)).toBe(
+        `This operation requires Metabase v59+ (this server is ${serverTag}). Upgrade Metabase to use it.\n` +
           "Or install an `@metabase/cli` release that targets this server.",
       );
       expect(result.stdout).toBe("");

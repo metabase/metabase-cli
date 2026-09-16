@@ -15,7 +15,7 @@ export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a collection from a JSON spec" },
   details:
     'Body keys: `name` (required), `description`, `parent_id`, `authority_level`, `namespace`. Most collections use the default namespace (omit it). Pass `namespace: "transforms"` (or `--namespace transforms`) to create the kind of collection a transform\'s `collection_id` can point at — a regular collection is rejected there.',
-  capabilities: { minVersion: 58 },
+  requires: ["collection.create"],
   args: {
     ...outputFlags,
     ...profileFlag,

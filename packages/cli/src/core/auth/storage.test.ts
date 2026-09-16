@@ -264,6 +264,8 @@ describe("writeProbeResult and writeProbeFailure", () => {
       user: { id: 42, name: "Alice", isAdmin: true },
       server: {
         version: { tag: "v0.58.7", major: 58, patch: 7 },
+        date: null,
+        hash: null,
         tokenFeatures: null,
       },
     });
@@ -281,6 +283,8 @@ describe("writeProbeResult and writeProbeFailure", () => {
       user: { id: 1, name: "n", isAdmin: false },
       server: {
         version: { tag: "v0.58.7", major: 58, patch: 7 },
+        date: null,
+        hash: null,
         tokenFeatures: null,
       },
     });
@@ -294,6 +298,8 @@ describe("writeProbeResult and writeProbeFailure", () => {
       user: { id: 1, name: "Alice", isAdmin: true },
       server: {
         version: { tag: "v0.58.7", major: 58, patch: 7 },
+        date: null,
+        hash: null,
         tokenFeatures: null,
       },
     });

@@ -10,9 +10,14 @@ export const ProbedUser = z.object({
 });
 export type ProbedUser = z.infer<typeof ProbedUser>;
 
+// The raw probe, never anything derived from it: a profile built from a stale derivation would
+// outlive the client that wrote it. `date` and `hash` read as `null` off a record written before
+// they were kept.
 export const ProfileLastProbe = z.object({
   at: z.iso.datetime(),
   version: ParsedVersion.nullable(),
+  date: z.string().nullable().default(null),
+  hash: z.string().nullable().default(null),
   tokenFeatures: TokenFeatures.nullable(),
   user: ProbedUser,
 });

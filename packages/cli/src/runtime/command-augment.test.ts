@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { BASELINE_CAPABILITIES } from "@metabase/client/version/capabilities";
-
 import { getMetabaseAugment, setMetabaseAugment, type MetabaseAugment } from "./command-augment";
 
 describe("getMetabaseAugment / setMetabaseAugment", () => {
@@ -19,7 +17,8 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       skills: [],
       inputSchema: null,
       outputSchema: z.object({ id: z.number() }),
-      capabilities: BASELINE_CAPABILITIES,
+      requires: null,
+      capabilities: null,
     };
     setMetabaseAugment(cmd, augment);
     expect(getMetabaseAugment(cmd)).toBe(augment);
@@ -34,7 +33,8 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       skills: [],
       inputSchema: null,
       outputSchema: null,
-      capabilities: BASELINE_CAPABILITIES,
+      requires: null,
+      capabilities: null,
     };
     const secondAugment: MetabaseAugment = {
       examples: ["b"],
@@ -42,7 +42,8 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       skills: [],
       inputSchema: null,
       outputSchema: null,
-      capabilities: BASELINE_CAPABILITIES,
+      requires: null,
+      capabilities: null,
     };
     setMetabaseAugment(first, firstAugment);
     setMetabaseAugment(second, secondAugment);
@@ -58,7 +59,8 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       skills: [],
       inputSchema: null,
       outputSchema: null,
-      capabilities: BASELINE_CAPABILITIES,
+      requires: null,
+      capabilities: null,
     };
     const replacement: MetabaseAugment = {
       examples: ["after"],
@@ -66,7 +68,8 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       skills: [],
       inputSchema: null,
       outputSchema: null,
-      capabilities: BASELINE_CAPABILITIES,
+      requires: null,
+      capabilities: null,
     };
     setMetabaseAugment(cmd, initial);
     setMetabaseAugment(cmd, replacement);
@@ -81,7 +84,8 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       skills: [],
       inputSchema: null,
       outputSchema: null,
-      capabilities: BASELINE_CAPABILITIES,
+      requires: null,
+      capabilities: null,
     };
     setMetabaseAugment(cmd, augment);
     const recalled = getMetabaseAugment(cmd);
@@ -91,7 +95,8 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       skills: [],
       inputSchema: null,
       outputSchema: null,
-      capabilities: BASELINE_CAPABILITIES,
+      requires: null,
+      capabilities: null,
     });
   });
 });

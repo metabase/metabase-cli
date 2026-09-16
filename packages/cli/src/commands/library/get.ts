@@ -11,7 +11,7 @@ export default defineMetabaseCommand({
   },
   details:
     "Reads the Library root and its child collections. Use the `library-data` child's id as the target for publishing tables (or just run `mb library publish`, which resolves it for you).",
-  capabilities: { minVersion: 59, tokenFeature: "library" },
+  requires: ["library.get"],
   args: {
     ...outputFlags,
     ...profileFlag,

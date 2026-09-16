@@ -24,6 +24,8 @@ describe("probeServer", () => {
     );
     expect(await probeServer(client)).toEqual({
       version: { tag: "v1.58.7", major: 58, patch: 7 },
+      date: "2025-12-15",
+      hash: "abc1234",
       tokenFeatures: { advanced_permissions: true, audit_app: true, embedding: true },
     });
   });
@@ -34,10 +36,12 @@ describe("probeServer", () => {
     expect(calls).toEqual([EXPECTED_PROBE_CALL]);
   });
 
-  it("returns tokenFeatures: null when the server omits the field", async () => {
+  it("returns null for token-features, date and hash when the server omits them", async () => {
     const { client } = createFakeClient(planning({ version: { tag: "v0.58.7" } }));
     expect(await probeServer(client)).toEqual({
       version: { tag: "v0.58.7", major: 58, patch: 7 },
+      date: null,
+      hash: null,
       tokenFeatures: null,
     });
   });
@@ -51,6 +55,8 @@ describe("probeServer", () => {
     );
     expect(await probeServer(client)).toEqual({
       version: null,
+      date: null,
+      hash: null,
       tokenFeatures: { transforms: true },
     });
   });

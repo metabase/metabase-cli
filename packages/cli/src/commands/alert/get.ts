@@ -9,7 +9,7 @@ export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a question alert by id" },
   details:
     "`--full` includes the hydrated card the alert watches, alongside its schedules and handlers.",
-  capabilities: { minVersion: 58 },
+  requires: ["notification.get"],
   args: {
     ...outputFlags,
     ...profileFlag,

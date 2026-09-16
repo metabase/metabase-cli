@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createClient } from "../client";
 import type { ClientCredentials } from "../http/transport";
 import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
+import { createServerProfile } from "../version/profile";
 
 import type { CsvFile } from "./csv-upload";
 
@@ -30,11 +31,21 @@ const JSON_READ_HEADERS = {
   "x-api-key": "mb_wire_test_key",
 };
 
+// The least server that answers this resource, so a method asking for more than the resource's
+// own feature is refused here before it reaches the scripted wire.
+const SERVER = createServerProfile({
+  version: { tag: "v1.58.0", major: 58, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: { content_translation: true },
+});
+
 function clientOver(responses: Array<Response>) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
     userAgent: TEST_USER_AGENT,
     fetchImpl: capture.fetch,
+    server: SERVER,
   });
   return { mb, capture };
 }

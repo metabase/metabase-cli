@@ -13,8 +13,9 @@ import {
   ValidationError,
 } from "@metabase/client/errors";
 import { HttpError } from "@metabase/client/http/errors";
-import { checkCapabilities } from "@metabase/client/version/capabilities";
 import { CapabilityError } from "@metabase/client/version/preflight-error";
+import { createServerProfile } from "@metabase/client/version/profile";
+import { checkFeatures } from "@metabase/client/version/requirement-check";
 import { exitCodeFor, reportError } from "./error";
 
 interface CapturedStreams {
@@ -142,9 +143,14 @@ describe("reportError", () => {
   });
 
   it("offers the client downgrade when the server is below the required version", () => {
-    const failure = checkCapabilities(
-      { version: { tag: "v0.58.0", major: 58, patch: 0 }, tokenFeatures: null },
-      { minVersion: 61 },
+    const failure = checkFeatures(
+      ["transformJobActivation"],
+      createServerProfile({
+        version: { tag: "v0.58.0", major: 58, patch: 0 },
+        date: null,
+        hash: null,
+        tokenFeatures: null,
+      }),
     );
     assert(failure !== null);
     reportError(new CapabilityError(failure));
@@ -157,9 +163,14 @@ describe("reportError", () => {
   });
 
   it("withholds the client downgrade when a premium feature is missing, which no client version supplies", () => {
-    const failure = checkCapabilities(
-      { version: { tag: "v0.61.0", major: 61, patch: 0 }, tokenFeatures: null },
-      { minVersion: 61, tokenFeature: "library" },
+    const failure = checkFeatures(
+      ["library"],
+      createServerProfile({
+        version: { tag: "v0.61.0", major: 61, patch: 0 },
+        date: null,
+        hash: null,
+        tokenFeatures: null,
+      }),
     );
     assert(failure !== null);
     reportError(new CapabilityError(failure));
@@ -170,9 +181,14 @@ describe("reportError", () => {
   });
 
   it("carries the client downgrade into the JSON envelope, where there is no second line to print it on", () => {
-    const failure = checkCapabilities(
-      { version: { tag: "v0.58.0", major: 58, patch: 0 }, tokenFeatures: null },
-      { minVersion: 61 },
+    const failure = checkFeatures(
+      ["transformJobActivation"],
+      createServerProfile({
+        version: { tag: "v0.58.0", major: 58, patch: 0 },
+        date: null,
+        hash: null,
+        tokenFeatures: null,
+      }),
     );
     assert(failure !== null);
     reportError(new CapabilityError(failure), "json");
@@ -325,6 +341,7 @@ describe("reportError", () => {
       status: 200,
       zodIssues: result.error.issues,
       serverTag: null,
+      serverSkew: null,
     });
 
     reportError(error);

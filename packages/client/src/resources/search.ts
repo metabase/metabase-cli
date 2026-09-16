@@ -39,6 +39,7 @@ export function searchResource(transport: Transport) {
     params: SearchParams = {},
     options: RequestOptions = {},
   ): Promise<SearchPage> {
+    await transport.require("search.query");
     const response = await transport.requestParsed(SearchApiResponse, "/api/search", {
       ...options,
       query: {
