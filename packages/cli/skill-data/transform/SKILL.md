@@ -214,6 +214,11 @@ mb transform-test run <id> --profile <n> --json               # exits non-zero u
       "format": "rows",
       "columns": [{ "name": "id", "database_type": "INTEGER" }],
       "rows": [{ "id": 1 }]
+    },
+    {
+      "type": "empty",
+      "name": "no minor survived the filter",
+      "sql": "SELECT * FROM public.adults WHERE age < 18"
     }
   ]
 }
