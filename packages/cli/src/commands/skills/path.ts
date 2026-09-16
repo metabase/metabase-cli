@@ -2,7 +2,12 @@ import { z } from "zod";
 
 import type { ResourceView } from "../../output/view";
 
-import { findSkillByName, loadAllSkills, loadVisibleSkills } from "../../core/skills";
+import {
+  findSkillByName,
+  loadAllSkills,
+  loadVisibleSkills,
+  type SkillInfo,
+} from "../../core/skills";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
 import { windowList } from "../../output/window";
@@ -52,6 +57,6 @@ export default defineMetabaseCommand({
   },
 });
 
-function toSkillPath(info: { name: string; dir: string }): SkillPathJson {
+function toSkillPath(info: SkillInfo): SkillPathJson {
   return { name: info.name, dir: info.dir };
 }

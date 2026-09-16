@@ -9,7 +9,7 @@ import {
   jsonResponse,
   TEST_USER_AGENT,
 } from "../testing/fetch-capture";
-import { createServerProfile, type ServerProfile } from "../version/profile";
+import { createServerProfile, KNOWN_RANGE, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
   url: "https://mb.example.com/metabase",
@@ -24,6 +24,7 @@ const JOB = {
   description: null,
   schedule: SCHEDULE,
   ui_display_type: "cron/raw",
+  active: true,
   entity_id: null,
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
@@ -73,9 +74,11 @@ const SERVER = createServerProfile({
   tokenFeatures: null,
 });
 
-// The first generation answering a job run with the run's numeric id, or null for no run.
+// A head build past the known window, the generation answering a job run with the run's numeric
+// id, or null for no run.
+const NUMERIC_RUN_ID_MAJOR = KNOWN_RANGE.max + 1;
 const NUMERIC_RUN_ID_SERVER = createServerProfile({
-  version: { tag: "v0.64.0", major: 64, patch: 0 },
+  version: { tag: `v0.${NUMERIC_RUN_ID_MAJOR}.0`, major: NUMERIC_RUN_ID_MAJOR, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,
@@ -212,7 +215,7 @@ describe("transform-job resource wire requests", () => {
     expect(error).toBeInstanceOf(ResponseShapeError);
     assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
     expect(error.userMessage).toBe(
-      "On Metabase v0.64.0 (newer than this client supports, up to v63) the response shape was unexpected:\n" +
+      `On Metabase v0.${NUMERIC_RUN_ID_MAJOR}.0 (newer than this client supports, up to v${KNOWN_RANGE.max}) the response shape was unexpected:\n` +
         "  job_run_id: Invalid input: expected number, received string",
     );
   });

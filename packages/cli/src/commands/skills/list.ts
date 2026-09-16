@@ -57,9 +57,12 @@ export default defineMetabaseCommand({
     const envelope = windowList(items, ctx.range);
     if (ctx.format === "json" || ctx.fields !== undefined || ctx.full) {
       renderListWithExtras(envelope, { unavailable: selection.unavailable }, skillSummaryView, ctx);
+    } else {
+      renderSkillList(envelope.data, ctx.maxBytes);
+    }
+    if (ctx.format === "json") {
       return;
     }
-    renderSkillList(envelope.data, ctx.maxBytes);
     for (const notice of skillFilterNotices(selection.unavailable, {
       profileName,
       bypassed: args.all === true,

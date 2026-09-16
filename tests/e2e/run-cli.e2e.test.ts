@@ -72,8 +72,8 @@ describe("runCli env isolation e2e", () => {
     const result = await runCli({ args: ["db", "list", "--json"], configHome });
 
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain(
-      `Not authenticated for profile "${DEFAULT_PROFILE}".`,
+    expect(cliErrorMessage(result.stderr)).toBe(
+      `Not authenticated for profile "${DEFAULT_PROFILE}". Run \`mb auth login\`, set MB_URL/MB_API_KEY, or pass --url/--api-key.`,
     );
   });
 });

@@ -1,7 +1,7 @@
 import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
 import { Card } from "@metabase/client/domain/card";
-import { EidTranslateResult } from "@metabase/client/domain/eid-translation";
+import { EID_MODELS, EidTranslateResult } from "@metabase/client/domain/eid-translation";
 import { parseJson } from "@metabase/client/json";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
@@ -99,7 +99,9 @@ describe("eid e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid --model: "totally-invalid"');
+    expect(cliErrorMessage(result.stderr)).toBe(
+      `invalid --model: "totally-invalid" (expected one of: ${EID_MODELS.join(", ")})`,
+    );
   });
 
   it.skipIf(transformsSkip !== null)(

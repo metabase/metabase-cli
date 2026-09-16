@@ -37,7 +37,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
       configHome,
     });
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid timeout: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid timeout: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -48,7 +48,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
       configHome,
     });
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid interval: "xyz" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid interval: "xyz" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -59,7 +59,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
       configHome,
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain("invalid new-branch: must not be blank");
+    expect(cliErrorMessage(result.stderr)).toBe("invalid new-branch: must not be blank");
     expect(result.stdout).toBe("");
   });
 
@@ -70,7 +70,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
       configHome,
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain("invalid message: must not be blank");
+    expect(cliErrorMessage(result.stderr)).toBe("invalid message: must not be blank");
     expect(result.stdout).toBe("");
   });
 
@@ -81,7 +81,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
       configHome,
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain("invalid name: branch name must not be blank");
+    expect(cliErrorMessage(result.stderr)).toBe("invalid name: branch name must not be blank");
     expect(result.stdout).toBe("");
   });
 
@@ -92,7 +92,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
       configHome,
     });
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -103,7 +103,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
       configHome,
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain("invalid id: 0 (must be ≥ 1)");
+    expect(cliErrorMessage(result.stderr)).toBe("invalid id: 0 (must be ≥ 1)");
     expect(result.stdout).toBe("");
   });
 
@@ -114,7 +114,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
       configHome,
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain("invalid id: -3 (must be ≥ 1)");
+    expect(cliErrorMessage(result.stderr)).toBe("invalid id: -3 (must be ≥ 1)");
     expect(result.stdout).toBe("");
   });
 });

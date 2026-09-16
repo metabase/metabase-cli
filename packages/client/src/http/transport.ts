@@ -20,7 +20,7 @@ import {
 
 import { HttpError, isRetryableStatus } from "./errors";
 import { buildNetworkError, isConnectionClosed } from "./network-error";
-import { NO_SERVER_TAG, parseJsonResponse } from "./response-shape";
+import { parseJsonResponse } from "./response-shape";
 import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries, type RetryOutcome } from "./retry";
 import type { RedactionContext } from "./sanitize";
 
@@ -104,8 +104,8 @@ export interface ClientOptions {
   // A profile the caller already holds — from its own cache, or from a probe it ran to verify the
   // credential — so the client never asks the server what the caller can tell it.
   server?: ServerProfile;
-  // Names the server in a shape error. Defaults to the tag of `server`; a caller that resolves
-  // the tag some other way passes its own.
+  // Names the server in a shape error. Defaults to the tag of `server`, or of the profile a probe
+  // has settled on; a caller that resolves the tag some other way passes its own.
   getServerTag?: ServerTagResolver;
   refreshCredential?: CredentialRefresher;
   // Cancels every request this client makes; composed with the per-request `signal` and the
@@ -120,8 +120,11 @@ export function createTransport(config: ClientCredentials, options: ClientOption
   const baseUrl = normalizeUrl(config.url);
   assertCredentialHeaderSafe(config.credential);
   const fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
-  const getServerTag = options.getServerTag ?? tagResolverFor(options.server);
-  const serverSkew: Skew | null = options.server === undefined ? null : options.server.skew;
+  // The server every error names: the profile handed in, or else the one a probe has settled on. A
+  // pending probe is never awaited here — a shape error inside the probe would wait on its own parse.
+  let settledProfile: ServerProfile | null = options.server ?? null;
+  const getServerTag = options.getServerTag ?? (async () => tagOf(settledProfile));
+  const serverSkew = (): Skew | null => (settledProfile === null ? null : settledProfile.skew);
   const refreshCredential = options.refreshCredential;
   let credential = config.credential;
   const knownSecrets = new Set(credentialSecrets(credential));
@@ -170,16 +173,11 @@ export function createTransport(config: ClientCredentials, options: ClientOption
       });
     } catch (error) {
       throwIfAborted(prepared.cancelSignal);
-      // A dropped connection or an elapsed timeout says nothing about whether the request landed:
-      // the bytes may never have left the client, or the server may already have committed the
-      // write and lost only the response. Metabase offers no idempotency-key framework to tell a
-      // replay from a first delivery, so a resend is only safe for a method safe to repeat — the
-      // same question, and the same answer, as the status gate below. A caller who knows the
-      // endpoint tolerates a resend opts back in with `idempotent: true`.
-      //
-      // A pooled connection reaped by the peer between requests is the one failure that reports the
-      // socket's age rather than the server's health, so it earns an attempt on a fresh socket even
-      // when the caller opted out of retries entirely.
+      // A dropped connection or a timeout says nothing about whether a write landed, and Metabase
+      // has no idempotency keys to tell a replay from a first delivery, so only a method safe to
+      // repeat is resent (`idempotent: true` opts a write in). A pooled connection the peer reaped
+      // between requests reports the socket's age, not the server's health, so it earns one attempt
+      // on a fresh socket even when the caller opted out of retries.
       const isStaleSocketFirstTry = attempt === 0 && isConnectionClosed(error);
       if (prepared.idempotent && (hasRetriesLeft || isStaleSocketFirstTry)) {
         return { kind: "retry", delayMs: backoffDelay({ attempt }) };
@@ -195,9 +193,8 @@ export function createTransport(config: ClientCredentials, options: ClientOption
       throw buildNetworkError(error, prepared.method, prepared.url);
     }
 
-    // Metabase offers no idempotency-key framework, so the server cannot recognise a replayed
-    // write as the same request: retrying a POST whose response was lost double-creates. A status
-    // code is only grounds for another attempt when the method is safe to repeat.
+    // Retrying a POST whose response was lost double-creates: a status code is only grounds for
+    // another attempt when the method is safe to repeat.
     const canRetryStatus = hasRetriesLeft && prepared.idempotent;
     if (!response.ok && isRetryableStatus(response.status) && canRetryStatus) {
       const retryAfter = response.headers.get("Retry-After");
@@ -241,8 +238,6 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     }
   }
 
-  // On a 401 with an OAuth credential, attempt a single token refresh and replay the request with
-  // the new access token. API-key credentials and non-401 errors propagate unchanged.
   async function executeWithAuthRefresh(
     path: string,
     opts: TransportRequestOptions,
@@ -304,7 +299,10 @@ export function createTransport(config: ClientCredentials, options: ClientOption
   // failure for the life of the client.
   function server(): Promise<ServerProfile> {
     if (serverProfile === null) {
-      const probe = probeServer(transport).then(createServerProfile);
+      const probe = probeServer(transport).then((info) => {
+        settledProfile = createServerProfile(info);
+        return settledProfile;
+      });
       probe.catch(() => {
         serverProfile = null;
       });
@@ -342,7 +340,7 @@ export function createTransport(config: ClientCredentials, options: ClientOption
         url: prepared.url,
         status: response.status,
         getServerTag,
-        serverSkew,
+        serverSkew: serverSkew(),
       });
     },
     async requestStream(path, opts) {
@@ -363,12 +361,11 @@ export function createTransport(config: ClientCredentials, options: ClientOption
   return transport;
 }
 
-function tagResolverFor(server: ServerProfile | undefined): ServerTagResolver {
-  if (server === undefined) {
-    return NO_SERVER_TAG;
+function tagOf(profile: ServerProfile | null): string | null {
+  if (profile === null || profile.version === null) {
+    return null;
   }
-  const tag = server.version === null ? null : server.version.tag;
-  return async () => tag;
+  return profile.version.tag;
 }
 
 function buildUrl(

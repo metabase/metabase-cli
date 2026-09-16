@@ -4,14 +4,18 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { isMethodKey, type MethodKey } from "@metabase/client/version/requirements";
+import { errorMessage } from "@metabase/client/errors";
+import { summarizeCapabilities } from "@metabase/client/version/capability-summary";
+import {
+  isMethodKey,
+  type MethodKey,
+  methodRequirements,
+} from "@metabase/client/version/requirements";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI_SRC = resolve(HERE, "..");
 
-// A call on a client namespace, wherever the client came from: `client.card.list(`,
-// `mb.gitSync.branch(`. Filtering the match through the requirements table drops everything that
-// merely looks like one.
+// Any `x.ns.method(` call; filtering through the requirements table drops what merely looks like one.
 const METHOD_CALL = /\b[A-Za-z_$][\w$]*\.([A-Za-z]+)\.([A-Za-z]+)\(/g;
 const REQUIRES_DECLARATION = /^\s*requires: (null|\[[^\]]*\]),?$/m;
 const STRING_LITERAL = /"([^"]+)"/g;
@@ -34,6 +38,17 @@ function commandFiles(): string[] {
 
 function readSource(file: string): string {
   return readFileSync(resolve(CLI_SRC, file), "utf8");
+}
+
+// Every non-command source file that reaches a client method, whether or not `CLIENT_HELPERS` names it.
+function clientReachingHelpers(): string[] {
+  return readdirSync(CLI_SRC, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".ts"))
+    .filter((entry) => !entry.name.endsWith(".test.ts"))
+    .map((entry) => relative(CLI_SRC, resolve(entry.parentPath, entry.name)).split(sep).join("/"))
+    .filter((file) => !readSource(file).includes("defineMetabaseCommand({"))
+    .filter((file) => methodsCalledIn(readSource(file)).length > 0)
+    .toSorted();
 }
 
 function methodsCalledIn(source: string): MethodKey[] {
@@ -69,11 +84,22 @@ function declarationOf(file: string): Declaration {
   return { file, requires: requires.toSorted() };
 }
 
+interface OnlineDeclaration {
+  readonly file: string;
+  readonly requires: readonly string[];
+}
+
+function onlineOnly(declarations: readonly Declaration[]): OnlineDeclaration[] {
+  return declarations.flatMap(({ file, requires }) =>
+    requires === null ? [] : [{ file, requires }],
+  );
+}
+
 describe("every command declares exactly the client methods it reaches", () => {
   const declarations = commandFiles().map(declarationOf);
 
   it("declares the methods called in its body and in the helpers it hands the client to", () => {
-    const online = declarations.filter((declaration) => declaration.requires !== null);
+    const online = onlineOnly(declarations);
     const declared = Object.fromEntries(online.map((entry) => [entry.file, entry.requires]));
     const reached = Object.fromEntries(
       online.map((entry) => [entry.file, methodsReachedBy(entry.file)]),
@@ -87,6 +113,25 @@ describe("every command declares exactly the client methods it reaches", () => {
       offline.map((entry) => [entry.file, methodsReachedBy(entry.file)]),
     );
     expect(reached).toEqual(Object.fromEntries(offline.map((entry) => [entry.file, []])));
+  });
+
+  // `defineMetabaseCommand` summarizes the declared methods the moment the module loads, and the
+  // summary admits one premium feature; a command reaching two would refuse to load at all.
+  it("reaches methods whose features summarize to one server floor and at most one premium feature", () => {
+    const refused = onlineOnly(declarations).flatMap((declaration) => {
+      const features = declaration.requires.filter(isMethodKey).flatMap(methodRequirements);
+      try {
+        summarizeCapabilities(features);
+        return [];
+      } catch (error) {
+        return [{ file: declaration.file, reason: errorMessage(error) }];
+      }
+    });
+    expect(refused).toEqual([]);
+  });
+
+  it("names every non-command file that reaches a client method", () => {
+    expect(clientReachingHelpers()).toEqual(Object.values(CLIENT_HELPERS).toSorted());
   });
 
   it("names only helpers that still exist and still call a client method", () => {

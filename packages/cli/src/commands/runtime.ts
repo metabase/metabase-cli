@@ -4,7 +4,6 @@ import type { ZodType } from "zod";
 
 import type { MetabaseClient } from "@metabase/client/client";
 import { MetabaseError, ResponseShapeError } from "@metabase/client/errors";
-import { normalizeUrl } from "@metabase/client/url";
 import { summarizeCapabilities } from "@metabase/client/version/capability-summary";
 import type { FeatureName } from "@metabase/client/version/features";
 import { CapabilityError } from "@metabase/client/version/preflight-error";
@@ -15,10 +14,10 @@ import { type MethodKey, methodRequirements } from "@metabase/client/version/req
 
 import type { ProfileLastProbe } from "../core/auth/profile-record";
 import { serverChangeNote, skewNotice } from "../core/auth/server-summary";
+import { readCachedProbe } from "../core/auth/cached-server";
 import {
   consumeKeyringDowngradeWarning,
   consumeLegacyStorageWarning,
-  readProfileRecord,
   writeProbeResult,
 } from "../core/auth/storage";
 import {
@@ -64,8 +63,7 @@ interface MetabaseCommandDef<A extends ArgsDef> {
   skills?: readonly SkillPointer[];
   inputSchema?: ZodType;
   outputSchema?: ZodType;
-  // The client methods `run` calls; `null` for a command that never reaches a server. The features
-  // those methods need are what the preflight checks and what `help --json` reports.
+  // `null` for a command that never reaches a server.
   requires: readonly MethodKey[] | null;
   run: (context: MetabaseCommandContext<A>) => Promise<void> | void;
 }
@@ -101,7 +99,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
         const rawGetClient = async (): Promise<MetabaseClient> => {
           if (cachedClient === null) {
             const resolved = await getResolvedConfig();
-            const probe = await loadCachedProbe(resolved);
+            const probe = await readCachedProbe(resolved.profile, resolved.url);
             const server = probe === null ? null : createServerProfile(probe);
             const { createClient } = await import("@metabase/client/client");
             cachedClient = createClient(
@@ -139,7 +137,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
             getResolvedConfig,
           });
         } catch (error) {
-          throw await refreshProfileOnShapeError(error, cachedServer);
+          throw await refreshProfileOnStaleError(error, cachedServer);
         } finally {
           emitPendingWarnings();
         }
@@ -179,21 +177,6 @@ function emitPendingWarnings(): void {
   }
 }
 
-// The record's probe is the server the client was built on, and only when the record's URL is the
-// one the command is talking to: `--url` or the environment can point the same profile name at
-// another server, whose shape the cached probe says nothing about. Without a cached probe the
-// client is left to ask the server itself on first need.
-async function loadCachedProbe(resolved: ResolvedConfig): Promise<ProfileLastProbe | null> {
-  const record = await readProfileRecord(resolved.profile);
-  if (record === null || record.lastProbe === null) {
-    return null;
-  }
-  if (normalizeUrl(record.url) !== resolved.url) {
-    return null;
-  }
-  return record.lastProbe;
-}
-
 type SkewNotifier = (profile: ServerProfile) => void;
 
 // The notice is about the server, not the command, so the first profile a command resolves —
@@ -216,10 +199,8 @@ type PreflightEnforcer = (client: MetabaseClient) => Promise<void>;
 
 const NO_OP_ENFORCER: PreflightEnforcer = async () => {};
 
-// Anticipates the refusal the client's own `require()` would raise on the first gated call, so a
-// command fails before it has done any work. `client.server()` is the cached profile when the
-// profile record carries a probe and one live probe otherwise; a probe that fails ends the command
-// here with that error, as the client's check would moments later.
+// Raises the refusal the client's own `require()` would raise on the first gated call, so a
+// command fails before it has done any work.
 function createPreflightEnforcer(
   features: readonly FeatureName[] | null,
   skip: boolean,
@@ -250,22 +231,29 @@ interface CachedServer {
   probe: ProfileLastProbe;
 }
 
-// A shape error under a cached profile may mean the server was upgraded since the probe and the
-// wire schema was chosen for the wrong generation. One fresh probe settles it: a changed server is
-// written back so the next run reads the right shape, and the error says so. The command is not
-// retried — its request may have been a write.
-async function refreshProfileOnShapeError(
+// A shape error or a refusal under a cached profile may mean the server changed since the probe.
+// One fresh probe settles it: a changed server is written back and the error says so. The command
+// is not retried — its request may have been a write.
+async function refreshProfileOnStaleError(
   error: unknown,
   cached: CachedServer | null,
 ): Promise<unknown> {
-  if (!(error instanceof ResponseShapeError) || cached === null) {
+  if (cached === null) {
     return error;
   }
-  const note = await refreshChangedProbe(cached);
-  if (note === null) {
-    return error;
+  if (error instanceof ResponseShapeError) {
+    const note = await refreshChangedProbe(cached);
+    return note === null
+      ? error
+      : new ResponseShapeError(`${error.message}\n${note}`, error.developerDetail);
   }
-  return new ResponseShapeError(`${error.message}\n${note}`, error.developerDetail);
+  if (error instanceof CapabilityError) {
+    const note = await refreshChangedProbe(cached);
+    return note === null
+      ? error
+      : new CapabilityError({ ...error.developerDetail, detail: `${error.message}\n${note}` });
+  }
+  return error;
 }
 
 async function refreshChangedProbe(cached: CachedServer): Promise<string | null> {

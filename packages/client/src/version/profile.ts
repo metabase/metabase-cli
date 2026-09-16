@@ -68,11 +68,9 @@ function place(version: ParsedVersion | null): Placement {
   return { effectiveMajor: version.major, skew: "supported" };
 }
 
-// The tag is the authoritative signal. Head images and dev checkouts report `vUNKNOWN`, and
-// `/api/session/properties` carries no other edition field — OSS sends the same all-false
-// `token-features` map an unlicensed EE does — so for them the edition is whatever the token
-// proves: a granted premium feature means EE, and an instance granting none behaves as OSS for
-// everything this client can do.
+// A released tag is authoritative. A dev build's tag never parses, and `/api/session/properties`
+// carries no other edition field (OSS sends the same all-false `token-features` map an unlicensed
+// EE does), so there the edition is whatever the token proves.
 function detectEdition(info: ServerInfo): Edition {
   const fromTag = info.version === null ? null : editionFromTag(info.version.tag);
   if (fromTag !== null) {

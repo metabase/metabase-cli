@@ -27,6 +27,7 @@ describe("readCachedServerProfile", () => {
   beforeEach(() => {
     hoisted.store.clear();
     home = setupTempConfigHome();
+    delete process.env["MB_URL"];
   });
 
   afterEach(() => {
@@ -49,5 +50,19 @@ describe("readCachedServerProfile", () => {
     expect(await readCachedServerProfile("staging")).toEqual(
       createServerProfile(probeAt(61, { library: true })),
     );
+  });
+
+  it("ignores the record's probe when the environment points the profile at another server", async () => {
+    await seedProbedProfile("staging", probeAt(61, { library: true }));
+    process.env["MB_URL"] = "https://other.example.com";
+
+    expect(await readCachedServerProfile("staging")).toBeNull();
+  });
+
+  it("keeps the record's probe when the environment names the record's own server", async () => {
+    await seedProbedProfile("staging", probeAt(61));
+    process.env["MB_URL"] = "http://127.0.0.1:1/";
+
+    expect(await readCachedServerProfile("staging")).toEqual(createServerProfile(probeAt(61)));
   });
 });

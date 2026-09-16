@@ -15,7 +15,7 @@ import type { ServerProfile } from "@metabase/client/version/profile";
 import { checkFeatures } from "@metabase/client/version/requirement-check";
 
 import { parseCsv } from "../runtime/csv";
-import { parseYamlResult } from "../runtime/yaml";
+import { parseYaml } from "../runtime/yaml";
 import { ENV_SKILLS_DIR, readEnv } from "./env";
 
 const Frontmatter = z
@@ -213,13 +213,16 @@ export function discoverSkills(dirs: readonly string[]): SkillInfo[] {
   return skills;
 }
 
+// `null` only when there is no SKILL.md, so a stray entry in a skills directory is not a skill. A
+// SKILL.md that is there but malformed is a broken skill, and a broken skill refuses rather than
+// vanishing from the list.
 function readFrontmatterFromSkill(skillDir: string): Frontmatter | null {
   const skillMd = join(skillDir, SKILL_MD_FILENAME);
   const prefix = readFilePrefix(skillMd, FRONTMATTER_PREFIX_BYTES);
   if (prefix === null) {
     return null;
   }
-  return parseFrontmatter(prefix);
+  return parseFrontmatter(prefix, skillMd);
 }
 
 function readFilePrefix(path: string, maxBytes: number): string | null {
@@ -241,22 +244,17 @@ function readFilePrefix(path: string, maxBytes: number): string | null {
   }
 }
 
-export function parseFrontmatter(content: string): Frontmatter | null {
+export function parseFrontmatter(content: string, source: string): Frontmatter {
   const trimmed = content.trimStart();
   if (!trimmed.startsWith(FRONTMATTER_FENCE)) {
-    return null;
+    throw new ConfigError(`${source}: missing frontmatter`);
   }
   const afterOpening = trimmed.slice(FRONTMATTER_FENCE.length);
   const closingIndex = afterOpening.indexOf(`\n${FRONTMATTER_FENCE}`);
   if (closingIndex < 0) {
-    return null;
+    throw new ConfigError(`${source}: unterminated frontmatter`);
   }
-  const block = afterOpening.slice(0, closingIndex);
-  const result = parseYamlResult(block, Frontmatter);
-  if (!result.ok) {
-    return null;
-  }
-  return result.value;
+  return parseYaml(afterOpening.slice(0, closingIndex), Frontmatter, { source });
 }
 
 export function readSkillContent(info: SkillInfo, opts: ReadSkillContentOptions): SkillContent {
@@ -308,12 +306,8 @@ interface OpenSection {
   met: boolean;
 }
 
-// A `<!-- requires: a, b -->` … `<!-- /requires -->` pair marks text only a server with every
-// named feature can use. With features in hand the markers are resolved: a met section keeps its
-// text and loses its markers, an unmet one goes entirely, and a blank line that only separated a
-// removed line from a blank one goes with it. Without features the text is returned as written,
-// markers included, so a reader still sees what each section needs. The markers are validated
-// either way, so a typo fails on every read rather than only against some server.
+// Without features the markers stay in the text, so a reader still sees what each section needs.
+// They are validated either way, so a typo fails on every read rather than only against some server.
 export function resolveSections(text: string, features: Features | null, where: string): string {
   const out: string[] = [];
   let open: OpenSection | null = null;
@@ -366,8 +360,7 @@ export function resolveSections(text: string, features: Features | null, where: 
   return out.join("\n");
 }
 
-// Keeps the marker when nothing is being resolved; otherwise leaves it out and says whether the
-// line after it, if blank, would now only double a blank line already kept.
+// Whether a blank line after a dropped marker would only double a blank line already kept.
 function dropMarker(out: string[], marker: string, features: Features | null): boolean {
   if (features === null) {
     out.push(marker);

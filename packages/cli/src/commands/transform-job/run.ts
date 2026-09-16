@@ -20,6 +20,9 @@ const transformJobRunResultView: ResourceView<TransformJobRunResultJson> = {
 };
 
 function runSummary(id: number, result: TransformJobRunResult): string {
+  if (result.started === null) {
+    return `Requested a run of transform job ${id}; this server does not say whether one started.`;
+  }
   if (!result.started) {
     return `Transform job ${id} was not started (already running, or it resolves to no transforms).`;
   }

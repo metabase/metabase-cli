@@ -449,6 +449,42 @@ const ALL_COMMANDS = [
   "skills path",
 ];
 
+const BODY_COMMANDS = [
+  "table update",
+  "field update",
+  "card create",
+  "card update",
+  "dashboard create",
+  "dashboard update",
+  "dashboard update-dashcard",
+  "subscription create",
+  "subscription update",
+  "alert create",
+  "alert update",
+  "collection create",
+  "document create",
+  "document update",
+  "transform create",
+  "transform update",
+  "transform-job create",
+  "transform-job update",
+  "transform-tag create",
+  "transform-tag update",
+  "setup",
+  "snippet create",
+  "snippet update",
+  "segment create",
+  "segment update",
+  "measure create",
+  "measure update",
+  "timeline create",
+  "timeline update",
+  "timeline-event create",
+  "timeline-event update",
+  "eid",
+  "query",
+];
+
 function requiresOf(method: MethodKey): CommandHelpEntry["requires"] {
   return { methods: [method], features: Array.from(methodRequirements(method)) };
 }
@@ -472,25 +508,37 @@ describe("command tree contract", () => {
   });
 
   it("every leaf declares a description", async () => {
-    for (const entry of await allEntries()) {
-      expect(entry.description, `missing description for ${entry.command}`).not.toBeNull();
-    }
+    const entries = await allEntries();
+    const undescribed = entries
+      .filter((entry) => entry.description === null)
+      .map((entry) => entry.command);
+    expect(entries.length).toBe(ALL_COMMANDS.length);
+    expect(undescribed).toEqual([]);
   });
 
   it("every leaf declares examples and an output schema", async () => {
-    for (const entry of await allEntries()) {
-      expect(entry.examples.length, `missing examples for ${entry.command}`).toBeGreaterThan(0);
-      expect(entry.outputSchema, `missing outputSchema for ${entry.command}`).not.toBeNull();
-    }
+    const entries = await allEntries();
+    const withoutExamples = entries
+      .filter((entry) => entry.examples.length === 0)
+      .map((entry) => entry.command);
+    const withoutOutputSchema = entries
+      .filter((entry) => entry.outputSchema === null)
+      .map((entry) => entry.command);
+    expect(entries.length).toBe(ALL_COMMANDS.length);
+    expect({ withoutExamples, withoutOutputSchema }).toEqual({
+      withoutExamples: [],
+      withoutOutputSchema: [],
+    });
   });
 
   it("declares an input schema on every command that accepts a JSON body", async () => {
-    for (const entry of await allEntries()) {
-      const acceptsBody = entry.args.some((arg) => arg.name === "body");
-      if (acceptsBody) {
-        expect(entry.inputSchema, `missing inputSchema for ${entry.command}`).not.toBeNull();
-      }
-    }
+    const entries = await allEntries();
+    const acceptingBody = entries.filter((entry) => entry.args.some((arg) => arg.name === "body"));
+    const withoutInputSchema = acceptingBody
+      .filter((entry) => entry.inputSchema === null)
+      .map((entry) => entry.command);
+    expect(acceptingBody.map((entry) => entry.command)).toEqual(BODY_COMMANDS);
+    expect(withoutInputSchema).toEqual([]);
   });
 
   it("reports the measure methods and the feature they need, and card list as baseline", async () => {
@@ -508,8 +556,12 @@ describe("command tree contract", () => {
       "measure archive": { methods: ["measure.archive"], features: ["measures"] },
     });
 
-    const cardList = entries.find((entry) => entry.command === "card list");
-    expect(cardList?.requires).toEqual({ methods: ["card.list"], features: [] });
+    const cardRequires = Object.fromEntries(
+      entries
+        .filter((entry) => entry.command === "card list")
+        .map((entry) => [entry.command, entry.requires]),
+    );
+    expect(cardRequires).toEqual({ "card list": { methods: ["card.list"], features: [] } });
   });
 
   it("reports the premium feature behind every content translation command", async () => {

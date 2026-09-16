@@ -25,7 +25,7 @@ describe("summarizeCapabilities", () => {
     });
   });
 
-  it("refuses a list that needs two premium features, which one field cannot carry", () => {
+  it("refuses a list that needs two premium features", () => {
     expect(() => summarizeCapabilities(["library", "remoteSync"])).toThrow(
       "a capability summary names one premium feature, got 2: library, remote_sync",
     );

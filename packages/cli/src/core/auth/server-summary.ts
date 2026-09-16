@@ -16,10 +16,8 @@ const KnownRange = z.object({
   max: z.number().int(),
 });
 
-// What a probe says about the server, as every auth payload reports it: the raw facts and what
-// this CLI derives from them, side by side. Derived when read, never stored — a persisted
-// derivation would outlive the CLI that wrote it. Every server field is `null` without a probe;
-// `knownRange` is the CLI's own and always present.
+// Derived from the probe when read, never stored — a persisted derivation would outlive the CLI
+// that wrote it. Every server field is `null` without a probe; `knownRange` is the CLI's own.
 export const ServerSummary = z.object({
   version: ParsedVersion.nullable(),
   edition: Edition.nullable(),
@@ -66,10 +64,10 @@ export function skewNotice(profile: ServerProfile): string | null {
       return null;
     }
     case "newer-than-known": {
-      return `Metabase ${versionLabel(profile.version)} is newer than this CLI supports (up to v${max}); commands run as if it were v${max}. Run \`mb upgrade\` for a newer CLI.`;
+      return `Metabase ${versionLabel(profile.version)} is newer than this CLI supports (up to v${max}); commands run as if it were a head build past v${max}. Run \`mb upgrade\` for a newer CLI.`;
     }
     case "unknown": {
-      return `Could not parse the Metabase version; assuming the newest supported (v${max}).`;
+      return `Could not parse the Metabase version; assuming a head build past v${max}.`;
     }
   }
 }

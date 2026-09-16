@@ -197,14 +197,18 @@ describe("resolveConfig", () => {
     const error = await resolveConfig({ profile: "missing" }).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
     assert(error instanceof ConfigError, "expected ConfigError");
-    expect(error.message).toContain('Not authenticated for profile "missing"');
+    expect(error.message).toBe(
+      'Not authenticated for profile "missing". Run `mb auth login`, set MB_URL/MB_API_KEY, or pass --url/--api-key.',
+    );
   });
 
   it("throws ConfigError when nothing is configured", async () => {
     const error = await resolveConfig({}).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
     assert(error instanceof ConfigError, "expected ConfigError");
-    expect(error.message).toContain("Not authenticated");
+    expect(error.message).toBe(
+      'Not authenticated for profile "default". Run `mb auth login`, set MB_URL/MB_API_KEY, or pass --url/--api-key.',
+    );
   });
 
   it("does not append the lastFailure hint when stored credentials are still usable", async () => {
@@ -233,10 +237,9 @@ describe("resolveConfig", () => {
     const error = await resolveConfig({ profile: "lost" }).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
     assert(error instanceof ConfigError, "expected ConfigError");
-    expect(error.message).toContain(
-      'profile "lost" last verify failed: Invalid or unauthorized API key',
+    expect(error.message).toBe(
+      'Not authenticated for profile "lost". Run `mb auth login`, set MB_URL/MB_API_KEY, or pass --url/--api-key. profile "lost" last verify failed: Invalid or unauthorized API key. Run `mb auth login --profile lost` to update the token.',
     );
-    expect(error.message).toContain("Run `mb auth login --profile lost` to update the token.");
   });
 
   it("omits the lastFailure hint after a successful re-probe clears the failure", async () => {
@@ -259,7 +262,9 @@ describe("resolveConfig", () => {
     const error = await resolveConfig({ profile: "recovers" }).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
     assert(error instanceof ConfigError, "expected ConfigError");
-    expect(error.message).not.toContain("last verify failed");
+    expect(error.message).toBe(
+      'Not authenticated for profile "recovers". Run `mb auth login`, set MB_URL/MB_API_KEY, or pass --url/--api-key.',
+    );
   });
 });
 

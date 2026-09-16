@@ -393,10 +393,16 @@ describe("renderList — text format", () => {
       FULL_RANGE,
     );
     renderList(envelope, cardView, { ...baseOpts, format: "text" });
-    expect(streams.stdout).toContain("ID");
-    expect(streams.stdout).toContain("Name");
-    expect(streams.stdout).toContain("Sales");
-    expect(streams.stdout).toContain("Ops");
+    expect(streams.stdout).toBe(
+      `┌────┬───────┐
+│ ID │ Name  │
+├────┼───────┤
+│ 1  │ Sales │
+├────┼───────┤
+│ 2  │ Ops   │
+└────┴───────┘
+`,
+    );
   });
 
   it("emits a single '(no results)' line when empty", () => {
@@ -465,7 +471,9 @@ describe("renderList — text format", () => {
     const projectedItems = items.map(({ id, name }) => ({ id, name }));
     const expectedCapped = capListEnvelope(windowList(projectedItems, FULL_RANGE), 500);
     assert(expectedCapped.truncated !== undefined, "fixture should produce truncation");
-    expect(streams.stdout).toContain("ID");
+    expect(streams.stdout).toBe(
+      renderTable(items.slice(0, expectedCapped.returned), cardView.tableColumns) + "\n",
+    );
     expect(streams.stderr).toBe(
       `… cut at ${expectedCapped.truncated.bytes} bytes; continue with --offset ${expectedCapped.next_offset}, narrow the selection or raise --max-bytes\n`,
     );
@@ -536,13 +544,16 @@ describe("renderList — --fields path errors", () => {
 
   it("enriches an envelope-relative `data.` path with the item-relative hint (json)", () => {
     const { message } = renderListError({ ...baseOpts, fields: ["data.id"] });
-    expect(message).toContain("relative to each item in `data`");
-    expect(message).toContain("use `id` instead of `data.id`");
+    expect(message).toBe(
+      'unknown field path: "data.id" — on list commands --fields paths are relative to each item in `data`, not the envelope. Drop the `data.` prefix (e.g. use `id` instead of `data.id`).',
+    );
   });
 
   it("enriches a `data.` path in text mode too", () => {
     const { message } = renderListError({ ...baseOpts, format: "text", fields: ["data.name"] });
-    expect(message).toContain("use `name` instead of `data.name`");
+    expect(message).toBe(
+      'unknown field path: "data.name" — on list commands --fields paths are relative to each item in `data`, not the envelope. Drop the `data.` prefix (e.g. use `name` instead of `data.name`).',
+    );
   });
 
   it("leaves an ordinary unknown-path error unchanged", () => {

@@ -41,15 +41,20 @@ function captureStdout(): CapturedStdout {
   };
 }
 
+const PROBED_AT = "2026-03-04T05:06:07.000Z";
+
 describe("auth status command", () => {
   let home: TempConfigHome;
 
   beforeEach(() => {
     hoisted.store.clear();
     home = setupTempConfigHome();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(PROBED_AT));
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     home.cleanup();
   });
@@ -116,7 +121,7 @@ describe("auth status command", () => {
       hash: null,
       tokenFeatures: null,
     };
-    const probe = await writeProbeResult("default", {
+    await writeProbeResult("default", {
       user: { id: 42, name: "Alice", isAdmin: true },
       server,
     });
@@ -135,7 +140,7 @@ describe("auth status command", () => {
       knownRange: KNOWN_RANGE,
       tokenFeatures: null,
       features: createServerProfile(server).features,
-      lastProbedAt: probe?.at ?? null,
+      lastProbedAt: PROBED_AT,
       lastFailure: null,
     });
   });
@@ -149,7 +154,7 @@ describe("auth status command", () => {
       hash: null,
       tokenFeatures: { library: true },
     };
-    const probe = await writeProbeResult("default", {
+    await writeProbeResult("default", {
       user: { id: 42, name: "Alice", isAdmin: true },
       server,
     });
@@ -168,7 +173,7 @@ describe("auth status command", () => {
       knownRange: KNOWN_RANGE,
       tokenFeatures: { library: true },
       features: createServerProfile(server).features,
-      lastProbedAt: probe?.at ?? null,
+      lastProbedAt: PROBED_AT,
       lastFailure: null,
     });
   });

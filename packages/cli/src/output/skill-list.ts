@@ -35,8 +35,7 @@ interface SkillFilterContext {
   bypassed: boolean;
 }
 
-// What the text rendering says beyond the rows: that nothing was filtered because there was no
-// server to filter by, or which skills were and why. `--all` asked for the lot and gets no note.
+// `--all` asked for the lot and gets no note.
 export function skillFilterNotices(
   unavailable: readonly UnavailableSkill[] | null,
   context: SkillFilterContext,
@@ -46,7 +45,7 @@ export function skillFilterNotices(
   }
   if (unavailable === null) {
     return [
-      `Skills are unfiltered: profile "${context.profileName}" has no cached server probe (run \`mb auth list\` to record one).`,
+      `Skills are unfiltered: profile "${context.profileName}" has no cached server probe (run \`mb auth login\` to record one).`,
     ];
   }
   return unavailable.map(

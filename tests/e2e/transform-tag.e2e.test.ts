@@ -107,8 +107,10 @@ describe.skipIf(skipReason !== null)("transform-tag e2e", () => {
     });
     expect(listResult.exitCode, listResult.stderr).toBe(0);
     const envelope = parseJson(listResult.stdout, TransformTagListEnvelope);
-    const userTag = envelope.data.find((tag) => tag.id === FIRST_USER_TAG_ID);
-    expect(userTag).toEqual({ ...USER_TAG_COMPACT, name: RENAMED });
+    expect([...envelope.data].toSorted((left, right) => left.id - right.id)).toEqual([
+      ...BUILT_IN_TAGS,
+      { ...USER_TAG_COMPACT, name: RENAMED },
+    ]);
   });
 
   it("delete --yes removes the tag; subsequent list omits it", async () => {
@@ -145,7 +147,9 @@ describe.skipIf(skipReason !== null)("transform-tag e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "request body: value did not match expected schema\n  /name: Invalid input: expected string, received undefined",
+    );
     expect(result.stdout).toBe("");
   });
 
@@ -157,7 +161,7 @@ describe.skipIf(skipReason !== null)("transform-tag e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -169,7 +173,7 @@ describe.skipIf(skipReason !== null)("transform-tag e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: PUT /api/transform-tag/9999999.");
+    expect(cliErrorMessage(result.stderr)).toBe("Not found: PUT /api/transform-tag/9999999.");
   });
 
   it("delete without --yes refuses in non-TTY and exits 2 (explicit confirmation required)", async () => {
@@ -182,7 +186,7 @@ describe.skipIf(skipReason !== null)("transform-tag e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       `refusing to delete ${FIRST_USER_TAG_ID} without confirmation — pass --yes to proceed non-interactively`,
     );
     expect(result.stdout).toBe("");

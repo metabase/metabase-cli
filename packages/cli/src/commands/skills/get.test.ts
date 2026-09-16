@@ -117,7 +117,7 @@ describe("skills get command", () => {
 
     expect(stdout.chunks.join("")).toBe(`${GAMMA_SKILL_MD.trimEnd()}\n`);
     expect(stderr.chunks.join("")).toBe(
-      'Skills are unfiltered: profile "default" has no cached server probe (run `mb auth list` to record one).\n',
+      'Skills are unfiltered: profile "default" has no cached server probe (run `mb auth login` to record one).\n',
     );
   });
 

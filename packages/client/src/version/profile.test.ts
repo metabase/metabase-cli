@@ -60,7 +60,7 @@ describe("createServerProfile", () => {
     });
   });
 
-  it("keeps a major below the window at its real major, still supported, so each feature refuses by name", () => {
+  it("keeps a major below the window at its real major, still supported", () => {
     const info = released("v0.57.2", 57, null);
     expect(createServerProfile(info)).toEqual({
       version: { tag: "v0.57.2", major: 57, patch: 2 },

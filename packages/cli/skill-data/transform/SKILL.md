@@ -209,4 +209,6 @@ mb transform-job set-active false --profile <name> --json  # disable every job a
 
 <!-- /requires -->
 
-`transform-job run` is fire-and-forget — it returns `{message, started, run_id}` immediately (`run_id` is `null` when the server does not number job runs), with no per-job-run polling (no `--wait`). Most ad-hoc agent work is one-off `transform run`, not job authoring.
+Every job row carries `active`; it is `null` on a server that cannot switch jobs off, where every job runs on schedule.
+
+`transform-job run` is fire-and-forget — it returns `{message, started, run_id}` immediately (both `null` when the server does not number job runs: the request was accepted and whether a run started is unsaid), with no per-job-run polling (no `--wait`). Most ad-hoc agent work is one-off `transform run`, not job authoring.

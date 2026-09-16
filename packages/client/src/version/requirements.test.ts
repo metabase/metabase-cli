@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
+import { errorMessage } from "../errors";
 import type { ClientCredentials, Transport } from "../http/transport";
 import { cardResource } from "../resources/card";
 import { collectionResource } from "../resources/collection";
@@ -98,21 +99,65 @@ function namespaceOf(fileName: string): string {
 interface RequiredLiteral {
   readonly file: string;
   readonly key: string;
+  // The function whose body holds the call, named as the resource exposes it.
+  readonly method: string;
+}
+
+const REQUIRE_CALL = /transport\.require\("([^"]+)"\)/g;
+const FUNCTION_DECLARATION = /function\*? ([A-Za-z]+)\(/g;
+const RETURNED_OBJECT = /return \{([^}]*)\}/g;
+const ALIASED_ENTRY = /([A-Za-z]+): ([A-Za-z]+)/g;
+
+// `{ delete: remove, import: importFromRemote }`: the name a caller reaches a method by, for a
+// function whose own name is a reserved word. Only a declared function counts as aliased, so a
+// returned data object (`{ data: rows, total: null }`) contributes nothing.
+function exposedNamesOf(source: string): ReadonlyMap<string, string> {
+  const declaredFunctions = new Set(
+    [...source.matchAll(FUNCTION_DECLARATION)].flatMap((match) =>
+      match[1] === undefined ? [] : [match[1]],
+    ),
+  );
+  const entries = [...source.matchAll(RETURNED_OBJECT)].flatMap((object) =>
+    object[1] === undefined ? [] : Array.from(object[1].matchAll(ALIASED_ENTRY)),
+  );
+  return new Map(
+    entries.flatMap(([, exposed, declared]) =>
+      exposed !== undefined && declared !== undefined && declaredFunctions.has(declared)
+        ? [[declared, exposed]]
+        : [],
+    ),
+  );
+}
+
+function enclosingFunctionAt(source: string, index: number): string {
+  let enclosing: string | null = null;
+  for (const match of source.matchAll(FUNCTION_DECLARATION)) {
+    if (match.index > index) {
+      break;
+    }
+    enclosing = match[1] ?? null;
+  }
+  if (enclosing === null) {
+    throw new Error(`no function declared before offset ${index}`);
+  }
+  return enclosing;
 }
 
 function requiredLiterals(): RequiredLiteral[] {
   return readdirSync(RESOURCES_DIR)
     .filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts"))
-    .flatMap((file) =>
-      [
-        ...readFileSync(resolve(RESOURCES_DIR, file), "utf8").matchAll(
-          /transport\.require\("([^"]+)"\)/g,
-        ),
-      ]
-        .map((match) => match[1])
-        .filter((key): key is string => key !== undefined)
-        .map((key) => ({ file, key })),
-    );
+    .flatMap((file) => {
+      const source = readFileSync(resolve(RESOURCES_DIR, file), "utf8");
+      const exposed = exposedNamesOf(source);
+      return [...source.matchAll(REQUIRE_CALL)].flatMap((match) => {
+        const key = match[1];
+        if (key === undefined) {
+          return [];
+        }
+        const declared = enclosingFunctionAt(source, match.index);
+        return [{ file, key, method: exposed.get(declared) ?? declared }];
+      });
+    });
 }
 
 // One call per resource, with the wire request the fake refuses once the method reaches it — the
@@ -272,7 +317,7 @@ async function messageOf(pending: Promise<unknown>): Promise<string> {
   try {
     await pending;
   } catch (error) {
-    return error instanceof Error ? error.message : String(error);
+    return errorMessage(error);
   }
   return "resolved";
 }
@@ -284,7 +329,9 @@ describe("METHOD_REQUIREMENTS", () => {
 
   it("is required by every resource method under the method's own key, and by nothing else", () => {
     const literals = requiredLiterals();
-    const foreign = literals.filter(({ file, key }) => !key.startsWith(`${namespaceOf(file)}.`));
+    const foreign = literals.filter(
+      ({ file, key, method }) => key !== `${namespaceOf(file)}.${method}`,
+    );
     expect(foreign).toEqual([]);
     expect(literals.map(({ key }) => key).toSorted()).toEqual(TABLE_KEYS);
   });

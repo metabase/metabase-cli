@@ -101,7 +101,7 @@ describe("library e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid table id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid table id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -125,7 +125,7 @@ describe("library e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid database id: "x" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid database id: "x" (expected integer)');
     expect(result.stdout).toBe("");
   });
 

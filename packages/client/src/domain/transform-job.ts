@@ -27,14 +27,13 @@ const JobNextRun = z
   })
   .loose();
 
-export const TransformJob = z
+const TransformJobBase = z
   .object({
     id: z.number().int(),
     name: z.string(),
     description: z.string().nullable(),
     schedule: z.string(),
     ui_display_type: CronUiDisplayType,
-    active: z.boolean().optional(),
     entity_id: z.string().nullable(),
     created_at: z.string(),
     updated_at: z.string(),
@@ -44,7 +43,21 @@ export const TransformJob = z
     next_run: JobNextRun.nullable().optional(),
   })
   .loose();
+
+// `active` is null on a server whose jobs cannot be switched off: every job there runs on schedule.
+export const TransformJob = TransformJobBase.extend({
+  active: z.boolean().nullable(),
+});
 export type TransformJob = z.infer<typeof TransformJob>;
+
+function alwaysActive(wire: z.infer<typeof TransformJobBase>): TransformJob {
+  return { ...wire, active: null };
+}
+
+/** The shape every transform-job endpoint answers on a server with `features`, read as `TransformJob`. */
+export function transformJobSchema(features: Features): z.ZodType<TransformJob> {
+  return features.transformJobActivation ? TransformJob : TransformJobBase.transform(alwaysActive);
+}
 
 export const TransformJobCompact = TransformJob.pick({
   id: true,
@@ -80,13 +93,12 @@ export const TransformJobUpdateInput = z
   .loose();
 export type TransformJobUpdateInput = z.infer<typeof TransformJobUpdateInput>;
 
-// One generation of servers answers `job_run_id` as an opaque stub string that only says a run was
-// started; the other answers the run's numeric id, or null when nothing was started (the job is
-// already running, or it resolves to no transforms). `started` keeps the first generation's one bit
-// and `run_id` the second's, so neither answer is folded into the other.
+// One generation of servers answers `job_run_id` as an opaque stub string whatever happened; the
+// other answers the run's numeric id, or null when nothing was started. `started` and `run_id` are
+// both null for the first, so neither answer is folded into the other.
 export const TransformJobRunResult = z.object({
   message: z.string(),
-  started: z.boolean(),
+  started: z.boolean().nullable(),
   run_id: z.number().int().positive().nullable(),
 });
 export type TransformJobRunResult = z.infer<typeof TransformJobRunResult>;
@@ -102,7 +114,7 @@ const TransformJobRunWireV64 = z.object({
 });
 
 function fromStubRunId(wire: z.infer<typeof TransformJobRunWireV59>): TransformJobRunResult {
-  return { message: wire.message, started: true, run_id: null };
+  return { message: wire.message, started: null, run_id: null };
 }
 
 function fromNumericRunId(wire: z.infer<typeof TransformJobRunWireV64>): TransformJobRunResult {

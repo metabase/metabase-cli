@@ -2,19 +2,16 @@ import { z } from "zod";
 
 import { type Transform, transformRowSchema } from "../domain/transform";
 import {
-  TransformJob,
+  type TransformJob,
   TransformJobActiveResult,
   type TransformJobCreateInput,
   type TransformJobRunResult,
   transformJobRunResultSchema,
+  transformJobSchema,
   type TransformJobUpdateInput,
 } from "../domain/transform-job";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
-
-// `GET /api/transform-job` answers a bare array rather than a `{ data, total }` envelope, so the
-// count a caller reads off `ListResult` is the array's own length and the server reports none.
-const TransformJobApiList = z.array(TransformJob);
 
 export interface TransformJobRunParams {
   /** Re-run the whole plan, including dependencies that are already fresh. */
@@ -26,16 +23,23 @@ export function transformJobResource(transport: Transport) {
   /** List every transform job the caller can see. */
   async function list(options: RequestOptions = {}): Promise<ListResult<TransformJob>> {
     await transport.require("transformJob.list");
-    const data = await transport.requestParsed(TransformJobApiList, "/api/transform-job", {
-      ...options,
-    });
+    const { features } = await transport.server();
+    // A bare array rather than a `{ data, total }` envelope, so the server reports no count.
+    const data = await transport.requestParsed(
+      z.array(transformJobSchema(features)),
+      "/api/transform-job",
+      { ...options },
+    );
     return { data, total: null };
   }
 
   /** Get one transform job by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<TransformJob> {
     await transport.require("transformJob.get");
-    return transport.requestParsed(TransformJob, `/api/transform-job/${id}`, { ...options });
+    const { features } = await transport.server();
+    return transport.requestParsed(transformJobSchema(features), `/api/transform-job/${id}`, {
+      ...options,
+    });
   }
 
   /** Create a transform job — a schedule plus the tags it runs — from a full body. */
@@ -44,7 +48,8 @@ export function transformJobResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<TransformJob> {
     await transport.require("transformJob.create");
-    return transport.requestParsed(TransformJob, "/api/transform-job", {
+    const { features } = await transport.server();
+    return transport.requestParsed(transformJobSchema(features), "/api/transform-job", {
       ...options,
       method: "POST",
       body: params,
@@ -58,7 +63,8 @@ export function transformJobResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<TransformJob> {
     await transport.require("transformJob.update");
-    return transport.requestParsed(TransformJob, `/api/transform-job/${id}`, {
+    const { features } = await transport.server();
+    return transport.requestParsed(transformJobSchema(features), `/api/transform-job/${id}`, {
       ...options,
       method: "PUT",
       body: params,

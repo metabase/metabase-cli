@@ -50,13 +50,13 @@ describe("skewNotice", () => {
   it("points a newer server at mb upgrade and names the major it is read as", () => {
     const beyond = KNOWN_RANGE.max + 1;
     expect(skewNotice(createServerProfile(serverAt(beyond)))).toBe(
-      `Metabase v0.${beyond}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were v${KNOWN_RANGE.max}. Run \`mb upgrade\` for a newer CLI.`,
+      `Metabase v0.${beyond}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were a head build past v${KNOWN_RANGE.max}. Run \`mb upgrade\` for a newer CLI.`,
     );
   });
 
-  it("says an unparseable version is read as the newest supported", () => {
+  it("says an unparseable version is read as a head build", () => {
     expect(skewNotice(createServerProfile(UNPARSEABLE))).toBe(
-      `Could not parse the Metabase version; assuming the newest supported (v${KNOWN_RANGE.max}).`,
+      `Could not parse the Metabase version; assuming a head build past v${KNOWN_RANGE.max}.`,
     );
   });
 });

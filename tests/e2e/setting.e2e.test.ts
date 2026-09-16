@@ -215,7 +215,7 @@ describe("setting e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       "multiple body sources given (--file, positional); pass exactly one",
     );
     expect(result.stdout).toBe("");

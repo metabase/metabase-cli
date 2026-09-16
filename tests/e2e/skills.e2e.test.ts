@@ -1,12 +1,30 @@
-import { afterEach, assert, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
+import type { z } from "zod";
 
 import { parseJson } from "@metabase/client/json";
 
 import { SkillGetEnvelope } from "../../packages/cli/src/commands/skills/get";
 import { SkillListEnvelope } from "../../packages/cli/src/commands/skills/list";
 import { SkillPathListEnvelope } from "../../packages/cli/src/commands/skills/path";
+import {
+  discoverSkills,
+  type SkillContent,
+  type SkillInfo,
+} from "../../packages/cli/src/core/skills";
+import { fitWithinCap } from "../../packages/cli/src/output/cap";
+import { DEFAULT_MAX_BYTES } from "../../packages/cli/src/output/types";
+import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { seedProbedProfile, seedProbedProfileAt, UNREACHABLE, versionAt } from "./seed-profile";
+
+type SkillGetPayload = z.infer<typeof SkillGetEnvelope>;
+
+// The shipped skills are the expected values: the binary under test bundles this very directory.
+const SKILL_DATA_DIR = resolve(import.meta.dirname, "..", "..", "packages", "cli", "skill-data");
+const BUNDLED_VISIBLE = discoverSkills([SKILL_DATA_DIR]).filter((skill) => !skill.hidden);
 
 const BUNDLED_VISIBLE_NAMES = [
   "core",
@@ -23,7 +41,57 @@ const BUNDLED_VISIBLE_NAMES = [
 ] as const;
 
 const UNFILTERED_NOTE =
-  'Skills are unfiltered: profile "default" has no cached server probe (run `mb auth list` to record one).';
+  'Skills are unfiltered: profile "default" has no cached server probe (run `mb auth login` to record one).';
+const SKILL_OVERSIZE_HINT =
+  "a skill body is indivisible — pass --max-bytes 0 to print it whole, or `mb skills path <name>` to read it from disk";
+
+function bundledSkill(name: string): SkillInfo {
+  const skill = BUNDLED_VISIBLE.find((candidate) => candidate.name === name);
+  if (skill === undefined) {
+    throw new Error(`no bundled skill named "${name}" under ${SKILL_DATA_DIR}`);
+  }
+  return skill;
+}
+
+function listRow(skill: SkillInfo): z.infer<typeof SkillListEnvelope>["data"][number] {
+  return { name: skill.name, description: skill.description };
+}
+
+// A skill as `skills get` prints it with nothing to resolve against: SKILL.md verbatim, no extras.
+function asWritten(skill: SkillInfo): SkillContent {
+  return {
+    name: skill.name,
+    description: skill.description,
+    body: readFileSync(join(skill.dir, "SKILL.md"), "utf8"),
+    references: [],
+    templates: [],
+  };
+}
+
+function fullList(rows: readonly SkillInfo[]): z.infer<typeof SkillListEnvelope> {
+  return {
+    data: rows.map(listRow),
+    returned: rows.length,
+    offset: 0,
+    total: rows.length,
+    has_more: false,
+    next_offset: null,
+    unavailable: null,
+  };
+}
+
+// The names a text listing prints at column zero; descriptions sit indented beneath them.
+function namesInTextListing(stdout: string): string[] {
+  return stdout.split("\n").filter((line) => line !== "" && !line.startsWith("  "));
+}
+
+function onlySkill(envelope: SkillGetPayload): SkillContent {
+  const [item, ...rest] = envelope.data;
+  if (item === undefined || rest.length > 0) {
+    throw new Error(`expected exactly one skill in the envelope, got ${envelope.data.length}`);
+  }
+  return item;
+}
 
 const TRANSFORM_UNAVAILABLE_ON_58 = {
   name: "transform",
@@ -64,29 +132,18 @@ describe("skills e2e", () => {
     return dir;
   }
 
-  it("list returns the eleven bundled non-hidden skills, sorted by name", async () => {
-    const result = await runCli({
-      args: ["skills", "list", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-    const envelope = parseJson(result.stdout, SkillListEnvelope);
-    expect(envelope.data.map((s) => s.name)).toEqual([...BUNDLED_VISIBLE_NAMES]);
-    expect(envelope.returned).toBe(BUNDLED_VISIBLE_NAMES.length);
-    for (const item of envelope.data) {
-      expect(item.description.length).toBeGreaterThan(20);
-    }
+  it("ships exactly the eleven visible skills this suite names", () => {
+    expect(BUNDLED_VISIBLE.map((skill) => skill.name)).toEqual([...BUNDLED_VISIBLE_NAMES]);
   });
 
-  it("list reports `unavailable: null` and keeps stdout clean when there is no cached probe", async () => {
+  it("list returns the eleven bundled non-hidden skills, sorted by name, with `unavailable: null` and a clean stderr when there is no cached probe", async () => {
     const result = await runCli({
       args: ["skills", "list", "--json"],
       configHome: await makeIsolatedConfigHome(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, SkillListEnvelope).unavailable).toBeNull();
+    expect(parseJson(result.stdout, SkillListEnvelope)).toEqual(fullList(BUNDLED_VISIBLE));
     expect(result.stderr).toBe("");
   });
 
@@ -97,7 +154,7 @@ describe("skills e2e", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout.startsWith("core\n")).toBe(true);
+    expect(namesInTextListing(result.stdout)).toEqual([...BUNDLED_VISIBLE_NAMES]);
     expect(result.stderr).toBe(UNFILTERED_NOTE);
   });
 
@@ -108,11 +165,13 @@ describe("skills e2e", () => {
     const result = await runCli({ args: ["skills", "list", "--json"], configHome });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const envelope = parseJson(result.stdout, SkillListEnvelope);
-    expect(envelope.data.map((s) => s.name)).toEqual(
-      BUNDLED_VISIBLE_NAMES.filter((name) => name !== "git-sync" && name !== "transform"),
+    const usable = BUNDLED_VISIBLE.filter(
+      (skill) => skill.name !== "git-sync" && skill.name !== "transform",
     );
-    expect(envelope.unavailable).toEqual([GIT_SYNC_UNAVAILABLE_ON_58, TRANSFORM_UNAVAILABLE_ON_58]);
+    expect(parseJson(result.stdout, SkillListEnvelope)).toEqual({
+      ...fullList(usable),
+      unavailable: [GIT_SYNC_UNAVAILABLE_ON_58, TRANSFORM_UNAVAILABLE_ON_58],
+    });
     expect(result.stderr).toBe("");
   });
 
@@ -123,9 +182,8 @@ describe("skills e2e", () => {
     const result = await runCli({ args: ["skills", "list", "--all", "--json"], configHome });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const envelope = parseJson(result.stdout, SkillListEnvelope);
-    expect(envelope.data.map((s) => s.name)).toEqual([...BUNDLED_VISIBLE_NAMES]);
-    expect(envelope.unavailable).toBeNull();
+    expect(parseJson(result.stdout, SkillListEnvelope)).toEqual(fullList(BUNDLED_VISIBLE));
+    expect(result.stderr).toBe("");
   });
 
   it("list in text mode against a v58 profile names each skipped skill on stderr", async () => {
@@ -135,7 +193,9 @@ describe("skills e2e", () => {
     const result = await runCli({ args: ["skills", "list", "--format", "text"], configHome });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).not.toContain("transform\n");
+    expect(namesInTextListing(result.stdout)).toEqual(
+      BUNDLED_VISIBLE_NAMES.filter((name) => name !== "git-sync" && name !== "transform"),
+    );
     expect(result.stderr).toBe(
       [
         `Skipped skill "git-sync": ${GIT_SYNC_UNAVAILABLE_ON_58.failure.detail} Pass --all to print it anyway.`,
@@ -165,9 +225,15 @@ describe("skills e2e", () => {
       configHome,
     });
     expect(printed.exitCode, printed.stderr).toBe(0);
-    const envelope = parseJson(printed.stdout, SkillGetEnvelope);
-    expect(envelope.unavailable).toBeNull();
-    expect(envelope.data.map((s) => s.name)).toEqual(["transform"]);
+    expect(parseJson(printed.stdout, SkillGetEnvelope)).toEqual({
+      data: [asWritten(bundledSkill("transform"))],
+      returned: 1,
+      offset: 0,
+      total: 1,
+      has_more: false,
+      next_offset: null,
+      unavailable: null,
+    });
   });
 
   it("get core resolves its sections against the cached server: an OSS v58 loses the library bullet, an EE v63 keeps it without markers", async () => {
@@ -187,17 +253,11 @@ describe("skills e2e", () => {
       configHome: await makeIsolatedConfigHome(),
     });
 
-    for (const result of [onOss58, onEe63, unfiltered]) {
-      expect(result.exitCode, result.stderr).toBe(0);
-    }
-    const bodyOf = (stdout: string): string => {
-      const item = parseJson(stdout, SkillGetEnvelope).data[0];
-      assert(item !== undefined, "expected the core skill in the envelope");
-      return item.body;
-    };
-    const oss58Body = bodyOf(onOss58.stdout);
-    const ee63Body = bodyOf(onEe63.stdout);
-    const unfilteredBody = bodyOf(unfiltered.stdout);
+    expect(onOss58.exitCode, onOss58.stderr).toBe(0);
+    expect(onEe63.exitCode, onEe63.stderr).toBe(0);
+    expect(unfiltered.exitCode, unfiltered.stderr).toBe(0);
+    const oss58Body = onlySkill(parseJson(onOss58.stdout, SkillGetEnvelope)).body;
+    const ee63Body = onlySkill(parseJson(onEe63.stdout, SkillGetEnvelope)).body;
 
     expect(oss58Body).not.toContain("**library.**");
     expect(oss58Body).not.toContain("**transform.**");
@@ -205,19 +265,9 @@ describe("skills e2e", () => {
     expect(ee63Body).toContain("**library.**");
     expect(ee63Body).toContain("**transform.**");
     expect(ee63Body).not.toContain("<!-- requires");
-    expect(unfilteredBody).toContain("<!-- requires: library -->");
-    expect(unfilteredBody).toContain("<!-- /requires -->");
-  });
-
-  it("list hides the metabase-cli discovery stub", async () => {
-    const result = await runCli({
-      args: ["skills", "list", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-    });
-
-    expect(result.exitCode).toBe(0);
-    const envelope = parseJson(result.stdout, SkillListEnvelope);
-    expect(envelope.data.map((s) => s.name)).not.toContain("metabase-cli");
+    expect(onlySkill(parseJson(unfiltered.stdout, SkillGetEnvelope))).toEqual(
+      asWritten(bundledSkill("core")),
+    );
   });
 
   it("get core returns the SKILL.md body with frontmatter intact and no references unless --full", async () => {
@@ -227,17 +277,15 @@ describe("skills e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const envelope = parseJson(result.stdout, SkillGetEnvelope);
-    expect(envelope.returned).toBe(1);
-    expect(envelope.data).toEqual([
-      {
-        name: "core",
-        description: expect.stringContaining("Foundations for driving Metabase from the terminal"),
-        body: expect.stringMatching(/^---\nname: core\n[\s\S]*Top-level command groups/),
-        references: [],
-        templates: [],
-      },
-    ]);
+    expect(parseJson(result.stdout, SkillGetEnvelope)).toEqual({
+      data: [asWritten(bundledSkill("core"))],
+      returned: 1,
+      offset: 0,
+      total: 1,
+      has_more: false,
+      next_offset: null,
+      unavailable: null,
+    });
   });
 
   it("get --all returns every non-hidden skill (with --max-bytes 0 to opt out of the list cap)", async () => {
@@ -247,9 +295,16 @@ describe("skills e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const envelope = parseJson(result.stdout, SkillGetEnvelope);
-    expect(envelope.data.map((s) => s.name)).toEqual([...BUNDLED_VISIBLE_NAMES]);
-    expect(envelope.truncated).toBeUndefined();
+    expect(parseJson(result.stdout, SkillGetEnvelope)).toEqual({
+      data: BUNDLED_VISIBLE.map(asWritten),
+      returned: BUNDLED_VISIBLE.length,
+      offset: 0,
+      total: BUNDLED_VISIBLE.length,
+      has_more: false,
+      next_offset: null,
+      unavailable: null,
+    });
+    expect(result.stderr).toBe("");
   });
 
   it("get --all under the default byte cap truncates the trailing skills and surfaces a truncation notice", async () => {
@@ -259,11 +314,29 @@ describe("skills e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const envelope = parseJson(result.stdout, SkillGetEnvelope);
-    expect(envelope.total).toBe(BUNDLED_VISIBLE_NAMES.length);
-    expect(envelope.returned).toBeLessThan(BUNDLED_VISIBLE_NAMES.length);
-    expect(envelope.truncated?.reason).toBe("max_bytes");
-    expect(result.stderr).toContain("cut at");
+    // The uncapped answer is what the cap measured; the leading rows that fit it are the window.
+    const uncapped = await runCli({
+      args: ["skills", "get", "--all", "--json", "--max-bytes", "0"],
+      configHome: await makeIsolatedConfigHome(),
+    });
+    const whole = parseJson(uncapped.stdout, SkillGetEnvelope);
+    const fit = fitWithinCap(whole, DEFAULT_MAX_BYTES);
+    expect(fit.fullBytes).toBe(Buffer.byteLength(uncapped.stdout.trimEnd(), "utf8"));
+    expect(fit.cut).toBe(true);
+    expect(fit.count > 0 && fit.count < BUNDLED_VISIBLE.length).toBe(true);
+    expect(parseJson(result.stdout, SkillGetEnvelope)).toEqual({
+      data: BUNDLED_VISIBLE.slice(0, fit.count).map(asWritten),
+      returned: fit.count,
+      offset: 0,
+      total: BUNDLED_VISIBLE.length,
+      has_more: true,
+      next_offset: fit.count,
+      truncated: { reason: "max_bytes", bytes: fit.fullBytes },
+      unavailable: null,
+    });
+    expect(result.stderr).toBe(
+      `… cut at ${fit.fullBytes} bytes; continue with --offset ${fit.count}, ${SKILL_OVERSIZE_HINT}`,
+    );
   });
 
   it("get answers a cap too small for even one skill with an empty window and no resumption point", async () => {
@@ -291,36 +364,32 @@ describe("skills e2e", () => {
       truncated: { reason: "max_bytes", bytes: fullBytes },
       unavailable: null,
     });
-    expect(result.stderr).toBe(
-      `… cut at ${fullBytes} bytes; a skill body is indivisible — pass --max-bytes 0 to print it whole, or \`mb skills path <name>\` to read it from disk`,
-    );
+    expect(result.stderr).toBe(`… cut at ${fullBytes} bytes; ${SKILL_OVERSIZE_HINT}`);
   });
 
   it("get --all walking next_offset under the default cap terminates and yields every skill once", async () => {
     const configHome = await makeIsolatedConfigHome();
-    const names: string[] = [];
-    let offset = 0;
+    const pages: SkillGetPayload[] = [];
+    let offset: number | null = 0;
 
-    for (let iteration = 0; iteration < BUNDLED_VISIBLE_NAMES.length; iteration += 1) {
+    // Every page carries at least one skill, so the walk is over within one page per skill.
+    while (offset !== null && pages.length < BUNDLED_VISIBLE.length) {
       const result = await runCli({
         args: ["skills", "get", "--all", "--json", "--offset", String(offset)],
         configHome,
       });
       expect(result.exitCode, result.stderr).toBe(0);
-      const envelope = parseJson(result.stdout, SkillGetEnvelope);
-      expect(envelope.returned).toBeGreaterThan(0);
-      names.push(...envelope.data.map((skill) => skill.name));
-      if (!envelope.has_more) {
-        expect(names).toEqual([...BUNDLED_VISIBLE_NAMES]);
-        return;
-      }
-      const next = envelope.next_offset;
-      assert(next !== null && next !== undefined, "has_more must come with a next_offset");
-      expect(next).toBe(offset + envelope.returned);
-      offset = next;
+      const page = parseJson(result.stdout, SkillGetEnvelope);
+      pages.push(page);
+      offset = page.has_more && typeof page.next_offset === "number" ? page.next_offset : null;
     }
 
-    throw new Error(`walk did not terminate; collected ${names.length} skills`);
+    expect(pages.flatMap((page) => page.data)).toEqual(BUNDLED_VISIBLE.map(asWritten));
+    expect(pages.map((page) => page.has_more)).toEqual([...pages.slice(1).map(() => true), false]);
+    expect(pages.map((page) => page.next_offset)).toEqual([
+      ...pages.slice(1).map((page) => page.offset),
+      null,
+    ]);
   });
 
   it("get accepts comma-separated names", async () => {
@@ -330,8 +399,15 @@ describe("skills e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const envelope = parseJson(result.stdout, SkillGetEnvelope);
-    expect(envelope.data.map((s) => s.name)).toEqual(["git-sync", "transform"]);
+    expect(parseJson(result.stdout, SkillGetEnvelope)).toEqual({
+      data: [asWritten(bundledSkill("git-sync")), asWritten(bundledSkill("transform"))],
+      returned: 2,
+      offset: 0,
+      total: 2,
+      has_more: false,
+      next_offset: null,
+      unavailable: null,
+    });
   });
 
   it("get rejects an unknown skill name with exit 2 and a ConfigError message listing available names", async () => {
@@ -341,7 +417,7 @@ describe("skills e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       `unknown skill name(s): does-not-exist (available: ${BUNDLED_VISIBLE_NAMES.join(", ")})`,
     );
   });
@@ -353,7 +429,9 @@ describe("skills e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain("provide a skill name (comma-separated for multiple) or --all");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "provide a skill name (comma-separated for multiple) or --all",
+    );
   });
 
   it("path with no name lists every non-hidden skill's directory", async () => {
@@ -363,11 +441,14 @@ describe("skills e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const envelope = parseJson(result.stdout, SkillPathListEnvelope);
-    expect(envelope.data.map((s) => s.name)).toEqual([...BUNDLED_VISIBLE_NAMES]);
-    for (const item of envelope.data) {
-      expect(item.dir.endsWith(`/skill-data/${item.name}`)).toBe(true);
-    }
+    expect(parseJson(result.stdout, SkillPathListEnvelope)).toEqual({
+      data: BUNDLED_VISIBLE.map((skill) => ({ name: skill.name, dir: skill.dir })),
+      returned: BUNDLED_VISIBLE.length,
+      offset: 0,
+      total: BUNDLED_VISIBLE.length,
+      has_more: false,
+      next_offset: null,
+    });
   });
 
   it("path <name> returns a single-item envelope", async () => {
@@ -377,12 +458,13 @@ describe("skills e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const envelope = parseJson(result.stdout, SkillPathListEnvelope);
-    expect(envelope.returned).toBe(1);
-    expect(envelope.data).toHaveLength(1);
-    const item = envelope.data[0];
-    assert(item !== undefined, "expected one item in the envelope");
-    expect(item.name).toBe("core");
-    expect(item.dir.endsWith("/skill-data/core")).toBe(true);
+    expect(parseJson(result.stdout, SkillPathListEnvelope)).toEqual({
+      data: [{ name: "core", dir: bundledSkill("core").dir }],
+      returned: 1,
+      offset: 0,
+      total: 1,
+      has_more: false,
+      next_offset: null,
+    });
   });
 });

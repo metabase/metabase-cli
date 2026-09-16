@@ -96,7 +96,7 @@ describe("skillFilterNotices", () => {
 
   it("names the profile that had no probe to filter by", () => {
     expect(skillFilterNotices(null, { profileName: "staging", bypassed: false })).toEqual([
-      'Skills are unfiltered: profile "staging" has no cached server probe (run `mb auth list` to record one).',
+      'Skills are unfiltered: profile "staging" has no cached server probe (run `mb auth login` to record one).',
     ]);
   });
 

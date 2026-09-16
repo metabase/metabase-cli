@@ -5,7 +5,7 @@ import { join } from "node:path";
 import * as fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { ConfigError } from "@metabase/client/errors";
+import { ConfigError, ValidationError } from "@metabase/client/errors";
 import { FEATURE_NAMES } from "@metabase/client/version/features";
 import type { ServerInfo } from "@metabase/client/version/probe";
 import { createServerProfile, type ServerProfile } from "@metabase/client/version/profile";
@@ -37,29 +37,43 @@ function profileAt(
 }
 
 describe("parseFrontmatter", () => {
+  const SOURCE = "skills/x/SKILL.md";
+
   it("parses a minimal frontmatter block", () => {
     expect(
-      parseFrontmatter("---\nname: test-skill\ndescription: A test skill.\n---\n\nBody."),
+      parseFrontmatter("---\nname: test-skill\ndescription: A test skill.\n---\n\nBody.", SOURCE),
     ).toEqual({ name: "test-skill", description: "A test skill.", hidden: false, requires: [] });
   });
 
-  it("returns null when there is no frontmatter delimiter", () => {
-    expect(parseFrontmatter("# A skill\n\nNo frontmatter here.")).toBeNull();
+  it("throws ConfigError naming the file when there is no frontmatter delimiter", () => {
+    expect(() => parseFrontmatter("# A skill\n\nNo frontmatter here.", SOURCE)).toThrow(
+      new ConfigError("skills/x/SKILL.md: missing frontmatter"),
+    );
   });
 
-  it("returns null when the frontmatter is unterminated", () => {
-    expect(parseFrontmatter("---\nname: foo\ndescription: bar\n")).toBeNull();
+  it("throws ConfigError naming the file when the frontmatter is unterminated", () => {
+    expect(() => parseFrontmatter("---\nname: foo\ndescription: bar\n", SOURCE)).toThrow(
+      new ConfigError("skills/x/SKILL.md: unterminated frontmatter"),
+    );
   });
 
-  it("returns null when name is missing or empty", () => {
-    expect(parseFrontmatter("---\ndescription: no name\n---\n")).toBeNull();
-    expect(parseFrontmatter("---\nname:\ndescription: blank name\n---\n")).toBeNull();
+  it("throws ValidationError naming the file when name is missing or empty", () => {
+    for (const block of [
+      "---\ndescription: no name\n---\n",
+      "---\nname:\ndescription: blank\n---\n",
+    ]) {
+      expect(() => parseFrontmatter(block, SOURCE)).toThrow(ValidationError);
+      expect(() => parseFrontmatter(block, SOURCE)).toThrow(
+        "skills/x/SKILL.md: value did not match expected schema",
+      );
+    }
   });
 
   it("joins multi-line YAML description continuations", () => {
     expect(
       parseFrontmatter(
         "---\nname: multi\ndescription: First sentence.\n  Second line.\n  Third line.\n---\n",
+        SOURCE,
       ),
     ).toEqual({
       name: "multi",
@@ -70,19 +84,19 @@ describe("parseFrontmatter", () => {
   });
 
   it("parses hidden: true as hidden, missing or false as visible", () => {
-    expect(parseFrontmatter("---\nname: a\ndescription: x\nhidden: true\n---\n")).toEqual({
+    expect(parseFrontmatter("---\nname: a\ndescription: x\nhidden: true\n---\n", SOURCE)).toEqual({
       name: "a",
       description: "x",
       hidden: true,
       requires: [],
     });
-    expect(parseFrontmatter("---\nname: b\ndescription: x\nhidden: false\n---\n")).toEqual({
+    expect(parseFrontmatter("---\nname: b\ndescription: x\nhidden: false\n---\n", SOURCE)).toEqual({
       name: "b",
       description: "x",
       hidden: false,
       requires: [],
     });
-    expect(parseFrontmatter("---\nname: c\ndescription: x\n---\n")).toEqual({
+    expect(parseFrontmatter("---\nname: c\ndescription: x\n---\n", SOURCE)).toEqual({
       name: "c",
       description: "x",
       hidden: false,
@@ -90,8 +104,10 @@ describe("parseFrontmatter", () => {
     });
   });
 
-  it("returns null on malformed YAML", () => {
-    expect(parseFrontmatter("---\n:::not yaml\n---\n")).toBeNull();
+  it("throws ConfigError naming the file on malformed YAML", () => {
+    const unclosed = "---\nname: [unclosed\n---\n";
+    expect(() => parseFrontmatter(unclosed, SOURCE)).toThrow(ConfigError);
+    expect(() => parseFrontmatter(unclosed, SOURCE)).toThrow("skills/x/SKILL.md: invalid YAML: ");
   });
 });
 
@@ -188,11 +204,8 @@ describe("discoverSkills", () => {
     ]);
   });
 
-  it("skips directories without a SKILL.md and directories whose SKILL.md has no frontmatter", () => {
+  it("skips a directory without a SKILL.md", () => {
     mkdirSync(join(temp.skillData, "empty"));
-    const noFmDir = join(temp.skillData, "no-frontmatter");
-    mkdirSync(noFmDir);
-    writeFileSync(join(noFmDir, "SKILL.md"), "# Plain markdown, no YAML.\n", "utf8");
     writeSkill(temp.skillData, "real", { name: "real", description: "Real." }, "real body");
 
     expect(discoverSkills([temp.skillData])).toEqual([
@@ -204,6 +217,16 @@ describe("discoverSkills", () => {
         dir: join(temp.skillData, "real"),
       },
     ]);
+  });
+
+  it("throws ConfigError naming the file whose SKILL.md has no frontmatter rather than skipping it", () => {
+    const noFmDir = join(temp.skillData, "no-frontmatter");
+    mkdirSync(noFmDir);
+    writeFileSync(join(noFmDir, "SKILL.md"), "# Plain markdown, no YAML.\n", "utf8");
+
+    expect(() => discoverSkills([temp.skillData])).toThrow(
+      new ConfigError(`${join(noFmDir, "SKILL.md")}: missing frontmatter`),
+    );
   });
 
   it("returns an empty list when no skill directories exist", () => {
@@ -278,7 +301,9 @@ describe("resolveSections", () => {
     const withLibraryOnly = profileAt(61, { library: true }).features;
     const withBoth = profileAt(61, { library: true, remote_sync: true }).features;
 
-    expect(resolveSections(TEXT, withLibraryOnly, "skill x")).not.toContain("Publish it.");
+    expect(resolveSections(TEXT, withLibraryOnly, "skill x")).toBe(
+      ["Intro.", "", "## Transforms", "", "Run one.", "", "Outro."].join("\n"),
+    );
     expect(resolveSections(TEXT, withBoth, "skill x")).toBe(
       ["Intro.", "", "## Transforms", "", "Run one.", "", "Publish it.", "", "Outro."].join("\n"),
     );
@@ -598,10 +623,27 @@ describe("the shipped skills", () => {
     );
 
     expect(bound).toEqual({ "git-sync": ["remoteSync"], transform: ["transforms"] });
-    for (const skill of all) {
-      const content = readSkillContent(skill, { includeExtras: true, profile: profileAt(58) });
-      expect(content.body).not.toContain("<!-- requires");
-    }
+    const withMarkersLeft = all
+      .filter((skill) => {
+        const content = readSkillContent(skill, { includeExtras: true, profile: profileAt(58) });
+        return content.body.includes("<!-- requires");
+      })
+      .map((skill) => skill.name);
+    expect(all.map((skill) => skill.name)).toEqual([
+      "core",
+      "dashboard",
+      "data-workflow",
+      "document",
+      "git-sync",
+      "mbql",
+      "metabase-cli",
+      "metadata",
+      "native-sql",
+      "notification",
+      "transform",
+      "visualization",
+    ]);
+    expect(withMarkersLeft).toEqual([]);
   });
 });
 

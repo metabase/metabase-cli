@@ -402,7 +402,7 @@ describe("HttpError 404 messages", () => {
       rawBody: JSON.stringify({ message: "Not found." }),
       serverTag: "v0.58.7",
     });
-    expect(error.message).not.toContain("mb doctor");
+    expect(error.message).toBe("Not found: GET /api/database/9999.");
   });
 });
 

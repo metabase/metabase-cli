@@ -80,7 +80,7 @@ describe("skills list command", () => {
 
     expect(stdout.chunks.join("")).toBe("alpha\n  The first skill.\n\n");
     expect(stderr.chunks.join("")).toBe(
-      'Skills are unfiltered: profile "default" has no cached server probe (run `mb auth list` to record one).\n',
+      'Skills are unfiltered: profile "default" has no cached server probe (run `mb auth login` to record one).\n',
     );
   });
 
@@ -133,6 +133,30 @@ describe("skills list command", () => {
 
     expect(stdout.chunks.join("")).toBe(
       "alpha\n  The first skill.\n\nbeta\n  The second skill.\n\n",
+    );
+    expect(stderr.chunks.join("")).toBe(
+      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --all to print it anyway.\n',
+    );
+  });
+
+  it("names each skipped skill in a projected text listing too", async () => {
+    await seedProbedProfile("default", probeAt(58));
+    const stdout = capture(process.stdout);
+    const stderr = capture(process.stderr);
+
+    await runCommand(skillsListCommand, { rawArgs: ["--format", "text", "--fields", "name"] });
+
+    expect(stdout.chunks.join("")).toBe(
+      [
+        "┌───────┐",
+        "│ name  │",
+        "├───────┤",
+        "│ alpha │",
+        "├───────┤",
+        "│ beta  │",
+        "└───────┘",
+        "",
+      ].join("\n"),
     );
     expect(stderr.chunks.join("")).toBe(
       'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --all to print it anyway.\n',

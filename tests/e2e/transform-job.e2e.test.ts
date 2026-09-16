@@ -29,32 +29,36 @@ const JOB_TRANSFORM_NAME = "e2e_job_transform";
 const FIRST_JOB_RUN_ID = 1;
 const RUN_STARTED_MESSAGE = "Job run started";
 
-// One generation answers every run request with an opaque stub, so it reports a start it cannot
-// number and cannot tell when nothing ran; the other names the run, or reports that nothing started.
+// One generation answers every run request with an opaque stub, so it can neither number a run
+// nor say whether one started; the other names the run, or reports that nothing started.
 const reportsRunId = serverHas("transformJobRunIdIsNumeric");
 
 const STARTED_RUN: TransformJobRunResultJson = {
   message: RUN_STARTED_MESSAGE,
-  started: true,
+  started: reportsRunId ? true : null,
   run_id: reportsRunId ? FIRST_JOB_RUN_ID : null,
 };
 
 const NOTHING_TO_RUN: TransformJobRunResultJson = {
   message: RUN_STARTED_MESSAGE,
-  started: !reportsRunId,
+  started: reportsRunId ? false : null,
   run_id: null,
 };
+
+function requestedRunText(jobId: number): string {
+  return `Requested a run of transform job ${jobId}; this server does not say whether one started.`;
+}
 
 function startedRunText(jobId: number): string {
   return reportsRunId
     ? `Started transform job ${jobId} as run ${FIRST_JOB_RUN_ID}.`
-    : `Started transform job ${jobId}.`;
+    : requestedRunText(jobId);
 }
 
 function nothingToRunText(jobId: number): string {
   return reportsRunId
     ? `Transform job ${jobId} was not started (already running, or it resolves to no transforms).`
-    : `Started transform job ${jobId}.`;
+    : requestedRunText(jobId);
 }
 
 interface JobTransformNativeQuery {
@@ -101,8 +105,11 @@ const JOB_TRANSFORM_COMPACT = {
   target_table_id: serverHas("transformTargetTableLinkedOnCreate") ? expect.any(Number) : null,
 } as const;
 
+const ACTIVE = { active: serverHas("transformJobActivation") ? true : null };
+
 const BUILT_IN_JOBS = [
   {
+    ...ACTIVE,
     id: 1,
     name: "Hourly job",
     description: "Executes transforms tagged with 'hourly' every hour",
@@ -111,6 +118,7 @@ const BUILT_IN_JOBS = [
     built_in_type: "hourly",
   },
   {
+    ...ACTIVE,
     id: 2,
     name: "Daily job",
     description: "Executes transforms tagged with 'daily' once per day",
@@ -119,6 +127,7 @@ const BUILT_IN_JOBS = [
     built_in_type: "daily",
   },
   {
+    ...ACTIVE,
     id: 3,
     name: "Weekly job",
     description: "Executes transforms tagged with 'weekly' once per week",
@@ -127,6 +136,7 @@ const BUILT_IN_JOBS = [
     built_in_type: "weekly",
   },
   {
+    ...ACTIVE,
     id: 4,
     name: "Monthly job",
     description: "Executes transforms tagged with 'monthly' once per month",
@@ -137,6 +147,7 @@ const BUILT_IN_JOBS = [
 ] as const;
 
 const USER_JOB_COMPACT = {
+  ...ACTIVE,
   id: FIRST_USER_JOB_ID,
   name: JOB_NAME,
   description: null,
@@ -155,19 +166,6 @@ const JOB_BODY: JobBody = {
   name: JOB_NAME,
   schedule: VALID_CRON,
 };
-
-// `active` is absent before v0.61 (added by the "disable jobs" migration), so strip it
-// before comparing — the field is asserted nowhere in this suite.
-function withoutActive(job: TransformJobCompact): Omit<TransformJobCompact, "active"> {
-  return {
-    id: job.id,
-    name: job.name,
-    description: job.description,
-    schedule: job.schedule,
-    ui_display_type: job.ui_display_type,
-    built_in_type: job.built_in_type,
-  };
-}
 
 const skipReason = requireServer("transform-job › transform-job e2e", ["transforms"]);
 const setActiveSkipReason = requireServer("transform-job › set-active", ["transformJobActivation"]);
@@ -206,7 +204,7 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
     });
     expect(result.exitCode, result.stderr).toBe(0);
     const created = parseJson(result.stdout, TransformJobCompact);
-    expect(withoutActive(created)).toEqual(USER_JOB_COMPACT);
+    expect(created).toEqual(USER_JOB_COMPACT);
     return created;
   }
 
@@ -221,13 +219,16 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     const envelope = parseJson(result.stdout, TransformJobListEnvelope);
-    const byId = [...envelope.data]
-      .toSorted((left, right) => left.id - right.id)
-      .map(withoutActive);
-    expect(byId).toEqual([...BUILT_IN_JOBS, USER_JOB_COMPACT]);
-    expect({ returned: envelope.returned, total: envelope.total }).toEqual({
+    expect({
+      ...envelope,
+      data: [...envelope.data].toSorted((left, right) => left.id - right.id),
+    }).toEqual({
+      data: [...BUILT_IN_JOBS, USER_JOB_COMPACT],
       returned: BUILT_IN_JOBS.length + 1,
+      offset: 0,
       total: BUILT_IN_JOBS.length + 1,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -241,7 +242,7 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(withoutActive(parseJson(result.stdout, TransformJobCompact))).toEqual(USER_JOB_COMPACT);
+    expect(parseJson(result.stdout, TransformJobCompact)).toEqual(USER_JOB_COMPACT);
   });
 
   it("update changes the schedule and the change is visible via get", async () => {
@@ -254,7 +255,7 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(updateResult.exitCode, updateResult.stderr).toBe(0);
-    expect(withoutActive(parseJson(updateResult.stdout, TransformJobCompact))).toEqual({
+    expect(parseJson(updateResult.stdout, TransformJobCompact)).toEqual({
       ...USER_JOB_COMPACT,
       schedule: SECOND_CRON,
     });
@@ -265,7 +266,7 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(getResult.exitCode, getResult.stderr).toBe(0);
-    expect(withoutActive(parseJson(getResult.stdout, TransformJobCompact))).toEqual({
+    expect(parseJson(getResult.stdout, TransformJobCompact)).toEqual({
       ...USER_JOB_COMPACT,
       schedule: SECOND_CRON,
     });
@@ -292,7 +293,9 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(getResult.exitCode).toBe(1);
-    expect(getResult.stderr).toContain(`Not found: GET /api/transform-job/${FIRST_USER_JOB_ID}.`);
+    expect(cliErrorMessage(getResult.stderr)).toBe(
+      `Not found: GET /api/transform-job/${FIRST_USER_JOB_ID}.`,
+    );
   });
 
   it("create with body missing required schedule fails on Zod validation", async () => {
@@ -303,7 +306,9 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "request body: value did not match expected schema\n  /schedule: Invalid input: expected string, received undefined",
+    );
     expect(result.stdout).toBe("");
   });
 
@@ -314,7 +319,7 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -325,7 +330,7 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: GET /api/transform-job/9999999.");
+    expect(cliErrorMessage(result.stderr)).toBe("Not found: GET /api/transform-job/9999999.");
   });
 
   it("delete without --yes refuses in non-TTY and exits 2 (explicit confirmation required)", async () => {
@@ -336,7 +341,7 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       `refusing to delete ${FIRST_USER_JOB_ID} without confirmation — pass --yes to proceed non-interactively`,
     );
     expect(result.stdout).toBe("");
@@ -415,7 +420,7 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -426,7 +431,7 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: POST /api/transform-job/9999999/run.");
+    expect(cliErrorMessage(result.stderr)).toBe("Not found: POST /api/transform-job/9999999/run.");
   });
 
   it("transforms lists the transforms a job resolves to by tag", async () => {
@@ -472,7 +477,7 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -483,7 +488,9 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: GET /api/transform-job/9999999/transforms.");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "Not found: GET /api/transform-job/9999999/transforms.",
+    );
   });
 
   describe.skipIf(setActiveSkipReason !== null)("set-active", () => {
@@ -505,10 +512,12 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
         env: authEnv(),
       });
       expect(listResult.exitCode, listResult.stderr).toBe(0);
-      const actives = parseJson(listResult.stdout, TransformJobListEnvelope).data.map(
-        (job) => job.active,
+      const listed = parseJson(listResult.stdout, TransformJobListEnvelope);
+      // Deactivating is an update, and the server's first update to a built-in job drops
+      // `built_in_type` so the name and description stop being re-translated.
+      expect([...listed.data].toSorted((left, right) => left.id - right.id)).toEqual(
+        BUILT_IN_JOBS.map((job) => Object.assign({}, job, { active: false, built_in_type: null })),
       );
-      expect(actives).toEqual(Array.from({ length: BUILT_IN_JOBS.length }, () => false));
     });
 
     it("set-active true is a no-op when every job is already active", async () => {
@@ -531,7 +540,7 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
         env: authEnv(),
       });
       expect(result.exitCode).toBe(2);
-      expect(cliErrorMessage(result.stderr)).toContain(
+      expect(cliErrorMessage(result.stderr)).toBe(
         'invalid active: "maybe" (expected one of: true, false)',
       );
       expect(result.stdout).toBe("");

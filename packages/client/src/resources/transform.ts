@@ -50,7 +50,6 @@ export type TransformRunPageOptions = Omit<PaginateOptions, "query">;
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function transformResource(transport: Transport) {
-  // The wire shape is the server's generation's to decide, so every read goes through the profile.
   async function requestTransformList(
     path: string,
     opts: TransportRequestOptions,

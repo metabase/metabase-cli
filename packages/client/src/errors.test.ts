@@ -39,7 +39,7 @@ describe("toMetabaseError", () => {
     assert(!zodError.success, "expected zod failure");
     const result = toMetabaseError(zodError.error);
     expect(result).toBeInstanceOf(ConfigError);
-    expect(result.userMessage).toContain("name");
+    expect(result.userMessage).toBe("name: Invalid input: expected string, received number");
   });
 
   it("wraps a generic Error as UnknownError and preserves the message", () => {

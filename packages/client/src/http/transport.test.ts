@@ -15,6 +15,7 @@ import {
 import { HttpError } from "./errors";
 import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
+import { SessionProperties } from "../domain/session-properties";
 import { PROBE_PATH } from "../version/probe";
 import { createServerProfile, KNOWN_RANGE } from "../version/profile";
 
@@ -468,9 +469,11 @@ describe("createTransport.server", () => {
     });
 
     const pending = client.server();
-    controller.abort();
+    controller.abort(new Error("operator interrupt"));
 
-    await expect(pending).rejects.toBeInstanceOf(AbortError);
+    const error = await pending.catch((caught: unknown) => caught);
+    assert(error instanceof AbortError, "expected AbortError");
+    expect(error.message).toBe("operator interrupt");
   });
 
   it("names the supplied profile's version in a shape error without a getServerTag", async () => {
@@ -502,6 +505,61 @@ describe("createTransport.server", () => {
       "On Metabase v1.61.2 the response shape was unexpected:\n" +
         "  id: Invalid input: expected number, received string",
     );
+  });
+
+  it("names the server a lazy probe settled on in a later shape error", async () => {
+    const body = { id: "not-a-number", email: "a@b.com" };
+    const expectedIssues = PingResponse.safeParse(body).error?.issues;
+    assert(expectedIssues !== undefined, "expected zod failure for fixture body");
+    const fakeFetch = captureFetch([jsonResponse(PROBE_BODY), jsonResponse(body)]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+    });
+    await client.server();
+
+    const error = await client
+      .requestParsed(PingResponse, "/api/user/current")
+      .catch((caught: unknown) => caught);
+
+    assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
+    expect(error.developerDetail).toEqual({
+      kind: "zod",
+      method: "GET",
+      url: "https://m.example.com/api/user/current",
+      status: 200,
+      zodIssues: expectedIssues,
+      serverTag: "v1.61.2",
+      serverSkew: "supported",
+    });
+    expect(fakeFetch.calls.map((call) => call.url)).toEqual([
+      `https://m.example.com${PROBE_PATH}`,
+      "https://m.example.com/api/user/current",
+    ]);
+  });
+
+  it("leaves a shape error inside the probe itself unnamed rather than waiting on that probe", async () => {
+    const body = { version: "not-an-object" };
+    const expectedIssues = SessionProperties.safeParse(body).error?.issues;
+    assert(expectedIssues !== undefined, "expected zod failure for fixture body");
+    const fakeFetch = captureFetch([jsonResponse(body)]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+    });
+
+    const error = await client.server().catch((caught: unknown) => caught);
+
+    assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
+    expect(error.developerDetail).toEqual({
+      kind: "zod",
+      method: "GET",
+      url: `https://m.example.com${PROBE_PATH}`,
+      status: 200,
+      zodIssues: expectedIssues,
+      serverTag: null,
+      serverSkew: null,
+    });
   });
 
   it("says a supplied profile above the known range is newer than the client supports in a shape error", async () => {
@@ -729,18 +787,17 @@ describe("createTransport credential encoding", () => {
 
   it("keeps the credential out of the message, so the error does not undo redaction", () => {
     const apiKey = "mb_secret_material_…";
-    let thrown: unknown = null;
-    try {
+    expect(() =>
       createTransport(
         { url: "https://m.example.com", credential: { kind: "apiKey", apiKey } },
         { userAgent: TEST_USER_AGENT },
-      );
-    } catch (error) {
-      thrown = error;
-    }
-    assert(thrown instanceof ConfigError);
-    expect(thrown.message).toContain('Credential field "apiKey" has a character at index 19');
-    expect(thrown.message).not.toContain("mb_secret_material_");
+      ),
+    ).toThrowError(
+      new ConfigError(
+        'Credential field "apiKey" has a character at index 19 (U+2026) that cannot be sent in an HTTP header. ' +
+          "Header values are limited to Latin-1; a smart quote, ellipsis, or dash substituted during copy-paste is the usual cause.",
+      ),
+    );
   });
 
   it("accepts a key at the top of the Latin-1 range", () => {
@@ -771,7 +828,9 @@ describe("createTransport base URL", () => {
 
     await client.requestParsed(PingResponse, "/api/user/current");
 
-    expect(fakeFetch.calls[0]?.url).toBe("https://m.example.com/api/user/current");
+    expect(fakeFetch.calls.map((call) => call.url)).toEqual([
+      "https://m.example.com/api/user/current",
+    ]);
   });
 });
 
@@ -783,7 +842,7 @@ describe("createTransport user-agent", () => {
 
     await client.requestParsed(PingResponse, "/api/user/current");
 
-    expect(fakeFetch.calls[0]?.headers["user-agent"]).toBe(otherCaller);
+    expect(fakeFetch.calls.map((call) => call.headers["user-agent"])).toEqual([otherCaller]);
   });
 });
 
@@ -1227,9 +1286,9 @@ describe("createTransport query encoding", () => {
       },
     });
 
-    expect(fakeFetch.calls[0]?.url).toBe(
+    expect(fakeFetch.calls.map((call) => call.url)).toEqual([
       "https://m.example.com/api/search?models=card&models=dashboard&q=x",
-    );
+    ]);
   });
 });
 
@@ -1256,8 +1315,9 @@ describe("createTransport OAuth bearer auth", () => {
       { userAgent: TEST_USER_AGENT, fetchImpl: fakeFetch.fetch },
     );
     await client.requestParsed(PingResponse, "/api/user/current");
-    expect(fakeFetch.calls[0]?.headers["authorization"]).toBe("Bearer acc-1");
-    expect(fakeFetch.calls[0]?.headers["x-api-key"]).toBeUndefined();
+    expect(fakeFetch.calls.map((call) => call.headers)).toEqual([
+      { accept: "application/json", authorization: "Bearer acc-1", "user-agent": TEST_USER_AGENT },
+    ]);
   });
 
   it("refreshes on 401 and replays the request with the new access token", async () => {
@@ -1281,8 +1341,10 @@ describe("createTransport OAuth bearer auth", () => {
     const result = await client.requestParsed(PingResponse, "/api/user/current", { retries: 0 });
     expect(result).toEqual({ id: 1, email: "a@b.c" });
     expect(refreshCalls).toBe(1);
-    expect(fakeFetch.calls[0]?.headers["authorization"]).toBe("Bearer acc-1");
-    expect(fakeFetch.calls[1]?.headers["authorization"]).toBe("Bearer acc-2");
+    expect(fakeFetch.calls.map((call) => call.headers["authorization"])).toEqual([
+      "Bearer acc-1",
+      "Bearer acc-2",
+    ]);
   });
 
   it("gives up after a single refresh when the replay still 401s", async () => {
@@ -1340,8 +1402,12 @@ describe("createTransport OAuth bearer auth", () => {
       { id: 1, email: "a@b.c" },
     ]);
     expect(refreshCalls).toBe(1);
-    expect(fakeFetch.calls[2]?.headers["authorization"]).toBe("Bearer acc-2");
-    expect(fakeFetch.calls[3]?.headers["authorization"]).toBe("Bearer acc-2");
+    expect(fakeFetch.calls.map((call) => call.headers["authorization"])).toEqual([
+      "Bearer acc-1",
+      "Bearer acc-1",
+      "Bearer acc-2",
+      "Bearer acc-2",
+    ]);
   });
 
   it("refreshes again on a later request when the token expires a second time", async () => {
@@ -1418,7 +1484,9 @@ describe("createTransport subpath base URLs", () => {
       { userAgent: TEST_USER_AGENT, fetchImpl: fakeFetch.fetch },
     );
     await client.requestParsed(PingResponse, "/api/user/current");
-    expect(fakeFetch.calls[0]?.url).toBe("https://my.org.com/metabase/api/user/current");
+    expect(fakeFetch.calls.map((call) => call.url)).toEqual([
+      "https://my.org.com/metabase/api/user/current",
+    ]);
   });
 });
 

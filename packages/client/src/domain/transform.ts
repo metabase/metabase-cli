@@ -205,15 +205,15 @@ export const Transform = TransformBase.extend({
 });
 export type Transform = z.infer<typeof Transform>;
 
-// Before the column existed, `GET /api/transform/{id}` hydrated the registered table instead, and
-// every other transform endpoint carried no link at all.
+// A server without the column links the output table only on the detail, as the hydrated `table`
+// every generation's detail carries; its other transform endpoints carry no link at all. The
+// hydrated table stays in place so the detail reads the same on every server.
 const TransformWireV59Detail = TransformBase.extend({
   table: z.object({ id: z.number().int() }).loose().nullable(),
 });
 
 function fromHydratedTable(wire: z.infer<typeof TransformWireV59Detail>): Transform {
-  const { table, ...rest } = wire;
-  return { ...rest, target_table_id: table === null ? null : table.id };
+  return { ...wire, target_table_id: wire.table === null ? null : wire.table.id };
 }
 
 function withoutLink(row: z.infer<typeof TransformBase>): Transform {

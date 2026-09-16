@@ -47,9 +47,7 @@ export const ServerIdentity = z.object({
   date: z.string().nullable().default(null),
   hash: z.string().nullable().default(null),
   tokenFeatures: TokenFeatures.nullable(),
-  // Whether the server supports full-API OAuth login (Metabase v63+, full-access scope advertised
-  // in discovery); probed live during bootstrap. Defaults false for bootstrap files written before
-  // this field existed — re-run `bun run e2e:bootstrap` after deleting the stale file to refresh it.
+  // Whether the server supports full-API OAuth login (full-access scope advertised in discovery).
   oauthSupported: z.boolean().default(false),
 });
 export type ServerIdentity = z.infer<typeof ServerIdentity>;

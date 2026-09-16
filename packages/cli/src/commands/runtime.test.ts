@@ -1,11 +1,14 @@
 import { runCommand } from "citty";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
+import { parseJson } from "@metabase/client/json";
 import { captureFetch, jsonResponse } from "@metabase/client/testing/fetch-capture";
 import type { ServerInfo } from "@metabase/client/version/probe";
 import { createServerProfile, KNOWN_RANGE } from "@metabase/client/version/profile";
 
-import { setupTempConfigHome, type TempConfigHome } from "../core/auth/temp-config-home";
+import type { ProfileLastProbe, ProfileRecord } from "../core/auth/profile-record";
+import { probeAt, setupTempConfigHome, type TempConfigHome } from "../core/auth/temp-config-home";
 
 const hoisted = vi.hoisted(() => ({
   store: new Map<string, string>(),
@@ -22,17 +25,22 @@ const { connectionFlags, listFlags, outputFlags, profileFlag } = await import(".
 const { readProfileRecord, writeProbeResult, writeProfile } = await import("../core/auth/storage");
 
 const BEYOND_KNOWN = KNOWN_RANGE.max + 5;
+const PROBED_AT = "2026-03-04T05:06:07.000Z";
+const REPROBED_AT = "2026-03-04T06:00:00.000Z";
 
-const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were v${KNOWN_RANGE.max}. Run \`mb upgrade\` for a newer CLI.\n`;
-const UNKNOWN_NOTICE = `Could not parse the Metabase version; assuming the newest supported (v${KNOWN_RANGE.max}).\n`;
+const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were a head build past v${KNOWN_RANGE.max}. Run \`mb upgrade\` for a newer CLI.\n`;
+const UNKNOWN_NOTICE = `Could not parse the Metabase version; assuming a head build past v${KNOWN_RANGE.max}.\n`;
 
 function shapeErrorEnvelope(message: string): unknown {
   return { ok: false, error: { category: "response-shape", message, exitCode: 1 } };
 }
 
+function capabilityErrorEnvelope(message: string): unknown {
+  return { ok: false, error: { category: "capability", message, exitCode: 2 } };
+}
+
 function errorEnvelopeOf(stderr: string[]): unknown {
-  const parsed: unknown = JSON.parse(stderr.join(""));
-  return parsed;
+  return parseJson(stderr.join(""), z.unknown(), { source: "stderr" });
 }
 
 async function seedProbedProfile(name: string, info: ServerInfo): Promise<void> {
@@ -43,13 +51,19 @@ async function seedProbedProfile(name: string, info: ServerInfo): Promise<void> 
   });
 }
 
-function fakeServerInfo(major: number): ServerInfo {
+function reprobedRecord(probe: ProfileLastProbe): ProfileRecord {
   return {
-    version: { tag: `v0.${major}.0`, major, patch: 0 },
-    date: null,
-    hash: null,
-    tokenFeatures: null,
+    name: "default",
+    url: "https://m.example.com",
+    apiKey: null,
+    oauth: null,
+    lastProbe: { ...probe, at: REPROBED_AT, user: { id: 1, name: "Tester", isAdmin: true } },
+    lastFailure: null,
   };
+}
+
+function sameServerProbe(major: number): Response {
+  return jsonResponse({ version: { tag: `v0.${major}.0` }, "token-features": {} });
 }
 
 function captureStderr(): string[] {
@@ -75,9 +89,13 @@ describe("defineMetabaseCommand", () => {
     delete process.env[SKIP_PREFLIGHT_ENV];
     previousExitCode = process.exitCode;
     process.exitCode = 0;
+    vi.stubGlobal("fetch", captureFetch([]).fetch);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(PROBED_AT));
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     home.cleanup();
@@ -135,16 +153,22 @@ describe("defineMetabaseCommand", () => {
   });
 
   it("does not call resolveConfig when the run handler never calls getClient", async () => {
+    const ran = vi.fn();
     const cmd = defineMetabaseCommand({
       meta: { name: "no-client", description: "does not need the client" },
       requires: [],
       args: {},
       run() {
-        return;
+        ran();
       },
     });
+    const stderr = captureStderr();
 
-    await expect(runCommand(cmd, { rawArgs: [] })).resolves.toBeDefined();
+    await runCommand(cmd, { rawArgs: [] });
+
+    expect(ran).toHaveBeenCalledOnce();
+    expect(stderr.join("")).toBe("");
+    expect(process.exitCode).toBe(0);
   });
 
   it("returns the same client instance across multiple getClient() calls", async () => {
@@ -177,7 +201,7 @@ describe("defineMetabaseCommand", () => {
 
     await runCommand(cmd, { rawArgs: [] });
 
-    const parsed: unknown = JSON.parse(stderr.join(""));
+    const parsed = errorEnvelopeOf(stderr);
     expect(parsed).toEqual({
       ok: false,
       error: {
@@ -204,7 +228,7 @@ describe("defineMetabaseCommand", () => {
 
     await runCommand(cmd, { rawArgs: ["--json", "--limit", "0"] });
 
-    const parsed: unknown = JSON.parse(stderr.join(""));
+    const parsed = errorEnvelopeOf(stderr);
     expect(parsed).toEqual({
       ok: false,
       error: {
@@ -230,7 +254,7 @@ describe("defineMetabaseCommand", () => {
 
     await runCommand(cmd, { rawArgs: ["--json", "--max-bytes", "abc"] });
 
-    const parsed: unknown = JSON.parse(stderr.join(""));
+    const parsed = errorEnvelopeOf(stderr);
     expect(parsed).toEqual({
       ok: false,
       error: {
@@ -242,7 +266,7 @@ describe("defineMetabaseCommand", () => {
     expect(process.exitCode).toBe(2);
   });
 
-  it("reports an unresolvable --format as plain text, there being no format to serialize into", async () => {
+  it("reports an unresolvable --format as plain text", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "misformatted", description: "bad format" },
       requires: [],
@@ -260,7 +284,8 @@ describe("defineMetabaseCommand", () => {
   });
 
   it("refuses with CapabilityError exit code 2 before run does any work when the cached server lacks a required feature", async () => {
-    await seedProbedProfile("default", fakeServerInfo(58));
+    await seedProbedProfile("default", probeAt(58));
+    vi.stubGlobal("fetch", captureFetch([sameServerProbe(58)]).fetch);
 
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
@@ -284,7 +309,8 @@ describe("defineMetabaseCommand", () => {
   });
 
   it("refuses with CapabilityError exit code 2 when the required premium token-feature is absent", async () => {
-    await seedProbedProfile("default", fakeServerInfo(61));
+    await seedProbedProfile("default", probeAt(61));
+    vi.stubGlobal("fetch", captureFetch([sameServerProbe(61)]).fetch);
 
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
@@ -307,8 +333,9 @@ describe("defineMetabaseCommand", () => {
     expect(ran).not.toHaveBeenCalled();
   });
 
-  it("checks every declared method, so a second method's feature refuses when the first is satisfied", async () => {
-    await seedProbedProfile("default", fakeServerInfo(59));
+  it("refuses on a second declared method's feature when the first is satisfied", async () => {
+    await seedProbedProfile("default", probeAt(59));
+    vi.stubGlobal("fetch", captureFetch([sameServerProbe(59)]).fetch);
 
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
@@ -400,8 +427,8 @@ describe("defineMetabaseCommand", () => {
     expect(process.exitCode).toBe(0);
   });
 
-  it("hands the client the profile derived from the cached probe, so it never probes for itself", async () => {
-    const info = fakeServerInfo(61);
+  it("hands the client the cached probe's profile and never probes", async () => {
+    const info = probeAt(61);
     await seedProbedProfile("default", info);
 
     const seen = vi.fn();
@@ -486,7 +513,7 @@ describe("defineMetabaseCommand", () => {
     expect(ran).not.toHaveBeenCalled();
   });
 
-  it("proceeds when the cached probe carries a version the client could not parse, reading it as the newest known and saying so once", async () => {
+  it("reads an unparseable cached version as the newest known, says so once, and proceeds", async () => {
     await seedProbedProfile("default", {
       version: null,
       date: null,
@@ -514,7 +541,7 @@ describe("defineMetabaseCommand", () => {
   });
 
   it("prints one newer-server notice when the cached probe is above the known range, even for a baseline command", async () => {
-    await seedProbedProfile("default", fakeServerInfo(BEYOND_KNOWN));
+    await seedProbedProfile("default", probeAt(BEYOND_KNOWN));
 
     const cmd = defineMetabaseCommand({
       meta: { name: "baseline-on-newer", description: "baseline on a newer server" },
@@ -534,7 +561,7 @@ describe("defineMetabaseCommand", () => {
   });
 
   it("prints no notice when the cached probe is inside the known range", async () => {
-    await seedProbedProfile("default", fakeServerInfo(KNOWN_RANGE.max));
+    await seedProbedProfile("default", probeAt(KNOWN_RANGE.max));
 
     const cmd = defineMetabaseCommand({
       meta: { name: "supported", description: "supported server" },
@@ -581,7 +608,7 @@ describe("defineMetabaseCommand", () => {
   });
 
   it("ignores the cached probe when --url points the profile at another server", async () => {
-    await seedProbedProfile("default", fakeServerInfo(58));
+    await seedProbedProfile("default", probeAt(58));
     const capture = captureFetch([
       jsonResponse({ version: { tag: "v0.61.0" }, "token-features": {} }),
       jsonResponse([]),
@@ -626,8 +653,8 @@ describe("defineMetabaseCommand", () => {
     }
 
     it("re-probes once, writes a changed server back to the profile, and appends the change to the error", async () => {
-      await seedProbedProfile("default", fakeServerInfo(59));
-      const before = await readProfileRecord("default");
+      await seedProbedProfile("default", probeAt(59));
+      vi.setSystemTime(new Date(REPROBED_AT));
       const capture = captureFetch([
         jsonResponse({}),
         jsonResponse({
@@ -650,23 +677,24 @@ describe("defineMetabaseCommand", () => {
         ),
       );
       expect(process.exitCode).toBe(1);
-      const after = await readProfileRecord("default");
-      expect(after?.lastProbe).toEqual({
-        at: after?.lastProbe?.at,
-        version: { tag: "v0.63.4", major: 63, patch: 4 },
-        date: "2026-09-01",
-        hash: "abc1234",
-        tokenFeatures: { library: true },
-        user: before?.lastProbe?.user,
-      });
-      expect(after?.lastProbe?.at).not.toBe(before?.lastProbe?.at);
+      expect(await readProfileRecord("default")).toEqual(
+        reprobedRecord({
+          at: REPROBED_AT,
+          version: { tag: "v0.63.4", major: 63, patch: 4 },
+          date: "2026-09-01",
+          hash: "abc1234",
+          tokenFeatures: { library: true },
+          user: { id: 1, name: "Tester", isAdmin: true },
+        }),
+      );
     });
 
     it("names changed premium features when the version is the same", async () => {
       await seedProbedProfile("default", {
-        ...fakeServerInfo(59),
+        ...probeAt(59),
         tokenFeatures: { library: false },
       });
+      vi.setSystemTime(new Date(REPROBED_AT));
       const capture = captureFetch([
         jsonResponse({}),
         jsonResponse({ version: { tag: "v0.59.0" }, "token-features": { library: true } }),
@@ -681,19 +709,20 @@ describe("defineMetabaseCommand", () => {
           `${SHAPE_LEAD}\nThe server's premium features changed since the last probe; the profile was refreshed — retry the command.`,
         ),
       );
-      const after = await readProfileRecord("default");
-      expect(after?.lastProbe).toEqual({
-        at: after?.lastProbe?.at,
-        version: { tag: "v0.59.0", major: 59, patch: 0 },
-        date: null,
-        hash: null,
-        tokenFeatures: { library: true },
-        user: { id: 1, name: "Tester", isAdmin: true },
-      });
+      expect(await readProfileRecord("default")).toEqual(
+        reprobedRecord({
+          at: REPROBED_AT,
+          version: { tag: "v0.59.0", major: 59, patch: 0 },
+          date: null,
+          hash: null,
+          tokenFeatures: { library: true },
+          user: { id: 1, name: "Tester", isAdmin: true },
+        }),
+      );
     });
 
     it("reports the error unchanged and leaves the profile alone when the fresh probe agrees with the cache", async () => {
-      await seedProbedProfile("default", fakeServerInfo(59));
+      await seedProbedProfile("default", probeAt(59));
       const before = await readProfileRecord("default");
       const capture = captureFetch([
         jsonResponse({}),
@@ -713,7 +742,7 @@ describe("defineMetabaseCommand", () => {
     });
 
     it("reports the error unchanged when the re-probe itself fails", async () => {
-      await seedProbedProfile("default", fakeServerInfo(59));
+      await seedProbedProfile("default", probeAt(59));
       const before = await readProfileRecord("default");
       const capture = captureFetch([jsonResponse({}), new TypeError("fetch failed")]);
       vi.stubGlobal("fetch", capture.fetch);
@@ -741,16 +770,11 @@ describe("defineMetabaseCommand", () => {
         "https://m.example.com/api/session/properties",
         "https://m.example.com/api/measure",
       ]);
-      expect(errorEnvelopeOf(stderr)).toEqual(
-        shapeErrorEnvelope(
-          "Metabase returned unexpected response shape:\n" +
-            "  Invalid input: expected array, received object",
-        ),
-      );
+      expect(errorEnvelopeOf(stderr)).toEqual(shapeErrorEnvelope(SHAPE_LEAD));
     });
 
     it("re-probes on a shape error even when the preflight was skipped", async () => {
-      await seedProbedProfile("default", fakeServerInfo(58));
+      await seedProbedProfile("default", probeAt(58));
       const capture = captureFetch([
         jsonResponse({}),
         jsonResponse({ version: { tag: "v0.63.0" }, "token-features": {} }),
@@ -779,8 +803,76 @@ describe("defineMetabaseCommand", () => {
     });
   });
 
+  describe("re-probe on a refusal", () => {
+    const ACTIVATION_REFUSAL =
+      "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.";
+    const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
+
+    function activationCommand() {
+      return defineMetabaseCommand({
+        meta: { name: "needs-activation", description: "wants job activation" },
+        args: {},
+        requires: ["transformJob.setActive"],
+        async run({ getClient }) {
+          await getClient();
+        },
+      });
+    }
+
+    it("re-probes once, writes an upgraded server back, and tells the user to retry", async () => {
+      await seedProbedProfile("default", probeAt(58));
+      vi.setSystemTime(new Date(REPROBED_AT));
+      const capture = captureFetch([
+        jsonResponse({ version: { tag: "v0.61.3" }, "token-features": {} }),
+      ]);
+      vi.stubGlobal("fetch", capture.fetch);
+      const stderr = captureStderr();
+
+      await runCommand(activationCommand(), { rawArgs: [] });
+
+      expect(capture.calls.map((call) => call.url)).toEqual([
+        "https://m.example.com/api/session/properties",
+      ]);
+      expect(errorEnvelopeOf(stderr)).toEqual(
+        capabilityErrorEnvelope(
+          `${ACTIVATION_REFUSAL}\n` +
+            "The server's version changed since the last probe (was v0.58.0, now v0.61.3); the profile was refreshed — retry the command.\n" +
+            DOWNGRADE_REMEDY,
+        ),
+      );
+      expect(process.exitCode).toBe(2);
+      expect(await readProfileRecord("default")).toEqual(
+        reprobedRecord({
+          at: REPROBED_AT,
+          version: { tag: "v0.61.3", major: 61, patch: 3 },
+          date: null,
+          hash: null,
+          tokenFeatures: {},
+          user: { id: 1, name: "Tester", isAdmin: true },
+        }),
+      );
+    });
+
+    it("reports the refusal unchanged and leaves the profile alone when the server has not changed", async () => {
+      await seedProbedProfile("default", probeAt(58));
+      const before = await readProfileRecord("default");
+      const capture = captureFetch([
+        jsonResponse({ version: { tag: "v0.58.0" }, "token-features": {} }),
+      ]);
+      vi.stubGlobal("fetch", capture.fetch);
+      const stderr = captureStderr();
+
+      await runCommand(activationCommand(), { rawArgs: [] });
+
+      expect(errorEnvelopeOf(stderr)).toEqual(
+        capabilityErrorEnvelope(`${ACTIVATION_REFUSAL}\n${DOWNGRADE_REMEDY}`),
+      );
+      expect(await readProfileRecord("default")).toEqual(before);
+    });
+  });
+
   it("bypasses the preflight check when --skip-preflight is passed", async () => {
-    await seedProbedProfile("default", fakeServerInfo(58));
+    await seedProbedProfile("default", probeAt(58));
 
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
@@ -798,7 +890,8 @@ describe("defineMetabaseCommand", () => {
   });
 
   it("lets the client refuse a gated method the command's own declaration does not cover", async () => {
-    await seedProbedProfile("default", fakeServerInfo(58));
+    await seedProbedProfile("default", probeAt(58));
+    vi.stubGlobal("fetch", captureFetch([sameServerProbe(58)]).fetch);
     const stderr = captureStderr();
 
     const ran = vi.fn();
@@ -823,7 +916,7 @@ describe("defineMetabaseCommand", () => {
   });
 
   it("switches the client's own check off too when --skip-preflight is passed", async () => {
-    await seedProbedProfile("default", fakeServerInfo(58));
+    await seedProbedProfile("default", probeAt(58));
     const capture = captureFetch([jsonResponse([])]);
     vi.stubGlobal("fetch", capture.fetch);
 
@@ -845,7 +938,7 @@ describe("defineMetabaseCommand", () => {
   });
 
   it("bypasses the preflight check when MB_CLI_SKIP_PREFLIGHT=1 is set", async () => {
-    await seedProbedProfile("default", fakeServerInfo(58));
+    await seedProbedProfile("default", probeAt(58));
     process.env[SKIP_PREFLIGHT_ENV] = "1";
 
     const ran = vi.fn();

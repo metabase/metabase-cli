@@ -51,19 +51,20 @@ const ROW = {
 };
 
 describe("transformDetailSchema", () => {
-  it("reads the hydrated table's id into target_table_id and drops the table", () => {
-    const detail = transformDetailSchema(HYDRATED_TABLE_SERVER).parse({
-      ...ROW,
-      table: { id: 42, name: "daily_orders", schema: "public" },
-    });
+  it("reads the hydrated table's id into target_table_id and keeps the table every detail carries", () => {
+    const table = { id: 42, name: "daily_orders", schema: "public" };
 
-    expect(detail).toEqual({ ...ROW, target_table_id: 42 });
-    expect("table" in detail).toBe(false);
+    expect(transformDetailSchema(HYDRATED_TABLE_SERVER).parse({ ...ROW, table })).toEqual({
+      ...ROW,
+      table,
+      target_table_id: 42,
+    });
   });
 
   it("reads a hydrated null table as no target table yet", () => {
     expect(transformDetailSchema(HYDRATED_TABLE_SERVER).parse({ ...ROW, table: null })).toEqual({
       ...ROW,
+      table: null,
       target_table_id: null,
     });
   });

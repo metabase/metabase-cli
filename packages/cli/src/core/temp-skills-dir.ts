@@ -18,16 +18,12 @@ interface SkillFixture {
 const GAMMA_FRONTMATTER =
   "---\nname: gamma\ndescription: The transform skill.\nrequires: [transforms]\n---\n\n";
 
-// The gamma SKILL.md as written, and as `readSkillContent` resolves it against a server with and
-// without the section's feature.
 export const GAMMA_SKILL_MD = `${GAMMA_FRONTMATTER}Gamma instructions.\n<!-- requires: transformJobActivation -->\nGamma on activation.\n<!-- /requires -->\n`;
 export const GAMMA_WITH_ACTIVATION = `${GAMMA_FRONTMATTER}Gamma instructions.\nGamma on activation.\n`;
 export const GAMMA_WITHOUT_ACTIVATION = `${GAMMA_FRONTMATTER}Gamma instructions.\n`;
 
-// Two skills is the smallest collection that can show a window dropping one, and a third one bound
-// to a feature is the smallest that can show the profile filter at work. Pointing MB_SKILLS_DIR
-// here keeps an assertion over rendered output independent of whatever skill-data/ happens to
-// ship.
+// Pointing MB_SKILLS_DIR here keeps an assertion over rendered output independent of whatever
+// skill-data/ happens to ship.
 const FIXTURES: readonly SkillFixture[] = [
   { name: "alpha", description: "The first skill.", body: "Alpha instructions.\n" },
   { name: "beta", description: "The second skill.", body: "Beta instructions.\n" },

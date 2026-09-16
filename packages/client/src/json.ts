@@ -48,13 +48,11 @@ export function parseJsonResult<T>(
   return { ok: true, value: parsed.data };
 }
 
-// Metabase labels every non-string body `application/json` but only JSON-encodes collections; a
-// number or boolean is streamed as its literal, which happens to be JSON, while a keyword is
-// streamed as its bare name, which is not. A `text/plain` body is a string whatever it looks like
-// (a string-typed setting holding "123" stays "123"). So the header decides between text and
-// JSON, and within JSON the body decides: try JSON.parse first, and on parse failure wrap the body
-// as a JSON string literal so the schema can validate the shape. A caller that expected an object
-// then sees a ValidationError carrying the actual body in `developerDetail.zodIssues`.
+// Metabase labels every non-string body `application/json` but only JSON-encodes collections: a
+// number or boolean streams as its literal (valid JSON), a keyword as its bare name (not). A
+// `text/plain` body is a string whatever it looks like ("123" stays "123"). So the header decides
+// text vs JSON, and a JSON body that fails to parse is wrapped as a JSON string literal so the
+// schema still validates the shape.
 export function parseJsonOrPlain<T>(
   text: string,
   contentType: string | null,

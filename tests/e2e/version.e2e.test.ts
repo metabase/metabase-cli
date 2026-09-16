@@ -8,7 +8,7 @@ import { CardListEnvelope } from "../../packages/cli/src/commands/card/list";
 import { summarizeServer } from "../../packages/cli/src/core/auth/server-summary";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
-import { cliErrorMessage } from "./cli-error";
+import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import {
   SEED_USER,
@@ -23,8 +23,13 @@ import { requireServer } from "./server-gate";
 
 const BEYOND_KNOWN = KNOWN_RANGE.max + 5;
 
-const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were v${KNOWN_RANGE.max}. Run \`mb upgrade\` for a newer CLI.`;
-const UNKNOWN_NOTICE = `Could not parse the Metabase version; assuming the newest supported (v${KNOWN_RANGE.max}).`;
+const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
+const MEASURES_REFUSAL =
+  "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.";
+const UNREACHABLE_MESSAGE = "Could not reach Metabase: fetch failed";
+
+const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were a head build past v${KNOWN_RANGE.max}. Run \`mb upgrade\` for a newer CLI.`;
+const UNKNOWN_NOTICE = `Could not parse the Metabase version; assuming a head build past v${KNOWN_RANGE.max}.`;
 
 describe("version preflight enforcement e2e", () => {
   const tempDirs: string[] = [];
@@ -46,9 +51,9 @@ describe("version preflight enforcement e2e", () => {
     const result = await runCli({ args: ["measure", "list"], configHome });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
-      "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
-    );
+    expect(cliErrorCategory(result.stderr)).toBe("capability");
+    expect(cliErrorMessage(result.stderr)).toBe(`${MEASURES_REFUSAL}\n${DOWNGRADE_REMEDY}`);
+    expect(result.stdout).toBe("");
   });
 
   it("bypasses the refusal and reaches the network layer when --skip-preflight is passed", async () => {
@@ -58,8 +63,9 @@ describe("version preflight enforcement e2e", () => {
     const result = await runCli({ args: ["measure", "list", "--skip-preflight"], configHome });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).not.toContain("This operation requires Metabase");
-    expect(result.stderr).toContain("Could not reach Metabase");
+    expect(cliErrorCategory(result.stderr)).toBe("network");
+    expect(cliErrorMessage(result.stderr)).toBe(UNREACHABLE_MESSAGE);
+    expect(result.stdout).toBe("");
   });
 
   it("probes the server itself when a gated command runs without a cached probe and fails on the network layer", async () => {
@@ -69,8 +75,8 @@ describe("version preflight enforcement e2e", () => {
     const result = await runCli({ args: ["measure", "list"], configHome });
 
     expect(result.exitCode).toBe(1);
-    expect(cliErrorMessage(result.stderr)).toBe("Could not reach Metabase: fetch failed");
-    expect(result.stderr).not.toContain("Could not detect Metabase server version");
+    expect(cliErrorCategory(result.stderr)).toBe("network");
+    expect(cliErrorMessage(result.stderr)).toBe(UNREACHABLE_MESSAGE);
     expect(result.stdout).toBe("");
   });
 
@@ -81,9 +87,11 @@ describe("version preflight enforcement e2e", () => {
     const result = await runCli({ args: ["git-sync", "status"], configHome });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
+    expect(cliErrorCategory(result.stderr)).toBe("capability");
+    expect(cliErrorMessage(result.stderr)).toBe(
       "This operation requires the 'remote_sync' premium feature (not enabled on this server).",
     );
+    expect(result.stdout).toBe("");
   });
 
   it("bypasses the refusal via MB_CLI_SKIP_PREFLIGHT=1 and reaches the network layer", async () => {
@@ -97,8 +105,9 @@ describe("version preflight enforcement e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).not.toContain("This operation requires Metabase");
-    expect(result.stderr).toContain("Could not reach Metabase");
+    expect(cliErrorCategory(result.stderr)).toBe("network");
+    expect(cliErrorMessage(result.stderr)).toBe(UNREACHABLE_MESSAGE);
+    expect(result.stdout).toBe("");
   });
 });
 
@@ -122,6 +131,18 @@ describe("version skew notices e2e", () => {
 
   function liveTarget(): SeedTarget {
     return { url: bootstrap.baseUrl, apiKey: bootstrap.adminApiKey };
+  }
+
+  // `auth status` reads the cached probe without opening a socket, so it reports the profile as
+  // the disk holds it.
+  async function lastProbedAt(configHome: string): Promise<string> {
+    const status = await runCli({ args: ["auth", "status", "--json"], configHome });
+    expect(status.exitCode, status.stderr).toBe(0);
+    const probedAt = parseJson(status.stdout, AuthStatus).lastProbedAt;
+    if (probedAt === null) {
+      throw new Error("expected the profile to hold a cached probe");
+    }
+    return probedAt;
   }
 
   it("prints exactly one newer-server notice on stderr and succeeds when the cached probe is above the known range", async () => {
@@ -156,9 +177,8 @@ describe("version skew notices e2e", () => {
     expect(result.stderr).toBe("");
   });
 
-  // A cached v59 profile reads a job run as the stub-string generation; a head server answers with
-  // the numeric one, so the parse fails against the stale cache and the CLI must notice the server
-  // moved. Head reports no parseable tag, which is what the refreshed profile then records.
+  // A cached v59 profile reads a job run as the stub-string generation; a server answering with the
+  // numeric one fails that parse, and the CLI must notice the server moved.
   const reprobeSkipReason = requireServer("version › re-probe on a shape error", [
     "transformJobRunIdIsNumeric",
   ]);
@@ -167,6 +187,7 @@ describe("version skew notices e2e", () => {
     it("re-probes once, refreshes the stale profile, and appends the change to the error", async () => {
       const configHome = await makeIsolatedConfigHome();
       await seedProbedProfileAt(configHome, liveTarget(), versionAt(59));
+      const seededAt = await lastProbedAt(configHome);
 
       const result = await runCli({
         args: ["transform-job", "run", String(E2E_BUILTIN_TRANSFORM_JOBS.DAILY), "--json"],
@@ -174,30 +195,28 @@ describe("version skew notices e2e", () => {
       });
 
       expect(result.exitCode).toBe(1);
+      const liveLabel =
+        bootstrap.server.version === null ? "an unparseable version" : bootstrap.server.version.tag;
       expect(cliErrorMessage(result.stderr)).toBe(
         "On Metabase v0.59.0 the response shape was unexpected:\n" +
           "  job_run_id: Invalid input: expected string, received null\n" +
-          "The server's version changed since the last probe (was v0.59.0, now an unparseable version); the profile was refreshed — retry the command.",
+          `The server's version changed since the last probe (was v0.59.0, now ${liveLabel}); the profile was refreshed — retry the command.`,
       );
 
       const status = await runCli({ args: ["auth", "status", "--json"], configHome });
       expect(status.exitCode, status.stderr).toBe(0);
-      const payload = parseJson(status.stdout, AuthStatus);
-      expect(payload).toEqual({
+      const refreshedAt = await lastProbedAt(configHome);
+      expect(parseJson(status.stdout, AuthStatus)).toEqual({
         profile: "default",
         present: true,
         url: bootstrap.baseUrl,
         method: "apiKey",
         user: SEED_USER,
-        ...summarizeServer({
-          version: null,
-          date: bootstrap.server.date,
-          hash: bootstrap.server.hash,
-          tokenFeatures: bootstrap.server.tokenFeatures,
-        }),
-        lastProbedAt: payload.lastProbedAt,
+        ...summarizeServer(bootstrap.server),
+        lastProbedAt: refreshedAt,
         lastFailure: null,
       });
+      expect(refreshedAt > seededAt).toBe(true);
     });
   });
 });

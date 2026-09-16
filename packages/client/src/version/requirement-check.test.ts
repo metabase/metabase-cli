@@ -82,7 +82,7 @@ describe("checkRequirements", () => {
     });
   });
 
-  it("places an unparseable tag at the newest known major, so only a token can refuse it", () => {
+  it("places an unparseable tag past the newest known major, so only a token can refuse it", () => {
     const head = createServerProfile({
       version: null,
       date: "2026-09-16",

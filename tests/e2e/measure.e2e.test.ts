@@ -145,7 +145,7 @@ describe.skipIf(skipReason !== null)("measure e2e", () => {
       ok: false,
       errors: [{ path: "/stages", message: "must NOT have fewer than 1 items" }],
     });
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       "measure.definition validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
     );
   });
@@ -180,7 +180,9 @@ describe.skipIf(skipReason !== null)("measure e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "request body: value did not match expected schema\n  /table_id: Invalid input: expected number, received undefined\n  /definition: Invalid input: expected record, received undefined",
+    );
     expect(result.stdout).toBe("");
   });
 
@@ -205,7 +207,7 @@ describe.skipIf(skipReason !== null)("measure e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -217,7 +219,7 @@ describe.skipIf(skipReason !== null)("measure e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: GET /api/measure/9999999.");
+    expect(cliErrorMessage(result.stderr)).toBe("Not found: GET /api/measure/9999999.");
   });
 
   it("update renames the measure and the compact view reflects the new name", async () => {
@@ -259,7 +261,7 @@ describe.skipIf(skipReason !== null)("measure e2e", () => {
       ok: false,
       errors: [{ path: "/stages", message: "must NOT have fewer than 1 items" }],
     });
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       "measure.definition validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
     );
   });
@@ -275,7 +277,9 @@ describe.skipIf(skipReason !== null)("measure e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "request body: value did not match expected schema\n  /revision_message: Invalid input: expected string, received undefined",
+    );
     expect(result.stdout).toBe("");
   });
 
@@ -288,7 +292,7 @@ describe.skipIf(skipReason !== null)("measure e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -330,7 +334,7 @@ describe.skipIf(skipReason !== null)("measure e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 });

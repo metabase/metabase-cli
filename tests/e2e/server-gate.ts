@@ -61,7 +61,7 @@ function recordGateSkip(lane: string, reason: string): void {
 }
 
 // The same profile the CLI builds from a cached probe, so a gate and the command it guards agree:
-// a head build's unparseable tag lands on the newest known major and every version-gated suite
+// a head build's unparseable tag lands past the newest known major and every version-gated suite
 // runs there, while a token feature the server lacks still skips.
 function resolveServerProfile(): ServerProfile {
   return createServerProfile(readBootstrapSync().server);
@@ -94,8 +94,7 @@ export function requireOAuthServer(lane: string): string | null {
   return OAUTH_UNSUPPORTED_REASON;
 }
 
-// Whether the connected server has a feature — the exact question the CLI's preflight and the
-// client's `require()` ask, so a suite can select the branch its stack takes. It logs nothing: a
+// The exact question the CLI's preflight and the client's `require()` ask. It logs nothing: a
 // suite reading it asserts one of two exact outcomes rather than skipping coverage.
 export function serverHas(feature: FeatureName): boolean {
   return resolveServerProfile().features[feature];

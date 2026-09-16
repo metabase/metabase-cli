@@ -21,6 +21,7 @@ import {
   BOOTSTRAP_FILE_PATH,
   type E2EBootstrap,
   type SeededIds,
+  type ServerIdentity,
 } from "../bootstrap-data";
 import {
   DEFAULT_E2E_STACK,
@@ -108,19 +109,23 @@ function apiKeyClient(apiKey: string): Transport {
   );
 }
 
+async function probeIdentity(client: Transport): Promise<ServerIdentity> {
+  const probed = await probeServer(client, { retries: DEFAULT_MAX_RETRIES });
+  const oauthSupported = (await tryDiscoverMetadata(BASE_URL, USER_AGENT)) !== null;
+  return { ...probed, oauthSupported };
+}
+
 async function main(): Promise<void> {
   await waitForReady(BASE_URL, HEALTH_TIMEOUT_MS);
 
   const existing = await readStoredBootstrap();
   if (existing && (await canReuseExisting(existing.adminApiKey))) {
     assertSnapshotMatchesSeed(existing);
-    await reportSnapshotTransforms(apiKeyClient(existing.adminApiKey), existing.server);
-    // OAuth support depends on the booted image, not on the reused credentials — re-probe it so a
-    // stale bootstrap file (or an image swap on the same stack) can't pin the wrong answer.
-    const oauthSupported = (await tryDiscoverMetadata(BASE_URL, USER_AGENT)) !== null;
-    if (existing.server.oauthSupported !== oauthSupported) {
-      await writeStoredBootstrap({ ...existing, server: { ...existing.server, oauthSupported } });
-    }
+    // The credentials and seed outlive the image: the app-db volume survives a pull of a newer
+    // head, so the server block is the booted image's to answer, never the file's.
+    const server = await probeIdentity(apiKeyClient(existing.adminApiKey));
+    await reportSnapshotTransforms(apiKeyClient(existing.adminApiKey), server);
+    await writeStoredBootstrap({ ...existing, server });
     process.stdout.write(`bootstrap: reusing ${BOOTSTRAP_FILE_PATH}\n`);
     return;
   }
@@ -132,14 +137,12 @@ async function main(): Promise<void> {
   const client = apiKeyClient(adminApiKey);
 
   const apiKeyUser = await client.requestParsed(CurrentUser, "/api/user/current");
-  const probed = await probeServer(client, { retries: DEFAULT_MAX_RETRIES });
-  if (transformsReady(probed)) {
+  const server = await probeIdentity(client);
+  if (transformsReady(server)) {
     await enableTransforms(client);
     await reportTransformsUsable(client);
   }
-  const seeded = await seedContent(client, libraryReady(probed), adminPersonalCollectionId);
-  const oauthSupported = (await tryDiscoverMetadata(BASE_URL, USER_AGENT)) !== null;
-  const server = { ...probed, oauthSupported };
+  const seeded = await seedContent(client, libraryReady(server), adminPersonalCollectionId);
 
   const limitedGroupId = await createLimitedGroup(client);
   await revokeDefaultCollectionAccess(client, limitedGroupId, seeded.defaultCollectionId);
