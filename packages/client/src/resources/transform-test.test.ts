@@ -25,7 +25,7 @@ const TRANSFORM_TEST = {
     {
       table: { schema: "public", name: "people" },
       format: "rows",
-      columns: [{ name: "id", database_type: "INTEGER" }],
+      columns: [{ name: "id", cast_type: "INTEGER" }],
       rows: [{ id: 1 }],
     },
   ],

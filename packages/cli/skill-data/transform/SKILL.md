@@ -185,7 +185,9 @@ mb transform-test delete <id> --yes --profile <n>
 mb transform-test run <id> --profile <n> --json               # exits non-zero unless it passes
 ```
 
-**`inputs`** — one per table the transform reads, each naming a `table` plus either `format: "sql"` with `sql`, or `format: "rows"` with `columns` (each a `name` and a `database_type` the warehouse takes as a `CAST` target) and `rows`.
+**`inputs`** — one per table the transform reads, each naming a `table` plus either `format: "sql"` with `sql`, or `format: "rows"` with `columns` (each a `name` and a `cast_type`) and `rows`.
+
+**`cast_type` is a `CAST` target, not a column type**, and the two vocabularies differ per warehouse: MySQL casts to `SIGNED` and reports `INTEGER`; ClickHouse takes `Nullable(Int32)` for a column that is `Int64`. So a body is warehouse-specific — don't copy a `database_type` out of a run result into a `cast_type`, and don't expect one body to run everywhere.
 
 **`expectations`** — `type: "empty"` with the `sql` that must return no rows, or `type: "equals"`, which needs the same `format` split as an input (`"rows"` with `columns`/`rows`, or `"sql"` with a query). An `equals` without a `format` is refused.
 
@@ -198,8 +200,8 @@ mb transform-test run <id> --profile <n> --json               # exits non-zero u
       "table": { "schema": "public", "name": "people" },
       "format": "rows",
       "columns": [
-        { "name": "id", "database_type": "INTEGER" },
-        { "name": "age", "database_type": "INTEGER" }
+        { "name": "id", "cast_type": "INTEGER" },
+        { "name": "age", "cast_type": "INTEGER" }
       ],
       "rows": [
         { "id": 1, "age": 30 },
@@ -212,7 +214,7 @@ mb transform-test run <id> --profile <n> --json               # exits non-zero u
       "type": "equals",
       "name": "exactly one row, id 1",
       "format": "rows",
-      "columns": [{ "name": "id", "database_type": "INTEGER" }],
+      "columns": [{ "name": "id", "cast_type": "INTEGER" }],
       "rows": [{ "id": 1 }]
     },
     {

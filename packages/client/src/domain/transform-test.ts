@@ -7,10 +7,16 @@ const TransformTestTable = z
   })
   .loose();
 
+/**
+ * A column of declared test data. `cast_type` is what the cell is cast to, so it has to satisfy the
+ * warehouse's CAST grammar rather than name one of its column types — MySQL takes `SIGNED` and
+ * reports `INTEGER`. Contrast [[TransformTestResultColumn]], whose `database_type` is a real column
+ * type; the two are not interchangeable.
+ */
 const TransformTestColumn = z
   .object({
     name: z.string().min(1),
-    database_type: z.string().min(1).describe("The warehouse's own spelling, e.g. VARCHAR(255)"),
+    cast_type: z.string().min(1).describe("A CAST target, e.g. VARCHAR(255) or MySQL's SIGNED"),
   })
   .loose();
 
@@ -124,6 +130,7 @@ export type TransformTestUpdateInput = z.infer<typeof TransformTestUpdateInput>;
 export const TransformTestStatus = z.enum(["passed", "failed", "error"]);
 export type TransformTestStatus = z.infer<typeof TransformTestStatus>;
 
+/** A column as a run reports it: the output table's own type, not the declared `cast_type`. */
 const TransformTestResultColumn = z.object({ name: z.string(), database_type: z.string() }).loose();
 
 const TransformTestCellMismatch = z
