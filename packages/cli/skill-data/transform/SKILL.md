@@ -192,6 +192,8 @@ mb transform-test run <id> --profile <n> --json               # exits non-zero u
 
 **`expectations`** — `type: "empty"` with the `sql` that must return no rows, or `type: "equals"`, which needs the same `format` split as an input (`"rows"` with `columns`/`rows`, or `"sql"` with a query). An `equals` without a `format` is refused.
 
+**An `empty` query may only name the transform's target table and its declared input tables.** Those are rewritten to the run's temp tables; any other table you name is left exactly as written and reads the real one — the single way a test run can touch production data.
+
 ```json
 {
   "transform_id": 1,
