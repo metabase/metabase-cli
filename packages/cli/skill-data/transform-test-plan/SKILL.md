@@ -57,16 +57,9 @@ tables for anomalies.
    aggregation, ≥2-member groups for every grouping and join, one dirty row per screenable defect,
    boundary dates. Document it as a table (row → attributes → purpose) in the plan.
 
-   Write each input as `format: "rows"` — the columns and their values _are_ the cast, and the story
-   stays readable in the body. Reach for `format: "sql"` only when the cast is genuinely easier as a
-   query — a generated series, say.
-
-   Every column carries a `cast_type`: the target its cells are cast to, which answers to the
-   warehouse's `CAST` grammar rather than naming one of its column types. MySQL casts to `SIGNED`
-   and reports the column as `INTEGER`; ClickHouse takes `Nullable(Int32)` where the column is
-   `Int64`. So a cast type is a per-warehouse choice — a cast written for one engine does not carry
-   to another, and the `database_type` a run reports is the output column's real type, never a
-   `cast_type` to paste back.
+   Express the cast as literal rows rather than as a query, so the story stays legible in the test
+   itself; a query is worth it only when the rows are mechanical to generate. A cast is written
+   against one warehouse and does not carry to another.
 
 6. **Hand-derive the expected rows**, arithmetic recorded in the plan (premium: 3 orders / 350.50 /
    3.0). Every fixture row's fate appears in some expected cell. Pin NULL-vs-0-vs-empty for every
@@ -74,16 +67,7 @@ tables for anomalies.
 7. **Author the test.** One test per transform, per coherent story: an `equals` pinning the output,
    and `empty` expectations stating the invariants that survive a change to the cast.
 
-   ```bash
-   mb transform-test create --file ./.scratch/orders-test.json --profile <n> --json
-   mb transform-test run <id> --profile <n> --json
-   ```
-
-   Iterate with `mb transform-test update <id> --file`, never delete + create — the same rule the
-   `transform` skill states for transforms, and for the same reasons: the row, its `entity_id` and
-   its YAML filename all survive.
-
-   Tests live with the transform: they serialize and git-sync with it. Give each expectation a name that states the invariant, because the name is what a
+   Give each expectation a name that states the invariant, because the name is what a
    failure leads with ("revenue never negative", not "check 3"), and open each `empty` expectation's
    SQL with a `--` contract comment: the invariant, and the failure modes it catches ("catches both
    dropped orders and join fan-out").
@@ -104,10 +88,10 @@ tables for anomalies.
 
 ## Severity: error, or the tolerated oddity
 
-Every expectation is pass or fail, and one failure fails the run — `run` exits non-zero, so a test
-is a CI gate. **error** = forbidden, and it becomes an `empty` expectation. There is no warn
-severity, so **never author an expectation you expect to fire**: a permanently red test trains
-everyone to ignore the result and holds the gate down for everyone else.
+Every expectation is pass or fail, and one failure fails the run. **error** = forbidden, and it
+becomes an `empty` expectation. There is no warn severity, so **never author an expectation you
+expect to fire**: a permanently red test trains everyone to ignore the result, and a red run gates
+everyone else's work.
 
 A tolerated-but-surfaced oddity — one the owner lives with, like orphan rows or ship-before-order
 dates — gets encoded the two ways that hold: **pin it in the `equals` rows** (an orphan passing
@@ -125,8 +109,8 @@ them to buggy output documents the bug as intended — and **surface the finding
 at both scales**, fixture ("1530.24 of 1600.74 fixture dollars survive") and warehouse ("908 of
 2,050 orders dropped"). What happens next follows the session's terms, not a fixed protocol: propose
 and apply the fix now (when the user wants it or the autonomy setting covers it), or — when the fix
-must wait — hold the correct expectation and record the red in the plan with the minimal fix body,
-ready for `mb transform update <id> --file`. A stored test has no red-by-design state, so a deferred
+must wait — hold the correct expectation and record the red in the plan with the minimal fix body.
+A stored test has no red-by-design state, so a deferred
 fix must be visible in the plan or the test reads as broken. Either way, once green the test stays
 as the regression guard.
 
@@ -182,8 +166,5 @@ unshipped orders silently dropped from revenue — is what the zero-case rows ex
 - Don't let a fixture cast go all-clean — no zero-case, no orphan, no dirty row proves the happy
   path and nothing else; the bugs live in the edges.
 - Don't write an expectation you expect to fail.
-- Don't name a table in an `empty` expectation that is neither the transform's target nor a declared
-  input. Only those two are rewritten to temp tables; anything else is left exactly as written and
-  reads the real table.
 - Don't surface bare check-ids ("per C3…") to the user — name the check in plain words; the ids are
   for your cross-referencing, not their reading.
