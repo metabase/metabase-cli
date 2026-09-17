@@ -54,26 +54,26 @@ export function transformResource(transport: Transport) {
     path: string,
     opts: TransportRequestOptions,
   ): Promise<ListResult<Transform>> {
-    const { features } = await transport.server();
+    const { features } = await transport.server(opts);
     const data = await transport.requestParsed(transformListSchema(features), path, opts);
     return { data, total: null };
   }
 
   async function requestTransform(path: string, opts: TransportRequestOptions): Promise<Transform> {
-    const { features } = await transport.server();
+    const { features } = await transport.server(opts);
     return transport.requestParsed(transformRowSchema(features), path, opts);
   }
 
   /** List every transform the caller can see. */
   async function list(options: RequestOptions = {}): Promise<ListResult<Transform>> {
-    await transport.require("transform.list");
+    await transport.require("transform.list", options);
     return requestTransformList("/api/transform", { ...options });
   }
 
   /** Get one transform by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<Transform> {
-    await transport.require("transform.get");
-    const { features } = await transport.server();
+    await transport.require("transform.get", options);
+    const { features } = await transport.server(options);
     return transport.requestParsed(transformDetailSchema(features), `/api/transform/${id}`, {
       ...options,
     });
@@ -84,7 +84,7 @@ export function transformResource(transport: Transport) {
     params: TransformCreateInput,
     options: RequestOptions = {},
   ): Promise<Transform> {
-    await transport.require("transform.create");
+    await transport.require("transform.create", options);
     return requestTransform("/api/transform", { ...options, method: "POST", body: params });
   }
 
@@ -94,13 +94,13 @@ export function transformResource(transport: Transport) {
     params: TransformUpdateInput,
     options: RequestOptions = {},
   ): Promise<Transform> {
-    await transport.require("transform.update");
+    await transport.require("transform.update", options);
     return requestTransform(`/api/transform/${id}`, { ...options, method: "PUT", body: params });
   }
 
   /** Delete a transform by id, leaving any table it already materialized in place. */
   async function remove(id: number, options: RequestOptions = {}): Promise<void> {
-    await transport.require("transform.delete");
+    await transport.require("transform.delete", options);
     await transport.requestRaw(`/api/transform/${id}`, {
       ...options,
       method: "DELETE",
@@ -110,7 +110,7 @@ export function transformResource(transport: Transport) {
 
   /** Drop a transform's materialized output table, keeping the transform definition. */
   async function deleteTable(id: number, options: RequestOptions = {}): Promise<void> {
-    await transport.require("transform.deleteTable");
+    await transport.require("transform.deleteTable", options);
     await transport.requestRaw(`/api/transform/${id}/table`, {
       ...options,
       method: "DELETE",
@@ -123,13 +123,13 @@ export function transformResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<ListResult<Transform>> {
-    await transport.require("transform.dependencies");
+    await transport.require("transform.dependencies", options);
     return requestTransformList(`/api/transform/${id}/dependencies`, { ...options });
   }
 
   /** Request cancellation of a transform's current run. */
   async function cancel(id: number, options: RequestOptions = {}): Promise<void> {
-    await transport.require("transform.cancel");
+    await transport.require("transform.cancel", options);
     await transport.requestRaw(`/api/transform/${id}/cancel`, {
       ...options,
       method: "POST",
@@ -139,7 +139,7 @@ export function transformResource(transport: Transport) {
 
   /** Get one transform run by run id — not by the id of the transform that produced it. */
   async function getRun(runId: number, options: RequestOptions = {}): Promise<TransformRun> {
-    await transport.require("transform.getRun");
+    await transport.require("transform.getRun", options);
     return transport.requestParsed(TransformRun, `/api/transform/run/${runId}`, { ...options });
   }
 
@@ -148,7 +148,7 @@ export function transformResource(transport: Transport) {
     params: TransformRunPageParams = {},
     options: TransformRunPageOptions = {},
   ): AsyncIterable<Page<TransformRun>> {
-    await transport.require("transform.runPages");
+    await transport.require("transform.runPages", options);
     yield* paginatePages(transport, "/api/transform/run", TransformRun, {
       query: { "transform-ids": params["transform-ids"] },
       ...(options.offset !== undefined && { offset: options.offset }),
@@ -168,7 +168,7 @@ export function transformResource(transport: Transport) {
     params: TransformRunParams = {},
     options: RequestOptions = {},
   ): Promise<TransformRunResult> {
-    await transport.require("transform.run");
+    await transport.require("transform.run", options);
     const kickoff = await transport.requestParsed(TransformRunKickoff, `/api/transform/${id}/run`, {
       ...options,
       method: "POST",

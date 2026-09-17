@@ -101,6 +101,7 @@ const EXPIRING_POLL = { intervalMs: 1, timeoutMs: 5 };
 // own feature is refused here before it reaches the scripted wire. It is also the generation that
 // links the output table only on the detail, as a hydrated `table`.
 const SERVER = createServerProfile({
+  edition: "oss",
   version: { tag: "v0.59.0", major: 59, patch: 0 },
   date: null,
   hash: null,
@@ -109,6 +110,7 @@ const SERVER = createServerProfile({
 
 // The first generation carrying `target_table_id` as a column on every transform endpoint.
 const TABLE_ID_COLUMN_SERVER = createServerProfile({
+  edition: "oss",
   version: { tag: "v0.61.0", major: 61, patch: 0 },
   date: null,
   hash: null,

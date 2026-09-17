@@ -515,6 +515,7 @@ describe("defineMetabaseCommand", () => {
 
   it("reads an unparseable cached version as the newest known, says so once, and proceeds", async () => {
     await seedProbedProfile("default", {
+      edition: null,
       version: null,
       date: null,
       hash: null,
@@ -680,6 +681,7 @@ describe("defineMetabaseCommand", () => {
       expect(await readProfileRecord("default")).toEqual(
         reprobedRecord({
           at: REPROBED_AT,
+          edition: "oss",
           version: { tag: "v0.63.4", major: 63, patch: 4 },
           date: "2026-09-01",
           hash: "abc1234",
@@ -712,6 +714,7 @@ describe("defineMetabaseCommand", () => {
       expect(await readProfileRecord("default")).toEqual(
         reprobedRecord({
           at: REPROBED_AT,
+          edition: "oss",
           version: { tag: "v0.59.0", major: 59, patch: 0 },
           date: null,
           hash: null,
@@ -844,6 +847,7 @@ describe("defineMetabaseCommand", () => {
       expect(await readProfileRecord("default")).toEqual(
         reprobedRecord({
           at: REPROBED_AT,
+          edition: "oss",
           version: { tag: "v0.61.3", major: 61, patch: 3 },
           date: null,
           hash: null,

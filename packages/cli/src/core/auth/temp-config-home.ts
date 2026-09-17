@@ -46,6 +46,7 @@ export function probeAt(
   tokenFeatures: ServerInfo["tokenFeatures"] = null,
 ): ServerInfo {
   return {
+    edition: "oss",
     version: { tag: `v0.${major}.0`, major, patch: 0 },
     date: null,
     hash: null,

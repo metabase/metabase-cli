@@ -23,7 +23,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
-import { invalidDatabaseRejection, requireServer, serverHas } from "./server-gate";
+import { QUERY_NORMALIZATION_MESSAGE, requireServer, serverHas } from "./server-gate";
 
 const FIRST_TRANSFORM_ID = 1;
 const TRANSFORM_NAME = "e2e_transform";
@@ -569,9 +569,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain(
-      invalidDatabaseRejection("source.query.lib/metadata: missing required key"),
-    );
+    expect(cliErrorMessage(result.stderr)).toBe(QUERY_NORMALIZATION_MESSAGE);
     expect(result.stdout).toBe("");
   });
 

@@ -100,6 +100,7 @@ function probedRecord(
     lastProbe: {
       at: probedAt,
       version: bootstrap.server.version,
+      edition: bootstrap.server.edition,
       date: bootstrap.server.date,
       hash: bootstrap.server.hash,
       tokenFeatures: bootstrap.server.tokenFeatures,

@@ -8,7 +8,7 @@ import type { RequestOptions, Transport } from "../http/transport";
 export function timelineEventResource(transport: Transport) {
   /** Get one timeline event by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<TimelineEvent> {
-    await transport.require("timelineEvent.get");
+    await transport.require("timelineEvent.get", options);
     return transport.requestParsed(TimelineEvent, `/api/timeline-event/${id}`, { ...options });
   }
 
@@ -17,7 +17,7 @@ export function timelineEventResource(transport: Transport) {
     params: TimelineEventCreateInput,
     options: RequestOptions = {},
   ): Promise<TimelineEvent> {
-    await transport.require("timelineEvent.create");
+    await transport.require("timelineEvent.create", options);
     return transport.requestParsed(TimelineEvent, "/api/timeline-event", {
       ...options,
       method: "POST",
@@ -34,7 +34,7 @@ export function timelineEventResource(transport: Transport) {
     params: TimelineEventUpdateInput,
     options: RequestOptions = {},
   ): Promise<TimelineEvent> {
-    await transport.require("timelineEvent.update");
+    await transport.require("timelineEvent.update", options);
     return transport.requestParsed(TimelineEvent, `/api/timeline-event/${id}`, {
       ...options,
       method: "PUT",
@@ -47,13 +47,13 @@ export function timelineEventResource(transport: Transport) {
    * endpoint.
    */
   async function archive(id: number, options: RequestOptions = {}): Promise<TimelineEvent> {
-    await transport.require("timelineEvent.archive");
+    await transport.require("timelineEvent.archive", options);
     return update(id, { archived: true }, options);
   }
 
   /** Permanently delete a timeline event by id. The server answers with no body. */
   async function remove(id: number, options: RequestOptions = {}): Promise<void> {
-    await transport.require("timelineEvent.delete");
+    await transport.require("timelineEvent.delete", options);
     await transport.requestRaw(`/api/timeline-event/${id}`, {
       ...options,
       method: "DELETE",

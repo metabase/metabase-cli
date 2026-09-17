@@ -24,7 +24,7 @@ function rethrowSettingError(error: unknown, key: string): never {
 export function settingResource(transport: Transport) {
   /** Get all settings and their values, with descriptions and environment-variable names. */
   async function list(options: RequestOptions = {}): Promise<ListResult<Setting>> {
-    await transport.require("setting.list");
+    await transport.require("setting.list", options);
     const data = await transport.requestParsed(SettingApiList, "/api/setting", { ...options });
     return { data, total: null };
   }
@@ -34,7 +34,7 @@ export function settingResource(transport: Transport) {
    * reaches the caller as `null`; a string-typed setting answers bare text rather than JSON.
    */
   async function get(key: string, options: RequestOptions = {}): Promise<unknown> {
-    await transport.require("setting.get");
+    await transport.require("setting.get", options);
     const path = `/api/setting/${encodeURIComponent(key)}`;
     return fetchOptionalParsed(transport, path, z.unknown(), options).catch((error: unknown) =>
       rethrowSettingError(error, key),
@@ -43,7 +43,7 @@ export function settingResource(transport: Transport) {
 
   /** Set a single setting's value by key. The endpoint answers 204 with no body. */
   async function set(key: string, value: unknown, options: RequestOptions = {}): Promise<void> {
-    await transport.require("setting.set");
+    await transport.require("setting.set", options);
     await transport
       .requestRaw(`/api/setting/${encodeURIComponent(key)}`, {
         ...options,

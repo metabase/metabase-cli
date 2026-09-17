@@ -13,10 +13,7 @@ can load and declarations `moduleResolution: node16` can follow, with no `@types
 
 ## Dependency budget
 
-Runtime dependencies are `zod` and `semver`. `zod` is a **peer** dependency: every schema on this
-surface is a zod schema, so the consumer's zod is part of the contract and a resolver must be told to
-reconcile the two rather than left free to add a second copy. A production module under `src/` imports
-nothing beyond those two and `node:` builtins; test files may reach the root devDependencies.
+The one runtime dependency is `zod`, and it is a **peer** dependency: every schema on this surface is a zod schema, so the consumer's zod is part of the contract and a resolver must be told to reconcile the two rather than left free to add a second copy. A production module under `src/` imports nothing beyond it and `node:` builtins; test files may reach the root devDependencies.
 
 The package is also free of process I/O: it does not touch `process` at all — no filesystem access,
 no subprocesses, no writes to the process streams, no `process.exit`, no signal handlers, no
@@ -255,7 +252,7 @@ The client registers no signal handler and reads no process state, so cancellati
 `AbortSignal` the host owns. Three places take one and they compose: `ClientOptions.signal` cancels
 every request a client makes, `RequestOptions.signal` cancels a single request, and
 `PollOptions.signal` stops a wait loop. Each is folded together with the request timeout, so whichever
-fires first ends the work.
+fires first ends the work. A method's first call may also wait on the client's one shared server probe; the method's `signal` ends that caller's wait, while the probe itself belongs to the client and is cancelled only by `ClientOptions.signal`, so a later call still finds it settled.
 
 ```ts
 import { createClient, isTransformRunTerminal, pollUntil } from "@metabase/client";
@@ -410,7 +407,7 @@ revocation endpoint. Types: `Credential` (the `ApiKeyCredential | OAuthCredentia
 
 ### Version and capabilities
 
-`probeServer(client)` reads `/api/session/properties` and returns a `ServerInfo` — the parsed version tag, the build date and hash, and the token-feature map, each `null` when the server does not report it. `ParsedVersion` is the `{ tag, major, patch }` schema a probed version tag parses to; `editionFromTag(tag)` reads the `Edition` (`"oss"` | `"ee"`) Metabase stamps into the tag's semver major, `null` when the tag carries none.
+`probeServer(client)` reads `/api/session/properties` and returns a `ServerInfo` — the parsed version tag, the edition the tag stamps, the build date and hash, and the token-feature map, each `null` when the server does not report it. `ParsedVersion` is the `{ tag, major, patch }` schema a probed version tag parses to; `editionFromTag(tag)` reads the `Edition` (`"oss"` | `"ee"`) Metabase stamps into the tag's leading number (`v0.` / `v1.`, a hotfix's fourth number and a `-SNAPSHOT` suffix included), `null` when the tag carries none.
 
 `createServerProfile(info)` turns a `ServerInfo` into the `ServerProfile` the client reasons with: the raw facts (`version`, `buildDate`, `hash`, `edition`, `tokenFeatures`), the derived `features`, and `skew` (`Skew`) — `"supported"` at or below `KNOWN_RANGE.max` (`KNOWN_RANGE` is `{ min, max }`, the majors the client is built against; an older server keeps its real major and is refused feature by feature rather than flagged), `"newer-than-known"` above it, `"unknown"` when the tag did not parse. A newer or unparseable server is evaluated as `KNOWN_RANGE.max + 1`; the edition of a server whose tag carries none is `"ee"` when any premium feature is granted and `"oss"` otherwise. `client.server()` returns the profile passed as `ClientOptions.server`, or probes once on first call and shares the result; `getServerTag` defaults to the tag of whichever profile the client holds — the one passed in, or the one a probe has settled on — so a shape error names the server whenever the client has met it. There is no option to assume a version.
 

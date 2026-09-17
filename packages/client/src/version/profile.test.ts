@@ -3,12 +3,14 @@ import { describe, expect, it } from "vitest";
 import { evaluateFeatures } from "./features";
 import type { ServerInfo } from "./probe";
 import { createServerProfile, featureGap, KNOWN_RANGE } from "./profile";
+import { editionFromTag } from "./tag";
 
 const HEAD_SLOT = KNOWN_RANGE.max + 1;
 
 function released(tag: string, major: number, tokenFeatures: ServerInfo["tokenFeatures"]) {
   return {
     version: { tag, major, patch: 2 },
+    edition: editionFromTag(tag),
     date: "2026-05-19",
     hash: "0c64e27",
     tokenFeatures,
@@ -45,6 +47,7 @@ describe("createServerProfile", () => {
   it("reads an unparseable tag as the head slot and reports unknown", () => {
     const info: ServerInfo = {
       version: null,
+      edition: null,
       date: "2026-09-16",
       hash: "548573f",
       tokenFeatures: { library: false },
@@ -77,9 +80,21 @@ describe("createServerProfile", () => {
     expect(createServerProfile(released("v1.61.2", 61, null)).edition).toBe("ee");
   });
 
+  it("takes the edition from a snapshot tag, which stamps one without a usable version", () => {
+    const info: ServerInfo = {
+      version: null,
+      edition: "ee",
+      date: null,
+      hash: null,
+      tokenFeatures: { library: false },
+    };
+    expect(createServerProfile(info).edition).toBe("ee");
+  });
+
   it("takes the edition from a granted premium feature when the tag says nothing", () => {
     const info: ServerInfo = {
       version: null,
+      edition: null,
       date: null,
       hash: null,
       tokenFeatures: { library: true, remote_sync: false },
@@ -88,7 +103,13 @@ describe("createServerProfile", () => {
   });
 
   it("carries a probe without date, hash or token features as nulls", () => {
-    const info: ServerInfo = { version: null, date: null, hash: null, tokenFeatures: null };
+    const info: ServerInfo = {
+      version: null,
+      edition: null,
+      date: null,
+      hash: null,
+      tokenFeatures: null,
+    };
     expect(createServerProfile(info)).toEqual({
       version: null,
       buildDate: null,
@@ -119,7 +140,13 @@ describe("featureGap", () => {
   });
 
   it("places an unparseable tag at the head slot, so only a token can be missing", () => {
-    const info: ServerInfo = { version: null, date: null, hash: null, tokenFeatures: null };
+    const info: ServerInfo = {
+      version: null,
+      edition: null,
+      date: null,
+      hash: null,
+      tokenFeatures: null,
+    };
     const profile = createServerProfile(info);
     expect(featureGap(profile, "transformJobRunIdIsNumeric")).toBeNull();
     expect(featureGap(profile, "library")).toEqual({ kind: "token", tokenFeature: "library" });

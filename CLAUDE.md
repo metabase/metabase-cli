@@ -35,7 +35,7 @@ This file is rules only. Architecture and rationale live in `docs/architecture.m
 | `packages/cli`    | Publishable CLI: `commands/` (shell only), `core/` (pure logic), `output/` (presentation), `runtime/` (platform glue)                                              |
 | `tests/e2e`       | Built-binary tier against a live Metabase                                                                                                                          |
 
-- Nothing in `packages/client` may import from `packages/cli`, touch `process`, or mutate process-global state. Its dependency budget is `zod` (peer) + `semver` + `node:` builtins.
+- Nothing in `packages/client` may import from `packages/cli`, touch `process`, or mutate process-global state. Its dependency budget is `zod` (peer) + `node:` builtins.
 - Within `packages/client`, only `client.ts` and `resources/` may import from `resources/`. The CLI may `import type` from the resource subpaths the `exports` map publishes.
 - `JSON.parse` only in `json.ts`. `fetch` only in `http/` (plus `packages/cli/src/core/npm-registry.ts`, which is not a Metabase endpoint). `new URL(` only in `url.ts` and `http/`. Within `packages/client`, a `setTimeout` wait loop only in `poll.ts` and `http/retry.ts`; in `packages/cli`, a hand-rolled one nowhere — wait on `node:timers/promises`.
 - `process.exit` only in the CLI entry; `process.stdout.write` only in `output/`; `child_process` only in `runtime/process.ts`. `src/output/` must not import the HTTP layer — reach for `@metabase/client/errors`.

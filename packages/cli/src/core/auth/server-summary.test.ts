@@ -7,6 +7,7 @@ import { serverChangeNote, skewNotice, summarizeServer } from "./server-summary"
 
 function serverAt(major: number, tokenFeatures: ServerInfo["tokenFeatures"] = null): ServerInfo {
   return {
+    edition: "oss",
     version: { tag: `v0.${major}.0`, major, patch: 0 },
     date: null,
     hash: null,
@@ -14,7 +15,13 @@ function serverAt(major: number, tokenFeatures: ServerInfo["tokenFeatures"] = nu
   };
 }
 
-const UNPARSEABLE: ServerInfo = { version: null, date: null, hash: null, tokenFeatures: null };
+const UNPARSEABLE: ServerInfo = {
+  version: null,
+  edition: null,
+  date: null,
+  hash: null,
+  tokenFeatures: null,
+};
 
 describe("summarizeServer", () => {
   it("reports every server fact as null without a probe and still names the CLI's own range", () => {

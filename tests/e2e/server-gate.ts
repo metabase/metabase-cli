@@ -107,12 +107,6 @@ export function serverRejectedMessage(): string {
 }
 
 // A query the server cannot normalize — a database id that is not an integer, say — is refused with
-// one message for the whole query where normalization runs before the field-level schema check, and
-// with the field the schema check rejected where it does not.
-const QUERY_NORMALIZATION_MESSAGE = "Invalid query: missing or invalid Database ID (:database)";
-
-export function invalidDatabaseRejection(fieldLevelMessage: string): string {
-  return serverHas("queryNormalizedBeforeValidation")
-    ? QUERY_NORMALIZATION_MESSAGE
-    : fieldLevelMessage;
-}
+// one message for the whole query, before any field-level schema check names the field.
+export const QUERY_NORMALIZATION_MESSAGE =
+  "Invalid query: missing or invalid Database ID (:database)";

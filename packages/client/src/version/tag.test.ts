@@ -23,12 +23,21 @@ describe("tryParseTag", () => {
     expect(tryParseTag("1.59.12")).toEqual({ tag: "1.59.12", major: 59, patch: 12 });
   });
 
+  it("parses a hotfix tag, whose fourth number semver would refuse", () => {
+    expect(tryParseTag("v0.62.19.5")).toEqual({ tag: "v0.62.19.5", major: 62, patch: 19 });
+  });
+
+  it("parses a release-candidate tag", () => {
+    expect(tryParseTag("v1.64.0-RC1")).toEqual({ tag: "v1.64.0-RC1", major: 64, patch: 0 });
+  });
+
   it.each([
     ["major prefix outside 0|1", "v2.58.7"],
     ["wholly malformed", "vLOCAL_DEV"],
     ["a head/nightly build tag", "vUNKNOWN"],
     ["a locally built jar tag that would read as v1", "v0.1.0-SNAPSHOT"],
     ["a snapshot build of a released line", "v0.59.12-SNAPSHOT"],
+    ["a fifth number", "v0.62.19.5.1"],
   ])("returns null on %s", (_label, input) => {
     expect(tryParseTag(input)).toBeNull();
   });
@@ -40,6 +49,7 @@ describe("editionFromTag", () => {
     ["a released EE tag", "v1.61.2", "ee"],
     ["a locally built OSS jar", "v0.62.0-SNAPSHOT", "oss"],
     ["a locally built EE jar", "v1.62.0-SNAPSHOT", "ee"],
+    ["an EE hotfix", "v1.63.16.4", "ee"],
   ])("reads the edition off %s", (_label, input, expected) => {
     expect(editionFromTag(input)).toBe(expected);
   });

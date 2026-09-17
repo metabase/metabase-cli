@@ -76,7 +76,7 @@ export function notificationResource(transport: Transport) {
     params: NotificationListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Notification>> {
-    await transport.require("notification.list");
+    await transport.require("notification.list", options);
     const data = await transport.requestParsed(NotificationApiList, "/api/notification", {
       ...options,
       query: {
@@ -92,7 +92,7 @@ export function notificationResource(transport: Transport) {
 
   /** Get one question alert by id, refusing an id that names a system-event notification. */
   async function get(id: number, options: RequestOptions = {}): Promise<Notification> {
-    await transport.require("notification.get");
+    await transport.require("notification.get", options);
     const notification = await transport.requestParsed(Notification, `/api/notification/${id}`, {
       ...options,
     });
@@ -104,7 +104,7 @@ export function notificationResource(transport: Transport) {
     params: NotificationCreateInput,
     options: RequestOptions = {},
   ): Promise<Notification> {
-    await transport.require("notification.create");
+    await transport.require("notification.create", options);
     return transport.requestParsed(Notification, "/api/notification", {
       ...options,
       method: "POST",
@@ -118,7 +118,7 @@ export function notificationResource(transport: Transport) {
     params: NotificationUpdateInput,
     options: RequestOptions = {},
   ): Promise<Notification> {
-    await transport.require("notification.update");
+    await transport.require("notification.update", options);
     const current = await get(id, options);
     return transport.requestParsed(Notification, `/api/notification/${id}`, {
       ...options,
@@ -129,7 +129,7 @@ export function notificationResource(transport: Transport) {
 
   /** Archive a question alert by id, stopping every delivery. Metabase models this as an update. */
   async function archive(id: number, options: RequestOptions = {}): Promise<Notification> {
-    await transport.require("notification.archive");
+    await transport.require("notification.archive", options);
     return update(id, { active: false }, options);
   }
 
@@ -138,7 +138,7 @@ export function notificationResource(transport: Transport) {
    * body.
    */
   async function send(id: number, options: RequestOptions = {}): Promise<void> {
-    await transport.require("notification.send");
+    await transport.require("notification.send", options);
     await get(id, options);
     await transport.requestRaw(`/api/notification/${id}/send`, {
       ...options,

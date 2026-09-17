@@ -110,6 +110,7 @@ describe("createFakeClient", () => {
 
   it("hands back the planned server profile", async () => {
     const server = createServerProfile({
+      edition: "oss",
       version: { tag: "v0.61.2", major: 61, patch: 2 },
       date: null,
       hash: null,

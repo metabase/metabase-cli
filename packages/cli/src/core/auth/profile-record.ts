@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { TokenFeatures } from "@metabase/client/domain/session-properties";
-import { ParsedVersion } from "@metabase/client/version/tag";
+import { Edition, ParsedVersion } from "@metabase/client/version/tag";
 
 export const ProbedUser = z.object({
   id: z.number().int(),
@@ -11,11 +11,12 @@ export const ProbedUser = z.object({
 export type ProbedUser = z.infer<typeof ProbedUser>;
 
 // The raw probe, never anything derived from it: a profile built from a stale derivation would
-// outlive the client that wrote it. `date` and `hash` read as `null` off a record written before
-// they were kept.
+// outlive the client that wrote it. `edition`, `date` and `hash` read as `null` off a record
+// written before they were kept.
 export const ProfileLastProbe = z.object({
   at: z.iso.datetime(),
   version: ParsedVersion.nullable(),
+  edition: Edition.nullable().default(null),
   date: z.string().nullable().default(null),
   hash: z.string().nullable().default(null),
   tokenFeatures: TokenFeatures.nullable(),

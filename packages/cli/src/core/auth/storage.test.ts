@@ -269,6 +269,7 @@ describe("writeProbeResult and writeProbeFailure", () => {
   const ALICE_PROBE = {
     at: PROBED_AT,
     version: { tag: "v0.58.7", major: 58, patch: 7 },
+    edition: "oss",
     date: null,
     hash: null,
     tokenFeatures: null,
@@ -281,6 +282,7 @@ describe("writeProbeResult and writeProbeFailure", () => {
     const probe = await writeProbeResult("p", {
       user: { id: 42, name: "Alice", isAdmin: true },
       server: {
+        edition: "oss",
         version: { tag: "v0.58.7", major: 58, patch: 7 },
         date: null,
         hash: null,
@@ -302,6 +304,7 @@ describe("writeProbeResult and writeProbeFailure", () => {
     const result = await writeProbeResult("ghost", {
       user: { id: 1, name: "n", isAdmin: false },
       server: {
+        edition: "oss",
         version: { tag: "v0.58.7", major: 58, patch: 7 },
         date: null,
         hash: null,
@@ -317,6 +320,7 @@ describe("writeProbeResult and writeProbeFailure", () => {
     await writeProbeResult("p", {
       user: { id: 42, name: "Alice", isAdmin: true },
       server: {
+        edition: "oss",
         version: { tag: "v0.58.7", major: 58, patch: 7 },
         date: null,
         hash: null,

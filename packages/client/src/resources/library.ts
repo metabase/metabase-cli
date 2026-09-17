@@ -34,8 +34,8 @@ export interface LibraryPublishParams extends LibraryTableSelectors {
 export function libraryResource(transport: Transport) {
   /** Get the Library root and its child collections, or `null` on an instance that has none. */
   async function get(options: RequestOptions = {}): Promise<Library | null> {
-    await transport.require("library.get");
-    const { features } = await transport.server();
+    await transport.require("library.get", options);
+    const { features } = await transport.server(options);
     const wire = await transport.requestParsed(libraryWireSchema(features), LIBRARY_ROOT_PATH, {
       ...options,
     });
@@ -63,7 +63,7 @@ export function libraryResource(transport: Transport) {
    * back from a refetch, which together make this idempotent.
    */
   async function create(options: RequestOptions = {}): Promise<Library> {
-    await transport.require("library.create");
+    await transport.require("library.create", options);
     const existing = await get(options);
     if (existing !== null) {
       return existing;
@@ -78,7 +78,7 @@ export function libraryResource(transport: Transport) {
 
   /** The id of the Library's Data collection, creating the Library first when it does not exist. */
   async function ensureDataCollectionId(options: RequestOptions = {}): Promise<number> {
-    await transport.require("library.ensureDataCollectionId");
+    await transport.require("library.ensureDataCollectionId", options);
     const library = await create(options);
     const data = library.effective_children.find((child) => child.type === LIBRARY_DATA_TYPE);
     if (data === undefined) {
@@ -98,7 +98,7 @@ export function libraryResource(transport: Transport) {
     params: LibraryPublishParams,
     options: RequestOptions = {},
   ): Promise<Collection | null> {
-    await transport.require("library.publishTables");
+    await transport.require("library.publishTables", options);
     const response = await transport.requestParsed(PublishTablesResponse, PUBLISH_TABLES_PATH, {
       ...options,
       method: "POST",
@@ -115,7 +115,7 @@ export function libraryResource(transport: Transport) {
     params: LibraryTableSelectors,
     options: RequestOptions = {},
   ): Promise<void> {
-    await transport.require("library.unpublishTables");
+    await transport.require("library.unpublishTables", options);
     await transport.requestRaw(UNPUBLISH_TABLES_PATH, {
       ...options,
       method: "POST",

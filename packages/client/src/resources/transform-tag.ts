@@ -16,7 +16,7 @@ const TransformTagApiList = z.array(TransformTag);
 export function transformTagResource(transport: Transport) {
   /** List every transform tag the caller can see, built-in tags included. */
   async function list(options: RequestOptions = {}): Promise<ListResult<TransformTag>> {
-    await transport.require("transformTag.list");
+    await transport.require("transformTag.list", options);
     const data = await transport.requestParsed(TransformTagApiList, "/api/transform-tag", {
       ...options,
     });
@@ -28,7 +28,7 @@ export function transformTagResource(transport: Transport) {
     params: TransformTagCreateInput,
     options: RequestOptions = {},
   ): Promise<TransformTag> {
-    await transport.require("transformTag.create");
+    await transport.require("transformTag.create", options);
     return transport.requestParsed(TransformTag, "/api/transform-tag", {
       ...options,
       method: "POST",
@@ -42,7 +42,7 @@ export function transformTagResource(transport: Transport) {
     params: TransformTagUpdateInput,
     options: RequestOptions = {},
   ): Promise<TransformTag> {
-    await transport.require("transformTag.update");
+    await transport.require("transformTag.update", options);
     return transport.requestParsed(TransformTag, `/api/transform-tag/${id}`, {
       ...options,
       method: "PUT",
@@ -52,7 +52,7 @@ export function transformTagResource(transport: Transport) {
 
   /** Delete a transform tag by id, detaching it from every transform and job carrying it. */
   async function remove(id: number, options: RequestOptions = {}): Promise<void> {
-    await transport.require("transformTag.delete");
+    await transport.require("transformTag.delete", options);
     await transport.requestRaw(`/api/transform-tag/${id}`, {
       ...options,
       method: "DELETE",

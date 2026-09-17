@@ -1,4 +1,5 @@
 import type { ServerInfo } from "@metabase/client/version/probe";
+import { editionFromTag } from "@metabase/client/version/tag";
 
 import { writeProbeResult, writeProfile } from "../../packages/cli/src/core/auth/storage";
 
@@ -56,7 +57,13 @@ export async function seedProbedProfileAt(
     await writeProfile(target, "default");
     await writeProbeResult("default", {
       user: SEED_USER,
-      server: { version, date: null, hash: null, tokenFeatures },
+      server: {
+        version,
+        edition: version === null ? null : editionFromTag(version.tag),
+        date: null,
+        hash: null,
+        tokenFeatures,
+      },
     });
   });
 }

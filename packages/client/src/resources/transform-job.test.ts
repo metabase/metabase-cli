@@ -68,6 +68,7 @@ const BINARY_READ_HEADERS = {
 // own feature is refused here before it reaches the scripted wire. It is also of the generation
 // that answers a job run with an opaque stub id.
 const SERVER = createServerProfile({
+  edition: "oss",
   version: { tag: "v0.61.0", major: 61, patch: 0 },
   date: null,
   hash: null,
@@ -78,6 +79,7 @@ const SERVER = createServerProfile({
 // id, or null for no run.
 const NUMERIC_RUN_ID_MAJOR = KNOWN_RANGE.max + 1;
 const NUMERIC_RUN_ID_SERVER = createServerProfile({
+  edition: "oss",
   version: { tag: `v0.${NUMERIC_RUN_ID_MAJOR}.0`, major: NUMERIC_RUN_ID_MAJOR, patch: 0 },
   date: null,
   hash: null,

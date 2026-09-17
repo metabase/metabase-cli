@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import type { ServerInfo } from "./probe";
+import { editionFromTag } from "./tag";
 import { createServerProfile } from "./profile";
 import { checkFeatures, checkRequirements } from "./requirement-check";
 
 function profileOf(tag: string, major: number, tokenFeatures: ServerInfo["tokenFeatures"]) {
   return createServerProfile({
     version: { tag, major, patch: 0 },
+    edition: editionFromTag(tag),
     date: null,
     hash: null,
     tokenFeatures,
@@ -84,6 +86,7 @@ describe("checkRequirements", () => {
 
   it("places an unparseable tag past the newest known major, so only a token can refuse it", () => {
     const head = createServerProfile({
+      edition: null,
       version: null,
       date: "2026-09-16",
       hash: "548573f",

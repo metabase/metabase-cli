@@ -146,6 +146,7 @@ describe("reportError", () => {
     const failure = checkFeatures(
       ["transformJobActivation"],
       createServerProfile({
+        edition: "oss",
         version: { tag: "v0.58.0", major: 58, patch: 0 },
         date: null,
         hash: null,
@@ -166,6 +167,7 @@ describe("reportError", () => {
     const failure = checkFeatures(
       ["library"],
       createServerProfile({
+        edition: "oss",
         version: { tag: "v0.61.0", major: 61, patch: 0 },
         date: null,
         hash: null,
@@ -184,6 +186,7 @@ describe("reportError", () => {
     const failure = checkFeatures(
       ["transformJobActivation"],
       createServerProfile({
+        edition: "oss",
         version: { tag: "v0.58.0", major: 58, patch: 0 },
         date: null,
         hash: null,

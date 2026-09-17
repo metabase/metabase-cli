@@ -34,6 +34,7 @@ const JSON_READ_HEADERS = {
 // The least server that answers this resource, so a method asking for more than the resource's
 // own feature is refused here before it reaches the scripted wire.
 const SERVER = createServerProfile({
+  edition: "ee",
   version: { tag: "v1.58.0", major: 58, patch: 0 },
   date: null,
   hash: null,

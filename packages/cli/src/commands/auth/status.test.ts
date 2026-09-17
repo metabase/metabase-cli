@@ -116,6 +116,7 @@ describe("auth status command", () => {
   it("surfaces the cached probe and what this CLI derives from it when one exists", async () => {
     await writeProfile({ url: "https://m.example.com", apiKey: "secret" });
     const server: ServerInfo = {
+      edition: "oss",
       version: { tag: "v0.58.7", major: 58, patch: 7 },
       date: null,
       hash: null,
@@ -149,6 +150,7 @@ describe("auth status command", () => {
     await writeProfile({ url: "https://m.example.com", apiKey: "secret" });
     const beyond = KNOWN_RANGE.max + 5;
     const server: ServerInfo = {
+      edition: "ee",
       version: { tag: `v1.${beyond}.0`, major: beyond, patch: 0 },
       date: null,
       hash: null,

@@ -16,14 +16,14 @@ export interface SegmentArchiveParams {
 export function segmentResource(transport: Transport) {
   /** List every segment the caller can see. */
   async function list(options: RequestOptions = {}): Promise<ListResult<Segment>> {
-    await transport.require("segment.list");
+    await transport.require("segment.list", options);
     const data = await transport.requestParsed(SegmentApiList, "/api/segment", { ...options });
     return { data, total: null };
   }
 
   /** Get one segment by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<Segment> {
-    await transport.require("segment.get");
+    await transport.require("segment.get", options);
     return transport.requestParsed(Segment, `/api/segment/${id}`, { ...options });
   }
 
@@ -32,7 +32,7 @@ export function segmentResource(transport: Transport) {
     params: SegmentCreateInput,
     options: RequestOptions = {},
   ): Promise<Segment> {
-    await transport.require("segment.create");
+    await transport.require("segment.create", options);
     return transport.requestParsed(Segment, "/api/segment", {
       ...options,
       method: "POST",
@@ -49,7 +49,7 @@ export function segmentResource(transport: Transport) {
     params: SegmentUpdateInput,
     options: RequestOptions = {},
   ): Promise<Segment> {
-    await transport.require("segment.update");
+    await transport.require("segment.update", options);
     return transport.requestParsed(Segment, `/api/segment/${id}`, {
       ...options,
       method: "PUT",
@@ -66,7 +66,7 @@ export function segmentResource(transport: Transport) {
     params: SegmentArchiveParams,
     options: RequestOptions = {},
   ): Promise<Segment> {
-    await transport.require("segment.archive");
+    await transport.require("segment.archive", options);
     return update(id, { archived: true, revision_message: params.revision_message }, options);
   }
 

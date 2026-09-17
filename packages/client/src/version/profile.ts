@@ -11,7 +11,7 @@ import {
   ruleGap,
 } from "./features";
 import type { ServerInfo } from "./probe";
-import { Edition, editionFromTag, ParsedVersion } from "./tag";
+import { Edition, ParsedVersion } from "./tag";
 
 // The majors this client was built and tested against. A server above `max` is read as `max + 1`:
 // its additions pass through the loose schemas, and a shape it changed fails loudly instead of
@@ -68,13 +68,12 @@ function place(version: ParsedVersion | null): Placement {
   return { effectiveMajor: version.major, skew: "supported" };
 }
 
-// A released tag is authoritative. A dev build's tag never parses, and `/api/session/properties`
-// carries no other edition field (OSS sends the same all-false `token-features` map an unlicensed
-// EE does), so there the edition is whatever the token proves.
+// The tag is authoritative. Where it stamps no edition, `/api/session/properties` carries no other
+// edition field (OSS sends the same all-false `token-features` map an unlicensed EE does), so
+// there the edition is whatever the token proves.
 function detectEdition(info: ServerInfo): Edition {
-  const fromTag = info.version === null ? null : editionFromTag(info.version.tag);
-  if (fromTag !== null) {
-    return fromTag;
+  if (info.edition !== null) {
+    return info.edition;
   }
   return grantsAnyFeature(info.tokenFeatures) ? "ee" : "oss";
 }

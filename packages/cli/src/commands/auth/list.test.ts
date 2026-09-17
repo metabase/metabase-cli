@@ -76,6 +76,7 @@ const LATER = "2026-03-04T06:00:00.000Z";
 
 function successServer(): ServerInfo {
   return {
+    edition: "oss",
     version: { tag: "v0.58.7", major: 58, patch: 7 },
     date: null,
     hash: null,
@@ -118,6 +119,7 @@ function probedRecord(name: string, url: string): ProfileRecord {
     oauth: null,
     lastProbe: {
       at: PROBED_AT,
+      edition: "oss",
       version: { tag: "v0.58.7", major: 58, patch: 7 },
       date: null,
       hash: null,

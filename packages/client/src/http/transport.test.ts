@@ -13,6 +13,7 @@ import {
   type Transport,
 } from "./transport";
 import { HttpError } from "./errors";
+import { deferred } from "../testing/deferred";
 import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
 import { SessionProperties } from "../domain/session-properties";
@@ -399,6 +400,7 @@ describe("createTransport.server", () => {
     "token-features": { library: true },
   };
   const PROBED_PROFILE = createServerProfile({
+    edition: "ee",
     version: { tag: "v1.61.2", major: 61, patch: 2 },
     date: "2026-05-19",
     hash: "0c64e27",
@@ -474,6 +476,29 @@ describe("createTransport.server", () => {
     const error = await pending.catch((caught: unknown) => caught);
     assert(error instanceof AbortError, "expected AbortError");
     expect(error.message).toBe("operator interrupt");
+  });
+
+  it("ends one caller's wait on its own signal while the shared probe settles for the rest", async () => {
+    const probeResponse = deferred<Response>();
+    const fakeFetch = captureFetch([() => probeResponse.promise]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+    });
+    const controller = new AbortController();
+
+    const abandoned = client.server({ signal: controller.signal });
+    const patient = client.server();
+    controller.abort(new Error("caller moved on"));
+
+    const error = await abandoned.catch((caught: unknown) => caught);
+    assert(error instanceof AbortError, "expected AbortError");
+    expect(error.message).toBe("caller moved on");
+
+    probeResponse.resolve(jsonResponse(PROBE_BODY));
+    expect(await patient).toEqual(PROBED_PROFILE);
+    expect(await client.server()).toBe(await patient);
+    expect(fakeFetch.calls).toHaveLength(1);
   });
 
   it("names the supplied profile's version in a shape error without a getServerTag", async () => {
@@ -569,6 +594,7 @@ describe("createTransport.server", () => {
       userAgent: TEST_USER_AGENT,
       fetchImpl: fakeFetch.fetch,
       server: createServerProfile({
+        edition: "oss",
         version: { tag: `v0.${beyond}.0`, major: beyond, patch: 0 },
         date: null,
         hash: null,
@@ -592,6 +618,7 @@ describe("createTransport.server", () => {
 
 describe("createTransport.require", () => {
   const OSS_58 = createServerProfile({
+    edition: "oss",
     version: { tag: "v0.58.0", major: 58, patch: 0 },
     date: null,
     hash: null,
@@ -633,6 +660,22 @@ describe("createTransport.require", () => {
     assert(error instanceof CapabilityError, "expected CapabilityError");
     expect(error.userMessage).toBe(VERSION_TOO_OLD.detail);
     expect(error.developerDetail).toEqual(VERSION_TOO_OLD);
+    expect(fakeFetch.calls).toEqual([]);
+  });
+
+  it("refuses with an already-aborted signal before probing for a gated method", async () => {
+    const fakeFetch = captureFetch([]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+    });
+
+    const error = await client
+      .require("measure.list", { signal: AbortSignal.abort(new Error("already gone")) })
+      .catch((caught: unknown) => caught);
+
+    assert(error instanceof AbortError, "expected AbortError");
+    expect(error.message).toBe("already gone");
     expect(fakeFetch.calls).toEqual([]);
   });
 

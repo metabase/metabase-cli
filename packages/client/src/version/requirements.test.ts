@@ -56,6 +56,7 @@ const CREDENTIALS: ClientCredentials = {
 
 // A method that picks its wire shape by generation reads the profile between asking and requesting.
 const SERVER = createServerProfile({
+  edition: "oss",
   version: { tag: "v0.63.0", major: 63, patch: 0 },
   date: null,
   hash: null,
@@ -103,7 +104,7 @@ interface RequiredLiteral {
   readonly method: string;
 }
 
-const REQUIRE_CALL = /transport\.require\("([^"]+)"\)/g;
+const REQUIRE_CALL = /transport\.require\("([^"]+)", options\)/g;
 const FUNCTION_DECLARATION = /function\*? ([A-Za-z]+)\(/g;
 const RETURNED_OBJECT = /return \{([^}]*)\}/g;
 const ALIASED_ENTRY = /([A-Za-z]+): ([A-Za-z]+)/g;

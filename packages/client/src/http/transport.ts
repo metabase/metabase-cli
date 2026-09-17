@@ -2,7 +2,7 @@ import type { ZodType } from "zod";
 
 import { errorMessage, NetworkError, TimeoutError } from "../errors";
 import { JSON_CONTENT_TYPE } from "../json";
-import { combineAborts, throwIfAborted } from "../signal";
+import { combineAborts, throwIfAborted, untilAborted } from "../signal";
 import { normalizeUrl } from "../url";
 import { CapabilityError } from "../version/preflight-error";
 import { probeServer } from "../version/probe";
@@ -63,12 +63,15 @@ export interface Transport {
   requestRaw(path: string, opts?: TransportRequestOptions): Promise<Response>;
   requestStream(path: string, opts?: TransportRequestOptions): Promise<ReadableStream<Uint8Array>>;
   // The profile handed in at construction, or else the one the first call probes and every later
-  // call shares.
-  server(): Promise<ServerProfile>;
+  // call shares. `signal` ends this caller's wait; the probe itself is the client's and is cancelled
+  // only by the client's own signal, so a later call still finds it settled.
+  server(options?: WaitOptions): Promise<ServerProfile>;
   // Throws `CapabilityError` when the server lacks a feature the method needs, before any request
   // leaves. A method that needs nothing resolves without consulting the server.
-  require(key: MethodKey): Promise<void>;
+  require(key: MethodKey, options?: WaitOptions): Promise<void>;
 }
+
+export type WaitOptions = Pick<RequestOptions, "signal">;
 
 export interface ClientCredentials {
   url: string;
@@ -297,7 +300,8 @@ export function createTransport(config: ClientCredentials, options: ClientOption
 
   // A failed probe is not memoized: the next call asks again rather than replaying one transient
   // failure for the life of the client.
-  function server(): Promise<ServerProfile> {
+  async function server(wait: WaitOptions = {}): Promise<ServerProfile> {
+    throwIfAborted(wait.signal);
     if (serverProfile === null) {
       const probe = probeServer(transport).then((info) => {
         settledProfile = createServerProfile(info);
@@ -308,16 +312,16 @@ export function createTransport(config: ClientCredentials, options: ClientOption
       });
       serverProfile = probe;
     }
-    return serverProfile;
+    return untilAborted(serverProfile, wait.signal);
   }
 
   const enforceRequirements = options.enforceRequirements ?? true;
 
-  async function requireFeatures(key: MethodKey): Promise<void> {
+  async function requireFeatures(key: MethodKey, wait: WaitOptions = {}): Promise<void> {
     if (!enforceRequirements || methodRequirements(key).length === 0) {
       return;
     }
-    const failure = checkRequirements(key, await server());
+    const failure = checkRequirements(key, await server(wait));
     if (failure !== null) {
       throw new CapabilityError(failure);
     }
