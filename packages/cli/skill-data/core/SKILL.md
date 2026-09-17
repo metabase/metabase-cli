@@ -6,7 +6,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # metabase-cli (core)
 
-The official Metabase CLI (`mb`) drives a Metabase instance over its REST API: auth, list/get/create/update/delete on every resource, query and transform execution, content search, git-sync (representations ↔ instance), and entity-id translation.
+`mb` drives a Metabase instance over its REST API: CRUD on every resource, query and transform execution, search, git-sync (representations ↔ instance), and entity-id translation.
 
 Top-level command groups (run `mb <group> --help` to discover verbs):
 
@@ -16,7 +16,7 @@ document | glossary | timeline | timeline-event | transform | transform-job | tr
 search | dependency | git-sync | setup | eid | uuid | upgrade | skills
 ```
 
-The conventions below — auth, flags, output, body input — hold across **every** group. Per-command flags and examples live in each command's `--help`; add `--json` for the machine-readable form with the output JSON Schema. A few flows have their own skills (see "Specialized skills"). When a card needs a query, prefer MBQL over native SQL (portable, pre-flight-validated — load `mbql`); fall back to native SQL when MBQL can't express it.
+The conventions below — auth, flags, output, body input — hold across **every** group. When a card needs a query, prefer MBQL over native SQL (portable, pre-flight-validated — load `mbql`); fall back to native SQL when MBQL can't express it.
 
 ## Auth & profiles
 
@@ -28,7 +28,7 @@ mb auth status --json                    # → {profile, present, url} for the d
 mb auth status --profile <name> --json   # health probe for one profile
 ```
 
-`auth list` is the primary enumeration path — one call returns every profile with sanitized URL, an `authenticated` flag, and a probe `status` (`ok` / `auth-failed` / `network-error` / `server-error` / `not-probed`). Use it before asking which profile to pick.
+`auth list` is the primary enumeration path — one call returns every profile with sanitized URL, an `authenticated` flag, and a probe `status` (`ok` / `auth-failed` / `network-error` / `server-error` / `not-probed`).
 
 - One profile and intent doesn't disambiguate → use it.
 - Several → ask via `AskUserQuestion`, presenting the names from `auth list`.
@@ -70,10 +70,10 @@ Every list verb takes `--limit <n>` (items this call returns) and `--offset <n>`
 
 - **`has_more` decides whether to keep going — never compare counts.** `total` is the server's count on endpoints that report one and `null` on those that don't, so arithmetic over it is not a termination condition.
 - **To continue, pass `next_offset` back as `--offset`.** When `has_more` is true `next_offset` is past the offset you sent, so the loop advances; when false the walk is over and `next_offset` is `null`.
-- **`truncated` means the byte cap cut the output, not that the data ran out.** `has_more`/`next_offset` are recomputed to the cut point, so a capped list resumes like any window. Its `bytes` is what the untruncated answer would have measured. Narrow rows with `--fields` rather than raising `--max-bytes` — a bigger cap spends context on fields you didn't ask for, and the cap counts only what you asked for, so `--fields` buys rows directly. A capped list always returns at least one row; when not even one fits it exits 2 with "the smallest response this list can produce is N bytes, over the M-byte --max-bytes cap; …".
+- **`truncated` means the byte cap cut the output, not that the data ran out.** `has_more`/`next_offset` are recomputed to the cut point, so a capped list resumes like any window. Its `bytes` is what the untruncated answer would have measured. Narrow rows with `--fields` rather than raising `--max-bytes` — the cap counts only what you asked for, so `--fields` buys rows directly. A capped list always returns at least one row; when not even one fits it exits 2 with "the smallest response this list can produce is N bytes, over the M-byte --max-bytes cap; …".
 - `limit` is echoed only when you passed `--limit` — except `mb search`, which defaults to `--limit 20` (an unbounded search is expensive server-side) and so always reports one. On nouns the server doesn't page, one large `--limit` with narrow `--fields` is a single request; many small `--offset` hops are one request each.
 
-The whole walk, literally:
+The whole walk:
 
 ```bash
 offset=0
@@ -105,7 +105,7 @@ mb <noun> create --file ./.scratch/body.json --profile <n> --json
 
 Single-quoted `'EOF'` stops the shell interpolating `$vars` inside the JSON.
 
-Write working files to **`./.scratch`** in the current directory (`mkdir -p ./.scratch` first), never `/tmp` — better permissions, they persist across the session, and the user can review them.
+Write working files to **`./.scratch`** in the current directory (`mkdir -p ./.scratch` first), never `/tmp` — they persist across the session and the user can review them.
 
 ## Discovering commands and schemas
 
@@ -124,7 +124,7 @@ mb transform --help --json | jq -r '.commands[].command'  # verbs under "transfo
 
 ## Resource quirks worth memorizing
 
-Routine verb shapes (list / get / create / update), every flag, and output schemas live in each command's `--help` (add `--json` for output schemas). Below is only what help does _not_ tell you: footguns and non-obvious behaviors.
+Only what `--help` does _not_ tell you: footguns and non-obvious behaviors.
 
 - **db traversal: the hydration ladder.** Start with `database get <db-id> --include tables` — the compact table map (id, name, schema, description per table), one call that fits most databases. Pick the relevant tables, then `table fields <table-id>` per table (bounded: fields are per-table). `--include tables.fields` is the full rollup — small databases only. Hundreds of tables? Traverse by schema (`database schemas <db-id>` → `database schema-tables <db-id> <schema>`) or look tables up by name (`search <term> --models table --db-id <db-id> --limit 10`). `db sync-schema` / `rescan-values` queue async work and return `{status:"ok"}` at once; `sync-schema --wait` blocks until `initial_sync_status: complete`.
 - **table fields.** `table get` never returns fields on its own — pass `--include fields` (compact; the underlying query_metadata response also carries FK targets and dimensions, visible under `--full`) or use `table fields <id>` (list envelope). `table update` patches table-level metadata only; physical columns aren't editable.
@@ -174,6 +174,9 @@ This file is enough for any single-command task. For anything deeper, load the r
 - **`notification`** — scheduled delivery: question alerts (`mb alert`) and dashboard subscriptions (`mb subscription`). Choosing between them, the two schedule/recipient contracts, channel prerequisites, testing a send.
 <!-- requires: transforms -->
 - **`transform`** — transform body JSON, create + run-with-wait, run inspection, tags, jobs.
+<!-- /requires -->
+<!-- requires: transformTests -->
+- **`transform-test-plan`** — deciding _what_ to test in a transform: the fixture cast, the expectations, the coverage matrix. (`transform` has the `mb transform-test` shapes.)
 <!-- /requires -->
 - **`document`** — Metabase documents (TipTap body, embedding cards).
 <!-- requires: remoteSync -->
