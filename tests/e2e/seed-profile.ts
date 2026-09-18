@@ -1,24 +1,14 @@
 import type { ServerInfo } from "@metabase/client/version/probe";
-import { editionFromTag } from "@metabase/client/version/tag";
 
-import { writeProbeResult, writeProfile } from "../../packages/cli/src/core/auth/storage";
+import { writeProfile } from "../../packages/cli/src/core/auth/storage";
+import {
+  probeAt,
+  type SeedTarget,
+  seedProbedProfile as writeProbedProfile,
+  UNREACHABLE_TARGET,
+} from "../../packages/cli/src/core/auth/temp-config-home";
 
-// The seeded records are written straight through the CLI's own storage, so the CLI under test
-// reads a profile it could have written itself; the port-1 URL never answers, which keeps a test
-// on the cached probe honest about opening no socket.
-export const UNREACHABLE_URL = "http://127.0.0.1:1";
-export const SEED_USER = { id: 1, name: "Tester", isAdmin: true };
-
-export interface SeedTarget {
-  url: string;
-  apiKey: string;
-}
-
-export const UNREACHABLE: SeedTarget = { url: UNREACHABLE_URL, apiKey: "secret-key" };
-
-export function versionAt(major: number): ServerInfo["version"] {
-  return { tag: `v0.${major}.0`, major, patch: 0 };
-}
+const SEED_PROFILE_NAME = "default";
 
 function restoreEnv(key: string, value: string | undefined): void {
   if (value === undefined) {
@@ -28,6 +18,9 @@ function restoreEnv(key: string, value: string | undefined): void {
   }
 }
 
+// The CLI's own storage writes the seeded records, so the binary under test reads a profile it
+// could have written itself; the storage reads its config home and keyring switch off the
+// environment, which is pointed at the test's config home for the write alone.
 async function withSeedEnv(configHome: string, seed: () => Promise<void>): Promise<void> {
   const prevXdg = process.env["XDG_CONFIG_HOME"];
   const prevKeyring = process.env["MB_CLI_DISABLE_KEYRING"];
@@ -43,31 +36,20 @@ async function withSeedEnv(configHome: string, seed: () => Promise<void>): Promi
 
 export async function seedProfile(configHome: string): Promise<void> {
   await withSeedEnv(configHome, async () => {
-    await writeProfile(UNREACHABLE, "default");
+    await writeProfile(UNREACHABLE_TARGET, SEED_PROFILE_NAME);
   });
 }
 
 export async function seedProbedProfileAt(
   configHome: string,
   target: SeedTarget,
-  version: ServerInfo["version"],
-  tokenFeatures: ServerInfo["tokenFeatures"] = null,
+  server: ServerInfo,
 ): Promise<void> {
   await withSeedEnv(configHome, async () => {
-    await writeProfile(target, "default");
-    await writeProbeResult("default", {
-      user: SEED_USER,
-      server: {
-        version,
-        edition: version === null ? null : editionFromTag(version.tag),
-        date: null,
-        hash: null,
-        tokenFeatures,
-      },
-    });
+    await writeProbedProfile(SEED_PROFILE_NAME, server, target);
   });
 }
 
 export async function seedProbedProfile(configHome: string, major: number): Promise<void> {
-  await seedProbedProfileAt(configHome, UNREACHABLE, versionAt(major));
+  await seedProbedProfileAt(configHome, UNREACHABLE_TARGET, probeAt(major));
 }

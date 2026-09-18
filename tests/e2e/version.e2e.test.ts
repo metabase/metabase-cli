@@ -6,18 +6,17 @@ import { KNOWN_RANGE } from "@metabase/client/version/profile";
 import { AuthStatus } from "../../packages/cli/src/commands/auth/status";
 import { CardListEnvelope } from "../../packages/cli/src/commands/card/list";
 import { summarizeServer } from "../../packages/cli/src/core/auth/server-summary";
+import {
+  probeAt,
+  SEED_USER,
+  type SeedTarget,
+  UNPARSEABLE_PROBE,
+} from "../../packages/cli/src/core/auth/temp-config-home";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import {
-  SEED_USER,
-  seedProbedProfile,
-  seedProbedProfileAt,
-  seedProfile,
-  type SeedTarget,
-  versionAt,
-} from "./seed-profile";
+import { seedProbedProfile, seedProbedProfileAt, seedProfile } from "./seed-profile";
 import { E2E_BUILTIN_TRANSFORM_JOBS } from "./seed/ids";
 import { requireServer } from "./server-gate";
 
@@ -147,7 +146,7 @@ describe("version skew notices e2e", () => {
 
   it("prints exactly one newer-server notice on stderr and succeeds when the cached probe is above the known range", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfileAt(configHome, liveTarget(), versionAt(BEYOND_KNOWN));
+    await seedProbedProfileAt(configHome, liveTarget(), probeAt(BEYOND_KNOWN));
 
     const result = await runCli({ args: ["card", "list", "--limit", "1", "--json"], configHome });
 
@@ -158,7 +157,7 @@ describe("version skew notices e2e", () => {
 
   it("prints exactly one unknown-version notice on stderr and succeeds when the cached probe carries no parseable version", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfileAt(configHome, liveTarget(), null);
+    await seedProbedProfileAt(configHome, liveTarget(), UNPARSEABLE_PROBE);
 
     const result = await runCli({ args: ["card", "list", "--limit", "1", "--json"], configHome });
 
@@ -169,7 +168,7 @@ describe("version skew notices e2e", () => {
 
   it("prints no notice when the cached probe is inside the known range", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfileAt(configHome, liveTarget(), versionAt(KNOWN_RANGE.max));
+    await seedProbedProfileAt(configHome, liveTarget(), probeAt(KNOWN_RANGE.max));
 
     const result = await runCli({ args: ["card", "list", "--limit", "1", "--json"], configHome });
 
@@ -186,7 +185,7 @@ describe("version skew notices e2e", () => {
   describe.skipIf(reprobeSkipReason !== null)("re-probe on a shape error", () => {
     it("re-probes once, refreshes the stale profile, and appends the change to the error", async () => {
       const configHome = await makeIsolatedConfigHome();
-      await seedProbedProfileAt(configHome, liveTarget(), versionAt(59));
+      await seedProbedProfileAt(configHome, liveTarget(), probeAt(59));
       const seededAt = await lastProbedAt(configHome);
 
       const result = await runCli({

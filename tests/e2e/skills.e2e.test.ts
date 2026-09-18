@@ -9,6 +9,7 @@ import { parseJson } from "@metabase/client/json";
 import { SkillGetEnvelope } from "../../packages/cli/src/commands/skills/get";
 import { SkillListEnvelope } from "../../packages/cli/src/commands/skills/list";
 import { SkillPathListEnvelope } from "../../packages/cli/src/commands/skills/path";
+import { probeAt, UNREACHABLE_TARGET } from "../../packages/cli/src/core/auth/temp-config-home";
 import {
   discoverSkills,
   type SkillContent,
@@ -18,7 +19,7 @@ import { fitWithinCap } from "../../packages/cli/src/output/cap";
 import { DEFAULT_MAX_BYTES } from "../../packages/cli/src/output/types";
 import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { seedProbedProfile, seedProbedProfileAt, UNREACHABLE, versionAt } from "./seed-profile";
+import { seedProbedProfile, seedProbedProfileAt } from "./seed-profile";
 
 type SkillGetPayload = z.infer<typeof SkillGetEnvelope>;
 
@@ -240,11 +241,11 @@ describe("skills e2e", () => {
     const oss58 = await makeIsolatedConfigHome();
     await seedProbedProfile(oss58, 58);
     const ee63 = await makeIsolatedConfigHome();
-    await seedProbedProfileAt(ee63, UNREACHABLE, versionAt(63), {
-      library: true,
-      remote_sync: true,
-      content_translation: true,
-    });
+    await seedProbedProfileAt(
+      ee63,
+      UNREACHABLE_TARGET,
+      probeAt(63, { library: true, remote_sync: true, content_translation: true }),
+    );
 
     const onOss58 = await runCli({ args: ["skills", "get", "core", "--json"], configHome: oss58 });
     const onEe63 = await runCli({ args: ["skills", "get", "core", "--json"], configHome: ee63 });
