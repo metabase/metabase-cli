@@ -47,7 +47,7 @@ If the resource genuinely has more verbs (e.g. a `<r> values` for fetching disti
 
 The domain file is client surface, so it lives in `@metabase/client`, not the CLI. Two constraints follow from that:
 
-- **A domain file imports `zod`, sibling `domain/*` files and — only for a reader that selects a wire shape by generation — `import type { Features } from "../version/features"`, nothing else.** Not the rest of the client (`../json`, `../poll`), not `node:` builtins, and never `packages/cli` — a client file that reaches into the CLI inverts the dependency between the two packages. The wider `zod` + `semver` + `node:` budget is the client package's ceiling; `domain/` sits well inside it.
+- **A domain file imports `zod`, sibling `domain/*` files and — only for a reader that selects a wire shape by generation — `import type { Features } from "../version/features"`, nothing else.** Not the rest of the client (`../json`, `../poll`), not `node:` builtins, and never `packages/cli` — a client file that reaches into the CLI inverts the dependency between the two packages. The wider `zod` + `node:` budget is the client package's ceiling; `domain/` sits well inside it.
 - **Nothing CLI-shaped leaks in.** No `@clack/prompts`, no `process.stdout.write`, no `process.exit` — the client never owns presentation or process control.
 
 A single file in `packages/client/src/domain/` may host multiple resources (e.g. `domain/user.ts` exports `CurrentUser` / `CurrentUserCompact`). The pair holds **per resource**, not per file. `<Resource>` is PascalCase.
