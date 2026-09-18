@@ -12,7 +12,7 @@ export const TransformTestListEnvelope = listEnvelopeSchema(TransformTestCompact
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List transform tests" },
-  capabilities: { minVersion: 64 },
+  capabilities: { minVersion: 65 },
   args: {
     ...outputFlags,
     ...listFlags,

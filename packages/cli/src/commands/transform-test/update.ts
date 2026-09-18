@@ -12,7 +12,7 @@ export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a transform test from JSON" },
   details:
     "Only the fields the body carries are patched. `inputs` and `expectations` replace what is stored rather than merging into it. The body is closed: a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it can be sent.",
-  capabilities: { minVersion: 64 },
+  capabilities: { minVersion: 65 },
   args: {
     ...outputFlags,
     ...profileFlag,
