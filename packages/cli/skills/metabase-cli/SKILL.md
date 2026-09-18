@@ -17,7 +17,7 @@ Before running any `mb` command, load the workflow content from the CLI:
 
 ```bash
 mb skills get core    # auth, flag conventions, every command group
-mb skills list        # every bundled skill the profile's server can use (--all for all of them)
+mb skills list        # every bundled skill the profile's server can use (--unfiltered for all of them)
 ```
 
 **Doing a whole job, not one command?** If the user wants an outcome — "make sense of my data", "build a data model", "go from raw data to a dashboard", "answer questions about my data", "be my data analyst", "set up analytics for X" — load the guided end-to-end skill instead and let it drive:

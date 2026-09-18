@@ -59,7 +59,7 @@ export interface UnavailableSkill {
 }
 
 // `unavailable` is `null` when nothing was filtered out because there was no server to filter by.
-export interface SkillSelection {
+interface SkillSelection {
   skills: SkillInfo[];
   unavailable: UnavailableSkill[] | null;
 }
@@ -77,11 +77,12 @@ const SKILL_TEMPLATES_DIR = "templates";
 const FRONTMATTER_PREFIX_BYTES = 8192;
 const FRONTMATTER_FENCE = "---";
 
-const SECTION_OPEN_PREFIX = /^<!--\s*requires:\s*/;
-const MARKER_END = /\s*-->$/;
-const SECTION_OPEN = /^<!--\s*requires:.*-->$/;
-const SECTION_CLOSE = /^<!--\s*\/requires\s*-->$/;
-const SECTION_MARKER_TEXT = /<!--\s*\/?requires\b/;
+const COMMENT_START = "<!--";
+const COMMENT_END = "-->";
+const MARKER_KEYWORD = "requires";
+const MARKER_OPEN_KEYWORD = `${MARKER_KEYWORD}:`;
+const MARKER_CLOSE_KEYWORD = `/${MARKER_KEYWORD}`;
+const FENCE_RUN = /^(?:`{3,}|~{3,})/;
 
 export function loadAllSkills(): SkillInfo[] {
   return discoverSkills(resolveSkillDirs());
@@ -306,43 +307,54 @@ interface OpenSection {
   met: boolean;
 }
 
+interface OpenMarker {
+  kind: "open";
+  names: string[];
+}
+
+interface CloseMarker {
+  kind: "close";
+}
+
+type Marker = OpenMarker | CloseMarker;
+
+interface MarkerSite {
+  where: string;
+  lineNumber: number;
+}
+
 // Without features the markers stay in the text, so a reader still sees what each section needs.
 // They are validated either way, so a typo fails on every read rather than only against some server.
 export function resolveSections(text: string, features: Features | null, where: string): string {
+  const lines = text.split("\n");
   const out: string[] = [];
   let open: OpenSection | null = null;
+  let fence: string | null = null;
   let collapseBlank = false;
-  for (const [index, line] of text.split("\n").entries()) {
-    const lineNumber = index + 1;
+  for (const [index, line] of lines.entries()) {
+    const site: MarkerSite = { where, lineNumber: index + 1 };
     const trimmed = line.trim();
-    if (SECTION_OPEN.test(trimmed)) {
-      if (open !== null) {
-        throw new ConfigError(
-          `${where}: nested requires section at line ${lineNumber} (opened at line ${open.line})`,
-        );
+    const opening: string | null = fence === null ? fenceRun(trimmed) : null;
+    if (fence !== null) {
+      if (closesFence(trimmed, fence)) {
+        fence = null;
       }
-      const named = parseFeatureNames(sectionFeatureNames(trimmed), `${where} line ${lineNumber}`);
-      if (named.length === 0) {
-        throw new ConfigError(`${where}: requires section at line ${lineNumber} names no feature`);
+    } else if (opening !== null) {
+      fence = opening;
+    } else {
+      const marker = parseMarker(trimmed);
+      if (marker === null && mentionsMarker(line)) {
+        throw markerError(trimmed, site);
       }
-      open = { line: lineNumber, met: features === null || named.every((name) => features[name]) };
-      collapseBlank = dropMarker(out, line, features);
-      continue;
-    }
-    if (SECTION_CLOSE.test(trimmed)) {
-      if (open === null) {
-        throw new ConfigError(
-          `${where}: requires section closed at line ${lineNumber} was never opened`,
-        );
+      if (marker !== null) {
+        assertOutsideTable(lines, index, where);
+        open =
+          marker.kind === "open"
+            ? openSection(marker, open, features, site)
+            : closeSection(open, site);
+        collapseBlank = dropMarker(out, line, features);
+        continue;
       }
-      collapseBlank = dropMarker(out, line, features);
-      open = null;
-      continue;
-    }
-    if (SECTION_MARKER_TEXT.test(line)) {
-      throw new ConfigError(
-        `${where}: a requires marker must be on its own line (line ${lineNumber})`,
-      );
     }
     if (collapseBlank) {
       collapseBlank = false;
@@ -369,8 +381,99 @@ function dropMarker(out: string[], marker: string, features: Features | null): b
   return out.length === 0 || out[out.length - 1] === "";
 }
 
-function sectionFeatureNames(marker: string): string[] {
-  return parseCsv(marker.replace(SECTION_OPEN_PREFIX, "").replace(MARKER_END, ""));
+// A table ends at a blank line, so only a row on the very next or previous line puts a marker
+// inside one.
+function assertOutsideTable(lines: readonly string[], index: number, where: string): void {
+  if (isTableRow(lines[index - 1]) || isTableRow(lines[index + 1])) {
+    throw new ConfigError(
+      `${where}: a requires marker cannot sit inside a Markdown table (line ${index + 1})`,
+    );
+  }
+}
+
+function isTableRow(line: string | undefined): boolean {
+  return line !== undefined && line.trimStart().startsWith("|");
+}
+
+// The backtick or tilde run that opens a fenced code block, or `null` for any other line. What a
+// fence encloses is text, marker-shaped lines included.
+function fenceRun(trimmed: string): string | null {
+  const match = FENCE_RUN.exec(trimmed);
+  return match === null ? null : match[0];
+}
+
+// A closing fence is the opening run's character, at least as long, and nothing else on the line.
+function closesFence(trimmed: string, fence: string): boolean {
+  const run = fenceRun(trimmed);
+  return run !== null && run.startsWith(fence) && run === trimmed;
+}
+
+function openSection(
+  marker: OpenMarker,
+  open: OpenSection | null,
+  features: Features | null,
+  site: MarkerSite,
+): OpenSection {
+  const { where, lineNumber } = site;
+  if (open !== null) {
+    throw new ConfigError(
+      `${where}: nested requires section at line ${lineNumber} (opened at line ${open.line})`,
+    );
+  }
+  const named = parseFeatureNames(marker.names, `${where} line ${lineNumber}`);
+  if (named.length === 0) {
+    throw new ConfigError(`${where}: requires section at line ${lineNumber} names no feature`);
+  }
+  return { line: lineNumber, met: features === null || named.every((name) => features[name]) };
+}
+
+function closeSection(open: OpenSection | null, site: MarkerSite): null {
+  if (open === null) {
+    throw new ConfigError(
+      `${site.where}: requires section closed at line ${site.lineNumber} was never opened`,
+    );
+  }
+  return null;
+}
+
+// The whole grammar, on a line that is nothing else; `null` for any other line. Plain string
+// checks rather than a comment-shaped regex, which is the pattern HTML sanitizers get wrong.
+function parseMarker(trimmed: string): Marker | null {
+  if (!trimmed.startsWith(COMMENT_START) || !trimmed.endsWith(COMMENT_END)) {
+    return null;
+  }
+  const inner = trimmed.slice(COMMENT_START.length, -COMMENT_END.length).trim();
+  if (inner === MARKER_CLOSE_KEYWORD) {
+    return { kind: "close" };
+  }
+  if (inner.startsWith(MARKER_OPEN_KEYWORD)) {
+    return { kind: "open", names: parseCsv(inner.slice(MARKER_OPEN_KEYWORD.length)) };
+  }
+  return null;
+}
+
+// A comment that opens on the keyword anywhere in the line was meant as a marker, colon or not.
+function mentionsMarker(line: string): boolean {
+  const at = line.indexOf(COMMENT_START);
+  if (at < 0) {
+    return false;
+  }
+  const inner = line.slice(at + COMMENT_START.length).trimStart();
+  const keyword = inner.startsWith("/") ? inner.slice(1) : inner;
+  return keyword.startsWith(MARKER_KEYWORD);
+}
+
+// A marker attempt that fills the line is malformed; one sharing the line with prose is misplaced.
+function markerError(trimmed: string, site: MarkerSite): ConfigError {
+  const fillsLine = trimmed.startsWith(COMMENT_START) && trimmed.endsWith(">");
+  if (fillsLine) {
+    return new ConfigError(
+      `${site.where}: malformed requires marker at line ${site.lineNumber} (expected \`<!-- requires: a, b -->\` or \`<!-- /requires -->\`)`,
+    );
+  }
+  return new ConfigError(
+    `${site.where}: a requires marker must be on its own line (line ${site.lineNumber})`,
+  );
 }
 
 function collectExtraFiles(skillDir: string, subdirName: string): SkillExtraFile[] {

@@ -16,6 +16,7 @@ import { HttpError } from "@metabase/client/http/errors";
 import { CapabilityError } from "@metabase/client/version/preflight-error";
 import { createServerProfile } from "@metabase/client/version/profile";
 import { checkFeatures } from "@metabase/client/version/requirement-check";
+import { ProfileRefreshedError } from "../core/auth/server-summary";
 import { exitCodeFor, reportError } from "./error";
 
 interface CapturedStreams {
@@ -161,6 +162,51 @@ describe("reportError", () => {
         "(rerun with MB_VERBOSE=1 for details)\n",
     );
     expect(process.exitCode).toBe(2);
+  });
+
+  const REFRESH_NOTE =
+    "The server's version changed since the last probe (was v0.58.0, now v0.61.3); the profile was refreshed — retry the command.";
+
+  function activationRefusalOn58(): CapabilityError {
+    const failure = checkFeatures(
+      ["transformJobActivation"],
+      createServerProfile({
+        edition: "oss",
+        version: { tag: "v0.58.0", major: 58, patch: 0 },
+        date: null,
+        hash: null,
+        tokenFeatures: null,
+      }),
+    );
+    assert(failure !== null);
+    return new CapabilityError(failure);
+  }
+
+  it("withholds the client downgrade when the profile was refreshed, since the note says to retry", () => {
+    reportError(new ProfileRefreshedError(activationRefusalOn58(), REFRESH_NOTE));
+    expect(streams.stderr).toBe(
+      "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.\n" +
+        `${REFRESH_NOTE}\n` +
+        "(rerun with MB_VERBOSE=1 for details)\n",
+    );
+    expect(process.exitCode).toBe(2);
+  });
+
+  it("keeps the client's own failure as the detail behind a refreshed-profile refusal", () => {
+    process.env["MB_VERBOSE"] = "1";
+    const refusal = activationRefusalOn58();
+    reportError(new ProfileRefreshedError(refusal, REFRESH_NOTE), "json");
+    expect(streams.stderr).toBe(
+      JSON.stringify({
+        ok: false,
+        error: {
+          category: "capability",
+          message: `${refusal.message}\n${REFRESH_NOTE}`,
+          exitCode: 2,
+          detail: refusal.developerDetail,
+        },
+      }) + "\n",
+    );
   });
 
   it("withholds the client downgrade when a premium feature is missing, which no client version supplies", () => {

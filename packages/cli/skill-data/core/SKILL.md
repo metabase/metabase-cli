@@ -171,7 +171,7 @@ This file is enough for any single-command task. For anything deeper, load the r
 <!-- /requires -->
 - **`data-workflow`** — the guided, end-to-end data workflow: investigate raw data, build clean analysis-ready tables, define reusable segments/measures/metrics, answer questions, build dashboards. **Start here when the user states a goal rather than a single verb** — "make sense of my data", "build a data model", "go from raw data to a dashboard", "be my data analyst", "set up analytics for X". It detects where the data is and routes to the right stage.
 
-If a task spans more than one, load each. `mb skills list` enumerates the skills the profile's server can use, and `mb skills get` prints a skill with the sections that server cannot use left out; `--all` shows everything.
+If a task spans more than one, load each. `mb skills list` enumerates the skills the profile's server can use, and `mb skills get` prints a skill with the sections that server cannot use left out; `--unfiltered` shows everything.
 
 ## Don't
 

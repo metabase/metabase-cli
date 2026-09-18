@@ -117,7 +117,7 @@ describe("skills get command", () => {
 
     expect(stdout.chunks.join("")).toBe(`${GAMMA_SKILL_MD.trimEnd()}\n`);
     expect(stderr.chunks.join("")).toBe(
-      'Skills are unfiltered: profile "default" has no cached server probe (run `mb auth login` to record one).\n',
+      'Skills are unfiltered: there is no profile "default" (run `mb auth login` to create one and record its server).\n',
     );
   });
 
@@ -162,7 +162,7 @@ describe("skills get command", () => {
 
     expect(stdout.chunks).toEqual([]);
     expect(stderr.chunks.join("")).toBe(
-      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --all to print it anyway.\n',
+      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n',
     );
   });
 
@@ -192,12 +192,12 @@ describe("skills get command", () => {
     expect(stdout.chunks.join("")).toBe(`${GAMMA_WITH_ACTIVATION.trimEnd()}\n`);
   });
 
-  it("--all with a name prints that skill as written regardless of the cached server", async () => {
+  it("--unfiltered with a name prints that skill as written regardless of the cached server", async () => {
     await seedProbedProfile("default", probeAt(58));
     const stdout = capture(process.stdout);
     const stderr = capture(process.stderr);
 
-    await runCommand(skillsGetCommand, { rawArgs: ["gamma", "--all", "--json"] });
+    await runCommand(skillsGetCommand, { rawArgs: ["gamma", "--unfiltered", "--json"] });
 
     expect(stdout.parse(SkillGetEnvelope)).toEqual({
       returned: 1,
@@ -211,11 +211,58 @@ describe("skills get command", () => {
     expect(stderr.chunks).toEqual([]);
   });
 
-  it("--all alone prints every non-hidden skill as written", async () => {
+  it("--all alone selects every non-hidden skill as the cached server can use it", async () => {
     await seedProbedProfile("default", probeAt(58));
     const stdout = capture(process.stdout);
 
     await runCommand(skillsGetCommand, { rawArgs: ["--all", "--json", "--max-bytes", "0"] });
+
+    expect(stdout.parse(SkillGetEnvelope)).toEqual({
+      returned: 2,
+      offset: 0,
+      total: 2,
+      has_more: false,
+      next_offset: null,
+      unavailable: [
+        {
+          name: "gamma",
+          failure: {
+            reason: "version-too-old",
+            detail:
+              "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
+            feature: "transforms",
+            since: 59,
+            tokenFeature: null,
+            serverVersion: "v0.58.0",
+          },
+        },
+      ],
+      data: [
+        {
+          name: "alpha",
+          description: "The first skill.",
+          body: "---\nname: alpha\ndescription: The first skill.\n---\n\nAlpha instructions.\n",
+          references: [],
+          templates: [],
+        },
+        {
+          name: "beta",
+          description: "The second skill.",
+          body: "---\nname: beta\ndescription: The second skill.\n---\n\nBeta instructions.\n",
+          references: [],
+          templates: [],
+        },
+      ],
+    });
+  });
+
+  it("--all --unfiltered prints every non-hidden skill as written", async () => {
+    await seedProbedProfile("default", probeAt(58));
+    const stdout = capture(process.stdout);
+
+    await runCommand(skillsGetCommand, {
+      rawArgs: ["--all", "--unfiltered", "--json", "--max-bytes", "0"],
+    });
 
     expect(stdout.parse(SkillGetEnvelope)).toEqual({
       returned: 3,

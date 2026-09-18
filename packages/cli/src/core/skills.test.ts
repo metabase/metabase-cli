@@ -353,7 +353,12 @@ describe("resolveSections", () => {
   });
 
   it("returns balanced sections as written without features, and marker-free with them", () => {
-    const plainLine = fc.string().filter((line) => !line.includes("<!--") && line.trim() !== "");
+    // Prose only: a table row against a marker is refused, and a fence would swallow the close.
+    const plainLine = fc
+      .string()
+      .filter((line) => !line.includes("<!--") && line.trim() !== "")
+      .filter((line) => !line.trimStart().startsWith("|"))
+      .filter((line) => !line.trim().startsWith("```") && !line.trim().startsWith("~~~"));
     const section = fc
       .tuple(fc.constantFrom("transforms", "library"), fc.array(plainLine))
       .map(([feature, inner]) =>
@@ -404,6 +409,56 @@ describe("resolveSections", () => {
         "skill x",
       ),
     ).toThrow(new ConfigError("skill x: a requires marker must be on its own line (line 1)"));
+  });
+
+  it("keeps a marker inside a fenced code block as text", () => {
+    const text = [
+      "Write it as:",
+      "",
+      "```md",
+      "<!-- requires: transforms -->",
+      "gated",
+      "<!-- /requires -->",
+      "```",
+      "",
+      "~~~",
+      "<!-- requires: transforms -->",
+      "~~~",
+    ].join("\n");
+    expect(resolveSections(text, profileAt(58).features, "skill x")).toBe(text);
+  });
+
+  it("throws ConfigError on a marker between table rows", () => {
+    const text = [
+      "| a |",
+      "|---|",
+      "<!-- requires: transforms -->",
+      "| b |",
+      "<!-- /requires -->",
+    ].join("\n");
+    expect(() => resolveSections(text, null, "skill x")).toThrow(
+      new ConfigError("skill x: a requires marker cannot sit inside a Markdown table (line 3)"),
+    );
+  });
+
+  it("throws ConfigError on a marker closed with the `--!>` comment end", () => {
+    expect(() =>
+      resolveSections("<!-- requires: transforms --!>\n<!-- /requires -->", null, "skill x"),
+    ).toThrow(
+      new ConfigError(
+        "skill x: malformed requires marker at line 1 (expected `<!-- requires: a, b -->` or `<!-- /requires -->`)",
+      ),
+    );
+  });
+
+  it("throws ConfigError on a marker missing the colon after the keyword", () => {
+    expect(() =>
+      resolveSections("<!-- requires transforms -->\n<!-- /requires -->", null, "skill x"),
+    ).toThrow(
+      new ConfigError(
+        "skill x: malformed requires marker at line 1 (expected `<!-- requires: a, b -->` or `<!-- /requires -->`)",
+      ),
+    );
   });
 
   it("throws ConfigError on a section naming no feature", () => {
