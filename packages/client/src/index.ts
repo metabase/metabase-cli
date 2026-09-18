@@ -272,5 +272,16 @@ export {
   TransformTagCreateInput,
   TransformTagUpdateInput,
 } from "./domain/transform-tag";
+export {
+  TransformTest,
+  TransformTestCompact,
+  TransformTestCreateInput,
+  TransformTestExpectation,
+  TransformTestExpectationResult,
+  TransformTestInput,
+  TransformTestRunResult,
+  TransformTestStatus,
+  TransformTestUpdateInput,
+} from "./domain/transform-test";
 export { UploadResult, UploadUpdateAction, UploadUpdateResult } from "./domain/upload";
 export { CurrentUser, CurrentUserCompact } from "./domain/user";
