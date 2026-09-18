@@ -13,7 +13,7 @@ import { checkFeatures } from "@metabase/client/version/requirement-check";
 import { type MethodKey, methodRequirements } from "@metabase/client/version/requirements";
 
 import type { ProfileLastProbe } from "../core/auth/profile-record";
-import { serverChangeNote, skewNotice } from "../core/auth/server-summary";
+import { ProfileRefreshedError, serverChangeNote, skewNotice } from "../core/auth/server-summary";
 import { readCachedProbe } from "../core/auth/cached-server";
 import {
   consumeKeyringDowngradeWarning,
@@ -241,19 +241,11 @@ async function refreshProfileOnStaleError(
   if (cached === null) {
     return error;
   }
-  if (error instanceof ResponseShapeError) {
-    const note = await refreshChangedProbe(cached);
-    return note === null
-      ? error
-      : new ResponseShapeError(`${error.message}\n${note}`, error.developerDetail);
+  if (!(error instanceof ResponseShapeError) && !(error instanceof CapabilityError)) {
+    return error;
   }
-  if (error instanceof CapabilityError) {
-    const note = await refreshChangedProbe(cached);
-    return note === null
-      ? error
-      : new CapabilityError({ ...error.developerDetail, detail: `${error.message}\n${note}` });
-  }
-  return error;
+  const note = await refreshChangedProbe(cached);
+  return note === null ? error : new ProfileRefreshedError(error, note);
 }
 
 async function refreshChangedProbe(cached: CachedServer): Promise<string | null> {

@@ -2,6 +2,7 @@ import { AbortError, toMetabaseError } from "@metabase/client/errors";
 import type { ErrorCategory, MetabaseError } from "@metabase/client/errors";
 import type { RequirementFailure } from "@metabase/client/version/preflight-error";
 
+import { ProfileRefreshedError } from "../core/auth/server-summary";
 import { consumeLegacyEnvWarnings, ENV_VERBOSE, readEnv } from "../core/env";
 import { warn } from "./notice";
 import { isPromptCancel } from "./prompt";
@@ -92,6 +93,10 @@ function isRouteMissing(handled: MetabaseError): boolean {
 // What the CLI adds to a message the client had to phrase without knowing who would print it. Both
 // output formats carry them, so an agent reading `--json` gets the same remediation a human does.
 function remediesFor(handled: MetabaseError): readonly string[] {
+  // The refresh note already says to retry; a remedy naming another release would contradict it.
+  if (handled instanceof ProfileRefreshedError) {
+    return [];
+  }
   if (isVersionTooOld(handled.developerDetail)) {
     return [DOWNGRADE_REMEDY];
   }

@@ -839,8 +839,7 @@ describe("defineMetabaseCommand", () => {
       expect(errorEnvelopeOf(stderr)).toEqual(
         capabilityErrorEnvelope(
           `${ACTIVATION_REFUSAL}\n` +
-            "The server's version changed since the last probe (was v0.58.0, now v0.61.3); the profile was refreshed — retry the command.\n" +
-            DOWNGRADE_REMEDY,
+            "The server's version changed since the last probe (was v0.58.0, now v0.61.3); the profile was refreshed — retry the command.",
         ),
       );
       expect(process.exitCode).toBe(2);
