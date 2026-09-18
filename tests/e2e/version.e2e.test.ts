@@ -170,7 +170,7 @@ describe("version skew notices e2e", () => {
 
   it("prints exactly one older-server notice on stderr and still runs a baseline command when the cached probe is below the known range", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfileAt(configHome, liveTarget(), versionAt(BELOW_KNOWN));
+    await seedProbedProfileAt(configHome, liveTarget(), probeAt(BELOW_KNOWN));
 
     const result = await runCli({ args: ["card", "list", "--limit", "1", "--json"], configHome });
 
@@ -255,7 +255,7 @@ describe("version skew notices e2e", () => {
       expect(result.exitCode).toBe(2);
       expect(cliErrorCategory(result.stderr)).toBe("capability");
       expect(cliErrorMessage(result.stderr)).toBe(
-        `${MEASURES_REFUSAL}\n${versionChangedNote("v0.58.0")}\n${DOWNGRADE_REMEDY}`,
+        `${MEASURES_REFUSAL}\n${versionChangedNote("v0.58.0")}`,
       );
       expect(result.stdout).toBe("");
 

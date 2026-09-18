@@ -12,7 +12,8 @@ import { checkFeatures } from "@metabase/client/version/requirement-check";
 import { type MethodKey, methodRequirements } from "@metabase/client/version/requirements";
 
 import type { ProfileLastProbe } from "../core/auth/profile-record";
-import { ProfileRefreshedError, serverChangeNote, skewNotice } from "../core/auth/server-summary";
+import { ProfileRefreshedError } from "../core/profile-refreshed-error";
+import { serverChangeNote, skewNotice } from "../core/auth/server-summary";
 import { readCachedProbe } from "../core/auth/cached-server";
 import {
   consumeKeyringDowngradeWarning,
