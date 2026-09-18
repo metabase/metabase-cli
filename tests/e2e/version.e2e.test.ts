@@ -6,18 +6,17 @@ import { KNOWN_RANGE } from "@metabase/client/version/known-range";
 import { AuthStatus } from "../../packages/cli/src/commands/auth/status";
 import { CardListEnvelope } from "../../packages/cli/src/commands/card/list";
 import { summarizeServer } from "../../packages/cli/src/core/auth/server-summary";
+import {
+  probeAt,
+  SEED_USER,
+  type SeedTarget,
+  UNPARSEABLE_PROBE,
+} from "../../packages/cli/src/core/auth/temp-config-home";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import {
-  SEED_USER,
-  seedProbedProfile,
-  seedProbedProfileAt,
-  seedProfile,
-  type SeedTarget,
-  versionAt,
-} from "./seed-profile";
+import { seedProbedProfile, seedProbedProfileAt, seedProfile } from "./seed-profile";
 import { E2E_BUILTIN_TRANSFORM_JOBS } from "./seed/ids";
 import { requireServer } from "./server-gate";
 
@@ -149,7 +148,7 @@ describe("version skew notices e2e", () => {
 
   it("prints exactly one newer-server notice on stderr and succeeds when the cached probe is above the known range", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfileAt(configHome, liveTarget(), versionAt(BEYOND_KNOWN));
+    await seedProbedProfileAt(configHome, liveTarget(), probeAt(BEYOND_KNOWN));
 
     const result = await runCli({ args: ["card", "list", "--limit", "1", "--json"], configHome });
 
@@ -160,7 +159,7 @@ describe("version skew notices e2e", () => {
 
   it("prints exactly one unknown-version notice on stderr and succeeds when the cached probe carries no parseable version", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfileAt(configHome, liveTarget(), null);
+    await seedProbedProfileAt(configHome, liveTarget(), UNPARSEABLE_PROBE);
 
     const result = await runCli({ args: ["card", "list", "--limit", "1", "--json"], configHome });
 
@@ -182,7 +181,7 @@ describe("version skew notices e2e", () => {
 
   it("prints no notice when the cached probe is inside the known range", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfileAt(configHome, liveTarget(), versionAt(KNOWN_RANGE.max));
+    await seedProbedProfileAt(configHome, liveTarget(), probeAt(KNOWN_RANGE.max));
 
     const result = await runCli({ args: ["card", "list", "--limit", "1", "--json"], configHome });
 
@@ -190,16 +189,39 @@ describe("version skew notices e2e", () => {
     expect(result.stderr).toBe("");
   });
 
+  function versionChangedNote(cachedTag: string): string {
+    const liveLabel =
+      bootstrap.server.version === null ? "an unparseable version" : bootstrap.server.version.tag;
+    return `The server's version changed since the last probe (was ${cachedTag}, now ${liveLabel}); the profile was refreshed — retry the command.`;
+  }
+
+  async function expectRefreshedProbe(configHome: string, seededAt: string): Promise<void> {
+    const status = await runCli({ args: ["auth", "status", "--json"], configHome });
+    expect(status.exitCode, status.stderr).toBe(0);
+    const refreshedAt = await lastProbedAt(configHome);
+    expect(parseJson(status.stdout, AuthStatus)).toEqual({
+      profile: "default",
+      present: true,
+      url: bootstrap.baseUrl,
+      method: "apiKey",
+      user: SEED_USER,
+      ...summarizeServer(bootstrap.server),
+      lastProbedAt: refreshedAt,
+      lastFailure: null,
+    });
+    expect(refreshedAt > seededAt).toBe(true);
+  }
+
   // A cached v59 profile reads a job run as the stub-string generation; a server answering with the
   // numeric one fails that parse, and the CLI must notice the server moved.
-  const reprobeSkipReason = requireServer("version › re-probe on a shape error", [
+  const shapeReprobeSkipReason = requireServer("version › re-probe on a shape error", [
     "transformJobRunIdIsNumeric",
   ]);
 
-  describe.skipIf(reprobeSkipReason !== null)("re-probe on a shape error", () => {
+  describe.skipIf(shapeReprobeSkipReason !== null)("re-probe on a shape error", () => {
     it("re-probes once, refreshes the stale profile, and appends the change to the error", async () => {
       const configHome = await makeIsolatedConfigHome();
-      await seedProbedProfileAt(configHome, liveTarget(), versionAt(59));
+      await seedProbedProfileAt(configHome, liveTarget(), probeAt(59));
       const seededAt = await lastProbedAt(configHome);
 
       const result = await runCli({
@@ -208,28 +230,36 @@ describe("version skew notices e2e", () => {
       });
 
       expect(result.exitCode).toBe(1);
-      const liveLabel =
-        bootstrap.server.version === null ? "an unparseable version" : bootstrap.server.version.tag;
       expect(cliErrorMessage(result.stderr)).toBe(
         "On Metabase v0.59.0 the response shape was unexpected:\n" +
           "  job_run_id: Invalid input: expected string, received null\n" +
-          `The server's version changed since the last probe (was v0.59.0, now ${liveLabel}); the profile was refreshed — retry the command.`,
+          versionChangedNote("v0.59.0"),
       );
 
-      const status = await runCli({ args: ["auth", "status", "--json"], configHome });
-      expect(status.exitCode, status.stderr).toBe(0);
-      const refreshedAt = await lastProbedAt(configHome);
-      expect(parseJson(status.stdout, AuthStatus)).toEqual({
-        profile: "default",
-        present: true,
-        url: bootstrap.baseUrl,
-        method: "apiKey",
-        user: SEED_USER,
-        ...summarizeServer(bootstrap.server),
-        lastProbedAt: refreshedAt,
-        lastFailure: null,
-      });
-      expect(refreshedAt > seededAt).toBe(true);
+      await expectRefreshedProbe(configHome, seededAt);
+    });
+  });
+
+  // A cached v58 profile refuses measures before any request; the live server clears that floor,
+  // so the refusal is the stale-probe case the CLI must diagnose without retrying the command.
+  const refusalReprobeSkipReason = requireServer("version › re-probe on a refusal", ["measures"]);
+
+  describe.skipIf(refusalReprobeSkipReason !== null)("re-probe on a refusal", () => {
+    it("re-probes once, refreshes the stale profile, and appends the change to the refusal", async () => {
+      const configHome = await makeIsolatedConfigHome();
+      await seedProbedProfileAt(configHome, liveTarget(), probeAt(58));
+      const seededAt = await lastProbedAt(configHome);
+
+      const result = await runCli({ args: ["measure", "list", "--json"], configHome });
+
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorCategory(result.stderr)).toBe("capability");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        `${MEASURES_REFUSAL}\n${versionChangedNote("v0.58.0")}\n${DOWNGRADE_REMEDY}`,
+      );
+      expect(result.stdout).toBe("");
+
+      await expectRefreshedProbe(configHome, seededAt);
     });
   });
 });

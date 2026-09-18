@@ -18,6 +18,7 @@ import {
   ProfilesFile,
 } from "../../packages/cli/src/core/auth/profile-record";
 import { summarizeServer } from "../../packages/cli/src/core/auth/server-summary";
+import { UNREACHABLE_URL } from "../../packages/cli/src/core/auth/temp-config-home";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
@@ -25,8 +26,6 @@ import { cliErrorMessage } from "./cli-error";
 type AuthProfileEntry = z.infer<typeof AuthProfileListEnvelope>["data"][number];
 
 const BAD_API_KEY = "mb_definitely_not_valid_key_aaaaaaaaaa";
-const UNREACHABLE_URL = "https://127.0.0.1:1/__nonexistent__";
-// Port 1 is on fetch's blocked-port list, so the failure carries no syscall code to hint from.
 const UNREACHABLE_REASON = "Could not reach Metabase: fetch failed";
 
 function profilesPath(configHome: string): string {
@@ -69,7 +68,11 @@ function failureOf(record: ProfileRecord): ProfileLastFailure {
   return record.lastFailure;
 }
 
-function userOf(payload: { user: ProbedUser | null }): ProbedUser {
+interface ProbedUserPayload {
+  user: ProbedUser | null;
+}
+
+function userOf(payload: ProbedUserPayload): ProbedUser {
   if (payload.user === null) {
     throw new Error("expected a probed user");
   }
