@@ -458,7 +458,7 @@ const CONTENT_TRANSLATION_CAPABILITIES = {
 } as const;
 const TRANSFORM_CAPABILITIES = { minVersion: 59 } as const;
 const TRANSFORM_JOB_SET_ACTIVE_CAPABILITIES = { minVersion: 61 } as const;
-const TRANSFORM_TEST_CAPABILITIES = { minVersion: 64 } as const;
+const TRANSFORM_TEST_CAPABILITIES = { minVersion: 65 } as const;
 
 let cachedEntries: Promise<CommandHelpEntry[]> | null = null;
 

@@ -172,7 +172,7 @@ mb transform run "$ID" --wait --profile <n> --json     # → succeeded
 
 If you really must `create + delete` instead, do the `delete` **before** the first `git-sync export` so the failed entity never lands in git history — an export of a soft-failed state is noise that needs a follow-up cleanup commit. See `git-sync`, "Read state before mutating", for the ordering rule.
 
-## Transform tests (v64+)
+## Transform tests (v65+)
 
 A transform test replaces every table the transform reads with a fixture, runs it into a temp table, and checks that output. No real table is read or written.
 
