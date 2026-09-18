@@ -50,7 +50,7 @@ describe("--help --json e2e", () => {
     expect(index).toEqual(await buildHelpIndex(card, ["card"]));
   });
 
-  it("reports the client methods a gated command calls, their features, and the floor they summarize to", async () => {
+  it("reports the client methods a gated command calls and their features", async () => {
     const result = await runCli({
       args: ["transform-job", "set-active", "--help", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -63,7 +63,6 @@ describe("--help --json e2e", () => {
       methods: ["transformJob.setActive"],
       features: ["transformJobActivation", "transforms"],
     });
-    expect(entry.capabilities).toEqual({ minVersion: 61 });
   });
 
   it("reports the premium feature behind a token-gated command", async () => {
@@ -76,10 +75,9 @@ describe("--help --json e2e", () => {
 
     const entry = parseJson(result.stdout, CommandHelpEntry, { source: "--help --json" });
     expect(entry.requires).toEqual({ methods: ["library.get"], features: ["library"] });
-    expect(entry.capabilities).toEqual({ minVersion: 59, tokenFeature: "library" });
   });
 
-  it("reports a baseline command's methods with no features and the baseline floor", async () => {
+  it("reports a baseline command's methods with no features", async () => {
     const result = await runCli({
       args: ["card", "list", "--help", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -89,10 +87,9 @@ describe("--help --json e2e", () => {
 
     const entry = parseJson(result.stdout, CommandHelpEntry, { source: "--help --json" });
     expect(entry.requires).toEqual({ methods: ["card.list"], features: [] });
-    expect(entry.capabilities).toEqual({ minVersion: 58 });
   });
 
-  it("reports null requires and capabilities for a command that never reaches a server", async () => {
+  it("reports null requires for a command that never reaches a server", async () => {
     const result = await runCli({
       args: ["uuid", "--help", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -102,7 +99,6 @@ describe("--help --json e2e", () => {
 
     const entry = parseJson(result.stdout, CommandHelpEntry, { source: "--help --json" });
     expect(entry.requires).toBeNull();
-    expect(entry.capabilities).toBeNull();
   });
 
   it("emits the full entry with output schema and examples for a leaf command", async () => {

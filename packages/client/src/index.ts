@@ -72,13 +72,8 @@ export type {
   TokenGap,
   VersionGap,
 } from "./version/features";
-export {
-  createServerProfile,
-  featureGap,
-  KNOWN_RANGE,
-  ServerProfile,
-  Skew,
-} from "./version/profile";
+export { KNOWN_RANGE } from "./version/known-range";
+export { createServerProfile, featureGap, ServerProfile, Skew } from "./version/profile";
 export {
   isMethodKey,
   METHOD_KEYS,
@@ -87,7 +82,6 @@ export {
 } from "./version/requirements";
 export type { MethodKey } from "./version/requirements";
 export { checkFeatures, checkRequirements } from "./version/requirement-check";
-export { CapabilitySummary, summarizeCapabilities } from "./version/capability-summary";
 export { CapabilityError, RequirementFailure, RequirementReason } from "./version/preflight-error";
 
 export type { Page, PaginateOptions } from "./paginate";

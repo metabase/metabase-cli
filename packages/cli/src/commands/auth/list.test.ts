@@ -5,7 +5,8 @@ import type { z, ZodType } from "zod";
 import type { Credential } from "@metabase/client/auth/credential";
 import { parseJson } from "@metabase/client/json";
 import type { ServerInfo } from "@metabase/client/version/probe";
-import { createServerProfile, KNOWN_RANGE } from "@metabase/client/version/profile";
+import { KNOWN_RANGE } from "@metabase/client/version/known-range";
+import { createServerProfile } from "@metabase/client/version/profile";
 import type { ProfileRecord } from "../../core/auth/profile-record";
 import type { Verification } from "../../core/auth/verify";
 

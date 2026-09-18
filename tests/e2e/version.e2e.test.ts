@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { parseJson } from "@metabase/client/json";
-import { KNOWN_RANGE } from "@metabase/client/version/profile";
+import { KNOWN_RANGE } from "@metabase/client/version/known-range";
 
 import { AuthStatus } from "../../packages/cli/src/commands/auth/status";
 import { CardListEnvelope } from "../../packages/cli/src/commands/card/list";
@@ -22,6 +22,7 @@ import { E2E_BUILTIN_TRANSFORM_JOBS } from "./seed/ids";
 import { requireServer } from "./server-gate";
 
 const BEYOND_KNOWN = KNOWN_RANGE.max + 5;
+const BELOW_KNOWN = KNOWN_RANGE.min - 1;
 
 const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
 const MEASURES_REFUSAL =
@@ -30,6 +31,7 @@ const UNREACHABLE_MESSAGE = "Could not reach Metabase: fetch failed";
 
 const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were a head build past v${KNOWN_RANGE.max}. Run \`mb upgrade\` for a newer CLI.`;
 const UNKNOWN_NOTICE = `Could not parse the Metabase version; assuming a head build past v${KNOWN_RANGE.max}.`;
+const OLDER_NOTICE = `Metabase v0.${BELOW_KNOWN}.0 is older than this CLI supports (v${KNOWN_RANGE.min}+); commands needing a newer feature are refused by name. Upgrade Metabase to v${KNOWN_RANGE.min} or later.`;
 
 describe("version preflight enforcement e2e", () => {
   const tempDirs: string[] = [];
@@ -164,6 +166,17 @@ describe("version skew notices e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(result.stderr).toBe(UNKNOWN_NOTICE);
+    expect(parseJson(result.stdout, CardListEnvelope).returned).toBe(1);
+  });
+
+  it("prints exactly one older-server notice on stderr and still runs a baseline command when the cached probe is below the known range", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfileAt(configHome, liveTarget(), versionAt(BELOW_KNOWN));
+
+    const result = await runCli({ args: ["card", "list", "--limit", "1", "--json"], configHome });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.stderr).toBe(OLDER_NOTICE);
     expect(parseJson(result.stdout, CardListEnvelope).returned).toBe(1);
   });
 

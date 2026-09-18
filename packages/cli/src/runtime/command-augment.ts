@@ -1,6 +1,5 @@
 import type { ZodType } from "zod";
 
-import type { CapabilitySummary } from "@metabase/client/version/capability-summary";
 import type { FeatureName } from "@metabase/client/version/features";
 import type { MethodKey } from "@metabase/client/version/requirements";
 
@@ -21,7 +20,6 @@ export interface MetabaseAugment {
   inputSchema: ZodType | null;
   outputSchema: ZodType | null;
   requires: CommandRequirements | null;
-  capabilities: CapabilitySummary | null;
 }
 
 const augments = new WeakMap<object, MetabaseAugment>();

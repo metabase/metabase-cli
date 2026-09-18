@@ -10,16 +10,11 @@ import {
   Features,
   ruleGap,
 } from "./features";
+import { KNOWN_RANGE } from "./known-range";
 import type { ServerInfo } from "./probe";
 import { Edition, ParsedVersion } from "./tag";
 
-// The majors this client was built and tested against. A server above `max` is read as `max + 1`:
-// its additions pass through the loose schemas, and a shape it changed fails loudly instead of
-// being guessed at. A server below `min` keeps its real major so every feature it lacks is refused
-// by name.
-export const KNOWN_RANGE = { min: 58, max: 63 } as const;
-
-export const Skew = z.enum(["supported", "newer-than-known", "unknown"]);
+export const Skew = z.enum(["supported", "older-than-known", "newer-than-known", "unknown"]);
 export type Skew = z.infer<typeof Skew>;
 
 export const ServerProfile = z.object({
@@ -64,6 +59,9 @@ function place(version: ParsedVersion | null): Placement {
   }
   if (version.major > KNOWN_RANGE.max) {
     return { effectiveMajor: KNOWN_RANGE.max + 1, skew: "newer-than-known" };
+  }
+  if (version.major < KNOWN_RANGE.min) {
+    return { effectiveMajor: version.major, skew: "older-than-known" };
   }
   return { effectiveMajor: version.major, skew: "supported" };
 }

@@ -6,16 +6,13 @@ import { describe, expect, it } from "vitest";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, "..", "..", "..", "..");
-const PACKAGE_ROOTS = ["packages/client/src", "packages/cli/src"];
-// The e2e tier reads a served `minVersion` back from `help --json`; it declares none of its own.
-const SOURCE_ROOTS = [...PACKAGE_ROOTS, "tests/e2e"];
+const SOURCE_ROOTS = ["packages/client/src", "packages/cli/src", "tests/e2e"];
 
 // A parsed major on either side of a comparison, reached by property or already destructured.
 const COMPARISON = "(<=|>=|===|!==|<|>)";
 const MAJOR_COMPARISON = new RegExp(
   `\\bmajor\\s*${COMPARISON}|${COMPARISON}\\s*[\\w$.]*\\bmajor\\b`,
 );
-const MIN_VERSION = /\bminVersion\b/;
 
 const GUARD = "packages/client/src/version/major-comparison-guard.test.ts";
 
@@ -27,10 +24,6 @@ const EVALUATORS: ReadonlySet<string> = new Set([
   "packages/client/src/version/profile.test.ts",
   "packages/client/src/version/tag.ts",
 ]);
-
-// A single server floor is a summary the version layer derives from features for consumers that
-// want one number; nothing outside it may declare one.
-const VERSION_DIR = "packages/client/src/version/";
 
 function sourceFiles(roots: readonly string[]): string[] {
   return roots.flatMap((root) =>
@@ -53,22 +46,11 @@ function mayCompareMajors(file: string): boolean {
   return EVALUATORS.has(file);
 }
 
-function mayDeclareMinVersion(file: string): boolean {
-  return file.startsWith(VERSION_DIR);
-}
-
 describe("Metabase majors are compared in one place", () => {
   it("no source outside the version evaluators compares a parsed major", () => {
     const hits = sourceFiles(SOURCE_ROOTS)
       .filter((file) => !mayCompareMajors(file))
       .flatMap((file) => offendingLines(file, MAJOR_COMPARISON));
-    expect(hits).toEqual([]);
-  });
-
-  it("no source outside the version layer names a minVersion", () => {
-    const hits = sourceFiles(PACKAGE_ROOTS)
-      .filter((file) => !mayDeclareMinVersion(file))
-      .flatMap((file) => offendingLines(file, MIN_VERSION));
     expect(hits).toEqual([]);
   });
 

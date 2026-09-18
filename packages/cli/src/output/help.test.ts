@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { parseJson } from "@metabase/client/json";
-import { summarizeCapabilities } from "@metabase/client/version/capability-summary";
 
 import { connectionFlags, outputFlags, profileFlag } from "../commands/flags";
 import { defineCommandGroup } from "../commands/group";
@@ -341,7 +340,6 @@ describe("showUsage", () => {
       inputSchema: null,
       outputSchema: null,
       requires: null,
-      capabilities: null,
     });
     const leaf = defineMetabaseCommand({
       meta: { name: "list", description: "demo list" },
@@ -442,7 +440,6 @@ describe("showUsageJson", () => {
         additionalProperties: false,
       },
       requires: { methods: ["card.list"], features: [] },
-      capabilities: summarizeCapabilities([]),
     });
   });
 

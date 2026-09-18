@@ -5,7 +5,8 @@ import { z } from "zod";
 import { parseJson } from "@metabase/client/json";
 import { captureFetch, jsonResponse } from "@metabase/client/testing/fetch-capture";
 import type { ServerInfo } from "@metabase/client/version/probe";
-import { createServerProfile, KNOWN_RANGE } from "@metabase/client/version/profile";
+import { KNOWN_RANGE } from "@metabase/client/version/known-range";
+import { createServerProfile } from "@metabase/client/version/profile";
 
 import type { ProfileLastProbe, ProfileRecord } from "../core/auth/profile-record";
 import { probeAt, setupTempConfigHome, type TempConfigHome } from "../core/auth/temp-config-home";

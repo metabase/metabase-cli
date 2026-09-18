@@ -35,9 +35,9 @@ packages/client/src/
                             response-shape.ts, sanitize.ts, retry.ts, oauth.ts
   testing/                  the shipped test doubles — fake-client.ts, fetch-capture.ts
   auth/                     OAuth login flow: credential.ts, pkce.ts, callback-server.ts, oauth-*.ts
-  version/                  tag.ts, probe.ts, profile.ts (KNOWN_RANGE, ServerProfile), features.ts (FEATURE_RULES —
+  version/                  tag.ts, probe.ts, known-range.ts (KNOWN_RANGE), profile.ts (ServerProfile), features.ts (FEATURE_RULES —
                             the only file comparing a Metabase major), requirements.ts (METHOD_REQUIREMENTS),
-                            requirement-check.ts, capability-summary.ts, preflight-error.ts
+                            requirement-check.ts, preflight-error.ts
   domain/                   Metabase API resource Zod schemas + inferred types
   errors.ts                 MetabaseError taxonomy, toMetabaseError, isFileNotFoundError, errorMessage
   list.ts                   ListResult<T> = { data, total } — what a one-response list method returns
@@ -108,9 +108,9 @@ A new or changed method comes with its wire test in `packages/client/src/resourc
 
 ## Version contract
 
-`packages/client/src/version/features.ts` is the only production file that compares a Metabase major (`major-comparison-guard.test.ts` scans both packages); `profile.ts` places a version and `tag.ts` parses one. A `.major` comparison, a literal major used as a decision, or a `minVersion` anywhere else is FAIL. Feature names describe a behaviour (`transformTargetTableId`), never a version (`transformV61Shape` is FAIL), and every version-gated rule must flip somewhere inside `KNOWN_RANGE` — `features.test.ts` enforces it, so a diff that raises `KNOWN_RANGE.min` without deleting the rules that went constant is FAIL.
+`packages/client/src/version/features.ts` is the only production file that compares a Metabase major (`major-comparison-guard.test.ts` scans both packages); `profile.ts` places a version and `tag.ts` parses one. A `.major` comparison or a literal major used as a decision anywhere else is FAIL. Feature names describe a behaviour (`transformTargetTableId`), never a version (`transformV61Shape` is FAIL), and every version-gated rule must flip somewhere inside `KNOWN_RANGE` — `features.test.ts` enforces it, so a diff that raises `KNOWN_RANGE.min` without deleting the rules that went constant is FAIL.
 
-Every method in `resources/*.ts` opens with `await transport.require("<r>.<method>")` under its own namespace and has a matching `METHOD_REQUIREMENTS` entry, strictest feature first (`requirements.test.ts`). A method without one, or a command under `packages/cli/src/commands/` declaring `requires` that differs from the `client.<ns>.<method>(` calls in its body (`requires-guard.test.ts`), is FAIL. A `defineMetabaseCommand` declaring `capabilities`, a `minVersion` or a `tokenFeature` is FAIL — the summary is derived from `requires`, never declared.
+Every method in `resources/*.ts` opens with `await transport.require("<r>.<method>")` under its own namespace and has a matching `METHOD_REQUIREMENTS` entry, strictest feature first (`requirements.test.ts`). A method without one, or a command under `packages/cli/src/commands/` declaring `requires` that differs from the `client.<ns>.<method>(` calls in its body (`requires-guard.test.ts`), is FAIL. A `defineMetabaseCommand` declaring a version floor or a token feature is FAIL — the features are derived from `requires`, never declared.
 
 Version-driven drift is a `<Resource>WireV<N>` schema plus a converter, selected by a feature and handed to `requestParsed` through an exported `<resource><Endpoint>Schema(features): z.ZodType<Resource>` reader. The canonical schema is the newest server's shape; a field an older server cannot report is `.nullable()`. FAIL: `.optional()` meaning "an older server omits it"; a converter mapping two distinguishable wire states onto one canonical state; a `z.union` of generation shapes parsed by trial (runtime shape detection); a converter that leaves a wire-only field on the canonical value; a discriminated union of generations as a method's public return type; version prose in `packages/cli/skill-data/` where a `requires:` frontmatter key or a `<!-- requires: … -->` … `<!-- /requires -->` fence belongs (markers on their own lines, never inside a table).
 

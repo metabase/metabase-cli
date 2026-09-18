@@ -1,7 +1,8 @@
 import { core as zodCore, ZodError } from "zod";
 
 import { escapeJsonPointerSegment } from "./json-pointer";
-import { KNOWN_RANGE, type Skew } from "./version/profile";
+import { KNOWN_RANGE } from "./version/known-range";
+import type { Skew } from "./version/profile";
 
 export type ErrorCategory =
   | "network"

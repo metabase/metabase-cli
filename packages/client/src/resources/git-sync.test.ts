@@ -542,6 +542,28 @@ describe("git-sync resource wire requests", () => {
     expect(await mb.gitSync.branch()).toBeNull();
   });
 
+  it("reports no branch when the caller may not read settings", async () => {
+    const { mb } = clientOver([jsonResponse({ message: "You don't have permissions" }, 403)]);
+
+    expect(await mb.gitSync.branch()).toBeNull();
+  });
+
+  it("reports no branch when the setting is not registered on the server", async () => {
+    const { mb } = clientOver([jsonResponse({ message: "Not found." }, 404)]);
+
+    expect(await mb.gitSync.branch()).toBeNull();
+  });
+
+  it("rethrows a branch failure that is neither a permission nor a registration answer", async () => {
+    const { mb } = clientOver([jsonResponse({ message: "boom" }, 500)]);
+
+    const error = await thrownBy(() => mb.gitSync.branch({ retries: 0 }));
+
+    expect(error).toBeInstanceOf(HttpError);
+    assert(error instanceof HttpError, "expected HttpError");
+    expect(error.message).toBe("boom");
+  });
+
   it("answers the task in the status that ended the wait", async () => {
     const { mb } = clientOver([jsonResponse(RUNNING_TASK), jsonResponse(SETTLED_TASK)]);
 

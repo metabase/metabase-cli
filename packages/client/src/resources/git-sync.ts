@@ -284,15 +284,25 @@ export function gitSyncResource(transport: Transport) {
     }
   }
 
-  /** The branch git-sync tracks, or null when none is configured or the caller may not read it. */
+  /**
+   * The branch git-sync tracks, or null when none is configured, the caller may not read it, or
+   * the server has no remote-sync module.
+   */
   async function branch(options: RequestOptions = {}): Promise<string | null> {
     await transport.require("gitSync.branch", options);
-    return fetchOptionalParsed(
-      transport,
-      "/api/setting/remote-sync-branch",
-      RemoteSyncSetting,
-      options,
-    );
+    try {
+      return await fetchOptionalParsed(
+        transport,
+        "/api/setting/remote-sync-branch",
+        RemoteSyncSetting,
+        options,
+      );
+    } catch (error) {
+      if (isRemoteUnreadable(error)) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   /**

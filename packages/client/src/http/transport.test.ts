@@ -18,7 +18,8 @@ import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-ca
 import { CapabilityError } from "../version/preflight-error";
 import { SessionProperties } from "../domain/session-properties";
 import { PROBE_PATH } from "../version/probe";
-import { createServerProfile, KNOWN_RANGE } from "../version/profile";
+import { KNOWN_RANGE } from "../version/known-range";
+import { createServerProfile } from "../version/profile";
 
 const CONFIG: ClientCredentials = {
   url: "https://m.example.com",

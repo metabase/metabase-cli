@@ -4,7 +4,7 @@ Command-line client for Metabase. Logs in to an instance in your browser (OAuth,
 
 ## Supported Metabase versions
 
-The CLI is built against Metabase majors **58 through 63** (the client's `KNOWN_RANGE`), the latest patch of each; a newer server, or a head build whose version tag does not parse, runs as a head build past the newest known major — every shape the client knows head answers with, and one stderr notice per run — and an older one is refused command by command with the version it needs.
+The CLI is built against Metabase majors **58 through 63** (the client's `KNOWN_RANGE`), the latest patch of each; a newer server, or a head build whose version tag does not parse, runs as a head build past the newest known major — every shape the client knows head answers with, and one stderr notice per run — and an older one keeps its real major, gets one stderr notice per run pointing at a Metabase upgrade, and is refused command by command with the version it needs.
 
 Every command declares the client methods it calls, and each method names the server features it needs — a feature is a minimum major version, a premium token feature, or both. The server version and token features are detected and cached when you run `mb auth login` (or `mb auth list`). For a command whose methods need a feature, a preflight check runs before the first request and refuses with an actionable message (exit code `2`) when:
 
@@ -13,7 +13,7 @@ Every command declares the client methods it calls, and each method names the se
 
 Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs without a cached probe, the CLI asks the server for its version once and decides on the answer; a server that cannot be reached fails the command with that network error. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `MB_CLI_SKIP_PREFLIGHT=1`. Both switch off the client's own check too, so every request goes to the wire and the server answers for itself — footguns, only for servers you know are patched.
 
-`mb auth status --json` reports the window as `knownRange` and where the server sits as `skew`. A server above the window is read as a head build past the newest known major — its additions pass through, and one stderr notice per run points at `mb upgrade`; a server whose version tag does not parse (head builds) is treated the same way with its own notice. A response the CLI cannot parse, or a refusal it issues, under a cached profile triggers one fresh probe: if the server's version or premium features changed since the cache was written, the profile is refreshed and the error says so — retry the command.
+`mb auth status --json` reports the window as `knownRange` and where the server sits as `skew`. A server above the window is read as a head build past the newest known major — its additions pass through, and one stderr notice per run points at `mb upgrade`; a server whose version tag does not parse (head builds) is treated the same way with its own notice; a server below the window is `older-than-known`, still evaluated at its own major, with a notice naming the oldest major the CLI supports. A response the CLI cannot parse, or a refusal it issues, under a cached profile triggers one fresh probe: if the server's version or premium features changed since the cache was written, the profile is refreshed and the error says so — retry the command.
 
 ## Install
 
@@ -124,7 +124,7 @@ mb auth login --url https://m.example.com < key.txt
 
 ### `mb auth status`
 
-Show whether a profile is authenticated. The output includes the auth method (`OAuth` or `API key`) alongside the cached user, role, server version and skew (`supported`, `newer than this CLI knows (vN max)`, or `unknown version`). `--json` adds what the CLI derives from the cached probe: `edition`, `skew`, `knownRange` and the `features` map the preflight checks.
+Show whether a profile is authenticated. The output includes the auth method (`OAuth` or `API key`) alongside the cached user, role, server version and skew (`supported`, `older than this CLI supports (vN min)`, `newer than this CLI knows (vN max)`, or `unknown version`). `--json` adds what the CLI derives from the cached probe: `edition`, `skew`, `knownRange` and the `features` map the preflight checks.
 
 ```sh
 mb auth status
@@ -1975,7 +1975,7 @@ The former `METABASE_`-prefixed names (`METABASE_URL`, `METABASE_API_KEY`, `META
 
 Every node of the command tree answers `--help --json` with machine-readable help, mirroring what text help shows at that level:
 
-- A leaf command emits its full entry — name, description, `details`, examples, citty args with types/defaults/enums, `requires` (the client methods the command calls and the server features they need), `capabilities` (the same requirements summarized as a minimum server version and, where one is needed, a token feature), and the input and output Zod schemas rendered as JSON Schema (`inputSchema` is the exact validator `readBody` enforces on the JSON body, `null` for commands that take none).
+- A leaf command emits its full entry — name, description, `details`, examples, citty args with types/defaults/enums, `requires` (the client methods the command calls and the server features they need), and the input and output Zod schemas rendered as JSON Schema (`inputSchema` is the exact validator `readBody` enforces on the JSON body, `null` for commands that take none).
 - A command group (and the root) emits `{ description, skills, commands }` — its own sentence (`null` when it declares none), its own agent-skill pointers, and a flat `commands: [{ command, description }]` index of every leaf in its subtree, with full-path names.
 
 ```sh

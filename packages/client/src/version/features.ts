@@ -5,6 +5,9 @@ import type { TokenFeatures } from "../domain/session-properties";
 // A rule holds on every major from `since` through `until` (both inclusive) on which the server
 // also grants `tokenFeature`. Names describe the behaviour a consumer branches on, never the
 // version it arrived in, so a rule reads the same after the majors around it leave the window.
+// The table is the one place a server behaviour is pinned to a generation, so it also holds rules
+// only the e2e suite branches on (`invalidMbqlIsBadRequest`, `collectionItemsTotalOnEmptyPage`,
+// `transformTargetTableLinkedOnCreate`); a rule with no reader in `resources/` is not an orphan.
 export interface FeatureRule {
   readonly since: number;
   readonly until?: number;

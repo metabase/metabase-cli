@@ -9,7 +9,8 @@ import {
   jsonResponse,
   TEST_USER_AGENT,
 } from "../testing/fetch-capture";
-import { createServerProfile, KNOWN_RANGE, type ServerProfile } from "../version/profile";
+import { KNOWN_RANGE } from "../version/known-range";
+import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
   url: "https://mb.example.com/metabase",

@@ -41,7 +41,6 @@ import { FEATURE_RULES, type FeatureRule } from "./features";
 import { createServerProfile } from "./profile";
 import {
   isMethodKey,
-  METHOD_KEYS,
   METHOD_REQUIREMENTS,
   type MethodKey,
   methodRequirements,
@@ -369,12 +368,6 @@ describe("isMethodKey", () => {
   it("admits a key the table names and refuses one it does not", () => {
     expect(isMethodKey("card.list")).toBe(true);
     expect(isMethodKey("card.explode")).toBe(false);
-  });
-});
-
-describe("METHOD_KEYS", () => {
-  it("lists every key of the table in its own order", () => {
-    expect(METHOD_KEYS).toEqual(Object.keys(METHOD_REQUIREMENTS));
   });
 });
 

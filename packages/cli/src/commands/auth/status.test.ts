@@ -4,7 +4,8 @@ import type { ZodType } from "zod";
 
 import { parseJson } from "@metabase/client/json";
 import type { ServerInfo } from "@metabase/client/version/probe";
-import { createServerProfile, KNOWN_RANGE } from "@metabase/client/version/profile";
+import { KNOWN_RANGE } from "@metabase/client/version/known-range";
+import { createServerProfile } from "@metabase/client/version/profile";
 
 const hoisted = vi.hoisted(() => ({
   store: new Map<string, string>(),
