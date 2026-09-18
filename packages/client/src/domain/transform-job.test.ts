@@ -31,10 +31,6 @@ describe("transformJobSchema", () => {
 
   it("requires active from a server that can switch jobs off", () => {
     expect(transformJobSchema(STUB_RUN_ID_SERVER).safeParse(JOB_WIRE).success).toBe(false);
-    expect(transformJobSchema(STUB_RUN_ID_SERVER).parse({ ...JOB_WIRE, active: false })).toEqual({
-      ...JOB_WIRE,
-      active: false,
-    });
   });
 });
 

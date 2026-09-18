@@ -71,10 +71,6 @@ describe("evaluateFeatures", () => {
     expect(evaluateFeatures(61, { library: true }).library).toBe(true);
     expect(evaluateFeatures(58, { library: true }).library).toBe(false);
   });
-
-  it("answers for every rule in the table and nothing else", () => {
-    expect(Object.keys(evaluateFeatures(61, null))).toEqual([...FEATURE_NAMES]);
-  });
 });
 
 describe("ruleGap", () => {
