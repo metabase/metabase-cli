@@ -2,7 +2,6 @@ import { defineCommand } from "citty";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { summarizeCapabilities } from "@metabase/client/version/capability-summary";
 import { type MethodKey, methodRequirements } from "@metabase/client/version/requirements";
 
 import { defineMetabaseCommand } from "../commands/runtime";
@@ -176,7 +175,6 @@ describe("buildHelpEntry", () => {
         additionalProperties: false,
       },
       requires: { methods: [], features: [] },
-      capabilities: summarizeCapabilities([]),
     });
   });
 
@@ -276,7 +274,6 @@ describe("buildHelpEntry", () => {
       inputSchema: null,
       outputSchema: null,
       requires: null,
-      capabilities: null,
     });
   });
 
@@ -300,7 +297,6 @@ describe("buildHelpEntry", () => {
       inputSchema: null,
       outputSchema: null,
       requires: null,
-      capabilities: null,
     });
   });
 });
@@ -616,25 +612,6 @@ describe("command tree contract", () => {
     });
   });
 
-  it("summarizes a command's features as the single floor and token its capabilities carry", async () => {
-    const entries = await allEntries();
-    const summaries = Object.fromEntries(
-      entries
-        .filter((entry) =>
-          ["card list", "measure list", "transform-job set-active", "library get"].includes(
-            entry.command,
-          ),
-        )
-        .map((entry) => [entry.command, entry.capabilities]),
-    );
-    expect(summaries).toEqual({
-      "card list": summarizeCapabilities([]),
-      "measure list": summarizeCapabilities(["measures"]),
-      "transform-job set-active": summarizeCapabilities(["transformJobActivation", "transforms"]),
-      "library get": summarizeCapabilities(["library"]),
-    });
-  });
-
   it("advertises a --limit default on search alone, so the shared flag description stays true", async () => {
     const entries = await allEntries();
     const withDefault = Object.fromEntries(
@@ -653,12 +630,9 @@ describe("command tree contract", () => {
     });
   });
 
-  it("reports null requires and capabilities for exactly the commands that never touch a Metabase server", async () => {
+  it("reports null requires for exactly the commands that never touch a Metabase server", async () => {
     const entries = await allEntries();
     const local = entries.filter((entry) => entry.requires === null).map((entry) => entry.command);
-    expect(
-      entries.filter((entry) => entry.capabilities === null).map((entry) => entry.command),
-    ).toEqual(local);
     expect(local.toSorted()).toEqual([
       "auth status",
       "skills get",

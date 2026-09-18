@@ -4,13 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { errorMessage } from "@metabase/client/errors";
-import { summarizeCapabilities } from "@metabase/client/version/capability-summary";
-import {
-  isMethodKey,
-  type MethodKey,
-  methodRequirements,
-} from "@metabase/client/version/requirements";
+import { isMethodKey, type MethodKey } from "@metabase/client/version/requirements";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLI_SRC = resolve(HERE, "..");
@@ -113,21 +107,6 @@ describe("every command declares exactly the client methods it reaches", () => {
       offline.map((entry) => [entry.file, methodsReachedBy(entry.file)]),
     );
     expect(reached).toEqual(Object.fromEntries(offline.map((entry) => [entry.file, []])));
-  });
-
-  // `defineMetabaseCommand` summarizes the declared methods the moment the module loads, and the
-  // summary admits one premium feature; a command reaching two would refuse to load at all.
-  it("reaches methods whose features summarize to one server floor and at most one premium feature", () => {
-    const refused = onlineOnly(declarations).flatMap((declaration) => {
-      const features = declaration.requires.filter(isMethodKey).flatMap(methodRequirements);
-      try {
-        summarizeCapabilities(features);
-        return [];
-      } catch (error) {
-        return [{ file: declaration.file, reason: errorMessage(error) }];
-      }
-    });
-    expect(refused).toEqual([]);
   });
 
   it("names every non-command file that reaches a client method", () => {

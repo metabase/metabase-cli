@@ -1,7 +1,6 @@
 import type { ArgDef, ArgsDef, CommandDef, CommandMeta } from "citty";
 import { z } from "zod";
 
-import { CapabilitySummary } from "@metabase/client/version/capability-summary";
 import { FEATURE_NAMES } from "@metabase/client/version/features";
 import { METHOD_KEYS } from "@metabase/client/version/requirements";
 
@@ -44,7 +43,6 @@ export const CommandHelpEntry = z.object({
   inputSchema: z.unknown().nullable(),
   outputSchema: z.unknown().nullable(),
   requires: CommandHelpRequires.nullable(),
-  capabilities: CapabilitySummary.nullable(),
 });
 export type CommandHelpEntry = z.infer<typeof CommandHelpEntry>;
 
@@ -68,7 +66,6 @@ const EMPTY_AUGMENT: MetabaseAugment = {
   inputSchema: null,
   outputSchema: null,
   requires: null,
-  capabilities: null,
 };
 
 export async function buildHelpEntry<T extends ArgsDef = ArgsDef>(
@@ -87,7 +84,6 @@ export async function buildHelpEntry<T extends ArgsDef = ArgsDef>(
     inputSchema: augment.inputSchema ? z.toJSONSchema(augment.inputSchema) : null,
     outputSchema: augment.outputSchema ? z.toJSONSchema(augment.outputSchema) : null,
     requires: augment.requires,
-    capabilities: augment.capabilities,
   };
   if (augment.details !== null) {
     entry.details = augment.details;

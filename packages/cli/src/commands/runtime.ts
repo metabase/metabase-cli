@@ -4,7 +4,6 @@ import type { ZodType } from "zod";
 
 import type { MetabaseClient } from "@metabase/client/client";
 import { MetabaseError, ResponseShapeError } from "@metabase/client/errors";
-import { summarizeCapabilities } from "@metabase/client/version/capability-summary";
 import type { FeatureName } from "@metabase/client/version/features";
 import { CapabilityError } from "@metabase/client/version/preflight-error";
 import { probeServer, type ServerInfo } from "@metabase/client/version/probe";
@@ -153,7 +152,6 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
     inputSchema: def.inputSchema ?? null,
     outputSchema: def.outputSchema ?? null,
     requires: requirements,
-    capabilities: requirements === null ? null : summarizeCapabilities(requirements.features),
   });
   return cmd;
 }

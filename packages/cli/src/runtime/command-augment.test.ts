@@ -18,7 +18,6 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       inputSchema: null,
       outputSchema: z.object({ id: z.number() }),
       requires: null,
-      capabilities: null,
     };
     setMetabaseAugment(cmd, augment);
     expect(getMetabaseAugment(cmd)).toBe(augment);
@@ -34,7 +33,6 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       inputSchema: null,
       outputSchema: null,
       requires: null,
-      capabilities: null,
     };
     const secondAugment: MetabaseAugment = {
       examples: ["b"],
@@ -43,7 +41,6 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       inputSchema: null,
       outputSchema: null,
       requires: null,
-      capabilities: null,
     };
     setMetabaseAugment(first, firstAugment);
     setMetabaseAugment(second, secondAugment);
@@ -60,7 +57,6 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       inputSchema: null,
       outputSchema: null,
       requires: null,
-      capabilities: null,
     };
     const replacement: MetabaseAugment = {
       examples: ["after"],
@@ -69,7 +65,6 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       inputSchema: null,
       outputSchema: null,
       requires: null,
-      capabilities: null,
     };
     setMetabaseAugment(cmd, initial);
     setMetabaseAugment(cmd, replacement);
@@ -85,7 +80,6 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       inputSchema: null,
       outputSchema: null,
       requires: null,
-      capabilities: null,
     };
     setMetabaseAugment(cmd, augment);
     const recalled = getMetabaseAugment(cmd);
@@ -96,7 +90,6 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       inputSchema: null,
       outputSchema: null,
       requires: null,
-      capabilities: null,
     });
   });
 });

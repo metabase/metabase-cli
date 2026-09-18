@@ -1975,7 +1975,7 @@ The former `METABASE_`-prefixed names (`METABASE_URL`, `METABASE_API_KEY`, `META
 
 Every node of the command tree answers `--help --json` with machine-readable help, mirroring what text help shows at that level:
 
-- A leaf command emits its full entry — name, description, `details`, examples, citty args with types/defaults/enums, `requires` (the client methods the command calls and the server features they need), `capabilities` (the same requirements summarized as a minimum server version and, where one is needed, a token feature), and the input and output Zod schemas rendered as JSON Schema (`inputSchema` is the exact validator `readBody` enforces on the JSON body, `null` for commands that take none).
+- A leaf command emits its full entry — name, description, `details`, examples, citty args with types/defaults/enums, `requires` (the client methods the command calls and the server features they need), and the input and output Zod schemas rendered as JSON Schema (`inputSchema` is the exact validator `readBody` enforces on the JSON body, `null` for commands that take none).
 - A command group (and the root) emits `{ description, skills, commands }` — its own sentence (`null` when it declares none), its own agent-skill pointers, and a flat `commands: [{ command, description }]` index of every leaf in its subtree, with full-path names.
 
 ```sh
