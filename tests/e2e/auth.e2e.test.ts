@@ -68,7 +68,11 @@ function failureOf(record: ProfileRecord): ProfileLastFailure {
   return record.lastFailure;
 }
 
-function userOf(payload: { user: ProbedUser | null }): ProbedUser {
+interface ProbedUserPayload {
+  user: ProbedUser | null;
+}
+
+function userOf(payload: ProbedUserPayload): ProbedUser {
   if (payload.user === null) {
     throw new Error("expected a probed user");
   }
