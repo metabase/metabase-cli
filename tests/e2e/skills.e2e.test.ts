@@ -41,7 +41,7 @@ const BUNDLED_VISIBLE_NAMES = [
 ] as const;
 
 const UNFILTERED_NOTE =
-  'Skills are unfiltered: profile "default" has no cached server probe (run `mb auth login` to record one).';
+  'Skills are unfiltered: there is no profile "default" (run `mb auth login` to create one and record its server).';
 const SKILL_OVERSIZE_HINT =
   "a skill body is indivisible — pass --max-bytes 0 to print it whole, or `mb skills path <name>` to read it from disk";
 
@@ -175,11 +175,14 @@ describe("skills e2e", () => {
     expect(result.stderr).toBe("");
   });
 
-  it("list --all against a v58 profile lists every skill and reports `unavailable: null`", async () => {
+  it("list --unfiltered against a v58 profile lists every skill and reports `unavailable: null`", async () => {
     const configHome = await makeIsolatedConfigHome();
     await seedProbedProfile(configHome, 58);
 
-    const result = await runCli({ args: ["skills", "list", "--all", "--json"], configHome });
+    const result = await runCli({
+      args: ["skills", "list", "--unfiltered", "--json"],
+      configHome,
+    });
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, SkillListEnvelope)).toEqual(fullList(BUNDLED_VISIBLE));
@@ -198,13 +201,13 @@ describe("skills e2e", () => {
     );
     expect(result.stderr).toBe(
       [
-        `Skipped skill "git-sync": ${GIT_SYNC_UNAVAILABLE_ON_58.failure.detail} Pass --all to print it anyway.`,
-        `Skipped skill "transform": ${TRANSFORM_UNAVAILABLE_ON_58.failure.detail} Pass --all to print it anyway.`,
+        `Skipped skill "git-sync": ${GIT_SYNC_UNAVAILABLE_ON_58.failure.detail} Pass --unfiltered to print it anyway.`,
+        `Skipped skill "transform": ${TRANSFORM_UNAVAILABLE_ON_58.failure.detail} Pass --unfiltered to print it anyway.`,
       ].join("\n"),
     );
   });
 
-  it("get transform against a v58 profile withholds the body, and --all prints it", async () => {
+  it("get transform against a v58 profile withholds the body, and --unfiltered prints it", async () => {
     const configHome = await makeIsolatedConfigHome();
     await seedProbedProfile(configHome, 58);
 
@@ -221,7 +224,7 @@ describe("skills e2e", () => {
     });
 
     const printed = await runCli({
-      args: ["skills", "get", "transform", "--all", "--json", "--max-bytes", "0"],
+      args: ["skills", "get", "transform", "--unfiltered", "--json", "--max-bytes", "0"],
       configHome,
     });
     expect(printed.exitCode, printed.stderr).toBe(0);

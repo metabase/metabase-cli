@@ -80,7 +80,7 @@ describe("skills list command", () => {
 
     expect(stdout.chunks.join("")).toBe("alpha\n  The first skill.\n\n");
     expect(stderr.chunks.join("")).toBe(
-      'Skills are unfiltered: profile "default" has no cached server probe (run `mb auth login` to record one).\n',
+      'Skills are unfiltered: there is no profile "default" (run `mb auth login` to create one and record its server).\n',
     );
   });
 
@@ -135,7 +135,7 @@ describe("skills list command", () => {
       "alpha\n  The first skill.\n\nbeta\n  The second skill.\n\n",
     );
     expect(stderr.chunks.join("")).toBe(
-      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --all to print it anyway.\n',
+      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n',
     );
   });
 
@@ -159,7 +159,7 @@ describe("skills list command", () => {
       ].join("\n"),
     );
     expect(stderr.chunks.join("")).toBe(
-      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --all to print it anyway.\n',
+      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n',
     );
   });
 
@@ -186,12 +186,12 @@ describe("skills list command", () => {
     expect(stderr.chunks).toEqual([]);
   });
 
-  it("--all bypasses the filter and says nothing about it", async () => {
+  it("--unfiltered bypasses the filter and says nothing about it", async () => {
     await seedProbedProfile("default", probeAt(58));
     const stdout = capture(process.stdout);
     const stderr = capture(process.stderr);
 
-    await runCommand(skillsListCommand, { rawArgs: ["--all", "--json"] });
+    await runCommand(skillsListCommand, { rawArgs: ["--unfiltered", "--json"] });
 
     expect(stdout.parse(SkillListEnvelope)).toEqual({
       returned: 3,

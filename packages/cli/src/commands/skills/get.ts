@@ -13,11 +13,7 @@ import {
 } from "../../core/skills";
 import { warn } from "../../output/notice";
 import { renderListWithExtras, writeText } from "../../output/render";
-import {
-  skillFilterNotices,
-  UnavailableSkills,
-  unavailableSkillsFlag,
-} from "../../output/skill-list";
+import { skillFilterNotices, UnavailableSkills, unfilteredFlag } from "../../output/skill-list";
 import { listEnvelopeSchemaWithExtras } from "../../output/types";
 import type { ResourceView } from "../../output/view";
 import { windowList } from "../../output/window";
@@ -46,7 +42,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "get",
     description:
-      "Print one or more skills' SKILL.md content, as the profile's server can use it: a skill it lacks the features for is reported under `unavailable`, and a section it cannot use is left out. Pass comma-separated names, or --all for every non-hidden skill; --all also prints everything regardless of the server. --full includes references and templates.",
+      "Print one or more skills' SKILL.md content, as the profile's server can use it: a skill it lacks the features for is reported under `unavailable`, and a section it cannot use is left out. Pass comma-separated names, or --all for every non-hidden skill. --unfiltered prints the selection as written, regardless of the server. --full includes references and templates.",
   },
   requires: null,
   args: {
@@ -59,7 +55,11 @@ export default defineMetabaseCommand({
         "Skill name (or comma-separated list). Omit to combine with --all for every non-hidden skill.",
       required: false,
     },
-    ...unavailableSkillsFlag,
+    all: {
+      type: "boolean",
+      description: "Every non-hidden skill",
+    },
+    ...unfilteredFlag,
   },
   outputSchema: SkillGetEnvelope,
   examples: [
@@ -67,13 +67,16 @@ export default defineMetabaseCommand({
     "mb skills get core --full",
     "mb skills get git-sync,transform --json",
     "mb skills get --all --json",
-    "mb skills get transform --all",
+    "mb skills get transform --unfiltered",
   ],
   async run({ args, ctx }) {
     const profileName = resolveProfileName(args.profile);
-    const bypassed = args.all === true;
-    const profile = bypassed ? null : await readCachedServerProfile(profileName);
-    const selection = selectForProfile(pickSkills({ names: args.names, all: bypassed }), profile);
+    const cached = args.unfiltered === true ? null : await readCachedServerProfile(profileName);
+    const profile = cached !== null && cached.kind === "found" ? cached.profile : null;
+    const selection = selectForProfile(
+      pickSkills({ names: args.names, all: args.all === true }),
+      profile,
+    );
     const payloads = selection.skills.map((info) =>
       readSkillContent(info, { includeExtras: ctx.full, profile }),
     );
@@ -89,7 +92,7 @@ export default defineMetabaseCommand({
     if (envelope.data.length > 0) {
       writeText(renderText(envelope.data, ctx.full));
     }
-    for (const notice of skillFilterNotices(selection.unavailable, { profileName, bypassed })) {
+    for (const notice of skillFilterNotices(selection.unavailable, { profileName, cached })) {
       warn(notice);
     }
   },

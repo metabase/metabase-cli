@@ -1918,19 +1918,19 @@ The CLI ships with bundled agent skills (Claude Code / `npx skills add` compatib
 
 ```sh
 mb skills list                              # bundled skills the profile's server can use (table or JSON)
-mb skills list --all                        # every bundled skill, whatever the server
+mb skills list --unfiltered                 # every bundled skill, whatever the server
 mb skills get core                          # print the top-level guide, sections the server cannot use left out
 mb skills get core --full                   # include references and templates
 mb skills get git-sync,transform            # comma-separated, multi-skill fetch
-mb skills get transform --all               # print a skill as written, even one the server cannot use
-mb skills get --all --json --max-bytes 0    # every non-hidden skill, structured (default cap truncates)
+mb skills get transform --unfiltered        # print a skill as written, even one the server cannot use
+mb skills get --all --json --max-bytes 0    # every non-hidden skill the server can use, structured (default cap truncates)
 mb skills path                              # absolute paths for direct Read
 mb skills path core                         # one path
 ```
 
 `mb skills get` honors the shared `--max-bytes` list cap. With the default 24 576 cap, `--all` will return only the first skill and emit a truncation notice — pass `--max-bytes 0` to dump every skill in one envelope.
 
-Skills describe the newest Metabase plainly and declare what they rely on: a skill's frontmatter carries `requires: [<feature>, …]` (names from the client's feature table, e.g. `transforms`, `remoteSync`), and a passage inside a skill or one of its references sits between `<!-- requires: <feature>, … -->` and `<!-- /requires -->` markers, each on its own line. `skills list` and `skills get` read the profile's cached server probe (`--profile` respected; no request is made) and resolve both against it: a skill whose features the server lacks is left out and reported in the JSON envelope's `unavailable` array as `{ name, failure }`, where `failure` is the same `{ reason, detail, feature, since, tokenFeature, serverVersion }` a refused command carries; a met section keeps its text and loses its markers; an unmet one is removed. Text mode reports each skipped skill on stderr. Without a cached probe nothing is filtered, `unavailable` is `null`, the markers are printed as written, and text mode says so on stderr. `--all` bypasses the filter on both commands (with names on `get`, it prints those skills as written). An unknown feature name or an unbalanced marker pair is a `ConfigError` on every read, so a typo fails the gate rather than hiding a skill.
+Skills describe the newest Metabase plainly and declare what they rely on: a skill's frontmatter carries `requires: [<feature>, …]` (names from the client's feature table, e.g. `transforms`, `remoteSync`), and a passage inside a skill or one of its references sits between `<!-- requires: <feature>, … -->` and `<!-- /requires -->` markers, each on its own line. `skills list` and `skills get` read the profile's cached server probe (`--profile` respected; no request is made) and resolve both against it: a skill whose features the server lacks is left out and reported in the JSON envelope's `unavailable` array as `{ name, failure }`, where `failure` is the same `{ reason, detail, feature, since, tokenFeature, serverVersion }` a refused command carries; a met section keeps its text and loses its markers; an unmet one is removed. Text mode reports each skipped skill on stderr. Without a cached probe nothing is filtered, `unavailable` is `null`, the markers are printed as written, and text mode says why on stderr: no such profile, a profile never probed, or no probe for the URL `MB_URL` points at. `--unfiltered` bypasses the filter on both commands and prints the selected skills as written; on `get`, `--all` selects every non-hidden skill and combines with either. A marker inside a fenced code block is text. An unknown feature name, an unbalanced marker pair, or a marker between table rows is a `ConfigError` on every read, so a typo fails the gate rather than hiding a skill.
 
 Bundled skills:
 
