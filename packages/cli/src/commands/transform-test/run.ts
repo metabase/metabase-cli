@@ -40,7 +40,7 @@ export default defineMetabaseCommand({
   meta: { name: "run", description: "Run a transform test by id" },
   details:
     "Runs the transform against temp tables built from the test's inputs, checks every expectation against its output, and drops the temp tables. Nothing reads or writes a real table. A failing expectation exits non-zero; --json reports what each expectation found, including the rows a comparison disagreed on.",
-  capabilities: { minVersion: 64 },
+  capabilities: { minVersion: 65 },
   args: {
     ...outputFlags,
     ...profileFlag,
