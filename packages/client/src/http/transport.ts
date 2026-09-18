@@ -2,8 +2,13 @@ import type { ZodType } from "zod";
 
 import { errorMessage, NetworkError, TimeoutError } from "../errors";
 import { JSON_CONTENT_TYPE } from "../json";
-import { combineAborts, throwIfAborted } from "../signal";
+import { combineAborts, throwIfAborted, untilAborted } from "../signal";
 import { normalizeUrl } from "../url";
+import { CapabilityError } from "../version/preflight-error";
+import { probeServer } from "../version/probe";
+import { createServerProfile, type ServerProfile, type Skew } from "../version/profile";
+import { checkRequirements } from "../version/requirement-check";
+import { type MethodKey, methodRequirements } from "../version/requirements";
 
 import {
   assertCredentialHeaderSafe,
@@ -15,7 +20,7 @@ import {
 
 import { HttpError, isRetryableStatus } from "./errors";
 import { buildNetworkError, isConnectionClosed } from "./network-error";
-import { NO_SERVER_TAG, parseJsonResponse } from "./response-shape";
+import { parseJsonResponse } from "./response-shape";
 import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries, type RetryOutcome } from "./retry";
 import type { RedactionContext } from "./sanitize";
 
@@ -57,7 +62,16 @@ export interface Transport {
   requestParsed<T>(schema: ZodType<T>, path: string, opts?: TransportRequestOptions): Promise<T>;
   requestRaw(path: string, opts?: TransportRequestOptions): Promise<Response>;
   requestStream(path: string, opts?: TransportRequestOptions): Promise<ReadableStream<Uint8Array>>;
+  // The profile handed in at construction, or else the one the first call probes and every later
+  // call shares. `signal` ends this caller's wait; the probe itself is the client's and is cancelled
+  // only by the client's own signal, so a later call still finds it settled.
+  server(options?: WaitOptions): Promise<ServerProfile>;
+  // Throws `CapabilityError` when the server lacks a feature the method needs, before any request
+  // leaves. A method that needs nothing resolves without consulting the server.
+  require(key: MethodKey, options?: WaitOptions): Promise<void>;
 }
+
+export type WaitOptions = Pick<RequestOptions, "signal">;
 
 export interface ClientCredentials {
   url: string;
@@ -90,18 +104,30 @@ export type ServerTagResolver = () => Promise<string | null>;
 export interface ClientOptions {
   userAgent: string;
   fetchImpl?: typeof fetch;
+  // A profile the caller already holds — from its own cache, or from a probe it ran to verify the
+  // credential — so the client never asks the server what the caller can tell it.
+  server?: ServerProfile;
+  // Names the server in a shape error. Defaults to the tag of `server`, or of the profile a probe
+  // has settled on; a caller that resolves the tag some other way passes its own.
   getServerTag?: ServerTagResolver;
   refreshCredential?: CredentialRefresher;
   // Cancels every request this client makes; composed with the per-request `signal` and the
   // timeout. A process-level interrupt is the caller's to own and to hand over here.
   signal?: AbortSignal;
+  // `false` sends every method to the wire whatever the profile says, leaving the server to answer
+  // for itself. Defaults to `true`.
+  enforceRequirements?: boolean;
 }
 
 export function createTransport(config: ClientCredentials, options: ClientOptions): Transport {
   const baseUrl = normalizeUrl(config.url);
   assertCredentialHeaderSafe(config.credential);
   const fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
-  const getServerTag = options.getServerTag ?? NO_SERVER_TAG;
+  // The server every error names: the profile handed in, or else the one a probe has settled on. A
+  // pending probe is never awaited here — a shape error inside the probe would wait on its own parse.
+  let settledProfile: ServerProfile | null = options.server ?? null;
+  const getServerTag = options.getServerTag ?? (async () => tagOf(settledProfile));
+  const serverSkew = (): Skew | null => (settledProfile === null ? null : settledProfile.skew);
   const refreshCredential = options.refreshCredential;
   let credential = config.credential;
   const knownSecrets = new Set(credentialSecrets(credential));
@@ -150,16 +176,11 @@ export function createTransport(config: ClientCredentials, options: ClientOption
       });
     } catch (error) {
       throwIfAborted(prepared.cancelSignal);
-      // A dropped connection or an elapsed timeout says nothing about whether the request landed:
-      // the bytes may never have left the client, or the server may already have committed the
-      // write and lost only the response. Metabase offers no idempotency-key framework to tell a
-      // replay from a first delivery, so a resend is only safe for a method safe to repeat — the
-      // same question, and the same answer, as the status gate below. A caller who knows the
-      // endpoint tolerates a resend opts back in with `idempotent: true`.
-      //
-      // A pooled connection reaped by the peer between requests is the one failure that reports the
-      // socket's age rather than the server's health, so it earns an attempt on a fresh socket even
-      // when the caller opted out of retries entirely.
+      // A dropped connection or a timeout says nothing about whether a write landed, and Metabase
+      // has no idempotency keys to tell a replay from a first delivery, so only a method safe to
+      // repeat is resent (`idempotent: true` opts a write in). A pooled connection the peer reaped
+      // between requests reports the socket's age, not the server's health, so it earns one attempt
+      // on a fresh socket even when the caller opted out of retries.
       const isStaleSocketFirstTry = attempt === 0 && isConnectionClosed(error);
       if (prepared.idempotent && (hasRetriesLeft || isStaleSocketFirstTry)) {
         return { kind: "retry", delayMs: backoffDelay({ attempt }) };
@@ -175,9 +196,8 @@ export function createTransport(config: ClientCredentials, options: ClientOption
       throw buildNetworkError(error, prepared.method, prepared.url);
     }
 
-    // Metabase offers no idempotency-key framework, so the server cannot recognise a replayed
-    // write as the same request: retrying a POST whose response was lost double-creates. A status
-    // code is only grounds for another attempt when the method is safe to repeat.
+    // Retrying a POST whose response was lost double-creates: a status code is only grounds for
+    // another attempt when the method is safe to repeat.
     const canRetryStatus = hasRetriesLeft && prepared.idempotent;
     if (!response.ok && isRetryableStatus(response.status) && canRetryStatus) {
       const retryAfter = response.headers.get("Retry-After");
@@ -221,8 +241,6 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     }
   }
 
-  // On a 401 with an OAuth credential, attempt a single token refresh and replay the request with
-  // the new access token. API-key credentials and non-401 errors propagate unchanged.
   async function executeWithAuthRefresh(
     path: string,
     opts: TransportRequestOptions,
@@ -277,7 +295,41 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     };
   }
 
-  return {
+  let serverProfile: Promise<ServerProfile> | null =
+    options.server === undefined ? null : Promise.resolve(options.server);
+
+  // A failed probe is not memoized: the next call asks again rather than replaying one transient
+  // failure for the life of the client.
+  async function server(wait: WaitOptions = {}): Promise<ServerProfile> {
+    throwIfAborted(wait.signal);
+    if (serverProfile === null) {
+      const probe = probeServer(transport).then((info) => {
+        settledProfile = createServerProfile(info);
+        return settledProfile;
+      });
+      probe.catch(() => {
+        serverProfile = null;
+      });
+      serverProfile = probe;
+    }
+    return untilAborted(serverProfile, wait.signal);
+  }
+
+  const enforceRequirements = options.enforceRequirements ?? true;
+
+  async function requireFeatures(key: MethodKey, wait: WaitOptions = {}): Promise<void> {
+    if (!enforceRequirements || methodRequirements(key).length === 0) {
+      return;
+    }
+    const failure = checkRequirements(key, await server(wait));
+    if (failure !== null) {
+      throw new CapabilityError(failure);
+    }
+  }
+
+  const transport: Transport = {
+    server,
+    require: requireFeatures,
     async requestRaw(path, opts) {
       return (await executeWithAuthRefresh(path, opts ?? {})).response;
     },
@@ -292,6 +344,7 @@ export function createTransport(config: ClientCredentials, options: ClientOption
         url: prepared.url,
         status: response.status,
         getServerTag,
+        serverSkew: serverSkew(),
       });
     },
     async requestStream(path, opts) {
@@ -309,6 +362,14 @@ export function createTransport(config: ClientCredentials, options: ClientOption
       return response.body;
     },
   };
+  return transport;
+}
+
+function tagOf(profile: ServerProfile | null): string | null {
+  if (profile === null || profile.version === null) {
+    return null;
+  }
+  return profile.version.tag;
 }
 
 function buildUrl(

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parseJson } from "@metabase/client/json";
 
 import { AuthStatus } from "../../packages/cli/src/commands/auth/status";
+import { summarizeServer } from "../../packages/cli/src/core/auth/server-summary";
 import { DEFAULT_PROFILE } from "../../packages/cli/src/core/auth/storage";
 import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
@@ -59,8 +60,7 @@ describe("runCli env isolation e2e", () => {
       url: null,
       method: null,
       user: null,
-      version: null,
-      tokenFeatures: null,
+      ...summarizeServer(null),
       lastProbedAt: null,
       lastFailure: null,
     });
@@ -72,8 +72,8 @@ describe("runCli env isolation e2e", () => {
     const result = await runCli({ args: ["db", "list", "--json"], configHome });
 
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain(
-      `Not authenticated for profile "${DEFAULT_PROFILE}".`,
+    expect(cliErrorMessage(result.stderr)).toBe(
+      `Not authenticated for profile "${DEFAULT_PROFILE}". Run \`mb auth login\`, set MB_URL/MB_API_KEY, or pass --url/--api-key.`,
     );
   });
 });

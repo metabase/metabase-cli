@@ -11,7 +11,7 @@ export const SyncDirtyListEnvelope = listEnvelopeSchema(SyncDirtyItemCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "dirty", description: "List objects with unsynced local changes" },
-  capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
+  requires: ["gitSync.dirty"],
   args: { ...outputFlags, ...listFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SyncDirtyListEnvelope,
   examples: ["mb git-sync dirty", "mb git-sync dirty --json"],

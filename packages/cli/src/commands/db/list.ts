@@ -11,7 +11,7 @@ export const DatabaseListEnvelope = listEnvelopeSchema(DatabaseCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List databases" },
-  capabilities: { minVersion: 58 },
+  requires: ["database.list"],
   args: {
     ...outputFlags,
     ...listFlags,

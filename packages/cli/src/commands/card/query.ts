@@ -21,7 +21,7 @@ export default defineMetabaseCommand({
     description:
       "Run a saved card and return results (json envelope, or stream CSV/JSON/XLSX via --export-format)",
   },
-  capabilities: { minVersion: 58 },
+  requires: ["card.exportQuery", "card.query"],
   args: {
     ...outputFlags,
     ...profileFlag,

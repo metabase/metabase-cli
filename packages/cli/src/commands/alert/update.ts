@@ -17,7 +17,7 @@ export default defineMetabaseCommand({
     "`subscriptions` and `handlers` replace the whole list, so send every schedule and recipient you want to keep —",
     "`mb alert get <id>` prints the current ones. An alert's card cannot be moved to a different card.",
   ].join(" "),
-  capabilities: { minVersion: 58 },
+  requires: ["notification.update"],
   args: {
     ...outputFlags,
     ...profileFlag,

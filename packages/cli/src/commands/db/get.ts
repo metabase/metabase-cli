@@ -25,7 +25,7 @@ export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a database by id" },
   details:
     "`--include tables` returns the table map (id, name, schema, description per table) — one call that fits most databases. `--include tables.fields` is the full rollup; on all but small databases prefer the map plus `mb table fields <table-id>` per table of interest.",
-  capabilities: { minVersion: 58 },
+  requires: ["database.get"],
   args: {
     ...outputFlags,
     ...profileFlag,

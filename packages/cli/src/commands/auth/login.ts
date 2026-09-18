@@ -6,7 +6,6 @@ import { revokeOAuthCredential } from "@metabase/client/auth/oauth-session";
 import { ConfigError, errorMessage } from "@metabase/client/errors";
 import { tryDiscoverMetadata, type OAuthServerMetadata } from "@metabase/client/http/oauth";
 import { normalizeUrl } from "@metabase/client/url";
-import { ParsedVersion } from "@metabase/client/version/tag";
 
 import {
   consumeKeychainResidualWarning,
@@ -22,6 +21,7 @@ import {
 import { verifyAndProbe, type VerifyFailure, type VerifyWhich } from "../../core/auth/verify";
 import { explicitProfileName, readEnvCredentials } from "../../core/config";
 import { ProbedUser } from "../../core/auth/profile-record";
+import { ServerSummary, summarizeServer } from "../../core/auth/server-summary";
 import { OAUTH_CLIENT_NAME, USER_AGENT } from "../../core/user-agent";
 import { warn } from "../../output/notice";
 import { promptPassword, promptSelect, promptText } from "../../output/prompt";
@@ -34,14 +34,14 @@ import { readInput } from "../../runtime/input";
 import type { CommonContext } from "../context";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
-import { renderUserName, renderUserRole, renderVersionTag } from "./render";
+import { renderSkew, renderUserName, renderUserRole, renderVersionTag } from "./render";
 
 export const LoginResult = z.object({
   profile: z.string(),
   url: z.string(),
   authenticated: z.boolean(),
   user: ProbedUser.nullable(),
-  version: ParsedVersion.nullable(),
+  ...ServerSummary.shape,
 });
 type LoginResultJson = z.infer<typeof LoginResult>;
 
@@ -64,6 +64,7 @@ const loginView: ResourceView<LoginResultJson> = {
     { key: "user", label: "Logged in as", format: (value) => renderUserName(value) },
     { key: "user", label: "Role", format: (value) => renderUserRole(value) },
     { key: "version", label: "Version", format: (value) => renderVersionTag(value) },
+    { key: "skew", label: "Skew", format: (value) => renderSkew(value) },
   ],
 };
 
@@ -71,7 +72,7 @@ export default defineMetabaseCommand({
   meta: { name: "login", description: "Log in to a Metabase instance for a profile" },
   details:
     "Interactive login offers browser OAuth (recommended; Metabase v63+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a refreshing access token. For CI/non-interactive use, supply an API key via --api-key, piped stdin, or $MB_API_KEY (first non-empty wins); any of these skips the browser flow, even on a TTY. The URL comes from --url or $MB_URL, prompted when stdin is a TTY.",
-  capabilities: { minVersion: 58 },
+  requires: ["user.current"],
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -237,7 +238,7 @@ async function completeLogin(
   if (skipVerify) {
     await persistWithWarning(persist);
     renderSummary(
-      { profile: profileName, url, authenticated: false, user: null, version: null },
+      { profile: profileName, url, authenticated: false, user: null, ...summarizeServer(null) },
       loginView,
       `Saved credentials for profile "${profileName}" (${url}) without verifying.`,
       ctx,
@@ -265,7 +266,7 @@ async function completeLogin(
       url,
       authenticated: true,
       user: result.user,
-      version: result.server.version,
+      ...summarizeServer(result.server),
     },
     loginView,
     `Logged in to ${url} as ${who} (${role}). Saved to profile "${profileName}".${serverClause}`,

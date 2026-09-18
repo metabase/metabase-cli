@@ -11,7 +11,7 @@ export default defineMetabaseCommand({
   },
   details:
     "Creates the Library subtree if it doesn't exist and returns it; a no-op that returns the existing Library when it's already there. Only admins and data analysts can curate the Library.",
-  capabilities: { minVersion: 59, tokenFeature: "library" },
+  requires: ["library.create"],
   args: {
     ...outputFlags,
     ...profileFlag,

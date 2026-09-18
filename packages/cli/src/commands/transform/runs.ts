@@ -12,7 +12,7 @@ export const TransformRunListEnvelope = listEnvelopeSchema(TransformRunCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "runs", description: "List recent transform runs" },
-  capabilities: { minVersion: 59 },
+  requires: ["transform.runPages"],
   args: {
     ...outputFlags,
     ...listFlags,

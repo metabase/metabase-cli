@@ -2,7 +2,7 @@
 
 ## Contents
 
-- [Cartesian — `bar`, `line`, `area`, `combo`, `scatter`, `waterfall`, `row`, `boxplot`](#cartesian--bar-line-area-combo-scatter-waterfall-row-boxplot) — shared keys (binding, stacking, goal/trend, data labels, axes, tooltip) plus `scatter`, `waterfall`, `row`, `boxplot` extras
+- [Cartesian — `bar`, `line`, `area`, `combo`, `scatter`, `waterfall`, `row`](#cartesian--bar-line-area-combo-scatter-waterfall-row) — shared keys (binding, stacking, goal/trend, data labels, axes, tooltip) plus `scatter`, `waterfall`, `row` extras
 - [Part-to-whole & single value — `pie`, `funnel`, `gauge`, `progress`, `scalar`, `smartscalar`](#part-to-whole--single-value--pie-funnel-gauge-progress-scalar-smartscalar)
 - [Tabular, geographic & flow — `table`, `pivot`, `object`, `map`, `sankey`](#tabular-geographic--flow--table-pivot-object-map-sankey) — includes `table.column_formatting` conditional formatting
 - [`column_settings` — per-column formatting](#column_settings--per-column-formatting) — number/date/currency, `view_as`, alignment, mini bars
@@ -18,7 +18,7 @@ All column-naming keys (`graph.dimensions`, `pie.dimension`, `table.columns[].na
 
 ---
 
-# Cartesian — `bar`, `line`, `area`, `combo`, `scatter`, `waterfall`, `row`, `boxplot`
+# Cartesian — `bar`, `line`, `area`, `combo`, `scatter`, `waterfall`, `row`
 
 `bar`/`line`/`area`/`combo` share an identical key set (combo just defaults the first series to a line, the rest to bars). `scatter`/`waterfall`/`row`/`boxplot` use a subset plus their own extras. Most allow up to 2 dimensions and unlimited metrics; **waterfall is 1 dimension + 1 metric**, boxplot allows 2 dimensions.
 
@@ -102,9 +102,9 @@ Use for sequential additive contributions (start → +/− steps → total). **U
 
 Horizontal bars — use when category labels are long or numerous. Here `graph.dimensions` is the y-axis (categories) and `graph.metrics` the x-axis (values). X-scale is `"ordinal"` only; no trend line, tooltip columns, or split panels. **Required:** `graph.dimensions`, `graph.metrics`.
 
-## boxplot
+<!-- requires: boxplotDisplay -->
 
-_Registered only on **v59+** servers — older ones render `display: boxplot` blank; use a `bar` histogram there._
+## boxplot
 
 Use for distribution/spread/outliers, especially across several groups. Needs **unaggregated** rows. **Use for:** ≥3 columns, ≥2 dimensions, ≥1 measure. **Required:** `graph.dimensions`, `graph.metrics`. X-scale is `"ordinal"`.
 
@@ -114,6 +114,8 @@ Use for distribution/spread/outliers, especially across several groups. Needs **
 | `boxplot.points_mode`      | string  | `"none"`, `"outliers"`, `"all"`                | `"outliers"` |
 | `boxplot.show_mean`        | boolean |                                                | `true`       |
 | `boxplot.show_values_mode` | string  | `"median"`, `"all"` (when `graph.show_values`) | `"median"`   |
+
+<!-- /requires -->
 
 ---
 

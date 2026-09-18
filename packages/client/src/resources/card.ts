@@ -36,6 +36,7 @@ export function cardResource(transport: Transport) {
     params: CardListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Card>> {
+    await transport.require("card.list", options);
     const data = await transport.requestParsed(CardApiList, "/api/card", {
       ...options,
       query: { f: params.f, model_id: params.model_id },
@@ -45,11 +46,13 @@ export function cardResource(transport: Transport) {
 
   /** Get one card by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<Card> {
+    await transport.require("card.get", options);
     return transport.requestParsed(Card, `/api/card/${id}`, { ...options });
   }
 
   /** Create a card — a question, a model, or a metric — from a full card body. */
   async function create(params: CardCreateInput, options: RequestOptions = {}): Promise<Card> {
+    await transport.require("card.create", options);
     return transport.requestParsed(Card, "/api/card", {
       ...options,
       method: "POST",
@@ -63,6 +66,7 @@ export function cardResource(transport: Transport) {
     params: CardUpdateInput,
     options: RequestOptions = {},
   ): Promise<Card> {
+    await transport.require("card.update", options);
     return transport.requestParsed(Card, `/api/card/${id}`, {
       ...options,
       method: "PUT",
@@ -72,6 +76,7 @@ export function cardResource(transport: Transport) {
 
   /** Archive (soft-delete) a card by id. Metabase models this as an update, not its own endpoint. */
   async function archive(id: number, options: RequestOptions = {}): Promise<Card> {
+    await transport.require("card.archive", options);
     return update(id, { archived: true }, options);
   }
 
@@ -81,6 +86,7 @@ export function cardResource(transport: Transport) {
     params: CardQueryParams,
     options: RequestOptions = {},
   ): Promise<CardQueryResult> {
+    await transport.require("card.query", options);
     return transport.requestParsed(CardQueryResult, `/api/card/${id}/query`, {
       ...options,
       method: "POST",
@@ -98,6 +104,7 @@ export function cardResource(transport: Transport) {
     params: CardExportParams,
     options: RequestOptions = {},
   ): Promise<ReadableStream<Uint8Array>> {
+    await transport.require("card.exportQuery", options);
     const body = new URLSearchParams({
       parameters: JSON.stringify(params.parameters),
       format_rows: String(params.format_rows),

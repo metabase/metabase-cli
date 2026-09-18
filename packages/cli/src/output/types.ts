@@ -27,7 +27,20 @@ export interface ListEnvelope<T> {
 }
 
 export function listEnvelopeSchema<T>(item: ZodType<T>): ZodType<ListEnvelope<T>> {
-  return z.object({
+  return z.object(listEnvelopeShape(item));
+}
+
+// The return type is left to inference so the extras keep their own types; the fit to
+// `ListEnvelope` is what `listEnvelopeSchema` asserts.
+export function listEnvelopeSchemaWithExtras<T, X extends z.ZodRawShape>(
+  item: ZodType<T>,
+  extras: X,
+) {
+  return z.object({ ...listEnvelopeShape(item), ...extras });
+}
+
+function listEnvelopeShape<T>(item: ZodType<T>) {
+  return {
     data: z.array(item).describe("The items in this window."),
     returned: z
       .number()
@@ -77,7 +90,7 @@ export function listEnvelopeSchema<T>(item: ZodType<T>): ZodType<ListEnvelope<T>
       .describe(
         "Present when the `--max-bytes` cap cut the output, not when the data ran out; its `bytes` is what the untruncated answer would have measured, so narrow rows with `--fields` rather than raising the cap.",
       ),
-  });
+  };
 }
 
 // The window a list command was asked to return; it flows through to server-side paging when the

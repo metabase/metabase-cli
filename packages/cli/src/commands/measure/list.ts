@@ -10,7 +10,7 @@ export const MeasureListEnvelope = listEnvelopeSchema(MeasureCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List measures" },
-  capabilities: { minVersion: 59 },
+  requires: ["measure.list"],
   args: { ...outputFlags, ...listFlags, ...profileFlag, ...connectionFlags },
   outputSchema: MeasureListEnvelope,
   examples: ["mb measure list", "mb measure list --json"],

@@ -12,7 +12,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { assertCompactColumns, assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
-import { invalidDatabaseRejection } from "./server-gate";
+import { QUERY_NORMALIZATION_MESSAGE } from "./server-gate";
 import { SEEDED } from "./seed/seeded";
 
 const VALID_QUERY = {
@@ -181,9 +181,7 @@ describe("query e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(cliErrorMessage(result.stderr)).toContain(
-      invalidDatabaseRejection('database: should be an integer, received: "My DB"'),
-    );
+    expect(cliErrorMessage(result.stderr)).toBe(QUERY_NORMALIZATION_MESSAGE);
     expect(result.stdout).toBe("");
   });
 

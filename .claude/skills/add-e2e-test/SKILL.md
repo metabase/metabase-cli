@@ -20,7 +20,7 @@ Before generating anything, anchor to the existing harness:
    - `tests/e2e/bootstrap-data.ts` — the `Bootstrap` schema you must NOT redeclare.
    - `tests/e2e/cli-error.ts` — `cliErrorMessage` / `cliErrorCategory`, how you assert on stderr.
    - `tests/e2e/defaults.ts` — base URL, stack id, snapshot name.
-   - `tests/e2e/server-gate.ts` — `requireServer` / `serverVersionBelow`, how a suite skips.
+   - `tests/e2e/server-gate.ts` — `requireServer` (how a suite skips) and `serverHas` (how a suite picks its generation's branch).
    - `tests/e2e/seed/seeded.ts` and `tests/e2e/seed/ids.ts` — discovered and fixed entity ids.
 
 Skip this and you will reinvent harness pieces that already exist, or redeclare the bootstrap schema and silently drift from the writer.
@@ -93,15 +93,29 @@ const tableId = SEEDED.tables.orders;
 **2b. Gate the suite on server capability.**
 
 ```ts
-import { requireServer } from "./server-gate";
+import { requireServer, serverHas } from "./server-gate";
 
-const skipReason = requireServer("transform › transform e2e", { minVersion: 59 });
+const skipReason = requireServer("transform › transform e2e", ["transforms"]);
 
 describe.skipIf(skipReason !== null)("transform e2e", () => {
 ```
 
-- If the command under test declares `capabilities` above the baseline `{ minVersion: 58 }` — a higher major, or a `tokenFeature` like `remote_sync` or `library` — the suite must gate itself. `requireServer` feeds the persisted server probe through the production `checkCapabilities` and returns a skip reason (or `null`). Its first argument is the lane label naming the describe or test the gate guards; an unmet gate appends it to `.gate-skips.<stack>.json`, which the closing block prints so a skipped lane is reported rather than counted as a passing one.
+- If any method the command under test calls needs a feature — look the command's `requires` up in `METHOD_REQUIREMENTS` (`packages/client/src/version/requirements.ts`), or read `help --json`'s `requires.features` — the suite must gate itself on those feature names. `requireServer(lane, features)` feeds the persisted server probe through `createServerProfile` and the production `checkFeatures` — the same check the CLI's preflight and the client's `require()` run — and returns the skip reason (or `null`). Its first argument is the lane label naming the describe or test the gate guards; an unmet gate appends it to `.gate-skips.<stack>.json`, which the closing block prints so a skipped lane is reported rather than counted as a passing one.
 - The point is that a lane **passes or skips**, never fails, on a server that cannot satisfy the command. A suite that hits HTTP 402 or 404 because nobody gated it is a broken lane, not a real failure.
+- Where every stack answers but the answer differs by generation — a drift site whose canonical JSON carries `null` on the servers that cannot report a field, a status code that changed, a run id that is numeric on newer servers — do not gate. Branch with `serverHas("<feature>")` and assert the exact outcome each generation produces, so the lane runs everywhere and pins both shapes:
+
+  ```ts
+  const reportsRunId = serverHas("transformJobRunIdIsNumeric");
+  expect(parseJson(result.stdout, TransformJobRunResult)).toEqual({
+    message: "Job run started",
+    started: true,
+    run_id: reportsRunId ? 1 : null,
+  });
+  ```
+
+  A feature the suite needs that no rule names yet is added to `FEATURE_RULES` in `packages/client/src/version/features.ts`, named after the behaviour and verified against the Metabase release branches — never as a version comparison in the test. `serverRejectedMessage()` and `invalidDatabaseRejection(...)` in `server-gate.ts` are the shared branches for two such facts.
+
+- A suite that needs the CLI to see a particular server version — the skew notices, the re-probe — seeds a profile record with `seedProbedProfile` / `seedProbedProfileAt` from `tests/e2e/seed-profile.ts` rather than talking to a different server.
 
 **3. Each test gets its own config home.**
 
@@ -314,7 +328,7 @@ If you did **not** run the e2e suite (it requires `bun run e2e:up && bun run e2e
 - [ ] Imports `runCli`, `mkTempConfigHome`, `cleanupConfigHome` from `./run-cli`. No `execa`/`child_process`/`fetch` import.
 - [ ] Reads creds via `readBootstrap()`. No hard-coded API keys, no `Bootstrap` schema redeclaration, no setup-wizard call.
 - [ ] Seeded entity ids come from `SEEDED` (`./seed/seeded`) or `./seed/ids`; no literal id anywhere.
-- [ ] If the command's `capabilities` are above `{ minVersion: 58 }`, the suite gates on `requireServer("<lane>", {...})` via `describe.skipIf`, with a lane label naming what the gate guards.
+- [ ] If any method the command calls needs a feature, the suite gates on `requireServer("<lane>", ["<feature>"])` via `describe.skipIf`, with a lane label naming what the gate guards; where generations answer differently, it branches with `serverHas("<feature>")` and asserts each outcome exactly.
 - [ ] No `vi.mock` / `vi.spyOn` / `vi.hoisted` / `vi.fn` anywhere in the file.
 - [ ] No `process.env` spread into `runCli({ env: ... })`. Only the explicit keys the test needs.
 - [ ] Per-test `makeIsolatedConfigHome()` pattern with `tempDirs` + `afterEach` cleanup.

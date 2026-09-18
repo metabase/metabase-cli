@@ -7,6 +7,7 @@ export function datasetResource(transport: Transport) {
    * MBQL, or native — rather than a reference to a saved one, so nothing here is a card.
    */
   async function query(body: unknown, options: RequestOptions = {}): Promise<CardQueryResult> {
+    await transport.require("dataset.query", options);
     return transport.requestParsed(CardQueryResult, "/api/dataset", {
       ...options,
       method: "POST",

@@ -7,7 +7,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a timeline event by id" },
-  capabilities: { minVersion: 58 },
+  requires: ["timelineEvent.get"],
   args: {
     ...outputFlags,
     ...profileFlag,

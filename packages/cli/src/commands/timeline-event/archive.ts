@@ -7,7 +7,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "archive", description: "Archive (soft-delete) a timeline event by id" },
-  capabilities: { minVersion: 58 },
+  requires: ["timelineEvent.archive"],
   args: {
     ...outputFlags,
     ...profileFlag,

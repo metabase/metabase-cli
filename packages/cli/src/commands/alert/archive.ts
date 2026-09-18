@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
   },
   details:
     "Deactivates the alert and drops its scheduled trigger. `mb alert list --include-inactive` still shows it, and `mb alert update <id> --body '{\"active\":true}'` brings it back.",
-  capabilities: { minVersion: 58 },
+  requires: ["notification.archive"],
   args: {
     ...outputFlags,
     ...profileFlag,

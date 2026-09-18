@@ -4,14 +4,16 @@ Command-line client for Metabase. Logs in to an instance in your browser (OAuth,
 
 ## Supported Metabase versions
 
-The minimum supported server is **Metabase v0.58** (major `58`). Anything older is unsupported.
+The CLI is built against Metabase majors **58 through 63** (the client's `KNOWN_RANGE`), the latest patch of each; a newer server, or a head build whose version tag does not parse, runs as a head build past the newest known major — every shape the client knows head answers with, and one stderr notice per run — and an older one keeps its real major, gets one stderr notice per run pointing at a Metabase upgrade, and is refused command by command with the version it needs.
 
-Commands that need more than a baseline OSS server declare it — a higher minimum major version or a premium token feature. The server version and token features are detected and cached when you run `mb auth login` (or `mb auth list`). For those commands, a preflight check runs before the first request and refuses with an actionable message (exit code `2`) when:
+Every command declares the client methods it calls, and each method names the server features it needs — a feature is a minimum major version, a premium token feature, or both. The server version and token features are detected and cached when you run `mb auth login` (or `mb auth list`). For a command whose methods need a feature, a preflight check runs before the first request and refuses with an actionable message (exit code `2`) when:
 
 - the server is older than the command's minimum version, or
 - the command needs a premium feature (e.g. `remote_sync`, `content_translation`, `library`) that isn't enabled.
 
-Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs but the server version can't be detected (no cached probe), it proceeds with a warning rather than refusing. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `MB_CLI_SKIP_PREFLIGHT=1`. Both are footguns — only for servers you know are patched.
+Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs without a cached probe, the CLI asks the server for its version once and decides on the answer; a server that cannot be reached fails the command with that network error. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `MB_CLI_SKIP_PREFLIGHT=1`. Both switch off the client's own check too, so every request goes to the wire and the server answers for itself — footguns, only for servers you know are patched.
+
+`mb auth status --json` reports the window as `knownRange` and where the server sits as `skew`. A server above the window is read as a head build past the newest known major — its additions pass through, and one stderr notice per run points at `mb upgrade`; a server whose version tag does not parse (head builds) is treated the same way with its own notice; a server below the window is `older-than-known`, still evaluated at its own major, with a notice naming the oldest major the CLI supports. A response the CLI cannot parse, or a refusal it issues, under a cached profile triggers one fresh probe: if the server's version or premium features changed since the cache was written, the profile is refreshed and the error says so — retry the command.
 
 ## Install
 
@@ -102,7 +104,7 @@ Log in to a Metabase instance and save the credential to a profile. Interactive 
 
 Against a server older than v63 the CLI detects the missing OAuth support and falls back to the API key prompt automatically. Supplying an API key (flag, env, or stdin) always skips the browser flow, so CI and scripts behave exactly as before.
 
-On success the server is probed once — the rendered output shows the user, role (`Admin`/`User`), and Metabase version, and the same values are cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good credential and gains a `lastFailure` entry.
+On success the server is probed once — the rendered output shows the user, role (`Admin`/`User`), Metabase version and skew (`--json` adds `edition`, `knownRange` and `features`), and the probe is cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good credential and gains a `lastFailure` entry.
 
 | Flag                     | Description                                                                                                                                    |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -122,7 +124,7 @@ mb auth login --url https://m.example.com < key.txt
 
 ### `mb auth status`
 
-Show whether a profile is authenticated. The output includes the auth method (`OAuth` or `API key`) alongside the cached user, role, and server version.
+Show whether a profile is authenticated. The output includes the auth method (`OAuth` or `API key`) alongside the cached user, role, server version and skew (`supported`, `older than this CLI supports (vN min)`, `newer than this CLI knows (vN max)`, or `unknown version`). `--json` adds what the CLI derives from the cached probe: `edition`, `skew`, `knownRange` and the `features` map the preflight checks.
 
 ```sh
 mb auth status
@@ -139,7 +141,7 @@ mb auth status --profile staging
 
 List configured authentication profiles. All profile metadata (URL, auth method, last successful probe, last failure) lives in `<configDir>/profiles.json` at mode `0600`; the secrets (API key, or OAuth access/refresh tokens) sit in the OS keychain when available, or inline in the same file when the keychain is unavailable.
 
-`auth list` re-probes every profile, one at a time — a probe can refresh and rewrite an expired OAuth token, so probes are serialized to avoid racing on the shared `profiles.json`. On success it refreshes `lastProbe` (Metabase version, token features, user identity) and clears `lastFailure`; on failure it updates `lastFailure` and leaves the prior `lastProbe`/`url`/credential untouched. Rendered columns: `Profile | URL | Auth | Status | Role | Version | Last probed`. Failed rows append a one-line footer pointing at `mb auth login --profile <name>`.
+`auth list` re-probes every profile, one at a time — a probe can refresh and rewrite an expired OAuth token, so probes are serialized to avoid racing on the shared `profiles.json`. On success it refreshes `lastProbe` (Metabase version, token features, user identity) and clears `lastFailure`; on failure it updates `lastFailure` and leaves the prior `lastProbe`/`url`/credential untouched. Rendered columns: `Profile | URL | Auth | Status | Role | Version | Skew | Last probed`; `--json` rows carry the same derived `edition`, `skew`, `knownRange` and `features` as `auth status`. Failed rows append a one-line footer pointing at `mb auth login --profile <name>`.
 
 ```sh
 mb auth list
@@ -1915,16 +1917,20 @@ Exit codes: `0` success (including up-to-date / printed-instructions), `1` regis
 The CLI ships with bundled agent skills (Claude Code / `npx skills add` compatible) that document `mb` itself. Content is served at runtime from the installed CLI version, so the instructions an agent fetches always match the binary it's about to run — no drift between a separately-installed skill copy and the CLI.
 
 ```sh
-mb skills list                              # discover bundled skills (table or JSON)
-mb skills get core                          # print the top-level guide
+mb skills list                              # bundled skills the profile's server can use (table or JSON)
+mb skills list --unfiltered                 # every bundled skill, whatever the server
+mb skills get core                          # print the top-level guide, sections the server cannot use left out
 mb skills get core --full                   # include references and templates
 mb skills get git-sync,transform            # comma-separated, multi-skill fetch
-mb skills get --all --json --max-bytes 0    # every non-hidden skill, structured (default cap truncates)
+mb skills get transform --unfiltered        # print a skill as written, even one the server cannot use
+mb skills get --all --json --max-bytes 0    # every non-hidden skill the server can use, structured (default cap truncates)
 mb skills path                              # absolute paths for direct Read
 mb skills path core                         # one path
 ```
 
 `mb skills get` honors the shared `--max-bytes` list cap. With the default 24 576 cap, `--all` will return only the first skill and emit a truncation notice — pass `--max-bytes 0` to dump every skill in one envelope.
+
+Skills describe the newest Metabase plainly and declare what they rely on: a skill's frontmatter carries `requires: [<feature>, …]` (names from the client's feature table, e.g. `transforms`, `remoteSync`), and a passage inside a skill or one of its references sits between `<!-- requires: <feature>, … -->` and `<!-- /requires -->` markers, each on its own line. `skills list` and `skills get` read the profile's cached server probe (`--profile` respected; no request is made) and resolve both against it: a skill whose features the server lacks is left out and reported in the JSON envelope's `unavailable` array as `{ name, failure }`, where `failure` is the same `{ reason, detail, feature, since, tokenFeature, serverVersion }` a refused command carries; a met section keeps its text and loses its markers; an unmet one is removed. Text mode reports each skipped skill on stderr. Without a cached probe nothing is filtered, `unavailable` is `null`, the markers are printed as written, and text mode says why on stderr: no such profile, a profile never probed, or no probe for the URL `MB_URL` points at. `--unfiltered` bypasses the filter on both commands and prints the selected skills as written; on `get`, `--all` selects every non-hidden skill and combines with either. A marker inside a fenced code block is text. An unknown feature name, an unbalanced marker pair, or a marker between table rows is a `ConfigError` on every read, so a typo fails the gate rather than hiding a skill.
 
 Bundled skills:
 
@@ -1947,7 +1953,7 @@ Discovery surfaces:
 - **Claude Code plugin marketplace**: `.claude-plugin/marketplace.json` declares a `metabase-cli` plugin pointing at the in-repo discovery stub. Users install with `/plugin marketplace add metabase/mb-cli` then `/plugin install metabase-cli@metabase`. The manifest lives at the repo root and is served from GitHub, not from the npm tarball: its `source: "./packages/cli"` is resolved relative to the repo checkout, so a copy inside the published package would point at nothing. `files` in `packages/cli/package.json` therefore omits `.claude-plugin` by design.
 - **`npx skills add`**: the same stub at `packages/cli/skills/metabase-cli/SKILL.md` is picked up by `npx skills add metabase/mb-cli`. The stub is intentionally minimal — it redirects the agent at `mb skills get core` so the real workflow content always comes from the installed CLI version.
 
-Exit codes: `0` success, `2` `ConfigError` (missing name, unknown name, `MB_SKILLS_DIR` not a directory), `1` unexpected I/O.
+Exit codes: `0` success (a skill the server cannot use is reported, not refused), `2` `ConfigError` (missing name, unknown name, `MB_SKILLS_DIR` not a directory, an unknown feature in `requires`, an unbalanced section marker), `1` unexpected I/O.
 
 ## Environment variables
 
@@ -1969,7 +1975,7 @@ The former `METABASE_`-prefixed names (`METABASE_URL`, `METABASE_API_KEY`, `META
 
 Every node of the command tree answers `--help --json` with machine-readable help, mirroring what text help shows at that level:
 
-- A leaf command emits its full entry — name, description, `details`, examples, citty args with types/defaults/enums, `capabilities` (min server version / token feature), and the input and output Zod schemas rendered as JSON Schema (`inputSchema` is the exact validator `readBody` enforces on the JSON body, `null` for commands that take none).
+- A leaf command emits its full entry — name, description, `details`, examples, citty args with types/defaults/enums, `requires` (the client methods the command calls and the server features they need), and the input and output Zod schemas rendered as JSON Schema (`inputSchema` is the exact validator `readBody` enforces on the JSON body, `null` for commands that take none).
 - A command group (and the root) emits `{ description, skills, commands }` — its own sentence (`null` when it declares none), its own agent-skill pointers, and a flat `commands: [{ command, description }]` index of every leaf in its subtree, with full-path names.
 
 ```sh

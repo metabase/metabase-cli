@@ -1,24 +1,17 @@
 import { z } from "zod";
 
-import { Transform } from "../domain/transform";
+import { type Transform, transformRowSchema } from "../domain/transform";
 import {
-  TransformJob,
+  type TransformJob,
   TransformJobActiveResult,
   type TransformJobCreateInput,
-  TransformJobRunResult,
+  type TransformJobRunResult,
+  transformJobRunResultSchema,
+  transformJobSchema,
   type TransformJobUpdateInput,
 } from "../domain/transform-job";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
-
-// `GET /api/transform-job` answers a bare array rather than a `{ data, total }` envelope, so the
-// count a caller reads off `ListResult` is the array's own length and the server reports none.
-const TransformJobApiList = z.array(TransformJob);
-
-// `GET /api/transform-job/{id}/transforms` answers a bare array of transforms. `resources/transform`
-// declares the same shape for its own listings; the two files may not reach into each other, and a
-// module both could import would be the bucket module the layout rules forbid.
-const TransformApiList = z.array(Transform);
 
 export interface TransformJobRunParams {
   /** Re-run the whole plan, including dependencies that are already fresh. */
@@ -29,15 +22,24 @@ export interface TransformJobRunParams {
 export function transformJobResource(transport: Transport) {
   /** List every transform job the caller can see. */
   async function list(options: RequestOptions = {}): Promise<ListResult<TransformJob>> {
-    const data = await transport.requestParsed(TransformJobApiList, "/api/transform-job", {
-      ...options,
-    });
+    await transport.require("transformJob.list", options);
+    const { features } = await transport.server(options);
+    // A bare array rather than a `{ data, total }` envelope, so the server reports no count.
+    const data = await transport.requestParsed(
+      z.array(transformJobSchema(features)),
+      "/api/transform-job",
+      { ...options },
+    );
     return { data, total: null };
   }
 
   /** Get one transform job by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<TransformJob> {
-    return transport.requestParsed(TransformJob, `/api/transform-job/${id}`, { ...options });
+    await transport.require("transformJob.get", options);
+    const { features } = await transport.server(options);
+    return transport.requestParsed(transformJobSchema(features), `/api/transform-job/${id}`, {
+      ...options,
+    });
   }
 
   /** Create a transform job — a schedule plus the tags it runs — from a full body. */
@@ -45,7 +47,9 @@ export function transformJobResource(transport: Transport) {
     params: TransformJobCreateInput,
     options: RequestOptions = {},
   ): Promise<TransformJob> {
-    return transport.requestParsed(TransformJob, "/api/transform-job", {
+    await transport.require("transformJob.create", options);
+    const { features } = await transport.server(options);
+    return transport.requestParsed(transformJobSchema(features), "/api/transform-job", {
       ...options,
       method: "POST",
       body: params,
@@ -58,7 +62,9 @@ export function transformJobResource(transport: Transport) {
     params: TransformJobUpdateInput,
     options: RequestOptions = {},
   ): Promise<TransformJob> {
-    return transport.requestParsed(TransformJob, `/api/transform-job/${id}`, {
+    await transport.require("transformJob.update", options);
+    const { features } = await transport.server(options);
+    return transport.requestParsed(transformJobSchema(features), `/api/transform-job/${id}`, {
       ...options,
       method: "PUT",
       body: params,
@@ -67,6 +73,7 @@ export function transformJobResource(transport: Transport) {
 
   /** Delete a transform job by id, leaving the transforms it ran untouched. */
   async function remove(id: number, options: RequestOptions = {}): Promise<void> {
+    await transport.require("transformJob.delete", options);
     await transport.requestRaw(`/api/transform-job/${id}`, {
       ...options,
       method: "DELETE",
@@ -83,11 +90,13 @@ export function transformJobResource(transport: Transport) {
     params: TransformJobRunParams = {},
     options: RequestOptions = {},
   ): Promise<TransformJobRunResult> {
-    return transport.requestParsed(TransformJobRunResult, `/api/transform-job/${id}/run`, {
-      ...options,
-      method: "POST",
-      body: { run_all: params.run_all },
-    });
+    await transport.require("transformJob.run", options);
+    const { features } = await transport.server(options);
+    return transport.requestParsed(
+      transformJobRunResultSchema(features),
+      `/api/transform-job/${id}/run`,
+      { ...options, method: "POST", body: { run_all: params.run_all } },
+    );
   }
 
   /** List the transforms a job would execute, resolved from the job's tags. */
@@ -95,8 +104,10 @@ export function transformJobResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<ListResult<Transform>> {
+    await transport.require("transformJob.transforms", options);
+    const { features } = await transport.server(options);
     const data = await transport.requestParsed(
-      TransformApiList,
+      z.array(transformRowSchema(features)),
       `/api/transform-job/${id}/transforms`,
       { ...options },
     );
@@ -111,6 +122,7 @@ export function transformJobResource(transport: Transport) {
     active: boolean,
     options: RequestOptions = {},
   ): Promise<TransformJobActiveResult> {
+    await transport.require("transformJob.setActive", options);
     return transport.requestParsed(TransformJobActiveResult, "/api/transform-job/active", {
       ...options,
       method: "PUT",

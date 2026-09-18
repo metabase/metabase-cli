@@ -32,7 +32,7 @@ describe("parseJson", () => {
       parseJson('{"id":"not-a-number","name":"x"}', Person, { source: "--body" }),
     );
     assert(error instanceof ValidationError, "expected ValidationError");
-    expect(error.message).toContain("--body");
+    expect(error.message).toBe("--body: value did not match expected schema");
     expect(error.developerDetail).toEqual({
       source: "--body",
       zodIssues: [
@@ -76,7 +76,7 @@ describe("parseJsonResult", () => {
     const result = parseJsonResult('{"id":"x","name":"y"}', Person, { source: "--body" });
     assert(!result.ok, "expected failure");
     assert(result.error instanceof ValidationError, "expected ValidationError");
-    expect(result.error.message).toContain("--body");
+    expect(result.error.message).toBe("--body: value did not match expected schema");
   });
 
   it("treats an empty source string as a source, prefixing it rather than falling back to <input>", () => {
@@ -163,13 +163,7 @@ describe("parseJson property tests", () => {
   it("property: any string that JSON.parse rejects produces a ConfigError with the source prefix", () => {
     fc.assert(
       fc.property(fc.string(), (input) => {
-        let isValidJson = true;
-        try {
-          JSON.parse(input);
-        } catch {
-          isValidJson = false;
-        }
-        fc.pre(!isValidJson);
+        fc.pre(!isParseableJson(input));
         const result = parseJsonResult(input, z.unknown(), { source: "fixture" });
         assert(!result.ok, "expected failure");
         assert(result.error instanceof ConfigError, "expected ConfigError");
@@ -247,6 +241,20 @@ describe("parseJsonOrPlain", () => {
   it("preserves bare strings that contain JSON-special characters", () => {
     expect(parseJsonOrPlain('he said "hi"\nline2', "text/plain", z.string())).toBe(
       'he said "hi"\nline2',
+    );
+  });
+
+  it("keeps a text/plain body that happens to be valid JSON as the string it is", () => {
+    expect(parseJsonOrPlain("123", "text/plain", z.string())).toBe("123");
+  });
+
+  it("parses a bare boolean literal under application/json as a boolean", () => {
+    expect(parseJsonOrPlain("false", "application/json; charset=utf-8", z.boolean())).toBe(false);
+  });
+
+  it("parses a bare number literal under application/json as a number", () => {
+    expect(parseJsonOrPlain("15152.63298", "application/json; charset=utf-8", z.number())).toBe(
+      15152.63298,
     );
   });
 

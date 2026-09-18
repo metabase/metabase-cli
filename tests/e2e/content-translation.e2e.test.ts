@@ -18,10 +18,7 @@ const INVALID_LOCALE_CSV = "Language,String,Translation\nxx,Title,Rubrik\n";
 
 const skipReason = requireServer(
   "content-translation › content translation e2e against EE endpoints",
-  {
-    minVersion: 58,
-    tokenFeature: "content_translation",
-  },
+  ["contentTranslation"],
 );
 
 describe("content-translation arg validation e2e (no Metabase contact required)", () => {

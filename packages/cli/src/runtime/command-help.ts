@@ -1,9 +1,15 @@
 import type { ArgDef, ArgsDef, CommandDef, CommandMeta } from "citty";
 import { z } from "zod";
 
-import { Capabilities } from "@metabase/client/version/capabilities";
+import { FEATURE_NAMES } from "@metabase/client/version/features";
+import { METHOD_KEYS } from "@metabase/client/version/requirements";
+
 import { resolveCitty, toAliasArray } from "./citty";
-import { getMetabaseAugment, type MetabaseAugment } from "./command-augment";
+import {
+  type CommandRequirements,
+  getMetabaseAugment,
+  type MetabaseAugment,
+} from "./command-augment";
 
 const CommandHelpArg = z.object({
   name: z.string(),
@@ -22,6 +28,11 @@ const CommandHelpSkill = z.object({
 });
 type CommandHelpSkill = z.infer<typeof CommandHelpSkill>;
 
+const CommandHelpRequires: z.ZodType<CommandRequirements> = z.object({
+  methods: z.array(z.enum(METHOD_KEYS)),
+  features: z.array(z.enum(FEATURE_NAMES)),
+});
+
 export const CommandHelpEntry = z.object({
   command: z.string(),
   description: z.string().nullable(),
@@ -31,7 +42,7 @@ export const CommandHelpEntry = z.object({
   args: z.array(CommandHelpArg),
   inputSchema: z.unknown().nullable(),
   outputSchema: z.unknown().nullable(),
-  capabilities: Capabilities.nullable(),
+  requires: CommandHelpRequires.nullable(),
 });
 export type CommandHelpEntry = z.infer<typeof CommandHelpEntry>;
 
@@ -54,7 +65,7 @@ const EMPTY_AUGMENT: MetabaseAugment = {
   skills: [],
   inputSchema: null,
   outputSchema: null,
-  capabilities: null,
+  requires: null,
 };
 
 export async function buildHelpEntry<T extends ArgsDef = ArgsDef>(
@@ -72,7 +83,7 @@ export async function buildHelpEntry<T extends ArgsDef = ArgsDef>(
     args: convertArgs(args),
     inputSchema: augment.inputSchema ? z.toJSONSchema(augment.inputSchema) : null,
     outputSchema: augment.outputSchema ? z.toJSONSchema(augment.outputSchema) : null,
-    capabilities: augment.capabilities,
+    requires: augment.requires,
   };
   if (augment.details !== null) {
     entry.details = augment.details;

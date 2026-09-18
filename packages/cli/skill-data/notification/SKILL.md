@@ -110,7 +110,13 @@ An alert body has exactly three parts:
 
 Recipients are `{"email": "a@b.com"}` for an external address or `{"id": <user-id>}` for a Metabase user. A Slack channel is **not** a recipient — it goes in `details`: `{"channel_type": "slack", "details": {"channel": "#general"}, …}`.
 
-**`skip_if_empty: true`** suppresses the send when the dashboard's questions return no rows — the way to build a "only tell me when something happened" dashboard report. **`parameters`** sets filter values for this subscription only, so one dashboard can feed several audiences a different slice (Pro/Enterprise). Its entries are dashboard parameter values — the parameter `id`s come from `mb dashboard get <id> --fields parameters --json` (see the `dashboard` skill).
+**`skip_if_empty: true`** suppresses the send when the dashboard's questions return no rows — the way to build a "only tell me when something happened" dashboard report.
+
+<!-- requires: dashboardSubscriptionFilters -->
+
+**`parameters`** sets filter values for this subscription only, so one dashboard can feed several audiences a different slice. Its entries are dashboard parameter values — the parameter `id`s come from `mb dashboard get <id> --fields parameters --json` (see the `dashboard` skill).
+
+<!-- /requires -->
 
 `mb subscription list --archived` is a **swap, not a union** — it returns archived subscriptions _instead of_ active ones, never both. `mb dashboard subscriptions <id>` is the list scoped to one dashboard. `mb subscription archive <id>` also disables every channel on it, so restoring takes two steps: `update --body '{"archived":false}'`, then re-send the `channels` array with `enabled: true`.
 

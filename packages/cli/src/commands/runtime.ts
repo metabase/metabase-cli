@@ -3,19 +3,22 @@ import type { ArgsDef, CommandDef, CommandMeta, ParsedArgs } from "citty";
 import type { ZodType } from "zod";
 
 import type { MetabaseClient } from "@metabase/client/client";
-import {
-  BASELINE_CAPABILITIES,
-  checkCapabilities,
-  mergeCapabilities,
-  type Capabilities,
-} from "@metabase/client/version/capabilities";
+import { MetabaseError, ResponseShapeError } from "@metabase/client/errors";
+import type { FeatureName } from "@metabase/client/version/features";
 import { CapabilityError } from "@metabase/client/version/preflight-error";
-import { type ServerInfo } from "@metabase/client/version/probe";
+import { probeServer, type ServerInfo } from "@metabase/client/version/probe";
+import { createServerProfile, type ServerProfile } from "@metabase/client/version/profile";
+import { checkFeatures } from "@metabase/client/version/requirement-check";
+import { type MethodKey, methodRequirements } from "@metabase/client/version/requirements";
 
+import type { ProfileLastProbe } from "../core/auth/profile-record";
+import { ProfileRefreshedError } from "../core/profile-refreshed-error";
+import { serverChangeNote, skewNotice } from "../core/auth/server-summary";
+import { readCachedProbe } from "../core/auth/cached-server";
 import {
   consumeKeyringDowngradeWarning,
   consumeLegacyStorageWarning,
-  readProfileRecord,
+  writeProbeResult,
 } from "../core/auth/storage";
 import {
   createCredentialRefresher,
@@ -29,7 +32,11 @@ import { consumeLegacyEnvWarnings } from "../core/env";
 import { USER_AGENT } from "../core/user-agent";
 import { reportError } from "../output/error";
 import { warn } from "../output/notice";
-import { setMetabaseAugment, type SkillPointer } from "../runtime/command-augment";
+import {
+  type CommandRequirements,
+  setMetabaseAugment,
+  type SkillPointer,
+} from "../runtime/command-augment";
 import { interruptSignal } from "../runtime/interrupt";
 import {
   resolveCommonFlags,
@@ -46,7 +53,6 @@ interface MetabaseCommandContext<A extends ArgsDef> {
   ctx: CommonContext;
   getClient: () => Promise<MetabaseClient>;
   getResolvedConfig: () => Promise<ResolvedConfig>;
-  getServerInfo: () => Promise<ServerInfo | null>;
 }
 
 interface MetabaseCommandDef<A extends ArgsDef> {
@@ -57,15 +63,15 @@ interface MetabaseCommandDef<A extends ArgsDef> {
   skills?: readonly SkillPointer[];
   inputSchema?: ZodType;
   outputSchema?: ZodType;
-  capabilities: Partial<Capabilities> | null;
+  // `null` for a command that never reaches a server.
+  requires: readonly MethodKey[] | null;
   run: (context: MetabaseCommandContext<A>) => Promise<void> | void;
 }
 
 export function defineMetabaseCommand<const A extends ArgsDef>(
   def: MetabaseCommandDef<A>,
 ): CommandDef<A> {
-  const required: Capabilities | null =
-    def.capabilities === null ? null : mergeCapabilities(def.capabilities);
+  const requirements = def.requires === null ? null : deriveRequirements(def.requires);
   const cmd = defineCommand<A>({
     meta: def.meta,
     args: def.args,
@@ -78,46 +84,49 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
         assertKnownFlags(rawArgs, def.args);
         let cachedConfig: ResolvedConfig | null = null;
         let cachedClient: MetabaseClient | null = null;
-        let cachedServerInfo: Promise<ServerInfo | null> | null = null;
         const getResolvedConfig = async (): Promise<ResolvedConfig> => {
           if (cachedConfig === null) {
             cachedConfig = await resolveConfig(buildConfigFlags(ctx));
           }
           return cachedConfig;
         };
-        const getServerInfo = (): Promise<ServerInfo | null> => {
-          if (cachedServerInfo === null) {
-            cachedServerInfo = loadServerInfo(getResolvedConfig);
-          }
-          return cachedServerInfo;
-        };
+        const preflightSkipped = ctx.skipPreflight || isPreflightSkipped();
+        let cachedServer: CachedServer | null = null;
+        const noticeSkew = createSkewNotifier();
         // Imported here rather than at the top of the file so the resource namespaces `createClient`
         // composes — and the whole `domain/` layer behind them — stay off the chunk every command
         // loads, including `--help`, a flag error, and the commands that open no socket at all.
         const rawGetClient = async (): Promise<MetabaseClient> => {
           if (cachedClient === null) {
             const resolved = await getResolvedConfig();
+            const probe = await readCachedProbe(resolved.profile, resolved.url);
+            const server = probe === null ? null : createServerProfile(probe);
             const { createClient } = await import("@metabase/client/client");
             cachedClient = createClient(
               { url: resolved.url, credential: resolved.credential },
               {
                 userAgent: USER_AGENT,
-                getServerTag: async () => (await getServerInfo())?.version?.tag ?? null,
+                ...(server !== null && { server }),
                 refreshCredential: createCredentialRefresher(resolved.profile),
                 signal: interruptSignal,
+                enforceRequirements: !preflightSkipped,
               },
             );
+            if (probe !== null && server !== null) {
+              cachedServer = { client: cachedClient, profileName: resolved.profile, probe };
+              noticeSkew(server);
+            }
           }
           return cachedClient;
         };
         const enforcePreflight = createPreflightEnforcer(
-          required,
-          getServerInfo,
-          ctx.skipPreflight,
+          requirements === null ? null : requirements.features,
+          preflightSkipped,
+          noticeSkew,
         );
         const getClient = async (): Promise<MetabaseClient> => {
           const client = await rawGetClient();
-          await enforcePreflight();
+          await enforcePreflight(client);
           return client;
         };
         try {
@@ -126,8 +135,9 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
             ctx,
             getClient,
             getResolvedConfig,
-            getServerInfo,
           });
+        } catch (error) {
+          throw await refreshProfileOnStaleError(error, cachedServer);
         } finally {
           emitPendingWarnings();
         }
@@ -142,9 +152,14 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
     skills: def.skills ?? [],
     inputSchema: def.inputSchema ?? null,
     outputSchema: def.outputSchema ?? null,
-    capabilities: required,
+    requires: requirements,
   });
   return cmd;
+}
+
+function deriveRequirements(methods: readonly MethodKey[]): CommandRequirements {
+  const features = [...new Set(methods.flatMap((key) => methodRequirements(key)))];
+  return { methods, features };
 }
 
 function emitPendingWarnings(): void {
@@ -161,54 +176,95 @@ function emitPendingWarnings(): void {
   }
 }
 
-async function loadServerInfo(
-  getResolvedConfig: () => Promise<ResolvedConfig>,
-): Promise<ServerInfo | null> {
-  const resolved = await getResolvedConfig();
-  const record = await readProfileRecord(resolved.profile);
-  if (record === null || record.lastProbe === null) {
-    return null;
-  }
-  return {
-    version: record.lastProbe.version,
-    tokenFeatures: record.lastProbe.tokenFeatures,
+type SkewNotifier = (profile: ServerProfile) => void;
+
+// The notice is about the server, not the command, so the first profile a command resolves —
+// cached or freshly probed — is the one that speaks, and only once.
+function createSkewNotifier(): SkewNotifier {
+  let noticed = false;
+  return (profile) => {
+    if (noticed) {
+      return;
+    }
+    noticed = true;
+    const notice = skewNotice(profile);
+    if (notice !== null) {
+      warn(notice);
+    }
   };
 }
 
-const NO_OP_ENFORCER: () => Promise<void> = async () => {};
+type PreflightEnforcer = (client: MetabaseClient) => Promise<void>;
 
-const NO_PROBE_DATA_WARNING =
-  "Could not detect Metabase server version. Proceeding without preflight check; failures may produce confusing errors. Run `mb auth list` (or `mb auth login`) to populate the version cache.";
+const NO_OP_ENFORCER: PreflightEnforcer = async () => {};
 
+// Raises the refusal the client's own `require()` would raise on the first gated call, so a
+// command fails before it has done any work.
 function createPreflightEnforcer(
-  required: Capabilities | null,
-  getServerInfo: () => Promise<ServerInfo | null>,
+  features: readonly FeatureName[] | null,
   skip: boolean,
-): () => Promise<void> {
-  if (required === null || skip || isPreflightSkipped() || isBaseline(required)) {
+  noticeSkew: SkewNotifier,
+): PreflightEnforcer {
+  if (features === null || skip || features.length === 0) {
     return NO_OP_ENFORCER;
   }
   let done = false;
-  return async () => {
+  return async (client) => {
     if (done) {
       return;
     }
     done = true;
-    const info = await getServerInfo();
-    if (info === null) {
-      warn(NO_PROBE_DATA_WARNING);
-      return;
+    const profile = await client.server();
+    noticeSkew(profile);
+    const failure = checkFeatures(features, profile);
+    if (failure !== null) {
+      throw new CapabilityError(failure);
     }
-    const failure = checkCapabilities(info, required);
-    if (failure === null || failure.reason === "unknown-version") {
-      return;
-    }
-    throw new CapabilityError(failure);
   };
 }
 
-function isBaseline(caps: Capabilities): boolean {
-  return caps.minVersion === BASELINE_CAPABILITIES.minVersion && caps.tokenFeature === undefined;
+// The client and the cached probe it was built on, kept for the one re-probe a shape error earns.
+interface CachedServer {
+  client: MetabaseClient;
+  profileName: string;
+  probe: ProfileLastProbe;
+}
+
+// A shape error or a refusal under a cached profile may mean the server changed since the probe.
+// One fresh probe settles it: a changed server is written back and the error says so. The command
+// is not retried — its request may have been a write.
+async function refreshProfileOnStaleError(
+  error: unknown,
+  cached: CachedServer | null,
+): Promise<unknown> {
+  if (cached === null) {
+    return error;
+  }
+  if (!(error instanceof ResponseShapeError) && !(error instanceof CapabilityError)) {
+    return error;
+  }
+  const note = await refreshChangedProbe(cached);
+  return note === null ? error : new ProfileRefreshedError(error, note);
+}
+
+async function refreshChangedProbe(cached: CachedServer): Promise<string | null> {
+  let fresh: ServerInfo;
+  try {
+    fresh = await probeServer(cached.client);
+  } catch (error) {
+    // A diagnosis on the way out: a server that cannot be reached or answered now must not
+    // displace the shape error the user is here for. Anything else is a bug and surfaces.
+    if (error instanceof MetabaseError) {
+      return null;
+    }
+    throw error;
+  }
+  const note = serverChangeNote(cached.probe, fresh);
+  if (note === null) {
+    return null;
+  }
+  await writeProbeResult(cached.profileName, { user: cached.probe.user, server: fresh });
+  return note;
 }
 
 function pickCommonArgs<A extends ArgsDef>(args: ParsedArgs<A>): CommonArgs {

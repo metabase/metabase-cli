@@ -7,7 +7,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a dashboard subscription by id" },
-  capabilities: { minVersion: 58 },
+  requires: ["pulse.get"],
   args: {
     ...outputFlags,
     ...profileFlag,

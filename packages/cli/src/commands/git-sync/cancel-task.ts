@@ -7,7 +7,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "cancel-task", description: "Cancel the running git-sync task" },
-  capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
+  requires: ["gitSync.cancelTask"],
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: SyncTask,
   examples: ["mb git-sync cancel-task", "mb git-sync cancel-task --json"],

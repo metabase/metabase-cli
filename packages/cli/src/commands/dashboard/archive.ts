@@ -7,7 +7,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "archive", description: "Archive (soft-delete) a dashboard by id" },
-  capabilities: { minVersion: 58 },
+  requires: ["dashboard.archive"],
   args: {
     ...outputFlags,
     ...profileFlag,

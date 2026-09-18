@@ -15,7 +15,7 @@ export default defineMetabaseCommand({
     "`mb subscription get <id> --full` prints the current ones.",
     "A subscription's `dashboard_id` and `collection_id` are fixed at creation and cannot be changed.",
   ].join(" "),
-  capabilities: { minVersion: 58 },
+  requires: ["pulse.update"],
   args: {
     ...outputFlags,
     ...profileFlag,

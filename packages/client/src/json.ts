@@ -48,13 +48,11 @@ export function parseJsonResult<T>(
   return { ok: true, value: parsed.data };
 }
 
-// The server's content-type can lie: Metabase routes that return non-collection
-// bodies (strings, numbers) can come back as `Content-Type: application/json`
-// with a body that is bare text. Trust the body, not the header — try
-// JSON.parse first, and on parse failure wrap the body as a JSON string
-// literal so the schema can validate the shape. A caller that expected an
-// object then sees a ValidationError carrying the actual body in
-// `developerDetail.zodIssues`.
+// Metabase labels every non-string body `application/json` but only JSON-encodes collections: a
+// number or boolean streams as its literal (valid JSON), a keyword as its bare name (not). A
+// `text/plain` body is a string whatever it looks like ("123" stays "123"). So the header decides
+// text vs JSON, and a JSON body that fails to parse is wrapped as a JSON string literal so the
+// schema still validates the shape.
 export function parseJsonOrPlain<T>(
   text: string,
   contentType: string | null,

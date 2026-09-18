@@ -9,7 +9,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a transform tag by id" },
-  capabilities: { minVersion: 59 },
+  requires: ["transformTag.update"],
   args: {
     ...outputFlags,
     ...profileFlag,

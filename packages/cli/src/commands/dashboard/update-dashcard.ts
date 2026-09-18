@@ -12,7 +12,7 @@ export default defineMetabaseCommand({
     name: "update-dashcard",
     description: "Patch a single dashcard's layout or settings on a dashboard",
   },
-  capabilities: { minVersion: 58 },
+  requires: ["dashboard.updateDashcard"],
   args: {
     ...outputFlags,
     ...profileFlag,

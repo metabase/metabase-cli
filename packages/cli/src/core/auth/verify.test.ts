@@ -54,7 +54,7 @@ describe("verifyAndProbe", () => {
       await answered;
       return jsonResponse(body);
     };
-    const capture = captureFetch([held(CURRENT_USER), held(SESSION_PROPERTIES)]);
+    const capture = captureFetch([held(SESSION_PROPERTIES), held(CURRENT_USER)]);
     vi.stubGlobal("fetch", capture.fetch);
 
     const pending = verifyAndProbe(BASE_URL, CREDENTIAL);
@@ -62,13 +62,13 @@ describe("verifyAndProbe", () => {
       await flushPending();
       expect(capture.calls).toEqual([
         {
-          url: `${BASE_URL}/api/user/current`,
+          url: `${BASE_URL}/api/session/properties`,
           method: "GET",
           headers: READ_HEADERS,
           body: null,
         },
         {
-          url: `${BASE_URL}/api/session/properties`,
+          url: `${BASE_URL}/api/user/current`,
           method: "GET",
           headers: READ_HEADERS,
           body: null,
@@ -83,6 +83,9 @@ describe("verifyAndProbe", () => {
       user: { id: 1, name: "Admin", isAdmin: true },
       server: {
         version: { tag: "v0.58.0", major: 58, patch: 0 },
+        edition: "oss",
+        date: null,
+        hash: null,
         tokenFeatures: { transforms: true },
       },
     });

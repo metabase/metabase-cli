@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     name: "get",
     description: "Get a table by id; pass --include fields to bundle hydrated fields",
   },
-  capabilities: { minVersion: 58 },
+  requires: ["table.queryMetadata", "table.get"],
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -19,12 +19,14 @@ const UPLOAD_UPDATE_PATHS: Record<UploadUpdateAction, string> = {
 export function tableResource(transport: Transport) {
   /** List every table the caller can see, across all databases. */
   async function list(options: RequestOptions = {}): Promise<ListResult<Table>> {
+    await transport.require("table.list", options);
     const data = await transport.requestParsed(TableApiList, "/api/table", { ...options });
     return { data, total: null };
   }
 
   /** Get one table by id, without its fields. */
   async function get(id: number, options: RequestOptions = {}): Promise<Table> {
+    await transport.require("table.get", options);
     return transport.requestParsed(Table, `/api/table/${id}`, { ...options });
   }
 
@@ -34,6 +36,7 @@ export function tableResource(transport: Transport) {
     params: TableUpdateInput,
     options: RequestOptions = {},
   ): Promise<Table> {
+    await transport.require("table.update", options);
     return transport.requestParsed(Table, `/api/table/${id}`, {
       ...options,
       method: "PUT",
@@ -46,6 +49,7 @@ export function tableResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<TableQueryMetadata> {
+    await transport.require("table.queryMetadata", options);
     return transport.requestParsed(TableQueryMetadata, `/api/table/${id}/query_metadata`, {
       ...options,
     });
@@ -77,6 +81,7 @@ export function tableResource(transport: Transport) {
     file: CsvFile,
     options: RequestOptions = {},
   ): Promise<UploadUpdateResult> {
+    await transport.require("table.appendCsv", options);
     return updateFromCsv(id, "append", file, options);
   }
 
@@ -91,6 +96,7 @@ export function tableResource(transport: Transport) {
     file: CsvFile,
     options: RequestOptions = {},
   ): Promise<UploadUpdateResult> {
+    await transport.require("table.replaceCsv", options);
     return updateFromCsv(id, "replace", file, options);
   }
 

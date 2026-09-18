@@ -13,7 +13,13 @@ import {
   type Transport,
 } from "./transport";
 import { HttpError } from "./errors";
+import { deferred } from "../testing/deferred";
 import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
+import { CapabilityError } from "../version/preflight-error";
+import { SessionProperties } from "../domain/session-properties";
+import { PROBE_PATH } from "../version/probe";
+import { KNOWN_RANGE } from "../version/known-range";
+import { createServerProfile } from "../version/profile";
 
 const CONFIG: ClientCredentials = {
   url: "https://m.example.com",
@@ -247,6 +253,7 @@ describe("createTransport.requestParsed", () => {
       status: 200,
       zodIssues: expectedIssues,
       serverTag: null,
+      serverSkew: null,
     });
   });
 
@@ -274,6 +281,7 @@ describe("createTransport.requestParsed", () => {
       status: 200,
       zodIssues: expectedIssues,
       serverTag: "v0.58.7",
+      serverSkew: null,
     });
     expect(error.userMessage).toBe(
       "On Metabase v0.58.7 the response shape was unexpected:\n" +
@@ -387,6 +395,334 @@ describe("createTransport.requestParsed", () => {
   });
 });
 
+describe("createTransport.server", () => {
+  const PROBE_BODY = {
+    version: { tag: "v1.61.2", date: "2026-05-19", hash: "0c64e27" },
+    "token-features": { library: true },
+  };
+  const PROBED_PROFILE = createServerProfile({
+    edition: "ee",
+    version: { tag: "v1.61.2", major: 61, patch: 2 },
+    date: "2026-05-19",
+    hash: "0c64e27",
+    tokenFeatures: { library: true },
+  });
+
+  it("returns the profile it was constructed with and never probes", async () => {
+    const fakeFetch = captureFetch([]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+      server: PROBED_PROFILE,
+    });
+
+    expect(await client.server()).toBe(PROBED_PROFILE);
+    expect(fakeFetch.calls).toEqual([]);
+  });
+
+  it("probes once on first call and shares that profile with every later call", async () => {
+    const fakeFetch = captureFetch([jsonResponse(PROBE_BODY)]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+    });
+
+    const [first, second] = await Promise.all([client.server(), client.server()]);
+    const third = await client.server();
+
+    expect(first).toEqual(PROBED_PROFILE);
+    expect(second).toBe(first);
+    expect(third).toBe(first);
+    expect(fakeFetch.calls).toEqual([
+      {
+        url: `https://m.example.com${PROBE_PATH}`,
+        method: "GET",
+        headers: {
+          "x-api-key": "mb_test_key_abcdef0123",
+          accept: "application/json",
+          "user-agent": TEST_USER_AGENT,
+        },
+        body: null,
+      },
+    ]);
+  });
+
+  it("probes again after a failed probe instead of replaying the failure", async () => {
+    const fakeFetch = captureFetch([
+      new Response("oops", { status: 500 }),
+      jsonResponse(PROBE_BODY),
+    ]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+    });
+
+    const failure = await client.server().catch((caught: unknown) => caught);
+    expect(failure).toBeInstanceOf(HttpError);
+    expect(await client.server()).toEqual(PROBED_PROFILE);
+    expect(fakeFetch.calls).toHaveLength(2);
+  });
+
+  it("aborts a lazy probe with the client-wide signal's reason", async () => {
+    const controller = new AbortController();
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: HANGING_FETCH,
+      signal: controller.signal,
+    });
+
+    const pending = client.server();
+    controller.abort(new Error("operator interrupt"));
+
+    const error = await pending.catch((caught: unknown) => caught);
+    assert(error instanceof AbortError, "expected AbortError");
+    expect(error.message).toBe("operator interrupt");
+  });
+
+  it("ends one caller's wait on its own signal while the shared probe settles for the rest", async () => {
+    const probeResponse = deferred<Response>();
+    const fakeFetch = captureFetch([() => probeResponse.promise]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+    });
+    const controller = new AbortController();
+
+    const abandoned = client.server({ signal: controller.signal });
+    const patient = client.server();
+    controller.abort(new Error("caller moved on"));
+
+    const error = await abandoned.catch((caught: unknown) => caught);
+    assert(error instanceof AbortError, "expected AbortError");
+    expect(error.message).toBe("caller moved on");
+
+    probeResponse.resolve(jsonResponse(PROBE_BODY));
+    expect(await patient).toEqual(PROBED_PROFILE);
+    expect(await client.server()).toBe(await patient);
+    expect(fakeFetch.calls).toHaveLength(1);
+  });
+
+  it("names the supplied profile's version in a shape error without a getServerTag", async () => {
+    const body = { id: "not-a-number", email: "a@b.com" };
+    const expectedIssues = PingResponse.safeParse(body).error?.issues;
+    assert(expectedIssues !== undefined, "expected zod failure for fixture body");
+    const fakeFetch = captureFetch([jsonResponse(body)]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+      server: PROBED_PROFILE,
+    });
+
+    const error = await client
+      .requestParsed(PingResponse, "/api/user/current")
+      .catch((caught: unknown) => caught);
+
+    assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
+    expect(error.developerDetail).toEqual({
+      kind: "zod",
+      method: "GET",
+      url: "https://m.example.com/api/user/current",
+      status: 200,
+      zodIssues: expectedIssues,
+      serverTag: "v1.61.2",
+      serverSkew: "supported",
+    });
+    expect(error.userMessage).toBe(
+      "On Metabase v1.61.2 the response shape was unexpected:\n" +
+        "  id: Invalid input: expected number, received string",
+    );
+  });
+
+  it("names the server a lazy probe settled on in a later shape error", async () => {
+    const body = { id: "not-a-number", email: "a@b.com" };
+    const expectedIssues = PingResponse.safeParse(body).error?.issues;
+    assert(expectedIssues !== undefined, "expected zod failure for fixture body");
+    const fakeFetch = captureFetch([jsonResponse(PROBE_BODY), jsonResponse(body)]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+    });
+    await client.server();
+
+    const error = await client
+      .requestParsed(PingResponse, "/api/user/current")
+      .catch((caught: unknown) => caught);
+
+    assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
+    expect(error.developerDetail).toEqual({
+      kind: "zod",
+      method: "GET",
+      url: "https://m.example.com/api/user/current",
+      status: 200,
+      zodIssues: expectedIssues,
+      serverTag: "v1.61.2",
+      serverSkew: "supported",
+    });
+    expect(fakeFetch.calls.map((call) => call.url)).toEqual([
+      `https://m.example.com${PROBE_PATH}`,
+      "https://m.example.com/api/user/current",
+    ]);
+  });
+
+  it("leaves a shape error inside the probe itself unnamed rather than waiting on that probe", async () => {
+    const body = { version: "not-an-object" };
+    const expectedIssues = SessionProperties.safeParse(body).error?.issues;
+    assert(expectedIssues !== undefined, "expected zod failure for fixture body");
+    const fakeFetch = captureFetch([jsonResponse(body)]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+    });
+
+    const error = await client.server().catch((caught: unknown) => caught);
+
+    assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
+    expect(error.developerDetail).toEqual({
+      kind: "zod",
+      method: "GET",
+      url: `https://m.example.com${PROBE_PATH}`,
+      status: 200,
+      zodIssues: expectedIssues,
+      serverTag: null,
+      serverSkew: null,
+    });
+  });
+
+  it("says a supplied profile above the known range is newer than the client supports in a shape error", async () => {
+    const beyond = KNOWN_RANGE.max + 2;
+    const fakeFetch = captureFetch([jsonResponse({ id: "not-a-number", email: "a@b.com" })]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+      server: createServerProfile({
+        edition: "oss",
+        version: { tag: `v0.${beyond}.0`, major: beyond, patch: 0 },
+        date: null,
+        hash: null,
+        tokenFeatures: null,
+      }),
+    });
+
+    const error = await client
+      .requestParsed(PingResponse, "/api/user/current")
+      .catch((caught: unknown) => caught);
+
+    assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
+    assert(error.developerDetail.kind === "zod", "expected a schema-parse detail");
+    expect(error.developerDetail.serverSkew).toBe("newer-than-known");
+    expect(error.userMessage).toBe(
+      `On Metabase v0.${beyond}.0 (newer than this client supports, up to v${KNOWN_RANGE.max}) the response shape was unexpected:\n` +
+        "  id: Invalid input: expected number, received string",
+    );
+  });
+});
+
+describe("createTransport.require", () => {
+  const OSS_58 = createServerProfile({
+    edition: "oss",
+    version: { tag: "v0.58.0", major: 58, patch: 0 },
+    date: null,
+    hash: null,
+    tokenFeatures: null,
+  });
+  const VERSION_TOO_OLD = {
+    reason: "version-too-old",
+    detail:
+      "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
+    feature: "measures",
+    since: 59,
+    tokenFeature: null,
+    serverVersion: "v0.58.0",
+  };
+
+  it("resolves when the supplied profile satisfies the method, without a request", async () => {
+    const fakeFetch = captureFetch([]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+      server: OSS_58,
+    });
+
+    await expect(client.require("card.list")).resolves.toBeUndefined();
+
+    expect(fakeFetch.calls).toEqual([]);
+  });
+
+  it("throws CapabilityError carrying the check's failure before any request leaves", async () => {
+    const fakeFetch = captureFetch([]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+      server: OSS_58,
+    });
+
+    const error = await client.require("measure.list").catch((caught: unknown) => caught);
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.userMessage).toBe(VERSION_TOO_OLD.detail);
+    expect(error.developerDetail).toEqual(VERSION_TOO_OLD);
+    expect(fakeFetch.calls).toEqual([]);
+  });
+
+  it("refuses with an already-aborted signal before probing for a gated method", async () => {
+    const fakeFetch = captureFetch([]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+    });
+
+    const error = await client
+      .require("measure.list", { signal: AbortSignal.abort(new Error("already gone")) })
+      .catch((caught: unknown) => caught);
+
+    assert(error instanceof AbortError, "expected AbortError");
+    expect(error.message).toBe("already gone");
+    expect(fakeFetch.calls).toEqual([]);
+  });
+
+  it("never probes for a method that needs nothing", async () => {
+    const fakeFetch = captureFetch([]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+    });
+
+    await expect(client.require("card.list")).resolves.toBeUndefined();
+
+    expect(fakeFetch.calls).toEqual([]);
+  });
+
+  it("probes lazily for a gated method when no profile was supplied", async () => {
+    const fakeFetch = captureFetch([
+      jsonResponse({ version: { tag: "v0.58.0" }, "token-features": {} }),
+    ]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+    });
+
+    const error = await client.require("measure.list").catch((caught: unknown) => caught);
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual(VERSION_TOO_OLD);
+    expect(fakeFetch.calls.map((call) => call.url)).toEqual([`https://m.example.com${PROBE_PATH}`]);
+  });
+
+  it("resolves without checking when enforcement is switched off", async () => {
+    const fakeFetch = captureFetch([]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+      server: OSS_58,
+      enforceRequirements: false,
+    });
+
+    await expect(client.require("measure.list")).resolves.toBeUndefined();
+
+    expect(fakeFetch.calls).toEqual([]);
+  });
+});
+
 describe("createTransport cancellation", () => {
   it("installs no process signal handler, so an embedder keeps its own Ctrl-C semantics", async () => {
     const before = process.listenerCount("SIGINT");
@@ -495,18 +831,17 @@ describe("createTransport credential encoding", () => {
 
   it("keeps the credential out of the message, so the error does not undo redaction", () => {
     const apiKey = "mb_secret_material_…";
-    let thrown: unknown = null;
-    try {
+    expect(() =>
       createTransport(
         { url: "https://m.example.com", credential: { kind: "apiKey", apiKey } },
         { userAgent: TEST_USER_AGENT },
-      );
-    } catch (error) {
-      thrown = error;
-    }
-    assert(thrown instanceof ConfigError);
-    expect(thrown.message).toContain('Credential field "apiKey" has a character at index 19');
-    expect(thrown.message).not.toContain("mb_secret_material_");
+      ),
+    ).toThrowError(
+      new ConfigError(
+        'Credential field "apiKey" has a character at index 19 (U+2026) that cannot be sent in an HTTP header. ' +
+          "Header values are limited to Latin-1; a smart quote, ellipsis, or dash substituted during copy-paste is the usual cause.",
+      ),
+    );
   });
 
   it("accepts a key at the top of the Latin-1 range", () => {
@@ -537,7 +872,9 @@ describe("createTransport base URL", () => {
 
     await client.requestParsed(PingResponse, "/api/user/current");
 
-    expect(fakeFetch.calls[0]?.url).toBe("https://m.example.com/api/user/current");
+    expect(fakeFetch.calls.map((call) => call.url)).toEqual([
+      "https://m.example.com/api/user/current",
+    ]);
   });
 });
 
@@ -549,7 +886,7 @@ describe("createTransport user-agent", () => {
 
     await client.requestParsed(PingResponse, "/api/user/current");
 
-    expect(fakeFetch.calls[0]?.headers["user-agent"]).toBe(otherCaller);
+    expect(fakeFetch.calls.map((call) => call.headers["user-agent"])).toEqual([otherCaller]);
   });
 });
 
@@ -993,9 +1330,9 @@ describe("createTransport query encoding", () => {
       },
     });
 
-    expect(fakeFetch.calls[0]?.url).toBe(
+    expect(fakeFetch.calls.map((call) => call.url)).toEqual([
       "https://m.example.com/api/search?models=card&models=dashboard&q=x",
-    );
+    ]);
   });
 });
 
@@ -1022,8 +1359,9 @@ describe("createTransport OAuth bearer auth", () => {
       { userAgent: TEST_USER_AGENT, fetchImpl: fakeFetch.fetch },
     );
     await client.requestParsed(PingResponse, "/api/user/current");
-    expect(fakeFetch.calls[0]?.headers["authorization"]).toBe("Bearer acc-1");
-    expect(fakeFetch.calls[0]?.headers["x-api-key"]).toBeUndefined();
+    expect(fakeFetch.calls.map((call) => call.headers)).toEqual([
+      { accept: "application/json", authorization: "Bearer acc-1", "user-agent": TEST_USER_AGENT },
+    ]);
   });
 
   it("refreshes on 401 and replays the request with the new access token", async () => {
@@ -1047,8 +1385,10 @@ describe("createTransport OAuth bearer auth", () => {
     const result = await client.requestParsed(PingResponse, "/api/user/current", { retries: 0 });
     expect(result).toEqual({ id: 1, email: "a@b.c" });
     expect(refreshCalls).toBe(1);
-    expect(fakeFetch.calls[0]?.headers["authorization"]).toBe("Bearer acc-1");
-    expect(fakeFetch.calls[1]?.headers["authorization"]).toBe("Bearer acc-2");
+    expect(fakeFetch.calls.map((call) => call.headers["authorization"])).toEqual([
+      "Bearer acc-1",
+      "Bearer acc-2",
+    ]);
   });
 
   it("gives up after a single refresh when the replay still 401s", async () => {
@@ -1106,8 +1446,12 @@ describe("createTransport OAuth bearer auth", () => {
       { id: 1, email: "a@b.c" },
     ]);
     expect(refreshCalls).toBe(1);
-    expect(fakeFetch.calls[2]?.headers["authorization"]).toBe("Bearer acc-2");
-    expect(fakeFetch.calls[3]?.headers["authorization"]).toBe("Bearer acc-2");
+    expect(fakeFetch.calls.map((call) => call.headers["authorization"])).toEqual([
+      "Bearer acc-1",
+      "Bearer acc-1",
+      "Bearer acc-2",
+      "Bearer acc-2",
+    ]);
   });
 
   it("refreshes again on a later request when the token expires a second time", async () => {
@@ -1184,7 +1528,9 @@ describe("createTransport subpath base URLs", () => {
       { userAgent: TEST_USER_AGENT, fetchImpl: fakeFetch.fetch },
     );
     await client.requestParsed(PingResponse, "/api/user/current");
-    expect(fakeFetch.calls[0]?.url).toBe("https://my.org.com/metabase/api/user/current");
+    expect(fakeFetch.calls.map((call) => call.url)).toEqual([
+      "https://my.org.com/metabase/api/user/current",
+    ]);
   });
 });
 

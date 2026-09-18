@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { Features } from "../version/features";
+
 const TransformSourceType = z.enum(["native", "mbql", "python"]);
 
 export const TransformRunStatus = z.enum([
@@ -174,7 +176,7 @@ export const TransformRunResult = z.object({
 });
 export type TransformRunResult = z.infer<typeof TransformRunResult>;
 
-export const Transform = z
+const TransformBase = z
   .object({
     id: z.number().int(),
     name: z.string(),
@@ -184,8 +186,6 @@ export const Transform = z
     source_type: TransformSourceType,
     source_database_id: z.number().int().nullable().optional(),
     target_db_id: z.number().int().nullable().optional(),
-    target_table_id: z.number().int().nullable().optional(),
-    table: z.object({ id: z.number().int() }).loose().nullable().optional(),
     entity_id: z.string().nullable(),
     created_at: z.string(),
     updated_at: z.string(),
@@ -196,7 +196,41 @@ export const Transform = z
     tag_ids: z.array(z.number().int()).optional(),
   })
   .loose();
+
+// `target_table_id` is the output table's id once the server has registered one, and null until
+// then. Servers without the column answer it through the converters below, so null also covers
+// "this server cannot say on this endpoint".
+export const Transform = TransformBase.extend({
+  target_table_id: z.number().int().nullable(),
+});
 export type Transform = z.infer<typeof Transform>;
+
+// A server without the column links the output table only on the detail, as the hydrated `table`
+// every generation's detail carries; its other transform endpoints carry no link at all. The
+// hydrated table stays in place so the detail reads the same on every server.
+const TransformWireV59Detail = TransformBase.extend({
+  table: z.object({ id: z.number().int() }).loose().nullable(),
+});
+
+function fromHydratedTable(wire: z.infer<typeof TransformWireV59Detail>): Transform {
+  return { ...wire, target_table_id: wire.table === null ? null : wire.table.id };
+}
+
+function withoutLink(row: z.infer<typeof TransformBase>): Transform {
+  return { ...row, target_table_id: null };
+}
+
+/** The shape `GET /api/transform/{id}` answers on a server with `features`, read as `Transform`. */
+export function transformDetailSchema(features: Features): z.ZodType<Transform> {
+  return features.transformTargetTableId
+    ? Transform
+    : TransformWireV59Detail.transform(fromHydratedTable);
+}
+
+/** The shape every other transform endpoint answers on a server with `features`, read as `Transform`. */
+export function transformRowSchema(features: Features): z.ZodType<Transform> {
+  return features.transformTargetTableId ? Transform : TransformBase.transform(withoutLink);
+}
 
 export const TransformCompact = Transform.pick({
   id: true,
@@ -204,6 +238,7 @@ export const TransformCompact = Transform.pick({
   description: true,
   source_type: true,
   target_db_id: true,
+  target_table_id: true,
 })
   .strip()
   .extend({ target: TransformTargetCompact });

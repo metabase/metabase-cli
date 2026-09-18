@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
+import { ResponseShapeError } from "../errors";
 import type { ClientCredentials } from "../http/transport";
 import {
   captureFetch,
@@ -8,6 +9,7 @@ import {
   jsonResponse,
   TEST_USER_AGENT,
 } from "../testing/fetch-capture";
+import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
   url: "https://mb.example.com/metabase",
@@ -38,6 +40,10 @@ const TRANSFORM = {
 const TRANSFORM_WITH_TARGET_TABLE_ID = { ...TRANSFORM, target_table_id: 42 };
 
 const TRANSFORM_WITH_HYDRATED_TABLE = { ...TRANSFORM, table: { id: 42, name: "daily_orders" } };
+
+const TRANSFORM_UNLINKED = { ...TRANSFORM, target_table_id: null };
+
+const TRANSFORM_DETAIL_UNLINKED = { ...TRANSFORM, table: null };
 
 const RUN = {
   id: 31,
@@ -91,11 +97,32 @@ const IMMEDIATE_POLL = { intervalMs: 1, timeoutMs: 1_000 };
 // answering so the wait ends on the deadline rather than on an exhausted queue.
 const EXPIRING_POLL = { intervalMs: 1, timeoutMs: 5 };
 
-function clientOver(responses: FetchScript) {
+// The least server that answers this resource, so a method asking for more than the resource's
+// own feature is refused here before it reaches the scripted wire. It is also the generation that
+// links the output table only on the detail, as a hydrated `table`.
+const SERVER = createServerProfile({
+  edition: "oss",
+  version: { tag: "v0.59.0", major: 59, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: null,
+});
+
+// The first generation carrying `target_table_id` as a column on every transform endpoint.
+const TABLE_ID_COLUMN_SERVER = createServerProfile({
+  edition: "oss",
+  version: { tag: "v0.61.0", major: 61, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: null,
+});
+
+function clientOver(responses: FetchScript, server: ServerProfile = SERVER) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
     userAgent: TEST_USER_AGENT,
     fetchImpl: capture.fetch,
+    server,
   });
   return { mb, capture };
 }
@@ -123,11 +150,11 @@ describe("transform resource wire requests", () => {
   it("reports no total for the listing, which the server does not count", async () => {
     const { mb } = clientOver([jsonResponse([TRANSFORM])]);
 
-    expect(await mb.transform.list()).toEqual({ data: [TRANSFORM], total: null });
+    expect(await mb.transform.list()).toEqual({ data: [TRANSFORM_UNLINKED], total: null });
   });
 
   it("sends the get request", async () => {
-    const { mb, capture } = clientOver([jsonResponse(TRANSFORM)]);
+    const { mb, capture } = clientOver([jsonResponse(TRANSFORM_DETAIL_UNLINKED)]);
 
     await mb.transform.get(7);
 
@@ -219,7 +246,7 @@ describe("transform resource wire requests", () => {
   it("sends the dependencies request", async () => {
     const { mb, capture } = clientOver([jsonResponse([TRANSFORM])]);
 
-    expect(await mb.transform.dependencies(7)).toEqual({ data: [TRANSFORM], total: null });
+    expect(await mb.transform.dependencies(7)).toEqual({ data: [TRANSFORM_UNLINKED], total: null });
     expect(capture.calls).toEqual([
       {
         url: "https://mb.example.com/metabase/api/transform/7/dependencies",
@@ -335,12 +362,15 @@ describe("transform resource wire requests", () => {
     ]);
   });
 
-  it("reads the output table off target_table_id, as v61 and later report it", async () => {
-    const { mb } = clientOver([
-      jsonResponse(KICKOFF),
-      jsonResponse(SUCCEEDED_RUN),
-      jsonResponse(TRANSFORM_WITH_TARGET_TABLE_ID),
-    ]);
+  it("reads the output table off the target_table_id column where the server has one", async () => {
+    const { mb } = clientOver(
+      [
+        jsonResponse(KICKOFF),
+        jsonResponse(SUCCEEDED_RUN),
+        jsonResponse(TRANSFORM_WITH_TARGET_TABLE_ID),
+      ],
+      TABLE_ID_COLUMN_SERVER,
+    );
 
     expect(await mb.transform.run(7, { wait: IMMEDIATE_POLL, syncTarget: true })).toEqual({
       message: "Transform run started",
@@ -350,7 +380,7 @@ describe("transform resource wire requests", () => {
     });
   });
 
-  it("reads the output table off the hydrated table, as v59 and v60 report it", async () => {
+  it("reads the output table off the hydrated table where the server links it that way", async () => {
     const { mb } = clientOver([
       jsonResponse(KICKOFF),
       jsonResponse(SUCCEEDED_RUN),
@@ -369,7 +399,7 @@ describe("transform resource wire requests", () => {
     const { mb, capture } = clientOver([
       jsonResponse(KICKOFF),
       jsonResponse(SUCCEEDED_RUN),
-      jsonResponse(TRANSFORM_WITH_TARGET_TABLE_ID),
+      jsonResponse(TRANSFORM_WITH_HYDRATED_TABLE),
     ]);
 
     await mb.transform.run(7, { syncTarget: true });
@@ -400,7 +430,7 @@ describe("transform resource wire requests", () => {
     const { mb } = clientOver([
       jsonResponse(KICKOFF),
       jsonResponse(SUCCEEDED_RUN),
-      ...repeated(TRANSFORM, 50),
+      ...repeated(TRANSFORM_DETAIL_UNLINKED, 50),
     ]);
 
     expect(await mb.transform.run(7, { wait: EXPIRING_POLL, syncTarget: true })).toEqual({
@@ -409,5 +439,34 @@ describe("transform resource wire requests", () => {
       final: SUCCEEDED_RUN,
       target_table_id: null,
     });
+  });
+
+  it("refuses a detail without the target_table_id column on a server that has one", async () => {
+    const { mb } = clientOver(
+      [jsonResponse(TRANSFORM_WITH_HYDRATED_TABLE)],
+      TABLE_ID_COLUMN_SERVER,
+    );
+
+    const error = await mb.transform.get(7).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ResponseShapeError);
+    assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
+    expect(error.userMessage).toBe(
+      "On Metabase v0.61.0 the response shape was unexpected:\n" +
+        "  target_table_id: Invalid input: expected number, received undefined",
+    );
+  });
+
+  it("refuses a detail without the hydrated table on a server that links it that way", async () => {
+    const { mb } = clientOver([jsonResponse(TRANSFORM_WITH_TARGET_TABLE_ID)]);
+
+    const error = await mb.transform.get(7).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ResponseShapeError);
+    assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
+    expect(error.userMessage).toBe(
+      "On Metabase v0.59.0 the response shape was unexpected:\n" +
+        "  table: Invalid input: expected object, received undefined",
+    );
   });
 });

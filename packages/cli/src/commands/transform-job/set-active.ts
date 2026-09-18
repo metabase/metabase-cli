@@ -25,7 +25,7 @@ export default defineMetabaseCommand({
   meta: { name: "set-active", description: "Activate or deactivate every transform job" },
   details:
     "Flips the active flag on every transform job at once. Inactive jobs do not run on schedule; manual runs ignore the flag. Requires admin.",
-  capabilities: { minVersion: 61 },
+  requires: ["transformJob.setActive"],
   args: {
     ...outputFlags,
     ...profileFlag,

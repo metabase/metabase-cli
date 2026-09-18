@@ -292,6 +292,7 @@ describe("@metabase/client barrel as a consumer surface", () => {
       status: 200,
       zodIssues: parsed.error.issues,
       serverTag: null,
+      serverSkew: null,
     });
     expect(zodResponseShapeDetailOf(error)).toEqual({
       kind: "zod",
@@ -300,6 +301,7 @@ describe("@metabase/client barrel as a consumer surface", () => {
       status: 200,
       zodIssues: parsed.error.issues,
       serverTag: null,
+      serverSkew: null,
     });
   });
 

@@ -7,7 +7,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "archive", description: "Archive (soft-delete) a card by id" },
-  capabilities: { minVersion: 58 },
+  requires: ["card.archive"],
   args: {
     ...outputFlags,
     ...profileFlag,

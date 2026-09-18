@@ -36,9 +36,13 @@
     "./http/oauth": "./dist/http/oauth.js",
     "./http/retry": "./dist/http/retry.js",
     "./http/transport": "./dist/http/transport.js",
-    "./version/capabilities": "./dist/version/capabilities.js",
+    "./version/features": "./dist/version/features.js",
+    "./version/known-range": "./dist/version/known-range.js",
+    "./version/profile": "./dist/version/profile.js",
     "./version/preflight-error": "./dist/version/preflight-error.js",
     "./version/probe": "./dist/version/probe.js",
+    "./version/requirement-check": "./dist/version/requirement-check.js",
+    "./version/requirements": "./dist/version/requirements.js",
     "./version/tag": "./dist/version/tag.js",
     "./testing/fake-client": "./dist/testing/fake-client.js",
     "./testing/fetch-capture": "./dist/testing/fetch-capture.js",
@@ -51,9 +55,6 @@
   "scripts": {
     "build": "tsdown",
     "prepack": "tsdown"
-  },
-  "dependencies": {
-    "semver": "^7.8.0"
   },
   "peerDependencies": {
     "zod": "^4.0.0"

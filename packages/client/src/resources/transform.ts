@@ -3,22 +3,27 @@ import { z } from "zod";
 import {
   isTransformRunFailed,
   isTransformRunTerminal,
-  Transform,
+  type Transform,
   type TransformCreateInput,
+  transformDetailSchema,
   TransformRun,
   type TransformRunResult,
+  transformRowSchema,
   type TransformUpdateInput,
 } from "../domain/transform";
 import { TimeoutError } from "../errors";
-import type { RequestOptions, Transport } from "../http/transport";
+import type { RequestOptions, Transport, TransportRequestOptions } from "../http/transport";
 import type { ListResult } from "../list";
 import { type Page, type PaginateOptions, paginatePages } from "../paginate";
 import { type PollOptions, pollUntil } from "../poll";
+import type { Features } from "../version/features";
 
 // `GET /api/transform` and `GET /api/transform/{id}/dependencies` both answer a bare array rather
 // than a `{ data, total }` envelope, so the count a caller reads off `ListResult` is the array's
 // own length and the server reports none.
-const TransformApiList = z.array(Transform);
+function transformListSchema(features: Features) {
+  return z.array(transformRowSchema(features));
+}
 
 // The run endpoint answers as soon as the run is queued, and says nothing about how it went.
 const TransformRunKickoff = z.object({
@@ -45,15 +50,33 @@ export type TransformRunPageOptions = Omit<PaginateOptions, "query">;
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function transformResource(transport: Transport) {
+  async function requestTransformList(
+    path: string,
+    opts: TransportRequestOptions,
+  ): Promise<ListResult<Transform>> {
+    const { features } = await transport.server(opts);
+    const data = await transport.requestParsed(transformListSchema(features), path, opts);
+    return { data, total: null };
+  }
+
+  async function requestTransform(path: string, opts: TransportRequestOptions): Promise<Transform> {
+    const { features } = await transport.server(opts);
+    return transport.requestParsed(transformRowSchema(features), path, opts);
+  }
+
   /** List every transform the caller can see. */
   async function list(options: RequestOptions = {}): Promise<ListResult<Transform>> {
-    const data = await transport.requestParsed(TransformApiList, "/api/transform", { ...options });
-    return { data, total: null };
+    await transport.require("transform.list", options);
+    return requestTransformList("/api/transform", { ...options });
   }
 
   /** Get one transform by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<Transform> {
-    return transport.requestParsed(Transform, `/api/transform/${id}`, { ...options });
+    await transport.require("transform.get", options);
+    const { features } = await transport.server(options);
+    return transport.requestParsed(transformDetailSchema(features), `/api/transform/${id}`, {
+      ...options,
+    });
   }
 
   /** Create a transform — a query plus the warehouse table it writes — from a full body. */
@@ -61,11 +84,8 @@ export function transformResource(transport: Transport) {
     params: TransformCreateInput,
     options: RequestOptions = {},
   ): Promise<Transform> {
-    return transport.requestParsed(Transform, "/api/transform", {
-      ...options,
-      method: "POST",
-      body: params,
-    });
+    await transport.require("transform.create", options);
+    return requestTransform("/api/transform", { ...options, method: "POST", body: params });
   }
 
   /** Update a transform by id, patching only the fields the body carries. */
@@ -74,15 +94,13 @@ export function transformResource(transport: Transport) {
     params: TransformUpdateInput,
     options: RequestOptions = {},
   ): Promise<Transform> {
-    return transport.requestParsed(Transform, `/api/transform/${id}`, {
-      ...options,
-      method: "PUT",
-      body: params,
-    });
+    await transport.require("transform.update", options);
+    return requestTransform(`/api/transform/${id}`, { ...options, method: "PUT", body: params });
   }
 
   /** Delete a transform by id, leaving any table it already materialized in place. */
   async function remove(id: number, options: RequestOptions = {}): Promise<void> {
+    await transport.require("transform.delete", options);
     await transport.requestRaw(`/api/transform/${id}`, {
       ...options,
       method: "DELETE",
@@ -92,6 +110,7 @@ export function transformResource(transport: Transport) {
 
   /** Drop a transform's materialized output table, keeping the transform definition. */
   async function deleteTable(id: number, options: RequestOptions = {}): Promise<void> {
+    await transport.require("transform.deleteTable", options);
     await transport.requestRaw(`/api/transform/${id}/table`, {
       ...options,
       method: "DELETE",
@@ -104,16 +123,13 @@ export function transformResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<ListResult<Transform>> {
-    const data = await transport.requestParsed(
-      TransformApiList,
-      `/api/transform/${id}/dependencies`,
-      { ...options },
-    );
-    return { data, total: null };
+    await transport.require("transform.dependencies", options);
+    return requestTransformList(`/api/transform/${id}/dependencies`, { ...options });
   }
 
   /** Request cancellation of a transform's current run. */
   async function cancel(id: number, options: RequestOptions = {}): Promise<void> {
+    await transport.require("transform.cancel", options);
     await transport.requestRaw(`/api/transform/${id}/cancel`, {
       ...options,
       method: "POST",
@@ -123,15 +139,17 @@ export function transformResource(transport: Transport) {
 
   /** Get one transform run by run id — not by the id of the transform that produced it. */
   async function getRun(runId: number, options: RequestOptions = {}): Promise<TransformRun> {
+    await transport.require("transform.getRun", options);
     return transport.requestParsed(TransformRun, `/api/transform/run/${runId}`, { ...options });
   }
 
   /** Walk the run history, newest first, optionally narrowed to a single transform. */
-  function runPages(
+  async function* runPages(
     params: TransformRunPageParams = {},
     options: TransformRunPageOptions = {},
   ): AsyncIterable<Page<TransformRun>> {
-    return paginatePages(transport, "/api/transform/run", TransformRun, {
+    await transport.require("transform.runPages", options);
+    yield* paginatePages(transport, "/api/transform/run", TransformRun, {
       query: { "transform-ids": params["transform-ids"] },
       ...(options.offset !== undefined && { offset: options.offset }),
       ...(options.max !== undefined && { max: options.max }),
@@ -150,6 +168,7 @@ export function transformResource(transport: Transport) {
     params: TransformRunParams = {},
     options: RequestOptions = {},
   ): Promise<TransformRunResult> {
+    await transport.require("transform.run", options);
     const kickoff = await transport.requestParsed(TransformRunKickoff, `/api/transform/${id}/run`, {
       ...options,
       method: "POST",
@@ -175,10 +194,9 @@ export function transformResource(transport: Transport) {
   }
 
   // A successful run registers its own output table — Metabase syncs the single materialized table
-  // as part of run completion, so no explicit database sync is needed. The linkage surfaces as
-  // `target_table_id` on v61+ and as the hydrated `table.id` on v59/v60; poll until either lands.
-  // A poll timeout answers null rather than throwing, because the table may still be syncing and
-  // the run itself already succeeded.
+  // as part of run completion, so no explicit database sync is needed. A poll timeout answers null
+  // rather than throwing, because the table may still be syncing and the run itself already
+  // succeeded.
   async function awaitTargetTableId(
     id: number,
     wait: PollOptions,
@@ -187,10 +205,10 @@ export function transformResource(transport: Transport) {
     try {
       const linked = await pollUntil(
         async (signal) => get(id, { ...options, signal }),
-        (transform) => linkedTableId(transform) !== null,
+        (transform) => transform.target_table_id !== null,
         wait,
       );
-      return linkedTableId(linked);
+      return linked.target_table_id;
     } catch (error) {
       if (error instanceof TimeoutError) {
         return null;
@@ -212,8 +230,4 @@ export function transformResource(transport: Transport) {
     runPages,
     run,
   };
-}
-
-function linkedTableId(transform: Transform): number | null {
-  return transform.target_table_id ?? transform.table?.id ?? null;
 }

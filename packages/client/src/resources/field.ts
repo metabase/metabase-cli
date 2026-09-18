@@ -13,6 +13,7 @@ const FieldApiSummary = z.tuple([
 export function fieldResource(transport: Transport) {
   /** Get one field by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<Field> {
+    await transport.require("field.get", options);
     return transport.requestParsed(Field, `/api/field/${id}`, { ...options });
   }
 
@@ -22,6 +23,7 @@ export function fieldResource(transport: Transport) {
     params: FieldUpdateInput,
     options: RequestOptions = {},
   ): Promise<Field> {
+    await transport.require("field.update", options);
     return transport.requestParsed(Field, `/api/field/${id}`, {
       ...options,
       method: "PUT",
@@ -31,6 +33,7 @@ export function fieldResource(transport: Transport) {
 
   /** Get the row count and the distinct-value count for a field. */
   async function summary(id: number, options: RequestOptions = {}): Promise<FieldSummary> {
+    await transport.require("field.summary", options);
     const [[, count], [, distincts]] = await transport.requestParsed(
       FieldApiSummary,
       `/api/field/${id}/summary`,
@@ -41,6 +44,7 @@ export function fieldResource(transport: Transport) {
 
   /** Get the cached distinct values Metabase holds for a field. */
   async function values(id: number, options: RequestOptions = {}): Promise<FieldValues> {
+    await transport.require("field.values", options);
     return transport.requestParsed(FieldValues, `/api/field/${id}/values`, { ...options });
   }
 

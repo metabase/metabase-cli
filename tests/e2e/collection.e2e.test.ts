@@ -1,6 +1,11 @@
 import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
-import { Collection, CollectionCompact } from "@metabase/client/domain/collection";
+import {
+  COLLECTION_ITEM_FILTER_MODELS,
+  COLLECTION_PINNED_STATES,
+  Collection,
+  CollectionCompact,
+} from "@metabase/client/domain/collection";
 import { parseJson } from "@metabase/client/json";
 
 import { CollectionItemListEnvelope } from "../../packages/cli/src/commands/collection/items";
@@ -10,7 +15,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
-import { serverVersionBelow } from "./server-gate";
+import { serverHas } from "./server-gate";
 
 const DEFAULT_COLLECTION_NAME = "E2E Default";
 
@@ -62,12 +67,10 @@ const TRASH_COMPACT = {
   is_remote_synced: false,
 } as const;
 
-// Through v61 the items endpoint reads its total off the first row's window column, so an empty
-// page reports no total at all; from v62 it reports 0.
-const EMPTY_ITEMS_TOTAL_VERSION = 62;
-
+// A server that reads the total off the first row's window column has none to report for an
+// empty page.
 function emptyItemsPageTotal(): number | null {
-  return serverVersionBelow(EMPTY_ITEMS_TOTAL_VERSION) ? null : 0;
+  return serverHas("collectionItemsTotalOnEmptyPage") ? 0 : null;
 }
 
 describe("collection e2e", () => {
@@ -284,7 +287,7 @@ describe("collection e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: GET /api/collection/9999999.");
+    expect(cliErrorMessage(result.stderr)).toBe("Not found: GET /api/collection/9999999.");
   });
 
   it("items lists the seeded card and dashboard inside the default collection", async () => {
@@ -296,25 +299,33 @@ describe("collection e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     const envelope = parseJson(result.stdout, CollectionItemListEnvelope);
-    expect(envelope.data.find((item) => item.model === "dashboard")).toEqual({
-      id: SEEDED.ordersDashboardId,
-      model: "dashboard",
-      name: "Orders Overview",
-      description: "E2E seeded dashboard with one orders dashcard.",
-      archived: false,
-      collection_id: SEEDED.defaultCollectionId,
-    });
-    expect(envelope.data.find((item) => item.model === "card")).toEqual({
-      id: SEEDED.ordersCardId,
-      model: "card",
-      name: "Orders by status",
-      description: null,
-      archived: false,
-      collection_id: SEEDED.defaultCollectionId,
-    });
-    expect({ returned: envelope.returned, total: envelope.total }).toEqual({
+    expect({
+      ...envelope,
+      data: [...envelope.data].toSorted((left, right) => left.model.localeCompare(right.model)),
+    }).toEqual({
+      data: [
+        {
+          id: SEEDED.ordersCardId,
+          model: "card",
+          name: "Orders by status",
+          description: null,
+          archived: false,
+          collection_id: SEEDED.defaultCollectionId,
+        },
+        {
+          id: SEEDED.ordersDashboardId,
+          model: "dashboard",
+          name: "Orders Overview",
+          description: "E2E seeded dashboard with one orders dashcard.",
+          archived: false,
+          collection_id: SEEDED.defaultCollectionId,
+        },
+      ],
       returned: 2,
+      offset: 0,
       total: 2,
+      has_more: false,
+      next_offset: null,
     });
   });
 
@@ -418,7 +429,9 @@ describe("collection e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain("invalid --models value: bogus");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      `invalid --models value: bogus (expected one of: ${COLLECTION_ITEM_FILTER_MODELS.join(", ")})`,
+    );
     expect(result.stdout).toBe("");
   });
 
@@ -437,7 +450,9 @@ describe("collection e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid --pinned-state value: "bogus"');
+    expect(cliErrorMessage(result.stderr)).toBe(
+      `invalid --pinned-state value: "bogus" (expected one of: ${COLLECTION_PINNED_STATES.join(", ")})`,
+    );
     expect(result.stdout).toBe("");
   });
 
@@ -597,7 +612,9 @@ describe("collection e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "request body: value did not match expected schema\n  /name: Invalid input: expected string, received undefined",
+    );
     expect(result.stdout).toBe("");
   });
 });

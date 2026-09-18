@@ -4,6 +4,7 @@ import { createClient } from "../client";
 import { HttpError } from "../http/errors";
 import type { ClientCredentials } from "../http/transport";
 import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
+import { createServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
   url: "https://mb.example.com/metabase",
@@ -56,11 +57,22 @@ const BINARY_READ_HEADERS = {
 
 const IMMEDIATE_POLL = { intervalMs: 1, timeoutMs: 1_000 };
 
+// The least server that answers this resource, so a method asking for more than the resource's
+// own feature is refused here before it reaches the scripted wire.
+const SERVER = createServerProfile({
+  edition: "ee",
+  version: { tag: "v1.60.0", major: 60, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: { remote_sync: true },
+});
+
 function clientOver(responses: Array<Response>) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
     userAgent: TEST_USER_AGENT,
     fetchImpl: capture.fetch,
+    server: SERVER,
   });
   return { mb, capture };
 }
@@ -528,6 +540,28 @@ describe("git-sync resource wire requests", () => {
     const { mb } = clientOver([jsonResponse(null)]);
 
     expect(await mb.gitSync.branch()).toBeNull();
+  });
+
+  it("reports no branch when the caller may not read settings", async () => {
+    const { mb } = clientOver([jsonResponse({ message: "You don't have permissions" }, 403)]);
+
+    expect(await mb.gitSync.branch()).toBeNull();
+  });
+
+  it("reports no branch when the setting is not registered on the server", async () => {
+    const { mb } = clientOver([jsonResponse({ message: "Not found." }, 404)]);
+
+    expect(await mb.gitSync.branch()).toBeNull();
+  });
+
+  it("rethrows a branch failure that is neither a permission nor a registration answer", async () => {
+    const { mb } = clientOver([jsonResponse({ message: "boom" }, 500)]);
+
+    const error = await thrownBy(() => mb.gitSync.branch({ retries: 0 }));
+
+    expect(error).toBeInstanceOf(HttpError);
+    assert(error instanceof HttpError, "expected HttpError");
+    expect(error.message).toBe("boom");
   });
 
   it("answers the task in the status that ended the wait", async () => {

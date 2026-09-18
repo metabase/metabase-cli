@@ -15,12 +15,14 @@ export interface MeasureArchiveParams {
 export function measureResource(transport: Transport) {
   /** List measures. */
   async function list(options: RequestOptions = {}): Promise<ListResult<Measure>> {
+    await transport.require("measure.list", options);
     const data = await transport.requestParsed(MeasureApiList, "/api/measure", { ...options });
     return { data, total: null };
   }
 
   /** Get one measure by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<Measure> {
+    await transport.require("measure.get", options);
     return transport.requestParsed(Measure, `/api/measure/${id}`, { ...options });
   }
 
@@ -29,6 +31,7 @@ export function measureResource(transport: Transport) {
     params: MeasureCreateInput,
     options: RequestOptions = {},
   ): Promise<Measure> {
+    await transport.require("measure.create", options);
     return transport.requestParsed(Measure, "/api/measure", {
       ...options,
       method: "POST",
@@ -45,6 +48,7 @@ export function measureResource(transport: Transport) {
     params: MeasureUpdateInput,
     options: RequestOptions = {},
   ): Promise<Measure> {
+    await transport.require("measure.update", options);
     return transport.requestParsed(Measure, `/api/measure/${id}`, {
       ...options,
       method: "PUT",
@@ -61,6 +65,7 @@ export function measureResource(transport: Transport) {
     params: MeasureArchiveParams,
     options: RequestOptions = {},
   ): Promise<Measure> {
+    await transport.require("measure.archive", options);
     return update(id, { archived: true, revision_message: params.revision_message }, options);
   }
 

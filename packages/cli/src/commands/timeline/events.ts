@@ -11,7 +11,7 @@ export const TimelineEventListEnvelope = listEnvelopeSchema(TimelineEventCompact
 
 export default defineMetabaseCommand({
   meta: { name: "events", description: "List events on a timeline" },
-  capabilities: { minVersion: 58 },
+  requires: ["timeline.events"],
   args: {
     ...outputFlags,
     ...listFlags,

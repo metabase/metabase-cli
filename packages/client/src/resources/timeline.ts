@@ -31,6 +31,7 @@ export function timelineResource(transport: Transport) {
     params: TimelineListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Timeline>> {
+    await transport.require("timeline.list", options);
     const data = await transport.requestParsed(TimelineApiList, "/api/timeline", {
       ...options,
       query: { archived: params.archived },
@@ -40,6 +41,7 @@ export function timelineResource(transport: Transport) {
 
   /** Get one timeline by id, without its events. */
   async function get(id: number, options: RequestOptions = {}): Promise<Timeline> {
+    await transport.require("timeline.get", options);
     return transport.requestParsed(Timeline, `/api/timeline/${id}`, { ...options });
   }
 
@@ -52,6 +54,7 @@ export function timelineResource(transport: Transport) {
     params: TimelineEventsParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<TimelineEvent>> {
+    await transport.require("timeline.events", options);
     const timeline = await transport.requestParsed(TimelineWithEvents, `/api/timeline/${id}`, {
       ...options,
       query: { include: "events", archived: params.archived },
@@ -64,6 +67,7 @@ export function timelineResource(transport: Transport) {
     params: TimelineCreateInput,
     options: RequestOptions = {},
   ): Promise<Timeline> {
+    await transport.require("timeline.create", options);
     return transport.requestParsed(Timeline, "/api/timeline", {
       ...options,
       method: "POST",
@@ -80,6 +84,7 @@ export function timelineResource(transport: Transport) {
     params: TimelineUpdateInput,
     options: RequestOptions = {},
   ): Promise<Timeline> {
+    await transport.require("timeline.update", options);
     return transport.requestParsed(Timeline, `/api/timeline/${id}`, {
       ...options,
       method: "PUT",
@@ -92,11 +97,13 @@ export function timelineResource(transport: Transport) {
    * not its own endpoint.
    */
   async function archive(id: number, options: RequestOptions = {}): Promise<Timeline> {
+    await transport.require("timeline.archive", options);
     return update(id, { archived: true }, options);
   }
 
   /** Permanently delete a timeline and all its events by id. The server answers with no body. */
   async function remove(id: number, options: RequestOptions = {}): Promise<void> {
+    await transport.require("timeline.delete", options);
     await transport.requestRaw(`/api/timeline/${id}`, {
       ...options,
       method: "DELETE",
