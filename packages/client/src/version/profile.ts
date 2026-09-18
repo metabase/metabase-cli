@@ -14,7 +14,7 @@ import { KNOWN_RANGE } from "./known-range";
 import type { ServerInfo } from "./probe";
 import { Edition, ParsedVersion } from "./tag";
 
-export const Skew = z.enum(["supported", "newer-than-known", "unknown"]);
+export const Skew = z.enum(["supported", "older-than-known", "newer-than-known", "unknown"]);
 export type Skew = z.infer<typeof Skew>;
 
 export const ServerProfile = z.object({
@@ -59,6 +59,9 @@ function place(version: ParsedVersion | null): Placement {
   }
   if (version.major > KNOWN_RANGE.max) {
     return { effectiveMajor: KNOWN_RANGE.max + 1, skew: "newer-than-known" };
+  }
+  if (version.major < KNOWN_RANGE.min) {
+    return { effectiveMajor: version.major, skew: "older-than-known" };
   }
   return { effectiveMajor: version.major, skew: "supported" };
 }

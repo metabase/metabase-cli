@@ -54,10 +54,13 @@ function versionLabel(version: ParsedVersion | null): string {
 
 // One line for a server outside the window this CLI was built against, or `null` inside it.
 export function skewNotice(profile: ServerProfile): string | null {
-  const max = KNOWN_RANGE.max;
+  const { min, max } = KNOWN_RANGE;
   switch (profile.skew) {
     case "supported": {
       return null;
+    }
+    case "older-than-known": {
+      return `Metabase ${versionLabel(profile.version)} is older than this CLI supports (v${min}+); commands needing a newer feature are refused by name. Upgrade Metabase to v${min} or later.`;
     }
     case "newer-than-known": {
       return `Metabase ${versionLabel(profile.version)} is newer than this CLI supports (up to v${max}); commands run as if it were a head build past v${max}. Run \`mb upgrade\` for a newer CLI.`;

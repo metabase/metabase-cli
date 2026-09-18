@@ -64,7 +64,7 @@ describe("createServerProfile", () => {
     });
   });
 
-  it("keeps a major below the window at its real major, still supported", () => {
+  it("keeps a major below the window at its real major and reports older-than-known", () => {
     const info = released("v0.57.2", 57, null);
     expect(createServerProfile(info)).toEqual({
       version: { tag: "v0.57.2", major: 57, patch: 2 },
@@ -73,7 +73,7 @@ describe("createServerProfile", () => {
       edition: "oss",
       tokenFeatures: null,
       features: evaluateFeatures(57, null),
-      skew: "supported",
+      skew: "older-than-known",
     });
   });
 

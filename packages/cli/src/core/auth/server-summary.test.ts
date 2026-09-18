@@ -55,6 +55,13 @@ describe("skewNotice", () => {
     expect(skewNotice(createServerProfile(serverAt(KNOWN_RANGE.max)))).toBeNull();
   });
 
+  it("points an older server at upgrading Metabase and names the oldest major it supports", () => {
+    const below = KNOWN_RANGE.min - 1;
+    expect(skewNotice(createServerProfile(serverAt(below)))).toBe(
+      `Metabase v0.${below}.0 is older than this CLI supports (v${KNOWN_RANGE.min}+); commands needing a newer feature are refused by name. Upgrade Metabase to v${KNOWN_RANGE.min} or later.`,
+    );
+  });
+
   it("points a newer server at mb upgrade and names the major it is read as", () => {
     const beyond = KNOWN_RANGE.max + 1;
     expect(skewNotice(createServerProfile(serverAt(beyond)))).toBe(
