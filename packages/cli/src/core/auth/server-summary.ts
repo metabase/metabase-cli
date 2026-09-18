@@ -3,12 +3,8 @@ import { z } from "zod";
 import { TokenFeatures } from "@metabase/client/domain/session-properties";
 import { Features } from "@metabase/client/version/features";
 import type { ServerInfo } from "@metabase/client/version/probe";
-import {
-  createServerProfile,
-  KNOWN_RANGE,
-  type ServerProfile,
-  Skew,
-} from "@metabase/client/version/profile";
+import { KNOWN_RANGE } from "@metabase/client/version/known-range";
+import { createServerProfile, type ServerProfile, Skew } from "@metabase/client/version/profile";
 import { Edition, ParsedVersion } from "@metabase/client/version/tag";
 
 const KnownRange = z.object({

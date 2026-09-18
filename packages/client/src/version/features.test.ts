@@ -8,7 +8,7 @@ import {
   type FeatureRule,
   ruleGap,
 } from "./features";
-import { KNOWN_RANGE } from "./profile";
+import { KNOWN_RANGE } from "./known-range";
 
 const RULES: ReadonlyArray<FeatureRule> = Object.values(FEATURE_RULES);
 

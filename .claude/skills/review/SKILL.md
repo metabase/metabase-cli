@@ -35,7 +35,7 @@ packages/client/src/
                             response-shape.ts, sanitize.ts, retry.ts, oauth.ts
   testing/                  the shipped test doubles — fake-client.ts, fetch-capture.ts
   auth/                     OAuth login flow: credential.ts, pkce.ts, callback-server.ts, oauth-*.ts
-  version/                  tag.ts, probe.ts, profile.ts (KNOWN_RANGE, ServerProfile), features.ts (FEATURE_RULES —
+  version/                  tag.ts, probe.ts, known-range.ts (KNOWN_RANGE), profile.ts (ServerProfile), features.ts (FEATURE_RULES —
                             the only file comparing a Metabase major), requirements.ts (METHOD_REQUIREMENTS),
                             requirement-check.ts, preflight-error.ts
   domain/                   Metabase API resource Zod schemas + inferred types

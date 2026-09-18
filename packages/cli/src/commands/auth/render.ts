@@ -1,4 +1,5 @@
-import { KNOWN_RANGE, Skew } from "@metabase/client/version/profile";
+import { KNOWN_RANGE } from "@metabase/client/version/known-range";
+import { Skew } from "@metabase/client/version/profile";
 
 import { EMPTY_CELL } from "../../output/table";
 

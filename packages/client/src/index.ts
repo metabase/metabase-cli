@@ -72,13 +72,8 @@ export type {
   TokenGap,
   VersionGap,
 } from "./version/features";
-export {
-  createServerProfile,
-  featureGap,
-  KNOWN_RANGE,
-  ServerProfile,
-  Skew,
-} from "./version/profile";
+export { KNOWN_RANGE } from "./version/known-range";
+export { createServerProfile, featureGap, ServerProfile, Skew } from "./version/profile";
 export {
   isMethodKey,
   METHOD_KEYS,

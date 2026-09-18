@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { evaluateFeatures } from "./features";
 import type { ServerInfo } from "./probe";
-import { createServerProfile, featureGap, KNOWN_RANGE } from "./profile";
+import { KNOWN_RANGE } from "./known-range";
+import { createServerProfile, featureGap } from "./profile";
 import { editionFromTag } from "./tag";
 
 const HEAD_SLOT = KNOWN_RANGE.max + 1;

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { ServerInfo } from "@metabase/client/version/probe";
-import { createServerProfile, KNOWN_RANGE } from "@metabase/client/version/profile";
+import { KNOWN_RANGE } from "@metabase/client/version/known-range";
+import { createServerProfile } from "@metabase/client/version/profile";
 
 import { serverChangeNote, skewNotice, summarizeServer } from "./server-summary";
 

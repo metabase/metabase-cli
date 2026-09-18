@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { parseJson } from "@metabase/client/json";
-import { KNOWN_RANGE } from "@metabase/client/version/profile";
+import { KNOWN_RANGE } from "@metabase/client/version/known-range";
 
 import { AuthStatus } from "../../packages/cli/src/commands/auth/status";
 import { CardListEnvelope } from "../../packages/cli/src/commands/card/list";
