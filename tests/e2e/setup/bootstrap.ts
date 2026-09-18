@@ -120,12 +120,13 @@ async function main(): Promise<void> {
 
   const existing = await readStoredBootstrap();
   if (existing && (await canReuseExisting(existing.adminApiKey))) {
-    assertSnapshotMatchesSeed(existing);
     // The credentials and seed outlive the image: the app-db volume survives a pull of a newer
     // head, so the server block is the booted image's to answer, never the file's.
     const server = await probeIdentity(apiKeyClient(existing.adminApiKey));
+    const reused: E2EBootstrap = { ...existing, server };
+    assertSnapshotMatchesSeed(reused);
     await reportSnapshotTransforms(apiKeyClient(existing.adminApiKey), server);
-    await writeStoredBootstrap({ ...existing, server });
+    await writeStoredBootstrap(reused);
     process.stdout.write(`bootstrap: reusing ${BOOTSTRAP_FILE_PATH}\n`);
     return;
   }
