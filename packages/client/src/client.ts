@@ -16,6 +16,7 @@ import { measureResource } from "./resources/measure";
 import { moderationReviewResource } from "./resources/moderation-review";
 import { notificationResource } from "./resources/notification";
 import { pulseResource } from "./resources/pulse";
+import { revisionResource } from "./resources/revision";
 import { searchResource } from "./resources/search";
 import { segmentResource } from "./resources/segment";
 import { settingResource } from "./resources/setting";
@@ -53,6 +54,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     moderationReview: moderationReviewResource(transport),
     notification: notificationResource(transport),
     pulse: pulseResource(transport),
+    revision: revisionResource(transport),
     search: searchResource(transport),
     segment: segmentResource(transport),
     setting: settingResource(transport),

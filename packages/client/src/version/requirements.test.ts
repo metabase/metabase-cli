@@ -25,6 +25,7 @@ import { measureResource } from "../resources/measure";
 import { moderationReviewResource } from "../resources/moderation-review";
 import { notificationResource } from "../resources/notification";
 import { pulseResource } from "../resources/pulse";
+import { revisionResource } from "../resources/revision";
 import { searchResource } from "../resources/search";
 import { segmentResource } from "../resources/segment";
 import { settingResource } from "../resources/setting";
@@ -329,6 +330,11 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     key: "pulse.get",
     invoke: (t) => pulseResource(t).get(1),
     wireError: "unexpected request: GET /api/pulse/1",
+  },
+  {
+    key: "revision.list",
+    invoke: (t) => revisionResource(t).list("card", 1),
+    wireError: "unexpected request: GET /api/revision/card/1",
   },
   {
     key: "search.query",

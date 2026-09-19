@@ -100,6 +100,8 @@ export const METHOD_REQUIREMENTS = {
   "pulse.create": [],
   "pulse.update": [],
   "pulse.archive": [],
+  "revision.list": [],
+  "revision.revert": [],
   "search.query": [],
   "segment.list": [],
   "segment.get": [],

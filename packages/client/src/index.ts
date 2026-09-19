@@ -277,6 +277,14 @@ export { DatasetQuery, ExportFormat } from "./domain/query";
 export { SEARCH_MODELS, SearchModel, SearchResult, SearchResultCompact } from "./domain/search";
 export { Segment, SegmentCompact, SegmentCreateInput, SegmentUpdateInput } from "./domain/segment";
 export { SessionProperties, TokenFeatures } from "./domain/session-properties";
+export {
+  Revision,
+  RevisionCompact,
+  RevisionEntity,
+  RevisionRevert,
+  RevisionRevertInput,
+  RevisionRow,
+} from "./domain/revision";
 export { Setting, SettingCompact, SettingValue } from "./domain/setting";
 export { SetupInput, SetupResult, SetupResultCompact } from "./domain/setup";
 export { Snippet, SnippetCompact, SnippetCreateInput, SnippetUpdateInput } from "./domain/snippet";
