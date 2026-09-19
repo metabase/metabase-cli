@@ -10,6 +10,7 @@ import { documentResource } from "./resources/document";
 import { eidTranslationResource } from "./resources/eid-translation";
 import { fieldResource } from "./resources/field";
 import { gitSyncResource } from "./resources/git-sync";
+import { glossaryResource } from "./resources/glossary";
 import { libraryResource } from "./resources/library";
 import { measureResource } from "./resources/measure";
 import { notificationResource } from "./resources/notification";
@@ -45,6 +46,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     eidTranslation: eidTranslationResource(transport),
     field: fieldResource(transport),
     gitSync: gitSyncResource(transport),
+    glossary: glossaryResource(transport),
     library: libraryResource(transport),
     measure: measureResource(transport),
     notification: notificationResource(transport),

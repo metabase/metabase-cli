@@ -423,11 +423,12 @@ Types: `ServerInfo`, `ServerProfile`, `Skew`, `Edition`, `FeatureName`, `Feature
 
 Every Metabase resource exports a full schema and a compact projection: `Card`/`CardCompact`,
 `Collection`/`CollectionCompact`, `Dashboard`/`DashboardCompact`, `Database`/`DatabaseCompact`,
-`Document`, `Field`, `FieldValues`, `Library`, `Measure`, `Notification`, `ParameterValues`, `Pulse`,
-`SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`, `TimelineEvent`, `Transform`,
-`TransformRun`, `TransformJob`, `TransformTag`, `CurrentUser`, `CardQueryResult`,
-`EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`, `DashboardTab`, and the nested
-shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`, `NotificationHandler`, …).
+`Document`, `Field`, `FieldValues`, `Glossary`, `Library`, `Measure`, `Notification`,
+`ParameterValues`, `Pulse`, `SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`,
+`TimelineEvent`, `Transform`, `TransformRun`, `TransformJob`, `TransformTag`, `CurrentUser`,
+`CardQueryResult`, `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`, `DashboardTab`,
+and the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`,
+`NotificationHandler`, …).
 
 The full schema is `.loose()`, so server-side additions do not break parsing. The compact projection
 is `.pick(…).strip()` — the agent-facing contract, and the shape list commands render. Schemas carry

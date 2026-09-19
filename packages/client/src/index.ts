@@ -204,6 +204,12 @@ export {
   SyncTaskStatus,
   SyncTaskType,
 } from "./domain/git-sync";
+export {
+  Glossary,
+  GlossaryCompact,
+  GlossaryCreateInput,
+  GlossaryUpdateInput,
+} from "./domain/glossary";
 export { Library, LibraryChild, LibraryCompact } from "./domain/library";
 export { Measure, MeasureCompact, MeasureCreateInput, MeasureUpdateInput } from "./domain/measure";
 export {

@@ -19,6 +19,7 @@ import { documentResource } from "../resources/document";
 import { eidTranslationResource } from "../resources/eid-translation";
 import { fieldResource } from "../resources/field";
 import { gitSyncResource } from "../resources/git-sync";
+import { glossaryResource } from "../resources/glossary";
 import { libraryResource } from "../resources/library";
 import { measureResource } from "../resources/measure";
 import { notificationResource } from "../resources/notification";
@@ -296,6 +297,11 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     key: "gitSync.branches",
     invoke: (t) => gitSyncResource(t).branches(),
     wireError: "unexpected request: GET /api/ee/remote-sync/branches",
+  },
+  {
+    key: "glossary.list",
+    invoke: (t) => glossaryResource(t).list(),
+    wireError: "unexpected request: GET /api/glossary",
   },
   {
     key: "library.get",
