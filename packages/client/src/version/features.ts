@@ -47,6 +47,7 @@ export const FEATURE_RULES = {
   transformInspector: { since: 60, tokenFeature: "transforms-python" },
   pythonLibrary: { since: 58, tokenFeature: "transforms-python" },
   pythonTestRun: { since: 60, tokenFeature: "transforms-python" },
+  sourceReplacement: { since: 60, tokenFeature: "dependencies" },
 } satisfies Record<string, FeatureRule>;
 
 export type FeatureName = keyof typeof FEATURE_RULES;

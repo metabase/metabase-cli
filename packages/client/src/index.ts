@@ -281,6 +281,21 @@ export {
   PulseUpdateInput,
 } from "./domain/pulse";
 export { DatasetQuery, ExportFormat } from "./domain/query";
+export {
+  ReplacementCheck,
+  ReplacementColumn,
+  ReplacementColumnError,
+  ReplacementColumnMapping,
+  ReplacementEntityType,
+  ReplacementError,
+  ReplacementModelWithTransformInput,
+  ReplacementRun,
+  ReplacementRunCompact,
+  ReplacementRunStarted,
+  ReplacementRunStatus,
+  ReplacementSourceInput,
+  ReplacementSourceType,
+} from "./domain/replacement";
 export { SEARCH_MODELS, SearchModel, SearchResult, SearchResultCompact } from "./domain/search";
 export { Segment, SegmentCompact, SegmentCreateInput, SegmentUpdateInput } from "./domain/segment";
 export { SessionProperties, TokenFeatures } from "./domain/session-properties";

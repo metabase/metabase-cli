@@ -425,9 +425,9 @@ Every Metabase resource exports a full schema and a compact projection: `Card`/`
 `Collection`/`CollectionCompact`, `Dashboard`/`DashboardCompact`, `Database`/`DatabaseCompact`,
 `Document`, `Field`, `FieldValues`, `Glossary`, `Library`, `Measure`, `ModerationReview`, `Notification`,
 `ParameterValues`, `Pulse`, `SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`,
-`TimelineEvent`, `Transform`, `TransformRun`, `TransformJob`, `TransformTag`, `CurrentUser`,
-`CardQueryResult`, `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`, `DashboardTab`,
-and the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`,
+`TimelineEvent`, `Transform`, `TransformRun`, `TransformJob`, `TransformTag`, `ReplacementRun`,
+`CurrentUser`, `CardQueryResult`, `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`,
+`DashboardTab`, and the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`,
 `NotificationHandler`, …).
 
 The full schema is `.loose()`, so server-side additions do not break parsing. The compact projection
@@ -437,8 +437,9 @@ deliberately absent.
 
 A second class of schema describes a single response shape that has no compact pair:
 `DashboardDetail`, `DatabaseSyncResult`, `CollectionTreeNode`, `FieldSummary`, `SettingValue`,
-`TableQueryMetadata`, `SessionProperties`, `TokenFeatures`, and the dependency graph's `DependencyGraph`,
-`DependencyNode`, `DependencyEntity`, `BreakingSource`, and `DependencyFindingError`.
+`TableQueryMetadata`, `SessionProperties`, `TokenFeatures`, the source replacement's `ReplacementCheck` and
+`ReplacementRunStarted`, and the dependency graph's `DependencyGraph`, `DependencyNode`, `DependencyEntity`,
+`BreakingSource`, and `DependencyFindingError`.
 
 Request bodies (`<Resource>CreateInput`, `<Resource>UpdateInput`) and the domain vocabulary enums
 (`FieldBaseType`, `SearchModel`, `CollectionItemModel`, …) live in the same modules and are reached
