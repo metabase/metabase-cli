@@ -7,6 +7,7 @@ import {
   CardQueryResult,
   type CardUpdateInput,
 } from "../domain/card";
+import { QueryMetadata } from "../domain/dataset";
 import type { ExportFormat } from "../domain/query";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
@@ -117,5 +118,16 @@ export function cardResource(transport: Transport) {
     });
   }
 
-  return { list, get, create, update, archive, query, exportQuery };
+  /**
+   * Get all of the required query metadata for a saved card: the databases, tables, fields and
+   * snippets its query references, plus the card's own metadata for a model or a native query.
+   */
+  async function queryMetadata(id: number, options: RequestOptions = {}): Promise<QueryMetadata> {
+    await transport.require("card.queryMetadata", options);
+    return transport.requestParsed(QueryMetadata, `/api/card/${id}/query_metadata`, {
+      ...options,
+    });
+  }
+
+  return { list, get, create, update, archive, query, exportQuery, queryMetadata };
 }

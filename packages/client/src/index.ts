@@ -223,6 +223,30 @@ export {
 export { Library, LibraryChild, LibraryCompact } from "./domain/library";
 export { Measure, MeasureCompact, MeasureCreateInput, MeasureUpdateInput } from "./domain/measure";
 export {
+  MetricAddableDimension,
+  MetricAddableGroup,
+  MetricBinning,
+  MetricBreakoutColumn,
+  MetricBreakoutValues,
+  MetricDefinition,
+  MetricDimension,
+  MetricDimensionGroup,
+  MetricDimensionListing,
+  MetricDimensionRef,
+  MetricDimensionRefOptions,
+  MetricDimensionSource,
+  MetricDimensionStatus,
+  MetricFilterClause,
+  MetricInstanceFilter,
+  MetricLeafRef,
+  MetricLeafType,
+  MetricMappingTarget,
+  MetricMathExpression,
+  MetricMathOperator,
+  MetricProjection,
+} from "./domain/metric";
+export type { MetricFilterArgument } from "./domain/metric";
+export {
   ModeratedItemType,
   ModerationReview,
   ModerationReviewCompact,

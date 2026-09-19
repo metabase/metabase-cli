@@ -437,11 +437,13 @@ deliberately absent.
 
 A second class of schema describes a single response shape that has no compact pair:
 `DashboardDetail`, `DatabaseSyncResult`, `CollectionTreeNode`, `FieldSummary`, `SettingValue`,
-`TableQueryMetadata`, `SessionProperties`, `TokenFeatures`, the source replacement's `ReplacementCheck` and
-`ReplacementRunStarted`, and the dependency graph's `DependencyGraph`, `DependencyNode`, `DependencyEntity`,
-`BreakingSource`, and `DependencyFindingError`.
+`TableQueryMetadata`, `QueryMetadata`, `SessionProperties`, `TokenFeatures`, the source replacement's
+`ReplacementCheck` and `ReplacementRunStarted`, a metric's `MetricBreakoutValues` and `MetricDimensionListing`,
+and the dependency graph's `DependencyGraph`, `DependencyNode`, `DependencyEntity`, `BreakingSource`, and
+`DependencyFindingError`.
 
-Request bodies (`<Resource>CreateInput`, `<Resource>UpdateInput`) and the domain vocabulary enums
+Request bodies (`<Resource>CreateInput`, `<Resource>UpdateInput`, and `MetricDefinition`, the expression
+over metric and measure leaves that `metric.query` and `metric.breakoutValues` run) and the domain vocabulary enums
 (`FieldBaseType`, `SearchModel`, `CollectionItemModel`, …) live in the same modules and are reached
 at `@metabase/client/domain/<resource>`.
 

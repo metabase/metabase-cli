@@ -166,6 +166,23 @@ describe("card resource wire requests", () => {
     ]);
   });
 
+  it("sends the query metadata request", async () => {
+    const { mb, capture } = clientOver([
+      jsonResponse({ databases: [], tables: [], fields: [], snippets: [] }),
+    ]);
+
+    await mb.card.queryMetadata(7);
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/card/7/query_metadata",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
   it("sends the export request form-encoded and accepting any content type", async () => {
     const { mb, capture } = clientOver([new Response("id,total\n1,9\n")]);
 
