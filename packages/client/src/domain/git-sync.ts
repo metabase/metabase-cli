@@ -94,6 +94,31 @@ export const SyncRemoteChanges = z.object({
 });
 export type SyncRemoteChanges = z.infer<typeof SyncRemoteChanges>;
 
+export const SyncMergeSummary = z.object({
+  added: z.number().int(),
+  updated: z.number().int(),
+  removed: z.number().int(),
+});
+export type SyncMergeSummary = z.infer<typeof SyncMergeSummary>;
+
+export const SyncForcePushCasualties = z.object({
+  deleted: z.array(z.string()),
+  overwritten: z.array(z.string()),
+});
+export type SyncForcePushCasualties = z.infer<typeof SyncForcePushCasualties>;
+
+// `reason` names why no merge is possible; the server has one such cause, and `null` when a merge
+// base exists.
+export const SyncExportPreflight = z.object({
+  has_changes: z.boolean(),
+  clean: z.boolean(),
+  conflicts: z.array(z.string()),
+  summary: SyncMergeSummary,
+  force_push_casualties: SyncForcePushCasualties,
+  reason: z.literal("history-rewritten").nullable(),
+});
+export type SyncExportPreflight = z.infer<typeof SyncExportPreflight>;
+
 export const SyncBranchCreated = z.object({
   status: z.literal("success"),
   message: z.string(),

@@ -5,6 +5,7 @@ import {
   isSyncTaskTerminal,
   SyncBranchCreated,
   SyncDirtyItem,
+  SyncExportPreflight,
   type SyncExportResult,
   type SyncImportResult,
   SyncRemoteChanges,
@@ -86,6 +87,10 @@ export interface SyncExportParams extends SyncWaitParams {
   branch?: string | undefined;
   message?: string | undefined;
   force?: boolean | undefined;
+}
+
+export interface SyncExportPreflightParams {
+  branch: string;
 }
 
 export interface SyncStashParams extends SyncWaitParams {
@@ -190,6 +195,23 @@ export function gitSyncResource(transport: Transport) {
       task_id: started.task_id,
       final: await settle(params.wait, options),
     };
+  }
+
+  /**
+   * Preview what exporting to `branch` would do against the live remote, without writing: whether
+   * the remote has moved on, whether a merge would apply cleanly, which entities conflict, and what
+   * a force push would discard. `branch` must be the one git-sync tracks; the server answers 409
+   * otherwise.
+   */
+  async function exportPreflight(
+    params: SyncExportPreflightParams,
+    options: RequestOptions = {},
+  ): Promise<SyncExportPreflight> {
+    await transport.require("gitSync.exportPreflight", options);
+    return transport.requestParsed(SyncExportPreflight, "/api/ee/remote-sync/export-preflight", {
+      ...options,
+      query: { branch: params.branch },
+    });
   }
 
   /**
@@ -333,6 +355,7 @@ export function gitSyncResource(transport: Transport) {
     hasRemoteChanges,
     import: importFromRemote,
     export: exportToRemote,
+    exportPreflight,
     stash,
     branches,
     createBranch,

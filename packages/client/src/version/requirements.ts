@@ -67,6 +67,7 @@ export const METHOD_REQUIREMENTS = {
   "gitSync.hasRemoteChanges": ["remoteSync"],
   "gitSync.import": ["remoteSync"],
   "gitSync.export": ["remoteSync"],
+  "gitSync.exportPreflight": ["remoteSyncExportPreflight"],
   "gitSync.stash": ["remoteSync"],
   "gitSync.branches": ["remoteSync"],
   "gitSync.createBranch": ["remoteSync"],

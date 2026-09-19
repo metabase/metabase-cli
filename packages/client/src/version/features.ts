@@ -20,6 +20,7 @@ export const FEATURE_RULES = {
   measures: { since: 59 },
   library: { since: 59, tokenFeature: "library" },
   remoteSync: { since: 60, tokenFeature: "remote_sync" },
+  remoteSyncExportPreflight: { since: 63, tokenFeature: "remote_sync" },
   contentTranslation: { since: 58, tokenFeature: "content_translation" },
   contentVerification: { since: 58, tokenFeature: "content_verification" },
   transformTargetTableId: { since: 61 },
