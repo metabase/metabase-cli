@@ -9,6 +9,7 @@ import {
   jsonResponse,
   TEST_USER_AGENT,
 } from "../testing/fetch-capture";
+import { CapabilityError } from "../version/preflight-error";
 import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -72,6 +73,24 @@ const FAILED_RUN = {
 
 const KICKOFF = { message: "Transform run started", run_id: 31 };
 
+const DAG_KICKOFF = { message: "DAG run started", dag_run_id: 90 };
+
+const DAG_RUN_SUMMARY = {
+  run_type: "dag",
+  id: 90,
+  entity_id: 7,
+  name: "Daily orders",
+  direction: "downstream",
+  transform_count: 3,
+  run_method: "manual",
+  status: "started",
+  is_active: true,
+  start_time: "2026-01-01T00:00:00Z",
+  end_time: null,
+  message: null,
+  user_id: 1,
+};
+
 const JSON_REQUEST_HEADERS = {
   accept: "application/json",
   "content-type": "application/json",
@@ -112,6 +131,15 @@ const SERVER = createServerProfile({
 const TABLE_ID_COLUMN_SERVER = createServerProfile({
   edition: "oss",
   version: { tag: "v0.61.0", major: 61, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: null,
+});
+
+// The first generation with DAG reprocess runs and the unified run history.
+const DAG_SERVER = createServerProfile({
+  edition: "oss",
+  version: { tag: "v0.64.0", major: 64, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,
@@ -288,6 +316,117 @@ describe("transform resource wire requests", () => {
         body: null,
       },
     ]);
+  });
+
+  it("sends the unified run history request with every filter repeated per value", async () => {
+    const { mb, capture } = clientOver(
+      [jsonResponse({ data: [DAG_RUN_SUMMARY], total: 1 })],
+      DAG_SERVER,
+    );
+
+    const pages = mb.transform.runSummaryPages(
+      {
+        types: ["dag", "job"],
+        statuses: ["started"],
+        "run-methods": ["manual"],
+        "start-time": "past7days",
+        "transform-ids": [7, 8],
+        "sort-column": "end_time",
+        "sort-direction": "asc",
+      },
+      { max: 1, pageSize: 1 },
+    );
+    const first = await pages[Symbol.asyncIterator]().next();
+
+    expect(first.value).toEqual({ items: [DAG_RUN_SUMMARY], total: 1 });
+    expect(capture.calls).toEqual([
+      {
+        url:
+          "https://mb.example.com/metabase/api/transform/runs?types=dag&types=job&statuses=started" +
+          "&run-methods=manual&start-time=past7days&transform-ids=7&transform-ids=8" +
+          "&sort-column=end_time&sort-direction=asc&limit=1&offset=0",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("sends the checkpoint reset request", async () => {
+    const { mb, capture } = clientOver([new Response(null, { status: 204 })]);
+
+    await mb.transform.resetCheckpoint(7);
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/transform/7/reset-checkpoint",
+        method: "POST",
+        headers: BINARY_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("starts a DAG run with the direction in the body", async () => {
+    const { mb, capture } = clientOver([jsonResponse(DAG_KICKOFF, 202)], DAG_SERVER);
+
+    expect(await mb.transform.runDag(7, { direction: "downstream" })).toEqual(DAG_KICKOFF);
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/transform/7/run-dag",
+        method: "POST",
+        headers: JSON_REQUEST_HEADERS,
+        body: JSON.stringify({ direction: "downstream" }),
+      },
+    ]);
+  });
+
+  it("previews the DAG transforms with the direction in the query", async () => {
+    const { mb, capture } = clientOver(
+      [
+        jsonResponse([
+          { id: 5, name: "Raw orders" },
+          { id: 7, name: "Daily orders" },
+        ]),
+      ],
+      DAG_SERVER,
+    );
+
+    expect(await mb.transform.dagTransforms(7, { direction: "upstream" })).toEqual({
+      data: [
+        { id: 5, name: "Raw orders" },
+        { id: 7, name: "Daily orders" },
+      ],
+      total: null,
+    });
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/transform/7/dag-transforms?direction=upstream",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("refuses a DAG run before the wire on a server without DAG runs", async () => {
+    const { mb, capture } = clientOver([jsonResponse(DAG_KICKOFF, 202)]);
+
+    const error = await mb.transform
+      .runDag(7, { direction: "downstream" })
+      .catch((caught: unknown) => caught);
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v64+ (this server is v0.59.0). Upgrade Metabase to use it.",
+      feature: "transformDagRuns",
+      since: 64,
+      tokenFeature: null,
+      serverVersion: "v0.59.0",
+    });
+    expect(capture.calls).toEqual([]);
   });
 
   it("starts a run and returns without polling when no wait is given", async () => {

@@ -35,7 +35,10 @@ import { snippetResource } from "../resources/snippet";
 import { tableResource } from "../resources/table";
 import { timelineEventResource } from "../resources/timeline-event";
 import { timelineResource } from "../resources/timeline";
+import { transformDagRunResource } from "../resources/transform-dag-run";
+import { transformInspectorResource } from "../resources/transform-inspector";
 import { transformJobResource } from "../resources/transform-job";
+import { transformPythonResource } from "../resources/transform-python";
 import { transformResource } from "../resources/transform";
 import { transformTagResource } from "../resources/transform-tag";
 import { uploadResource } from "../resources/upload";
@@ -393,9 +396,24 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     wireError: "unexpected request: GET /api/transform/1",
   },
   {
+    key: "transformDagRun.transformRuns",
+    invoke: (t) => transformDagRunResource(t).transformRuns(1),
+    wireError: "unexpected request: GET /api/transform-dag-run/1/transform-runs",
+  },
+  {
+    key: "transformInspector.discover",
+    invoke: (t) => transformInspectorResource(t).discover(1),
+    wireError: "unexpected request: GET /api/ee/transforms/1/inspect",
+  },
+  {
     key: "transformJob.get",
     invoke: (t) => transformJobResource(t).get(1),
     wireError: "unexpected request: GET /api/transform-job/1",
+  },
+  {
+    key: "transformPython.getLibrary",
+    invoke: (t) => transformPythonResource(t).getLibrary("common"),
+    wireError: "unexpected request: GET /api/ee/transforms-python/library/common",
   },
   {
     key: "transformTag.list",

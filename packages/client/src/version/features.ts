@@ -44,6 +44,9 @@ export const FEATURE_RULES = {
   bulkTableEdit: { since: 59 },
   erd: { since: 62, tokenFeature: "schema-viewer" },
   documentCopy: { since: 59 },
+  transformInspector: { since: 60, tokenFeature: "transforms-python" },
+  pythonLibrary: { since: 58, tokenFeature: "transforms-python" },
+  pythonTestRun: { since: 60, tokenFeature: "transforms-python" },
 } satisfies Record<string, FeatureRule>;
 
 export type FeatureName = keyof typeof FEATURE_RULES;

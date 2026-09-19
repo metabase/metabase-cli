@@ -26,7 +26,10 @@ import { snippetResource } from "./resources/snippet";
 import { tableResource } from "./resources/table";
 import { timelineEventResource } from "./resources/timeline-event";
 import { timelineResource } from "./resources/timeline";
+import { transformDagRunResource } from "./resources/transform-dag-run";
+import { transformInspectorResource } from "./resources/transform-inspector";
 import { transformJobResource } from "./resources/transform-job";
+import { transformPythonResource } from "./resources/transform-python";
 import { transformResource } from "./resources/transform";
 import { transformTagResource } from "./resources/transform-tag";
 import { uploadResource } from "./resources/upload";
@@ -66,7 +69,10 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     timeline: timelineResource(transport),
     timelineEvent: timelineEventResource(transport),
     transform: transformResource(transport),
+    transformDagRun: transformDagRunResource(transport),
+    transformInspector: transformInspectorResource(transport),
     transformJob: transformJobResource(transport),
+    transformPython: transformPythonResource(transport),
     transformTag: transformTagResource(transport),
     upload: uploadResource(transport),
     user: userResource(transport),

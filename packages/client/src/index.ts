@@ -325,13 +325,39 @@ export {
   Transform,
   TransformCompact,
   TransformCreateInput,
+  TransformDagDirection,
+  TransformDagRunResult,
+  TransformDagTransform,
   TransformRun,
   TransformRunCompact,
+  TransformRunMethod,
   TransformRunResult,
   TransformRunStatus,
+  TransformRunSummary,
+  TransformRunSummaryCompact,
+  TransformRunSummaryType,
+  TransformSourceTableEntry,
   TransformTarget,
   TransformUpdateInput,
 } from "./domain/transform";
+export { TransformMemberRun, TransformMemberRunCompact } from "./domain/transform-dag-run";
+export {
+  InspectorField,
+  InspectorTable,
+  LensAlertTrigger,
+  LensCard,
+  LensCardDisplay,
+  LensCardMetadata,
+  LensComplexityLevel,
+  LensDrillTrigger,
+  LensMetadata,
+  LensParams,
+  LensSection,
+  TransformInspection,
+  TransformInspectionStatus,
+  TransformLens,
+  TransformLensQueryInput,
+} from "./domain/transform-inspector";
 export {
   TransformJob,
   TransformJobActiveResult,
@@ -340,6 +366,14 @@ export {
   TransformJobRunResult,
   TransformJobUpdateInput,
 } from "./domain/transform-job";
+export {
+  PythonLibrary,
+  PythonLibraryUpdateInput,
+  PythonTestRunError,
+  PythonTestRunInput,
+  PythonTestRunOutput,
+  PythonTestRunResult,
+} from "./domain/transform-python";
 export {
   TransformTag,
   TransformTagCompact,
