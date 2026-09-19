@@ -37,6 +37,10 @@ export const FEATURE_RULES = {
   dashboardSubscriptionFilters: { since: 58, tokenFeature: "dashboard_subscription_filters" },
   dependencyGraph: { since: 58, tokenFeature: "dependencies" },
   dependencyItemListings: { since: 59, tokenFeature: "dependencies" },
+  tableListAccessFilters: { since: 59 },
+  tableListTransformTargets: { since: 60 },
+  tableUnusedFilter: { since: 58, tokenFeature: "dependencies" },
+  bulkTableEdit: { since: 59 },
 } satisfies Record<string, FeatureRule>;
 
 export type FeatureName = keyof typeof FEATURE_RULES;

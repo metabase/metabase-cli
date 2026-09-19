@@ -282,9 +282,14 @@ export { SetupInput, SetupResult, SetupResultCompact } from "./domain/setup";
 export { Snippet, SnippetCompact, SnippetCreateInput, SnippetUpdateInput } from "./domain/snippet";
 export {
   Table,
+  TableBulkEditInput,
   TableCompact,
+  TableDataLayer,
+  TableDataSource,
+  TableForeignKey,
   TableGetInclude,
   TableQueryMetadata,
+  TableSelectors,
   TableUpdateInput,
 } from "./domain/table";
 export {

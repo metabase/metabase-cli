@@ -723,6 +723,67 @@ describe("createTransport.require", () => {
   });
 });
 
+describe("createTransport.requireFeatures", () => {
+  const OSS_58 = createServerProfile({
+    edition: "oss",
+    version: { tag: "v0.58.0", major: 58, patch: 0 },
+    date: null,
+    hash: null,
+    tokenFeatures: null,
+  });
+
+  it("throws CapabilityError naming the first feature the profile lacks", async () => {
+    const fakeFetch = captureFetch([]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+      server: OSS_58,
+    });
+
+    const error = await client
+      .requireFeatures(["transforms", "measures"])
+      .catch((caught: unknown) => caught);
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
+      feature: "transforms",
+      since: 59,
+      tokenFeature: null,
+      serverVersion: "v0.58.0",
+    });
+    expect(fakeFetch.calls).toEqual([]);
+  });
+
+  it("never probes for an empty list", async () => {
+    const fakeFetch = captureFetch([]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+    });
+
+    await expect(client.requireFeatures([])).resolves.toBeUndefined();
+
+    expect(fakeFetch.calls).toEqual([]);
+  });
+
+  it("resolves without checking when enforcement is switched off", async () => {
+    const fakeFetch = captureFetch([]);
+    const client = createTransport(CONFIG, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: fakeFetch.fetch,
+      server: OSS_58,
+      enforceRequirements: false,
+    });
+
+    await expect(client.requireFeatures(["measures"])).resolves.toBeUndefined();
+
+    expect(fakeFetch.calls).toEqual([]);
+  });
+});
+
 describe("createTransport cancellation", () => {
   it("installs no process signal handler, so an embedder keeps its own Ctrl-C semantics", async () => {
     const before = process.listenerCount("SIGINT");

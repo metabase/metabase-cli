@@ -109,6 +109,7 @@ export function createFakeClient(plan: FakeClientPlan = {}): FakeClient {
     async require(key) {
       required.push({ key, precedingRequests: calls.length });
     },
+    async requireFeatures() {},
   };
   return { client, calls, required };
 }
