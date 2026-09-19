@@ -44,6 +44,7 @@ import { transformJobResource } from "../resources/transform-job";
 import { transformPythonResource } from "../resources/transform-python";
 import { transformResource } from "../resources/transform";
 import { transformTagResource } from "../resources/transform-tag";
+import { transformTestResource } from "../resources/transform-test";
 import { uploadResource } from "../resources/upload";
 import { userResource } from "../resources/user";
 import { createFakeClient } from "../testing/fake-client";
@@ -437,6 +438,11 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     key: "transformTag.list",
     invoke: (t) => transformTagResource(t).list(),
     wireError: "unexpected request: GET /api/transform-tag",
+  },
+  {
+    key: "transformTest.get",
+    invoke: (t) => transformTestResource(t).get(1),
+    wireError: "unexpected request: GET /api/ee/transform-test/1",
   },
   {
     key: "upload.createFromCsv",

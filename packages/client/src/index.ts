@@ -432,5 +432,22 @@ export {
   TransformTagCreateInput,
   TransformTagUpdateInput,
 } from "./domain/transform-tag";
+export {
+  TransformTest,
+  TransformTestColumn,
+  TransformTestCompact,
+  TransformTestCreateInput,
+  TransformTestExpectation,
+  TransformTestExpectationResult,
+  TransformTestInput,
+  TransformTestRefusal,
+  TransformTestRefusalCode,
+  TransformTestResultColumn,
+  TransformTestRow,
+  TransformTestRunResult,
+  TransformTestStatus,
+  TransformTestTable,
+  TransformTestUpdateInput,
+} from "./domain/transform-test";
 export { UploadResult, UploadUpdateAction, UploadUpdateResult } from "./domain/upload";
 export { CurrentUser, CurrentUserCompact } from "./domain/user";

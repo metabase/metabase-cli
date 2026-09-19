@@ -394,6 +394,15 @@ carries the status and response body, redacted of known secrets at construction,
 status 404. `ChainedRequestError` wraps a cause and delegates its category and retryability to it.
 `toMetabaseError(unknown)` normalizes a thrown value into the taxonomy.
 
+`TransformTestRefusalError`, from `@metabase/client/resources/transform-test`, is the `HttpError` a
+transform test's `create`, `update` and `run` throw when the server declines to run the test at all:
+its `refusal` is the body parsed as `TransformTestRefusal`, whose `error-code` is one of the closed
+`TransformTestRefusalCode` vocabulary (`transform-test.missing-inputs`,
+`transform-test.unsupported-driver`, …), and its `status` says who fixes it — 400 the test, 422 the
+transform or its database, 501 nothing yet. A failing expectation is a result, not a refusal: `run`
+answers a `TransformTestRunResult` whose `status` is `failed` and whose expectations report what they
+found.
+
 Two helpers read raw thrown values away from the HTTP boundary. `isFileNotFoundError(value)` reports a
 Node `ENOENT` filesystem error — a missing file on disk, never an HTTP 404, which arrives as an
 `HttpError` with `status: 404`. It answers `boolean` rather than narrowing to `NodeJS.ErrnoException`,
@@ -429,9 +438,10 @@ Every Metabase resource exports a full schema and a compact projection: `Card`/`
 `Document`, `Field`, `FieldValues`, `Glossary`, `Library`, `Measure`, `ModerationReview`, `Notification`,
 `ParameterValues`, `Pulse`, `SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`,
 `TimelineEvent`, `Transform`, `TransformRun`, `TransformRunSummary`, `TransformMemberRun`, `TransformJob`,
-`TransformTag`, `ReplacementRun`, `Revision`, `TableForeignKey`, `MetricDimension`, `CurrentUser`,
-`CardQueryResult`, `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`, `DashboardTab`, and
-the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`, `NotificationHandler`, …).
+`TransformTag`, `TransformTest`, `ReplacementRun`, `Revision`, `TableForeignKey`, `MetricDimension`,
+`CurrentUser`, `CardQueryResult`, `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`,
+`DashboardTab`, and the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`,
+`NotificationHandler`, …).
 
 The full schema is `.loose()`, so server-side additions do not break parsing. The compact projection
 is `.pick(…).strip()` — the agent-facing contract, and the shape list commands render. Schemas carry

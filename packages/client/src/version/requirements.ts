@@ -190,6 +190,12 @@ export const METHOD_REQUIREMENTS = {
   "transformTag.create": ["transforms"],
   "transformTag.update": ["transforms"],
   "transformTag.delete": ["transforms"],
+  "transformTest.list": ["transformTests"],
+  "transformTest.get": ["transformTests"],
+  "transformTest.create": ["transformTests"],
+  "transformTest.update": ["transformTests"],
+  "transformTest.delete": ["transformTests"],
+  "transformTest.run": ["transformTests"],
   "upload.createFromCsv": [],
   "user.current": [],
 } satisfies Record<string, readonly FeatureName[]>;
