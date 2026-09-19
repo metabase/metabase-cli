@@ -85,6 +85,7 @@ export const METHOD_REQUIREMENTS = {
   "measure.create": ["measures"],
   "measure.update": ["measures"],
   "measure.archive": ["measures"],
+  "moderationReview.create": ["contentVerification"],
   "notification.list": [],
   "notification.get": [],
   "notification.create": [],

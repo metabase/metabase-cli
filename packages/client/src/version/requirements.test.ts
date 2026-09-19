@@ -22,6 +22,7 @@ import { gitSyncResource } from "../resources/git-sync";
 import { glossaryResource } from "../resources/glossary";
 import { libraryResource } from "../resources/library";
 import { measureResource } from "../resources/measure";
+import { moderationReviewResource } from "../resources/moderation-review";
 import { notificationResource } from "../resources/notification";
 import { pulseResource } from "../resources/pulse";
 import { searchResource } from "../resources/search";
@@ -312,6 +313,12 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     key: "measure.get",
     invoke: (t) => measureResource(t).get(1),
     wireError: "unexpected request: GET /api/measure/1",
+  },
+  {
+    key: "moderationReview.create",
+    invoke: (t) =>
+      moderationReviewResource(t).create({ moderated_item_id: 1, moderated_item_type: "card" }),
+    wireError: "unexpected request: POST /api/moderation-review",
   },
   {
     key: "notification.get",

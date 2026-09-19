@@ -213,6 +213,13 @@ export {
 export { Library, LibraryChild, LibraryCompact } from "./domain/library";
 export { Measure, MeasureCompact, MeasureCreateInput, MeasureUpdateInput } from "./domain/measure";
 export {
+  ModeratedItemType,
+  ModerationReview,
+  ModerationReviewCompact,
+  ModerationReviewCreateInput,
+  ModerationStatus,
+} from "./domain/moderation-review";
+export {
   CARD_PAYLOAD_TYPE,
   Notification,
   NotificationCardPayload,

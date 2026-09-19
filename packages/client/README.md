@@ -423,7 +423,7 @@ Types: `ServerInfo`, `ServerProfile`, `Skew`, `Edition`, `FeatureName`, `Feature
 
 Every Metabase resource exports a full schema and a compact projection: `Card`/`CardCompact`,
 `Collection`/`CollectionCompact`, `Dashboard`/`DashboardCompact`, `Database`/`DatabaseCompact`,
-`Document`, `Field`, `FieldValues`, `Glossary`, `Library`, `Measure`, `Notification`,
+`Document`, `Field`, `FieldValues`, `Glossary`, `Library`, `Measure`, `ModerationReview`, `Notification`,
 `ParameterValues`, `Pulse`, `SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`,
 `TimelineEvent`, `Transform`, `TransformRun`, `TransformJob`, `TransformTag`, `CurrentUser`,
 `CardQueryResult`, `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`, `DashboardTab`,
