@@ -43,6 +43,7 @@ export const FEATURE_RULES = {
   tableUnusedFilter: { since: 58, tokenFeature: "dependencies" },
   bulkTableEdit: { since: 59 },
   erd: { since: 62, tokenFeature: "schema-viewer" },
+  documentCopy: { since: 59 },
 } satisfies Record<string, FeatureRule>;
 
 export type FeatureName = keyof typeof FEATURE_RULES;

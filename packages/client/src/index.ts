@@ -125,6 +125,8 @@ export { CronUiDisplayType } from "./domain/cron";
 export {
   Dashboard,
   DashboardCompact,
+  DashboardCopy,
+  DashboardCopyInput,
   DashboardCreateInput,
   DashboardDetail,
   DashboardListFilter,
@@ -163,6 +165,7 @@ export {
 export {
   Document,
   DocumentCompact,
+  DocumentCopyInput,
   DocumentCreateInput,
   DocumentUpdateInput,
   TipTapNode,

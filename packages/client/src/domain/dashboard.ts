@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { Card } from "./card";
 import { EmbeddingParams } from "./embedding";
 import { Parameter, ParameterMapping } from "./parameter";
 
@@ -184,3 +185,22 @@ export const DashcardPatchInput = z
     message: "patch must contain at least one field",
   });
 export type DashcardPatchInput = z.infer<typeof DashcardPatchInput>;
+
+// The newest server closes the body map, so the input names exactly the keys it takes.
+export const DashboardCopyInput = z
+  .object({
+    name: z.string().min(1).nullable().optional(),
+    description: z.string().nullable().optional(),
+    collection_id: z.number().int().positive().nullable().optional(),
+    collection_position: z.number().int().positive().nullable().optional(),
+    is_deep_copy: z.boolean().nullable().optional(),
+  })
+  .strict();
+export type DashboardCopyInput = z.infer<typeof DashboardCopyInput>;
+
+// `uncopied` lists the cards the caller could not read, which the copy left behind, and is present
+// only when there were any.
+export const DashboardCopy = Dashboard.extend({
+  uncopied: z.array(Card).optional(),
+});
+export type DashboardCopy = z.infer<typeof DashboardCopy>;

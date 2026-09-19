@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import {
   Dashboard,
+  DashboardCopy,
+  type DashboardCopyInput,
   type DashboardCreateInput,
   DashboardDetail,
   type DashboardListFilter,
@@ -118,6 +120,25 @@ export function dashboardResource(transport: Transport) {
     return transport.requestParsed(DashboardDetail, `/api/dashboard/${id}`, {
       ...options,
       method: "PUT",
+      body: params,
+    });
+  }
+
+  /**
+   * Copy a dashboard, with its tabs and dashcards, into `collection_id` (root when absent). A deep
+   * copy duplicates the cards it can; otherwise the copy references them, except dashboard
+   * questions, which are always duplicated. Cards the caller cannot read are left behind and
+   * reported as `uncopied`.
+   */
+  async function copy(
+    id: number,
+    params: DashboardCopyInput = {},
+    options: RequestOptions = {},
+  ): Promise<DashboardCopy> {
+    await transport.require("dashboard.copy", options);
+    return transport.requestParsed(DashboardCopy, `/api/dashboard/${id}/copy`, {
+      ...options,
+      method: "POST",
       body: params,
     });
   }
@@ -260,6 +281,7 @@ export function dashboardResource(transport: Transport) {
     create,
     update,
     archive,
+    copy,
     updateDashcard,
     checkCardReferences,
     parameterValues,

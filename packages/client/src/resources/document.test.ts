@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
 import type { ClientCredentials } from "../http/transport";
 import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
+import { CapabilityError } from "../version/preflight-error";
+import { createServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
   url: "https://mb.example.com/metabase",
@@ -39,13 +41,40 @@ const JSON_READ_HEADERS = {
   "x-api-key": "mb_wire_test_key",
 };
 
-function clientOver(responses: Array<Response>) {
+// The first server that copies a document, and the last before it.
+const SERVER_59 = createServerProfile({
+  edition: "oss",
+  version: { tag: "v0.59.0", major: 59, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: null,
+});
+
+const SERVER_58 = createServerProfile({
+  edition: "oss",
+  version: { tag: "v0.58.2", major: 58, patch: 2 },
+  date: null,
+  hash: null,
+  tokenFeatures: null,
+});
+
+function clientOver(responses: Array<Response>, server = SERVER_59) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
     userAgent: TEST_USER_AGENT,
     fetchImpl: capture.fetch,
+    server,
   });
   return { mb, capture };
+}
+
+async function thrownBy(run: () => Promise<unknown>): Promise<unknown> {
+  try {
+    await run();
+  } catch (error: unknown) {
+    return error;
+  }
+  throw new Error("expected the call to reject");
 }
 
 describe("document resource wire requests", () => {
@@ -128,5 +157,55 @@ describe("document resource wire requests", () => {
         body: '{"archived":true}',
       },
     ]);
+  });
+
+  it("sends the copy request with the destination and name it was given", async () => {
+    const { mb, capture } = clientOver([
+      jsonResponse({ ...DOCUMENT, id: 9, name: "Runbook copy", collection_id: 7 }),
+    ]);
+
+    await mb.document.copy(4, { name: "Runbook copy", collection_id: 7 });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/document/4/copy",
+        method: "POST",
+        headers: JSON_REQUEST_HEADERS,
+        body: '{"name":"Runbook copy","collection_id":7}',
+      },
+    ]);
+  });
+
+  it("sends an empty copy body when no override is given", async () => {
+    const { mb, capture } = clientOver([jsonResponse({ ...DOCUMENT, id: 9 })]);
+
+    await mb.document.copy(4);
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/document/4/copy",
+        method: "POST",
+        headers: JSON_REQUEST_HEADERS,
+        body: "{}",
+      },
+    ]);
+  });
+
+  it("refuses the copy before the wire on a server without the route", async () => {
+    const { mb, capture } = clientOver([jsonResponse(DOCUMENT)], SERVER_58);
+
+    const error = await thrownBy(() => mb.document.copy(4));
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v59+ (this server is v0.58.2). Upgrade Metabase to use it.",
+      feature: "documentCopy",
+      since: 59,
+      tokenFeature: null,
+      serverVersion: "v0.58.2",
+    });
+    expect(capture.calls).toEqual([]);
   });
 });
