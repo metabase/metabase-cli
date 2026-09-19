@@ -1,4 +1,5 @@
 import { SEARCH_MODELS, SearchModel, SearchResultCompact } from "@metabase/client/domain/search";
+import { ConfigError } from "@metabase/client/errors";
 import { searchResultView } from "../output/views/search";
 import { renderList } from "../output/render";
 import { listEnvelopeSchema } from "../output/types";
@@ -54,17 +55,52 @@ export default defineMetabaseCommand({
       type: "boolean",
       description: "Only verified content",
     },
+    collection: {
+      type: "string",
+      description:
+        "Restrict to one collection by id: its own row, subcollections and the content filed under them, never segments, measures or transforms (dashboard questions need --include-dashboard-questions)",
+    },
+    "created-by": {
+      type: "string",
+      description:
+        "Comma-separated user ids; matches items created by any of them (drops models with no creator)",
+    },
+    "search-native-query": {
+      type: "boolean",
+      description:
+        "Also match native query text; narrows to cards, models, metrics, actions and transforms",
+    },
+    "include-metadata": {
+      type: "boolean",
+      description:
+        "Attach result_metadata to card, model and metric rows (needs --full or --fields)",
+    },
+    "include-dashboard-questions": {
+      type: "boolean",
+      description: "Also match questions saved into a dashboard (excluded by default)",
+    },
   },
   outputSchema: SearchListEnvelope,
   examples: [
     "mb search orders",
     "mb search --models card,dashboard --limit 10 --json",
     "mb search products --archived",
+    "mb search --collection 12 --created-by 3,7 --include-dashboard-questions --json",
+    "mb search revenue --search-native-query --include-metadata --full --json",
   ],
   async run({ args, ctx, getClient }) {
     const tableDbIdRaw = args["db-id"];
-    const tableDbId = tableDbIdRaw ? parseId(tableDbIdRaw, "--db-id") : undefined;
+    const tableDbId = tableDbIdRaw === undefined ? undefined : parseId(tableDbIdRaw, "--db-id");
     const models = parseEnumCsv(args.models, SearchModel, "--models");
+    const collection =
+      args.collection === undefined ? undefined : parseId(args.collection, "--collection");
+    const createdBy = parseIdCsv(args["created-by"], "--created-by");
+    const includeMetadata = args["include-metadata"] === true;
+    if (includeMetadata && !ctx.full && ctx.fields === undefined) {
+      throw new ConfigError(
+        "--include-metadata needs --full or --fields: the compact row drops result_metadata",
+      );
+    }
     const client = await getClient();
 
     const { data, total } = await client.search.query({
@@ -75,11 +111,25 @@ export default defineMetabaseCommand({
       offset: ctx.range.offset,
       table_db_id: tableDbId,
       verified: args.verified ? true : undefined,
+      collection,
+      created_by: createdBy,
+      search_native_query: args["search-native-query"] ? true : undefined,
+      include_metadata: includeMetadata ? true : undefined,
+      include_dashboard_questions: args["include-dashboard-questions"] ? true : undefined,
     });
 
     renderList(windowServerPage(data, total, ctx.range), searchResultView, ctx);
   },
 });
+
+// Not `parseCsv`: an empty part (`""`, `1,,2`) is a shell expansion that resolved to nothing, and
+// dropping it would read the typo as "no filter".
+function parseIdCsv(raw: string | undefined, name: string): number[] | undefined {
+  if (raw === undefined) {
+    return undefined;
+  }
+  return raw.split(",").map((part) => parseId(part, name));
+}
 
 function nonEmpty(value: string | undefined): string | undefined {
   if (typeof value !== "string") {
