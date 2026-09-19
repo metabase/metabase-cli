@@ -3,11 +3,11 @@ import { z } from "zod";
 import {
   Card,
   type CardCreateInput,
-  type CardExportFormat,
   type CardListFilter,
   CardQueryResult,
   type CardUpdateInput,
 } from "../domain/card";
+import type { ExportFormat } from "../domain/query";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 
@@ -100,7 +100,7 @@ export function cardResource(transport: Transport) {
    */
   async function exportQuery(
     id: number,
-    format: CardExportFormat,
+    format: ExportFormat,
     params: CardExportParams,
     options: RequestOptions = {},
   ): Promise<ReadableStream<Uint8Array>> {

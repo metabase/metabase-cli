@@ -95,11 +95,10 @@ export {
   Card,
   CardCompact,
   CardCreateInput,
-  CardDatasetQuery,
-  CardExportFormat,
   CardListFilter,
   CardQueryResult,
   CardQueryResultCompact,
+  CardType,
   CardUpdateInput,
 } from "./domain/card";
 export {
@@ -143,6 +142,7 @@ export {
   DatabaseListInclude,
   DatabaseSyncResult,
 } from "./domain/database";
+export { CompiledQuery, QueryMetadata, VirtualField, VirtualTable } from "./domain/dataset";
 export {
   BreakingSource,
   DependencyCardType,
@@ -257,6 +257,7 @@ export {
   PulseScheduleType,
   PulseUpdateInput,
 } from "./domain/pulse";
+export { DatasetQuery, ExportFormat } from "./domain/query";
 export { SEARCH_MODELS, SearchModel, SearchResult, SearchResultCompact } from "./domain/search";
 export { Segment, SegmentCompact, SegmentCreateInput, SegmentUpdateInput } from "./domain/segment";
 export { SessionProperties, TokenFeatures } from "./domain/session-properties";

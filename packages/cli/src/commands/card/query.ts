@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import { CardExportFormat, CardQueryResult } from "@metabase/client/domain/card";
+import { CardQueryResult } from "@metabase/client/domain/card";
+import { ExportFormat } from "@metabase/client/domain/query";
 import { ConfigError } from "@metabase/client/errors";
 import { parseJson } from "@metabase/client/json";
 
@@ -29,7 +30,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Card id", required: true },
     "export-format": {
       type: "string",
-      description: `Bypass JSON envelope and stream raw export: ${CardExportFormat.options.join(" | ")}`,
+      description: `Bypass JSON envelope and stream raw export: ${ExportFormat.options.join(" | ")}`,
     },
     parameters: {
       type: "string",
@@ -89,11 +90,11 @@ function parseParameters(raw: string | undefined): unknown[] {
   return parseJson(raw, QueryParameters, { source: "--parameters" });
 }
 
-function parseExportFormat(raw: string): CardExportFormat {
-  const result = CardExportFormat.safeParse(raw);
+function parseExportFormat(raw: string): ExportFormat {
+  const result = ExportFormat.safeParse(raw);
   if (!result.success) {
     throw new ConfigError(
-      `invalid --export-format: "${raw}" (expected: ${CardExportFormat.options.join(", ")})`,
+      `invalid --export-format: "${raw}" (expected: ${ExportFormat.options.join(", ")})`,
     );
   }
   return result.data;
