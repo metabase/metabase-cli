@@ -17,6 +17,7 @@ import { measureResource } from "./resources/measure";
 import { metricResource } from "./resources/metric";
 import { moderationReviewResource } from "./resources/moderation-review";
 import { notificationResource } from "./resources/notification";
+import { permissionResource } from "./resources/permission";
 import { pulseResource } from "./resources/pulse";
 import { replacementResource } from "./resources/replacement";
 import { revisionResource } from "./resources/revision";
@@ -61,6 +62,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     metric: metricResource(transport),
     moderationReview: moderationReviewResource(transport),
     notification: notificationResource(transport),
+    permission: permissionResource(transport),
     pulse: pulseResource(transport),
     replacement: replacementResource(transport),
     revision: revisionResource(transport),

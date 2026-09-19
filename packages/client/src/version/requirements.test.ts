@@ -26,6 +26,7 @@ import { measureResource } from "../resources/measure";
 import { metricResource } from "../resources/metric";
 import { moderationReviewResource } from "../resources/moderation-review";
 import { notificationResource } from "../resources/notification";
+import { permissionResource } from "../resources/permission";
 import { pulseResource } from "../resources/pulse";
 import { replacementResource } from "../resources/replacement";
 import { revisionResource } from "../resources/revision";
@@ -341,6 +342,11 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     key: "notification.get",
     invoke: (t) => notificationResource(t).get(1),
     wireError: "unexpected request: GET /api/notification/1",
+  },
+  {
+    key: "permission.databaseGraph",
+    invoke: (t) => permissionResource(t).databaseGraph(1),
+    wireError: "unexpected request: GET /api/permissions/graph/db/1",
   },
   {
     key: "pulse.get",

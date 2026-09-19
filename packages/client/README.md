@@ -439,8 +439,9 @@ A second class of schema describes a single response shape that has no compact p
 `DashboardDetail`, `DatabaseSyncResult`, `CollectionTreeNode`, `FieldSummary`, `SettingValue`,
 `TableQueryMetadata`, `QueryMetadata`, `SessionProperties`, `TokenFeatures`, the source replacement's
 `ReplacementCheck` and `ReplacementRunStarted`, a metric's `MetricBreakoutValues` and `MetricDimensionListing`,
-and the dependency graph's `DependencyGraph`, `DependencyNode`, `DependencyEntity`, `BreakingSource`, and
-`DependencyFindingError`.
+the data permissions' `PermissionsGraph` (a `DatabasePermissions` per group and database, each key left
+out at its least permissive value), and the dependency graph's `DependencyGraph`, `DependencyNode`,
+`DependencyEntity`, `BreakingSource`, and `DependencyFindingError`.
 
 Request bodies (`<Resource>CreateInput`, `<Resource>UpdateInput`, and `MetricDefinition`, the expression
 over metric and measure leaves that `metric.query` and `metric.breakoutValues` run) and the domain vocabulary enums

@@ -288,6 +288,15 @@ export {
   ValuesSourceType,
 } from "./domain/parameter";
 export {
+  CreateQueriesPermission,
+  DataModelPermission,
+  DatabasePermissions,
+  DownloadPermission,
+  PermissionsGraph,
+  ViewDataPermission,
+  YesNoPermission,
+} from "./domain/permission";
+export {
   Pulse,
   PulseCard,
   PulseCardCompact,
