@@ -41,6 +41,7 @@ export const FEATURE_RULES = {
   tableListTransformTargets: { since: 60 },
   tableUnusedFilter: { since: 58, tokenFeature: "dependencies" },
   bulkTableEdit: { since: 59 },
+  erd: { since: 62, tokenFeature: "schema-viewer" },
 } satisfies Record<string, FeatureRule>;
 
 export type FeatureName = keyof typeof FEATURE_RULES;

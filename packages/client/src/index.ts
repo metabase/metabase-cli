@@ -177,6 +177,7 @@ export {
   EidTranslateResultCompact,
 } from "./domain/eid-translation";
 export { EmbeddingParams } from "./domain/embedding";
+export { Erd, ErdEdge, ErdField, ErdNode } from "./domain/erd";
 export {
   Field,
   FieldBaseType,
@@ -299,6 +300,7 @@ export {
   TableQueryMetadata,
   TableSelectors,
   TableUpdateInput,
+  TableVisibilityType,
 } from "./domain/table";
 export {
   Timeline,

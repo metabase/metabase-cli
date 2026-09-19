@@ -8,6 +8,7 @@ import { datasetResource } from "./resources/dataset";
 import { dependencyResource } from "./resources/dependency";
 import { documentResource } from "./resources/document";
 import { eidTranslationResource } from "./resources/eid-translation";
+import { erdResource } from "./resources/erd";
 import { fieldResource } from "./resources/field";
 import { gitSyncResource } from "./resources/git-sync";
 import { glossaryResource } from "./resources/glossary";
@@ -46,6 +47,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     dependency: dependencyResource(transport),
     document: documentResource(transport),
     eidTranslation: eidTranslationResource(transport),
+    erd: erdResource(transport),
     field: fieldResource(transport),
     gitSync: gitSyncResource(transport),
     glossary: glossaryResource(transport),

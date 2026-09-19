@@ -12,7 +12,8 @@ const TableEntityType = z.enum([
   "entity/EventTable",
 ]);
 
-const TableVisibilityType = z.enum(["hidden", "technical", "cruft"]);
+export const TableVisibilityType = z.enum(["hidden", "technical", "cruft"]);
+export type TableVisibilityType = z.infer<typeof TableVisibilityType>;
 
 const TableFieldOrder = z.enum(["alphabetical", "custom", "database", "smart"]);
 

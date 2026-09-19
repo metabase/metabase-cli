@@ -17,6 +17,7 @@ import { datasetResource } from "../resources/dataset";
 import { dependencyResource } from "../resources/dependency";
 import { documentResource } from "../resources/document";
 import { eidTranslationResource } from "../resources/eid-translation";
+import { erdResource } from "../resources/erd";
 import { fieldResource } from "../resources/field";
 import { gitSyncResource } from "../resources/git-sync";
 import { glossaryResource } from "../resources/glossary";
@@ -289,6 +290,11 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     key: "eidTranslation.translate",
     invoke: (t) => eidTranslationResource(t).translate({ entity_ids: {} }),
     wireError: "unexpected request: POST /api/eid-translation/translate",
+  },
+  {
+    key: "erd.get",
+    invoke: (t) => erdResource(t).get({ "database-id": 1 }),
+    wireError: "unexpected request: GET /api/ee/erd",
   },
   {
     key: "field.get",

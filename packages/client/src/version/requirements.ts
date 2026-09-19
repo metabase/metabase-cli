@@ -52,6 +52,7 @@ export const METHOD_REQUIREMENTS = {
   "document.update": [],
   "document.archive": [],
   "eidTranslation.translate": [],
+  "erd.get": ["erd"],
   "field.get": [],
   "field.update": [],
   "field.setDataSensitivity": ["fieldDataSensitivity"],
