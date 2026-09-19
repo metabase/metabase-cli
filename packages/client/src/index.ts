@@ -107,6 +107,7 @@ export {
   COLLECTION_ITEM_MODELS,
   COLLECTION_PINNED_STATES,
   Collection,
+  CollectionAuthorityLevel,
   CollectionCompact,
   CollectionCreateInput,
   CollectionId,
@@ -142,6 +143,23 @@ export {
   DatabaseListInclude,
   DatabaseSyncResult,
 } from "./domain/database";
+export {
+  BreakingSource,
+  DependencyCardType,
+  DependencyEdge,
+  DependencyEntity,
+  DependencyEntityData,
+  DependencyErrorSourceType,
+  DependencyFindingError,
+  DependencyFindingErrorType,
+  DependencyGraph,
+  DependencyItemsSortColumn,
+  DependencyNode,
+  DependencySortDirection,
+  DependencyType,
+  DependencyUsageType,
+  DependentsSortColumn,
+} from "./domain/dependency";
 export {
   Document,
   DocumentCompact,

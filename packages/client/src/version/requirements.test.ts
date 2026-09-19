@@ -14,6 +14,7 @@ import { contentTranslationResource } from "../resources/content-translation";
 import { dashboardResource } from "../resources/dashboard";
 import { databaseResource } from "../resources/database";
 import { datasetResource } from "../resources/dataset";
+import { dependencyResource } from "../resources/dependency";
 import { documentResource } from "../resources/document";
 import { eidTranslationResource } from "../resources/eid-translation";
 import { fieldResource } from "../resources/field";
@@ -270,6 +271,11 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     key: "dataset.query",
     invoke: (t) => datasetResource(t).query({}),
     wireError: "unexpected request: POST /api/dataset",
+  },
+  {
+    key: "dependency.graph",
+    invoke: (t) => dependencyResource(t).graph("card", 1),
+    wireError: "unexpected request: GET /api/ee/dependencies/graph",
   },
   {
     key: "document.get",

@@ -33,6 +33,8 @@ export const FEATURE_RULES = {
   nativeTableTemplateTag: { since: 59 },
   smartLinkMeasureModel: { since: 60 },
   dashboardSubscriptionFilters: { since: 58, tokenFeature: "dashboard_subscription_filters" },
+  dependencyGraph: { since: 58, tokenFeature: "dependencies" },
+  dependencyItemListings: { since: 59, tokenFeature: "dependencies" },
 } satisfies Record<string, FeatureRule>;
 
 export type FeatureName = keyof typeof FEATURE_RULES;

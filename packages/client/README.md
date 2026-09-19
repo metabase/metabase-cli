@@ -133,10 +133,10 @@ const cards = await mb.card.list({ f: "mine" });
 console.log(cards.data.length, cards.total);
 ```
 
-A resource method whose endpoint pages answers an `AsyncIterable<Page<T>>` — `mb.collection.itemPages`
-and `mb.transform.runPages` are the two — requesting `limit`/`offset` pages and yielding a `Page<T>`
-(`{ items: T[], total: number | null }`) per request, so the server's count reaches you instead of
-being spent on loop control.
+A resource method whose endpoint pages answers an `AsyncIterable<Page<T>>` — `mb.collection.itemPages`,
+`mb.transform.runPages`, `mb.dependency.unreferencedPages` and `mb.dependency.breakingPages` are the
+four — requesting `limit`/`offset` pages and yielding a `Page<T>` (`{ items: T[], total: number | null }`)
+per request, so the server's count reaches you instead of being spent on loop control.
 
 ```ts
 import { createClient } from "@metabase/client";
@@ -436,7 +436,8 @@ deliberately absent.
 
 A second class of schema describes a single response shape that has no compact pair:
 `DashboardDetail`, `DatabaseSyncResult`, `CollectionTreeNode`, `FieldSummary`, `SettingValue`,
-`TableQueryMetadata`, `SessionProperties`, and `TokenFeatures`.
+`TableQueryMetadata`, `SessionProperties`, `TokenFeatures`, and the dependency graph's `DependencyGraph`,
+`DependencyNode`, `DependencyEntity`, `BreakingSource`, and `DependencyFindingError`.
 
 Request bodies (`<Resource>CreateInput`, `<Resource>UpdateInput`) and the domain vocabulary enums
 (`FieldBaseType`, `SearchModel`, `CollectionItemModel`, …) live in the same modules and are reached
