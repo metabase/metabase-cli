@@ -34,7 +34,7 @@ function clientOver(responses: Array<Response>) {
 }
 
 describe("search resource wire requests", () => {
-  it("sends every search parameter, repeating the models key once per model", async () => {
+  it("sends every search parameter, repeating the models and created_by keys per value", async () => {
     const { mb, capture } = clientOver([jsonResponse({ data: [SEARCH_RESULT], total: 1 })]);
 
     await mb.search.query({
@@ -45,11 +45,15 @@ describe("search resource wire requests", () => {
       offset: 40,
       table_db_id: 2,
       verified: true,
+      collection: 7,
+      created_by: [3, 4],
+      search_native_query: true,
+      include_metadata: true,
     });
 
     expect(capture.calls).toEqual([
       {
-        url: "https://mb.example.com/metabase/api/search?q=orders&models=card&models=dashboard&archived=true&limit=20&offset=40&table_db_id=2&verified=true",
+        url: "https://mb.example.com/metabase/api/search?q=orders&models=card&models=dashboard&archived=true&limit=20&offset=40&table_db_id=2&verified=true&collection=7&created_by=3&created_by=4&search_native_query=true&include_metadata=true",
         method: "GET",
         headers: JSON_READ_HEADERS,
         body: null,
