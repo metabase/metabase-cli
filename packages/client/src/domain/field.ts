@@ -122,6 +122,21 @@ export const FieldSemanticType = z.enum([
 ]);
 export type FieldSemanticType = z.infer<typeof FieldSemanticType>;
 
+// Most severe first, the precedence the server's classifier applies when several match.
+export const FieldDataSensitivity = z.enum([
+  "SEC_KEY",
+  "SYS_TELEMETRY",
+  "PHI",
+  "BIO_GEN",
+  "PCI_FIN",
+  "SENS_PERS",
+  "PII",
+  "CORP_IP",
+  "BIZ_CONF",
+  "PUBLIC",
+]);
+export type FieldDataSensitivity = z.infer<typeof FieldDataSensitivity>;
+
 export const FieldCoercionStrategy = z.enum([
   "Coercion/String->Temporal",
   "Coercion/ISO8601->Temporal",
@@ -214,6 +229,15 @@ export const FieldValuesCompact = FieldValues.pick({
   has_more_values: true,
 }).strip();
 export type FieldValuesCompact = z.infer<typeof FieldValuesCompact>;
+
+// Each match is `[value, label]` when the searched field differs from the one asked about, else
+// `[value]`; the cells are whatever the warehouse column holds.
+export const FieldSearchMatches = z.array(z.array(z.unknown()));
+export type FieldSearchMatches = z.infer<typeof FieldSearchMatches>;
+
+// `[value, remapped]` for the one row whose field equals the value asked about.
+export const FieldRemappedValue = z.tuple([z.unknown(), z.unknown()]);
+export type FieldRemappedValue = z.infer<typeof FieldRemappedValue>;
 
 export const FieldSummary = z.object({
   field_id: z.number().int(),

@@ -25,6 +25,7 @@ export const FEATURE_RULES = {
   transformTargetTableId: { since: 61 },
   transformTargetTableLinkedOnCreate: { since: 61, until: 61 },
   transformJobRunIdIsNumeric: { since: 64 },
+  fieldDataSensitivity: { since: 64 },
   transformDagRuns: { since: 64 },
   unifiedTransformRuns: { since: 64 },
   libraryChildrenCarryType: { since: 62 },
