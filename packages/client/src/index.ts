@@ -81,7 +81,7 @@ export {
   methodRequirements,
 } from "./version/requirements";
 export type { MethodKey } from "./version/requirements";
-export { checkFeatures, checkRequirements } from "./version/requirement-check";
+export { checkFeatures } from "./version/requirement-check";
 export { CapabilityError, RequirementFailure, RequirementReason } from "./version/preflight-error";
 
 export type { Page, PaginateOptions } from "./paginate";

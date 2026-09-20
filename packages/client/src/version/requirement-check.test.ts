@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { ServerInfo } from "./probe";
 import { editionFromTag } from "./tag";
 import { createServerProfile } from "./profile";
-import { checkFeatures, checkRequirements } from "./requirement-check";
+import { checkFeatures } from "./requirement-check";
+import { methodRequirements } from "./requirements";
 
 function profileOf(tag: string, major: number, tokenFeatures: ServerInfo["tokenFeatures"]) {
   return createServerProfile({
@@ -15,17 +16,23 @@ function profileOf(tag: string, major: number, tokenFeatures: ServerInfo["tokenF
   });
 }
 
-describe("checkRequirements", () => {
+describe("checkFeatures over a method's requirements", () => {
   it("answers null when the profile grants every feature the method needs", () => {
-    expect(checkRequirements("transform.get", profileOf("v0.60.4", 60, null))).toBeNull();
+    expect(
+      checkFeatures(methodRequirements("transform.get"), profileOf("v0.60.4", 60, null)),
+    ).toBeNull();
   });
 
   it("answers null for a method that needs nothing, whatever the server", () => {
-    expect(checkRequirements("card.list", profileOf("v0.57.0", 57, null))).toBeNull();
+    expect(
+      checkFeatures(methodRequirements("card.list"), profileOf("v0.57.0", 57, null)),
+    ).toBeNull();
   });
 
   it("names the rule's floor and the server's tag for a version gate", () => {
-    expect(checkRequirements("measure.list", profileOf("v0.58.0", 58, null))).toEqual({
+    expect(
+      checkFeatures(methodRequirements("measure.list"), profileOf("v0.58.0", 58, null)),
+    ).toEqual({
       reason: "version-too-old",
       detail:
         "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
@@ -37,7 +44,9 @@ describe("checkRequirements", () => {
   });
 
   it("names the premium feature for a token gate", () => {
-    expect(checkRequirements("gitSync.branches", profileOf("v1.60.4", 60, null))).toEqual({
+    expect(
+      checkFeatures(methodRequirements("gitSync.branches"), profileOf("v1.60.4", 60, null)),
+    ).toEqual({
       reason: "missing-token-feature",
       detail:
         "This operation requires the 'remote_sync' premium feature (not enabled on this server).",
@@ -49,7 +58,9 @@ describe("checkRequirements", () => {
   });
 
   it("reports the version before the token when a gated rule fails both", () => {
-    expect(checkRequirements("library.get", profileOf("v0.58.0", 58, null))).toEqual({
+    expect(
+      checkFeatures(methodRequirements("library.get"), profileOf("v0.58.0", 58, null)),
+    ).toEqual({
       reason: "version-too-old",
       detail:
         "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
@@ -61,7 +72,9 @@ describe("checkRequirements", () => {
   });
 
   it("reports the first missing feature of a method that needs several", () => {
-    expect(checkRequirements("transformJob.setActive", profileOf("v0.60.4", 60, null))).toEqual({
+    expect(
+      checkFeatures(methodRequirements("transformJob.setActive"), profileOf("v0.60.4", 60, null)),
+    ).toEqual({
       reason: "version-too-old",
       detail:
         "This operation requires Metabase v61+ (this server is v0.60.4). Upgrade Metabase to use it.",
@@ -73,7 +86,9 @@ describe("checkRequirements", () => {
   });
 
   it("names the strictest floor of a method that needs several, not the first one the server clears", () => {
-    expect(checkRequirements("transformJob.setActive", profileOf("v0.58.0", 58, null))).toEqual({
+    expect(
+      checkFeatures(methodRequirements("transformJob.setActive"), profileOf("v0.58.0", 58, null)),
+    ).toEqual({
       reason: "version-too-old",
       detail:
         "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.",
@@ -92,8 +107,8 @@ describe("checkRequirements", () => {
       hash: "548573f",
       tokenFeatures: { remote_sync: false },
     });
-    expect(checkRequirements("transformJob.setActive", head)).toBeNull();
-    expect(checkRequirements("gitSync.branches", head)).toEqual({
+    expect(checkFeatures(methodRequirements("transformJob.setActive"), head)).toBeNull();
+    expect(checkFeatures(methodRequirements("gitSync.branches"), head)).toEqual({
       reason: "missing-token-feature",
       detail:
         "This operation requires the 'remote_sync' premium feature (not enabled on this server).",

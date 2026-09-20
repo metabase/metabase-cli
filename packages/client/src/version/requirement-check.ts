@@ -5,16 +5,6 @@ import {
   versionTooOldMessage,
 } from "./preflight-error";
 import { featureGap, type ServerProfile } from "./profile";
-import { type MethodKey, methodRequirements } from "./requirements";
-
-/** The first feature a method needs that the profile lacks, or `null` when it may proceed. */
-export function checkRequirements(
-  key: MethodKey,
-  profile: ServerProfile,
-): RequirementFailure | null {
-  return checkFeatures(methodRequirements(key), profile);
-}
-
 /** The first of `features` the profile lacks, or `null` when it has every one. */
 export function checkFeatures(
   features: readonly FeatureName[],
