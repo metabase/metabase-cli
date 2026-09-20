@@ -394,14 +394,7 @@ carries the status and response body, redacted of known secrets at construction,
 status 404. `ChainedRequestError` wraps a cause and delegates its category and retryability to it.
 `toMetabaseError(unknown)` normalizes a thrown value into the taxonomy.
 
-`TransformTestRefusalError`, from `@metabase/client/resources/transform-test`, is the `HttpError` a
-transform test's `create`, `update` and `run` throw when the server declines to run the test at all:
-its `refusal` is the body parsed as `TransformTestRefusal`, whose `error-code` is one of the closed
-`TransformTestRefusalCode` vocabulary (`transform-test.missing-inputs`,
-`transform-test.unsupported-driver`, …), and its `status` says who fixes it — 400 the test, 422 the
-transform or its database, 501 nothing yet. A failing expectation is a result, not a refusal: `run`
-answers a `TransformTestRunResult` whose `status` is `failed` and whose expectations report what they
-found.
+An `HttpError` also carries `errorCode`, the envelope's `error-code` when the throw site published a machine-readable name for the answer, else `null`. A transform test's `create`, `update` and `run` refuse that way when the server declines to run the test at all, and `isTransformTestRefusalCode(code)` narrows the code to the closed `TransformTestRefusalCode` vocabulary. `create` and `update` answer the authoring refusals at 400 (`transform-test.missing-inputs`, `unused-inputs`, `duplicate-input-table`, `unparseable-source`, `unremapped-reference`) and the environment ones at 422 (`unsupported-transform`, `unsupported-driver`); `run` adds `setup-failed` and `transform-failed`, also 422. The remaining names in the vocabulary (`unknown-column`, `ambiguous-column`, `unsupported-format`, `expectation-failed`) never refuse a run: they arrive as one expectation's own `error`, whose `type` is the server's internal name for the same code. A failing expectation is a result, not a refusal: `run` answers a `TransformTestRunResult` whose `status` is `failed` and whose expectations report what they found.
 
 Two helpers read raw thrown values away from the HTTP boundary. `isFileNotFoundError(value)` reports a
 Node `ENOENT` filesystem error — a missing file on disk, never an HTTP 404, which arrives as an
@@ -457,8 +450,8 @@ a metric's `MetricBreakoutValues` and `MetricDimensionListing`, the data permiss
 dependency graph's `DependencyGraph`, `DependencyNode`, `DependencyEntity`, `BreakingSource`, and
 `DependencyFindingError`, the entity relationship diagram's `Erd`, `ErdNode` and `ErdField`, the transform
 inspector's `TransformInspection` and `TransformLens`, a DAG run's `TransformDagRunResult` and
-`TransformDagTransform`, the Python runner's `PythonLibrary` and `PythonTestRunResult`, and git-sync's
-`SyncExportPreflight`.
+`TransformDagTransform`, the Python runner's `PythonLibrary` and `PythonTestRunResult`, git-sync's
+`SyncExportPreflight`, and a transform test's `TransformTestTable`, `TransformTestColumn`, `TransformTestRow`, `TransformTestInput`, `TransformTestExpectation`, `TransformTestRunResult`, `TransformTestExpectationResult` and `TransformTestResultColumn`.
 
 Request bodies (`<Resource>CreateInput`, `<Resource>UpdateInput`, and `MetricDefinition`, the expression
 over metric and measure leaves that `metric.query` and `metric.breakoutValues` run) and the domain vocabulary enums

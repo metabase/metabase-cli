@@ -128,9 +128,6 @@ export const TransformTestUpdateInput = z
   .loose();
 export type TransformTestUpdateInput = z.infer<typeof TransformTestUpdateInput>;
 
-export const TransformTestStatus = z.enum(["passed", "failed", "error"]);
-export type TransformTestStatus = z.infer<typeof TransformTestStatus>;
-
 export const TransformTestResultColumn = z
   .object({
     name: z.string(),
@@ -229,6 +226,9 @@ export const TransformTestExpectationResult = z.discriminatedUnion("type", [
 ]);
 export type TransformTestExpectationResult = z.infer<typeof TransformTestExpectationResult>;
 
+export const TransformTestStatus = z.enum(["passed", "failed", "error"]);
+export type TransformTestStatus = z.infer<typeof TransformTestStatus>;
+
 // The run endpoint documents its own status as `passed` or `failed`, with `error` reserved for one
 // expectation that could not be evaluated. The wire schema still admits `error` at the top, so it
 // is read here rather than refused as a shape mismatch.
@@ -258,10 +258,6 @@ export const TransformTestRefusalCode = z.enum([
 ]);
 export type TransformTestRefusalCode = z.infer<typeof TransformTestRefusalCode>;
 
-export const TransformTestRefusal = z
-  .object({
-    message: z.string(),
-    "error-code": TransformTestRefusalCode,
-  })
-  .loose();
-export type TransformTestRefusal = z.infer<typeof TransformTestRefusal>;
+export function isTransformTestRefusalCode(value: string): value is TransformTestRefusalCode {
+  return TransformTestRefusalCode.safeParse(value).success;
+}

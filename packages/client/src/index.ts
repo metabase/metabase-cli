@@ -433,6 +433,7 @@ export {
   TransformTagUpdateInput,
 } from "./domain/transform-tag";
 export {
+  isTransformTestRefusalCode,
   TransformTest,
   TransformTestColumn,
   TransformTestCompact,
@@ -440,7 +441,6 @@ export {
   TransformTestExpectation,
   TransformTestExpectationResult,
   TransformTestInput,
-  TransformTestRefusal,
   TransformTestRefusalCode,
   TransformTestResultColumn,
   TransformTestRow,

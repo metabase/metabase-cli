@@ -1,7 +1,10 @@
 import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
-import type { TransformTestCreateInput } from "../domain/transform-test";
+import {
+  isTransformTestRefusalCode,
+  type TransformTestCreateInput,
+} from "../domain/transform-test";
 import { HttpError } from "../http/errors";
 import type { ClientCredentials } from "../http/transport";
 import {
@@ -13,8 +16,6 @@ import {
 } from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
 import { createServerProfile, type ServerProfile } from "../version/profile";
-
-import { TransformTestRefusalError } from "./transform-test";
 
 const CREDENTIALS: ClientCredentials = {
   url: "https://mb.example.com/metabase",
@@ -210,29 +211,31 @@ describe("transform-test resource wire requests", () => {
     ]);
   });
 
-  it("rethrows a run refusal as a typed error carrying the server's vocabulary", async () => {
+  it("surfaces a run refusal as an HttpError whose code is in the refusal vocabulary", async () => {
     const { mb } = clientOver([jsonResponse(REFUSAL, UNSUPPORTED_DRIVER_STATUS)]);
 
     const error = await thrownBy(() => mb.transformTest.run(12));
 
-    expect(error).toBeInstanceOf(TransformTestRefusalError);
-    assert(error instanceof TransformTestRefusalError, "expected TransformTestRefusalError");
-    expect(error.refusal).toEqual(REFUSAL);
+    assert(error instanceof HttpError, "expected HttpError");
     expect(error.status).toBe(UNSUPPORTED_DRIVER_STATUS);
+    expect(error.errorCode).toBe("transform-test.unsupported-driver");
+    assert(error.errorCode !== null, "expected an error code");
+    expect(isTransformTestRefusalCode(error.errorCode)).toBe(true);
     expect(error.userMessage).toBe(
       "The h2 database of this transform does not support transform testing.",
     );
   });
 
-  it("leaves a create rejection without an error code as the plain HttpError it is", async () => {
+  it("surfaces a create rejection without a code as the field errors it carries", async () => {
     const { mb } = clientOver([jsonResponse(MALLI_ENVELOPE, BAD_REQUEST_STATUS)]);
 
     const error = await thrownBy(() => mb.transformTest.create(CREATE_BODY));
 
-    expect(error).toBeInstanceOf(HttpError);
-    expect(error).not.toBeInstanceOf(TransformTestRefusalError);
     assert(error instanceof HttpError, "expected HttpError");
     expect(error.status).toBe(BAD_REQUEST_STATUS);
+    expect(error.errorCode).toBeNull();
+    expect(error.fieldErrors).toEqual({ name: "value must be a non-blank string." });
+    expect(error.specificFieldErrors).toEqual({ name: "should be at least 1 character" });
   });
 
   it("refuses a server without the token feature before any request leaves", async () => {

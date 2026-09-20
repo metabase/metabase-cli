@@ -282,6 +282,7 @@ describe("@metabase/client barrel as a consumer surface", () => {
       body: null,
       fieldErrors: null,
       specificFieldErrors: null,
+      errorCode: null,
     });
   });
 
