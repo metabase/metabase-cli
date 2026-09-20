@@ -58,6 +58,7 @@ export const FEATURE_RULES = {
   metricDefinitionQuery: { since: 60 },
   metricDimensionListing: { since: 64 },
   oauthFullAccessScope: { since: 63 },
+  exportCsvByteOrderMark: { since: 63 },
 } satisfies Record<string, FeatureRule>;
 
 export type FeatureName = keyof typeof FEATURE_RULES;

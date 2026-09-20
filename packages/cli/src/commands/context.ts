@@ -26,6 +26,8 @@ export interface CommonContext {
   full: boolean;
   fields: string[] | undefined;
   maxBytes: number;
+  // Whether --max-bytes was passed, so a command whose output it cannot shape refuses it.
+  maxBytesGiven: boolean;
   range: ListRange;
   url: string | undefined;
   apiKey: string | undefined;
@@ -59,6 +61,7 @@ export function resolveCommonFlags(args: CommonArgs, options: ResolveOptions = {
     full,
     fields,
     maxBytes: parseMaxBytes(args.maxBytes),
+    maxBytesGiven: args.maxBytes !== undefined,
     range: parseRange(args.limit, args.offset),
     url: args.url,
     apiKey: args.apiKey,

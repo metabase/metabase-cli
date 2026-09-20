@@ -153,12 +153,17 @@ A measure is an aggregation, `["measure", {}, <measure id>]`, on its table, and 
 mb query --file q.json --dry-run --profile <n>        # check + compile on the server, no run
 mb query --file q.json --profile <n> --json           # check + run
 mb query --print-schema --profile <n> > ./.scratch/mbql-schema.json   # the full JSON Schema
+mb query --file q.json --compile --profile <n>        # the SQL the server generates
+mb query --file q.json --metadata --profile <n> --json   # tables (with FK targets), fields, snippets it touches
+mb query --file q.json --export-format csv --profile <n> > rows.csv   # stream the rows up to the server's download limit, no envelope cap
 ```
 
 - `--dry-run` checks the shape locally, then has the server compile the query to SQL without running it. It answers `{ ok, errors: [{ path, message }], sql }`: exit `0` with the compiled `sql`, or exit `2` with `sql: null` when either check rejects the body. A local error's `path` is a JSON Pointer into the body; a server error's is `""`. Exit `1` means the compile could not run (the server refused permission, server unreachable).
 - The server compile catches what the shape check cannot: a ref to a missing aggregation or expression, an unknown clause, a duplicate `lib/uuid`, a missing table, field, card or segment, a raw-variable template tag with no value or `default` outside an optional `[[ ]]` clause, a `required` tag with no value. A column's type not suiting its operator and a misspelled column name in a later stage are caught only by the warehouse, so a mistake there compiles and fails on the run. When a run fails, read the message and fix the body it names; an error naming nothing in the body (a `NullPointerException`) is a server fault, so stop editing a body that is otherwise correct.
 - A run checks the shape first and never sends an invalid body; exit `1` is a server or warehouse error after that.
 - A server error `lib/uuid: missing required key` at a clause means that clause's arguments are wrong: their count, a unit it doesn't take, a bad time zone.
+- `--compile` shows what a clause becomes: read the SQL when an aggregation, join or temporal bucket misbehaves, or seed a native query from a working body (`--no-pretty --format text` prints it bare). It needs native query permission on the database, and its SQL leaves out the row limit a run adds. `--metadata` shows what a body reaches before running it: every source table with its columns, the tables their foreign keys point at, and the fields and snippets a native body's template tags name. Both pre-flight the body like a run; `--dry-run`, `--compile`, `--metadata` and `--export-format` are mutually exclusive.
+- A csv or xlsx export of a pivot passes `--pivot-results` with `--visualization-settings '{"pivot_table.column_split":{"rows":[…],"columns":[…],"values":[…]}}'`, naming the body's breakout and aggregation columns; an ad-hoc query has no card to take the layout from.
 - A run answers `data.rows` and slim `data.cols` (`name`, `display_name`, `base_type`, `semantic_type`); `--full` returns the raw `/api/dataset` envelope.
 
 ## Where the query goes

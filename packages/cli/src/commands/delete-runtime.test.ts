@@ -15,6 +15,7 @@ const CTX: CommonContext = {
   full: false,
   fields: undefined,
   maxBytes: 0,
+  maxBytesGiven: false,
   range: FULL_RANGE,
   url: undefined,
   apiKey: undefined,

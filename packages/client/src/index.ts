@@ -156,7 +156,16 @@ export {
   DatabaseListInclude,
   DatabaseSyncResult,
 } from "./domain/database";
-export { CompiledQuery, QueryMetadata, VirtualField, VirtualTable } from "./domain/dataset";
+export {
+  CompiledQuery,
+  CompiledQueryCompact,
+  QueryMetadata,
+  QueryMetadataCompact,
+  VirtualField,
+  VirtualFieldCompact,
+  VirtualTable,
+  VirtualTableCompact,
+} from "./domain/dataset";
 export {
   BreakingSource,
   DependencyEdge,
@@ -328,7 +337,13 @@ export {
   PulseScheduleType,
   PulseUpdateInput,
 } from "./domain/pulse";
-export { DatasetQuery, ExportFormat, SortDirection } from "./domain/query";
+export {
+  DatasetQuery,
+  ExportFormat,
+  PivotExportFormat,
+  SortDirection,
+  VisualizationSettings,
+} from "./domain/query";
 export {
   ReplacementCheck,
   ReplacementColumn,
@@ -368,10 +383,15 @@ export {
   TableDataLayerMedallion,
   TableDataLayerTier,
   TableDataSource,
+  TableFieldValuesResult,
   TableForeignKey,
   TableForeignKeyCompact,
   TableGetInclude,
   TableQueryMetadata,
+  TableQueryMetadataCompact,
+  TableSchemaId,
+  TableSchemaSyncResult,
+  TableSelectionResult,
   TableSelectors,
   TableUpdateInput,
   TableVisibilityType,

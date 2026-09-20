@@ -1,10 +1,10 @@
 import { z } from "zod";
 
 import { CardType } from "./card";
-import { Database } from "./database";
-import { Field, FieldBaseType, FieldSemanticType } from "./field";
-import { Snippet } from "./snippet";
-import { TableQueryMetadata } from "./table";
+import { Database, DatabaseCompact } from "./database";
+import { Field, FieldBaseType, FieldCompact, FieldSemanticType } from "./field";
+import { Snippet, SnippetCompact } from "./snippet";
+import { TableQueryMetadata, TableQueryMetadataCompact } from "./table";
 
 export const CompiledQuery = z
   .object({
@@ -16,6 +16,13 @@ export const CompiledQuery = z
   })
   .loose();
 export type CompiledQuery = z.infer<typeof CompiledQuery>;
+
+export const CompiledQueryCompact = CompiledQuery.pick({
+  query: true,
+  params: true,
+  collection: true,
+}).strip();
+export type CompiledQueryCompact = z.infer<typeof CompiledQueryCompact>;
 
 const FieldRef = z.tuple([
   z.literal("field"),
@@ -37,6 +44,17 @@ export const VirtualField = z
   .loose();
 export type VirtualField = z.infer<typeof VirtualField>;
 
+export const VirtualFieldCompact = VirtualField.pick({
+  id: true,
+  table_id: true,
+  name: true,
+  display_name: true,
+  base_type: true,
+  semantic_type: true,
+  fk_target_field_id: true,
+}).strip();
+export type VirtualFieldCompact = z.infer<typeof VirtualFieldCompact>;
+
 // A card standing in as a source table, id `card__<id>`.
 export const VirtualTable = z
   .object({
@@ -53,6 +71,18 @@ export const VirtualTable = z
   .loose();
 export type VirtualTable = z.infer<typeof VirtualTable>;
 
+export const VirtualTableCompact = VirtualTable.pick({
+  id: true,
+  db_id: true,
+  display_name: true,
+  schema: true,
+  description: true,
+  type: true,
+})
+  .strip()
+  .extend({ fields: z.array(VirtualFieldCompact) });
+export type VirtualTableCompact = z.infer<typeof VirtualTableCompact>;
+
 export const QueryMetadata = z
   .object({
     databases: z.array(Database),
@@ -62,3 +92,13 @@ export const QueryMetadata = z
   })
   .loose();
 export type QueryMetadata = z.infer<typeof QueryMetadata>;
+
+// A real table's id is a number and a virtual table's a `card__N` string, which is what tells the
+// two members apart.
+export const QueryMetadataCompact = z.object({
+  databases: z.array(DatabaseCompact),
+  tables: z.array(z.union([TableQueryMetadataCompact, VirtualTableCompact])),
+  fields: z.array(FieldCompact),
+  snippets: z.array(SnippetCompact),
+});
+export type QueryMetadataCompact = z.infer<typeof QueryMetadataCompact>;

@@ -294,7 +294,7 @@ describe("card e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toContain(
-      'invalid --export-format: "html" (expected: csv, json, xlsx)',
+      'invalid --export-format: "html" (expected one of: csv, json, xlsx)',
     );
     expect(result.stdout).toBe("");
   });

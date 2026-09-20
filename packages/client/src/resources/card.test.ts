@@ -190,6 +190,7 @@ describe("card resource wire requests", () => {
       parameters: [],
       format_rows: true,
       pivot_results: false,
+      csv_include_bom: false,
     });
 
     expect(capture.calls).toEqual([
@@ -201,7 +202,7 @@ describe("card resource wire requests", () => {
           "user-agent": TEST_USER_AGENT,
           "x-api-key": "mb_wire_test_key",
         },
-        body: "parameters=%5B%5D&format_rows=true&pivot_results=false",
+        body: "parameters=%5B%5D&format_rows=true&pivot_results=false&csv_include_bom=false",
       },
     ]);
   });
@@ -213,6 +214,7 @@ describe("card resource wire requests", () => {
       parameters: [],
       format_rows: true,
       pivot_results: false,
+      csv_include_bom: false,
     });
 
     expect(await new Response(stream).text()).toBe("id,total\n1,9\n");
@@ -222,7 +224,12 @@ describe("card resource wire requests", () => {
     const { mb } = clientOver([new Response(null, { status: 204 })]);
 
     const error = await mb.card
-      .exportQuery(7, "csv", { parameters: [], format_rows: true, pivot_results: false })
+      .exportQuery(7, "csv", {
+        parameters: [],
+        format_rows: true,
+        pivot_results: false,
+        csv_include_bom: false,
+      })
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(NetworkError);

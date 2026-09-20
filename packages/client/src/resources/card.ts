@@ -11,6 +11,7 @@ import { QueryMetadata } from "../domain/dataset";
 import type { ExportFormat } from "../domain/query";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
+import { assertPivotedExport } from "./pivot-export";
 
 // `GET /api/card` answers a bare array rather than a `{ data, total }` envelope, so the count a
 // caller reads off `ListResult` is the array's own length and the server reports none.
@@ -29,6 +30,7 @@ export interface CardExportParams {
   parameters: unknown[];
   format_rows: boolean;
   pivot_results: boolean;
+  csv_include_bom: boolean;
 }
 
 export function cardResource(transport: Transport) {
@@ -96,8 +98,12 @@ export function cardResource(transport: Transport) {
   }
 
   /**
-   * Run a saved card and stream its result as a download. Unlike `query`, this endpoint takes a
-   * form-encoded body and answers bytes, so a caller consumes the stream rather than a value.
+   * Run the query associated with a Card, and return its results as a file in the specified
+   * format. Unlike `query`, this endpoint takes a form-encoded body and answers bytes, so a caller
+   * consumes the stream rather than a value. A pivot the server would answer with plain rows (a
+   * JSON export, or pivoted exports turned off) is refused. `csv_include_bom` opens a CSV with a
+   * UTF-8 byte order mark; a server without it drops the key silently, so asking for one is refused
+   * there before the wire.
    */
   async function exportQuery(
     id: number,
@@ -106,10 +112,18 @@ export function cardResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<ReadableStream<Uint8Array>> {
     await transport.require("card.exportQuery", options);
+    await transport.requireFeatures(
+      params.csv_include_bom ? ["exportCsvByteOrderMark"] : [],
+      options,
+    );
+    if (params.pivot_results) {
+      await assertPivotedExport(transport, format, options);
+    }
     const body = new URLSearchParams({
       parameters: JSON.stringify(params.parameters),
       format_rows: String(params.format_rows),
       pivot_results: String(params.pivot_results),
+      csv_include_bom: String(params.csv_include_bom),
     });
     return transport.requestStream(`/api/card/${id}/query/${format}`, {
       ...options,

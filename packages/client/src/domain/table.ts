@@ -60,6 +60,9 @@ export const TableCompact = Table.pick({
   });
 export type TableCompact = z.infer<typeof TableCompact>;
 
+export const TableQueryMetadataCompact = TableCompact.extend({ fields: z.array(FieldCompact) });
+export type TableQueryMetadataCompact = z.infer<typeof TableQueryMetadataCompact>;
+
 const TableDataAuthority = z.enum(["unconfigured", "authoritative", "computed", "ingested"]);
 
 // Metabase 58 names a table's layer after a medallion metal; 59 replaced the vocabulary with one

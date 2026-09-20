@@ -745,7 +745,7 @@ mb card get 1 --json --full
 
 ### `mb card query <id>`
 
-Run the card's query. Without `--export-format`, returns the Metabase JSON envelope (`status`, `row_count`, `data: { rows, cols }`, …). With `--export-format csv`, `--export-format json`, or `--export-format xlsx`, the export bytes stream straight to stdout.
+Run the card's query. Without `--export-format`, returns the Metabase JSON envelope (`status`, `row_count`, `data: { rows, cols }`, …). With `--export-format csv`, `--export-format json`, or `--export-format xlsx`, the export bytes stream straight to stdout, capped at the server's download row limit. An export refuses `--full`, `--fields`, `--max-bytes` and `--limit`, which shape only the JSON output; `--json` and `--format` still pick the shape of an error.
 
 ```sh
 mb card query 1 --json
@@ -756,13 +756,14 @@ mb card query 1 --export-format xlsx > export.xlsx
 mb card query 1 --parameters '[{"type":"category","value":"A","target":["variable",["template-tag","c"]]}]'
 ```
 
-| Flag                    | Description                                                                                            |
-| ----------------------- | ------------------------------------------------------------------------------------------------------ |
-| `--export-format <fmt>` | Stream the export instead of the JSON envelope. One of `csv`, `json`, `xlsx`.                          |
-| `--parameters <json>`   | JSON array of Metabase parameter objects (the same shape Metabase POSTs from a dashboard).             |
-| `--limit <n>`           | Cap rows kept in the JSON envelope. No effect on streamed exports.                                     |
-| `--format-rows`         | Streamed exports only: apply the card's visualization-settings formatting to values (default `false`). |
-| `--pivot-results`       | Streamed exports only: emit the pivoted output for pivot questions (default `false`).                  |
+| Flag                    | Description                                                                                                                                                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--export-format <fmt>` | Stream the export instead of the JSON envelope. One of `csv`, `json`, `xlsx`.                                                                                                                                            |
+| `--parameters <json>`   | JSON array of Metabase parameter objects (the same shape Metabase POSTs from a dashboard).                                                                                                                               |
+| `--limit <n>`           | Cap rows kept in the JSON envelope. Refused with `--export-format`.                                                                                                                                                      |
+| `--format-rows`         | Streamed exports only: format values as Metabase displays them, the card's column settings included (default `false`). Refused without `--export-format`.                                                                |
+| `--pivot-results`       | With `--export-format csv` or `xlsx`: lay a pivot question's rows out as the pivot, with its subtotals (default `false`). Refused when the server has pivoted exports turned off (the `enable-pivoted-exports` setting). |
+| `--csv-include-bom`     | With `--export-format csv`: open the file with a UTF-8 byte order mark, so Excel reads it as UTF-8 (default `false`). Metabase v63+.                                                                                     |
 
 ### `mb card alerts <id>`
 
@@ -1999,7 +2000,7 @@ Entity ids are NanoIDs that can start with `-`, which the positional `<eids>` fo
 
 ### `mb query`
 
-Run an MBQL 5 query with built-in schema validation. Three modes — discover the schema (`--print-schema`), check and compile without running (`--dry-run`), run.
+Run an MBQL 5 query with built-in schema validation, or ask the server what it would do with one. Modes — discover the schema (`--print-schema`), check and compile without running (`--dry-run`), run, compile to native (`--compile`), list what the query touches (`--metadata`), stream the rows as a download (`--export-format`). `--dry-run`, `--compile`, `--metadata` and `--export-format` are mutually exclusive, and `--print-schema` takes none of them.
 
 MBQL 5 bodies use numeric IDs (`database: 1`, `source-table: 7`) and POST to `/api/dataset`. The bundled query schema is synced from `@metabase/representations`; `id.yaml` is overridden to require positive integers for every ID `$def`.
 
@@ -2008,19 +2009,39 @@ mb query --print-schema                     # JSON Schema bundle
 cat q.json | mb query --dry-run             # check + compile on the server, no run
 mb query --file q.json
 mb query --file q.json --skip-validate      # bypass pre-flight; let server reject
+mb query --file q.json --compile            # the SQL the server compiles it to, prettified
+mb query --file q.json --compile --no-pretty --format text   # one line, bare, for $(…)
+mb query --file q.json --metadata --json    # databases, tables, fields, snippets it touches
+mb query --file q.json --export-format csv > rows.csv
+mb query --file pivot.json --export-format xlsx --pivot-results \
+  --visualization-settings '{"pivot_table.column_split":{"rows":["category"],"columns":["status"],"values":["count"]}}' > pivot.xlsx
 ```
 
 Body sources: `--file`, `--body`, or stdin (exactly one). Body is JSON.
 
-Any non-MBQL 5 body skips pre-flight automatically — legacy MBQL 4 (`{ "type": "query", "database": N, "query": { "source-table": T, ... } }`), legacy native (`{ "type": "native", "database": N, "native": { "query": "..." } }`), or any other shape that doesn't carry `"lib/type": "mbql/query"`. The bundled schema only models MBQL 5; `/api/dataset` normalizes the rest server-side via `lib-be/normalize-query` (the same normalizer that backs `card create` / `transform create`), so behavior is symmetric across endpoints. `--dry-run` on a non-MBQL 5 body goes straight to the server compile. The double-wrap footgun — an MBQL 5 query nested inside a `{type:"query", query:…}` envelope — is still rejected with a `ConfigError` before send.
+| Flag                              | Description                                                                                                                                                                                                                                                                                                                                          |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--print-schema`                  | Emit the bundled MBQL 5 query JSON Schema and exit; no body required. Refused beside `--dry-run`, `--compile`, `--metadata` or `--export-format`.                                                                                                                                                                                                    |
+| `--dry-run`                       | Check the body and compile it on the server without running it; prints `{ ok, errors, sql }`.                                                                                                                                                                                                                                                        |
+| `--compile`                       | Print the native query the server compiles the body to (`{ query, params }`) instead of running it. Text output is the bare query. Needs native query permission on the body's database.                                                                                                                                                             |
+| `--pretty` / `--no-pretty`        | With `--compile`: format the native query for reading (default: on, as on the server). `--no-pretty` compiles to one line. Either is refused without `--compile`.                                                                                                                                                                                    |
+| `--metadata`                      | Print the databases, tables, fields and snippets the body references. The FK targets of the source tables ride along; compact by default.                                                                                                                                                                                                            |
+| `--export-format <fmt>`           | Stream the rows as a download instead of the JSON envelope. One of `csv`, `json`, `xlsx`.                                                                                                                                                                                                                                                            |
+| `--visualization-settings <json>` | Streamed exports only: the visualization settings object an ad-hoc query has no card to take from. Its `column_settings` shape `--format-rows`; its `pivot_table.column_split` is the layout `--pivot-results` needs. Refused without `--export-format`.                                                                                             |
+| `--format-rows`                   | Streamed exports only: format values as Metabase displays them, `--visualization-settings` column settings included (default `false`). Refused without `--export-format`.                                                                                                                                                                            |
+| `--pivot-results`                 | With `--export-format csv` or `xlsx`: run the body as a pivot query and lay its rows out as the pivot `--visualization-settings` describes, with subtotals (default `false`). Refused without a `pivot_table.column_split` in `--visualization-settings`, and when the server has pivoted exports turned off (the `enable-pivoted-exports` setting). |
+| `--csv-include-bom`               | With `--export-format csv`: open the file with a UTF-8 byte order mark, so Excel reads it as UTF-8 (default `false`). Metabase v63+.                                                                                                                                                                                                                 |
+| `--skip-validate`                 | Skip the local MBQL 5 pre-flight and let the server be the authority. Mutually exclusive with `--dry-run`.                                                                                                                                                                                                                                           |
+
+Any non-MBQL 5 body skips pre-flight automatically — legacy MBQL 4 (`{ "type": "query", "database": N, "query": { "source-table": T, ... } }`), legacy native (`{ "type": "native", "database": N, "native": { "query": "..." } }`), or any other shape that doesn't carry `"lib/type": "mbql/query"`. The bundled schema only models MBQL 5; `/api/dataset` normalizes the rest server-side via `lib-be/normalize-query` (the same normalizer that backs `card create` / `transform create`), so behavior is symmetric across endpoints. `--dry-run` on a non-MBQL 5 body goes straight to the server compile. The double-wrap footgun — an MBQL 5 query nested inside a `{type:"query", query:…}` envelope — is still rejected with a `ConfigError` before send. The pre-flight applies to every server-bound mode: `--compile`, `--metadata` and `--export-format` refuse an invalid MBQL 5 body the same way a run does.
 
 `--skip-validate` is an escape hatch when the bundled schema disagrees with what the server actually accepts (drift, false negative, edge case) for MBQL 5 bodies. Validation is skipped entirely and the body is sent as-is. Mutually exclusive with `--dry-run`, whose point is the local check.
 
 Exit codes:
 
-- `0` — the query ran, or with `--dry-run` compiled.
-- `2` — the local check or the server compile rejected the body, malformed body, or `ConfigError`.
-- `1` — server-side error after a valid pre-flight (network, HTTP 4xx/5xx), or with `--dry-run` a compile that could not run (no native query permission on the database, server unreachable).
+- `0` — the query ran, with `--dry-run` or `--compile` compiled, or with `--metadata` answered.
+- `2` — the local check, or with `--dry-run` the server compile, rejected the body; malformed body (including one without `lib/type` or `type`, in every mode), or `ConfigError`.
+- `1` — server-side error after a valid pre-flight (network, HTTP 4xx/5xx), or with `--dry-run` or `--compile` a compile that could not run (no native query permission on the database, no access to a table or card the query reads, server unreachable).
 
 Output by mode:
 
@@ -2028,6 +2049,9 @@ Output by mode:
 - `--dry-run` — `{ ok: boolean, errors: { path: string, message: string }[], sql: string | null }`. The local check runs first; when it passes, `POST /api/dataset/native` compiles the query without running it on the warehouse. A local error's `path` is a JSON Pointer into the body and `message` the Ajv error string; a server rejection (HTTP 400, or 500 from a reference it cannot resolve) is one error with `path: ""` and the server's message. `sql` is the compiled native query, `null` when it did not compile.
 - Local check failure (no `--dry-run`) — `{ ok, errors }` on stdout, exit 2, no request made.
 - Run success — the streamed `CardQueryResult`.
+- `--compile` — `{ query, params }`, plus `collection` for a document database; a server that drops the key from its answer (Metabase v59–v62) reports `collection: null`. The server inlines parameters into the query, so `params` is `null` for a SQL driver. It is the query as compiled, not as a run executes it: a run also caps an unaggregated query at the server's row limit, which the compile leaves out. Compiling needs native query permission on the database and access to every table and card the query reads; without them the server refuses with 403 (exit 1). Text output is the query alone; a document driver's stage list prints as JSON.
+- `--metadata` — `{ databases, tables, fields, snippets }`. `tables` includes the source table and the tables its foreign keys point at; a card used as a source appears as a virtual table with a `card__<id>` id. `fields` are the fields native template tags (field filters) and snippets point at; an MBQL body's own columns sit inside its tables. Compact by default (names, ids, types); `--full` carries every hydrated field, which exceeds the default `--max-bytes` for most tables.
+- `--export-format` — the export bytes, straight to stdout, capped at the server's download row limit. `--full`, `--fields` and `--max-bytes` are refused, since they shape only the JSON output; `--json` and `--format` still pick the shape of an error.
 
 ### MBQL 5 pre-flight in `card create`/`update`, `transform create`/`update`, `measure create`/`update`, and `segment create`/`update`
 

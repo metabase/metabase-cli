@@ -20,5 +20,12 @@ export type DatasetQuery = z.infer<typeof DatasetQuery>;
 export const ExportFormat = z.enum(["csv", "json", "xlsx"]);
 export type ExportFormat = z.infer<typeof ExportFormat>;
 
+// The formats the server can lay out as a pivot; its JSON writer keeps only the ungrouped rows.
+export const PivotExportFormat = ExportFormat.exclude(["json"]);
+
+// Values stay open: a setting's shape depends on the display, and the server normalizes what it reads.
+export const VisualizationSettings = z.record(z.string(), z.unknown());
+export type VisualizationSettings = z.infer<typeof VisualizationSettings>;
+
 export const SortDirection = z.enum(["asc", "desc"]);
 export type SortDirection = z.infer<typeof SortDirection>;

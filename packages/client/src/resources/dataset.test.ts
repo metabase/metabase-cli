@@ -114,6 +114,7 @@ describe("dataset resource wire requests", () => {
       query: MBQL_QUERY,
       format_rows: true,
       pivot_results: false,
+      csv_include_bom: false,
     });
 
     expect(capture.calls).toEqual([
@@ -121,7 +122,7 @@ describe("dataset resource wire requests", () => {
         url: "https://mb.example.com/metabase/api/dataset/csv",
         method: "POST",
         headers: STREAM_REQUEST_HEADERS,
-        body: `{"query":${MBQL_QUERY_JSON},"format_rows":true,"pivot_results":false}`,
+        body: `{"query":${MBQL_QUERY_JSON},"format_rows":true,"pivot_results":false,"csv_include_bom":false}`,
       },
     ]);
   });
@@ -133,6 +134,7 @@ describe("dataset resource wire requests", () => {
       query: MBQL_QUERY,
       format_rows: true,
       pivot_results: false,
+      csv_include_bom: false,
     });
 
     expect(await new Response(stream).text()).toBe("id,total\n1,9\n");
@@ -142,7 +144,12 @@ describe("dataset resource wire requests", () => {
     const { mb } = clientOver([new Response(null, { status: 204 })]);
 
     const error = await mb.dataset
-      .exportQuery("csv", { query: MBQL_QUERY, format_rows: true, pivot_results: false })
+      .exportQuery("csv", {
+        query: MBQL_QUERY,
+        format_rows: true,
+        pivot_results: false,
+        csv_include_bom: false,
+      })
       .catch((caught: unknown) => caught);
 
     expect(error).toBeInstanceOf(NetworkError);
