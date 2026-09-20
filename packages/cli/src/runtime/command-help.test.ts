@@ -317,6 +317,13 @@ const ALL_COMMANDS = [
   "table fields",
   "table fks",
   "table update",
+  "table sync-schema",
+  "table rescan-values",
+  "table discard-values",
+  "table bulk-edit",
+  "table bulk-sync-schema",
+  "table bulk-rescan-values",
+  "table bulk-discard-values",
   "field get",
   "field values",
   "field summary",
@@ -448,6 +455,7 @@ const ALL_COMMANDS = [
 
 const BODY_COMMANDS = [
   "table update",
+  "table bulk-edit",
   "field update",
   "card create",
   "card update",

@@ -30,6 +30,18 @@ This is the whole point of the skill. Each edit below is a key in the `field upd
 
 `table update` carries the table-level equivalents: `display_name`, `description`, `visibility_type` (`hidden` / `technical` / `cruft` — hides the whole table from the builder), `field_order`, and `entity_type`.
 
+<!-- requires: bulkTableEdit -->
+
+To set the same `entity_type`, `data_layer`, `data_source`, `data_authority`, `owner_email`, or `owner_user_id` on many tables at once, `mb table bulk-edit --body '{"schema_ids":["1:public"],"data_layer":"final"}'` takes `table_ids`, `database_ids`, and `schema_ids` (`"<db-id>:<schema>"`) selectors in the same body. A configured `data_authority` cannot be set back to `unconfigured`, and `data_source` never moves to or from `metabase-transform`; a selected table that breaks either rule fails the call. The server answers the same whether or not a selector matched a table, so confirm the edit with `mb table list` (e.g. `--data-layer final`).
+
+<!-- /requires -->
+
+<!-- requires: tableUserValueWithdrawal, bulkTableEdit -->
+
+`null` withdraws an edit: `data_source` and `data_layer` read back empty, while `entity_type`, `owner_email`, `owner_user_id`, and `data_authority` fall back to the values Metabase keeps for the table — the entity type it derives from the table name, and usually no owner and `unconfigured`. A call that fails on a rule may already have edited the selected tables that carried no earlier edit, so re-check with `mb table list` after a refusal.
+
+<!-- /requires -->
+
 ## Foreign keys are the highest-leverage edit
 
 A FK relationship is what makes a warehouse browsable. Set it in **two keys on the FK column**, in one PATCH:
@@ -63,11 +75,17 @@ The full semantic-type catalog — every value grouped by the base type it attac
 
 When a column looks stale or missing, know which one you need (`db` verbs, mechanics in `core`):
 
-- **Sync** (`mb db sync-schema <id> --wait`) — re-reads table/column **structure** (new tables, new columns, types). Run after a schema change.
-- **Scan / rescan** (`mb db rescan-values <id>`) — refreshes the **distinct-value sets** behind dropdown filters. Run when a `list` column's values changed but its dropdown is stale.
+- **Sync** (`mb db sync-schema <id> --wait`) — re-reads table/column **structure** (new tables, new columns, types). Run after a schema change. `mb table sync-schema <id>` re-syncs one known table (columns, fingerprints, field values), never finds a new table, and offers nothing to wait on.
+- **Scan / rescan** (`mb db rescan-values <id>`, or `mb table rescan-values <id>` for one table) — refreshes the cached **distinct-value sets** behind dropdown filters, skipping a set unread for 14 days or never read. Run when a `list` column's values changed but its dropdown is stale. `mb table discard-values <id> --yes` deletes a table's sets and their custom display values; no scan recreates them, only the next read does.
 - **Fingerprint** — value-distribution stats (min/max, null count) computed on a sample; drives smart defaults. Refreshed by sync; not a separate CLI verb.
 
 A newly connected database or a missing expected column usually just needs a `sync-schema --wait` before you conclude anything.
+
+<!-- requires: bulkTableSync -->
+
+For a set of tables, `mb table bulk-sync-schema`, `bulk-rescan-values`, and `bulk-discard-values --yes` take `--table-ids`, `--db-ids`, and `--schemas 1:public` selectors (`1:` for the tables with no schema) and need an admin or data analyst.
+
+<!-- /requires -->
 
 ## Don't
 

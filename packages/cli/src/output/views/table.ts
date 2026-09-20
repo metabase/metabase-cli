@@ -1,9 +1,17 @@
+import { z } from "zod";
+
 import { FieldCompact } from "@metabase/client/domain/field";
 import {
   type Table,
+  TableBulkEditFields,
+  TableBulkEditResult,
   TableCompact,
+  TableFieldValuesResult,
   type TableForeignKey,
   TableForeignKeyCompact,
+  TableSchemaSyncResult,
+  TableSelectionResult,
+  TableSelectors,
 } from "@metabase/client/domain/table";
 
 import { MALFORMED_CELL } from "../table";
@@ -47,5 +55,68 @@ export const tableForeignKeyView: ResourceView<TableForeignKey> = {
     { key: "destination_id", label: "Destination ID" },
     { key: "destination", label: "Destination Field", format: formatFieldName },
     { key: "relationship", label: "Relationship" },
+  ],
+};
+
+const SYNC_RESULT_COLUMNS = [
+  { key: "id", label: "Table" },
+  { key: "status", label: "Status" },
+] as const;
+
+export const tableSchemaSyncResultView: ResourceView<TableSchemaSyncResult> = {
+  compactPick: TableSchemaSyncResult,
+  tableColumns: [...SYNC_RESULT_COLUMNS],
+};
+
+export const tableFieldValuesResultView: ResourceView<TableFieldValuesResult> = {
+  compactPick: TableFieldValuesResult,
+  tableColumns: [...SYNC_RESULT_COLUMNS],
+};
+
+// A discard is confirmed first, so its result also says whether the prompt was declined.
+export const TableValuesDiscardResult = z.object({
+  id: z.number().int(),
+  discarded: z.boolean(),
+  aborted: z.boolean(),
+});
+export type TableValuesDiscardResult = z.infer<typeof TableValuesDiscardResult>;
+
+export const tableValuesDiscardResultView: ResourceView<TableValuesDiscardResult> = {
+  compactPick: TableValuesDiscardResult,
+  tableColumns: [
+    { key: "id", label: "Table" },
+    { key: "discarded", label: "Discarded" },
+    { key: "aborted", label: "Aborted" },
+  ],
+};
+
+const SELECTOR_COLUMNS = TableSelectors.keyof().options.map((key) => ({ key }));
+
+export const tableSelectionResultView: ResourceView<TableSelectionResult> = {
+  compactPick: TableSelectionResult,
+  tableColumns: [{ key: "accepted", label: "Accepted" }, ...SELECTOR_COLUMNS],
+};
+
+export const TableSelectionDiscardResult = TableSelectionResult.extend({
+  accepted: z.boolean(),
+  aborted: z.boolean(),
+});
+export type TableSelectionDiscardResult = z.infer<typeof TableSelectionDiscardResult>;
+
+export const tableSelectionDiscardResultView: ResourceView<TableSelectionDiscardResult> = {
+  compactPick: TableSelectionDiscardResult,
+  tableColumns: [
+    { key: "accepted", label: "Accepted" },
+    { key: "aborted", label: "Aborted" },
+    ...SELECTOR_COLUMNS,
+  ],
+};
+
+export const tableBulkEditResultView: ResourceView<TableBulkEditResult> = {
+  compactPick: TableBulkEditResult,
+  tableColumns: [
+    { key: "accepted", label: "Accepted" },
+    ...SELECTOR_COLUMNS,
+    ...TableBulkEditFields.keyof().options.map((key) => ({ key })),
   ],
 };

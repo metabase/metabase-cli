@@ -535,6 +535,53 @@ echo '{"description":"Customer dimension"}' | mb table update 42
 
 Publish status surfaces on the table itself — `table get`/`table list` carry `is_published` (and `collection_id` under `--full`). Publishing tables to the Library is done with [`mb library publish`](#library).
 
+### `mb table sync-schema <id>`
+
+Trigger a manual sync of one table (`POST /api/table/:id/sync_schema`): it re-reads the table's columns, fingerprints them, and refreshes the table's cached field values. It never discovers new tables; a table the warehouse just gained needs `mb db sync-schema <id>`. Returns `{ id, status: "ok" }` once the sync has been queued; the work happens asynchronously on the server, which reports no completion to wait on. A warehouse the server cannot connect to is refused with a 422. To sync a set of tables use `mb table bulk-sync-schema`.
+
+```sh
+mb table sync-schema 42
+mb table sync-schema 42 --json
+```
+
+### `mb table rescan-values <id>`
+
+Trigger a rescan of one table's cached field values (`POST /api/table/:id/rescan_values`). Only the sets already cached and read in the last 14 days are refreshed; a set never read, discarded, or unread for longer is skipped until a read rebuilds or revives it. Returns `{ id, status: "success" }` once the rescan has been queued.
+
+```sh
+mb table rescan-values 42
+mb table rescan-values 42 --json
+```
+
+### `mb table discard-values <id>`
+
+Discard one table's cached field values (`POST /api/table/:id/discard_values`), and with them any custom display values set on those values. No scan recreates a discarded set, neither `mb table rescan-values` nor the database's scheduled scan; Metabase rebuilds a set, without its display values, the next time it is read (a filter dropdown, `mb field values <id>`). Asks for confirmation on a terminal and refuses without `--yes` when stdin is not a TTY. Returns `{ id, discarded, aborted }`.
+
+```sh
+mb table discard-values 42 --yes
+mb table discard-values 42
+```
+
+### `mb table bulk-edit`
+
+Set the same metadata on every table a selector picks out (`POST /api/data-studio/table/edit`, Metabase v59+). The body selects tables with any of `table_ids`, `database_ids`, and `schema_ids` (each schema id is `"<db-id>:<schema>"`, e.g. `1:public`; the selectors are unioned) and sets any of `data_authority`, `data_source`, `data_layer`, `entity_type`, `owner_email`, `owner_user_id` on all of them. A configured `data_authority` cannot be set back to `unconfigured`, and `data_source` never moves to or from `metabase-transform`. A selected table that breaks either rule fails the call: before Metabase 64 no table is edited, while on 64 the selected tables Metabase held no user edits for may already carry the new values. Before Metabase 64, `null` clears a field, `null` for `data_authority` is refused before any request, and the next scheduled analysis overwrites `entity_type` with the type it derives from the table name. On Metabase 64, `null` withdraws the edit: `data_source` and `data_layer` read back empty, while `entity_type`, `owner_email`, `owner_user_id`, and `data_authority` fall back to the values Metabase keeps for the table, which are the name-derived entity type and the owner and data authority from before the upgrade (no owner and `unconfigured` for a table published then or created since). A body that selects nothing or sets nothing is refused before any request. Pass the body via `--body`, `--file`, or stdin (exactly one). The server answers `{}` whether or not a selector matched a table, so the command returns the accepted request restated, `{ accepted: true, ...body }`, and cannot say which tables were edited. Metabase 58 serves the same edit only on Enterprise, at `/api/ee/data-studio/table/edit` with the medallion layer names; the command does not reach it, because a method's requirements cannot say "58 with the `data-studio` token, or 59 and later", and the medallion names do not map onto the `final` / `internal` / `hidden` layers the body takes.
+
+```sh
+mb table bulk-edit --body '{"table_ids":[42,43],"owner_email":"dba@example.com"}'
+mb table bulk-edit --body '{"schema_ids":["1:public"],"data_layer":"final"}' --json
+cat edit.json | mb table bulk-edit
+```
+
+### `mb table bulk-sync-schema` / `bulk-rescan-values` / `bulk-discard-values`
+
+The selector forms of `sync-schema`, `rescan-values`, and `discard-values` (`POST /api/data-studio/table/sync-schema`, `/rescan-values`, `/discard-values`, Metabase v59+). Select tables with `--table-ids`, `--db-ids`, or `--schemas` (comma-separated; each schema id is `"<db-id>:<schema>"` with a positive database id, and `1:` selects the tables of database 1 that have no schema); the selectors are unioned. Only an admin or a data analyst may call them; anyone else gets a 403. `bulk-sync-schema` first tests the connection of every database behind the selection and is refused with a 422 if one fails. `bulk-discard-values` asks for confirmation like `discard-values` and needs `--yes` when stdin is not a TTY. The server answers no body whether or not a selector matched a table, so each command returns the accepted request restated, e.g. `{ accepted: true, schema_ids: ["1:public"] }` (`bulk-discard-values` adds `aborted`).
+
+```sh
+mb table bulk-sync-schema --schemas 1:public
+mb table bulk-rescan-values --db-ids 1 --json
+mb table bulk-discard-values --table-ids 42,43 --yes
+```
+
 ## Fields
 
 Inspect and edit individual columns via `/api/field`.

@@ -7,7 +7,7 @@ import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { warnIfOutsideSyncScope } from "../git-sync/sync-scope";
 import { defineMetabaseCommand } from "../runtime";
 
-import { parseTableSelectors, tableSelectorFlags } from "./selectors";
+import { parseTableSelectors, tableSelectorFlags } from "../table-selector-flags";
 
 export const LibraryPublishResult = z.object({
   target_collection: Collection.nullable(),

@@ -1,6 +1,14 @@
 import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
-import { Table, TableCompact, type TableUpdateInput } from "@metabase/client/domain/table";
+import {
+  Table,
+  type TableBulkEditInput,
+  TableBulkEditResult,
+  TableCompact,
+  TableFieldValuesResult,
+  TableSchemaSyncResult,
+  type TableUpdateInput,
+} from "@metabase/client/domain/table";
 import { parseJson } from "@metabase/client/json";
 
 import { FieldListEnvelope } from "../../packages/cli/src/commands/table/fields";
@@ -105,6 +113,10 @@ const ALL_BUT_REVIEWS = SEEDED_WAREHOUSE_TABLES.filter((table) => table.name !==
 const REVIEWS_OWNER_EMAIL = "dba@example.com";
 
 const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
+
+function bulkEditRefusal(serverTag: string | undefined): string {
+  return `This operation requires Metabase v59+ (this server is ${serverTag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`;
+}
 
 function warehouseEnvelope(data: typeof SEEDED_WAREHOUSE_TABLES) {
   return {
@@ -717,6 +729,156 @@ describe("table e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+  });
+
+  it("sync-schema queues a schema sync for the table and returns ok", async () => {
+    const result = await runCli({
+      args: ["table", "sync-schema", String(SEEDED.tables.reviews), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TableSchemaSyncResult)).toEqual({
+      id: SEEDED.tables.reviews,
+      status: "ok",
+    });
+  });
+
+  it("sync-schema against a missing table id surfaces a 404 HttpError", async () => {
+    const result = await runCli({
+      args: ["table", "sync-schema", "9999999", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorMessage(result.stderr)).toBe("Not found: POST /api/table/9999999/sync_schema.");
+  });
+
+  it("rescan-values queues a field-values rescan for the table and returns success", async () => {
+    const result = await runCli({
+      args: ["table", "rescan-values", String(SEEDED.tables.reviews), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TableFieldValuesResult)).toEqual({
+      id: SEEDED.tables.reviews,
+      status: "success",
+    });
+  });
+
+  it("rescan-values with a non-integer id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["table", "rescan-values", "abc", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  async function bulkEdit(body: TableBulkEditInput) {
+    return runCli({
+      args: ["table", "bulk-edit", "--body", JSON.stringify(body), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+  }
+
+  it("bulk-edit sets an owner through a table id, or refuses on a server without the route", async () => {
+    const body: TableBulkEditInput = {
+      table_ids: [SEEDED.tables.reviews],
+      owner_email: REVIEWS_OWNER_EMAIL,
+    };
+    const result = await bulkEdit(body);
+
+    if (serverHas("bulkTableEdit")) {
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, TableBulkEditResult)).toEqual({ accepted: true, ...body });
+      const owned = await listWarehouse("--owner-email", REVIEWS_OWNER_EMAIL);
+      expect(owned.exitCode, owned.stderr).toBe(0);
+      expect(parseJson(owned.stdout, TableListEnvelope)).toEqual(
+        warehouseEnvelope([REVIEWS_COMPACT]),
+      );
+      return;
+    }
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(bulkEditRefusal(bootstrap.server.version?.tag));
+  });
+
+  it("bulk-edit withdraws an owner through a schema id, or refuses on a server without the route", async () => {
+    await updateReviews({ owner_email: REVIEWS_OWNER_EMAIL });
+    const body: TableBulkEditInput = {
+      schema_ids: [`${SEEDED.warehouseDbId}:public`],
+      owner_email: null,
+    };
+    const result = await bulkEdit(body);
+
+    if (serverHas("bulkTableEdit")) {
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, TableBulkEditResult)).toEqual({ accepted: true, ...body });
+      const orphans = await listWarehouse("--orphan-only");
+      expect(orphans.exitCode, orphans.stderr).toBe(0);
+      expect(parseJson(orphans.stdout, TableListEnvelope)).toEqual(
+        warehouseEnvelope(SEEDED_WAREHOUSE_TABLES),
+      );
+      return;
+    }
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(bulkEditRefusal(bootstrap.server.version?.tag));
+  });
+
+  it("bulk-edit refuses before any request when the cached probe says v58", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfile(configHome, 58);
+
+    const result = await runCli({
+      args: [
+        "table",
+        "bulk-edit",
+        "--body",
+        JSON.stringify({ table_ids: [SEEDED.tables.reviews], owner_email: REVIEWS_OWNER_EMAIL }),
+        "--json",
+      ],
+      configHome,
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("capability");
+    expect(cliErrorMessage(result.stderr)).toBe(bulkEditRefusal("v0.58.0"));
+    expect(result.stdout).toBe("");
+  });
+
+  it("bulk-edit refuses a body that selects no table before any request", async () => {
+    const result = await bulkEdit({ owner_email: REVIEWS_OWNER_EMAIL });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "select at least one table: database_ids, schema_ids, table_ids",
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("bulk-edit refuses a body with an unknown key before any request", async () => {
+    const result = await runCli({
+      args: [
+        "table",
+        "bulk-edit",
+        "--body",
+        JSON.stringify({ table_ids: [SEEDED.tables.reviews], description: "x" }),
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("value did not match expected schema");
   });
 
   it("update enforces the input schema when an unknown enum value is sent", async () => {
