@@ -61,7 +61,19 @@ export type TableCompact = z.infer<typeof TableCompact>;
 
 const TableDataAuthority = z.enum(["unconfigured", "authoritative", "computed", "ingested"]);
 
-export const TableDataLayer = z.enum(["final", "internal", "hidden"]);
+// Metabase 58 names a table's layer after a medallion metal; 59 replaced the vocabulary with one
+// value fewer, so neither set maps onto the other and the canonical value is whichever the server
+// speaks.
+export const TableDataLayerTier = z.enum(["final", "internal", "hidden"]);
+export type TableDataLayerTier = z.infer<typeof TableDataLayerTier>;
+
+export const TableDataLayerMedallion = z.enum(["gold", "silver", "bronze", "copper"]);
+export type TableDataLayerMedallion = z.infer<typeof TableDataLayerMedallion>;
+
+export const TableDataLayer = z.enum([
+  ...TableDataLayerTier.options,
+  ...TableDataLayerMedallion.options,
+]);
 export type TableDataLayer = z.infer<typeof TableDataLayer>;
 
 export const TableDataSource = z.enum([
@@ -108,7 +120,7 @@ export type TableSelectors = z.infer<typeof TableSelectors>;
 export const TableBulkEditInput = TableSelectors.extend({
   data_authority: TableDataAuthority.nullable().optional(),
   data_source: TableDataSource.nullable().optional(),
-  data_layer: TableDataLayer.nullable().optional(),
+  data_layer: TableDataLayerTier.nullable().optional(),
   entity_type: TableEntityType.nullable().optional(),
   owner_email: z.string().nullable().optional(),
   owner_user_id: z.number().int().nullable().optional(),

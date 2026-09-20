@@ -348,6 +348,8 @@ export {
   TableBulkEditInput,
   TableCompact,
   TableDataLayer,
+  TableDataLayerMedallion,
+  TableDataLayerTier,
   TableDataSource,
   TableForeignKey,
   TableGetInclude,

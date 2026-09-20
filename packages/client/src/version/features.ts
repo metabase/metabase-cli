@@ -41,6 +41,7 @@ export const FEATURE_RULES = {
   tableListAccessFilters: { since: 59 },
   tableListTransformTargets: { since: 60 },
   tableUnusedFilter: { since: 58, tokenFeature: "dependencies" },
+  tableDataLayerTiers: { since: 59 },
   bulkTableEdit: { since: 59 },
   erd: { since: 62, tokenFeature: "schema-viewer" },
   documentCopy: { since: 59 },

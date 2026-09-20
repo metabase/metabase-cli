@@ -4,12 +4,14 @@ import {
   Table,
   type TableBulkEditInput,
   type TableDataLayer,
+  TableDataLayerTier,
   type TableDataSource,
   TableForeignKey,
   TableQueryMetadata,
   type TableUpdateInput,
 } from "../domain/table";
 import type { UploadUpdateAction, UploadUpdateResult } from "../domain/upload";
+import { ConfigError } from "../errors";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import type { FeatureName } from "../version/features";
@@ -76,6 +78,7 @@ export function tableResource(transport: Transport) {
   ): Promise<ListResult<Table>> {
     await transport.require("table.list", options);
     await transport.requireFeatures(listParamFeatures(params), options);
+    await requireDataLayer(params["data-layer"], options);
     const data = await transport.requestParsed(TableApiList, "/api/table", {
       ...options,
       query: {
@@ -108,11 +111,33 @@ export function tableResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<Table> {
     await transport.require("table.update", options);
+    await requireDataLayer(params.data_layer, options);
     return transport.requestParsed(Table, `/api/table/${id}`, {
       ...options,
       method: "PUT",
       body: params,
     });
+  }
+
+  // A tier name is refused below 59 by feature; a medallion name is refused from 59 on by value,
+  // because a requirement can only say a server is too old, never too new.
+  async function requireDataLayer(
+    value: TableDataLayer | null | undefined,
+    options: RequestOptions,
+  ): Promise<void> {
+    if (value === null || value === undefined) {
+      return;
+    }
+    if (TableDataLayerTier.safeParse(value).success) {
+      await transport.requireFeatures(["tableDataLayerTiers"], options);
+      return;
+    }
+    const { features } = await transport.server(options);
+    if (features.tableDataLayerTiers) {
+      throw new ConfigError(
+        `data_layer "${value}" is a Metabase 58 name; this server names a table's layer ${TableDataLayerTier.options.join(", ")}`,
+      );
+    }
   }
 
   /** Get a table by id with its fields hydrated — the metadata the query builder runs on. */

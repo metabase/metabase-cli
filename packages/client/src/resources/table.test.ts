@@ -1,6 +1,7 @@
 import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
+import { ConfigError } from "../errors";
 import type { ClientCredentials } from "../http/transport";
 import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
@@ -275,8 +276,8 @@ describe("table resource wire requests", () => {
     ]);
   });
 
-  it("refuses the bulk edit before the wire on a server that keeps it behind a token", async () => {
-    const { mb, capture } = clientOver([jsonResponse({})], SERVER_58);
+  it("refuses the bulk edit before the wire on a server below its floor", async () => {
+    const { mb, capture } = clientOver([], SERVER_58);
 
     const error = await thrownBy(() => mb.table.bulkEdit({ table_ids: [11], data_layer: "final" }));
 
@@ -321,6 +322,54 @@ describe("table resource wire requests", () => {
         body: '{"display_name":"Customers"}',
       },
     ]);
+  });
+
+  it("refuses a tier name for data_layer before the wire on a server that speaks medallions", async () => {
+    const { mb, capture } = clientOver([], SERVER_58);
+
+    const error = await thrownBy(() => mb.table.update(11, { data_layer: "final" }));
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
+      feature: "tableDataLayerTiers",
+      since: 59,
+      tokenFeature: null,
+      serverVersion: "v0.58.0",
+    });
+    expect(capture.calls).toEqual([]);
+  });
+
+  it("sends a medallion name for data_layer to the server that speaks it", async () => {
+    const { mb, capture } = clientOver([jsonResponse(TABLE)], SERVER_58);
+
+    await mb.table.update(11, { data_layer: "gold" });
+
+    expect(capture.calls.map((call) => call.body)).toEqual(['{"data_layer":"gold"}']);
+  });
+
+  it("refuses a medallion name for data_layer before the wire on a server that speaks tiers", async () => {
+    const { mb, capture } = clientOver([]);
+
+    const error = await thrownBy(() => mb.table.update(11, { data_layer: "gold" }));
+
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toBe(
+      'data_layer "gold" is a Metabase 58 name; this server names a table\'s layer final, internal, hidden',
+    );
+    expect(capture.calls).toEqual([]);
+  });
+
+  it("refuses a tier name in the data-layer filter on a server that speaks medallions", async () => {
+    const { mb, capture } = clientOver([], SERVER_58);
+
+    const error = await thrownBy(() => mb.table.list({ "data-layer": "hidden" }));
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail.feature).toBe("tableDataLayerTiers");
+    expect(capture.calls).toEqual([]);
   });
 
   it("sends the query-metadata request", async () => {
