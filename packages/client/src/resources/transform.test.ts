@@ -136,6 +136,15 @@ const TABLE_ID_COLUMN_SERVER = createServerProfile({
   tokenFeatures: null,
 });
 
+// The first generation whose transform routes include the checkpoint reset.
+const CHECKPOINT_SERVER = createServerProfile({
+  edition: "oss",
+  version: { tag: "v0.60.0", major: 60, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: null,
+});
+
 // The first generation with DAG reprocess runs and the unified run history.
 const DAG_SERVER = createServerProfile({
   edition: "oss",
@@ -352,8 +361,26 @@ describe("transform resource wire requests", () => {
     ]);
   });
 
+  it("refuses the checkpoint reset before the wire on a server without the route", async () => {
+    const { mb, capture } = clientOver([]);
+
+    const error = await mb.transform.resetCheckpoint(7).catch((caught: unknown) => caught);
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v60+ (this server is v0.59.0). Upgrade Metabase to use it.",
+      feature: "transformCheckpointReset",
+      since: 60,
+      tokenFeature: null,
+      serverVersion: "v0.59.0",
+    });
+    expect(capture.calls).toEqual([]);
+  });
+
   it("sends the checkpoint reset request", async () => {
-    const { mb, capture } = clientOver([new Response(null, { status: 204 })]);
+    const { mb, capture } = clientOver([new Response(null, { status: 204 })], CHECKPOINT_SERVER);
 
     await mb.transform.resetCheckpoint(7);
 

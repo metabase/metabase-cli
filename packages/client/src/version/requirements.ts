@@ -167,7 +167,7 @@ export const METHOD_REQUIREMENTS = {
   "transform.getRun": ["transforms"],
   "transform.runPages": ["transforms"],
   "transform.runSummaryPages": ["unifiedTransformRuns", "transforms"],
-  "transform.resetCheckpoint": ["transforms"],
+  "transform.resetCheckpoint": ["transformCheckpointReset", "transforms"],
   "transform.runDag": ["transformDagRuns", "transforms"],
   "transform.dagTransforms": ["transformDagRuns", "transforms"],
   "transform.run": ["transforms"],
