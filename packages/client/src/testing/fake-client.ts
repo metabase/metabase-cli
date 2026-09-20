@@ -7,6 +7,7 @@ import {
   type TransportRequestOptions,
 } from "../http/transport";
 import { NO_SERVER_TAG, parseJsonResponse } from "../http/response-shape";
+import type { FeatureName } from "../version/features";
 import type { ServerProfile } from "../version/profile";
 import type { MethodKey } from "../version/requirements";
 
@@ -55,17 +56,25 @@ export interface FakeRequirement {
   readonly precedingRequests: number;
 }
 
+// A feature list a method asked for because of a parameter it was given, recorded the same way.
+export interface FakeFeatureRequirement {
+  readonly features: ReadonlyArray<FeatureName>;
+  readonly precedingRequests: number;
+}
+
 // The fake records what a method required and never refuses: enforcement belongs to the real
 // transport and is proven there, so a resource test needs no profile to reach its wire assertions.
 export interface FakeClient {
   readonly client: Transport;
   readonly calls: ReadonlyArray<FakeClientCall>;
   readonly required: ReadonlyArray<FakeRequirement>;
+  readonly requiredFeatures: ReadonlyArray<FakeFeatureRequirement>;
 }
 
 export function createFakeClient(plan: FakeClientPlan = {}): FakeClient {
   const calls: FakeClientCall[] = [];
   const required: FakeRequirement[] = [];
+  const requiredFeatures: FakeFeatureRequirement[] = [];
   const client: Transport = {
     async requestParsed<T>(
       schema: ZodType<T>,
@@ -109,7 +118,9 @@ export function createFakeClient(plan: FakeClientPlan = {}): FakeClient {
     async require(key) {
       required.push({ key, precedingRequests: calls.length });
     },
-    async requireFeatures() {},
+    async requireFeatures(features) {
+      requiredFeatures.push({ features, precedingRequests: calls.length });
+    },
   };
-  return { client, calls, required };
+  return { client, calls, required, requiredFeatures };
 }
