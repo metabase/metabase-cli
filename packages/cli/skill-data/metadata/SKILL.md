@@ -87,6 +87,10 @@ For a set of tables, `mb table bulk-sync-schema`, `bulk-rescan-values`, and `bul
 
 <!-- /requires -->
 
+## Glossary — the business terms behind the columns
+
+Column metadata says what a field is; the glossary says what the business means by a word. Entries are instance-wide `{term, definition}` pairs, listed on the Glossary pages of Data Studio and the Data Reference and fed to Metabot as context, so defining "Churn" or "Active customer" once shapes every answer built on those columns. `mb glossary list --search <text>` matches terms and definitions (there is no `get`); `mb glossary create --term "Churn" --definition "…"` adds one, or pass a body with exactly `term` and `definition`; `mb glossary update <id>` replaces both fields; `mb glossary delete <id> --yes` removes one. Terms are unique.
+
 ## Don't
 
 - Don't expect a `semantic_type` to cast — it's a label. Use `coercion_strategy`, or a `transform`.

@@ -26,6 +26,7 @@ const main: CommandDef = defineCommand({
     collection: () => import("./commands/collection").then((mod) => mod.default),
     library: () => import("./commands/library").then((mod) => mod.default),
     document: () => import("./commands/document").then((mod) => mod.default),
+    glossary: () => import("./commands/glossary").then((mod) => mod.default),
     transform: () => import("./commands/transform").then((mod) => mod.default),
     "transform-job": () => import("./commands/transform-job").then((mod) => mod.default),
     "transform-tag": () => import("./commands/transform-tag").then((mod) => mod.default),

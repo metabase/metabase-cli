@@ -1632,6 +1632,57 @@ mb document archive 1
 mb document archive 1 --json
 ```
 
+## Glossary
+
+The instance-wide list of business terms and their definitions, from `/api/glossary`. Entries are listed on the Glossary pages of Data Studio and the Data Reference and are handed to Metabot as context, so a definition written once shapes every answer that uses the term. Every verb runs on every supported server; a server may restrict writes to admins and data analysts. Terms are unique. There is no get-by-id endpoint — use `list --search`.
+
+### `mb glossary list`
+
+Lists every entry in term order. `--search <text>` keeps the entries whose term or definition contains the text, case-insensitively. Some servers read `%` and `_` in the text as SQL LIKE wildcards rather than literal characters; a blank `--search` is refused.
+
+```sh
+mb glossary list
+mb glossary list --search churn --json
+```
+
+### `mb glossary create`
+
+Create an entry from `--term` and `--definition` together, or from a JSON body that holds exactly those two keys. The flags cannot be combined with `--body` or `--file`, and a body piped on stdin is not read while they are given. A blank or whitespace-only term or definition is refused.
+
+```sh
+mb glossary create --term "Churn" --definition "Customers lost in a calendar month"
+mb glossary create --body '{"term":"Churn","definition":"Customers lost in a calendar month"}'
+mb glossary create --file entry.json
+```
+
+| Flag                  | Description                          |
+| --------------------- | ------------------------------------ |
+| `--term <text>`       | The term (used with `--definition`). |
+| `--definition <text>` | The definition (used with `--term`). |
+| `--body <json>`       | Inline JSON body.                    |
+| `--file <path>`       | Path to JSON body file.              |
+
+### `mb glossary update <id>`
+
+Replace both the term and the definition of an entry. Takes the same flags and body as `create`.
+
+```sh
+mb glossary update 3 --term "Churn" --definition "Customers lost in a calendar month"
+mb glossary update 3 --body '{"term":"Churn","definition":"Customers lost in a calendar month"}'
+```
+
+### `mb glossary delete <id>`
+
+Delete an entry. Prompts for confirmation on a TTY; requires `--yes` otherwise.
+
+```sh
+mb glossary delete 3 --yes
+```
+
+| Flag    | Description        |
+| ------- | ------------------ |
+| `--yes` | Skip confirmation. |
+
 ## Settings
 
 Read and write Metabase instance settings via `/api/setting`. Listing all settings requires admin privileges; per-key reads/writes additionally enforce per-setting access. Setting values are always JSON — `"main"` is the string `main`, `42` is a number, `null` deletes the override and resets the value to its default.
