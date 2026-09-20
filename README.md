@@ -469,11 +469,26 @@ Returns every table in the chosen database (or across all databases) as a flat c
 ```sh
 mb table list
 mb table list --db-id 1 --json
+mb table list --term order --can-query --json
+mb table list --data-layer hidden --orphan-only --json
 ```
 
-| Flag           | Description                         |
-| -------------- | ----------------------------------- |
-| `--db-id <id>` | Filter tables by their database id. |
+`--db-id` narrows the list on the client; every other flag is applied by the server. A filter the server is too old to honour is refused before any request (exit 2) rather than dropped.
+
+| Flag                          | Description                                                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `--db-id <id>`                | Filter tables by their database id.                                                                                            |
+| `--term <text>`               | Match table names and display names by prefix; `*` is a wildcard (`--term 'order*'`, `--term ite` also matches `Order Items`). |
+| `--visibility-type <type>`    | Only tables with this visibility: `hidden`, `technical`, `cruft`.                                                              |
+| `--data-layer <layer>`        | Only tables in this data layer: `final`, `internal`, `hidden` (Metabase v58 names them `gold`, `silver`, `bronze`, `copper`).  |
+| `--data-source <source>`      | Only tables from this data source: `unknown`, `ingested`, `metabase-transform`, `transform`, `source-data`, `upload`.          |
+| `--owner-user-id <id>`        | Only tables owned by this user id.                                                                                             |
+| `--owner-email <email>`       | Only tables owned by this email.                                                                                               |
+| `--orphan-only`               | Only tables with no owner.                                                                                                     |
+| `--unused-only`               | Only tables nothing depends on. Needs the `dependencies` premium feature.                                                      |
+| `--can-query`                 | Only tables you can run queries against (Metabase v59+).                                                                       |
+| `--can-write`                 | Only tables whose metadata you can edit (Metabase v59+).                                                                       |
+| `--include-transform-targets` | Also list the inactive tables a transform writes to (Metabase v60+).                                                           |
 
 ### `mb table get <id>`
 
@@ -496,6 +511,15 @@ List the fields on a table (a thin projection over `query_metadata.fields`). Use
 ```sh
 mb table fields 42
 mb table fields 42 --json
+```
+
+### `mb table fks <id>`
+
+List the foreign keys pointing at a table: every field in another table whose `fk_target_field_id` is a field of this one. Each row carries the origin field, the destination field and the relationship (`Mt1`). A table nothing points at answers an empty list.
+
+```sh
+mb table fks 42
+mb table fks 42 --json
 ```
 
 ### `mb table update <id>`

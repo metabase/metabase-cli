@@ -1,15 +1,18 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 
-import { Table, TableCompact } from "@metabase/client/domain/table";
+import { Table, TableCompact, type TableUpdateInput } from "@metabase/client/domain/table";
 import { parseJson } from "@metabase/client/json";
 
 import { FieldListEnvelope } from "../../packages/cli/src/commands/table/fields";
+import { TableForeignKeyListEnvelope } from "../../packages/cli/src/commands/table/fks";
 import { tableFieldsOversizeHint } from "../../packages/cli/src/commands/table/hints";
 import { TableListEnvelope } from "../../packages/cli/src/commands/table/list";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
+import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { cliErrorMessage } from "./cli-error";
+import { seedProbedProfile } from "./seed-profile";
 import { SEEDED } from "./seed/seeded";
+import { serverHas } from "./server-gate";
 
 const CUSTOMERS_COMPACT = {
   id: SEEDED.tables.customers,
@@ -87,6 +90,25 @@ const SEEDED_WAREHOUSE_TABLES = [
   },
   REVIEWS_COMPACT,
 ];
+
+const ORDER_TABLES = SEEDED_WAREHOUSE_TABLES.filter((table) => table.name.startsWith("order"));
+
+const ALL_BUT_REVIEWS = SEEDED_WAREHOUSE_TABLES.filter((table) => table.name !== "reviews");
+
+const REVIEWS_OWNER_EMAIL = "dba@example.com";
+
+const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
+
+function warehouseEnvelope(data: typeof SEEDED_WAREHOUSE_TABLES) {
+  return {
+    data,
+    returned: data.length,
+    offset: 0,
+    total: data.length,
+    has_more: false,
+    next_offset: null,
+  };
+}
 
 const CUSTOMERS_FIELD_NAMES = [
   "attributes",
@@ -204,6 +226,186 @@ describe("table e2e", () => {
       has_more: false,
       next_offset: null,
     });
+  });
+
+  async function listWarehouse(...filters: string[]) {
+    return runCli({
+      args: ["table", "list", "--db-id", String(SEEDED.warehouseDbId), "--json", ...filters],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+  }
+
+  async function updateReviews(body: TableUpdateInput): Promise<void> {
+    const result = await runCli({
+      args: ["table", "update", String(SEEDED.tables.reviews), "--body", JSON.stringify(body)],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+  }
+
+  it("list --term keeps the tables whose name starts with it", async () => {
+    const result = await listWarehouse("--term", "order");
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TableListEnvelope)).toEqual(warehouseEnvelope(ORDER_TABLES));
+  });
+
+  it("list --visibility-type keeps only the tables marked with it", async () => {
+    await updateReviews({ visibility_type: "hidden" });
+
+    const result = await listWarehouse("--visibility-type", "hidden");
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TableListEnvelope)).toEqual(
+      warehouseEnvelope([REVIEWS_COMPACT]),
+    );
+  });
+
+  it("list --data-layer keeps only the tables placed in it", async () => {
+    const layer = serverHas("tableDataLayerTiers") ? "final" : "gold";
+    await updateReviews({ data_layer: layer });
+
+    const result = await listWarehouse("--data-layer", layer);
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TableListEnvelope)).toEqual(
+      warehouseEnvelope([REVIEWS_COMPACT]),
+    );
+  });
+
+  it("list --owner-email keeps only the tables owned by it", async () => {
+    await updateReviews({ owner_email: REVIEWS_OWNER_EMAIL });
+
+    const result = await listWarehouse("--owner-email", REVIEWS_OWNER_EMAIL);
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TableListEnvelope)).toEqual(
+      warehouseEnvelope([REVIEWS_COMPACT]),
+    );
+  });
+
+  it("list --orphan-only drops the tables that have an owner", async () => {
+    await updateReviews({ owner_email: REVIEWS_OWNER_EMAIL });
+
+    const result = await listWarehouse("--orphan-only");
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TableListEnvelope)).toEqual(warehouseEnvelope(ALL_BUT_REVIEWS));
+  });
+
+  it("list --can-query --can-write answers every seeded table for the admin, or refuses on a server without the access filters", async () => {
+    const result = await listWarehouse("--can-query", "--can-write");
+
+    if (serverHas("tableListAccessFilters")) {
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, TableListEnvelope)).toEqual(
+        warehouseEnvelope(SEEDED_WAREHOUSE_TABLES),
+      );
+      return;
+    }
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      `This operation requires Metabase v59+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`,
+    );
+  });
+
+  it("list --include-transform-targets answers every seeded table when nothing is a transform target, or refuses on a server without the filter", async () => {
+    const result = await listWarehouse("--include-transform-targets");
+
+    if (serverHas("tableListTransformTargets")) {
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, TableListEnvelope)).toEqual(
+        warehouseEnvelope(SEEDED_WAREHOUSE_TABLES),
+      );
+      return;
+    }
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      `This operation requires Metabase v60+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`,
+    );
+  });
+
+  it("list --unused-only answers a subset of the seeded tables with the dependencies feature, or refuses without it", async () => {
+    const result = await listWarehouse("--unused-only");
+
+    if (serverHas("tableUnusedFilter")) {
+      expect(result.exitCode, result.stderr).toBe(0);
+      const envelope = parseJson(result.stdout, TableListEnvelope);
+      expect(
+        envelope.data.every((row) => SEEDED_WAREHOUSE_TABLES.some((t) => t.id === row.id)),
+      ).toBe(true);
+      return;
+    }
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "This operation requires the 'dependencies' premium feature (not enabled on this server).",
+    );
+  });
+
+  it("list --can-query refuses before any request when the cached probe says v58", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfile(configHome, 58);
+
+    const result = await runCli({ args: ["table", "list", "--can-query", "--json"], configHome });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("capability");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      `This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`,
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("list --unused-only refuses before any request when the cached probe lacks the dependencies feature", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfile(configHome, 58);
+
+    const result = await runCli({ args: ["table", "list", "--unused-only", "--json"], configHome });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("capability");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "This operation requires the 'dependencies' premium feature (not enabled on this server).",
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("list rejects an unknown --data-layer value with ConfigError", async () => {
+    const result = await listWarehouse("--data-layer", "platinum");
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      'invalid --data-layer value: "platinum" (expected one of: final, internal, hidden, gold, silver, bronze, copper)',
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("list refuses a medallion data layer name on a server that speaks tiers, and sends it to one that speaks medallions", async () => {
+    const result = await listWarehouse("--data-layer", "gold");
+
+    if (!serverHas("tableDataLayerTiers")) {
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, TableListEnvelope)).toEqual(warehouseEnvelope([]));
+      return;
+    }
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("config");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      'data_layer "gold" is a medallion name; this server names a table\'s layer final, internal, hidden',
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("list rejects a non-integer --owner-user-id with ConfigError", async () => {
+    const result = await listWarehouse("--owner-user-id", "abc");
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      'invalid --owner-user-id: "abc" (expected integer)',
+    );
+    expect(result.stdout).toBe("");
   });
 
   it("get returns the basic table without hydrating fields", async () => {
@@ -350,6 +552,92 @@ describe("table e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+  });
+
+  async function fieldNamed(tableId: number, name: string) {
+    const result = await runCli({
+      args: ["table", "fields", String(tableId), "--json", "--max-bytes", "0"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    const field = parseJson(result.stdout, FieldListEnvelope).data.find((row) => row.name === name);
+    assert(field !== undefined, `no field ${name} on table ${tableId}`);
+    return field;
+  }
+
+  it("fks lists the fields in other tables that point at the table", async () => {
+    const customersId = await fieldNamed(SEEDED.tables.customers, "id");
+    const ordersCustomerId = await fieldNamed(SEEDED.tables.orders, "customer_id");
+    const reviewsCustomerId = await fieldNamed(SEEDED.tables.reviews, "customer_id");
+
+    const result = await runCli({
+      args: ["table", "fks", String(SEEDED.tables.customers), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const envelope = parseJson(result.stdout, TableForeignKeyListEnvelope);
+    const expectedRows = [ordersCustomerId, reviewsCustomerId].map((origin) => ({
+      relationship: "Mt1",
+      origin_id: origin.id,
+      origin,
+      destination_id: customersId.id,
+      destination: customersId,
+    }));
+    expect({
+      ...envelope,
+      data: envelope.data.toSorted((a, b) => a.origin_id - b.origin_id),
+    }).toEqual({
+      data: expectedRows.toSorted((a, b) => a.origin_id - b.origin_id),
+      returned: 2,
+      offset: 0,
+      total: 2,
+      has_more: false,
+      next_offset: null,
+    });
+  });
+
+  it("fks answers an empty envelope for a table nothing points at", async () => {
+    const result = await runCli({
+      args: ["table", "fks", String(SEEDED.tables.reviews), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TableForeignKeyListEnvelope)).toEqual({
+      data: [],
+      returned: 0,
+      offset: 0,
+      total: 0,
+      has_more: false,
+      next_offset: null,
+    });
+  });
+
+  it("fks with a non-integer id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["table", "fks", "abc", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("fks against a missing table id surfaces a 404 HttpError", async () => {
+    const result = await runCli({
+      args: ["table", "fks", "9999999", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorMessage(result.stderr)).toBe("Not found: GET /api/table/9999999/fks.");
   });
 
   it("update edits the table description and returns the updated row", async () => {

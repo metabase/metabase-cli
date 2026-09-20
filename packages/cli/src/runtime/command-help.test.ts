@@ -315,6 +315,7 @@ const ALL_COMMANDS = [
   "table list",
   "table get",
   "table fields",
+  "table fks",
   "table update",
   "field get",
   "field values",

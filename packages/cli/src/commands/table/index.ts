@@ -8,6 +8,7 @@ export default defineCommandGroup({
     list: () => import("./list").then((m) => m.default),
     get: () => import("./get").then((m) => m.default),
     fields: () => import("./fields").then((m) => m.default),
+    fks: () => import("./fks").then((m) => m.default),
     update: () => import("./update").then((m) => m.default),
   },
 });
