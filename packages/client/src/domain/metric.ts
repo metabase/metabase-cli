@@ -177,6 +177,19 @@ export const MetricDimension = z
   .loose();
 export type MetricDimension = z.infer<typeof MetricDimension>;
 
+export const MetricDimensionCompact = MetricDimension.pick({
+  id: true,
+  name: true,
+  display_name: true,
+  description: true,
+  effective_type: true,
+  semantic_type: true,
+  status: true,
+  group: true,
+  default: true,
+}).strip();
+export type MetricDimensionCompact = z.infer<typeof MetricDimensionCompact>;
+
 export const MetricMappingTarget = z.tuple([z.string(), ClauseOptions]).rest(z.unknown());
 export type MetricMappingTarget = z.infer<typeof MetricMappingTarget>;
 

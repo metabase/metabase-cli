@@ -139,3 +139,15 @@ export const TableForeignKey = z
   })
   .loose();
 export type TableForeignKey = z.infer<typeof TableForeignKey>;
+
+export const TableForeignKeyCompact = TableForeignKey.pick({
+  relationship: true,
+  origin_id: true,
+  destination_id: true,
+})
+  .strip()
+  .extend({
+    origin: FieldCompact,
+    destination: FieldCompact,
+  });
+export type TableForeignKeyCompact = z.infer<typeof TableForeignKeyCompact>;
