@@ -105,6 +105,14 @@ const UNLICENSED_SERVER = createServerProfile({
   tokenFeatures: { "transforms-testing": false },
 });
 
+const LICENSED_64 = createServerProfile({
+  edition: "ee",
+  version: { tag: "v1.64.0", major: 64, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: { "transforms-testing": true },
+});
+
 function clientOver(responses: FetchScript, server: ServerProfile = SERVER) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
@@ -236,6 +244,24 @@ describe("transform-test resource wire requests", () => {
     expect(error.errorCode).toBeNull();
     expect(error.fieldErrors).toEqual({ name: "value must be a non-blank string." });
     expect(error.specificFieldErrors).toEqual({ name: "should be at least 1 character" });
+  });
+
+  it("refuses before the wire on a server older than the route, whatever its token grants", async () => {
+    const { mb, capture } = clientOver([], LICENSED_64);
+
+    const error = await thrownBy(() => mb.transformTest.list());
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v65+ (this server is v1.64.0). Upgrade Metabase to use it.",
+      feature: "transformTests",
+      since: 65,
+      tokenFeature: "transforms-testing",
+      serverVersion: "v1.64.0",
+    });
+    expect(capture.calls).toEqual([]);
   });
 
   it("refuses a server without the token feature before any request leaves", async () => {
