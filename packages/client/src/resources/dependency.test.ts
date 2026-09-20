@@ -98,6 +98,15 @@ const V58_SERVER = createServerProfile({
   tokenFeatures: { dependencies: true },
 });
 
+// The first generation with the item listings, which still read their filters in snake_case.
+const V59_SERVER = createServerProfile({
+  edition: "ee",
+  version: { tag: "v1.59.0", major: 59, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: { dependencies: true },
+});
+
 function clientOver(responses: FetchScript, server: ServerProfile = SERVER) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
@@ -287,6 +296,47 @@ describe("dependency resource wire requests", () => {
       tokenFeature: "dependencies",
       serverVersion: "v1.58.0",
     });
+    expect(capture.calls).toEqual([]);
+  });
+
+  it("lists dependents on a server that reads its filters in snake_case when none is set", async () => {
+    const { mb, capture } = clientOver([jsonResponse([CARD_NODE])], V59_SERVER);
+
+    await mb.dependency.dependents("table", 3, { query: "ord", broken: true });
+
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/dependencies/graph/dependents?type=table&id=3&broken=true&query=ord",
+    ]);
+  });
+
+  it("refuses a renamed dependents filter before the wire on a server that reads snake_case", async () => {
+    const { mb, capture } = clientOver([], V59_SERVER);
+
+    const error = await thrownBy(() =>
+      mb.dependency.dependents("table", 3, { "dependent-types": ["card"] }),
+    );
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v60+ (this server is v1.59.0). Upgrade Metabase to use it.",
+      feature: "dependencyKebabCaseFilters",
+      since: 60,
+      tokenFeature: null,
+      serverVersion: "v1.59.0",
+    });
+    expect(capture.calls).toEqual([]);
+  });
+
+  it("refuses a renamed item-listing filter before the wire on a server that reads snake_case", async () => {
+    const { mb, capture } = clientOver([], V59_SERVER);
+
+    const pages = mb.dependency.unreferencedPages({ "sort-direction": "desc" });
+    const error = await thrownBy(() => pages[Symbol.asyncIterator]().next());
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail.feature).toBe("dependencyKebabCaseFilters");
     expect(capture.calls).toEqual([]);
   });
 });

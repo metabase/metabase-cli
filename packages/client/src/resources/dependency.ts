@@ -14,6 +14,7 @@ import type { SortDirection } from "../domain/query";
 import type { QueryValue, RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { type Page, type PaginateOptions, paginatePages } from "../paginate";
+import type { FeatureName } from "../version/features";
 
 const DependencyNodeApiList = z.array(DependencyNode);
 const DependencyEntityApiList = z.array(DependencyEntity);
@@ -40,6 +41,26 @@ export interface DependencyItemListParams {
 }
 
 export type DependencyItemPageOptions = Omit<PaginateOptions, "query">;
+
+// Metabase 59 reads these six filters in snake_case from an open query map, so the kebab-case key
+// the newer servers take is dropped there without a word; `types`, `query`, `broken` and the paging
+// window kept their names. A call that sets one is refused on 59 before the wire.
+const RENAMED_FILTERS = [
+  "dependent-types",
+  "dependent-card-types",
+  "card-types",
+  "include-personal-collections",
+  "sort-column",
+  "sort-direction",
+] as const;
+
+type RenamedFilter = (typeof RENAMED_FILTERS)[number];
+
+function filterFeatures(params: Readonly<Partial<Record<RenamedFilter, unknown>>>): FeatureName[] {
+  return RENAMED_FILTERS.some((key) => params[key] !== undefined)
+    ? ["dependencyKebabCaseFilters"]
+    : [];
+}
 
 export function dependencyResource(transport: Transport) {
   /**
@@ -72,6 +93,7 @@ export function dependencyResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<ListResult<DependencyNode>> {
     await transport.require("dependency.dependents", options);
+    await transport.requireFeatures(filterFeatures(params), options);
     const data = await transport.requestParsed(
       DependencyNodeApiList,
       "/api/ee/dependencies/graph/dependents",
@@ -106,6 +128,7 @@ export function dependencyResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<ListResult<DependencyEntity>> {
     await transport.require("dependency.broken", options);
+    await transport.requireFeatures(filterFeatures(params), options);
     const data = await transport.requestParsed(
       DependencyEntityApiList,
       "/api/ee/dependencies/graph/broken",
@@ -137,6 +160,7 @@ export function dependencyResource(transport: Transport) {
     options: DependencyItemPageOptions = {},
   ): AsyncIterable<Page<DependencyNode>> {
     await transport.require("dependency.unreferencedPages", options);
+    await transport.requireFeatures(filterFeatures(params), options);
     yield* paginatePages(transport, "/api/ee/dependencies/graph/unreferenced", DependencyNode, {
       query: itemListQuery(params),
       ...(options.offset !== undefined && { offset: options.offset }),
@@ -158,6 +182,7 @@ export function dependencyResource(transport: Transport) {
     options: DependencyItemPageOptions = {},
   ): AsyncIterable<Page<BreakingSource>> {
     await transport.require("dependency.breakingPages", options);
+    await transport.requireFeatures(filterFeatures(params), options);
     yield* paginatePages(transport, "/api/ee/dependencies/graph/breaking", BreakingSource, {
       query: itemListQuery(params),
       ...(options.offset !== undefined && { offset: options.offset }),
