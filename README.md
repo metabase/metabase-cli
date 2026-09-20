@@ -898,6 +898,24 @@ cat patch.json | mb dashboard update-dashcard 1 5
 
 The patch must contain at least one field; an empty object is rejected before the network round-trip.
 
+### `mb dashboard copy <id>`
+
+Copy a dashboard, with its tabs and dashcards, into a collection (`POST /api/dashboard/:id/copy`). The copy references the source cards; `--deep` duplicates its questions and metrics into the target collection instead and keeps referencing its models. A dashboard holding dashboard questions (cards saved inside the dashboard) must be copied with `--deep`. Copied into the source dashboard's own collection, a duplicated card's name gets the suffix ` - Duplicate`, translated into the user's Metabase language. Archived cards, cards you cannot read, and every card on a dashcard whose main card you cannot read are left out, and the output lists them by id as `uncopied`, once per dashcard they sat on (the text summary names each id once). A left-out main card takes its dashcard with it; a left-out series card stays on a dashcard whose main card is referenced and is dropped from one whose main card is duplicated. Action, link and placeholder dashcards are not copied. Prints the new dashboard.
+
+```sh
+mb dashboard copy 1
+mb dashboard copy 1 --name "Orders (copy)" --collection-id 4 --json
+mb dashboard copy 1 --deep --json
+```
+
+| Flag                        | Description                                                      |
+| --------------------------- | ---------------------------------------------------------------- |
+| `--name <name>`             | Name for the copy (default: the source name).                    |
+| `--description <text>`      | Description for the copy (default: the source description).      |
+| `--collection-id <id>`      | Collection to copy into (default: the root collection).          |
+| `--collection-position <n>` | Pin the copy at this position in the collection.                 |
+| `--deep`                    | Duplicate the questions and metrics instead of referencing them. |
+
 ### `mb dashboard archive <id>`
 
 Soft-delete a dashboard by setting `archived: true`. The archived dashboard stays available via `dashboard list --filter archived` and `dashboard get <id>` until permanently deleted server-side. To unarchive use `mb dashboard update <id> --body '{"archived":false}'`.
@@ -1539,7 +1557,7 @@ mb library unpublish --db-ids 1 --json
 
 ## Documents
 
-CRUD on `/api/document`. A document is a rich-text page that mixes prose with embedded saved questions (`cardEmbed`) and inline links to Metabase entities (`smartLink`). The body is a [TipTap](https://tiptap.dev/) (ProseMirror) JSON tree stored under `content_type: application/json+vnd.prose-mirror`. The agent-facing format reference lives in the bundled `document` skill (`mb skills get document`). It's a baseline OSS feature — no elevated server version or premium token required.
+CRUD on `/api/document`. A document is a rich-text page that mixes prose with embedded saved questions (`cardEmbed`) and inline links to Metabase entities (`smartLink`). The body is a [TipTap](https://tiptap.dev/) (ProseMirror) JSON tree stored under `content_type: application/json+vnd.prose-mirror`. The agent-facing format reference lives in the bundled `document` skill (`mb skills get document`). It's a baseline OSS feature — no premium token required, and every verb but `copy` runs on every supported server.
 
 ### `mb document list`
 
@@ -1589,6 +1607,21 @@ mb document update 1 --body '{"archived":false}'
 | --------------- | ----------------------- |
 | `--body <json>` | Inline JSON body.       |
 | `--file <path>` | Path to JSON body file. |
+
+### `mb document copy <id>`
+
+Copy a document into a collection (`POST /api/document/:id/copy`, Metabase v59+). The copy duplicates the cards saved inside the document into the target collection and carries the source body with their embeds pointing at the duplicates. An archived source is not found. Prints the new document.
+
+```sh
+mb document copy 1
+mb document copy 1 --name "Notes (copy)" --collection-id 4 --json
+```
+
+| Flag                        | Description                                             |
+| --------------------------- | ------------------------------------------------------- |
+| `--name <name>`             | Name for the copy (default: the source name).           |
+| `--collection-id <id>`      | Collection to copy into (default: the root collection). |
+| `--collection-position <n>` | Pin the copy at this position in the collection.        |
 
 ### `mb document archive <id>`
 

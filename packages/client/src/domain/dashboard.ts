@@ -207,3 +207,8 @@ export const DashboardCopy = Dashboard.extend({
   uncopied: z.array(DashboardUncopiedCard).optional(),
 });
 export type DashboardCopy = z.infer<typeof DashboardCopy>;
+
+export const DashboardCopyCompact = DashboardCompact.extend({
+  uncopied: z.array(DashboardUncopiedCard.pick({ id: true }).strip()).optional(),
+});
+export type DashboardCopyCompact = z.infer<typeof DashboardCopyCompact>;

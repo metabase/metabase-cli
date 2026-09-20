@@ -10,7 +10,7 @@ A dashboard starts as cards on a grid; it becomes an **app** when filters drive 
 
 **`core` owns the transport mechanics** — the whole-array replace semantics (editing `dashcards` or `parameters` replaces the entire set; omitted entries are deleted; every dashcard carries `card_id`, with `null` for virtual cards; new cards use negative ids), `update-dashcard` for a single safe patch vs. `update --body` for a full replace, and the `parameter-values` verb. Read it first (`mb skills get core`). **`visualization`** owns each card's chart and the full `click_behavior` key catalog.
 
-Inspect before you wire: `mb dashboard get <id> --json` hydrates `parameters`, `dashcards`, and `tabs`; `mb dashboard cards <id>` lists just the dashcards.
+Inspect before you wire: `mb dashboard get <id> --json` hydrates `parameters`, `dashcards`, and `tabs`; `mb dashboard cards <id>` lists just the dashcards. To start from an existing dashboard, `mb dashboard copy <id> --collection-id <id> --json` copies it with its tabs and dashcards (the cards stay referenced; `--deep` duplicates the questions and metrics into the target collection, and a dashboard holding dashboard questions needs it). Cards left out of the copy come back by id as `uncopied`.
 
 ## Layout: the grid is 24 columns — not 12
 

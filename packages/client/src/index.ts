@@ -136,6 +136,7 @@ export {
   Dashboard,
   DashboardCompact,
   DashboardCopy,
+  DashboardCopyCompact,
   DashboardCopyInput,
   DashboardCreateInput,
   DashboardDetail,
