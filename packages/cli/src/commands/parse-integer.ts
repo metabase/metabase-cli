@@ -5,12 +5,15 @@ const INTEGER_PATTERN = /^-?\d+$/;
 interface ParseIntegerOptions {
   name: string;
   min: number;
+  /** What the flag takes, when it accepts more than an integer. */
+  expected?: string;
 }
 
 export function parseInteger(value: string, options: ParseIntegerOptions): number {
   const trimmed = value.trim();
   if (!INTEGER_PATTERN.test(trimmed)) {
-    throw new ConfigError(`invalid ${options.name}: "${value}" (expected integer)`);
+    const expected = options.expected ?? "integer";
+    throw new ConfigError(`invalid ${options.name}: "${value}" (expected ${expected})`);
   }
   const parsed = Number.parseInt(trimmed, 10);
   if (parsed < options.min) {

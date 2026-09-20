@@ -1464,7 +1464,7 @@ mb alert archive 9 --json
 
 ## Collections
 
-Read collections on `/api/collection`. Collections are the folders that contain cards, dashboards, and other collections. The list endpoint surfaces a virtual root collection (id `"root"`) alongside regular numeric ids; the get endpoint accepts only the numeric id.
+Read and edit collections on `/api/collection`. Collections are the folders that contain cards, dashboards, and other collections. The list endpoint surfaces a virtual root collection (id `"root"`) alongside regular numeric ids; `get` and `items` accept the aliases and entity ids described below, while `update` and `archive` take the numeric id only.
 
 ### `mb collection list`
 
@@ -1537,9 +1537,41 @@ mb collection create --body '{"name":"ETL"}' --namespace transforms
 | `--file <path>`    | Path to JSON body file. Use `-` to read from stdin.                                                                                                                                                              |
 | `--namespace <ns>` | Collection namespace (`transforms`, `snippets`, `analytics`, `shared-tenant-collection`, `tenant-specific`). Omit for a normal collection; required for a collection a transform's `collection_id` can point at. |
 
+### `mb collection update <id>`
+
+Rename, describe, move, trash, or restore a collection. Patches only what you send. Pass the patch as flags, or as a JSON body with any of `name`, `description` (`null` clears it), `parent_id` (`null` for the top level), `authority_level`, and `archived`; the two forms are alternatives, and a body beside a patch flag is refused with a `ConfigError` (exit 2). A body with no key, with a key outside that list, or with a value of the wrong type fails validation (exit 1) before any request.
+
+```sh
+mb collection update 4 --name "Marketing"
+mb collection update 4 --description "Campaign reporting" --parent-id 2
+mb collection update 4 --parent-id root
+mb collection update 4 --clear-description
+mb collection update 4 --archived false
+mb collection update 4 --body '{"parent_id":null,"authority_level":"official"}'
+mb collection update 4 --file patch.json --json
+```
+
+| Flag                       | Description                                                         |
+| -------------------------- | ------------------------------------------------------------------- |
+| `--name <text>`            | New name.                                                           |
+| `--description <text>`     | New description.                                                    |
+| `--clear-description`      | Remove the description. Refused beside `--description`.             |
+| `--parent-id <id \| root>` | Collection to move it under, or `root` for the top level.           |
+| `--archived <true\|false>` | `true` moves it to the trash, `false` restores it. Omit to keep it. |
+| `--body <json>`            | Inline JSON body.                                                   |
+| `--file <path>`            | Path to JSON body file. Use `-` to read from stdin.                 |
+
+`<id>` is the integer id only; `root`, `trash`, and entity ids are refused before any request. A blank `--name` or `--description` (empty or whitespace only) is refused too, since the server takes a non-blank string; blank follows the server's whitespace set, so a no-break space counts as text.
+
+The server reads a body without `archived` as `archived: false`, which would restore an archived collection. So when the patch leaves `archived` out, the CLI reads the collection first and sends its current state: an archived collection stays in the trash while you edit it, and comes back only with `--archived false` (or `"archived": false`). Restoring with `--parent-id` puts it under that parent instead of its old location; `--parent-id` alone moves an archived collection and leaves it in the trash.
+
+The server ignores `parent_id` in a request that trashes a collection. So `--archived true` with `--parent-id` on a collection that is not in the trash is sent as two requests, the move with every other change and then the trash; if the second fails, the error says the collection was moved but not trashed.
+
+Setting or clearing `authority_level` (`"official"`) needs admin and the Official Collections feature (Pro/Enterprise); without the feature the server answers 402. Sending the value the collection already has is not a change and passes on any instance.
+
 ### `mb collection archive <id>`
 
-Soft-delete a collection by setting `archived: true`. The archived collection stays available via `collection list --filter archived` until permanently deleted server-side. Restore it from the trash in the Metabase UI.
+Soft-delete a collection by setting `archived: true`. The archived collection stays available via `collection list --filter archived` until permanently deleted server-side. Restore it with `mb collection update <id> --archived false`.
 
 ```sh
 mb collection archive 4

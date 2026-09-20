@@ -10,6 +10,7 @@ export default defineCommandGroup({
     items: () => import("./items").then((mod) => mod.default),
     tree: () => import("./tree").then((mod) => mod.default),
     create: () => import("./create").then((mod) => mod.default),
+    update: () => import("./update").then((mod) => mod.default),
     archive: () => import("./archive").then((mod) => mod.default),
   },
 });
