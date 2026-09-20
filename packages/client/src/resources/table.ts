@@ -135,7 +135,7 @@ export function tableResource(transport: Transport) {
     const { features } = await transport.server(options);
     if (features.tableDataLayerTiers) {
       throw new ConfigError(
-        `data_layer "${value}" is a Metabase 58 name; this server names a table's layer ${TableDataLayerTier.options.join(", ")}`,
+        `data_layer "${value}" is a medallion name; this server names a table's layer ${TableDataLayerTier.options.join(", ")}`,
       );
     }
   }

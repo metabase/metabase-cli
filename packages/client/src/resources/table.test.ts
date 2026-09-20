@@ -348,7 +348,7 @@ describe("table resource wire requests", () => {
 
     assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe(
-      'data_layer "gold" is a Metabase 58 name; this server names a table\'s layer final, internal, hidden',
+      'data_layer "gold" is a medallion name; this server names a table\'s layer final, internal, hidden',
     );
     expect(capture.calls).toEqual([]);
   });
