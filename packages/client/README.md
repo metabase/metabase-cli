@@ -133,8 +133,9 @@ const cards = await mb.card.list({ f: "mine" });
 console.log(cards.data.length, cards.total);
 ```
 
-A resource method whose endpoint pages answers an `AsyncIterable<Page<T>>` — `mb.collection.itemPages`
-and `mb.transform.runPages` are the two — requesting `limit`/`offset` pages and yielding a `Page<T>`
+A resource method whose endpoint pages answers an `AsyncIterable<Page<T>>` — `mb.collection.itemPages`,
+`mb.transform.runPages`, `mb.transform.runSummaryPages`, `mb.dependency.unreferencedPages` and
+`mb.dependency.breakingPages` are the five — requesting `limit`/`offset` pages and yielding a `Page<T>`
 (`{ items: T[], total: number | null }`) per request, so the server's count reaches you instead of
 being spent on loop control.
 
@@ -303,6 +304,8 @@ try {
 }
 ```
 
+A parameter only some servers honour is refused the same way when it is given: `mb.table.list({ "can-query": true })` asks for the access filters below 59, and `mb.field.update(id, { data_sensitivity })` for the sensitivity column below 64, and the dependency listings for their kebab-case filters on 59 (which reads them in snake_case from an open map and would drop them), each with the `CapabilityError` naming the feature; without the parameter neither method consults the profile. A vocabulary the server spells differently by generation is refused by value: `data_layer` is `final`, `internal` or `hidden` from 59 on (`TableDataLayerTier`) and `gold`, `silver`, `bronze` or `copper` on 58 (`TableDataLayerMedallion`), and `mb.table.update` refuses a tier name below 59 by feature and a medallion name from 59 on as a `ConfigError`. That second refusal reads the profile directly, so `enforceRequirements: false` does not switch it off; a requirement can only say a server is too old.
+
 A method's return type is the shape the newest supported server answers. Where an older server answers differently, the method parses that server's exact wire shape and converts it forward, so `mb.transform.get(5)` carries `target_table_id` on every server (a hydrated `table` on the oldest generations, the column on the rest), `mb.transformJob.run(2)` answers `{ message, started, run_id }` whether the server reports an opaque stub or a numeric run id, and each of `mb.library.get()`'s `effective_children` is `{ id, name, description, type, is_remote_synced }`. A field the server cannot report is `null`; the profile's `features` say why. A response that fails its generation's schema is a `ResponseShapeError` naming the server version and the fields that were off — never a silent fallback to another shape.
 
 A server newer than the window, or a head build whose tag does not parse, is placed one past the newest known major — the slot a rule written against head describes — with `skew` set to `"newer-than-known"` or `"unknown"`; its additions pass through the loose schemas, and only a token feature can refuse it. A server older than the window is `"older-than-known"`, evaluated at its own major, so each method it lacks refuses by name. The client never takes a version from the caller: a profile comes from a probe, so two consumers of one server cannot disagree about what it is.
@@ -413,7 +416,7 @@ revocation endpoint. Types: `Credential` (the `ApiKeyCredential | OAuthCredentia
 
 `Features` is a record of named booleans over `FEATURE_RULES`, the one table that relates a behaviour to the majors and token feature it needs (`FeatureRule`: `{ since, until?, tokenFeature? }`); `evaluateFeatures(effectiveMajor, tokenFeatures)` evaluates it, `FEATURE_NAMES` lists the keys, and `isFeatureName` narrows a string to one. Names describe behaviour (`transformTargetTableId`, `libraryChildrenCarryType`), never a version. Consumers branch on a feature, never on a major — `features.ts` is the only module that compares one.
 
-`METHOD_REQUIREMENTS` names, per client method (`"transform.get"`, `"gitSync.branches"` — the `MethodKey` as the method is reached on the client), the features it needs, strictest first; `methodRequirements(key)` reads one entry, `METHOD_KEYS` lists the keys, and `isMethodKey` narrows a string to one. Every resource method starts by asking `transport.require(key)`, which throws a `CapabilityError` before any request leaves when the connected profile lacks a feature — a version gate reads `This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.`, a token gate `This operation requires the 'remote_sync' premium feature (not enabled on this server).` — and the error's `developerDetail` is a `RequirementFailure` carrying `reason`, `detail`, `feature`, `since`, `tokenFeature` and `serverVersion` — a Zod schema as well as a type (with `RequirementReason` for its `reason` enum), so a consumer that reports the refusal in its own output can describe it. A method that needs nothing never consults the server; a newer or unparseable server is placed past the newest known major, so only a token can refuse it. `ClientOptions.enforceRequirements: false` sends every method to the wire and leaves the server to answer for itself; a method whose wire shape is chosen by generation still reads the profile. `checkRequirements(key, profile)` is the check itself, `checkFeatures(features, profile)` the same check over a bare feature list, `featureGap(profile, feature)` says which half of a rule the profile fails (`FeatureGap`: `{ kind: "version" }` or `{ kind: "token", tokenFeature }`), and `ruleGap` is the same question asked of a bare rule. A consumer that anticipates the refusal — a CLI preflight, say — throws the same `CapabilityError` from the same `RequirementFailure`.
+`METHOD_REQUIREMENTS` names, per client method (`"transform.get"`, `"gitSync.branches"` — the `MethodKey` as the method is reached on the client), the features it needs, strictest first; `methodRequirements(key)` reads one entry, `METHOD_KEYS` lists the keys, and `isMethodKey` narrows a string to one. Every resource method starts by asking `transport.require(key)`, which throws a `CapabilityError` before any request leaves when the connected profile lacks a feature — a version gate reads `This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.`, a token gate `This operation requires the 'remote_sync' premium feature (not enabled on this server).` — and the error's `developerDetail` is a `RequirementFailure` carrying `reason`, `detail`, `feature`, `since`, `tokenFeature` and `serverVersion` — a Zod schema as well as a type (with `RequirementReason` for its `reason` enum), so a consumer that reports the refusal in its own output can describe it. A method that needs nothing never consults the server; a newer or unparseable server is placed past the newest known major, so only a token can refuse it. `ClientOptions.enforceRequirements: false` sends every method to the wire and leaves the server to answer for itself; a method whose wire shape is chosen by generation still reads the profile. `checkFeatures(features, profile)` is the check itself, over any feature list (`methodRequirements(key)` gives a method's), `featureGap(profile, feature)` says which half of a rule the profile fails (`FeatureGap`: `{ kind: "version" }` or `{ kind: "token", tokenFeature }`), and `ruleGap` is the same question asked of a bare rule. A consumer that anticipates the refusal — a CLI preflight, say — throws the same `CapabilityError` from the same `RequirementFailure`.
 
 A resource whose wire shape differs between generations exports from its `@metabase/client/domain/<r>` module, beside the canonical schema, a reader that picks the exact schema for a `Features` and converts forward: `transformDetailSchema(features)` and `transformRowSchema(features)` read a `Transform` (the older generations' hydrated `table` on the detail endpoint, and no link on the rest, become `target_table_id`), `transformJobSchema(features)` reads a `TransformJob` whose `active` is `null` on a generation that cannot switch jobs off, `transformJobRunResultSchema(features)` reads a `TransformJobRunResult` (`{ message, started, run_id }` — a stub id is `started: null, run_id: null`, the request accepted and the outcome unsaid; a numeric or null id is `started: id !== null, run_id: id`), and `libraryWireSchema(features)` with `toLibrary(wire, listing)` reads a `Library` whose `LibraryChild` entries carry `type` from the wire where the generation sends it and `is_remote_synced` from the collection listing on every generation (`LibraryCollectionInfo`, `LibraryListing`). Each `null` in a canonical field means "this server cannot say". `ResponseShapeError.developerDetail.serverSkew` carries the profile's `skew`, and a `newer-than-known` server is named as such in the message's lead line.
 
@@ -423,11 +426,12 @@ Types: `ServerInfo`, `ServerProfile`, `Skew`, `Edition`, `FeatureName`, `Feature
 
 Every Metabase resource exports a full schema and a compact projection: `Card`/`CardCompact`,
 `Collection`/`CollectionCompact`, `Dashboard`/`DashboardCompact`, `Database`/`DatabaseCompact`,
-`Document`, `Field`, `FieldValues`, `Library`, `Measure`, `Notification`, `ParameterValues`, `Pulse`,
-`SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`, `TimelineEvent`, `Transform`,
-`TransformRun`, `TransformJob`, `TransformTag`, `CurrentUser`, `CardQueryResult`,
-`EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`, `DashboardTab`, and the nested
-shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`, `NotificationHandler`, …).
+`Document`, `Field`, `FieldValues`, `Glossary`, `Library`, `Measure`, `ModerationReview`, `Notification`,
+`ParameterValues`, `Pulse`, `SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`,
+`TimelineEvent`, `Transform`, `TransformRun`, `TransformRunSummary`, `TransformMemberRun`, `TransformJob`,
+`TransformTag`, `ReplacementRun`, `Revision`, `TableForeignKey`, `MetricDimension`, `CurrentUser`,
+`CardQueryResult`, `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`, `DashboardTab`, and
+the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`, `NotificationHandler`, …).
 
 The full schema is `.loose()`, so server-side additions do not break parsing. The compact projection
 is `.pick(…).strip()` — the agent-facing contract, and the shape list commands render. Schemas carry
@@ -435,10 +439,19 @@ what drives query writing and content selection; sync flags, fingerprints, and t
 deliberately absent.
 
 A second class of schema describes a single response shape that has no compact pair:
-`DashboardDetail`, `DatabaseSyncResult`, `CollectionTreeNode`, `FieldSummary`, `SettingValue`,
-`TableQueryMetadata`, `SessionProperties`, and `TokenFeatures`.
+`DashboardDetail`, a copy's `DashboardUncopiedCard`, `DatabaseSyncResult`, `CollectionTreeNode`, `FieldSummary`, `SettingValue`,
+`TableQueryMetadata`, `QueryMetadata`, `CompiledQuery`, `SessionProperties`, `TokenFeatures`, a revision's
+`RevisionRow` and `RevisionRevert`, the source replacement's `ReplacementCheck` and `ReplacementRunStarted`,
+a metric's `MetricBreakoutValues` and `MetricDimensionListing`, the data permissions' `PermissionsGraph`
+(a `DatabasePermissions` per group and database, each key left out at its least permissive value), the
+dependency graph's `DependencyGraph`, `DependencyNode`, `DependencyEntity`, `BreakingSource`, and
+`DependencyFindingError`, the entity relationship diagram's `Erd`, `ErdNode` and `ErdField`, the transform
+inspector's `TransformInspection` and `TransformLens`, a DAG run's `TransformDagRunResult` and
+`TransformDagTransform`, the Python runner's `PythonLibrary` and `PythonTestRunResult`, and git-sync's
+`SyncExportPreflight`.
 
-Request bodies (`<Resource>CreateInput`, `<Resource>UpdateInput`) and the domain vocabulary enums
+Request bodies (`<Resource>CreateInput`, `<Resource>UpdateInput`, and `MetricDefinition`, the expression
+over metric and measure leaves that `metric.query` and `metric.breakoutValues` run) and the domain vocabulary enums
 (`FieldBaseType`, `SearchModel`, `CollectionItemModel`, …) live in the same modules and are reached
 at `@metabase/client/domain/<resource>`.
 

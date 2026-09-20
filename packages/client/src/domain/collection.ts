@@ -3,7 +3,8 @@ import { z } from "zod";
 export const CollectionId = z.union([z.number().int(), z.string()]);
 export type CollectionId = z.infer<typeof CollectionId>;
 
-const CollectionAuthorityLevel = z.enum(["official"]);
+export const CollectionAuthorityLevel = z.enum(["official"]);
+export type CollectionAuthorityLevel = z.infer<typeof CollectionAuthorityLevel>;
 
 export const CollectionType = z.enum([
   "instance-analytics",

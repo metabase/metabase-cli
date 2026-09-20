@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { Document, type DocumentCreateInput, type DocumentUpdateInput } from "../domain/document";
+import {
+  Document,
+  type DocumentCopyInput,
+  type DocumentCreateInput,
+  type DocumentUpdateInput,
+} from "../domain/document";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 
@@ -57,5 +62,22 @@ export function documentResource(transport: Transport) {
     return update(id, { archived: true }, options);
   }
 
-  return { list, get, create, update, archive };
+  /**
+   * Copy a document into `collection_id` (root when absent), duplicating the cards saved inside
+   * it. An archived source is not found.
+   */
+  async function copy(
+    id: number,
+    params: DocumentCopyInput = {},
+    options: RequestOptions = {},
+  ): Promise<Document> {
+    await transport.require("document.copy", options);
+    return transport.requestParsed(Document, `/api/document/${id}/copy`, {
+      ...options,
+      method: "POST",
+      body: params,
+    });
+  }
+
+  return { list, get, create, update, archive, copy };
 }

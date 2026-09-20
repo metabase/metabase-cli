@@ -1,5 +1,5 @@
 import { ConfigError } from "@metabase/client/errors";
-import type { LibraryTableSelectors } from "@metabase/client/resources/library";
+import type { TableSelectors } from "@metabase/client/domain/table";
 import { parseCsv } from "../../runtime/csv";
 import { parseId } from "../parse-id";
 
@@ -25,11 +25,11 @@ function parseIdList(value: string | undefined, name: string): number[] {
   return parseCsv(value).map((part) => parseId(part, name));
 }
 
-export function parseTableSelectors(args: TableSelectorArgs): LibraryTableSelectors {
+export function parseTableSelectors(args: TableSelectorArgs): TableSelectors {
   const tableIds = parseIdList(args["table-ids"], "table id");
   const databaseIds = parseIdList(args["db-ids"], "database id");
   const schemaNames = args.schemas === undefined ? [] : parseCsv(args.schemas);
-  const selectors: LibraryTableSelectors = {};
+  const selectors: TableSelectors = {};
   if (tableIds.length > 0) {
     selectors.table_ids = tableIds;
   }

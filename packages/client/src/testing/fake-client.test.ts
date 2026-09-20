@@ -140,6 +140,21 @@ describe("createFakeClient", () => {
     ]);
   });
 
+  it("records each feature list a parameter asked for, with the requests already served", async () => {
+    const fake = createFakeClient({
+      routes: [{ path: PATH, reply: { kind: "body", body: { id: 1, email: "read@b.com" } } }],
+    });
+
+    await fake.client.requireFeatures(["tableListAccessFilters"]);
+    await fake.client.requestParsed(PingResponse, PATH);
+    await fake.client.requireFeatures([]);
+
+    expect(fake.requiredFeatures).toEqual([
+      { features: ["tableListAccessFilters"], precedingRequests: 0 },
+      { features: [], precedingRequests: 1 },
+    ]);
+  });
+
   it("throws naming the method and path when no route matches", async () => {
     const { client } = createFakeClient({
       routes: [{ path: PATH, reply: { kind: "body", body: { id: 1, email: "read@b.com" } } }],

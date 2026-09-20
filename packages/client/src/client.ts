@@ -5,14 +5,22 @@ import { contentTranslationResource } from "./resources/content-translation";
 import { dashboardResource } from "./resources/dashboard";
 import { databaseResource } from "./resources/database";
 import { datasetResource } from "./resources/dataset";
+import { dependencyResource } from "./resources/dependency";
 import { documentResource } from "./resources/document";
 import { eidTranslationResource } from "./resources/eid-translation";
+import { erdResource } from "./resources/erd";
 import { fieldResource } from "./resources/field";
 import { gitSyncResource } from "./resources/git-sync";
+import { glossaryResource } from "./resources/glossary";
 import { libraryResource } from "./resources/library";
 import { measureResource } from "./resources/measure";
+import { metricResource } from "./resources/metric";
+import { moderationReviewResource } from "./resources/moderation-review";
 import { notificationResource } from "./resources/notification";
+import { permissionResource } from "./resources/permission";
 import { pulseResource } from "./resources/pulse";
+import { replacementResource } from "./resources/replacement";
+import { revisionResource } from "./resources/revision";
 import { searchResource } from "./resources/search";
 import { segmentResource } from "./resources/segment";
 import { settingResource } from "./resources/setting";
@@ -21,7 +29,10 @@ import { snippetResource } from "./resources/snippet";
 import { tableResource } from "./resources/table";
 import { timelineEventResource } from "./resources/timeline-event";
 import { timelineResource } from "./resources/timeline";
+import { transformDagRunResource } from "./resources/transform-dag-run";
+import { transformInspectorResource } from "./resources/transform-inspector";
 import { transformJobResource } from "./resources/transform-job";
+import { transformPythonResource } from "./resources/transform-python";
 import { transformResource } from "./resources/transform";
 import { transformTagResource } from "./resources/transform-tag";
 import { uploadResource } from "./resources/upload";
@@ -39,14 +50,22 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     dashboard: dashboardResource(transport),
     database: databaseResource(transport),
     dataset: datasetResource(transport),
+    dependency: dependencyResource(transport),
     document: documentResource(transport),
     eidTranslation: eidTranslationResource(transport),
+    erd: erdResource(transport),
     field: fieldResource(transport),
     gitSync: gitSyncResource(transport),
+    glossary: glossaryResource(transport),
     library: libraryResource(transport),
     measure: measureResource(transport),
+    metric: metricResource(transport),
+    moderationReview: moderationReviewResource(transport),
     notification: notificationResource(transport),
+    permission: permissionResource(transport),
     pulse: pulseResource(transport),
+    replacement: replacementResource(transport),
+    revision: revisionResource(transport),
     search: searchResource(transport),
     segment: segmentResource(transport),
     setting: settingResource(transport),
@@ -56,7 +75,10 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     timeline: timelineResource(transport),
     timelineEvent: timelineEventResource(transport),
     transform: transformResource(transport),
+    transformDagRun: transformDagRunResource(transport),
+    transformInspector: transformInspectorResource(transport),
     transformJob: transformJobResource(transport),
+    transformPython: transformPythonResource(transport),
     transformTag: transformTagResource(transport),
     upload: uploadResource(transport),
     user: userResource(transport),

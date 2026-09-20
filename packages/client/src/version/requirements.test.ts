@@ -14,14 +14,22 @@ import { contentTranslationResource } from "../resources/content-translation";
 import { dashboardResource } from "../resources/dashboard";
 import { databaseResource } from "../resources/database";
 import { datasetResource } from "../resources/dataset";
+import { dependencyResource } from "../resources/dependency";
 import { documentResource } from "../resources/document";
 import { eidTranslationResource } from "../resources/eid-translation";
+import { erdResource } from "../resources/erd";
 import { fieldResource } from "../resources/field";
 import { gitSyncResource } from "../resources/git-sync";
+import { glossaryResource } from "../resources/glossary";
 import { libraryResource } from "../resources/library";
 import { measureResource } from "../resources/measure";
+import { metricResource } from "../resources/metric";
+import { moderationReviewResource } from "../resources/moderation-review";
 import { notificationResource } from "../resources/notification";
+import { permissionResource } from "../resources/permission";
 import { pulseResource } from "../resources/pulse";
+import { replacementResource } from "../resources/replacement";
+import { revisionResource } from "../resources/revision";
 import { searchResource } from "../resources/search";
 import { segmentResource } from "../resources/segment";
 import { settingResource } from "../resources/setting";
@@ -30,7 +38,10 @@ import { snippetResource } from "../resources/snippet";
 import { tableResource } from "../resources/table";
 import { timelineEventResource } from "../resources/timeline-event";
 import { timelineResource } from "../resources/timeline";
+import { transformDagRunResource } from "../resources/transform-dag-run";
+import { transformInspectorResource } from "../resources/transform-inspector";
 import { transformJobResource } from "../resources/transform-job";
+import { transformPythonResource } from "../resources/transform-python";
 import { transformResource } from "../resources/transform";
 import { transformTagResource } from "../resources/transform-tag";
 import { uploadResource } from "../resources/upload";
@@ -272,6 +283,11 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     wireError: "unexpected request: POST /api/dataset",
   },
   {
+    key: "dependency.graph",
+    invoke: (t) => dependencyResource(t).graph("card", 1),
+    wireError: "unexpected request: GET /api/ee/dependencies/graph",
+  },
+  {
     key: "document.get",
     invoke: (t) => documentResource(t).get(1),
     wireError: "unexpected request: GET /api/document/1",
@@ -280,6 +296,11 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     key: "eidTranslation.translate",
     invoke: (t) => eidTranslationResource(t).translate({ entity_ids: {} }),
     wireError: "unexpected request: POST /api/eid-translation/translate",
+  },
+  {
+    key: "erd.get",
+    invoke: (t) => erdResource(t).get({ "database-id": 1 }),
+    wireError: "unexpected request: GET /api/ee/erd",
   },
   {
     key: "field.get",
@@ -292,6 +313,11 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     wireError: "unexpected request: GET /api/ee/remote-sync/branches",
   },
   {
+    key: "glossary.list",
+    invoke: (t) => glossaryResource(t).list(),
+    wireError: "unexpected request: GET /api/glossary",
+  },
+  {
     key: "library.get",
     invoke: (t) => libraryResource(t).get(),
     wireError: "unexpected request: GET /api/ee/library/",
@@ -302,14 +328,40 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     wireError: "unexpected request: GET /api/measure/1",
   },
   {
+    key: "metric.dimensions",
+    invoke: (t) => metricResource(t).dimensions(1),
+    wireError: "unexpected request: GET /api/metric/1/dimension",
+  },
+  {
+    key: "moderationReview.create",
+    invoke: (t) =>
+      moderationReviewResource(t).create({ moderated_item_id: 1, moderated_item_type: "card" }),
+    wireError: "unexpected request: POST /api/moderation-review",
+  },
+  {
     key: "notification.get",
     invoke: (t) => notificationResource(t).get(1),
     wireError: "unexpected request: GET /api/notification/1",
   },
   {
+    key: "permission.databaseGraph",
+    invoke: (t) => permissionResource(t).databaseGraph(1),
+    wireError: "unexpected request: GET /api/permissions/graph/db/1",
+  },
+  {
     key: "pulse.get",
     invoke: (t) => pulseResource(t).get(1),
     wireError: "unexpected request: GET /api/pulse/1",
+  },
+  {
+    key: "replacement.getRun",
+    invoke: (t) => replacementResource(t).getRun(1),
+    wireError: "unexpected request: GET /api/ee/replacement/runs/1",
+  },
+  {
+    key: "revision.list",
+    invoke: (t) => revisionResource(t).list("card", 1),
+    wireError: "unexpected request: GET /api/revision/card/1",
   },
   {
     key: "search.query",
@@ -362,9 +414,24 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     wireError: "unexpected request: GET /api/transform/1",
   },
   {
+    key: "transformDagRun.transformRuns",
+    invoke: (t) => transformDagRunResource(t).transformRuns(1),
+    wireError: "unexpected request: GET /api/transform-dag-run/1/transform-runs",
+  },
+  {
+    key: "transformInspector.discover",
+    invoke: (t) => transformInspectorResource(t).discover(1),
+    wireError: "unexpected request: GET /api/ee/transforms/1/inspect",
+  },
+  {
     key: "transformJob.get",
     invoke: (t) => transformJobResource(t).get(1),
     wireError: "unexpected request: GET /api/transform-job/1",
+  },
+  {
+    key: "transformPython.getLibrary",
+    invoke: (t) => transformPythonResource(t).getLibrary("common"),
+    wireError: "unexpected request: GET /api/ee/transforms-python/library/common",
   },
   {
     key: "transformTag.list",

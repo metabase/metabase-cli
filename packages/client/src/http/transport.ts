@@ -4,10 +4,11 @@ import { errorMessage, NetworkError, TimeoutError } from "../errors";
 import { JSON_CONTENT_TYPE } from "../json";
 import { combineAborts, throwIfAborted, untilAborted } from "../signal";
 import { normalizeUrl } from "../url";
+import type { FeatureName } from "../version/features";
 import { CapabilityError } from "../version/preflight-error";
 import { probeServer } from "../version/probe";
 import { createServerProfile, type ServerProfile, type Skew } from "../version/profile";
-import { checkRequirements } from "../version/requirement-check";
+import { checkFeatures } from "../version/requirement-check";
 import { type MethodKey, methodRequirements } from "../version/requirements";
 
 import {
@@ -69,6 +70,9 @@ export interface Transport {
   // Throws `CapabilityError` when the server lacks a feature the method needs, before any request
   // leaves. A method that needs nothing resolves without consulting the server.
   require(key: MethodKey, options?: WaitOptions): Promise<void>;
+  // The same refusal for features a method needs only because of the parameters it was handed,
+  // which the method table cannot express. An empty list resolves without consulting the server.
+  requireFeatures(features: readonly FeatureName[], options?: WaitOptions): Promise<void>;
 }
 
 export type WaitOptions = Pick<RequestOptions, "signal">;
@@ -317,19 +321,27 @@ export function createTransport(config: ClientCredentials, options: ClientOption
 
   const enforceRequirements = options.enforceRequirements ?? true;
 
-  async function requireFeatures(key: MethodKey, wait: WaitOptions = {}): Promise<void> {
-    if (!enforceRequirements || methodRequirements(key).length === 0) {
+  async function requireFeatures(
+    features: readonly FeatureName[],
+    wait: WaitOptions = {},
+  ): Promise<void> {
+    if (!enforceRequirements || features.length === 0) {
       return;
     }
-    const failure = checkRequirements(key, await server(wait));
+    const failure = checkFeatures(features, await server(wait));
     if (failure !== null) {
       throw new CapabilityError(failure);
     }
   }
 
+  async function requireMethod(key: MethodKey, wait: WaitOptions = {}): Promise<void> {
+    return requireFeatures(methodRequirements(key), wait);
+  }
+
   const transport: Transport = {
     server,
-    require: requireFeatures,
+    require: requireMethod,
+    requireFeatures,
     async requestRaw(path, opts) {
       return (await executeWithAuthRefresh(path, opts ?? {})).response;
     },

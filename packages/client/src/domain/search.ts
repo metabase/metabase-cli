@@ -36,6 +36,7 @@ export const SearchResult = z
     description: z.string().nullable(),
     archived: z.boolean().nullable(),
     collection: SearchResultCollection.nullable(),
+    result_metadata: z.array(z.unknown()).nullable().optional(),
   })
   .loose();
 export type SearchResult = z.infer<typeof SearchResult>;

@@ -8,6 +8,7 @@ import {
   libraryWireSchema,
   toLibrary,
 } from "../domain/library";
+import type { TableSelectors } from "../domain/table";
 import type { RequestOptions, Transport } from "../http/transport";
 import { listCollectionsWithLibrary } from "./collection";
 
@@ -21,13 +22,7 @@ const LIBRARY_DATA_TYPE = "library-data";
 
 const PublishTablesResponse = z.object({ target_collection: Collection.nullable() });
 
-export interface LibraryTableSelectors {
-  table_ids?: number[] | undefined;
-  database_ids?: number[] | undefined;
-  schema_ids?: string[] | undefined;
-}
-
-export interface LibraryPublishParams extends LibraryTableSelectors {
+export interface LibraryPublishParams extends TableSelectors {
   collection_id: number;
 }
 
@@ -112,7 +107,7 @@ export function libraryResource(transport: Transport) {
    * depends on them. The endpoint answers no JSON body.
    */
   async function unpublishTables(
-    params: LibraryTableSelectors,
+    params: TableSelectors,
     options: RequestOptions = {},
   ): Promise<void> {
     await transport.require("library.unpublishTables", options);

@@ -184,3 +184,26 @@ export const DashcardPatchInput = z
     message: "patch must contain at least one field",
   });
 export type DashcardPatchInput = z.infer<typeof DashcardPatchInput>;
+
+// The newest server closes the body map, so the input names exactly the keys it takes.
+export const DashboardCopyInput = z
+  .object({
+    name: z.string().min(1).nullable().optional(),
+    description: z.string().nullable().optional(),
+    collection_id: z.number().int().positive().nullable().optional(),
+    collection_position: z.number().int().positive().nullable().optional(),
+    is_deep_copy: z.boolean().nullable().optional(),
+  })
+  .strict();
+export type DashboardCopyInput = z.infer<typeof DashboardCopyInput>;
+
+// A card the copy left behind because the caller cannot read it, cut down to its id; an older
+// server sends the whole card, which the loose object carries through.
+export const DashboardUncopiedCard = z.object({ id: z.number().int() }).loose();
+export type DashboardUncopiedCard = z.infer<typeof DashboardUncopiedCard>;
+
+// `uncopied` is present only when the copy left a card behind.
+export const DashboardCopy = Dashboard.extend({
+  uncopied: z.array(DashboardUncopiedCard).optional(),
+});
+export type DashboardCopy = z.infer<typeof DashboardCopy>;

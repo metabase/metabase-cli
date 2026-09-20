@@ -3,8 +3,9 @@ import { assert, describe, expect, it } from "vitest";
 import { createClient } from "../client";
 import { HttpError } from "../http/errors";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
-import { createServerProfile } from "../version/profile";
+import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
+import { CapabilityError } from "../version/preflight-error";
+import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
   url: "https://mb.example.com/metabase",
@@ -55,6 +56,15 @@ const BINARY_READ_HEADERS = {
   "x-api-key": "mb_wire_test_key",
 };
 
+const CLEAN_PREFLIGHT = {
+  has_changes: false,
+  clean: true,
+  conflicts: [],
+  summary: { added: 0, updated: 0, removed: 0 },
+  force_push_casualties: { deleted: [], overwritten: [] },
+  reason: null,
+};
+
 const IMMEDIATE_POLL = { intervalMs: 1, timeoutMs: 1_000 };
 
 // The least server that answers this resource, so a method asking for more than the resource's
@@ -67,27 +77,26 @@ const SERVER = createServerProfile({
   tokenFeatures: { remote_sync: true },
 });
 
-function clientOver(responses: Array<Response>) {
+const SERVER_WITH_PREFLIGHT = createServerProfile({
+  edition: "ee",
+  version: { tag: "v1.63.0", major: 63, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: { remote_sync: true },
+});
+
+function clientOver(responses: Array<Response>, server: ServerProfile = SERVER) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
     userAgent: TEST_USER_AGENT,
     fetchImpl: capture.fetch,
-    server: SERVER,
+    server,
   });
   return { mb, capture };
 }
 
 function noContent(): Response {
   return new Response(null, { status: 204 });
-}
-
-async function thrownBy(run: () => Promise<unknown>): Promise<unknown> {
-  try {
-    await run();
-  } catch (error: unknown) {
-    return error;
-  }
-  throw new Error("expected the call to reject");
 }
 
 describe("git-sync resource wire requests", () => {
@@ -325,6 +334,77 @@ describe("git-sync resource wire requests", () => {
       task_id: 8,
       final: SETTLED_TASK,
     });
+  });
+
+  it("sends the export preflight request with the branch as a query parameter", async () => {
+    const { mb, capture } = clientOver([jsonResponse(CLEAN_PREFLIGHT)], SERVER_WITH_PREFLIGHT);
+
+    await mb.gitSync.exportPreflight({ branch: "feature/a b" });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/export-preflight?branch=feature%2Fa+b",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("answers the export preflight as the server's merge preview", async () => {
+    const diverged = {
+      has_changes: true,
+      clean: false,
+      conflicts: ["Card: Orders"],
+      summary: { added: 1, updated: 2, removed: 0 },
+      force_push_casualties: { deleted: ["Dashboard: KPIs"], overwritten: ["Card: Orders"] },
+      reason: "history-rewritten",
+    };
+    const { mb } = clientOver([jsonResponse(diverged)], SERVER_WITH_PREFLIGHT);
+
+    expect(await mb.gitSync.exportPreflight({ branch: "main" })).toEqual(diverged);
+  });
+
+  it("refuses the export preflight before the wire on a server older than the route", async () => {
+    const { mb, capture } = clientOver([]);
+
+    const error = await thrownBy(() => mb.gitSync.exportPreflight({ branch: "main" }));
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v63+ (this server is v1.60.0). Upgrade Metabase to use it.",
+      feature: "remoteSyncExportPreflight",
+      since: 63,
+      tokenFeature: "remote_sync",
+      serverVersion: "v1.60.0",
+    });
+    expect(capture.calls).toEqual([]);
+  });
+
+  it("surfaces a branch mismatch as the server's conflict answer", async () => {
+    const { mb } = clientOver(
+      [
+        jsonResponse(
+          {
+            message: "The sync branch changed to 'main' in another session. Refresh and try again.",
+            branch_mismatch: true,
+            current_branch: "main",
+          },
+          409,
+        ),
+      ],
+      SERVER_WITH_PREFLIGHT,
+    );
+
+    const error = await thrownBy(() => mb.gitSync.exportPreflight({ branch: "stale" }));
+
+    assert(error instanceof HttpError, "expected HttpError");
+    expect(error.status).toBe(409);
+    expect(error.message).toBe(
+      "The sync branch changed to 'main' in another session. Refresh and try again.",
+    );
   });
 
   it("sends the stash request with the new branch and commit message", async () => {

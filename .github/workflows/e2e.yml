@@ -29,6 +29,8 @@ jobs:
           - ee-62
           - oss-63
           - ee-63
+          - oss-64
+          - ee-64
           - oss-head
           - ee-head
     env:

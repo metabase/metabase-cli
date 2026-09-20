@@ -192,6 +192,40 @@ describe("dashboard resource wire requests", () => {
     ]);
   });
 
+  it("sends the copy request with the destination and depth it was given", async () => {
+    const { mb, capture } = clientOver([
+      jsonResponse({ ...DASHBOARD, id: 6, name: "Orders Overview copy", collection_id: 7 }),
+    ]);
+
+    await mb.dashboard.copy(5, {
+      name: "Orders Overview copy",
+      collection_id: 7,
+      is_deep_copy: true,
+    });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/dashboard/5/copy",
+        method: "POST",
+        headers: JSON_REQUEST_HEADERS,
+        body: '{"name":"Orders Overview copy","collection_id":7,"is_deep_copy":true}',
+      },
+    ]);
+  });
+
+  it("answers the copy with the ids of the cards it left behind", async () => {
+    const { mb } = clientOver([jsonResponse({ ...DASHBOARD, id: 6, uncopied: [{ id: 40 }] })]);
+
+    expect(await mb.dashboard.copy(5)).toEqual({ ...DASHBOARD, id: 6, uncopied: [{ id: 40 }] });
+  });
+
+  it("carries a left-behind card an older server sends in full", async () => {
+    const uncopied = { id: 40, name: "Retired", type: "question", archived: true };
+    const { mb } = clientOver([jsonResponse({ ...DASHBOARD, id: 6, uncopied: [uncopied] })]);
+
+    expect(await mb.dashboard.copy(5)).toEqual({ ...DASHBOARD, id: 6, uncopied: [uncopied] });
+  });
+
   it("reads the dashboard, then replaces every dashcard with the patched one merged in", async () => {
     const { mb, capture } = clientOver([
       jsonResponse(DASHBOARD_DETAIL),

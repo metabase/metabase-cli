@@ -5,12 +5,21 @@ import {
   isTransformRunTerminal,
   type Transform,
   type TransformCreateInput,
+  type TransformDagDirection,
+  TransformDagRunResult,
+  TransformDagTransform,
   transformDetailSchema,
   TransformRun,
+  type TransformRunMethod,
   type TransformRunResult,
+  type TransformRunStatus,
+  TransformRunSummary,
+  type TransformRunSummarySortColumn,
+  type TransformRunSummaryType,
   transformRowSchema,
   type TransformUpdateInput,
 } from "../domain/transform";
+import type { SortDirection } from "../domain/query";
 import { TimeoutError } from "../errors";
 import type { RequestOptions, Transport, TransportRequestOptions } from "../http/transport";
 import type { ListResult } from "../list";
@@ -47,6 +56,27 @@ export interface TransformRunPageParams {
 
 // The walk's own settings, minus the query the method builds from `TransformRunPageParams`.
 export type TransformRunPageOptions = Omit<PaginateOptions, "query">;
+
+export interface TransformRunSummaryPageParams {
+  /** Which kinds of root run to include; every kind when absent. */
+  types?: readonly TransformRunSummaryType[] | undefined;
+  statuses?: readonly TransformRunStatus[] | undefined;
+  "run-methods"?: readonly TransformRunMethod[] | undefined;
+  /** A date range in the query processor's date-parameter syntax, constraining `start_time`. */
+  "start-time"?: string | undefined;
+  "end-time"?: string | undefined;
+  /** Only runs that ran any of these transforms, as a member or standalone. */
+  "transform-ids"?: readonly number[] | undefined;
+  "sort-column"?: TransformRunSummarySortColumn | undefined;
+  "sort-direction"?: SortDirection | undefined;
+}
+
+export interface TransformDagParams {
+  direction: TransformDagDirection;
+}
+
+// A bare array in execution order, so the server reports no count.
+const TransformDagTransformList = z.array(TransformDagTransform);
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function transformResource(transport: Transport) {
@@ -159,6 +189,81 @@ export function transformResource(transport: Transport) {
   }
 
   /**
+   * Walk the unified run history, newest first by default: every row is a root run — a job run, a
+   * DAG reprocess run, or a standalone transform run — and never a member run of a job or DAG.
+   */
+  async function* runSummaryPages(
+    params: TransformRunSummaryPageParams = {},
+    options: TransformRunPageOptions = {},
+  ): AsyncIterable<Page<TransformRunSummary>> {
+    await transport.require("transform.runSummaryPages", options);
+    yield* paginatePages(transport, "/api/transform/runs", TransformRunSummary, {
+      query: {
+        types: params.types,
+        statuses: params.statuses,
+        "run-methods": params["run-methods"],
+        "start-time": params["start-time"],
+        "end-time": params["end-time"],
+        "transform-ids": params["transform-ids"],
+        "sort-column": params["sort-column"],
+        "sort-direction": params["sort-direction"],
+      },
+      ...(options.offset !== undefined && { offset: options.offset }),
+      ...(options.max !== undefined && { max: options.max }),
+      ...(options.pageSize !== undefined && { pageSize: options.pageSize }),
+      ...(options.signal !== undefined && { signal: options.signal }),
+    });
+  }
+
+  /**
+   * Reset the stored checkpoint of an incremental transform, so its next run reprocesses the whole
+   * source rather than the rows past the last checkpoint.
+   */
+  async function resetCheckpoint(id: number, options: RequestOptions = {}): Promise<void> {
+    await transport.require("transform.resetCheckpoint", options);
+    await transport.requestRaw(`/api/transform/${id}/reset-checkpoint`, {
+      ...options,
+      method: "POST",
+      expectContentType: "binary",
+    });
+  }
+
+  /**
+   * Start a DAG reprocess run seeded at a transform: the transform plus, by `direction`, every
+   * transform it transitively depends on or every transform that transitively depends on it. The
+   * server answers at once with the run's id, or null when it ran nothing because a DAG run for
+   * this transform is already in progress or the closure is empty. Progress is read off
+   * `runSummaryPages` with `types: ["dag"]`, and the member runs off `transformDagRun.transformRuns`.
+   */
+  async function runDag(
+    id: number,
+    params: TransformDagParams,
+    options: RequestOptions = {},
+  ): Promise<TransformDagRunResult> {
+    await transport.require("transform.runDag", options);
+    return transport.requestParsed(TransformDagRunResult, `/api/transform/${id}/run-dag`, {
+      ...options,
+      method: "POST",
+      body: { direction: params.direction },
+    });
+  }
+
+  /** Preview the transforms a DAG reprocess seeded at a transform would run, in execution order. */
+  async function dagTransforms(
+    id: number,
+    params: TransformDagParams,
+    options: RequestOptions = {},
+  ): Promise<ListResult<TransformDagTransform>> {
+    await transport.require("transform.dagTransforms", options);
+    const data = await transport.requestParsed(
+      TransformDagTransformList,
+      `/api/transform/${id}/dag-transforms`,
+      { ...options, query: { direction: params.direction } },
+    );
+    return { data, total: null };
+  }
+
+  /**
    * Start a run of a transform by id. The server queues the run and answers at once; `wait` polls
    * it to a terminal status, and `syncTarget` follows that with the output table's registration.
    * A server that answers no run id started nothing, and there is then nothing to poll.
@@ -228,6 +333,10 @@ export function transformResource(transport: Transport) {
     cancel,
     getRun,
     runPages,
+    runSummaryPages,
+    resetCheckpoint,
+    runDag,
+    dagTransforms,
     run,
   };
 }

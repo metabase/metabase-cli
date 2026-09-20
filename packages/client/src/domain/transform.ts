@@ -33,7 +33,8 @@ export function isTransformRunFailed(status: TransformRunStatus): boolean {
   return FAILURE_STATUSES.has(status);
 }
 
-const TransformRunMethod = z.enum(["manual", "cron"]);
+export const TransformRunMethod = z.enum(["manual", "cron"]);
+export type TransformRunMethod = z.infer<typeof TransformRunMethod>;
 
 const TransformRunTrigger = z.enum(["none", "global-schedule"]);
 
@@ -44,7 +45,7 @@ const TransformCheckpointStrategy = z
   })
   .loose();
 
-const TransformSourceTableEntry = z
+export const TransformSourceTableEntry = z
   .object({
     alias: z.string(),
     database_id: z.number().int(),
@@ -53,6 +54,7 @@ const TransformSourceTableEntry = z
     table_id: z.number().int().nullable().optional(),
   })
   .loose();
+export type TransformSourceTableEntry = z.infer<typeof TransformSourceTableEntry>;
 
 const TransformQuerySource = z
   .object({
@@ -175,6 +177,66 @@ export const TransformRunResult = z.object({
   target_table_id: z.number().int().nullable().optional(),
 });
 export type TransformRunResult = z.infer<typeof TransformRunResult>;
+
+/** Which transforms a DAG reprocess from a seed transform runs, besides the seed itself. */
+export const TransformDagDirection = z.enum(["upstream", "downstream"]);
+export type TransformDagDirection = z.infer<typeof TransformDagDirection>;
+
+// `dag_run_id` is null when the server ran nothing: a DAG run for the seed transform was already
+// in progress, or its closure in the chosen direction was empty.
+export const TransformDagRunResult = z.object({
+  message: z.string(),
+  dag_run_id: z.number().int().positive().nullable(),
+});
+export type TransformDagRunResult = z.infer<typeof TransformDagRunResult>;
+
+export const TransformDagTransform = z.object({
+  id: z.number().int(),
+  name: z.string(),
+});
+export type TransformDagTransform = z.infer<typeof TransformDagTransform>;
+
+export const TransformRunSummaryType = z.enum(["job", "dag", "transform"]);
+export type TransformRunSummaryType = z.infer<typeof TransformRunSummaryType>;
+
+export const TransformRunSummarySortColumn = z.enum(["start_time", "end_time"]);
+export type TransformRunSummarySortColumn = z.infer<typeof TransformRunSummarySortColumn>;
+
+// One root run of the unified history: a job run, a DAG reprocess run, or a standalone transform
+// run, never a member run of a job or DAG. `entity_id` is the job or transform that ran, null once
+// it is deleted; `name` is that entity's live name, else the one snapshotted when the run started.
+// `direction` and `transform_count` are set on DAG runs only.
+export const TransformRunSummary = z
+  .object({
+    run_type: TransformRunSummaryType,
+    id: z.number().int(),
+    entity_id: z.number().int().nullable(),
+    name: z.string().nullable(),
+    direction: TransformDagDirection.nullable(),
+    transform_count: z.number().int().nullable(),
+    run_method: TransformRunMethod.nullable(),
+    status: TransformRunStatus,
+    is_active: z.boolean().nullable(),
+    start_time: z.string(),
+    end_time: z.string().nullable().optional(),
+    message: z.string().nullable(),
+    user_id: z.number().int().nullable(),
+  })
+  .loose();
+export type TransformRunSummary = z.infer<typeof TransformRunSummary>;
+
+export const TransformRunSummaryCompact = TransformRunSummary.pick({
+  run_type: true,
+  id: true,
+  entity_id: true,
+  name: true,
+  status: true,
+  run_method: true,
+  start_time: true,
+  end_time: true,
+  message: true,
+}).strip();
+export type TransformRunSummaryCompact = z.infer<typeof TransformRunSummaryCompact>;
 
 const TransformBase = z
   .object({
