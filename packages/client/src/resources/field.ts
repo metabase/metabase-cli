@@ -100,8 +100,11 @@ export function fieldResource(transport: Transport) {
 
   /**
    * Search the values of `searchId` that contain `value`, case-insensitively, answering the
-   * matching values of `id` paired with them. An FK on either side is followed to the PK it
-   * points at. Without `value`, the first `limit` values.
+   * matching values of `id` paired with them, ordered by value, at most `limit` of them. An FK on
+   * either side is followed to the PK it points at, and a field that resolves to the same field as
+   * `searchId` answers each value alone. Without `value`, the first `limit` values. A field with
+   * custom display values answers every mapped value with its display value instead, matching
+   * `value` against the display value, ignoring both `searchId` and `limit`.
    */
   async function search(
     id: number,

@@ -263,9 +263,12 @@ export const FieldValuesCompact = FieldValues.pick({
 }).strip();
 export type FieldValuesCompact = z.infer<typeof FieldValuesCompact>;
 
-// Each match is `[value, label]` when the searched field differs from the one asked about, else
-// `[value]`; the cells are whatever the warehouse column holds.
-export const FieldSearchMatches = z.array(z.array(z.unknown()));
+// Each match is `[value]` when both fields resolve to the same field once FKs are followed, else
+// `[value, label]`, the label being the display value for a field with custom display values; the
+// cells are whatever the warehouse column holds.
+export const FieldSearchMatches = z.array(
+  z.union([z.tuple([z.unknown()]), z.tuple([z.unknown(), z.unknown()])]),
+);
 export type FieldSearchMatches = z.infer<typeof FieldSearchMatches>;
 
 // `[value, remapped]` for the one row whose field equals the value asked about.

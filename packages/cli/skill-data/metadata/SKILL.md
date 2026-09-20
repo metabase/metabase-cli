@@ -8,7 +8,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 Metabase reads the raw column types from your warehouse; **metadata** is the layer you edit on top to make columns behave well — the right filter widget, joins, formatting, maps. You set it per-column with `mb field update <id>` and per-table with `mb table update <id>`. Both are **PATCH** — send only the keys you're changing.
 
-Metadata is a small set of fields with large, indirect effects. Get the field ids from `mb table get <id> --include fields` (or `mb table fields <id>`); inspect a column's shape with `mb field get <id>`, its live cardinality with `mb field summary <id>`, its cached distinct set with `mb field values <id>`. General flag/output/body mechanics live in `core`.
+Metadata is a small set of fields with large, indirect effects. Get the field ids from `mb table get <id> --include fields` (or `mb table fields <id>`); inspect a column's shape with `mb field get <id>`, its live cardinality with `mb field summary <id>`, its cached distinct set with `mb field values <id>`. To find rows by what a person typed, `mb field search <id> <search-id> --value <text>` answers `{ value, label }` pairs (an id column searched by a name column gives id/name pairs across the FK; both must land on one table, or it answers nothing), and `mb field remapping <id> <remapped-id> <value>` resolves one value to its display value. General flag/output/body mechanics live in `core`.
 
 ## The causal chain — set X, unlock Y
 
@@ -84,6 +84,14 @@ A newly connected database or a missing expected column usually just needs a `sy
 <!-- requires: bulkTableSync -->
 
 For a set of tables, `mb table bulk-sync-schema`, `bulk-rescan-values`, and `bulk-discard-values --yes` take `--table-ids`, `--db-ids`, and `--schemas 1:public` selectors (`1:` for the tables with no schema) and need an admin or data analyst.
+
+<!-- /requires -->
+
+<!-- requires: fieldDataSensitivity -->
+
+## Data sensitivity is a label a person owns
+
+Each column carries a `data_sensitivity` label (`SEC_KEY`, `SYS_TELEMETRY`, `PHI`, `BIO_GEN`, `PCI_FIN`, `SENS_PERS`, `PII`, `CORP_IP`, `BIZ_CONF`, `PUBLIC`, most severe first) or `null`. A server that enables its classifier (off by default) labels columns from their name, types and fingerprint during sync; otherwise only people do. `mb field set-sensitivity <id> PII` labels one column and the classifier never overwrites it; `mb field set-sensitivity <id> none` withdraws that label, leaving the classifier's if there is one. Read it back with `mb field get <id>`. The label masks and restricts nothing.
 
 <!-- /requires -->
 

@@ -1,5 +1,5 @@
-import { Field, FieldUpdateInput } from "@metabase/client/domain/field";
-import { fieldView } from "../../output/views/field";
+import { FieldDetail, FieldUpdateInput, hasDataSensitivity } from "@metabase/client/domain/field";
+import { fieldView, fieldWithDataSensitivityView } from "../../output/views/field";
 import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
@@ -21,7 +21,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Field id", required: true },
   },
   inputSchema: FieldUpdateInput,
-  outputSchema: Field,
+  outputSchema: FieldDetail,
   examples: [
     'mb field update 100 --body \'{"description":"customer email"}\'',
     "mb field update 100 --file patch.json",
@@ -32,11 +32,11 @@ export default defineMetabaseCommand({
     const body = await readBody({ flag: args.body, file: args.file }, FieldUpdateInput);
     const client = await getClient();
     const updated = await client.field.update(id, body);
-    renderSummary(
-      updated,
-      fieldView,
-      `Updated field ${updated.id} "${updated.display_name}".`,
-      ctx,
-    );
+    const summary = `Updated field ${updated.id} "${updated.display_name}".`;
+    if (hasDataSensitivity(updated)) {
+      renderSummary(updated, fieldWithDataSensitivityView, summary, ctx);
+      return;
+    }
+    renderSummary(updated, fieldView, summary, ctx);
   },
 });
