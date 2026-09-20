@@ -2046,6 +2046,21 @@ mb git-sync export --no-wait
 | `--timeout <ms>`        | Polling timeout in ms (default 600000). Used with `--wait`.         |
 | `--interval <ms>`       | Polling interval in ms (default 2000). Used with `--wait`.          |
 
+### `mb git-sync export-preflight`
+
+Preview what an export would do against the live remote branch, without writing anything: whether the remote has moved past the last sync, whether a three-way merge would apply cleanly, which entities would conflict, what a merge would fold in, and what a force push would discard. Requires Metabase v63 or newer.
+
+```sh
+mb git-sync export-preflight
+mb git-sync export-preflight --branch main --json
+```
+
+| Flag                    | Description                                                                                                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--branch <name>`, `-b` | Branch to preview against (defaults to the `remote-sync-branch` setting). It must be the branch git-sync tracks; the server answers 409 with the current one. |
+
+The result is the server's `{ has_changes, clean, conflicts, summary: { added, updated, removed }, force_push_casualties: { deleted, overwritten }, reason }`. `reason` is `"history-rewritten"` when the remote was force-pushed or rebased so no merge base exists (a merge is impossible; only `export --force` can push), otherwise `null`. Text output is one headline for the branch, then the conflicts, the merge summary and the casualties, each only when there is something to list. When the setting is unset or unreadable and no `--branch` is passed, the command refuses with exit 2 before contacting the remote.
+
 ### `mb git-sync stash`
 
 Export the current Metabase state to a NEW branch on the remote and switch sync to it. Requires `remote-sync-type` to be `read-write`.

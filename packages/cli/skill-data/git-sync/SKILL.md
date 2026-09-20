@@ -1,6 +1,6 @@
 ---
 name: git-sync
-description: Round-trip Metabase content (cards, dashboards, transforms, snippets, collections, Library-published table/field metadata) between an instance and a git remote via `mb git-sync …` — status, dirty / has-remote-changes checks, import, export (with branch guard), branches, stash, add/remove a collection from sync. Load when the user wants to "import the latest changes", "export to git", "push my changes to the repo", "open a PR with my Metabase changes", "git sync", "dirty check", "stash before pulling", "add a collection to sync", or anything `mb git-sync …`.
+description: Round-trip Metabase content (cards, dashboards, transforms, snippets, collections, Library-published table/field metadata) between an instance and a git remote via `mb git-sync …` — status, dirty / has-remote-changes checks, import, export (with branch guard and a preflight preview), branches, stash, add/remove a collection from sync. Load when the user wants to "import the latest changes", "export to git", "push my changes to the repo", "open a PR with my Metabase changes", "git sync", "dirty check", "stash before pulling", "add a collection to sync", or anything `mb git-sync …`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 requires: [remoteSync]
 ---
@@ -71,6 +71,26 @@ Workflow:
 2. Read state (above) — confirm `is-dirty` reports there's something to export.
 3. `git-sync export -m "..."` — pushes and polls.
 4. (Optional) `git-sync status` — verify `is_dirty: false` after.
+
+<!-- requires: remoteSyncExportPreflight -->
+
+### Preview the push first
+
+```bash
+mb git-sync export-preflight --profile <n> --json   # → {has_changes, clean, conflicts, summary, force_push_casualties, reason}
+```
+
+A dry run against the live remote branch, writing nothing. Read it between the state check and the export, and decide from the fields:
+
+| Answer                              | Meaning                                                                                                                                                                     | Move                                                                                                                                                                     |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `has_changes: false`                | The remote has not moved past the last sync, or nothing has been synced yet.                                                                                                | `export -m "..."` applies as-is.                                                                                                                                         |
+| `has_changes: true`, `reason: null` | The remote moved on. `clean` says whether a three-way merge would apply; `conflicts` names the entities changed on both sides; `summary` counts what a merge would fold in. | A plain `export` ends in a `conflict` task, and so does `stash`: its new branch starts at the moved remote tip. `export --force` only with the user's explicit go-ahead. |
+| `reason: "history-rewritten"`       | The remote was force-pushed or rebased, so there is no merge base.                                                                                                          | Only `export --force` can push, and only with the user's explicit go-ahead; `force_push_casualties` is exactly what it would delete or overwrite.                        |
+
+`force_push_casualties` is reported on every answer: it is the remote content a force push would discard instead of merging, so read it before ever passing `--force`. `--branch` defaults to the tracked `remote-sync-branch`; the server rejects any other branch with a 409 naming the current one, so pass it only to assert the branch you believe is tracked.
+
+<!-- /requires -->
 
 ### Branch guard: don't export to main/master without confirmation
 

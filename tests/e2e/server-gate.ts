@@ -8,6 +8,7 @@ import { isFileNotFoundError } from "@metabase/client/errors";
 import { parseJson } from "@metabase/client/json";
 import type { FeatureName } from "@metabase/client/version/features";
 import { createServerProfile, type ServerProfile } from "@metabase/client/version/profile";
+import type { RequirementFailure } from "@metabase/client/version/preflight-error";
 import { checkFeatures } from "@metabase/client/version/requirement-check";
 
 import { readBootstrapSync } from "./bootstrap-data";
@@ -71,7 +72,7 @@ function resolveServerProfile(): ServerProfile {
 // closing report prints, so an unmet gate says which coverage went dark rather than adding one
 // more anonymous digit to vitest's skip count.
 export function requireServer(lane: string, required: readonly FeatureName[]): string | null {
-  const failure = checkFeatures(required, resolveServerProfile());
+  const failure = requirementFailure(required);
   if (failure === null) {
     return null;
   }
@@ -92,6 +93,12 @@ export function requireOAuthServer(lane: string): string | null {
   }
   recordGateSkip(lane, OAUTH_UNSUPPORTED_REASON);
   return OAUTH_UNSUPPORTED_REASON;
+}
+
+// The first of `required` this stack lacks, as the CLI's preflight would report it, so a suite
+// pinning a live refusal can pick the generation's exact message by its reason.
+export function requirementFailure(required: readonly FeatureName[]): RequirementFailure | null {
+  return checkFeatures(required, resolveServerProfile());
 }
 
 // The exact question the CLI's preflight and the client's `require()` ask. It logs nothing: a

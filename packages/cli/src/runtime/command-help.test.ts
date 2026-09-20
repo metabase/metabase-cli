@@ -423,6 +423,7 @@ const ALL_COMMANDS = [
   "git-sync wait",
   "git-sync import",
   "git-sync export",
+  "git-sync export-preflight",
   "git-sync stash",
   "git-sync branches",
   "git-sync create-branch",
