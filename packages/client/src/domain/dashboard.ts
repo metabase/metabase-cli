@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { Card } from "./card";
 import { EmbeddingParams } from "./embedding";
 import { Parameter, ParameterMapping } from "./parameter";
 
@@ -198,9 +197,13 @@ export const DashboardCopyInput = z
   .strict();
 export type DashboardCopyInput = z.infer<typeof DashboardCopyInput>;
 
-// `uncopied` lists the cards the caller could not read, which the copy left behind, and is present
-// only when there were any.
+// A card the copy left behind because the caller cannot read it, cut down to its id; an older
+// server sends the whole card, which the loose object carries through.
+export const DashboardUncopiedCard = z.object({ id: z.number().int() }).loose();
+export type DashboardUncopiedCard = z.infer<typeof DashboardUncopiedCard>;
+
+// `uncopied` is present only when the copy left a card behind.
 export const DashboardCopy = Dashboard.extend({
-  uncopied: z.array(Card).optional(),
+  uncopied: z.array(DashboardUncopiedCard).optional(),
 });
 export type DashboardCopy = z.infer<typeof DashboardCopy>;

@@ -132,6 +132,7 @@ export {
   DashboardListFilter,
   DashboardTab,
   DashboardTabCompact,
+  DashboardUncopiedCard,
   DashboardUpdateInput,
   Dashcard,
   DashcardCompact,

@@ -213,23 +213,14 @@ describe("dashboard resource wire requests", () => {
     ]);
   });
 
-  it("answers the copy with the cards it left behind", async () => {
-    const uncopied = {
-      id: 40,
-      name: "Retired",
-      type: "question",
-      display: "table",
-      description: null,
-      archived: true,
-      query_type: "query",
-      database_id: 1,
-      table_id: 2,
-      collection_id: 3,
-      entity_id: "ccccccccccccccccccccc",
-      creator_id: 1,
-      dataset_query: {},
-      visualization_settings: {},
-    };
+  it("answers the copy with the ids of the cards it left behind", async () => {
+    const { mb } = clientOver([jsonResponse({ ...DASHBOARD, id: 6, uncopied: [{ id: 40 }] })]);
+
+    expect(await mb.dashboard.copy(5)).toEqual({ ...DASHBOARD, id: 6, uncopied: [{ id: 40 }] });
+  });
+
+  it("carries a left-behind card an older server sends in full", async () => {
+    const uncopied = { id: 40, name: "Retired", type: "question", archived: true };
     const { mb } = clientOver([jsonResponse({ ...DASHBOARD, id: 6, uncopied: [uncopied] })]);
 
     expect(await mb.dashboard.copy(5)).toEqual({ ...DASHBOARD, id: 6, uncopied: [uncopied] });

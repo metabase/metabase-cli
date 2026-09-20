@@ -439,7 +439,7 @@ what drives query writing and content selection; sync flags, fingerprints, and t
 deliberately absent.
 
 A second class of schema describes a single response shape that has no compact pair:
-`DashboardDetail`, `DatabaseSyncResult`, `CollectionTreeNode`, `FieldSummary`, `SettingValue`,
+`DashboardDetail`, a copy's `DashboardUncopiedCard`, `DatabaseSyncResult`, `CollectionTreeNode`, `FieldSummary`, `SettingValue`,
 `TableQueryMetadata`, `QueryMetadata`, `CompiledQuery`, `SessionProperties`, `TokenFeatures`, a revision's
 `RevisionRow` and `RevisionRevert`, the source replacement's `ReplacementCheck` and `ReplacementRunStarted`,
 a metric's `MetricBreakoutValues` and `MetricDimensionListing`, the data permissions' `PermissionsGraph`
