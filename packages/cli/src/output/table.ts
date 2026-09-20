@@ -36,7 +36,7 @@ export function renderRows(
 }
 
 export function formatCell<T>(row: T, column: ColumnDef<T>): string {
-  const value = row[column.key];
+  const value = column.value === undefined ? row[column.key] : column.value(row);
   if (column.format !== undefined) {
     return column.format(value);
   }

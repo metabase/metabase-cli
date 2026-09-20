@@ -1154,6 +1154,85 @@ mb measure archive 1 --revision-message "deprecated"
 | --------------------------- | ------------------------------------------- |
 | `--revision-message <text>` | Audit-log message recorded with the change. |
 
+## Dependencies
+
+What Metabase content depends on and what depends on it, from `/api/ee/dependencies`. Metabase records an edge from every card, dashboard, document, snippet, transform, sandbox, segment or measure to what its query reads (a table, a card, a snippet, a transform's output), and analyses each dependent's query for errors traced back to what it reads. Every verb needs the `dependencies` premium feature (Pro/Enterprise) and is refused by name before any request without it; `graph` works on every supported server (a measure as its starting entity from Metabase v59), the other four need Metabase v59 or newer. The graph is recomputed by a background job shortly after content changes, so a freshly saved query can take a few seconds to appear.
+
+Every row is `{ id, type, data }` plus, where the verb reports it, `dependents_count`, a map from usage kind (`question`, `model`, `metric`, `dashboard`, `document`, `transform`, …) to how many depend on the row directly, or `null` when nothing does. `data` names and places the entity by kind: a table carries `name`, `display_name`, `db_id`, `schema` and its `db` (`{ id, name }`); a card `name`, `type` (`question` | `model` | `metric`), `database_id`, `view_count` and its `collection` (plus the `dashboard` or `document` it lives inside, when it does); a dashboard or document its `view_count` and `collection`, a snippet its `collection`; a segment, measure or sandbox its `table` (`{ id, name, display_name }`); a transform carries its `name` and `description` only, with `table` always `null`. The compact projection keeps those; `--full` adds the heavier hydrations (a table's `fields`, a card's `result_metadata`, creators, last-edit info). An entity's location, which `--query` matches and `--sort-column location` orders by and the text table shows, is the dashboard, document or collection holding a card, a table's database, a segment's or measure's table, and the collection of a snippet, dashboard or document; a sandbox has none. A transform's row carries no collection: `unreferenced` and `breaking`, which match and sort on the server, use its collection's name (`Transforms` for one at the root), while `dependents`, `broken` and the text table give it no location.
+
+Archived and dropped content: from Metabase v63 `graph` includes archived upstream entities; older servers leave them out. `dependents`, `broken` and `unreferenced` leave archived cards, dashboards, documents, snippets, segments and measures out on every server. From v63 `unreferenced` and `breaking` also keep dropped and hidden tables, and `breaking` keeps archived sources, so a dropped table or an archived card that broke its dependents is reported; older servers leave all of these out, and only an `archived` parameter the newer ones dropped would bring them back, so the CLI does not offer it.
+
+`<type>` is one of `table`, `card`, `snippet`, `transform`, `dashboard`, `document`, `sandbox`, `segment`, `measure`.
+
+### `mb dependency graph <type> <id>`
+
+Show everything an entity depends on, directly or transitively: `nodes` holds the entity and every upstream entity, each with its `dependents_count`; `edges` run from a dependent to what it depends on.
+
+```sh
+mb dependency graph card 1
+mb dependency graph table 12 --json
+mb dependency graph transform 3 --fields edges
+```
+
+### `mb dependency dependents <type> <id>`
+
+List the entities that depend directly on an entity, each with its own `dependents_count`, so a chain can be followed one hop at a time. The server filters and sorts; `--limit` / `--offset` window the answer here.
+
+```sh
+mb dependency dependents table 12
+mb dependency dependents card 1 --dependent-types card,dashboard --json
+mb dependency dependents table 12 --broken --json
+mb dependency dependents card 1 --sort-column view-count --sort-direction desc
+```
+
+| Flag                             | Description                                                                                                                       |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--dependent-types`              | Comma-separated entity kinds to keep (the `<type>` vocabulary).                                                                   |
+| `--dependent-card-types`         | Comma-separated card kinds to keep: `question`, `model`, `metric`. Narrows card dependents only; other kinds stay.                |
+| `--broken`                       | Only the dependents whose query analysis failed, whatever the cause; their `dependents_count` then counts only broken dependents. |
+| `--query`                        | Keep entities whose name or location contains this text, case-insensitively. Must not be blank.                                   |
+| `--include-personal-collections` | Also list content in personal collections (left out by default).                                                                  |
+| `--sort-column`                  | `name` (default), `location` or `view-count`.                                                                                     |
+| `--sort-direction`               | `asc` (default) or `desc`.                                                                                                        |
+
+### `mb dependency broken <type> <id>`
+
+List the entities whose queries an entity has broken: those where query analysis traced a validation error (a missing column, a syntax error) back to it, whether they read it directly or through others. Rows are `{ id, type, data }` with no `dependents_count`. Only a table, a card or (from Metabase v60) a transform can be traced as the cause, so any other `<type>` lists nothing. `dependents --broken` answers a different set: the direct dependents whose analysis failed for any cause. Takes the `dependents` flags except `--broken` and `--query`.
+
+```sh
+mb dependency broken table 12
+mb dependency broken card 1 --dependent-types card --json
+```
+
+### `mb dependency unreferenced`
+
+List the entities nothing depends on, across the whole instance. Only a dependent the caller can read and that is not archived counts, so an entity used only by archived content, or by content in collections the caller cannot read, is listed. Every kind is listed unless `--types` narrows it; a `--query` leaves sandboxes out, since they have no name or location to match. The server pages the answer, so `total` is its count and `--limit` / `--offset` size the request.
+
+```sh
+mb dependency unreferenced
+mb dependency unreferenced --types card --card-types model,metric --json
+mb dependency unreferenced --query orders --sort-column location --json
+```
+
+| Flag                             | Description                                                                                              |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `--types`                        | Comma-separated entity kinds to list (the `<type>` vocabulary).                                          |
+| `--card-types`                   | Comma-separated card kinds to list: `question`, `model`, `metric`. Narrows cards only; other kinds stay. |
+| `--query`                        | Keep entities whose name or location contains this text, case-insensitively. Must not be blank.          |
+| `--include-personal-collections` | Also list content in personal collections (left out by default).                                         |
+| `--sort-column`                  | `name` (default), `location`, `dependents-with-errors` or `dependents-errors`.                           |
+| `--sort-direction`               | `asc` (default) or `desc`.                                                                               |
+
+### `mb dependency breaking`
+
+List the entities whose dependents carry query errors, across the whole instance. Each row is a source of breakage with `dependents_errors`, the validation errors traced back to it, each naming the dependent (`analyzed_entity_type`, `analyzed_entity_id`) it was found in and its `error_type` (`missing-column`, `syntax-error`, …). Cards and tables are listed unless `--types` says otherwise; only a table, a card or (from Metabase v60) a transform can be a source, so any other kind lists nothing. Takes the `unreferenced` flags.
+
+```sh
+mb dependency breaking
+mb dependency breaking --types table --json
+mb dependency breaking --sort-column dependents-errors --sort-direction desc --json
+```
+
 ## Timelines
 
 CRUD on `/api/timeline`. A timeline is a named collection of dated events rendered as annotations on time-series charts. Timelines live in collections (`collection_id: null` = root) and carry an icon (`star`, `cake`, `mail`, `warning`, `bell`, `cloud`).

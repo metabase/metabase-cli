@@ -4,6 +4,8 @@ export interface ColumnDef<T> {
   key: keyof T & string;
   label?: string;
   width?: number;
+  // A cell that depends on more than `key` (a location read by the row's type) reads the whole row.
+  value?: (row: T) => unknown;
   format?: (value: unknown) => string;
 }
 

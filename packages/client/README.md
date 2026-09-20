@@ -435,7 +435,8 @@ Every Metabase resource exports a full schema and a compact projection: `Card`/`
 `TimelineEvent`, `Transform`, `TransformRun`, `TransformRunSummary`, `TransformMemberRun`, `TransformJob`,
 `TransformTag`, `TransformTest`, `ReplacementRun`, `Revision`, `TableForeignKey`, `MetricDimension`,
 `CurrentUser`, `CardQueryResult`, `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`,
-`DashboardTab`, and the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`,
+`DashboardTab`, the dependency graph's `DependencyEntity`, `DependencyNode`, `BreakingSource` and
+`DependencyGraph`, and the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`,
 `NotificationHandler`, …).
 
 The full schema is `.loose()`, so server-side additions do not break parsing. The compact projection
@@ -449,10 +450,10 @@ A second class of schema describes a single response shape that has no compact p
 `RevisionRow` and `RevisionRevert`, the source replacement's `ReplacementCheck` and `ReplacementRunStarted`,
 a metric's `MetricBreakoutValues` and `MetricDimensionListing`, the data permissions' `PermissionsGraph`
 (a `DatabasePermissions` per group and database, each key left out at its least permissive value), the
-dependency graph's `DependencyGraph`, `DependencyNode`, `DependencyEntity`, `BreakingSource`, and
-`DependencyFindingError`, the entity relationship diagram's `Erd`, `ErdNode` and `ErdField`, the transform
-inspector's `TransformInspection` and `TransformLens`, a DAG run's `TransformDagRunResult` and
-`TransformDagTransform`, the Python runner's `PythonLibrary` and `PythonTestRunResult`, git-sync's
+dependency graph's `DependencyFindingError`, the entity relationship diagram's `Erd`, `ErdNode` and
+`ErdField`, the transform inspector's `TransformInspection` and `TransformLens`, a DAG run's
+`TransformDagRunResult` and `TransformDagTransform`, the Python runner's `PythonLibrary` and
+`PythonTestRunResult`, git-sync's
 `SyncExportPreflight`, and a transform test's `TransformTestTable`, `TransformTestColumn`, `TransformTestRow`, `TransformTestInput`, `TransformTestExpectation`, `TransformTestRunResult`, `TransformTestExpectationResult` and `TransformTestResultColumn`.
 
 Request bodies (`<Resource>CreateInput`, `<Resource>UpdateInput`, and `MetricDefinition`, the expression
