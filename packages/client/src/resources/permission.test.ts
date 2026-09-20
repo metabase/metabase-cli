@@ -3,7 +3,7 @@ import { assert, describe, expect, it } from "vitest";
 import { createClient } from "../client";
 import { ResponseShapeError } from "../errors";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
+import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
 import { createServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -58,15 +58,6 @@ function clientOver(responses: Array<Response>) {
     server: SERVER_58,
   });
   return { mb, capture };
-}
-
-async function thrownBy(run: () => Promise<unknown>): Promise<unknown> {
-  try {
-    await run();
-  } catch (error: unknown) {
-    return error;
-  }
-  throw new Error("expected the call to reject");
 }
 
 describe("permission resource wire requests", () => {

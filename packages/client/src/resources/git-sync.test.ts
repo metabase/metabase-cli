@@ -3,7 +3,7 @@ import { assert, describe, expect, it } from "vitest";
 import { createClient } from "../client";
 import { HttpError } from "../http/errors";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
+import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
 import { createServerProfile, type ServerProfile } from "../version/profile";
 
@@ -97,15 +97,6 @@ function clientOver(responses: Array<Response>, server: ServerProfile = SERVER) 
 
 function noContent(): Response {
   return new Response(null, { status: 204 });
-}
-
-async function thrownBy(run: () => Promise<unknown>): Promise<unknown> {
-  try {
-    await run();
-  } catch (error: unknown) {
-    return error;
-  }
-  throw new Error("expected the call to reject");
 }
 
 describe("git-sync resource wire requests", () => {

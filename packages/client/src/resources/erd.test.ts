@@ -2,7 +2,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
+import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
 import { createServerProfile } from "../version/profile";
 
@@ -86,15 +86,6 @@ function clientOver(responses: Array<Response>, server = LICENSED_62) {
     server,
   });
   return { mb, capture };
-}
-
-async function thrownBy(run: () => Promise<unknown>): Promise<unknown> {
-  try {
-    await run();
-  } catch (error: unknown) {
-    return error;
-  }
-  throw new Error("expected the call to reject");
 }
 
 describe("erd resource wire requests", () => {

@@ -3,7 +3,7 @@ import { assert, describe, expect, it } from "vitest";
 import { createClient } from "../client";
 import { ResponseShapeError } from "../errors";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, TEST_USER_AGENT } from "../testing/fetch-capture";
+import { captureFetch, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
 
 import type { CsvFile } from "./csv-upload";
 
@@ -37,15 +37,6 @@ function clientOver(responses: Array<Response>) {
 function createdResponse(modelId: string, tableId: string | null): Response {
   const headers = tableId === null ? {} : { "metabase-table-id": tableId };
   return new Response(modelId, { headers });
-}
-
-async function thrownBy(run: () => Promise<unknown>): Promise<unknown> {
-  try {
-    await run();
-  } catch (error: unknown) {
-    return error;
-  }
-  throw new Error("expected the call to reject");
 }
 
 describe("upload resource wire requests", () => {

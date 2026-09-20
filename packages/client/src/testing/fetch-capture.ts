@@ -125,3 +125,13 @@ function headersToRecord(init: RequestInit["headers"]): Record<string, string> {
   }
   return result;
 }
+
+/** The value a call rejected with; a call that resolves fails the test. */
+export async function thrownBy(run: () => Promise<unknown>): Promise<unknown> {
+  try {
+    await run();
+  } catch (error: unknown) {
+    return error;
+  }
+  throw new Error("expected the call to reject");
+}

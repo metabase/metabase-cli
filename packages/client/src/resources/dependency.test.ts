@@ -5,9 +5,10 @@ import type { ClientCredentials } from "../http/transport";
 import type { Page } from "../paginate";
 import {
   captureFetch,
-  type FetchScript,
   jsonResponse,
   TEST_USER_AGENT,
+  thrownBy,
+  type FetchScript,
 } from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
 import { createServerProfile, type ServerProfile } from "../version/profile";
@@ -113,15 +114,6 @@ async function collectPages<T>(pages: AsyncIterable<Page<T>>): Promise<Page<T>[]
     collected.push(page);
   }
   return collected;
-}
-
-async function thrownBy(run: () => Promise<unknown>): Promise<unknown> {
-  try {
-    await run();
-  } catch (error: unknown) {
-    return error;
-  }
-  throw new Error("expected the call to reject");
 }
 
 describe("dependency resource wire requests", () => {

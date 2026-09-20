@@ -4,7 +4,7 @@ import { createClient } from "../client";
 import { ConfigError } from "../errors";
 import { HttpError } from "../http/errors";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
+import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
 
 const CREDENTIALS: ClientCredentials = {
   url: "https://mb.example.com/metabase",
@@ -57,15 +57,6 @@ function clientOver(responses: Array<Response>) {
     fetchImpl: capture.fetch,
   });
   return { mb, capture };
-}
-
-async function thrownBy(run: () => Promise<unknown>): Promise<unknown> {
-  try {
-    await run();
-  } catch (error: unknown) {
-    return error;
-  }
-  throw new Error("expected the call to reject");
 }
 
 describe("setting resource wire requests", () => {
