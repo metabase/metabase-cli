@@ -21,6 +21,7 @@ export default defineCommandGroup({
     update: () => import("./update").then((mod) => mod.default),
     "update-dashcard": () => import("./update-dashcard").then((mod) => mod.default),
     copy: () => import("./copy").then((mod) => mod.default),
+    verify: () => import("./verify").then((mod) => mod.default),
     archive: () => import("./archive").then((mod) => mod.default),
   },
 });

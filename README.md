@@ -810,6 +810,21 @@ mb card update 1 --file patch.json --skip-validate
 | `--file <path>`   | Path to JSON body file.                                                                                                                                |
 | `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
+### `mb card verify <id>`
+
+Mark a card verified, or withdraw the mark with `--remove` (`POST /api/moderation-review` with `moderated_item_type: "card"`). Admins only. Verified content carries a check mark in the product and ranks higher in search (`search --verified`). Each call adds a review and makes it the card's most recent one; `--remove` records a review with no status, which withdraws the verification. Changing the card's query (`card update` with a new `dataset_query`, or a revision revert) withdraws it too: the server records a review with no status and a note saying the edit unverified it. `card get <id> --fields moderation_reviews --json` reads the card's reviews, newest first; the first one's `status` is the current state. Prints the review: `id`, `moderated_item_id`, `moderated_item_type`, `status` (`verified` or `null`), `text`, `most_recent`; `--full` adds `moderator_id` and the timestamps. Needs the `content_verification` premium feature (Pro/Enterprise); the command is refused by name before any request without it.
+
+```sh
+mb card verify 1
+mb card verify 1 --text "Reviewed the joins" --json
+mb card verify 1 --remove
+```
+
+| Flag            | Description                                       |
+| --------------- | ------------------------------------------------- |
+| `--text <note>` | Note stored with the review.                      |
+| `--remove`      | Withdraw the verification instead of granting it. |
+
 ### `mb card archive <id>`
 
 Soft-delete a card by setting `archived: true`. The archived card stays available via `card list --filter archived` and `card get <id>` until permanently deleted server-side. To unarchive (or otherwise toggle the flag) use `mb card update <id> --body '{"archived":false}'`.
@@ -953,6 +968,21 @@ mb dashboard copy 1 --deep --json
 | `--collection-id <id>`      | Collection to copy into (default: the root collection).          |
 | `--collection-position <n>` | Pin the copy at this position in the collection.                 |
 | `--deep`                    | Duplicate the questions and metrics instead of referencing them. |
+
+### `mb dashboard verify <id>`
+
+Mark a dashboard verified, or withdraw the mark with `--remove` (`POST /api/moderation-review` with `moderated_item_type: "dashboard"`). Admins only. Verified content carries a check mark in the product and ranks higher in search (`search --verified`). Each call adds a review and makes it the dashboard's most recent one; `--remove` records a review with no status, which withdraws the verification. `dashboard get <id> --fields moderation_reviews --json` reads the dashboard's reviews, newest first; the first one's `status` is the current state. Prints the review: `id`, `moderated_item_id`, `moderated_item_type`, `status` (`verified` or `null`), `text`, `most_recent`; `--full` adds `moderator_id` and the timestamps. Needs the `content_verification` premium feature (Pro/Enterprise); the command is refused by name before any request without it.
+
+```sh
+mb dashboard verify 1
+mb dashboard verify 1 --text "Reviewed the joins" --json
+mb dashboard verify 1 --remove
+```
+
+| Flag            | Description                                       |
+| --------------- | ------------------------------------------------- |
+| `--text <note>` | Note stored with the review.                      |
+| `--remove`      | Withdraw the verification instead of granting it. |
 
 ### `mb dashboard archive <id>`
 

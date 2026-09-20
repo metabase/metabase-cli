@@ -14,6 +14,7 @@ export default defineCommandGroup({
     alerts: () => import("./alerts").then((mod) => mod.default),
     create: () => import("./create").then((mod) => mod.default),
     update: () => import("./update").then((mod) => mod.default),
+    verify: () => import("./verify").then((mod) => mod.default),
     archive: () => import("./archive").then((mod) => mod.default),
   },
 });
