@@ -226,15 +226,9 @@ export const TransformTestExpectationResult = z.discriminatedUnion("type", [
 ]);
 export type TransformTestExpectationResult = z.infer<typeof TransformTestExpectationResult>;
 
-export const TransformTestStatus = z.enum(["passed", "failed", "error"]);
-export type TransformTestStatus = z.infer<typeof TransformTestStatus>;
-
-// The run endpoint documents its own status as `passed` or `failed`, with `error` reserved for one
-// expectation that could not be evaluated. The wire schema still admits `error` at the top, so it
-// is read here rather than refused as a shape mismatch.
 export const TransformTestRunResult = z
   .object({
-    status: TransformTestStatus,
+    status: z.enum(["passed", "failed"]),
     expectations: z.array(TransformTestExpectationResult),
     tables: z.record(z.string(), z.string()),
   })

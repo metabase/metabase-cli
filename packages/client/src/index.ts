@@ -445,7 +445,6 @@ export {
   TransformTestResultColumn,
   TransformTestRow,
   TransformTestRunResult,
-  TransformTestStatus,
   TransformTestTable,
   TransformTestUpdateInput,
 } from "./domain/transform-test";
