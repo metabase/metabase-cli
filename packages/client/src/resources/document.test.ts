@@ -183,7 +183,7 @@ describe("document resource wire requests", () => {
   });
 
   it("refuses the copy before the wire on a server without the route", async () => {
-    const { mb, capture } = clientOver([jsonResponse(DOCUMENT)], SERVER_58);
+    const { mb, capture } = clientOver([], SERVER_58);
 
     const error = await thrownBy(() => mb.document.copy(4));
 

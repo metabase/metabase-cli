@@ -437,7 +437,7 @@ describe("transform resource wire requests", () => {
   });
 
   it("refuses a DAG run before the wire on a server without DAG runs", async () => {
-    const { mb, capture } = clientOver([jsonResponse(DAG_KICKOFF, 202)]);
+    const { mb, capture } = clientOver([]);
 
     const error = await mb.transform
       .runDag(7, { direction: "downstream" })

@@ -138,7 +138,7 @@ describe("table resource wire requests", () => {
   });
 
   it("refuses an access filter before the wire on a server whose listing drops it", async () => {
-    const { mb, capture } = clientOver([jsonResponse([TABLE])], SERVER_58);
+    const { mb, capture } = clientOver([], SERVER_58);
 
     const error = await thrownBy(() => mb.table.list({ term: "ord", "can-query": true }));
 
@@ -156,7 +156,7 @@ describe("table resource wire requests", () => {
   });
 
   it("refuses the unused filter before the wire on a server without dependency tracking", async () => {
-    const { mb, capture } = clientOver([jsonResponse([TABLE])]);
+    const { mb, capture } = clientOver([]);
 
     const error = await thrownBy(() => mb.table.list({ "unused-only": true }));
 

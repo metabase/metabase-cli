@@ -100,7 +100,7 @@ describe("revision resource wire requests", () => {
   });
 
   it("refuses a measure's revisions before the wire on a server without measures", async () => {
-    const { mb, capture } = clientOver([jsonResponse([REVISION])], SERVER_58);
+    const { mb, capture } = clientOver([], SERVER_58);
 
     const error = await thrownBy(() => mb.revision.list("measure", 3));
 
@@ -161,7 +161,7 @@ describe("revision resource wire requests", () => {
   });
 
   it("refuses a transform revert before the wire on a server without transforms", async () => {
-    const { mb, capture } = clientOver([jsonResponse(REVISION)], SERVER_58);
+    const { mb, capture } = clientOver([], SERVER_58);
 
     const error = await thrownBy(() =>
       mb.revision.revert({ entity: "transform", id: 5, revision_id: 2 }),

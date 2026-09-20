@@ -256,7 +256,7 @@ describe("replacement resource wire requests", () => {
   });
 
   it("refuses before the wire on a server without the dependencies token", async () => {
-    const { mb, capture } = clientOver([jsonResponse({ success: true })], UNLICENSED_SERVER);
+    const { mb, capture } = clientOver([], UNLICENSED_SERVER);
 
     const error = await mb.replacement
       .checkReplaceSource(SOURCE_SWAP)
@@ -276,7 +276,7 @@ describe("replacement resource wire requests", () => {
   });
 
   it("refuses before the wire on a licensed server that predates replacement", async () => {
-    const { mb, capture } = clientOver([jsonResponse([RUN])], PRE_REPLACEMENT_SERVER);
+    const { mb, capture } = clientOver([], PRE_REPLACEMENT_SERVER);
 
     const error = await mb.replacement.listRuns().catch((caught: unknown) => caught);
 

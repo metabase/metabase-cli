@@ -112,7 +112,7 @@ describe("moderation-review resource wire requests", () => {
   });
 
   it("refuses before the wire when the server grants no content_verification token", async () => {
-    const { mb, capture } = clientOver([jsonResponse(REVIEW)], UNLICENSED);
+    const { mb, capture } = clientOver([], UNLICENSED);
 
     const error = await thrownBy(() =>
       mb.moderationReview.create({ moderated_item_id: 42, moderated_item_type: "card" }),

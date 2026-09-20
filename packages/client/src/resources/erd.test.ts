@@ -111,7 +111,7 @@ describe("erd resource wire requests", () => {
   });
 
   it("refuses before the wire on a server without the schema viewer token", async () => {
-    const { mb, capture } = clientOver([jsonResponse(ERD)], UNLICENSED_62);
+    const { mb, capture } = clientOver([], UNLICENSED_62);
 
     const error = await thrownBy(() => mb.erd.get({ "database-id": 1 }));
 
@@ -129,7 +129,7 @@ describe("erd resource wire requests", () => {
   });
 
   it("refuses before the wire on a server older than the route, whatever its token grants", async () => {
-    const { mb, capture } = clientOver([jsonResponse(ERD)], LICENSED_61);
+    const { mb, capture } = clientOver([], LICENSED_61);
 
     const error = await thrownBy(() => mb.erd.get({ "database-id": 1 }));
 

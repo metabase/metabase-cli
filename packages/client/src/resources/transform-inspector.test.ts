@@ -155,7 +155,7 @@ describe("transform-inspector resource wire requests", () => {
   });
 
   it("refuses before the wire on a server without the Python transforms token", async () => {
-    const { mb, capture } = clientOver([jsonResponse(INSPECTION)], UNLICENSED_SERVER);
+    const { mb, capture } = clientOver([], UNLICENSED_SERVER);
 
     const error = await mb.transformInspector.discover(7).catch((caught: unknown) => caught);
 
@@ -173,7 +173,7 @@ describe("transform-inspector resource wire requests", () => {
   });
 
   it("refuses before the wire on a server older than the inspector, whatever its token grants", async () => {
-    const { mb, capture } = clientOver([jsonResponse(INSPECTION)], OLDER_LICENSED_SERVER);
+    const { mb, capture } = clientOver([], OLDER_LICENSED_SERVER);
 
     const error = await mb.transformInspector.discover(7).catch((caught: unknown) => caught);
 

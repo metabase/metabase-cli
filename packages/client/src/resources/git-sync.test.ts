@@ -366,7 +366,7 @@ describe("git-sync resource wire requests", () => {
   });
 
   it("refuses the export preflight before the wire on a server older than the route", async () => {
-    const { mb, capture } = clientOver([jsonResponse(CLEAN_PREFLIGHT)]);
+    const { mb, capture } = clientOver([]);
 
     const error = await thrownBy(() => mb.gitSync.exportPreflight({ branch: "main" }));
 

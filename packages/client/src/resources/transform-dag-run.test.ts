@@ -103,7 +103,7 @@ describe("transform-dag-run resource wire requests", () => {
   });
 
   it("refuses before the wire on a server without DAG runs", async () => {
-    const { mb, capture } = clientOver([jsonResponse([MEMBER_RUN])], OLDER_SERVER);
+    const { mb, capture } = clientOver([], OLDER_SERVER);
 
     const error = await mb.transformDagRun.transformRuns(90).catch((caught: unknown) => caught);
 

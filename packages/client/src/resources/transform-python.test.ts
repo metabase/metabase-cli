@@ -156,7 +156,7 @@ describe("transform-python resource wire requests", () => {
   });
 
   it("refuses before the wire on a server without the Python transforms token", async () => {
-    const { mb, capture } = clientOver([jsonResponse(LIBRARY)], UNLICENSED_SERVER);
+    const { mb, capture } = clientOver([], UNLICENSED_SERVER);
 
     const error = await mb.transformPython.getLibrary("common").catch((caught: unknown) => caught);
 
@@ -174,7 +174,7 @@ describe("transform-python resource wire requests", () => {
   });
 
   it("refuses a test run before the wire on a server that takes source tables as a map", async () => {
-    const { mb, capture } = clientOver([jsonResponse({ logs: "ok" })], MAP_SOURCE_TABLES_SERVER);
+    const { mb, capture } = clientOver([], MAP_SOURCE_TABLES_SERVER);
 
     const error = await mb.transformPython.testRun(TEST_RUN).catch((caught: unknown) => caught);
 

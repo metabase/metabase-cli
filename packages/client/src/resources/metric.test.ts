@@ -241,7 +241,7 @@ describe("metric resource wire requests", () => {
   });
 
   it("refuses the dimension listing before the wire on a server older than the route", async () => {
-    const { mb, capture } = clientOver([jsonResponse(LISTING)], SERVER_63);
+    const { mb, capture } = clientOver([], SERVER_63);
 
     const error = await thrownBy(() => mb.metric.dimensions(42));
 
@@ -259,7 +259,7 @@ describe("metric resource wire requests", () => {
   });
 
   it("refuses a definition query before the wire on a server without the metric routes", async () => {
-    const { mb, capture } = clientOver([jsonResponse(QUERY_RESULT)], SERVER_59);
+    const { mb, capture } = clientOver([], SERVER_59);
 
     const error = await thrownBy(() => mb.metric.query(AVERAGE_ORDER));
 
