@@ -134,9 +134,10 @@ console.log(cards.data.length, cards.total);
 ```
 
 A resource method whose endpoint pages answers an `AsyncIterable<Page<T>>` — `mb.collection.itemPages`,
-`mb.transform.runPages`, `mb.dependency.unreferencedPages` and `mb.dependency.breakingPages` are the
-four — requesting `limit`/`offset` pages and yielding a `Page<T>` (`{ items: T[], total: number | null }`)
-per request, so the server's count reaches you instead of being spent on loop control.
+`mb.transform.runPages`, `mb.transform.runSummaryPages`, `mb.dependency.unreferencedPages` and
+`mb.dependency.breakingPages` are the five — requesting `limit`/`offset` pages and yielding a `Page<T>`
+(`{ items: T[], total: number | null }`) per request, so the server's count reaches you instead of
+being spent on loop control.
 
 ```ts
 import { createClient } from "@metabase/client";
@@ -303,6 +304,8 @@ try {
 }
 ```
 
+A parameter only some servers honour is refused the same way when it is given: `mb.table.list({ "can-query": true })` asks for the access filters below 59, and `mb.field.update(id, { data_sensitivity })` for the sensitivity column below 64, each with the `CapabilityError` naming the feature; without the parameter neither method consults the profile. A vocabulary the server spells differently by generation is refused by value: `data_layer` is `final`, `internal` or `hidden` from 59 on (`TableDataLayerTier`) and `gold`, `silver`, `bronze` or `copper` on 58 (`TableDataLayerMedallion`), and `mb.table.update` refuses a tier name below 59 by feature and a medallion name from 59 on as a `ConfigError`.
+
 A method's return type is the shape the newest supported server answers. Where an older server answers differently, the method parses that server's exact wire shape and converts it forward, so `mb.transform.get(5)` carries `target_table_id` on every server (a hydrated `table` on the oldest generations, the column on the rest), `mb.transformJob.run(2)` answers `{ message, started, run_id }` whether the server reports an opaque stub or a numeric run id, and each of `mb.library.get()`'s `effective_children` is `{ id, name, description, type, is_remote_synced }`. A field the server cannot report is `null`; the profile's `features` say why. A response that fails its generation's schema is a `ResponseShapeError` naming the server version and the fields that were off — never a silent fallback to another shape.
 
 A server newer than the window, or a head build whose tag does not parse, is placed one past the newest known major — the slot a rule written against head describes — with `skew` set to `"newer-than-known"` or `"unknown"`; its additions pass through the loose schemas, and only a token feature can refuse it. A server older than the window is `"older-than-known"`, evaluated at its own major, so each method it lacks refuses by name. The client never takes a version from the caller: a profile comes from a probe, so two consumers of one server cannot disagree about what it is.
@@ -425,10 +428,10 @@ Every Metabase resource exports a full schema and a compact projection: `Card`/`
 `Collection`/`CollectionCompact`, `Dashboard`/`DashboardCompact`, `Database`/`DatabaseCompact`,
 `Document`, `Field`, `FieldValues`, `Glossary`, `Library`, `Measure`, `ModerationReview`, `Notification`,
 `ParameterValues`, `Pulse`, `SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`,
-`TimelineEvent`, `Transform`, `TransformRun`, `TransformJob`, `TransformTag`, `ReplacementRun`,
-`CurrentUser`, `CardQueryResult`, `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`,
-`DashboardTab`, and the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`,
-`NotificationHandler`, …).
+`TimelineEvent`, `Transform`, `TransformRun`, `TransformRunSummary`, `TransformMemberRun`, `TransformJob`,
+`TransformTag`, `ReplacementRun`, `Revision`, `TableForeignKey`, `MetricDimension`, `CurrentUser`,
+`CardQueryResult`, `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`, `DashboardTab`, and
+the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`, `NotificationHandler`, …).
 
 The full schema is `.loose()`, so server-side additions do not break parsing. The compact projection
 is `.pick(…).strip()` — the agent-facing contract, and the shape list commands render. Schemas carry
@@ -437,11 +440,15 @@ deliberately absent.
 
 A second class of schema describes a single response shape that has no compact pair:
 `DashboardDetail`, `DatabaseSyncResult`, `CollectionTreeNode`, `FieldSummary`, `SettingValue`,
-`TableQueryMetadata`, `QueryMetadata`, `SessionProperties`, `TokenFeatures`, the source replacement's
-`ReplacementCheck` and `ReplacementRunStarted`, a metric's `MetricBreakoutValues` and `MetricDimensionListing`,
-the data permissions' `PermissionsGraph` (a `DatabasePermissions` per group and database, each key left
-out at its least permissive value), and the dependency graph's `DependencyGraph`, `DependencyNode`,
-`DependencyEntity`, `BreakingSource`, and `DependencyFindingError`.
+`TableQueryMetadata`, `QueryMetadata`, `CompiledQuery`, `SessionProperties`, `TokenFeatures`, a revision's
+`RevisionRow` and `RevisionRevert`, the source replacement's `ReplacementCheck` and `ReplacementRunStarted`,
+a metric's `MetricBreakoutValues` and `MetricDimensionListing`, the data permissions' `PermissionsGraph`
+(a `DatabasePermissions` per group and database, each key left out at its least permissive value), the
+dependency graph's `DependencyGraph`, `DependencyNode`, `DependencyEntity`, `BreakingSource`, and
+`DependencyFindingError`, the entity relationship diagram's `Erd`, `ErdNode` and `ErdField`, the transform
+inspector's `TransformInspection` and `TransformLens`, a DAG run's `TransformDagRunResult` and
+`TransformDagTransform`, the Python runner's `PythonLibrary` and `PythonTestRunResult`, and git-sync's
+`SyncExportPreflight`.
 
 Request bodies (`<Resource>CreateInput`, `<Resource>UpdateInput`, and `MetricDefinition`, the expression
 over metric and measure leaves that `metric.query` and `metric.breakoutValues` run) and the domain vocabulary enums
