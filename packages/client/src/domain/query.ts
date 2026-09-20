@@ -19,3 +19,6 @@ export type DatasetQuery = z.infer<typeof DatasetQuery>;
 // stream, and the last path segment of both.
 export const ExportFormat = z.enum(["csv", "json", "xlsx"]);
 export type ExportFormat = z.infer<typeof ExportFormat>;
+
+export const SortDirection = z.enum(["asc", "desc"]);
+export type SortDirection = z.infer<typeof SortDirection>;

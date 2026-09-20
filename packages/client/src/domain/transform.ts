@@ -199,6 +199,9 @@ export type TransformDagTransform = z.infer<typeof TransformDagTransform>;
 export const TransformRunSummaryType = z.enum(["job", "dag", "transform"]);
 export type TransformRunSummaryType = z.infer<typeof TransformRunSummaryType>;
 
+export const TransformRunSummarySortColumn = z.enum(["start_time", "end_time"]);
+export type TransformRunSummarySortColumn = z.infer<typeof TransformRunSummarySortColumn>;
+
 // One root run of the unified history: a job run, a DAG reprocess run, or a standalone transform
 // run, never a member run of a job or DAG. `entity_id` is the job or transform that ran, null once
 // it is deleted; `name` is that entity's live name, else the one snapshotted when the run started.

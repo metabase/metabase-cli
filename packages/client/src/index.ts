@@ -147,7 +147,6 @@ export {
 export { CompiledQuery, QueryMetadata, VirtualField, VirtualTable } from "./domain/dataset";
 export {
   BreakingSource,
-  DependencyCardType,
   DependencyEdge,
   DependencyEntity,
   DependencyEntityData,
@@ -157,7 +156,6 @@ export {
   DependencyGraph,
   DependencyItemsSortColumn,
   DependencyNode,
-  DependencySortDirection,
   DependencyType,
   DependencyUsageType,
   DependentsSortColumn,
@@ -314,7 +312,7 @@ export {
   PulseScheduleType,
   PulseUpdateInput,
 } from "./domain/pulse";
-export { DatasetQuery, ExportFormat } from "./domain/query";
+export { DatasetQuery, ExportFormat, SortDirection } from "./domain/query";
 export {
   ReplacementCheck,
   ReplacementColumn,
@@ -387,6 +385,7 @@ export {
   TransformRunStatus,
   TransformRunSummary,
   TransformRunSummaryCompact,
+  TransformRunSummarySortColumn,
   TransformRunSummaryType,
   TransformSourceTableEntry,
   TransformTarget,

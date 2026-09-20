@@ -14,10 +14,12 @@ import {
   type TransformRunResult,
   type TransformRunStatus,
   TransformRunSummary,
+  type TransformRunSummarySortColumn,
   type TransformRunSummaryType,
   transformRowSchema,
   type TransformUpdateInput,
 } from "../domain/transform";
+import type { SortDirection } from "../domain/query";
 import { TimeoutError } from "../errors";
 import type { RequestOptions, Transport, TransportRequestOptions } from "../http/transport";
 import type { ListResult } from "../list";
@@ -55,10 +57,6 @@ export interface TransformRunPageParams {
 // The walk's own settings, minus the query the method builds from `TransformRunPageParams`.
 export type TransformRunPageOptions = Omit<PaginateOptions, "query">;
 
-export type TransformRunSummarySortColumn = "start_time" | "end_time";
-
-export type TransformRunSummarySortDirection = "asc" | "desc";
-
 export interface TransformRunSummaryPageParams {
   /** Which kinds of root run to include; every kind when absent. */
   types?: readonly TransformRunSummaryType[] | undefined;
@@ -70,7 +68,7 @@ export interface TransformRunSummaryPageParams {
   /** Only runs that ran any of these transforms, as a member or standalone. */
   "transform-ids"?: readonly number[] | undefined;
   "sort-column"?: TransformRunSummarySortColumn | undefined;
-  "sort-direction"?: TransformRunSummarySortDirection | undefined;
+  "sort-direction"?: SortDirection | undefined;
 }
 
 export interface TransformDagParams {

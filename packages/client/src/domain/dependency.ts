@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { CardType } from "./card";
 import { CollectionAuthorityLevel, CollectionId } from "./collection";
 
 export const DependencyType = z.enum([
@@ -30,9 +31,6 @@ export const DependencyUsageType = z.enum([
 ]);
 export type DependencyUsageType = z.infer<typeof DependencyUsageType>;
 
-export const DependencyCardType = z.enum(["question", "model", "metric"]);
-export type DependencyCardType = z.infer<typeof DependencyCardType>;
-
 export const DependencyFindingErrorType = z.enum([
   "missing-column",
   "missing-table-alias",
@@ -57,9 +55,6 @@ export const DependencyItemsSortColumn = z.enum([
   "dependents-errors",
 ]);
 export type DependencyItemsSortColumn = z.infer<typeof DependencyItemsSortColumn>;
-
-export const DependencySortDirection = z.enum(["asc", "desc"]);
-export type DependencySortDirection = z.infer<typeof DependencySortDirection>;
 
 // A card's, dashboard's or document's collection is hydrated with `is_personal`; a snippet's or a
 // transform's is not, so the key is absent there on every server.
@@ -86,7 +81,7 @@ export const DependencyEntityData = z
     name: z.string().nullable().optional(),
     display_name: z.string().nullable().optional(),
     description: z.string().nullable().optional(),
-    type: DependencyCardType.nullable().optional(),
+    type: CardType.nullable().optional(),
     display: z.string().nullable().optional(),
     database_id: z.number().int().nullable().optional(),
     db_id: z.number().int().nullable().optional(),

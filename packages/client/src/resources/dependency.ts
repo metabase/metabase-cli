@@ -1,16 +1,16 @@
 import { z } from "zod";
 
+import type { CardType } from "../domain/card";
 import {
   BreakingSource,
-  type DependencyCardType,
   DependencyEntity,
   DependencyGraph,
   type DependencyItemsSortColumn,
   DependencyNode,
-  type DependencySortDirection,
   type DependencyType,
   type DependentsSortColumn,
 } from "../domain/dependency";
+import type { SortDirection } from "../domain/query";
 import type { QueryValue, RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { type Page, type PaginateOptions, paginatePages } from "../paginate";
@@ -20,29 +20,23 @@ const DependencyEntityApiList = z.array(DependencyEntity);
 
 export interface DependencyDependentsParams {
   "dependent-types"?: ReadonlyArray<DependencyType> | undefined;
-  "dependent-card-types"?: ReadonlyArray<DependencyCardType> | undefined;
+  "dependent-card-types"?: ReadonlyArray<CardType> | undefined;
   broken?: boolean | undefined;
   query?: string | undefined;
   "include-personal-collections"?: boolean | undefined;
   "sort-column"?: DependentsSortColumn | undefined;
-  "sort-direction"?: DependencySortDirection | undefined;
+  "sort-direction"?: SortDirection | undefined;
 }
 
-export interface DependencyBrokenParams {
-  "dependent-types"?: ReadonlyArray<DependencyType> | undefined;
-  "dependent-card-types"?: ReadonlyArray<DependencyCardType> | undefined;
-  "include-personal-collections"?: boolean | undefined;
-  "sort-column"?: DependentsSortColumn | undefined;
-  "sort-direction"?: DependencySortDirection | undefined;
-}
+export type DependencyBrokenParams = Omit<DependencyDependentsParams, "broken" | "query">;
 
 export interface DependencyItemListParams {
   types?: ReadonlyArray<DependencyType> | undefined;
-  "card-types"?: ReadonlyArray<DependencyCardType> | undefined;
+  "card-types"?: ReadonlyArray<CardType> | undefined;
   query?: string | undefined;
   "include-personal-collections"?: boolean | undefined;
   "sort-column"?: DependencyItemsSortColumn | undefined;
-  "sort-direction"?: DependencySortDirection | undefined;
+  "sort-direction"?: SortDirection | undefined;
 }
 
 export type DependencyItemPageOptions = Omit<PaginateOptions, "query">;
