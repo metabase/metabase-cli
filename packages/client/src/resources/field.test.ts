@@ -108,10 +108,18 @@ describe("field resource wire requests", () => {
     ]);
   });
 
+  it("updates a field on a server without the sensitivity column when the body has no label", async () => {
+    const { mb, capture } = clientOver([jsonResponse(FIELD)], SERVER_63);
+
+    await mb.field.update(101, { semantic_type: "type/Price" });
+
+    expect(capture.calls.map((call) => call.body)).toEqual(['{"semantic_type":"type/Price"}']);
+  });
+
   it("sends the sensitivity label as a PUT carrying only that key", async () => {
     const { mb, capture } = clientOver([jsonResponse({ ...FIELD, data_sensitivity: "PII" })]);
 
-    await mb.field.setDataSensitivity(101, "PII");
+    await mb.field.update(101, { data_sensitivity: "PII" });
 
     expect(capture.calls).toEqual([
       {
@@ -126,15 +134,15 @@ describe("field resource wire requests", () => {
   it("sends a withdrawn sensitivity label as null", async () => {
     const { mb, capture } = clientOver([jsonResponse({ ...FIELD, data_sensitivity: null })]);
 
-    await mb.field.setDataSensitivity(101, null);
+    await mb.field.update(101, { data_sensitivity: null });
 
     expect(capture.calls.map((call) => call.body)).toEqual(['{"data_sensitivity":null}']);
   });
 
   it("refuses the sensitivity label before the wire on a server without the column", async () => {
-    const { mb, capture } = clientOver([jsonResponse(FIELD)], SERVER_63);
+    const { mb, capture } = clientOver([], SERVER_63);
 
-    const error = await thrownBy(() => mb.field.setDataSensitivity(101, "PII"));
+    const error = await thrownBy(() => mb.field.update(101, { data_sensitivity: "PII" }));
 
     assert(error instanceof CapabilityError, "expected CapabilityError");
     expect(error.developerDetail).toEqual({

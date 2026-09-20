@@ -58,7 +58,6 @@ export const METHOD_REQUIREMENTS = {
   "erd.get": ["erd"],
   "field.get": [],
   "field.update": [],
-  "field.setDataSensitivity": ["fieldDataSensitivity"],
   "field.search": [],
   "field.remapping": [],
   "field.summary": [],

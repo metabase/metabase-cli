@@ -203,6 +203,7 @@ export const FieldUpdateInput = z
     points_of_interest: NonBlankNullable.optional(),
     semantic_type: FieldSemanticType.nullable().optional(),
     coercion_strategy: FieldCoercionStrategy.nullable().optional(),
+    data_sensitivity: FieldDataSensitivity.nullable().optional(),
     fk_target_field_id: z.number().int().positive().nullable().optional(),
     visibility_type: FieldVisibilityType.nullable().optional(),
     has_field_values: FieldValuesType.nullable().optional(),

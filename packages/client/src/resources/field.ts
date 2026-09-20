@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import {
   Field,
-  type FieldDataSensitivity,
   FieldRemappedValue,
   FieldSearchMatches,
   type FieldSummary,
@@ -46,34 +45,26 @@ export function fieldResource(transport: Transport) {
     return transport.requestParsed(Field, `/api/field/${id}`, { ...options });
   }
 
-  /** Update a field by id, patching only the fields the body carries. */
+  /**
+   * Update a field by id, patching only the fields the body carries. A `data_sensitivity` label is
+   * a person's call the server's classifier never overwrites, and `null` withdraws it so the
+   * classifier's own applies again; a server without the column would drop the key silently, so
+   * the label is refused there before the wire.
+   */
   async function update(
     id: number,
     params: FieldUpdateInput,
     options: RequestOptions = {},
   ): Promise<Field> {
     await transport.require("field.update", options);
+    await transport.requireFeatures(
+      params.data_sensitivity === undefined ? [] : ["fieldDataSensitivity"],
+      options,
+    );
     return transport.requestParsed(Field, `/api/field/${id}`, {
       ...options,
       method: "PUT",
       body: params,
-    });
-  }
-
-  /**
-   * Label a field's data sensitivity as a person's call, which the server's classifier never
-   * overwrites; `null` withdraws the label so the classifier's own applies again.
-   */
-  async function setDataSensitivity(
-    id: number,
-    data_sensitivity: FieldDataSensitivity | null,
-    options: RequestOptions = {},
-  ): Promise<Field> {
-    await transport.require("field.setDataSensitivity", options);
-    return transport.requestParsed(Field, `/api/field/${id}`, {
-      ...options,
-      method: "PUT",
-      body: { data_sensitivity },
     });
   }
 
@@ -131,5 +122,5 @@ export function fieldResource(transport: Transport) {
     return transport.requestParsed(FieldValues, `/api/field/${id}/values`, { ...options });
   }
 
-  return { get, update, setDataSensitivity, search, remapping, summary, values };
+  return { get, update, search, remapping, summary, values };
 }
