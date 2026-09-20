@@ -394,6 +394,8 @@ carries the status and response body, redacted of known secrets at construction,
 status 404. `ChainedRequestError` wraps a cause and delegates its category and retryability to it.
 `toMetabaseError(unknown)` normalizes a thrown value into the taxonomy.
 
+An `HttpError` also carries `errorCode`, the envelope's `error-code` when the throw site published a machine-readable name for the answer, else `null`. A transform test's `create`, `update` and `run` refuse that way when the server declines to run the test at all, and `isTransformTestRefusalCode(code)` narrows the code to the closed `TransformTestRefusalCode` vocabulary. `create` and `update` answer the authoring refusals at 400 (`transform-test.missing-inputs`, `unused-inputs`, `duplicate-input-table`, `unparseable-source`, `unremapped-reference`) and the environment ones at 422 (`unsupported-transform`, `unsupported-driver`); `run` adds `setup-failed` and `transform-failed`, also 422. The remaining names in the vocabulary (`unknown-column`, `ambiguous-column`, `unsupported-format`, `expectation-failed`) never refuse a run: they arrive as one expectation's own `error`, whose `type` is the server's internal name for the same code. A failing expectation is a result, not a refusal: `run` answers a `TransformTestRunResult` whose `status` is `failed` and whose expectations report what they found.
+
 Two helpers read raw thrown values away from the HTTP boundary. `isFileNotFoundError(value)` reports a
 Node `ENOENT` filesystem error — a missing file on disk, never an HTTP 404, which arrives as an
 `HttpError` with `status: 404`. It answers `boolean` rather than narrowing to `NodeJS.ErrnoException`,
@@ -429,9 +431,10 @@ Every Metabase resource exports a full schema and a compact projection: `Card`/`
 `Document`, `Field`, `FieldValues`, `Glossary`, `Library`, `Measure`, `ModerationReview`, `Notification`,
 `ParameterValues`, `Pulse`, `SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`,
 `TimelineEvent`, `Transform`, `TransformRun`, `TransformRunSummary`, `TransformMemberRun`, `TransformJob`,
-`TransformTag`, `ReplacementRun`, `Revision`, `TableForeignKey`, `MetricDimension`, `CurrentUser`,
-`CardQueryResult`, `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`, `DashboardTab`, and
-the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`, `NotificationHandler`, …).
+`TransformTag`, `TransformTest`, `ReplacementRun`, `Revision`, `TableForeignKey`, `MetricDimension`,
+`CurrentUser`, `CardQueryResult`, `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`,
+`DashboardTab`, and the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`,
+`NotificationHandler`, …).
 
 The full schema is `.loose()`, so server-side additions do not break parsing. The compact projection
 is `.pick(…).strip()` — the agent-facing contract, and the shape list commands render. Schemas carry
@@ -447,8 +450,8 @@ a metric's `MetricBreakoutValues` and `MetricDimensionListing`, the data permiss
 dependency graph's `DependencyGraph`, `DependencyNode`, `DependencyEntity`, `BreakingSource`, and
 `DependencyFindingError`, the entity relationship diagram's `Erd`, `ErdNode` and `ErdField`, the transform
 inspector's `TransformInspection` and `TransformLens`, a DAG run's `TransformDagRunResult` and
-`TransformDagTransform`, the Python runner's `PythonLibrary` and `PythonTestRunResult`, and git-sync's
-`SyncExportPreflight`.
+`TransformDagTransform`, the Python runner's `PythonLibrary` and `PythonTestRunResult`, git-sync's
+`SyncExportPreflight`, and a transform test's `TransformTestTable`, `TransformTestColumn`, `TransformTestRow`, `TransformTestInput`, `TransformTestExpectation`, `TransformTestRunResult`, `TransformTestExpectationResult` and `TransformTestResultColumn`.
 
 Request bodies (`<Resource>CreateInput`, `<Resource>UpdateInput`, and `MetricDefinition`, the expression
 over metric and measure leaves that `metric.query` and `metric.breakoutValues` run) and the domain vocabulary enums

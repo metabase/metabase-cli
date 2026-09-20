@@ -35,6 +35,7 @@ import { transformJobResource } from "./resources/transform-job";
 import { transformPythonResource } from "./resources/transform-python";
 import { transformResource } from "./resources/transform";
 import { transformTagResource } from "./resources/transform-tag";
+import { transformTestResource } from "./resources/transform-test";
 import { uploadResource } from "./resources/upload";
 import { userResource } from "./resources/user";
 
@@ -80,6 +81,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     transformJob: transformJobResource(transport),
     transformPython: transformPythonResource(transport),
     transformTag: transformTagResource(transport),
+    transformTest: transformTestResource(transport),
     upload: uploadResource(transport),
     user: userResource(transport),
     server: transport.server,

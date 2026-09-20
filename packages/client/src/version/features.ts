@@ -30,6 +30,7 @@ export const FEATURE_RULES = {
   fieldDataSensitivity: { since: 64 },
   transformDagRuns: { since: 64 },
   unifiedTransformRuns: { since: 64 },
+  transformTests: { since: 65, tokenFeature: "transforms-testing" },
   libraryChildrenCarryType: { since: 62 },
   collectionItemsTotalOnEmptyPage: { since: 64 },
   invalidMbqlIsBadRequest: { since: 59 },

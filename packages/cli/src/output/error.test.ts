@@ -339,6 +339,7 @@ describe("reportError", () => {
             body: rawBody,
             fieldErrors: { name: "value must be a non-blank string." },
             specificFieldErrors: null,
+            errorCode: null,
           },
         },
       }) + "\n";

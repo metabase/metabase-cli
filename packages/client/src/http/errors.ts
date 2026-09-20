@@ -46,6 +46,7 @@ const ErrorEnvelope = z
     via: z.array(z.object({ message: z.string().optional() }).loose()).optional(),
     "specific-errors": z.unknown().optional(),
     errors: z.unknown().optional(),
+    "error-code": z.string().optional(),
   })
   .loose();
 
@@ -80,6 +81,7 @@ export interface HttpErrorDetail {
   body: string | null;
   fieldErrors: FieldErrors | null;
   specificFieldErrors: FieldErrors | null;
+  errorCode: string | null;
 }
 
 export interface HttpErrorInput {
@@ -107,7 +109,7 @@ export class HttpError extends MetabaseError {
     super(
       input.overrideUserMessage ?? buildUserMessage(kind, input, sanitizedBody, redactedHeaders),
     );
-    const fields = extractFieldErrors(sanitizedBody);
+    const fields = extractEnvelopeViews(sanitizedBody);
     this.name = "HttpError";
     this.status = input.status;
     this.kind = kind;
@@ -120,6 +122,7 @@ export class HttpError extends MetabaseError {
       body: sanitizedBody,
       fieldErrors: fields.fieldErrors,
       specificFieldErrors: fields.specificFieldErrors,
+      errorCode: fields.errorCode,
     };
   }
 
@@ -137,6 +140,10 @@ export class HttpError extends MetabaseError {
   // ("missing required key, received: nil") rather than what was required.
   get specificFieldErrors(): FieldErrors | null {
     return this.developerDetail.specificFieldErrors;
+  }
+
+  get errorCode(): string | null {
+    return this.developerDetail.errorCode;
   }
 }
 
@@ -297,23 +304,29 @@ function parseEnvelope(sanitizedBody: string | null): ErrorEnvelope | null {
   return result.ok ? result.value : null;
 }
 
-interface FieldErrorViews {
+interface EnvelopeViews {
   fieldErrors: FieldErrors | null;
   specificFieldErrors: FieldErrors | null;
+  errorCode: string | null;
 }
 
-const NO_FIELD_ERRORS: FieldErrorViews = { fieldErrors: null, specificFieldErrors: null };
+const NO_ENVELOPE_VIEWS: EnvelopeViews = {
+  fieldErrors: null,
+  specificFieldErrors: null,
+  errorCode: null,
+};
 
 // Read off the sanitized body rather than the raw one, so a secret quoted back inside a field
 // message is already redacted by the time it reaches this typed surface.
-function extractFieldErrors(sanitizedBody: string | null): FieldErrorViews {
+function extractEnvelopeViews(sanitizedBody: string | null): EnvelopeViews {
   const envelope = parseEnvelope(sanitizedBody);
   if (envelope === null) {
-    return NO_FIELD_ERRORS;
+    return NO_ENVELOPE_VIEWS;
   }
   return {
     fieldErrors: parseFieldErrors(envelope.errors),
     specificFieldErrors: parseFieldErrors(envelope["specific-errors"]),
+    errorCode: envelope["error-code"] ?? null,
   };
 }
 
