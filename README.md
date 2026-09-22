@@ -381,6 +381,80 @@ mb transform-tag delete 5 --yes
 | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
+## Transform tests
+
+CRUD and run on `/api/ee/transform-test`. Requires Metabase v65 or newer and the `transforms-testing` premium feature. A transform test pins a transform's behaviour without touching real data: every table the transform reads is replaced by an `input` fixture, the transform runs into a temp table, and each `expectation` checks that output. The temp tables are dropped when the run ends.
+
+An input names its `table` and carries either `format: "sql"` with a `sql` query or `format: "rows"` with `columns` (each with a `cast_type` the warehouse accepts as a `CAST` target) and `rows`.
+
+An expectation is either `type: "empty"` with the `sql` that must return no rows, or `type: "equals"`, which takes the same `format` split as an input — `format: "rows"` with the `columns` and `rows` the output must hold exactly, or `format: "sql"` with a query returning them. An `equals` without a `format` is refused.
+
+Create and update bodies are closed, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it can be sent back:
+
+```sh
+mb transform-test get 1 --full --json \
+  | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at)' \
+  | mb transform-test update 1
+```
+
+### `mb transform-test list`
+
+```sh
+mb transform-test list --json
+mb transform-test list --transform 1
+```
+
+| Flag               | Description                          |
+| ------------------ | ------------------------------------ |
+| `--transform <id>` | Only the tests of this transform id. |
+
+### `mb transform-test get <id>`
+
+The compact form carries the id, transform, name and description; `--full` adds the `inputs` and `expectations` themselves.
+
+```sh
+mb transform-test get 1
+mb transform-test get 1 --full --json
+```
+
+### `mb transform-test create`
+
+```sh
+mb transform-test create --file transform-test.json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb transform-test update <id>`
+
+Only the fields the body carries are patched; `inputs` and `expectations` replace what is stored rather than merging into it.
+
+```sh
+mb transform-test update 1 --body '{"name":"renamed"}'
+```
+
+### `mb transform-test delete <id>`
+
+```sh
+mb transform-test delete 1 --yes
+```
+
+| Flag    | Description                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
+
+### `mb transform-test run <id>`
+
+Runs the transform against the fixtures and reports what each expectation found. Exits non-zero when the test does not pass, so it drops straight into CI.
+
+```sh
+mb transform-test run 1
+mb transform-test run 1 --json
+```
+
 ## Databases
 
 Read warehouse metadata from `/api/database`. The `db` group exposes the full database list, the per-database record with optional table/field hydration, schema and table inspection, and the two manual-sync triggers.

@@ -6,17 +6,17 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # metabase-cli (core)
 
-The official Metabase CLI (`mb`) drives a Metabase instance over its REST API: auth, list/get/create/update/delete on every resource, query and transform execution, content search, git-sync (representations ↔ instance), and entity-id translation.
+`mb` drives a Metabase instance over its REST API: CRUD on every resource, query and transform execution, search, git-sync (representations ↔ instance), and entity-id translation.
 
 Top-level command groups (run `mb <group> --help` to discover verbs):
 
 ```
 auth | db | table | field | upload | content-translation | query | card | dashboard | snippet | segment | measure | collection | library
-document | timeline | timeline-event | transform | transform-job | transform-tag | alert | subscription | setting
+document | timeline | timeline-event | transform | transform-job | transform-tag | transform-test | alert | subscription | setting
 search | git-sync | setup | eid | uuid | upgrade | skills
 ```
 
-The conventions below — auth, flags, output, body input — hold across **every** group. Per-command flags and examples live in each command's `--help`; add `--json` for the machine-readable form with the output JSON Schema. A few flows have their own skills (see "Specialized skills"). When a card needs a query, prefer MBQL over native SQL (portable, pre-flight-validated — load `mbql`); fall back to native SQL when MBQL can't express it.
+The conventions below — auth, flags, output, body input — hold across **every** group. When a card needs a query, prefer MBQL over native SQL (portable, pre-flight-validated — load `mbql`); fall back to native SQL when MBQL can't express it.
 
 ## Auth & profiles
 
@@ -28,7 +28,7 @@ mb auth status --json                    # → {profile, present, url} for the d
 mb auth status --profile <name> --json   # health probe for one profile
 ```
 
-`auth list` is the primary enumeration path — one call returns every profile with sanitized URL, an `authenticated` flag, and a probe `status` (`ok` / `auth-failed` / `network-error` / `server-error` / `not-probed`). Use it before asking which profile to pick.
+`auth list` is the primary enumeration path — one call returns every profile with sanitized URL, an `authenticated` flag, and a probe `status` (`ok` / `auth-failed` / `network-error` / `server-error` / `not-probed`).
 
 - One profile and intent doesn't disambiguate → use it.
 - Several → ask via `AskUserQuestion`, presenting the names from `auth list`.
@@ -60,7 +60,7 @@ Every list/get verb supports the same output flags:
 - `--json` — emit the full JSON envelope, safe for `jq`. Default is human-readable text.
 - `--full` — include every field (the compact projection is the default, and is the agent-facing contract).
 - `--fields a,b.c.d` — project specific dot-paths. Mutually exclusive with `--full`. **Paths are relative to each `data[]` item on list verbs, and to the root on single-item verbs.** So it's `--fields id,name` on `… list` / `database schema-tables` (`data.id` and `data[].id` both fail with `unknown field path: "data.id"`), and `--fields id,name,display` on `card get`, `--fields data.rows` on `mb query` (whose `data` is an object).
-- `--max-bytes <n>` — cap output size. Default 24576 (sized to fit under agent-harness tool-output limits); `0` disables. On a list it drops trailing items and sets `truncated` (see below). Single-item commands (`get`) never truncate — over the cap they throw a `ConfigError` (exit 2: "output is N bytes, over the M-byte --max-bytes cap; …") whose tail names the remedy: on schema-shaped commands it is the exact narrower command to run instead — follow it rather than raising the cap.
+- `--max-bytes <n>` — cap output size. Default 24576; `0` disables. On a list it drops trailing items and sets `truncated` (see below). Single-item commands (`get`) never truncate — over the cap they throw a `ConfigError` (exit 2: "output is N bytes, over the M-byte --max-bytes cap; …") whose tail names the remedy: on schema-shaped commands it is the exact narrower command to run instead — follow it rather than raising the cap.
 - JSON output is a single line when stdout is piped (pretty-printed only at a TTY) — always parse it, never scrape by line position.
 
 ## List windows and resumption
@@ -69,10 +69,10 @@ Every list verb takes `--limit <n>` (items this call returns) and `--offset <n>`
 
 - **`has_more` decides whether to keep going — never compare counts.** `total` is the server's count on endpoints that report one and `null` on those that don't, so arithmetic over it is not a termination condition.
 - **To continue, pass `next_offset` back as `--offset`.** When `has_more` is true `next_offset` is past the offset you sent, so the loop advances; when false the walk is over and `next_offset` is `null`.
-- **`truncated` means the byte cap cut the output, not that the data ran out.** `has_more`/`next_offset` are recomputed to the cut point, so a capped list resumes like any window. Its `bytes` is what the untruncated answer would have measured, so it sizes the work left rather than the reply you hold. Narrow rows with `--fields` rather than raising `--max-bytes` — a bigger cap spends context on fields you didn't ask for, and the cap counts only what you asked for, so `--fields` buys rows directly. A capped list always returns at least one row; when not even one fits it exits 2 with "the smallest response this list can produce is N bytes, over the M-byte --max-bytes cap; …".
+- **`truncated` means the byte cap cut the output, not that the data ran out.** `has_more`/`next_offset` are recomputed to the cut point, so a capped list resumes like any window. Its `bytes` is what the untruncated answer would have measured, so it sizes the work left rather than the reply you hold. Narrow rows with `--fields` rather than raising `--max-bytes` — the cap counts only what you asked for, so `--fields` buys rows directly. A capped list always returns at least one row; when not even one fits it exits 2 with "the smallest response this list can produce is N bytes, over the M-byte --max-bytes cap; …".
 - `limit` is echoed only when you passed `--limit` — except `mb search`, which defaults to `--limit 20` (an unbounded search is expensive server-side) and so always reports one. On nouns the server doesn't page, one large `--limit` with narrow `--fields` is a single request; many small `--offset` hops are one request each.
 
-The whole walk, literally:
+The whole walk:
 
 ```bash
 offset=0
@@ -104,7 +104,7 @@ mb <noun> create --file ./.scratch/body.json --profile <n> --json
 
 Single-quoted `'EOF'` stops the shell interpolating `$vars` inside the JSON.
 
-Write working files to **`./.scratch`** in the current directory (`mkdir -p ./.scratch` first), never `/tmp` — better permissions, they persist across the session, and the user can review them.
+Write working files to **`./.scratch`** in the current directory (`mkdir -p ./.scratch` first), never `/tmp` — they persist across the session and the user can review them.
 
 ## Discovering commands and schemas
 
@@ -123,7 +123,7 @@ mb transform --help --json | jq -r '.commands[].command'  # verbs under "transfo
 
 ## Resource quirks worth memorizing
 
-Routine verb shapes (list / get / create / update), every flag, and output schemas live in each command's `--help` (add `--json` for output schemas). Below is only what help does _not_ tell you: footguns and non-obvious behaviors.
+Only what `--help` does _not_ tell you: footguns and non-obvious behaviors.
 
 - **db traversal: the hydration ladder.** Start with `database get <db-id> --include tables` — the compact table map (id, name, schema, description per table), one call that fits most databases. Pick the relevant tables, then `table fields <table-id>` per table (bounded: fields are per-table). `--include tables.fields` is the full rollup — small databases only. Hundreds of tables? Traverse by schema (`database schemas <db-id>` → `database schema-tables <db-id> <schema>`) or look tables up by name (`search <term> --models table --db-id <db-id> --limit 10`). `sync-schema` / `rescan-values` queue async work and return `{status:"ok"}` immediately; `sync-schema --wait` blocks until `initial_sync_status: complete`.
 - **table fields.** `table get` never returns fields on its own — pass `--include fields` (compact; the underlying query_metadata response also carries FK targets and dimensions, visible under `--full`) or use `table fields <id>` (list envelope). `table update` patches table-level metadata only; physical columns aren't editable.
@@ -133,7 +133,7 @@ Routine verb shapes (list / get / create / update), every flag, and output schem
 - **content-translation.** Admin-only, and separate from Remote Sync. `content-translation download > translations.csv` streams the complete active dictionary; `content-translation upload --file translations.csv` replaces every active translation with the file's contents. Always upload the canonical complete CSV, never a partial patch. An empty dictionary downloads as Metabase's four-row sample dictionary — don't re-upload it as real translations. Metabase limits dictionaries to 1.5 MiB.
 <!-- /requires -->
 - **card.** `dataset_query` is the **flat** `mbql/query` value, not a legacy `{type:"query",query:…}` envelope (→ `mbql`). `--export-format csv|xlsx` streams the raw export (pipe to a file), bypassing the JSON envelope. `archive` is the only delete; unarchive with `update --body '{"archived":false}'`. `visualization_settings` keys are scoped by `display` and aren't pre-flighted — see `visualization`.
-- **dashboard.** Dashcards round-trip through `PUT /api/dashboard/:id` (no per-dashcard endpoint): `update-dashcard <dash-id> <dashcard-id>` patches one safely; `update --body '{"dashcards":[…]}'` replaces the whole set (omitted ids are deleted server-side; negative ids for new cards). Every dashcard must include `card_id`, including existing rows; use `card_id:null` plus a `visualization_settings.virtual_card` block (`{display:"text"|"heading"|"link"|…}`) for non-question cards. `create` accepts the **same** `dashcards` array in its initial body, so lay out the whole dashboard in one call. `create`/`update` pre-flight every positive `card_id` and exit **2** with `{ok:false,errors:[…]}` on a bad ref (non-bypassable). `dashboard get <id>` (or `--full`) hydrates dashcards/tabs; `list` omits them. **The grid is 24 columns wide:** each dashcard's `{col, row, size_x, size_y}` is in grid units — **full-width is `size_x: 24`** (`size_x: 12` is half a row, the usual cause of a card filling only half the width). Keep `col + size_x ≤ 24`, start a full-width stack's `col` at 0, and don't overlap (the server stores collisions as sent — no auto-fix). Layout patterns and per-chart default sizes → the `dashboard` skill; load it before composing any `dashcards` array.
+- **dashboard.** Dashcards round-trip through `PUT /api/dashboard/:id` (no per-dashcard endpoint): `update-dashcard <dash-id> <dashcard-id>` patches one safely; `update --body '{"dashcards":[…]}'` replaces the whole set (omitted ids are deleted server-side; negative ids for new cards). Every dashcard must include `card_id`, including existing rows; use `card_id:null` plus a `visualization_settings.virtual_card` block (`{display:"text"|"heading"|"link"|…}`) for non-question cards. `create` accepts the **same** `dashcards` array in its initial body, so lay out the whole dashboard in one call. `create`/`update` pre-flight every positive `card_id` and exit **2** with `{ok:false,errors:[…]}` on a bad ref (non-bypassable). `dashboard get <id>` (or `--full`) hydrates dashcards/tabs; `list` omits them. **The grid is 24 columns wide:** each dashcard's `{col, row, size_x, size_y}` is in grid units — **full-width is `size_x: 24`** (`size_x: 12` is half a row, the usual cause of a card filling only half the width). Keep `col + size_x ≤ 24`, start a full-width stack's `col` at 0, and don't overlap (the server stores collisions as sent — no auto-fix). Layout patterns and per-chart default sizes → the `dashboard` skill.
 - **dashboard parameters (filters).** A dashboard's `parameters` array holds its filter widgets; they're part of the dashboard record, so read them with `dashboard get <id> --fields parameters --json` (no separate verb). **Editing replaces the _whole_ array** (like dashcards), so it's a read-modify-write loop and omitting a parameter deletes it. A parameter only filters a card once it is **mapped** onto that dashcard's `parameter_mappings` — an unmapped parameter is an inert widget. `type` is a **closed enum**; an unlisted value is a hard parse error that echoes the full allowed set back to you. `dashboard parameter-values <id> <parameter-id> [--query <substr>]` fetches a widget's selectable values (`{values, has_more_values}`; `--query` is a case-insensitive substring search). Parameter types, ids, mapping targets, and value sources → the `dashboard` skill; load it before authoring a `parameters` array.
 - **alert / subscription are two unrelated systems.** `alert` watches one **card** and fires on a send condition (`/api/notification`: a cron string, `channel/email`-prefixed handlers, typed recipients); `subscription` delivers one **dashboard** on a schedule (`/api/pulse`: structured `schedule_type` + hour/day/frame, bare `email` channels, `{id}|{email}` recipients). The bodies are not interchangeable. Both silently deliver nowhere if the server has no SMTP / Slack app — check `mb setting get 'email-configured?'` (quote it; the `?` is a shell glob) before creating either. Their list-valued fields (`handlers`/`subscriptions`, `channels`/`cards`) **replace wholesale** on update, so adding one recipient is a read-modify-write. `mb card alerts <id>` and `mb dashboard subscriptions <id>` list what's already attached to a card/dashboard; `archive` deactivates rather than deletes. Load the `notification` skill before authoring either body.
 - **snippet `--archived` is a swap, not a union** — list returns _either_ active _or_ archived rows, never both. (Same for `--filter archived` on dashboard/collection.)
@@ -144,6 +144,9 @@ Routine verb shapes (list / get / create / update), every flag, and output schem
 - **search vs. list.** For plain enumeration of cards/dashboards/collections use the dedicated `… list` verbs; reach for `search --models <kind>` only for ranking against a query string or a cross-resource lookup.
 <!-- requires: transforms -->
 - **transform.** Iterate with `transform update <id>`, never `delete` + `create` (keeps the row, `entity_id`, materialized table, and YAML filename — avoids `_2` suffixes and noisy git history). `transform run` needs `--wait` (or `--sync`, which also waits for the output table to register and returns `target_table_id`) or you get only `{run_id, final:null}`. (→ `transform`.)
+  <!-- /requires -->
+  <!-- requires: transformTests -->
+- **transform-test.** `transform-test run <id>` checks a transform against fixtures in temp tables — no real table is read — and exits non-zero unless it passes. (→ `transform`.)
 <!-- /requires -->
 - **setup is one-shot.** `mb setup` walks `/api/setup` for a **fresh** instance only — errors against an already-configured one. Mostly for bootstrapping local / e2e instances.
 - **eid** translates a string entity id → numeric id: `mb eid --model <model> <eid1,eid2> --json`. Entity ids are NanoIDs that can start with `-`, which the positional form misreads as a flag (shell quotes don't help) — for those, use `--body '{"entity_ids":{"card":["-…"]}}'` (the id is a JSON string value, immune to flag parsing).
@@ -164,6 +167,9 @@ This file is enough for any single-command task. For anything deeper, load the r
 - **`notification`** — scheduled delivery: question alerts (`mb alert`) and dashboard subscriptions (`mb subscription`). Choosing between them, the two schedule/recipient contracts, channel prerequisites, testing a send.
 <!-- requires: transforms -->
 - **`transform`** — transform body JSON, create + run-with-wait, run inspection, tags, jobs.
+  <!-- /requires -->
+  <!-- requires: transformTests -->
+- **`transform-test-plan`** — deciding _what_ to test in a transform: the fixture cast, the expectations, the coverage matrix. (`transform` has the `mb transform-test` shapes.)
 <!-- /requires -->
 - **`document`** — Metabase documents (TipTap body, embedding cards).
 <!-- requires: remoteSync -->

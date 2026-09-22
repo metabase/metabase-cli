@@ -114,7 +114,7 @@ export const TransformTestCreateInput = z
     inputs: z.array(TransformTestInput),
     expectations: z.array(TransformTestExpectation),
   })
-  .loose();
+  .strict();
 export type TransformTestCreateInput = z.infer<typeof TransformTestCreateInput>;
 
 export const TransformTestUpdateInput = z
@@ -125,7 +125,7 @@ export const TransformTestUpdateInput = z
     inputs: z.array(TransformTestInput).optional(),
     expectations: z.array(TransformTestExpectation).optional(),
   })
-  .loose();
+  .strict();
 export type TransformTestUpdateInput = z.infer<typeof TransformTestUpdateInput>;
 
 export const TransformTestResultColumn = z
