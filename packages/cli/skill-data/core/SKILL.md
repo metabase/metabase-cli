@@ -144,8 +144,8 @@ Only what `--help` does _not_ tell you: footguns and non-obvious behaviors.
 - **search vs. list.** For plain enumeration of cards/dashboards/collections use the dedicated `… list` verbs; reach for `search --models <kind>` only for ranking against a query string or a cross-resource lookup.
 <!-- requires: transforms -->
 - **transform.** Iterate with `transform update <id>`, never `delete` + `create` (keeps the row, `entity_id`, materialized table, and YAML filename — avoids `_2` suffixes and noisy git history). `transform run` needs `--wait` (or `--sync`, which also waits for the output table to register and returns `target_table_id`) or you get only `{run_id, final:null}`. (→ `transform`.)
-<!-- /requires -->
-<!-- requires: transformTests -->
+  <!-- /requires -->
+  <!-- requires: transformTests -->
 - **transform-test.** `transform-test run <id>` checks a transform against fixtures in temp tables — no real table is read — and exits non-zero unless it passes. (→ `transform`.)
 <!-- /requires -->
 - **setup is one-shot.** `mb setup` walks `/api/setup` for a **fresh** instance only — errors against an already-configured one. Mostly for bootstrapping local / e2e instances.
@@ -167,8 +167,8 @@ This file is enough for any single-command task. For anything deeper, load the r
 - **`notification`** — scheduled delivery: question alerts (`mb alert`) and dashboard subscriptions (`mb subscription`). Choosing between them, the two schedule/recipient contracts, channel prerequisites, testing a send.
 <!-- requires: transforms -->
 - **`transform`** — transform body JSON, create + run-with-wait, run inspection, tags, jobs.
-<!-- /requires -->
-<!-- requires: transformTests -->
+  <!-- /requires -->
+  <!-- requires: transformTests -->
 - **`transform-test-plan`** — deciding _what_ to test in a transform: the fixture cast, the expectations, the coverage matrix. (`transform` has the `mb transform-test` shapes.)
 <!-- /requires -->
 - **`document`** — Metabase documents (TipTap body, embedding cards).
