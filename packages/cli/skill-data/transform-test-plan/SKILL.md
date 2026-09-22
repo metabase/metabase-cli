@@ -2,6 +2,7 @@
 name: transform-test-plan
 description: Derive a comprehensive test plan for a transform — the fixture cast, the expectations, hand-derived expected rows, and a coverage matrix — from the model's declared design. Covers input partitioning (zero-case, multiplicity, dirty rows), grain / conservation / recomputation / conformance checks, and known-quirk conventions. Load when the user wants tests planned or written for transforms — "write tests for my transforms", "is my model right", "test plan for this pipeline", "add data quality checks" — whether the model is mid-build or already deployed. The `mb transform-test` command and body shapes live in the `transform` skill; this one decides what to test.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
+requires: [transformTests]
 ---
 
 # Planning transform tests

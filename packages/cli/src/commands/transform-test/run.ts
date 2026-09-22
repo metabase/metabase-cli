@@ -1,7 +1,6 @@
 import type {
   TransformTestExpectationResult,
   TransformTestRunResult,
-  TransformTestStatus,
 } from "@metabase/client/domain/transform-test";
 import { TransformTestRunResult as TransformTestRunResultSchema } from "@metabase/client/domain/transform-test";
 
@@ -16,9 +15,11 @@ const transformTestRunResultView: ResourceView<TransformTestRunResult> = {
   tableColumns: [{ key: "status", label: "Status" }],
 };
 
+type ExpectationStatus = TransformTestExpectationResult["status"];
+
 function namesOf(
   expectations: TransformTestExpectationResult[],
-  status: TransformTestStatus,
+  status: ExpectationStatus,
 ): string[] {
   return expectations.filter((expectation) => expectation.status === status).map((e) => e.name);
 }
@@ -40,7 +41,7 @@ export default defineMetabaseCommand({
   meta: { name: "run", description: "Run a transform test by id" },
   details:
     "Runs the transform against temp tables built from the test's inputs, checks every expectation against its output, and drops the temp tables. Nothing reads or writes a real table. A failing expectation exits non-zero; --json reports what each expectation found, including the rows a comparison disagreed on.",
-  capabilities: { minVersion: 65 },
+  requires: ["transformTest.run"],
   args: {
     ...outputFlags,
     ...profileFlag,

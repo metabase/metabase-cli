@@ -383,7 +383,7 @@ mb transform-tag delete 5 --yes
 
 ## Transform tests
 
-CRUD and run on `/api/transform-test`. Requires Metabase v65 or newer. A transform test pins a transform's behaviour without touching real data: every table the transform reads is replaced by an `input` fixture, the transform runs into a temp table, and each `expectation` checks that output. The temp tables are dropped when the run ends.
+CRUD and run on `/api/ee/transform-test`. Requires Metabase v65 or newer. A transform test pins a transform's behaviour without touching real data: every table the transform reads is replaced by an `input` fixture, the transform runs into a temp table, and each `expectation` checks that output. The temp tables are dropped when the run ends.
 
 An input names its `table` and carries either `format: "sql"` with a `sql` query or `format: "rows"` with `columns` (each with a `database_type` the warehouse accepts as a `CAST` target) and `rows`.
 
