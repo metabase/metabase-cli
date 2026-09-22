@@ -390,6 +390,12 @@ const ALL_COMMANDS = [
   "transform-tag create",
   "transform-tag update",
   "transform-tag delete",
+  "transform-test list",
+  "transform-test get",
+  "transform-test create",
+  "transform-test update",
+  "transform-test delete",
+  "transform-test run",
   "setting list",
   "setting get",
   "setting set",
@@ -466,6 +472,8 @@ const BODY_COMMANDS = [
   "transform-job update",
   "transform-tag create",
   "transform-tag update",
+  "transform-test create",
+  "transform-test update",
   "setup",
   "snippet create",
   "snippet update",
@@ -609,6 +617,23 @@ describe("command tree contract", () => {
       "transform-job run": requiresOf("transformJob.run"),
       "transform-job transforms": requiresOf("transformJob.transforms"),
       "transform-job set-active": requiresOf("transformJob.setActive"),
+    });
+  });
+
+  it("declares each transform-test command's single client method", async () => {
+    const entries = await allEntries();
+    const requires = Object.fromEntries(
+      entries
+        .filter((entry) => entry.command.startsWith("transform-test "))
+        .map((entry) => [entry.command, entry.requires]),
+    );
+    expect(requires).toEqual({
+      "transform-test list": requiresOf("transformTest.list"),
+      "transform-test get": requiresOf("transformTest.get"),
+      "transform-test create": requiresOf("transformTest.create"),
+      "transform-test update": requiresOf("transformTest.update"),
+      "transform-test delete": requiresOf("transformTest.delete"),
+      "transform-test run": requiresOf("transformTest.run"),
     });
   });
 

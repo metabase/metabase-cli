@@ -1,6 +1,6 @@
 ---
 name: transform
-description: Author and run Metabase transforms via `mb` — body shape (native SQL or structured MBQL), create + run-with-wait, run inspection, dependencies, cancel, the `update`-vs-recreate iteration rule, the writable-keys-only PATCH contract, plus transform tags and tag-driven transform-job schedules. Load when the user touches transforms — "create a transform", "run a transform", "fix a failing transform", "list transform runs", "cancel a running transform", "manage transform tags", "run a transform job", or anything `mb transform …` / `mb transform-job …` / `mb transform-tag …`.
+description: Author and run Metabase transforms via `mb` — body shape (native SQL or structured MBQL), create + run-with-wait, run inspection, dependencies, cancel, the `update`-vs-recreate iteration rule, the writable-keys-only PATCH contract, transform tests (fixtures and expectations run against temp tables), plus transform tags and tag-driven transform-job schedules. Load when the user touches transforms — "create a transform", "run a transform", "fix a failing transform", "test a transform", "list transform runs", "cancel a running transform", "manage transform tags", "run a transform job", or anything `mb transform …` / `mb transform-job …` / `mb transform-tag …` / `mb transform-test …`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 requires: [transforms]
 ---
@@ -172,6 +172,68 @@ mb transform run "$ID" --wait --profile <n> --json     # → succeeded
 ```
 
 If you really must `create + delete` instead, do the `delete` **before** the first `git-sync export` so the failed entity never lands in git history — an export of a soft-failed state is noise that needs a follow-up cleanup commit. See `git-sync`, "Read state before mutating", for the ordering rule.
+
+<!-- requires: transformTests -->
+
+## Transform tests
+
+A transform test replaces every table the transform reads with a fixture, runs it into a temp table, and checks that output. No real table is read or written.
+
+```bash
+mb transform-test list --transform <id> --profile <n> --json  # --transform is optional
+mb transform-test get <id> --full --profile <n> --json        # --full for inputs/expectations
+mb transform-test create --file ./.scratch/test.json --profile <n> --json
+mb transform-test update <id> --file ./.scratch/patch.json --profile <n> --json
+mb transform-test delete <id> --yes --profile <n>
+mb transform-test run <id> --profile <n> --json               # exits non-zero unless it passes
+```
+
+**`inputs`** — one per table the transform reads, each naming a `table` plus either `format: "sql"` with `sql`, or `format: "rows"` with `columns` (each a `name` and a `cast_type`) and `rows`.
+
+**`cast_type` is a `CAST` target, not a column type**, and the two vocabularies differ per warehouse: MySQL casts to `SIGNED` and reports `INTEGER`; ClickHouse takes `Nullable(Int32)` for a column that is `Int64`. So a body is warehouse-specific — don't copy a `database_type` out of a run result into a `cast_type`, and don't expect one body to run everywhere.
+
+**`expectations`** — `type: "empty"` with the `sql` that must return no rows, or `type: "equals"`, which needs the same `format` split as an input (`"rows"` with `columns`/`rows`, or `"sql"` with a query). An `equals` without a `format` is refused.
+
+**An `empty` query may only name the transform's target table and its declared input tables.** Those are rewritten to the run's temp tables; any other table you name is left exactly as written and reads the real one — the single way a test run can touch production data.
+
+```json
+{
+  "transform_id": 1,
+  "name": "adults only",
+  "inputs": [
+    {
+      "table": { "schema": "public", "name": "people" },
+      "format": "rows",
+      "columns": [
+        { "name": "id", "cast_type": "INTEGER" },
+        { "name": "age", "cast_type": "INTEGER" }
+      ],
+      "rows": [
+        { "id": 1, "age": 30 },
+        { "id": 2, "age": 12 }
+      ]
+    }
+  ],
+  "expectations": [
+    {
+      "type": "equals",
+      "name": "exactly one row, id 1",
+      "format": "rows",
+      "columns": [{ "name": "id", "cast_type": "INTEGER" }],
+      "rows": [{ "id": 1 }]
+    },
+    {
+      "type": "empty",
+      "name": "no null ids",
+      "sql": "SELECT * FROM public.adults WHERE id IS NULL"
+    }
+  ]
+}
+```
+
+Create and update bodies are closed — strip `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` from a `get --full` body before sending it back.
+
+<!-- /requires -->
 
 ## Drop the materialized table (keep the transform)
 
