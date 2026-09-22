@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 const SRC_ROOT = resolve(fileURLToPath(import.meta.url), "..");
 
-const DEPENDENCY_BUDGET = ["zod", "semver"];
+const DEPENDENCY_BUDGET = ["zod"];
 
 interface SourceFile {
   relPath: string;
@@ -188,7 +188,7 @@ describe("layering policy", () => {
     });
   }
 
-  it("imports nothing beyond zod, semver and node: builtins", () => {
+  it("imports nothing beyond zod and node: builtins", () => {
     const offenders = files.flatMap((file) =>
       bareSpecifiers(file.content)
         .filter((specifier) => !withinBudget(specifier))

@@ -1,18 +1,20 @@
 import type { ZodType } from "zod";
 
-import type { RequestOptions, Transport } from "../http/transport";
+import type { RequestOptions, Transport, TransportRequestOptions } from "../http/transport";
 import { parseJsonOrPlain } from "../json";
 
 const NO_CONTENT_STATUS = 204;
 
-// Endpoints that answer 204 for "the value is unset" rather than 404, and answer the value itself
-// as either JSON or bare text depending on the server version. `null` is the unset value, not an
-// error.
+export type OptionalParsedOptions = RequestOptions & Pick<TransportRequestOptions, "query">;
+
+// Endpoints that answer 204 for "the value is unset" rather than 404, with the value encoded by its
+// runtime type (bare text for a string, JSON otherwise) on every supported server. `null` is the
+// unset value, not an error.
 export async function fetchOptionalParsed<T>(
   client: Transport,
   path: string,
   schema: ZodType<T>,
-  options: RequestOptions = {},
+  options: OptionalParsedOptions = {},
 ): Promise<T | null> {
   const response = await client.requestRaw(path, {
     ...options,

@@ -1,25 +1,31 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
+import { ResponseShapeError } from "../errors";
 import type { ClientCredentials } from "../http/transport";
 import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
+import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
   url: "https://mb.example.com/metabase",
   credential: { kind: "apiKey", apiKey: "mb_wire_test_key" },
 };
 
-// Released servers (v0.59-v0.61) omit `type` and `is_remote_synced` from each `effective_children`
-// entry; the collection listing is where both come from.
-const UNHYDRATED_LIBRARY = {
-  id: 10,
-  name: "Library",
-  type: "library",
-  description: null,
-  location: "/",
+const LIBRARY_ROOT = { id: 10, name: "Library", type: "library", description: null, location: "/" };
+
+const BARE_LIBRARY = {
+  ...LIBRARY_ROOT,
   effective_children: [
     { id: 11, name: "Data", description: null },
     { id: 12, name: "Metrics", description: null },
+  ],
+};
+
+const TYPED_LIBRARY = {
+  ...LIBRARY_ROOT,
+  effective_children: [
+    { id: 11, name: "Data", description: null, type: "library-data" },
+    { id: 12, name: "Metrics", description: null, type: "library-metrics" },
   ],
 };
 
@@ -29,8 +35,8 @@ const LIBRARY_COLLECTIONS = [
   { id: 12, name: "Metrics", type: "library-metrics", location: "/10/", is_remote_synced: true },
 ];
 
-const HYDRATED_LIBRARY = {
-  ...UNHYDRATED_LIBRARY,
+const LIBRARY = {
+  ...LIBRARY_ROOT,
   effective_children: [
     { id: 11, name: "Data", description: null, type: "library-data", is_remote_synced: false },
     {
@@ -53,6 +59,9 @@ const UNPINNED_ENUM_COLLECTION = {
 };
 
 const ABSENT_LIBRARY = { data: null };
+
+const MISSING_TYPE_ISSUE =
+  'Invalid option: expected one of "instance-analytics"|"trash"|"library"|"library-data"|"library-metrics"|"tenant-specific-root-collection"';
 
 const TARGET_COLLECTION = {
   id: 11,
@@ -94,11 +103,31 @@ const READ_COLLECTIONS_CALL = {
   body: null,
 };
 
-function clientOver(responses: Array<Response>) {
+// The least server that answers this resource, so a method asking for more than the resource's
+// own feature is refused here before it reaches the scripted wire.
+const SERVER = createServerProfile({
+  edition: "ee",
+  version: { tag: "v1.59.0", major: 59, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: { library: true },
+});
+
+// The first generation whose `effective_children` carry each child's `type`.
+const TYPED_CHILDREN_SERVER = createServerProfile({
+  edition: "ee",
+  version: { tag: "v1.62.0", major: 62, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: { library: true },
+});
+
+function clientOver(responses: Array<Response>, server: ServerProfile = SERVER) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
     userAgent: TEST_USER_AGENT,
     fetchImpl: capture.fetch,
+    server,
   });
   return { mb, capture };
 }
@@ -106,9 +135,20 @@ function clientOver(responses: Array<Response>) {
 describe("library resource wire requests", () => {
   it("sends the get request and the collection listing that resolves its children", async () => {
     const { mb, capture } = clientOver([
-      jsonResponse(UNHYDRATED_LIBRARY),
+      jsonResponse(BARE_LIBRARY),
       jsonResponse(LIBRARY_COLLECTIONS),
     ]);
+
+    await mb.library.get();
+
+    expect(capture.calls).toEqual([READ_ROOT_CALL, READ_COLLECTIONS_CALL]);
+  });
+
+  it("still reads the collection listing when the children carry a type, for the sync flag", async () => {
+    const { mb, capture } = clientOver(
+      [jsonResponse(TYPED_LIBRARY), jsonResponse(LIBRARY_COLLECTIONS)],
+      TYPED_CHILDREN_SERVER,
+    );
 
     await mb.library.get();
 
@@ -119,7 +159,7 @@ describe("library resource wire requests", () => {
     const { mb, capture } = clientOver([
       jsonResponse(ABSENT_LIBRARY),
       jsonResponse({ id: 10, name: "Library" }),
-      jsonResponse(UNHYDRATED_LIBRARY),
+      jsonResponse(BARE_LIBRARY),
       jsonResponse(LIBRARY_COLLECTIONS),
     ]);
 
@@ -135,9 +175,9 @@ describe("library resource wire requests", () => {
 
   it("repeats only the reads and never POSTs when create runs twice against an existing Library", async () => {
     const { mb, capture } = clientOver([
-      jsonResponse(UNHYDRATED_LIBRARY),
+      jsonResponse(BARE_LIBRARY),
       jsonResponse(LIBRARY_COLLECTIONS),
-      jsonResponse(UNHYDRATED_LIBRARY),
+      jsonResponse(BARE_LIBRARY),
       jsonResponse(LIBRARY_COLLECTIONS),
     ]);
 
@@ -154,7 +194,7 @@ describe("library resource wire requests", () => {
 
   it("resolves the Data collection id from the create reads alone", async () => {
     const { mb, capture } = clientOver([
-      jsonResponse(UNHYDRATED_LIBRARY),
+      jsonResponse(BARE_LIBRARY),
       jsonResponse(LIBRARY_COLLECTIONS),
     ]);
 
@@ -196,27 +236,53 @@ describe("library resource wire requests", () => {
 
 describe("library resource results", () => {
   it("resolves each child's type and sync flag from the collection listing", async () => {
-    const { mb } = clientOver([
-      jsonResponse(UNHYDRATED_LIBRARY),
-      jsonResponse(LIBRARY_COLLECTIONS),
-    ]);
+    const { mb } = clientOver([jsonResponse(BARE_LIBRARY), jsonResponse(LIBRARY_COLLECTIONS)]);
 
-    expect(await mb.library.get()).toEqual(HYDRATED_LIBRARY);
+    expect(await mb.library.get()).toEqual(LIBRARY);
   });
 
   it("resolves the children past a collection whose enum fields carry unpinned values", async () => {
     const { mb } = clientOver([
-      jsonResponse(UNHYDRATED_LIBRARY),
+      jsonResponse(BARE_LIBRARY),
       jsonResponse([...LIBRARY_COLLECTIONS, UNPINNED_ENUM_COLLECTION]),
     ]);
 
-    expect(await mb.library.get()).toEqual(HYDRATED_LIBRARY);
+    expect(await mb.library.get()).toEqual(LIBRARY);
   });
 
-  it("keeps a hydrated response's own values when the listing holds no matching collection", async () => {
-    const { mb } = clientOver([jsonResponse(HYDRATED_LIBRARY), jsonResponse([])]);
+  it("resolves typed children with only the sync flag taken from the listing", async () => {
+    const { mb } = clientOver(
+      [jsonResponse(TYPED_LIBRARY), jsonResponse(LIBRARY_COLLECTIONS)],
+      TYPED_CHILDREN_SERVER,
+    );
 
-    expect(await mb.library.get()).toEqual(HYDRATED_LIBRARY);
+    expect(await mb.library.get()).toEqual(LIBRARY);
+  });
+
+  it("reads null for a child the listing does not describe", async () => {
+    const { mb } = clientOver([jsonResponse(BARE_LIBRARY), jsonResponse([])]);
+
+    expect(await mb.library.get()).toEqual({
+      ...LIBRARY_ROOT,
+      effective_children: [
+        { id: 11, name: "Data", description: null, type: null, is_remote_synced: null },
+        { id: 12, name: "Metrics", description: null, type: null, is_remote_synced: null },
+      ],
+    });
+  });
+
+  it("refuses children without a type from a server whose children carry one", async () => {
+    const { mb } = clientOver([jsonResponse(BARE_LIBRARY)], TYPED_CHILDREN_SERVER);
+
+    const error = await mb.library.get().catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ResponseShapeError);
+    assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
+    expect(error.userMessage).toBe(
+      "On Metabase v1.62.0 the response shape was unexpected:\n" +
+        `  effective_children[0].type: ${MISSING_TYPE_ISSUE}\n` +
+        `  effective_children[1].type: ${MISSING_TYPE_ISSUE}`,
+    );
   });
 
   it("answers null on an instance that has no Library", async () => {
@@ -226,12 +292,9 @@ describe("library resource results", () => {
   });
 
   it("returns the existing Library rather than creating a second one", async () => {
-    const { mb } = clientOver([
-      jsonResponse(UNHYDRATED_LIBRARY),
-      jsonResponse(LIBRARY_COLLECTIONS),
-    ]);
+    const { mb } = clientOver([jsonResponse(BARE_LIBRARY), jsonResponse(LIBRARY_COLLECTIONS)]);
 
-    expect(await mb.library.create()).toEqual(HYDRATED_LIBRARY);
+    expect(await mb.library.create()).toEqual(LIBRARY);
   });
 
   it("throws when the refetch after the create POST still finds no Library", async () => {
@@ -247,17 +310,14 @@ describe("library resource results", () => {
   });
 
   it("returns the Data collection's id", async () => {
-    const { mb } = clientOver([
-      jsonResponse(UNHYDRATED_LIBRARY),
-      jsonResponse(LIBRARY_COLLECTIONS),
-    ]);
+    const { mb } = clientOver([jsonResponse(BARE_LIBRARY), jsonResponse(LIBRARY_COLLECTIONS)]);
 
     expect(await mb.library.ensureDataCollectionId()).toBe(11);
   });
 
   it("throws when the Library carries no Data collection", async () => {
     const { mb } = clientOver([
-      jsonResponse({ ...UNHYDRATED_LIBRARY, effective_children: [] }),
+      jsonResponse({ ...BARE_LIBRARY, effective_children: [] }),
       jsonResponse(LIBRARY_COLLECTIONS),
     ]);
 
@@ -267,13 +327,18 @@ describe("library resource results", () => {
   });
 
   it("throws when the Data collection's id is not numeric", async () => {
-    const { mb } = clientOver([
-      jsonResponse({
-        ...UNHYDRATED_LIBRARY,
-        effective_children: [{ id: "NuFrFzRZgvqcMGjSjOOJH", name: "Data", type: "library-data" }],
-      }),
-      jsonResponse(LIBRARY_COLLECTIONS),
-    ]);
+    const { mb } = clientOver(
+      [
+        jsonResponse({
+          ...LIBRARY_ROOT,
+          effective_children: [
+            { id: "NuFrFzRZgvqcMGjSjOOJH", name: "Data", description: null, type: "library-data" },
+          ],
+        }),
+        jsonResponse(LIBRARY_COLLECTIONS),
+      ],
+      TYPED_CHILDREN_SERVER,
+    );
 
     await expect(mb.library.ensureDataCollectionId()).rejects.toThrow(
       new Error("Library Data collection has a non-numeric id NuFrFzRZgvqcMGjSjOOJH"),

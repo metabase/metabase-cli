@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { AbortError } from "./errors";
-import { abortReason, combineAborts, throwIfAborted } from "./signal";
+import { abortReason, combineAborts, throwIfAborted, untilAborted } from "./signal";
+import { deferred } from "./testing/deferred";
 
 describe("combineAborts", () => {
   it("aborts as soon as one composed source does, carrying that source's reason", () => {
@@ -67,5 +68,30 @@ describe("abortReason", () => {
     const wrapped = abortReason(controller.signal);
     expect(wrapped).toBeInstanceOf(AbortError);
     expect(wrapped.category).toBe("abort");
+  });
+});
+
+describe("untilAborted", () => {
+  it("rejects with the signal's reason and leaves the promise to settle on its own", async () => {
+    const { promise, resolve } = deferred<string>();
+    const controller = new AbortController();
+
+    const waited = untilAborted(promise, controller.signal);
+    controller.abort(new Error("moved on"));
+
+    const error = await waited.catch((caught: unknown) => caught);
+    assert(error instanceof AbortError, "expected AbortError");
+    expect(error.message).toBe("moved on");
+    resolve("done");
+    expect(await promise).toBe("done");
+  });
+
+  it("resolves with the promise's value when the signal stays live", async () => {
+    expect(await untilAborted(Promise.resolve("done"), new AbortController().signal)).toBe("done");
+  });
+
+  it("returns the promise itself when there is no signal", async () => {
+    const promise = Promise.resolve("done");
+    expect(untilAborted(promise, undefined)).toBe(promise);
   });
 });

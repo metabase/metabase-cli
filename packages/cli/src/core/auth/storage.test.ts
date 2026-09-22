@@ -1,10 +1,10 @@
-import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { parseJson } from "@metabase/client/json";
 
-import { ProfilesFile } from "./profile-record";
+import { type ProfileRecord, ProfilesFile } from "./profile-record";
 import { configDir } from "../paths";
 import { setupTempConfigHome, type TempConfigHome } from "./temp-config-home";
 
@@ -50,6 +50,17 @@ const OAUTH: OAuthCredential = {
   clientId: "client-1",
 };
 
+function defaultRecord(apiKey: string | null): ProfileRecord {
+  return {
+    name: "default",
+    url: "https://m.example.com",
+    apiKey,
+    oauth: null,
+    lastProbe: null,
+    lastFailure: null,
+  };
+}
+
 import { join } from "node:path";
 
 function legacyCredentialsPath(): string {
@@ -59,6 +70,10 @@ function legacyCredentialsPath(): string {
 function legacyRejectionsPath(): string {
   return join(configDir(), "rejections.json");
 }
+
+const IS_WINDOWS = process.platform === "win32";
+const PROBED_AT = "2026-03-04T05:06:07.000Z";
+const FAILED_AT = "2026-03-04T06:00:00.000Z";
 
 describe("profiles (keyring backend)", () => {
   let home: TempConfigHome;
@@ -149,18 +164,12 @@ describe("profiles (keyring backend)", () => {
   });
 
   it("deletes profiles.json when the last profile is gone", async () => {
-    if (process.platform === "win32") {
-      return;
-    }
     await writeProfile({ url: "https://m.example.com", apiKey: "k" }, "only");
     await clearProfile("only");
-    expect(() => statSync(profilesFilePath())).toThrow(/ENOENT/);
+    expect(existsSync(profilesFilePath())).toBe(false);
   });
 
-  it("writes profiles.json with 0600 perms", async () => {
-    if (process.platform === "win32") {
-      return;
-    }
+  it.skipIf(IS_WINDOWS)("writes profiles.json with 0600 perms", async () => {
     await writeProfile({ url: "https://m.example.com", apiKey: "k" }, "only");
     const mode = statSync(profilesFilePath()).mode & 0o777;
     expect(mode).toBe(0o600);
@@ -181,10 +190,7 @@ describe("profiles (file fallback when keyring is broken)", () => {
     home.cleanup();
   });
 
-  it("stores the API key inline in profiles.json with 0600 perms", async () => {
-    if (process.platform === "win32") {
-      return;
-    }
+  it.skipIf(IS_WINDOWS)("stores the API key inline in profiles.json with 0600 perms", async () => {
     const location = await writeProfile({ url: "https://m.example.com", apiKey: "secret" });
     expect(location).toEqual({
       backend: "file",
@@ -193,7 +199,7 @@ describe("profiles (file fallback when keyring is broken)", () => {
       reason: "unavailable",
     });
     const file = parseJson(readFileSync(profilesFilePath(), "utf8"), ProfilesFile);
-    expect(file.profiles[0]?.apiKey).toBe("secret");
+    expect(file).toEqual({ profiles: [defaultRecord("secret")] });
     const mode = statSync(profilesFilePath()).mode & 0o777;
     expect(mode).toBe(0o600);
   });
@@ -251,11 +257,24 @@ describe("writeProbeResult and writeProbeFailure", () => {
     hoisted.store.clear();
     hoisted.controls.broken = false;
     home = setupTempConfigHome();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(PROBED_AT));
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     home.cleanup();
   });
+
+  const ALICE_PROBE = {
+    at: PROBED_AT,
+    version: { tag: "v0.58.7", major: 58, patch: 7 },
+    edition: "oss",
+    date: null,
+    hash: null,
+    tokenFeatures: null,
+    user: { id: 42, name: "Alice", isAdmin: true },
+  };
 
   it("writeProbeResult populates lastProbe and clears lastFailure", async () => {
     await writeProfile({ url: "https://m.example.com", apiKey: "k" }, "p");
@@ -263,24 +282,32 @@ describe("writeProbeResult and writeProbeFailure", () => {
     const probe = await writeProbeResult("p", {
       user: { id: 42, name: "Alice", isAdmin: true },
       server: {
+        edition: "oss",
         version: { tag: "v0.58.7", major: 58, patch: 7 },
+        date: null,
+        hash: null,
         tokenFeatures: null,
       },
     });
-    expect(probe).not.toBeNull();
-    expect(probe?.user).toEqual({ id: 42, name: "Alice", isAdmin: true });
-    expect(probe?.version).toEqual({ tag: "v0.58.7", major: 58, patch: 7 });
-
-    const record = await readProfileRecord("p");
-    expect(record?.lastProbe).toEqual(probe);
-    expect(record?.lastFailure).toBeNull();
+    expect(probe).toEqual(ALICE_PROBE);
+    expect(await readProfileRecord("p")).toEqual({
+      name: "p",
+      url: "https://m.example.com",
+      apiKey: null,
+      oauth: null,
+      lastProbe: ALICE_PROBE,
+      lastFailure: null,
+    });
   });
 
   it("writeProbeResult returns null and does not create a record when none exists", async () => {
     const result = await writeProbeResult("ghost", {
       user: { id: 1, name: "n", isAdmin: false },
       server: {
+        edition: "oss",
         version: { tag: "v0.58.7", major: 58, patch: 7 },
+        date: null,
+        hash: null,
         tokenFeatures: null,
       },
     });
@@ -290,25 +317,37 @@ describe("writeProbeResult and writeProbeFailure", () => {
 
   it("writeProbeFailure updates lastFailure but leaves apiKey/url/lastProbe untouched", async () => {
     await writeProfile({ url: "https://m.example.com", apiKey: "k" }, "p");
-    const probe = await writeProbeResult("p", {
-      user: { id: 1, name: "Alice", isAdmin: true },
+    await writeProbeResult("p", {
+      user: { id: 42, name: "Alice", isAdmin: true },
       server: {
+        edition: "oss",
         version: { tag: "v0.58.7", major: 58, patch: 7 },
+        date: null,
+        hash: null,
         tokenFeatures: null,
       },
     });
-    expect(probe).not.toBeNull();
+    vi.setSystemTime(new Date(FAILED_AT));
 
     const failure = await writeProbeFailure("p", {
       kind: "auth",
       reason: "Invalid or unauthorized API key",
     });
-    expect(failure).not.toBeNull();
 
-    const after = await readProfileRecord("p");
-    expect(after?.url).toBe("https://m.example.com");
-    expect(after?.lastProbe).toEqual(probe);
-    expect(after?.lastFailure).toEqual(failure);
+    expect(failure).toEqual({
+      at: FAILED_AT,
+      kind: "auth",
+      reason: "Invalid or unauthorized API key",
+    });
+    expect(await readProfileRecord("p")).toEqual({
+      name: "p",
+      url: "https://m.example.com",
+      apiKey: null,
+      oauth: null,
+      lastProbe: ALICE_PROBE,
+      lastFailure: { at: FAILED_AT, kind: "auth", reason: "Invalid or unauthorized API key" },
+    });
+    expect(hoisted.store.get("metabase-cli:profile:p:apiKey")).toBe("k");
   });
 });
 
@@ -336,13 +375,17 @@ describe("MB_CLI_DISABLE_KEYRING", () => {
     });
     expect(hoisted.store.size).toBe(0);
     const file = parseJson(readFileSync(profilesFilePath(), "utf8"), ProfilesFile);
-    expect(file.profiles[0]?.apiKey).toBe("secret");
+    expect(file).toEqual({ profiles: [defaultRecord("secret")] });
   });
 
   it("treats values other than '1' as not-disabled", async () => {
     process.env["MB_CLI_DISABLE_KEYRING"] = "0";
     const location = await writeProfile({ url: "https://m.example.com", apiKey: "secret" });
-    expect(location.backend).toBe("keyring");
+    expect(location).toEqual({
+      backend: "keyring",
+      service: "metabase-cli",
+      account: "profile:default:apiKey",
+    });
   });
 });
 
@@ -414,8 +457,8 @@ describe("legacy storage detection", () => {
 
     await writeProfile({ url: "https://m.example.com", apiKey: "secret" });
 
-    expect(() => statSync(legacyCredentialsPath())).toThrow(/ENOENT/);
-    expect(() => statSync(legacyRejectionsPath())).toThrow(/ENOENT/);
+    expect(existsSync(legacyCredentialsPath())).toBe(false);
+    expect(existsSync(legacyRejectionsPath())).toBe(false);
   });
 });
 
@@ -462,7 +505,7 @@ describe("OAuth profiles (keyring backend)", () => {
       url: "https://m.example.com",
       credential: { kind: "apiKey", apiKey: "k" },
     });
-    expect((await readProfileRecord())?.oauth).toBeNull();
+    expect(await readProfileRecord()).toEqual(defaultRecord(null));
     expect(hoisted.store.get("metabase-cli:profile:default:oauthAccess")).toBeUndefined();
     expect(hoisted.store.get("metabase-cli:profile:default:oauthRefresh")).toBeUndefined();
   });
@@ -474,7 +517,19 @@ describe("OAuth profiles (keyring backend)", () => {
       url: "https://m.example.com",
       credential: OAUTH,
     });
-    expect((await readProfileRecord())?.apiKey).toBeNull();
+    expect(await readProfileRecord()).toEqual({
+      name: "default",
+      url: "https://m.example.com",
+      apiKey: null,
+      oauth: {
+        accessToken: null,
+        refreshToken: null,
+        expiresAt: OAUTH.expiresAt,
+        clientId: "client-1",
+      },
+      lastProbe: null,
+      lastFailure: null,
+    });
     expect(hoisted.store.get("metabase-cli:profile:default:apiKey")).toBeUndefined();
   });
 
@@ -495,7 +550,12 @@ describe("OAuth profiles (keyring backend)", () => {
     };
     hoisted.controls.broken = true; // the vault is unavailable during the refresh
     try {
-      expect((await writeOAuthProfile("https://m.example.com", rotated)).backend).toBe("file");
+      expect(await writeOAuthProfile("https://m.example.com", rotated)).toEqual({
+        backend: "file",
+        path: profilesFilePath(),
+        account: "profile:default:oauthAccess",
+        reason: "unavailable",
+      });
     } finally {
       hoisted.controls.broken = false;
     }
@@ -539,12 +599,24 @@ describe("OAuth profiles (file fallback)", () => {
 
   it("inlines the OAuth tokens in profiles.json when the keyring is broken", async () => {
     const location = await writeOAuthProfile("https://m.example.com", OAUTH);
-    expect(location.backend).toBe("file");
-    expect((await readProfileRecord())?.oauth).toEqual({
-      accessToken: "access-1",
-      refreshToken: "refresh-1",
-      expiresAt: OAUTH.expiresAt,
-      clientId: "client-1",
+    expect(location).toEqual({
+      backend: "file",
+      path: profilesFilePath(),
+      account: "profile:default:oauthAccess",
+      reason: "unavailable",
+    });
+    expect(await readProfileRecord()).toEqual({
+      name: "default",
+      url: "https://m.example.com",
+      apiKey: null,
+      oauth: {
+        accessToken: "access-1",
+        refreshToken: "refresh-1",
+        expiresAt: OAUTH.expiresAt,
+        clientId: "client-1",
+      },
+      lastProbe: null,
+      lastFailure: null,
     });
     expect(await readProfileCredential()).toEqual({
       url: "https://m.example.com",

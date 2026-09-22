@@ -1,7 +1,14 @@
 import { z } from "zod";
 
 import { Collection } from "../domain/collection";
-import { Library } from "../domain/library";
+import {
+  type Library,
+  LibraryCollectionInfo,
+  type LibraryListing,
+  libraryWireSchema,
+  toLibrary,
+} from "../domain/library";
+import type { TableSelectors } from "../domain/table";
 import type { RequestOptions, Transport } from "../http/transport";
 import { listCollectionsWithLibrary } from "./collection";
 
@@ -13,66 +20,27 @@ const UNPUBLISH_TABLES_PATH = "/api/ee/data-studio/table/unpublish-tables";
 
 const LIBRARY_DATA_TYPE = "library-data";
 
-// An instance with no Library answers the root with `{ data: null }` rather than a 404.
-const AbsentLibrary = z.object({ data: z.null() });
-const LibraryOrAbsent = z.union([Library, AbsentLibrary]);
-
 const PublishTablesResponse = z.object({ target_collection: Collection.nullable() });
 
-// Hydrating the Library's children means reading every collection on the instance, so they arrive
-// through a projection: a collection whose `namespace` or `authority_level` carries a value outside
-// `Collection`'s pinned enums is unrelated to the Library and must not decide whether it resolves.
-const LibraryCollectionInfo = Collection.pick({
-  id: true,
-  type: true,
-  is_remote_synced: true,
-}).strip();
-type LibraryCollectionInfo = z.infer<typeof LibraryCollectionInfo>;
-
-export interface LibraryTableSelectors {
-  table_ids?: number[] | undefined;
-  database_ids?: number[] | undefined;
-  schema_ids?: string[] | undefined;
-}
-
-export interface LibraryPublishParams extends LibraryTableSelectors {
+export interface LibraryPublishParams extends TableSelectors {
   collection_id: number;
 }
 
 export function libraryResource(transport: Transport) {
   /** Get the Library root and its child collections, or `null` on an instance that has none. */
   async function get(options: RequestOptions = {}): Promise<Library | null> {
-    const result = await transport.requestParsed(LibraryOrAbsent, LIBRARY_ROOT_PATH, {
+    await transport.require("library.get", options);
+    const { features } = await transport.server(options);
+    const wire = await transport.requestParsed(libraryWireSchema(features), LIBRARY_ROOT_PATH, {
       ...options,
     });
-    if (!("effective_children" in result)) {
+    if (wire === null) {
       return null;
     }
-    // GET /api/ee/library/ doesn't send each child's `type` or `is_remote_synced` in
-    // `effective_children` on released servers (v0.59-v0.61) — the frontend's own LibraryChild
-    // type omits them too. Resolve both from the collection list so callers can tell the Data
-    // and Metrics collections apart and see whether each is in the git-sync scope.
-    const infoById = await libraryCollectionsById(options);
-    const effective_children = result.effective_children.map((child) => {
-      if (typeof child.id !== "number") {
-        return child;
-      }
-      const info = infoById.get(child.id);
-      if (info === undefined) {
-        return child;
-      }
-      return {
-        ...child,
-        type: info.type ?? child.type,
-        is_remote_synced: info.is_remote_synced ?? child.is_remote_synced,
-      };
-    });
-    return { ...result, effective_children };
+    return toLibrary(wire, await libraryListing(options));
   }
 
-  async function libraryCollectionsById(
-    options: RequestOptions,
-  ): Promise<Map<number, LibraryCollectionInfo>> {
+  async function libraryListing(options: RequestOptions): Promise<LibraryListing> {
     const data = await listCollectionsWithLibrary(transport, LibraryCollectionInfo, options);
     const byId = new Map<number, LibraryCollectionInfo>();
     for (const collection of data) {
@@ -90,6 +58,7 @@ export function libraryResource(transport: Transport) {
    * back from a refetch, which together make this idempotent.
    */
   async function create(options: RequestOptions = {}): Promise<Library> {
+    await transport.require("library.create", options);
     const existing = await get(options);
     if (existing !== null) {
       return existing;
@@ -104,6 +73,7 @@ export function libraryResource(transport: Transport) {
 
   /** The id of the Library's Data collection, creating the Library first when it does not exist. */
   async function ensureDataCollectionId(options: RequestOptions = {}): Promise<number> {
+    await transport.require("library.ensureDataCollectionId", options);
     const library = await create(options);
     const data = library.effective_children.find((child) => child.type === LIBRARY_DATA_TYPE);
     if (data === undefined) {
@@ -123,6 +93,7 @@ export function libraryResource(transport: Transport) {
     params: LibraryPublishParams,
     options: RequestOptions = {},
   ): Promise<Collection | null> {
+    await transport.require("library.publishTables", options);
     const response = await transport.requestParsed(PublishTablesResponse, PUBLISH_TABLES_PATH, {
       ...options,
       method: "POST",
@@ -136,9 +107,10 @@ export function libraryResource(transport: Transport) {
    * depends on them. The endpoint answers no JSON body.
    */
   async function unpublishTables(
-    params: LibraryTableSelectors,
+    params: TableSelectors,
     options: RequestOptions = {},
   ): Promise<void> {
+    await transport.require("library.unpublishTables", options);
     await transport.requestRaw(UNPUBLISH_TABLES_PATH, {
       ...options,
       method: "POST",

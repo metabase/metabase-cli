@@ -18,8 +18,8 @@ import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { requireServer } from "./server-gate";
 
 const remoteSyncSkip = requireServer(
-  "setting › get --json on a string-valued setting wraps the bare server response",
-  { minVersion: 60, tokenFeature: "remote_sync" },
+  "setting › get --json on a keyword-typed EE setting (remote-sync-type) wraps the bare server response",
+  ["remoteSync"],
 );
 
 const MUTABLE_KEY = "enable-public-sharing";
@@ -55,8 +55,8 @@ describe("setting e2e", () => {
     };
   }
 
-  async function writeMutableKey(value: unknown): Promise<void> {
-    await adminClient.requestRaw(`/api/setting/${MUTABLE_KEY}`, {
+  async function writeSetting(key: string, value: unknown): Promise<void> {
+    await adminClient.requestRaw(`/api/setting/${key}`, {
       method: "PUT",
       body: { value },
       expectContentType: "binary",
@@ -64,7 +64,7 @@ describe("setting e2e", () => {
   }
 
   it("list returns a parseable envelope including a stable admin-visible setting", async () => {
-    await writeMutableKey(false);
+    await writeSetting(MUTABLE_KEY, false);
 
     const result = await runCli({
       args: ["setting", "list", "--json", "--max-bytes", "0"],
@@ -148,7 +148,7 @@ describe("setting e2e", () => {
   });
 
   it("set null deletes the override; get returns null again", async () => {
-    await writeMutableKey(false);
+    await writeSetting(MUTABLE_KEY, false);
 
     const setResult = await runCli({
       args: ["setting", "set", MUTABLE_KEY, "null", "--json"],
@@ -215,7 +215,7 @@ describe("setting e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       "multiple body sources given (--file, positional); pass exactly one",
     );
     expect(result.stdout).toBe("");
@@ -236,16 +236,12 @@ describe("setting e2e", () => {
   });
 
   it.skipIf(remoteSyncSkip !== null)(
-    "get --json on a string-valued setting wraps the bare server response",
+    "get --json on a keyword-typed EE setting (remote-sync-type) wraps the bare server response",
     async () => {
       const STRING_KEY = "remote-sync-type";
       const TARGET = "read-write";
       try {
-        await adminClient.requestRaw(`/api/setting/${STRING_KEY}`, {
-          method: "PUT",
-          body: { value: TARGET },
-          expectContentType: "binary",
-        });
+        await writeSetting(STRING_KEY, TARGET);
 
         const result = await runCli({
           args: ["setting", "get", STRING_KEY, "--json"],
@@ -259,14 +255,27 @@ describe("setting e2e", () => {
           value: TARGET,
         });
       } finally {
-        await adminClient.requestRaw(`/api/setting/${STRING_KEY}`, {
-          method: "PUT",
-          body: { value: null },
-          expectContentType: "binary",
-        });
+        await writeSetting(STRING_KEY, null);
       }
     },
   );
+
+  it("get --json on a keyword-typed setting (session-cookie-samesite) returns the bare name as a string", async () => {
+    const KEYWORD_KEY = "session-cookie-samesite";
+    await writeSetting(KEYWORD_KEY, "strict");
+
+    const result = await runCli({
+      args: ["setting", "get", KEYWORD_KEY, "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, SettingValue)).toEqual({
+      key: KEYWORD_KEY,
+      value: "strict",
+    });
+  });
 
   it("get --json on a text/plain string setting (admin-email) returns the wrapped string", async () => {
     const result = await runCli({

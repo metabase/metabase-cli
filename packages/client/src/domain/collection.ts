@@ -3,9 +3,10 @@ import { z } from "zod";
 export const CollectionId = z.union([z.number().int(), z.string()]);
 export type CollectionId = z.infer<typeof CollectionId>;
 
-const CollectionAuthorityLevel = z.enum(["official"]);
+export const CollectionAuthorityLevel = z.enum(["official"]);
+export type CollectionAuthorityLevel = z.infer<typeof CollectionAuthorityLevel>;
 
-const CollectionType = z.enum([
+export const CollectionType = z.enum([
   "instance-analytics",
   "trash",
   "library",
@@ -13,6 +14,7 @@ const CollectionType = z.enum([
   "library-metrics",
   "tenant-specific-root-collection",
 ]);
+export type CollectionType = z.infer<typeof CollectionType>;
 
 export const CollectionNamespace = z.enum([
   "transforms",

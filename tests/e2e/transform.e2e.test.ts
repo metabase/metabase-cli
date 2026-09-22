@@ -23,7 +23,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
-import { invalidDatabaseRejection, requireServer, serverVersionBelow } from "./server-gate";
+import { QUERY_NORMALIZATION_MESSAGE, requireServer, serverHas } from "./server-gate";
 
 const FIRST_TRANSFORM_ID = 1;
 const TRANSFORM_NAME = "e2e_transform";
@@ -39,6 +39,27 @@ interface TransformBody {
   name: string;
   source: { type: "query"; query: NativeQuery };
   target: { type: "table"; database: number; schema: string; name: string };
+}
+
+function runIdOf(result: TransformRunResult): number {
+  if (result.run_id === null) {
+    throw new Error(`no run started: ${result.message}`);
+  }
+  return result.run_id;
+}
+
+function finalRunOf(result: TransformRunResult): TransformRun {
+  if (result.final === null) {
+    throw new Error("expected the final run to be reported after waiting");
+  }
+  return result.final;
+}
+
+function registeredTableOf(result: TransformRunResult): number {
+  if (typeof result.target_table_id !== "number") {
+    throw new Error("expected the run to register its output table");
+  }
+  return result.target_table_id;
 }
 
 async function waitForRunComplete(client: Transport, runId: number): Promise<void> {
@@ -75,6 +96,11 @@ const TRANSFORM_BODY: TransformBody = {
   },
 };
 
+// One generation provisions the output table's row at creation, so its link is live before any run.
+const CREATED_TARGET_TABLE_ID = serverHas("transformTargetTableLinkedOnCreate")
+  ? expect.any(Number)
+  : null;
+
 const TRANSFORM_COMPACT = {
   id: FIRST_TRANSFORM_ID,
   name: TRANSFORM_NAME,
@@ -87,9 +113,10 @@ const TRANSFORM_COMPACT = {
     name: TRANSFORM_TARGET_TABLE,
   },
   target_db_id: SEEDED.warehouseDbId,
+  target_table_id: CREATED_TARGET_TABLE_ID,
 } as const;
 
-const skipReason = requireServer("transform › transform e2e", { minVersion: 59 });
+const skipReason = requireServer("transform › transform e2e", ["transforms"]);
 
 describe.skipIf(skipReason !== null)("transform e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -216,7 +243,9 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(getResult.exitCode).toBe(1);
-    expect(getResult.stderr).toContain(`Not found: GET /api/transform/${FIRST_TRANSFORM_ID}.`);
+    expect(cliErrorMessage(getResult.stderr)).toBe(
+      `Not found: GET /api/transform/${FIRST_TRANSFORM_ID}.`,
+    );
   });
 
   it("run --wait polls until the run reaches a terminal status and renders the final state", async () => {
@@ -229,9 +258,14 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     });
     expect(result.exitCode, result.stderr).toBe(0);
     const parsed = parseJson(result.stdout, TransformRunResult);
+    const runId = runIdOf(parsed);
+    const finalRun = finalRunOf(parsed);
     expect(parsed.message).toBe("Transform run started");
-    expect(parsed.run_id).not.toBeNull();
-    expect(parsed.final?.status).toBe("succeeded");
+    expect({
+      id: finalRun.id,
+      transform_id: finalRun.transform_id,
+      status: finalRun.status,
+    }).toEqual({ id: runId, transform_id: FIRST_TRANSFORM_ID, status: "succeeded" });
   });
 
   it("run --sync waits for the run's output table to register and surfaces target_table_id", async () => {
@@ -254,13 +288,49 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     const parsed = parseJson(result.stdout, TransformRunResult);
+    const finalRun = finalRunOf(parsed);
     expect(parsed.message).toBe("Transform run started");
-    expect(parsed.final?.status).toBe("succeeded");
-    assert(
-      parsed.target_table_id !== null && parsed.target_table_id !== undefined,
-      `expected --sync to register a target table; got ${JSON.stringify(parsed.target_table_id)}`,
-    );
-    expect(parsed.target_table_id).toBeGreaterThan(0);
+    expect({
+      id: finalRun.id,
+      status: finalRun.status,
+      target_table_id: parsed.target_table_id,
+    }).toEqual({
+      id: runIdOf(parsed),
+      status: "succeeded",
+      target_table_id: registeredTableOf(parsed),
+    });
+  });
+
+  it("get reports the table a run registered as target_table_id", async () => {
+    await createSeedTransform();
+
+    const runResult = await runCli({
+      args: [
+        "transform",
+        "run",
+        String(FIRST_TRANSFORM_ID),
+        "--sync",
+        "--interval",
+        "1000",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+      timeoutMs: 60_000,
+    });
+    expect(runResult.exitCode, runResult.stderr).toBe(0);
+    const registered = registeredTableOf(parseJson(runResult.stdout, TransformRunResult));
+
+    const getResult = await runCli({
+      args: ["transform", "get", String(FIRST_TRANSFORM_ID), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(getResult.exitCode, getResult.stderr).toBe(0);
+    expect(parseJson(getResult.stdout, TransformCompact)).toEqual({
+      ...TRANSFORM_COMPACT,
+      target_table_id: registered,
+    });
   });
 
   it("run --wait --json on a failing transform exits 1 with a stderr summary that does not duplicate final.message", async () => {
@@ -300,14 +370,11 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
 
     expect(runResult.exitCode).toBe(1);
     const parsed = parseJson(runResult.stdout, TransformRunResult);
-    const finalRun = parsed.final;
-    assert(finalRun !== null, "expected final run to be populated when --wait is set");
-    const failureDetail = finalRun.message;
-    assert(failureDetail !== null, "expected failed run to carry a message");
+    const finalRun = finalRunOf(parsed);
+    assert(finalRun.message !== null, "expected failed run to carry a message");
 
     expect(finalRun.status).toBe("failed");
-    expect(runResult.stderr).toContain(`transform run ${parsed.run_id} failed`);
-    expect(runResult.stderr).not.toContain(failureDetail);
+    expect(cliErrorMessage(runResult.stderr)).toBe(`transform run ${runIdOf(parsed)} failed`);
   });
 
   it("run returns a run_id for the created transform", async () => {
@@ -320,23 +387,34 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     });
     expect(result.exitCode, result.stderr).toBe(0);
     const parsed = parseJson(result.stdout, TransformRunResult);
-    expect(parsed.message).toBe("Transform run started");
-    expect(parsed.run_id).not.toBeNull();
+    expect(parsed).toEqual({
+      message: "Transform run started",
+      run_id: runIdOf(parsed),
+      final: null,
+    });
 
-    if (parsed.run_id !== null) {
-      await waitForRunComplete(adminClient, parsed.run_id);
-    }
+    await waitForRunComplete(adminClient, runIdOf(parsed));
   });
 
   it("delete-table drops the output table while keeping the transform record", async () => {
     await createSeedTransform();
 
     const runResult = await runCli({
-      args: ["transform", "run", String(FIRST_TRANSFORM_ID), "--wait", "--json"],
+      args: [
+        "transform",
+        "run",
+        String(FIRST_TRANSFORM_ID),
+        "--sync",
+        "--interval",
+        "1000",
+        "--json",
+      ],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
+      timeoutMs: 60_000,
     });
     expect(runResult.exitCode, runResult.stderr).toBe(0);
+    const registered = registeredTableOf(parseJson(runResult.stdout, TransformRunResult));
 
     const dropResult = await runCli({
       args: ["transform", "delete-table", String(FIRST_TRANSFORM_ID), "--yes", "--json"],
@@ -350,13 +428,18 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       id: FIRST_TRANSFORM_ID,
     });
 
+    // A server with the column keeps naming the dropped table's row; one that hydrates the link
+    // only ever names an active table.
     const getResult = await runCli({
       args: ["transform", "get", String(FIRST_TRANSFORM_ID), "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
     expect(getResult.exitCode, getResult.stderr).toBe(0);
-    expect(parseJson(getResult.stdout, TransformCompact)).toEqual(TRANSFORM_COMPACT);
+    expect(parseJson(getResult.stdout, TransformCompact)).toEqual({
+      ...TRANSFORM_COMPACT,
+      target_table_id: serverHas("transformTargetTableId") ? registered : null,
+    });
   });
 
   it("create with body missing required fields fails on Zod validation", async () => {
@@ -367,7 +450,9 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("request body: value did not match expected schema");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "request body: value did not match expected schema\n  /source: Invalid input: expected object, received undefined\n  /target: Invalid input: expected object, received undefined",
+    );
     expect(result.stdout).toBe("");
   });
 
@@ -378,7 +463,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -389,7 +474,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: GET /api/transform/9999999.");
+    expect(cliErrorMessage(result.stderr)).toBe("Not found: GET /api/transform/9999999.");
   });
 
   it("create with invalid MBQL 5 source.query fails pre-flight before sending", async () => {
@@ -426,7 +511,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       ok: false,
       errors: [{ path: "/database", message: "must be integer" }],
     });
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       "transform.source.query validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
     );
   });
@@ -454,7 +539,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       ok: false,
       errors: [{ path: "/database", message: "must be integer" }],
     });
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       "transform.source.query validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
     );
   });
@@ -484,9 +569,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain(
-      invalidDatabaseRejection("source.query.lib/metadata: missing required key"),
-    );
+    expect(cliErrorMessage(result.stderr)).toBe(QUERY_NORMALIZATION_MESSAGE);
     expect(result.stdout).toBe("");
   });
 
@@ -528,7 +611,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid run id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid run id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -539,7 +622,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: GET /api/transform/run/9999999.");
+    expect(cliErrorMessage(result.stderr)).toBe("Not found: GET /api/transform/run/9999999.");
   });
 
   it("runs lists the recently-completed run for the seeded transform", async () => {
@@ -606,9 +689,10 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
         }),
       ),
     );
-    for (const runResult of runResults) {
-      expect(runResult.exitCode, runResult.stderr).toBe(0);
-    }
+    expect(
+      runResults.map((runResult) => runResult.exitCode),
+      runResults.map((runResult) => runResult.stderr).join("\n"),
+    ).toEqual([0, 0]);
 
     const result = await runCli({
       args: ["transform", "runs", "--transform-id", String(FIRST_TRANSFORM_ID), "--json"],
@@ -723,9 +807,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain(
-      'invalid --transform-id: "abc" (expected integer)',
-    );
+    expect(cliErrorMessage(result.stderr)).toBe('invalid --transform-id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -795,7 +877,9 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain(`Not found: POST /api/transform/${FIRST_TRANSFORM_ID}/cancel.`);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      `Not found: POST /api/transform/${FIRST_TRANSFORM_ID}/cancel.`,
+    );
   });
 
   it("cancel with non-integer id fails fast with ConfigError", async () => {
@@ -805,7 +889,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -817,7 +901,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(result.stderr).toContain(
+    expect(cliErrorMessage(result.stderr)).toBe(
       `refusing to delete ${FIRST_TRANSFORM_ID} without confirmation — pass --yes to proceed non-interactively`,
     );
     expect(result.stdout).toBe("");
@@ -849,8 +933,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(transformResult.exitCode, transformResult.stderr).toBe(0);
-    const created = parseJson(transformResult.stdout, TransformCompact);
-    expect(created).toEqual({ ...TRANSFORM_COMPACT, id: created.id });
+    expect(parseJson(transformResult.stdout, TransformCompact)).toEqual(TRANSFORM_COMPACT);
   });
 
   it("create into a default-namespace collection fails (exit 2) with the --namespace transforms hint", async () => {
@@ -909,7 +992,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -920,14 +1003,14 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: GET /api/transform/9999999/dependencies.");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "Not found: GET /api/transform/9999999/dependencies.",
+    );
   });
 });
 
-const GATE_MIN_VERSION = 59;
-
-describe.skipIf(!serverVersionBelow(GATE_MIN_VERSION))(
-  "transform capability gate against a sub-v59 server",
+describe.skipIf(serverHas("transforms"))(
+  "transform capability gate against a server without transforms",
   () => {
     let bootstrap: E2EBootstrap;
     const tempDirs: string[] = [];
@@ -973,7 +1056,26 @@ describe.skipIf(!serverVersionBelow(GATE_MIN_VERSION))(
 
       expect(result.exitCode).toBe(2);
       expect(cliErrorMessage(result.stderr)).toBe(
-        `This operation requires Metabase v${GATE_MIN_VERSION}+ (this server is ${serverTag}). Upgrade Metabase to use it.\n` +
+        `This operation requires Metabase v59+ (this server is ${serverTag}). Upgrade Metabase to use it.\n` +
+          "Or install an `@metabase/cli` release that targets this server.",
+      );
+      expect(result.stdout).toBe("");
+    });
+
+    it("transform list without a cached probe asks the server once and refuses the same way", async () => {
+      const serverTag = bootstrap.server.version?.tag;
+      assert(serverTag !== undefined, "gate block requires a known cached server version");
+      const configHome = await makeIsolatedConfigHome();
+
+      const result = await runCli({
+        args: ["transform", "list", "--json"],
+        configHome,
+        env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey },
+      });
+
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorMessage(result.stderr)).toBe(
+        `This operation requires Metabase v59+ (this server is ${serverTag}). Upgrade Metabase to use it.\n` +
           "Or install an `@metabase/cli` release that targets this server.",
       );
       expect(result.stdout).toBe("");

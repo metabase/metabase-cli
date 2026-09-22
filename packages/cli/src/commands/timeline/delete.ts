@@ -8,7 +8,7 @@ export default defineMetabaseCommand({
     name: "delete",
     description: "Permanently delete a timeline and all its events by id",
   },
-  capabilities: { minVersion: 58 },
+  requires: ["timeline.delete"],
   args: {
     ...outputFlags,
     ...profileFlag,

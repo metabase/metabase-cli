@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
   details:
     "Reads the chain-filter value endpoint. With --query the server returns only values containing the substring (first 1000 matches).",
   skills: [{ skill: "dashboard", purpose: "dashboard parameters, mapping, value sources" }],
-  capabilities: { minVersion: 58 },
+  requires: ["dashboard.parameterValues", "dashboard.searchParameterValues"],
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -15,7 +15,7 @@ export default defineMetabaseCommand({
     name: "fields",
     description: "List fields on a table (projection over query_metadata.fields)",
   },
-  capabilities: { minVersion: 58 },
+  requires: ["table.queryMetadata"],
   args: {
     ...outputFlags,
     ...listFlags,

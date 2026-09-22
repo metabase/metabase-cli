@@ -5,6 +5,7 @@ import {
   isSyncTaskTerminal,
   SyncBranchCreated,
   SyncDirtyItem,
+  SyncExportPreflight,
   type SyncExportResult,
   type SyncImportResult,
   SyncRemoteChanges,
@@ -88,6 +89,10 @@ export interface SyncExportParams extends SyncWaitParams {
   force?: boolean | undefined;
 }
 
+export interface SyncExportPreflightParams {
+  branch: string;
+}
+
 export interface SyncStashParams extends SyncWaitParams {
   new_branch: string;
   message: string;
@@ -100,11 +105,13 @@ export interface SyncCreateBranchParams {
 export function gitSyncResource(transport: Transport) {
   /** Get the running or most recently finished sync task, or null when the server has none. */
   async function currentTask(options: RequestOptions = {}): Promise<SyncTask | null> {
+    await transport.require("gitSync.currentTask", options);
     return fetchOptionalParsed(transport, "/api/ee/remote-sync/current-task", SyncTask, options);
   }
 
   /** Request cancellation of the running sync task, and answer it in the state that left it. */
   async function cancelTask(options: RequestOptions = {}): Promise<SyncTask> {
+    await transport.require("gitSync.cancelTask", options);
     return transport.requestParsed(SyncTask, "/api/ee/remote-sync/current-task/cancel", {
       ...options,
       method: "POST",
@@ -113,6 +120,7 @@ export function gitSyncResource(transport: Transport) {
 
   /** Whether Metabase holds content changes the remote has not been told about. */
   async function isDirty(options: RequestOptions = {}): Promise<boolean> {
+    await transport.require("gitSync.isDirty", options);
     const flag = await transport.requestParsed(SyncDirtyFlag, "/api/ee/remote-sync/is-dirty", {
       ...options,
     });
@@ -121,6 +129,7 @@ export function gitSyncResource(transport: Transport) {
 
   /** List the objects whose local state differs from the remote. */
   async function dirty(options: RequestOptions = {}): Promise<ListResult<SyncDirtyItem>> {
+    await transport.require("gitSync.dirty", options);
     const response = await transport.requestParsed(SyncDirtyList, "/api/ee/remote-sync/dirty", {
       ...options,
     });
@@ -135,6 +144,7 @@ export function gitSyncResource(transport: Transport) {
     params: SyncRemoteChangesParams = {},
     options: RequestOptions = {},
   ): Promise<SyncRemoteChanges> {
+    await transport.require("gitSync.hasRemoteChanges", options);
     return transport.requestParsed(SyncRemoteChanges, "/api/ee/remote-sync/has-remote-changes", {
       ...options,
       query: { "force-refresh": params["force-refresh"] },
@@ -150,6 +160,7 @@ export function gitSyncResource(transport: Transport) {
     params: SyncImportParams = {},
     options: RequestOptions = {},
   ): Promise<SyncImportResult> {
+    await transport.require("gitSync.import", options);
     const started = await transport.requestParsed(SyncImportStarted, "/api/ee/remote-sync/import", {
       ...options,
       method: "POST",
@@ -170,6 +181,7 @@ export function gitSyncResource(transport: Transport) {
     params: SyncExportParams = {},
     options: RequestOptions = {},
   ): Promise<SyncExportResult> {
+    await transport.require("gitSync.export", options);
     const started = await transport.requestParsed(SyncExportStarted, "/api/ee/remote-sync/export", {
       ...options,
       method: "POST",
@@ -186,6 +198,23 @@ export function gitSyncResource(transport: Transport) {
   }
 
   /**
+   * Preview what exporting to `branch` would do against the live remote, without writing: whether
+   * the remote has moved on, whether a merge would apply cleanly, which entities conflict, and what
+   * a force push would discard. `branch` must be the one git-sync tracks; the server answers 409
+   * otherwise.
+   */
+  async function exportPreflight(
+    params: SyncExportPreflightParams,
+    options: RequestOptions = {},
+  ): Promise<SyncExportPreflight> {
+    await transport.require("gitSync.exportPreflight", options);
+    return transport.requestParsed(SyncExportPreflight, "/api/ee/remote-sync/export-preflight", {
+      ...options,
+      query: { branch: params.branch },
+    });
+  }
+
+  /**
    * Export Metabase's current content to a branch the remote does not have yet. The endpoint
    * queues a task and returns at once; pass `wait` to poll that task to a terminal status.
    */
@@ -193,6 +222,7 @@ export function gitSyncResource(transport: Transport) {
     params: SyncStashParams,
     options: RequestOptions = {},
   ): Promise<SyncStashResult> {
+    await transport.require("gitSync.stash", options);
     const started = await transport.requestParsed(SyncStashStarted, "/api/ee/remote-sync/stash", {
       ...options,
       method: "POST",
@@ -211,6 +241,7 @@ export function gitSyncResource(transport: Transport) {
 
   /** List the branches the configured remote carries. */
   async function branches(options: RequestOptions = {}): Promise<ListResult<string>> {
+    await transport.require("gitSync.branches", options);
     const response = await transport.requestParsed(SyncBranchList, "/api/ee/remote-sync/branches", {
       ...options,
     });
@@ -222,6 +253,7 @@ export function gitSyncResource(transport: Transport) {
     params: SyncCreateBranchParams,
     options: RequestOptions = {},
   ): Promise<SyncBranchCreated> {
+    await transport.require("gitSync.createBranch", options);
     return transport.requestParsed(SyncBranchCreated, "/api/ee/remote-sync/create-branch", {
       ...options,
       method: "POST",
@@ -238,6 +270,7 @@ export function gitSyncResource(transport: Transport) {
     synced: boolean,
     options: RequestOptions = {},
   ): Promise<SyncSettingsUpdateResult> {
+    await transport.require("gitSync.setCollectionSynced", options);
     return transport.requestParsed(SyncSettingsUpdateResult, "/api/ee/remote-sync/settings", {
       ...options,
       method: "PUT",
@@ -249,12 +282,14 @@ export function gitSyncResource(transport: Transport) {
   async function syncedCollections(
     options: RequestOptions = {},
   ): Promise<ListResult<SyncScopeCollection>> {
+    await transport.require("gitSync.syncedCollections", options);
     const data = await listCollectionsWithLibrary(transport, SyncScopeCollection, options);
     return { data: data.filter((entry) => entry.is_remote_synced === true), total: null };
   }
 
   /** The remote's URL, or null when none is configured or the caller may not read it. */
   async function remoteUrl(options: RequestOptions = {}): Promise<string | null> {
+    await transport.require("gitSync.remoteUrl", options);
     try {
       const url = await fetchOptionalParsed(
         transport,
@@ -271,14 +306,25 @@ export function gitSyncResource(transport: Transport) {
     }
   }
 
-  /** The branch git-sync tracks, or null when none is configured or the caller may not read it. */
+  /**
+   * The branch git-sync tracks, or null when none is configured, the caller may not read it, or
+   * the server has no remote-sync module.
+   */
   async function branch(options: RequestOptions = {}): Promise<string | null> {
-    return fetchOptionalParsed(
-      transport,
-      "/api/setting/remote-sync-branch",
-      RemoteSyncSetting,
-      options,
-    );
+    await transport.require("gitSync.branch", options);
+    try {
+      return await fetchOptionalParsed(
+        transport,
+        "/api/setting/remote-sync-branch",
+        RemoteSyncSetting,
+        options,
+      );
+    } catch (error) {
+      if (isRemoteUnreadable(error)) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   /**
@@ -289,6 +335,7 @@ export function gitSyncResource(transport: Transport) {
     wait: PollOptions,
     options: RequestOptions = {},
   ): Promise<SyncTask | null> {
+    await transport.require("gitSync.waitForTask", options);
     return settle(wait, options);
   }
 
@@ -308,6 +355,7 @@ export function gitSyncResource(transport: Transport) {
     hasRemoteChanges,
     import: importFromRemote,
     export: exportToRemote,
+    exportPreflight,
     stash,
     branches,
     createBranch,

@@ -34,6 +34,7 @@ export function pulseResource(transport: Transport) {
     params: PulseListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Pulse>> {
+    await transport.require("pulse.list", options);
     const data = await transport.requestParsed(PulseApiList, "/api/pulse", {
       ...options,
       query: { dashboard_id: params.dashboard_id, archived: params.archived },
@@ -43,11 +44,13 @@ export function pulseResource(transport: Transport) {
 
   /** Get one dashboard subscription by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<Pulse> {
+    await transport.require("pulse.get", options);
     return transport.requestParsed(Pulse, `/api/pulse/${id}`, { ...options });
   }
 
   /** Create a dashboard subscription — its cards and its delivery channels — from a full body. */
   async function create(params: PulseCreateInput, options: RequestOptions = {}): Promise<Pulse> {
+    await transport.require("pulse.create", options);
     return transport.requestParsed(Pulse, "/api/pulse", {
       ...options,
       method: "POST",
@@ -61,6 +64,7 @@ export function pulseResource(transport: Transport) {
     params: PulseUpdateInput,
     options: RequestOptions = {},
   ): Promise<Pulse> {
+    await transport.require("pulse.update", options);
     const current = await get(id, options);
     return transport.requestParsed(Pulse, `/api/pulse/${id}`, {
       ...options,
@@ -74,6 +78,7 @@ export function pulseResource(transport: Transport) {
    * update, and disables each of the subscription's channels as a side effect.
    */
   async function archive(id: number, options: RequestOptions = {}): Promise<Pulse> {
+    await transport.require("pulse.archive", options);
     return update(id, { archived: true }, options);
   }
 

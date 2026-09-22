@@ -43,7 +43,7 @@ mb field update 1711 --body '{"semantic_type":"type/FK","fk_target_field_id":168
 - Queries can pull columns from the related table with no explicit join — `["field", {"source-field": 1711}, 1682]` in MBQL (see `mbql`).
 - Dashboard **linked filters** become possible (a State filter narrowing a City filter). **Linked filters read only these table-metadata FKs** — never a join you wrote inside a saved question — which is why a linked filter that "shows values it shouldn't" almost always means the FK isn't set in metadata. (See `dashboard`.)
 
-Removing the `type/FK` semantic type auto-clears `fk_target_field_id`. Point a FK only at a field in the **same database** — v60+ rejects a cross-database target; v58–v59 accept it silently and leave a broken relationship.
+Removing the `type/FK` semantic type auto-clears `fk_target_field_id`. Point a FK only at a field in the **same database** — a cross-database target is invalid and never resolves to a relationship.
 
 ## Semantic types are labels, not casts
 

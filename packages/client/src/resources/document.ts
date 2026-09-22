@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { Document, type DocumentCreateInput, type DocumentUpdateInput } from "../domain/document";
+import {
+  Document,
+  type DocumentCopyInput,
+  type DocumentCreateInput,
+  type DocumentUpdateInput,
+} from "../domain/document";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 
@@ -11,6 +16,7 @@ const DocumentApiList = z.object({ items: z.array(Document) }).loose();
 export function documentResource(transport: Transport) {
   /** Get existing documents. */
   async function list(options: RequestOptions = {}): Promise<ListResult<Document>> {
+    await transport.require("document.list", options);
     const response = await transport.requestParsed(DocumentApiList, "/api/document", {
       ...options,
     });
@@ -19,6 +25,7 @@ export function documentResource(transport: Transport) {
 
   /** Return an existing document by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<Document> {
+    await transport.require("document.get", options);
     return transport.requestParsed(Document, `/api/document/${id}`, { ...options });
   }
 
@@ -27,6 +34,7 @@ export function documentResource(transport: Transport) {
     params: DocumentCreateInput,
     options: RequestOptions = {},
   ): Promise<Document> {
+    await transport.require("document.create", options);
     return transport.requestParsed(Document, "/api/document", {
       ...options,
       method: "POST",
@@ -40,6 +48,7 @@ export function documentResource(transport: Transport) {
     params: DocumentUpdateInput,
     options: RequestOptions = {},
   ): Promise<Document> {
+    await transport.require("document.update", options);
     return transport.requestParsed(Document, `/api/document/${id}`, {
       ...options,
       method: "PUT",
@@ -49,8 +58,26 @@ export function documentResource(transport: Transport) {
 
   /** Archive (soft-delete) a document by id. Metabase models this as an update, not its own endpoint. */
   async function archive(id: number, options: RequestOptions = {}): Promise<Document> {
+    await transport.require("document.archive", options);
     return update(id, { archived: true }, options);
   }
 
-  return { list, get, create, update, archive };
+  /**
+   * Copy a document into `collection_id` (root when absent), duplicating the cards saved inside
+   * it. An archived source is not found.
+   */
+  async function copy(
+    id: number,
+    params: DocumentCopyInput = {},
+    options: RequestOptions = {},
+  ): Promise<Document> {
+    await transport.require("document.copy", options);
+    return transport.requestParsed(Document, `/api/document/${id}/copy`, {
+      ...options,
+      method: "POST",
+      body: params,
+    });
+  }
+
+  return { list, get, create, update, archive, copy };
 }

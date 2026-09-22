@@ -18,6 +18,7 @@ export function snippetResource(transport: Transport) {
     params: SnippetListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Snippet>> {
+    await transport.require("snippet.list", options);
     const data = await transport.requestParsed(SnippetApiList, "/api/native-query-snippet", {
       ...options,
       query: { archived: params.archived },
@@ -27,6 +28,7 @@ export function snippetResource(transport: Transport) {
 
   /** Get one native query snippet by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<Snippet> {
+    await transport.require("snippet.get", options);
     return transport.requestParsed(Snippet, `/api/native-query-snippet/${id}`, { ...options });
   }
 
@@ -35,6 +37,7 @@ export function snippetResource(transport: Transport) {
     params: SnippetCreateInput,
     options: RequestOptions = {},
   ): Promise<Snippet> {
+    await transport.require("snippet.create", options);
     return transport.requestParsed(Snippet, "/api/native-query-snippet", {
       ...options,
       method: "POST",
@@ -48,6 +51,7 @@ export function snippetResource(transport: Transport) {
     params: SnippetUpdateInput,
     options: RequestOptions = {},
   ): Promise<Snippet> {
+    await transport.require("snippet.update", options);
     return transport.requestParsed(Snippet, `/api/native-query-snippet/${id}`, {
       ...options,
       method: "PUT",
@@ -60,6 +64,7 @@ export function snippetResource(transport: Transport) {
    * own endpoint.
    */
   async function archive(id: number, options: RequestOptions = {}): Promise<Snippet> {
+    await transport.require("snippet.archive", options);
     return update(id, { archived: true }, options);
   }
 

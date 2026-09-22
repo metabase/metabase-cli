@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
   meta: { name: "transforms", description: "List the transforms a job will run" },
   details:
     "Resolves the transforms a job would execute, matched by the job's tags. The positional id is a JOB id, not a transform id.",
-  capabilities: { minVersion: 59 },
+  requires: ["transformJob.transforms"],
   args: {
     ...outputFlags,
     ...listFlags,

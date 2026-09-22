@@ -23,7 +23,7 @@ export default defineMetabaseCommand({
     { skill: "native-sql", purpose: "author a native SQL dataset_query with parameters" },
     { skill: "visualization", purpose: "choose display and visualization_settings" },
   ],
-  capabilities: { minVersion: 58 },
+  requires: ["card.create"],
   args: {
     ...outputFlags,
     ...profileFlag,

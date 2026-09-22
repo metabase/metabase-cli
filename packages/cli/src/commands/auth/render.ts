@@ -1,4 +1,14 @@
+import { KNOWN_RANGE } from "@metabase/client/version/known-range";
+import { Skew } from "@metabase/client/version/profile";
+
 import { EMPTY_CELL } from "../../output/table";
+
+const SKEW_LABEL: Readonly<Record<Skew, string>> = Object.freeze({
+  supported: "supported",
+  "older-than-known": `older than this CLI supports (v${KNOWN_RANGE.min} min)`,
+  "newer-than-known": `newer than this CLI knows (v${KNOWN_RANGE.max} max)`,
+  unknown: "unknown version",
+});
 
 function pickProperty(value: unknown, key: string): unknown {
   if (typeof value !== "object" || value === null || !(key in value)) {
@@ -46,4 +56,9 @@ export function renderVersionTag(value: unknown): string {
 
 export function renderTimestamp(value: unknown): string {
   return typeof value === "string" ? value : EMPTY_CELL;
+}
+
+export function renderSkew(value: unknown): string {
+  const parsed = Skew.safeParse(value);
+  return parsed.success ? SKEW_LABEL[parsed.data] : EMPTY_CELL;
 }

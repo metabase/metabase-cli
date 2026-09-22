@@ -262,6 +262,23 @@ describe("HttpError field errors", () => {
     expect(buildHttpError({ rawBody: body }).fieldErrors).toBeNull();
   });
 
+  it("exposes the error code a throw site published beside its message", () => {
+    const body = JSON.stringify({
+      message: "The h2 database of this transform does not support transform testing.",
+      "error-code": "transform-test.unsupported-driver",
+      "transform-id": 7,
+    });
+    const error = buildHttpError({ status: 422, rawBody: body });
+    expect(error.errorCode).toBe("transform-test.unsupported-driver");
+    expect(error.message).toBe(
+      "The h2 database of this transform does not support transform testing.",
+    );
+  });
+
+  it("answers a null error code for an envelope that names none", () => {
+    expect(buildHttpError({ rawBody: CARD_CREATE_400_BODY }).errorCode).toBeNull();
+  });
+
   it("answers null when the body is not an error envelope at all", () => {
     expect(buildHttpError({ status: 500, rawBody: "not json at all" }).fieldErrors).toBeNull();
   });
@@ -306,13 +323,13 @@ describe("HttpError kind classification", () => {
     expect(buildHttpError({ status: 503 }).kind).toBe("server-error");
   });
 
-  it("classifies 404 with Metabase route-not-found body as route-missing", () => {
+  it("classifies 404 with Metabase's route-not-found JSON string literal as route-missing", () => {
     const error = buildHttpError({
       status: 404,
       method: "GET",
       url: "https://example.invalid/api/this-does-not-exist",
-      responseHeaders: textHeaders(),
-      rawBody: "API endpoint does not exist.",
+      responseHeaders: jsonHeaders(),
+      rawBody: '"API endpoint does not exist."',
     });
     expect(error.kind).toBe("route-missing");
   });
@@ -328,7 +345,7 @@ describe("HttpError kind classification", () => {
     expect(error.kind).toBe("resource-missing");
   });
 
-  it("classifies 404 with a text/plain Not-found body as resource-missing (Metabase v0.58)", () => {
+  it("classifies 404 with the bare text/plain Not-found body of check-404 as resource-missing", () => {
     const error = buildHttpError({
       status: 404,
       method: "GET",
@@ -402,7 +419,7 @@ describe("HttpError 404 messages", () => {
       rawBody: JSON.stringify({ message: "Not found." }),
       serverTag: "v0.58.7",
     });
-    expect(error.message).not.toContain("mb doctor");
+    expect(error.message).toBe("Not found: GET /api/database/9999.");
   });
 });
 

@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     name: "add-collection",
     description: "Mark a collection as git-synced; cascades to descendants by location prefix",
   },
-  capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
+  requires: ["gitSync.setCollectionSynced"],
   args: {
     ...outputFlags,
     ...profileFlag,

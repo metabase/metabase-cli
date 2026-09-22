@@ -127,3 +127,13 @@ export const DocumentUpdateInput = z
   })
   .loose();
 export type DocumentUpdateInput = z.infer<typeof DocumentUpdateInput>;
+
+// The newest server closes the body map, so the input names exactly the keys it takes.
+export const DocumentCopyInput = z
+  .object({
+    name: DocumentName.nullable().optional(),
+    collection_id: z.number().int().positive().nullable().optional(),
+    collection_position: z.number().int().positive().nullable().optional(),
+  })
+  .strict();
+export type DocumentCopyInput = z.infer<typeof DocumentCopyInput>;

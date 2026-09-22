@@ -8,6 +8,7 @@ import {
   jsonResponse,
   TEST_USER_AGENT,
 } from "../testing/fetch-capture";
+import { createServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
   url: "https://mb.example.com/metabase",
@@ -40,11 +41,22 @@ const BINARY_READ_HEADERS = {
   "x-api-key": "mb_wire_test_key",
 };
 
+// The least server that answers this resource, so a method asking for more than the resource's
+// own feature is refused here before it reaches the scripted wire.
+const SERVER = createServerProfile({
+  edition: "oss",
+  version: { tag: "v0.59.0", major: 59, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: null,
+});
+
 function clientOver(responses: FetchScript) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
     userAgent: TEST_USER_AGENT,
     fetchImpl: capture.fetch,
+    server: SERVER,
   });
   return { mb, capture };
 }

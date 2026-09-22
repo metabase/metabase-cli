@@ -2,7 +2,12 @@ import { z } from "zod";
 
 import type { ResourceView } from "../../output/view";
 
-import { findSkillByName, loadAllSkills, loadVisibleSkills } from "../../core/skills";
+import {
+  findSkillByName,
+  loadAllSkills,
+  loadVisibleSkills,
+  type SkillInfo,
+} from "../../core/skills";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
 import { windowList } from "../../output/window";
@@ -31,7 +36,7 @@ export default defineMetabaseCommand({
     description:
       "Print the absolute path to a skill (or all skills). Useful when an agent needs to read the SKILL.md or its references with the Read tool directly.",
   },
-  capabilities: null,
+  requires: null,
   args: {
     ...outputFlags,
     ...listFlags,
@@ -52,6 +57,6 @@ export default defineMetabaseCommand({
   },
 });
 
-function toSkillPath(info: { name: string; dir: string }): SkillPathJson {
+function toSkillPath(info: SkillInfo): SkillPathJson {
   return { name: info.name, dir: info.dir };
 }

@@ -7,6 +7,7 @@ export function setupResource(transport: Transport) {
    * applying the instance preferences. The setup token is single-use.
    */
   async function create(params: SetupInput, options: RequestOptions = {}): Promise<SetupResult> {
+    await transport.require("setup.create", options);
     return transport.requestParsed(SetupResult, "/api/setup", {
       ...options,
       method: "POST",

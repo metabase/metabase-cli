@@ -56,15 +56,33 @@ export type {
 
 export { probeServer } from "./version/probe";
 export type { ServerInfo } from "./version/probe";
-export { ParsedVersion } from "./version/tag";
+export { Edition, editionFromTag, ParsedVersion } from "./version/tag";
 export {
-  BASELINE_CAPABILITIES,
-  Capabilities,
-  checkCapabilities,
-  mergeCapabilities,
-} from "./version/capabilities";
-export type { PreflightFailure } from "./version/capabilities";
-export { CapabilityError } from "./version/preflight-error";
+  evaluateFeatures,
+  FEATURE_NAMES,
+  FEATURE_RULES,
+  Features,
+  isFeatureName,
+  ruleGap,
+} from "./version/features";
+export type {
+  FeatureGap,
+  FeatureName,
+  FeatureRule,
+  TokenGap,
+  VersionGap,
+} from "./version/features";
+export { KNOWN_RANGE } from "./version/known-range";
+export { createServerProfile, featureGap, ServerProfile, Skew } from "./version/profile";
+export {
+  isMethodKey,
+  METHOD_KEYS,
+  METHOD_REQUIREMENTS,
+  methodRequirements,
+} from "./version/requirements";
+export type { MethodKey } from "./version/requirements";
+export { checkFeatures } from "./version/requirement-check";
+export { CapabilityError, RequirementFailure, RequirementReason } from "./version/preflight-error";
 
 export type { Page, PaginateOptions } from "./paginate";
 export { pollUntil } from "./poll";
@@ -77,11 +95,10 @@ export {
   Card,
   CardCompact,
   CardCreateInput,
-  CardDatasetQuery,
-  CardExportFormat,
   CardListFilter,
   CardQueryResult,
   CardQueryResultCompact,
+  CardType,
   CardUpdateInput,
 } from "./domain/card";
 export {
@@ -89,6 +106,7 @@ export {
   COLLECTION_ITEM_MODELS,
   COLLECTION_PINNED_STATES,
   Collection,
+  CollectionAuthorityLevel,
   CollectionCompact,
   CollectionCreateInput,
   CollectionId,
@@ -107,11 +125,14 @@ export { CronUiDisplayType } from "./domain/cron";
 export {
   Dashboard,
   DashboardCompact,
+  DashboardCopy,
+  DashboardCopyInput,
   DashboardCreateInput,
   DashboardDetail,
   DashboardListFilter,
   DashboardTab,
   DashboardTabCompact,
+  DashboardUncopiedCard,
   DashboardUpdateInput,
   Dashcard,
   DashcardCompact,
@@ -124,9 +145,26 @@ export {
   DatabaseListInclude,
   DatabaseSyncResult,
 } from "./domain/database";
+export { CompiledQuery, QueryMetadata, VirtualField, VirtualTable } from "./domain/dataset";
+export {
+  BreakingSource,
+  DependencyEdge,
+  DependencyEntity,
+  DependencyEntityData,
+  DependencyErrorSourceType,
+  DependencyFindingError,
+  DependencyFindingErrorType,
+  DependencyGraph,
+  DependencyItemsSortColumn,
+  DependencyNode,
+  DependencyType,
+  DependencyUsageType,
+  DependentsSortColumn,
+} from "./domain/dependency";
 export {
   Document,
   DocumentCompact,
+  DocumentCopyInput,
   DocumentCreateInput,
   DocumentUpdateInput,
   TipTapNode,
@@ -141,11 +179,15 @@ export {
   EidTranslateResultCompact,
 } from "./domain/eid-translation";
 export { EmbeddingParams } from "./domain/embedding";
+export { Erd, ErdEdge, ErdField, ErdNode } from "./domain/erd";
 export {
   Field,
   FieldBaseType,
   FieldCoercionStrategy,
   FieldCompact,
+  FieldDataSensitivity,
+  FieldRemappedValue,
+  FieldSearchMatches,
   FieldSemanticType,
   FieldSummary,
   FieldUpdateInput,
@@ -158,8 +200,11 @@ export {
   SyncBranchCreated,
   SyncDirtyItem,
   SyncDirtyItemCompact,
+  SyncExportPreflight,
   SyncExportResult,
+  SyncForcePushCasualties,
   SyncImportResult,
+  SyncMergeSummary,
   SyncRemoteChanges,
   SyncSettingsUpdateResult,
   SyncStashResult,
@@ -168,8 +213,46 @@ export {
   SyncTaskStatus,
   SyncTaskType,
 } from "./domain/git-sync";
+export {
+  Glossary,
+  GlossaryCompact,
+  GlossaryCreateInput,
+  GlossaryUpdateInput,
+} from "./domain/glossary";
 export { Library, LibraryChild, LibraryCompact } from "./domain/library";
 export { Measure, MeasureCompact, MeasureCreateInput, MeasureUpdateInput } from "./domain/measure";
+export {
+  MetricAddableDimension,
+  MetricAddableGroup,
+  MetricBinning,
+  MetricBreakoutColumn,
+  MetricBreakoutValues,
+  MetricDefinition,
+  MetricDimension,
+  MetricDimensionCompact,
+  MetricDimensionGroup,
+  MetricDimensionListing,
+  MetricDimensionRef,
+  MetricDimensionRefOptions,
+  MetricDimensionSource,
+  MetricDimensionStatus,
+  MetricFilterClause,
+  MetricInstanceFilter,
+  MetricLeafRef,
+  MetricLeafType,
+  MetricMappingTarget,
+  MetricMathExpression,
+  MetricMathOperator,
+  MetricProjection,
+} from "./domain/metric";
+export type { MetricFilterArgument } from "./domain/metric";
+export {
+  ModeratedItemType,
+  ModerationReview,
+  ModerationReviewCompact,
+  ModerationReviewCreateInput,
+  ModerationStatus,
+} from "./domain/moderation-review";
 export {
   CARD_PAYLOAD_TYPE,
   Notification,
@@ -205,6 +288,15 @@ export {
   ValuesSourceType,
 } from "./domain/parameter";
 export {
+  CreateQueriesPermission,
+  DataModelPermission,
+  DatabasePermissions,
+  DownloadPermission,
+  PermissionsGraph,
+  ViewDataPermission,
+  YesNoPermission,
+} from "./domain/permission";
+export {
   Pulse,
   PulseCard,
   PulseCardCompact,
@@ -221,18 +313,51 @@ export {
   PulseScheduleType,
   PulseUpdateInput,
 } from "./domain/pulse";
+export { DatasetQuery, ExportFormat, SortDirection } from "./domain/query";
+export {
+  ReplacementCheck,
+  ReplacementColumn,
+  ReplacementColumnError,
+  ReplacementColumnMapping,
+  ReplacementEntityType,
+  ReplacementError,
+  ReplacementModelWithTransformInput,
+  ReplacementRun,
+  ReplacementRunCompact,
+  ReplacementRunStarted,
+  ReplacementRunStatus,
+  ReplacementSourceInput,
+  ReplacementSourceType,
+} from "./domain/replacement";
 export { SEARCH_MODELS, SearchModel, SearchResult, SearchResultCompact } from "./domain/search";
 export { Segment, SegmentCompact, SegmentCreateInput, SegmentUpdateInput } from "./domain/segment";
 export { SessionProperties, TokenFeatures } from "./domain/session-properties";
+export {
+  Revision,
+  RevisionCompact,
+  RevisionEntity,
+  RevisionRevert,
+  RevisionRevertInput,
+  RevisionRow,
+} from "./domain/revision";
 export { Setting, SettingCompact, SettingValue } from "./domain/setting";
 export { SetupInput, SetupResult, SetupResultCompact } from "./domain/setup";
 export { Snippet, SnippetCompact, SnippetCreateInput, SnippetUpdateInput } from "./domain/snippet";
 export {
   Table,
+  TableBulkEditInput,
   TableCompact,
+  TableDataLayer,
+  TableDataLayerMedallion,
+  TableDataLayerTier,
+  TableDataSource,
+  TableForeignKey,
+  TableForeignKeyCompact,
   TableGetInclude,
   TableQueryMetadata,
+  TableSelectors,
   TableUpdateInput,
+  TableVisibilityType,
 } from "./domain/table";
 export {
   Timeline,
@@ -251,13 +376,40 @@ export {
   Transform,
   TransformCompact,
   TransformCreateInput,
+  TransformDagDirection,
+  TransformDagRunResult,
+  TransformDagTransform,
   TransformRun,
   TransformRunCompact,
+  TransformRunMethod,
   TransformRunResult,
   TransformRunStatus,
+  TransformRunSummary,
+  TransformRunSummaryCompact,
+  TransformRunSummarySortColumn,
+  TransformRunSummaryType,
+  TransformSourceTableEntry,
   TransformTarget,
   TransformUpdateInput,
 } from "./domain/transform";
+export { TransformMemberRun, TransformMemberRunCompact } from "./domain/transform-dag-run";
+export {
+  InspectorField,
+  InspectorTable,
+  LensAlertTrigger,
+  LensCard,
+  LensCardDisplay,
+  LensCardMetadata,
+  LensComplexityLevel,
+  LensDrillTrigger,
+  LensMetadata,
+  LensParams,
+  LensSection,
+  TransformInspection,
+  TransformInspectionStatus,
+  TransformLens,
+  TransformLensQueryInput,
+} from "./domain/transform-inspector";
 export {
   TransformJob,
   TransformJobActiveResult,
@@ -267,20 +419,33 @@ export {
   TransformJobUpdateInput,
 } from "./domain/transform-job";
 export {
+  PythonLibrary,
+  PythonLibraryUpdateInput,
+  PythonTestRunError,
+  PythonTestRunInput,
+  PythonTestRunOutput,
+  PythonTestRunResult,
+} from "./domain/transform-python";
+export {
   TransformTag,
   TransformTagCompact,
   TransformTagCreateInput,
   TransformTagUpdateInput,
 } from "./domain/transform-tag";
 export {
+  isTransformTestRefusalCode,
   TransformTest,
+  TransformTestColumn,
   TransformTestCompact,
   TransformTestCreateInput,
   TransformTestExpectation,
   TransformTestExpectationResult,
   TransformTestInput,
+  TransformTestRefusalCode,
+  TransformTestResultColumn,
+  TransformTestRow,
   TransformTestRunResult,
-  TransformTestStatus,
+  TransformTestTable,
   TransformTestUpdateInput,
 } from "./domain/transform-test";
 export { UploadResult, UploadUpdateAction, UploadUpdateResult } from "./domain/upload";

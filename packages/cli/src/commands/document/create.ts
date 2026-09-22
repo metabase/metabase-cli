@@ -8,7 +8,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a document" },
-  capabilities: { minVersion: 58 },
+  requires: ["document.create"],
   args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...bodyInputFlags },
   inputSchema: DocumentCreateInput,
   outputSchema: Document,

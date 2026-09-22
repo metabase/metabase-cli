@@ -2,6 +2,7 @@
 name: transform
 description: Author and run Metabase transforms via `mb` — body shape (native SQL or structured MBQL), create + run-with-wait, run inspection, dependencies, cancel, the `update`-vs-recreate iteration rule, the writable-keys-only PATCH contract, transform tests (fixtures and expectations run against temp tables), plus transform tags and tag-driven transform-job schedules. Load when the user touches transforms — "create a transform", "run a transform", "fix a failing transform", "test a transform", "list transform runs", "cancel a running transform", "manage transform tags", "run a transform job", or anything `mb transform …` / `mb transform-job …` / `mb transform-tag …` / `mb transform-test …`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
+requires: [transforms]
 ---
 
 # Transforms
@@ -67,7 +68,7 @@ TABLE_ID=$(mb transform run <id> --sync --profile <name> --json | jq -r '.target
 mb table get "$TABLE_ID" --include fields --profile <name> --json   # field ids for MBQL
 ```
 
-On `target_table_id: null` (still syncing when the poll timed out; exit 0) re-poll `mb transform get <id> --full --json` until the `target_table_id` / `table` linkage lands.
+On `target_table_id: null` (still syncing when the poll timed out; exit 0) re-poll `mb transform get <id> --json` until `target_table_id` is a number.
 
 Columns and types are inferred from the result set; change the SELECT shape and the next run fails on a column mismatch — drop the table first (`transform delete-table <id>`). A changed shape also needs a re-run with `--sync` before MBQL sees the new/renamed columns.
 
@@ -172,7 +173,9 @@ mb transform run "$ID" --wait --profile <n> --json     # → succeeded
 
 If you really must `create + delete` instead, do the `delete` **before** the first `git-sync export` so the failed entity never lands in git history — an export of a soft-failed state is noise that needs a follow-up cleanup commit. See `git-sync`, "Read state before mutating", for the ordering rule.
 
-## Transform tests (v65+)
+<!-- requires: transformTests -->
+
+## Transform tests
 
 A transform test replaces every table the transform reads with a fixture, runs it into a temp table, and checks that output. No real table is read or written.
 
@@ -230,6 +233,8 @@ mb transform-test run <id> --profile <n> --json               # exits non-zero u
 
 Create and update bodies are closed — strip `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` from a `get --full` body before sending it back.
 
+<!-- /requires -->
+
 ## Drop the materialized table (keep the transform)
 
 ```bash
@@ -256,7 +261,16 @@ Key verbs (`mb transform-job --help` for the full list):
 mb transform-job transforms <id> --profile <name> --json   # preview which transforms this job resolves to (by tag)
 mb transform-job run <id> --profile <name> --json          # trigger a job now; runs all its tagged transforms
 mb transform-job run <id> --force-refresh --profile <name> --json   # also re-run dependencies that are already fresh
+```
+
+<!-- requires: transformJobActivation -->
+
+```bash
 mb transform-job set-active false --profile <name> --json  # disable every job at once (true re-enables); admin only
 ```
 
-`transform-job run` is fire-and-forget — the server returns `{message, job_run_id}` immediately, with no per-job-run polling (no `--wait`). Most ad-hoc agent work is one-off `transform run`, not job authoring.
+<!-- /requires -->
+
+Every job row carries `active`; it is `null` on a server that cannot switch jobs off, where every job runs on schedule.
+
+`transform-job run` is fire-and-forget — it returns `{message, started, run_id}` immediately (both `null` when the server does not number job runs: the request was accepted and whether a run started is unsaid), with no per-job-run polling (no `--wait`). Most ad-hoc agent work is one-off `transform run`, not job authoring.

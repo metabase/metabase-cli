@@ -10,7 +10,7 @@ export const TransformListEnvelope = listEnvelopeSchema(TransformCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List transforms" },
-  capabilities: { minVersion: 59 },
+  requires: ["transform.list"],
   args: { ...outputFlags, ...listFlags, ...profileFlag, ...connectionFlags },
   outputSchema: TransformListEnvelope,
   examples: ["mb transform list", "mb transform list --json"],

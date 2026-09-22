@@ -11,7 +11,7 @@ export const CardListEnvelope = listEnvelopeSchema(CardCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List cards (questions, models, metrics)" },
-  capabilities: { minVersion: 58 },
+  requires: ["card.list"],
   args: {
     ...outputFlags,
     ...listFlags,

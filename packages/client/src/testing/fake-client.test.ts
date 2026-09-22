@@ -6,6 +6,7 @@ import { ResponseShapeError } from "../errors";
 import { type PaginatedEnvelope, paginatePages } from "../paginate";
 
 import { type ClientCredentials, createTransport } from "../http/transport";
+import { createServerProfile } from "../version/profile";
 import { createFakeClient, type FakeClientCall } from "./fake-client";
 import { captureFetch, jsonResponse, TEST_USER_AGENT } from "./fetch-capture";
 
@@ -105,6 +106,53 @@ describe("createFakeClient", () => {
       id: 2,
       email: "written@b.com",
     });
+  });
+
+  it("hands back the planned server profile", async () => {
+    const server = createServerProfile({
+      edition: "oss",
+      version: { tag: "v0.61.2", major: 61, patch: 2 },
+      date: null,
+      hash: null,
+      tokenFeatures: null,
+    });
+    const { client } = createFakeClient({ server });
+    expect(await client.server()).toBe(server);
+  });
+
+  it("rejects a server() call the plan did not provide for", async () => {
+    const { client } = createFakeClient();
+    await expect(client.server()).rejects.toThrow("no server profile in fake client plan");
+  });
+
+  it("records each required key with the requests already served, and refuses none", async () => {
+    const fake = createFakeClient({
+      routes: [{ path: PATH, reply: { kind: "body", body: { id: 1, email: "read@b.com" } } }],
+    });
+
+    await fake.client.require("gitSync.branches");
+    await fake.client.requestParsed(PingResponse, PATH);
+    await fake.client.require("card.list");
+
+    expect(fake.required).toEqual([
+      { key: "gitSync.branches", precedingRequests: 0 },
+      { key: "card.list", precedingRequests: 1 },
+    ]);
+  });
+
+  it("records each feature list a parameter asked for, with the requests already served", async () => {
+    const fake = createFakeClient({
+      routes: [{ path: PATH, reply: { kind: "body", body: { id: 1, email: "read@b.com" } } }],
+    });
+
+    await fake.client.requireFeatures(["tableListAccessFilters"]);
+    await fake.client.requestParsed(PingResponse, PATH);
+    await fake.client.requireFeatures([]);
+
+    expect(fake.requiredFeatures).toEqual([
+      { features: ["tableListAccessFilters"], precedingRequests: 0 },
+      { features: [], precedingRequests: 1 },
+    ]);
   });
 
   it("throws naming the method and path when no route matches", async () => {

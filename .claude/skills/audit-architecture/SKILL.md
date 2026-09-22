@@ -33,7 +33,7 @@ Whole-tree non-deterministic audit. Where `/review` checks the diff, this checks
 > **Package boundary (hardest rule):**
 >
 > - Nothing under `packages/client/src/**` may import from `packages/cli` — not by an `@metabase/cli` specifier, and not by a relative path that resolves outside the client's own src tree (`../../cli/src/...` reads as ordinary navigation but lands in the other package).
-> - The client's dependency budget is `zod`, `semver`, and `node:` builtins. Root devDependencies hoist, so any third-party import resolves at runtime — report every production client file importing a package outside that budget.
+> - The client's dependency budget is `zod` and `node:` builtins. Root devDependencies hoist, so any third-party import resolves at runtime — report every production client file importing a package outside that budget.
 > - `packages/cli/src/**` consumes the client by specifier: `@metabase/client/<path>` (e.g. `@metabase/client/domain/card`, `@metabase/client/json`, `@metabase/client/errors`). A relative path from the CLI into `packages/client/src/` is a violation.
 >
 > **Within `packages/client/src/`:**

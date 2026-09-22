@@ -20,7 +20,7 @@ export default defineMetabaseCommand({
     { skill: "dashboard", purpose: "wiring filters, cross-filtering, click behavior, tabs" },
     { skill: "visualization", purpose: "dashcard visualization_settings and the 24-column grid" },
   ],
-  capabilities: { minVersion: 58 },
+  requires: ["dashboard.update", "dashboard.checkCardReferences"],
   args: {
     ...outputFlags,
     ...profileFlag,

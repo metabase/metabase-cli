@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { Features } from "../version/features";
 import { CronUiDisplayType } from "./cron";
 
 const JobRunStatus = z.enum(["started", "succeeded", "failed", "timeout"]);
@@ -26,14 +27,13 @@ const JobNextRun = z
   })
   .loose();
 
-export const TransformJob = z
+const TransformJobBase = z
   .object({
     id: z.number().int(),
     name: z.string(),
     description: z.string().nullable(),
     schedule: z.string(),
     ui_display_type: CronUiDisplayType,
-    active: z.boolean().optional(),
     entity_id: z.string().nullable(),
     created_at: z.string(),
     updated_at: z.string(),
@@ -43,7 +43,21 @@ export const TransformJob = z
     next_run: JobNextRun.nullable().optional(),
   })
   .loose();
+
+// `active` is null on a server whose jobs cannot be switched off: every job there runs on schedule.
+export const TransformJob = TransformJobBase.extend({
+  active: z.boolean().nullable(),
+});
 export type TransformJob = z.infer<typeof TransformJob>;
+
+function alwaysActive(wire: z.infer<typeof TransformJobBase>): TransformJob {
+  return { ...wire, active: null };
+}
+
+/** The shape every transform-job endpoint answers on a server with `features`, read as `TransformJob`. */
+export function transformJobSchema(features: Features): z.ZodType<TransformJob> {
+  return features.transformJobActivation ? TransformJob : TransformJobBase.transform(alwaysActive);
+}
 
 export const TransformJobCompact = TransformJob.pick({
   id: true,
@@ -79,14 +93,40 @@ export const TransformJobUpdateInput = z
   .loose();
 export type TransformJobUpdateInput = z.infer<typeof TransformJobUpdateInput>;
 
-// Released servers answer with an opaque stub string; head returns the numeric run id, or null when
-// nothing was started — the job is already running, or resolves to no transforms. `message` is the
-// constant "Job run started" in every case, so `job_run_id` is the only signal a caller can read.
+// One generation of servers answers `job_run_id` as an opaque stub string whatever happened; the
+// other answers the run's numeric id, or null when nothing was started. `started` and `run_id` are
+// both null for the first, so neither answer is folded into the other.
 export const TransformJobRunResult = z.object({
   message: z.string(),
-  job_run_id: z.union([z.string(), z.number().int().positive()]).nullable(),
+  started: z.boolean().nullable(),
+  run_id: z.number().int().positive().nullable(),
 });
 export type TransformJobRunResult = z.infer<typeof TransformJobRunResult>;
+
+const TransformJobRunWireV59 = z.object({
+  message: z.string(),
+  job_run_id: z.string(),
+});
+
+const TransformJobRunWireV64 = z.object({
+  message: z.string(),
+  job_run_id: z.number().int().positive().nullable(),
+});
+
+function fromStubRunId(wire: z.infer<typeof TransformJobRunWireV59>): TransformJobRunResult {
+  return { message: wire.message, started: null, run_id: null };
+}
+
+function fromNumericRunId(wire: z.infer<typeof TransformJobRunWireV64>): TransformJobRunResult {
+  return { message: wire.message, started: wire.job_run_id !== null, run_id: wire.job_run_id };
+}
+
+/** The shape `POST /api/transform-job/{id}/run` answers on a server with `features`, read as `TransformJobRunResult`. */
+export function transformJobRunResultSchema(features: Features): z.ZodType<TransformJobRunResult> {
+  return features.transformJobRunIdIsNumeric
+    ? TransformJobRunWireV64.transform(fromNumericRunId)
+    : TransformJobRunWireV59.transform(fromStubRunId);
+}
 
 export const TransformJobActiveResult = z.object({
   updated: z.number().int(),

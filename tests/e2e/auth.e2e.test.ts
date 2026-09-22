@@ -1,19 +1,32 @@
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import type { z } from "zod";
 
+import { isFileNotFoundError } from "@metabase/client/errors";
 import { parseJson } from "@metabase/client/json";
 
 import { LoginResult } from "../../packages/cli/src/commands/auth/login";
 import { AuthProfileListEnvelope } from "../../packages/cli/src/commands/auth/list";
 import { LogoutResult } from "../../packages/cli/src/commands/auth/logout";
 import { AuthStatus } from "../../packages/cli/src/commands/auth/status";
-import { ProfilesFile } from "../../packages/cli/src/core/auth/profile-record";
+import {
+  type ProbedUser,
+  type ProfileLastFailure,
+  type ProfileLastProbe,
+  type ProfileRecord,
+  ProfilesFile,
+} from "../../packages/cli/src/core/auth/profile-record";
+import { summarizeServer } from "../../packages/cli/src/core/auth/server-summary";
+import { UNREACHABLE_URL } from "../../packages/cli/src/core/auth/temp-config-home";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 
+type AuthProfileEntry = z.infer<typeof AuthProfileListEnvelope>["data"][number];
+
 const BAD_API_KEY = "mb_definitely_not_valid_key_aaaaaaaaaa";
+const UNREACHABLE_REASON = "Could not reach Metabase: fetch failed";
 
 function profilesPath(configHome: string): string {
   return join(configHome, "metabase-cli", "profiles.json");
@@ -22,6 +35,99 @@ function profilesPath(configHome: string): string {
 async function readProfilesJson(configHome: string): Promise<ProfilesFile> {
   const raw = await fs.readFile(profilesPath(configHome), "utf8");
   return parseJson(raw, ProfilesFile, { source: profilesPath(configHome) });
+}
+
+// The one record a fresh config home holds after a single login.
+function onlyRecord(file: ProfilesFile): ProfileRecord {
+  const [record, ...rest] = file.profiles;
+  if (record === undefined || rest.length > 0) {
+    throw new Error(`expected exactly one profile record, got ${file.profiles.length}`);
+  }
+  return record;
+}
+
+function onlyEntry(envelope: z.infer<typeof AuthProfileListEnvelope>): AuthProfileEntry {
+  const [entry, ...rest] = envelope.data;
+  if (entry === undefined || rest.length > 0) {
+    throw new Error(`expected exactly one listed profile, got ${envelope.data.length}`);
+  }
+  return entry;
+}
+
+function probeOf(record: ProfileRecord): ProfileLastProbe {
+  if (record.lastProbe === null) {
+    throw new Error(`profile "${record.name}" holds no probe`);
+  }
+  return record.lastProbe;
+}
+
+function failureOf(record: ProfileRecord): ProfileLastFailure {
+  if (record.lastFailure === null) {
+    throw new Error(`profile "${record.name}" holds no failure`);
+  }
+  return record.lastFailure;
+}
+
+interface ProbedUserPayload {
+  user: ProbedUser | null;
+}
+
+function userOf(payload: ProbedUserPayload): ProbedUser {
+  if (payload.user === null) {
+    throw new Error("expected a probed user");
+  }
+  return payload.user;
+}
+
+function timestampOf(value: string | null): string {
+  if (value === null) {
+    throw new Error("expected a probe timestamp");
+  }
+  return value;
+}
+
+// The record `auth login` leaves for the admin key: the key inline (the harness disables the
+// keyring) and the bootstrap's own server facts. The probe's timestamp is the one value only the
+// CLI knows, so the caller reads it off the record it is about to compare.
+function probedRecord(
+  name: string,
+  bootstrap: E2EBootstrap,
+  user: ProbedUser,
+  probedAt: string,
+): ProfileRecord {
+  return {
+    name,
+    url: bootstrap.baseUrl,
+    apiKey: bootstrap.adminApiKey,
+    oauth: null,
+    lastProbe: {
+      at: probedAt,
+      version: bootstrap.server.version,
+      edition: bootstrap.server.edition,
+      date: bootstrap.server.date,
+      hash: bootstrap.server.hash,
+      tokenFeatures: bootstrap.server.tokenFeatures,
+      user,
+    },
+    lastFailure: null,
+  };
+}
+
+function invalidKeyReason(bootstrap: E2EBootstrap): string {
+  return `Invalid or unauthorized API key (host: ${new URL(bootstrap.baseUrl).host}).`;
+}
+
+function absentStatus(profile: string): z.infer<typeof AuthStatus> {
+  return {
+    profile,
+    present: false,
+    url: null,
+    method: null,
+    user: null,
+    ...summarizeServer(null),
+    lastProbedAt: null,
+    lastFailure: null,
+  };
 }
 
 describe("auth e2e", () => {
@@ -62,35 +168,61 @@ describe("auth e2e", () => {
     expect(login.stderr).not.toContain(bootstrap.adminApiKey);
 
     const loginPayload = parseJson(login.stdout, LoginResult);
-    expect(loginPayload.profile).toBe("default");
-    expect(loginPayload.url).toBe(bootstrap.baseUrl);
-    expect(loginPayload.authenticated).toBe(true);
-    expect(loginPayload.user?.id).toBeGreaterThan(0);
-    expect(loginPayload.user?.name).not.toBe("");
-    // Head/nightly builds report an unparseable version tag → version null;
-    // released builds report a v-tag.
-    if (loginPayload.version !== null) {
-      expect(loginPayload.version.tag.startsWith("v")).toBe(true);
-    }
+    // The API key's own user is minted by the bootstrap and named after the key, so only its role
+    // is pinned here; the same user must then come back from every read of the profile.
+    const adminUser = userOf(loginPayload);
+    expect(adminUser.isAdmin).toBe(true);
+    expect(loginPayload).toEqual({
+      profile: "default",
+      url: bootstrap.baseUrl,
+      authenticated: true,
+      user: adminUser,
+      ...summarizeServer(bootstrap.server),
+    });
 
-    const fileAfterLogin = await readProfilesJson(configHome);
-    expect(fileAfterLogin.profiles).toHaveLength(1);
-    const stored = fileAfterLogin.profiles[0];
-    expect(stored?.name).toBe("default");
-    expect(stored?.url).toBe(bootstrap.baseUrl);
-    expect(stored?.lastProbe?.version?.tag).toBe(loginPayload.version?.tag);
-    expect(stored?.lastFailure).toBeNull();
+    const stored = onlyRecord(await readProfilesJson(configHome));
+    const probedAt = probeOf(stored).at;
+    expect(stored).toEqual(probedRecord("default", bootstrap, adminUser, probedAt));
 
     const status = await runCli({ args: ["auth", "status", "--json"], configHome });
     expect(status.exitCode, status.stderr).toBe(0);
     expect(status.stdout).not.toContain(bootstrap.adminApiKey);
-    const statusPayload = parseJson(status.stdout, AuthStatus);
-    expect(statusPayload.profile).toBe("default");
-    expect(statusPayload.present).toBe(true);
-    expect(statusPayload.url).toBe(bootstrap.baseUrl);
-    expect(statusPayload.user?.id).toBe(loginPayload.user?.id);
-    expect(statusPayload.version?.tag).toBe(loginPayload.version?.tag);
-    expect(statusPayload.lastFailure).toBeNull();
+    expect(parseJson(status.stdout, AuthStatus)).toEqual({
+      profile: "default",
+      present: true,
+      url: bootstrap.baseUrl,
+      method: "apiKey",
+      user: adminUser,
+      ...summarizeServer(bootstrap.server),
+      lastProbedAt: probedAt,
+      lastFailure: null,
+    });
+
+    const list = await runCli({ args: ["auth", "list", "--json"], configHome });
+    expect(list.exitCode, list.stderr).toBe(0);
+    const envelope = parseJson(list.stdout, AuthProfileListEnvelope);
+    const reprobedAt = timestampOf(onlyEntry(envelope).lastProbedAt);
+    expect(envelope).toEqual({
+      data: [
+        {
+          profile: "default",
+          url: bootstrap.baseUrl,
+          method: "apiKey",
+          authenticated: true,
+          status: "ok",
+          user: adminUser,
+          ...summarizeServer(bootstrap.server),
+          lastProbedAt: reprobedAt,
+          lastFailure: null,
+        },
+      ],
+      returned: 1,
+      offset: 0,
+      total: 1,
+      has_more: false,
+      next_offset: null,
+    });
+    expect(reprobedAt >= probedAt).toBe(true);
   });
 
   it("first-time login with an invalid api key fails verification and leaves profiles.json untouched", async () => {
@@ -112,22 +244,27 @@ describe("auth e2e", () => {
     });
 
     expect(login.exitCode).toBe(2);
-    expect(login.stderr).toContain("verification failed");
-    expect(login.stderr).toContain("Invalid or unauthorized API key");
-    expect(cliErrorMessage(login.stderr)).toContain(
-      'credentials were not saved for profile "first_attempt"',
+    expect(cliErrorMessage(login.stderr)).toBe(
+      `verification failed (current user, ${bootstrap.baseUrl}/api/user/current): ${invalidKeyReason(bootstrap)} — credentials were not saved for profile "first_attempt"`,
     );
 
-    await expect(fs.access(profilesPath(configHome))).rejects.toThrow();
+    await expect(fs.access(profilesPath(configHome))).rejects.toSatisfy(isFileNotFoundError);
 
     const status = await runCli({
       args: ["auth", "status", "--profile", "first_attempt", "--json"],
       configHome,
     });
     expect(status.exitCode, status.stderr).toBe(0);
-    const statusPayload = parseJson(status.stdout, AuthStatus);
-    expect(statusPayload.profile).toBe("first_attempt");
-    expect(statusPayload.present).toBe(false);
+    expect(parseJson(status.stdout, AuthStatus)).toEqual({
+      profile: "first_attempt",
+      present: false,
+      url: null,
+      method: null,
+      user: null,
+      ...summarizeServer(null),
+      lastProbedAt: null,
+      lastFailure: null,
+    });
   });
 
   it("re-login failure preserves prior lastProbe/url/apiKey but writes lastFailure", async () => {
@@ -148,10 +285,11 @@ describe("auth e2e", () => {
       configHome,
     });
     expect(first.exitCode, first.stderr).toBe(0);
-    const before = await readProfilesJson(configHome);
-    const beforeStable = before.profiles.find((entry) => entry.name === "stable");
-    expect(beforeStable?.lastProbe).not.toBeNull();
-    expect(beforeStable?.lastFailure).toBeNull();
+    const adminUser = userOf(parseJson(first.stdout, LoginResult));
+    const beforeStable = onlyRecord(await readProfilesJson(configHome));
+    expect(beforeStable).toEqual(
+      probedRecord("stable", bootstrap, adminUser, probeOf(beforeStable).at),
+    );
 
     const second = await runCli({
       args: [
@@ -169,13 +307,15 @@ describe("auth e2e", () => {
     });
     expect(second.exitCode).toBe(2);
 
-    const after = await readProfilesJson(configHome);
-    const afterStable = after.profiles.find((entry) => entry.name === "stable");
-    expect(afterStable?.url).toBe(beforeStable?.url);
-    expect(afterStable?.apiKey).toBe(beforeStable?.apiKey);
-    expect(afterStable?.lastProbe).toEqual(beforeStable?.lastProbe);
-    expect(afterStable?.lastFailure?.kind).toBe("auth");
-    expect(afterStable?.lastFailure?.reason).toContain("Invalid or unauthorized API key");
+    const afterStable = onlyRecord(await readProfilesJson(configHome));
+    expect(afterStable).toEqual({
+      ...beforeStable,
+      lastFailure: {
+        at: failureOf(afterStable).at,
+        kind: "auth",
+        reason: invalidKeyReason(bootstrap),
+      },
+    });
   });
 
   it("auth list refreshes a stored profile and writes the new lastProbe to disk", async () => {
@@ -198,29 +338,52 @@ describe("auth e2e", () => {
     });
     expect(login.exitCode, login.stderr).toBe(0);
 
-    const before = await readProfilesJson(configHome);
-    expect(before.profiles[0]?.lastProbe).toBeNull();
+    expect(onlyRecord(await readProfilesJson(configHome))).toEqual({
+      name: "refreshable",
+      url: bootstrap.baseUrl,
+      apiKey: bootstrap.adminApiKey,
+      oauth: null,
+      lastProbe: null,
+      lastFailure: null,
+    });
 
     const list = await runCli({ args: ["auth", "list", "--json"], configHome });
     expect(list.exitCode, list.stderr).toBe(0);
 
     const envelope = parseJson(list.stdout, AuthProfileListEnvelope);
-    expect(envelope.returned).toBe(1);
-    expect(envelope.data[0]?.status).toBe("ok");
-    const versionTag = envelope.data[0]?.version?.tag;
-    if (versionTag !== undefined) {
-      expect(versionTag.startsWith("v")).toBe(true);
-    }
+    const entry = onlyEntry(envelope);
+    const adminUser = userOf(entry);
+    const probedAt = timestampOf(entry.lastProbedAt);
+    expect(envelope).toEqual({
+      data: [
+        {
+          profile: "refreshable",
+          url: bootstrap.baseUrl,
+          method: "apiKey",
+          authenticated: true,
+          status: "ok",
+          user: adminUser,
+          ...summarizeServer(bootstrap.server),
+          lastProbedAt: probedAt,
+          lastFailure: null,
+        },
+      ],
+      returned: 1,
+      offset: 0,
+      total: 1,
+      has_more: false,
+      next_offset: null,
+    });
 
-    const after = await readProfilesJson(configHome);
-    expect(after.profiles[0]?.lastProbe).not.toBeNull();
-    expect(after.profiles[0]?.lastProbe?.version?.tag).toBe(envelope.data[0]?.version?.tag);
+    expect(onlyRecord(await readProfilesJson(configHome))).toEqual(
+      probedRecord("refreshable", bootstrap, adminUser, probedAt),
+    );
   });
 
   it("auth list against an unreachable URL surfaces the failure but keeps cached lastProbe", async () => {
     const configHome = await makeIsolatedConfigHome();
 
-    await runCli({
+    const login = await runCli({
       args: [
         "auth",
         "login",
@@ -234,30 +397,42 @@ describe("auth e2e", () => {
       ],
       configHome,
     });
-    const before = await readProfilesJson(configHome);
-    const beforeProbe = before.profiles[0]?.lastProbe;
-    expect(beforeProbe).not.toBeNull();
+    expect(login.exitCode, login.stderr).toBe(0);
+    const adminUser = userOf(parseJson(login.stdout, LoginResult));
+    const file = await readProfilesJson(configHome);
+    const before = onlyRecord(file);
+    const beforeProbe = probeOf(before);
+    expect(before).toEqual(probedRecord("stable", bootstrap, adminUser, beforeProbe.at));
 
-    const path = profilesPath(configHome);
-    const raw = await fs.readFile(path, "utf8");
-    const file = parseJson(raw, ProfilesFile, { source: path });
-    const brokenProfiles = file.profiles.map((entry) => {
-      const copy = { ...entry };
-      copy.url = "https://127.0.0.1:1/__nonexistent__";
-      return copy;
-    });
-    const broken: ProfilesFile = { ...file, profiles: brokenProfiles };
-    await fs.writeFile(path, JSON.stringify(broken, null, 2) + "\n");
+    const broken: ProfilesFile = { ...file, profiles: [{ ...before, url: UNREACHABLE_URL }] };
+    await fs.writeFile(profilesPath(configHome), JSON.stringify(broken, null, 2) + "\n");
 
     const list = await runCli({ args: ["auth", "list", "--json"], configHome });
     expect(list.exitCode, list.stderr).toBe(0);
 
-    const envelope = parseJson(list.stdout, AuthProfileListEnvelope);
-    expect(envelope.data[0]?.status).toBe("network-error");
-
-    const after = await readProfilesJson(configHome);
-    expect(after.profiles[0]?.lastProbe).toEqual(beforeProbe);
-    expect(after.profiles[0]?.lastFailure).not.toBeNull();
+    const after = onlyRecord(await readProfilesJson(configHome));
+    const failure = { at: failureOf(after).at, kind: "network", reason: UNREACHABLE_REASON };
+    expect(parseJson(list.stdout, AuthProfileListEnvelope)).toEqual({
+      data: [
+        {
+          profile: "stable",
+          url: UNREACHABLE_URL,
+          method: "apiKey",
+          authenticated: false,
+          status: "network-error",
+          user: adminUser,
+          ...summarizeServer(bootstrap.server),
+          lastProbedAt: beforeProbe.at,
+          lastFailure: failure,
+        },
+      ],
+      returned: 1,
+      offset: 0,
+      total: 1,
+      has_more: false,
+      next_offset: null,
+    });
+    expect(after).toEqual({ ...before, url: UNREACHABLE_URL, lastFailure: failure });
   });
 
   it("a successful re-login clears a prior lastFailure for the same profile", async () => {
@@ -278,6 +453,9 @@ describe("auth e2e", () => {
       configHome,
     });
     expect(first.exitCode, first.stderr).toBe(0);
+    const adminUser = userOf(parseJson(first.stdout, LoginResult));
+    const initial = onlyRecord(await readProfilesJson(configHome));
+    expect(initial).toEqual(probedRecord("recovers", bootstrap, adminUser, probeOf(initial).at));
 
     const failed = await runCli({
       args: [
@@ -294,8 +472,15 @@ describe("auth e2e", () => {
       configHome,
     });
     expect(failed.exitCode).toBe(2);
-    const afterFailure = await readProfilesJson(configHome);
-    expect(afterFailure.profiles[0]?.lastFailure).not.toBeNull();
+    const afterFailure = onlyRecord(await readProfilesJson(configHome));
+    expect(afterFailure).toEqual({
+      ...initial,
+      lastFailure: {
+        at: failureOf(afterFailure).at,
+        kind: "auth",
+        reason: invalidKeyReason(bootstrap),
+      },
+    });
 
     const recovered = await runCli({
       args: [
@@ -313,8 +498,9 @@ describe("auth e2e", () => {
     });
     expect(recovered.exitCode, recovered.stderr).toBe(0);
 
-    const after = await readProfilesJson(configHome);
-    expect(after.profiles[0]?.lastFailure).toBeNull();
+    const after = onlyRecord(await readProfilesJson(configHome));
+    expect(after).toEqual(probedRecord("recovers", bootstrap, adminUser, probeOf(after).at));
+    expect(probeOf(after).at >= probeOf(initial).at).toBe(true);
   });
 
   it("logout clears stored credentials and status reflects the cleared profile", async () => {
@@ -345,10 +531,7 @@ describe("auth e2e", () => {
 
     const status = await runCli({ args: ["auth", "status", "--json"], configHome });
     expect(status.exitCode, status.stderr).toBe(0);
-    const statusPayload = parseJson(status.stdout, AuthStatus);
-    expect(statusPayload.profile).toBe("default");
-    expect(statusPayload.present).toBe(false);
-    expect(statusPayload.url).toBeNull();
+    expect(parseJson(status.stdout, AuthStatus)).toEqual(absentStatus("default"));
   });
 
   it("logout reports cleared:false when no credentials are stored for the profile", async () => {
@@ -383,14 +566,18 @@ describe("auth e2e", () => {
 
     expect(login.exitCode, login.stderr).toBe(0);
     const payload = parseJson(login.stdout, LoginResult);
-    expect(payload.profile).toBe("env_routed");
-    expect(payload.url).toBe(bootstrap.baseUrl);
-    expect(payload.authenticated).toBe(true);
+    const adminUser = userOf(payload);
+    expect(payload).toEqual({
+      profile: "env_routed",
+      url: bootstrap.baseUrl,
+      authenticated: true,
+      user: adminUser,
+      ...summarizeServer(bootstrap.server),
+    });
 
     const defaultStatus = await runCli({ args: ["auth", "status", "--json"], configHome });
     expect(defaultStatus.exitCode, defaultStatus.stderr).toBe(0);
-    const defaultPayload = parseJson(defaultStatus.stdout, AuthStatus);
-    expect(defaultPayload.present).toBe(false);
+    expect(parseJson(defaultStatus.stdout, AuthStatus)).toEqual(absentStatus("default"));
 
     const envStatus = await runCli({
       args: ["auth", "status", "--json"],
@@ -399,8 +586,16 @@ describe("auth e2e", () => {
     });
     expect(envStatus.exitCode, envStatus.stderr).toBe(0);
     const envPayload = parseJson(envStatus.stdout, AuthStatus);
-    expect(envPayload.profile).toBe("env_routed");
-    expect(envPayload.present).toBe(true);
+    expect(envPayload).toEqual({
+      profile: "env_routed",
+      present: true,
+      url: bootstrap.baseUrl,
+      method: "apiKey",
+      user: adminUser,
+      ...summarizeServer(bootstrap.server),
+      lastProbedAt: timestampOf(envPayload.lastProbedAt),
+      lastFailure: null,
+    });
   });
 
   it("logout proceeds without --yes when stdin is not a TTY (non-interactive auto-confirm)", async () => {

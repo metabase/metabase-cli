@@ -10,7 +10,7 @@ export default defineMetabaseCommand({
   meta: { name: "subscriptions", description: "List subscriptions on a dashboard" },
   details:
     "Manage them with `mb subscription create|update|archive`, which take the subscription id printed here.",
-  capabilities: { minVersion: 58 },
+  requires: ["pulse.list"],
   args: {
     ...outputFlags,
     ...listFlags,

@@ -59,7 +59,7 @@ setMetabaseAugment(main, {
   ],
   inputSchema: null,
   outputSchema: null,
-  capabilities: null,
+  requires: null,
 });
 
 export default main;

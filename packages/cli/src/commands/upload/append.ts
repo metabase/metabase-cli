@@ -11,7 +11,7 @@ export default defineMetabaseCommand({
   meta: { name: "append", description: "Append a CSV file's rows to an existing uploaded table" },
   details:
     "Inserts the rows of the CSV into the table with the given id. The table must have been created by a CSV upload and the CSV columns must match.",
-  capabilities: { minVersion: 58 },
+  requires: ["table.appendCsv"],
   args: {
     ...outputFlags,
     ...profileFlag,

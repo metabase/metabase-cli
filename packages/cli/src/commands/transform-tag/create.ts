@@ -8,7 +8,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a transform tag" },
-  capabilities: { minVersion: 59 },
+  requires: ["transformTag.create"],
   args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...bodyInputFlags },
   inputSchema: TransformTagCreateInput,
   outputSchema: TransformTag,

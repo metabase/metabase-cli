@@ -11,7 +11,7 @@ export default defineMetabaseCommand({
     name: "remove-collection",
     description: "Unmark a collection as git-synced; cascades to descendants by location prefix",
   },
-  capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
+  requires: ["gitSync.setCollectionSynced"],
   args: {
     ...outputFlags,
     ...profileFlag,

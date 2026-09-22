@@ -11,7 +11,7 @@ export const SubscriptionListEnvelope = listEnvelopeSchema(PulseCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List dashboard subscriptions" },
-  capabilities: { minVersion: 58 },
+  requires: ["pulse.list"],
   args: {
     ...outputFlags,
     ...listFlags,

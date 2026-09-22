@@ -1,61 +1,74 @@
 import { z } from "zod";
 
-const TransformTestTable = z
+export const TransformTestTable = z
   .object({
-    schema: z.string().nullable().optional(),
+    schema: z.string().min(1).nullable().optional(),
     name: z.string().min(1),
   })
   .loose();
+export type TransformTestTable = z.infer<typeof TransformTestTable>;
 
-/**
- * A column of declared test data. `cast_type` is what the cell is cast to, so it has to satisfy the
- * warehouse's CAST grammar rather than name one of its column types — MySQL takes `SIGNED` and
- * reports `INTEGER`. Contrast [[TransformTestResultColumn]], whose `database_type` is a real column
- * type; the two are not interchangeable.
- */
-const TransformTestColumn = z
+export const TransformTestColumn = z
   .object({
     name: z.string().min(1),
-    cast_type: z.string().min(1).describe("A CAST target, e.g. VARCHAR(255) or MySQL's SIGNED"),
+    cast_type: z.string().min(1),
+  })
+  .loose();
+export type TransformTestColumn = z.infer<typeof TransformTestColumn>;
+
+const TransformTestCell = z.union([z.boolean(), z.number(), z.string(), z.null()]);
+
+export const TransformTestRow = z.record(z.string(), TransformTestCell);
+export type TransformTestRow = z.infer<typeof TransformTestRow>;
+
+const TransformTestSqlInput = z
+  .object({
+    table: TransformTestTable,
+    format: z.literal("sql"),
+    sql: z.string().min(1),
   })
   .loose();
 
-const TransformTestCell = z.union([z.string(), z.number(), z.boolean(), z.null()]);
-
-const TransformTestRow = z.record(z.string(), TransformTestCell);
-
-const TransformTestSqlData = z.object({ format: z.literal("sql"), sql: z.string().min(1) }).loose();
-
-const TransformTestRowsData = z
+const TransformTestRowsInput = z
   .object({
+    table: TransformTestTable,
     format: z.literal("rows"),
     columns: z.array(TransformTestColumn).min(1),
     rows: z.array(TransformTestRow),
   })
   .loose();
 
-const TransformTestSqlInput = TransformTestSqlData.extend({ table: TransformTestTable });
-
-const TransformTestRowsInput = TransformTestRowsData.extend({ table: TransformTestTable });
-
-/** Test data standing in for one table the transform reads. */
 export const TransformTestInput = z.discriminatedUnion("format", [
   TransformTestSqlInput,
   TransformTestRowsInput,
 ]);
 export type TransformTestInput = z.infer<typeof TransformTestInput>;
 
-const TransformTestEqualsSql = TransformTestSqlData.extend({
-  type: z.literal("equals"),
-  name: z.string().min(1),
-});
+const TransformTestEqualsSqlExpectation = z
+  .object({
+    type: z.literal("equals"),
+    name: z.string().min(1),
+    format: z.literal("sql"),
+    sql: z.string().min(1),
+  })
+  .loose();
 
-const TransformTestEqualsRows = TransformTestRowsData.extend({
-  type: z.literal("equals"),
-  name: z.string().min(1),
-});
+const TransformTestEqualsRowsExpectation = z
+  .object({
+    type: z.literal("equals"),
+    name: z.string().min(1),
+    format: z.literal("rows"),
+    columns: z.array(TransformTestColumn).min(1),
+    rows: z.array(TransformTestRow),
+  })
+  .loose();
 
-const TransformTestEmpty = z
+const TransformTestEqualsExpectation = z.discriminatedUnion("format", [
+  TransformTestEqualsSqlExpectation,
+  TransformTestEqualsRowsExpectation,
+]);
+
+const TransformTestEmptyExpectation = z
   .object({
     type: z.literal("empty"),
     name: z.string().min(1),
@@ -63,18 +76,16 @@ const TransformTestEmpty = z
   })
   .loose();
 
-/** One check against the transform's output. Names are unique within a test. */
-export const TransformTestExpectation = z.union([
-  TransformTestEqualsSql,
-  TransformTestEqualsRows,
-  TransformTestEmpty,
+export const TransformTestExpectation = z.discriminatedUnion("type", [
+  TransformTestEqualsExpectation,
+  TransformTestEmptyExpectation,
 ]);
 export type TransformTestExpectation = z.infer<typeof TransformTestExpectation>;
 
 export const TransformTest = z
   .object({
     id: z.number().int(),
-    entity_id: z.string().nullable(),
+    entity_id: z.string(),
     transform_id: z.number().int(),
     creator_id: z.number().int(),
     name: z.string(),
@@ -95,11 +106,6 @@ export const TransformTestCompact = TransformTest.pick({
 }).strip();
 export type TransformTestCompact = z.infer<typeof TransformTestCompact>;
 
-/**
- * The server closes this map, so an unrecognized key is a 400 there. Refusing it here names the key
- * instead: a body cloned from `get` has to shed `id`, `entity_id`, `creator_id`, `created_at` and
- * `updated_at` before it can be sent back.
- */
 export const TransformTestCreateInput = z
   .object({
     transform_id: z.number().int().positive(),
@@ -111,7 +117,6 @@ export const TransformTestCreateInput = z
   .strict();
 export type TransformTestCreateInput = z.infer<typeof TransformTestCreateInput>;
 
-/** Closed for the same reason as [[TransformTestCreateInput]]; every field is optional. */
 export const TransformTestUpdateInput = z
   .object({
     transform_id: z.number().int().positive().optional(),
@@ -123,15 +128,20 @@ export const TransformTestUpdateInput = z
   .strict();
 export type TransformTestUpdateInput = z.infer<typeof TransformTestUpdateInput>;
 
-/**
- * `error` is one expectation's own failure to run, which leaves the rest of the run reporting; the
- * run as a whole is only `passed` or `failed`.
- */
-export const TransformTestStatus = z.enum(["passed", "failed", "error"]);
-export type TransformTestStatus = z.infer<typeof TransformTestStatus>;
+export const TransformTestResultColumn = z
+  .object({
+    name: z.string(),
+    database_type: z.string(),
+  })
+  .loose();
+export type TransformTestResultColumn = z.infer<typeof TransformTestResultColumn>;
 
-/** A column as a run reports it: the output table's own type, not the declared `cast_type`. */
-const TransformTestResultColumn = z.object({ name: z.string(), database_type: z.string() }).loose();
+const TransformTestExpectationError = z
+  .object({
+    type: z.string(),
+    message: z.string(),
+  })
+  .loose();
 
 const TransformTestCellMismatch = z
   .object({
@@ -142,42 +152,106 @@ const TransformTestCellMismatch = z
   .loose();
 
 const TransformTestRowCounts = z
-  .object({ actual: z.number().int(), expected: z.number().int() })
-  .loose();
-
-const TransformTestExpectationError = z.object({ type: z.string(), message: z.string() }).loose();
-
-/**
- * What one expectation found. The keys beyond `name`, `type` and `status` are its type's own:
- * `equals` reports the rows the two sides disagree on, `empty` a sample of the rows its query
- * returned, and both cap what they report, with `truncated` counting what the cap dropped.
- */
-export const TransformTestExpectationResult = z
   .object({
-    name: z.string(),
-    type: z.enum(["equals", "empty"]),
-    status: TransformTestStatus,
-    columns: z.array(TransformTestResultColumn).optional(),
-    error: TransformTestExpectationError.optional(),
-    "row-counts": TransformTestRowCounts.optional(),
-    "extra-rows": z.array(TransformTestRow).optional(),
-    "missing-rows": z.array(TransformTestRow).optional(),
-    "cell-mismatches": z.array(TransformTestCellMismatch).optional(),
-    sample: z.array(TransformTestRow).optional(),
-    truncated: z.number().int().optional(),
+    actual: z.number().int(),
+    expected: z.number().int(),
   })
   .loose();
+
+const TransformTestEqualsFindings = z
+  .object({
+    name: z.string(),
+    type: z.literal("equals"),
+    status: z.enum(["passed", "failed"]),
+    columns: z.array(TransformTestResultColumn),
+    "row-counts": TransformTestRowCounts,
+    "extra-rows": z.array(TransformTestRow),
+    "missing-rows": z.array(TransformTestRow),
+    "cell-mismatches": z.array(TransformTestCellMismatch),
+    truncated: z.number().int(),
+  })
+  .loose();
+
+const TransformTestEqualsError = z
+  .object({
+    name: z.string(),
+    type: z.literal("equals"),
+    status: z.literal("error"),
+    error: TransformTestExpectationError,
+  })
+  .loose();
+
+const TransformTestEqualsResult = z.discriminatedUnion("status", [
+  TransformTestEqualsFindings,
+  TransformTestEqualsError,
+]);
+
+const TransformTestEmptyPassed = z
+  .object({
+    name: z.string(),
+    type: z.literal("empty"),
+    status: z.literal("passed"),
+  })
+  .loose();
+
+const TransformTestEmptyFailed = z
+  .object({
+    name: z.string(),
+    type: z.literal("empty"),
+    status: z.literal("failed"),
+    columns: z.array(TransformTestResultColumn),
+    sample: z.array(TransformTestRow),
+    truncated: z.number().int(),
+  })
+  .loose();
+
+const TransformTestEmptyError = z
+  .object({
+    name: z.string(),
+    type: z.literal("empty"),
+    status: z.literal("error"),
+    error: TransformTestExpectationError,
+  })
+  .loose();
+
+const TransformTestEmptyResult = z.discriminatedUnion("status", [
+  TransformTestEmptyPassed,
+  TransformTestEmptyFailed,
+  TransformTestEmptyError,
+]);
+
+export const TransformTestExpectationResult = z.discriminatedUnion("type", [
+  TransformTestEqualsResult,
+  TransformTestEmptyResult,
+]);
 export type TransformTestExpectationResult = z.infer<typeof TransformTestExpectationResult>;
 
-/**
- * What a run reported. `tables` maps each temp table the run created to the table it stood in for.
- * A run that happened reports `passed` or `failed`; a refusal is an HTTP error rather than a body.
- */
 export const TransformTestRunResult = z
   .object({
-    status: TransformTestStatus,
+    status: z.enum(["passed", "failed"]),
     expectations: z.array(TransformTestExpectationResult),
     tables: z.record(z.string(), z.string()),
   })
   .loose();
 export type TransformTestRunResult = z.infer<typeof TransformTestRunResult>;
+
+export const TransformTestRefusalCode = z.enum([
+  "transform-test.unknown-column",
+  "transform-test.ambiguous-column",
+  "transform-test.missing-inputs",
+  "transform-test.unused-inputs",
+  "transform-test.duplicate-input-table",
+  "transform-test.unparseable-source",
+  "transform-test.unremapped-reference",
+  "transform-test.unsupported-transform",
+  "transform-test.unsupported-driver",
+  "transform-test.transform-failed",
+  "transform-test.setup-failed",
+  "transform-test.expectation-failed",
+  "transform-test.unsupported-format",
+]);
+export type TransformTestRefusalCode = z.infer<typeof TransformTestRefusalCode>;
+
+export function isTransformTestRefusalCode(value: string): value is TransformTestRefusalCode {
+  return TransformTestRefusalCode.safeParse(value).success;
+}

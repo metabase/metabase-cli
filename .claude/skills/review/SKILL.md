@@ -35,7 +35,9 @@ packages/client/src/
                             response-shape.ts, sanitize.ts, retry.ts, oauth.ts
   testing/                  the shipped test doubles — fake-client.ts, fetch-capture.ts
   auth/                     OAuth login flow: credential.ts, pkce.ts, callback-server.ts, oauth-*.ts
-  version/                  tag.ts, probe.ts, capabilities.ts, preflight-error.ts
+  version/                  tag.ts, probe.ts, known-range.ts (KNOWN_RANGE), profile.ts (ServerProfile), features.ts (FEATURE_RULES —
+                            the only file comparing a Metabase major), requirements.ts (METHOD_REQUIREMENTS),
+                            requirement-check.ts, preflight-error.ts
   domain/                   Metabase API resource Zod schemas + inferred types
   errors.ts                 MetabaseError taxonomy, toMetabaseError, isFileNotFoundError, errorMessage
   list.ts                   ListResult<T> = { data, total } — what a one-response list method returns
@@ -62,8 +64,8 @@ packages/cli/src/
 Allowed import direction — the package boundary first, then within each package:
 
 - **Nothing in the client may import from the CLI** — not by an `@metabase/cli` specifier, not by a relative path that escapes the client's own src tree. The reverse is expected: the CLI consumes the client as `@metabase/client/<path>`.
-- The client's dependency budget is `zod` + `semver` + `node:` builtins. Root devDependencies hoist, so the resolver will not reject a third dependency — a production client file importing anything else is FAIL even though it type-checks.
-- `domain/*` imports only `zod` and sibling `domain/*` files. Nothing from elsewhere in either package.
+- The client's dependency budget is `zod` + `node:` builtins. Root devDependencies hoist, so the resolver will not reject a third dependency — a production client file importing anything else is FAIL even though it type-checks.
+- `domain/*` imports only `zod`, sibling `domain/*` files and — for a reader that selects a wire schema by generation (`<resource><Endpoint>Schema(features)`) — `import type { Features } from "../version/features"`. A value import from `version/`, or anything else from elsewhere in either package, is FAIL.
 - `resources/*` is imported by `client.ts` and by sibling `resources/*` files, and by nothing else. A `domain/`, `http/`, `auth/` or `version/` file importing a resource is FAIL — the direction runs one way, and the permitted importers are an allowlist, so a directory added later is not exempt for having arrived after the rule.
 - `commands/*` may import `core/*`, `output/*`, `runtime/*`, and any `@metabase/client/*` path.
 - `core/*` may import `runtime/*` and `@metabase/client/*`. Never `commands/`, never `output/`.
@@ -104,6 +106,14 @@ A method violating any of the eight is FAIL — quote the signature or the path 
 
 A new or changed method comes with its wire test in `packages/client/src/resources/<r>.test.ts` — one `it` per method, asserting URL, verb, headers and body in a single `toEqual` over `capture.calls` from `@metabase/client/testing/fetch-capture`. That test is what pins the path and query vocabulary; a method landed without one is FAIL.
 
+## Version contract
+
+`packages/client/src/version/features.ts` is the only production file that compares a Metabase major (`major-comparison-guard.test.ts` scans both packages); `profile.ts` places a version and `tag.ts` parses one. A `.major` comparison or a literal major used as a decision anywhere else is FAIL. Feature names describe a behaviour (`transformTargetTableId`), never a version (`transformV61Shape` is FAIL), and every version-gated rule must flip somewhere inside `KNOWN_RANGE` — `features.test.ts` enforces it, so a diff that raises `KNOWN_RANGE.min` without deleting the rules that went constant is FAIL.
+
+Every method in `resources/*.ts` opens with `await transport.require("<r>.<method>")` under its own namespace and has a matching `METHOD_REQUIREMENTS` entry, strictest feature first (`requirements.test.ts`). A method without one, or a command under `packages/cli/src/commands/` declaring `requires` that differs from the `client.<ns>.<method>(` calls in its body (`requires-guard.test.ts`), is FAIL. A `defineMetabaseCommand` declaring a version floor or a token feature is FAIL — the features are derived from `requires`, never declared.
+
+Version-driven drift is a `<Resource>WireV<N>` schema plus a converter, selected by a feature and handed to `requestParsed` through an exported `<resource><Endpoint>Schema(features): z.ZodType<Resource>` reader. The canonical schema is the newest server's shape; a field an older server cannot report is `.nullable()`. FAIL: `.optional()` meaning "an older server omits it"; a converter mapping two distinguishable wire states onto one canonical state; a `z.union` of generation shapes parsed by trial (runtime shape detection); a converter that leaves a wire-only field on the canonical value; a discriminated union of generations as a method's public return type; version prose in `packages/cli/skill-data/` where a `requires:` frontmatter key or a `<!-- requires: … -->` … `<!-- /requires -->` fence belongs (markers on their own lines, never inside a table).
+
 ## Forbidden patterns and their permitted homes
 
 CLAUDE.md declares these as a **separate policy per package**, applied to production source only (`*.test.ts` files are exempt). A pattern's permitted home in one package says nothing about the other: `JSON.parse` has a home in the client and none in the CLI, `fetch` has a home in each but at different paths. The e2e-side restrictions below are part of this review too.
@@ -122,7 +132,7 @@ CLAUDE.md declares these as a **separate policy per package**, applied to produc
 | `fs`, `fs/promises`, `node:fs`, `node:fs/promises`                                             | nowhere — the client touches no files   |
 | `child_process`, `node:child_process`                                                          | nowhere — the client spawns nothing     |
 | a `.ts` extension in an import specifier                                                       | nowhere                                 |
-| any dependency beyond `zod`, `semver`, `node:` builtins                                        | nowhere                                 |
+| any dependency beyond `zod` and `node:` builtins                                               | nowhere                                 |
 | an import resolving into `packages/cli`                                                        | nowhere                                 |
 
 ### The CLI — every file under `packages/cli/src/`
@@ -191,7 +201,7 @@ Two rules bind both packages but come from elsewhere, so judge them repo-wide ra
 - The `Bootstrap` Zod schema and `BOOTSTRAP_FILE_PATH` constant live only in `tests/e2e/bootstrap-data.ts`. Re-declaring either in `tests/e2e/setup/bootstrap.ts` (or anywhere else) is FAIL — the writer imports from the reader to prevent shape drift.
 - `--json` output assertions parse through the schema imported from the package that owns it: `@metabase/client/domain/<r>` for a resource, `../../packages/cli/src/commands/<noun>/<verb>` for a command-shaped output (e.g. `LoginResult`, `AuthStatus`, `<Resource>ListEnvelope`). Re-declaring a `z.object({...})` in a test that mirrors either export is FAIL.
 - Each test or test-group gets its own `XDG_CONFIG_HOME` via `mkTempConfigHome()`. Sharing config home across tests that mutate credentials is FAIL.
-- A suite whose command declares non-baseline `capabilities` gates itself with `requireServer("<lane>", {...})` from `tests/e2e/server-gate.ts`, passing a lane label naming the describe or test the gate guards so an unmet gate is reported in the closing coverage block. A suite that fails instead of skipping on a server that cannot satisfy the command is FAIL.
+- A suite whose command's methods need a feature gates itself with `requireServer("<lane>", ["<feature>"])` from `tests/e2e/server-gate.ts`, passing a lane label naming the describe or test the gate guards so an unmet gate is reported in the closing coverage block. A suite that fails instead of skipping on a server that cannot satisfy the command is FAIL. A suite that compares a version (`.major`, a literal major) instead of asking `serverHas("<feature>")` is FAIL — the feature rule is the one place a major is read.
 
 ## Axes (output one row per axis)
 
@@ -201,7 +211,7 @@ For each axis below, output `PASS`, `FAIL`, or `UNKNOWN`. For every `FAIL` and `
 2. **Type strictness** — rules above.
 3. **Output discipline** — `console.*`, `process.exit`, `process.std*.write` outside permitted homes. A file under `packages/client/src/` writing to a stream or ending the process is FAIL regardless of path — the client has no permitted home for either.
 4. **Boundary discipline** — `JSON.parse`, raw `fetch`/`globalThis.fetch`/third-party HTTP libraries (`got`/`axios`/`node-fetch`/`undici`)/`new URL`, `child_process`, polling `setTimeout` outside permitted homes. Read the per-package table — the CLI has no home for `JSON.parse`, `new URL`, or a wait loop, and delegates all three to the client.
-   4a. **Package boundary** — an import in `packages/client/**` that resolves into `packages/cli` (by `@metabase/cli` specifier or by a relative path escaping the client's src tree) is FAIL. A production client file importing anything beyond `zod`, `semver`, and `node:` builtins is FAIL. A CLI file reaching into the client by relative path instead of the `@metabase/client/<path>` specifier is FAIL. `packages/cli/src/output/**` importing `@metabase/client/http/**` is FAIL. Anything outside `client.ts` and `resources/` importing `resources/` is FAIL.
+   4a. **Package boundary** — an import in `packages/client/**` that resolves into `packages/cli` (by `@metabase/cli` specifier or by a relative path escaping the client's src tree) is FAIL. A production client file importing anything beyond `zod` and `node:` builtins is FAIL. A CLI file reaching into the client by relative path instead of the `@metabase/client/<path>` specifier is FAIL. `packages/cli/src/output/**` importing `@metabase/client/http/**` is FAIL. Anything outside `client.ts` and `resources/` importing `resources/` is FAIL.
    4b. **Request placement** — a file under `packages/cli/src/commands/` that names an `/api/…` path literal, or calls `requestParsed`/`requestRaw`/`requestStream`/`paginatePages`, is FAIL. Quote the path template and name the resource method it belongs on.
 5. **Resource contract** — every new or changed resource in `packages/client/src/domain/` exports `<Resource>` (with `.loose()`) and `<Resource>Compact` (with `.pick({...}).strip()` — the trailing `.strip()` is mandatory), and its `<resource>View` lives CLI-side in `packages/cli/src/output/views/<r>.ts` (a `ResourceView`/`ColumnDef`/`tableColumns` in the domain file is FAIL); naming follows the convention; commands consume `z.infer<typeof Schema>` rather than `Array<Record<string, unknown>>` or inline `as { ... }` casts. Every new or changed method in `packages/client/src/resources/` satisfies all eight conventions above, is composed onto `client.ts`, and returns a domain value rather than the server's envelope.
 6. **List windowing** — a list command builds its envelope with one of the three helpers in `packages/cli/src/output/window.ts`, picked by who applied the window: `windowList(data, ctx.range, total)` when the method returned the whole result set as a `ListResult<T>` and the slice is client-side (the common case); `windowServerPage(data, total, ctx.range)` when the endpoint applied `limit`/`offset` itself and reports a count; `collectForOutput(source, view, ctx)` for a genuinely paged endpoint, where `source` is a `PageSource<T>` forwarding the helper's `PageRequest` (`max`, `pageSize`) into the resource's `<thing>Pages` method. A source that drops `max` or `pageSize` is FAIL — the byte budget cannot bound the walk. A hand-rolled envelope literal is FAIL — it produces a plausible shape whose `has_more`/`next_offset` no test catches. A list verb missing `...listFlags`, or one that never reads `ctx.range`, is FAIL: the `--limit`/`--offset` an agent needs to page silently do nothing.

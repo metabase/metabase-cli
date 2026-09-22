@@ -5,7 +5,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "delete", description: "Permanently delete a timeline event by id" },
-  capabilities: { minVersion: 58 },
+  requires: ["timelineEvent.delete"],
   args: {
     ...outputFlags,
     ...profileFlag,

@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { Library } from "@metabase/client/domain/library";
+import { Library, type LibraryChild } from "@metabase/client/domain/library";
 import { TableCompact } from "@metabase/client/domain/table";
 import { parseJson } from "@metabase/client/json";
 
@@ -12,13 +12,10 @@ import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
 import { requireServer } from "./server-gate";
 
-const LIBRARY_UNAVAILABLE = requireServer("library › with the library feature", {
-  minVersion: 59,
-  tokenFeature: "library",
-});
+const LIBRARY_UNAVAILABLE = requireServer("library › with the library feature", ["library"]);
 const REMOTE_SYNC_UNAVAILABLE = requireServer(
   "library › with the library and remote_sync features",
-  { minVersion: 60, tokenFeature: "remote_sync" },
+  ["remoteSync"],
 );
 
 const SYNC_SCOPE_HINT_MARKER = "is not marked for git-sync";
@@ -35,6 +32,29 @@ const REVIEWS_COMPACT = {
 };
 
 const NO_SELECTOR_MESSAGE = "provide at least one selector: --table-ids, --db-ids, or --schemas";
+
+// The Library's children arrive as a set, so they are compared in name order; only the Data
+// collection's id is seeded.
+function childrenByName(library: Library): LibraryChild[] {
+  return library.effective_children.toSorted((a, b) => a.name.localeCompare(b.name));
+}
+
+const LIBRARY_CHILDREN = [
+  {
+    id: SEEDED.libraryDataCollectionId,
+    name: "Data",
+    description: null,
+    type: "library-data",
+    is_remote_synced: false,
+  },
+  {
+    id: expect.any(Number),
+    name: "Metrics",
+    description: null,
+    type: "library-metrics",
+    is_remote_synced: false,
+  },
+];
 
 describe("library e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -81,7 +101,7 @@ describe("library e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid table id: "abc" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid table id: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -105,7 +125,7 @@ describe("library e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toContain('invalid database id: "x" (expected integer)');
+    expect(cliErrorMessage(result.stderr)).toBe('invalid database id: "x" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
@@ -118,16 +138,7 @@ describe("library e2e", () => {
       });
 
       expect(result.exitCode, result.stderr).toBe(0);
-      const data = parseJson(result.stdout, Library).effective_children.find(
-        (child) => child.type === "library-data",
-      );
-      expect(data).toEqual({
-        id: SEEDED.libraryDataCollectionId,
-        name: "Data",
-        type: "library-data",
-        description: null,
-        is_remote_synced: false,
-      });
+      expect(childrenByName(parseJson(result.stdout, Library))).toEqual(LIBRARY_CHILDREN);
     });
 
     it("create is idempotent and returns the existing Library", async () => {
@@ -138,16 +149,7 @@ describe("library e2e", () => {
       });
 
       expect(result.exitCode, result.stderr).toBe(0);
-      const data = parseJson(result.stdout, Library).effective_children.find(
-        (child) => child.type === "library-data",
-      );
-      expect(data).toEqual({
-        id: SEEDED.libraryDataCollectionId,
-        name: "Data",
-        type: "library-data",
-        description: null,
-        is_remote_synced: false,
-      });
+      expect(childrenByName(parseJson(result.stdout, Library))).toEqual(LIBRARY_CHILDREN);
     });
 
     it("publish resolves the Data collection and sets is_published, unpublish restores it", async () => {

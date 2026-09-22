@@ -1,9 +1,13 @@
 import { runCommand } from "citty";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ZodType } from "zod";
+import type { z, ZodType } from "zod";
 
 import type { Credential } from "@metabase/client/auth/credential";
 import { parseJson } from "@metabase/client/json";
+import type { ServerInfo } from "@metabase/client/version/probe";
+import { KNOWN_RANGE } from "@metabase/client/version/known-range";
+import { createServerProfile } from "@metabase/client/version/profile";
+import type { ProfileRecord } from "../../core/auth/profile-record";
 import type { Verification } from "../../core/auth/verify";
 
 const hoisted = vi.hoisted(() => {
@@ -66,14 +70,64 @@ function captureStderr(): string[] {
   return captured;
 }
 
+type AuthProfileEntry = z.infer<typeof AuthProfileListEnvelope>["data"][number];
+
+const PROBED_AT = "2026-03-04T05:06:07.000Z";
+const LATER = "2026-03-04T06:00:00.000Z";
+
+function successServer(): ServerInfo {
+  return {
+    edition: "oss",
+    version: { tag: "v0.58.7", major: 58, patch: 7 },
+    date: null,
+    hash: null,
+    tokenFeatures: null,
+  };
+}
+
 function successVerify(): Verification {
   return {
     ok: true,
     user: { id: 1, name: "Tester", isAdmin: true },
-    server: {
+    server: successServer(),
+  };
+}
+
+function okEntry(profile: string, url: string): AuthProfileEntry {
+  return {
+    profile,
+    url,
+    method: "apiKey",
+    authenticated: true,
+    status: "ok",
+    user: { id: 1, name: "Tester", isAdmin: true },
+    version: { tag: "v0.58.7", major: 58, patch: 7 },
+    edition: "oss",
+    skew: "supported",
+    knownRange: KNOWN_RANGE,
+    tokenFeatures: null,
+    features: createServerProfile(successServer()).features,
+    lastProbedAt: PROBED_AT,
+    lastFailure: null,
+  };
+}
+
+function probedRecord(name: string, url: string): ProfileRecord {
+  return {
+    name,
+    url,
+    apiKey: null,
+    oauth: null,
+    lastProbe: {
+      at: PROBED_AT,
+      edition: "oss",
       version: { tag: "v0.58.7", major: 58, patch: 7 },
+      date: null,
+      hash: null,
       tokenFeatures: null,
+      user: { id: 1, name: "Tester", isAdmin: true },
     },
+    lastFailure: null,
   };
 }
 
@@ -85,9 +139,12 @@ describe("auth list command", () => {
     hoisted.verify.results.clear();
     hoisted.verify.probed.length = 0;
     home = setupTempConfigHome();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(PROBED_AT));
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
     home.cleanup();
   });
@@ -114,22 +171,21 @@ describe("auth list command", () => {
     const capture = captureStdout();
     await runCommand(authListCommand, { rawArgs: ["--json"] });
 
-    const envelope = capture.parse(AuthProfileListEnvelope);
-    expect(envelope.returned).toBe(2);
-    expect(envelope.data.map((entry) => entry.profile)).toEqual(["staging", "prod"]);
-    expect(envelope.data.every((entry) => entry.status === "ok")).toBe(true);
     // The subpath survives (instances hosted under a path stay distinguishable); query is dropped.
-    expect(envelope.data[0]?.url).toBe("https://staging.example.com/path");
-    expect(envelope.data[0]?.version).toEqual({
-      tag: "v0.58.7",
-      major: 58,
-      patch: 7,
+    expect(capture.parse(AuthProfileListEnvelope)).toEqual({
+      data: [
+        okEntry("staging", "https://staging.example.com/path"),
+        okEntry("prod", "https://prod.example.com"),
+      ],
+      returned: 2,
+      offset: 0,
+      total: 2,
+      has_more: false,
+      next_offset: null,
     });
-    expect(envelope.data[0]?.user).toEqual({ id: 1, name: "Tester", isAdmin: true });
-
-    const staging = await readProfileRecord("staging");
-    expect(staging?.lastProbe?.version?.tag).toBe("v0.58.7");
-    expect(staging?.lastFailure).toBeNull();
+    expect(await readProfileRecord("staging")).toEqual(
+      probedRecord("staging", "https://staging.example.com/path?x=1"),
+    );
   });
 
   it("renders Auth failed status, footer line, and persists lastFailure on a 401 response", async () => {
@@ -146,15 +202,32 @@ describe("auth list command", () => {
     const stderr = captureStderr();
     await runCommand(authListCommand, { rawArgs: ["--json"] });
 
-    const envelope = capture.parse(AuthProfileListEnvelope);
-    expect(envelope.data).toHaveLength(1);
-    const record = await readProfileRecord("revoked_profile");
-    expect(envelope.data[0]?.status).toBe("auth-failed");
-    expect(envelope.data[0]?.lastFailure).toEqual(record?.lastFailure);
-    expect(record?.lastFailure).toEqual({
-      at: envelope.data[0]?.lastFailure?.at,
-      kind: "auth",
-      reason: "Invalid or unauthorized API key",
+    const failure = { at: PROBED_AT, kind: "auth", reason: "Invalid or unauthorized API key" };
+    expect(capture.parse(AuthProfileListEnvelope).data).toEqual([
+      {
+        profile: "revoked_profile",
+        url: "https://m.example.com",
+        method: "apiKey",
+        authenticated: false,
+        status: "auth-failed",
+        user: null,
+        version: null,
+        edition: null,
+        skew: null,
+        knownRange: KNOWN_RANGE,
+        tokenFeatures: null,
+        features: null,
+        lastProbedAt: null,
+        lastFailure: failure,
+      },
+    ]);
+    expect(await readProfileRecord("revoked_profile")).toEqual({
+      name: "revoked_profile",
+      url: "https://m.example.com",
+      apiKey: null,
+      oauth: null,
+      lastProbe: null,
+      lastFailure: failure,
     });
 
     expect(stderr.join("")).toContain(
@@ -202,22 +275,8 @@ describe("auth list command", () => {
     const capture = captureStdout();
     await runCommand(authListCommand, { rawArgs: ["--json", "--limit", "1"] });
 
-    const envelope = capture.parse(AuthProfileListEnvelope);
-    expect(envelope).toEqual({
-      data: [
-        {
-          profile: "staging",
-          url: "https://staging.example.com",
-          method: "apiKey",
-          authenticated: true,
-          status: "ok",
-          user: { id: 1, name: "Tester", isAdmin: true },
-          version: { tag: "v0.58.7", major: 58, patch: 7 },
-          tokenFeatures: null,
-          lastProbedAt: envelope.data[0]?.lastProbedAt,
-          lastFailure: null,
-        },
-      ],
+    expect(capture.parse(AuthProfileListEnvelope)).toEqual({
+      data: [okEntry("staging", "https://staging.example.com")],
       returned: 1,
       offset: 0,
       limit: 1,
@@ -228,13 +287,16 @@ describe("auth list command", () => {
   });
 
   it("preserves the previous lastProbe and apiKey on a failed refresh", async () => {
+    captureStdout();
     hoisted.verify.results.set("good", successVerify());
     await writeProfile({ url: "https://m.example.com", apiKey: "good" }, "stable");
 
     await runCommand(authListCommand, { rawArgs: ["--json"] });
-    const before = await readProfileRecord("stable");
-    expect(before?.lastProbe).not.toBeNull();
+    expect(await readProfileRecord("stable")).toEqual(
+      probedRecord("stable", "https://m.example.com"),
+    );
 
+    vi.setSystemTime(new Date(LATER));
     hoisted.verify.results.set("good", {
       ok: false,
       which: "server",
@@ -242,11 +304,15 @@ describe("auth list command", () => {
       message: "Could not reach Metabase: getaddrinfo ENOTFOUND",
     });
     await runCommand(authListCommand, { rawArgs: ["--json"] });
-    const after = await readProfileRecord("stable");
 
-    expect(after?.lastProbe).toEqual(before?.lastProbe);
-    expect(after?.url).toBe(before?.url);
-    expect(after?.apiKey).toBe(before?.apiKey);
-    expect(after?.lastFailure?.kind).toBe("network");
+    expect(await readProfileRecord("stable")).toEqual({
+      ...probedRecord("stable", "https://m.example.com"),
+      lastFailure: {
+        at: LATER,
+        kind: "network",
+        reason: "Could not reach Metabase: getaddrinfo ENOTFOUND",
+      },
+    });
+    expect(hoisted.store.get("metabase-cli:profile:stable:apiKey")).toBe("good");
   });
 });

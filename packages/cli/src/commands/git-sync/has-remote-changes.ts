@@ -10,7 +10,7 @@ export default defineMetabaseCommand({
     name: "has-remote-changes",
     description: "Check whether the remote branch has unimported changes",
   },
-  capabilities: { minVersion: 60, tokenFeature: "remote_sync" },
+  requires: ["gitSync.hasRemoteChanges"],
   args: {
     ...outputFlags,
     ...profileFlag,

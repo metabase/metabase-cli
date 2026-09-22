@@ -67,8 +67,19 @@ export function renderList<T>(
   view: ResourceView<T>,
   opts: RenderOptions,
 ): void {
+  renderListWithExtras(envelope, {}, view, opts);
+}
+
+// `extras` are fields the JSON envelope carries beside the window; the text rendering is the
+// window alone, so a command with something to say there says it itself.
+export function renderListWithExtras<T, X extends object>(
+  envelope: ListEnvelope<T>,
+  extras: X,
+  view: ResourceView<T>,
+  opts: RenderOptions,
+): void {
   if (opts.format === "json") {
-    renderJsonEnvelope(envelope, view, opts);
+    renderJsonEnvelope(envelope, extras, view, opts);
     return;
   }
 
@@ -123,15 +134,20 @@ function projectedEnvelope<T>(
   return { ...envelope, data: envelope.data.map((item) => projectForList(item, view, opts)) };
 }
 
-function renderJsonEnvelope<T>(
+function renderJsonEnvelope<T, X extends object>(
   envelope: ListEnvelope<T>,
+  extras: X,
   view: ResourceView<T>,
   opts: RenderOptions,
 ): void {
-  const capped = capListEnvelope(projectedEnvelope(envelope, view, opts), opts.maxBytes);
+  // The extras are printed too, so they count against the cap.
+  const capped = capListEnvelope(
+    { ...projectedEnvelope(envelope, view, opts), ...extras },
+    opts.maxBytes,
+  );
   // Metadata precedes `data` so counts and the truncation marker survive when a downstream
   // consumer (an agent harness, a pager) cuts the tail of the output.
-  const ordered: ListEnvelope<unknown> = {
+  const ordered: ListEnvelope<unknown> & X = {
     returned: capped.returned,
     offset: capped.offset,
     limit: capped.limit,
@@ -139,6 +155,7 @@ function renderJsonEnvelope<T>(
     has_more: capped.has_more,
     next_offset: capped.next_offset,
     truncated: capped.truncated,
+    ...extras,
     data: capped.data,
   };
   process.stdout.write(serializeJson(ordered, stdoutPretty()) + "\n");

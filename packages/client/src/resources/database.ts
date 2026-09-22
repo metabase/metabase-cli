@@ -52,6 +52,7 @@ export function databaseResource(transport: Transport) {
     params: DatabaseListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Database>> {
+    await transport.require("database.list", options);
     const response = await transport.requestParsed(DatabaseApiList, "/api/database", {
       ...options,
       query: { include: params.include, saved: params.saved },
@@ -65,6 +66,7 @@ export function databaseResource(transport: Transport) {
     params: DatabaseGetParams = {},
     options: RequestOptions = {},
   ): Promise<Database> {
+    await transport.require("database.get", options);
     return transport.requestParsed(Database, `/api/database/${id}`, {
       ...options,
       query: { include: params.include },
@@ -73,6 +75,7 @@ export function databaseResource(transport: Transport) {
 
   /** List the schema names in a database. */
   async function schemas(id: number, options: RequestOptions = {}): Promise<ListResult<string>> {
+    await transport.require("database.schemas", options);
     const data = await transport.requestParsed(
       DatabaseApiSchemaList,
       `/api/database/${id}/schemas`,
@@ -87,6 +90,7 @@ export function databaseResource(transport: Transport) {
     schema: string,
     options: RequestOptions = {},
   ): Promise<ListResult<Table>> {
+    await transport.require("database.schemaTables", options);
     const data = await transport.requestParsed(
       DatabaseApiSchemaTableList,
       `/api/database/${id}/schema/${encodeURIComponent(schema)}`,
@@ -104,6 +108,7 @@ export function databaseResource(transport: Transport) {
     params: DatabaseSyncSchemaParams = {},
     options: RequestOptions = {},
   ): Promise<DatabaseSyncResult> {
+    await transport.require("database.syncSchema", options);
     const ack = await transport.requestParsed(DatabaseTaskAck, `/api/database/${id}/sync_schema`, {
       ...options,
       method: "POST",
@@ -126,6 +131,7 @@ export function databaseResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<DatabaseSyncResult> {
+    await transport.require("database.rescanValues", options);
     const ack = await transport.requestParsed(
       DatabaseTaskAck,
       `/api/database/${id}/rescan_values`,

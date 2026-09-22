@@ -10,7 +10,7 @@ export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a transform test by id" },
   details:
     "The compact form carries the id, transform, name and description. Pass --full for the `inputs` and `expectations` themselves, which is also the body to edit and send back to `update`.",
-  capabilities: { minVersion: 65 },
+  requires: ["transformTest.get"],
   args: {
     ...outputFlags,
     ...profileFlag,

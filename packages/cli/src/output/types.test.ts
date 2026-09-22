@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { listEnvelopeSchema, type ListEnvelope } from "./types";
+import { listEnvelopeSchema, listEnvelopeSchemaWithExtras, type ListEnvelope } from "./types";
 
 const Person = z.object({ id: z.number().int(), name: z.string() }).strict();
 
@@ -104,6 +104,26 @@ describe("listEnvelopeSchema", () => {
       has_more: false,
       truncated: { reason: "wrong-reason", bytes: 100 },
     });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("listEnvelopeSchemaWithExtras", () => {
+  const schema = listEnvelopeSchemaWithExtras(Person, { note: z.string().nullable() });
+
+  it("accepts the envelope fields plus the extras", () => {
+    const envelope = {
+      data: [{ id: 1, name: "x" }],
+      returned: 1,
+      offset: 0,
+      has_more: false,
+      note: null,
+    };
+    expect(schema.parse(envelope)).toEqual(envelope);
+  });
+
+  it("rejects an envelope missing an extra", () => {
+    const result = schema.safeParse({ data: [], returned: 0, offset: 0, has_more: false });
     expect(result.success).toBe(false);
   });
 });

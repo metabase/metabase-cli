@@ -30,7 +30,7 @@ export default defineMetabaseCommand({
   },
   details:
     "Sets each selected table and every upstream table it depends on into the Library Data collection, so they appear first in data pickers and rank up in search. The Library Data collection is resolved automatically (and the Library is created if it doesn't exist yet). Select with --table-ids, --db-ids, or --schemas (each schema id is \"<db-id>:<schema>\", e.g. 1:public); the filters are combined. Publishing does not add the Library Data collection to the git-sync scope — on an instance with remote sync configured, run `mb git-sync add-collection <collection-id>` so exports carry the published tables' metadata.",
-  capabilities: { minVersion: 59, tokenFeature: "library" },
+  requires: ["library.ensureDataCollectionId", "library.publishTables", "gitSync.remoteUrl"],
   args: {
     ...outputFlags,
     ...profileFlag,

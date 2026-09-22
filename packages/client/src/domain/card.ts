@@ -3,8 +3,10 @@ import { z } from "zod";
 import { EmbeddingParams } from "./embedding";
 import { FieldBaseType, FieldSemanticType } from "./field";
 import { Parameter, ParameterMapping } from "./parameter";
+import { DatasetQuery } from "./query";
 
-const CardType = z.enum(["question", "model", "metric"]);
+export const CardType = z.enum(["question", "model", "metric"]);
+export type CardType = z.infer<typeof CardType>;
 
 const CardQueryType = z.enum(["native", "query"]);
 
@@ -21,26 +23,6 @@ export const CardListFilter = z.enum([
   "using_segment",
 ]);
 export type CardListFilter = z.infer<typeof CardListFilter>;
-
-// The download formats `POST /api/card/{id}/query/{format}` serves, and the last path segment of
-// that endpoint.
-export const CardExportFormat = z.enum(["csv", "json", "xlsx"]);
-export type CardExportFormat = z.infer<typeof CardExportFormat>;
-
-// `dataset_query: {}` is accepted by the server's `::query` schema for historic
-// reasons but immediately trips the NOT NULL constraint on REPORT_CARD.DATABASE_ID
-// during INSERT, surfacing as a raw H2 stack trace. `dataset_query: null` is
-// rejected by the create endpoint with a generic 400. Both are unrecoverable —
-// reject at the CLI boundary so the agent gets a readable error.
-export const CardDatasetQuery = z
-  .object({})
-  .loose()
-  .refine((value) => "lib/type" in value || "type" in value, {
-    message:
-      'dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected',
-  })
-  .describe("MBQL 5, legacy MBQL, or native query");
-export type CardDatasetQuery = z.infer<typeof CardDatasetQuery>;
 
 export const Card = z
   .object({
@@ -84,7 +66,7 @@ export const CardCreateInput = z
   .object({
     name: z.string().min(1),
     type: CardType.nullable().optional(),
-    dataset_query: CardDatasetQuery,
+    dataset_query: DatasetQuery,
     display: z.string().min(1),
     visualization_settings: z.record(z.string(), z.unknown()),
     description: z.string().min(1).nullable().optional(),
@@ -105,7 +87,7 @@ export const CardUpdateInput = z
   .object({
     name: z.string().min(1).nullable().optional(),
     type: CardType.nullable().optional(),
-    dataset_query: CardDatasetQuery.optional(),
+    dataset_query: DatasetQuery.optional(),
     display: z.string().min(1).nullable().optional(),
     visualization_settings: z.record(z.string(), z.unknown()).nullable().optional(),
     description: z.string().nullable().optional(),
