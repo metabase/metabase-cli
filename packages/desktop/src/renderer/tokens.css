@@ -50,6 +50,26 @@
   --tooltip-muted: oklch(0.731 0.008 260.731);
   --tooltip-border: oklch(0.356 0.007 264.474);
 
+  /* terminal — the 16 ANSI colours a shell's output names, the cursor and the selection */
+  --term-black: oklch(0.35 0.006 258);
+  --term-red: oklch(0.55 0.19 23);
+  --term-green: oklch(0.52 0.15 151);
+  --term-yellow: oklch(0.53 0.12 80);
+  --term-blue: oklch(0.55 0.19 255);
+  --term-magenta: oklch(0.54 0.18 320);
+  --term-cyan: oklch(0.52 0.1 215);
+  --term-white: oklch(0.5 0.01 264);
+  --term-bright-black: oklch(0.45 0.008 264);
+  --term-bright-red: oklch(0.52 0.2 23);
+  --term-bright-green: oklch(0.48 0.16 151);
+  --term-bright-yellow: oklch(0.5 0.13 80);
+  --term-bright-blue: oklch(0.5 0.2 255);
+  --term-bright-magenta: oklch(0.5 0.19 320);
+  --term-bright-cyan: oklch(0.48 0.11 215);
+  --term-bright-white: oklch(0.55 0.01 264);
+  --term-cursor: var(--ink);
+  --term-selection: oklch(0.626 0.205 254.947 / 0.22);
+
   /* shadows — our solid hairline ring + shadow-plugin's smooth layered stacks
    * (--shadow-xs…lg come from shadow-plugin/unprefixed) so every surface reads
    * consistently across the app. */
@@ -110,6 +130,25 @@
   --tooltip-fg: oklch(0.964 0.002 247.839);
   --tooltip-muted: oklch(0.731 0.008 260.731);
   --tooltip-border: oklch(0.308 0.006 258.354);
+
+  --term-black: oklch(0.68 0.008 264);
+  --term-red: oklch(0.72 0.17 23);
+  --term-green: oklch(0.74 0.15 151);
+  --term-yellow: oklch(0.8 0.13 85);
+  --term-blue: oklch(0.72 0.15 255);
+  --term-magenta: oklch(0.74 0.15 320);
+  --term-cyan: oklch(0.76 0.1 215);
+  --term-white: oklch(0.86 0.005 264);
+  --term-bright-black: oklch(0.74 0.008 264);
+  --term-bright-red: oklch(0.78 0.16 23);
+  --term-bright-green: oklch(0.8 0.15 151);
+  --term-bright-yellow: oklch(0.86 0.13 85);
+  --term-bright-blue: oklch(0.78 0.13 255);
+  --term-bright-magenta: oklch(0.8 0.13 320);
+  --term-bright-cyan: oklch(0.82 0.09 215);
+  --term-bright-white: oklch(0.96 0.002 248);
+  --term-cursor: var(--ink);
+  --term-selection: oklch(0.68 0.173 253.301 / 0.3);
 
   --shadow-hairline: 0 0 0 1px var(--line);
   /* Elevation rings go to a subtle *light* hairline in dark mode: the ring

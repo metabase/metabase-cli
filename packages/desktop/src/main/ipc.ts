@@ -30,6 +30,7 @@ import { NOT_CONNECTED_MESSAGE } from "./auth/session-environment";
 import { inspectRepository } from "./repository/inspect";
 import { resolveTheme } from "./settings/theme";
 import type { SettingsStore } from "./settings/store";
+import type { TerminalHost } from "./terminals/host";
 
 export const TEST_MODE_ENV_VAR = "RDE_TEST_MODE";
 
@@ -58,6 +59,7 @@ export interface MainDeps {
   readonly sessions: SessionEngine;
   readonly changes: SessionChanges;
   readonly metabase: MetabaseLoop;
+  readonly terminals: TerminalHost;
   readonly updates: AppUpdates;
   readonly opener: ExternalOpener;
   readonly homeDirectory: string;
@@ -313,12 +315,18 @@ export function registerIpc(deps: MainDeps, register: IpcRegistrar): void {
 
   register(
     ipc.sessionsArchive.name,
-    ipcHandler(ipc.sessionsArchive, (input) => deps.sessions.archive(input.sessionId)),
+    ipcHandler(ipc.sessionsArchive, (input) => {
+      deps.terminals.closeSession(input.sessionId);
+      return deps.sessions.archive(input.sessionId);
+    }),
   );
 
   register(
     ipc.sessionsDelete.name,
-    ipcHandler(ipc.sessionsDelete, (input) => deps.sessions.remove(input.sessionId)),
+    ipcHandler(ipc.sessionsDelete, (input) => {
+      deps.terminals.closeSession(input.sessionId);
+      return deps.sessions.remove(input.sessionId);
+    }),
   );
 
   register(
@@ -411,6 +419,35 @@ export function registerIpc(deps: MainDeps, register: IpcRegistrar): void {
     ipcHandler(ipc.metabaseIgnoreAppDirectories, (input) =>
       deps.metabase.ignoreAppDirectories(input.sessionId),
     ),
+  );
+
+  register(
+    ipc.terminalOpen.name,
+    ipcHandler(ipc.terminalOpen, (input) => deps.terminals.open(input)),
+  );
+
+  register(
+    ipc.terminalWrite.name,
+    ipcHandler(ipc.terminalWrite, async (input) => {
+      deps.terminals.write(input);
+      return ACKNOWLEDGED;
+    }),
+  );
+
+  register(
+    ipc.terminalResize.name,
+    ipcHandler(ipc.terminalResize, async (input) => {
+      deps.terminals.resize(input);
+      return ACKNOWLEDGED;
+    }),
+  );
+
+  register(
+    ipc.terminalClose.name,
+    ipcHandler(ipc.terminalClose, async (input) => {
+      deps.terminals.close(input.terminalId);
+      return ACKNOWLEDGED;
+    }),
   );
 
   register(

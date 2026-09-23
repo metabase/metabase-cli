@@ -21,6 +21,7 @@ import { SessionChanges } from "./sessions/changes";
 import { SessionEngine } from "./sessions/engine";
 import { SessionStore } from "./sessions/store";
 import { SettingsStore } from "./settings/store";
+import { TerminalHost } from "./terminals/host";
 
 const PRODUCT_CHANNELS = [
   "settings.read",
@@ -166,6 +167,19 @@ async function channelsRegisteredUnder(env: NodeJS.ProcessEnv): Promise<string[]
     homeDirectory: directory,
     sessions,
     changes,
+    terminals: new TerminalHost({
+      open: (sessionId) => sessions.open(sessionId),
+      environment: async () => env,
+      mintBrokerSession: () => null,
+      revokeBrokerSession: () => undefined,
+      shell: { shell: "/bin/sh", args: [] },
+      startPty: () => {
+        throw new Error("these tests open no terminal");
+      },
+      newId: () => "term_test",
+      publishOutput: () => undefined,
+      publishExit: () => undefined,
+    }),
     metabase: new MetabaseLoop({
       git,
       worktrees: new MetabaseWorktrees({

@@ -29,7 +29,7 @@ import {
 } from "../../contracts/session";
 import type { RewindRequest } from "../../contracts/changes";
 import type { RepositorySnapshot } from "../../contracts/settings";
-import { cliEnvironment, type CliLocation } from "../cli/paths";
+import type { CliLocation } from "../cli/paths";
 import { captureCheckpoint, checkpointRef, deleteCheckpoints } from "../git/checkpoints";
 import { listBranches, readCheckout, type Git } from "../git/service";
 import { createWorktree, removeWorktree } from "../git/worktrees";
@@ -42,6 +42,7 @@ import { repoRelative } from "../providers/text";
 
 import { sessionBrief, systemAppend } from "./brief";
 import { restoreCheckout } from "./changes";
+import { sessionProcessEnvironment } from "./environment";
 import { SessionCommandError } from "./errors";
 import { LiveSession } from "./live";
 import {
@@ -576,17 +577,7 @@ export class SessionEngine {
     }
     const session = live.snapshot.session;
     const broker = this.deps.mintBrokerSession();
-    const merged = await this.deps.path();
-    const brokerEnv =
-      broker === null
-        ? {}
-        : {
-            MB_URL: broker.MB_URL,
-            MB_AUTH_BROKER: broker.MB_AUTH_BROKER,
-            MB_AUTH_BROKER_TOKEN: broker.MB_AUTH_BROKER_TOKEN,
-          };
-    const cli = cliEnvironment(this.deps.cli, merged.value);
-    const worktreeEnv = await this.deps.worktreeEnvironment(session);
+    const env = await sessionProcessEnvironment(this.deps, session, broker);
     const log = await openProviderLog({
       directory: this.deps.providerLogDirectory,
       sessionId: session.id,
@@ -600,7 +591,7 @@ export class SessionEngine {
         model: session.model,
         permissionMode: session.permissionMode,
         resume: session.nativeSessionId,
-        env: { ...this.deps.env, ...cli, ...brokerEnv, ...worktreeEnv },
+        env,
         systemAppend: systemAppend(
           sessionBrief(session.workspace),
           session.nativeSessionId === null ? session.replay : null,

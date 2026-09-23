@@ -1,6 +1,6 @@
 import type { SessionIndexEntry } from "../contracts/session";
-import type { RightTab } from "@/components/RightPanel";
 import type { KeyAction } from "@/keybindings";
+import type { FixedTab, OpenedKind } from "@/side-tabs";
 import { visibleSessions } from "@/session-list";
 import { SETTINGS_SECTIONS, SETTINGS_SECTION_TITLES } from "@/settings-sections";
 import type { SettingsSection } from "@/settings-sections";
@@ -25,7 +25,12 @@ interface ToggleSidePanelCommand {
 
 interface ShowTabCommand {
   readonly kind: "show-tab";
-  readonly tab: RightTab;
+  readonly tab: FixedTab;
+}
+
+interface OpenTabCommand {
+  readonly kind: "open-tab";
+  readonly tab: OpenedKind;
 }
 
 export type PaletteCommand =
@@ -33,7 +38,8 @@ export type PaletteCommand =
   | OpenSessionCommand
   | OpenSettingsCommand
   | ToggleSidePanelCommand
-  | ShowTabCommand;
+  | ShowTabCommand
+  | OpenTabCommand;
 
 export type PaletteGroup = "Actions" | "Sessions";
 
@@ -69,8 +75,9 @@ const SETTINGS_ACTIONS: readonly PaletteItem[] = SETTINGS_SECTIONS.map((section)
 const ACTIONS: readonly PaletteItem[] = [
   action("new-session", "New session", "new-session", { kind: "new-session" }),
   action("show-changes", "Show changes", null, { kind: "show-tab", tab: "changes" }),
-  action("show-files", "Show files", null, { kind: "show-tab", tab: "files" }),
   action("show-metabase", "Show Metabase", null, { kind: "show-tab", tab: "metabase" }),
+  action("open-files", "New files tab", null, { kind: "open-tab", tab: "files" }),
+  action("open-terminal", "New terminal", null, { kind: "open-tab", tab: "terminal" }),
   action("toggle-side-panel", "Show or hide the side panel", "toggle-changes", {
     kind: "toggle-side-panel",
   }),

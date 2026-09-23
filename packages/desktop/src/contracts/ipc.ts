@@ -55,6 +55,15 @@ import {
   TrackedFiles,
   WorktreeRootRequest,
 } from "./settings";
+import {
+  TerminalExit,
+  TerminalInput,
+  TerminalOpenRequest,
+  TerminalOpened,
+  TerminalOutput,
+  TerminalRef,
+  TerminalResize,
+} from "./terminal";
 import { UpdateState } from "./updates";
 import { WindowChrome } from "./window";
 
@@ -140,6 +149,10 @@ export const ipc = {
     input: SessionRef,
     output: ActionOutcome,
   },
+  terminalOpen: { name: "terminal.open", input: TerminalOpenRequest, output: TerminalOpened },
+  terminalWrite: { name: "terminal.write", input: TerminalInput, output: Acknowledged },
+  terminalResize: { name: "terminal.resize", input: TerminalResize, output: Acknowledged },
+  terminalClose: { name: "terminal.close", input: TerminalRef, output: Acknowledged },
   updatesRead: { name: "updates.read", input: z.undefined(), output: UpdateState },
   updatesDownload: { name: "updates.download", input: z.undefined(), output: UpdateState },
   updatesInstall: { name: "updates.install", input: z.undefined(), output: UpdateState },
@@ -154,6 +167,8 @@ export const ipcPush = {
   syncOutput: { name: "metabase.syncOutput", payload: OutputChunk },
   updateState: { name: "updates.state", payload: UpdateState },
   connectionState: { name: "connection.state", payload: ConnectionState },
+  terminalOutput: { name: "terminal.output", payload: TerminalOutput },
+  terminalExit: { name: "terminal.exit", payload: TerminalExit },
 } as const;
 
 export const testIpc = {
@@ -185,6 +200,8 @@ export interface IpcSubscriptions {
   readonly onSyncOutput: (listener: (output: OutputChunk) => void) => Unsubscribe;
   readonly onUpdateState: (listener: (state: UpdateState) => void) => Unsubscribe;
   readonly onConnectionState: (listener: (state: ConnectionState) => void) => Unsubscribe;
+  readonly onTerminalOutput: (listener: (output: TerminalOutput) => void) => Unsubscribe;
+  readonly onTerminalExit: (listener: (exit: TerminalExit) => void) => Unsubscribe;
 }
 
 export type IpcBridge = IpcMethods & IpcSubscriptions;
@@ -323,6 +340,10 @@ export function createIpcBridge(transport: IpcTransport, subscribe: IpcSubscribe
     metabaseRunTransform: (input) => invoke(ipc.metabaseRunTransform, input),
     metabaseRunTransformTests: (input) => invoke(ipc.metabaseRunTransformTests, input),
     metabaseIgnoreAppDirectories: (input) => invoke(ipc.metabaseIgnoreAppDirectories, input),
+    terminalOpen: (input) => invoke(ipc.terminalOpen, input),
+    terminalWrite: (input) => invoke(ipc.terminalWrite, input),
+    terminalResize: (input) => invoke(ipc.terminalResize, input),
+    terminalClose: (input) => invoke(ipc.terminalClose, input),
     updatesRead: () => invoke(ipc.updatesRead, undefined),
     updatesDownload: () => invoke(ipc.updatesDownload, undefined),
     updatesInstall: () => invoke(ipc.updatesInstall, undefined),
@@ -332,5 +353,7 @@ export function createIpcBridge(transport: IpcTransport, subscribe: IpcSubscribe
     onSyncOutput: (listener) => listen(ipcPush.syncOutput, listener),
     onUpdateState: (listener) => listen(ipcPush.updateState, listener),
     onConnectionState: (listener) => listen(ipcPush.connectionState, listener),
+    onTerminalOutput: (listener) => listen(ipcPush.terminalOutput, listener),
+    onTerminalExit: (listener) => listen(ipcPush.terminalExit, listener),
   };
 }

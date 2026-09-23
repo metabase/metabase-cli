@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 
 import { BrowserWindow, app, dialog, ipcMain, nativeTheme, shell } from "electron";
@@ -23,15 +24,18 @@ import { registerIpc, testModeEnabled, type FolderSelection, type MainDeps } fro
 import { MetabaseLoop } from "./metabase/loop";
 import { MetabaseWorktrees } from "./metabase/worktrees";
 import { mergedPath } from "./process/path";
+import { startPty } from "./process/pty";
 import { runCommand, startProcess } from "./process/spawn";
 import { ProviderDetector } from "./providers/detect";
 import { PROVIDER_ADAPTERS } from "./providers/registry";
 import { SessionChanges } from "./sessions/changes";
 import { SessionEngine } from "./sessions/engine";
+import { sessionProcessEnvironment } from "./sessions/environment";
 import { SessionStore } from "./sessions/store";
 import { SettingsStore } from "./settings/store";
 import { resolveTheme } from "./settings/theme";
 import { resolveWorktreeRoot } from "./settings/worktree-root";
+import { TerminalHost, userShell } from "./terminals/host";
 import { AppUpdates, type Updater } from "./updates";
 import { type RendererEntry, applyWindowTheme, createMainWindow, windowChrome } from "./window";
 
@@ -44,6 +48,8 @@ const RENDERER_INDEX = join(OUT_DIR, "renderer", "index.html");
 const REPOSITORY_PICKER_TITLE = "Choose a repository";
 
 const PROVIDER_LOGS_SEGMENTS = ["logs", "providers"];
+
+const TERMINAL_ID_PREFIX = "term_";
 
 function resolveRendererEntry(env: NodeJS.ProcessEnv): RendererEntry {
   const devServerUrl = env.ELECTRON_RENDERER_URL;
@@ -271,6 +277,41 @@ async function start(interrupt: AbortSignal): Promise<void> {
     log,
     signal: interrupt,
   });
+  const terminals = new TerminalHost({
+    open: (sessionId) => sessions.open(sessionId),
+    environment: (session, brokerEnv) =>
+      sessionProcessEnvironment(
+        {
+          env: process.env,
+          cli,
+          path: () => mergedPath({ env: process.env, run: runCommand, signal: interrupt }),
+          worktreeEnvironment: (scoped) => worktrees.environment(scoped),
+        },
+        session,
+        brokerEnv,
+      ),
+    mintBrokerSession: () => sessionEnvironment(broker, connection.state()),
+    revokeBrokerSession: (sessionId) => {
+      broker.revokeSession(sessionId);
+    },
+    shell: userShell(process.env, process.platform),
+    startPty,
+    newId: () => `${TERMINAL_ID_PREFIX}${randomUUID()}`,
+    publishOutput: (output) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(ipcPush.terminalOutput.name, output);
+      }
+    },
+    publishExit: (exit) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(ipcPush.terminalExit.name, exit);
+      }
+    },
+  });
+  app.on("will-quit", () => {
+    terminals.closeAll();
+  });
+
   // Quitting must outlive the agent processes a session owns, so the first quit is held until
   // every session has stopped and the second one, which shutdown triggers, goes through.
   let stopping = false;
@@ -354,6 +395,7 @@ async function start(interrupt: AbortSignal): Promise<void> {
     sessions,
     changes,
     metabase,
+    terminals,
     updates,
     opener,
     homeDirectory: app.getPath("home"),

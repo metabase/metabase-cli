@@ -195,7 +195,13 @@ async function shootWindow(run: FilesRun, slug: string): Promise<void> {
 }
 
 async function showFiles(window: Page): Promise<void> {
-  await sidePanel(window).getByRole("tab", { name: "Files", exact: true }).click();
+  const tab = sidePanel(window).getByRole("tab", { name: "Files", exact: true });
+  if ((await tab.count()) === 0) {
+    await sidePanel(window).getByRole("button", { name: "Open a tab" }).click();
+    await window.getByRole("menuitem", { name: "Files" }).click();
+  } else {
+    await tab.click();
+  }
   await sidePanel(window).getByRole("tree").waitFor({ state: "visible" });
   await window.waitForTimeout(SETTLE_MS);
 }

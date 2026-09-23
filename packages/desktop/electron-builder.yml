@@ -8,6 +8,18 @@ files:
   - out/**
   - package.json
   - "!node_modules/**"
+  # The one dependency `out/` cannot bundle: a native addon, loaded from outside the archive.
+  - from: node_modules/node-pty
+    to: node_modules/node-pty
+    filter:
+      - package.json
+      - LICENSE
+      - lib/**
+      - "!lib/**/*.test.js"
+      - "!lib/**/*.map"
+      - prebuilds/${platform}-${arch}/**
+asarUnpack:
+  - node_modules/node-pty/**
 extraResources:
   - from: ../cli/dist
     to: rde-cli/dist

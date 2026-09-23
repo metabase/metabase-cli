@@ -15,6 +15,17 @@ const REPO_ROOT = resolve(SRC_ROOT, "..", "..", "..");
 // Spelled so that this line does not match itself.
 const REFERENCE_PROJECT_NAME = /t3 ?(?:code|tools)|beautiful.?ui/i;
 
+// A license asks the notices to carry its copyright line, and one holder's name reads like a
+// reference project's, so that line in the notices is the one place it appears. Spelled so that
+// this line does not match itself either.
+const NOTICE_COPYRIGHT_LINE = /^Copyright \(c\) \d{4} T[3] Tools Inc\.$/gm;
+const NOTICES_PATH = "packages/desktop/THIRD_PARTY_NOTICES.md";
+
+function referenceText(path: string): string {
+  const content = readFileSync(join(REPO_ROOT, path), "utf8");
+  return path === NOTICES_PATH ? content.replace(NOTICE_COPYRIGHT_LINE, "") : content;
+}
+
 interface SourceFile {
   relPath: string;
   content: string;
@@ -64,6 +75,12 @@ const RULES: StructureRule[] = [
     description: "child_process must only appear in main/process/spawn.ts",
     pattern: /child_process/,
     allowedIn: ["main/process/spawn.ts"],
+    scope: "all",
+  },
+  {
+    description: "node-pty must only be imported by main/process/pty.ts",
+    pattern: /["']node-pty["']/,
+    allowedIn: ["main/process/pty.ts"],
     scope: "all",
   },
   {
@@ -303,8 +320,7 @@ describe("the reference projects", () => {
     const present = nulFields(gitText(listed)).filter((path) => existsSync(join(REPO_ROOT, path)));
     const offenders = present.filter(
       (path) =>
-        REFERENCE_PROJECT_NAME.test(path) ||
-        REFERENCE_PROJECT_NAME.test(readFileSync(join(REPO_ROOT, path), "utf8")),
+        REFERENCE_PROJECT_NAME.test(path) || REFERENCE_PROJECT_NAME.test(referenceText(path)),
     );
     expect(offenders).toEqual([]);
   });

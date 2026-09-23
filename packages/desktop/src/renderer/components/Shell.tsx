@@ -1,6 +1,6 @@
 import { Settings, TriangleAlert } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { ConnectionState } from "../../contracts/connection";
 import type { PanelLayout } from "../../contracts/layout";
@@ -24,11 +24,21 @@ import { requestFailure, useRequest } from "@/request";
 import type { SessionsController } from "@/sessions";
 import { useSessions } from "@/sessions";
 import type { SettingsSection } from "@/settings-sections";
+import {
+  INITIAL_SIDE_TABS,
+  closeTab,
+  openTab,
+  selectTab,
+  type OpenedKind,
+  type OpenedTab,
+  type SideTabs,
+} from "@/side-tabs";
+import { closeTerminal } from "@/terminal/registry";
 
 import { CommandPalette } from "./CommandPalette";
 import { NewSessionComposer } from "./Composer";
 import { OnboardingChecklist } from "./OnboardingChecklist";
-import { RightPanel, SidePanelToggle, type RightTab } from "./RightPanel";
+import { RightPanel, SidePanelToggle } from "./RightPanel";
 import { SessionView } from "./SessionView";
 import { SettingsPage } from "./SettingsPage";
 import { Sidebar } from "./Sidebar";
@@ -82,7 +92,8 @@ export function Shell({ initialSettings }: ShellProps): ReactElement {
   const [settings, setSettings] = useState(initialSettings);
   const [page, setPage] = useState<Page>(HOME);
   const [sidePanel, setSidePanel] = useState<SidePanelState>("open");
-  const [rightTab, setRightTab] = useState<RightTab>("changes");
+  const [sideTabs, setSideTabs] = useState<ReadonlyMap<string, SideTabs>>(new Map());
+  const nextTabNumber = useRef(1);
   const [newDraft, setNewDraft] = useState<NewSessionDraft>(EMPTY_DRAFT);
   const [drafts, setDrafts] = useState<ReadonlyMap<string, string>>(new Map());
   const [promptFocusRequests, setPromptFocusRequests] = useState(0);
@@ -197,6 +208,42 @@ export function Shell({ initialSettings }: ShellProps): ReactElement {
     };
   }, [onKeyDown]);
 
+  const snapshotId = sessions.snapshot === null ? null : sessions.snapshot.session.id;
+  const activeTabs =
+    snapshotId === null ? INITIAL_SIDE_TABS : (sideTabs.get(snapshotId) ?? INITIAL_SIDE_TABS);
+
+  const changeTabs = useCallback(
+    (change: (tabs: SideTabs) => SideTabs): void => {
+      if (snapshotId === null) {
+        return;
+      }
+      setSideTabs((current) =>
+        new Map(current).set(snapshotId, change(current.get(snapshotId) ?? INITIAL_SIDE_TABS)),
+      );
+    },
+    [snapshotId],
+  );
+
+  const openSideTab = useCallback(
+    (kind: OpenedKind): void => {
+      const id = `${kind}-${nextTabNumber.current}`;
+      nextTabNumber.current += 1;
+      setSidePanel(shownSidePanel);
+      changeTabs((tabs) => openTab(tabs, kind, id));
+    },
+    [changeTabs],
+  );
+
+  const closeSideTab = useCallback(
+    (tab: OpenedTab): void => {
+      if (tab.kind === "terminal") {
+        closeTerminal(tab.id);
+      }
+      changeTabs((tabs) => closeTab(tabs, tab.id));
+    },
+    [changeTabs],
+  );
+
   const runCommand = useCallback(
     (command: PaletteCommand): void => {
       setPaletteOpen(false);
@@ -221,7 +268,11 @@ export function Shell({ initialSettings }: ShellProps): ReactElement {
         }
         case "show-tab": {
           setSidePanel(shownSidePanel);
-          setRightTab(command.tab);
+          changeTabs((tabs) => selectTab(tabs, command.tab));
+          return;
+        }
+        case "open-tab": {
+          openSideTab(command.tab);
           return;
         }
         default: {
@@ -229,7 +280,7 @@ export function Shell({ initialSettings }: ShellProps): ReactElement {
         }
       }
     },
-    [openSettings, sessions],
+    [openSettings, sessions, changeTabs, openSideTab],
   );
 
   const mention = useCallback((sessionId: string, path: string): void => {
@@ -238,8 +289,6 @@ export function Shell({ initialSettings }: ShellProps): ReactElement {
     );
     setPromptFocusRequests((current) => current + 1);
   }, []);
-
-  const openId = sessions.snapshot === null ? null : sessions.snapshot.session.id;
 
   return (
     <div
@@ -288,7 +337,7 @@ export function Shell({ initialSettings }: ShellProps): ReactElement {
             <Sidebar
               sessions={sessions.index.sessions}
               pulses={sessions.pulses}
-              openId={openId}
+              openId={snapshotId}
               onOpen={(sessionId) => {
                 void sessions.open(sessionId);
               }}
@@ -342,13 +391,17 @@ export function Shell({ initialSettings }: ShellProps): ReactElement {
               )}
               <TreeResize value={panels.handle("tree")}>
                 <RightPanel
-                  tab={rightTab}
+                  tabs={activeTabs}
                   snapshot={sessions.snapshot}
                   sessions={sessions.index.sessions}
                   connection={setup.status === "ready" ? setup.value.connection : null}
                   theme={settings.theme}
                   expanded={expanded}
-                  onTab={setRightTab}
+                  onSelect={(value) => {
+                    changeTabs((tabs) => selectTab(tabs, value));
+                  }}
+                  onOpen={openSideTab}
+                  onClose={closeSideTab}
                   onExpand={() => {
                     setSidePanel(expanded ? "open" : "expanded");
                   }}

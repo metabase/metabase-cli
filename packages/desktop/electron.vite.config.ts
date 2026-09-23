@@ -10,7 +10,11 @@ const BUNDLE_DEPENDENCIES = { externalizeDeps: false };
 
 export default defineConfig({
   main: {
-    build: BUNDLE_DEPENDENCIES,
+    build: {
+      ...BUNDLE_DEPENDENCIES,
+      // A native addon cannot be bundled; electron-builder ships it unpacked beside `out/`.
+      rollupOptions: { external: ["node-pty"] },
+    },
   },
   preload: {
     build: {
