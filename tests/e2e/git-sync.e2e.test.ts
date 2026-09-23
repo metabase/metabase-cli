@@ -1,15 +1,15 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
+import { SyncTree } from "@metabase/client/domain/git-sync";
 import { parseJson } from "@metabase/client/json";
 
-import { SyncSettingsUpdateResult } from "../../packages/cli/src/commands/git-sync/add-collection";
 import { CurrentTaskResult } from "../../packages/cli/src/commands/git-sync/current-task";
 import { SyncDirtyListEnvelope } from "../../packages/cli/src/commands/git-sync/dirty";
 import { IsDirtyResult } from "../../packages/cli/src/commands/git-sync/is-dirty";
 import { SyncStatus } from "../../packages/cli/src/commands/git-sync/status";
 import { WaitResult } from "../../packages/cli/src/commands/git-sync/wait";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
-import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { runCli } from "./run-cli";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { requireServer } from "./server-gate";
 
@@ -18,23 +18,9 @@ const skipReason = requireServer("git-sync › git-sync e2e against EE git-sync 
 ]);
 
 describe("git-sync arg validation e2e (no Metabase contact required)", () => {
-  const tempDirs: string[] = [];
-
-  afterEach(async () => {
-    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
-  });
-
-  async function makeIsolatedConfigHome(): Promise<string> {
-    const dir = await mkTempConfigHome();
-    tempDirs.push(dir);
-    return dir;
-  }
-
   it("wait with non-integer --timeout fails fast with ConfigError before any network call", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "wait", "--timeout", "abc", "--json"],
-      configHome,
     });
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe('invalid timeout: "abc" (expected integer)');
@@ -42,100 +28,38 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
   });
 
   it("wait with non-integer --interval fails fast with ConfigError before any network call", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "wait", "--interval", "xyz", "--json"],
-      configHome,
     });
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe('invalid interval: "xyz" (expected integer)');
     expect(result.stdout).toBe("");
   });
-
-  it("stash with whitespace-only --new-branch fails with ConfigError", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["git-sync", "stash", "--new-branch", "   ", "--json"],
-      configHome,
-    });
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toBe("invalid new-branch: must not be blank");
-    expect(result.stdout).toBe("");
-  });
-
-  it("stash with whitespace-only --message fails with ConfigError", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["git-sync", "stash", "--new-branch", "wip", "--message", "   ", "--json"],
-      configHome,
-    });
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toBe("invalid message: must not be blank");
-    expect(result.stdout).toBe("");
-  });
-
-  it("create-branch with whitespace-only positional fails with ConfigError", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["git-sync", "create-branch", "   ", "--json"],
-      configHome,
-    });
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toBe("invalid name: branch name must not be blank");
-    expect(result.stdout).toBe("");
-  });
-
-  it("add-collection with non-integer positional fails with ConfigError", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["git-sync", "add-collection", "abc", "--json"],
-      configHome,
-    });
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "abc" (expected integer)');
-    expect(result.stdout).toBe("");
-  });
-
-  it("add-collection with zero positional fails with ConfigError", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["git-sync", "add-collection", "0", "--json"],
-      configHome,
-    });
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toBe("invalid id: 0 (must be ≥ 1)");
-    expect(result.stdout).toBe("");
-  });
-
-  it("remove-collection with negative positional fails with ConfigError", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["git-sync", "remove-collection", "--", "-3", "--json"],
-      configHome,
-    });
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toBe("invalid id: -3 (must be ≥ 1)");
-    expect(result.stdout).toBe("");
-  });
 });
 
-describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints", () => {
+describe("git-sync tree e2e on every server", () => {
   let bootstrap: E2EBootstrap;
-  const tempDirs: string[] = [];
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
   });
 
-  afterEach(async () => {
-    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+  it("tree with --skip-preflight parses every collection the listing returns and finds none synced on the snapshot", async () => {
+    const result = await runCli({
+      args: ["git-sync", "tree", "--skip-preflight", "--json"],
+      env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey },
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, SyncTree)).toEqual({ collections: [] });
   });
+});
 
-  async function makeIsolatedConfigHome(): Promise<string> {
-    const dir = await mkTempConfigHome();
-    tempDirs.push(dir);
-    return dir;
-  }
+describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints", () => {
+  let bootstrap: E2EBootstrap;
+
+  beforeAll(async () => {
+    bootstrap = await readBootstrap();
+  });
 
   function authEnv(): Record<string, string> {
     return {
@@ -145,10 +69,8 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
   }
 
   it("current-task returns the idle marker when no sync has ever run", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "current-task", "--json"],
-      configHome,
       env: authEnv(),
     });
     expect(result.exitCode, result.stderr).toBe(0);
@@ -156,10 +78,8 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
   });
 
   it("is-dirty reports false when no synced collections exist", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "is-dirty", "--json"],
-      configHome,
       env: authEnv(),
     });
     expect(result.exitCode, result.stderr).toBe(0);
@@ -167,10 +87,8 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
   });
 
   it("dirty returns an empty list envelope when nothing is dirty", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "dirty", "--json"],
-      configHome,
       env: authEnv(),
     });
     expect(result.exitCode, result.stderr).toBe(0);
@@ -185,10 +103,8 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
   });
 
   it("status rolls up branch (null), is_dirty (false), and current_task (null)", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "status", "--json"],
-      configHome,
       env: authEnv(),
     });
     expect(result.exitCode, result.stderr).toBe(0);
@@ -200,11 +116,27 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
     });
   });
 
+  it("tree answers no collections when nothing is marked for sync", async () => {
+    const result = await runCli({
+      args: ["git-sync", "tree", "--json"],
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, SyncTree)).toEqual({ collections: [] });
+  });
+
+  it("tree's text view says nothing is marked for sync", async () => {
+    const result = await runCli({
+      args: ["git-sync", "tree", "--format", "text"],
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.stdout).toBe("No collections are marked for sync.\n");
+  });
+
   it("wait exits successfully with the idle marker when no task is running", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "wait", "--json"],
-      configHome,
       env: authEnv(),
     });
     expect(result.exitCode, result.stderr).toBe(0);
@@ -212,21 +144,8 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
   });
 
   it("import without git-sync configured surfaces an HttpError", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "import", "--no-wait", "--json"],
-      configHome,
-      env: authEnv(),
-    });
-    expect(result.exitCode).toBe(1);
-    expect(cliErrorCategory(result.stderr)).toBe("http");
-  });
-
-  it("export without git-sync configured surfaces an HttpError", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["git-sync", "export", "--no-wait", "--json"],
-      configHome,
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
@@ -234,10 +153,8 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
   });
 
   it("has-remote-changes without git-sync configured surfaces the server's 400 message", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "has-remote-changes", "--json"],
-      configHome,
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
@@ -245,61 +162,20 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
   });
 
   it("cancel-task surfaces the server's 400 message when there is no running task", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "cancel-task", "--json"],
-      configHome,
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
     expect(cliErrorMessage(result.stderr)).toBe("No active task to cancel");
   });
 
-  it("stash surfaces the server's 400 message when remote-sync-type is not read-write", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["git-sync", "stash", "--new-branch", "wip", "--message", "x", "--no-wait", "--json"],
-      configHome,
-      env: authEnv(),
-    });
-    expect(result.exitCode).toBe(1);
-    expect(cliErrorMessage(result.stderr)).toBe(
-      "Stash is only allowed when remote-sync-type is set to 'read-write'",
-    );
-  });
-
   it("branches surfaces an HttpError when no source URL is configured", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "branches", "--json"],
-      configHome,
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toContain("Failed to clone git repository");
-  });
-
-  it("add-collection surfaces the server's read-only 400 message in the default config", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["git-sync", "add-collection", "1", "--json"],
-      configHome,
-      env: authEnv(),
-    });
-    expect(result.exitCode).toBe(1);
-    expect(cliErrorMessage(result.stderr)).toBe(
-      "Cannot change synced collections when remote-sync-type is read-only.",
-    );
-  });
-
-  it("remove-collection is idempotent when the collection is not in the sync config", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["git-sync", "remove-collection", "1", "--json"],
-      configHome,
-      env: authEnv(),
-    });
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, SyncSettingsUpdateResult)).toEqual({ success: true });
   });
 });

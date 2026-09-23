@@ -12,7 +12,7 @@ import { readBody } from "../runtime/body";
 import { parseCsv } from "../runtime/csv";
 import { bodyInputFlags } from "./body-flags";
 import { requireBothOrNeither } from "./flag-pair";
-import { connectionFlags, outputFlags, profileFlag } from "./flags";
+import { outputFlags, preflightFlag } from "./flags";
 import { defineMetabaseCommand } from "./runtime";
 
 export default defineMetabaseCommand({
@@ -26,8 +26,7 @@ export default defineMetabaseCommand({
   requires: ["eidTranslation.translate"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     ...bodyInputFlags,
     model: {
       type: "string",

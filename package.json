@@ -6,13 +6,18 @@
   ],
   "type": "module",
   "scripts": {
-    "build": "bun run --filter @metabase/client build && bun run --filter @metabase/cli build",
-    "dev": "bun run --filter @metabase/cli dev",
-    "start": "bun run --filter @metabase/cli start",
-    "test": "vitest run --project unit",
-    "test:watch": "vitest --project unit",
+    "build": "bun run --filter @metabase/client build && bun run --filter @metabase/rde-cli build",
+    "build:desktop": "bun run --filter @metabase/rde-desktop build",
+    "dist:desktop:linux": "bun run build:desktop && bun run --filter @metabase/rde-desktop dist:linux",
+    "dist:desktop:mac": "bun run build:desktop && bun run --filter @metabase/rde-desktop dist:mac",
+    "dist:desktop:win": "bun run build:desktop && bun run --filter @metabase/rde-desktop dist:win",
+    "dev": "bun run --filter @metabase/rde-cli dev",
+    "start": "bun run --filter @metabase/rde-cli start",
+    "test": "vitest run --project unit --project desktop",
+    "test:watch": "vitest --project unit --project desktop",
     "test:e2e": "vitest run --project e2e",
     "test:e2e:watch": "vitest --project e2e",
+    "check:e2e": "bun run build:desktop && xvfb-run -a --server-args=\"-screen 0 1440x900x24\" vitest run --project desktop-e2e",
     "e2e:up": "docker compose -f tests/e2e/docker-compose.yml up -d --wait",
     "e2e:down": "docker compose -f tests/e2e/docker-compose.yml down -v",
     "e2e:bootstrap": "bun tests/e2e/setup/bootstrap.ts",
@@ -20,7 +25,7 @@
     "e2e:logs": "docker compose -f tests/e2e/docker-compose.yml logs -f metabase",
     "check": "bun run typecheck && bun run lint && bun run format:check && bun run test && bun run lint:skills",
     "check:fix": "bun run lint:fix && bun run format",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && bun run --filter @metabase/rde-desktop typecheck",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "lint:skills": "uvx skillsaw@0.17.0 lint packages/cli/skill-data/ --strict",
@@ -39,7 +44,6 @@
     "js-yaml": "^4.1.0",
     "oxfmt": "^0.47.0",
     "oxlint": "^1.62.0",
-    "publint": "^0.3.0",
     "tsdown": "^0.22.14",
     "typescript": "^5.7.2",
     "unrun": "^0.3.1",
@@ -48,5 +52,8 @@
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
-  }
+  },
+  "trustedDependencies": [
+    "electron"
+  ]
 }

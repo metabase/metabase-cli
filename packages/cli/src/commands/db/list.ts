@@ -4,7 +4,7 @@ import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
 import { windowList } from "../../output/window";
 import { parseEnum } from "../../runtime/csv";
-import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";
+import { listFlags, outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 export const DatabaseListEnvelope = listEnvelopeSchema(DatabaseCompact);
@@ -15,8 +15,7 @@ export default defineMetabaseCommand({
   args: {
     ...outputFlags,
     ...listFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     include: {
       type: "string",
       description: `Hydrate related entities: ${DatabaseListInclude.options.join("|")}`,

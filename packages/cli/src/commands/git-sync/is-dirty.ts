@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import type { ResourceView } from "../../output/view";
 import { renderSummary } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 export const IsDirtyResult = z.object({
@@ -21,7 +21,7 @@ export default defineMetabaseCommand({
     description: "Check whether Metabase has unsynced local changes",
   },
   requires: ["gitSync.isDirty"],
-  args: { ...outputFlags, ...profileFlag, ...connectionFlags },
+  args: { ...outputFlags, ...preflightFlag },
   outputSchema: IsDirtyResult,
   examples: ["mb git-sync is-dirty", "mb git-sync is-dirty --json"],
   async run({ ctx, getClient }) {

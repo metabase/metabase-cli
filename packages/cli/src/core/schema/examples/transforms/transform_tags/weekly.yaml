@@ -1,0 +1,7 @@
+name: weekly
+entity_id: qPGCJu7t97kn-X07_fgSj
+built_in_type: weekly
+serdes/meta:
+- id: qPGCJu7t97kn-X07_fgSj
+  label: weekly
+  model: TransformTag

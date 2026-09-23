@@ -3,7 +3,7 @@ import { resolveFormat } from "../output/format";
 import { DEFAULT_MAX_BYTES, type Format, type ListRange } from "../output/types";
 import { parseCsv } from "../runtime/csv";
 
-import type { connectionFlags, listFlags, outputFlags, profileFlag } from "./flags";
+import type { listFlags, outputFlags, preflightFlag } from "./flags";
 import { parseInteger, parseOptionalInteger } from "./parse-integer";
 
 type FlagValue<T> = T extends { type: "boolean" }
@@ -12,10 +12,7 @@ type FlagValue<T> = T extends { type: "boolean" }
     ? string
     : never;
 
-type AllKnownFlags = typeof outputFlags &
-  typeof profileFlag &
-  typeof connectionFlags &
-  typeof listFlags;
+type AllKnownFlags = typeof outputFlags & typeof preflightFlag & typeof listFlags;
 
 export type CommonArgs = {
   -readonly [K in keyof AllKnownFlags]?: FlagValue<AllKnownFlags[K]>;
@@ -27,9 +24,6 @@ export interface CommonContext {
   fields: string[] | undefined;
   maxBytes: number;
   range: ListRange;
-  url: string | undefined;
-  apiKey: string | undefined;
-  profile: string | undefined;
   skipPreflight: boolean;
 }
 
@@ -60,9 +54,6 @@ export function resolveCommonFlags(args: CommonArgs, options: ResolveOptions = {
     fields,
     maxBytes: parseMaxBytes(args.maxBytes),
     range: parseRange(args.limit, args.offset),
-    url: args.url,
-    apiKey: args.apiKey,
-    profile: args.profile,
     skipPreflight: args.skipPreflight === true,
   };
 }

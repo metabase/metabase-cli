@@ -1,0 +1,27 @@
+name: Native Orders Query
+entity_id: dShCrdNatveOrders0005
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dashboard_id: 8xFV0XmZs2olbGKXWenfS
+collection_id: cOlDaShBoArDs0ExAmPlx
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/native
+    native: "SELECT * FROM ORDERS WHERE TOTAL > {{min_total}}"
+    # legacy map format for template-tags (current format is a list)
+    template-tags:
+      min_total:
+        type: number
+        sectionId: number
+        name: min_total
+        id: ee000001-0000-0000-0000-000000000001
+        display-name: Minimum Total
+        default: 50
+visualization_settings: {}
+serdes/meta:
+- id: dShCrdNatveOrders0005
+  label: native_orders
+  model: Card

@@ -1,7 +1,7 @@
 import { Collection } from "@metabase/client/domain/collection";
 import { collectionView } from "../../output/views/collection";
 import { renderItem } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 import { parseCollectionRef } from "./parse-ref";
@@ -14,8 +14,7 @@ export default defineMetabaseCommand({
   requires: ["collection.get"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     id: {
       type: "positional",
       description: 'Collection id, 21-char entity id, or one of: "root", "trash"',

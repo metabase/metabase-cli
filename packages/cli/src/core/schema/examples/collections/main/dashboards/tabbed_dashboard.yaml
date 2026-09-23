@@ -1,0 +1,70 @@
+name: Tabbed Dashboard
+entity_id: 7RZUq1g5o1C5ws_e3ppKf
+creator_id: admin@example.com
+collection_id: cOlDaShBoArDs0ExAmPlx
+width: full
+tabs:
+- entity_id: XcmNByL-bsDQ15jLHBUwr
+  name: Overview
+  position: 0
+- entity_id: frlnbZFzBEzun9_GwdiZd
+  name: Details
+  position: 1
+- entity_id: tiXyfAYcKGSBaGMVsqVom
+  name: Analysis
+  position: 2
+parameters:
+- id: b0000001-0000-0000-0000-000000000001
+  name: Category
+  slug: category
+  type: string/=
+  sectionId: string
+dashcards:
+- entity_id: _Bv8Qc16SHr8CtmMHBEub
+  card_id: h5F2EjHsRd73Dqqh8sAtd
+  dashboard_tab_id:
+  - 7RZUq1g5o1C5ws_e3ppKf
+  - XcmNByL-bsDQ15jLHBUwr
+  row: 0
+  col: 0
+  size_x: 12
+  size_y: 6
+  parameter_mappings:
+  - card_id: h5F2EjHsRd73Dqqh8sAtd
+    parameter_id: b0000001-0000-0000-0000-000000000001
+    target:
+    - dimension
+    - - field
+      - - Sample Database
+        - null
+        - ORDERS
+        - CREATED_AT
+      - null
+  series: []
+  visualization_settings: {}
+  serdes/meta:
+  - id: 7RZUq1g5o1C5ws_e3ppKf
+    model: Dashboard
+  - id: _Bv8Qc16SHr8CtmMHBEub
+    model: DashboardCard
+- entity_id: uyqXk5DNhkAMTp4W1TD9-
+  card_id: dShCrdProdsTables0007
+  dashboard_tab_id:
+  - 7RZUq1g5o1C5ws_e3ppKf
+  - frlnbZFzBEzun9_GwdiZd
+  row: 0
+  col: 0
+  size_x: 18
+  size_y: 9
+  parameter_mappings: []
+  series: []
+  visualization_settings: {}
+  serdes/meta:
+  - id: 7RZUq1g5o1C5ws_e3ppKf
+    model: Dashboard
+  - id: uyqXk5DNhkAMTp4W1TD9-
+    model: DashboardCard
+serdes/meta:
+- id: 7RZUq1g5o1C5ws_e3ppKf
+  label: tabbed_dashboard
+  model: Dashboard

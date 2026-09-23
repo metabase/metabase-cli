@@ -33,6 +33,7 @@ export const FEATURE_RULES = {
   transformTests: { since: 65, tokenFeature: "transforms-testing" },
   libraryChildrenCarryType: { since: 62 },
   collectionItemsTotalOnEmptyPage: { since: 64 },
+  collectionItemsKebabCaseParams: { since: 64 },
   invalidMbqlIsBadRequest: { since: 59 },
   boxplotDisplay: { since: 59 },
   nativeTableTemplateTag: { since: 59 },
@@ -54,6 +55,8 @@ export const FEATURE_RULES = {
   sourceReplacement: { since: 60, tokenFeature: "dependencies" },
   metricDefinitionQuery: { since: 60 },
   metricDimensionListing: { since: 64 },
+  metadataExport: { since: 60, until: 63, tokenFeature: "serialization" },
+  oauthFullAccessScope: { since: 63 },
 } satisfies Record<string, FeatureRule>;
 
 export type FeatureName = keyof typeof FEATURE_RULES;
@@ -69,7 +72,7 @@ export const Features = z.record(z.enum(FEATURE_NAMES), z.boolean());
 export type Features = z.infer<typeof Features>;
 
 export function evaluateFeatures(
-  effectiveMajor: number,
+  effectiveMajor: number | null,
   tokenFeatures: Readonly<TokenFeatures> | null,
 ): Features {
   const entries = FEATURE_NAMES.map((name) => [
@@ -81,14 +84,17 @@ export function evaluateFeatures(
 
 function ruleHolds(
   rule: FeatureRule,
-  effectiveMajor: number,
+  effectiveMajor: number | null,
   tokenFeatures: Readonly<TokenFeatures> | null,
 ): boolean {
   return ruleGap(rule, effectiveMajor, tokenFeatures) === null;
 }
 
+// `older` when the server predates the rule, `newer` when it is past the last major the rule
+// holds on: a route later releases removed, or a shape they replaced.
 export interface VersionGap {
   readonly kind: "version";
+  readonly side: "older" | "newer";
 }
 
 export interface TokenGap {
@@ -99,21 +105,31 @@ export interface TokenGap {
 export type FeatureGap = VersionGap | TokenGap;
 
 // The half of the rule the server fails, version first: an upgrade is the first step either way,
-// and whether a token grants a route only matters once the route exists.
+// and whether a token grants a route only matters once the route exists. A `null` major is a build
+// whose tag names no release (a head image, a local jar); its version is not known to lack
+// anything, so only the token half can refuse it.
 export function ruleGap(
   rule: FeatureRule,
-  effectiveMajor: number,
+  effectiveMajor: number | null,
   tokenFeatures: Readonly<TokenFeatures> | null,
 ): FeatureGap | null {
-  if (effectiveMajor < rule.since) {
-    return { kind: "version" };
-  }
-  if (rule.until !== undefined && effectiveMajor > rule.until) {
-    return { kind: "version" };
+  const gap = effectiveMajor === null ? null : versionGap(rule, effectiveMajor);
+  if (gap !== null) {
+    return gap;
   }
   if (rule.tokenFeature === undefined) {
     return null;
   }
   const granted = tokenFeatures !== null && tokenFeatures[rule.tokenFeature] === true;
   return granted ? null : { kind: "token", tokenFeature: rule.tokenFeature };
+}
+
+function versionGap(rule: FeatureRule, effectiveMajor: number): VersionGap | null {
+  if (effectiveMajor < rule.since) {
+    return { kind: "version", side: "older" };
+  }
+  if (rule.until !== undefined && effectiveMajor > rule.until) {
+    return { kind: "version", side: "newer" };
+  }
+  return null;
 }

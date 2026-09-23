@@ -1,0 +1,99 @@
+name: "Basic Aggregations"
+entity_id: h5F2EjHsRd73Dqqh8sAtd
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    aggregation:
+    - - count
+      - "lib/uuid": 11111111-1111-1111-1111-111111111111
+    - - sum
+      - "lib/uuid": 22222222-2222-2222-2222-222222222222
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+    - - avg
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+    - - min
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+    - - max
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+    - - count
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - ORDERS
+          - PRODUCT_ID
+    - - distinct
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - ORDERS
+          - PRODUCT_ID
+    - - sum
+      - display-name: Total Revenue
+        name: total_revenue
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+    breakout:
+    - - field
+      - temporal-unit: month
+      - - Sample Database
+        - null
+        - ORDERS
+        - CREATED_AT
+    order-by:
+    - - desc
+      - {}
+      - - aggregation
+        - {}
+        - 11111111-1111-1111-1111-111111111111
+    - - asc
+      - {}
+      - - aggregation
+        - {}
+        - 22222222-2222-2222-2222-222222222222
+    limit: 12
+visualization_settings: {}
+serdes/meta:
+- id: h5F2EjHsRd73Dqqh8sAtd
+  label: basic_aggregations
+  model: Card

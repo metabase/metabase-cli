@@ -1,6 +1,6 @@
 # Template tags — full reference
 
-Every template-tag body, the widget-type vocabulary, and the parameter-object shapes. The main skill covers the two you author most (field filter, raw variable); this is the rest plus the exhaustive field lists.
+Every template-tag body, the widget-type vocabulary, and the parameter-object shapes. The main skill covers the two you author most (field filter, raw variable); this is the rest plus the exhaustive field lists. Bodies are shown in the run form `mb query` sends; in a file, a field is `[database, schema, table, field]` and a card or snippet is its `entity_id` (`mbql`, "From the run form to the file form").
 
 ## Template-tag bodies by `type`
 
@@ -46,16 +46,16 @@ SQL: `{{min_total}}`, spliced literally — you write the operator (`total > {{m
 }
 ```
 
-| Field         | Req | Notes                                                                                                                                                  |
-| ------------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `type`        | ✓   | `"dimension"`                                                                                                                                          |
-| `dimension`   | ✓   | field ref `["field", {}, <id>]` — options object second, id third (the `mbql` rule); the legacy `["field", <id>, null]` form is rejected by pre-flight |
-| `widget-type` | ✓   | the widget/operator; must suit the column type (table below)                                                                                           |
-| `default`     | —   | e.g. a value, or a `["2024-01-01","2024-12-31"]` range                                                                                                 |
-| `options`     | —   | filter options map (e.g. case sensitivity), usually `null`                                                                                             |
-| `alias`       | —   | set when the column comes from an aliased table in the SQL                                                                                             |
+| Field         | Req | Notes                                                                                                                                       |
+| ------------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`        | ✓   | `"dimension"`                                                                                                                               |
+| `dimension`   | ✓   | field ref `["field", {}, <field>]`, options object second, field third (the `mbql` rule); `["field", <id>, null]` is rejected by pre-flight |
+| `widget-type` | ✓   | the widget/operator; must suit the column type (table below)                                                                                |
+| `default`     | —   | e.g. a value, or a `["2024-01-01","2024-12-31"]` range                                                                                      |
+| `options`     | —   | filter options map (e.g. case sensitivity), usually `null`                                                                                  |
+| `alias`       | —   | set when the column comes from an aliased table in the SQL                                                                                  |
 
-SQL: bare — `WHERE {{status}}`. Never `WHERE status = {{status}}`. On write, send `{}` for the ref's options; the server fills a `lib/uuid` and the card reads back `["field", {"lib/uuid": "…"}, <id>]`.
+SQL: bare — `WHERE {{status}}`. Never `WHERE status = {{status}}`. Write `{}` for the ref's options; a card read back from the instance may carry `["field", {"lib/uuid": "…"}, <id>]`.
 
 ### Snippet — `snippet`
 
@@ -70,7 +70,7 @@ SQL: bare — `WHERE {{status}}`. Never `WHERE status = {{status}}`. On write, s
 }
 ```
 
-SQL: `{{snippet: Active Rows}}`. Create/manage the fragment with `mb snippet` (`content` is bare SQL). No user value.
+SQL: `{{snippet: Active Rows}}`. The fragment is a snippet file under `collections/snippets/` (`content` is bare SQL); in a card file `snippet-id` is its `entity_id`. No user value.
 
 ### Card reference — `card`
 
@@ -84,19 +84,19 @@ SQL: `{{snippet: Active Rows}}`. Create/manage the fragment with `mb snippet` (`
 }
 ```
 
-SQL: `{{#42}}` or `{{#42-slug}}`, used where a table/subquery goes (`FROM {{#42}}`, `WITH x AS {{#42}}`). Runs with the referenced card's own defaults; no user value.
+SQL: `{{#42}}` or `{{#42-slug}}`, used where a table/subquery goes (`FROM {{#42}}`, `WITH x AS {{#42}}`); the number is the card's id on the instance. In a card file `card-id` is the card's `entity_id`. Runs with the referenced card's own defaults; no user value.
 
 <!-- requires: nativeTableTemplateTag -->
 
 ### Source table — `table`
 
-A niche type that references a warehouse table by id (`{type: "table", table-id: <id>}`, optional `source-filters`) where a table/subquery goes — analogous to a card reference but pointing at a raw table. Reach for a card reference (`card`) unless you specifically need a bare-table source tag.
+A niche type that references a warehouse table (`{type: "table", table-id: <id>}`, in a file `table-id: [database, schema, table]`; optional `source-filters`) where a table/subquery goes — analogous to a card reference but pointing at a raw table. Reach for a card reference (`card`) unless you specifically need a bare-table source tag.
 
 <!-- /requires -->
 
 ### Temporal unit — `temporal-unit`
 
-A widget that lets the viewer pick the time bucket (day/week/month/…) for a datetime column. Body mirrors a field filter (`dimension` legacy ref, optional `alias`) with `type: "temporal-unit"`.
+A widget that lets the viewer pick the time bucket (day/week/month/…) for a datetime column. Body mirrors a field filter (`dimension` field ref, optional `default` unit such as `month`, optional `alias` when the SQL aliases the table) with `type: "temporal-unit"`.
 
 ## `widget-type` by column type
 
@@ -117,7 +117,7 @@ Closed enum — same vocabulary as a dashboard parameter `type`. Pick one whose 
 
 Same object, two contexts. `target` links the parameter to a template tag: `["dimension", ["template-tag", "<name>"]]` for a field filter, `["variable", ["template-tag", "<name>"]]` for a raw variable.
 
-**Declared** — in the card's `parameters` array, to set a default or a dropdown source:
+**Declared** — in the card file's `parameters` array, to set a default or a dropdown source:
 
 ```json
 {
@@ -132,7 +132,7 @@ Same object, two contexts. `target` links the parameter to a template tag: `["di
 }
 ```
 
-`values_source_type`: omit to pull live distinct values from the bound field; `"static-list"` + `values_source_config.values` for a fixed list; `"card"` + `{card_id, value_field, label_field}` to source from a query.
+`values_source_type`: omit to pull live distinct values from the bound field; `"static-list"` + `values_source_config.values` for a fixed list; `"card"` + `{card_id, value_field, label_field}` to source from a query (`card_id` is the card's `entity_id` in a file).
 
 **Runtime** — passed to `card query --parameters`; carries a `value`, no source config:
 
@@ -142,41 +142,49 @@ Same object, two contexts. `target` links the parameter to a template tag: `["di
 
 The runtime `type` is the value's type, not the tag's. Date ranges pass as `"value": ["2024-01-01", "2024-12-31"]`. Omit a parameter entirely to leave an optional (`[[ ]]`) clause out.
 
-## Full native card body
+## Full native card file
 
-What `mb card create --file` consumes:
+`collections/main/<collection>/active_orders_by_status.yaml`, ids from `mb entity-id` and `mb uuid`:
 
-```json
-{
-  "name": "Active orders by status",
-  "display": "table",
-  "visualization_settings": {},
-  "dataset_query": {
-    "lib/type": "mbql/query",
-    "database": 1,
-    "stages": [
-      {
-        "lib/type": "mbql.stage/native",
-        "native": "SELECT status, count(*) FROM orders WHERE total > {{min_total}} [[AND {{status}}]] GROUP BY status",
-        "template-tags": {
-          "min_total": {
-            "id": "<uuid>",
-            "name": "min_total",
-            "display-name": "Minimum total",
-            "type": "number",
-            "default": "0"
-          },
-          "status": {
-            "id": "<uuid>",
-            "name": "status",
-            "display-name": "Status",
-            "type": "dimension",
-            "dimension": ["field", {}, 141],
-            "widget-type": "string/="
-          }
-        }
-      }
-    ]
-  }
-}
+```yaml
+name: Active orders by status
+entity_id: <mb entity-id>
+creator_id: <email>
+type: question
+display: table
+collection_id: <collection entity_id>
+visualization_settings: {}
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/native
+      native: |-
+        SELECT status, count(*) AS n
+        FROM orders
+        WHERE total > {{min_total}}
+          [[AND {{status}}]]
+        GROUP BY status
+      template-tags:
+        min_total:
+          id: <mb uuid>
+          name: min_total
+          display-name: Minimum total
+          type: number
+          default: "0"
+        status:
+          id: <mb uuid>
+          name: status
+          display-name: Status
+          type: dimension
+          dimension: [field, {}, [Sample Database, PUBLIC, ORDERS, STATUS]]
+          widget-type: string/=
+parameters: []
+parameter_mappings: []
+serdes/meta:
+  - id: <the same entity_id>
+    label: active_orders_by_status
+    model: Card
 ```
+
+`mb validate` the file, then the loop in `core` puts it on the instance.

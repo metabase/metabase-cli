@@ -4,7 +4,7 @@ import type { ResourceView } from "../../output/view";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
 import { windowList } from "../../output/window";
-import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";
+import { listFlags, outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 const BranchRow = z.object({ name: z.string() });
@@ -20,7 +20,7 @@ const SyncBranchListEnvelope = listEnvelopeSchema(BranchRow);
 export default defineMetabaseCommand({
   meta: { name: "branches", description: "List branches on the configured git remote" },
   requires: ["gitSync.branches"],
-  args: { ...outputFlags, ...listFlags, ...profileFlag, ...connectionFlags },
+  args: { ...outputFlags, ...listFlags, ...preflightFlag },
   outputSchema: SyncBranchListEnvelope,
   examples: ["mb git-sync branches", "mb git-sync branches --json"],
   async run({ ctx, getClient }) {

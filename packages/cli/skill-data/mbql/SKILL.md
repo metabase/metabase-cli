@@ -1,12 +1,19 @@
 ---
 name: mbql
-description: Author and debug MBQL query bodies for the `mb` CLI — the only hand-authorable query format. Covers the JSON shape (flat numeric-id stages, options-object-second clauses, optional lib/uuid), joins and FK traversal, multi-stage pipelines, aggregation naming, the flat-vs-legacy-envelope footgun, and the print-schema → dry-run → run validation loop. Use when writing or fixing any query body — `mb query`, a card's `dataset_query`, a transform's `source.query`, or a segment/measure `definition` — or when `--dry-run`/run reports validation errors. Triggers — "write an MBQL query", "the dataset_query is wrong", "aggregate and group by", "join two tables", "month-over-month".
+description: Author and debug MBQL queries, the structured query format, in both forms it takes. The run form (`mb query`, numeric ids) is for probing and the dry-run loop; the file form (natural keys and entity ids) is what a card's `dataset_query`, a transform's `source.query`, and a segment or measure `definition` hold. Covers the stage shape, options-object-second clauses, `lib/uuid`, joins and FK traversal, multi-stage pipelines, aggregation naming, and moving a query from one form to the other.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
 # MBQL
 
-MBQL is the query format you author by hand — it has a bundled JSON Schema, so the CLI pre-flight-validates it before sending. A native SQL query is **also** MBQL: its single stage is `mbql.stage/native` (raw SQL) instead of `mbql.stage/mbql` (structured), so it's pre-flight-validated the same way (its SQL string aside) — see `native-sql`. Only the legacy flat forms below skip validation.
+MBQL is the query format you author by hand. A native SQL query is also MBQL: its single stage is `mbql.stage/native` (raw SQL) instead of `mbql.stage/mbql` (structured); see `native-sql`.
+
+It takes two forms with one structure:
+
+- **The run form**, what `mb query` sends: numeric ids for the database, tables, fields and cards. The CLI checks it against a bundled JSON Schema before sending. Use it to probe and to prove a query runs.
+- **The file form**, what a content file holds: the database by name, tables and fields by natural key, cards, metrics, measures and segments by `entity_id` (`mb skills get metabase-representation-format`). `mb validate` checks it.
+
+Write a query in the run form, iterate until it returns the right rows, then write it into the file in the file form (below).
 
 Prefer a **structured** stage over a native SQL stage: portable across warehouse engines. Try it first; fall back to a native stage when structured MBQL can't express what you need, or when a structured body keeps failing server-side and you can't resolve it. For native SQL with parameters (template tags, field filters, snippets), load `native-sql`.
 
@@ -31,9 +38,9 @@ A flat object — `lib/type`, a numeric `database` id, and an ordered `stages` a
 }
 ```
 
-- **Numeric ids only.** `database`, `source-table`, and field ids are integers from `mb database list` / `mb table get <id> --include fields`. (Git-sync YAML uses _names_ like `[Sample Database, PUBLIC, ORDERS]`; the `/api/dataset` form uses numeric ids — don't mix them.)
-- **First stage** carries `source-table` (a table id) or `source-card` (a saved card). Later stages omit both and read the previous stage's output columns by name.
-- `source-card` references a saved card by its **numeric id** (from `mb card list`), not its string entity id; downstream fields are referenced by column name (string), not a field id.
+- **Run form: numeric ids.** `database`, `source-table`, and field ids are integers from `mb db list` and `mb table get <id> --include fields`. Never mix in a name.
+- **First stage** carries `source-table` or `source-card`. Later stages omit both and read the previous stage's output columns by name.
+- `source-card` in the run form is the card's numeric id (`mb card list`, or `mb eid --model card <entity_id>`); downstream fields are referenced by column name (string), not a field id.
 
 ## The one rule that trips everyone: options object is **second**
 
@@ -66,14 +73,14 @@ Set an explicit `lib/uuid` only when you must **reference a clause from elsewher
 
 When you do need one, **always mint it with `mb uuid` — never write, guess, or copy a UUID yourself.** A hand-authored value is rejected pre-flight as not-a-v4 (`"a1"`, `"uuid-1"`, `"agg-uuid-001"` → ``must be a UUID v4 (RFC 4122) — run `mb uuid` ``), or if it looks valid risks colliding with another clause. Mint just the few you reference (`mb uuid --count 2 --json`; this also covers native template-tag ids and any other `format: "uuid"` slot).
 
-## Authoring loop: print-schema → dry-run → run
+## Authoring loop: print-schema, dry-run, run
 
 `mb query` is the canonical authoring surface. Three modes:
 
 ```bash
-mb query --print-schema --profile <n> > ./.scratch/mbql-schema.json   # 1. fetch the schema
-mb query --file q.json --dry-run --profile <n>                  # 2. validate, no network
-mb query --file q.json --profile <n> --json                     # 3. validate + run
+mb query --print-schema > ./.scratch/mbql-schema.json   # 1. fetch the schema
+mb query --file ./.scratch/q.json --dry-run             # 2. validate, no network
+mb query --file ./.scratch/q.json --json                # 3. validate and run
 ```
 
 - `--print-schema` emits `{ schema, defs }` where `defs` carries `id.yaml` / `parameter.yaml` / `ref.yaml` / `temporal_bucketing.yaml` keyed by the path used in the schema's `$ref`s. Read it first for any non-trivial query — cheaper than guess-and-fail.
@@ -91,19 +98,33 @@ mb query --file q.json --profile <n> --json                     # 3. validate + 
 
 A successful run emits the compact envelope by default: `data.rows` + slim `data.cols` (`name`, `display_name`, `base_type`, `semantic_type`). Pass `--full` for the raw `/api/dataset` envelope (`results_metadata`, `native_form`, per-column fingerprints/`field_ref`) only when you need that metadata; `--fields data.rows` narrows to rows alone. `mb query` also runs a native query — author it as an `mbql.stage/native` stage (pre-flight-validated like any MBQL body; see `native-sql`).
 
-`--skip-validate` bypasses pre-flight and sends as-is — use only when the bundled schema disagrees with what the server actually accepts (drift / false negative). Mutually exclusive with `--dry-run`. Same flag exists on `card create/update` and `transform create/update`.
+`--skip-validate` bypasses pre-flight and sends as-is — use only when the bundled schema disagrees with what the server actually accepts (drift / false negative). Mutually exclusive with `--dry-run`.
 
-## Where the query is consumed
+## Where the query lives in a file
 
-The same body and pre-flight apply everywhere a query is embedded. Each pre-flights only when the value is the `mbql/query` shape (`lib/type: "mbql/query"`); legacy shapes skip it; `--skip-validate` bypasses.
+| File      | The query lives at                             | Notes                                                              |
+| --------- | ---------------------------------------------- | ------------------------------------------------------------------ |
+| Card      | `dataset_query`                                | the flat `mbql/query`, see the footgun below                       |
+| Transform | `source.query` (when `source.type` is `query`) | materializes to a warehouse table                                  |
+| Measure   | `definition`                                   | one stage, `source-table`, exactly one `aggregation`, no `filters` |
+| Segment   | `definition`                                   | one stage, `source-table` and `filters`                            |
 
-| Command                                 | The query lives at                             | Notes                                       |
-| --------------------------------------- | ---------------------------------------------- | ------------------------------------------- |
-| `mb query`                              | the whole body                                 | ad-hoc run against `/api/dataset`           |
-| `card create` / `card update`           | `dataset_query`                                | a **flat** `mbql/query` — see footgun below |
-| `transform create` / `transform update` | `source.query` (when `source.type` is `query`) | materializes to a warehouse table           |
-| `measure create` / `measure update`     | `definition`                                   | exactly one `aggregation`, no `filters`     |
-| `segment create` / `segment update`     | `definition`                                   | filter macro tied to a table                |
+## From the run form to the file form
+
+The structure, operators, options and stages stay; only the references change.
+
+| Run form                                                                      | File form                                                      |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `"database": 1`                                                               | `database: Sample Database`                                    |
+| `"source-table": 7`                                                           | `source-table: [Sample Database, PUBLIC, ORDERS]`              |
+| `["field", {}, 22]`                                                           | `[field, {}, [Sample Database, PUBLIC, ORDERS, CREATED_AT]]`   |
+| `{"source-field": 1711}`                                                      | `source-field: [Sample Database, PUBLIC, ORDERS, CUSTOMER_ID]` |
+| `"source-card": 12`                                                           | `source-card: <the card's entity_id>`                          |
+| `["metric", {}, 301]`, `["measure", {}, 5]`                                   | `[metric, {}, <entity_id>]`, `[measure, {}, <entity_id>]`      |
+| `["segment", {}, 12]`                                                         | `[segment, {}, <entity_id>]`                                   |
+| a field of a later stage: `["field", {"base-type": "type/Integer"}, "count"]` | unchanged: a column name stays a name                          |
+
+Names come from `.metadata/databases/` (`metabase-database-metadata`) or `mb table get <id> --include fields`; an `entity_id` comes from the entity's file, or `mb card get <id> --fields entity_id`. The `lib/uuid` values and aggregation references carry over as they are. A schemaless database writes `null` for the schema. After writing, `mb validate <file>`; after the import, `mb card query <id>` proves the stored query runs.
 
 ## Footgun: `dataset_query` is the flat mbql/query, not a legacy envelope
 
@@ -118,16 +139,16 @@ The most common mistake. The legacy shape `{ "type": "query", "database": N, "qu
 }
 ```
 
-No `type:"query"` wrapper, no `query:` nesting. If you wrap the query inside a legacy envelope the CLI rejects it pre-send with a `ConfigError` (no `--skip-validate` gets it past). If it reached the server it would store silently and fail at run time with `Initial MBQL stage must have either :source-table or :source-card`.
+No `type:"query"` wrapper, no `query:` nesting. A file with the legacy envelope fails `mb validate`; if it reached the server it would fail at run time with `Initial MBQL stage must have either :source-table or :source-card`.
 
 ## Legacy formats you may encounter
 
-Queries created long ago may carry a different envelope (sometimes called MBQL 4 / "legacy MBQL"); the `mbql/query` shape above is what the server stores and returns. You won't author the legacy shapes, but you may see them in old content. Anything not `lib/type: "mbql/query"` is sent as-is and normalized server-side — you lose validation, so don't author these:
+Some saved content carries a different envelope (MBQL 4, "legacy MBQL"); the `mbql/query` shape above is what the server stores and returns. You won't author the legacy shapes, but you may see them. Anything not `lib/type: "mbql/query"` is sent as-is and normalized server-side — you lose validation, so don't author these:
 
 - **Legacy structured** — `{ "type": "query", "database": N, "query": { "source-table": T, … } }`
 - **Flat native** — `{ "type": "native", "database": N, "native": { "query": "SELECT …" } }` — the server accepts it, but author the native stage instead (`native-sql`).
 
-`mb query --file probe.json` runs these directly; `--dry-run` on them returns `{ ok: true, errors: [] }`. Don't author them by hand — build a legacy or complex query in the Metabase UI and pull the body with `mb card get <id> --full --json` / `mb transform get <id> --full --json` (which returns the `mbql/query` shape).
+`mb query --file probe.json` runs these directly; `--dry-run` on them returns `{ ok: true, errors: [] }`. To start from a query someone built in the Metabase UI, pull its run form with `mb card get <id> --full --json` or `mb transform get <id> --full --json` (the `mbql/query` shape) and translate it.
 
 ## Joins and FK traversal
 

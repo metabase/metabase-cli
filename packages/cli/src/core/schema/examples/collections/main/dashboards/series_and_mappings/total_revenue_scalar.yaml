@@ -1,0 +1,31 @@
+name: Total Revenue
+entity_id: dShCrdTtlRevScalr0006
+creator_id: admin@example.com
+display: scalar
+type: question
+database_id: Sample Database
+dashboard_id: 8xFV0XmZs2olbGKXWenfS
+collection_id: cOlDaShBoArDs0ExAmPlx
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    aggregation:
+    - - sum
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+visualization_settings: {}
+serdes/meta:
+- id: dShCrdTtlRevScalr0006
+  label: total_revenue_scalar
+  model: Card

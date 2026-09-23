@@ -1,0 +1,8 @@
+name: Active Product Filter
+entity_id: WyQWnT23PF-SfbYLROllJ
+creator_id: admin@example.com
+content: "\"CREATED_AT\" >= DATETIME('now', '-1 year') AND \"total_revenue\" > 100"
+serdes/meta:
+- id: WyQWnT23PF-SfbYLROllJ
+  label: active_product_filter
+  model: NativeQuerySnippet

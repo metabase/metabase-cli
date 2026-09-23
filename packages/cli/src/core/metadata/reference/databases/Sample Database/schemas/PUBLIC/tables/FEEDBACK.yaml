@@ -1,0 +1,36 @@
+name: FEEDBACK
+schema: PUBLIC
+description: With each order of pies sent out, Piespace includes a place for customers to submit feedback and review their order.
+db_id: Sample Database
+fields:
+  - name: ID
+    base_type: type/BigInteger
+    database_type: BIGINT
+    semantic_type: type/PK
+  - name: RATING
+    base_type: type/Integer
+    database_type: SMALLINT
+    semantic_type: type/Score
+  - name: RATING_MAPPED
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Category
+  - name: ACCOUNT_ID
+    base_type: type/BigInteger
+    database_type: BIGINT
+    semantic_type: type/FK
+    fk_target_field_id:
+      - Sample Database
+      - PUBLIC
+      - ACCOUNTS
+      - ID
+  - name: EMAIL
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Email
+  - name: DATE_RECEIVED
+    base_type: type/DateTime
+    database_type: TIMESTAMP
+  - name: BODY
+    base_type: type/Text
+    database_type: CHARACTER LARGE OBJECT

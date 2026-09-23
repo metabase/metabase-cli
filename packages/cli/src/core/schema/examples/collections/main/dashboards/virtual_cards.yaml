@@ -1,0 +1,128 @@
+name: Virtual Cards Dashboard
+entity_id: Ylbpm_iPeEYav_o0kpUVD
+creator_id: admin@example.com
+collection_id: cOlDaShBoArDs0ExAmPlx
+parameters:
+- id: 9d9cddd4
+  name: Product Category
+  slug: product_category
+  type: string/=
+  sectionId: string
+tabs: []
+dashcards:
+- entity_id: WcNpxqVEO_rIeWZwjYv7Z
+  card_id: null
+  row: 0
+  col: 0
+  size_x: 24
+  size_y: 1
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    virtual_card:
+      display: heading
+    text: Sales Overview
+  serdes/meta:
+  - id: Ylbpm_iPeEYav_o0kpUVD
+    model: Dashboard
+  - id: WcNpxqVEO_rIeWZwjYv7Z
+    model: DashboardCard
+- entity_id: TF6Oiw2C13CgEKtPyHIow
+  card_id: null
+  row: 1
+  col: 0
+  size_x: 12
+  size_y: 3
+  parameter_mappings:
+  - parameter_id: 9d9cddd4
+    target:
+    - text-tag
+    - product_category
+  series: []
+  visualization_settings:
+    virtual_card:
+      display: text
+    text: |-
+      This dashboard provides an overview of sales metrics for {{product_category}}.
+      **Key metrics** include revenue, order count, and average order value.
+      Use the filters above to narrow down the data.
+  serdes/meta:
+  - id: Ylbpm_iPeEYav_o0kpUVD
+    model: Dashboard
+  - id: TF6Oiw2C13CgEKtPyHIow
+    model: DashboardCard
+- entity_id: oGC6qBNiHOKo0tWAHWC1m
+  card_id: null
+  row: 1
+  col: 12
+  size_x: 8
+  size_y: 1
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    virtual_card:
+      display: link
+    link:
+      url: "https://metabase.com/docs"
+  serdes/meta:
+  - id: Ylbpm_iPeEYav_o0kpUVD
+    model: Dashboard
+  - id: oGC6qBNiHOKo0tWAHWC1m
+    model: DashboardCard
+- entity_id: 7jlJ-VFISvhlHqxeW7rWp
+  card_id: null
+  row: 2
+  col: 12
+  size_x: 8
+  size_y: 1
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    virtual_card:
+      display: link
+    link:
+      entity:
+        id: Q_jD-f-9clKLFZ2TfUG2h
+        model: dashboard
+  serdes/meta:
+  - id: Ylbpm_iPeEYav_o0kpUVD
+    model: Dashboard
+  - id: 7jlJ-VFISvhlHqxeW7rWp
+    model: DashboardCard
+- entity_id: wn16Kfjjjik8153kj14yI
+  card_id: null
+  row: 4
+  col: 0
+  size_x: 12
+  size_y: 8
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    virtual_card:
+      display: iframe
+    iframe: '<iframe src="https://example.com/embed" width="100%" height="400"></iframe>'
+  serdes/meta:
+  - id: Ylbpm_iPeEYav_o0kpUVD
+    model: Dashboard
+  - id: wn16Kfjjjik8153kj14yI
+    model: DashboardCard
+- entity_id: HZ_JpYrkE8fMEYJg93RKd
+  card_id: null
+  row: 5
+  col: 12
+  size_x: 4
+  size_y: 4
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    virtual_card:
+      display: placeholder
+  serdes/meta:
+  - id: Ylbpm_iPeEYav_o0kpUVD
+    model: Dashboard
+  - id: HZ_JpYrkE8fMEYJg93RKd
+    model: DashboardCard
+serdes/meta:
+- id: Ylbpm_iPeEYav_o0kpUVD
+  label: virtual_cards
+  model: Dashboard

@@ -1,0 +1,42 @@
+name: Product Summary
+entity_id: rT5vWxYz1aBcDeFgHiJkL
+creator_id: admin@example.com
+source_database_id: Sample Database
+source:
+  type: query
+  query:
+    "lib/type": mbql/query
+    database: Sample Database
+    stages:
+      - "lib/type": mbql.stage/mbql
+        source-table:
+        - Sample Database
+        - null
+        - PRODUCTS
+        aggregation:
+        - - count
+          - {}
+        - - avg
+          - {}
+          - - field
+            - base-type: type/Float
+            - - Sample Database
+              - null
+              - PRODUCTS
+              - PRICE
+        breakout:
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - CATEGORY
+target:
+  database: Sample Database
+  type: table
+  schema: TRANSFORMS
+  name: product_summary
+serdes/meta:
+- id: rT5vWxYz1aBcDeFgHiJkL
+  label: product_summary
+  model: Transform

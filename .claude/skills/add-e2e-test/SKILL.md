@@ -14,7 +14,7 @@ The tier is workspace-wide: it lives at the repo root under `tests/e2e/`, not in
 Before generating anything, anchor to the existing harness:
 
 1. `ls tests/e2e/` — see the layout and existing nouns.
-2. Read **one** existing e2e test end-to-end (e.g. `tests/e2e/auth.e2e.test.ts`).
+2. Read **one** existing e2e test end-to-end (e.g. `tests/e2e/card.e2e.test.ts`).
 3. Read the harness modules every later step reaches for:
    - `tests/e2e/run-cli.ts` — the only sanctioned way to invoke the CLI.
    - `tests/e2e/bootstrap-data.ts` — the `Bootstrap` schema you must NOT redeclare.
@@ -44,10 +44,10 @@ You must follow all of these. Each rule has bitten the harness before.
 **1. Invoke the CLI only via `runCli`.**
 
 ```ts
-import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { runCli } from "./run-cli";
 ```
 
-- `runCli({ args, configHome, env, stdin, timeoutMs })` spawns `node packages/cli/dist/cli.mjs` via `execa` with an isolated `XDG_CONFIG_HOME`, `MB_CLI_DISABLE_KEYRING=1`, and stripped env (no inherited `MB_*`/`METABASE_*`).
+- `runCli({ args, env, stdin, timeoutMs })` spawns `node packages/cli/dist/cli.mjs` via `execa` with a per-file temporary `XDG_CACHE_HOME` (`CACHE_HOME`, the CLI's probe cache) and a stripped env (no inherited `MB_*`).
 - **Do not** import `execa`, `child_process`, `node:child_process`, or `spawn` directly.
 - **Do not** call `fetch` against the Metabase instance. Bootstrap owns network setup; tests drive the CLI.
 - **Do not** spread `process.env` into the `env` param. `env: process.env`, `env: { ...process.env, ... }`, and friends defeat the entire isolation guarantee — they let developer-shell `METABASE_*` leak into the test. Pass only the explicit keys you need.
@@ -115,25 +115,9 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
 
   A feature the suite needs that no rule names yet is added to `FEATURE_RULES` in `packages/client/src/version/features.ts`, named after the behaviour and verified against the Metabase release branches — never as a version comparison in the test. `serverRejectedMessage()` and `invalidDatabaseRejection(...)` in `server-gate.ts` are the shared branches for two such facts.
 
-- A suite that needs the CLI to see a particular server version — the skew notices, the re-probe — seeds a profile record with `seedProbedProfile` / `seedProbedProfileAt` from `tests/e2e/seed-profile.ts` rather than talking to a different server.
+- A suite that needs the CLI to see a particular server version — the skew notices, the re-probe — seeds the probe cache with `seedCachedProbe` / `seedCachedProbeAt` from `tests/e2e/seed-probe.ts` rather than talking to a different server, and `clearCachedProbes` when it must see none. A broker is an in-process `node:http` fixture (`startBrokerFixture` in `packages/cli/src/core/broker-fixture.ts`).
 
-**3. Each test gets its own config home.**
-
-```ts
-const tempDirs: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
-});
-
-async function makeIsolatedConfigHome(): Promise<string> {
-  const dir = await mkTempConfigHome();
-  tempDirs.push(dir);
-  return dir;
-}
-```
-
-- One `XDG_CONFIG_HOME` per test, drained in `afterEach`. Sharing a config home across tests leaks profile state and is a flake source.
+**3. Credentials go through `env`.** `runCli({ env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey } })`, never argv. A test that must run without a credential passes no `env`.
 
 **4. Every test starts from the restored snapshot.**
 
@@ -151,15 +135,15 @@ The schema is the contract. Import it from the production source — never redec
 ```ts
 import { parseJson } from "@metabase/client/json";
 
-import { LoginResult } from "../../packages/cli/src/commands/auth/login";
+import { TreeValidationReport } from "../../packages/cli/src/commands/validate";
 
-const result = parseJson(login.stdout, LoginResult);
-expect(result).toEqual({ profile: "default", ...});
+const report = parseJson(result.stdout, TreeValidationReport);
+expect(report).toEqual({ ok: true, checked: 1, passed: 1, failed: 0, results: [...] });
 ```
 
 If the command emits a single domain resource, import the `<Resource>` / `<Resource>Compact` schema from `@metabase/client/domain/<r>`. **For list commands, import the `<Resource>ListEnvelope` from the command file itself** (`packages/cli/src/commands/<noun>/list.ts` exports it as a named const built from `listEnvelopeSchema(<Resource>Compact)`). Never redeclare a `z.object({ data, returned, offset, limit, total, has_more, next_offset, truncated })` envelope inline — the envelope shape is owned by `packages/cli/src/output/types.ts:listEnvelopeSchema` and threaded through the command's `outputSchema`. Tests reuse production schemas; copying any shape into the test is silent drift the type-checker can't catch.
 
-Which package a schema belongs to is a boundary question, not a stylistic one. A Metabase API resource is client surface and lives in `packages/client/src/domain/`; a shape that exists only because a command renders it that way (`LoginResult`, `AuthStatus`, `<Resource>ListEnvelope`) is CLI surface and lives with its command. Import from wherever it actually is — do not mirror it into the other package to shorten the specifier.
+Which package a schema belongs to is a boundary question, not a stylistic one. A Metabase API resource is client surface and lives in `packages/client/src/domain/`; a shape that exists only because a command renders it that way (`TreeValidationReport`, `MetadataExtractResult`, `<Resource>ListEnvelope`) is CLI surface and lives with its command. Import from wherever it actually is — do not mirror it into the other package to shorten the specifier.
 
 **5b. Assertion strictness.** Every assertion is exact:
 
@@ -201,38 +185,24 @@ import { resolveE2EBaseUrl } from "./defaults";
 ## Skeleton
 
 ```ts
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { parseJson } from "@metabase/client/json";
 
-import { LoginResult } from "../../packages/cli/src/commands/auth/login";
+import { CardListEnvelope } from "../../packages/cli/src/commands/card/list";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
-import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { runCli } from "./run-cli";
 
 describe("<noun> e2e", () => {
   let bootstrap: E2EBootstrap;
-  const tempDirs: string[] = [];
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
   });
 
-  afterEach(async () => {
-    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
-  });
-
-  async function makeIsolatedConfigHome(): Promise<string> {
-    const dir = await mkTempConfigHome();
-    tempDirs.push(dir);
-    return dir;
-  }
-
   it("does the thing", async () => {
-    const configHome = await makeIsolatedConfigHome();
-
     const result = await runCli({
       args: ["<noun>", "<verb>", "--json"],
-      configHome,
       env: {
         MB_URL: bootstrap.baseUrl,
         MB_API_KEY: bootstrap.adminApiKey,
@@ -325,13 +295,12 @@ If you did **not** run the e2e suite (it requires `bun run e2e:up && bun run e2e
 
 - [ ] Step 0 (read existing e2e file + harness) was actually performed.
 - [ ] File path is `tests/e2e/<noun>.e2e.test.ts` (note `.e2e.test.ts`).
-- [ ] Imports `runCli`, `mkTempConfigHome`, `cleanupConfigHome` from `./run-cli`. No `execa`/`child_process`/`fetch` import.
+- [ ] Imports `runCli` from `./run-cli`. No `execa`/`child_process`/`fetch` import.
 - [ ] Reads creds via `readBootstrap()`. No hard-coded API keys, no `Bootstrap` schema redeclaration, no setup-wizard call.
 - [ ] Seeded entity ids come from `SEEDED` (`./seed/seeded`) or `./seed/ids`; no literal id anywhere.
 - [ ] If any method the command calls needs a feature, the suite gates on `requireServer("<lane>", ["<feature>"])` via `describe.skipIf`, with a lane label naming what the gate guards; where generations answer differently, it branches with `serverHas("<feature>")` and asserts each outcome exactly.
 - [ ] No `vi.mock` / `vi.spyOn` / `vi.hoisted` / `vi.fn` anywhere in the file.
 - [ ] No `process.env` spread into `runCli({ env: ... })`. Only the explicit keys the test needs.
-- [ ] Per-test `makeIsolatedConfigHome()` pattern with `tempDirs` + `afterEach` cleanup.
 - [ ] `--json` assertions go through `parseJson(stdout, <Schema>)` (`parseJson` from `@metabase/client/json`) where `<Schema>` is imported from `@metabase/client/domain/...` or `../../packages/cli/src/commands/...`.
 - [ ] Does not call `/api/testing/snapshot` or `/api/testing/restore`.
 - [ ] If license-touching: token only as opaque stdin; existence check via `=== undefined`; no logging/snapshotting/asserting on the value.

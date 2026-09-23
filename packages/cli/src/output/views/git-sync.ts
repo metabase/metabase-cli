@@ -1,17 +1,46 @@
 import {
-  SyncBranchCreated,
   type SyncDirtyItem,
   SyncDirtyItemCompact,
-  SyncExportResult,
   SyncImportResult,
   SyncRemoteChanges,
-  SyncSettingsUpdateResult,
-  SyncStashResult,
   type SyncTask,
   SyncTaskCompact,
+  SyncTree,
+  type SyncTreeCollection,
 } from "@metabase/client/domain/git-sync";
 
 import type { ResourceView } from "../view";
+
+const TREE_INDENT = "  ";
+
+export const syncTreeView: ResourceView<SyncTree> = {
+  compactPick: SyncTree,
+  tableColumns: [{ key: "collections", label: "Collections" }],
+};
+
+/** The synced collections as an indented outline, each followed by the items directly inside it. */
+export function formatSyncTree(tree: SyncTree): string {
+  if (tree.collections.length === 0) {
+    return "No collections are marked for sync.";
+  }
+  const childrenOf = (parentId: number | null): SyncTreeCollection[] =>
+    tree.collections.filter((collection) => collection.parent_id === parentId);
+  const lines: string[] = [];
+  const visit = (collection: SyncTreeCollection, depth: number): void => {
+    const indent = TREE_INDENT.repeat(depth);
+    lines.push(`${indent}${collection.name} (${collection.id})`);
+    for (const item of collection.items) {
+      lines.push(`${indent}${TREE_INDENT}${item.model}: ${item.name} (${item.id})`);
+    }
+    for (const child of childrenOf(collection.id)) {
+      visit(child, depth + 1);
+    }
+  };
+  for (const root of childrenOf(null)) {
+    visit(root, 0);
+  }
+  return lines.join("\n");
+}
 
 export const syncTaskView: ResourceView<SyncTask> = {
   compactPick: SyncTaskCompact,
@@ -46,43 +75,10 @@ export const syncRemoteChangesView: ResourceView<SyncRemoteChanges> = {
   ],
 };
 
-export const syncBranchCreatedView: ResourceView<SyncBranchCreated> = {
-  compactPick: SyncBranchCreated,
-  tableColumns: [
-    { key: "status", label: "Status" },
-    { key: "message", label: "Message" },
-  ],
-};
-
-export const syncSettingsUpdateView: ResourceView<SyncSettingsUpdateResult> = {
-  compactPick: SyncSettingsUpdateResult,
-  tableColumns: [
-    { key: "success", label: "Success" },
-    { key: "task_id", label: "Task ID" },
-  ],
-};
-
 export const syncImportView: ResourceView<SyncImportResult> = {
   compactPick: SyncImportResult,
   tableColumns: [
     { key: "task_id", label: "Task ID" },
-    { key: "message", label: "Message" },
-  ],
-};
-
-export const syncExportView: ResourceView<SyncExportResult> = {
-  compactPick: SyncExportResult,
-  tableColumns: [
-    { key: "task_id", label: "Task ID" },
-    { key: "message", label: "Message" },
-  ],
-};
-
-export const syncStashView: ResourceView<SyncStashResult> = {
-  compactPick: SyncStashResult,
-  tableColumns: [
-    { key: "task_id", label: "Task ID" },
-    { key: "status", label: "Status" },
     { key: "message", label: "Message" },
   ],
 };

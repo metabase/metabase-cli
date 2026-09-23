@@ -1,0 +1,64 @@
+name: "Temporal and Logical Filters"
+entity_id: BMx-SlSPsSfGSKaEgOzn0
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    filters:
+    - - time-interval
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - ORDERS
+          - CREATED_AT
+      - -30
+      - day
+    - - time-interval
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - ORDERS
+          - CREATED_AT
+      - current
+      - month
+    - - relative-time-interval
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - ORDERS
+          - CREATED_AT
+      - -30
+      - day
+      - -1
+      - month
+    - - not
+      - {}
+      - - is-null
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - DISCOUNT
+    limit: 20
+visualization_settings: {}
+serdes/meta:
+- id: BMx-SlSPsSfGSKaEgOzn0
+  label: temporal_and_logical_filters
+  model: Card

@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { parseJson } from "@metabase/client/json";
 
-import { connectionFlags, outputFlags, profileFlag } from "../commands/flags";
+import { outputFlags, preflightFlag } from "../commands/flags";
 import { defineCommandGroup } from "../commands/group";
 import { defineMetabaseCommand } from "../commands/runtime";
 import { setMetabaseAugment } from "../runtime/command-augment";
@@ -31,7 +31,7 @@ describe("showUsage", () => {
 
   it("strips citty's '(<command name>)' breadcrumb suffix from the description line", async () => {
     const cmd = defineCommand({
-      meta: { name: "demo", description: "Show authentication status for a profile" },
+      meta: { name: "demo", description: "Show the connected server" },
       args: { foo: { type: "string", description: "f" } },
       run() {
         return;
@@ -40,7 +40,7 @@ describe("showUsage", () => {
 
     await showUsage(cmd);
     const out = chunks.join("");
-    expect(out).toContain("Show authentication status for a profile");
+    expect(out).toContain("Show the connected server");
     expect(out).not.toMatch(/\(demo[^)]*\)/);
   });
 
@@ -65,7 +65,7 @@ describe("showUsage", () => {
       meta: { name: "demo", description: "demo cmd" },
       requires: [],
       args: {},
-      examples: ["mb demo --json", "mb demo --profile staging"],
+      examples: ["mb demo --json", "mb demo --format text"],
       outputSchema: z.object({ ok: z.boolean() }),
       run() {
         return;
@@ -76,7 +76,7 @@ describe("showUsage", () => {
     const out = chunks.join("");
     expect(out).toContain("EXAMPLES");
     expect(out).toContain("mb demo --json");
-    expect(out).toContain("mb demo --profile staging");
+    expect(out).toContain("mb demo --format text");
   });
 
   it("omits the EXAMPLES section when no examples are declared", async () => {
@@ -217,7 +217,7 @@ describe("showUsage", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "list", description: "demo list" },
       requires: [],
-      args: { ...outputFlags, ...profileFlag, ...connectionFlags },
+      args: { ...outputFlags, ...preflightFlag },
       outputSchema: z.object({ ok: z.boolean() }),
       run() {
         return;
@@ -227,10 +227,8 @@ describe("showUsage", () => {
     await showUsage(cmd);
     const out = chunks.join("");
     expect(out).toContain("--max-bytes=<max_bytes>");
-    expect(out).toContain("--api-key=<api_key>");
     expect(out).toContain("--skip-preflight");
     expect(out).not.toContain("--maxBytes");
-    expect(out).not.toContain("--apiKey");
     expect(out).not.toContain("--skipPreflight");
     expect(out).not.toMatch(/(?<!-)-max-bytes/);
     expect(out).not.toMatch(/(?<!-)-skip-preflight/);
@@ -240,7 +238,7 @@ describe("showUsage", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "list", description: "demo list" },
       requires: [],
-      args: { ...outputFlags, ...profileFlag, ...connectionFlags },
+      args: { ...outputFlags, ...preflightFlag },
       outputSchema: z.object({ ok: z.boolean() }),
       run() {
         return;
@@ -388,8 +386,10 @@ describe("showUsage", () => {
     await showUsage(leaf);
     const leafOut = chunks.join("");
 
-    expect(rootOut).toContain("First time? Run `mb auth login` to connect to a Metabase instance.");
-    expect(leafOut).not.toContain("First time?");
+    expect(rootOut).toContain(
+      "Start with `mb skills get core`; content is files in the repository, `mb validate` checks them.",
+    );
+    expect(leafOut).not.toContain("Start with");
   });
 });
 

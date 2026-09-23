@@ -1,0 +1,97 @@
+name: Inline Parameters Dashboard
+entity_id: eUXWiB6QAXkOc7P1ozoat
+creator_id: admin@example.com
+collection_id: cOlDaShBoArDs0ExAmPlx
+parameters:
+- id: d0000001-0000-0000-0000-000000000001
+  name: Category
+  slug: category
+  type: string/=
+  sectionId: string
+  default: Widget
+- id: d0000002-0000-0000-0000-000000000002
+  name: Min Price
+  slug: min_price
+  type: number/>=
+  sectionId: number
+tabs: []
+dashcards:
+- entity_id: yaY0FfjZyI9oEQQR5TZ3q
+  card_id: null
+  row: 0
+  col: 0
+  size_x: 24
+  size_y: 1
+  inline_parameters:
+  - d0000001-0000-0000-0000-000000000001
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    virtual_card:
+      display: heading
+    "text": "Products in {{category}}"
+  serdes/meta:
+  - id: eUXWiB6QAXkOc7P1ozoat
+    model: Dashboard
+  - id: yaY0FfjZyI9oEQQR5TZ3q
+    model: DashboardCard
+- entity_id: v29EoQMk66PPR6a68pe_S
+  card_id: null
+  row: 1
+  col: 0
+  size_x: 12
+  size_y: 2
+  inline_parameters:
+  - d0000001-0000-0000-0000-000000000001
+  - d0000002-0000-0000-0000-000000000002
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    virtual_card:
+      display: text
+    text: |-
+      Showing products in the **{{category}}** category
+      with price above **{{min_price}}**.
+  serdes/meta:
+  - id: eUXWiB6QAXkOc7P1ozoat
+    model: Dashboard
+  - id: v29EoQMk66PPR6a68pe_S
+    model: DashboardCard
+- entity_id: _5CQR0-k5mgaLOemB5EOl
+  card_id: h5F2EjHsRd73Dqqh8sAtd
+  row: 3
+  col: 0
+  size_x: 18
+  size_y: 9
+  parameter_mappings:
+  - card_id: h5F2EjHsRd73Dqqh8sAtd
+    parameter_id: d0000001-0000-0000-0000-000000000001
+    target:
+    - dimension
+    - - field
+      - - Sample Database
+        - null
+        - PRODUCTS
+        - CATEGORY
+      - null
+  - card_id: h5F2EjHsRd73Dqqh8sAtd
+    parameter_id: d0000002-0000-0000-0000-000000000002
+    target:
+    - dimension
+    - - field
+      - - Sample Database
+        - null
+        - PRODUCTS
+        - PRICE
+      - null
+  series: []
+  visualization_settings: {}
+  serdes/meta:
+  - id: eUXWiB6QAXkOc7P1ozoat
+    model: Dashboard
+  - id: _5CQR0-k5mgaLOemB5EOl
+    model: DashboardCard
+serdes/meta:
+- id: eUXWiB6QAXkOc7P1ozoat
+  label: inline_parameters
+  model: Dashboard

@@ -1,0 +1,10 @@
+name: Queries
+entity_id: cOlQuErIeS0ExAmPlE2x1
+slug: queries
+parent_id: null
+namespace: null
+authority_level: null
+serdes/meta:
+  - id: cOlQuErIeS0ExAmPlE2x1
+    label: queries
+    model: Collection

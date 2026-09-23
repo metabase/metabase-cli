@@ -1,0 +1,24 @@
+name: Active Recent Filter
+entity_id: c5PMqT66HwWoy0m52WTI5
+creator_id: admin@example.com
+description: Combines Active Product Filter with Date Range Filter
+content: "{{snippet: Active Product Filter}} AND {{snippet: Date Range Filter}}"
+template_tags:
+  "snippet: Active Product Filter":
+    type: snippet
+    name: "snippet: Active Product Filter"
+    id: dd000001-0000-0000-0000-000000000001
+    display-name: "Snippet: Active Product Filter"
+    snippet-name: Active Product Filter
+    snippet-id: WyQWnT23PF-SfbYLROllJ
+  "snippet: Date Range Filter":
+    type: snippet
+    name: "snippet: Date Range Filter"
+    id: dd000002-0000-0000-0000-000000000002
+    display-name: "Snippet: Date Range Filter"
+    snippet-name: Date Range Filter
+    snippet-id: jpIUEStroQyLnJ-MVfeS4
+serdes/meta:
+- id: c5PMqT66HwWoy0m52WTI5
+  label: active_recent_filter
+  model: NativeQuerySnippet

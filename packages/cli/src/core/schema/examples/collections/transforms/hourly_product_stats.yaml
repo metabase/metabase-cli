@@ -1,0 +1,49 @@
+name: Hourly Product Stats
+entity_id: aWiR53tfmHEibiFGuIQeP
+creator_id: admin@example.com
+source_database_id: Sample Database
+source:
+  type: query
+  query:
+    "lib/type": mbql/query
+    database: Sample Database
+    stages:
+      - "lib/type": mbql.stage/mbql
+        source-table:
+        - Sample Database
+        - null
+        - PRODUCTS
+        aggregation:
+        - - count
+          - {}
+        - - avg
+          - {}
+          - - field
+            - base-type: type/Float
+            - - Sample Database
+              - null
+              - PRODUCTS
+              - PRICE
+        breakout:
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - CATEGORY
+target:
+  database: Sample Database
+  type: table
+  schema: TRANSFORMS
+  name: hourly_product_stats
+tags:
+- entity_id: T3caSScVNDqFF8Q-EsM84
+  position: 0
+  tag_id: wYLcUPbtF7jVPO0duGGHR
+  serdes/meta:
+  - id: T3caSScVNDqFF8Q-EsM84
+    model: TransformTransformTag
+serdes/meta:
+- id: aWiR53tfmHEibiFGuIQeP
+  label: hourly_product_stats
+  model: Transform

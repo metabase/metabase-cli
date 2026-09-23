@@ -1,0 +1,7 @@
+name: monthly
+entity_id: DeeJHc81qKhD9qWINISO8
+built_in_type: monthly
+serdes/meta:
+- id: DeeJHc81qKhD9qWINISO8
+  label: monthly
+  model: TransformTag

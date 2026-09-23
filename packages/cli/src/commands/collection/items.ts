@@ -11,7 +11,7 @@ import { listEnvelopeSchema } from "../../output/types";
 import { collectionItemView } from "../../output/views/collection";
 import { collectForOutput } from "../../output/window";
 import { parseEnum, parseEnumCsv } from "../../runtime/csv";
-import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";
+import { listFlags, outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 import { parseCollectionRef } from "./parse-ref";
 
@@ -23,8 +23,7 @@ export default defineMetabaseCommand({
   args: {
     ...outputFlags,
     ...listFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     id: {
       type: "positional",
       description: 'Collection id, 21-char entity id, or one of: "root", "trash"',

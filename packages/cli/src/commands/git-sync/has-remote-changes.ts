@@ -2,7 +2,7 @@ import { SyncRemoteChanges } from "@metabase/client/domain/git-sync";
 
 import { renderSummary } from "../../output/render";
 import { syncRemoteChangesView } from "../../output/views/git-sync";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
@@ -13,8 +13,7 @@ export default defineMetabaseCommand({
   requires: ["gitSync.hasRemoteChanges"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     forceRefresh: {
       type: "boolean",
       description: "Bypass the in-memory cache and re-check the remote",

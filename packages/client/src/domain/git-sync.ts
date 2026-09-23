@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { CollectionItemModel } from "./collection";
+
 export const SyncTaskStatus = z.enum([
   "running",
   "successful",
@@ -154,3 +156,29 @@ export const SyncStashResult = z.object({
   final: SyncTask.nullable().optional(),
 });
 export type SyncStashResult = z.infer<typeof SyncStashResult>;
+
+// A child collection is a node of the tree rather than an item of its parent, and a published table
+// is identified in the repository by its database path, not by an entity id.
+export const SyncTreeItemModel = CollectionItemModel.exclude(["collection", "table"]);
+export type SyncTreeItemModel = z.infer<typeof SyncTreeItemModel>;
+
+export const SyncTreeItem = z.object({
+  id: z.number().int(),
+  entity_id: z.string(),
+  name: z.string(),
+  model: SyncTreeItemModel,
+});
+export type SyncTreeItem = z.infer<typeof SyncTreeItem>;
+
+// `parent_id` names the parent only when the parent is synced too; `null` marks a synced root.
+export const SyncTreeCollection = z.object({
+  id: z.number().int(),
+  entity_id: z.string(),
+  name: z.string(),
+  parent_id: z.number().int().nullable(),
+  items: z.array(SyncTreeItem),
+});
+export type SyncTreeCollection = z.infer<typeof SyncTreeCollection>;
+
+export const SyncTree = z.object({ collections: z.array(SyncTreeCollection) });
+export type SyncTree = z.infer<typeof SyncTree>;

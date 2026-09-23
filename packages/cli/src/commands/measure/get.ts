@@ -1,7 +1,7 @@
 import { Measure } from "@metabase/client/domain/measure";
 import { measureView } from "../../output/views/measure";
 import { renderItem } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -10,8 +10,7 @@ export default defineMetabaseCommand({
   requires: ["measure.get"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     id: { type: "positional", description: "Measure id", required: true },
   },
   outputSchema: Measure,

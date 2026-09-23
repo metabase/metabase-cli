@@ -1,0 +1,69 @@
+name: Desktop
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: desktop-${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: mac
+          - os: windows-latest
+            platform: win
+    env:
+      # The builds are unsigned until the signing credentials exist.
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+      - run: bun run dist:desktop:${{ matrix.platform }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: metabase-rde-${{ matrix.platform }}
+          path: |
+            packages/desktop/release/*.AppImage
+            packages/desktop/release/*.dmg
+            packages/desktop/release/*.exe
+            packages/desktop/release/*.yml
+            !packages/desktop/release/builder-debug.yml
+          if-no-files-found: error
+
+      # The AppImage extracts itself instead of mounting, so the job needs no FUSE; it still sets
+      # APPIMAGE, which the updater needs.
+      - name: Smoke the packaged app
+        if: matrix.platform == 'linux'
+        working-directory: packages/desktop
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          RDE_EVIDENCE_DIR: ${{ runner.temp }}/evidence
+        run: |
+          RDE_PACKAGED_APP="$(ls "$PWD"/release/*.AppImage)"
+          export RDE_PACKAGED_APP
+          xvfb-run -a --server-args="-screen 0 1440x900x24" bun scripts/smoke.ts
+          xvfb-run -a --server-args="-screen 0 1440x900x24" bun scripts/release-smoke.ts
+
+      - uses: actions/upload-artifact@v4
+        if: always() && matrix.platform == 'linux'
+        with:
+          name: desktop-smoke-evidence
+          path: ${{ runner.temp }}/evidence
+          if-no-files-found: ignore

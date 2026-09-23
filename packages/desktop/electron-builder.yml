@@ -1,0 +1,37 @@
+appId: com.metabase.rde
+productName: RDE
+executableName: metabase-rde
+artifactName: metabase-rde-${version}-${arch}.${ext}
+directories:
+  output: release
+files:
+  - out/**
+  - package.json
+  - "!node_modules/**"
+extraResources:
+  - from: ../cli/dist
+    to: rde-cli/dist
+  - from: ../cli/skill-data
+    to: rde-cli/skill-data
+  - from: resources/rde-cli/bin
+    to: rde-cli/bin
+  - from: build/icon.png
+    to: icon.png
+mac:
+  target: dmg
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+  icon: build/icon.icns
+win:
+  target: nsis
+  icon: build/icon.ico
+linux:
+  target: AppImage
+  category: Development
+  icon: build/icons
+publish:
+  provider: github
+  owner: metabase
+  repo: metabase-cli
+toolsets:
+  appimage: "1.0.3"

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { defineWorkspace } from "vitest/config";
 
 const CLIENT_SRC = fileURLToPath(new URL("./packages/client/src", import.meta.url));
+const DESKTOP_RENDERER = fileURLToPath(new URL("./packages/desktop/src/renderer", import.meta.url));
 
 // `@metabase/client`'s export map names its built output, which is what a consumer installs. In this
 // workspace every importer reads the source, matching the `paths` mapping in the root tsconfig.
@@ -19,6 +20,29 @@ export default defineWorkspace([
     test: {
       name: "unit",
       include: ["packages/cli/src/**/*.test.ts", "packages/client/src/**/*.test.ts"],
+    },
+  },
+  {
+    // The renderer's own `@/` alias comes from electron-vite, which vitest does not read, so a test
+    // over a renderer module would fail to resolve it without this.
+    resolve: {
+      alias: [...clientSource.alias, { find: /^@\//, replacement: `${DESKTOP_RENDERER}/` }],
+    },
+    test: {
+      name: "desktop",
+      include: ["packages/desktop/src/**/*.test.ts"],
+    },
+  },
+  {
+    resolve: clientSource,
+    test: {
+      name: "desktop-e2e",
+      include: ["packages/desktop/scripts/**/*.e2e.test.ts"],
+      hookTimeout: 120_000,
+      poolOptions: {
+        forks: { singleFork: true },
+      },
+      globalSetup: ["tests/e2e/setup/global-setup.ts"],
     },
   },
   {

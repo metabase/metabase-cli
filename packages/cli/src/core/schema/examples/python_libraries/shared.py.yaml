@@ -1,0 +1,8 @@
+entity_id: kb0QxR8AyP5W8SVHGYZr8
+path: shared.py
+source: |-
+  def helper():
+      return 42
+serdes/meta:
+- id: kb0QxR8AyP5W8SVHGYZr8
+  model: PythonLibrary

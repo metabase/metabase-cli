@@ -2,7 +2,7 @@ import { DatabaseSyncResult } from "@metabase/client/domain/database";
 
 import { renderSummary } from "../../output/render";
 import { databaseSyncResultView } from "../../output/views/database";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 import { parseWaitFlags, waitFlags } from "../wait-flags";
@@ -17,8 +17,7 @@ export default defineMetabaseCommand({
   requires: ["database.syncSchema"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     ...waitFlags,
     id: { type: "positional", description: "Database id", required: true },
   },

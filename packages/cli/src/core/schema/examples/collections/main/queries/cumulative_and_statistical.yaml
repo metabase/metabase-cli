@@ -1,0 +1,70 @@
+name: "Cumulative and Statistical Aggregations"
+entity_id: x61UtCMCuBNjw0TEFQeWG
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: line
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - null
+      - ORDERS
+      aggregation:
+      - - cum-count
+        - {}
+      - - cum-count
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - PRODUCT_ID
+      - - cum-sum
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - null
+            - ORDERS
+            - TOTAL
+      - - avg
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - null
+            - ORDERS
+            - TOTAL
+      - - min
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - null
+            - ORDERS
+            - TOTAL
+      - - max
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - null
+            - ORDERS
+            - TOTAL
+      breakout:
+      - - field
+        - temporal-unit: month
+        - - Sample Database
+          - null
+          - ORDERS
+          - CREATED_AT
+visualization_settings: {}
+serdes/meta:
+- id: x61UtCMCuBNjw0TEFQeWG
+  label: cumulative_and_statistical
+  model: Card

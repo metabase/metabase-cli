@@ -1,0 +1,64 @@
+name: ACCOUNTS
+schema: PUBLIC
+description: Information on customer accounts registered with Piespace. Each account represents a new organization signing up for on-demand pies.
+db_id: Sample Database
+fields:
+  - name: LONGITUDE
+    base_type: type/Float
+    database_type: DOUBLE PRECISION
+    semantic_type: type/Longitude
+  - name: ID
+    base_type: type/BigInteger
+    database_type: BIGINT
+    semantic_type: type/PK
+  - name: CREATED_AT
+    base_type: type/DateTime
+    database_type: TIMESTAMP
+    semantic_type: type/CreationTimestamp
+  - name: SEATS
+    base_type: type/Integer
+    database_type: INTEGER
+  - name: LAST_NAME
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Name
+  - name: FIRST_NAME
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Name
+  - name: TRIAL_CONVERTED
+    base_type: type/Boolean
+    database_type: BOOLEAN
+  - name: CANCELED_AT
+    base_type: type/DateTime
+    database_type: TIMESTAMP
+    semantic_type: type/CancelationTimestamp
+  - name: TRIAL_ENDS_AT
+    base_type: type/DateTime
+    database_type: TIMESTAMP
+  - name: SOURCE
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Source
+  - name: ACTIVE_SUBSCRIPTION
+    base_type: type/Boolean
+    database_type: BOOLEAN
+  - name: PLAN
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Category
+  - name: LEGACY_PLAN
+    base_type: type/Boolean
+    database_type: BOOLEAN
+  - name: COUNTRY
+    base_type: type/Text
+    database_type: CHARACTER
+    semantic_type: type/Country
+  - name: LATITUDE
+    base_type: type/Float
+    database_type: DOUBLE PRECISION
+    semantic_type: type/Latitude
+  - name: EMAIL
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Email

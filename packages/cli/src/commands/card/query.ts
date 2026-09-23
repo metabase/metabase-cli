@@ -9,7 +9,7 @@ import { formatQueryResult } from "../../output/query-result";
 import { renderSummary } from "../../output/render";
 import { pipeToStdout } from "../../output/stream";
 import { cardQueryView } from "../../output/views/card";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { parseOptionalInteger } from "../parse-integer";
 import { defineMetabaseCommand } from "../runtime";
@@ -25,8 +25,7 @@ export default defineMetabaseCommand({
   requires: ["card.exportQuery", "card.query"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     id: { type: "positional", description: "Card id", required: true },
     "export-format": {
       type: "string",

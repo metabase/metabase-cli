@@ -1,7 +1,7 @@
 import { DatabaseSyncResult } from "@metabase/client/domain/database";
 import { databaseSyncResultView } from "../../output/views/database";
 import { renderSummary } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -13,8 +13,7 @@ export default defineMetabaseCommand({
   requires: ["database.rescanValues"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     id: { type: "positional", description: "Database id", required: true },
   },
   outputSchema: DatabaseSyncResult,

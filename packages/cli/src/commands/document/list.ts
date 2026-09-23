@@ -3,7 +3,7 @@ import { documentView } from "../../output/views/document";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
 import { windowList } from "../../output/window";
-import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";
+import { listFlags, outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 export const DocumentListEnvelope = listEnvelopeSchema(DocumentCompact);
@@ -11,7 +11,7 @@ export const DocumentListEnvelope = listEnvelopeSchema(DocumentCompact);
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List documents" },
   requires: ["document.list"],
-  args: { ...outputFlags, ...listFlags, ...profileFlag, ...connectionFlags },
+  args: { ...outputFlags, ...listFlags, ...preflightFlag },
   outputSchema: DocumentListEnvelope,
   examples: ["mb document list", "mb document list --json"],
   async run({ ctx, getClient }) {

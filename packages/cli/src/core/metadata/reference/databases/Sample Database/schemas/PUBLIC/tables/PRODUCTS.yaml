@@ -1,0 +1,43 @@
+name: PRODUCTS
+schema: PUBLIC
+description: Includes a catalog of all the products ever sold by the famed Sample Company.
+db_id: Sample Database
+fields:
+  - name: ID
+    description: The numerical product number. Only used internally. All external communication should use the title or EAN.
+    base_type: type/BigInteger
+    database_type: BIGINT
+    semantic_type: type/PK
+  - name: EAN
+    description: The international article number. A 13 digit number uniquely identifying the product.
+    base_type: type/Text
+    database_type: CHARACTER
+  - name: RATING
+    description: The average rating users have given the product. This ranges from 1 - 5
+    base_type: type/Float
+    database_type: DOUBLE PRECISION
+    semantic_type: type/Score
+  - name: TITLE
+    description: The name of the product as it should be displayed to customers.
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Title
+  - name: CATEGORY
+    description: 'The type of product, valid values include: Doohicky, Gadget, Gizmo and Widget'
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Category
+  - name: VENDOR
+    description: The source of the product.
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Company
+  - name: PRICE
+    description: The list price of the product. Note that this is not always the price the product sold for due to discounts, promotions, etc.
+    base_type: type/Float
+    database_type: DOUBLE PRECISION
+  - name: CREATED_AT
+    description: The date the product was added to our catalog.
+    base_type: type/DateTime
+    database_type: TIMESTAMP
+    semantic_type: type/CreationTimestamp

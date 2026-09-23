@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Library, type LibraryChild } from "@metabase/client/domain/library";
 import { TableCompact } from "@metabase/client/domain/table";
@@ -8,17 +8,13 @@ import { LibraryPublishResult } from "../../packages/cli/src/commands/library/pu
 import { LibraryUnpublishResult } from "../../packages/cli/src/commands/library/unpublish";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorMessage } from "./cli-error";
-import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
 import { requireServer } from "./server-gate";
 
 const LIBRARY_UNAVAILABLE = requireServer("library › with the library feature", ["library"]);
-const REMOTE_SYNC_UNAVAILABLE = requireServer(
-  "library › with the library and remote_sync features",
-  ["remoteSync"],
-);
 
-const SYNC_SCOPE_HINT_MARKER = "is not marked for git-sync";
+const SYNC_SCOPE_HINT_MARKER = "is not marked for remote sync";
 
 const REVIEWS_COMPACT = {
   id: SEEDED.tables.reviews,
@@ -58,21 +54,10 @@ const LIBRARY_CHILDREN = [
 
 describe("library e2e", () => {
   let bootstrap: E2EBootstrap;
-  const tempDirs: string[] = [];
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
   });
-
-  afterEach(async () => {
-    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
-  });
-
-  async function makeIsolatedConfigHome(): Promise<string> {
-    const dir = await mkTempConfigHome();
-    tempDirs.push(dir);
-    return dir;
-  }
 
   function authEnv(): Record<string, string> {
     return {
@@ -84,7 +69,6 @@ describe("library e2e", () => {
   it("publish without any selector fails fast with ConfigError before any request", async () => {
     const result = await runCli({
       args: ["library", "publish", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -96,7 +80,6 @@ describe("library e2e", () => {
   it("publish with a non-integer table id fails fast with ConfigError", async () => {
     const result = await runCli({
       args: ["library", "publish", "--table-ids", "1,abc", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -108,7 +91,6 @@ describe("library e2e", () => {
   it("unpublish without any selector fails fast with ConfigError", async () => {
     const result = await runCli({
       args: ["library", "unpublish", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -120,7 +102,6 @@ describe("library e2e", () => {
   it("unpublish with a non-integer database id fails fast with ConfigError", async () => {
     const result = await runCli({
       args: ["library", "unpublish", "--db-ids", "x", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -133,18 +114,6 @@ describe("library e2e", () => {
     it("get returns the Library with its Data collection", async () => {
       const result = await runCli({
         args: ["library", "get", "--json"],
-        configHome: await makeIsolatedConfigHome(),
-        env: authEnv(),
-      });
-
-      expect(result.exitCode, result.stderr).toBe(0);
-      expect(childrenByName(parseJson(result.stdout, Library))).toEqual(LIBRARY_CHILDREN);
-    });
-
-    it("create is idempotent and returns the existing Library", async () => {
-      const result = await runCli({
-        args: ["library", "create", "--json"],
-        configHome: await makeIsolatedConfigHome(),
         env: authEnv(),
       });
 
@@ -155,7 +124,6 @@ describe("library e2e", () => {
     it("publish resolves the Data collection and sets is_published, unpublish restores it", async () => {
       const publish = await runCli({
         args: ["library", "publish", "--table-ids", String(SEEDED.tables.reviews), "--json"],
-        configHome: await makeIsolatedConfigHome(),
         env: authEnv(),
       });
 
@@ -172,7 +140,6 @@ describe("library e2e", () => {
 
       const whilePublished = await runCli({
         args: ["table", "get", String(SEEDED.tables.reviews), "--json"],
-        configHome: await makeIsolatedConfigHome(),
         env: authEnv(),
       });
       expect(whilePublished.exitCode, whilePublished.stderr).toBe(0);
@@ -183,7 +150,6 @@ describe("library e2e", () => {
 
       const unpublish = await runCli({
         args: ["library", "unpublish", "--table-ids", String(SEEDED.tables.reviews), "--json"],
-        configHome: await makeIsolatedConfigHome(),
         env: authEnv(),
       });
 
@@ -195,7 +161,6 @@ describe("library e2e", () => {
 
       const afterUnpublish = await runCli({
         args: ["table", "get", String(SEEDED.tables.reviews), "--json"],
-        configHome: await makeIsolatedConfigHome(),
         env: authEnv(),
       });
       expect(afterUnpublish.exitCode, afterUnpublish.stderr).toBe(0);
@@ -205,7 +170,6 @@ describe("library e2e", () => {
     it("publish stays silent about git-sync scope when no remote sync url is configured", async () => {
       const publish = await runCli({
         args: ["library", "publish", "--table-ids", String(SEEDED.tables.reviews), "--json"],
-        configHome: await makeIsolatedConfigHome(),
         env: authEnv(),
       });
 
@@ -213,32 +177,4 @@ describe("library e2e", () => {
       expect(publish.stderr).not.toContain(SYNC_SCOPE_HINT_MARKER);
     });
   });
-
-  describe.skipIf(LIBRARY_UNAVAILABLE !== null || REMOTE_SYNC_UNAVAILABLE !== null)(
-    "with the library and remote_sync features",
-    () => {
-      it("publish warns on stderr when the Data collection is outside the git-sync scope and a remote is configured", async () => {
-        const remoteUrl = "https://github.com/example/e2e-sync.git";
-        const setUrl = await runCli({
-          args: ["setting", "set", "remote-sync-url", JSON.stringify(remoteUrl), "--json"],
-          configHome: await makeIsolatedConfigHome(),
-          env: authEnv(),
-        });
-        expect(setUrl.exitCode, setUrl.stderr).toBe(0);
-
-        const publish = await runCli({
-          args: ["library", "publish", "--table-ids", String(SEEDED.tables.reviews), "--json"],
-          configHome: await makeIsolatedConfigHome(),
-          env: authEnv(),
-        });
-
-        expect(publish.exitCode).toBe(0);
-        expect(publish.stderr).toContain(
-          `Note: collection ${SEEDED.libraryDataCollectionId} "Data" is not marked for git-sync, ` +
-            `so \`mb git-sync export\` will not carry it (or its published tables' metadata) to ${remoteUrl}. ` +
-            `Add it with: mb git-sync add-collection ${SEEDED.libraryDataCollectionId}`,
-        );
-      });
-    },
-  );
 });

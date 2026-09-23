@@ -1,0 +1,83 @@
+name: "Conditional Aggregations"
+entity_id: irROiaJoSsiXPKGxwWvWY
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - null
+      - ORDERS
+      aggregation:
+      - - count-where
+        - {}
+        - - ">"
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - null
+              - ORDERS
+              - TOTAL
+          - 100
+      - - sum-where
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - null
+            - ORDERS
+            - TOTAL
+        - - ">"
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - null
+              - ORDERS
+              - DISCOUNT
+          - 0
+      - - distinct-where
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - USER_ID
+        - - ">"
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - null
+              - ORDERS
+              - TOTAL
+          - 50
+      - - share
+        - {}
+        - - not-null
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - null
+              - ORDERS
+              - DISCOUNT
+      breakout:
+      - - field
+        - temporal-unit: quarter
+        - - Sample Database
+          - null
+          - ORDERS
+          - CREATED_AT
+visualization_settings: {}
+serdes/meta:
+- id: irROiaJoSsiXPKGxwWvWY
+  label: conditional_aggregations
+  model: Card

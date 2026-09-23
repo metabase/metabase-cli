@@ -1,0 +1,6 @@
+name: custom-etl
+entity_id: Z2nTZwFTBUz1Yil8AKrp2
+serdes/meta:
+- id: Z2nTZwFTBUz1Yil8AKrp2
+  label: custom_etl
+  model: TransformTag

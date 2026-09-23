@@ -308,17 +308,17 @@ describe("git-sync resource wire requests", () => {
     ]);
   });
 
-  it("sends the export request with the branch, message and force fields it was given", async () => {
+  it("sends the export request with the message and force fields it was given", async () => {
     const { mb, capture } = clientOver([jsonResponse({ message: "Export queued", task_id: 8 })]);
 
-    await mb.gitSync.export({ branch: "main", message: "update dashboards", force: true });
+    await mb.gitSync.export({ message: "update dashboards", force: true });
 
     expect(capture.calls).toEqual([
       {
         url: "https://mb.example.com/metabase/api/ee/remote-sync/export",
         method: "POST",
         headers: JSON_WRITE_HEADERS,
-        body: '{"branch":"main","message":"update dashboards","force":true}',
+        body: '{"message":"update dashboards","force":true}',
       },
     ]);
   });
@@ -336,14 +336,14 @@ describe("git-sync resource wire requests", () => {
     });
   });
 
-  it("sends the export preflight request with the branch as a query parameter", async () => {
+  it("sends the export preflight request with no parameters", async () => {
     const { mb, capture } = clientOver([jsonResponse(CLEAN_PREFLIGHT)], SERVER_WITH_PREFLIGHT);
 
-    await mb.gitSync.exportPreflight({ branch: "feature/a b" });
+    await mb.gitSync.exportPreflight();
 
     expect(capture.calls).toEqual([
       {
-        url: "https://mb.example.com/metabase/api/ee/remote-sync/export-preflight?branch=feature%2Fa+b",
+        url: "https://mb.example.com/metabase/api/ee/remote-sync/export-preflight",
         method: "GET",
         headers: JSON_READ_HEADERS,
         body: null,
@@ -362,13 +362,13 @@ describe("git-sync resource wire requests", () => {
     };
     const { mb } = clientOver([jsonResponse(diverged)], SERVER_WITH_PREFLIGHT);
 
-    expect(await mb.gitSync.exportPreflight({ branch: "main" })).toEqual(diverged);
+    expect(await mb.gitSync.exportPreflight()).toEqual(diverged);
   });
 
   it("refuses the export preflight before the wire on a server older than the route", async () => {
     const { mb, capture } = clientOver([]);
 
-    const error = await thrownBy(() => mb.gitSync.exportPreflight({ branch: "main" }));
+    const error = await thrownBy(() => mb.gitSync.exportPreflight());
 
     assert(error instanceof CapabilityError, "expected CapabilityError");
     expect(error.developerDetail).toEqual({
@@ -381,30 +381,6 @@ describe("git-sync resource wire requests", () => {
       serverVersion: "v1.60.0",
     });
     expect(capture.calls).toEqual([]);
-  });
-
-  it("surfaces a branch mismatch as the server's conflict answer", async () => {
-    const { mb } = clientOver(
-      [
-        jsonResponse(
-          {
-            message: "The sync branch changed to 'main' in another session. Refresh and try again.",
-            branch_mismatch: true,
-            current_branch: "main",
-          },
-          409,
-        ),
-      ],
-      SERVER_WITH_PREFLIGHT,
-    );
-
-    const error = await thrownBy(() => mb.gitSync.exportPreflight({ branch: "stale" }));
-
-    assert(error instanceof HttpError, "expected HttpError");
-    expect(error.status).toBe(409);
-    expect(error.message).toBe(
-      "The sync branch changed to 'main' in another session. Refresh and try again.",
-    );
   });
 
   it("sends the stash request with the new branch and commit message", async () => {

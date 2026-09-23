@@ -1,0 +1,7 @@
+name: Marketing Analytics
+entity_id: M-Q4pcV0qkiyJ0kiSWECl
+parent_id: cOlMiNiMaL000ExAmPlx2
+serdes/meta:
+- id: M-Q4pcV0qkiyJ0kiSWECl
+  label: marketing_analytics
+  model: Collection

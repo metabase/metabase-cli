@@ -3,7 +3,7 @@ import { transformView } from "../../output/views/transform";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
 import { windowList } from "../../output/window";
-import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";
+import { listFlags, outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 export const TransformListEnvelope = listEnvelopeSchema(TransformCompact);
@@ -11,7 +11,7 @@ export const TransformListEnvelope = listEnvelopeSchema(TransformCompact);
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List transforms" },
   requires: ["transform.list"],
-  args: { ...outputFlags, ...listFlags, ...profileFlag, ...connectionFlags },
+  args: { ...outputFlags, ...listFlags, ...preflightFlag },
   outputSchema: TransformListEnvelope,
   examples: ["mb transform list", "mb transform list --json"],
   async run({ ctx, getClient }) {

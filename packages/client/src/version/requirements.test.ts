@@ -23,6 +23,7 @@ import { gitSyncResource } from "../resources/git-sync";
 import { glossaryResource } from "../resources/glossary";
 import { libraryResource } from "../resources/library";
 import { measureResource } from "../resources/measure";
+import { metadataExportResource } from "../resources/metadata-export";
 import { metricResource } from "../resources/metric";
 import { moderationReviewResource } from "../resources/moderation-review";
 import { notificationResource } from "../resources/notification";
@@ -329,6 +330,16 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     wireError: "unexpected request: GET /api/measure/1",
   },
   {
+    key: "metadataExport.download",
+    invoke: (t) =>
+      metadataExportResource(t).download({
+        "with-databases": true,
+        "with-tables": true,
+        "with-fields": true,
+      }),
+    wireError: "requestStream not implemented in fake client",
+  },
+  {
     key: "metric.dimensions",
     invoke: (t) => metricResource(t).dimensions(1),
     wireError: "unexpected request: GET /api/metric/1/dimension",
@@ -479,9 +490,10 @@ describe("METHOD_REQUIREMENTS", () => {
     expect(literals.map(({ key }) => key).toSorted()).toEqual(TABLE_KEYS);
   });
 
-  // A requirement says the route exists on the server; a rule that ends at some major describes
-  // a shape an older server had, and refusing on it would name a floor the server is above.
-  it("requires no feature bounded by `until`", () => {
+  // A rule that ends at some major usually describes a shape an older server had, which no method
+  // may require: the refusal would name a floor the server is above. The one exception is a route
+  // later releases removed, which a method requires so the refusal names the range it exists on.
+  it("requires a feature bounded by `until` only for a route later releases removed", () => {
     const bounded = Object.entries(METHOD_REQUIREMENTS).flatMap(([key, features]) =>
       features
         .filter((feature) => {
@@ -490,7 +502,7 @@ describe("METHOD_REQUIREMENTS", () => {
         })
         .map((feature) => `${key}: ${feature}`),
     );
-    expect(bounded).toEqual([]);
+    expect(bounded).toEqual(["metadataExport.download: metadataExport"]);
   });
 
   it("has every resource namespace driven below", () => {

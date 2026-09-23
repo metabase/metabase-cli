@@ -1,0 +1,66 @@
+name: Searchable Products
+entity_id: yZptbJRR3S8L9S9r0ZF8M
+creator_id: admin@example.com
+description: Products with non-empty title containing "awesome", vendor starting with "A"
+table_id:
+- Sample Database
+- null
+- PRODUCTS
+definition:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+    filters:
+    - - not-empty
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+    - - contains
+      - case-sensitive: false
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - awesome
+    - - starts-with
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - VENDOR
+      - A
+    - - does-not-contain
+      - case-sensitive: false
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - discontinued
+    - - ends-with
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - EAN
+      - "0"
+serdes/meta:
+- id: yZptbJRR3S8L9S9r0ZF8M
+  label: searchable_products
+  model: Segment

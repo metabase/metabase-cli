@@ -678,7 +678,11 @@ describe("the shipped skills", () => {
       all.filter((skill) => skill.requires.length > 0).map((skill) => [skill.name, skill.requires]),
     );
 
-    expect(bound).toEqual({ "git-sync": ["remoteSync"], transform: ["transforms"] });
+    expect(bound).toEqual({
+      "git-sync": ["remoteSync"],
+      rde: ["remoteSync", "transforms"],
+      transform: ["transforms"],
+    });
     const withMarkersLeft = all
       .filter((skill) => {
         const content = readSkillContent(skill, { includeExtras: true, profile: profileAt(58) });
@@ -688,14 +692,14 @@ describe("the shipped skills", () => {
     expect(all.map((skill) => skill.name)).toEqual([
       "core",
       "dashboard",
-      "data-workflow",
       "document",
       "git-sync",
       "mbql",
-      "metabase-cli",
+      "metabase-database-metadata",
+      "metabase-representation-format",
       "metadata",
       "native-sql",
-      "notification",
+      "rde",
       "transform",
       "visualization",
     ]);

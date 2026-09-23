@@ -1540,6 +1540,34 @@ describe("createTransport OAuth bearer auth", () => {
     expect(refreshCalls).toBe(2);
   });
 
+  it("refreshes a host-issued bearer credential on 401 and replays with the next token", async () => {
+    const fakeFetch = captureFetch([
+      unauthorizedResponse(),
+      jsonResponse({ id: 1, email: "a@b.c" }),
+    ]);
+    let refreshCalls = 0;
+    const client = createTransport(
+      {
+        url: "https://m.example.com",
+        credential: { kind: "bearer", accessToken: "host-1", expiresAt: OAUTH.expiresAt },
+      },
+      {
+        userAgent: TEST_USER_AGENT,
+        fetchImpl: fakeFetch.fetch,
+        refreshCredential: async () => {
+          refreshCalls += 1;
+          return { kind: "bearer", accessToken: "host-2", expiresAt: OAUTH.expiresAt };
+        },
+      },
+    );
+    await client.requestParsed(PingResponse, "/api/user/current", { retries: 0 });
+    expect(refreshCalls).toBe(1);
+    expect(fakeFetch.calls.map((call) => call.headers["authorization"])).toEqual([
+      "Bearer host-1",
+      "Bearer host-2",
+    ]);
+  });
+
   it("does not refresh an API key credential on 401", async () => {
     const fakeFetch = captureFetch([unauthorizedResponse()]);
     let refreshCalls = 0;

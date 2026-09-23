@@ -5,7 +5,7 @@ import { SyncTask } from "@metabase/client/domain/git-sync";
 
 import type { ResourceView } from "../../output/view";
 import { renderSummary } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 import { formatSyncTask } from "./sync-task";
@@ -42,7 +42,7 @@ export default defineMetabaseCommand({
     "gitSync.currentTask",
     "gitSync.syncedCollections",
   ],
-  args: { ...outputFlags, ...profileFlag, ...connectionFlags },
+  args: { ...outputFlags, ...preflightFlag },
   outputSchema: SyncStatus,
   examples: ["mb git-sync status", "mb git-sync status --json"],
   async run({ ctx, getClient }) {

@@ -14,9 +14,8 @@ import { renderSummary, writeJson } from "../output/render";
 import { cardQueryView } from "../output/views/card";
 import { readBody } from "../runtime/body";
 import { bodyInputFlags } from "./body-flags";
-import { connectionFlags, outputFlags, profileFlag } from "./flags";
+import { outputFlags, preflightFlag } from "./flags";
 import { defineMetabaseCommand } from "./runtime";
-import { skipValidateFlag } from "./validate-query";
 
 const QueryBody = z
   .unknown()
@@ -35,8 +34,7 @@ export default defineMetabaseCommand({
   requires: ["dataset.query"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     ...bodyInputFlags,
     "dry-run": {
       type: "boolean",
@@ -46,7 +44,11 @@ export default defineMetabaseCommand({
       type: "boolean",
       description: "Emit the bundled MBQL 5 query JSON Schema and exit; no body required",
     },
-    ...skipValidateFlag,
+    "skip-validate": {
+      type: "boolean",
+      description:
+        "Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts.",
+    },
   },
   inputSchema: QueryBody,
   outputSchema: CardQueryResult,

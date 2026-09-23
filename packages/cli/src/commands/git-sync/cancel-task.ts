@@ -2,13 +2,13 @@ import { SyncTask } from "@metabase/client/domain/git-sync";
 
 import { syncTaskView } from "../../output/views/git-sync";
 import { renderSummary } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "cancel-task", description: "Cancel the running git-sync task" },
   requires: ["gitSync.cancelTask"],
-  args: { ...outputFlags, ...profileFlag, ...connectionFlags },
+  args: { ...outputFlags, ...preflightFlag },
   outputSchema: SyncTask,
   examples: ["mb git-sync cancel-task", "mb git-sync cancel-task --json"],
   async run({ ctx, getClient }) {

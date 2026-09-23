@@ -1,4 +1,4 @@
-import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
+import { assert, beforeAll, describe, expect, it } from "vitest";
 
 import {
   COLLECTION_ITEM_FILTER_MODELS,
@@ -12,10 +12,9 @@ import { CollectionItemListEnvelope } from "../../packages/cli/src/commands/coll
 import { CollectionListEnvelope } from "../../packages/cli/src/commands/collection/list";
 import { CollectionTreeResponse } from "../../packages/cli/src/commands/collection/tree";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
-import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
-import { serverHas } from "./server-gate";
 
 const DEFAULT_COLLECTION_NAME = "E2E Default";
 
@@ -67,29 +66,12 @@ const TRASH_COMPACT = {
   is_remote_synced: false,
 } as const;
 
-// A server that reads the total off the first row's window column has none to report for an
-// empty page.
-function emptyItemsPageTotal(): number | null {
-  return serverHas("collectionItemsTotalOnEmptyPage") ? 0 : null;
-}
-
 describe("collection e2e", () => {
   let bootstrap: E2EBootstrap;
-  const tempDirs: string[] = [];
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
   });
-
-  afterEach(async () => {
-    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
-  });
-
-  async function makeIsolatedConfigHome(): Promise<string> {
-    const dir = await mkTempConfigHome();
-    tempDirs.push(dir);
-    return dir;
-  }
 
   function authEnv(): Record<string, string> {
     return {
@@ -101,7 +83,6 @@ describe("collection e2e", () => {
   it("list returns the virtual root and the seeded E2E Default collection in compact form", async () => {
     const result = await runCli({
       args: ["collection", "list", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -116,7 +97,6 @@ describe("collection e2e", () => {
   it("list --filter archived returns the trash collection by itself", async () => {
     const result = await runCli({
       args: ["collection", "list", "--filter", "archived", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -131,24 +111,9 @@ describe("collection e2e", () => {
     });
   });
 
-  it("archive soft-deletes the seeded collection and flips its archived flag", async () => {
-    const result = await runCli({
-      args: ["collection", "archive", String(SEEDED.defaultCollectionId), "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, CollectionCompact)).toEqual({
-      ...DEFAULT_COMPACT,
-      archived: true,
-    });
-  });
-
   it("list --filter personal returns only the admin's personal collection", async () => {
     const result = await runCli({
       args: ["collection", "list", "--filter", "personal", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -166,7 +131,6 @@ describe("collection e2e", () => {
   it("get returns the seeded collection by id in compact form", async () => {
     const result = await runCli({
       args: ["collection", "get", String(SEEDED.defaultCollectionId), "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -177,7 +141,6 @@ describe("collection e2e", () => {
   it("get --full surfaces slug, can_write, and namespace beyond the compact projection", async () => {
     const result = await runCli({
       args: ["collection", "get", String(SEEDED.defaultCollectionId), "--json", "--full"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -203,7 +166,6 @@ describe("collection e2e", () => {
   it("get --format text renders the compact key/value pairs", async () => {
     const result = await runCli({
       args: ["collection", "get", String(SEEDED.defaultCollectionId), "--format", "text"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -223,7 +185,6 @@ describe("collection e2e", () => {
   it("get with an unrecognized ref fails fast with ConfigError citing the accepted formats", async () => {
     const result = await runCli({
       args: ["collection", "get", "abc", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -237,7 +198,6 @@ describe("collection e2e", () => {
   it("get root returns the virtual root collection from /api/collection/root", async () => {
     const result = await runCli({
       args: ["collection", "get", "root", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -248,7 +208,6 @@ describe("collection e2e", () => {
   it("get trash returns the trash collection from /api/collection/trash", async () => {
     const result = await runCli({
       args: ["collection", "get", "trash", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -259,7 +218,6 @@ describe("collection e2e", () => {
   it("get with a 21-char entity id resolves to the same collection as the integer id", async () => {
     const fetchByEntityId = await runCli({
       args: ["collection", "get", String(SEEDED.defaultCollectionId), "--json", "--full"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
     expect(fetchByEntityId.exitCode, fetchByEntityId.stderr).toBe(0);
@@ -271,7 +229,6 @@ describe("collection e2e", () => {
 
     const fetchAgain = await runCli({
       args: ["collection", "get", "--json", "--", viaInt.entity_id],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -282,7 +239,6 @@ describe("collection e2e", () => {
   it("get against a missing collection id surfaces a 404 HttpError", async () => {
     const result = await runCli({
       args: ["collection", "get", "9999999", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -293,7 +249,6 @@ describe("collection e2e", () => {
   it("items lists the seeded card and dashboard inside the default collection", async () => {
     const result = await runCli({
       args: ["collection", "items", String(SEEDED.defaultCollectionId), "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -339,7 +294,6 @@ describe("collection e2e", () => {
         "card",
         "--json",
       ],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -366,7 +320,6 @@ describe("collection e2e", () => {
   it("items --limit caps the returned page and points at the rest", async () => {
     const result = await runCli({
       args: ["collection", "items", String(SEEDED.defaultCollectionId), "--limit", "1", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -396,7 +349,6 @@ describe("collection e2e", () => {
         "1",
         "--json",
       ],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -424,7 +376,6 @@ describe("collection e2e", () => {
         "bogus",
         "--json",
       ],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -445,7 +396,6 @@ describe("collection e2e", () => {
         "bogus",
         "--json",
       ],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -459,7 +409,6 @@ describe("collection e2e", () => {
   it("items with an unrecognized ref fails fast with ConfigError citing the accepted formats", async () => {
     const result = await runCli({
       args: ["collection", "items", "abc", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -470,41 +419,9 @@ describe("collection e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("items on a freshly-created empty collection returns an empty envelope", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const createResult = await runCli({
-      args: ["collection", "create", "--json"],
-      stdin: JSON.stringify({
-        name: `e2e_empty_collection_${Date.now()}`,
-        parent_id: SEEDED.defaultCollectionId,
-      }),
-      configHome,
-      env: authEnv(),
-    });
-    expect(createResult.exitCode, createResult.stderr).toBe(0);
-    const created = parseJson(createResult.stdout, Collection);
-
-    const itemsResult = await runCli({
-      args: ["collection", "items", String(created.id), "--json"],
-      configHome,
-      env: authEnv(),
-    });
-
-    expect(itemsResult.exitCode, itemsResult.stderr).toBe(0);
-    expect(parseJson(itemsResult.stdout, CollectionItemListEnvelope)).toEqual({
-      data: [],
-      returned: 0,
-      offset: 0,
-      total: emptyItemsPageTotal(),
-      has_more: false,
-      next_offset: null,
-    });
-  });
-
   it("items root surfaces the seeded collection at the root level with collection_id null", async () => {
     const result = await runCli({
       args: ["collection", "items", "root", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -523,7 +440,6 @@ describe("collection e2e", () => {
   it("tree returns the seeded collection at the root level with empty children", async () => {
     const result = await runCli({
       args: ["collection", "tree"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -549,72 +465,5 @@ describe("collection e2e", () => {
       childrenLength: 0,
       here: ["card"],
     });
-  });
-
-  it("create round-trips a new collection and surfaces it on the list", async () => {
-    const createResult = await runCli({
-      args: ["collection", "create", "--json"],
-      stdin: JSON.stringify({
-        name: "e2e_new_collection",
-        description: "created in test",
-        parent_id: SEEDED.defaultCollectionId,
-      }),
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(createResult.exitCode, createResult.stderr).toBe(0);
-    const created = parseJson(createResult.stdout, Collection);
-    expect({
-      name: created.name,
-      description: created.description,
-      archived: created.archived,
-      location: created.location,
-      type: created.type,
-      authority_level: created.authority_level,
-    }).toEqual({
-      name: "e2e_new_collection",
-      description: "created in test",
-      archived: false,
-      location: `/${SEEDED.defaultCollectionId}/`,
-      type: null,
-      authority_level: null,
-    });
-
-    const listResult = await runCli({
-      args: ["collection", "list", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-    expect(listResult.exitCode, listResult.stderr).toBe(0);
-    const listEnvelope = parseJson(listResult.stdout, CollectionListEnvelope);
-    const newRow = listEnvelope.data.find((row) => row.id === created.id);
-    expect(newRow).toEqual({
-      id: created.id,
-      name: "e2e_new_collection",
-      description: "created in test",
-      archived: false,
-      location: `/${SEEDED.defaultCollectionId}/`,
-      parent_id: SEEDED.defaultCollectionId,
-      type: null,
-      authority_level: null,
-      is_personal: false,
-      is_remote_synced: false,
-    });
-  });
-
-  it("create with a body missing the required name field fails on Zod validation", async () => {
-    const result = await runCli({
-      args: ["collection", "create", "--json"],
-      stdin: JSON.stringify({ description: "no name here" }),
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode).toBe(1);
-    expect(cliErrorMessage(result.stderr)).toBe(
-      "request body: value did not match expected schema\n  /name: Invalid input: expected string, received undefined",
-    );
-    expect(result.stdout).toBe("");
   });
 });

@@ -12,13 +12,18 @@ import {
   SyncSettingsUpdateResult,
   type SyncStashResult,
   SyncTask,
+  type SyncTree,
+  type SyncTreeCollection,
+  SyncTreeItem,
 } from "../domain/git-sync";
-import { HttpError } from "../http/errors";
-import type { RequestOptions, Transport } from "../http/transport";
+import { Worktree } from "../domain/worktree";
+import { chainRequestFailure, HttpError } from "../http/errors";
+import type { QueryValue, RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { type PollOptions, pollUntil } from "../poll";
+import type { Features } from "../version/features";
 
-import { listCollectionsWithLibrary } from "./collection";
+import { listCollectionsWithLibrary, walkCollectionItems } from "./collection";
 import { fetchOptionalParsed } from "./optional-parsed";
 
 // The sync scope is decided from three fields of every collection on the instance, so it reads them
@@ -30,6 +35,67 @@ export const SyncScopeCollection = Collection.pick({
   is_remote_synced: true,
 }).strip();
 export type SyncScopeCollection = z.infer<typeof SyncScopeCollection>;
+
+// The tree reads every collection on the instance for the flag alone, and a synced one for what the
+// tree carries, which every synced collection has: a numeric id, an entity id and a location.
+const SyncTreeCollectionRow = z.object({
+  id: z.number().int(),
+  entity_id: z.string(),
+  name: z.string(),
+  location: z.string(),
+  is_remote_synced: z.literal(true),
+});
+type SyncTreeCollectionRow = z.infer<typeof SyncTreeCollectionRow>;
+
+const SyncTreeScopeRow = z.union([
+  SyncTreeCollectionRow,
+  z.object({ is_remote_synced: z.literal(false).nullable().optional() }),
+]);
+type SyncTreeScopeRow = z.infer<typeof SyncTreeScopeRow>;
+
+const SyncTreeSkippedRow = z.object({ model: z.enum(["collection", "table"]) });
+
+// The items listing selects no entity id for a document, so the tree reads it off the document.
+const SyncTreeDocumentRow = z.object({
+  id: z.number().int(),
+  entity_id: z.string().nullable(),
+  name: z.string(),
+  model: z.literal("document"),
+});
+type SyncTreeDocumentRow = z.infer<typeof SyncTreeDocumentRow>;
+
+const SyncTreeItemRow = z.union([SyncTreeSkippedRow, SyncTreeDocumentRow, SyncTreeItem]);
+type SyncTreeItemRow = z.infer<typeof SyncTreeItemRow>;
+
+const SyncTreeDocument = z.object({ entity_id: z.string() });
+
+type SyncTreeListedRow = SyncTreeDocumentRow | SyncTreeItem;
+
+function isTreeItemRow(row: SyncTreeItemRow): row is SyncTreeListedRow {
+  return row.model !== "collection" && row.model !== "table";
+}
+
+function isSyncTreeCollectionRow(row: SyncTreeScopeRow): row is SyncTreeCollectionRow {
+  return row.is_remote_synced === true;
+}
+
+// A collection's location lists its ancestors' ids root first, so the last one is its parent.
+function syncedParentId(location: string, syncedIds: ReadonlySet<number>): number | null {
+  const parent = location.split("/").findLast((segment) => segment !== "");
+  if (parent === undefined) {
+    return null;
+  }
+  const parentId = Number(parent);
+  return syncedIds.has(parentId) ? parentId : null;
+}
+
+// Servers from 64 read the items listing's parameters in kebab case and drop the snake-case name
+// without a word, so the name is picked per server rather than sent both ways.
+function dashboardQuestionsParam(features: Features): string {
+  return features.collectionItemsKebabCaseParams
+    ? "show-dashboard-questions"
+    : "show_dashboard_questions";
+}
 
 const SyncDirtyFlag = z.object({ is_dirty: z.boolean() });
 
@@ -55,6 +121,8 @@ const SyncStashStarted = z.object({
 });
 
 const RemoteSyncSetting = z.string().nullable();
+
+const WorktreeList = z.array(Worktree);
 
 const FORBIDDEN_STATUS = 403;
 const UNREGISTERED_STATUS = 404;
@@ -84,18 +152,17 @@ export interface SyncImportParams extends SyncWaitParams {
 }
 
 export interface SyncExportParams extends SyncWaitParams {
-  branch?: string | undefined;
   message?: string | undefined;
   force?: boolean | undefined;
-}
-
-export interface SyncExportPreflightParams {
-  branch: string;
 }
 
 export interface SyncStashParams extends SyncWaitParams {
   new_branch: string;
   message: string;
+}
+
+export interface SyncCreateWorktreeParams {
+  branch: string;
 }
 
 export interface SyncCreateBranchParams {
@@ -174,8 +241,9 @@ export function gitSyncResource(transport: Transport) {
   }
 
   /**
-   * Export Metabase's content to the remote. The endpoint queues a task and returns at once; pass
-   * `wait` to poll that task until it reaches a terminal status.
+   * Export Metabase's content to the branch git-sync tracks, or inside a worktree to the worktree's
+   * own branch. The endpoint queues a task and returns at once; pass `wait` to poll that task until
+   * it reaches a terminal status.
    */
   async function exportToRemote(
     params: SyncExportParams = {},
@@ -185,7 +253,7 @@ export function gitSyncResource(transport: Transport) {
     const started = await transport.requestParsed(SyncExportStarted, "/api/ee/remote-sync/export", {
       ...options,
       method: "POST",
-      body: { branch: params.branch, message: params.message, force: params.force },
+      body: { message: params.message, force: params.force },
     });
     if (params.wait === undefined) {
       return { message: started.message, task_id: started.task_id };
@@ -198,19 +266,14 @@ export function gitSyncResource(transport: Transport) {
   }
 
   /**
-   * Preview what exporting to `branch` would do against the live remote, without writing: whether
-   * the remote has moved on, whether a merge would apply cleanly, which entities conflict, and what
-   * a force push would discard. `branch` must be the one git-sync tracks; the server answers 409
-   * otherwise.
+   * Preview what exporting would do against the live remote, without writing: whether the remote
+   * has moved on, whether a merge would apply cleanly, which entities conflict, and what a force
+   * push would discard. The branch is the one git-sync tracks, or inside a worktree its own.
    */
-  async function exportPreflight(
-    params: SyncExportPreflightParams,
-    options: RequestOptions = {},
-  ): Promise<SyncExportPreflight> {
+  async function exportPreflight(options: RequestOptions = {}): Promise<SyncExportPreflight> {
     await transport.require("gitSync.exportPreflight", options);
     return transport.requestParsed(SyncExportPreflight, "/api/ee/remote-sync/export-preflight", {
       ...options,
-      query: { branch: params.branch },
     });
   }
 
@@ -287,6 +350,68 @@ export function gitSyncResource(transport: Transport) {
     return { data: data.filter((entry) => entry.is_remote_synced === true), total: null };
   }
 
+  /**
+   * Every collection in git-sync's scope, flat, each with the items directly inside it, questions
+   * saved to a dashboard included. A collection's `parent_id` is set only when its parent is synced
+   * too. The collections are walked one after another.
+   */
+  async function syncedTree(options: RequestOptions = {}): Promise<SyncTree> {
+    await transport.require("gitSync.syncedTree", options);
+    const { features } = await transport.server(options);
+    const scope = await listCollectionsWithLibrary(transport, SyncTreeScopeRow, options);
+    const synced = scope.filter(isSyncTreeCollectionRow);
+    const syncedIds = new Set(synced.map((collection) => collection.id));
+    const query = { [dashboardQuestionsParam(features)]: true };
+
+    const collections: SyncTreeCollection[] = [];
+    for (const collection of synced) {
+      const rows = await itemRows(collection.id, query, options);
+      collections.push({
+        id: collection.id,
+        entity_id: collection.entity_id,
+        name: collection.name,
+        parent_id: syncedParentId(collection.location, syncedIds),
+        items: await treeItems(rows, options),
+      });
+    }
+    return { collections };
+  }
+
+  async function itemRows(
+    collectionId: number,
+    query: Record<string, QueryValue>,
+    options: RequestOptions,
+  ): Promise<SyncTreeItemRow[]> {
+    const rows: SyncTreeItemRow[] = [];
+    const pages = walkCollectionItems(transport, collectionId, SyncTreeItemRow, {
+      query,
+      ...(options.signal !== undefined && { signal: options.signal }),
+    });
+    for await (const page of pages) {
+      rows.push(...page.items);
+    }
+    return rows;
+  }
+
+  async function treeItems(
+    rows: SyncTreeItemRow[],
+    options: RequestOptions,
+  ): Promise<SyncTreeItem[]> {
+    const items: SyncTreeItem[] = [];
+    for (const row of rows.filter(isTreeItemRow)) {
+      const entityId = row.entity_id ?? (await documentEntityId(row.id, options));
+      items.push({ id: row.id, entity_id: entityId, name: row.name, model: row.model });
+    }
+    return items;
+  }
+
+  async function documentEntityId(id: number, options: RequestOptions): Promise<string> {
+    const document = await transport.requestParsed(SyncTreeDocument, `/api/document/${id}`, {
+      ...options,
+    });
+    return document.entity_id;
+  }
+
   /** The remote's URL, or null when none is configured or the caller may not read it. */
   async function remoteUrl(options: RequestOptions = {}): Promise<string | null> {
     await transport.require("gitSync.remoteUrl", options);
@@ -339,6 +464,57 @@ export function gitSyncResource(transport: Transport) {
     return settle(wait, options);
   }
 
+  /** List the remote-sync worktrees. */
+  async function worktrees(options: RequestOptions = {}): Promise<ListResult<Worktree>> {
+    await transport.require("gitSync.worktrees", options);
+    const data = await transport.requestParsed(WorktreeList, "/api/ee/remote-sync/worktree", {
+      ...options,
+    });
+    return { data, total: null };
+  }
+
+  /** Get one remote-sync worktree by id. */
+  async function worktree(id: number, options: RequestOptions = {}): Promise<Worktree> {
+    await transport.require("gitSync.worktree", options);
+    try {
+      return await transport.requestParsed(Worktree, `/api/ee/remote-sync/worktree/${id}`, {
+        ...options,
+      });
+    } catch (error) {
+      throw missingWorktree(error, id);
+    }
+  }
+
+  /**
+   * Create a remote-sync worktree for `branch`, which must already exist on the remote. A branch
+   * holds at most one worktree; the server answers 400 for a second.
+   */
+  async function createWorktree(
+    params: SyncCreateWorktreeParams,
+    options: RequestOptions = {},
+  ): Promise<Worktree> {
+    await transport.require("gitSync.createWorktree", options);
+    return transport.requestParsed(Worktree, "/api/ee/remote-sync/worktree", {
+      ...options,
+      method: "POST",
+      body: { branch: params.branch },
+    });
+  }
+
+  /** Delete a remote-sync worktree along with every piece of content it checked out. */
+  async function deleteWorktree(id: number, options: RequestOptions = {}): Promise<void> {
+    await transport.require("gitSync.deleteWorktree", options);
+    try {
+      await transport.requestRaw(`/api/ee/remote-sync/worktree/${id}`, {
+        ...options,
+        method: "DELETE",
+        expectContentType: "binary",
+      });
+    } catch (error) {
+      throw missingWorktree(error, id);
+    }
+  }
+
   async function settle(wait: PollOptions, options: RequestOptions): Promise<SyncTask | null> {
     return pollUntil(
       async (signal) => currentTask({ ...options, signal }),
@@ -361,8 +537,21 @@ export function gitSyncResource(transport: Transport) {
     createBranch,
     setCollectionSynced,
     syncedCollections,
+    syncedTree,
     remoteUrl,
     branch,
     waitForTask,
+    worktrees,
+    worktree,
+    createWorktree,
+    deleteWorktree,
   };
+}
+
+// The server answers a missing worktree with the bare "Not found."; the id says which one.
+function missingWorktree(error: unknown, id: number): unknown {
+  if (error instanceof HttpError && error.kind === "resource-missing") {
+    return chainRequestFailure(error, `No worktree has id ${id}.`);
+  }
+  return error;
 }

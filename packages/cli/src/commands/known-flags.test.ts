@@ -28,7 +28,7 @@ function expectUnknownFlag(rawArgs: readonly string[], display: string): void {
   const error = thrownBy(() => assertKnownFlags(rawArgs, ARGS));
   expect(error).toBeInstanceOf(ConfigError);
   assert(error instanceof ConfigError, "expected ConfigError");
-  expect(error.message).toBe(`unknown flag: ${display}`);
+  expect(error.message).toContain(`unknown flag: ${display};`);
 }
 
 describe("assertKnownFlags", () => {

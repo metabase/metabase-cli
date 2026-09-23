@@ -1,0 +1,101 @@
+name: "Comparison Filters"
+entity_id: 8kTL-8IzNdWMtXfaMPZaE
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+    filters:
+    - - between
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - PRICE
+      - 10
+      - 200
+    - - ">"
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - RATING
+      - 3
+    - - "<="
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - RATING
+      - 5
+    - - "!="
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - CATEGORY
+      - Doohickey
+    - - =
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - CATEGORY
+      - Widget
+      - Gadget
+      - Gizmo
+    - - in
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - CATEGORY
+      - Widget
+      - Gadget
+    - - not-in
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - CATEGORY
+      - Doohickey
+      - Gizmo
+    - - "="
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - PRICE
+      - - value
+        - effective-type: type/Float
+        - 42.0
+    limit: 20
+visualization_settings: {}
+serdes/meta:
+- id: 8kTL-8IzNdWMtXfaMPZaE
+  label: comparison_filters
+  model: Card

@@ -31,6 +31,10 @@ export async function probeServer(
     timeoutMs: PROBE_TIMEOUT_MS,
     retries: opts.retries ?? 0,
   });
+  return serverInfo(properties);
+}
+
+export function serverInfo(properties: SessionProperties): ServerInfo {
   const { tag } = properties.version;
   return {
     version: tryParseTag(tag),

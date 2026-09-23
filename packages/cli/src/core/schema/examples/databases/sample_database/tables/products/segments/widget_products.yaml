@@ -1,0 +1,30 @@
+name: Widget Products
+entity_id: aB3kLmN9pQrStUvWxYz1a
+creator_id: admin@example.com
+table_id:
+- Sample Database
+- null
+- PRODUCTS
+definition:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+    filters:
+    - - =
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - CATEGORY
+      - Widget
+serdes/meta:
+- id: aB3kLmN9pQrStUvWxYz1a
+  label: widget_products
+  model: Segment

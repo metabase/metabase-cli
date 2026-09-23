@@ -1,6 +1,6 @@
 import { syncTaskView } from "../../output/views/git-sync";
 import { renderSummary } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 import { formatSyncTask, syncTaskIdleView, SyncTaskIdle, SyncTaskOrIdle } from "./sync-task";
@@ -13,7 +13,7 @@ export default defineMetabaseCommand({
     description: "Get the most recent git-sync task (or idle if none)",
   },
   requires: ["gitSync.currentTask"],
-  args: { ...outputFlags, ...profileFlag, ...connectionFlags },
+  args: { ...outputFlags, ...preflightFlag },
   outputSchema: CurrentTaskResult,
   examples: ["mb git-sync current-task", "mb git-sync current-task --json"],
   async run({ ctx, getClient }) {

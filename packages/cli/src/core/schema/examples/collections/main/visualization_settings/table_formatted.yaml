@@ -1,0 +1,76 @@
+name: Products Table (Formatted)
+entity_id: Wo5d6IV8lb63wex29uh6H
+collection_id: cOlViZsEtTiNgS0ExAmP1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+visualization_settings:
+  "table.columns":
+  - name: TITLE
+    enabled: true
+  - name: CATEGORY
+    enabled: true
+  - name: PRICE
+    enabled: true
+  - name: RATING
+    enabled: true
+  - name: VENDOR
+    enabled: true
+  - name: CREATED_AT
+    enabled: true
+  - name: EAN
+    enabled: false
+  "table.column_formatting":
+  - columns:
+    - PRICE
+    type: single
+    operator: ">"
+    value: 100
+    color: "#84BB4C"
+    highlight_row: false
+  - columns:
+    - PRICE
+    type: single
+    operator: "<"
+    value: 20
+    color: "#ED6E6E"
+    highlight_row: true
+  - columns:
+    - RATING
+    type: range
+    colors:
+    - "#ED6E6E"
+    - "#F9CF48"
+    - "#84BB4C"
+    min_type: custom
+    min_value: 1
+    max_type: custom
+    max_value: 5
+  column_settings:
+    '["name","PRICE"]':
+      number_style: currency
+      currency: USD
+      currency_style: symbol
+      decimals: 2
+      column_title: Price (USD)
+    '["name","CREATED_AT"]':
+      date_style: "MMMM D, YYYY"
+      date_abbreviate: true
+      time_enabled: null
+    '["name","RATING"]':
+      number_style: decimal
+      decimals: 1
+      suffix: " / 5"
+serdes/meta:
+- id: Wo5d6IV8lb63wex29uh6H
+  label: table_formatted
+  model: Card

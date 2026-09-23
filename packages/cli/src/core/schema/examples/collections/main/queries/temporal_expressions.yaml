@@ -1,0 +1,89 @@
+name: "Temporal Expressions"
+entity_id: DBBrqcMAmOO0sbM_CzM_Z
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - null
+      - ORDERS
+      expressions:
+      - - datetime-add
+        - "lib/expression-name": Ship By
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+        - 7
+        - day
+      - - datetime-subtract
+        - "lib/expression-name": Week Before
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+        - 1
+        - week
+      - - datetime-diff
+        - "lib/expression-name": Days Since Order
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+        - - now
+          - {}
+        - day
+      - - "+"
+        - "lib/expression-name": Ship By Deadline
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+        - - interval
+          - {}
+          - 7
+          - day
+      - - date
+        - "lib/expression-name": Order Date
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+      - - datetime
+        - "lib/expression-name": Parsed Datetime
+        - "2024-06-15T10:30:00"
+      - - datetime
+        - mode: unix-seconds
+          "lib/expression-name": Parsed Unix
+        - - field
+          - base-type: type/Integer
+          - - Sample Database
+            - null
+            - ORDERS
+            - QUANTITY
+      - - now
+        - "lib/expression-name": Current Time
+      - - today
+        - "lib/expression-name": Today Date
+      limit: 10
+visualization_settings: {}
+serdes/meta:
+- id: DBBrqcMAmOO0sbM_CzM_Z
+  label: temporal_expressions
+  model: Card

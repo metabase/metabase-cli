@@ -18,9 +18,7 @@ const CLIENT_TYPE = "MetabaseClient";
 // Helpers a command hands its client to. The methods they call count as the command's, so a
 // command declares what reaches the wire on its behalf rather than what its own body spells out.
 const CLIENT_HELPERS: Readonly<Record<string, string>> = {
-  preflightDashcardCardReferences: "commands/dashboard/preflight.ts",
   warnIfOutsideSyncScope: "commands/git-sync/sync-scope.ts",
-  verifyAndProbe: "core/auth/verify.ts",
 };
 
 interface ParsedFile {
@@ -331,9 +329,7 @@ describe("every command declares exactly the client methods it reaches", () => {
       Object.values(CLIENT_HELPERS).map((file) => [file, methodsCalledIn(parsedFile(file))]),
     );
     expect(reached).toEqual({
-      "commands/dashboard/preflight.ts": ["dashboard.checkCardReferences"],
       "commands/git-sync/sync-scope.ts": ["gitSync.remoteUrl"],
-      "core/auth/verify.ts": ["user.current"],
     });
   });
 

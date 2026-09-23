@@ -29,7 +29,7 @@ export const ServerProfile = z.object({
 export type ServerProfile = z.infer<typeof ServerProfile>;
 
 interface Placement {
-  readonly effectiveMajor: number;
+  readonly effectiveMajor: number | null;
   readonly skew: Skew;
 }
 
@@ -55,7 +55,7 @@ export function featureGap(profile: ServerProfile, feature: FeatureName): Featur
 
 function place(version: ParsedVersion | null): Placement {
   if (version === null) {
-    return { effectiveMajor: KNOWN_RANGE.max + 1, skew: "unknown" };
+    return { effectiveMajor: null, skew: "unknown" };
   }
   if (version.major > KNOWN_RANGE.max) {
     return { effectiveMajor: KNOWN_RANGE.max + 1, skew: "newer-than-known" };

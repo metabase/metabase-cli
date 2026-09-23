@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-export XDG_CONFIG_HOME="$ROOT/.dev-state"
-export MB_CLI_DISABLE_KEYRING=1
-mkdir -p "$XDG_CONFIG_HOME"
+export XDG_CACHE_HOME="$ROOT/.dev-state"
+mkdir -p "$XDG_CACHE_HOME"
 exec bun "$ROOT/packages/cli/src/cli.ts" "$@"

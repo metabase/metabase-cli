@@ -2,7 +2,7 @@ import { defineCommandGroup } from "../group";
 
 export default defineCommandGroup({
   name: "dashboard",
-  description: "Manage Metabase dashboards",
+  description: "Inspect Metabase dashboards",
   skills: [
     {
       skill: "dashboard",
@@ -16,10 +16,5 @@ export default defineCommandGroup({
     get: () => import("./get").then((mod) => mod.default),
     cards: () => import("./cards").then((mod) => mod.default),
     "parameter-values": () => import("./parameter-values").then((mod) => mod.default),
-    subscriptions: () => import("./subscriptions").then((mod) => mod.default),
-    create: () => import("./create").then((mod) => mod.default),
-    update: () => import("./update").then((mod) => mod.default),
-    "update-dashcard": () => import("./update-dashcard").then((mod) => mod.default),
-    archive: () => import("./archive").then((mod) => mod.default),
   },
 });

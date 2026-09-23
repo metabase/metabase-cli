@@ -1,0 +1,10 @@
+name: Dashboards
+entity_id: cOlDaShBoArDs0ExAmPlx
+slug: dashboards
+parent_id: null
+namespace: null
+authority_level: null
+serdes/meta:
+  - id: cOlDaShBoArDs0ExAmPlx
+    label: dashboards
+    model: Collection

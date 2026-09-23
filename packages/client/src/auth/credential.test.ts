@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   type ApiKeyCredential,
+  type BearerCredential,
   type OAuthCredential,
   credentialAuthHeader,
   credentialSecrets,
@@ -10,6 +11,11 @@ import {
 } from "./credential";
 
 const API_KEY: ApiKeyCredential = { kind: "apiKey", apiKey: "mb_secret" };
+const BEARER: BearerCredential = {
+  kind: "bearer",
+  accessToken: "host-tok",
+  expiresAt: "2026-01-01T00:00:00.000Z",
+};
 
 function oauth(overrides: Partial<OAuthCredential> = {}): OAuthCredential {
   return {
@@ -33,6 +39,13 @@ describe("credentialAuthHeader", () => {
       value: "Bearer access-tok",
     });
   });
+
+  it("uses an Authorization Bearer header for a host-issued bearer credential", () => {
+    expect(credentialAuthHeader(BEARER)).toEqual({
+      name: "authorization",
+      value: "Bearer host-tok",
+    });
+  });
 });
 
 describe("credentialSecrets", () => {
@@ -42,6 +55,10 @@ describe("credentialSecrets", () => {
 
   it("returns both OAuth tokens as secrets to redact", () => {
     expect(credentialSecrets(oauth())).toEqual(["access-tok", "refresh-tok"]);
+  });
+
+  it("returns the bearer token as the only secret", () => {
+    expect(credentialSecrets(BEARER)).toEqual(["host-tok"]);
   });
 });
 

@@ -1,0 +1,39 @@
+name: REVIEWS
+schema: PUBLIC
+description: Reviews that Sample Company customers have left on our products.
+db_id: Sample Database
+fields:
+  - name: RATING
+    description: The rating (on a scale of 1-5) the user left.
+    base_type: type/Integer
+    database_type: SMALLINT
+    semantic_type: type/Score
+  - name: CREATED_AT
+    description: The day and time a review was written by a user.
+    base_type: type/DateTime
+    database_type: TIMESTAMP
+    semantic_type: type/CreationTimestamp
+  - name: ID
+    description: A unique internal identifier for the review. Should not be used externally.
+    base_type: type/BigInteger
+    database_type: BIGINT
+    semantic_type: type/PK
+  - name: PRODUCT_ID
+    description: The product the review was for
+    base_type: type/Integer
+    database_type: INTEGER
+    semantic_type: type/FK
+    fk_target_field_id:
+      - Sample Database
+      - PUBLIC
+      - PRODUCTS
+      - ID
+  - name: REVIEWER
+    description: The user who left the review
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+  - name: BODY
+    description: The review the user left. Limited to 2000 characters.
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Description

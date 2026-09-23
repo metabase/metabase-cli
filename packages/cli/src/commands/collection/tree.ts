@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ConfigError } from "@metabase/client/errors";
 import { CollectionTreeNode } from "@metabase/client/domain/collection";
 import { writeJson } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 export const CollectionTreeResponse = z.array(CollectionTreeNode);
@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
     description: "Fetch the collection hierarchy as a nested tree (JSON only)",
   },
   requires: ["collection.tree"],
-  args: { ...outputFlags, ...profileFlag, ...connectionFlags },
+  args: { ...outputFlags, ...preflightFlag },
   outputSchema: CollectionTreeResponse,
   examples: ["mb collection tree", "mb collection tree --json"],
   async run({ ctx, getClient }) {

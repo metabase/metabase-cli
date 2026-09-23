@@ -1,0 +1,71 @@
+{
+  "title": "Table",
+  "description": "A database table definition. Tables belong to databases and contain fields. Serialized to databases/{db}/schemas/{schema}/tables/{table}/{table}.yaml.\n",
+  "type": "object",
+  "required": [
+    "name",
+    "db_id",
+    "serdes/meta"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Table name in the database"
+    },
+    "display_name": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Human-readable display name"
+    },
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Human-readable description"
+    },
+    "db_id": {
+      "type": "string",
+      "description": "Database FK (database name)"
+    },
+    "schema": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Database schema name (null for schemaless databases)"
+    },
+    "active": {
+      "type": "boolean",
+      "description": "Whether the table is active",
+      "default": true
+    },
+    "serdes/meta": {
+      "type": "array",
+      "description": "Identity path for serialization. Contains Database, optional Schema, and Table entries.\n",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "model"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "enum": [
+              "Database",
+              "Schema",
+              "Table"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

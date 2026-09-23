@@ -1,0 +1,33 @@
+name: Sales Funnel
+entity_id: mkKa6jf-QsuCRnaPOIsYh
+collection_id: cOlViZsEtTiNgS0ExAmP1
+creator_id: admin@example.com
+display: funnel
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+    aggregation:
+    - - count
+      - {}
+    breakout:
+    - - field
+      - {}
+      - - Sample Database
+        - null
+        - PRODUCTS
+        - CATEGORY
+visualization_settings:
+  "funnel.dimension": CATEGORY
+  "funnel.metric": count
+  "funnel.type": funnel
+serdes/meta:
+- id: mkKa6jf-QsuCRnaPOIsYh
+  label: funnel
+  model: Card

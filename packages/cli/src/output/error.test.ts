@@ -16,7 +16,7 @@ import { HttpError } from "@metabase/client/http/errors";
 import { CapabilityError } from "@metabase/client/version/preflight-error";
 import { createServerProfile } from "@metabase/client/version/profile";
 import { checkFeatures } from "@metabase/client/version/requirement-check";
-import { ProfileRefreshedError } from "../core/profile-refreshed-error";
+import { ProbeRefreshedError } from "../core/probe-refreshed-error";
 import { exitCodeFor, reportError } from "./error";
 
 interface CapturedStreams {
@@ -36,7 +36,6 @@ beforeEach(() => {
   });
   process.exitCode = 0;
   delete process.env["MB_VERBOSE"];
-  delete process.env["METABASE_VERBOSE"];
 });
 
 afterEach(() => {
@@ -143,7 +142,7 @@ describe("reportError", () => {
     );
   });
 
-  it("offers the client downgrade when the server is below the required version", () => {
+  it("prints the client's own version floor when the server is below it", () => {
     const failure = checkFeatures(
       ["transformJobActivation"],
       createServerProfile({
@@ -158,14 +157,13 @@ describe("reportError", () => {
     reportError(new CapabilityError(failure));
     expect(streams.stderr).toBe(
       "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.\n" +
-        "Or install an `@metabase/cli` release that targets this server.\n" +
         "(rerun with MB_VERBOSE=1 for details)\n",
     );
     expect(process.exitCode).toBe(2);
   });
 
   const REFRESH_NOTE =
-    "The server's version changed since the last probe (was v0.58.0, now v0.61.3); the profile was refreshed — retry the command.";
+    "The server's version changed since the last probe (was v0.58.0, now v0.61.3); the cached server probe was refreshed — retry the command.";
 
   function activationRefusalOn58(): CapabilityError {
     const failure = checkFeatures(
@@ -182,8 +180,8 @@ describe("reportError", () => {
     return new CapabilityError(failure);
   }
 
-  it("withholds the client downgrade when the profile was refreshed, since the note says to retry", () => {
-    reportError(new ProfileRefreshedError(activationRefusalOn58(), REFRESH_NOTE));
+  it("prints the refresh note beneath a refusal raised under a refreshed probe", () => {
+    reportError(new ProbeRefreshedError(activationRefusalOn58(), REFRESH_NOTE));
     expect(streams.stderr).toBe(
       "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.\n" +
         `${REFRESH_NOTE}\n` +
@@ -192,10 +190,10 @@ describe("reportError", () => {
     expect(process.exitCode).toBe(2);
   });
 
-  it("keeps the client's own failure as the detail behind a refreshed-profile refusal", () => {
+  it("keeps the client's own failure as the detail behind a refreshed-probe refusal", () => {
     process.env["MB_VERBOSE"] = "1";
     const refusal = activationRefusalOn58();
-    reportError(new ProfileRefreshedError(refusal, REFRESH_NOTE), "json");
+    reportError(new ProbeRefreshedError(refusal, REFRESH_NOTE), "json");
     expect(streams.stderr).toBe(
       JSON.stringify({
         ok: false,
@@ -209,7 +207,7 @@ describe("reportError", () => {
     );
   });
 
-  it("withholds the client downgrade when a premium feature is missing, which no client version supplies", () => {
+  it("prints the client's premium-feature refusal as it stands", () => {
     const failure = checkFeatures(
       ["library"],
       createServerProfile({
@@ -228,33 +226,6 @@ describe("reportError", () => {
     );
   });
 
-  it("carries the client downgrade into the JSON envelope, where there is no second line to print it on", () => {
-    const failure = checkFeatures(
-      ["transformJobActivation"],
-      createServerProfile({
-        edition: "oss",
-        version: { tag: "v0.58.0", major: 58, patch: 0 },
-        date: null,
-        hash: null,
-        tokenFeatures: null,
-      }),
-    );
-    assert(failure !== null);
-    reportError(new CapabilityError(failure), "json");
-    expect(streams.stderr).toBe(
-      JSON.stringify({
-        ok: false,
-        error: {
-          category: "capability",
-          message:
-            "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.\n" +
-            "Or install an `@metabase/cli` release that targets this server.",
-          exitCode: 2,
-        },
-      }) + "\n",
-    );
-  });
-
   function routeMissingError(): HttpError {
     return new HttpError({
       status: 404,
@@ -267,46 +238,14 @@ describe("reportError", () => {
     });
   }
 
-  it("names the command that shows the server version when an endpoint is missing from it", () => {
+  it("prints the client's route-missing message as it stands", () => {
     reportError(routeMissingError());
     expect(streams.stderr).toBe(
       "This endpoint is not available on Metabase v0.58.7: GET /api/transform. " +
         "It may require a newer Metabase major version.\n" +
-        "Run `mb auth list` to see this server's version.\n" +
         "(rerun with MB_VERBOSE=1 for details)\n",
     );
     expect(process.exitCode).toBe(1);
-  });
-
-  it("carries the route-missing remedy into the JSON envelope", () => {
-    reportError(routeMissingError(), "json");
-    expect(streams.stderr).toBe(
-      JSON.stringify({
-        ok: false,
-        error: {
-          category: "http",
-          message:
-            "This endpoint is not available on Metabase v0.58.7: GET /api/transform. " +
-            "It may require a newer Metabase major version.\n" +
-            "Run `mb auth list` to see this server's version.",
-          exitCode: 1,
-        },
-      }) + "\n",
-    );
-  });
-
-  it("leaves an ordinary HTTP failure without a remedy line", () => {
-    reportError(
-      new HttpError({
-        status: 500,
-        statusText: "Internal Server Error",
-        method: "GET",
-        url: "https://m.example.com/api/transform",
-        responseHeaders: { "content-type": "text/plain" },
-        rawBody: null,
-      }),
-    );
-    expect(streams.stderr).toBe("Metabase returned 500.\n(rerun with MB_VERBOSE=1 for details)\n");
   });
 
   it("carries the rejected fields into the JSON error envelope under MB_VERBOSE=1", () => {

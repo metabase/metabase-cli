@@ -1,0 +1,31 @@
+name: INVOICES
+schema: PUBLIC
+description: Confirmed payments from Piespace’s customers. Most accounts pay for their pie subscription on a monthly basis.
+db_id: Sample Database
+fields:
+  - name: PLAN
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Category
+  - name: PAYMENT
+    base_type: type/Float
+    database_type: DOUBLE PRECISION
+  - name: ACCOUNT_ID
+    base_type: type/BigInteger
+    database_type: BIGINT
+    semantic_type: type/FK
+    fk_target_field_id:
+      - Sample Database
+      - PUBLIC
+      - ACCOUNTS
+      - ID
+  - name: ID
+    base_type: type/BigInteger
+    database_type: BIGINT
+    semantic_type: type/PK
+  - name: EXPECTED_INVOICE
+    base_type: type/Boolean
+    database_type: BOOLEAN
+  - name: DATE_RECEIVED
+    base_type: type/DateTime
+    database_type: TIMESTAMP

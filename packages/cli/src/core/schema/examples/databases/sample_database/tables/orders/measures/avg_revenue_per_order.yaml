@@ -1,0 +1,30 @@
+name: Average Revenue Per Order
+entity_id: dc8eiyLh9S0IKwV_UuvTz
+creator_id: admin@example.com
+description: Uses Total Revenue and Order Count measures
+table_id:
+- Sample Database
+- null
+- ORDERS
+definition:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    aggregation:
+    - - avg
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+serdes/meta:
+- id: dc8eiyLh9S0IKwV_UuvTz
+  label: avg_revenue_per_order
+  model: Measure

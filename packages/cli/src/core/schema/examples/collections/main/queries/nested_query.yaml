@@ -1,0 +1,53 @@
+name: "Nested Query"
+entity_id: 1t9TE-8T-AlaM19nx3yQV
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    aggregation:
+    - - count
+      - {}
+    - - sum
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+    breakout:
+    - - field
+      - {}
+      - - Sample Database
+        - null
+        - ORDERS
+        - USER_ID
+  - "lib/type": mbql.stage/mbql
+    filters:
+    - - ">"
+      - {}
+      - - field
+        - base-type: type/Integer
+        - count
+      - 5
+    order-by:
+    - - desc
+      - {}
+      - - field
+        - base-type: type/Float
+        - sum
+    limit: 20
+visualization_settings: {}
+serdes/meta:
+- id: 1t9TE-8T-AlaM19nx3yQV
+  label: nested_query
+  model: Card

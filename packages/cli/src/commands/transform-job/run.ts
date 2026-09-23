@@ -2,7 +2,7 @@ import { TransformJobRunResult } from "@metabase/client/domain/transform-job";
 
 import type { ResourceView } from "../../output/view";
 import { renderSummary } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -39,8 +39,7 @@ export default defineMetabaseCommand({
   requires: ["transformJob.run"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     "force-refresh": {
       type: "boolean",
       description: "Re-run the whole plan, including dependencies that are already fresh",

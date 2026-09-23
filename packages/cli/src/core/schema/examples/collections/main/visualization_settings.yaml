@@ -1,0 +1,10 @@
+name: Visualization Settings
+entity_id: cOlViZsEtTiNgS0ExAmP1
+slug: visualization_settings
+parent_id: null
+namespace: null
+authority_level: null
+serdes/meta:
+  - id: cOlViZsEtTiNgS0ExAmP1
+    label: visualization_settings
+    model: Collection

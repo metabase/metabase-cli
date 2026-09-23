@@ -1,0 +1,47 @@
+name: "Window Function - Offset"
+entity_id: ErQY8K5Tep4xBc3VY_-1e
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: line
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    aggregation:
+    - - sum
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+    - - offset
+      - {}
+      - - sum
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - null
+            - ORDERS
+            - TOTAL
+      - -1
+    breakout:
+    - - field
+      - temporal-unit: month
+      - - Sample Database
+        - null
+        - ORDERS
+        - CREATED_AT
+visualization_settings: {}
+serdes/meta:
+- id: ErQY8K5Tep4xBc3VY_-1e
+  label: window_offset
+  model: Card

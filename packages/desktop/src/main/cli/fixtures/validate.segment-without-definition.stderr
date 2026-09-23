@@ -1,0 +1,1 @@
+{"ok":false,"error":{"category":"validation","message":"1 of 3 file(s) failed validation; validation is structural: a file that passes can still name a table, card or collection the instance does not have, or a query it cannot run","exitCode":1}}

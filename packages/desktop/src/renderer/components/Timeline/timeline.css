@@ -1,0 +1,11 @@
+/* The library owns scroll anchoring; the browser's own anchor fights it and the rows jump. */
+.timeline-scroll {
+  overflow-anchor: none;
+}
+
+/* The list sets `contain: paint` inline on the box around each row, which cuts a card's shadow off
+   at that box's edge, right where the next row begins. Layout and style containment keep the box's
+   isolation without clipping what it paints. */
+.timeline-scroll :has(> .timeline-row) {
+  contain: layout style !important;
+}

@@ -2,8 +2,6 @@ import { z } from "zod";
 
 import type { ResourceView } from "../../output/view";
 
-import { readCachedServerProfile } from "../../core/auth/cached-server";
-import { resolveProfileName } from "../../core/config";
 import { loadVisibleSkills, selectForProfile } from "../../core/skills";
 import { renderListWithExtras } from "../../output/render";
 import {
@@ -15,8 +13,9 @@ import {
 import { listEnvelopeSchemaWithExtras } from "../../output/types";
 import { windowList } from "../../output/window";
 import { warn } from "../../output/notice";
-import { listFlags, outputFlags, profileFlag } from "../flags";
+import { listFlags, outputFlags } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
+import { resolveSkillServer } from "../../core/skill-server";
 
 const SkillSummary = z.object({
   name: z.string(),
@@ -40,16 +39,15 @@ export default defineMetabaseCommand({
   meta: {
     name: "list",
     description:
-      "List CLI-bundled skills — always consult the matching skill before acting on a task; they are the source of truth for every workflow. Skills the profile's server cannot use are left out; --unfiltered lists them too.",
+      "List CLI-bundled skills — always consult the matching skill before acting on a task; they are the source of truth for every workflow. Skills the connected server cannot use are left out; --unfiltered lists them too.",
   },
   requires: null,
-  args: { ...outputFlags, ...listFlags, ...profileFlag, ...unfilteredFlag },
+  args: { ...outputFlags, ...listFlags, ...unfilteredFlag },
   outputSchema: SkillListEnvelope,
   examples: ["mb skills list", "mb skills list --json", "mb skills list --unfiltered"],
   async run({ args, ctx }) {
-    const profileName = resolveProfileName(args.profile);
-    const cached = args.unfiltered === true ? null : await readCachedServerProfile(profileName);
-    const profile = cached !== null && cached.kind === "found" ? cached.profile : null;
+    const server = args.unfiltered === true ? null : await resolveSkillServer();
+    const profile = server !== null && server.kind === "found" ? server.profile : null;
     const selection = selectForProfile(loadVisibleSkills(), profile);
     const items: SkillSummaryJson[] = selection.skills.map((s) => ({
       name: s.name,
@@ -64,7 +62,7 @@ export default defineMetabaseCommand({
     if (ctx.format === "json") {
       return;
     }
-    for (const notice of skillFilterNotices(selection.unavailable, { profileName, cached })) {
+    for (const notice of skillFilterNotices(selection.unavailable, server)) {
       warn(notice);
     }
   },

@@ -1,0 +1,60 @@
+name: Recent Mid-Range Products
+entity_id: wdYkSSArR5ymVGa0pvb47
+creator_id: admin@example.com
+description: Products created in last year, priced 20-100, not null rating
+table_id:
+- Sample Database
+- null
+- PRODUCTS
+definition:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+    filters:
+    - - between
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - PRICE
+      - 20
+      - 100
+    - - not-null
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - RATING
+    - - time-interval
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - CREATED_AT
+      - -1
+      - year
+    - - not
+      - {}
+      - - is-null
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - VENDOR
+serdes/meta:
+- id: wdYkSSArR5ymVGa0pvb47
+  label: recent_midrange
+  model: Segment

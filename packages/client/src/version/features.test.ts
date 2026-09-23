@@ -81,12 +81,12 @@ describe("ruleGap", () => {
   });
 
   it("names the version below `since` before it looks at the token", () => {
-    expect(ruleGap(gated, 59, null)).toEqual({ kind: "version" });
-    expect(ruleGap(gated, 59, { remote_sync: true })).toEqual({ kind: "version" });
+    expect(ruleGap(gated, 59, null)).toEqual({ kind: "version", side: "older" });
+    expect(ruleGap(gated, 59, { remote_sync: true })).toEqual({ kind: "version", side: "older" });
   });
 
   it("names the version past `until`", () => {
-    expect(ruleGap(gated, 63, { remote_sync: true })).toEqual({ kind: "version" });
+    expect(ruleGap(gated, 63, { remote_sync: true })).toEqual({ kind: "version", side: "newer" });
   });
 
   it("names the token the server does not grant once the major fits", () => {

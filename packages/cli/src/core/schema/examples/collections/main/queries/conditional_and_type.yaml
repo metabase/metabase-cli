@@ -1,0 +1,103 @@
+name: "Conditional and Type Conversion"
+entity_id: 1hsUzNOepulZo3Jamzd1R
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - null
+      - PRODUCTS
+      expressions:
+      - - case
+        - "lib/expression-name": Price Tier
+        - - - - ">"
+              - {}
+              - - field
+                - {}
+                - - Sample Database
+                  - null
+                  - PRODUCTS
+                  - PRICE
+              - 100
+            - Premium
+          - - - ">"
+              - {}
+              - - field
+                - {}
+                - - Sample Database
+                  - null
+                  - PRODUCTS
+                  - PRICE
+              - 30
+            - Standard
+        - Budget
+      - - if
+        - "lib/expression-name": Is Premium
+        - - - - ">"
+              - {}
+              - - field
+                - {}
+                - - Sample Database
+                  - null
+                  - PRODUCTS
+                  - PRICE
+              - 100
+            - true
+        - false
+      - - case
+        - "lib/expression-name": Simple Category
+        - - - - ">"
+              - {}
+              - - field
+                - {}
+                - - Sample Database
+                  - null
+                  - PRODUCTS
+                  - RATING
+              - 4
+            - Popular
+      - - coalesce
+        - "lib/expression-name": Effective Price
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - PRICE
+        - 0
+      - - text
+        - "lib/expression-name": Price as Text
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - PRICE
+      - - integer
+        - "lib/expression-name": Rating as Integer
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - RATING
+      - - float
+        - "lib/expression-name": Rating as Float
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - RATING
+      limit: 10
+visualization_settings: {}
+serdes/meta:
+- id: 1hsUzNOepulZo3Jamzd1R
+  label: conditional_and_type
+  model: Card

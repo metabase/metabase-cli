@@ -1,0 +1,42 @@
+name: Revenue Gauge
+entity_id: GWrIQqjbzxysSCm8PLU5j
+collection_id: cOlViZsEtTiNgS0ExAmP1
+creator_id: admin@example.com
+display: gauge
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    aggregation:
+    - - sum
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+visualization_settings:
+  "gauge.segments":
+  - min: 0
+    max: 50000
+    color: "#ED6E6E"
+    label: Low
+  - min: 50000
+    max: 150000
+    color: "#F9CF48"
+    label: Medium
+  - min: 150000
+    max: 300000
+    color: "#84BB4C"
+    label: High
+serdes/meta:
+- id: GWrIQqjbzxysSCm8PLU5j
+  label: gauge
+  model: Card

@@ -1,0 +1,29 @@
+name: Monthly Sales Summary
+entity_id: w7EfUbsxLA7kXBHVXgeaZ
+creator_id: admin@example.com
+source_database_id: Sample Database
+source:
+  type: query
+  query:
+    "lib/type": mbql/query
+    database: Sample Database
+    stages:
+      - "lib/type": mbql.stage/native
+        native: |-
+          SELECT
+            DATE_TRUNC('month', o.CREATED_AT) AS month,
+            p.CATEGORY,
+            COUNT(*) AS order_count,
+            SUM(o.TOTAL) AS total_revenue
+          FROM ORDERS o
+          JOIN PRODUCTS p ON o.PRODUCT_ID = p.ID
+          GROUP BY 1, 2
+target:
+  database: Sample Database
+  type: table
+  schema: TRANSFORMS
+  name: monthly_sales_summary
+serdes/meta:
+- id: w7EfUbsxLA7kXBHVXgeaZ
+  label: monthly_sales_summary
+  model: Transform

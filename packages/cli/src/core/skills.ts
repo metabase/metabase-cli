@@ -69,7 +69,7 @@ interface ReadSkillContentOptions {
   profile: ServerProfile | null;
 }
 
-const SKILL_DIR_NAMES = ["skills", "skill-data"] as const;
+const SKILL_DIR_NAME = "skill-data";
 export const SKILL_MD_FILENAME = "SKILL.md";
 const SKILL_REFERENCES_DIR = "references";
 const SKILL_TEMPLATES_DIR = "templates";
@@ -160,20 +160,15 @@ export function resolveSkillDirs(): string[] {
     return [resolve(override)];
   }
   const root = findPackageRoot();
-  if (root === null) {
-    return [];
-  }
-  return SKILL_DIR_NAMES.map((name) => join(root, name)).filter(isDirectory);
+  return root === null ? [] : [join(root, SKILL_DIR_NAME)];
 }
 
 function findPackageRoot(): string | null {
   const here = fileURLToPath(import.meta.url);
   let dir = dirname(here);
   while (true) {
-    for (const name of SKILL_DIR_NAMES) {
-      if (isDirectory(join(dir, name))) {
-        return dir;
-      }
+    if (isDirectory(join(dir, SKILL_DIR_NAME))) {
+      return dir;
     }
     const parent = dirname(dir);
     if (parent === dir) {

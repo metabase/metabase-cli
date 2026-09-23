@@ -59,7 +59,7 @@ describe("createServerProfile", () => {
       hash: "548573f",
       edition: "oss",
       tokenFeatures: { library: false },
-      features: evaluateFeatures(HEAD_SLOT, { library: false }),
+      features: evaluateFeatures(null, { library: false }),
       skew: "unknown",
     });
   });
@@ -117,7 +117,7 @@ describe("createServerProfile", () => {
       hash: null,
       edition: "oss",
       tokenFeatures: null,
-      features: evaluateFeatures(HEAD_SLOT, null),
+      features: evaluateFeatures(null, null),
       skew: "unknown",
     });
   });
@@ -137,7 +137,7 @@ describe("featureGap", () => {
 
   it("names the version on a major below the rule's first", () => {
     const profile = createServerProfile(released("v0.58.2", 58, null));
-    expect(featureGap(profile, "transforms")).toEqual({ kind: "version" });
+    expect(featureGap(profile, "transforms")).toEqual({ kind: "version", side: "older" });
   });
 
   it("places an unparseable tag at the head slot, so only a token can be missing", () => {

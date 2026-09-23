@@ -13,6 +13,17 @@ import { installInterruptHandler } from "./runtime/interrupt";
 
 const HELP_FLAGS: ReadonlySet<string> = new Set(["--help", "-h"]);
 const JSON_HELP_FLAG = "--json";
+// Commands a published Metabase CLI has and this one never will: the credential is the
+// environment's.
+const CREDENTIAL_COMMANDS: ReadonlySet<string> = new Set(["auth", "login", "logout", "profile"]);
+const CREDENTIAL_HINT =
+  "the credential comes from the environment the app sets, so there is no sign-in command";
+const COMMANDS_HINT = "run `mb --help` for the commands";
+
+function unknownCommandMessage(unknown: string): string {
+  const hint = CREDENTIAL_COMMANDS.has(unknown) ? CREDENTIAL_HINT : COMMANDS_HINT;
+  return `unknown command: ${unknown}; ${hint}`;
+}
 
 async function run(): Promise<void> {
   installInterruptHandler((code) => process.exit(code));
@@ -39,7 +50,7 @@ async function run(): Promise<void> {
   if (!rawArgs.some((arg) => HELP_FLAGS.has(arg))) {
     const unknown = await findUnknownCommand(main, rawArgs);
     if (unknown !== null) {
-      reportError(new ConfigError(`unknown command: ${unknown}`));
+      reportError(new ConfigError(unknownCommandMessage(unknown)));
       return;
     }
   }

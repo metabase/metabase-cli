@@ -1,0 +1,17 @@
+name: Daily job
+entity_id: PJahvcoF61oX5T4uCT_FY
+description: Executes transforms tagged with 'daily' once per day at midnight
+built_in_type: daily
+schedule: 0 0 0 * * ? *
+ui_display_type: cron/builder
+job_tags:
+- entity_id: BPhRX8sTqcG5tZrXKeQuP
+  position: 0
+  tag_id: dUW7nvQHQBdA0Rx0gJckI
+  serdes/meta:
+  - id: BPhRX8sTqcG5tZrXKeQuP
+    model: TransformJobTransformTag
+serdes/meta:
+- id: PJahvcoF61oX5T4uCT_FY
+  label: daily_job
+  model: TransformJob

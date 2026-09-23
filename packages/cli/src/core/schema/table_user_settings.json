@@ -1,0 +1,135 @@
+{
+  "title": "TableUserSettings",
+  "description": "The values a user set on a table, over what sync reads from the database, with the user settings of its fields nested under `fields`. Serialized to databases/{db}/…/tables/{table}/{table}.yaml, or to {table}___tableusersettings.yaml beside the table.",
+  "type": "object",
+  "required": ["fields", "serdes/meta"],
+  "properties": {
+    "display_name": {
+      "type": ["string", "null"],
+      "description": "Human-readable display name"
+    },
+    "description": {
+      "type": ["string", "null"],
+      "description": "Human-readable description"
+    },
+    "entity_type": {
+      "type": ["string", "null"],
+      "description": "Entity type (e.g., entity/GenericTable)"
+    },
+    "visibility_type": {
+      "enum": ["hidden", "technical", "cruft", null],
+      "description": "Reason the table is hidden, null when visible"
+    },
+    "field_order": {
+      "enum": ["database", "alphabetical", "custom", "smart", null],
+      "description": "How the table's fields are ordered"
+    },
+    "caveats": {
+      "type": ["string", "null"]
+    },
+    "points_of_interest": {
+      "type": ["string", "null"]
+    },
+    "show_in_getting_started": {
+      "type": ["boolean", "null"]
+    },
+    "data_layer": {
+      "enum": ["final", "internal", "hidden", "copper", "bronze", "silver", "gold", null],
+      "description": "Data layer; copper, bronze, silver and gold are older values the server maps on import"
+    },
+    "data_source": {
+      "enum": [
+        "unknown",
+        "ingested",
+        "metabase-transform",
+        "transform",
+        "source-data",
+        "upload",
+        null
+      ]
+    },
+    "data_authority": {
+      "enum": ["unconfigured", "authoritative", "computed", "ingested", null]
+    },
+    "owner_email": {
+      "type": ["string", "null"]
+    },
+    "owner_user_id": {
+      "type": ["string", "null"],
+      "if": {
+        "type": "string"
+      },
+      "then": {
+        "$ref": "common/id.yaml#/$defs/user_id"
+      }
+    },
+    "is_published": {
+      "type": ["boolean", "null"],
+      "description": "Whether the table is published to the Library"
+    },
+    "collection_id": {
+      "description": "Library collection FK, null when unpublished",
+      "type": ["string", "null"],
+      "if": {
+        "type": "string"
+      },
+      "then": {
+        "$ref": "common/id.yaml#/$defs/entity_id"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "description": "ISO 8601 timestamp",
+      "format": "date-time"
+    },
+    "description_set": {
+      "type": "boolean",
+      "default": false
+    },
+    "visibility_type_set": {
+      "type": "boolean",
+      "default": false
+    },
+    "caveats_set": {
+      "type": "boolean",
+      "default": false
+    },
+    "points_of_interest_set": {
+      "type": "boolean",
+      "default": false
+    },
+    "data_layer_set": {
+      "type": "boolean",
+      "default": false
+    },
+    "data_source_set": {
+      "type": "boolean",
+      "default": false
+    },
+    "fields": {
+      "type": "array",
+      "description": "The user settings of the table's fields, sorted by field name",
+      "items": {
+        "$ref": "field_user_settings.yaml"
+      }
+    },
+    "serdes/meta": {
+      "type": "array",
+      "description": "Identity path for serialization. Contains Database, optional Schema, Table, and TableUserSettings entries.",
+      "items": {
+        "type": "object",
+        "required": ["id", "model"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "enum": ["Database", "Schema", "Table", "TableUserSettings"]
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

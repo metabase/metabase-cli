@@ -1,0 +1,59 @@
+name: Revenue Over Time (Line)
+entity_id: UEWVldEEZ-3sYUjjN54qz
+collection_id: cOlViZsEtTiNgS0ExAmP1
+creator_id: admin@example.com
+display: line
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    aggregation:
+    - - sum
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+    breakout:
+    - - field
+      - temporal-unit: month
+      - - Sample Database
+        - null
+        - ORDERS
+        - CREATED_AT
+visualization_settings:
+  "graph.show_values": true
+  "graph.label_values_frequency": fit
+  "graph.x_axis.title_text": Month
+  "graph.x_axis.scale": timeseries
+  "graph.y_axis.title_text": Revenue ($)
+  "graph.y_axis.scale": linear
+  "graph.y_axis.auto_range": false
+  "graph.y_axis.min": 0
+  "graph.y_axis.max": 100000
+  "graph.show_goal": true
+  "graph.goal_value": 50000
+  "graph.goal_label": Monthly Target
+  "graph.show_trendline": true
+  series_settings:
+    sum:
+      display: line
+      color: "#509EE3"
+      "line.style": solid
+      "line.size": M
+      "line.interpolate": cardinal
+      "line.missing": interpolate
+      "line.marker_enabled": true
+      show_series_values: true
+serdes/meta:
+- id: UEWVldEEZ-3sYUjjN54qz
+  label: line_chart
+  model: Card

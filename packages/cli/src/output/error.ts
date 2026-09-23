@@ -1,24 +1,11 @@
 import { AbortError, toMetabaseError } from "@metabase/client/errors";
 import type { ErrorCategory, MetabaseError } from "@metabase/client/errors";
-import type { RequirementFailure } from "@metabase/client/version/preflight-error";
-
-import { ProfileRefreshedError } from "../core/profile-refreshed-error";
-import { consumeLegacyEnvWarnings, ENV_VERBOSE, readEnv } from "../core/env";
-import { warn } from "./notice";
+import { ENV_VERBOSE, readEnv } from "../core/env";
 import { isPromptCancel } from "./prompt";
 import { serializeJson } from "./render";
 import type { Format } from "./types";
 
 const VERBOSE_BREADCRUMB = "(rerun with MB_VERBOSE=1 for details)";
-
-// The client states the version floor; naming a release that clears it is the CLI's own business.
-const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
-
-// The client reports which server the endpoint is missing from but may not name a command to inspect
-// it with, so the CLI supplies the one that prints the version it just quoted.
-const ROUTE_MISSING_REMEDY = "Run `mb auth list` to see this server's version.";
-
-const ROUTE_MISSING_KIND = "route-missing";
 
 const FAILURE_EXIT_CODE = 1;
 const USAGE_EXIT_CODE = 2;
@@ -69,48 +56,11 @@ export function reportError(error: unknown, format?: Format): void {
   } else {
     writeTextError(handled, verbose);
   }
-  for (const message of consumeLegacyEnvWarnings()) {
-    warn(message);
-  }
   process.exitCode = exitCode;
-}
-
-function isVersionTooOld(detail: unknown): detail is RequirementFailure {
-  return (
-    typeof detail === "object" &&
-    detail !== null &&
-    "reason" in detail &&
-    detail.reason === "version-too-old"
-  );
-}
-
-// `kind` belongs to `HttpError` alone, which `src/output/` may not import; no other error in the
-// taxonomy carries the property, so reading it off the value is unambiguous.
-function isRouteMissing(handled: MetabaseError): boolean {
-  return "kind" in handled && handled.kind === ROUTE_MISSING_KIND;
-}
-
-// What the CLI adds to a message the client had to phrase without knowing who would print it. Both
-// output formats carry them, so an agent reading `--json` gets the same remediation a human does.
-function remediesFor(handled: MetabaseError): readonly string[] {
-  // The refresh note already says to retry; a remedy naming another release would contradict it.
-  if (handled instanceof ProfileRefreshedError) {
-    return [];
-  }
-  if (isVersionTooOld(handled.developerDetail)) {
-    return [DOWNGRADE_REMEDY];
-  }
-  if (isRouteMissing(handled)) {
-    return [ROUTE_MISSING_REMEDY];
-  }
-  return [];
 }
 
 function writeTextError(handled: MetabaseError, verbose: boolean): void {
   process.stderr.write(handled.userMessage + "\n");
-  for (const remedy of remediesFor(handled)) {
-    process.stderr.write(remedy + "\n");
-  }
   if (handled.developerDetail === null) {
     return;
   }
@@ -128,7 +78,7 @@ function stderrPretty(): boolean {
 function writeJsonError(handled: MetabaseError, exitCode: number, verbose: boolean): void {
   const payload: JsonErrorPayload = {
     category: handled.category,
-    message: [handled.userMessage, ...remediesFor(handled)].join("\n"),
+    message: handled.userMessage,
     exitCode,
   };
   if (verbose && handled.developerDetail !== null) {

@@ -1,7 +1,7 @@
 import { Segment } from "@metabase/client/domain/segment";
 import { segmentView } from "../../output/views/segment";
 import { renderItem } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -10,8 +10,7 @@ export default defineMetabaseCommand({
   requires: ["segment.get"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     id: { type: "positional", description: "Segment id", required: true },
   },
   outputSchema: Segment,

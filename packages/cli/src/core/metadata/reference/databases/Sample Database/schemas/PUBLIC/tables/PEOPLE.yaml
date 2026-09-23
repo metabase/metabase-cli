@@ -1,0 +1,67 @@
+name: PEOPLE
+schema: PUBLIC
+description: Information on the user accounts registered with Sample Company.
+db_id: Sample Database
+fields:
+  - name: STATE
+    description: The state or province of the account’s billing address
+    base_type: type/Text
+    database_type: CHARACTER
+    semantic_type: type/State
+  - name: ID
+    description: A unique identifier given to each user.
+    base_type: type/BigInteger
+    database_type: BIGINT
+    semantic_type: type/PK
+  - name: EMAIL
+    description: The contact email for the account.
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Email
+  - name: BIRTH_DATE
+    description: The date of birth of the user
+    base_type: type/Date
+    database_type: DATE
+  - name: SOURCE
+    description: 'The channel through which we acquired this user. Valid values include: Affiliate, Facebook, Google, Organic and Twitter'
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Source
+  - name: NAME
+    description: The name of the user who owns an account
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Name
+  - name: CREATED_AT
+    description: The date the user record was created. Also referred to as the user’s "join date"
+    base_type: type/DateTime
+    database_type: TIMESTAMP
+    semantic_type: type/CreationTimestamp
+  - name: ADDRESS
+    description: The street address of the account’s billing address
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+  - name: LATITUDE
+    description: This is the latitude of the user on sign-up. It might be updated in the future to the last seen location.
+    base_type: type/Float
+    database_type: DOUBLE PRECISION
+    semantic_type: type/Latitude
+  - name: CITY
+    description: The city of the account’s billing address
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/City
+  - name: PASSWORD
+    description: This is the salted password of the user. It should not be visible
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+  - name: LONGITUDE
+    description: This is the longitude of the user on sign-up. It might be updated in the future to the last seen location.
+    base_type: type/Float
+    database_type: DOUBLE PRECISION
+    semantic_type: type/Longitude
+  - name: ZIP
+    description: The postal code of the account’s billing address
+    base_type: type/Text
+    database_type: CHARACTER
+    semantic_type: type/ZipCode

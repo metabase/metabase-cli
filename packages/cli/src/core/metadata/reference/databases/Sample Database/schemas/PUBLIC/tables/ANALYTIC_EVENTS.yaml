@@ -1,0 +1,33 @@
+name: ANALYTIC_EVENTS
+schema: PUBLIC
+description: Piespace does some anonymous analytics tracking on how users interact with their platform. They’ve only had time to implement a few events, but you know how it is. Pies come first.
+db_id: Sample Database
+fields:
+  - name: BUTTON_LABEL
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Category
+  - name: EVENT
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/Category
+  - name: TIMESTAMP
+    base_type: type/DateTime
+    database_type: TIMESTAMP
+  - name: ACCOUNT_ID
+    base_type: type/BigInteger
+    database_type: BIGINT
+    semantic_type: type/FK
+    fk_target_field_id:
+      - Sample Database
+      - PUBLIC
+      - ACCOUNTS
+      - ID
+  - name: PAGE_URL
+    base_type: type/Text
+    database_type: CHARACTER VARYING
+    semantic_type: type/URL
+  - name: ID
+    base_type: type/BigInteger
+    database_type: BIGINT
+    semantic_type: type/PK

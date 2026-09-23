@@ -1,0 +1,31 @@
+name: "Metric, Measure, and Segment References"
+entity_id: kBjQ5VXJ5z3vYSW72J6qa
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - null
+      - ORDERS
+      aggregation:
+      - - metric
+        - {}
+        - IW8kbqZVaMxdGtCM2F4U6
+      - - measure
+        - {}
+        - DBap2523KuN4Lt-cYrUjF
+      filters:
+      - - segment
+        - {}
+        - OaFXAvEzPvu9ZXW5PUMRa
+visualization_settings: {}
+serdes/meta:
+- id: kBjQ5VXJ5z3vYSW72J6qa
+  label: metric_measure_segment_refs
+  model: Card

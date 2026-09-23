@@ -1,0 +1,34 @@
+name: "Native Query - Card and Snippet References"
+entity_id: HiBFSt0BNx5s5MxVDLLKB
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/native
+      native: |-
+        SELECT *
+        FROM {{#1-basic_aggregations}}
+        WHERE {{snippet: Active Product Filter}}
+        ORDER BY "count" DESC
+        LIMIT 10
+      template-tags:
+        - type: card
+          name: "#1-basic_aggregations"
+          id: cc000001-0000-0000-0000-000000000001
+          display-name: Basic Aggregations
+          card-id: h5F2EjHsRd73Dqqh8sAtd
+        - type: snippet
+          name: "snippet: Active Product Filter"
+          id: cc000002-0000-0000-0000-000000000002
+          display-name: "Snippet: Active Product Filter"
+          snippet-name: Active Product Filter
+          snippet-id: WyQWnT23PF-SfbYLROllJ
+visualization_settings: {}
+serdes/meta:
+- id: HiBFSt0BNx5s5MxVDLLKB
+  label: native_card_and_snippet
+  model: Card

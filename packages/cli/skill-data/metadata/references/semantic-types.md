@@ -1,6 +1,6 @@
 # Metadata — full reference
 
-The semantic-type catalog, the `has_field_values` / `visibility_type` value tables, and the exact writable-key lists for `field update` and `table update`. All values are strings in JSON (`"type/Currency"`). Unknown values are rejected — a new server type surfaces as a parse error, a deliberate signal.
+The semantic-type catalog, the `has_field_values` and `visibility_type` value tables, the metadata keys and the common coercion strategies. Values are strings (`type/Currency`). The server refuses an unknown value on import.
 
 ## Semantic types by base type
 
@@ -63,25 +63,19 @@ A `list`/`auto-list` column's dropdown is refreshed by `mb db rescan-values <db-
 
 `hidden` · `technical` · `cruft` — all hide the table from the query builder and data reference (degrees of "don't show this"). `null` is normal.
 
-## Writable keys
+## Keys
 
-Everything else on a field/table (physical `name`, `base_type`, `effective_type`, `active`, ids, timestamps) is read-only, set by sync.
+Sync owns a field's physical `name`, `base_type`, `effective_type`, `database_type`, `active`, and every timestamp; never edit them.
 
-**`PUT /api/field/:id` (`mb field update`)**
-`display_name` · `description` · `caveats` · `points_of_interest` · `semantic_type` · `coercion_strategy` · `fk_target_field_id` · `visibility_type` · `has_field_values` · `settings` · `nfc_path` · `json_unfolding`
+**Field:** `display_name` · `description` · `caveats` · `points_of_interest` · `semantic_type` · `coercion_strategy` · `fk_target_field_id` (a natural key `[db, schema, table, field]` in a file) · `visibility_type` · `has_field_values` · `settings` · `nfc_path` · `json_unfolding`
 
-**`PUT /api/table/:id` (`mb table update`)**
-`display_name` · `description` · `visibility_type` · `field_order` (`database` / `alphabetical` / `custom` / `smart`) · `entity_type` · `caveats` · `points_of_interest` · `show_in_getting_started` · `owner_user_id` / `owner_email` (ownership) · `data_layer` / `data_authority` / `data_source` (data-governance tiers)
+**Table:** `display_name` · `description` · `visibility_type` · `field_order` (`database` / `alphabetical` / `custom` / `smart`) · `entity_type` · `caveats` · `points_of_interest` · `show_in_getting_started` · owner · `data_layer` / `data_authority` / `data_source` (data-governance tiers)
 
-<!-- requires: library -->
-
-· `collection_id` — the Library **Data** collection a published table sits in (`mb library publish` sets it; see `core`)
-
-<!-- /requires -->
+A metadata file carries the keys Metabase exports for it; edit those in place rather than adding keys the file does not have.
 
 ## Coercion strategies (common)
 
-Cast a `base_type` to a more useful `effective_type`. The value must be compatible with the column's base type and is driver-dependent (an unsupported one 400s at update).
+Cast a `base_type` to a more useful `effective_type`. The value must be compatible with the column's base type and is driver-dependent; an unsupported one fails the import.
 
 - Epoch numbers → datetime: `Coercion/UNIXSeconds->DateTime`, `Coercion/UNIXMilliSeconds->DateTime`, `Coercion/UNIXMicroSeconds->DateTime`, `Coercion/UNIXNanoSeconds->DateTime`
 - ISO-8601 strings → temporal: `Coercion/ISO8601->DateTime`, `Coercion/ISO8601->Date`, `Coercion/ISO8601->Time`

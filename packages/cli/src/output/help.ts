@@ -30,7 +30,7 @@ const CLI_NAME = "mb";
 const HELP_FLAG_SPEC = "-h, --help";
 const HELP_FLAG_DESCRIPTION = "Show help for this command";
 
-const GETTING_STARTED_HINT = `First time? Run \`${CLI_NAME} auth login\` to connect to a Metabase instance.`;
+const GETTING_STARTED_HINT = `Start with \`${CLI_NAME} skills get core\`; content is files in the repository, \`${CLI_NAME} validate\` checks them.`;
 
 const SKILLS_HEADER = "AGENT SKILLS";
 const SKILLS_LIST_ITEM = `${CLI_NAME} skills list — every bundled skill`;
