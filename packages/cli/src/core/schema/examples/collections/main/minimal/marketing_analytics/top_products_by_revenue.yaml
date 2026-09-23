@@ -1,0 +1,33 @@
+name: Top Products by Revenue
+entity_id: FTxpeL9vY5pyb6Lc6lCDK
+collection_id: M-Q4pcV0qkiyJ0kiSWECl
+creator_id: admin@example.com
+display: bar
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/native
+      native: |-
+        SELECT
+          p.TITLE,
+          p.CATEGORY,
+          SUM(o.TOTAL) AS revenue
+        FROM ORDERS o
+        JOIN PRODUCTS p ON o.PRODUCT_ID = p.ID
+        WHERE p.CATEGORY = {{category}}
+        GROUP BY p.TITLE, p.CATEGORY
+        ORDER BY revenue DESC
+        LIMIT 10
+      template-tags:
+        - type: text
+          name: category
+          id: b2c3d4e5-f678-90ab-cdef-1234567890ab
+          display-name: Category
+          default: Widget
+visualization_settings: {}
+serdes/meta:
+- id: FTxpeL9vY5pyb6Lc6lCDK
+  label: top_products_by_revenue
+  model: Card

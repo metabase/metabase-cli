@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { RequirementFailure } from "@metabase/client/version/preflight-error";
 
-import type { CachedProbeMiss, CachedServerProfile } from "../core/auth/cached-server";
+import type { SkillServerLookup } from "../core/skill-server";
 import type { UnavailableSkill } from "../core/skills";
 import { listTruncationNotice, warn } from "./notice";
 
@@ -20,28 +20,23 @@ export const UnavailableSkills = z
   .array(UnavailableSkillJson)
   .nullable()
   .describe(
-    "Skills left out because the profile's server lacks a feature they need, each with the client's account of the first one missing; `null` when nothing was filtered — `--unfiltered` was passed, or the profile has no cached server probe to filter by.",
+    "Skills left out because the connected server lacks a feature they need, each with the client's account of the first one missing; `null` when nothing was filtered — `--unfiltered` was passed, or there was no server to filter by.",
   );
 
 export const unfilteredFlag = {
   unfiltered: {
     type: "boolean",
     description:
-      "Print the selected skills as written, regardless of what the profile's server supports",
+      "Print the selected skills as written, regardless of what the connected server supports",
   },
 } as const;
 
-// `cached` is `null` when `--unfiltered` skipped the lookup, which asked for the lot and gets no note.
-interface SkillFilterContext {
-  profileName: string;
-  cached: CachedServerProfile | null;
-}
-
+// `server` is `null` when `--unfiltered` skipped the lookup, which asked for the lot and gets no note.
 export function skillFilterNotices(
   unavailable: readonly UnavailableSkill[] | null,
-  context: SkillFilterContext,
+  server: SkillServerLookup | null,
 ): string[] {
-  if (context.cached === null) {
+  if (server === null) {
     return [];
   }
   if (unavailable !== null) {
@@ -50,21 +45,15 @@ export function skillFilterNotices(
         `Skipped skill "${skill.name}": ${skill.failure.detail} Pass --unfiltered to print it anyway.`,
     );
   }
-  return context.cached.kind === "found"
-    ? []
-    : [unfilteredNotice(context.profileName, context.cached)];
-}
-
-function unfilteredNotice(profileName: string, miss: CachedProbeMiss): string {
-  switch (miss.kind) {
-    case "no-profile": {
-      return `Skills are unfiltered: there is no profile "${profileName}" (run \`mb auth login\` to create one and record its server).`;
+  switch (server.kind) {
+    case "found": {
+      return [];
     }
-    case "never-probed": {
-      return `Skills are unfiltered: profile "${profileName}" has no cached server probe yet (run \`mb auth login\` to record one).`;
+    case "no-credential": {
+      return [`Skills are unfiltered: ${server.reason}.`];
     }
-    case "other-url": {
-      return `Skills are unfiltered: profile "${profileName}" has no cached server probe for ${miss.url}, the URL in use (run \`mb auth login\` to record one).`;
+    case "unreachable": {
+      return [`Skills are unfiltered: the server could not be probed (${server.reason}).`];
     }
   }
 }

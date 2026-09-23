@@ -1,0 +1,42 @@
+name: Monthly Order Summary
+entity_id: 1fNzUt_CgppinjPk7pGKH
+creator_id: admin@example.com
+source_database_id: Sample Database
+source:
+  type: query
+  query:
+    "lib/type": mbql/query
+    database: Sample Database
+    stages:
+      - "lib/type": mbql.stage/mbql
+        source-table:
+        - Sample Database
+        - null
+        - ORDERS
+        aggregation:
+        - - count
+          - {}
+        - - sum
+          - {}
+          - - field
+            - base-type: type/Float
+            - - Sample Database
+              - null
+              - ORDERS
+              - TOTAL
+        breakout:
+        - - field
+          - temporal-unit: month
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+target:
+  database: Sample Database
+  type: table
+  schema: TRANSFORMS
+  name: monthly_order_summary
+serdes/meta:
+- id: 1fNzUt_CgppinjPk7pGKH
+  label: monthly_order_summary
+  model: Transform

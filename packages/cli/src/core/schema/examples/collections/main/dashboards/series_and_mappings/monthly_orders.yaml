@@ -1,0 +1,31 @@
+name: Monthly Orders
+entity_id: dShCrdMnthlyOrdrs0001
+creator_id: admin@example.com
+display: line
+database_id: Sample Database
+dashboard_id: 8xFV0XmZs2olbGKXWenfS
+collection_id: cOlDaShBoArDs0ExAmPlx
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    aggregation:
+    - - count
+      - {}
+    breakout:
+    - - field
+      - temporal-unit: month
+      - - Sample Database
+        - null
+        - ORDERS
+        - CREATED_AT
+visualization_settings: {}
+serdes/meta:
+- id: dShCrdMnthlyOrdrs0001
+  label: monthly_orders
+  model: Card

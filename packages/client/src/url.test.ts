@@ -125,16 +125,22 @@ describe("displayUrl edge cases", () => {
 });
 
 describe("isLoopbackHost", () => {
-  it.each(["localhost", "127.0.0.1", "::1", "[::1]", "LOCALHOST"])("treats %j as loopback", (h) => {
-    expect(isLoopbackHost(h)).toBe(true);
-  });
-
-  it.each(["mb.example.com", "127.0.0.2", "169.254.0.1", "example.localhost.evil.com"])(
-    "treats %j as non-loopback",
+  it.each(["localhost", "127.0.0.1", "::1", "[::1]", "LOCALHOST", "slot7.box.localhost"])(
+    "treats %j as loopback",
     (h) => {
-      expect(isLoopbackHost(h)).toBe(false);
+      expect(isLoopbackHost(h)).toBe(true);
     },
   );
+
+  it.each([
+    "mb.example.com",
+    "127.0.0.2",
+    "169.254.0.1",
+    "example.localhost.evil.com",
+    "evillocalhost",
+  ])("treats %j as non-loopback", (h) => {
+    expect(isLoopbackHost(h)).toBe(false);
+  });
 });
 
 describe("assertEndpointOrigin", () => {

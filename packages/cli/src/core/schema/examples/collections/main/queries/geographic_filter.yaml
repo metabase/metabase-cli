@@ -1,0 +1,39 @@
+name: "Geographic Filter (Inside)"
+entity_id: bK64P6yr9_Nx-A8S3PqOZ
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: map
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - null
+      - PEOPLE
+      filters:
+      - - inside
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PEOPLE
+            - LATITUDE
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PEOPLE
+            - LONGITUDE
+        - 40.8
+        - -74.1
+        - 40.6
+        - -73.9
+visualization_settings: {}
+serdes/meta:
+- id: bK64P6yr9_Nx-A8S3PqOZ
+  label: geographic_filter
+  model: Card

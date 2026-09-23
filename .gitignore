@@ -15,3 +15,5 @@ tests/e2e/snapshots/*.sql
 metabase-*.log
 *.tgz
 .claude/worktrees/
+out/
+release/

@@ -1,0 +1,21 @@
+name: Products Table
+entity_id: dShCrdProdsTables0007
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dashboard_id: 7RZUq1g5o1C5ws_e3ppKf
+collection_id: cOlDaShBoArDs0ExAmPlx
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+visualization_settings: {}
+serdes/meta:
+- id: dShCrdProdsTables0007
+  label: products_table
+  model: Card

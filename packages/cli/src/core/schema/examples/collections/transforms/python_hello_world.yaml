@@ -1,0 +1,24 @@
+name: Python Hello World
+entity_id: g2cRYwopfoL1BW9Y4n3wb
+creator_id: admin@example.com
+source_database_id: Sample Database
+source:
+  type: python
+  source-tables: []
+  body: |-
+    import pandas as pd
+
+    def transform():
+        return pd.DataFrame({
+            "greeting": ["Hello", "World"],
+            "number": [1, 2]
+        })
+target:
+  database: Sample Database
+  type: table
+  schema: TRANSFORMS
+  name: hello_world
+serdes/meta:
+- id: g2cRYwopfoL1BW9Y4n3wb
+  label: python_hello_world
+  model: Transform

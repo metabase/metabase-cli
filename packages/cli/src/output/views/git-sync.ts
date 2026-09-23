@@ -1,17 +1,70 @@
 import {
-  SyncBranchCreated,
   type SyncDirtyItem,
   SyncDirtyItemCompact,
-  SyncExportResult,
   SyncImportResult,
   SyncRemoteChanges,
-  SyncSettingsUpdateResult,
-  SyncStashResult,
   type SyncTask,
   SyncTaskCompact,
+  SyncTree,
+  type SyncTreeCollection,
+  type SyncTreeItem,
+  type SyncTreeTransforms,
 } from "@metabase/client/domain/git-sync";
 
 import type { ResourceView } from "../view";
+
+const TREE_INDENT = "  ";
+
+export const syncTreeView: ResourceView<SyncTree> = {
+  compactPick: SyncTree,
+  tableColumns: [{ key: "collections", label: "Collections" }],
+};
+
+const TRANSFORMS_HEADING = "Transforms";
+
+function itemLine(item: SyncTreeItem, indent: string): string {
+  return `${indent}${item.model}: ${item.name} (${item.id})`;
+}
+
+function outline(collections: readonly SyncTreeCollection[], depth: number): string[] {
+  const childrenOf = (parentId: number | null): SyncTreeCollection[] =>
+    collections.filter((collection) => collection.parent_id === parentId);
+  const lines: string[] = [];
+  const visit = (collection: SyncTreeCollection, level: number): void => {
+    const indent = TREE_INDENT.repeat(level);
+    lines.push(`${indent}${collection.name} (${collection.id})`);
+    for (const item of collection.items) {
+      lines.push(itemLine(item, `${indent}${TREE_INDENT}`));
+    }
+    for (const child of childrenOf(collection.id)) {
+      visit(child, level + 1);
+    }
+  };
+  for (const root of childrenOf(null)) {
+    visit(root, depth);
+  }
+  return lines;
+}
+
+function transformsOutline(transforms: SyncTreeTransforms): string[] {
+  return [
+    TRANSFORMS_HEADING,
+    ...outline(transforms.collections, 1),
+    ...transforms.items.map((item) => itemLine(item, TREE_INDENT)),
+  ];
+}
+
+/**
+ * The synced collections as an indented outline, each followed by the items directly inside it,
+ * then the transforms when the instance syncs them.
+ */
+export function formatSyncTree(tree: SyncTree): string {
+  if (tree.collections.length === 0 && tree.transforms === null) {
+    return "No collections are marked for sync.";
+  }
+  const transforms = tree.transforms === null ? [] : transformsOutline(tree.transforms);
+  return [...outline(tree.collections, 0), ...transforms].join("\n");
+}
 
 export const syncTaskView: ResourceView<SyncTask> = {
   compactPick: SyncTaskCompact,
@@ -46,43 +99,10 @@ export const syncRemoteChangesView: ResourceView<SyncRemoteChanges> = {
   ],
 };
 
-export const syncBranchCreatedView: ResourceView<SyncBranchCreated> = {
-  compactPick: SyncBranchCreated,
-  tableColumns: [
-    { key: "status", label: "Status" },
-    { key: "message", label: "Message" },
-  ],
-};
-
-export const syncSettingsUpdateView: ResourceView<SyncSettingsUpdateResult> = {
-  compactPick: SyncSettingsUpdateResult,
-  tableColumns: [
-    { key: "success", label: "Success" },
-    { key: "task_id", label: "Task ID" },
-  ],
-};
-
 export const syncImportView: ResourceView<SyncImportResult> = {
   compactPick: SyncImportResult,
   tableColumns: [
     { key: "task_id", label: "Task ID" },
-    { key: "message", label: "Message" },
-  ],
-};
-
-export const syncExportView: ResourceView<SyncExportResult> = {
-  compactPick: SyncExportResult,
-  tableColumns: [
-    { key: "task_id", label: "Task ID" },
-    { key: "message", label: "Message" },
-  ],
-};
-
-export const syncStashView: ResourceView<SyncStashResult> = {
-  compactPick: SyncStashResult,
-  tableColumns: [
-    { key: "task_id", label: "Task ID" },
-    { key: "status", label: "Status" },
     { key: "message", label: "Message" },
   ],
 };

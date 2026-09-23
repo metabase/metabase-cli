@@ -1,0 +1,6 @@
+name: nightly-refresh
+entity_id: 1uWng5tP1gyxr44PJ5FPb
+serdes/meta:
+- id: 1uWng5tP1gyxr44PJ5FPb
+  label: nightly_refresh
+  model: TransformTag

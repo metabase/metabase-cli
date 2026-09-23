@@ -4,7 +4,7 @@ import { collectionView } from "../../output/views/collection";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
 import { windowList } from "../../output/window";
-import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";
+import { listFlags, outputFlags, preflightFlag } from "../flags";
 import { parseEnumFlag } from "../parse-enum";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -16,8 +16,7 @@ export default defineMetabaseCommand({
   args: {
     ...outputFlags,
     ...listFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     filter: {
       type: "string",
       description: `Filter preset: ${CollectionListFilter.options.join("|")}`,

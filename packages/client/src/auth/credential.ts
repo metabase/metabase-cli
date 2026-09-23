@@ -14,7 +14,15 @@ export interface OAuthCredential {
   clientId: string;
 }
 
-export type Credential = ApiKeyCredential | OAuthCredential;
+// An access token whose renewal belongs to the host application: the client sends it as a bearer
+// and asks the refresher for the next one on a 401, but holds no refresh token of its own.
+export interface BearerCredential {
+  kind: "bearer";
+  accessToken: string;
+  expiresAt: string;
+}
+
+export type Credential = ApiKeyCredential | OAuthCredential | BearerCredential;
 
 // Returns a refreshed credential to retry with, or null when refresh is impossible/declined.
 export type CredentialRefresher = () => Promise<Credential | null>;
@@ -73,13 +81,22 @@ export function assertCredentialHeaderSafe(credential: Credential): void {
 }
 
 export function credentialSecrets(credential: Credential): string[] {
-  if (credential.kind === "apiKey") {
-    return [credential.apiKey];
+  switch (credential.kind) {
+    case "apiKey": {
+      return [credential.apiKey];
+    }
+    case "oauth": {
+      return [credential.accessToken, credential.refreshToken];
+    }
+    case "bearer": {
+      return [credential.accessToken];
+    }
   }
-  return [credential.accessToken, credential.refreshToken];
 }
 
-export function isOAuthExpired(credential: OAuthCredential, nowMs: number): boolean {
+type ExpiringCredential = OAuthCredential | BearerCredential;
+
+export function isOAuthExpired(credential: ExpiringCredential, nowMs: number): boolean {
   const expiryMs = Date.parse(credential.expiresAt);
   // An unparseable expiry can't be trusted — fail safe by treating it as expired so the
   // credential is refreshed rather than used past an unknown lifetime.

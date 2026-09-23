@@ -39,6 +39,9 @@ export const SeededIds = z.object({
   libraryDataCollectionId: z.number().int().positive().nullable().default(null),
   // The admin's personal collection, the only personal collection a snapshot holds.
   adminPersonalCollectionId: z.number().int().positive(),
+  // A native-SQL transform over the warehouse's orders table, present only when the server serves
+  // transforms; null otherwise, and for a bootstrap file written before the transform was seeded.
+  transformId: z.number().int().positive().nullable().default(null),
 });
 export type SeededIds = z.infer<typeof SeededIds>;
 
@@ -48,7 +51,7 @@ export const ServerIdentity = z.object({
   date: z.string().nullable().default(null),
   hash: z.string().nullable().default(null),
   tokenFeatures: TokenFeatures.nullable(),
-  // Whether the server supports full-API OAuth login (full-access scope advertised in discovery).
+  // Whether OAuth discovery found a server that grants the full-access scope.
   oauthSupported: z.boolean().default(false),
 });
 export type ServerIdentity = z.infer<typeof ServerIdentity>;

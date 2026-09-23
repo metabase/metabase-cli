@@ -1,21 +1,21 @@
 ---
 name: visualization
-description: Choose a card's `display` (chart type) and author its `visualization_settings` for the `mb` CLI — which chart fits which data shape, the required keys per chart, the rule that settings name OUTPUT columns, and the `column_settings` JSON-string-key footgun; the full per-chart key catalog is in references. Use when deciding or fixing how a card renders — "what chart should I use", "make this a bar/line/pie chart", "map this by state", "format this column as currency", "add conditional formatting", "the card renders as a table instead of a chart", or any `display` / `visualization_settings` work.
+description: Choose a card's `display` (chart type) and author its `visualization_settings` in a card or dashcard file, covering which chart fits which data shape, the required keys per chart, the rule that settings name OUTPUT columns, and the `column_settings` string-key footgun; the full per-chart key catalog is in references. Use when deciding or fixing how a card renders, as in "what chart should I use", "make this a bar/line/pie chart", "format this column as currency", "add conditional formatting", "the card renders as a table instead of a chart".
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
 # Visualization: pick the chart, then set it
 
-> **Building charts as part of a guided data project?** Follow the `data-workflow` **Shared Contract** — answer-first with detail on demand, ask before showing PII, honor the autonomy mode, name what the CLI can't do instead of erroring into raw SQL: `mb skills get data-workflow`.
+> **Building charts as part of a guided data project?** The `rde` skill's dashboard playbook decides what goes on the page; this skill decides how each card renders.
 
-A card has two presentation fields alongside its `dataset_query`:
+A card file has two presentation fields beside its `dataset_query` (a dashcard can override them with its own `visualization_settings`):
 
 - **`display`** — the chart type (`bar`, `line`, `pie`, `scalar`, `map`, `table`, …); pick from the valid values below.
 - **`visualization_settings`** — a map whose keys are **namespaced by `display`** (`graph.*` for bar/line/area/combo, `pie.*` for pie, `table.*` for table, …). The server stores almost anything and **silently ignores keys that don't apply** to the chosen `display`.
 
-Nothing validates `visualization_settings` — there is no pre-flight to fail past. A `display` typo or a misnamed key is accepted by the API; the card just renders as a default table or drops the setting. So **the feedback loop is read-back, not pre-flight**: after `card create`/`update`, confirm with `mb card get <id> --full --json` (or open the card) that it rendered as intended.
+Little checks `visualization_settings`. `mb validate` catches a `display` outside the enum, but a misnamed key passes and the card renders as a default table or drops the setting. So **the feedback loop is read-back**: after the import, confirm with `mb card get <id> --full --json`, or by opening the card, that it rendered as intended.
 
-Flag conventions and body-input precedence live in `core` (`mb skills get core`); the `dataset_query` itself is the `mbql` skill's job (`mb skills get mbql`). This skill is only about how the result is displayed.
+The examples below are JSON; in a card file the same keys and values are YAML. The file layout is `metabase-representation-format`'s, the `dataset_query` is `mbql`'s. This skill is only about how the result is displayed.
 
 Two steps: **(1) pick the `display` that fits the data**, then **(2) bind the data columns and set options**.
 
@@ -38,7 +38,7 @@ Decide which relationship in the data matters most, then pick the chart. The sha
 - **Geographic** → `map`: region/choropleth (a region dimension + a measure), pin (lat + long), or grid/heat (coordinates + measure).
 - **Precise values, many columns, mixed types, or no chart fits** → `table`; `pivot` for a cross-tab of two dimensions; `object` for a single record's detail.
 
-Valid `display` values — the registered visualizations: `table`, `bar`, `line`, `area`, `row`, `pie`, `scalar`, `smartscalar`, `combo`, `pivot`, `funnel`, `map`, `scatter`, `waterfall`, `progress`, `gauge`, `object`, `sankey`. The API types `display` as a plain string and accepts any value — it renders an unknown one as nothing. (`scalar` **is** the "Number" viz — `display: number` is a legacy serialization alias, not a registered visualization; use `scalar`. `list` exists but is hidden — don't pick it. `heading`/`text`/`link`/`iframe`/`action` are dashcard virtuals, not standalone cards — see references.) A typo like `bargraph`/`linechart` is accepted and renders blank — the most common "why is my chart blank" cause.
+Valid `display` values — the registered visualizations: `table`, `bar`, `line`, `area`, `row`, `pie`, `scalar`, `smartscalar`, `combo`, `pivot`, `funnel`, `map`, `scatter`, `waterfall`, `progress`, `gauge`, `object`, `sankey`. `mb validate` refuses a value outside the file format's enum, which also admits the aliases and virtuals below. (`scalar` **is** the "Number" viz — `display: number` is a legacy serialization alias, not a registered visualization; use `scalar`. `list` exists but is hidden — don't pick it. `heading`/`text`/`link`/`iframe`/`action` are dashcard virtuals, not standalone cards — see references.) Picking `list` or `number`, or a virtual on a card, passes validation and renders wrong.
 
 ## Step 2 — bind data columns and set options
 
@@ -72,11 +72,11 @@ Valid `display` values — the registered visualizations: `table`, `bar`, `line`
 
 ### The rule that trips everyone: settings name **output columns**, by name
 
-`graph.dimensions`, `graph.metrics`, `pie.dimension`, `pie.metric`, `scalar.field`, `funnel.metric`, `map.latitude_column`, `sankey.source`, … all take **output column-name strings** — the names the query _produces_, not field ids. A `count` aggregation outputs the column `count`; a breakout on a field outputs that field's name; a named aggregation outputs its `name`. These strings are **identical in the API form and the portable (git-sync) form** — no numeric-vs-name footgun here.
+`graph.dimensions`, `graph.metrics`, `pie.dimension`, `pie.metric`, `scalar.field`, `funnel.metric`, `map.latitude_column`, `sankey.source`, … all take **output column-name strings** — the names the query _produces_, not field ids. A `count` aggregation outputs the column `count`; a breakout on a field outputs that field's name; a named aggregation outputs its `name`. These strings are the same in a card file and on the instance; no id translation here.
 
 The names come from the query's output, not from `mb field`/`mb table`. If you set `name` on an aggregation (see the `mbql` skill), use that same string here.
 
-## Minimum-viable settings per chart family (API form)
+## Minimum-viable settings per chart family
 
 Each block is the `visualization_settings` to pair with the given `display`. The `dataset_query` is elided — build it per the `mbql` skill. Output columns (`CATEGORY`, `count`, …) are whatever the query's breakout/aggregation produce.
 
@@ -122,12 +122,20 @@ Each block is the `visualization_settings` to pair with the given `display`. The
 }
 ```
 
-## `column_settings`: the JSON-string-key footgun
+## `column_settings`: the string-key footgun
 
-`column_settings` is a map **whose keys are themselves JSON-encoded arrays** — so inside a JSON body the inner quotes must be escaped. The key is a _string_, never an object.
+`column_settings` is a map **whose keys are themselves JSON-encoded arrays**. The key is a _string_, never an object or a YAML list.
 
-- **Prefer the name form:** `["name", "<output column name>"]` → in a JSON body, `"[\"name\",\"count\"]"`. This is the canonical key Metabase writes, and it's **identical in API and portable form**. Use it unless you have a reason not to.
-- **Ref form (legacy order!):** `["ref", ["field", <id>, <opts>]]`. The inner field ref uses the **legacy MBQL-4 order** `["field", id, options]` (id **second**) — _not_ the MBQL-5 order you use in `dataset_query`. In the API form `<id>` is the numeric field id. Because the order differs, this form is easy to get wrong — reach for the name form instead.
+- **Prefer the name form:** `["name", "<output column name>"]`. In a YAML file quote the whole key, `'["name","count"]':`; in a JSON body escape the inner quotes, `"[\"name\",\"count\"]"`. This is the key Metabase writes, and it is the same on every instance.
+- **Ref form:** `["ref", ["field", <field>, <opts>]]`. The inner field ref uses the **legacy MBQL-4 order** `["field", field, options]` (field **second**), _not_ the order `dataset_query` uses; in a file `<field>` is `[database, schema, table, field]`. Because the order differs, this form is easy to get wrong; reach for the name form instead.
+
+```yaml
+column_settings:
+  '["name","TOTAL"]':
+    number_style: currency
+    currency: USD
+    decimals: 2
+```
 
 ```json
 "column_settings": {
@@ -146,7 +154,7 @@ For anything beyond a single dimension + metric — combo charts, conditional fo
 mb card get <id> --full --json | jq '.visualization_settings'
 ```
 
-Paste that block into your `card create`/`update` body. The server produced it, so it's valid for that `display`.
+Copy that block into the card file as YAML. The server produced it, so it's valid for that `display`; only a `["ref", …]` key or a click-behavior target carries numeric ids to translate to natural keys and entity ids.
 
 ## Full per-visualization key catalog
 
@@ -159,11 +167,11 @@ mb skills path visualization           # → the skill dir; then Read references
 
 ## Don't
 
-- Don't invent `display` values (`bargraph`, `linechart`, `histogram`) or use `number`/`list` — use a registered value; the API accepts a typo and renders nothing.
+- Don't invent `display` values (`bargraph`, `linechart`, `histogram`) or use `number`/`list`; use a registered value.
 - Don't put numeric field ids in `graph.dimensions`/`pie.metric`/`scalar.field`/`map.latitude_column` etc. — they take **output column-name strings**.
 - Don't reach for a `pie` with >5 slices, a `combo` of unrelated metrics, or a `pie`/`scalar` to show a trend — see Step 1.
 - Don't write a `column_settings` key as an object — it's a JSON **string** (`"[\"name\",\"COL\"]"`), inner quotes escaped.
-- Don't use the MBQL-5 field-ref order inside a `column_settings` `["ref", …]` key — that key uses the **legacy** `["field", id, opts]` order. Prefer the `["name", …]` form.
-- Don't expect a pre-flight to catch viz mistakes — there is none. Verify by reading the card back.
+- Don't use the MBQL-5 field-ref order inside a `column_settings` `["ref", …]` key — that key uses the **legacy** `["field", field, opts]` order. Prefer the `["name", …]` form.
+- Don't expect `mb validate` to catch viz mistakes beyond the `display` enum. Verify by reading the card back after the import.
 - Don't hand-author complex charts when you can pull a working `visualization_settings` from a UI-built card.
-- Don't look for an event/annotation key in `visualization_settings` — vertical event markers on time-series charts come from timelines (`mb timeline` / `mb timeline-event`) living in the question's own collection (same collection only, no sub-collection inheritance; question view only, never dashboard cards).
+- Don't look for an event/annotation key in `visualization_settings`: vertical event markers on time-series charts come from timelines, which live in Metabase outside this repository and the CLI.

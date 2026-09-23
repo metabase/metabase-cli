@@ -1,0 +1,30 @@
+name: Total Revenue
+entity_id: IW8kbqZVaMxdGtCM2F4U6
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: scalar
+type: metric
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - null
+      - ORDERS
+      aggregation:
+      - - sum
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - null
+            - ORDERS
+            - TOTAL
+visualization_settings: {}
+serdes/meta:
+- id: IW8kbqZVaMxdGtCM2F4U6
+  label: total_revenue
+  model: Card

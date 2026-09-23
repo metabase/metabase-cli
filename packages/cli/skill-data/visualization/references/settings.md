@@ -14,7 +14,7 @@
 
 Authorable keys per `display`, plus the data shape each chart suits and the minimum needed to render. Set keys only to override defaults — an empty `{}` works for a simple aggregate.
 
-All column-naming keys (`graph.dimensions`, `pie.dimension`, `table.columns[].name`, `map.latitude_column`, …) take **output column-name strings** — the names the query produces. Every key and value below is identical in the API form (`mb card create`) and the portable git-sync form, with two exceptions: `column_settings` `["ref", …]` keys and click-behavior dimension targets carry a numeric field id in the API form and a name-path in the portable form. In a JSON body, `column_settings` keys are escaped strings: `"[\"name\",\"TOTAL\"]"`.
+All column-naming keys (`graph.dimensions`, `pie.dimension`, `table.columns[].name`, `map.latitude_column`, …) take **output column-name strings** — the names the query produces. Every key and value below is identical in a card file and in what `mb card get` returns, with two exceptions: `column_settings` `["ref", …]` keys and click-behavior targets carry a numeric id on the instance and a natural key or `entity_id` in a file. `column_settings` keys are strings: quoted in YAML (`'["name","TOTAL"]':`), escaped in JSON (`"[\"name\",\"TOTAL\"]"`).
 
 ---
 
@@ -308,7 +308,7 @@ Use for flow volume between nodes. Needs distinct source and target columns form
 
 A map keyed by a JSON-encoded column reference, applying to `table`, `pie`, `object`, the cartesian charts, and more.
 
-**Key forms:** prefer the name form `["name", "<output column name>"]` — it's what Metabase writes and is identical across API and portable forms. A legacy ref form `["ref", ["field", <id>, <opts>]]` exists for read-back; its inner field ref uses the **legacy order** (id second) with a numeric id in the API form — avoid it. In a JSON body the key is an escaped string: `"[\"name\",\"TOTAL\"]"`.
+**Key forms:** prefer the name form `["name", "<output column name>"]`, what Metabase writes and the same on every instance. A ref form `["ref", ["field", <field>, <opts>]]` exists for read-back; its inner field ref uses the **legacy order** (field second), a numeric id on the instance and a natural key in a file; avoid it. The key is a string: quoted in YAML, escaped in JSON.
 
 | Key                  | Type         | Values                                                       | Applies to      |
 | -------------------- | ------------ | ------------------------------------------------------------ | --------------- |

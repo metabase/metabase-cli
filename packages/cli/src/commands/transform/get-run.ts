@@ -1,7 +1,7 @@
 import { TransformRun } from "@metabase/client/domain/transform";
 import { transformRunView } from "../../output/views/transform";
 import { renderItem } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -12,8 +12,7 @@ export default defineMetabaseCommand({
     "The positional id is a RUN id (from `transform runs`), not a transform id. To fetch a transform itself, use `transform get <id>`.",
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     id: { type: "positional", description: "Run id (from `mb transform runs`)", required: true },
   },
   outputSchema: TransformRun,

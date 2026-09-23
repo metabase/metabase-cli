@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Database, DatabaseCompact, DatabaseSyncResult } from "@metabase/client/domain/database";
 import { TableCompact } from "@metabase/client/domain/table";
@@ -13,7 +13,7 @@ import { DatabaseSchemaListEnvelope } from "../../packages/cli/src/commands/db/s
 import { DatabaseSchemaTablesEnvelope } from "../../packages/cli/src/commands/db/schema-tables";
 import { DEFAULT_MAX_BYTES, listEnvelopeSchema } from "../../packages/cli/src/output/types";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
-import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 
@@ -102,21 +102,10 @@ const ALL_WAREHOUSE_TABLES_SORTED_BY_ID: TableCompact[] = [
 
 describe("db e2e", () => {
   let bootstrap: E2EBootstrap;
-  const tempDirs: string[] = [];
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
   });
-
-  afterEach(async () => {
-    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
-  });
-
-  async function makeIsolatedConfigHome(): Promise<string> {
-    const dir = await mkTempConfigHome();
-    tempDirs.push(dir);
-    return dir;
-  }
 
   function authEnv(): Record<string, string> {
     return {
@@ -128,7 +117,6 @@ describe("db e2e", () => {
   it("list returns the seeded warehouse database in compact form", async () => {
     const result = await runCli({
       args: ["db", "list", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -146,7 +134,6 @@ describe("db e2e", () => {
   it("list --include tables hydrates each database with its tables", async () => {
     const result = await runCli({
       args: ["db", "list", "--include", "tables", "--full", "--json", "--max-bytes", "0"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -167,7 +154,6 @@ describe("db e2e", () => {
   it("list --saved includes the Saved Questions virtual database", async () => {
     const result = await runCli({
       args: ["db", "list", "--saved", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -192,7 +178,6 @@ describe("db e2e", () => {
   it("list rejects an unknown --include value with ConfigError", async () => {
     const result = await runCli({
       args: ["db", "list", "--include", "everything", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -205,7 +190,6 @@ describe("db e2e", () => {
   it("get returns the warehouse by id", async () => {
     const result = await runCli({
       args: ["db", "get", String(SEEDED.warehouseDbId), "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -220,7 +204,6 @@ describe("db e2e", () => {
   it("get --include tables returns the compact table map under the default cap", async () => {
     const result = await runCli({
       args: ["db", "get", String(SEEDED.warehouseDbId), "--include", "tables", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -237,7 +220,6 @@ describe("db e2e", () => {
   it("get --include tables.fields returns compact tables with compact fields under the default cap", async () => {
     const result = await runCli({
       args: ["db", "get", String(SEEDED.warehouseDbId), "--include", "tables.fields", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -263,7 +245,6 @@ describe("db e2e", () => {
         "--full",
         "--json",
       ],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -286,7 +267,6 @@ describe("db e2e", () => {
         "--max-bytes",
         String(tinyCap),
       ],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -299,7 +279,6 @@ describe("db e2e", () => {
   it("get with a non-integer id fails fast with ConfigError", async () => {
     const result = await runCli({
       args: ["db", "get", "abc", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -311,7 +290,6 @@ describe("db e2e", () => {
   it("get against a missing database id surfaces a resource-missing 404 with the exact path", async () => {
     const result = await runCli({
       args: ["db", "get", "9999999", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -322,7 +300,6 @@ describe("db e2e", () => {
   it("schemas lists the seeded warehouse schemas alphabetically", async () => {
     const result = await runCli({
       args: ["db", "schemas", String(SEEDED.warehouseDbId), "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -340,7 +317,6 @@ describe("db e2e", () => {
   it("schemas with a non-integer id fails fast with ConfigError", async () => {
     const result = await runCli({
       args: ["db", "schemas", "abc", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -351,7 +327,6 @@ describe("db e2e", () => {
   it("schema-tables lists tables in the public schema sorted by display name", async () => {
     const result = await runCli({
       args: ["db", "schema-tables", String(SEEDED.warehouseDbId), "public", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -369,7 +344,6 @@ describe("db e2e", () => {
   it("schema-tables lists tables in the analytics schema", async () => {
     const result = await runCli({
       args: ["db", "schema-tables", String(SEEDED.warehouseDbId), "analytics", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -387,7 +361,6 @@ describe("db e2e", () => {
   it("schema-tables against an unknown schema surfaces a 404 HttpError", async () => {
     const result = await runCli({
       args: ["db", "schema-tables", String(SEEDED.warehouseDbId), "does_not_exist", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -400,7 +373,6 @@ describe("db e2e", () => {
   it("sync-schema triggers a manual schema sync and returns ok", async () => {
     const result = await runCli({
       args: ["db", "sync-schema", String(SEEDED.warehouseDbId), "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -414,7 +386,6 @@ describe("db e2e", () => {
   it("sync-schema against a missing database id surfaces a 404 HttpError", async () => {
     const result = await runCli({
       args: ["db", "sync-schema", "9999999", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -425,7 +396,6 @@ describe("db e2e", () => {
   it("rescan-values triggers a field-values rescan and returns ok", async () => {
     const result = await runCli({
       args: ["db", "rescan-values", String(SEEDED.warehouseDbId), "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 
@@ -439,7 +409,6 @@ describe("db e2e", () => {
   it("rescan-values with a non-integer id fails fast with ConfigError", async () => {
     const result = await runCli({
       args: ["db", "rescan-values", "abc", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
 

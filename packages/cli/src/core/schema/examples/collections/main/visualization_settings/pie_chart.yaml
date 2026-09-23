@@ -1,0 +1,41 @@
+name: Orders by Category (Pie)
+entity_id: dYD1j3pQtJdctg8duByUL
+collection_id: cOlViZsEtTiNgS0ExAmP1
+creator_id: admin@example.com
+display: pie
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+    aggregation:
+    - - count
+      - {}
+    breakout:
+    - - field
+      - {}
+      - - Sample Database
+        - null
+        - PRODUCTS
+        - CATEGORY
+visualization_settings:
+  "pie.dimension": CATEGORY
+  "pie.metric": count
+  "pie.show_legend": true
+  "pie.show_total": true
+  "pie.percent_visibility": both
+  "pie.slice_threshold": 2.5
+  "pie.colors":
+    Widget: "#509EE3"
+    Gadget: "#88BF4D"
+    Gizmo: "#F9CF48"
+    Doohickey: "#ED6E6E"
+serdes/meta:
+- id: dYD1j3pQtJdctg8duByUL
+  label: pie_chart
+  model: Card

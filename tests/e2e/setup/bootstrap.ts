@@ -8,7 +8,7 @@ import { CurrentUser } from "@metabase/client/domain/user";
 import { errorMessage, isFileNotFoundError, MetabaseError } from "@metabase/client/errors";
 import { createTransport, type Transport } from "@metabase/client/http/transport";
 import { HttpError } from "@metabase/client/http/errors";
-import { tryDiscoverMetadata } from "@metabase/client/http/oauth";
+import { discoverOAuth } from "@metabase/client/http/oauth";
 import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries } from "@metabase/client/http/retry";
 import { parseJsonResult } from "@metabase/client/json";
 import { pollUntil } from "@metabase/client/poll";
@@ -62,10 +62,14 @@ const WAREHOUSE_CONNECTION = {
 const DEFAULT_COLLECTION_NAME = "E2E Default";
 const ORDERS_BY_STATUS_CARD_NAME = "Orders by status";
 const ORDERS_BY_STATUS_SQL = "SELECT status, COUNT(*) AS n FROM orders GROUP BY status";
+const SEED_TRANSFORM_NAME = "e2e_orders_by_status";
+const SEED_TRANSFORM_TARGET_TABLE = "e2e_orders_by_status";
+const SEED_TRANSFORM_TARGET_SCHEMA = "public";
 const ORDERS_OVERVIEW_DASHBOARD_NAME = "Orders Overview";
 const ORDERS_OVERVIEW_DASHBOARD_DESCRIPTION = "E2E seeded dashboard with one orders dashcard.";
 const LIMITED_GROUP_NAME = "E2E Limited";
 const TRANSFORMS_ENABLED_SETTING = "transforms-enabled";
+const SITE_URL_SETTING = "site-url";
 const TRANSFORMS_LOCKED_STATUSES: ReadonlySet<number> = new Set([402, 403]);
 
 const BASE_URL = resolveE2EBaseUrl();
@@ -111,7 +115,7 @@ function apiKeyClient(apiKey: string): Transport {
 
 async function probeIdentity(client: Transport): Promise<ServerIdentity> {
   const probed = await probeServer(client, { retries: DEFAULT_MAX_RETRIES });
-  const oauthSupported = (await tryDiscoverMetadata(BASE_URL, USER_AGENT)) !== null;
+  const oauthSupported = (await discoverOAuth(BASE_URL, USER_AGENT)).kind === "found";
   return { ...probed, oauthSupported };
 }
 
@@ -122,11 +126,14 @@ async function main(): Promise<void> {
   if (existing && (await canReuseExisting(existing.adminApiKey))) {
     // The credentials and seed outlive the image: the app-db volume survives a pull of a newer
     // head, so the server block is the booted image's to answer, never the file's.
-    const server = await probeIdentity(apiKeyClient(existing.adminApiKey));
-    const reused: E2EBootstrap = { ...existing, server };
+    const client = apiKeyClient(existing.adminApiKey);
+    const withSiteUrl = await extendSnapshotSiteUrl(client, existing);
+    const server = await probeIdentity(client);
+    const reused: E2EBootstrap = { ...withSiteUrl, server };
     assertSnapshotMatchesSeed(reused);
-    await reportSnapshotTransforms(apiKeyClient(existing.adminApiKey), server);
-    await writeStoredBootstrap(reused);
+    await reportSnapshotTransforms(client, server);
+    const extended = await extendSnapshotSeed(client, reused);
+    await writeStoredBootstrap(extended);
     process.stdout.write(`bootstrap: reusing ${BOOTSTRAP_FILE_PATH}\n`);
     return;
   }
@@ -136,6 +143,7 @@ async function main(): Promise<void> {
   const adminPersonalCollectionId = await ensureAdminPersonalCollection(sessionId);
   const adminApiKey = await mintApiKey(sessionId, "e2e-admin-key", E2E_GROUPS.ADMIN);
   const client = apiKeyClient(adminApiKey);
+  await setSiteUrl(client);
 
   const apiKeyUser = await client.requestParsed(CurrentUser, "/api/user/current");
   const server = await probeIdentity(client);
@@ -144,6 +152,9 @@ async function main(): Promise<void> {
     await reportTransformsUsable(client);
   }
   const seeded = await seedContent(client, libraryReady(server), adminPersonalCollectionId);
+  if (transformsReady(server)) {
+    seeded.transformId = await seedTransform(client, seeded.warehouseDbId);
+  }
 
   const limitedGroupId = await createLimitedGroup(client);
   await revokeDefaultCollectionAccess(client, limitedGroupId, seeded.defaultCollectionId);
@@ -375,6 +386,38 @@ function assertSnapshotMatchesSeed(existing: E2EBootstrap): void {
   }
 }
 
+// A seed the snapshot predates is added to it rather than refused: the snapshot is restored so no
+// test leftover rides along, the missing piece is created, and the snapshot is captured again.
+async function extendSnapshotSeed(
+  client: Transport,
+  existing: E2EBootstrap,
+): Promise<E2EBootstrap> {
+  if (!transformsReady(existing.server) || existing.seeded.transformId !== null) {
+    return existing;
+  }
+  await restoreSnapshot(client);
+  const transformId = await seedTransform(client, existing.seeded.warehouseDbId);
+  await captureSnapshot(client);
+  process.stdout.write(`bootstrap: added the seed transform ${transformId} to ${SNAPSHOT_NAME}\n`);
+  return { ...existing, seeded: { ...existing.seeded, transformId } };
+}
+
+async function seedTransform(client: Transport, warehouseDbId: number): Promise<number> {
+  return createEntityId(client, "/api/transform", {
+    name: SEED_TRANSFORM_NAME,
+    source: {
+      type: "query",
+      query: { type: "native", database: warehouseDbId, native: { query: ORDERS_BY_STATUS_SQL } },
+    },
+    target: {
+      type: "table",
+      database: warehouseDbId,
+      schema: SEED_TRANSFORM_TARGET_SCHEMA,
+      name: SEED_TRANSFORM_TARGET_TABLE,
+    },
+  });
+}
+
 function libraryReady(server: ServerInfo): boolean {
   return createServerProfile(server).features.library;
 }
@@ -431,6 +474,33 @@ async function transformsBlockedStatus(client: Transport): Promise<number | null
     }
     throw error;
   }
+}
+
+// Metabase builds its OAuth provider from `site-url`; unset, the provider's config assertion fails
+// and `/.well-known/oauth-authorization-server` answers 500, so `oauthSupported` probes false and
+// every OAuth lane goes dark. Set before the snapshot is captured, it rides along with it.
+async function setSiteUrl(client: Transport): Promise<void> {
+  await client.requestRaw(`/api/setting/${SITE_URL_SETTING}`, {
+    method: "PUT",
+    body: { value: BASE_URL },
+    idempotent: true,
+    expectContentType: "binary",
+  });
+}
+
+// Restoring first keeps a test leftover out of the recapture.
+async function extendSnapshotSiteUrl(
+  client: Transport,
+  existing: E2EBootstrap,
+): Promise<E2EBootstrap> {
+  if (existing.server.oauthSupported) {
+    return existing;
+  }
+  await restoreSnapshot(client);
+  await setSiteUrl(client);
+  await captureSnapshot(client);
+  process.stdout.write(`bootstrap: set ${SITE_URL_SETTING} in ${SNAPSHOT_NAME}\n`);
+  return existing;
 }
 
 // Query transforms need no license — but a self-hosted instance must opt in via this setting, and
@@ -535,6 +605,7 @@ async function seedContent(
     fields,
     libraryDataCollectionId,
     adminPersonalCollectionId,
+    transformId: null,
   };
 }
 
@@ -648,6 +719,13 @@ function requireTableId(tableIdByName: Map<string, number>, name: string): numbe
     );
   }
   return id;
+}
+
+async function restoreSnapshot(client: Transport): Promise<void> {
+  await client.requestRaw(`/api/testing/restore/${SNAPSHOT_NAME}`, {
+    method: "POST",
+    idempotent: true,
+  });
 }
 
 async function captureSnapshot(client: Transport): Promise<void> {

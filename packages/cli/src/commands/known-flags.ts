@@ -21,10 +21,32 @@ export function assertKnownFlags(rawArgs: readonly string[], argsDef: ArgsDef): 
     }
     const matched = flagCandidates(token).some((candidate) => allowed.has(candidate));
     if (!matched) {
-      throw new ConfigError(`unknown flag: ${displayFlag(token)}`);
+      throw new ConfigError(unknownFlagMessage(token, argsDef));
     }
     index += flagConsumesValue(token, argsDef) ? 2 : 1;
   }
+}
+
+function unknownFlagMessage(token: string, argsDef: ArgsDef): string {
+  const shown = displayFlag(token);
+  const suggestion = closestFlag(shown, argsDef);
+  const hint =
+    suggestion === null ? "see --help for this command's flags" : `did you mean ${suggestion}?`;
+  return `unknown flag: ${shown}; ${hint}`;
+}
+
+// A prefix either way names what an agent shortened or extended, as `--db` for `--db-id`.
+function closestFlag(shown: string, argsDef: ArgsDef): string | null {
+  const wanted = normalizeFlag(shown);
+  const match = Object.entries(argsDef).find(([name, def]) => {
+    const known = normalizeFlag(name);
+    return def.type !== "positional" && (known.startsWith(wanted) || wanted.startsWith(known));
+  });
+  return match === undefined ? null : `--${kebabCase(match[0])}`;
+}
+
+function kebabCase(name: string): string {
+  return name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
 }
 
 function allowedFlagKeys(argsDef: ArgsDef): Set<string> {

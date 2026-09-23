@@ -1,0 +1,30 @@
+name: Large Orders
+entity_id: OaFXAvEzPvu9ZXW5PUMRa
+creator_id: admin@example.com
+table_id:
+- Sample Database
+- null
+- ORDERS
+definition:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    filters:
+    - - ">"
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+      - 50
+serdes/meta:
+- id: OaFXAvEzPvu9ZXW5PUMRa
+  label: large_orders
+  model: Segment

@@ -68,6 +68,16 @@ export async function listCollectionsWithLibrary<T>(
   });
 }
 
+/** Walk a collection's items one page at a time, parsing each row through the caller's projection. */
+export function walkCollectionItems<T>(
+  transport: Transport,
+  ref: CollectionId,
+  schema: z.ZodType<T>,
+  options: PaginateOptions,
+): AsyncIterable<Page<T>> {
+  return paginatePages(transport, `/api/collection/${refPath(ref)}/items`, schema, options);
+}
+
 export function collectionResource(transport: Transport) {
   /** List collections. `filter` picks a server-side preset: everything, archived, or personal. */
   async function list(
@@ -142,7 +152,7 @@ export function collectionResource(transport: Transport) {
     options: CollectionItemPageOptions = {},
   ): AsyncIterable<Page<CollectionItem>> {
     await transport.require("collection.itemPages", options);
-    yield* paginatePages(transport, `/api/collection/${refPath(ref)}/items`, CollectionItem, {
+    yield* walkCollectionItems(transport, ref, CollectionItem, {
       query: {
         models: params.models,
         archived: params.archived,

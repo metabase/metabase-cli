@@ -11,12 +11,12 @@ function collection(overrides: Partial<Collection>): Collection {
 }
 
 describe("syncScopeHint", () => {
-  it("returns the add-collection recipe when the collection is unsynced and a remote is configured", () => {
+  it("names the unsynced collection and the admin step when a remote is configured", () => {
     const hint = syncScopeHint(collection({ is_remote_synced: false }), REMOTE_URL);
     expect(hint).toBe(
-      'Note: collection 51 "Data" is not marked for git-sync, ' +
-        `so \`mb git-sync export\` will not carry it (or its published tables' metadata) to ${REMOTE_URL}. ` +
-        "Add it with: mb git-sync add-collection 51",
+      'Note: collection 51 "Data" is not marked for remote sync, ' +
+        `so exports will not carry it (or its published tables' metadata) to ${REMOTE_URL}. ` +
+        "An admin adds it to the synced collections in Metabase's remote sync settings.",
     );
   });
 

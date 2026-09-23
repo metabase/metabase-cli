@@ -4,7 +4,7 @@ import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
 import { transformRunView } from "../../output/views/transform";
 import { collectForOutput } from "../../output/window";
-import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";
+import { listFlags, outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -16,8 +16,7 @@ export default defineMetabaseCommand({
   args: {
     ...outputFlags,
     ...listFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     "transform-id": {
       type: "string",
       description: "Filter to runs of a single transform id",

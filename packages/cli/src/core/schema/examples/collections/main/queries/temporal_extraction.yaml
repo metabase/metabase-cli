@@ -1,0 +1,163 @@
+name: "Temporal Extraction"
+entity_id: bDK7jyPszEHzHh4aG4_SV
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - null
+      - ORDERS
+      expressions:
+      - - get-year
+        - "lib/expression-name": Order Year
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+      - - get-quarter
+        - "lib/expression-name": Order Quarter
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+      - - get-month
+        - "lib/expression-name": Order Month
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+      - - get-day
+        - "lib/expression-name": Order Day
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+      - - get-hour
+        - "lib/expression-name": Order Hour
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+      - - get-minute
+        - "lib/expression-name": Order Minute
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+      - - get-second
+        - "lib/expression-name": Order Second
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+      - - get-day-of-week
+        - "lib/expression-name": Day of Week ISO
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+        - iso
+      - - get-week
+        - "lib/expression-name": Week Number
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+        - us
+      - - month-name
+        - "lib/expression-name": Month Name
+        - - get-month
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - null
+              - ORDERS
+              - CREATED_AT
+      - - quarter-name
+        - "lib/expression-name": Quarter Name
+        - - get-quarter
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - null
+              - ORDERS
+              - CREATED_AT
+      - - day-name
+        - "lib/expression-name": Day Name
+        - - get-day-of-week
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - null
+              - ORDERS
+              - CREATED_AT
+          - iso
+      - - get-day-of-week
+        - "lib/expression-name": Day of Week Default
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+      - - get-week
+        - "lib/expression-name": Week Number Instance
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+        - instance
+      - - temporal-extract
+        - "lib/expression-name": Extracted Month
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+        - month-of-year
+      - - temporal-extract
+        - "lib/expression-name": Extracted Day of Week ISO
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - CREATED_AT
+        - day-of-week
+        - iso
+      limit: 10
+visualization_settings: {}
+serdes/meta:
+- id: bDK7jyPszEHzHh4aG4_SV
+  label: temporal_extraction
+  model: Card

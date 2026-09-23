@@ -2,7 +2,7 @@ import { Table, TableGetInclude } from "@metabase/client/domain/table";
 import { tableView } from "../../output/views/table";
 import { renderItem } from "../../output/render";
 import { parseEnum } from "../../runtime/csv";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -16,8 +16,7 @@ export default defineMetabaseCommand({
   requires: ["table.queryMetadata", "table.get"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     include: {
       type: "string",
       description: `Hydrate related entities: ${TableGetInclude.options.join("|")}`,

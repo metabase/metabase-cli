@@ -1,4 +1,4 @@
-import { promises as fs } from "node:fs";
+import { mkdtempSync, promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -7,26 +7,28 @@ import { execa } from "execa";
 const REPO_ROOT = resolve(import.meta.dirname, "..", "..");
 const CLI_ENTRY = resolve(REPO_ROOT, "packages", "cli", "dist", "cli.mjs");
 
+// One probe cache per test file, so the CLI under test reads only probes it took during that file
+// and the developer's own cache stays untouched. `cleanupCacheHome` drops it after the file.
+export const CACHE_HOME = mkdtempSync(join(tmpdir(), "metabase-cli-e2e-cache-"));
+
 export interface RunCliOptions {
   args: ReadonlyArray<string>;
   env?: Record<string, string>;
   stdin?: string;
   timeoutMs?: number;
-  configHome?: string;
 }
 
 export interface RunCliResult {
   stdout: string;
   stderr: string;
   exitCode: number;
-  configHome: string;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
-// The spawned CLI runs on an allowlist, so no `MB_*`/`METABASE_*` from the developer's shell can
-// point a test at their own instance. `PATH` resolves the `node` binary; `HOME` and `TMPDIR` back
-// the platform's config and temp directories.
+// The spawned CLI runs on an allowlist, so no `MB_*` from the developer's shell can point a test at
+// their own instance. `PATH` resolves the `node` binary; `HOME` and `TMPDIR` back the platform's
+// temp directories.
 const INHERITED_ENV_KEYS = ["PATH", "HOME", "TMPDIR"] as const;
 
 function inheritedEnv(): NodeJS.ProcessEnv {
@@ -40,14 +42,12 @@ function inheritedEnv(): NodeJS.ProcessEnv {
   return inherited;
 }
 
+function childEnv(opts: RunCliOptions): NodeJS.ProcessEnv {
+  return { ...inheritedEnv(), XDG_CACHE_HOME: CACHE_HOME, ...opts.env };
+}
+
 export async function runCli(opts: RunCliOptions): Promise<RunCliResult> {
-  const configHome = opts.configHome ?? (await mkTempConfigHome());
-  const env: NodeJS.ProcessEnv = {
-    ...inheritedEnv(),
-    XDG_CONFIG_HOME: configHome,
-    MB_CLI_DISABLE_KEYRING: "1",
-    ...opts.env,
-  };
+  const env = childEnv(opts);
 
   const result = await execa("node", [CLI_ENTRY, ...opts.args], {
     env,
@@ -71,7 +71,6 @@ export async function runCli(opts: RunCliOptions): Promise<RunCliResult> {
     stdout: asString(result.stdout),
     stderr: asString(result.stderr),
     exitCode: result.exitCode,
-    configHome,
   };
 }
 
@@ -84,13 +83,7 @@ export interface RunCliInterruptOptions extends RunCliOptions {
 // *by* the signal reports no exit code at all, so an exact code here is also proof the CLI handled
 // it rather than dying of Node's default disposition.
 export async function runCliInterrupt(opts: RunCliInterruptOptions): Promise<RunCliResult> {
-  const configHome = opts.configHome ?? (await mkTempConfigHome());
-  const env: NodeJS.ProcessEnv = {
-    ...inheritedEnv(),
-    XDG_CONFIG_HOME: configHome,
-    MB_CLI_DISABLE_KEYRING: "1",
-    ...opts.env,
-  };
+  const env = childEnv(opts);
 
   const subprocess = execa("node", [CLI_ENTRY, ...opts.args], {
     env,
@@ -119,7 +112,6 @@ export async function runCliInterrupt(opts: RunCliInterruptOptions): Promise<Run
     stdout: asString(result.stdout),
     stderr: asString(result.stderr),
     exitCode: result.exitCode,
-    configHome,
   };
 }
 
@@ -132,10 +124,6 @@ function asString(stream: unknown): string {
   return stream;
 }
 
-export async function mkTempConfigHome(): Promise<string> {
-  return fs.mkdtemp(join(tmpdir(), "metabase-cli-e2e-"));
-}
-
-export async function cleanupConfigHome(path: string): Promise<void> {
-  await fs.rm(path, { recursive: true, force: true });
+export async function cleanupCacheHome(): Promise<void> {
+  await fs.rm(CACHE_HOME, { recursive: true, force: true });
 }

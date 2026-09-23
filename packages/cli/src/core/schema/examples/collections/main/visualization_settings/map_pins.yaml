@@ -1,0 +1,27 @@
+name: Customer Locations (Map)
+entity_id: CI61cHgBAKPBEDTxhK8X3
+collection_id: cOlViZsEtTiNgS0ExAmP1
+creator_id: admin@example.com
+display: map
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - PEOPLE
+visualization_settings:
+  "map.type": pin
+  "map.latitude_column": LATITUDE
+  "map.longitude_column": LONGITUDE
+  "map.pin_type": markers
+  "map.zoom": 4
+  "map.center_latitude": 39.5
+  "map.center_longitude": -98.35
+serdes/meta:
+- id: CI61cHgBAKPBEDTxhK8X3
+  label: map_pins
+  model: Card

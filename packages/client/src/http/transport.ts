@@ -34,6 +34,7 @@ export const DEFAULT_METHOD: HttpMethod = "GET";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const OCTET_STREAM_CONTENT_TYPE = "application/octet-stream";
+const WORKTREE_ID_HEADER = "x-metabase-worktree-id";
 const TEXT_CONTENT_TYPE_PREFIX = "text/";
 const ERROR_BODY_BYTE_CAP = 64 * 1024;
 
@@ -121,6 +122,9 @@ export interface ClientOptions {
   // `false` sends every method to the wire whatever the profile says, leaving the server to answer
   // for itself. Defaults to `true`.
   enforceRequirements?: boolean;
+  // The remote-sync worktree every request works inside, sent on each one; `null` or absent is the
+  // main app.
+  worktreeId?: number | null;
 }
 
 export function createTransport(config: ClientCredentials, options: ClientOptions): Transport {
@@ -133,6 +137,7 @@ export function createTransport(config: ClientCredentials, options: ClientOption
   const getServerTag = options.getServerTag ?? (async () => tagOf(settledProfile));
   const serverSkew = (): Skew | null => (settledProfile === null ? null : settledProfile.skew);
   const refreshCredential = options.refreshCredential;
+  const worktreeId = options.worktreeId ?? null;
   let credential = config.credential;
   const knownSecrets = new Set(credentialSecrets(credential));
   const redactionContext: RedactionContext = { knownSecrets };
@@ -144,7 +149,7 @@ export function createTransport(config: ClientCredentials, options: ClientOption
 
   function tryRefreshCredential(): Promise<boolean> {
     const refresh = refreshCredential;
-    if (credential.kind !== "oauth" || refresh === undefined) {
+    if (credential.kind === "apiKey" || refresh === undefined) {
       return Promise.resolve(false);
     }
     refreshInFlight ??= refreshOnce(refresh).finally(() => {
@@ -272,6 +277,9 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     headers.set(auth.name, auth.value);
     headers.set("accept", acceptHeader(expectContentType));
     headers.set("user-agent", options.userAgent);
+    if (worktreeId !== null) {
+      headers.set(WORKTREE_ID_HEADER, String(worktreeId));
+    }
     let body: FetchBody | null = null;
     if (opts.body !== undefined && opts.body !== null) {
       if (typeof opts.body === "string" || opts.body instanceof URLSearchParams) {

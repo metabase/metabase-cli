@@ -1,179 +1,140 @@
 ---
 name: core
-description: Foundations for driving Metabase from the terminal with the `mb` CLI — authentication and named profiles, the flag/output/`--json` conventions every command shares, JSON body input, command discovery via `--help` (add `--json` for machine-readable schemas), and the per-resource footguns (db, table, field, upload, content translation, card, dashboard, collection, segment, measure, timeline, alert, subscription, library, setting, search, eid). Load first for any `mb` task; it routes to the specialized skills for deeper work.
+description: The entry point for working on a Metabase repository with the `mb` CLI inside Metabase RDE. Content is YAML files in this repository; the loop is read the schema, write the file, `mb validate`, commit and push, `mb git-sync import`, prove it on the instance. Covers what is a file and what is a command, the flag, output and list-window conventions, body input, command discovery, per-resource footguns, and an index of the other skills. Load first for any `mb` task.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
-# metabase-cli (core)
+# core
 
-The official Metabase CLI (`mb`) drives a Metabase instance over its REST API: auth, list/get/create/update/delete on every resource, query and transform execution, content search, git-sync (representations ↔ instance), and entity-id translation.
-
-Top-level command groups (run `mb <group> --help` to discover verbs):
+The `mb` CLI talks to the Metabase connected to this session: it reads every resource, runs queries, transforms and transform tests, searches, translates entity ids, validates repository content, extracts database metadata, puts a branch into Metabase, and serves these skills. It is on `PATH`, and its credential comes from the environment the app sets (`MB_URL` and the app's token broker). Never pass a URL or a key, and never ask the user to log in.
 
 ```
-auth | db | table | field | upload | content-translation | query | card | dashboard | snippet | segment | measure | collection | library
-document | timeline | timeline-event | transform | transform-job | transform-tag | alert | subscription | setting
-search | git-sync | setup | eid | uuid | upgrade | skills
+db | table | field | card | dashboard | collection | library | document | snippet | segment | measure
+transform | transform-job | transform-tag | transform-test | query | search | git-sync
+metadata | validate | entity-id | eid | uuid | skills
 ```
 
-The conventions below — auth, flags, output, body input — hold across **every** group. Per-command flags and examples live in each command's `--help`; add `--json` for the machine-readable form with the output JSON Schema. A few flows have their own skills (see "Specialized skills"). When a card needs a query, prefer MBQL over native SQL (portable, pre-flight-validated — load `mbql`); fall back to native SQL when MBQL can't express it.
+## Content is files
 
-## Auth & profiles
+A collection, card, dashboard, document, segment, measure, snippet, transform, transform tag, transform job and Python library is a YAML file in this repository, in the representation format. No command creates, updates, archives or deletes one. What reaches Metabase is what the branch holds.
 
-**The agent does not log in for the user.** Authentication is the human's job — they pick the base URL, paste credentials, and store them as a named profile. The agent checks what profiles exist, asks which to use, and passes `--profile <name>` through every command.
+## The loop
 
-```bash
-mb auth list --json                      # → list envelope; data is [{profile,url,authenticated,status,…}]
-mb auth status --json                    # → {profile, present, url} for the default profile
-mb auth status --profile <name> --json   # health probe for one profile
-```
+1. **Understand the schema.** Discover it on the instance, database to schema to table to field: `mb db list`, `mb db get <id> --include tables`, then `mb table get <id> --include fields` per table on the question's path (the ladder is under Resource quirks). Profile with `mb field summary <id>`, `mb field values <id>` and `mb query`.
+2. **Write or change YAML** in the checkout (`metabase-representation-format`). Mint ids with `mb entity-id`. Reference tables and fields by natural key, collections and cards by `entity_id`, users by email.
+3. **`mb validate`** on the changed files, or on the whole tree. Fix every error; it is the fast, offline check.
+4. **Commit and push** the session branch with `git`.
+5. **`mb git-sync import --branch <branch> --wait`.** After it, the connected Metabase holds the branch's content. A `conflict` or `errored` task carries the server's message in the command's JSON; read it, fix the file, and go again from 3. Before importing, read the `git-sync` skill's branch guard.
+6. **Prove it on the instance.** Find the numeric id with `mb eid --model <model> <entity_id>` or `mb <noun> list`, then `mb transform run <id> --wait` and `mb transform get-run`, `mb transform-test run <id>`, `mb card query <id>`, `mb dashboard get <id>`.
+7. **Iterate from 2.** When the work is done the user opens the pull request; merging it into the tracked branch and importing that is the reviewer's step.
 
-`auth list` is the primary enumeration path — one call returns every profile with sanitized URL, an `authenticated` flag, and a probe `status` (`ok` / `auth-failed` / `network-error` / `server-error` / `not-probed`). Use it before asking which profile to pick.
+`mb validate` is structural. A file that passes can still name a table the instance lacks or hold a query that fails; steps 5 and 6 catch those.
 
-- One profile and intent doesn't disambiguate → use it.
-- Several → ask via `AskUserQuestion`, presenting the names from `auth list`.
-- Empty `data: []` → ask the user to run `mb auth login` themselves and tell you the profile name.
+## What is a command
 
-Once a name is established, pass `--profile <name>` to **every** subsequent command. Profile names are arbitrary local labels (`prod`, `staging`).
+| Need                           | Command                                                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Read the instance              | `card list\|get`, `dashboard list\|get\|cards\|parameter-values`, `collection list\|get\|items\|tree`, `db list\|get\|schemas\|schema-tables`, `table list\|get\|fields`, `field get\|values\|summary`, `segment\|measure\|snippet\|document list\|get`, `transform list\|get\|dependencies`, `transform-job list\|get\|transforms`, `transform-tag list`, `library get`, `search`, `eid` |
+| Run things                     | `query`, `card query`, `transform run\|cancel\|get-run\|runs`, `transform-job run`, `transform-test run`                                                                                                                                                                                                                                                                                  |
+| Transform tests                | `transform-test list\|get\|create\|update\|delete\|run`; tests have no file form, so they are the one write family                                                                                                                                                                                                                                                                        |
+| Publish a table to the Library | `library publish\|unpublish`                                                                                                                                                                                                                                                                                                                                                              |
+| Database metadata              | `db sync-schema`, `db rescan-values`                                                                                                                                                                                                                                                                                                                                                      |
+| Put a branch into Metabase     | `git-sync import`, plus `status\|is-dirty\|has-remote-changes\|dirty\|current-task\|cancel-task\|wait\|branches`                                                                                                                                                                                                                                                                          |
+| Check files                    | `validate [path…]`                                                                                                                                                                                                                                                                                                                                                                        |
+| Ids                            | `entity-id [--count N]` for a new file's `entity_id`, `uuid [--count N]` for an MBQL `lib/uuid` or a parameter id                                                                                                                                                                                                                                                                         |
 
-## Flag conventions
+Per-command flags and examples live in each command's `--help`; `--help --json` adds the output JSON Schema.
 
-**`--profile` is per-subcommand — it attaches after the full verb chain, not before it.**
+## Flags and output
 
-```bash
-✅ mb table list --profile prod --json
-❌ mb --profile prod table list           # → error: "Unknown command prod"
-```
+- **`--wait` for async work.** `transform run`, `db sync-schema` and similar return immediately by default; pass `--wait` whenever the next step depends on completion. `git-sync import` waits by default.
+- **Output flags go after the verb chain**: `mb table list --json`.
+- `--json` emits the full JSON envelope, single-line when piped. Default is text at a TTY and JSON when piped. Parse it; never scrape by line position. JSON goes to stdout and notices to stderr, so never `2>&1` into a parser.
+- `--full` includes every field; the compact projection is the default and the agent-facing contract.
+- `--fields a,b.c` projects dot-paths, relative to each `data[]` item on list verbs and to the root on single-item verbs: `--fields id,name` on `… list`, `--fields data.rows` on `mb query`. Mutually exclusive with `--full`.
+- `--max-bytes <n>` caps output (default 24576; `0` disables). A list over the cap drops trailing items and sets `truncated`; a single item over the cap exits 2 naming a narrower command to run. Follow it rather than raising the cap.
 
-**`--wait` for async operations.** `transform run`, `git-sync import`, and similar verbs return immediately by default. Pass `--wait` whenever the next step depends on completion — without it you race the operation and see "not ready" / transient connection refusals.
+## List windows
 
-**Some "lookup" verbs return JSON envelopes, not bare values.** `mb setting get <key>` returns `{"key": "...", "value": ...}`. Extract before reusing:
+Every list verb takes `--limit` and `--offset` and answers `{returned, offset, limit?, total, has_more, next_offset, truncated?, data}`.
 
-```bash
-VALUE=$(mb setting get <key> --json | jq -r '.value')
-```
-
-## Output
-
-Every list/get verb supports the same output flags:
-
-- `--json` — emit the full JSON envelope, safe for `jq`. Default is human-readable text.
-- `--full` — include every field (the compact projection is the default, and is the agent-facing contract).
-- `--fields a,b.c.d` — project specific dot-paths. Mutually exclusive with `--full`. **Paths are relative to each `data[]` item on list verbs, and to the root on single-item verbs.** So it's `--fields id,name` on `… list` / `database schema-tables` (`data.id` and `data[].id` both fail with `unknown field path: "data.id"`), and `--fields id,name,display` on `card get`, `--fields data.rows` on `mb query` (whose `data` is an object).
-- `--max-bytes <n>` — cap output size. Default 24576 (sized to fit under agent-harness tool-output limits); `0` disables. On a list it drops trailing items and sets `truncated` (see below). Single-item commands (`get`) never truncate — over the cap they throw a `ConfigError` (exit 2: "output is N bytes, over the M-byte --max-bytes cap; …") whose tail names the remedy: on schema-shaped commands it is the exact narrower command to run instead — follow it rather than raising the cap.
-- JSON output is a single line when stdout is piped (pretty-printed only at a TTY) — always parse it, never scrape by line position.
-
-## List windows and resumption
-
-Every list verb takes `--limit <n>` (items this call returns) and `--offset <n>` (where the window starts, default `0`), and answers with one envelope, metadata first so the counts and the resumption point survive a cut tail: `{returned, offset, limit?, total, has_more, next_offset, truncated?, data}`. `truncated` is `{reason: "max_bytes", bytes: N}`.
-
-- **`has_more` decides whether to keep going — never compare counts.** `total` is the server's count on endpoints that report one and `null` on those that don't, so arithmetic over it is not a termination condition.
-- **To continue, pass `next_offset` back as `--offset`.** When `has_more` is true `next_offset` is past the offset you sent, so the loop advances; when false the walk is over and `next_offset` is `null`.
-- **`truncated` means the byte cap cut the output, not that the data ran out.** `has_more`/`next_offset` are recomputed to the cut point, so a capped list resumes like any window. Its `bytes` is what the untruncated answer would have measured, so it sizes the work left rather than the reply you hold. Narrow rows with `--fields` rather than raising `--max-bytes` — a bigger cap spends context on fields you didn't ask for, and the cap counts only what you asked for, so `--fields` buys rows directly. A capped list always returns at least one row; when not even one fits it exits 2 with "the smallest response this list can produce is N bytes, over the M-byte --max-bytes cap; …".
-- `limit` is echoed only when you passed `--limit` — except `mb search`, which defaults to `--limit 20` (an unbounded search is expensive server-side) and so always reports one. On nouns the server doesn't page, one large `--limit` with narrow `--fields` is a single request; many small `--offset` hops are one request each.
-
-The whole walk, literally:
+- **`has_more` decides whether to continue; never compare counts.** `total` is `null` on endpoints that report none.
+- **Pass `next_offset` back as `--offset`.** When `has_more` is false, `next_offset` is `null`.
+- **`truncated` means the byte cap cut the output**, and `has_more`/`next_offset` are recomputed to the cut, so a capped list resumes like any window. Narrow rows with `--fields` rather than raising `--max-bytes`.
 
 ```bash
 offset=0
 while : ; do
-  out=$(mb table list --db-id 1 --limit 50 --offset "$offset" --fields id,name --profile <n> --json)
+  out=$(mb table list --db-id 1 --limit 50 --offset "$offset" --fields id,name --json)
   echo "$out" | jq -c '.data[]'
   [ "$(echo "$out" | jq -r '.has_more')" = "true" ] || break
   offset=$(echo "$out" | jq -r '.next_offset')
 done
 ```
 
-## Body input (create / update / run)
+## Body input (`query`, `eid`, `transform-test create|update`)
 
-Verbs that take a payload accept it from one of four sources, **first non-empty wins**:
-
-1. `--body '<inline JSON>'`
-2. `--file <path>` — JSON file
-3. stdin (auto-detected when piped; `--file -` names it explicitly)
-4. positional argument
-
-Exactly one required; passing more than one of `--body` / `--file` / a positional argument is rejected with a `ConfigError`.
+The payload comes from one source, first non-empty wins: `--body '<json>'`, `--file <path>` (`--file -` for stdin), piped stdin, a positional argument. Passing more than one of `--body`, `--file` and a positional is a `ConfigError`.
 
 ```bash
+mkdir -p ./.scratch
 cat > ./.scratch/body.json <<'EOF'
 { ... }
 EOF
-mb <noun> create --file ./.scratch/body.json --profile <n> --json
+mb query --file ./.scratch/body.json --json
 ```
 
-Single-quoted `'EOF'` stops the shell interpolating `$vars` inside the JSON.
-
-Write working files to **`./.scratch`** in the current directory (`mkdir -p ./.scratch` first), never `/tmp` — better permissions, they persist across the session, and the user can review them.
+Working files go in `./.scratch`, never `/tmp`; the app keeps it out of git. Content files go where the representation format puts them, never under `./.scratch`.
 
 ## Discovering commands and schemas
 
-Cheapest source that answers the question wins:
+- `mb --help`, then `mb <group> --help`; `mb --help --json` lists every command.
+- `mb <command> --help`: flags, enums, defaults, examples.
+- `mb <command> --help --json`: `outputSchema` before parsing, `inputSchema` before authoring a body, and the server features the command needs.
 
-- What groups/verbs exist? → `mb --help`, then `mb <group> --help`. Add `--json` for a machine-readable `{command, description}` index (`mb --help --json` lists every command).
-- What flags does a command take? → `mb <command> --help` — flags with enums and defaults, examples, ~1 KB.
-- Output JSON Schema before parsing, JSON-body input schema before authoring, machine-readable arg types, min server version? → `mb <command> --help --json` — that command's full entry (`inputSchema` is the exact validator the command runs on the body; `null` when it takes none).
+## Resource quirks
 
-```bash
-mb card query --help                                    # flags, enums, defaults, examples
-mb card list --help --json | jq .outputSchema           # output schema before parsing
-mb card create --help --json | jq .inputSchema          # body schema before authoring
-mb transform --help --json | jq -r '.commands[].command'  # verbs under "transform"
-```
+What `--help` does not tell you.
 
-## Resource quirks worth memorizing
-
-Routine verb shapes (list / get / create / update), every flag, and output schemas live in each command's `--help` (add `--json` for output schemas). Below is only what help does _not_ tell you: footguns and non-obvious behaviors.
-
-- **db traversal: the hydration ladder.** Start with `database get <db-id> --include tables` — the compact table map (id, name, schema, description per table), one call that fits most databases. Pick the relevant tables, then `table fields <table-id>` per table (bounded: fields are per-table). `--include tables.fields` is the full rollup — small databases only. Hundreds of tables? Traverse by schema (`database schemas <db-id>` → `database schema-tables <db-id> <schema>`) or look tables up by name (`search <term> --models table --db-id <db-id> --limit 10`). `sync-schema` / `rescan-values` queue async work and return `{status:"ok"}` immediately; `sync-schema --wait` blocks until `initial_sync_status: complete`.
-- **table fields.** `table get` never returns fields on its own — pass `--include fields` (compact; the underlying query_metadata response also carries FK targets and dimensions, visible under `--full`) or use `table fields <id>` (list envelope). `table update` patches table-level metadata only; physical columns aren't editable.
-- **field has no `list`.** Fields are per-table — get them via `table get <id> --include fields`. Never enumerate fields across a whole db (context blow-up). `field summary` is live cardinality `{field_id, count, distincts}`; `field values` is the cached distinct set (`has_more_values: true` ⇒ truncated cache). `field update` patches metadata only (`base_type` isn't editable) — this is where you set a column's `semantic_type` or foreign-key target.
-- **upload (CSV → tables).** `upload csv --file <path>` creates a new table + model (prints `{model_id, table_id}`); `upload append <table-id>` / `upload replace <table-id> --file <path>` add to / overwrite a table **previously created by upload** (columns must match). The destination db+schema is admin-configured, not per-call — check with `mb setting get uploads-settings --json` (`db_id: null` ⇒ uploads off/unconfigured; needs admin to read). `--collection <id|root>` only sets the model's collection. Max 50 MB. Errors: **"The uploads database is not configured."** = no db has uploads enabled; **"Uploads are not enabled."** = the append/replace target isn't an uploaded table.
-<!-- requires: contentTranslation -->
-- **content-translation.** Admin-only, and separate from Remote Sync. `content-translation download > translations.csv` streams the complete active dictionary; `content-translation upload --file translations.csv` replaces every active translation with the file's contents. Always upload the canonical complete CSV, never a partial patch. An empty dictionary downloads as Metabase's four-row sample dictionary — don't re-upload it as real translations. Metabase limits dictionaries to 1.5 MiB.
-<!-- /requires -->
-- **card.** `dataset_query` is the **flat** `mbql/query` value, not a legacy `{type:"query",query:…}` envelope (→ `mbql`). `--export-format csv|xlsx` streams the raw export (pipe to a file), bypassing the JSON envelope. `archive` is the only delete; unarchive with `update --body '{"archived":false}'`. `visualization_settings` keys are scoped by `display` and aren't pre-flighted — see `visualization`.
-- **dashboard.** Dashcards round-trip through `PUT /api/dashboard/:id` (no per-dashcard endpoint): `update-dashcard <dash-id> <dashcard-id>` patches one safely; `update --body '{"dashcards":[…]}'` replaces the whole set (omitted ids are deleted server-side; negative ids for new cards). Every dashcard must include `card_id`, including existing rows; use `card_id:null` plus a `visualization_settings.virtual_card` block (`{display:"text"|"heading"|"link"|…}`) for non-question cards. `create` accepts the **same** `dashcards` array in its initial body, so lay out the whole dashboard in one call. `create`/`update` pre-flight every positive `card_id` and exit **2** with `{ok:false,errors:[…]}` on a bad ref (non-bypassable). `dashboard get <id>` (or `--full`) hydrates dashcards/tabs; `list` omits them. **The grid is 24 columns wide:** each dashcard's `{col, row, size_x, size_y}` is in grid units — **full-width is `size_x: 24`** (`size_x: 12` is half a row, the usual cause of a card filling only half the width). Keep `col + size_x ≤ 24`, start a full-width stack's `col` at 0, and don't overlap (the server stores collisions as sent — no auto-fix). Layout patterns and per-chart default sizes → the `dashboard` skill; load it before composing any `dashcards` array.
-- **dashboard parameters (filters).** A dashboard's `parameters` array holds its filter widgets; they're part of the dashboard record, so read them with `dashboard get <id> --fields parameters --json` (no separate verb). **Editing replaces the _whole_ array** (like dashcards), so it's a read-modify-write loop and omitting a parameter deletes it. A parameter only filters a card once it is **mapped** onto that dashcard's `parameter_mappings` — an unmapped parameter is an inert widget. `type` is a **closed enum**; an unlisted value is a hard parse error that echoes the full allowed set back to you. `dashboard parameter-values <id> <parameter-id> [--query <substr>]` fetches a widget's selectable values (`{values, has_more_values}`; `--query` is a case-insensitive substring search). Parameter types, ids, mapping targets, and value sources → the `dashboard` skill; load it before authoring a `parameters` array.
-- **alert / subscription are two unrelated systems.** `alert` watches one **card** and fires on a send condition (`/api/notification`: a cron string, `channel/email`-prefixed handlers, typed recipients); `subscription` delivers one **dashboard** on a schedule (`/api/pulse`: structured `schedule_type` + hour/day/frame, bare `email` channels, `{id}|{email}` recipients). The bodies are not interchangeable. Both silently deliver nowhere if the server has no SMTP / Slack app — check `mb setting get 'email-configured?'` (quote it; the `?` is a shell glob) before creating either. Their list-valued fields (`handlers`/`subscriptions`, `channels`/`cards`) **replace wholesale** on update, so adding one recipient is a read-modify-write. `mb card alerts <id>` and `mb dashboard subscriptions <id>` list what's already attached to a card/dashboard; `archive` deactivates rather than deletes. Load the `notification` skill before authoring either body.
-- **snippet `--archived` is a swap, not a union** — list returns _either_ active _or_ archived rows, never both. (Same for `--filter archived` on dashboard/collection.)
-- **segment / measure.** `update` and `archive` require a non-blank `revision_message` (audit-logged); the CLI does not synthesize it on `update`. `archive` defaults to `"Archived via mb CLI"` — override with `--revision-message`. `definition` is a flat MBQL clause (→ `mbql`): segment = a filter, measure = exactly one aggregation.
-- **timeline / timeline-event.** Timelines are collection-scoped event annotations for time-series charts: a timeline's events render only on time-series questions saved in the **same collection** (`collection_id`; null = root) — sub-collections do **not** inherit, and events never draw on dashboard cards, only in the question (and collection) view. To annotate a question's chart, create the timeline in that question's collection, then add events; an event only draws when its `timestamp` falls inside the chart's displayed time range. Event `create` requires `timestamp` (ISO 8601), `timezone` (IANA name), `time_matters` (true = the time of day is significant, false = date-only), and `timeline_id` — the API never auto-creates a default timeline (that's UI-only). There is no `timeline-event list`; enumerate with `timeline events <id>` (`--archived` to include archived). Archiving a timeline cascades `archived` to its events; `delete` is a **hard** delete of the timeline and all its events — prefer `archive`.
-- **collection `<ref>`** accepts four forms only — positive int, `root`, `trash`, or a 21-char entity_id; anything else is a client-side `ConfigError`. `collection items` pages the server endpoint, pulling only as far as the output cap can show — read `has_more`/`next_offset` to continue. `collection tree` is **JSON-only** (`--format text` is rejected). A transform collection needs `collection create --namespace transforms`.
-- **setting set** parses the value as **strict JSON**: a string is `'"value"'` (inner quotes), booleans `true`/`false`, numbers bare. Wrong quoting silently errors — confirm with `setting get <key>` after. `setting get --json` works on every value type (wrapping bare-text responses into `{key, value}`).
-- **search vs. list.** For plain enumeration of cards/dashboards/collections use the dedicated `… list` verbs; reach for `search --models <kind>` only for ranking against a query string or a cross-resource lookup.
+- **db traversal: the hydration ladder.** Start with `db list` for the database ids, then `db get <db-id> --include tables`: the compact table map (id, name, schema, description per table), one call that fits most databases. Pick the tables the question needs, then `table fields <table-id>` or `table get <table-id> --include fields` per table; fields are bounded per table. `--include tables.fields` is the full rollup, for small databases only. Hundreds of tables: go by schema (`db schemas <db-id>`, then `db schema-tables <db-id> <schema>`) or look a table up by name (`search <term> --models table --db-id <db-id> --limit 10`). `sync-schema --wait` blocks until the sync completes; `rescan-values` queues and returns.
+- **table and field.** `table get` returns fields only with `--include fields`. Fields have no `list`; never enumerate them across a whole database. `field summary` is live cardinality; `field values` is the cached distinct set (`has_more_values: true` means the cache is truncated). To write a filter, `table fields <table-id> --values` puts each dropdown field's raw values beside its name in one call; `null` means the field keeps no dropdown list.
+- **ids.** A file names an entity by `entity_id`; a command takes the numeric id. `mb eid --model card <eid1,eid2> --json` translates. An entity id starting with `-` reads as a flag, so pass it as `--body '{"entity_ids":{"card":["-…"]}}'`.
+- **card.** `card query <id> --export-format csv|xlsx` streams the raw export to stdout; pipe it to a file.
+- **dashboard.** `dashboard get <id>` hydrates dashcards and tabs; `list` omits them. `dashboard parameter-values <id> <parameter-id> [--query <substr>]` shows what a filter widget offers.
+- **archived lists swap.** `snippet list --archived` returns archived rows instead of active ones, never both; the same holds for `--filter archived` on dashboards and collections.
+- **collection `<ref>`** is a positive int, `root`, `trash`, or a 21-character entity id. `collection tree` is JSON-only.
+- **search vs. list.** Enumerate with `… list`; use `search --models <kind>` to rank against a query string or look across kinds.
 <!-- requires: transforms -->
-- **transform.** Iterate with `transform update <id>`, never `delete` + `create` (keeps the row, `entity_id`, materialized table, and YAML filename — avoids `_2` suffixes and noisy git history). `transform run` needs `--wait` (or `--sync`, which also waits for the output table to register and returns `target_table_id`) or you get only `{run_id, final:null}`. (→ `transform`.)
+- **transform.** `transform run <id>` without `--wait` or `--sync` returns only `{run_id, final: null}`. `--sync` also waits for the output table to register and returns `target_table_id`.
+  <!-- /requires -->
+  <!-- requires: transformTests -->
+- **transform-test.** `transform-test create --body '{"transform_id":…,"name":…,"inputs":[…],"expectations":[…]}'`, then `transform-test run <id>` answers `{status: "passed"|"failed", expectations: […]}`. The server checks inputs and expectations against the transform before saving; a refusal is an HTTP error whose code starts with `transform-test.`.
+  <!-- /requires -->
+  <!-- requires: library -->
+- **library.** `library get` shows the Library and its Data and Metrics collections. `library publish --table-ids/--db-ids/--schemas` puts tables in Data (each `--schemas` entry is `<db-id>:<schema>`), creating the Library if absent; `publish` cascades to upstream FK targets, `unpublish` to downstream dependents. Both need admin or data-analyst rights and write and query permission on every affected table. `table get` carries `is_published`.
 <!-- /requires -->
-- **setup is one-shot.** `mb setup` walks `/api/setup` for a **fresh** instance only — errors against an already-configured one. Mostly for bootstrapping local / e2e instances.
-- **eid** translates a string entity id → numeric id: `mb eid --model <model> <eid1,eid2> --json`. Entity ids are NanoIDs that can start with `-`, which the positional form misreads as a flag (shell quotes don't help) — for those, use `--body '{"entity_ids":{"card":["-…"]}}'` (the id is a JSON string value, immune to flag parsing).
-<!-- requires: library -->
-- **library.** The Library is a curated subtree (`library-data` "Data" + `library-metrics` "Metrics" under a `library` root): tables published to **Data** appear first in data pickers and rank up in search; metrics saved to **Metrics** are prioritized in nav, search, and the query builder — it's how you tell people (and agents) "start from these, they're trusted." `library get` shows the Library and its Data/Metrics collection ids; `library create` provisions it (idempotent). `library publish --table-ids/--db-ids/--schemas` publishes tables into Data — it **resolves the Data collection itself and creates the Library if absent** (no collection id to find); each `--schemas` entry is `<db-id>:<schema>` (e.g. `1:public`), not a bare name. `publish` cascades to upstream FK dependencies, `unpublish` to downstream dependents; both need **admin or data-analyst** (Curate alone won't publish) and exit **403** without write **and** query permission on every affected table. Publish status shows on the table: `table get`/`table list` carry `is_published` (`collection_id` under `--full`). Good candidates are finished, analysis-ready tables — clean/combine via transforms first, then publish the polished result. Publishing does not put the Data collection in the git-sync scope: on a remote-sync instance, `mb git-sync add-collection <data-collection-id>` is what makes exports carry the published tables' metadata (see the `git-sync` skill).
-<!-- /requires -->
-- **query / uuid.** `mb query` is the ad-hoc MBQL surface (`--print-schema` → `--dry-run` → run); `mb uuid --count <n>` mints the `lib/uuid` values MBQL clauses need. Both live in `mbql`.
 
-## Specialized skills (load on demand)
+## The other skills
 
-This file is enough for any single-command task. For anything deeper, load the relevant skill **proactively** — don't wing an MBQL body, a transform body, or the git-sync workflow from this overview. Load via `mb skills get <name>`.
+Load the one a step needs with `mb skills get <name>`; `mb skills list` shows those the connected server can use.
 
-- **`mbql`** — authoring/fixing any MBQL query body (`mb query`, card `dataset_query`, transform `source.query`, measure/segment `definition`); reading `--dry-run` errors. The query-body reference.
-- **`native-sql`** — authoring a native SQL `dataset_query` with parameters: template tags, field filters vs. raw variables, snippets, card references, and wiring a tag to a dashboard filter. The SQL fallback when MBQL can't express it (`mbql` first).
-- **`visualization`** — choosing a card's `display` and authoring `visualization_settings`. The presentation counterpart to `mbql`.
-- **`dashboard`** — building interactive dashboards: wiring filters (parameters + mappings), linked/cascading filters, cross-filtering, click behavior, series, and tabs. Load beyond a plain card-layout task.
-- **`metadata`** — setting field/table metadata: semantic types, foreign-key targets, dropdown/scan behavior, and column visibility, and the downstream features each unlocks. Load when editing what a column _means_, not its data.
-- **`notification`** — scheduled delivery: question alerts (`mb alert`) and dashboard subscriptions (`mb subscription`). Choosing between them, the two schedule/recipient contracts, channel prerequisites, testing a send.
+- **`rde`**: the data-engineering method, from raw tables through clean tables, definitions and dashboards to checked answers. Start here for any job bigger than one file.
+- **`metabase-representation-format`**: the content file schemas and folder layout. Load before writing any content file.
+- **`mbql`**: MBQL queries, in `mb query` and in files, and the dry-run loop.
+- **`native-sql`**: native SQL with template tags, field filters, snippets and card references.
+- **`visualization`**: a card's `display` and `visualization_settings`.
+- **`dashboard`**: dashboard layout, filters, linked filters, cross-filtering, click behavior, tabs.
+- **`metadata`**: table and field metadata files and what each setting unlocks.
 <!-- requires: transforms -->
-- **`transform`** — transform body JSON, create + run-with-wait, run inspection, tags, jobs.
+- **`transform`**: transform files, runs, tests, tags and jobs.
 <!-- /requires -->
-- **`document`** — Metabase documents (TipTap body, embedding cards).
+- **`document`**: document files, the ProseMirror body and embedded cards.
 <!-- requires: remoteSync -->
-- **`git-sync`** — round-tripping content to/from a git remote.
+- **`git-sync`**: putting a branch into Metabase and reading the sync state.
 <!-- /requires -->
-- **`data-workflow`** — the guided, end-to-end data workflow: investigate raw data, build clean analysis-ready tables, define reusable segments/measures/metrics, answer questions, build dashboards. **Start here when the user states a goal rather than a single verb** — "make sense of my data", "build a data model", "go from raw data to a dashboard", "be my data analyst", "set up analytics for X". It detects where the data is and routes to the right stage.
-
-If a task spans more than one, load each. `mb skills list` enumerates the skills the profile's server can use, and `mb skills get` prints a skill with the sections that server cannot use left out; `--unfiltered` shows everything.
 
 ## Don't
 
-- Don't paste credentials or warehouse passwords in chat. Have the user run the storing command.
-- Don't shell into `curl` against `/api/...` (or add an HTTP library) when a `mb <verb>` exists — that bypasses retries, schema validation, and credential redaction.
+- Don't write content any other way than as a file on the branch. Nothing else survives the next import.
+- Don't `curl` `/api/...`; the `mb` verbs carry retries, schema validation and credential redaction.
+- Don't hand-write an `entity_id` or a `lib/uuid`; mint them with `mb entity-id` and `mb uuid`.

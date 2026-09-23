@@ -18,9 +18,13 @@ export function displayUrl(input: string): string {
 }
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const LOOPBACK_DOMAIN_SUFFIX = ".localhost";
 
+// RFC 6761 reserves every name under `localhost` for the loopback interface, and browsers resolve
+// them there without asking DNS.
 export function isLoopbackHost(hostname: string): boolean {
-  return LOOPBACK_HOSTS.has(hostname.toLowerCase());
+  const host = hostname.toLowerCase();
+  return LOOPBACK_HOSTS.has(host) || host.endsWith(LOOPBACK_DOMAIN_SUFFIX);
 }
 
 // Guard against a tampered or hostile authorization-server metadata document redirecting the

@@ -1,0 +1,71 @@
+.markdown > * + * {
+  margin-top: 0.75em;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  font-size: 1em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 1.25em;
+}
+
+.markdown ul {
+  list-style: disc;
+}
+
+.markdown ol {
+  list-style: decimal;
+}
+
+.markdown li + li {
+  margin-top: 0.25em;
+}
+
+.markdown blockquote {
+  padding-left: 0.75em;
+  border-left: 1px solid var(--line-strong);
+  color: var(--ink-2);
+}
+
+.markdown :not(pre) > code {
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-chip);
+  background: var(--inset);
+  box-shadow: var(--shadow-hairline);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+.markdown table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.markdown th,
+.markdown td {
+  padding: 0.35em 0.6em;
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.markdown th {
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.markdown hr {
+  border-top: 1px solid var(--line);
+}
+
+.markdown strong {
+  font-weight: 600;
+  color: var(--ink);
+}

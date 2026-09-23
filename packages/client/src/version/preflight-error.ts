@@ -4,7 +4,11 @@ import { MetabaseError } from "../errors";
 
 import { FEATURE_NAMES } from "./features";
 
-export const RequirementReason = z.enum(["version-too-old", "missing-token-feature"]);
+export const RequirementReason = z.enum([
+  "version-too-old",
+  "version-too-new",
+  "missing-token-feature",
+]);
 export type RequirementReason = z.infer<typeof RequirementReason>;
 
 // The feature a client method needed and the profile lacked, with the rule that decided it, so a
@@ -24,6 +28,16 @@ export function versionTooOldMessage(since: number, serverVersion: string | null
   const server =
     serverVersion === null ? "this server's version is unknown" : `this server is ${serverVersion}`;
   return `This operation requires Metabase v${since}+ (${server}). Upgrade Metabase to use it.`;
+}
+
+export function versionTooNewMessage(
+  since: number,
+  until: number,
+  serverVersion: string | null,
+): string {
+  const server =
+    serverVersion === null ? "this server's version is unknown" : `this server is ${serverVersion}`;
+  return `This operation exists on Metabase v${since} through v${until} only (${server}); later releases removed it.`;
 }
 
 export function missingTokenFeatureMessage(tokenFeature: string): string {

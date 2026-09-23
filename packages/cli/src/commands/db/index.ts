@@ -6,7 +6,7 @@ export default defineCommandGroup({
   alias: "database",
   skills: [
     { skill: "core", purpose: "the database traversal ladder and schema sync" },
-    { skill: "data-workflow", purpose: "model a raw database into clean tables" },
+    { skill: "rde", purpose: "model a raw database into clean tables" },
   ],
   subCommands: {
     list: () => import("./list").then((m) => m.default),

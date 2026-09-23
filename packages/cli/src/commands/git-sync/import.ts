@@ -3,7 +3,7 @@ import type { SyncImportParams } from "@metabase/client/resources/git-sync";
 
 import { renderSummary } from "../../output/render";
 import { syncImportView } from "../../output/views/git-sync";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 import { gitSyncWaitFlags, parseWaitFlags } from "../wait-flags";
 
@@ -17,8 +17,7 @@ export default defineMetabaseCommand({
   requires: ["gitSync.import"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     branch: {
       type: "string",
       description: "Branch to import from (defaults to remote-sync-branch setting)",

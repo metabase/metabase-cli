@@ -1,0 +1,82 @@
+name: Orders Pivot Table
+entity_id: BjwHr6elEuKQuL26BEgno
+collection_id: cOlViZsEtTiNgS0ExAmP1
+creator_id: admin@example.com
+display: pivot
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    aggregation:
+    - - count
+      - {}
+    - - sum
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+    breakout:
+    - - field
+      - temporal-unit: quarter
+      - - Sample Database
+        - null
+        - ORDERS
+        - CREATED_AT
+    joins:
+    - stages:
+      - "lib/type": mbql.stage/mbql
+        source-table:
+        - Sample Database
+        - null
+        - PRODUCTS
+      conditions:
+      - - =
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - PRODUCT_ID
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - ID
+      alias: Products
+      strategy: left-join
+      fields: all
+visualization_settings:
+  "pivot_table.column_split":
+    rows:
+    - CATEGORY
+    columns:
+    - CREATED_AT
+    values:
+    - count
+    - sum
+  "pivot_table.show_row_totals": true
+  "pivot_table.show_column_totals": true
+  "pivot_table.collapsed_rows":
+    rows: []
+    value: []
+  column_settings:
+    '["name","sum"]':
+      number_style: currency
+      currency: USD
+      currency_style: symbol
+      decimals: 0
+serdes/meta:
+- id: BjwHr6elEuKQuL26BEgno
+  label: pivot_table
+  model: Card

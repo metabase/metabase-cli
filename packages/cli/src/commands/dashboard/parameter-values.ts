@@ -2,7 +2,7 @@ import { ConfigError } from "@metabase/client/errors";
 import { ParameterValues } from "@metabase/client/domain/parameter";
 import { parameterValuesView } from "../../output/views/parameter";
 import { renderSummary } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -17,8 +17,7 @@ export default defineMetabaseCommand({
   requires: ["dashboard.parameterValues", "dashboard.searchParameterValues"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     "dashboard-id": { type: "positional", description: "Dashboard id", required: true },
     "parameter-id": {
       type: "positional",

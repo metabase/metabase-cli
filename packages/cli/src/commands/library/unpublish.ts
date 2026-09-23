@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import type { ResourceView } from "../../output/view";
 import { renderSummary } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 import { parseTableSelectors, tableSelectorFlags } from "./selectors";
@@ -35,8 +35,7 @@ export default defineMetabaseCommand({
   requires: ["library.unpublishTables"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     ...tableSelectorFlags,
   },
   outputSchema: LibraryUnpublishResult,

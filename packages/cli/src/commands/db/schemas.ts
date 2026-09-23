@@ -4,7 +4,7 @@ import type { ResourceView } from "../../output/view";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
 import { windowList } from "../../output/window";
-import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";
+import { listFlags, outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -24,8 +24,7 @@ export default defineMetabaseCommand({
   args: {
     ...outputFlags,
     ...listFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     id: { type: "positional", description: "Database id", required: true },
   },
   outputSchema: DatabaseSchemaListEnvelope,

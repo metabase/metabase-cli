@@ -2,7 +2,7 @@ import { Database, DatabaseGetInclude } from "@metabase/client/domain/database";
 import { databaseView } from "../../output/views/database";
 import { renderItem } from "../../output/render";
 import { parseEnum } from "../../runtime/csv";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -28,8 +28,7 @@ export default defineMetabaseCommand({
   requires: ["database.get"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     include: {
       type: "string",
       description: `Hydrate related entities: ${DatabaseGetInclude.options.join("|")}. tables is the compact table map; tables.fields adds every field — fine for small databases, use the map plus table fields <id> for large ones`,

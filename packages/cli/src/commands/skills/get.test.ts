@@ -4,22 +4,13 @@ import type { ZodType } from "zod";
 
 import { parseJson } from "@metabase/client/json";
 
-const hoisted = vi.hoisted(() => ({
-  store: new Map<string, string>(),
-  controls: { broken: false },
-}));
-
-vi.mock("@napi-rs/keyring", async () => {
-  const { createKeyringMockModule } = await import("../../core/auth/keyring-mock");
-  return createKeyringMockModule(hoisted);
-});
-
 import {
   probeAt,
-  seedProbedProfile,
-  setupTempConfigHome,
-  type TempConfigHome,
-} from "../../core/auth/temp-config-home";
+  seedCachedProbe,
+  setupTempCacheHome,
+  type TempCacheHome,
+  UNREACHABLE_ENV,
+} from "../../core/temp-cache-home";
 import { ENV_SKILLS_DIR } from "../../core/env";
 import { findSkillByName, loadAllSkills, readSkillContent } from "../../core/skills";
 import {
@@ -63,11 +54,12 @@ function gammaContent(body: string) {
 
 describe("skills get command", () => {
   let skills: TempSkillsDir;
-  let home: TempConfigHome;
+  let home: TempCacheHome;
 
   beforeEach(() => {
-    hoisted.store.clear();
-    home = setupTempConfigHome();
+    home = setupTempCacheHome();
+    vi.stubEnv("MB_URL", UNREACHABLE_ENV.MB_URL);
+    vi.stubEnv("MB_API_KEY", UNREACHABLE_ENV.MB_API_KEY);
     skills = createTempSkillsDir();
     vi.stubEnv(ENV_SKILLS_DIR, skills.path);
   });
@@ -91,7 +83,8 @@ describe("skills get command", () => {
     );
   });
 
-  it("prints a skill as written, markers included, and `unavailable: null` without a cached probe", async () => {
+  it("prints a skill as written, markers included, and `unavailable: null` without a credential", async () => {
+    vi.stubEnv("MB_API_KEY", undefined);
     const stdout = capture(process.stdout);
     const stderr = capture(process.stderr);
 
@@ -109,7 +102,8 @@ describe("skills get command", () => {
     expect(stderr.chunks).toEqual([]);
   });
 
-  it("notes in text mode that nothing was filtered without a cached probe", async () => {
+  it("notes in text mode that nothing was filtered without a credential", async () => {
+    vi.stubEnv("MB_API_KEY", undefined);
     const stdout = capture(process.stdout);
     const stderr = capture(process.stderr);
 
@@ -117,12 +111,12 @@ describe("skills get command", () => {
 
     expect(stdout.chunks.join("")).toBe(`${GAMMA_SKILL_MD.trimEnd()}\n`);
     expect(stderr.chunks.join("")).toBe(
-      'Skills are unfiltered: there is no profile "default" (run `mb auth login` to create one and record its server).\n',
+      "Skills are unfiltered: no Metabase credential; run inside Metabase RDE, or set MB_URL and MB_API_KEY.\n",
     );
   });
 
   it("withholds a skill the cached server lacks a feature for and reports it under `unavailable`", async () => {
-    await seedProbedProfile("default", probeAt(58));
+    await seedCachedProbe(probeAt(58));
     const stdout = capture(process.stdout);
     const stderr = capture(process.stderr);
 
@@ -154,7 +148,7 @@ describe("skills get command", () => {
   });
 
   it("prints nothing but the skipped note in text mode for a withheld skill", async () => {
-    await seedProbedProfile("default", probeAt(58));
+    await seedCachedProbe(probeAt(58));
     const stdout = capture(process.stdout);
     const stderr = capture(process.stderr);
 
@@ -167,7 +161,7 @@ describe("skills get command", () => {
   });
 
   it("strips a section the cached server lacks the feature for", async () => {
-    await seedProbedProfile("default", probeAt(60));
+    await seedCachedProbe(probeAt(60));
     const stdout = capture(process.stdout);
 
     await runCommand(skillsGetCommand, { rawArgs: ["gamma", "--json"] });
@@ -184,7 +178,7 @@ describe("skills get command", () => {
   });
 
   it("keeps a section the cached server has the feature for, without its markers", async () => {
-    await seedProbedProfile("default", probeAt(61));
+    await seedCachedProbe(probeAt(61));
     const stdout = capture(process.stdout);
 
     await runCommand(skillsGetCommand, { rawArgs: ["gamma", "--format", "text"] });
@@ -193,7 +187,7 @@ describe("skills get command", () => {
   });
 
   it("--unfiltered with a name prints that skill as written regardless of the cached server", async () => {
-    await seedProbedProfile("default", probeAt(58));
+    await seedCachedProbe(probeAt(58));
     const stdout = capture(process.stdout);
     const stderr = capture(process.stderr);
 
@@ -212,7 +206,7 @@ describe("skills get command", () => {
   });
 
   it("--all alone selects every non-hidden skill as the cached server can use it", async () => {
-    await seedProbedProfile("default", probeAt(58));
+    await seedCachedProbe(probeAt(58));
     const stdout = capture(process.stdout);
 
     await runCommand(skillsGetCommand, { rawArgs: ["--all", "--json", "--max-bytes", "0"] });
@@ -257,7 +251,7 @@ describe("skills get command", () => {
   });
 
   it("--all --unfiltered prints every non-hidden skill as written", async () => {
-    await seedProbedProfile("default", probeAt(58));
+    await seedCachedProbe(probeAt(58));
     const stdout = capture(process.stdout);
 
     await runCommand(skillsGetCommand, {

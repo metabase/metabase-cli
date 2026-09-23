@@ -1,0 +1,34 @@
+name: Premium Widgets
+entity_id: 2hxhoN3HrQJIaWc5umpBn
+creator_id: admin@example.com
+description: Widget products priced above $50 — refines the Widget Products segment
+table_id:
+- Sample Database
+- null
+- PRODUCTS
+definition:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+    filters:
+    - - segment
+      - {}
+      - aB3kLmN9pQrStUvWxYz1a
+    - - ">"
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - PRICE
+      - 50
+serdes/meta:
+- id: 2hxhoN3HrQJIaWc5umpBn
+  label: premium_widgets
+  model: Segment

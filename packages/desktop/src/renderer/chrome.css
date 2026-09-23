@@ -1,0 +1,36 @@
+/* The operating system draws the window's own buttons over the top strip: the traffic lights in the
+   leading corner on macOS, the controls overlay in the trailing corner elsewhere. `chrome.ts` sets
+   how much of each edge they take, and a strip keeps its own padding clear of them. */
+:root {
+  --chrome-leading: 0px;
+  --chrome-trailing: 0px;
+}
+
+.window-strip {
+  -webkit-app-region: drag;
+}
+
+/* Electron 44 inherits app-region, so every descendant would add a drag rectangle of its own over
+   whatever it overlaps; `initial` adds none and leaves the strip's rectangle to do the dragging. */
+@layer base {
+  .window-strip * {
+    -webkit-app-region: initial;
+  }
+}
+
+.window-strip :is(button, input, textarea, select, a, [role="button"], [role="tab"]) {
+  -webkit-app-region: no-drag;
+}
+
+.window-strip-leading {
+  padding-inline-start: calc(var(--chrome-leading) + --spacing(4));
+}
+
+.window-strip-trailing {
+  padding-inline-end: calc(var(--chrome-trailing) + --spacing(3));
+}
+
+/* A column's resize handle runs the full height, through the strips beside it. */
+.resize-handle {
+  -webkit-app-region: no-drag;
+}

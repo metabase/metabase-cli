@@ -479,9 +479,10 @@ describe("METHOD_REQUIREMENTS", () => {
     expect(literals.map(({ key }) => key).toSorted()).toEqual(TABLE_KEYS);
   });
 
-  // A requirement says the route exists on the server; a rule that ends at some major describes
-  // a shape an older server had, and refusing on it would name a floor the server is above.
-  it("requires no feature bounded by `until`", () => {
+  // A rule that ends at some major usually describes a shape an older server had, which no method
+  // may require: the refusal would name a floor the server is above. The one exception is a route
+  // later releases removed, which a method requires so the refusal names the range it exists on.
+  it("requires a feature bounded by `until` only for a route later releases removed", () => {
     const bounded = Object.entries(METHOD_REQUIREMENTS).flatMap(([key, features]) =>
       features
         .filter((feature) => {

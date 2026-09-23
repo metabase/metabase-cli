@@ -1,0 +1,23 @@
+name: Order Count
+entity_id: DBap2523KuN4Lt-cYrUjF
+creator_id: admin@example.com
+table_id:
+- Sample Database
+- null
+- ORDERS
+definition:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    aggregation:
+    - - count
+      - {}
+serdes/meta:
+- id: DBap2523KuN4Lt-cYrUjF
+  label: order_count
+  model: Measure

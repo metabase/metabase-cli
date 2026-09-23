@@ -1,7 +1,8 @@
 {
-  "name": "@metabase/cli",
+  "name": "@metabase/rde-cli",
   "version": "0.3.1",
-  "description": "Metabase CLI",
+  "private": true,
+  "description": "The Metabase CLI bundled inside Metabase RDE",
   "license": "AGPL-3.0",
   "repository": {
     "type": "git",
@@ -11,25 +12,14 @@
   "bin": {
     "mb": "./dist/cli.mjs"
   },
-  "files": [
-    "dist",
-    "skills",
-    "skill-data"
-  ],
   "type": "module",
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
-  },
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch",
-    "start": "node dist/cli.mjs",
-    "prepublishOnly": "tsdown && publint && ! grep -rE \"(from|import|require)[[:space:]]*\\(?['\\\"]@metabase\" dist/"
+    "start": "node dist/cli.mjs"
   },
   "dependencies": {
     "@clack/prompts": "^0.8.2",
-    "@napi-rs/keyring": "^1.3.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "citty": "^0.2.2",

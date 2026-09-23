@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createServerProfile } from "@metabase/client/version/profile";
 
-import type { CachedServerProfile } from "../core/auth/cached-server";
+import type { SkillServerLookup } from "../core/skill-server";
 import type { UnavailableSkill } from "../core/skills";
 import { renderSkillList, skillFilterNotices, type SkillListRow } from "./skill-list";
 
@@ -92,7 +92,7 @@ describe("skillFilterNotices", () => {
     },
   ];
 
-  const probed: CachedServerProfile = {
+  const probed: SkillServerLookup = {
     kind: "found",
     profile: createServerProfile({
       edition: "oss",
@@ -104,35 +104,28 @@ describe("skillFilterNotices", () => {
   };
 
   it("says nothing when the filter was bypassed", () => {
-    expect(skillFilterNotices(skipped, { profileName: "default", cached: null })).toEqual([]);
-    expect(skillFilterNotices(null, { profileName: "default", cached: null })).toEqual([]);
+    expect(skillFilterNotices(skipped, null)).toEqual([]);
+    expect(skillFilterNotices(null, null)).toEqual([]);
   });
 
-  it("says why the profile had no probe to filter by", () => {
-    expect(
-      skillFilterNotices(null, { profileName: "staging", cached: { kind: "no-profile" } }),
-    ).toEqual([
-      'Skills are unfiltered: there is no profile "staging" (run `mb auth login` to create one and record its server).',
-    ]);
-    expect(
-      skillFilterNotices(null, { profileName: "staging", cached: { kind: "never-probed" } }),
-    ).toEqual([
-      'Skills are unfiltered: profile "staging" has no cached server probe yet (run `mb auth login` to record one).',
-    ]);
+  it("says why there was no server to filter by", () => {
     expect(
       skillFilterNotices(null, {
-        profileName: "staging",
-        cached: { kind: "other-url", url: "https://other.example.com" },
+        kind: "no-credential",
+        reason: "no Metabase credential; run inside Metabase RDE, or set MB_URL and MB_API_KEY",
       }),
     ).toEqual([
-      'Skills are unfiltered: profile "staging" has no cached server probe for https://other.example.com, the URL in use (run `mb auth login` to record one).',
+      "Skills are unfiltered: no Metabase credential; run inside Metabase RDE, or set MB_URL and MB_API_KEY.",
     ]);
+    expect(
+      skillFilterNotices(null, { kind: "unreachable", reason: "Metabase returned 503." }),
+    ).toEqual(["Skills are unfiltered: the server could not be probed (Metabase returned 503.)."]);
   });
 
   it("names each skipped skill with the client's reason and the way around it", () => {
-    expect(skillFilterNotices(skipped, { profileName: "default", cached: probed })).toEqual([
+    expect(skillFilterNotices(skipped, probed)).toEqual([
       'Skipped skill "transform": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.',
     ]);
-    expect(skillFilterNotices([], { profileName: "default", cached: probed })).toEqual([]);
+    expect(skillFilterNotices([], probed)).toEqual([]);
   });
 });

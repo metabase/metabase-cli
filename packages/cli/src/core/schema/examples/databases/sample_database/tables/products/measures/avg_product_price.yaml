@@ -1,0 +1,29 @@
+name: Average Product Price
+entity_id: xK7mPqR2sT4uVwXyZ9a1b
+creator_id: admin@example.com
+table_id:
+- Sample Database
+- null
+- PRODUCTS
+definition:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+    aggregation:
+    - - avg
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - PRICE
+serdes/meta:
+- id: xK7mPqR2sT4uVwXyZ9a1b
+  label: avg_product_price
+  model: Measure

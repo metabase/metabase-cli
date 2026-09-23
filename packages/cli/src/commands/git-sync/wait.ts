@@ -2,7 +2,7 @@ import { DEFAULT_INTERVAL_MS, DEFAULT_TIMEOUT_MS } from "@metabase/client/poll";
 
 import { renderSummary } from "../../output/render";
 import { syncTaskView } from "../../output/views/git-sync";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 import { parseWaitSchedule } from "../wait-flags";
 
@@ -25,8 +25,7 @@ export default defineMetabaseCommand({
   requires: ["gitSync.waitForTask"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     timeout: {
       type: "string",
       description: "Polling timeout in ms",

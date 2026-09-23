@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { afterEach, describe, expect, it } from "vitest";
 
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
-import { cleanupConfigHome, mkTempConfigHome, runCliInterrupt } from "./run-cli";
+import { runCliInterrupt } from "./run-cli";
 
 // Ctrl-C exits 130 only while something is still in flight, and a real Metabase answers a local
 // request in milliseconds — far too fast to interrupt without a race. These stubs stand in for a
@@ -51,19 +51,11 @@ function sendJson(response: ServerResponse, body: unknown): void {
 }
 
 describe("SIGINT handling (end-to-end)", () => {
-  const tempDirs: string[] = [];
   const stubs: StubServer[] = [];
 
   afterEach(async () => {
     await Promise.all(stubs.splice(0).map(stopStub));
-    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
   });
-
-  async function makeIsolatedConfigHome(): Promise<string> {
-    const dir = await mkTempConfigHome();
-    tempDirs.push(dir);
-    return dir;
-  }
 
   async function stubServer(handler: StubHandler): Promise<StubServer> {
     const stub = await startStub(handler);
@@ -78,7 +70,6 @@ describe("SIGINT handling (end-to-end)", () => {
 
     const result = await runCliInterrupt({
       args: ["card", "list", "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: { MB_URL: stub.url, MB_API_KEY: "mb_e2e_interrupt_key" },
       interruptAfterMs: INTERRUPT_AFTER_MS,
     });
@@ -99,7 +90,6 @@ describe("SIGINT handling (end-to-end)", () => {
 
     const result = await runCliInterrupt({
       args: ["db", "sync-schema", "1", "--wait", "--interval", String(POLL_INTERVAL_MS), "--json"],
-      configHome: await makeIsolatedConfigHome(),
       env: { MB_URL: stub.url, MB_API_KEY: "mb_e2e_interrupt_key" },
       interruptAfterMs: INTERRUPT_AFTER_MS,
     });

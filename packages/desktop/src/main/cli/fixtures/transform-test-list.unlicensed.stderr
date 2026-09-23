@@ -1,0 +1,2 @@
+Could not parse the Metabase version; assuming a head build past v64.
+{"ok":false,"error":{"category":"capability","message":"This operation requires the 'transforms-testing' premium feature (not enabled on this server).","exitCode":2}}

@@ -1,0 +1,58 @@
+name: "Fields and Expressions"
+entity_id: fLdExPr3sS10nS0ExAmPl
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    fields:
+    - - field
+      - {}
+      - - Sample Database
+        - null
+        - ORDERS
+        - CREATED_AT
+    - - field
+      - {}
+      - - Sample Database
+        - null
+        - ORDERS
+        - TOTAL
+    - - field
+      - {}
+      - - Sample Database
+        - null
+        - ORDERS
+        - TAX
+    - - expression
+      - {}
+      - Profit
+    expressions:
+    - - "-"
+      - "lib/expression-name": Profit
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TAX
+    limit: 100
+visualization_settings: {}
+serdes/meta:
+- id: fLdExPr3sS10nS0ExAmPl
+  label: fields_and_expressions
+  model: Card

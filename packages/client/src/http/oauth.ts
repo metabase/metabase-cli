@@ -3,6 +3,9 @@ import { z } from "zod";
 import { JSON_CONTENT_TYPE, parseJsonResult } from "../json";
 import { ConfigError, errorMessage, TimeoutError } from "../errors";
 import { assertEndpointOrigin } from "../url";
+import { SessionProperties } from "../domain/session-properties";
+import { PROBE_PATH, serverInfo } from "../version/probe";
+import { createServerProfile } from "../version/profile";
 
 import { HttpError, isRetryableStatus } from "./errors";
 import { buildNetworkError } from "./network-error";
@@ -10,6 +13,7 @@ import { buildNetworkError } from "./network-error";
 const DISCOVERY_PATH = "/.well-known/oauth-authorization-server";
 const FORM_CONTENT_TYPE = "application/x-www-form-urlencoded";
 const OAUTH_TIMEOUT_MS = 30_000;
+const VERSION_PROBE_SOURCE = "Metabase version probe";
 
 type OAuthMethod = "GET" | "POST";
 
@@ -172,21 +176,35 @@ async function postForm<T>(
   return readJson(response, schema, source);
 }
 
-export const OAUTH_UNSUPPORTED_MESSAGE =
-  "this Metabase does not support OAuth login (requires Metabase v63 or newer)";
+export interface DiscoveryFound {
+  readonly kind: "found";
+  readonly metadata: OAuthServerMetadata;
+}
 
-// Probe whether the server supports OAuth login for the CLI. Returns null when it does not:
-// pre-v60 Metabase answers the discovery path with the SPA shell (200 text/html) or a 404, so
-// "unsupported" is any non-2xx or non-JSON response; v60–62 expose an OAuth authorization
-// server scoped to the agent API/MCP only — see the scopes_supported check below. Network-level
-// failures still throw.
+export interface DiscoveryStatus {
+  readonly kind: "status";
+  readonly status: number;
+}
+
+export interface DiscoveryNotJson {
+  readonly kind: "notJson";
+  readonly contentType: string | null;
+}
+
+export interface DiscoveryNoFullAccessScope {
+  readonly kind: "noFullAccessScope";
+  readonly offered: readonly string[];
+}
+
+export type DiscoveryRefusal = DiscoveryStatus | DiscoveryNotJson | DiscoveryNoFullAccessScope;
+
+export type OAuthDiscovery = DiscoveryFound | DiscoveryRefusal;
+
+// Pre-v60 Metabase answers the discovery path with the SPA shell (200 text/html) or a 404.
 // The well-known path is appended after any subpath (base + /.well-known/...), not inserted
 // between host and path as RFC 8414 prescribes — Metabase routes it like /api/*, so a
-// subpath-hosted instance serves discovery under its prefix.
-export async function tryDiscoverMetadata(
-  baseUrl: string,
-  userAgent: string,
-): Promise<OAuthServerMetadata | null> {
+// subpath-hosted instance serves discovery under its prefix. Network-level failures throw.
+export async function discoverOAuth(baseUrl: string, userAgent: string): Promise<OAuthDiscovery> {
   const url = `${baseUrl}${DISCOVERY_PATH}`;
   const response = await oauthFetch({
     url,
@@ -194,20 +212,48 @@ export async function tryDiscoverMetadata(
     userAgent,
     headers: { accept: JSON_CONTENT_TYPE },
   });
-  const contentType = response.headers.get("content-type") ?? "";
-  if (!response.ok || !contentType.includes("json")) {
+  if (!response.ok) {
     await response.body?.cancel().catch(() => undefined);
-    return null;
+    return { kind: "status", status: response.status };
+  }
+  const contentType = response.headers.get("content-type");
+  if (contentType === null || !contentType.includes("json")) {
+    await response.body?.cancel().catch(() => undefined);
+    return { kind: "notJson", contentType };
   }
   const metadata = await readJson(response, OAuthServerMetadata, "OAuth discovery");
-  // A server that doesn't grant the full-access scope only issues agent-API/MCP-scoped tokens
-  // (Metabase v60–62); the general REST API rejects them, so for the CLI it's "no OAuth support".
-  const scopes = metadata.scopes_supported;
-  if (scopes !== undefined && !scopes.includes(OAUTH_SCOPE)) {
-    return null;
+  const offered = metadata.scopes_supported;
+  if (offered !== undefined && !offered.includes(OAUTH_SCOPE)) {
+    const granted = await grantsUnadvertisedFullAccess(baseUrl, userAgent);
+    if (!granted) {
+      return { kind: "noFullAccessScope", offered };
+    }
   }
-  // Pin every endpoint we will send secrets to back to the configured base URL's origin before
-  // any caller uses them, so a tampered discovery document can't redirect tokens to another host.
+  pinEndpoints(metadata, baseUrl);
+  return { kind: "found", metadata };
+}
+
+// Metabase grants the full-access scope to a client that registers for it without listing it in
+// discovery, and an older one that lists only agent scopes grants nothing broader; only the
+// server's version tells the two apart.
+async function grantsUnadvertisedFullAccess(baseUrl: string, userAgent: string): Promise<boolean> {
+  const url = `${baseUrl}${PROBE_PATH}`;
+  const response = await oauthFetch({
+    url,
+    method: "GET",
+    userAgent,
+    headers: { accept: JSON_CONTENT_TYPE },
+  });
+  if (!response.ok) {
+    throw await failure(response, VERSION_PROBE_SOURCE, "GET", url);
+  }
+  const properties = await readJson(response, SessionProperties, VERSION_PROBE_SOURCE);
+  return createServerProfile(serverInfo(properties)).features.oauthFullAccessScope;
+}
+
+// Pin every endpoint we will send secrets to back to the configured base URL's origin before
+// any caller uses them, so a tampered discovery document can't redirect tokens to another host.
+function pinEndpoints(metadata: OAuthServerMetadata, baseUrl: string): void {
   assertEndpointOrigin(metadata.issuer, baseUrl, "issuer");
   assertEndpointOrigin(metadata.authorization_endpoint, baseUrl, "authorization endpoint");
   assertEndpointOrigin(metadata.token_endpoint, baseUrl, "token endpoint");
@@ -217,18 +263,32 @@ export async function tryDiscoverMetadata(
   if (metadata.revocation_endpoint !== undefined) {
     assertEndpointOrigin(metadata.revocation_endpoint, baseUrl, "revocation endpoint");
   }
-  return metadata;
+}
+
+function refusalMessage(refusal: DiscoveryRefusal): string {
+  switch (refusal.kind) {
+    case "status": {
+      return `this Metabase offers no OAuth sign-in: its discovery document answered ${refusal.status}`;
+    }
+    case "notJson": {
+      const served = refusal.contentType ?? "no content type";
+      return `this Metabase offers no OAuth sign-in: its discovery document answered ${served}, not JSON`;
+    }
+    case "noFullAccessScope": {
+      return `this Metabase offers OAuth only for ${refusal.offered.length} narrower scopes, not ${OAUTH_SCOPE}`;
+    }
+  }
 }
 
 export async function discoverMetadata(
   baseUrl: string,
   userAgent: string,
 ): Promise<OAuthServerMetadata> {
-  const metadata = await tryDiscoverMetadata(baseUrl, userAgent);
-  if (metadata === null) {
-    throw new ConfigError(OAUTH_UNSUPPORTED_MESSAGE);
+  const discovery = await discoverOAuth(baseUrl, userAgent);
+  if (discovery.kind === "found") {
+    return discovery.metadata;
   }
-  return metadata;
+  throw new ConfigError(refusalMessage(discovery));
 }
 
 export async function registerClient(input: ClientRegistration): Promise<RegisteredClient> {

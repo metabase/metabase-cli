@@ -1,7 +1,7 @@
 import { Document } from "@metabase/client/domain/document";
 import { documentView } from "../../output/views/document";
 import { renderItem } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -10,8 +10,7 @@ export default defineMetabaseCommand({
   requires: ["document.get"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     id: { type: "positional", description: "Document id", required: true },
   },
   outputSchema: Document,

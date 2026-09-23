@@ -1,7 +1,7 @@
 import { Library } from "@metabase/client/domain/library";
 import { libraryView } from "../../output/views/library";
 import { renderItem } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
@@ -14,8 +14,7 @@ export default defineMetabaseCommand({
   requires: ["library.get"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
   },
   outputSchema: Library,
   examples: ["mb library get", "mb library get --json"],

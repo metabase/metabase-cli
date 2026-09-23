@@ -1,0 +1,9 @@
+name: Date Range Filter
+entity_id: jpIUEStroQyLnJ-MVfeS4
+creator_id: admin@example.com
+content: "CREATED_AT BETWEEN '2024-01-01' AND '2024-12-31'"
+template_tags: {}
+serdes/meta:
+- id: jpIUEStroQyLnJ-MVfeS4
+  label: date_range_filter
+  model: NativeQuerySnippet

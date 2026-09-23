@@ -2,11 +2,11 @@ import { z } from "zod";
 
 import type { ResourceView } from "../../output/view";
 import { renderSummary } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
-export const TransformCancelResult = z.object({
+const TransformCancelResult = z.object({
   canceled: z.boolean(),
   id: z.number().int(),
 });
@@ -25,8 +25,7 @@ export default defineMetabaseCommand({
   requires: ["transform.cancel"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     id: { type: "positional", description: "Transform id", required: true },
   },
   outputSchema: TransformCancelResult,

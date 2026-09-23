@@ -11,24 +11,15 @@ import { createServerProfile, type ServerProfile } from "@metabase/client/versio
 import { checkFeatures } from "@metabase/client/version/requirement-check";
 import { type MethodKey, methodRequirements } from "@metabase/client/version/requirements";
 
-import type { ProfileLastProbe } from "../core/auth/profile-record";
-import { ProfileRefreshedError } from "../core/profile-refreshed-error";
-import { serverChangeNote, skewNotice } from "../core/auth/server-summary";
-import { readCachedProbe } from "../core/auth/cached-server";
 import {
-  consumeKeyringDowngradeWarning,
-  consumeLegacyStorageWarning,
-  writeProbeResult,
-} from "../core/auth/storage";
-import {
-  createCredentialRefresher,
   isPreflightSkipped,
   resolveConfig,
   SKIP_PREFLIGHT_ENV,
-  type ConfigFlags,
   type ResolvedConfig,
 } from "../core/config";
-import { consumeLegacyEnvWarnings } from "../core/env";
+import { ProbeRefreshedError } from "../core/probe-refreshed-error";
+import { cachedServerLookup, probeAndCacheServer, writeCachedProbe } from "../core/server-cache";
+import { serverChangeNote, skewNotice } from "../core/server-summary";
 import { USER_AGENT } from "../core/user-agent";
 import { reportError } from "../output/error";
 import { warn } from "../output/notice";
@@ -52,7 +43,6 @@ interface MetabaseCommandContext<A extends ArgsDef> {
   args: ParsedArgs<A>;
   ctx: CommonContext;
   getClient: () => Promise<MetabaseClient>;
-  getResolvedConfig: () => Promise<ResolvedConfig>;
 }
 
 interface MetabaseCommandDef<A extends ArgsDef> {
@@ -86,35 +76,51 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
         let cachedClient: MetabaseClient | null = null;
         const getResolvedConfig = async (): Promise<ResolvedConfig> => {
           if (cachedConfig === null) {
-            cachedConfig = await resolveConfig(buildConfigFlags(ctx));
+            cachedConfig = await resolveConfig({ signal: interruptSignal });
           }
           return cachedConfig;
         };
         const preflightSkipped = ctx.skipPreflight || isPreflightSkipped();
+        const wantsProbe =
+          !preflightSkipped && requirements !== null && requirements.features.length > 0;
         let cachedServer: CachedServer | null = null;
-        const noticeSkew = createSkewNotifier();
         // Imported here rather than at the top of the file so the resource namespaces `createClient`
         // composes — and the whole `domain/` layer behind them — stay off the chunk every command
         // loads, including `--help`, a flag error, and the commands that open no socket at all.
         const rawGetClient = async (): Promise<MetabaseClient> => {
           if (cachedClient === null) {
             const resolved = await getResolvedConfig();
-            const probe = await readCachedProbe(resolved.profile, resolved.url);
-            const server = probe === null ? null : createServerProfile(probe);
             const { createClient } = await import("@metabase/client/client");
-            cachedClient = createClient(
-              { url: resolved.url, credential: resolved.credential },
-              {
-                userAgent: USER_AGENT,
-                ...(server !== null && { server }),
-                refreshCredential: createCredentialRefresher(resolved.profile),
-                signal: interruptSignal,
-                enforceRequirements: !preflightSkipped,
-              },
-            );
-            if (probe !== null && server !== null) {
-              cachedServer = { client: cachedClient, profileName: resolved.profile, probe };
-              noticeSkew(server);
+            const credentials = { url: resolved.url, credential: resolved.credential };
+            const options = {
+              userAgent: USER_AGENT,
+              signal: interruptSignal,
+              enforceRequirements: !preflightSkipped,
+              worktreeId: resolved.worktreeId,
+              ...(resolved.refreshCredential !== null && {
+                refreshCredential: resolved.refreshCredential,
+              }),
+            };
+            // A gated command with nothing cached probes once; a command whose methods need nothing
+            // never probes, so it still runs against a server the CLI cannot ask for its properties.
+            const lookup =
+              (await cachedServerLookup(resolved.url)) ??
+              (wantsProbe
+                ? await probeAndCacheServer(resolved.url, () =>
+                    probeServer(createClient(credentials, options)),
+                  )
+                : null);
+            const server = lookup === null ? null : createServerProfile(lookup.probe);
+            cachedClient = createClient(credentials, {
+              ...options,
+              ...(server !== null && { server }),
+            });
+            if (lookup !== null && server !== null) {
+              if (lookup.source === "cache") {
+                cachedServer = { client: cachedClient, url: resolved.url, probe: lookup.probe };
+              } else {
+                noticeSkew(server);
+              }
             }
           }
           return cachedClient;
@@ -122,7 +128,6 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
         const enforcePreflight = createPreflightEnforcer(
           requirements === null ? null : requirements.features,
           preflightSkipped,
-          noticeSkew,
         );
         const getClient = async (): Promise<MetabaseClient> => {
           const client = await rawGetClient();
@@ -130,16 +135,9 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
           return client;
         };
         try {
-          await def.run({
-            args,
-            ctx,
-            getClient,
-            getResolvedConfig,
-          });
+          await def.run({ args, ctx, getClient });
         } catch (error) {
-          throw await refreshProfileOnStaleError(error, cachedServer);
-        } finally {
-          emitPendingWarnings();
+          throw await refreshProbeOnStaleError(error, cachedServer);
         }
       } catch (error) {
         reportError(error, reportFormat);
@@ -162,36 +160,13 @@ function deriveRequirements(methods: readonly MethodKey[]): CommandRequirements 
   return { methods, features };
 }
 
-function emitPendingWarnings(): void {
-  for (const message of consumeLegacyEnvWarnings()) {
-    warn(message);
+// The notice is about the server, not the command, so it speaks when the CLI probes the server and
+// stays quiet on the cached probe the commands after it read.
+function noticeSkew(profile: ServerProfile): void {
+  const notice = skewNotice(profile);
+  if (notice !== null) {
+    warn(notice);
   }
-  const legacy = consumeLegacyStorageWarning();
-  if (legacy !== null) {
-    warn(legacy);
-  }
-  const downgrade = consumeKeyringDowngradeWarning();
-  if (downgrade !== null) {
-    warn(downgrade);
-  }
-}
-
-type SkewNotifier = (profile: ServerProfile) => void;
-
-// The notice is about the server, not the command, so the first profile a command resolves —
-// cached or freshly probed — is the one that speaks, and only once.
-function createSkewNotifier(): SkewNotifier {
-  let noticed = false;
-  return (profile) => {
-    if (noticed) {
-      return;
-    }
-    noticed = true;
-    const notice = skewNotice(profile);
-    if (notice !== null) {
-      warn(notice);
-    }
-  };
 }
 
 type PreflightEnforcer = (client: MetabaseClient) => Promise<void>;
@@ -203,7 +178,6 @@ const NO_OP_ENFORCER: PreflightEnforcer = async () => {};
 function createPreflightEnforcer(
   features: readonly FeatureName[] | null,
   skip: boolean,
-  noticeSkew: SkewNotifier,
 ): PreflightEnforcer {
   if (features === null || skip || features.length === 0) {
     return NO_OP_ENFORCER;
@@ -215,7 +189,6 @@ function createPreflightEnforcer(
     }
     done = true;
     const profile = await client.server();
-    noticeSkew(profile);
     const failure = checkFeatures(features, profile);
     if (failure !== null) {
       throw new CapabilityError(failure);
@@ -226,14 +199,14 @@ function createPreflightEnforcer(
 // The client and the cached probe it was built on, kept for the one re-probe a shape error earns.
 interface CachedServer {
   client: MetabaseClient;
-  profileName: string;
-  probe: ProfileLastProbe;
+  url: string;
+  probe: ServerInfo;
 }
 
-// A shape error or a refusal under a cached profile may mean the server changed since the probe.
+// A shape error or a refusal under a cached probe may mean the server changed since the probe.
 // One fresh probe settles it: a changed server is written back and the error says so. The command
 // is not retried — its request may have been a write.
-async function refreshProfileOnStaleError(
+async function refreshProbeOnStaleError(
   error: unknown,
   cached: CachedServer | null,
 ): Promise<unknown> {
@@ -244,7 +217,7 @@ async function refreshProfileOnStaleError(
     return error;
   }
   const note = await refreshChangedProbe(cached);
-  return note === null ? error : new ProfileRefreshedError(error, note);
+  return note === null ? error : new ProbeRefreshedError(error, note);
 }
 
 async function refreshChangedProbe(cached: CachedServer): Promise<string | null> {
@@ -263,7 +236,7 @@ async function refreshChangedProbe(cached: CachedServer): Promise<string | null>
   if (note === null) {
     return null;
   }
-  await writeProbeResult(cached.profileName, { user: cached.probe.user, server: fresh });
+  await writeCachedProbe(cached.url, fresh, Date.now());
   return note;
 }
 
@@ -290,31 +263,8 @@ function pickCommonArgs<A extends ArgsDef>(args: ParsedArgs<A>): CommonArgs {
   if (typeof args["offset"] === "string") {
     out.offset = args["offset"];
   }
-  if (typeof args["profile"] === "string") {
-    out.profile = args["profile"];
-  }
-  if (typeof args["url"] === "string") {
-    out.url = args["url"];
-  }
-  if (typeof args["apiKey"] === "string") {
-    out.apiKey = args["apiKey"];
-  }
   if (typeof args["skipPreflight"] === "boolean") {
     out.skipPreflight = args["skipPreflight"];
   }
   return out;
-}
-
-function buildConfigFlags(ctx: CommonContext): ConfigFlags {
-  const flags: ConfigFlags = {};
-  if (ctx.profile !== undefined) {
-    flags.profile = ctx.profile;
-  }
-  if (ctx.url !== undefined) {
-    flags.url = ctx.url;
-  }
-  if (ctx.apiKey !== undefined) {
-    flags.apiKey = ctx.apiKey;
-  }
-  return flags;
 }

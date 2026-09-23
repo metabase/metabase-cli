@@ -2,22 +2,24 @@ import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { ConfigError, NetworkError } from "../errors";
 
+import { PROBE_PATH } from "../version/probe";
+
 import { HttpError } from "./errors";
 import {
   captureFetch,
   jsonResponse,
   TEST_USER_AGENT,
+  thrownBy,
   type FetchCapture,
   type FetchScript,
 } from "../testing/fetch-capture";
 import {
   discoverMetadata,
+  discoverOAuth,
   exchangeCode,
   OAUTH_SCOPE,
-  OAUTH_UNSUPPORTED_MESSAGE,
   refreshTokens,
   revokeToken,
-  tryDiscoverMetadata,
 } from "./oauth";
 
 function installFetch(script: FetchScript): FetchCapture {
@@ -27,6 +29,31 @@ function installFetch(script: FetchScript): FetchCapture {
 }
 
 const TOKEN_ENDPOINT = "https://mb.example.com/oauth/token";
+const BASE_URL = "https://mb.example.com";
+const DISCOVERY_URL = `${BASE_URL}/.well-known/oauth-authorization-server`;
+const PROPERTIES_URL = `${BASE_URL}${PROBE_PATH}`;
+const HTML_CONTENT_TYPE = "text/html;charset=utf-8";
+const AGENT_SCOPES = ["agent:sql:read", "agent:query"];
+
+const DISCOVERY_DOCUMENT = {
+  issuer: BASE_URL,
+  authorization_endpoint: `${BASE_URL}/oauth/authorize`,
+  token_endpoint: TOKEN_ENDPOINT,
+};
+
+const AGENT_ONLY_DOCUMENT = { ...DISCOVERY_DOCUMENT, scopes_supported: AGENT_SCOPES };
+
+function spaShell(): Response {
+  return new Response("<!DOCTYPE html><html><body>Metabase</body></html>", {
+    status: 200,
+    headers: { "content-type": HTML_CONTENT_TYPE },
+  });
+}
+
+function propertiesFor(tag: string): Response {
+  return jsonResponse({ version: { tag } });
+}
+
 describe("oauth HTTP boundary", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -74,56 +101,101 @@ describe("oauth HTTP boundary", () => {
     );
   });
 
-  it("treats an agent-API-only OAuth server (no full-access scope advertised) as no OAuth support", async () => {
-    installFetch([
-      jsonResponse({
-        issuer: "https://mb.example.com",
-        authorization_endpoint: "https://mb.example.com/oauth/authorize",
-        token_endpoint: TOKEN_ENDPOINT,
-        scopes_supported: ["agent:sql:read", "agent:query"],
-      }),
-    ]);
-    expect(await tryDiscoverMetadata("https://mb.example.com", TEST_USER_AGENT)).toBeNull();
-  });
-
-  it("accepts a discovery document that omits scopes_supported", async () => {
-    installFetch([
-      jsonResponse({
-        issuer: "https://mb.example.com",
-        authorization_endpoint: "https://mb.example.com/oauth/authorize",
-        token_endpoint: TOKEN_ENDPOINT,
-      }),
-    ]);
-    expect(await tryDiscoverMetadata("https://mb.example.com", TEST_USER_AGENT)).toEqual({
-      issuer: "https://mb.example.com",
-      authorization_endpoint: "https://mb.example.com/oauth/authorize",
-      token_endpoint: TOKEN_ENDPOINT,
+  it("finds a discovery document that omits scopes_supported", async () => {
+    installFetch([jsonResponse(DISCOVERY_DOCUMENT)]);
+    expect(await discoverOAuth(BASE_URL, TEST_USER_AGENT)).toEqual({
+      kind: "found",
+      metadata: DISCOVERY_DOCUMENT,
     });
   });
 
-  it("treats the SPA shell served at the discovery path (pre-v60) as no OAuth support", async () => {
-    installFetch([
-      new Response("<!DOCTYPE html><html><body>Metabase</body></html>", {
-        status: 200,
-        headers: { "content-type": "text/html;charset=utf-8" },
-      }),
-    ]);
-    expect(await tryDiscoverMetadata("https://mb.example.com", TEST_USER_AGENT)).toBeNull();
+  it("finds a document that advertises the full-access scope without asking for the version", async () => {
+    const advertised = { ...DISCOVERY_DOCUMENT, scopes_supported: [...AGENT_SCOPES, OAUTH_SCOPE] };
+    const stub = installFetch([jsonResponse(advertised)]);
+    expect(await discoverOAuth(BASE_URL, TEST_USER_AGENT)).toEqual({
+      kind: "found",
+      metadata: advertised,
+    });
+    expect(stub.calls.map((call) => call.url)).toEqual([DISCOVERY_URL]);
   });
 
-  it("treats a 404 at the discovery path as no OAuth support", async () => {
+  it("answers the status of a 404 at the discovery path", async () => {
     installFetch([new Response("Not found.", { status: 404 })]);
-    expect(await tryDiscoverMetadata("https://mb.example.com", TEST_USER_AGENT)).toBeNull();
+    expect(await discoverOAuth(BASE_URL, TEST_USER_AGENT)).toEqual({ kind: "status", status: 404 });
   });
 
-  it("discoverMetadata names the required Metabase version when OAuth is unsupported", async () => {
+  it("answers the status of a 500 at the discovery path", async () => {
+    installFetch([new Response("Server error", { status: 500 })]);
+    expect(await discoverOAuth(BASE_URL, TEST_USER_AGENT)).toEqual({ kind: "status", status: 500 });
+  });
+
+  it("answers the content type of the SPA shell served at the discovery path", async () => {
+    installFetch([spaShell()]);
+    expect(await discoverOAuth(BASE_URL, TEST_USER_AGENT)).toEqual({
+      kind: "notJson",
+      contentType: HTML_CONTENT_TYPE,
+    });
+  });
+
+  it("refuses agent-only scopes on a server too old to grant the full-access scope", async () => {
+    const stub = installFetch([jsonResponse(AGENT_ONLY_DOCUMENT), propertiesFor("v0.61.2")]);
+    expect(await discoverOAuth(BASE_URL, TEST_USER_AGENT)).toEqual({
+      kind: "noFullAccessScope",
+      offered: AGENT_SCOPES,
+    });
+    expect(stub.calls.map((call) => call.url)).toEqual([DISCOVERY_URL, PROPERTIES_URL]);
+  });
+
+  it("finds agent-only scopes on a server that grants the full-access scope unadvertised", async () => {
+    installFetch([jsonResponse(AGENT_ONLY_DOCUMENT), propertiesFor("v0.64.1")]);
+    expect(await discoverOAuth(BASE_URL, TEST_USER_AGENT)).toEqual({
+      kind: "found",
+      metadata: AGENT_ONLY_DOCUMENT,
+    });
+  });
+
+  it("finds agent-only scopes on a server whose version tag carries no version", async () => {
+    installFetch([jsonResponse(AGENT_ONLY_DOCUMENT), propertiesFor("vUNKNOWN")]);
+    expect(await discoverOAuth(BASE_URL, TEST_USER_AGENT)).toEqual({
+      kind: "found",
+      metadata: AGENT_ONLY_DOCUMENT,
+    });
+  });
+
+  it("discoverMetadata names the status the discovery path answered", async () => {
     installFetch([new Response("Not found.", { status: 404 })]);
-    const error = await discoverMetadata("https://mb.example.com", TEST_USER_AGENT).catch(
-      (caught: unknown) => caught,
-    );
-    expect(error).toBeInstanceOf(ConfigError);
+    const error = await thrownBy(() => discoverMetadata(BASE_URL, TEST_USER_AGENT));
     assert(error instanceof ConfigError, "expected ConfigError");
-    expect(error.message).toBe(OAUTH_UNSUPPORTED_MESSAGE);
+    expect(error.message).toBe(
+      "this Metabase offers no OAuth sign-in: its discovery document answered 404",
+    );
+  });
+
+  it("discoverMetadata names the content type the discovery path answered", async () => {
+    installFetch([spaShell()]);
+    const error = await thrownBy(() => discoverMetadata(BASE_URL, TEST_USER_AGENT));
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toBe(
+      "this Metabase offers no OAuth sign-in: its discovery document answered text/html;charset=utf-8, not JSON",
+    );
+  });
+
+  it("discoverMetadata says a discovery answer without a content type is not JSON", async () => {
+    installFetch([new Response(new TextEncoder().encode("<html></html>"), { status: 200 })]);
+    const error = await thrownBy(() => discoverMetadata(BASE_URL, TEST_USER_AGENT));
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toBe(
+      "this Metabase offers no OAuth sign-in: its discovery document answered no content type, not JSON",
+    );
+  });
+
+  it("discoverMetadata says the server offers only narrower scopes", async () => {
+    installFetch([jsonResponse(AGENT_ONLY_DOCUMENT), propertiesFor("v0.61.2")]);
+    const error = await thrownBy(() => discoverMetadata(BASE_URL, TEST_USER_AGENT));
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toBe(
+      "this Metabase offers OAuth only for 2 narrower scopes, not mb:full",
+    );
   });
 
   it("rejects a discovery document whose endpoints point at another origin", async () => {

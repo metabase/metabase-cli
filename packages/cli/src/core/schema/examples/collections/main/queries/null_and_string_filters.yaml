@@ -1,0 +1,170 @@
+name: "Null, Empty, and String Filters"
+entity_id: ZvHEBpdFQ-VSvem16KCkL
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+    filters:
+    - - not-null
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+    - - not-empty
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - VENDOR
+    - - is-empty
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - VENDOR
+    # contains — 2 args, no options
+    - - contains
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - widget
+    # contains — 2 args, with options
+    - - contains
+      - case-sensitive: false
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - gadget
+    # contains — 3+ args (multi-value), options required in position 2
+    - - contains
+      - case-sensitive: false
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - widget
+      - gadget
+    # does-not-contain — 2 args, no options
+    - - does-not-contain
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - VENDOR
+      - LLC
+    # does-not-contain — 2 args, with options
+    - - does-not-contain
+      - case-sensitive: false
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - VENDOR
+      - inc
+    # does-not-contain — 3+ args (multi-value)
+    - - does-not-contain
+      - case-sensitive: true
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - VENDOR
+      - LLC
+      - Corp
+    # starts-with — 2 args, no options
+    - - starts-with
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - Awesome
+    # starts-with — 2 args, with options
+    - - starts-with
+      - case-sensitive: false
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - awesome
+    # starts-with — 3+ args (multi-value)
+    - - starts-with
+      - case-sensitive: false
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - Awesome
+      - Incredible
+    # ends-with — 2 args, no options
+    - - ends-with
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - EAN
+      - "0"
+    # ends-with — 2 args, with options
+    - - ends-with
+      - case-sensitive: false
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - EAN
+      - "9"
+    # ends-with — 3+ args (multi-value)
+    - - ends-with
+      - case-sensitive: true
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - EAN
+      - "0"
+      - "5"
+    limit: 20
+visualization_settings: {}
+serdes/meta:
+- id: ZvHEBpdFQ-VSvem16KCkL
+  label: null_and_string_filters
+  model: Card

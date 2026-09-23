@@ -1,0 +1,35 @@
+name: Category Breakdown
+entity_id: cRdCaTbReAkDoWn0ExMp1
+creator_id: internal@metabase.com
+display: bar
+type: question
+database_id: Sample Database
+document_id: dOc1PrOdAnAlYsIsRpTx2
+collection_id: cOlDoCuMeNtS0ExAmPlx2
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+        - Sample Database
+        - null
+        - PRODUCTS
+      aggregation:
+        - - count
+          - {}
+      breakout:
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - CATEGORY
+visualization_settings: {}
+parameters: []
+parameter_mappings: []
+created_at: "2025-01-15T10:00:00Z"
+serdes/meta:
+  - id: cRdCaTbReAkDoWn0ExMp1
+    label: category_breakdown
+    model: Card

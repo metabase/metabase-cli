@@ -1,11 +1,11 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { SEARCH_MODELS } from "@metabase/client/domain/search";
 import { parseJson } from "@metabase/client/json";
 
 import { SearchListEnvelope } from "../../packages/cli/src/commands/search";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
-import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { runCli } from "./run-cli";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 
@@ -16,23 +16,20 @@ const ORDERS_BY_STATUS_COMPACT = {
   description: null,
 } as const;
 
+// The bootstrap's transform over the same table ranks beside the card on the same query.
+const SEED_TRANSFORM_COMPACT = {
+  id: SEEDED.transformId,
+  name: "e2e_orders_by_status",
+  model: "transform",
+  description: null,
+} as const;
+
 describe("search e2e", () => {
   let bootstrap: E2EBootstrap;
-  const tempDirs: string[] = [];
 
   beforeAll(async () => {
     bootstrap = await readBootstrap();
   });
-
-  afterEach(async () => {
-    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
-  });
-
-  async function makeIsolatedConfigHome(): Promise<string> {
-    const dir = await mkTempConfigHome();
-    tempDirs.push(dir);
-    return dir;
-  }
 
   function authEnv(): Record<string, string> {
     return {
@@ -41,20 +38,22 @@ describe("search e2e", () => {
     };
   }
 
-  it("search with a query finds the seeded card and emits compact rows by default", async () => {
-    const configHome = await makeIsolatedConfigHome();
+  it("search with a query finds the seeded card, and the seeded transform where one exists, as compact rows", async () => {
     const result = await runCli({
       args: ["search", "Orders by status", "--limit", "10", "--json"],
-      configHome,
       env: authEnv(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
+    const expected =
+      SEEDED.transformId === null
+        ? [ORDERS_BY_STATUS_COMPACT]
+        : [ORDERS_BY_STATUS_COMPACT, SEED_TRANSFORM_COMPACT];
     expect(parseJson(result.stdout, SearchListEnvelope)).toEqual({
-      data: [ORDERS_BY_STATUS_COMPACT],
-      returned: 1,
+      data: expected,
+      returned: expected.length,
       offset: 0,
-      total: 1,
+      total: expected.length,
       has_more: false,
       next_offset: null,
       limit: 10,
@@ -62,10 +61,8 @@ describe("search e2e", () => {
   });
 
   it("--models card narrows the result to the cards-only set", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["search", "--models", "card", "--limit", "20", "--json"],
-      configHome,
       env: authEnv(),
     });
 
@@ -82,10 +79,8 @@ describe("search e2e", () => {
   });
 
   it("--models with an unknown value rejects with ConfigError", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["search", "--models", "card,nope", "--json"],
-      configHome,
       env: authEnv(),
     });
 
@@ -97,10 +92,8 @@ describe("search e2e", () => {
   });
 
   it("--limit with a non-positive integer rejects with a ConfigError envelope", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["search", "--limit", "0", "--json"],
-      configHome,
       env: authEnv(),
     });
 
@@ -111,10 +104,8 @@ describe("search e2e", () => {
   });
 
   it("--db-id with a non-integer rejects with ConfigError", async () => {
-    const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["search", "--db-id", "abc", "--json"],
-      configHome,
       env: authEnv(),
     });
 

@@ -1,6 +1,6 @@
 ---
 name: native-sql
-description: Author native SQL queries with parameters (filter widgets) for the `mb` CLI. Native SQL is a query whose single stage is raw SQL (`mbql.stage/native`) instead of structured MBQL — the same query envelope, so it is pre-flight-validated and round-trips. Covers the shape, the four template-tag kinds (raw variable, field filter, snippet, card reference), the variable / optional-block / snippet / card-reference syntax, the field-filter-vs-variable decision, the field ref in a field-filter dimension, wiring a tag to a dashboard filter, and running with values. Triggers — "write a SQL question", "add a filter widget to my SQL", "parameterize this query", "use a field filter", "reference a saved question in SQL", "why does my variable return no rows".
+description: Author native SQL queries with parameters (filter widgets), in `mb query` and in card and transform files. Native SQL is a query whose single stage is raw SQL (`mbql.stage/native`), the same envelope as MBQL. Covers the shape in both forms, the template-tag kinds (raw variable, field filter, snippet, card reference), optional blocks, the field-filter-vs-variable decision, wiring a tag to a dashboard filter, and running with values. Triggers are "write a SQL question", "parameterize this query", "use a field filter", "reference a saved question in SQL", "why does my variable return no rows".
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
@@ -8,11 +8,11 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 **Prefer a structured query.** Native SQL is a Metabase query whose single stage is raw SQL (`mbql.stage/native`) instead of structured MBQL (`mbql.stage/mbql`) — both are the same query envelope (`mbql`). Reach for a native stage only when a structured query genuinely can't express it — engine-specific functions, CTEs, window logic beyond `offset`, hairy hand-tuned SQL — or when the user asks for SQL. If you can write it as a structured stage, do.
 
-General flag conventions, body-input precedence, `./.scratch`, and `mb uuid` mechanics live in `core` (`mb skills get core`).
+General flag conventions, body input, `./.scratch` and `mb uuid` live in `core`; the run form and the file form of a query, and moving between them, in `mbql` (`mb skills get mbql`).
 
 ## The shape
 
-A native `dataset_query` is a query with one **native stage** — the `lib/type: "mbql/query"` envelope, a numeric `database`, and a single `mbql.stage/native` stage carrying the SQL string (`native`) plus a `template-tags` map:
+A native query is a query with one **native stage**: the `lib/type: "mbql/query"` envelope, the `database`, and a single `mbql.stage/native` stage carrying the SQL string (`native`) plus a `template-tags` map. In the run form `mb query` sends, `database` is the numeric id:
 
 ```json
 {
@@ -28,9 +28,34 @@ A native `dataset_query` is a query with one **native stage** — the `lib/type:
 }
 ```
 
-This is the form a card stores and returns — author it. The CLI **pre-flight-validates** it — the envelope, the template-tag shapes, the field refs — through the usual `--print-schema → --dry-run → run` loop (`mbql`), and a saved card **round-trips** in exactly this shape: `mb card get <id> --full --json`, edit the `stages[0].native` string, send it straight back. Only the SQL string is opaque to pre-flight — a **SQL** syntax error surfaces just when you run it, not at `--dry-run`. A parameterless query needs no `template-tags` — just the `native` string.
+`mb query` pre-flight-validates the envelope, the tag shapes and the field refs through the `--dry-run` loop (`mbql`). The SQL string is opaque to pre-flight; a SQL syntax error surfaces only when the query runs. A parameterless query needs no `template-tags`.
 
-You may see an older flat form in cards created long ago — `{database, type:"native", native:{query}}`. The server still accepts it (it normalizes to the above) but it skips pre-flight and doesn't round-trip — **don't author it**.
+In a card file the same stage sits under `dataset_query` (a transform file: `source.query`), with the database by name and field refs by natural key:
+
+```yaml
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/native
+      native: |-
+        SELECT status, count(*) AS n
+        FROM orders
+        WHERE {{status}}
+        GROUP BY status
+      template-tags:
+        status:
+          type: dimension
+          name: status
+          id: 9ddca4ca-3906-43fd-bc6b-8480ae9ab05e
+          display-name: Status
+          dimension: [field, {}, [Sample Database, PUBLIC, ORDERS, STATUS]]
+          widget-type: string/=
+```
+
+Keep the SQL formatted with a YAML block scalar (`|-`); it is what people read in review and in the Metabase editor.
+
+Some saved cards carry a flat form, `{database, type:"native", native:{query}}`. Don't author it.
 
 ## Parameters are template tags
 
@@ -42,7 +67,7 @@ Four kinds of tag, by `type`:
 | ------------------ | -------------------------------- | ----------------------------- | -------------------------------------------- |
 | **Raw variable**   | `text` `number` `date` `boolean` | `WHERE total > {{min_total}}` | a literal substituted into the SQL           |
 | **Field filter**   | `dimension`                      | `WHERE {{status}}` (bare!)    | a smart filter widget bound to a real column |
-| **Snippet**        | `snippet`                        | `{{snippet: Active Rows}}`    | a reusable SQL fragment (`mb snippet`)       |
+| **Snippet**        | `snippet`                        | `{{snippet: Active Rows}}`    | a reusable SQL fragment, a snippet file      |
 | **Card reference** | `card`                           | `{{#42}}` or `{{#42-slug}}`   | another saved query, as a subquery           |
 
 Give each tag an `id` — mint one per tag with `mb uuid` (never hand-write one). Wrap any clause that should be droppable when its value is empty in **`[[ … ]]`**, keyword and all: `[[AND {{status}}]]`, not `AND [[{{status}}]]`. Only one level of nesting; a query using several optional `[[AND …]]` blocks needs a real `WHERE` first (e.g. `WHERE true [[AND {{a}}]] [[AND {{b}}]]`).
@@ -71,7 +96,7 @@ Field filters only bind to a **real, connected database column** — not an expr
 }
 ```
 
-**`dimension` is a field ref: `["field", {options}, <field-id>]`** — options object **second**, id **third**, exactly the `mbql` rule. The legacy `["field", <id>, null]` shape (id first) that the UI and older docs show is **rejected by pre-flight** here (`must be the field options object`). Send `{}` for the options; the server fills in a `lib/uuid`. The field id comes from `table get <id> --include fields`.
+**`dimension` is a field ref: `["field", {options}, <field>]`**, options object **second**, field **third**, exactly the `mbql` rule: a numeric id in the run form, `[database, schema, table, field]` in a file. The `["field", <id>, null]` shape (id first) is **rejected by pre-flight** (`must be the field options object`). Send `{}` for the options.
 
 `widget-type` must suit the column's type and is a closed enum (same vocabulary as dashboard filter `type`): string ops (`string/=`, `string/!=`, `string/contains`, `string/starts-with`, …), number ops (`number/=`, `number/between`, `number/>=`, …), dates (`date/all-options`, `date/range`, `date/relative`, `date/month-year`, …), plus `category`, `id`, `boolean/=`, and the `location/*` set. Text column → a `string/*` or `category`; datetime → a `date/*`; numeric → a `number/*`. `date/all-options` is the most flexible date widget.
 
@@ -92,27 +117,27 @@ Snippet and card-reference bodies (and the full field list for every kind) are i
 
 ## Snippets and card references
 
-- **Snippet** (`{{snippet: Name}}`): a shared SQL fragment stored via `mb snippet create --body '{"name":"Active Rows","content":"status = '\''active'\''"}'` — `content` is bare SQL, no wrapping. Reuse it across queries; edit it once. The tag body carries `snippet-id` + `snippet-name`.
-- **Card reference** (`{{#42}}`): inlines another saved query as a subquery — `SELECT * FROM {{#42}}` or `WITH x AS {{#42}} …`. The tag body carries `card-id`.
+- **Snippet** (`{{snippet: Name}}`): a shared SQL fragment, a file under `collections/snippets/` with bare SQL in `content` (`metabase-representation-format`, "Snippet"). Reuse it across queries; edit it once. The tag carries `snippet-name`, and in a file `snippet-id` is the snippet's `entity_id`. `mb snippet list|get` reads what the instance holds.
+- **Card reference** (`{{#42-slug}}`): inlines another saved query as a subquery, `SELECT * FROM {{#42-slug}}`. The SQL names the card's numeric id on the instance (`mb eid --model card <entity_id>`); in a file the tag's `card-id` is the card's `entity_id`.
 - **Neither takes a parameter value.** A referenced card runs with **its own saved defaults** — you can't override its parameters from the parent query. Snippets are static text. Only raw variables and field filters are user-fillable.
 
 ## Wiring, defaults, and running
 
-**Give a tag a default or a dropdown source** by declaring it in the card's `parameters` array (alongside `dataset_query`) — this is where `default`, and a `values_source_type` (`static-list` / `card`) live. Its `target` links back to the tag: `["dimension", ["template-tag", "status"]]` for a field filter, `["variable", ["template-tag", "min_total"]]` for a raw variable. (Metabase auto-derives basic `parameters` from the template tags, so you only declare them to add defaults or a value source.)
+**Give a tag a default or a dropdown source** by declaring it in the card file's `parameters` array (beside `dataset_query`): this is where `default` and a `values_source_type` (`static-list` / `card`) live. Its `target` links back to the tag: `["dimension", ["template-tag", "status"]]` for a field filter, `["variable", ["template-tag", "min_total"]]` for a raw variable. (Metabase auto-derives basic `parameters` from the template tags, so you only declare them to add defaults or a value source.)
 
-**Run a saved card with values** via `card query`, whose `--parameters` is a JSON array of `{type, target, value}` — same `target` grammar:
+**Run a saved card with values** via `card query` on the instance, whose `--parameters` is a JSON array of `{type, target, value}` with the same `target` grammar:
 
 ```bash
 mb card query 12 --parameters '[{"type":"string/=","target":["dimension",["template-tag","status"]],"value":"active"}]' --json
 ```
 
-**Expose it as a dashboard filter** by mapping a dashboard parameter to the tag on the dashcard — the mapping `target` is the same `["dimension",["template-tag","status"]]` (field filter) or `["variable",["template-tag","status"]]` (raw variable). The dashboard-side mechanics (the `parameters` array and `parameter_mappings`) live in `core`.
+**Expose it as a dashboard filter** by mapping a dashboard parameter to the tag on the dashcard — the mapping `target` is the same `["dimension",["template-tag","status"]]` (field filter) or `["variable",["template-tag","status"]]` (raw variable). The dashboard side (the `parameters` array and `parameter_mappings`) is the `dashboard` skill's.
 
 ## Don't
 
 - Don't wrap a field filter in an operator (`WHERE col = {{ff}}`) — write it bare (`WHERE {{ff}}`).
-- Don't write the field-filter `dimension` in the legacy `["field", id, null]` shape — use `["field", {}, id]` (options second).
-- Don't author the flat `{type:"native", …}` form — send the native stage above.
+- Don't write the field-filter `dimension` as `["field", id, null]`; use `["field", {}, <field>]` (options second).
+- Don't author the flat `{type:"native", …}` form; write the native stage above.
 - Don't use native SQL for DDL or multiple statements — the editor is read-only, single-statement; `CREATE`/`UPDATE`/`;`-chained SQL is unsupported. To materialize a table, use a `transform`.
 - Don't expect `[[ ]]` to save you from a case/type mismatch — `WHERE plan = {{p}}` returns zero rows on a case-sensitive engine if the value's case is off; that's a value problem, not syntax.
 - Don't reach for native when a structured query fits — you lose the engine-independence and readability of an `mbql.stage/mbql` stage.

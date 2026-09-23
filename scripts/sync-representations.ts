@@ -15,18 +15,19 @@ import { isFileNotFoundError } from "@metabase/client/errors";
 
 const YamlObject = z.record(z.string(), z.unknown());
 
-const REPRESENTATIONS_VERSION = "1.1.7";
+const REPRESENTATIONS_VERSION = "1.2.0";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
 const DATA_DIR = resolve(REPO_ROOT, "packages/cli/src/core/schema/data");
-const COMMON_DIR = resolve(DATA_DIR, "schemas/common");
+const SCHEMAS_DIR = resolve(DATA_DIR, "schemas");
+const COMMON_DIR = resolve(SCHEMAS_DIR, "common");
 
 async function main(): Promise<void> {
   const tarball = await npmPack(REPRESENTATIONS_VERSION);
   const extracted = await extractTarball(tarball);
   try {
-    await syncCommonSchemas(extracted);
+    await syncSchemas(extracted);
     await copyLicense(extracted);
   } finally {
     await cleanupDir(extracted);
@@ -35,21 +36,28 @@ async function main(): Promise<void> {
   console.log(`Synced @metabase/representations@${REPRESENTATIONS_VERSION}`);
 }
 
-async function syncCommonSchemas(packageRoot: string): Promise<void> {
-  const sourceDir = resolve(packageRoot, "core-spec/v1/schemas/common");
-  await fs.rm(resolve(DATA_DIR, "schemas"), { recursive: true, force: true });
+// The entity schemas land beside `common/`, each as JSON under the name its `$ref`s use.
+async function syncSchemas(packageRoot: string): Promise<void> {
+  const sourceDir = resolve(packageRoot, "core-spec/v1/schemas");
+  await fs.rm(SCHEMAS_DIR, { recursive: true, force: true });
   await fs.mkdir(COMMON_DIR, { recursive: true });
-
-  const files = await fs.readdir(sourceDir);
-  await Promise.all(files.filter((f) => f.endsWith(".yaml")).map((f) => convertOne(sourceDir, f)));
+  await convertDir(resolve(sourceDir, "common"), COMMON_DIR);
+  await convertDir(sourceDir, SCHEMAS_DIR);
 }
 
-async function convertOne(sourceDir: string, filename: string): Promise<void> {
+async function convertDir(sourceDir: string, targetDir: string): Promise<void> {
+  const files = await fs.readdir(sourceDir);
+  await Promise.all(
+    files.filter((f) => f.endsWith(".yaml")).map((f) => convertOne(sourceDir, targetDir, f)),
+  );
+}
+
+async function convertOne(sourceDir: string, targetDir: string, filename: string): Promise<void> {
   const text = await fs.readFile(join(sourceDir, filename), "utf8");
   const parsed = YamlObject.parse(yaml.load(text));
   const { $schema: _ignored, ...body } = parsed;
   const targetName = filename.replace(/\.yaml$/u, ".json");
-  await fs.writeFile(join(COMMON_DIR, targetName), JSON.stringify(body, null, 2) + "\n", "utf8");
+  await fs.writeFile(join(targetDir, targetName), JSON.stringify(body, null, 2) + "\n", "utf8");
 }
 
 async function copyLicense(packageRoot: string): Promise<void> {

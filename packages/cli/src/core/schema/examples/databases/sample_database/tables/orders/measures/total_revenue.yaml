@@ -1,0 +1,29 @@
+name: Total Revenue
+entity_id: 8WteUpyQQqObrxLv4KQ-j
+creator_id: admin@example.com
+table_id:
+- Sample Database
+- null
+- ORDERS
+definition:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    aggregation:
+    - - sum
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+serdes/meta:
+- id: 8WteUpyQQqObrxLv4KQ-j
+  label: total_revenue
+  model: Measure

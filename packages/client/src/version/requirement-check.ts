@@ -2,6 +2,7 @@ import { FEATURE_RULES, type FeatureGap, type FeatureName, type FeatureRule } fr
 import {
   missingTokenFeatureMessage,
   type RequirementFailure,
+  versionTooNewMessage,
   versionTooOldMessage,
 } from "./preflight-error";
 import { featureGap, type ServerProfile } from "./profile";
@@ -31,6 +32,16 @@ function describeGap(
     return {
       reason: "missing-token-feature",
       detail: missingTokenFeatureMessage(gap.tokenFeature),
+      feature,
+      since: rule.since,
+      tokenFeature,
+      serverVersion,
+    };
+  }
+  if (gap.side === "newer" && rule.until !== undefined) {
+    return {
+      reason: "version-too-new",
+      detail: versionTooNewMessage(rule.since, rule.until, serverVersion),
       feature,
       since: rule.since,
       tokenFeature,

@@ -1,0 +1,37 @@
+name: Product Dashboard
+entity_id: Q_jD-f-9clKLFZ2TfUG2h
+collection_id: M-Q4pcV0qkiyJ0kiSWECl
+creator_id: admin@example.com
+parameters:
+- id: c3d4e5f6-7890-abcd-ef12-34567890abcd
+  name: Category
+  slug: category
+  type: string/=
+  sectionId: string
+dashcards:
+- entity_id: UkpFcfUZMZt9ehChwnrAO
+  card_id: f1C68pznmrpN1F5xFDj6d
+  row: 0
+  col: 0
+  size_x: 18
+  size_y: 9
+  parameter_mappings:
+  - card_id: f1C68pznmrpN1F5xFDj6d
+    parameter_id: c3d4e5f6-7890-abcd-ef12-34567890abcd
+    target:
+    - dimension
+    - - field
+      - - Sample Database
+        - null
+        - PRODUCTS
+        - CATEGORY
+      - null
+  serdes/meta:
+  - id: Q_jD-f-9clKLFZ2TfUG2h
+    model: Dashboard
+  - id: UkpFcfUZMZt9ehChwnrAO
+    model: DashboardCard
+serdes/meta:
+- id: Q_jD-f-9clKLFZ2TfUG2h
+  label: product_dashboard
+  model: Dashboard

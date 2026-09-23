@@ -5,7 +5,7 @@ import { listEnvelopeSchema } from "../output/types";
 import { windowServerPage } from "../output/window";
 import { parseEnumCsv } from "../runtime/csv";
 
-import { connectionFlags, listFlagsWithDefaultLimit, outputFlags, profileFlag } from "./flags";
+import { listFlagsWithDefaultLimit, outputFlags, preflightFlag } from "./flags";
 import { parseId } from "./parse-id";
 import { defineMetabaseCommand } from "./runtime";
 
@@ -29,8 +29,7 @@ export default defineMetabaseCommand({
   args: {
     ...outputFlags,
     ...listFlagsWithDefaultLimit(DEFAULT_LIMIT),
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     query: {
       type: "positional",
       description: "Search query string",

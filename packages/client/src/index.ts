@@ -49,6 +49,7 @@ export type { OAuthLoginDeps, OAuthLoginInput } from "./auth/oauth-login";
 export { refreshOAuthCredential, revokeOAuthCredential } from "./auth/oauth-session";
 export type {
   ApiKeyCredential,
+  BearerCredential,
   Credential,
   CredentialRefresher,
   OAuthCredential,
@@ -212,6 +213,10 @@ export {
   SyncTaskCompact,
   SyncTaskStatus,
   SyncTaskType,
+  SyncTree,
+  SyncTreeCollection,
+  SyncTreeItem,
+  SyncTreeItemModel,
 } from "./domain/git-sync";
 export {
   Glossary,
@@ -450,3 +455,4 @@ export {
 } from "./domain/transform-test";
 export { UploadResult, UploadUpdateAction, UploadUpdateResult } from "./domain/upload";
 export { CurrentUser, CurrentUserCompact } from "./domain/user";
+export { Worktree, WorktreeCompact } from "./domain/worktree";

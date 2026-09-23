@@ -1,7 +1,7 @@
 import { Transform } from "@metabase/client/domain/transform";
 import { transformView } from "../../output/views/transform";
 import { renderItem } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -10,8 +10,7 @@ export default defineMetabaseCommand({
   requires: ["transform.get"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     id: { type: "positional", description: "Transform id", required: true },
   },
   outputSchema: Transform,

@@ -1,0 +1,91 @@
+name: Product Analysis Report
+entity_id: dOc1PrOdAnAlYsIsRpTx2
+creator_id: internal@metabase.com
+document:
+  type: doc
+  content:
+    - type: heading
+      attrs:
+        level: 1
+      content:
+        - type: text
+          text: Product Analysis Report
+    - type: paragraph
+      content:
+        - type: text
+          text: "This document provides an overview of product performance metrics. The embedded query below shows aggregated stats by category."
+    - type: cardEmbed
+      attrs:
+        id:
+          - model: Card
+            id: cRdCaTbReAkDoWn0ExMp1
+        name: Category Breakdown
+    - type: paragraph
+      content:
+        - type: text
+          text: "As shown above, the "
+        - type: text
+          text: Widget
+          marks:
+          - type: bold
+        - type: text
+          text: " category dominates in total revenue."
+    - type: heading
+      attrs:
+        level: 2
+      content:
+        - type: text
+          text: Key Findings
+    - type: bulletList
+      content:
+        - type: listItem
+          content:
+            - type: paragraph
+              content:
+                - type: text
+                  text: Revenue increased 15% quarter over quarter
+        - type: listItem
+          content:
+            - type: paragraph
+              content:
+                - type: text
+                  text: Widget category remains the top performer
+        - type: listItem
+          content:
+            - type: paragraph
+              content:
+                - type: text
+                  text: Average order value is trending upward
+    - type: heading
+      attrs:
+        level: 2
+      content:
+        - type: text
+          text: Next Steps
+    - type: paragraph
+      content:
+        - type: text
+          text: "See the "
+        - type: text
+          text: Product Dashboard
+          marks:
+          - type: link
+            attrs:
+              href: /dashboard/Q_jD-f-9clKLFZ2TfUG2h
+    - type: blockquote
+      content:
+        - type: paragraph
+          content:
+            - type: text
+              text: "Note: All figures reflect the trailing 12-month period."
+              marks:
+              - type: italic
+content_type: "application/json+vnd.prose-mirror"
+collection_id: cOlDoCuMeNtS0ExAmPlx2
+archived: false
+view_count: 42
+created_at: "2025-01-15T10:00:00Z"
+serdes/meta:
+  - id: dOc1PrOdAnAlYsIsRpTx2
+    label: product_analysis_report
+    model: Document

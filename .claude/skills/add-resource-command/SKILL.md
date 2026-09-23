@@ -304,7 +304,7 @@ import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
 import { <resource>View } from "../../output/views/<r>";
 import { windowList } from "../../output/window";
-import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";
+import { listFlags, outputFlags, preflightFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 export const <Resource>ListEnvelope = listEnvelopeSchema(<Resource>Compact);
@@ -312,7 +312,7 @@ export const <Resource>ListEnvelope = listEnvelopeSchema(<Resource>Compact);
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List <resource-plural>" },
   requires: ["<r>.list"],
-  args: { ...outputFlags, ...listFlags, ...profileFlag, ...connectionFlags /* + filter flags */ },
+  args: { ...outputFlags, ...listFlags, ...preflightFlag /* + filter flags */ },
   outputSchema: <Resource>ListEnvelope,
   examples: ["mb <r> list", "mb <r> list --json"],
   async run({ ctx, getClient }) {
@@ -362,7 +362,7 @@ import { <Resource> } from "@metabase/client/domain/<r>";
 
 import { renderItem } from "../../output/render";
 import { <resource>View } from "../../output/views/<r>";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -371,8 +371,7 @@ export default defineMetabaseCommand({
   requires: ["<r>.get"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     id: { type: "positional", description: "<R> id", required: true },
   },
   outputSchema: <Resource>,

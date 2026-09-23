@@ -147,9 +147,6 @@ describe("resolveCommonFlags — full result shape", () => {
       fields: undefined,
       maxBytes: 24576,
       range: { offset: 0, limit: undefined },
-      url: undefined,
-      apiKey: undefined,
-      profile: undefined,
       skipPreflight: false,
     });
   });
@@ -157,9 +154,6 @@ describe("resolveCommonFlags — full result shape", () => {
   it("forwards every populated field unchanged into the resolved context", () => {
     const result = resolveCommonFlags(
       {
-        url: "https://m.example.com",
-        apiKey: "secret",
-        profile: "prod",
         format: "text",
         fields: "id,name",
         maxBytes: "1024",
@@ -175,9 +169,6 @@ describe("resolveCommonFlags — full result shape", () => {
       fields: ["id", "name"],
       maxBytes: 1024,
       range: { offset: 50, limit: 25 },
-      url: "https://m.example.com",
-      apiKey: "secret",
-      profile: "prod",
       skipPreflight: true,
     });
   });

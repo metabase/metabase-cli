@@ -1,7 +1,7 @@
 import { FieldValues } from "@metabase/client/domain/field";
 import { fieldValuesView } from "../../output/views/field";
 import { formatScalar, renderSummary } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -13,8 +13,7 @@ export default defineMetabaseCommand({
   requires: ["field.values"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     id: { type: "positional", description: "Field id", required: true },
   },
   outputSchema: FieldValues,

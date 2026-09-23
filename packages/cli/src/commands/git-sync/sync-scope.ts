@@ -16,9 +16,9 @@ export function syncScopeHint(
     return null;
   }
   return (
-    `Note: collection ${collection.id} "${collection.name}" is not marked for git-sync, ` +
-    `so \`mb git-sync export\` will not carry it (or its published tables' metadata) to ${remoteSyncUrl}. ` +
-    `Add it with: mb git-sync add-collection ${collection.id}`
+    `Note: collection ${collection.id} "${collection.name}" is not marked for remote sync, ` +
+    `so exports will not carry it (or its published tables' metadata) to ${remoteSyncUrl}. ` +
+    `An admin adds it to the synced collections in Metabase's remote sync settings.`
   );
 }
 

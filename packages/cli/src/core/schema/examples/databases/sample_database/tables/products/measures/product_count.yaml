@@ -1,0 +1,29 @@
+name: Product Count
+entity_id: 8kxQ2Wr7PmN5dLf3hYz9v
+creator_id: admin@example.com
+table_id:
+- Sample Database
+- null
+- PRODUCTS
+definition:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+    aggregation:
+    - - distinct
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - ID
+serdes/meta:
+- id: 8kxQ2Wr7PmN5dLf3hYz9v
+  label: product_count
+  model: Measure

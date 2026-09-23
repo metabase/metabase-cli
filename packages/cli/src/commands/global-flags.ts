@@ -2,7 +2,7 @@ import type { ArgsDef } from "citty";
 
 import { flagConsumesValue, normalizeFlag, toAliasArray } from "../runtime/citty";
 
-import { connectionFlags, listFlags, outputFlags, profileFlag } from "./flags";
+import { listFlags, outputFlags, preflightFlag } from "./flags";
 
 const ARGUMENT_SEPARATOR = "--";
 const NEGATION_PREFIX = "no-";
@@ -10,8 +10,7 @@ const NEGATION_PREFIX = "no-";
 const GLOBAL_FLAG_ARGS: ArgsDef = {
   ...outputFlags,
   ...listFlags,
-  ...profileFlag,
-  ...connectionFlags,
+  ...preflightFlag,
 };
 
 const GLOBAL_FLAG_NAMES: ReadonlySet<string> = buildGlobalFlagNames();
@@ -45,11 +44,11 @@ function isGlobalFlag(token: string): boolean {
   return false;
 }
 
-// `--profile`/`--url`/`--apiKey` (and the other common flags) are per-leaf citty args, not
-// true globals. Placed before the verb chain, citty consumes the flag VALUE as a subcommand
-// name and fails with a misleading "unknown command <value>". Hoisting the leading run of
-// recognized global flags to the tail — after the verb chain — lets them parse at the resolved
-// leaf, so `mb --profile staging card list` behaves like `mb card list --profile staging`.
+// The common flags are per-leaf citty args, not true globals. Placed before the verb chain, citty
+// consumes the flag VALUE as a subcommand name and fails with a misleading "unknown command
+// <value>". Hoisting the leading run of recognized global flags to the tail — after the verb
+// chain — lets them parse at the resolved leaf, so `mb --json card list` behaves like
+// `mb card list --json`.
 export function hoistGlobalFlags(rawArgs: readonly string[]): string[] {
   const leading: string[] = [];
   let index = 0;

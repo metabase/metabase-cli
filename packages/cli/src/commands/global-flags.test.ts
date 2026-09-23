@@ -4,11 +4,11 @@ import { hoistGlobalFlags } from "./global-flags";
 
 describe("hoistGlobalFlags", () => {
   it("moves a leading value-taking global flag to after the verb chain", () => {
-    expect(hoistGlobalFlags(["--profile", "staging", "card", "list"])).toEqual([
+    expect(hoistGlobalFlags(["--format", "json", "card", "list"])).toEqual([
       "card",
       "list",
-      "--profile",
-      "staging",
+      "--format",
+      "json",
     ]);
   });
 
@@ -17,12 +17,12 @@ describe("hoistGlobalFlags", () => {
   });
 
   it("hoists a contiguous run of mixed global flags, preserving their order", () => {
-    expect(hoistGlobalFlags(["--json", "--profile", "staging", "card", "list"])).toEqual([
+    expect(hoistGlobalFlags(["--json", "--format", "json", "card", "list"])).toEqual([
       "card",
       "list",
       "--json",
-      "--profile",
-      "staging",
+      "--format",
+      "json",
     ]);
   });
 
@@ -47,19 +47,19 @@ describe("hoistGlobalFlags", () => {
   });
 
   it("hoists global flags addressed by their kebab alias", () => {
-    expect(hoistGlobalFlags(["--api-key", "secret", "db", "list"])).toEqual([
+    expect(hoistGlobalFlags(["--max-bytes", "10", "db", "list"])).toEqual([
       "db",
       "list",
-      "--api-key",
-      "secret",
+      "--max-bytes",
+      "10",
     ]);
   });
 
   it("keeps the embedded value of an = form flag attached to the single token", () => {
-    expect(hoistGlobalFlags(["--profile=staging", "card", "list"])).toEqual([
+    expect(hoistGlobalFlags(["--format=json", "card", "list"])).toEqual([
       "card",
       "list",
-      "--profile=staging",
+      "--format=json",
     ]);
   });
 
@@ -73,11 +73,11 @@ describe("hoistGlobalFlags", () => {
   });
 
   it("leaves args untouched when the global flag already follows the verb", () => {
-    expect(hoistGlobalFlags(["card", "list", "--profile", "staging"])).toEqual([
+    expect(hoistGlobalFlags(["card", "list", "--format", "json"])).toEqual([
       "card",
       "list",
-      "--profile",
-      "staging",
+      "--format",
+      "json",
     ]);
   });
 
@@ -90,6 +90,6 @@ describe("hoistGlobalFlags", () => {
   });
 
   it("tolerates a trailing value-taking global flag with no value", () => {
-    expect(hoistGlobalFlags(["--profile"])).toEqual(["--profile"]);
+    expect(hoistGlobalFlags(["--format"])).toEqual(["--format"]);
   });
 });

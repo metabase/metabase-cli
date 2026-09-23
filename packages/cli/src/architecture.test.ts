@@ -52,9 +52,9 @@ const RULES: StructureRule[] = [
     scope: "all",
   },
   {
-    description: "direct fetch calls must only appear in src/core/npm-registry.ts",
+    description: "direct fetch calls must only appear in src/core/auth-broker.ts",
     pattern: /\bfetch\s*\(|globalThis\.fetch/,
-    allowedIn: ["core/npm-registry.ts"],
+    allowedIn: ["core/auth-broker.ts"],
     scope: "all",
   },
   {

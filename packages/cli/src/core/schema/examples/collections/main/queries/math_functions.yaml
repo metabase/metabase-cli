@@ -1,0 +1,90 @@
+name: "Math Functions"
+entity_id: jPrM-oh3r1BR42xSs4Ipj
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - null
+      - PRODUCTS
+      expressions:
+      - - abs
+        - "lib/expression-name": Absolute Discount
+        - - "-"
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - null
+              - PRODUCTS
+              - PRICE
+          - 50
+      - - ceil
+        - "lib/expression-name": Price Ceiling
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - PRICE
+      - - floor
+        - "lib/expression-name": Price Floor
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - PRICE
+      - - round
+        - "lib/expression-name": Rounded Price
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - PRICE
+      - - power
+        - "lib/expression-name": Rating Squared
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - RATING
+        - 2
+      - - sqrt
+        - "lib/expression-name": Price Sqrt
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - PRICE
+      - - exp
+        - "lib/expression-name": Price Exp
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - RATING
+      - - log
+        - "lib/expression-name": Price Log
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - PRICE
+      limit: 10
+visualization_settings: {}
+serdes/meta:
+- id: jPrM-oh3r1BR42xSs4Ipj
+  label: math_functions
+  model: Card

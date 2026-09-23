@@ -1,0 +1,40 @@
+name: NYC Area People
+entity_id: D2R9JpvI8sMfYWqfPsTkx
+creator_id: admin@example.com
+description: People located within the NYC bounding box
+table_id:
+- Sample Database
+- null
+- PEOPLE
+definition:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - PEOPLE
+    filters:
+    - - inside
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PEOPLE
+          - LATITUDE
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PEOPLE
+          - LONGITUDE
+      - 40.92
+      - -74.26
+      - 40.49
+      - -73.70
+serdes/meta:
+- id: D2R9JpvI8sMfYWqfPsTkx
+  label: nyc_area
+  model: Segment

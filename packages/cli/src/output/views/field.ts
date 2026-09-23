@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import {
   type Field,
   FieldCompact,
@@ -27,6 +29,18 @@ export const fieldView: ResourceView<Field> = {
     { key: "fk_target_field_id", label: "FK Target", format: formatFkTarget },
     { key: "description", label: "Description" },
   ],
+};
+
+// A dropdown field's cached distinct values, raw, with any remapped label dropped: `null` on a
+// field Metabase keeps no dropdown list for.
+export const FieldWithValuesCompact = FieldCompact.extend({
+  values: z.array(z.unknown()).nullable(),
+});
+export type FieldWithValues = Field & Pick<z.infer<typeof FieldWithValuesCompact>, "values">;
+
+export const fieldWithValuesView: ResourceView<FieldWithValues> = {
+  compactPick: FieldWithValuesCompact,
+  tableColumns: [...fieldView.tableColumns, { key: "values", label: "Values" }],
 };
 
 export const fieldValuesView: ResourceView<FieldValues> = {

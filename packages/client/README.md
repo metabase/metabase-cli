@@ -410,6 +410,15 @@ an `OAuthCredential`. `refreshOAuthCredential` exchanges the rotating refresh to
 revocation endpoint. Types: `Credential` (the `ApiKeyCredential | OAuthCredential` union),
 `OAuthLoginInput`, `OAuthLoginDeps`.
 
+`discoverOAuth(baseUrl, userAgent)` from `@metabase/client/http/oauth` says whether a server can
+grant the full-access scope `mb:full`, as an `OAuthDiscovery`: `found` with the metadata, whose
+endpoints are pinned to the base URL's origin, or a `DiscoveryRefusal` naming the status the
+discovery path answered, the content type it served in place of JSON, or the narrower scopes it
+offers. Metabase grants `mb:full` to a client that registers for it without always listing it, so
+when the listed scopes leave it out the server's version decides, read from
+`/api/session/properties` and judged by the `oauthFullAccessScope` feature rule.
+`discoverMetadata` answers the metadata or throws a `ConfigError` naming the refusal.
+
 ### Versions and requirements
 
 `probeServer(client)` reads `/api/session/properties` and returns a `ServerInfo` — the parsed version tag, the edition the tag stamps, the build date and hash, and the token-feature map, each `null` when the server does not report it. `ParsedVersion` is the `{ tag, major, patch }` schema a probed version tag parses to; `editionFromTag(tag)` reads the `Edition` (`"oss"` | `"ee"`) Metabase stamps into the tag's leading number (`v0.` / `v1.`, a hotfix's fourth number and a `-SNAPSHOT` suffix included), `null` when the tag carries none.

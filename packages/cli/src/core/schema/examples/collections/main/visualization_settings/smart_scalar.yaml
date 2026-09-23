@@ -1,0 +1,52 @@
+name: Total Revenue (Smart Scalar)
+entity_id: bSj47tilPIkwDIewvMf8z
+collection_id: cOlViZsEtTiNgS0ExAmP1
+creator_id: admin@example.com
+display: smartscalar
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    aggregation:
+    - - sum
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+    breakout:
+    - - field
+      - temporal-unit: month
+      - - Sample Database
+        - null
+        - ORDERS
+        - CREATED_AT
+visualization_settings:
+  "scalar.compact_primary_number": auto
+  "scalar.comparisons":
+  - id: prev_period
+    type: previousPeriod
+  - id: year_ago
+    type: periodsAgo
+    value: 12
+  - id: target
+    type: staticNumber
+    value: 50000
+    label: Monthly Target
+  column_settings:
+    '["name","sum"]':
+      number_style: currency
+      currency: USD
+      currency_style: symbol
+serdes/meta:
+- id: bSj47tilPIkwDIewvMf8z
+  label: smart_scalar
+  model: Card

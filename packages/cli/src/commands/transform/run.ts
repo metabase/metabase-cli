@@ -2,7 +2,7 @@ import { isTransformRunFailed, TransformRunResult } from "@metabase/client/domai
 
 import { renderSummary } from "../../output/render";
 import type { ResourceView } from "../../output/view";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 import { parseWaitFlags, waitFlags } from "../wait-flags";
@@ -23,8 +23,7 @@ export default defineMetabaseCommand({
   requires: ["transform.run"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     ...waitFlags,
     sync: {
       type: "boolean",

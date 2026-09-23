@@ -1,0 +1,24 @@
+/* The side columns and the file tree read their widths from the shell's root, which `panels.ts` sets on a render and
+   moves directly during a drag. */
+.panel-sidebar {
+  width: var(--panel-sidebar);
+}
+
+.panel-side {
+  width: var(--panel-side);
+}
+
+.panel-tree {
+  width: var(--panel-tree);
+}
+
+/* While a handle is dragged, a container that measures its own content keeps the width it had when
+   the drag began, and the page keeps the resize cursor and selects no text. */
+[data-resizing] {
+  cursor: col-resize;
+  user-select: none;
+}
+
+[data-resizing] .settles-on-resize {
+  width: var(--settled-width);
+}

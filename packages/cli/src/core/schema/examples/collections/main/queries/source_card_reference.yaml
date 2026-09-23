@@ -1,0 +1,30 @@
+name: "Source Card Reference"
+entity_id: gt4OaWYAuDWRHn5Irnd4h
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-card: h5F2EjHsRd73Dqqh8sAtd
+    filters:
+    - - ">"
+      - {}
+      - - field
+        - base-type: type/Integer
+        - count
+      - 100
+    order-by:
+    - - desc
+      - {}
+      - - field
+        - base-type: type/Integer
+        - count
+visualization_settings: {}
+serdes/meta:
+- id: gt4OaWYAuDWRHn5Irnd4h
+  label: source_card_reference
+  model: Card

@@ -1,7 +1,7 @@
 import { Snippet } from "@metabase/client/domain/snippet";
 import { snippetView } from "../../output/views/snippet";
 import { renderItem } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { outputFlags, preflightFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -10,8 +10,7 @@ export default defineMetabaseCommand({
   requires: ["snippet.get"],
   args: {
     ...outputFlags,
-    ...profileFlag,
-    ...connectionFlags,
+    ...preflightFlag,
     id: { type: "positional", description: "Snippet id", required: true },
   },
   outputSchema: Snippet,

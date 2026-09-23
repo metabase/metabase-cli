@@ -52,7 +52,7 @@ export function clearGateSkips(): void {
   }
 }
 
-function recordGateSkip(lane: string, reason: string): void {
+export function recordGateSkip(lane: string, reason: string): void {
   const logged = readGateSkips();
   if (logged.some((entry) => entry.lane === lane)) {
     return;
@@ -80,18 +80,32 @@ export function requireServer(lane: string, required: readonly FeatureName[]): s
 }
 
 const OAUTH_UNSUPPORTED_REASON =
-  "server does not support full-API OAuth login (Metabase v63+) — re-run e2e:bootstrap if the image changed";
+  "server grants no full-access OAuth scope — re-run e2e:bootstrap if the image changed";
 
 // Gate for the OAuth login suite: a version check would be wrong here (head images without the
-// OAuth backend would run and fail), so bootstrap probes the discovery endpoint live and the
-// suite keys off that. The probe also rejects the agent-API-only OAuth server v60–62 ship
-// (no full-access scope advertised). Re-run `bun run e2e:bootstrap` after switching images.
+// OAuth backend would run and fail), so bootstrap runs the client's discovery live and the suite
+// keys off whether it found a server that grants the full-access scope. Re-run
+// `bun run e2e:bootstrap` after switching images.
 export function requireOAuthServer(lane: string): string | null {
   if (readBootstrapSync().server.oauthSupported) {
     return null;
   }
   recordGateSkip(lane, OAUTH_UNSUPPORTED_REASON);
   return OAUTH_UNSUPPORTED_REASON;
+}
+
+const SEED_TRANSFORM_MISSING_REASON =
+  "the bootstrap seeded no transform on this stack — re-run `bun run e2e:bootstrap` so it adds one to the snapshot";
+
+// The seed transform arrives with the bootstrap on a server that serves transforms; a bootstrap
+// file written before it was seeded reports none until the bootstrap runs again.
+export function requireSeededTransform(lane: string): number | null {
+  const transformId = readBootstrapSync().seeded.transformId;
+  if (transformId !== null) {
+    return transformId;
+  }
+  recordGateSkip(lane, SEED_TRANSFORM_MISSING_REASON);
+  return null;
 }
 
 // The exact question the CLI's preflight and the client's `require()` ask. It logs nothing: a

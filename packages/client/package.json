@@ -46,9 +46,7 @@
     "./version/tag": "./dist/version/tag.js",
     "./testing/fake-client": "./dist/testing/fake-client.js",
     "./testing/fetch-capture": "./dist/testing/fetch-capture.js",
-    "./domain/*.test": null,
     "./domain/*": "./dist/domain/*.js",
-    "./resources/*.test": null,
     "./resources/*": "./dist/resources/*.js",
     "./package.json": "./package.json"
   },

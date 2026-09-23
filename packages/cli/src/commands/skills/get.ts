@@ -1,7 +1,5 @@
 import { ConfigError } from "@metabase/client/errors";
 
-import { readCachedServerProfile } from "../../core/auth/cached-server";
-import { resolveProfileName } from "../../core/config";
 import {
   loadAllSkills,
   loadVisibleSkills,
@@ -18,8 +16,9 @@ import { listEnvelopeSchemaWithExtras } from "../../output/types";
 import type { ResourceView } from "../../output/view";
 import { windowList } from "../../output/window";
 import { parseCsv } from "../../runtime/csv";
-import { listFlags, outputFlags, profileFlag } from "../flags";
+import { listFlags, outputFlags } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
+import { resolveSkillServer } from "../../core/skill-server";
 
 export const SkillGetEnvelope = listEnvelopeSchemaWithExtras(SkillContent, {
   unavailable: UnavailableSkills,
@@ -42,13 +41,12 @@ export default defineMetabaseCommand({
   meta: {
     name: "get",
     description:
-      "Print one or more skills' SKILL.md content, as the profile's server can use it: a skill it lacks the features for is reported under `unavailable`, and a section it cannot use is left out. Pass comma-separated names, or --all for every non-hidden skill. --unfiltered prints the selection as written, regardless of the server. --full includes references and templates.",
+      "Print one or more skills' SKILL.md content, as the connected server can use it: a skill it lacks the features for is reported under `unavailable`, and a section it cannot use is left out. Pass comma-separated names, or --all for every non-hidden skill. --unfiltered prints the selection as written, regardless of the server. --full includes references and templates.",
   },
   requires: null,
   args: {
     ...outputFlags,
     ...listFlags,
-    ...profileFlag,
     names: {
       type: "positional",
       description:
@@ -70,9 +68,8 @@ export default defineMetabaseCommand({
     "mb skills get transform --unfiltered",
   ],
   async run({ args, ctx }) {
-    const profileName = resolveProfileName(args.profile);
-    const cached = args.unfiltered === true ? null : await readCachedServerProfile(profileName);
-    const profile = cached !== null && cached.kind === "found" ? cached.profile : null;
+    const server = args.unfiltered === true ? null : await resolveSkillServer();
+    const profile = server !== null && server.kind === "found" ? server.profile : null;
     const selection = selectForProfile(
       pickSkills({ names: args.names, all: args.all === true }),
       profile,
@@ -92,7 +89,7 @@ export default defineMetabaseCommand({
     if (envelope.data.length > 0) {
       writeText(renderText(envelope.data, ctx.full));
     }
-    for (const notice of skillFilterNotices(selection.unavailable, { profileName, cached })) {
+    for (const notice of skillFilterNotices(selection.unavailable, server)) {
       warn(notice);
     }
   },
