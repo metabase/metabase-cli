@@ -1,27 +1,28 @@
 ---
 name: metabase-cli
-description: Drive a Metabase instance from the terminal via the `mb` CLI — auth, databases, cards, dashboards, transforms, queries, search, git-sync. Discovery entry; load the full guide with `mb skills get core`.
+description: Build Metabase content (cards, dashboards, documents, segments, measures, transforms) by editing representation YAML files in a git repo, using the `mb` CLI to read warehouse metadata, validate the files, and save them to Metabase. Discovery entry; load the full guide with `mb skills get core`.
 allowed-tools: Bash, Read, Write, Edit, AskUserQuestion
 hidden: true
 ---
 
 # metabase-cli
 
-The official Metabase CLI (`mb`) drives a Metabase instance over its REST API.
+The Metabase CLI (`mb`) in file mode: you write Metabase content as YAML files in a git repo, and `mb` does the three things files can't.
+
+```
+mb metadata   read databases, tables, and fields (with ready-to-paste refs)
+mb check      validate the repo's YAML against the representation schemas
+mb save       check, commit, push, and import into Metabase
+```
 
 Install: `npm i -g @metabase/cli`
 
 ## Start here
 
-Before running any `mb` command, load the workflow content from the CLI:
+Before running any `mb` command or writing any YAML, load the workflow and the format:
 
 ```bash
-mb skills get core    # auth, flag conventions, every command group
-mb skills list        # every bundled skill the profile's server can use (--unfiltered for all of them)
-```
-
-**Doing a whole job, not one command?** If the user wants an outcome — "make sense of my data", "build a data model", "go from raw data to a dashboard", "answer questions about my data", "be my data analyst", "set up analytics for X" — load the guided end-to-end skill instead and let it drive:
-
-```bash
-mb skills get data-workflow
+mb skills get core              # the metadata -> edit -> check -> save loop, auth, output
+mb skills get representations   # where the spec and schemas live, folder layout, refs
+mb skills list                  # every bundled skill
 ```
