@@ -12,12 +12,12 @@ The authority is the spec's **MBQL Query** section and `common/query.yaml` + `co
 
 ## One query shape serves four entities
 
-| Entity | The query lives at | Constraint |
-| --- | --- | --- |
-| card | `dataset_query` | none |
-| transform | `source.query` (with `source.type: query`) | none |
-| segment | `definition` | one stage: `source-table` + `filters` |
-| measure | `definition` | one stage: `source-table` + exactly one `aggregation`, no `filters` |
+| Entity    | The query lives at                         | Constraint                                                          |
+| --------- | ------------------------------------------ | ------------------------------------------------------------------- |
+| card      | `dataset_query`                            | none                                                                |
+| transform | `source.query` (with `source.type: query`) | none                                                                |
+| segment   | `definition`                               | one stage: `source-table` + `filters`                               |
+| measure   | `definition`                               | one stage: `source-table` + exactly one `aggregation`, no `filters` |
 
 The value is the `mbql/query` map itself:
 
@@ -26,15 +26,15 @@ dataset_query:
   "lib/type": mbql/query
   database: Sample Database
   stages:
-  - "lib/type": mbql.stage/mbql
-    source-table: [Sample Database, PUBLIC, ORDERS]
-    aggregation:
-    - - count
-      - {}
-    breakout:
-    - - field
-      - temporal-unit: month
-      - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+    - "lib/type": mbql.stage/mbql
+      source-table: [Sample Database, PUBLIC, ORDERS]
+      aggregation:
+        - - count
+          - {}
+      breakout:
+        - - field
+          - temporal-unit: month
+          - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
 ```
 
 - `database` is the database name. `source-table` is a table ref. Copy both from `mb metadata`.
@@ -47,13 +47,13 @@ A clause is `[operator, options, ...args]`. The options map is element 1, always
 
 ```yaml
 - - field
-  - {}                                  # options: never null, never omitted
+  - {} # options: never null, never omitted
   - [Sample Database, PUBLIC, ORDERS, TOTAL]
 - - "="
   - {}
   - [field, {}, [Sample Database, PUBLIC, PRODUCTS, CATEGORY]]
   - Widget
-  - Gadget                              # extra values = IN
+  - Gadget # extra values = IN
 ```
 
 The rule holds for filters, aggregations, breakouts, expressions, `order-by`, and join conditions. The legacy `[field, <ref>, null]` shape belongs only in dashboard and card **parameter targets**, never in `stages`.
@@ -82,17 +82,17 @@ Use an explicit join for a non-FK condition, a non-left strategy, or control ove
 
 ```yaml
 joins:
-- alias: Products
-  strategy: left-join              # left-join | right-join | inner-join | full-join
-  fields: none                     # all | none | list of field refs
-  stages:
-  - "lib/type": mbql.stage/mbql
-    source-table: [Sample Database, PUBLIC, PRODUCTS]
-  conditions:
-  - - "="
-    - {}
-    - [field, {}, [Sample Database, PUBLIC, ORDERS, PRODUCT_ID]]
-    - [field, {join-alias: Products}, [Sample Database, PUBLIC, PRODUCTS, ID]]
+  - alias: Products
+    strategy: left-join # left-join | right-join | inner-join | full-join
+    fields: none # all | none | list of field refs
+    stages:
+      - "lib/type": mbql.stage/mbql
+        source-table: [Sample Database, PUBLIC, PRODUCTS]
+    conditions:
+      - - "="
+        - {}
+        - [field, {}, [Sample Database, PUBLIC, ORDERS, PRODUCT_ID]]
+        - [field, { join-alias: Products }, [Sample Database, PUBLIC, PRODUCTS, ID]]
 ```
 
 Every reference to a joined column carries `join-alias: <alias>`, in the condition and downstream.
@@ -103,21 +103,21 @@ A stage can't filter on its own aggregation. Aggregate in stage 0, then filter i
 
 ```yaml
 stages:
-- "lib/type": mbql.stage/mbql
-  source-table: [Sample Database, PUBLIC, ORDERS]
-  aggregation:
-  - - sum
-    - {name: revenue, display-name: Revenue}
-    - [field, {}, [Sample Database, PUBLIC, ORDERS, TOTAL]]
-  breakout:
-  - [field, {}, [Sample Database, PUBLIC, ORDERS, PRODUCT_ID]]
-- "lib/type": mbql.stage/mbql
-  filters:
-  - - ">"
-    - {}
-    - [field, {base-type: type/Float}, revenue]
-    - 1000
-  limit: 10
+  - "lib/type": mbql.stage/mbql
+    source-table: [Sample Database, PUBLIC, ORDERS]
+    aggregation:
+      - - sum
+        - { name: revenue, display-name: Revenue }
+        - [field, {}, [Sample Database, PUBLIC, ORDERS, TOTAL]]
+    breakout:
+      - [field, {}, [Sample Database, PUBLIC, ORDERS, PRODUCT_ID]]
+  - "lib/type": mbql.stage/mbql
+    filters:
+      - - ">"
+        - {}
+        - [field, { base-type: type/Float }, revenue]
+        - 1000
+    limit: 10
 ```
 
 - Set `name` (column name) and `display-name` (header) on aggregations. Without `name`, later stages must use the default (`sum`, `count`, `avg_2`, ...).
@@ -129,12 +129,12 @@ stages:
 
 ```yaml
 aggregation:
-- - count
-  - lib/uuid: 3f6c1c8e-2d4b-4a57-9d0e-8b1f2a7c9e11
+  - - count
+    - lib/uuid: 3f6c1c8e-2d4b-4a57-9d0e-8b1f2a7c9e11
 order-by:
-- - desc
-  - {}
-  - [aggregation, {}, 3f6c1c8e-2d4b-4a57-9d0e-8b1f2a7c9e11]
+  - - desc
+    - {}
+    - [aggregation, {}, 3f6c1c8e-2d4b-4a57-9d0e-8b1f2a7c9e11]
 ```
 
 Mint each uuid with `uuidgen | tr 'A-Z' 'a-z'`. Every `lib/uuid` in a query must be unique. Expressions are referenced by name: `[expression, {}, Profit]`, where `Profit` is the expression's `lib/expression-name`.
@@ -147,15 +147,15 @@ Mint each uuid with `uuidgen | tr 'A-Z' 'a-z'`. Every `lib/uuid` in a query must
 
 ```yaml
 aggregation:
-- - sum
-  - {name: revenue}
-  - [field, {}, [Sample Database, PUBLIC, ORDERS, TOTAL]]
-- - offset
-  - {name: prev_month}
-  - [sum, {}, [field, {}, [Sample Database, PUBLIC, ORDERS, TOTAL]]]
-  - -1
+  - - sum
+    - { name: revenue }
+    - [field, {}, [Sample Database, PUBLIC, ORDERS, TOTAL]]
+  - - offset
+    - { name: prev_month }
+    - [sum, {}, [field, {}, [Sample Database, PUBLIC, ORDERS, TOTAL]]]
+    - -1
 breakout:
-- [field, {temporal-unit: month}, [Sample Database, PUBLIC, ORDERS, CREATED_AT]]
+  - [field, { temporal-unit: month }, [Sample Database, PUBLIC, ORDERS, CREATED_AT]]
 ```
 
 ## Reuse saved definitions by entity_id

@@ -1,6 +1,7 @@
 # metabase-cli
 
 Command-line client for building Metabase content as YAML files. It reads warehouse metadata from a Metabase instance, validates [representation format](https://github.com/metabase/representations) files, and saves a git repository into Metabase. It logs in to an instance in your browser (OAuth, Metabase v63+) or with an API key, and stores credentials securely on your machine.
+
 ## Supported Metabase versions
 
 The CLI is built against Metabase majors **58 through 64** (the client's `KNOWN_RANGE`), the latest patch of each; a newer server, or a head build whose version tag does not parse, runs as a head build past the newest known major: it gets every shape the client knows head answers with, and one stderr notice per run: and an older one keeps its real major, gets one stderr notice per run pointing at a Metabase upgrade, and is refused command by command with the version it needs.
@@ -85,7 +86,7 @@ List verbs answer with a single envelope:
 | `offset`      | Where this window starts.                                                                               |
 | `limit`       | Present only when you passed `--limit`.                                                                 |
 | `total`       | The server's count where the endpoint reports one, otherwise `null`. A display value, not a bound.      |
-| `has_more`    | Whether more items remain. This field, not `returned` against `total`, says to keep going.          |
+| `has_more`    | Whether more items remain. This field, not `returned` against `total`, says to keep going.              |
 | `next_offset` | Pass back as `--offset` for the next window; `null` when the walk is over.                              |
 | `truncated`   | Present when `--max-bytes` dropped trailing items; `bytes` is what the full answer would have measured. |
 
@@ -109,7 +110,7 @@ On success the server is probed once: the rendered output shows the user, role (
 | Flag                     | Description                                                                                                                                    |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `MB_URL`, then prompts. |
-| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history: pipe on stdin instead.                                                             |
+| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history: pipe on stdin instead.                                                              |
 | `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                       |
 | `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                      |
 | `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                       |
@@ -166,15 +167,14 @@ mb auth logout --profile staging --yes
 | `--profile <name>`, `-p` | Profile to clear (default: `default`).                                                                                            |
 | `--yes`                  | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
-
 ## File mode: metadata, edit, check, save
 
 The CLI builds Metabase content from YAML files in a git repository: the [Metabase representation format](https://github.com/metabase/representations). An agent or a human edits the files, and Metabase imports the repository through git-sync (remote sync). The CLI has three working commands:
 
-| Command       | Does                                                                     | Talks to Metabase |
-| ------------- | ------------------------------------------------------------------------ | ----------------- |
-| `mb metadata` | Reads databases, tables, and fields, each with its natural-key `ref`     | Yes               |
-| `mb check`    | Validates the repository's YAML against the representation schemas     | No                |
+| Command       | Does                                                                    | Talks to Metabase |
+| ------------- | ----------------------------------------------------------------------- | ----------------- |
+| `mb metadata` | Reads databases, tables, and fields, each with its natural-key `ref`    | Yes               |
+| `mb check`    | Validates the repository's YAML against the representation schemas      | No                |
 | `mb save`     | Runs `check`, commits, pushes, and imports the repository into Metabase | Yes               |
 
 Content has no create, update, or delete commands. The files are the only write path.
@@ -191,14 +191,14 @@ mb metadata 1 42 --json  # fields of table 42
 
 Each table row carries `ref: [database, schema, table]`. Each field row carries:
 
-| Field              | Meaning                                                                                  |
-| ------------------ | ---------------------------------------------------------------------------------------- |
-| `ref`              | `[database, schema, table, field]`, the natural key a YAML file writes                   |
-| `base_type`        | The warehouse type as Metabase maps it (`type/Integer`, `type/Text`, ...)                |
-| `semantic_type`    | The field's meaning (`type/PK`, `type/FK`, `type/Category`, ...), or `null`              |
-| `fk_target`        | The `ref` of the field a foreign key points at, or `null`                                |
-| `has_field_values` | `list`, `auto-list`, `search`, `none`, or `null`                                         |
-| `values`           | The distinct values of a `list` or `auto-list` field, or `null` for every other field    |
+| Field              | Meaning                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| `ref`              | `[database, schema, table, field]`, the natural key a YAML file writes                |
+| `base_type`        | The warehouse type as Metabase maps it (`type/Integer`, `type/Text`, ...)             |
+| `semantic_type`    | The field's meaning (`type/PK`, `type/FK`, `type/Category`, ...), or `null`           |
+| `fk_target`        | The `ref` of the field a foreign key points at, or `null`                             |
+| `has_field_values` | `list`, `auto-list`, `search`, `none`, or `null`                                      |
+| `values`           | The distinct values of a `list` or `auto-list` field, or `null` for every other field |
 
 The database and table ids only select the level to read. YAML files never contain them. A field request makes one `GET /api/database/:id?include=tables.fields` call, plus one `GET /api/field/:id/values` call per dropdown field.
 
@@ -228,12 +228,12 @@ mb save -m "add weekly revenue dashboard"
 mb save ./my-repo -m "fix filter" --json
 ```
 
-| Flag                    | Description                                                     |
-| ----------------------- | --------------------------------------------------------------- |
-| `--message <msg>`, `-m` | Required. The commit message.                                   |
-| `--wait` / `--no-wait`  | Poll the import until it finishes (default: wait).              |
-| `--timeout <ms>`        | Polling timeout in ms (default 600000).                         |
-| `--interval <ms>`       | Polling interval in ms (default 2000).                          |
+| Flag                    | Description                                        |
+| ----------------------- | -------------------------------------------------- |
+| `--message <msg>`, `-m` | Required. The commit message.                      |
+| `--wait` / `--no-wait`  | Poll the import until it finishes (default: wait). |
+| `--timeout <ms>`        | Polling timeout in ms (default 600000).            |
+| `--interval <ms>`       | Polling interval in ms (default 2000).             |
 
 `save` needs Metabase v60 or newer, the `remote_sync` premium feature, and superuser credentials.
 
@@ -256,17 +256,17 @@ A skill can declare server features in its frontmatter (`requires: [<feature>, .
 
 Bundled skills:
 
-| Name              | Use                                                                                   |
-| ----------------- | ------------------------------------------------------------------------------------- |
-| `core`            | The loop: `mb metadata`, edit YAML, `mb check`, `mb save`; auth; output conventions    |
-| `representations` | The format: spec and schema locations, folder layout, entity_ids, natural-key refs    |
-| `mbql`            | MBQL queries in YAML (card `dataset_query`, transform source, segment/measure)        |
-| `native-sql`      | Native SQL queries in YAML: template tags, field filters, snippets                    |
-| `visualization`   | A card's `display` and `visualization_settings`                                       |
-| `dashboard`       | Dashboard YAML: grid layout, dashcards, filters, click behavior, tabs                 |
-| `transform`       | Transform, transform tag, and transform job YAML                                      |
-| `document`        | Document YAML and the cards embedded in it                                            |
-| `notification`    | Notification channel YAML                                                             |
+| Name              | Use                                                                                 |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `core`            | The loop: `mb metadata`, edit YAML, `mb check`, `mb save`; auth; output conventions |
+| `representations` | The format: spec and schema locations, folder layout, entity_ids, natural-key refs  |
+| `mbql`            | MBQL queries in YAML (card `dataset_query`, transform source, segment/measure)      |
+| `native-sql`      | Native SQL queries in YAML: template tags, field filters, snippets                  |
+| `visualization`   | A card's `display` and `visualization_settings`                                     |
+| `dashboard`       | Dashboard YAML: grid layout, dashcards, filters, click behavior, tabs               |
+| `transform`       | Transform, transform tag, and transform job YAML                                    |
+| `document`        | Document YAML and the cards embedded in it                                          |
+| `notification`    | Notification channel YAML                                                           |
 
 Discovery surfaces:
 

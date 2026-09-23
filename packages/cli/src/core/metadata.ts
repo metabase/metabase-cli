@@ -8,11 +8,11 @@ import { ConfigError } from "@metabase/client/errors";
 
 // The representation format names warehouse objects by natural key, never numeric id, so every row
 // carries the exact ref a YAML file writes.
-export const TableRef = z.tuple([z.string(), z.string().nullable(), z.string()]);
-export type TableRef = z.infer<typeof TableRef>;
+const TableRef = z.tuple([z.string(), z.string().nullable(), z.string()]);
+type TableRef = z.infer<typeof TableRef>;
 
-export const FieldRef = z.tuple([z.string(), z.string().nullable(), z.string(), z.string()]);
-export type FieldRef = z.infer<typeof FieldRef>;
+const FieldRef = z.tuple([z.string(), z.string().nullable(), z.string(), z.string()]);
+type FieldRef = z.infer<typeof FieldRef>;
 
 export const MetadataTable = z.object({
   id: z.number().int(),

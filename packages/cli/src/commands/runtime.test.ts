@@ -29,7 +29,7 @@ const BEYOND_KNOWN = KNOWN_RANGE.max + 5;
 const PROBED_AT = "2026-03-04T05:06:07.000Z";
 const REPROBED_AT = "2026-03-04T06:00:00.000Z";
 
-const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were a head build past v${KNOWN_RANGE.max}. Run \`mb upgrade\` for a newer CLI.\n`;
+const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were a head build past v${KNOWN_RANGE.max}. Install a newer CLI with \`npm i -g @metabase/cli\`.\n`;
 const UNKNOWN_NOTICE = `Could not parse the Metabase version; assuming a head build past v${KNOWN_RANGE.max}.\n`;
 
 function shapeErrorEnvelope(message: string): unknown {

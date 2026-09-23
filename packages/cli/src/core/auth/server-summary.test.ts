@@ -62,10 +62,10 @@ describe("skewNotice", () => {
     );
   });
 
-  it("points a newer server at mb upgrade and names the major it is read as", () => {
+  it("points a newer server at a CLI install and names the major it is read as", () => {
     const beyond = KNOWN_RANGE.max + 1;
     expect(skewNotice(createServerProfile(serverAt(beyond)))).toBe(
-      `Metabase v0.${beyond}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were a head build past v${KNOWN_RANGE.max}. Run \`mb upgrade\` for a newer CLI.`,
+      `Metabase v0.${beyond}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were a head build past v${KNOWN_RANGE.max}. Install a newer CLI with \`npm i -g @metabase/cli\`.`,
     );
   });
 

@@ -76,17 +76,17 @@ serdes/meta:
 
 Every node is `{type, attrs?, content?, text?, marks?}`. The root is always `type: doc`.
 
-| Node | Rules |
-| --- | --- |
-| `paragraph`, `blockquote`, `codeBlock` | `content` is inline nodes. An empty `paragraph` is a blank line. |
-| `heading` | `attrs.level` 1 to 6 is required. |
-| `bulletList`, `orderedList` | `content` is `listItem` nodes. Each `listItem` wraps paragraphs. |
-| `table`, `tableRow`, `tableCell`, `tableHeader` | Table -> rows -> cells. |
-| `image` | `attrs.src` is required. `alt` and `title` are optional. |
-| `text` | `text` is required. `marks` holds formatting. |
-| `hardBreak` | A line break inside a paragraph. |
-| `cardEmbed` | An embedded card. See below. |
-| `smartLink` | An inline chip that links to another entity. See below. |
+| Node                                            | Rules                                                            |
+| ----------------------------------------------- | ---------------------------------------------------------------- |
+| `paragraph`, `blockquote`, `codeBlock`          | `content` is inline nodes. An empty `paragraph` is a blank line. |
+| `heading`                                       | `attrs.level` 1 to 6 is required.                                |
+| `bulletList`, `orderedList`                     | `content` is `listItem` nodes. Each `listItem` wraps paragraphs. |
+| `table`, `tableRow`, `tableCell`, `tableHeader` | Table -> rows -> cells.                                          |
+| `image`                                         | `attrs.src` is required. `alt` and `title` are optional.         |
+| `text`                                          | `text` is required. `marks` holds formatting.                    |
+| `hardBreak`                                     | A line break inside a paragraph.                                 |
+| `cardEmbed`                                     | An embedded card. See below.                                     |
+| `smartLink`                                     | An inline chip that links to another entity. See below.          |
 
 Marks on `text`: `bold`, `italic`, `underline`, `strike`, `code`, and `link` (`attrs.href`, for example `/dashboard/<entity_id>`).
 

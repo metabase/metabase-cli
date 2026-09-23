@@ -45,8 +45,6 @@ export function formatCell<T>(row: T, column: ColumnDef<T>): string {
 
 // A cell whose value failed its schema parse. Absence renders blank (see formatScalar), so drift
 // between a domain schema and the server needs a rendering that cannot be read as "no value".
-export const MALFORMED_CELL = "<malformed>";
-
 // The auth summary tables render one fixed row per profile, where a blank cell reads as a broken
 // renderer rather than as missing data, so they place this glyph instead.
 export const EMPTY_CELL = "—";

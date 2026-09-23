@@ -22,33 +22,33 @@ dataset_query:
   "lib/type": mbql/query
   database: Sample Database
   stages:
-  - "lib/type": mbql.stage/native
-    native: |-
-      SELECT PRODUCTS.CATEGORY, COUNT(*) AS n
-      FROM ORDERS
-      JOIN PRODUCTS ON ORDERS.PRODUCT_ID = PRODUCTS.ID
-      WHERE ORDERS.TOTAL > {{min_total}}
-        [[AND {{category}}]]
-      GROUP BY PRODUCTS.CATEGORY
-    template-tags:
-    - type: number
-      name: min_total
-      id: 6b0a3f4e-1c2d-4e5f-8a9b-0c1d2e3f4a5b
-      display-name: Minimum total
-      default: 0
-    - type: dimension
-      name: category
-      id: 0f9e8d7c-6b5a-4c3d-9e2f-1a0b9c8d7e6f
-      display-name: Category
-      dimension:
-      - field
-      - {}
-      - [Sample Database, PUBLIC, PRODUCTS, CATEGORY]
-      widget-type: string/=
+    - "lib/type": mbql.stage/native
+      native: |-
+        SELECT PRODUCTS.CATEGORY, COUNT(*) AS n
+        FROM ORDERS
+        JOIN PRODUCTS ON ORDERS.PRODUCT_ID = PRODUCTS.ID
+        WHERE ORDERS.TOTAL > {{min_total}}
+          [[AND {{category}}]]
+        GROUP BY PRODUCTS.CATEGORY
+      template-tags:
+        - type: number
+          name: min_total
+          id: 6b0a3f4e-1c2d-4e5f-8a9b-0c1d2e3f4a5b
+          display-name: Minimum total
+          default: 0
+        - type: dimension
+          name: category
+          id: 0f9e8d7c-6b5a-4c3d-9e2f-1a0b9c8d7e6f
+          display-name: Category
+          dimension:
+            - field
+            - {}
+            - [Sample Database, PUBLIC, PRODUCTS, CATEGORY]
+          widget-type: string/=
 serdes/meta:
-- id: <same entity_id>
-  label: orders_by_category
-  model: Card
+  - id: <same entity_id>
+    label: orders_by_category
+    model: Card
 ```
 
 - `native` is the SQL string. Use a `|-` block scalar for multi-line SQL.
@@ -62,17 +62,17 @@ serdes/meta:
 - `id` is a v4 UUID. Mint one per tag with `uuidgen | tr 'A-Z' 'a-z'`. Never reuse one.
 - A `{{name}}` without a tag fails when the query runs, not at `mb check`.
 
-| `type` | SQL | Extra properties |
-| --- | --- | --- |
-| `text` | `WHERE CATEGORY = {{cat}}` | `default`, `required`. Value is quoted. |
-| `number` | `WHERE PRICE > {{min}}` | `default`, `required`. Value is inserted as-is. |
-| `date` | `WHERE CREATED_AT > {{after}}` | `default` (ISO date), `required`. Value is quoted. |
-| `boolean` | `WHERE {{active}}` | `default`, `required`. Becomes `1 = 1` or `1 <> 1`. |
-| `dimension` (field filter) | `WHERE {{cat}}` (bare) | `dimension`, `widget-type` (required); `default`, `required`, `options`, `alias` |
-| `temporal-unit` | `SELECT {{period}} ... GROUP BY {{period}}` | `dimension` (required); `default` (e.g. `month`), `alias` |
-| `snippet` | `{{snippet: Active Orders}}` | `snippet-name`, `snippet-id` (both required) |
-| `card` | `FROM {{#1-top_products}}` | `card-id` (required) |
-| `table` | `FROM {{src}}` | `table-id` (table ref, required), `emit-alias` |
+| `type`                     | SQL                                         | Extra properties                                                                 |
+| -------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------- |
+| `text`                     | `WHERE CATEGORY = {{cat}}`                  | `default`, `required`. Value is quoted.                                          |
+| `number`                   | `WHERE PRICE > {{min}}`                     | `default`, `required`. Value is inserted as-is.                                  |
+| `date`                     | `WHERE CREATED_AT > {{after}}`              | `default` (ISO date), `required`. Value is quoted.                               |
+| `boolean`                  | `WHERE {{active}}`                          | `default`, `required`. Becomes `1 = 1` or `1 <> 1`.                              |
+| `dimension` (field filter) | `WHERE {{cat}}` (bare)                      | `dimension`, `widget-type` (required); `default`, `required`, `options`, `alias` |
+| `temporal-unit`            | `SELECT {{period}} ... GROUP BY {{period}}` | `dimension` (required); `default` (e.g. `month`), `alias`                        |
+| `snippet`                  | `{{snippet: Active Orders}}`                | `snippet-name`, `snippet-id` (both required)                                     |
+| `card`                     | `FROM {{#1-top_products}}`                  | `card-id` (required)                                                             |
+| `table`                    | `FROM {{src}}`                              | `table-id` (table ref, required), `emit-alias`                                   |
 
 ## Default to a field filter when the tag filters a real column
 
@@ -105,9 +105,9 @@ entity_id: <21-char NanoID>
 creator_id: admin@example.com
 content: "STATUS = 'active' AND TOTAL > 0"
 serdes/meta:
-- id: <same entity_id>
-  label: active_orders
-  model: NativeQuerySnippet
+  - id: <same entity_id>
+    label: active_orders
+    model: NativeQuerySnippet
 ```
 
 - `content` is bare SQL. Metabase inserts it verbatim where the tag appears.
@@ -129,14 +129,14 @@ Metabase derives basic widgets from the template tags. Add an entry to the card'
 
 ```yaml
 parameters:
-- id: 5c1e2d3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f
-  name: Category
-  slug: category
-  type: string/=
-  target: [dimension, [template-tag, category]]     # dimension and temporal-unit tags
-  values_source_type: static-list
-  values_source_config:
-    values: [[Widget, Widget], [Gadget, Gadget]]
+  - id: 5c1e2d3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f
+    name: Category
+    slug: category
+    type: string/=
+    target: [dimension, [template-tag, category]] # dimension and temporal-unit tags
+    values_source_type: static-list
+    values_source_config:
+      values: [[Widget, Widget], [Gadget, Gadget]]
 ```
 
 - Use `[variable, [template-tag, <name>]]` for `text`, `number`, `date`, and `boolean` tags.

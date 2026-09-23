@@ -45,22 +45,22 @@ Never put a field ref or a numeric id in a binding key.
 
 `visualization_settings: {}` is valid. For a simple aggregate, Metabase picks the columns. Set these keys to pin the choice, or when the chart falls back to a column picker.
 
-| `display` | Data shape | Binding keys |
-| --- | --- | --- |
-| `scalar` | 1 row | `scalar.field` (when the result has more than 1 column) |
-| `smartscalar` | one measure by one time breakout | `scalar.field`, optional `scalar.comparisons` |
-| `gauge`, `progress` | 1 row, 1 number | `gauge.segments`; `progress.goal` |
-| `bar`, `line`, `area`, `combo`, `row` | 1 or 2 dimensions, 1 or more measures | `graph.dimensions`, `graph.metrics` |
-| `scatter` | 2 numeric columns | `graph.dimensions`, `graph.metrics` |
-| `waterfall` | 1 dimension, 1 measure | `graph.dimensions`, `graph.metrics` |
-| `boxplot` | unaggregated rows, 2 dimensions, 1 measure | `graph.dimensions`, `graph.metrics` |
-| `pie` | 1 dimension, 1 measure | `pie.dimension`, `pie.metric` |
-| `funnel` | stage and value | `funnel.dimension`, `funnel.metric` |
-| `map` (region) | region column and measure | `map.type: region`, `map.region`, `map.dimension`, `map.metric` |
-| `map` (pin, grid) | latitude and longitude | `map.type`, `map.latitude_column`, `map.longitude_column`, plus `map.metric_column` for grid |
-| `sankey` | source, target, value | `sankey.source`, `sankey.target`, `sankey.value` |
-| `pivot` | 2 or more breakouts, 1 or more aggregations | `pivot_table.column_split` |
-| `table`, `object` | anything | none |
+| `display`                             | Data shape                                  | Binding keys                                                                                 |
+| ------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `scalar`                              | 1 row                                       | `scalar.field` (when the result has more than 1 column)                                      |
+| `smartscalar`                         | one measure by one time breakout            | `scalar.field`, optional `scalar.comparisons`                                                |
+| `gauge`, `progress`                   | 1 row, 1 number                             | `gauge.segments`; `progress.goal`                                                            |
+| `bar`, `line`, `area`, `combo`, `row` | 1 or 2 dimensions, 1 or more measures       | `graph.dimensions`, `graph.metrics`                                                          |
+| `scatter`                             | 2 numeric columns                           | `graph.dimensions`, `graph.metrics`                                                          |
+| `waterfall`                           | 1 dimension, 1 measure                      | `graph.dimensions`, `graph.metrics`                                                          |
+| `boxplot`                             | unaggregated rows, 2 dimensions, 1 measure  | `graph.dimensions`, `graph.metrics`                                                          |
+| `pie`                                 | 1 dimension, 1 measure                      | `pie.dimension`, `pie.metric`                                                                |
+| `funnel`                              | stage and value                             | `funnel.dimension`, `funnel.metric`                                                          |
+| `map` (region)                        | region column and measure                   | `map.type: region`, `map.region`, `map.dimension`, `map.metric`                              |
+| `map` (pin, grid)                     | latitude and longitude                      | `map.type`, `map.latitude_column`, `map.longitude_column`, plus `map.metric_column` for grid |
+| `sankey`                              | source, target, value                       | `sankey.source`, `sankey.target`, `sankey.value`                                             |
+| `pivot`                               | 2 or more breakouts, 1 or more aggregations | `pivot_table.column_split`                                                                   |
+| `table`, `object`                     | anything                                    | none                                                                                         |
 
 `graph.dimensions` and `graph.metrics` are lists. The first dimension is the x-axis. A second dimension splits the measure into series. `bar`, `line`, `area`, and `combo` share one key set, so you can switch among them without other changes.
 
@@ -69,7 +69,7 @@ display: bar
 visualization_settings:
   "graph.dimensions": [CREATED_AT, CATEGORY]
   "graph.metrics": [count]
-  "stackable.stack_type": stacked       # or normalized (100%); omit for side by side
+  "stackable.stack_type": stacked # or normalized (100%); omit for side by side
   "graph.x_axis.title_text": Quarter
 ```
 
@@ -97,7 +97,7 @@ visualization_settings:
 visualization_settings:
   column_settings:
     '["name","TOTAL"]':
-      number_style: currency       # decimal, percent, scientific, currency
+      number_style: currency # decimal, percent, scientific, currency
       currency: USD
       decimals: 2
       column_title: Revenue
@@ -112,16 +112,16 @@ The spec's Column Settings section lists every formatting key.
 
 ## Find other options in the spec
 
-| Need | Spec subsection |
-| --- | --- |
-| Axis titles, scales, goal line, trend line, data labels, stacking | Graph Settings |
-| Per-series color, line style, right axis, per-series display on `combo` | Series Settings |
-| Column order and visibility, conditional cell colors | Table Settings, Conditional Formatting |
-| Pivot rows, columns, values, totals | Pivot Table Settings |
-| Legend, center total, slice colors | Pie Chart Settings |
-| Previous-period and target comparisons | Smart Scalar Settings |
-| Gauge bands, funnel, waterfall, sankey, boxplot, map options | the matching subsection |
-| Heading, text, and link cards; click behavior | Virtual Card Settings, Click Behavior (see `dashboard`) |
+| Need                                                                    | Spec subsection                                         |
+| ----------------------------------------------------------------------- | ------------------------------------------------------- |
+| Axis titles, scales, goal line, trend line, data labels, stacking       | Graph Settings                                          |
+| Per-series color, line style, right axis, per-series display on `combo` | Series Settings                                         |
+| Column order and visibility, conditional cell colors                    | Table Settings, Conditional Formatting                  |
+| Pivot rows, columns, values, totals                                     | Pivot Table Settings                                    |
+| Legend, center total, slice colors                                      | Pie Chart Settings                                      |
+| Previous-period and target comparisons                                  | Smart Scalar Settings                                   |
+| Gauge bands, funnel, waterfall, sankey, boxplot, map options            | the matching subsection                                 |
+| Heading, text, and link cards; click behavior                           | Virtual Card Settings, Click Behavior (see `dashboard`) |
 
 The repo's existing cards are working examples. Copy the `visualization_settings` of a card with the same `display`, then change the column names.
 

@@ -664,14 +664,12 @@ describe("the shipped skills", () => {
     expect(all.map((skill) => skill.name)).toEqual([
       "core",
       "dashboard",
-      "data-workflow",
       "document",
-      "git-sync",
       "mbql",
       "metabase-cli",
-      "metadata",
       "native-sql",
       "notification",
+      "representations",
       "transform",
       "visualization",
     ]);

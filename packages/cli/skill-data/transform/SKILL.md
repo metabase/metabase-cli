@@ -12,12 +12,12 @@ Load `representations` first for entity_ids, refs, and `serdes/meta`. Load `mbql
 
 ## Four entity types make a scheduled transform
 
-| Entity | File | Schema | Spec section |
-| --- | --- | --- | --- |
-| Transform | `collections/transforms/<slug>.yaml` | `transform.yaml` | Transform |
-| TransformTag | `transforms/transform_tags/<slug>.yaml` | `transform_tag.yaml` | TransformTag |
-| TransformJob | `transforms/transform_jobs/<slug>.yaml` | `transform_job.yaml` | TransformJob |
-| PythonLibrary | `python_libraries/<path>.yaml` | `python_library.yaml` | PythonLibrary |
+| Entity        | File                                    | Schema                | Spec section  |
+| ------------- | --------------------------------------- | --------------------- | ------------- |
+| Transform     | `collections/transforms/<slug>.yaml`    | `transform.yaml`      | Transform     |
+| TransformTag  | `transforms/transform_tags/<slug>.yaml` | `transform_tag.yaml`  | TransformTag  |
+| TransformJob  | `transforms/transform_jobs/<slug>.yaml` | `transform_job.yaml`  | TransformJob  |
+| PythonLibrary | `python_libraries/<path>.yaml`          | `python_library.yaml` | PythonLibrary |
 
 The schemas are in `$DIR/spec/schemas/` (see `representations`). A job lists tags. A transform carries tags. The job runs every transform that carries any of its tags.
 
@@ -37,31 +37,31 @@ source:
     "lib/type": mbql/query
     database: Sample Database
     stages:
-    - "lib/type": mbql.stage/native
-      native: |-
-        SELECT
-          p.CATEGORY,
-          COUNT(*) AS order_count,
-          SUM(o.TOTAL) AS total_revenue
-        FROM ORDERS o
-        JOIN PRODUCTS p ON o.PRODUCT_ID = p.ID
-        GROUP BY p.CATEGORY
+      - "lib/type": mbql.stage/native
+        native: |-
+          SELECT
+            p.CATEGORY,
+            COUNT(*) AS order_count,
+            SUM(o.TOTAL) AS total_revenue
+          FROM ORDERS o
+          JOIN PRODUCTS p ON o.PRODUCT_ID = p.ID
+          GROUP BY p.CATEGORY
 target:
   database: Sample Database
   type: table
   schema: TRANSFORMS
   name: revenue_by_category
 tags:
-- entity_id: o4ev9uINpMGvyLlsBllvY
-  position: 0
-  tag_id: dUW7nvQHQBdA0Rx0gJckI   # entity_id of the "daily" TransformTag file
-  serdes/meta:
-  - id: o4ev9uINpMGvyLlsBllvY
-    model: TransformTransformTag
+  - entity_id: o4ev9uINpMGvyLlsBllvY
+    position: 0
+    tag_id: dUW7nvQHQBdA0Rx0gJckI # entity_id of the "daily" TransformTag file
+    serdes/meta:
+      - id: o4ev9uINpMGvyLlsBllvY
+        model: TransformTransformTag
 serdes/meta:
-- id: IKFex8lpcj60yHlBmZuJm
-  label: revenue_by_category
-  model: Transform
+  - id: IKFex8lpcj60yHlBmZuJm
+    label: revenue_by_category
+    model: Transform
 ```
 
 - **Required fields:** `name`, `entity_id`, `creator_id` (a user email), `source_database_id`, `source`, `target`, `serdes/meta`.
@@ -78,16 +78,16 @@ serdes/meta:
 An MBQL source uses an `mbql.stage/mbql` stage with `source-table` and field refs from `mb metadata`. See `mbql` for clause syntax. The output column names become warehouse column names. Set `name` in each aggregation's options. Otherwise the columns get names like `count` and `sum`.
 
 ```yaml
-    stages:
-    - "lib/type": mbql.stage/mbql
-      source-table: [Sample Database, PUBLIC, ORDERS]
-      aggregation:
+stages:
+  - "lib/type": mbql.stage/mbql
+    source-table: [Sample Database, PUBLIC, ORDERS]
+    aggregation:
       - - sum
         - name: total_revenue
         - - field
           - base-type: type/Float
           - [Sample Database, PUBLIC, ORDERS, TOTAL]
-      breakout:
+    breakout:
       - - field
         - temporal-unit: month
         - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
@@ -100,10 +100,10 @@ source:
   type: python
   source-database: Sample Database
   source-tables:
-  - alias: orders
-    database_id: Sample Database
-    schema: PUBLIC
-    table: ORDERS
+    - alias: orders
+      database_id: Sample Database
+      schema: PUBLIC
+      table: ORDERS
   body: |-
     import pandas as pd
 
@@ -131,8 +131,8 @@ source: |-
   def cents_to_dollars(series):
       return series / 100
 serdes/meta:
-- id: <same entity_id>
-  model: PythonLibrary
+  - id: <same entity_id>
+    model: PythonLibrary
 ```
 
 If `python_libraries/` already holds the library file, edit it. Do not add a second library file.
@@ -148,9 +148,9 @@ To give a transform its own schedule, add a custom tag and a job:
 name: finance-nightly
 entity_id: VKA9keBbNvGbSlLy0aBu8
 serdes/meta:
-- id: VKA9keBbNvGbSlLy0aBu8
-  label: finance_nightly
-  model: TransformTag
+  - id: VKA9keBbNvGbSlLy0aBu8
+    label: finance_nightly
+    model: TransformTag
 ```
 
 ```yaml
@@ -161,16 +161,16 @@ description: Runs finance-nightly transforms at 02:00
 schedule: 0 0 2 * * ? *
 ui_display_type: cron/builder
 job_tags:
-- entity_id: ngjKVCWXZQyafI5buaeZA
-  position: 0
-  tag_id: VKA9keBbNvGbSlLy0aBu8
-  serdes/meta:
-  - id: ngjKVCWXZQyafI5buaeZA
-    model: TransformJobTransformTag
+  - entity_id: ngjKVCWXZQyafI5buaeZA
+    position: 0
+    tag_id: VKA9keBbNvGbSlLy0aBu8
+    serdes/meta:
+      - id: ngjKVCWXZQyafI5buaeZA
+        model: TransformJobTransformTag
 serdes/meta:
-- id: ZvVNMTv1Rnv60HKqkyYGE
-  label: finance_nightly_job
-  model: TransformJob
+  - id: ZvVNMTv1Rnv60HKqkyYGE
+    label: finance_nightly_job
+    model: TransformJob
 ```
 
 - **`schedule` is a Quartz cron string with 7 fields:** second, minute, hour, day-of-month, month, day-of-week, year. Put `?` in day-of-month or day-of-week.

@@ -3,14 +3,14 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import { ConfigError, isFileNotFoundError } from "@metabase/client/errors";
 
-export interface InputSources {
+interface InputSources {
   flag?: string | undefined;
   file?: string | undefined;
   positional?: string | undefined;
   required?: boolean | undefined;
 }
 
-export const DEFAULT_FLAG_NAME = "--body";
+const DEFAULT_FLAG_NAME = "--body";
 
 const SOURCE_LIST = `${DEFAULT_FLAG_NAME}, --file, stdin, or a positional argument`;
 
@@ -54,7 +54,7 @@ async function readFileSource(path: string): Promise<string> {
   }
 }
 
-export function fileNotFoundError(path: string): ConfigError {
+function fileNotFoundError(path: string): ConfigError {
   return new ConfigError(`--file not found: ${path}`);
 }
 

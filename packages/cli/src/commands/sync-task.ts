@@ -1,21 +1,7 @@
-import { z } from "zod";
-
 import { isSyncTaskFailed, SyncTask } from "@metabase/client/domain/git-sync";
 import type { PollOptions } from "@metabase/client/poll";
 
-import type { ResourceView } from "../output/view";
 import type { WaitSchedule } from "./wait-flags";
-
-export const SyncTaskIdle = z.object({ status: z.literal("idle") });
-export type SyncTaskIdle = z.infer<typeof SyncTaskIdle>;
-
-export const SyncTaskOrIdle = z.union([SyncTask, SyncTaskIdle]);
-export type SyncTaskOrIdle = z.infer<typeof SyncTaskOrIdle>;
-
-export const syncTaskIdleView: ResourceView<SyncTaskIdle> = {
-  compactPick: SyncTaskIdle,
-  tableColumns: [{ key: "status", label: "Status" }],
-};
 
 // A sync of a large instance runs for minutes and reports the same status for most of them, so the
 // wait backs off rather than spending a request per interval on an answer that will not have moved.

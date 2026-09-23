@@ -63,7 +63,7 @@ export function skewNotice(profile: ServerProfile): string | null {
       return `Metabase ${versionLabel(profile.version)} is older than this CLI supports (v${min}+); commands needing a newer feature are refused by name. Upgrade Metabase to v${min} or later.`;
     }
     case "newer-than-known": {
-      return `Metabase ${versionLabel(profile.version)} is newer than this CLI supports (up to v${max}); commands run as if it were a head build past v${max}. Run \`mb upgrade\` for a newer CLI.`;
+      return `Metabase ${versionLabel(profile.version)} is newer than this CLI supports (up to v${max}); commands run as if it were a head build past v${max}. Install a newer CLI with \`npm i -g @metabase/cli\`.`;
     }
     case "unknown": {
       return `Could not parse the Metabase version; assuming a head build past v${max}.`;

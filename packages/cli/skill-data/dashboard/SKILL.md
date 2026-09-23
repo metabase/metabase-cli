@@ -16,28 +16,28 @@ Read the spec sections Dashboard, Parameter, and Click Behavior, and the schema 
 name: Sales overview
 entity_id: I7ecmnoFMkYs7QyXep6g9
 creator_id: admin@example.com
-collection_id: WszzUc4pekzdwn9nMHEDo       # the collection's entity_id
-width: full                                 # or fixed (the default)
-parameters: []                              # filters, below
-tabs: []                                    # optional, below
+collection_id: WszzUc4pekzdwn9nMHEDo # the collection's entity_id
+width: full # or fixed (the default)
+parameters: [] # filters, below
+tabs: [] # optional, below
 dashcards:
-- entity_id: p3bUfyPwOrpCazcD4EKIx          # fresh NanoID per dashcard
-  card_id: 5w9ZjCIyQgqE5iuBSKzCv            # the card's entity_id; null for text/heading/link
-  row: 0
-  col: 0
-  size_x: 6
-  size_y: 3
-  parameter_mappings: []
-  visualization_settings: {}                # overrides the card's settings on this dashboard only
-  serdes/meta:
-  - id: I7ecmnoFMkYs7QyXep6g9               # the dashboard's entity_id
-    model: Dashboard
-  - id: p3bUfyPwOrpCazcD4EKIx               # this dashcard's entity_id
-    model: DashboardCard
+  - entity_id: p3bUfyPwOrpCazcD4EKIx # fresh NanoID per dashcard
+    card_id: 5w9ZjCIyQgqE5iuBSKzCv # the card's entity_id; null for text/heading/link
+    row: 0
+    col: 0
+    size_x: 6
+    size_y: 3
+    parameter_mappings: []
+    visualization_settings: {} # overrides the card's settings on this dashboard only
+    serdes/meta:
+      - id: I7ecmnoFMkYs7QyXep6g9 # the dashboard's entity_id
+        model: Dashboard
+      - id: p3bUfyPwOrpCazcD4EKIx # this dashcard's entity_id
+        model: DashboardCard
 serdes/meta:
-- id: I7ecmnoFMkYs7QyXep6g9
-  label: sales_overview
-  model: Dashboard
+  - id: I7ecmnoFMkYs7QyXep6g9
+    label: sales_overview
+    model: Dashboard
 ```
 
 - Give every dashcard its own `entity_id` and a two-entry `serdes/meta`: the dashboard, then the dashcard.
@@ -63,17 +63,17 @@ Leave `dashboard_id` off a card that other dashboards or documents also use.
 
 Default sizes (width x height):
 
-| `display` | Size |
-| --- | --- |
-| `scalar`, `smartscalar` | 6 x 3 |
-| `bar`, `line`, `area`, `row`, `combo`, `scatter`, `funnel`, `progress`, `map`, `gauge`, `boxplot` | 12 x 6 |
-| `pie`, `iframe` | 12 x 8 |
-| `table`, `pivot`, `object` | 12 x 9 |
-| `waterfall` | 14 x 6 |
-| `sankey` | 16 x 10 |
-| `heading` | 24 x 1 |
-| `text` | 12 x 3 |
-| `link` | 8 x 1 |
+| `display`                                                                                         | Size    |
+| ------------------------------------------------------------------------------------------------- | ------- |
+| `scalar`, `smartscalar`                                                                           | 6 x 3   |
+| `bar`, `line`, `area`, `row`, `combo`, `scatter`, `funnel`, `progress`, `map`, `gauge`, `boxplot` | 12 x 6  |
+| `pie`, `iframe`                                                                                   | 12 x 8  |
+| `table`, `pivot`, `object`                                                                        | 12 x 9  |
+| `waterfall`                                                                                       | 14 x 6  |
+| `sankey`                                                                                          | 16 x 10 |
+| `heading`                                                                                         | 24 x 1  |
+| `text`                                                                                            | 12 x 3  |
+| `link`                                                                                            | 8 x 1   |
 
 A standard layout has three bands:
 
@@ -89,29 +89,29 @@ Add the widget to `parameters`. Then add a `parameter_mappings` entry to every d
 
 ```yaml
 parameters:
-- id: 3ba1ea5b-978c-495e-9804-794d72b11313   # unique in this dashboard; mint with uuidgen
-  name: Category
-  slug: category
-  type: string/=
-  sectionId: string
+  - id: 3ba1ea5b-978c-495e-9804-794d72b11313 # unique in this dashboard; mint with uuidgen
+    name: Category
+    slug: category
+    type: string/=
+    sectionId: string
 ```
 
 ```yaml
 # on each target dashcard
 parameter_mappings:
-- card_id: C4sUrYgs09JbPzHzhLNj8                # this dashcard's card_id
-  parameter_id: 3ba1ea5b-978c-495e-9804-794d72b11313
-  target: [dimension, [field, [Sample Database, PUBLIC, PRODUCTS, CATEGORY], null]]
+  - card_id: C4sUrYgs09JbPzHzhLNj8 # this dashcard's card_id
+    parameter_id: 3ba1ea5b-978c-495e-9804-794d72b11313
+    target: [dimension, [field, [Sample Database, PUBLIC, PRODUCTS, CATEGORY], null]]
 ```
 
 Set `type` to one of these values:
 
-| Group | `type` |
-| --- | --- |
-| Text | `string/=` `string/!=` `string/contains` `string/does-not-contain` `string/starts-with` `string/ends-with` |
-| Number | `number/=` `number/!=` `number/>=` `number/<=` `number/between` |
-| Date | `date/single` `date/range` `date/relative` `date/month-year` `date/quarter-year` `date/all-options` |
-| Other | `boolean/=`, `temporal-unit` (time grouping; list the allowed units in `temporal_units`) |
+| Group  | `type`                                                                                                     |
+| ------ | ---------------------------------------------------------------------------------------------------------- |
+| Text   | `string/=` `string/!=` `string/contains` `string/does-not-contain` `string/starts-with` `string/ends-with` |
+| Number | `number/=` `number/!=` `number/>=` `number/<=` `number/between`                                            |
+| Date   | `date/single` `date/range` `date/relative` `date/month-year` `date/quarter-year` `date/all-options`        |
+| Other  | `boolean/=`, `temporal-unit` (time grouping; list the allowed units in `temporal_units`)                   |
 
 Warning: `mb check` does not validate `type`. A value outside this table imports, but the widget breaks.
 
@@ -121,15 +121,15 @@ Warning: `mb check` does not validate `type`. A value outside this table imports
 
 Parameter targets use the legacy field-ref order `[field, <ref>, <options-or-null>]`, with the ref second. The query order inside `dataset_query` is the reverse: `[field, {}, <ref>]`. `mb check` rejects the query order in a target.
 
-| The card's query has | `target` |
-| --- | --- |
-| An MBQL column | `[dimension, [field, [Sample Database, PUBLIC, ORDERS, CREATED_AT], null]]` |
-| A column through an implicit join | `[dimension, [field, [Sample Database, PUBLIC, PRODUCTS, CATEGORY], {source-field: [Sample Database, PUBLIC, ORDERS, PRODUCT_ID]}]]` |
-| An MBQL expression | `[dimension, [expression, Profit]]` |
-| A column of a later stage | `[dimension, [field, CATEGORY, null], {stage-number: 1}]` |
-| A native `dimension` or `temporal-unit` tag | `[dimension, [template-tag, category_filter]]` |
-| A native `text`, `number`, `date`, or `boolean` tag | `[variable, [template-tag, min_price]]` |
-| A `{{name}}` placeholder in a text or heading card | `[text-tag, name]` (omit `card_id`) |
+| The card's query has                                | `target`                                                                                                                             |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| An MBQL column                                      | `[dimension, [field, [Sample Database, PUBLIC, ORDERS, CREATED_AT], null]]`                                                          |
+| A column through an implicit join                   | `[dimension, [field, [Sample Database, PUBLIC, PRODUCTS, CATEGORY], {source-field: [Sample Database, PUBLIC, ORDERS, PRODUCT_ID]}]]` |
+| An MBQL expression                                  | `[dimension, [expression, Profit]]`                                                                                                  |
+| A column of a later stage                           | `[dimension, [field, CATEGORY, null], {stage-number: 1}]`                                                                            |
+| A native `dimension` or `temporal-unit` tag         | `[dimension, [template-tag, category_filter]]`                                                                                       |
+| A native `text`, `number`, `date`, or `boolean` tag | `[variable, [template-tag, min_price]]`                                                                                              |
+| A `{{name}}` placeholder in a text or heading card  | `[text-tag, name]` (omit `card_id`)                                                                                                  |
 
 Copy field refs from `mb metadata <db-id> <table-id>`. Use its `fk_target` to confirm an implicit-join `source-field`. Take native tag names from the card's `template-tags` (see `native-sql`).
 
@@ -163,7 +163,7 @@ Each tab has its own grid that starts at `row: 0`. Deleting a tab deletes every 
 
 ```yaml
 series:
-- {card_id: OMuZ0wHe2O5Z_59-cLmn4, position: 0}
+  - { card_id: OMuZ0wHe2O5Z_59-cLmn4, position: 0 }
 ```
 
 ## Heading, text, and link cards have no card
@@ -172,7 +172,7 @@ Set `card_id: null` and put the content in `visualization_settings`:
 
 ```yaml
 visualization_settings:
-  virtual_card: {display: heading}      # or text (markdown), link, iframe
+  virtual_card: { display: heading } # or text (markdown), link, iframe
   text: Sales
 ```
 
@@ -182,11 +182,11 @@ A link card uses `link: {url: ...}` or `link: {entity: {id: <entity_id>, model: 
 
 Put `click_behavior` in the dashcard's `visualization_settings` to cover the whole card. For one table column, put it in `column_settings['["name","COL"]'].click_behavior`. Keys are camelCase. Don't put click behavior in a card file.
 
-| Goal | `type` |
-| --- | --- |
-| Show the default drill menu | `actionMenu` (the default; omit `click_behavior`) |
-| Filter the other cards with the clicked value | `crossfilter` |
-| Open a URL, dashboard, or question | `link` with `linkType: url`, `dashboard`, or `question` |
+| Goal                                          | `type`                                                  |
+| --------------------------------------------- | ------------------------------------------------------- |
+| Show the default drill menu                   | `actionMenu` (the default; omit `click_behavior`)       |
+| Filter the other cards with the clicked value | `crossfilter`                                           |
+| Open a URL, dashboard, or question            | `link` with `linkType: url`, `dashboard`, or `question` |
 
 **Crossfilter.** On the driver dashcard, map the clicked column to a dashboard parameter. On each follower dashcard, map the same parameter with `parameter_mappings`. The driver dashcard needs no mapping for it.
 
@@ -195,10 +195,10 @@ visualization_settings:
   click_behavior:
     type: crossfilter
     parameterMapping:
-      3ba1ea5b-978c-495e-9804-794d72b11313:          # the parameter id, used three times
+      3ba1ea5b-978c-495e-9804-794d72b11313: # the parameter id, used three times
         id: 3ba1ea5b-978c-495e-9804-794d72b11313
-        source: {type: column, id: CATEGORY, name: Category}   # the card's output column
-        target: {type: parameter, id: 3ba1ea5b-978c-495e-9804-794d72b11313}
+        source: { type: column, id: CATEGORY, name: Category } # the card's output column
+        target: { type: parameter, id: 3ba1ea5b-978c-495e-9804-794d72b11313 }
 ```
 
 **Link to a URL.** `{{COLUMN}}` inserts the clicked row's value. `{{filter:status}}` inserts the value of the dashboard parameter with slug or name `status`.

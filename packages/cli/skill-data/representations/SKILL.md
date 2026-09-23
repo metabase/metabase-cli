@@ -1,6 +1,6 @@
 ---
 name: representations
-description: "The Metabase representation format: the YAML files in the repo that define collections, cards, dashboards, documents, segments, measures, snippets, transforms, and channels. Covers where the full spec and per-entity JSON schemas live on disk, the folder layout, entity keys (entity_id NanoIDs, natural-key refs to databases/tables/fields), serdes/meta, and collection placement. Load before creating or editing any YAML file. Triggers: \"what fields does a card need\", \"where does this file go\", \"how do I reference a table\", \"check says my YAML is invalid\", \"make a new entity_id\"."
+description: 'The Metabase representation format: the YAML files in the repo that define collections, cards, dashboards, documents, segments, measures, snippets, transforms, and channels. Covers where the full spec and per-entity JSON schemas live on disk, the folder layout, entity keys (entity_id NanoIDs, natural-key refs to databases/tables/fields), serdes/meta, and collection placement. Load before creating or editing any YAML file. Triggers: "what fields does a card need", "where does this file go", "how do I reference a table", "check says my YAML is invalid", "make a new entity_id".'
 allowed-tools: Read, Write, Edit, Bash
 ---
 
@@ -49,11 +49,11 @@ channels/<slug>.yaml                             notification channels
 - **References to other content** use the target's `entity_id` (collection, card, dashboard, document).
 - **References to warehouse objects** use natural keys, never numeric ids. Get them from `mb metadata`, whose rows carry a ready-made `ref`:
 
-  | Reference | Format |
-  | --- | --- |
-  | Database | `"Sample Database"` |
-  | Table | `["Sample Database", "PUBLIC", "ORDERS"]` |
-  | Field | `["Sample Database", "PUBLIC", "ORDERS", "TOTAL"]` |
+  | Reference | Format                                             |
+  | --------- | -------------------------------------------------- |
+  | Database  | `"Sample Database"`                                |
+  | Table     | `["Sample Database", "PUBLIC", "ORDERS"]`          |
+  | Field     | `["Sample Database", "PUBLIC", "ORDERS", "TOTAL"]` |
 
   A schemaless database uses `null` for the schema slot.
 

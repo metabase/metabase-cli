@@ -16,19 +16,7 @@ const waitScheduleFlags = {
   },
 } as const;
 
-export const waitFlags = {
-  wait: {
-    type: "boolean",
-    description: "Poll until the operation reaches a terminal state",
-    default: false,
-  },
-  ...waitScheduleFlags,
-} as const;
-
-// git-sync import/export/stash block by default — these are interactive content-sync
-// operations where the terminal result is what the caller wants. The blocking default is
-// the deliberate, documented exception to the fire-and-forget `waitFlags` default; both
-// share `waitScheduleFlags` so timeout/interval can never drift between the two.
+// A git-sync import blocks by default: the caller wants its terminal result.
 export const gitSyncWaitFlags = {
   wait: {
     type: "boolean",
@@ -61,7 +49,7 @@ interface WaitOptions {
   schedule: WaitSchedule;
 }
 
-export function parseWaitSchedule(args: WaitScheduleArgs): WaitSchedule {
+function parseWaitSchedule(args: WaitScheduleArgs): WaitSchedule {
   const interval = args.interval ?? String(DEFAULT_INTERVAL_MS);
   const timeout = args.timeout ?? String(DEFAULT_TIMEOUT_MS);
   return {
