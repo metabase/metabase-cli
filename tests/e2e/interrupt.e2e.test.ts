@@ -11,7 +11,6 @@ import { cleanupConfigHome, mkTempConfigHome, runCliInterrupt } from "./run-cli"
 // assertion is about its own signal handling.
 const INTERRUPT_EXIT_CODE = 130;
 const INTERRUPT_AFTER_MS = 1_500;
-const POLL_INTERVAL_MS = 200;
 
 type StubHandler = (request: IncomingMessage, response: ServerResponse) => void;
 
@@ -45,11 +44,6 @@ async function stopStub(stub: StubServer): Promise<void> {
   });
 }
 
-function sendJson(response: ServerResponse, body: unknown): void {
-  response.writeHead(200, { "content-type": "application/json" });
-  response.end(JSON.stringify(body));
-}
-
 describe("SIGINT handling (end-to-end)", () => {
   const tempDirs: string[] = [];
   const stubs: StubServer[] = [];
@@ -77,28 +71,7 @@ describe("SIGINT handling (end-to-end)", () => {
     });
 
     const result = await runCliInterrupt({
-      args: ["card", "list", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: { MB_URL: stub.url, MB_API_KEY: "mb_e2e_interrupt_key" },
-      interruptAfterMs: INTERRUPT_AFTER_MS,
-    });
-
-    expect(result.exitCode).toBe(INTERRUPT_EXIT_CODE);
-    expect(cliErrorCategory(result.stderr)).toBe("abort");
-    expect(cliErrorMessage(result.stderr)).toBe("interrupted");
-  });
-
-  it("aborts a --wait poll loop and exits 130", async () => {
-    const stub = await stubServer((request, response) => {
-      if (request.method === "POST") {
-        sendJson(response, { status: "ok" });
-        return;
-      }
-      sendJson(response, { id: 1, name: "stub", initial_sync_status: "incomplete" });
-    });
-
-    const result = await runCliInterrupt({
-      args: ["db", "sync-schema", "1", "--wait", "--interval", String(POLL_INTERVAL_MS), "--json"],
+      args: ["metadata", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: { MB_URL: stub.url, MB_API_KEY: "mb_e2e_interrupt_key" },
       interruptAfterMs: INTERRUPT_AFTER_MS,

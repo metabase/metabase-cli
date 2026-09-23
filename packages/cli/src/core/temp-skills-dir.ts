@@ -15,18 +15,19 @@ interface SkillFixture {
   body: string;
 }
 
-const GAMMA_FRONTMATTER =
-  "---\nname: gamma\ndescription: The transform skill.\nrequires: [transforms]\n---\n\n";
+const BETA_FRONTMATTER = "---\nname: beta\ndescription: The second skill.\n---\n\n";
 
-export const GAMMA_SKILL_MD = `${GAMMA_FRONTMATTER}Gamma instructions.\n<!-- requires: transformJobActivation -->\nGamma on activation.\n<!-- /requires -->\n`;
-export const GAMMA_WITH_ACTIVATION = `${GAMMA_FRONTMATTER}Gamma instructions.\nGamma on activation.\n`;
-export const GAMMA_WITHOUT_ACTIVATION = `${GAMMA_FRONTMATTER}Gamma instructions.\n`;
+export const BETA_SKILL_MD = `${BETA_FRONTMATTER}Beta instructions.\n<!-- requires: remoteSync -->\nBeta on git sync.\n<!-- /requires -->\n`;
+export const BETA_WITH_REMOTE_SYNC = `${BETA_FRONTMATTER}Beta instructions.\nBeta on git sync.\n`;
+export const BETA_WITHOUT_REMOTE_SYNC = `${BETA_FRONTMATTER}Beta instructions.\n`;
+
+export const GAMMA_SKILL_MD =
+  "---\nname: gamma\ndescription: The git-sync skill.\nrequires: [remoteSync]\n---\n\nGamma instructions.\n";
 
 // Pointing MB_SKILLS_DIR here keeps an assertion over rendered output independent of whatever
 // skill-data/ happens to ship.
 const FIXTURES: readonly SkillFixture[] = [
   { name: "alpha", description: "The first skill.", body: "Alpha instructions.\n" },
-  { name: "beta", description: "The second skill.", body: "Beta instructions.\n" },
 ];
 
 export function createTempSkillsDir(): TempSkillsDir {
@@ -36,6 +37,8 @@ export function createTempSkillsDir(): TempSkillsDir {
     mkdirSync(dir);
     writeFileSync(join(dir, SKILL_MD_FILENAME), skillMarkdown(fixture), "utf8");
   }
+  mkdirSync(join(path, "beta"));
+  writeFileSync(join(path, "beta", SKILL_MD_FILENAME), BETA_SKILL_MD, "utf8");
   mkdirSync(join(path, "gamma"));
   writeFileSync(join(path, "gamma", SKILL_MD_FILENAME), GAMMA_SKILL_MD, "utf8");
   return {

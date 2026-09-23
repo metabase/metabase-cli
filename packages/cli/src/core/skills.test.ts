@@ -239,18 +239,18 @@ describe("discoverSkills", () => {
   it("reads `requires` as feature names", () => {
     writeSkill(
       temp.skillData,
-      "transform",
-      { name: "transform", description: "Transforms.", requires: ["transforms", "measures"] },
+      "git-sync",
+      { name: "git-sync", description: "Sync.", requires: ["remoteSync"] },
       "body",
     );
 
     expect(discoverSkills([temp.skillData])).toEqual([
       {
-        name: "transform",
-        description: "Transforms.",
+        name: "git-sync",
+        description: "Sync.",
         hidden: false,
-        requires: ["transforms", "measures"],
-        dir: join(temp.skillData, "transform"),
+        requires: ["remoteSync"],
+        dir: join(temp.skillData, "git-sync"),
       },
     ]);
   });
@@ -259,7 +259,7 @@ describe("discoverSkills", () => {
     writeSkill(
       temp.skillData,
       "typo",
-      { name: "typo", description: "Typo.", requires: ["transforms", "transfroms"] },
+      { name: "typo", description: "Typo.", requires: ["remoteSync", "transfroms"] },
       "body",
     );
 
@@ -275,43 +275,28 @@ describe("resolveSections", () => {
   const TEXT = [
     "Intro.",
     "",
-    "<!-- requires: transforms -->",
-    "## Transforms",
+    "<!-- requires: remoteSync -->",
+    "## Git sync",
     "",
-    "Run one.",
-    "<!-- /requires -->",
-    "",
-    "<!--requires: library,remoteSync-->",
-    "Publish it.",
+    "Save it.",
     "<!-- /requires -->",
     "",
     "Outro.",
   ].join("\n");
+  const WITH_REMOTE_SYNC = profileAt(61, { remote_sync: true }).features;
 
   it("returns the text as written, markers included, without features to resolve against", () => {
     expect(resolveSections(TEXT, null, "skill x")).toBe(TEXT);
   });
 
-  it("keeps a met section without its markers and drops an unmet one with the blank line after it", () => {
+  it("keeps a met section without its markers", () => {
+    expect(resolveSections(TEXT, WITH_REMOTE_SYNC, "skill x")).toBe(
+      ["Intro.", "", "## Git sync", "", "Save it.", "", "Outro."].join("\n"),
+    );
+  });
+
+  it("drops an unmet section with the blank line after it", () => {
     expect(resolveSections(TEXT, profileAt(61).features, "skill x")).toBe(
-      ["Intro.", "", "## Transforms", "", "Run one.", "", "Outro."].join("\n"),
-    );
-  });
-
-  it("needs every feature a section names", () => {
-    const withLibraryOnly = profileAt(61, { library: true }).features;
-    const withBoth = profileAt(61, { library: true, remote_sync: true }).features;
-
-    expect(resolveSections(TEXT, withLibraryOnly, "skill x")).toBe(
-      ["Intro.", "", "## Transforms", "", "Run one.", "", "Outro."].join("\n"),
-    );
-    expect(resolveSections(TEXT, withBoth, "skill x")).toBe(
-      ["Intro.", "", "## Transforms", "", "Run one.", "", "Publish it.", "", "Outro."].join("\n"),
-    );
-  });
-
-  it("drops every section on a server that has none of the features", () => {
-    expect(resolveSections(TEXT, profileAt(58).features, "skill x")).toBe(
       ["Intro.", "", "Outro."].join("\n"),
     );
   });
@@ -320,7 +305,7 @@ describe("resolveSections", () => {
     const text = [
       "A",
       "",
-      "<!-- requires: transforms -->",
+      "<!-- requires: remoteSync -->",
       "",
       "B",
       "",
@@ -329,12 +314,12 @@ describe("resolveSections", () => {
       "C",
     ].join("\n");
 
-    expect(resolveSections(text, profileAt(61).features, "skill x")).toBe("A\n\nB\n\nC");
+    expect(resolveSections(text, WITH_REMOTE_SYNC, "skill x")).toBe("A\n\nB\n\nC");
     expect(resolveSections(text, profileAt(58).features, "skill x")).toBe("A\n\nC");
   });
 
   it("keeps the single blank line between neighbours when a dropped section sat between them", () => {
-    const text = ["A", "<!-- requires: transforms -->", "B", "<!-- /requires -->", "C"].join("\n");
+    const text = ["A", "<!-- requires: remoteSync -->", "B", "<!-- /requires -->", "C"].join("\n");
     expect(resolveSections(text, profileAt(58).features, "skill x")).toBe("A\nC");
   });
 
@@ -360,17 +345,15 @@ describe("resolveSections", () => {
       .filter((line) => !line.trimStart().startsWith("|"))
       .filter((line) => !line.trim().startsWith("```") && !line.trim().startsWith("~~~"));
     const section = fc
-      .tuple(fc.constantFrom("transforms", "library"), fc.array(plainLine))
-      .map(([feature, inner]) =>
-        [`<!-- requires: ${feature} -->`].concat(inner, ["<!-- /requires -->"]),
-      );
+      .array(plainLine)
+      .map((inner) => ["<!-- requires: remoteSync -->"].concat(inner, ["<!-- /requires -->"]));
     const document = fc
       .array(fc.oneof(fc.array(plainLine, { maxLength: 3 }), section))
       .map((blocks) => blocks.flat().join("\n"));
     fc.assert(
       fc.property(document, (text) => {
         expect(resolveSections(text, null, "skill x")).toBe(text);
-        const resolved = resolveSections(text, profileAt(61).features, "skill x");
+        const resolved = resolveSections(text, WITH_REMOTE_SYNC, "skill x");
         expect(resolved).not.toContain("<!-- requires");
         expect(resolved).not.toContain("<!-- /requires");
       }),
@@ -379,8 +362,8 @@ describe("resolveSections", () => {
 
   it("throws ConfigError on a nested section", () => {
     const text = [
-      "<!-- requires: transforms -->",
-      "<!-- requires: measures -->",
+      "<!-- requires: remoteSync -->",
+      "<!-- requires: remoteSync -->",
       "<!-- /requires -->",
       "<!-- /requires -->",
     ].join("\n");
@@ -397,14 +380,14 @@ describe("resolveSections", () => {
 
   it("throws ConfigError on an open that is never closed", () => {
     expect(() =>
-      resolveSections("<!-- requires: transforms -->\ntext", profileAt(61).features, "skill x"),
+      resolveSections("<!-- requires: remoteSync -->\ntext", profileAt(61).features, "skill x"),
     ).toThrow(new ConfigError("skill x: requires section opened at line 1 is never closed"));
   });
 
   it("throws ConfigError on a marker sharing a line with other text", () => {
     expect(() =>
       resolveSections(
-        "Only <!-- requires: transforms --> here\n<!-- /requires -->",
+        "Only <!-- requires: remoteSync --> here\n<!-- /requires -->",
         null,
         "skill x",
       ),
@@ -416,13 +399,13 @@ describe("resolveSections", () => {
       "Write it as:",
       "",
       "```md",
-      "<!-- requires: transforms -->",
+      "<!-- requires: remoteSync -->",
       "gated",
       "<!-- /requires -->",
       "```",
       "",
       "~~~",
-      "<!-- requires: transforms -->",
+      "<!-- requires: remoteSync -->",
       "~~~",
     ].join("\n");
     expect(resolveSections(text, profileAt(58).features, "skill x")).toBe(text);
@@ -432,7 +415,7 @@ describe("resolveSections", () => {
     const text = [
       "| a |",
       "|---|",
-      "<!-- requires: transforms -->",
+      "<!-- requires: remoteSync -->",
       "| b |",
       "<!-- /requires -->",
     ].join("\n");
@@ -443,7 +426,7 @@ describe("resolveSections", () => {
 
   it("throws ConfigError on a marker closed with the `--!>` comment end", () => {
     expect(() =>
-      resolveSections("<!-- requires: transforms --!>\n<!-- /requires -->", null, "skill x"),
+      resolveSections("<!-- requires: remoteSync --!>\n<!-- /requires -->", null, "skill x"),
     ).toThrow(
       new ConfigError(
         "skill x: malformed requires marker at line 1 (expected `<!-- requires: a, b -->` or `<!-- /requires -->`)",
@@ -453,7 +436,7 @@ describe("resolveSections", () => {
 
   it("throws ConfigError on a marker missing the colon after the keyword", () => {
     expect(() =>
-      resolveSections("<!-- requires transforms -->\n<!-- /requires -->", null, "skill x"),
+      resolveSections("<!-- requires remoteSync -->\n<!-- /requires -->", null, "skill x"),
     ).toThrow(
       new ConfigError(
         "skill x: malformed requires marker at line 1 (expected `<!-- requires: a, b -->` or `<!-- /requires -->`)",
@@ -488,13 +471,6 @@ describe("selectForProfile", () => {
       requires: ["remoteSync"],
       dir: "/x/git-sync",
     },
-    {
-      name: "transform",
-      description: "Transforms.",
-      hidden: false,
-      requires: ["transforms"],
-      dir: "/x/transform",
-    },
   ];
 
   it("filters nothing and reports `null` without a profile", () => {
@@ -503,7 +479,7 @@ describe("selectForProfile", () => {
 
   it("sets aside each skill the profile lacks a feature for, with the client's own failure", () => {
     expect(selectForProfile(skills, profileAt(61))).toEqual({
-      skills: [skills[0], skills[2]],
+      skills: [skills[0]],
       unavailable: [
         {
           name: "git-sync",
@@ -617,16 +593,16 @@ describe("readSkillContent against a profile", () => {
       temp.skillData,
       "core",
       { name: "core", description: "Core skill." },
-      "body\n<!-- requires: transforms -->\ngated\n<!-- /requires -->",
+      "body\n<!-- requires: remoteSync -->\ngated\n<!-- /requires -->",
     );
     mkdirSync(join(skillDir, "references"));
     writeFileSync(
       join(skillDir, "references", "a.md"),
-      "ref\n<!-- requires: transforms -->\ngated ref\n<!-- /requires -->",
+      "ref\n<!-- requires: remoteSync -->\ngated ref\n<!-- /requires -->",
       "utf8",
     );
     mkdirSync(join(skillDir, "templates"));
-    writeFileSync(join(skillDir, "templates", "t.md"), "<!-- requires: transforms -->", "utf8");
+    writeFileSync(join(skillDir, "templates", "t.md"), "<!-- requires: remoteSync -->", "utf8");
     const info: SkillInfo = {
       name: "core",
       description: "Core skill.",
@@ -640,7 +616,7 @@ describe("readSkillContent against a profile", () => {
       description: "Core skill.",
       body: "---\nname: core\ndescription: Core skill.\n---\n\nbody",
       references: [{ path: "references/a.md", content: "ref" }],
-      templates: [{ path: "templates/t.md", content: "<!-- requires: transforms -->" }],
+      templates: [{ path: "templates/t.md", content: "<!-- requires: remoteSync -->" }],
     });
   });
 
@@ -678,7 +654,7 @@ describe("the shipped skills", () => {
       all.filter((skill) => skill.requires.length > 0).map((skill) => [skill.name, skill.requires]),
     );
 
-    expect(bound).toEqual({ "git-sync": ["remoteSync"], transform: ["transforms"] });
+    expect(bound).toEqual({});
     const withMarkersLeft = all
       .filter((skill) => {
         const content = readSkillContent(skill, { includeExtras: true, profile: profileAt(58) });
@@ -688,14 +664,12 @@ describe("the shipped skills", () => {
     expect(all.map((skill) => skill.name)).toEqual([
       "core",
       "dashboard",
-      "data-workflow",
       "document",
-      "git-sync",
       "mbql",
       "metabase-cli",
-      "metadata",
       "native-sql",
       "notification",
+      "representations",
       "transform",
       "visualization",
     ]);

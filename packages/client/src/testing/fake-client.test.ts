@@ -130,13 +130,13 @@ describe("createFakeClient", () => {
       routes: [{ path: PATH, reply: { kind: "body", body: { id: 1, email: "read@b.com" } } }],
     });
 
-    await fake.client.require("gitSync.branches");
+    await fake.client.require("gitSync.branch");
     await fake.client.requestParsed(PingResponse, PATH);
-    await fake.client.require("card.list");
+    await fake.client.require("database.list");
 
     expect(fake.required).toEqual([
-      { key: "gitSync.branches", precedingRequests: 0 },
-      { key: "card.list", precedingRequests: 1 },
+      { key: "gitSync.branch", precedingRequests: 0 },
+      { key: "database.list", precedingRequests: 1 },
     ]);
   });
 
@@ -145,12 +145,12 @@ describe("createFakeClient", () => {
       routes: [{ path: PATH, reply: { kind: "body", body: { id: 1, email: "read@b.com" } } }],
     });
 
-    await fake.client.requireFeatures(["tableListAccessFilters"]);
+    await fake.client.requireFeatures(["remoteSync"]);
     await fake.client.requestParsed(PingResponse, PATH);
     await fake.client.requireFeatures([]);
 
     expect(fake.requiredFeatures).toEqual([
-      { features: ["tableListAccessFilters"], precedingRequests: 0 },
+      { features: ["remoteSync"], precedingRequests: 0 },
       { features: [], precedingRequests: 1 },
     ]);
   });

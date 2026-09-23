@@ -1,134 +1,222 @@
 ---
 name: dashboard
-description: Build Metabase dashboards via the `mb` CLI — lay out dashcards on the 24-column grid (`{col,row,size_x,size_y}` math, per-chart default sizes) and turn cards into a filterable, cross-linked app. Covers wiring filters to cards (parameters + parameter_mappings), the field-filter vs. raw-variable target grammar, linked/cascading filters and their foreign-key requirement, cross-filtering, click-through, multi-series overlays, and tabs. The whole-array replace semantics live in `core`. Triggers — "build a dashboard from these cards", "my dashboard is squished into half the width", "wire a filter to these cards", "make a filter cascade", "click a bar to filter the other charts", "add a dashboard tab", "add a second series", "why isn't my filter showing".
-allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
+description: Author Metabase dashboard YAML files in the repo - dashcards on the 24-column grid, dashboard-owned cards, filters (parameters plus per-dashcard parameter_mappings with natural-key targets), tabs, series overlays, heading/text/link cards, and click behavior (crossfilter, links). Validate with `mb check`, ship with `mb save`. Triggers - "build a dashboard from these cards", "my dashboard only fills half the width", "wire a filter to these cards", "click a bar to filter the other charts", "add a dashboard tab", "overlay a second series", "why doesn't my filter do anything".
+allowed-tools: Read, Write, Edit, Bash
 ---
 
 # Dashboard
 
-A dashboard starts as cards on a grid; it becomes an **app** when filters drive the cards, charts cross-filter each other, and clicks navigate. This skill owns both: the grid layout and the interactive layer.
+A dashboard is one YAML file. It holds the grid of dashcards, the filter `parameters`, and the `tabs`. Each dashcard points at a card by the card's `entity_id`. A filter works only when each target dashcard also has a `parameter_mappings` entry for it.
 
-**`core` owns the transport mechanics** — the whole-array replace semantics (editing `dashcards` or `parameters` replaces the entire set; omitted entries are deleted; every dashcard carries `card_id`, with `null` for virtual cards; new cards use negative ids), `update-dashcard` for a single safe patch vs. `update --body` for a full replace, and the `parameter-values` verb. Read it first (`mb skills get core`). **`visualization`** owns each card's chart and the full `click_behavior` key catalog.
+Read the spec sections Dashboard, Parameter, and Click Behavior, and the schema `$DIR/spec/schemas/dashboard.yaml` (see `representations` for `$DIR`). Use an existing dashboard in the repo as the template. Load `visualization` for each card's `display` and `visualization_settings`.
 
-Inspect before you wire: `mb dashboard get <id> --json` hydrates `parameters`, `dashcards`, and `tabs`; `mb dashboard cards <id>` lists just the dashcards.
+## A dashboard file has this shape
 
-## Layout: the grid is 24 columns — not 12
-
-Every dashcard carries `{col, row, size_x, size_y}` in grid units: `col` is 0-indexed from the left edge, `row` grows downward, and `col + size_x ≤ 24`. **Full-width is `size_x: 24` — Metabase's per-chart _default_ width of 12 is half a row.** A layout authored on the usual 12-column web-grid assumption crams the whole dashboard into the left half of the viewport. The server stores whatever geometry you send — overlaps and gaps included, no auto-fix.
-
-Default sizes (w×h): `scalar`/`smartscalar` 6×3, `pie` 12×8, `table`/`pivot`/`object` 12×9, `waterfall` 14×6, `sankey` 16×10, `heading` 24×1, `text` 12×3, every other chart 12×6.
-
-The standard shape — a KPI row of scalars across the full 24, charts in halves or thirds below, wide tables full-width:
-
-```jsonc
-"dashcards": [
-  { "id": -1, "card_id": 101, "col": 0,  "row": 0, "size_x": 6,  "size_y": 3 },  // 4 KPIs × 6 = 24
-  { "id": -2, "card_id": 102, "col": 6,  "row": 0, "size_x": 6,  "size_y": 3 },
-  { "id": -3, "card_id": 103, "col": 12, "row": 0, "size_x": 6,  "size_y": 3 },
-  { "id": -4, "card_id": 104, "col": 18, "row": 0, "size_x": 6,  "size_y": 3 },
-  { "id": -5, "card_id": 105, "col": 0,  "row": 3, "size_x": 12, "size_y": 6 },  // two halves
-  { "id": -6, "card_id": 106, "col": 12, "row": 3, "size_x": 12, "size_y": 6 },
-  { "id": -7, "card_id": 107, "col": 0,  "row": 9, "size_x": 24, "size_y": 9 }   // full-width table
-]
+```yaml
+name: Sales overview
+entity_id: I7ecmnoFMkYs7QyXep6g9
+creator_id: admin@example.com
+collection_id: WszzUc4pekzdwn9nMHEDo # the collection's entity_id
+width: full # or fixed (the default)
+parameters: [] # filters, below
+tabs: [] # optional, below
+dashcards:
+  - entity_id: p3bUfyPwOrpCazcD4EKIx # fresh NanoID per dashcard
+    card_id: 5w9ZjCIyQgqE5iuBSKzCv # the card's entity_id; null for text/heading/link
+    row: 0
+    col: 0
+    size_x: 6
+    size_y: 3
+    parameter_mappings: []
+    visualization_settings: {} # overrides the card's settings on this dashboard only
+    serdes/meta:
+      - id: I7ecmnoFMkYs7QyXep6g9 # the dashboard's entity_id
+        model: Dashboard
+      - id: p3bUfyPwOrpCazcD4EKIx # this dashcard's entity_id
+        model: DashboardCard
+serdes/meta:
+  - id: I7ecmnoFMkYs7QyXep6g9
+    label: sales_overview
+    model: Dashboard
 ```
 
-**Sanity-check before sending:** rows should fill to 24 and at least one card must end at `col + size_x = 24`. If nothing in the array crosses column 12, you've authored a 12-column layout — double every width.
+- Give every dashcard its own `entity_id` and a two-entry `serdes/meta`: the dashboard, then the dashcard.
+- Every `card_id` must name a card file in the repo.
+- A dashcard that you delete from `dashcards` leaves the dashboard on import.
 
-## The wiring loop: a filter is a parameter + a mapping per card
+## Dashboard-owned cards sit in a folder named after the dashboard
 
-A dashboard filter is one entry in the dashboard's `parameters` array **plus** a `parameter_mappings` entry on every dashcard it should control. A parameter with no mapping is an inert widget — the most common "my filter does nothing" cause.
+A card built for one dashboard sets `dashboard_id` to the dashboard's `entity_id`. The card must also set the same `collection_id` as the dashboard. Put the card file in a subfolder named after the dashboard's slug, next to the dashboard file:
 
-```jsonc
-// dashboard.parameters — the widget
-{ "id": "status", "name": "Status", "slug": "status", "type": "string/=" }
-
-// on each target dashcard — bind the widget to a column of that card
-{ "parameter_id": "status", "card_id": 42,
-  "target": ["dimension", ["field", 1779, null]] }
+```
+collections/main/sales.yaml                                   collection
+collections/main/sales/sales_overview.yaml                    dashboard
+collections/main/sales/sales_overview/revenue_by_month.yaml   card with dashboard_id
+collections/main/sales/orders_by_category.yaml                reusable card, no dashboard_id
 ```
 
-**`id` is a slug-like string you pick** (e.g. `order_status`), unique within the dashboard — Metabase stores any non-blank string verbatim, so reuse the `slug` rather than guessing an opaque value. If you genuinely need an opaque id, mint one with `mb uuid`; never fabricate one.
+Leave `dashboard_id` off a card that other dashboards or documents also use.
 
-**`type` is a closed enum** — an unlisted value is a hard parse error that echoes the allowed set back: string ops `string/=` `string/!=` `string/contains` `string/does-not-contain` `string/starts-with` `string/ends-with`; number ops `number/=` `number/!=` `number/between` `number/>=` `number/<=`; date `date/single` `date/range` `date/relative` `date/month-year` `date/quarter-year` `date/all-options`; location `location/city` `location/state` `location/zip_code` `location/country`; plus `category`, `id`, `boolean/=`, `temporal-unit`, and bare `number`/`text`/`date`/`boolean`.
+## The grid is 24 columns wide
 
-The `target` grammar depends on what the card is:
+`col` counts from 0 at the left edge. `row` grows downward. `col + size_x` must be 24 or less. Full width is `size_x: 24`, and a width of 12 is half the row. `mb check` rejects `size_x` above 24 and `col` above 23. It does not detect overlaps or `col + size_x > 24`, so do that math yourself.
 
-| Card's query                | `target`                                     |
-| --------------------------- | -------------------------------------------- |
-| MBQL column                 | `["dimension", ["field", <field-id>, null]]` |
-| Native **field filter** tag | `["dimension", ["template-tag", "<tag>"]]`   |
-| Native **raw variable** tag | `["variable", ["template-tag", "<tag>"]]`    |
+Default sizes (width x height):
 
-(Field ids from `table get <id> --include fields`; native tags from `native-sql`.) Because editing replaces the whole set, adding a filter is read-modify-write: `dashboard get <id> --json`, append to `parameters` and to each dashcard's `parameter_mappings`, send the full arrays back. To wire one card without touching the rest, `update-dashcard <dash-id> <dashcard-id> --body '{"parameter_mappings":[…]}'`.
+| `display`                                                                                         | Size    |
+| ------------------------------------------------------------------------------------------------- | ------- |
+| `scalar`, `smartscalar`                                                                           | 6 x 3   |
+| `bar`, `line`, `area`, `row`, `combo`, `scatter`, `funnel`, `progress`, `map`, `gauge`, `boxplot` | 12 x 6  |
+| `pie`, `iframe`                                                                                   | 12 x 8  |
+| `table`, `pivot`, `object`                                                                        | 12 x 9  |
+| `waterfall`                                                                                       | 14 x 6  |
+| `sankey`                                                                                          | 16 x 10 |
+| `heading`                                                                                         | 24 x 1  |
+| `text`                                                                                            | 12 x 3  |
+| `link`                                                                                            | 8 x 1   |
 
-## Choose the interaction
+A standard layout has three bands:
 
-Four distinct mechanisms — pick by what the user wants clicking or filtering to _do_:
+1. A row of four KPI scalars at `col` 0, 6, 12, and 18 (6 x 3 each).
+2. Charts in halves (`col` 0 and 12) below the KPIs.
+3. Wide tables at `size_x: 24`.
 
-| Want                                               | Mechanism                                             |
-| -------------------------------------------------- | ----------------------------------------------------- |
-| One widget filters several cards                   | a **dashboard parameter** mapped to each card (above) |
-| One filter's choices narrow another's              | a **linked filter** (`filteringParameters`)           |
-| Clicking a chart filters the other charts          | **cross-filter** click behavior                       |
-| Clicking navigates to a question / dashboard / URL | **link** click behavior                               |
+Check the result. Each row fills to column 24. If no dashcard crosses column 12, you laid out on 12 columns: double every width.
 
-### Linked (cascading) filters
+## A filter is a parameter plus one mapping per dashcard
 
-Make a child filter (City) show only values consistent with a parent (State) by listing the parent's id in the child parameter's `filteringParameters`:
+Add the widget to `parameters`. Then add a `parameter_mappings` entry to every dashcard that the filter controls. A parameter without mappings shows a widget that filters nothing.
 
-```json
-{ "id": "city", "type": "category", "filteringParameters": ["state"] }
+```yaml
+parameters:
+  - id: 3ba1ea5b-978c-495e-9804-794d72b11313 # unique in this dashboard; mint with uuidgen
+    name: Category
+    slug: category
+    type: string/=
+    sectionId: string
 ```
 
-Two hard constraints, both from the same root: **linked filters read table-metadata foreign keys only.** They ignore joins defined inside a saved question or model. So the parent and child columns must be connected by a FK set in metadata — if the cascade shows values it shouldn't, the FK is missing (fix it via `metadata`, then retry). And `filteringParameters` is **incompatible with a `values_source_type` of `static-list` or `card`** — a custom value source overrides the cascade, so Metabase clears the link. Leave the child's value source live (omit it) for linked filtering to work.
-
-### Cross-filtering (click a chart to filter the rest)
-
-Set the **driver** chart's whole-card click behavior to `crossfilter`, mapping the clicked value into a dashboard parameter; map that same parameter onto the **follower** cards normally. The driver stays unmapped to it (it emits the value; it doesn't consume it). `click_behavior` lives in the dashcard's `visualization_settings` (whole card) or `column_settings[<col>].click_behavior` (per column on tables), with **camelCase** keys:
-
-```json
-{
-  "click_behavior": {
-    "type": "crossfilter",
-    "parameterMapping": {
-      "status": {
-        "id": "status",
-        "source": { "type": "column", "id": "STATUS", "name": "Status" },
-        "target": { "type": "parameter", "id": "status" }
-      }
-    }
-  }
-}
+```yaml
+# on each target dashcard
+parameter_mappings:
+  - card_id: C4sUrYgs09JbPzHzhLNj8 # this dashcard's card_id
+    parameter_id: 3ba1ea5b-978c-495e-9804-794d72b11313
+    target: [dimension, [field, [Sample Database, PUBLIC, PRODUCTS, CATEGORY], null]]
 ```
 
-### Click-through (navigate)
+Set `type` to one of these values:
 
-```json
-{ "click_behavior": { "type": "link", "linkType": "dashboard",
-    "targetId": 7, "parameterMapping": { … } } }
+| Group  | `type`                                                                                                     |
+| ------ | ---------------------------------------------------------------------------------------------------------- |
+| Text   | `string/=` `string/!=` `string/contains` `string/does-not-contain` `string/starts-with` `string/ends-with` |
+| Number | `number/=` `number/!=` `number/>=` `number/<=` `number/between`                                            |
+| Date   | `date/single` `date/range` `date/relative` `date/month-year` `date/quarter-year` `date/all-options`        |
+| Other  | `boolean/=`, `temporal-unit` (time grouping; list the allowed units in `temporal_units`)                   |
+
+Warning: `mb check` does not validate `type`. A value outside this table imports, but the widget breaks.
+
+`sectionId` restricts the columns that the filter can map to. Set it to the first part of `type`. Use `id` for PK and FK columns only, or `location` for location columns only.
+
+### The target grammar depends on the card's query
+
+Parameter targets use the legacy field-ref order `[field, <ref>, <options-or-null>]`, with the ref second. The query order inside `dataset_query` is the reverse: `[field, {}, <ref>]`. `mb check` rejects the query order in a target.
+
+| The card's query has                                | `target`                                                                                                                             |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| An MBQL column                                      | `[dimension, [field, [Sample Database, PUBLIC, ORDERS, CREATED_AT], null]]`                                                          |
+| A column through an implicit join                   | `[dimension, [field, [Sample Database, PUBLIC, PRODUCTS, CATEGORY], {source-field: [Sample Database, PUBLIC, ORDERS, PRODUCT_ID]}]]` |
+| An MBQL expression                                  | `[dimension, [expression, Profit]]`                                                                                                  |
+| A column of a later stage                           | `[dimension, [field, CATEGORY, null], {stage-number: 1}]`                                                                            |
+| A native `dimension` or `temporal-unit` tag         | `[dimension, [template-tag, category_filter]]`                                                                                       |
+| A native `text`, `number`, `date`, or `boolean` tag | `[variable, [template-tag, min_price]]`                                                                                              |
+| A `{{name}}` placeholder in a text or heading card  | `[text-tag, name]` (omit `card_id`)                                                                                                  |
+
+Copy field refs from `mb metadata <db-id> <table-id>`. Use its `fk_target` to confirm an implicit-join `source-field`. Take native tag names from the card's `template-tags` (see `native-sql`).
+
+### Filter options
+
+- **`default`** sets the initial value. Give a `default` to every `required: true` parameter, or its cards wait for user input.
+- **Value source**: omit `values_source_type` to offer the column's distinct values. For a fixed list, set `values_source_type: static-list` and `values_source_config: {values: [...]}`. To take values from a card, set `values_source_type: card` and `values_source_config: {card_id, value_field, label_field}`. The spec Parameter section shows both shapes.
+- **`values_query_type`**: `list` (dropdown), `search` (type-ahead), or `none` (free input). `mb metadata` shows a field's `values` when the field has a stored value list.
+- **`inline_parameters`** on a dashcard lists the parameter ids to show on that dashcard instead of in the dashboard header.
+
+## Tabs pair a dashboard id with a tab id
+
+Declare the tabs on the dashboard, each with its own `entity_id`. Put a dashcard on a tab with a two-element `dashboard_tab_id`:
+
+```yaml
+tabs:
+- {entity_id: Q1iLOM6YrVjkcO7D6TjMX, name: Overview, position: 0}
+- {entity_id: c5rj81Krx082T3HOPyIdO, name: Details, position: 1}
+dashcards:
+- entity_id: 1Kx9dWq3ZbRr7TnVpLm2A
+  card_id: ijurFYW4LfMeXrKodMjix
+  dashboard_tab_id: [I7ecmnoFMkYs7QyXep6g9, c5rj81Krx082T3HOPyIdO]   # [dashboard, tab]
+  ...
 ```
 
-`linkType` is `question` / `dashboard` (carry a `parameterMapping` to pass the clicked context) or `url` (a `linkTemplate` like `"https://app/orders/{{ORDER_ID}}"`, `{{Column}}` interpolated). The full `click_behavior`/`parameterMapping` key catalog is in `visualization`'s settings reference — don't hand-author a complex one; build it once in the UI and copy it (`mb dashboard get <id> --full --json`). Note: a **native-SQL card can't drill through** — only cross-filter and link click behaviors work on it.
+Each tab has its own grid that starts at `row: 0`. Deleting a tab deletes every dashcard on it. On a dashboard without tabs, omit `dashboard_tab_id`.
 
-## Series, tabs, value sources
+## Series overlay more cards on one chart
 
-**Multi-series overlay** — put several cards on one chart (**line / area / bar only**): the dashcard's `series` is an array of card ids in draw order (`"series": [43, 51]`). Sending it replaces the set; an empty array clears it. Patch with `update-dashcard`.
+`series` on a dashcard draws more cards on its chart, in `position` order. Use it only for `line`, `area`, and `bar` cards that share the x-axis.
 
-**Tabs** — `tabs` is `[{ "name": "Overview", "position": 0 }, …]`; a dashcard joins a tab via `dashboard_tab_id`. Creating tabs and cards together uses **negative ids** (per `core`): give a new tab `id: -1`, point new dashcards at `dashboard_tab_id: -1`, and the create/update response returns the real ids. A filter widget only appears on a tab if it's mapped to at least one card on **that** tab.
+```yaml
+series:
+  - { card_id: OMuZ0wHe2O5Z_59-cLmn4, position: 0 }
+```
 
-**Filter value source** (the dropdown behind a parameter) — omit `values_source_type` to pull live distinct values from the mapped column; `"static-list"` + `values_source_config.values` for a fixed list; `"card"` + `{card_id, value_field, label_field}` to source from a query. `mb dashboard parameter-values <id> <param-id> [--query <substr>]` previews what a widget will offer.
+## Heading, text, and link cards have no card
 
-## Gotchas
+Set `card_id: null` and put the content in `visualization_settings`:
 
-- **Auto-connect / the missing map:** a filter that "does nothing" or "won't show" is almost always unmapped, or mapped only to cards on another tab.
-- **Time-grouping parameters** (`temporal-unit`) bind only to a datetime column in the query's **last** stage — add one after a time-bucketed summary and it can't attach.
-- **Required + default:** a `required: true` parameter with no `default` blocks its cards until a value is chosen; give it a `default` for expensive queries you don't want running unfiltered.
-- **Whole-array replace:** never send a partial `parameters`/`dashcards` array to `update` — you'll delete what you omit. Include `card_id` on every dashcard (`null` for virtual cards). Use `update-dashcard` for a single-card change.
+```yaml
+visualization_settings:
+  virtual_card: { display: heading } # or text (markdown), link, iframe
+  text: Sales
+```
+
+A link card uses `link: {url: ...}` or `link: {entity: {id: <entity_id>, model: dashboard}}`. The spec's Virtual Card Settings section lists every variant.
+
+## Click behavior lives on the dashcard
+
+Put `click_behavior` in the dashcard's `visualization_settings` to cover the whole card. For one table column, put it in `column_settings['["name","COL"]'].click_behavior`. Keys are camelCase. Don't put click behavior in a card file.
+
+| Goal                                          | `type`                                                  |
+| --------------------------------------------- | ------------------------------------------------------- |
+| Show the default drill menu                   | `actionMenu` (the default; omit `click_behavior`)       |
+| Filter the other cards with the clicked value | `crossfilter`                                           |
+| Open a URL, dashboard, or question            | `link` with `linkType: url`, `dashboard`, or `question` |
+
+**Crossfilter.** On the driver dashcard, map the clicked column to a dashboard parameter. On each follower dashcard, map the same parameter with `parameter_mappings`. The driver dashcard needs no mapping for it.
+
+```yaml
+visualization_settings:
+  click_behavior:
+    type: crossfilter
+    parameterMapping:
+      3ba1ea5b-978c-495e-9804-794d72b11313: # the parameter id, used three times
+        id: 3ba1ea5b-978c-495e-9804-794d72b11313
+        source: { type: column, id: CATEGORY, name: Category } # the card's output column
+        target: { type: parameter, id: 3ba1ea5b-978c-495e-9804-794d72b11313 }
+```
+
+**Link to a URL.** `{{COLUMN}}` inserts the clicked row's value. `{{filter:status}}` inserts the value of the dashboard parameter with slug or name `status`.
+
+```yaml
+click_behavior:
+  type: link
+  linkType: url
+  linkTemplate: "https://example.com/orders/{{ID}}?status={{filter:status}}"
+```
+
+**Link to a dashboard.** Set `targetId` to the target dashboard's `entity_id`. Key `parameterMapping` by the target dashboard's parameter ids. Use the same `source` and `target` shape as crossfilter. For `linkType: question`, copy the spec's Link to Question example.
 
 ## Don't
 
-- Don't lay out on a 12-column assumption — full-width is `size_x: 24`; a layout where no card crosses column 12 renders in the left half of the viewport.
-- Don't declare a parameter and forget the per-card `parameter_mappings` — the widget won't filter anything.
-- Don't expect a linked filter to work off a model/question join, a custom column, or with a static/card value source — it needs a metadata FK and a live source.
-- Don't hand-author a complex `click_behavior` — copy a UI-built one.
-- Don't add a second `series` to a pie/scalar/table — it's line/area/bar only.
+- Don't lay out on 12 columns. Full width is `size_x: 24`.
+- Don't declare a parameter without a `parameter_mappings` entry on each dashcard that it filters.
+- Don't write query-order refs (`[field, {}, <ref>]`) in parameter targets.
+- Don't write numeric ids. Cards, tabs, and dashboards take entity_ids. Fields take natural-key refs.
+- Don't reuse an `entity_id` across dashcards or tabs. Mint a fresh one for each.
+- Don't overlay `series` on a pie, scalar, or table.

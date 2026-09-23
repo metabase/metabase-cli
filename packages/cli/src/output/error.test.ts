@@ -145,7 +145,7 @@ describe("reportError", () => {
 
   it("offers the client downgrade when the server is below the required version", () => {
     const failure = checkFeatures(
-      ["transformJobActivation"],
+      ["remoteSync"],
       createServerProfile({
         edition: "oss",
         version: { tag: "v0.58.0", major: 58, patch: 0 },
@@ -157,7 +157,7 @@ describe("reportError", () => {
     assert(failure !== null);
     reportError(new CapabilityError(failure));
     expect(streams.stderr).toBe(
-      "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.\n" +
+      "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.\n" +
         "Or install an `@metabase/cli` release that targets this server.\n" +
         "(rerun with MB_VERBOSE=1 for details)\n",
     );
@@ -167,9 +167,9 @@ describe("reportError", () => {
   const REFRESH_NOTE =
     "The server's version changed since the last probe (was v0.58.0, now v0.61.3); the profile was refreshed — retry the command.";
 
-  function activationRefusalOn58(): CapabilityError {
+  function remoteSyncRefusalOn58(): CapabilityError {
     const failure = checkFeatures(
-      ["transformJobActivation"],
+      ["remoteSync"],
       createServerProfile({
         edition: "oss",
         version: { tag: "v0.58.0", major: 58, patch: 0 },
@@ -183,9 +183,9 @@ describe("reportError", () => {
   }
 
   it("withholds the client downgrade when the profile was refreshed, since the note says to retry", () => {
-    reportError(new ProfileRefreshedError(activationRefusalOn58(), REFRESH_NOTE));
+    reportError(new ProfileRefreshedError(remoteSyncRefusalOn58(), REFRESH_NOTE));
     expect(streams.stderr).toBe(
-      "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.\n" +
+      "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.\n" +
         `${REFRESH_NOTE}\n` +
         "(rerun with MB_VERBOSE=1 for details)\n",
     );
@@ -194,7 +194,7 @@ describe("reportError", () => {
 
   it("keeps the client's own failure as the detail behind a refreshed-profile refusal", () => {
     process.env["MB_VERBOSE"] = "1";
-    const refusal = activationRefusalOn58();
+    const refusal = remoteSyncRefusalOn58();
     reportError(new ProfileRefreshedError(refusal, REFRESH_NOTE), "json");
     expect(streams.stderr).toBe(
       JSON.stringify({
@@ -211,7 +211,7 @@ describe("reportError", () => {
 
   it("withholds the client downgrade when a premium feature is missing, which no client version supplies", () => {
     const failure = checkFeatures(
-      ["library"],
+      ["remoteSync"],
       createServerProfile({
         edition: "oss",
         version: { tag: "v0.61.0", major: 61, patch: 0 },
@@ -223,14 +223,14 @@ describe("reportError", () => {
     assert(failure !== null);
     reportError(new CapabilityError(failure));
     expect(streams.stderr).toBe(
-      "This operation requires the 'library' premium feature (not enabled on this server).\n" +
+      "This operation requires the 'remote_sync' premium feature (not enabled on this server).\n" +
         "(rerun with MB_VERBOSE=1 for details)\n",
     );
   });
 
   it("carries the client downgrade into the JSON envelope, where there is no second line to print it on", () => {
     const failure = checkFeatures(
-      ["transformJobActivation"],
+      ["remoteSync"],
       createServerProfile({
         edition: "oss",
         version: { tag: "v0.58.0", major: 58, patch: 0 },
@@ -247,7 +247,7 @@ describe("reportError", () => {
         error: {
           category: "capability",
           message:
-            "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.\n" +
+            "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.\n" +
             "Or install an `@metabase/cli` release that targets this server.",
           exitCode: 2,
         },

@@ -26,14 +26,13 @@
     "lint:skills": "uvx skillsaw@0.17.0 lint packages/cli/skill-data/ --strict",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "sync:representations": "bun run scripts/sync-representations.ts"
+    "sync:representations": "rm -rf packages/cli/skill-data/representations/spec && mkdir -p packages/cli/skill-data/representations/spec && cp -R packages/cli/node_modules/@metabase/representations/core-spec/v1/spec.md packages/cli/node_modules/@metabase/representations/core-spec/v1/schemas packages/cli/skill-data/representations/spec/"
   },
   "devDependencies": {
     "@clack/core": "^0.3.5",
     "@metabase/client": "workspace:*",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.10.0",
-    "@types/semver": "^7.7.1",
     "execa": "^9.5.2",
     "fast-check": "^4.7.0",
     "js-yaml": "^4.1.0",

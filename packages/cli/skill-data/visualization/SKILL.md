@@ -1,169 +1,135 @@
 ---
 name: visualization
-description: Choose a card's `display` (chart type) and author its `visualization_settings` for the `mb` CLI — which chart fits which data shape, the required keys per chart, the rule that settings name OUTPUT columns, and the `column_settings` JSON-string-key footgun; the full per-chart key catalog is in references. Use when deciding or fixing how a card renders — "what chart should I use", "make this a bar/line/pie chart", "map this by state", "format this column as currency", "add conditional formatting", "the card renders as a table instead of a chart", or any `display` / `visualization_settings` work.
-allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
+description: Choose a card's `display` (chart type) and write its `visualization_settings` in the card's YAML file - which chart fits which data shape, the binding keys each chart needs, the rule that settings name output columns, and the quoted-string `column_settings` keys. Points to the spec's Visualization Settings section for the full key catalog. Triggers - "what chart should I use", "make this a bar/line/pie chart", "map this by state", "format this column as currency", "add conditional formatting", "the card renders as a table instead of a chart", or any `display` / `visualization_settings` edit.
+allowed-tools: Read, Write, Edit, Bash
 ---
 
-# Visualization: pick the chart, then set it
+# Visualization
 
-> **Building charts as part of a guided data project?** Follow the `data-workflow` **Shared Contract** — answer-first with detail on demand, ask before showing PII, honor the autonomy mode, name what the CLI can't do instead of erroring into raw SQL: `mb skills get data-workflow`.
+A card file has two presentation fields next to its `dataset_query`:
 
-A card has two presentation fields alongside its `dataset_query`:
+- **`display`**: the chart type. The card schema limits it to a fixed list, so `mb check` rejects a typo like `bargraph`.
+- **`visualization_settings`**: a map of keys named by chart family (`graph.*`, `pie.*`, `table.*`, ...). The schema accepts any map. Metabase ignores a misspelled key or a key for another `display`, and `mb check` does not warn you.
 
-- **`display`** — the chart type (`bar`, `line`, `pie`, `scalar`, `map`, `table`, …); pick from the valid values below.
-- **`visualization_settings`** — a map whose keys are **namespaced by `display`** (`graph.*` for bar/line/area/combo, `pie.*` for pie, `table.*` for table, …). The server stores almost anything and **silently ignores keys that don't apply** to the chosen `display`.
+Pick the `display` first. Then bind the output columns and set options. Build the query itself with `mbql` or `native-sql`.
 
-Nothing validates `visualization_settings` — there is no pre-flight to fail past. A `display` typo or a misnamed key is accepted by the API; the card just renders as a default table or drops the setting. So **the feedback loop is read-back, not pre-flight**: after `card create`/`update`, confirm with `mb card get <id> --full --json` (or open the card) that it rendered as intended.
+The full key catalog is the spec's Visualization Settings section. Find it with `grep -n '^### ' "$DIR/spec/spec.md"` (see `representations` for `$DIR`). Read only the subsection for your chart.
 
-Flag conventions and body-input precedence live in `core` (`mb skills get core`); the `dataset_query` itself is the `mbql` skill's job (`mb skills get mbql`). This skill is only about how the result is displayed.
+## Pick the `display` from the data's shape
 
-Two steps: **(1) pick the `display` that fits the data**, then **(2) bind the data columns and set options**.
+- **One headline number**: `scalar`. Use `smartscalar` to show the change against the previous period. Use `gauge` or `progress` to show one value against a target.
+- **A measure across categories**: `bar`. Use `row` (horizontal bars) for long or many labels. Sort by value unless the categories have a natural order.
+- **A trend over time**: `line` for a continuous series. Use `bar` or `area` for a few discrete periods. Use `combo` (lines and bars on two axes) only for related measures on different scales.
+- **Parts of a whole**: `pie`, only for 5 or fewer slices. Above 5, use a sorted `bar` or `row`. For composition over time, use a stacked `area` or `bar`.
+- **A distribution**: a `bar` histogram over a binned column (see `mbql` binning). Use `boxplot` to compare the spread of several groups.
+- **Correlation of two measures**: `scatter`.
+- **Additive steps from a start to a total**: `waterfall`.
+- **Drop-off through ordered stages**: `funnel`.
+- **Flow between nodes**: `sankey`.
+- **Geography**: `map`, as a region map, pins, or a grid.
+- **Exact values, many columns, or no chart fits**: `table`. Use `pivot` for a cross-tab and `object` for one record.
 
-## Step 1 — pick the `display` for your data
+Use `scalar` for a single number, not `number`. Don't give a card `heading`, `text`, `link`, `iframe`, `action`, or `list`. The first five are dashboard virtual cards (see `dashboard`).
 
-Decide which relationship in the data matters most, then pick the chart. The shape each one needs is in the per-display table further down.
+## Settings name output columns
 
-- **Single headline number** → `scalar` (one KPI). `smartscalar` when the story is the change vs the previous period. `gauge`/`progress` for one value against a target/goal.
-- **Compare a measure across categories** → `bar` (vertical). Use `row` (horizontal bar) when labels are long or there are many categories. Sort by value unless the dimension has a natural order.
-- **Change over time / trend** → `line` for a continuous series; `bar`/`area` for a few discrete periods. Two measures on unlike scales → `combo` (line + bar, dual-axis) — only when the metrics are genuinely related.
-- **Part-to-whole, one snapshot** → `pie`, but only for a meaningful whole with **≤5 slices**; beyond that use a sorted `bar`/`row`. Composition over time → stacked `area`/`bar`.
-- **Distribution / spread / outliers** → a `bar` histogram (bin the measure — see `mbql` binning).
-<!-- requires: boxplotDisplay -->
-- **Spread across several groups** → `boxplot` compares the groups' distributions directly.
-<!-- /requires -->
-- **Correlation between two measures** → `scatter` (a third measure → bubble size).
-- **Sequential additive contributions** (start → +/− steps → total) → `waterfall`.
-- **Stage drop-off in an ordered, cumulative funnel** → `funnel`.
-- **Flow volume between nodes** (source → target + weight) → `sankey`.
-- **Geographic** → `map`: region/choropleth (a region dimension + a measure), pin (lat + long), or grid/heat (coordinates + measure).
-- **Precise values, many columns, mixed types, or no chart fits** → `table`; `pivot` for a cross-tab of two dimensions; `object` for a single record's detail.
+Every column-binding key takes the name of a column that the query produces:
 
-Valid `display` values — the registered visualizations: `table`, `bar`, `line`, `area`, `row`, `pie`, `scalar`, `smartscalar`, `combo`, `pivot`, `funnel`, `map`, `scatter`, `waterfall`, `progress`, `gauge`, `object`, `sankey`. The API types `display` as a plain string and accepts any value — it renders an unknown one as nothing. (`scalar` **is** the "Number" viz — `display: number` is a legacy serialization alias, not a registered visualization; use `scalar`. `list` exists but is hidden — don't pick it. `heading`/`text`/`link`/`iframe`/`action` are dashcard virtuals, not standalone cards — see references.) A typo like `bargraph`/`linechart` is accepted and renders blank — the most common "why is my chart blank" cause.
+- A breakout on a field produces the field's name, such as `CATEGORY` or `CREATED_AT`.
+- `count` produces `count`, `sum` produces `sum`, and `avg` produces `avg`.
+- An aggregation with a `name` option produces that name. Set `name` on aggregations you bind to.
 
-## Step 2 — bind data columns and set options
+Never put a field ref or a numeric id in a binding key.
 
-### Which chart for which data, and what to set
+## Bind the columns each chart needs
 
-**Use for** is the data shape each chart suits. **Required** is the minimum to set for it to render as a chart — omit it and the card falls back to a "which columns?" prompt. Everything else is optional (full keys in references). **Empty `"visualization_settings": {}` is valid**: for a simple aggregate the binding is auto-picked, so set keys only to pin or override.
+`visualization_settings: {}` is valid. For a simple aggregate, Metabase picks the columns. Set these keys to pin the choice, or when the chart falls back to a column picker.
 
-| `display`                   | Use for                                                   | Required                                                   |
-| --------------------------- | --------------------------------------------------------- | ---------------------------------------------------------- |
-| `scalar`                    | 1 row, 1 column                                           | — (`scalar.field` only if >1 column)                       |
-| `smartscalar`               | one value grouped by a single **time** field              | — (needs a time breakout; `scalar.field` auto)             |
-| `gauge`                     | 1 row, 1 numeric column                                   | — (`gauge.segments` auto)                                  |
-| `progress`                  | 1 row, ≥1 numeric column                                  | — (`progress.goal` defaults to 0)                          |
-| `bar` `line` `area` `combo` | >1 row, ≥2 cols, ≥1 dimension + ≥1 measure                | `graph.dimensions`, `graph.metrics`                        |
-| `row`                       | as bar; prefer for long/many category labels              | `graph.dimensions`, `graph.metrics`                        |
-| `scatter`                   | two numeric measures (correlation)                        | `graph.dimensions`, `graph.metrics` (`scatter.bubble` opt) |
-| `waterfall`                 | exactly 1 dimension + ≥1 measure; sequential              | `graph.dimensions` (1), `graph.metrics` (1)                |
-| `pie`                       | ≥2 rows, ≥2 cols, ≥1 dimension + ≥1 measure; ≤~5 slices   | `pie.dimension`, `pie.metric`                              |
-| `funnel`                    | 2 columns (stage + value); ordered stages                 | `funnel.dimension`, `funnel.metric`                        |
-| `map` (region)              | a string/region dimension + a measure                     | `map.region`, `map.dimension`, `map.metric`                |
-| `map` (pin/grid)            | latitude + longitude columns                              | `map.latitude_column`, `map.longitude_column`              |
-| `sankey`                    | ≥3 cols, ≥2 non-date dimensions, ≥1 measure; acyclic flow | `sankey.source`, `sankey.target`, `sankey.value`           |
-| `pivot`                     | ≥2 cols, all aggregated/breakout                          | — (`pivot_table.column_split` auto)                        |
-| `table` `object`            | anything (table is the universal fallback)                | — (always renders)                                         |
+| `display`                             | Data shape                                  | Binding keys                                                                                 |
+| ------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `scalar`                              | 1 row                                       | `scalar.field` (when the result has more than 1 column)                                      |
+| `smartscalar`                         | one measure by one time breakout            | `scalar.field`, optional `scalar.comparisons`                                                |
+| `gauge`, `progress`                   | 1 row, 1 number                             | `gauge.segments`; `progress.goal`                                                            |
+| `bar`, `line`, `area`, `combo`, `row` | 1 or 2 dimensions, 1 or more measures       | `graph.dimensions`, `graph.metrics`                                                          |
+| `scatter`                             | 2 numeric columns                           | `graph.dimensions`, `graph.metrics`                                                          |
+| `waterfall`                           | 1 dimension, 1 measure                      | `graph.dimensions`, `graph.metrics`                                                          |
+| `boxplot`                             | unaggregated rows, 2 dimensions, 1 measure  | `graph.dimensions`, `graph.metrics`                                                          |
+| `pie`                                 | 1 dimension, 1 measure                      | `pie.dimension`, `pie.metric`                                                                |
+| `funnel`                              | stage and value                             | `funnel.dimension`, `funnel.metric`                                                          |
+| `map` (region)                        | region column and measure                   | `map.type: region`, `map.region`, `map.dimension`, `map.metric`                              |
+| `map` (pin, grid)                     | latitude and longitude                      | `map.type`, `map.latitude_column`, `map.longitude_column`, plus `map.metric_column` for grid |
+| `sankey`                              | source, target, value                       | `sankey.source`, `sankey.target`, `sankey.value`                                             |
+| `pivot`                               | 2 or more breakouts, 1 or more aggregations | `pivot_table.column_split`                                                                   |
+| `table`, `object`                     | anything                                    | none                                                                                         |
 
-<!-- requires: boxplotDisplay -->
+`graph.dimensions` and `graph.metrics` are lists. The first dimension is the x-axis. A second dimension splits the measure into series. `bar`, `line`, `area`, and `combo` share one key set, so you can switch among them without other changes.
 
-`boxplot` is registered too: ≥3 cols, ≥2 dimensions, ≥1 measure, on **unaggregated** rows; required keys `graph.dimensions`, `graph.metrics`.
-
-<!-- /requires -->
-
-### The rule that trips everyone: settings name **output columns**, by name
-
-`graph.dimensions`, `graph.metrics`, `pie.dimension`, `pie.metric`, `scalar.field`, `funnel.metric`, `map.latitude_column`, `sankey.source`, … all take **output column-name strings** — the names the query _produces_, not field ids. A `count` aggregation outputs the column `count`; a breakout on a field outputs that field's name; a named aggregation outputs its `name`. These strings are **identical in the API form and the portable (git-sync) form** — no numeric-vs-name footgun here.
-
-The names come from the query's output, not from `mb field`/`mb table`. If you set `name` on an aggregation (see the `mbql` skill), use that same string here.
-
-## Minimum-viable settings per chart family (API form)
-
-Each block is the `visualization_settings` to pair with the given `display`. The `dataset_query` is elided — build it per the `mbql` skill. Output columns (`CATEGORY`, `count`, …) are whatever the query's breakout/aggregation produce.
-
-**Bar / line / area / combo** — one dimension on the x-axis, one or more metrics (the four share an identical key set; switch `display` freely):
-
-```json
-"display": "bar",
-"visualization_settings": { "graph.dimensions": ["CATEGORY"], "graph.metrics": ["count"] }
+```yaml
+display: bar
+visualization_settings:
+  "graph.dimensions": [CREATED_AT, CATEGORY]
+  "graph.metrics": [count]
+  "stackable.stack_type": stacked # or normalized (100%); omit for side by side
+  "graph.x_axis.title_text": Quarter
 ```
 
-(Multiple metrics: `"graph.metrics": ["count","sum"]`. Stacked: add `"stackable.stack_type": "stacked"` — or `"normalized"` for 100%. A second dimension in `graph.dimensions` becomes a series breakout.)
-
-**Row** — same keys; axes are visually swapped (horizontal bars).
-
-**Pie** — one dimension, one metric:
-
-```json
-"display": "pie",
-"visualization_settings": { "pie.dimension": "CATEGORY", "pie.metric": "count" }
+```yaml
+display: pie
+visualization_settings:
+  "pie.dimension": CATEGORY
+  "pie.metric": count
 ```
 
-**Scalar** (single big number) — the field to surface (only needed if >1 column):
-
-```json
-"display": "scalar",
-"visualization_settings": { "scalar.field": "count" }
+```yaml
+display: map
+visualization_settings:
+  "map.type": region
+  "map.region": us_states
+  "map.dimension": STATE
+  "map.metric": count
 ```
 
-**Map (region/choropleth)** — region map + dimension + metric:
+## `column_settings` keys are quoted JSON strings
 
-```json
-"display": "map",
-"visualization_settings": { "map.type": "region", "map.region": "us_states", "map.dimension": "STATE", "map.metric": "count" }
+`column_settings` formats one column at a time. Each key is the string `["name","<output column>"]`. Wrap the key in single quotes so YAML reads it as a string:
+
+```yaml
+visualization_settings:
+  column_settings:
+    '["name","TOTAL"]':
+      number_style: currency # decimal, percent, scientific, currency
+      currency: USD
+      decimals: 2
+      column_title: Revenue
+    '["name","CREATED_AT"]':
+      date_style: "MMMM D, YYYY"
+    '["name","EMAIL"]':
+      view_as: link
+      link_url: "mailto:{{value}}"
 ```
 
-**Table** — column order/visibility plus per-column formatting:
+The spec's Column Settings section lists every formatting key.
 
-```json
-"display": "table",
-"visualization_settings": {
-  "table.columns": [ { "name": "CATEGORY", "enabled": true }, { "name": "count", "enabled": true } ],
-  "column_settings": { "[\"name\",\"count\"]": { "column_title": "Orders" } }
-}
-```
+## Find other options in the spec
 
-## `column_settings`: the JSON-string-key footgun
+| Need                                                                    | Spec subsection                                         |
+| ----------------------------------------------------------------------- | ------------------------------------------------------- |
+| Axis titles, scales, goal line, trend line, data labels, stacking       | Graph Settings                                          |
+| Per-series color, line style, right axis, per-series display on `combo` | Series Settings                                         |
+| Column order and visibility, conditional cell colors                    | Table Settings, Conditional Formatting                  |
+| Pivot rows, columns, values, totals                                     | Pivot Table Settings                                    |
+| Legend, center total, slice colors                                      | Pie Chart Settings                                      |
+| Previous-period and target comparisons                                  | Smart Scalar Settings                                   |
+| Gauge bands, funnel, waterfall, sankey, boxplot, map options            | the matching subsection                                 |
+| Heading, text, and link cards; click behavior                           | Virtual Card Settings, Click Behavior (see `dashboard`) |
 
-`column_settings` is a map **whose keys are themselves JSON-encoded arrays** — so inside a JSON body the inner quotes must be escaped. The key is a _string_, never an object.
-
-- **Prefer the name form:** `["name", "<output column name>"]` → in a JSON body, `"[\"name\",\"count\"]"`. This is the canonical key Metabase writes, and it's **identical in API and portable form**. Use it unless you have a reason not to.
-- **Ref form (legacy order!):** `["ref", ["field", <id>, <opts>]]`. The inner field ref uses the **legacy MBQL-4 order** `["field", id, options]` (id **second**) — _not_ the MBQL-5 order you use in `dataset_query`. In the API form `<id>` is the numeric field id. Because the order differs, this form is easy to get wrong — reach for the name form instead.
-
-```json
-"column_settings": {
-  "[\"name\",\"TOTAL\"]": { "number_style": "currency", "currency": "USD", "decimals": 2 },
-  "[\"name\",\"CREATED_AT\"]": { "date_style": "MMMM D, YYYY" }
-}
-```
-
-The exhaustive per-column key list (number/date formatting, `view_as`, alignment, mini bars, click behavior) is in the references file.
-
-## Escape hatch: pull a real card instead of authoring from scratch
-
-For anything beyond a single dimension + metric — combo charts, conditional formatting, pivot splits, click behavior, series colors — the cheapest **correct** path is to build it once in the Metabase UI and copy the result:
-
-```bash
-mb card get <id> --full --json | jq '.visualization_settings'
-```
-
-Paste that block into your `card create`/`update` body. The server produced it, so it's valid for that `display`.
-
-## Full per-visualization key catalog
-
-The body above covers the high-frequency 90%. The complete per-chart key tables — every key with its values and defaults, the data shape each chart suits, the full `column_settings` and `series_settings` vocabularies, conditional formatting, pivot splits, virtual cards (heading/text/link/iframe), and click behavior — live in the references file. Load on demand, not by default:
-
-```bash
-mb skills get visualization --full     # appends references/settings.md to this body
-mb skills path visualization           # → the skill dir; then Read references/settings.md
-```
+The repo's existing cards are working examples. Copy the `visualization_settings` of a card with the same `display`, then change the column names.
 
 ## Don't
 
-- Don't invent `display` values (`bargraph`, `linechart`, `histogram`) or use `number`/`list` — use a registered value; the API accepts a typo and renders nothing.
-- Don't put numeric field ids in `graph.dimensions`/`pie.metric`/`scalar.field`/`map.latitude_column` etc. — they take **output column-name strings**.
-- Don't reach for a `pie` with >5 slices, a `combo` of unrelated metrics, or a `pie`/`scalar` to show a trend — see Step 1.
-- Don't write a `column_settings` key as an object — it's a JSON **string** (`"[\"name\",\"COL\"]"`), inner quotes escaped.
-- Don't use the MBQL-5 field-ref order inside a `column_settings` `["ref", …]` key — that key uses the **legacy** `["field", id, opts]` order. Prefer the `["name", …]` form.
-- Don't expect a pre-flight to catch viz mistakes — there is none. Verify by reading the card back.
-- Don't hand-author complex charts when you can pull a working `visualization_settings` from a UI-built card.
-- Don't look for an event/annotation key in `visualization_settings` — vertical event markers on time-series charts come from timelines (`mb timeline` / `mb timeline-event`) living in the question's own collection (same collection only, no sub-collection inheritance; question view only, never dashboard cards).
+- Don't put numeric field ids or field refs in binding keys. Write output column names.
+- Don't write a `column_settings` key without quotes. It is the string `'["name","COL"]'`.
+- Don't use a `pie` for more than 5 slices, or a `pie` or `scalar` to show a trend.
+- Don't use `combo` for unrelated measures.
+- Don't put `click_behavior` in a card file. It belongs on a dashcard.
+- Don't trust a passing `mb check` for settings. It validates `display`, not `visualization_settings` keys.

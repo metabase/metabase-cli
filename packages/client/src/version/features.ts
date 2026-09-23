@@ -5,9 +5,6 @@ import type { TokenFeatures } from "../domain/session-properties";
 // A rule holds on every major from `since` through `until` (both inclusive) on which the server
 // also grants `tokenFeature`. Names describe the behaviour a consumer branches on, never the
 // version it arrived in, so a rule reads the same after the majors around it leave the window.
-// The table is the one place a server behaviour is pinned to a generation, so it also holds rules
-// only the e2e suite branches on (`invalidMbqlIsBadRequest`, `collectionItemsTotalOnEmptyPage`,
-// `transformTargetTableLinkedOnCreate`); a rule with no reader in `resources/` is not an orphan.
 export interface FeatureRule {
   readonly since: number;
   readonly until?: number;
@@ -15,45 +12,7 @@ export interface FeatureRule {
 }
 
 export const FEATURE_RULES = {
-  transforms: { since: 59 },
-  transformJobActivation: { since: 61 },
-  measures: { since: 59 },
-  library: { since: 59, tokenFeature: "library" },
   remoteSync: { since: 60, tokenFeature: "remote_sync" },
-  remoteSyncExportPreflight: { since: 63, tokenFeature: "remote_sync" },
-  contentTranslation: { since: 58, tokenFeature: "content_translation" },
-  contentVerification: { since: 58, tokenFeature: "content_verification" },
-  transformTargetTableId: { since: 61 },
-  transformTargetTableLinkedOnCreate: { since: 61, until: 61 },
-  transformJobRunIdIsNumeric: { since: 64 },
-  transformCheckpointReset: { since: 60 },
-  fieldDataSensitivity: { since: 64 },
-  transformDagRuns: { since: 64 },
-  unifiedTransformRuns: { since: 64 },
-  transformTests: { since: 65, tokenFeature: "transforms-testing" },
-  libraryChildrenCarryType: { since: 62 },
-  collectionItemsTotalOnEmptyPage: { since: 64 },
-  invalidMbqlIsBadRequest: { since: 59 },
-  boxplotDisplay: { since: 59 },
-  nativeTableTemplateTag: { since: 59 },
-  smartLinkMeasureModel: { since: 60 },
-  dashboardSubscriptionFilters: { since: 58, tokenFeature: "dashboard_subscription_filters" },
-  dependencyGraph: { since: 58, tokenFeature: "dependencies" },
-  dependencyItemListings: { since: 59, tokenFeature: "dependencies" },
-  dependencyKebabCaseFilters: { since: 60 },
-  tableListAccessFilters: { since: 59 },
-  tableListTransformTargets: { since: 60 },
-  tableUnusedFilter: { since: 58, tokenFeature: "dependencies" },
-  tableDataLayerTiers: { since: 59 },
-  bulkTableEdit: { since: 59 },
-  erd: { since: 62, tokenFeature: "schema-viewer" },
-  documentCopy: { since: 59 },
-  transformInspector: { since: 60, tokenFeature: "transforms-python" },
-  pythonLibrary: { since: 58, tokenFeature: "transforms-python" },
-  pythonTestRun: { since: 60, tokenFeature: "transforms-python" },
-  sourceReplacement: { since: 60, tokenFeature: "dependencies" },
-  metricDefinitionQuery: { since: 60 },
-  metricDimensionListing: { since: 64 },
 } satisfies Record<string, FeatureRule>;
 
 export type FeatureName = keyof typeof FEATURE_RULES;

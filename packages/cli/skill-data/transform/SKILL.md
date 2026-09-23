@@ -1,214 +1,202 @@
 ---
 name: transform
-description: Author and run Metabase transforms via `mb` — body shape (native SQL or structured MBQL), create + run-with-wait, run inspection, dependencies, cancel, the `update`-vs-recreate iteration rule, the writable-keys-only PATCH contract, plus transform tags and tag-driven transform-job schedules. Load when the user touches transforms — "create a transform", "run a transform", "fix a failing transform", "list transform runs", "cancel a running transform", "manage transform tags", "run a transform job", or anything `mb transform …` / `mb transform-job …` / `mb transform-tag …`.
-allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
-requires: [transforms]
+description: Author Metabase transforms as YAML files. A transform is a query (MBQL or native SQL) or a Python script whose result Metabase writes to a warehouse table. Covers the transform file (source, target, tags, collection), Python transforms and the `common` Python library, transform tags, and transform jobs (cron schedules that run tagged transforms). Transforms run only on their jobs' schedules after `mb save` imports them; the CLI cannot run one. Triggers - "create a transform", "materialize this query as a table", "write a Python transform", "schedule a transform nightly", "add a transform tag", "add a transform job", "why didn't my transform table appear", or editing files under `collections/transforms/`, `transforms/`, or `python_libraries/`.
+allowed-tools: Read, Write, Edit, Bash
 ---
 
 # Transforms
 
-A **transform** persists the result of a query (native SQL or MBQL) to a warehouse table the user can read from cards, dashboards, and other transforms. It runs on a schedule (via `transform-job`) or on-demand (`transform run`).
+A transform is a YAML file that tells Metabase to run a query or Python script and write the result to a warehouse table. A transform runs only when a transform job with one of its tags fires. The CLI cannot run a transform. Write the files, run `mb check`, then run `mb save`. The job schedule runs the transform.
 
-Flag conventions, body-input precedence, and the `./.scratch` convention live in `core` (`mb skills get core`). Deciding _which_ transforms to build — modeling a whole raw database into clean, analysis-ready tables — is the `data-workflow` skill's build-clean-tables stage (`mb skills get data-workflow`).
+Load `representations` first for entity_ids, refs, and `serdes/meta`. Load `mbql` or `native-sql` for the query body.
 
-## Body shape
+## Four entity types make a scheduled transform
 
-A transform has two halves:
+| Entity        | File                                    | Schema                | Spec section  |
+| ------------- | --------------------------------------- | --------------------- | ------------- |
+| Transform     | `collections/transforms/<slug>.yaml`    | `transform.yaml`      | Transform     |
+| TransformTag  | `transforms/transform_tags/<slug>.yaml` | `transform_tag.yaml`  | TransformTag  |
+| TransformJob  | `transforms/transform_jobs/<slug>.yaml` | `transform_job.yaml`  | TransformJob  |
+| PythonLibrary | `python_libraries/<path>.yaml`          | `python_library.yaml` | PythonLibrary |
 
-- `source` — the query to run (`type: "query"`, with `query.type` of `native` or `mbql`).
-- `target` — the warehouse destination (`type: "table"`, with `database`, `schema`, `name`).
+The schemas are in `$DIR/spec/schemas/` (see `representations`). A job lists tags. A transform carries tags. The job runs every transform that carries any of its tags.
 
-Native SQL is the simplest source — author it as an `mbql.stage/native` stage (the SQL string sits at `source.query.stages[0].native`), the form below. For a **structured** `source.query` (an `mbql.stage/mbql` stage) — the options-object-is-always-second clause rule, UUID minting, aggregation/order-by refs, naming aggregation output columns, and the `--print-schema` → `--dry-run` validation loop — see `mbql` (**`mb skills get mbql`**). Both stage types are the `mbql/query` shape, so `transform create`/`update` pre-flight them (only the legacy flat forms skip it). Pull a sample body with `mb transform get <id> --full --json`. For a transform target, naming aggregation output columns matters more than usual: a bare `count` / `avg_2` becomes the warehouse column name.
+Read the existing files in `transforms/` before you create a tag or a job. Repos exported from Metabase usually hold the built-in tags (`hourly`, `daily`, `weekly`, `monthly`) and their jobs. Tag the transform with one of those, and you need no new job.
 
-## Create + run (native SQL)
+## The transform file holds a source and a target
 
-**Keep the SQL formatted.** Author it multi-line in `./.scratch/<name>.sql` and embed with `jq --rawfile` (jq ≥1.6, which JSON-encodes the file so newlines become `\n`). The stored SQL (`source.query.stages[0].native`) is what `mb transform get` and the Metabase editor render — a single-line blob is valid JSON but unreadable when anyone opens the transform. Single-quote the heredoc delimiter (`<<'SQL'`) so the shell leaves `$vars` in the query alone (e.g. Postgres `$1`, `$$`).
-
-```bash
-cat > ./.scratch/user_counts_by_signup_year.sql <<'SQL'
-SELECT
-  date_trunc('year', created_at)::date AS signup_year,
-  COUNT(*)::int                        AS user_count
-FROM public.users
-GROUP BY 1
-ORDER BY 1
-SQL
-
-jq -n --rawfile q ./.scratch/user_counts_by_signup_year.sql \
-  '{ name: "user_counts_by_signup_year",
-     description: "Sample transform: counts users by year of signup",
-     source: { type: "query", query: { "lib/type": "mbql/query", database: <db-id>, stages: [{ "lib/type": "mbql.stage/native", native: $q }] } },
-     target: { type: "table", database: <db-id>, schema: "public", name: "user_counts_by_signup_year" } }' \
-  > ./.scratch/transform.json
-
-TRANSFORM_ID=$(mb transform create --file ./.scratch/transform.json --profile <name> --json | jq -r '.id')
-mb transform run "$TRANSFORM_ID" --wait --profile <name> --json
+```yaml
+name: Revenue by Category
+entity_id: IKFex8lpcj60yHlBmZuJm
+creator_id: admin@example.com
+source_database_id: Sample Database
+description: Order count and revenue per product category
+source:
+  type: query
+  query:
+    "lib/type": mbql/query
+    database: Sample Database
+    stages:
+      - "lib/type": mbql.stage/native
+        native: |-
+          SELECT
+            p.CATEGORY,
+            COUNT(*) AS order_count,
+            SUM(o.TOTAL) AS total_revenue
+          FROM ORDERS o
+          JOIN PRODUCTS p ON o.PRODUCT_ID = p.ID
+          GROUP BY p.CATEGORY
+target:
+  database: Sample Database
+  type: table
+  schema: TRANSFORMS
+  name: revenue_by_category
+tags:
+  - entity_id: o4ev9uINpMGvyLlsBllvY
+    position: 0
+    tag_id: dUW7nvQHQBdA0Rx0gJckI # entity_id of the "daily" TransformTag file
+    serdes/meta:
+      - id: o4ev9uINpMGvyLlsBllvY
+        model: TransformTransformTag
+serdes/meta:
+  - id: IKFex8lpcj60yHlBmZuJm
+    label: revenue_by_category
+    model: Transform
 ```
 
-- `<db-id>` comes from `mb database list --profile <name> --json`; ids are per-instance. Target `schema` is the schema the result table is written into (e.g. `public`).
-- `--wait` polls until status is `succeeded` or `failed`. Without it you get only `{message: "Transform run started", run_id, final: null}` and must poll yourself — don't put bare `transform run` in a tight loop; let `--wait` do the polling.
-- `--sync` implies `--wait`, then waits until the run registers its output table (the run registers it itself — no `db sync-schema` needed), adding `target_table_id` to the envelope. Use it when you'll build MBQL on the output (see "Inspect").
-- The `--json` envelope is shape-stable: `{message, run_id, final}` (plus `target_table_id` under `--sync` — a number, or `null` if the table didn't register before the timeout). `final` is `null` when `--wait` is omitted or the run never started, otherwise a full `TransformRun` with `status` and `message`. On a failed run (`final.status` ∈ {`failed`, `timeout`, `canceled`}) the CLI exits 1 and writes a one-line `transform run <id> failed` to stderr; the failure detail lives only in `final.message` on stdout, so `jq -r '.final.message'` is where to look.
-- `transform create --json` returns the agent-facing compact projection: `{id, name, description, source_type, target: {type, database, schema, name}, target_db_id}`. Read `target.schema`/`target.name` directly off it — no follow-up `transform get`.
-- If a transform with the same `name` already has a YAML representation on disk under the configured remote-sync repo, `create` mints a `_2` suffix on the exported filename (the new transform gets a fresh `entity_id`; the prior one isn't touched). For "iterate on the same concept", prefer `transform update <id>` — see "Iterating on a failing transform".
-- **`collection_id` only accepts a collection in the `:transforms` namespace.** Transforms aren't filed next to cards and dashboards — a normal analytics collection id fails create/update with `collection_id: A Transform can only go in Collections in the :transforms namespace.` Omit `collection_id` to leave the transform uncollected (the common case), or provision one with `mb collection create --body '{"name":"…"}' --namespace transforms --json` (see `core`) and pass the returned `id`. Cards and dashboards you build **on top of** the output table go in ordinary collections — so "put the transform and its dashboard in collection X" means _X holds the dashboard + cards; the transform stays in the transforms namespace._
+- **Required fields:** `name`, `entity_id`, `creator_id` (a user email), `source_database_id`, `source`, `target`, `serdes/meta`.
+- **Use one database name everywhere.** Set `source_database_id`, `source.query.database`, and `target.database` to the same name. A transform writes to the database it reads from.
+- **`target.schema` and `target.name` name the output table.** Pick a schema that the Metabase connection can write to. `mb metadata <db-id>` shows the existing schemas. Pick a table name that no other table or transform uses.
+- **Set `target.type: table`.** The other value, `table-incremental`, needs a `source-incremental-strategy` object. The spec does not define that object's shape. Copy it from an incremental transform in the repo, or do not use it.
+- **Keep SQL multi-line** in a `|-` block scalar. The Metabase editor shows the string as written.
+- **Each tag entry is its own entity.** Mint a fresh `entity_id` for each entry, and set `serdes/meta[0].id` to it. Set `tag_id` to the TransformTag's `entity_id`. Number `position` from 0.
+- **`collection_id` must name a collection with `namespace: transforms`.** Omit it to put the transform in the root. Never use a regular collection that holds cards and dashboards.
+- **Each run replaces the target table.** A non-incremental run drops the table and creates it again. A changed column list is safe.
 
-## Inspect
+### An MBQL source must name every aggregation
 
-```bash
-mb transform list --profile <name> --json
-mb transform get <id> --profile <name> --full --json          # full transform incl. last run summary
-mb transform dependencies <id> --profile <name> --json        # upstream transforms this one must run after
+An MBQL source uses an `mbql.stage/mbql` stage with `source-table` and field refs from `mb metadata`. See `mbql` for clause syntax. The output column names become warehouse column names. Set `name` in each aggregation's options. Otherwise the columns get names like `count` and `sum`.
+
+```yaml
+stages:
+  - "lib/type": mbql.stage/mbql
+    source-table: [Sample Database, PUBLIC, ORDERS]
+    aggregation:
+      - - sum
+        - name: total_revenue
+        - - field
+          - base-type: type/Float
+          - [Sample Database, PUBLIC, ORDERS, TOTAL]
+    breakout:
+      - - field
+        - temporal-unit: month
+        - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
 ```
 
-After a run the table physically exists in the warehouse, but Metabase addresses tables/columns by numeric id, so **MBQL and the UI can't reference a brand-new table until the instance syncs** (native SQL — a native `card` or `mb query` against `<schema>.<name>` — reads it immediately). Run and register in one step with `--sync`:
+### A Python source defines `transform()` and returns one DataFrame
 
-```bash
-TABLE_ID=$(mb transform run <id> --sync --profile <name> --json | jq -r '.target_table_id')
-mb table get "$TABLE_ID" --include fields --profile <name> --json   # field ids for MBQL
+```yaml
+source:
+  type: python
+  source-database: Sample Database
+  source-tables:
+    - alias: orders
+      database_id: Sample Database
+      schema: PUBLIC
+      table: ORDERS
+  body: |-
+    import pandas as pd
+
+    def transform(orders):
+        return (orders.groupby("USER_ID")
+                      .agg(order_count=("ID", "count"))
+                      .reset_index())
 ```
 
-On `target_table_id: null` (still syncing when the poll timed out; exit 0) re-poll `mb transform get <id> --json` until `target_table_id` is a number.
+- `transform()` takes one parameter per `source-tables` entry, named by its `alias`. It returns one pandas DataFrame.
+- Copy `database_id`, `schema`, and `table` from the table's `ref` in `mb metadata`. For a schemaless database, set `schema: null`. Omit `table_id`.
+- Put all source tables and the target in one database.
+- Call `.reset_index()` after a `groupby`. Metabase does not write the DataFrame index.
+- The script can import only `pandas`, its dependencies (such as `numpy`), and the Python standard library.
+- Python runs in memory, one transform at a time. Use a query source for large tables.
 
-Columns and types are inferred from the result set; change the SELECT shape and the next run fails on a column mismatch — drop the table first (`transform delete-table <id>`). A changed shape also needs a re-run with `--sync` before MBQL sees the new/renamed columns.
+### The Python library is shared code named `common`
 
-## Inspect runs and cancel an in-flight run
+A PythonLibrary file holds code for every Python transform. Metabase uses one library, with `path: common.py`. Write `import common` in the script and call `common.<function>()`. Library code cannot read warehouse data.
 
-```bash
-# Recent runs across all transforms (server-paged; continue with --offset <next_offset>):
-mb transform runs --profile <name> --json
-mb transform runs --transform-id <id> --limit 10 --profile <name> --json
-
-# Fetch one run by RUN id (NOT transform id — the run id comes from `transform run` or `transform runs`):
-mb transform get-run <run-id> --profile <name> --json
-
-# Cancel the currently-running run for a transform:
-mb transform cancel <id> --profile <name> --json
+```yaml
+entity_id: <mint one>
+path: common.py
+source: |-
+  def cents_to_dollars(series):
+      return series / 100
+serdes/meta:
+  - id: <same entity_id>
+    model: PythonLibrary
 ```
 
-- `transform runs` and `transform get-run` parse against the same `TransformRun` schema, so `get-run` returns the same per-run shape as one entry of `runs`. The compact projection is `{id, transform_id, status, run_method, start_time, end_time, message}`. Pass `--full` on `get-run` for the hydrated row including `is_active`, `user_id`, `transform_name`, `transform_entity_id`, `checkpoint_*` fields, and a nested `transform: {id, name, …}` block.
-- `transform cancel` takes the **transform** id and returns `{canceled: true, id: <transform-id>}`. It 404s with `Endpoint not found — is this a Metabase instance?` if there is no active run.
-- **Cancel semantics differ by source.** For native SQL, cancel marks the run `canceling` but does **not** kill the warehouse query mid-flight — the query runs to completion, then the run lands as `canceled` (or stays `succeeded` if the cancel arrived after the writer committed). For Python transforms the worker is interrupted directly. Don't expect cancel to free warehouse resources instantly on long native queries; expect it to flip state and prevent downstream consumers from treating the result as good.
-- The `--transform-id` filter on `runs` accepts a single integer (translated to the server's `transform-ids` vector). To cross-filter multiple transforms, run `transform runs --json` and `jq` post-hoc.
+If `python_libraries/` already holds the library file, edit it. Do not add a second library file.
 
-## Update body: send only writable keys, never round-trip the GET body
+## Tags and jobs set the schedule
 
-`transform update <id>` is **PATCH semantics** — only send the fields you want to change. The endpoint accepts exactly these writable keys:
+A TransformTag is a label. A TransformJob holds a cron `schedule` and a `job_tags` list. On each tick, the job runs every transform that carries one of its tags. The job also runs stale upstream transforms that those transforms read from, in dependency order.
 
-```
-name, description, source, target, run_trigger,
-tag_ids, collection_id, owner_user_id, owner_email
-```
+To give a transform its own schedule, add a custom tag and a job:
 
-**Never paste the output of `transform get` into a `transform update` body.** The GET response carries server-side fields (`id`, `entity_id`, `created_at`, `updated_at`, `creator_id`, `last_run`, `target_db_id`, `target_table_id`, `source_type`, `source_database_id`, `source_readable`, `creator`, `owner`, `table`, …) that the PUT endpoint isn't built to handle. Unknown top-level keys flow into `t2/update!` and leak a raw H2 SQL error like:
-
-```
-Column "TAGS" not found; SQL statement:
-UPDATE "TRANSFORM" SET "TAGS" = (), "UPDATED_AT" = NOW() WHERE "ID" = ? [42122-214]
+```yaml
+# transforms/transform_tags/finance_nightly.yaml
+name: finance-nightly
+entity_id: VKA9keBbNvGbSlLy0aBu8
+serdes/meta:
+  - id: VKA9keBbNvGbSlLy0aBu8
+    label: finance_nightly
+    model: TransformTag
 ```
 
-Three specific footguns:
-
-- **`tags` is not a REST key.** The serdes/YAML representation uses `tags`; the REST contract uses `tag_ids` (an array of integer ids). If you pulled a YAML representation and want to PUT it, translate `tags: [...]` → `tag_ids: [...]` first (or omit it if you're not changing tag membership).
-- **`source_type`, `target_db_id`, `target_table_id`, `entity_id`** are derived/computed by the server. They appear in GET responses for the agent's benefit; the server doesn't accept them on update.
-- **`collection_id` must be a `:transforms`-namespace collection** — a regular card/dashboard collection id is rejected with `A Transform can only go in Collections in the :transforms namespace.` Round-tripping the existing value is safe; setting it to an ordinary collection is what fails.
-
-Patch only what changes:
-
-```bash
-# Rename only:
-mb transform update <id> --body '{"name":"renamed"}' --profile <name> --json
-
-# Rewrite the SQL only — author it formatted, embed with jq:
-cat > ./.scratch/orders.sql <<'SQL'
-SELECT …
-FROM public.orders
-SQL
-jq -n --rawfile q ./.scratch/orders.sql \
-  '{ source: { type: "query", query: { "lib/type": "mbql/query", database: <db-id>, stages: [{ "lib/type": "mbql.stage/native", native: $q }] } } }' \
-  > ./.scratch/patch.json
-mb transform update <id> --file ./.scratch/patch.json --profile <name> --json
-
-# Change tag membership (note: tag_ids, not tags):
-mb transform update <id> --body '{"tag_ids":[1,3]}' --profile <name> --json
+```yaml
+# transforms/transform_jobs/finance_nightly_job.yaml
+name: Finance nightly
+entity_id: ZvVNMTv1Rnv60HKqkyYGE
+description: Runs finance-nightly transforms at 02:00
+schedule: 0 0 2 * * ? *
+ui_display_type: cron/builder
+job_tags:
+  - entity_id: ngjKVCWXZQyafI5buaeZA
+    position: 0
+    tag_id: VKA9keBbNvGbSlLy0aBu8
+    serdes/meta:
+      - id: ngjKVCWXZQyafI5buaeZA
+        model: TransformJobTransformTag
+serdes/meta:
+  - id: ZvVNMTv1Rnv60HKqkyYGE
+    label: finance_nightly_job
+    model: TransformJob
 ```
 
-`tag_ids` are the integer ids of **transform tags** — manage them with the `transform-tag` group: `mb transform-tag list --json` (find ids; the four built-ins `hourly`/`daily`/`weekly`/`monthly` are seeded), `mb transform-tag create --body '{"name":"nightly"}' --json`, `mb transform-tag update <id>`, `mb transform-tag delete <id>`. Tags are also how a `transform-job` selects what to run — a job executes every transform carrying one of the job's tags (see "Transform jobs").
+- **`schedule` is a Quartz cron string with 7 fields:** second, minute, hour, day-of-month, month, day-of-week, year. Put `?` in day-of-month or day-of-week.
+- Cron examples: `0 0 * * * ? *` (hourly), `0 0 0 * * ? *` (daily at midnight), `0 0 0 ? * 1 *` (Sundays). Times use the Metabase server's timezone.
+- **Omit `built_in_type` from custom tags and jobs.** Only the four built-in files set it.
+- **Do not name a custom tag `hourly`, `daily`, `weekly`, or `monthly`.** Reuse the built-in tag file.
+- A transform with no tags never runs. A transform whose tags no job lists never runs.
 
-If you really must round-trip, project to the writable subset:
+## You can verify the import, not the run
 
-```bash
-mb transform get <id> --full --profile <name> --json \
-  | jq '{name, description, source, target, run_trigger, tag_ids, collection_id, owner_user_id, owner_email}
-        | with_entries(select(.value != null))' \
-  > ./.scratch/patch.json
-```
+You can verify these facts:
 
-## Iterating on a failing transform
+- `mb check` passes: the files match the schemas.
+- `mb save` exits 0: Metabase imported the files.
+- After the job's next tick, `mb metadata <db-id>` lists the target table. `mb metadata <db-id> <table-id>` lists its fields.
 
-When `transform run` fails and you want to retry with a fixed body, **prefer `transform update <id> --file body.json` over `transform delete <id>` + `transform create`.** Update keeps the same row, `entity_id`, materialized table, and on-disk YAML filename:
+You cannot verify these facts:
 
-- `git-sync export` produces **one** clean commit containing only the fix, instead of "broken transform" + "remove broken transform" landing as two commits in `git log`.
-- You don't chase `_2` suffixes minted when two YAMLs share a `name` on disk.
-- The materialized output table either updates in place or, if the SELECT shape changed incompatibly, errors loudly on the next run rather than landing in a parallel `..._2` table you have to clean up. (`transform delete-table <id>` resets the column shape for a clean slate.)
+- The SQL or Python runs. `mb check` does not execute the query. A bad column name fails only at run time, in Metabase.
+- Run status, run logs, and error messages. Only the Metabase UI shows them.
+- The output table before the first scheduled run. Tell the user when the job fires next. If they need the table sooner, ask them to run the transform in the Metabase UI.
 
-```bash
-# 1. Try once
-ID=$(mb transform create --file ./.scratch/t.json --profile <n> --json | jq -r '.id')
-mb transform run "$ID" --wait --profile <n> --json     # → failed
+Cards and dashboards on the output table need its field refs. Build them after `mb metadata` lists the table. Until then, a native SQL card can query `<schema>.<table>` by name.
 
-# 2. Fix the body in place; PATCH only what changed.
-#    Source-only patch — keeps name, target, tags untouched on the server.
-cat > ./.scratch/source.sql <<'SQL'
-<fixed SQL, formatted>
-SQL
-jq -n --rawfile q ./.scratch/source.sql \
-  '{ source: { type: "query", query: { "lib/type": "mbql/query", database: <db-id>, stages: [{ "lib/type": "mbql.stage/native", native: $q }] } } }' \
-  > ./.scratch/source-patch.json
-mb transform update "$ID" --file ./.scratch/source-patch.json --profile <n> --json
+## Don't
 
-# 3. Re-run
-mb transform run "$ID" --wait --profile <n> --json     # → succeeded
-```
-
-If you really must `create + delete` instead, do the `delete` **before** the first `git-sync export` so the failed entity never lands in git history — an export of a soft-failed state is noise that needs a follow-up cleanup commit. See `git-sync`, "Read state before mutating", for the ordering rule.
-
-## Drop the materialized table (keep the transform)
-
-```bash
-mb transform delete-table <id> --yes --profile <name>
-```
-
-Useful when you've changed the SELECT and want a fresh `CREATE TABLE` on the next run. **`--yes` is required** non-interactively; without it the command exits with `refusing to delete <id> without confirmation — pass --yes to proceed non-interactively`.
-
-## Delete the transform
-
-```bash
-mb transform delete <id> --yes --profile <name>
-```
-
-Removes the definition. Whether the materialized table is dropped depends on the server — check with `mb table list --db-id <db-id> --profile <name> --json` if it matters. Same `--yes` rule and message as `delete-table`.
-
-## Transform jobs (schedules)
-
-A schedule lives in a separate resource (`transform-job`). A job carries **tags** (`tag_ids`), not transform ids: each run executes every transform carrying one of the job's tags. You add a transform to a job by tagging the transform (`transform update <id> --body '{"tag_ids":[…]}'`), not by listing it on the job. Create/update with the same body-input pattern (`--file body.json`).
-
-Key verbs (`mb transform-job --help` for the full list):
-
-```bash
-mb transform-job transforms <id> --profile <name> --json   # preview which transforms this job resolves to (by tag)
-mb transform-job run <id> --profile <name> --json          # trigger a job now; runs all its tagged transforms
-mb transform-job run <id> --force-refresh --profile <name> --json   # also re-run dependencies that are already fresh
-```
-
-<!-- requires: transformJobActivation -->
-
-```bash
-mb transform-job set-active false --profile <name> --json  # disable every job at once (true re-enables); admin only
-```
-
-<!-- /requires -->
-
-Every job row carries `active`; it is `null` on a server that cannot switch jobs off, where every job runs on schedule.
-
-`transform-job run` is fire-and-forget — it returns `{message, started, run_id}` immediately (both `null` when the server does not number job runs: the request was accepted and whether a run started is unsaid), with no per-job-run polling (no `--wait`). Most ad-hoc agent work is one-off `transform run`, not job authoring.
+- Don't put transforms in `collections/main/`. Put them in `collections/transforms/`.
+- Don't reuse a tag-association `entity_id` across transforms or jobs.
+- Don't expect `mb save` to run the transform. It imports the definition only.

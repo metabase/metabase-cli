@@ -54,22 +54,16 @@ describe("FEATURE_RULES", () => {
 
 describe("evaluateFeatures", () => {
   it("turns a `since` rule on from that major and keeps it on above", () => {
-    expect(evaluateFeatures(60, null).transformTargetTableId).toBe(false);
-    expect(evaluateFeatures(61, null).transformTargetTableId).toBe(true);
-    expect(evaluateFeatures(99, null).transformTargetTableId).toBe(true);
-  });
-
-  it("turns an `until` rule off past its last major", () => {
-    expect(evaluateFeatures(60, null).transformTargetTableLinkedOnCreate).toBe(false);
-    expect(evaluateFeatures(61, null).transformTargetTableLinkedOnCreate).toBe(true);
-    expect(evaluateFeatures(62, null).transformTargetTableLinkedOnCreate).toBe(false);
+    expect(evaluateFeatures(59, { remote_sync: true }).remoteSync).toBe(false);
+    expect(evaluateFeatures(60, { remote_sync: true }).remoteSync).toBe(true);
+    expect(evaluateFeatures(99, { remote_sync: true }).remoteSync).toBe(true);
   });
 
   it("holds a `tokenFeature` rule only when the server grants that feature", () => {
-    expect(evaluateFeatures(61, null).library).toBe(false);
-    expect(evaluateFeatures(61, { library: false }).library).toBe(false);
-    expect(evaluateFeatures(61, { library: true }).library).toBe(true);
-    expect(evaluateFeatures(58, { library: true }).library).toBe(false);
+    expect(evaluateFeatures(61, null).remoteSync).toBe(false);
+    expect(evaluateFeatures(61, { remote_sync: false }).remoteSync).toBe(false);
+    expect(evaluateFeatures(61, { remote_sync: true }).remoteSync).toBe(true);
+    expect(evaluateFeatures(58, { remote_sync: true }).remoteSync).toBe(false);
   });
 });
 

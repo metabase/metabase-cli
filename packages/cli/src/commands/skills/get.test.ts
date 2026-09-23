@@ -24,9 +24,10 @@ import { ENV_SKILLS_DIR } from "../../core/env";
 import { findSkillByName, loadAllSkills, readSkillContent } from "../../core/skills";
 import {
   createTempSkillsDir,
+  BETA_SKILL_MD,
+  BETA_WITH_REMOTE_SYNC,
+  BETA_WITHOUT_REMOTE_SYNC,
   GAMMA_SKILL_MD,
-  GAMMA_WITH_ACTIVATION,
-  GAMMA_WITHOUT_ACTIVATION,
   type TempSkillsDir,
 } from "../../core/temp-skills-dir";
 import { fitWithinCap } from "../../output/cap";
@@ -51,10 +52,20 @@ function capture(stream: NodeJS.WriteStream): CapturedStream {
   };
 }
 
+function betaContent(body: string) {
+  return {
+    name: "beta",
+    description: "The second skill.",
+    body,
+    references: [],
+    templates: [],
+  };
+}
+
 function gammaContent(body: string) {
   return {
     name: "gamma",
-    description: "The transform skill.",
+    description: "The git-sync skill.",
     body,
     references: [],
     templates: [],
@@ -95,7 +106,7 @@ describe("skills get command", () => {
     const stdout = capture(process.stdout);
     const stderr = capture(process.stderr);
 
-    await runCommand(skillsGetCommand, { rawArgs: ["gamma", "--json"] });
+    await runCommand(skillsGetCommand, { rawArgs: ["beta", "--json"] });
 
     expect(stdout.parse(SkillGetEnvelope)).toEqual({
       returned: 1,
@@ -104,7 +115,7 @@ describe("skills get command", () => {
       has_more: false,
       next_offset: null,
       unavailable: null,
-      data: [gammaContent(GAMMA_SKILL_MD)],
+      data: [betaContent(BETA_SKILL_MD)],
     });
     expect(stderr.chunks).toEqual([]);
   });
@@ -140,10 +151,10 @@ describe("skills get command", () => {
           failure: {
             reason: "version-too-old",
             detail:
-              "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
-            feature: "transforms",
-            since: 59,
-            tokenFeature: null,
+              "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.",
+            feature: "remoteSync",
+            since: 60,
+            tokenFeature: "remote_sync",
             serverVersion: "v0.58.0",
           },
         },
@@ -162,15 +173,15 @@ describe("skills get command", () => {
 
     expect(stdout.chunks).toEqual([]);
     expect(stderr.chunks.join("")).toBe(
-      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n',
+      'Skipped skill "gamma": This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n',
     );
   });
 
   it("strips a section the cached server lacks the feature for", async () => {
-    await seedProbedProfile("default", probeAt(60));
+    await seedProbedProfile("default", probeAt(61));
     const stdout = capture(process.stdout);
 
-    await runCommand(skillsGetCommand, { rawArgs: ["gamma", "--json"] });
+    await runCommand(skillsGetCommand, { rawArgs: ["beta", "--json"] });
 
     expect(stdout.parse(SkillGetEnvelope)).toEqual({
       returned: 1,
@@ -179,17 +190,17 @@ describe("skills get command", () => {
       has_more: false,
       next_offset: null,
       unavailable: [],
-      data: [gammaContent(GAMMA_WITHOUT_ACTIVATION)],
+      data: [betaContent(BETA_WITHOUT_REMOTE_SYNC)],
     });
   });
 
   it("keeps a section the cached server has the feature for, without its markers", async () => {
-    await seedProbedProfile("default", probeAt(61));
+    await seedProbedProfile("default", probeAt(61, { remote_sync: true }));
     const stdout = capture(process.stdout);
 
-    await runCommand(skillsGetCommand, { rawArgs: ["gamma", "--format", "text"] });
+    await runCommand(skillsGetCommand, { rawArgs: ["beta", "--format", "text"] });
 
-    expect(stdout.chunks.join("")).toBe(`${GAMMA_WITH_ACTIVATION.trimEnd()}\n`);
+    expect(stdout.chunks.join("")).toBe(`${BETA_WITH_REMOTE_SYNC.trimEnd()}\n`);
   });
 
   it("--unfiltered with a name prints that skill as written regardless of the cached server", async () => {
@@ -229,10 +240,10 @@ describe("skills get command", () => {
           failure: {
             reason: "version-too-old",
             detail:
-              "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
-            feature: "transforms",
-            since: 59,
-            tokenFeature: null,
+              "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.",
+            feature: "remoteSync",
+            since: 60,
+            tokenFeature: "remote_sync",
             serverVersion: "v0.58.0",
           },
         },
@@ -245,13 +256,7 @@ describe("skills get command", () => {
           references: [],
           templates: [],
         },
-        {
-          name: "beta",
-          description: "The second skill.",
-          body: "---\nname: beta\ndescription: The second skill.\n---\n\nBeta instructions.\n",
-          references: [],
-          templates: [],
-        },
+        betaContent(BETA_WITHOUT_REMOTE_SYNC),
       ],
     });
   });
@@ -279,13 +284,7 @@ describe("skills get command", () => {
           references: [],
           templates: [],
         },
-        {
-          name: "beta",
-          description: "The second skill.",
-          body: "---\nname: beta\ndescription: The second skill.\n---\n\nBeta instructions.\n",
-          references: [],
-          templates: [],
-        },
+        betaContent(BETA_SKILL_MD),
         gammaContent(GAMMA_SKILL_MD),
       ],
     });

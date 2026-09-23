@@ -3,62 +3,7 @@ import { z } from "zod";
 
 import { captureFetch, jsonResponse, TEST_USER_AGENT } from "./testing/fetch-capture";
 import * as barrel from "./index";
-import {
-  createClient,
-  isHttpNotFound,
-  CardCreateInput,
-  CardUpdateInput,
-  CollectionCreateInput,
-  CollectionUpdateInput,
-  DashboardCopyInput,
-  DashboardCreateInput,
-  DashboardUpdateInput,
-  DashcardPatchInput,
-  DocumentCopyInput,
-  DocumentCreateInput,
-  DocumentUpdateInput,
-  EidTranslateInput,
-  FieldUpdateInput,
-  GlossaryCreateInput,
-  GlossaryUpdateInput,
-  HttpError,
-  MeasureCreateInput,
-  MeasureUpdateInput,
-  ModerationReviewCreateInput,
-  NotificationCreateInput,
-  NotificationUpdateInput,
-  PulseCreateInput,
-  PulseUpdateInput,
-  PythonLibraryUpdateInput,
-  PythonTestRunInput,
-  ResponseShapeError,
-  ReplacementModelWithTransformInput,
-  ReplacementSourceInput,
-  RevisionRevertInput,
-  SegmentCreateInput,
-  SegmentUpdateInput,
-  SetupInput,
-  SnippetCreateInput,
-  SnippetUpdateInput,
-  TableBulkEditInput,
-  TableUpdateInput,
-  TimelineCreateInput,
-  TimelineEventCreateInput,
-  TimelineEventUpdateInput,
-  TimelineUpdateInput,
-  TimeoutError,
-  TipTapNodeInput,
-  TransformCreateInput,
-  TransformJobCreateInput,
-  TransformJobUpdateInput,
-  TransformLensQueryInput,
-  TransformTagCreateInput,
-  TransformTagUpdateInput,
-  TransformTestCreateInput,
-  TransformTestInput,
-  TransformTestUpdateInput,
-  TransformUpdateInput,
-} from "./index";
+import { createClient, isHttpNotFound, HttpError, ResponseShapeError, TimeoutError } from "./index";
 import type {
   ClientCredentials,
   CredentialRefresher,
@@ -78,69 +23,6 @@ import type {
   ValidationErrorDetail,
   ZodResponseShapeDetail,
 } from "./index";
-
-// A Zod schema and the type alias merged onto its name are one `export { X }` binding, but only
-// naming both proves it: the explicit type argument fails to compile if the alias is missing, the
-// call argument fails if the value is, and the two must agree on what the schema infers.
-function pin<T>(schema: z.ZodType<T>): z.ZodType<T> {
-  return schema;
-}
-
-const writePath = {
-  CardCreateInput: pin<CardCreateInput>(CardCreateInput),
-  CardUpdateInput: pin<CardUpdateInput>(CardUpdateInput),
-  CollectionCreateInput: pin<CollectionCreateInput>(CollectionCreateInput),
-  CollectionUpdateInput: pin<CollectionUpdateInput>(CollectionUpdateInput),
-  DashboardCopyInput: pin<DashboardCopyInput>(DashboardCopyInput),
-  DashboardCreateInput: pin<DashboardCreateInput>(DashboardCreateInput),
-  DashboardUpdateInput: pin<DashboardUpdateInput>(DashboardUpdateInput),
-  DashcardPatchInput: pin<DashcardPatchInput>(DashcardPatchInput),
-  DocumentCopyInput: pin<DocumentCopyInput>(DocumentCopyInput),
-  DocumentCreateInput: pin<DocumentCreateInput>(DocumentCreateInput),
-  DocumentUpdateInput: pin<DocumentUpdateInput>(DocumentUpdateInput),
-  EidTranslateInput: pin<EidTranslateInput>(EidTranslateInput),
-  FieldUpdateInput: pin<FieldUpdateInput>(FieldUpdateInput),
-  GlossaryCreateInput: pin<GlossaryCreateInput>(GlossaryCreateInput),
-  GlossaryUpdateInput: pin<GlossaryUpdateInput>(GlossaryUpdateInput),
-  MeasureCreateInput: pin<MeasureCreateInput>(MeasureCreateInput),
-  MeasureUpdateInput: pin<MeasureUpdateInput>(MeasureUpdateInput),
-  ModerationReviewCreateInput: pin<ModerationReviewCreateInput>(ModerationReviewCreateInput),
-  NotificationCreateInput: pin<NotificationCreateInput>(NotificationCreateInput),
-  NotificationUpdateInput: pin<NotificationUpdateInput>(NotificationUpdateInput),
-  PulseCreateInput: pin<PulseCreateInput>(PulseCreateInput),
-  PulseUpdateInput: pin<PulseUpdateInput>(PulseUpdateInput),
-  PythonLibraryUpdateInput: pin<PythonLibraryUpdateInput>(PythonLibraryUpdateInput),
-  PythonTestRunInput: pin<PythonTestRunInput>(PythonTestRunInput),
-  ReplacementModelWithTransformInput: pin<ReplacementModelWithTransformInput>(
-    ReplacementModelWithTransformInput,
-  ),
-  ReplacementSourceInput: pin<ReplacementSourceInput>(ReplacementSourceInput),
-  RevisionRevertInput: pin<RevisionRevertInput>(RevisionRevertInput),
-  SegmentCreateInput: pin<SegmentCreateInput>(SegmentCreateInput),
-  SegmentUpdateInput: pin<SegmentUpdateInput>(SegmentUpdateInput),
-  SetupInput: pin<SetupInput>(SetupInput),
-  SnippetCreateInput: pin<SnippetCreateInput>(SnippetCreateInput),
-  SnippetUpdateInput: pin<SnippetUpdateInput>(SnippetUpdateInput),
-  TableBulkEditInput: pin<TableBulkEditInput>(TableBulkEditInput),
-  TableUpdateInput: pin<TableUpdateInput>(TableUpdateInput),
-  TimelineCreateInput: pin<TimelineCreateInput>(TimelineCreateInput),
-  TimelineEventCreateInput: pin<TimelineEventCreateInput>(TimelineEventCreateInput),
-  TimelineEventUpdateInput: pin<TimelineEventUpdateInput>(TimelineEventUpdateInput),
-  TimelineUpdateInput: pin<TimelineUpdateInput>(TimelineUpdateInput),
-  TipTapNodeInput: pin<TipTapNodeInput>(TipTapNodeInput),
-  TransformCreateInput: pin<TransformCreateInput>(TransformCreateInput),
-  TransformJobCreateInput: pin<TransformJobCreateInput>(TransformJobCreateInput),
-  TransformJobUpdateInput: pin<TransformJobUpdateInput>(TransformJobUpdateInput),
-  TransformLensQueryInput: pin<TransformLensQueryInput>(TransformLensQueryInput),
-  TransformTagCreateInput: pin<TransformTagCreateInput>(TransformTagCreateInput),
-  TransformTagUpdateInput: pin<TransformTagUpdateInput>(TransformTagUpdateInput),
-  TransformTestCreateInput: pin<TransformTestCreateInput>(TransformTestCreateInput),
-  TransformTestInput: pin<TransformTestInput>(TransformTestInput),
-  TransformTestUpdateInput: pin<TransformTestUpdateInput>(TransformTestUpdateInput),
-  TransformUpdateInput: pin<TransformUpdateInput>(TransformUpdateInput),
-};
-
-const INPUT_SUFFIX = "Input";
 
 // `developerDetail` is `unknown` on the abstract base, so a consumer that narrows to a concrete
 // error class has to be able to name the shape it gets back.
@@ -245,13 +127,6 @@ async function listCardRows(
 }
 
 describe("@metabase/client barrel as a consumer surface", () => {
-  it("names every input schema the barrel exports in a value-and-type position", () => {
-    const onBarrel = Object.keys(barrel)
-      .filter((name) => name.endsWith(INPUT_SUFFIX))
-      .toSorted();
-    expect(Object.keys(writePath).toSorted()).toEqual(onBarrel);
-  });
-
   it("classifies a 404 through a switch that covers HttpErrorKind exhaustively", () => {
     const error = new HttpError({
       status: 404,

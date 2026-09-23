@@ -93,20 +93,3 @@ export function requireOAuthServer(lane: string): string | null {
   recordGateSkip(lane, OAUTH_UNSUPPORTED_REASON);
   return OAUTH_UNSUPPORTED_REASON;
 }
-
-// The exact question the CLI's preflight and the client's `require()` ask. It logs nothing: a
-// suite reading it asserts one of two exact outcomes rather than skipping coverage.
-export function serverHas(feature: FeatureName): boolean {
-  return resolveServerProfile().features[feature];
-}
-
-// A suite asserting "the server, not the client-side validator, rejected this" pins the one status
-// its own stack sends, so a 500 where a 400 belongs is still a failure.
-export function serverRejectedMessage(): string {
-  return serverHas("invalidMbqlIsBadRequest") ? "Metabase returned 400." : "Metabase returned 500.";
-}
-
-// A query the server cannot normalize — a database id that is not an integer, say — is refused with
-// one message for the whole query, before any field-level schema check names the field.
-export const QUERY_NORMALIZATION_MESSAGE =
-  "Invalid query: missing or invalid Database ID (:database)";

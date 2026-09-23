@@ -3,7 +3,6 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
-import { CardQueryResult } from "@metabase/client/domain/card";
 import { CurrentUser } from "@metabase/client/domain/user";
 import { errorMessage, isFileNotFoundError, MetabaseError } from "@metabase/client/errors";
 import { createTransport, type Transport } from "@metabase/client/http/transport";
@@ -12,8 +11,7 @@ import { tryDiscoverMetadata } from "@metabase/client/http/oauth";
 import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries } from "@metabase/client/http/retry";
 import { parseJsonResult } from "@metabase/client/json";
 import { pollUntil } from "@metabase/client/poll";
-import { probeServer, type ServerInfo } from "@metabase/client/version/probe";
-import { createServerProfile } from "@metabase/client/version/profile";
+import { probeServer } from "@metabase/client/version/probe";
 
 import { USER_AGENT } from "../../../packages/cli/src/core/user-agent";
 import {
@@ -65,8 +63,6 @@ const ORDERS_BY_STATUS_SQL = "SELECT status, COUNT(*) AS n FROM orders GROUP BY 
 const ORDERS_OVERVIEW_DASHBOARD_NAME = "Orders Overview";
 const ORDERS_OVERVIEW_DASHBOARD_DESCRIPTION = "E2E seeded dashboard with one orders dashcard.";
 const LIMITED_GROUP_NAME = "E2E Limited";
-const TRANSFORMS_ENABLED_SETTING = "transforms-enabled";
-const TRANSFORMS_LOCKED_STATUSES: ReadonlySet<number> = new Set([402, 403]);
 
 const BASE_URL = resolveE2EBaseUrl();
 
@@ -124,8 +120,6 @@ async function main(): Promise<void> {
     // head, so the server block is the booted image's to answer, never the file's.
     const server = await probeIdentity(apiKeyClient(existing.adminApiKey));
     const reused: E2EBootstrap = { ...existing, server };
-    assertSnapshotMatchesSeed(reused);
-    await reportSnapshotTransforms(apiKeyClient(existing.adminApiKey), server);
     await writeStoredBootstrap(reused);
     process.stdout.write(`bootstrap: reusing ${BOOTSTRAP_FILE_PATH}\n`);
     return;
@@ -139,11 +133,7 @@ async function main(): Promise<void> {
 
   const apiKeyUser = await client.requestParsed(CurrentUser, "/api/user/current");
   const server = await probeIdentity(client);
-  if (transformsReady(server)) {
-    await enableTransforms(client);
-    await reportTransformsUsable(client);
-  }
-  const seeded = await seedContent(client, libraryReady(server), adminPersonalCollectionId);
+  const seeded = await seedContent(client, adminPersonalCollectionId);
 
   const limitedGroupId = await createLimitedGroup(client);
   await revokeDefaultCollectionAccess(client, limitedGroupId, seeded.defaultCollectionId);
@@ -289,7 +279,7 @@ async function assertLimitedKeyCannotQueryOrdersCard(
   ordersCardId: number,
 ): Promise<void> {
   try {
-    await client.requestParsed(CardQueryResult, `/api/card/${ordersCardId}/query`, {
+    await client.requestRaw(`/api/card/${ordersCardId}/query`, {
       method: "POST",
       body: { parameters: [] },
     });
@@ -363,104 +353,8 @@ async function findSeedResidue(sessionId: string): Promise<string[]> {
   return residue;
 }
 
-// A reused snapshot must already contain everything the current seed produces for this server. A
-// library-capable server whose stored snapshot has no library Data collection cannot satisfy the
-// library suite (every test resets to a state that never had it), so refuse it with an actionable
-// message rather than letting those tests fail opaquely.
-function assertSnapshotMatchesSeed(existing: E2EBootstrap): void {
-  if (libraryReady(existing.server) && existing.seeded.libraryDataCollectionId === null) {
-    throw new Error(
-      `bootstrap: snapshot ${SNAPSHOT_NAME} predates library seeding — rebuild it with \`bun run e2e:down && bun run e2e:up && bun run e2e:bootstrap\``,
-    );
-  }
-}
-
-function libraryReady(server: ServerInfo): boolean {
-  return createServerProfile(server).features.library;
-}
-
-function transformsReady(server: ServerInfo): boolean {
-  return createServerProfile(server).features.transforms;
-}
-
-// Only the transform suites turn on the opt-in, so a stack that will not take it costs those suites
-// and nothing else. Bootstrap runs inside globalSetup, where a throw ends the run for every suite in
-// the stack — a warning names the cause without taking the other forty suites down with it.
-function warnTransformsUnavailable(detail: string): void {
-  process.stderr.write(`bootstrap: transform suites will fail — ${detail}\n`);
-}
-
-// The opt-in lives in the app DB, so the snapshot every suite restores is what decides whether
-// transforms work. Nothing has run yet at bootstrap time, so the live server still reflects what the
-// snapshot holds — ask it rather than reading the setting back, because releases through v61 serve
-// transforms whether or not it is set and their snapshots need nothing.
-async function reportSnapshotTransforms(client: Transport, server: ServerInfo): Promise<void> {
-  if (!transformsReady(server)) {
-    return;
-  }
-  const blocked = await transformsBlockedStatus(client);
-  if (blocked !== null) {
-    warnTransformsUnavailable(
-      `snapshot ${SNAPSHOT_NAME} leaves transforms locked (HTTP ${blocked}) — rebuild it with \`bun run e2e:down && bun run e2e:up && bun run e2e:bootstrap\``,
-    );
-  }
-}
-
-// Enabling the setting is the whole opt-in on a self-hosted stack; anything else that keeps
-// transforms locked (a hosted instance missing the add-on, a caller the server won't treat as a
-// data analyst) is a stack we cannot run the transform suites against, and saying so here beats
-// discovering it one 402 at a time.
-async function reportTransformsUsable(client: Transport): Promise<void> {
-  const blocked = await transformsBlockedStatus(client);
-  if (blocked !== null) {
-    warnTransformsUnavailable(
-      `${BASE_URL} still refuses transforms (HTTP ${blocked}) after enabling ${TRANSFORMS_ENABLED_SETTING}`,
-    );
-  }
-}
-
-// The statuses a server that will not serve transforms answers to a plain transform read: 402 for
-// the feature itself, 403 when the disabled setting leaves no enabled transform source types.
-async function transformsBlockedStatus(client: Transport): Promise<number | null> {
-  try {
-    await client.requestRaw("/api/transform", { expectContentType: "binary" });
-    return null;
-  } catch (error) {
-    if (error instanceof HttpError && TRANSFORMS_LOCKED_STATUSES.has(error.status)) {
-      return error.status;
-    }
-    throw error;
-  }
-}
-
-// Query transforms need no license — but a self-hosted instance must opt in via this setting, and
-// the server answers every transform endpoint with 402 until it does. Setting it before the snapshot
-// is captured is what makes the transform suites exercise transforms instead of skipping them. A
-// server that will not take the write (an unregistered key on a dev jar older than the probed
-// version suggests, a read-only value pinned by env) is left to `reportTransformsUsable`, which says
-// what the server actually does with transforms afterwards.
-async function enableTransforms(client: Transport): Promise<void> {
-  try {
-    await client.requestRaw(`/api/setting/${TRANSFORMS_ENABLED_SETTING}`, {
-      method: "PUT",
-      body: { value: true },
-      idempotent: true,
-      expectContentType: "binary",
-    });
-  } catch (error) {
-    if (error instanceof HttpError) {
-      warnTransformsUnavailable(
-        `${BASE_URL} refused to set ${TRANSFORMS_ENABLED_SETTING} (HTTP ${error.status})`,
-      );
-      return;
-    }
-    throw error;
-  }
-}
-
 async function seedContent(
   client: Transport,
-  libraryEnabled: boolean,
   adminPersonalCollectionId: number,
 ): Promise<SeededIds> {
   const warehouseDbId = await createEntityId(client, "/api/database", {
@@ -523,8 +417,6 @@ async function seedContent(
 
   const { tables, fields } = await discoverWarehouseSchema(client, warehouseDbId);
 
-  const libraryDataCollectionId = libraryEnabled ? await ensureLibraryDataCollection(client) : null;
-
   return {
     warehouseDbId,
     defaultCollectionId,
@@ -533,53 +425,8 @@ async function seedContent(
     ordersDashcardId,
     tables,
     fields,
-    libraryDataCollectionId,
     adminPersonalCollectionId,
   };
-}
-
-const LIBRARY_DATA_COLLECTION_TYPE = "library-data";
-
-// `/api/collection?include-library=true` mixes numeric ids with the virtual `root` string id, so
-// the id is a union; real library collections always carry a numeric id.
-const LibraryCollectionResponse = z
-  .object({
-    id: z.union([z.number().int().positive(), z.string()]),
-    type: z.string().nullable().optional(),
-  })
-  .loose();
-const LibraryCollectionListResponse = z.array(LibraryCollectionResponse);
-
-// The Library's Data/Metrics collections don't exist until the Library is created. POST
-// /api/ee/library/ is the one-time initializer (it 4xxs if already created), so check for the
-// `library-data` collection first and only create when absent.
-async function ensureLibraryDataCollection(client: Transport): Promise<number> {
-  const existing = await findLibraryDataCollectionId(client);
-  if (existing !== null) {
-    return existing;
-  }
-  await client.requestRaw("/api/ee/library/", { method: "POST" });
-  const created = await findLibraryDataCollectionId(client);
-  if (created === null) {
-    throw new Error("bootstrap: library-data collection missing after POST /api/ee/library/");
-  }
-  return created;
-}
-
-async function findLibraryDataCollectionId(client: Transport): Promise<number | null> {
-  const collections = await client.requestParsed(LibraryCollectionListResponse, "/api/collection", {
-    query: { "include-library": true },
-  });
-  const dataCollection = collections.find((c) => c.type === LIBRARY_DATA_COLLECTION_TYPE);
-  if (dataCollection === undefined) {
-    return null;
-  }
-  if (typeof dataCollection.id !== "number") {
-    throw new Error(
-      `bootstrap: library-data collection has non-numeric id ${String(dataCollection.id)}`,
-    );
-  }
-  return dataCollection.id;
 }
 
 async function createEntityId(client: Transport, path: string, body: unknown): Promise<number> {

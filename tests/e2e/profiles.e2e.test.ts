@@ -1,17 +1,19 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { CardQueryResult } from "@metabase/client/domain/card";
+import { DatabaseCompact } from "@metabase/client/domain/database";
 import { parseJson } from "@metabase/client/json";
 
 import { AuthProfileListEnvelope } from "../../packages/cli/src/commands/auth/list";
 import { LoginResult } from "../../packages/cli/src/commands/auth/login";
 import { LogoutResult } from "../../packages/cli/src/commands/auth/logout";
 import { AuthStatus } from "../../packages/cli/src/commands/auth/status";
-import { DatabaseListEnvelope } from "../../packages/cli/src/commands/db/list";
+import { listEnvelopeSchema } from "../../packages/cli/src/output/types";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
+
+const DatabaseListEnvelope = listEnvelopeSchema(DatabaseCompact);
 
 describe("profiles e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -161,12 +163,12 @@ describe("profiles e2e", () => {
     expect(payload.present).toBe(true);
   });
 
-  it("db list authenticates using stored credentials for the named profile", async () => {
+  it("metadata authenticates using stored credentials for the named profile", async () => {
     const configHome = await makeIsolatedConfigHome();
     await loginProfile(configHome, "staging");
 
     const result = await runCli({
-      args: ["db", "list", "--profile", "staging", "--json"],
+      args: ["metadata", "--profile", "staging", "--json"],
       configHome,
     });
 
@@ -179,28 +181,6 @@ describe("profiles e2e", () => {
       has_more: false,
       next_offset: null,
     });
-  });
-
-  it("running a card query on the same instance succeeds for the admin profile but is forbidden for the limited profile", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    await loginProfile(configHome, "admin", bootstrap.adminApiKey);
-    await loginProfile(configHome, "limited", bootstrap.limitedApiKey);
-
-    const adminQuery = await runCli({
-      args: ["card", "query", String(SEEDED.ordersCardId), "--profile", "admin", "--json"],
-      configHome,
-    });
-    expect(adminQuery.exitCode, adminQuery.stderr).toBe(0);
-    const adminPayload = parseJson(adminQuery.stdout, CardQueryResult);
-    expect(adminPayload.status).toBe("completed");
-
-    const limitedQuery = await runCli({
-      args: ["card", "query", String(SEEDED.ordersCardId), "--profile", "limited", "--json"],
-      configHome,
-    });
-    expect(limitedQuery.exitCode).toBe(1);
-    expect(limitedQuery.stderr).toContain("Invalid or unauthorized API key");
-    expect(limitedQuery.stdout).toBe("");
   });
 
   it("auth list returns empty when no profiles are stored", async () => {
@@ -258,11 +238,11 @@ describe("profiles e2e", () => {
     expect(afterLogoutEnvelope.data[0]?.status).toBe("ok");
   });
 
-  it("db list --profile pointing at an unknown profile fails with ConfigError", async () => {
+  it("metadata --profile pointing at an unknown profile fails with ConfigError", async () => {
     const configHome = await makeIsolatedConfigHome();
 
     const result = await runCli({
-      args: ["db", "list", "--profile", "nonexistent", "--json"],
+      args: ["metadata", "--profile", "nonexistent", "--json"],
       configHome,
     });
 

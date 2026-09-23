@@ -413,7 +413,7 @@ describe("showUsageJson", () => {
   it("emits the full entry for a leaf command", async () => {
     const leaf = defineMetabaseCommand({
       meta: { name: "bar", description: "demo bar" },
-      requires: ["card.list"],
+      requires: ["database.list"],
       args: {},
       outputSchema: z.object({ ok: z.boolean() }),
       examples: ["mb foo bar --json"],
@@ -439,7 +439,7 @@ describe("showUsageJson", () => {
         required: ["ok"],
         additionalProperties: false,
       },
-      requires: { methods: ["card.list"], features: [] },
+      requires: { methods: ["database.list"], features: [] },
     });
   });
 
