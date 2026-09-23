@@ -137,7 +137,7 @@ async function channelsRegisteredUnder(env: NodeJS.ProcessEnv): Promise<string[]
     worktreeRoot: () => join(directory, "worktrees"),
     mintBrokerSession: () => null,
     revokeBrokerSession: () => undefined,
-    worktreeEnvironment: async () => ({}),
+    worktree: async () => ({ kind: "absent" }),
     removeMetabaseWorktree: async () => undefined,
     path: async () => ({
       entries: [],

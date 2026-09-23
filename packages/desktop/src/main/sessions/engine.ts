@@ -4,6 +4,7 @@ import { readdir } from "node:fs/promises";
 import { errorMessage } from "@metabase/client/errors";
 
 import type { SessionEnvironment } from "../../contracts/connection";
+import type { MetabaseWorktree } from "../../contracts/metabase";
 import {
   SessionEvent,
   type RewoundConversation,
@@ -80,9 +81,9 @@ export interface EngineDeps {
   readonly git: Git;
   readonly repository: () => RepositorySnapshot | null;
   readonly worktreeRoot: () => string;
-  readonly mintBrokerSession: () => SessionEnvironment | null;
+  readonly mintBrokerSession: (session: Session) => SessionEnvironment | null;
   readonly revokeBrokerSession: (brokerSessionId: string) => void;
-  readonly worktreeEnvironment: (session: Session) => Promise<NodeJS.ProcessEnv>;
+  readonly worktree: (session: Session) => Promise<MetabaseWorktree>;
   readonly removeMetabaseWorktree: (
     session: Session,
     otherBranches: ReadonlySet<string>,
@@ -576,7 +577,7 @@ export class SessionEngine {
       return true;
     }
     const session = live.snapshot.session;
-    const broker = this.deps.mintBrokerSession();
+    const broker = this.deps.mintBrokerSession(session);
     const env = await sessionProcessEnvironment(this.deps, session, broker);
     const log = await openProviderLog({
       directory: this.deps.providerLogDirectory,

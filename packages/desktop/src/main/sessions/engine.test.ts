@@ -199,7 +199,7 @@ async function harness(): Promise<Harness> {
     worktreeRoot: () => join(userData, "worktrees"),
     mintBrokerSession: () => null,
     revokeBrokerSession: () => undefined,
-    worktreeEnvironment: async () => ({}),
+    worktree: async () => ({ kind: "absent" }),
     removeMetabaseWorktree: async () => undefined,
     path: emptyPath,
     cli: cliLocation({ kind: "dev", outDir: join(userData, "out") }, process.execPath),

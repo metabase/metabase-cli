@@ -237,7 +237,7 @@ async function start(interrupt: AbortSignal): Promise<void> {
       location: cli,
       run: runCommand,
       env: process.env,
-      credentials: () => sessionEnvironment(broker, connection.state()),
+      credentials: (worktree) => sessionEnvironment(broker, connection.state(), worktree),
       release: (brokerSessionId) => {
         broker.revokeSession(brokerSessionId);
       },
@@ -261,11 +261,12 @@ async function start(interrupt: AbortSignal): Promise<void> {
         repository: store.current().repository,
         homeDirectory: app.getPath("home"),
       }),
-    mintBrokerSession: () => sessionEnvironment(broker, connection.state()),
+    mintBrokerSession: (session) =>
+      sessionEnvironment(broker, connection.state(), () => worktrees.worktree(session)),
     revokeBrokerSession: (sessionId) => {
       broker.revokeSession(sessionId);
     },
-    worktreeEnvironment: (session) => worktrees.environment(session),
+    worktree: (session) => worktrees.worktree(session),
     removeMetabaseWorktree: (session, otherBranches) => worktrees.remove(session, otherBranches),
     path: () => mergedPath({ env: process.env, run: runCommand, signal: interrupt }),
     cli,
@@ -285,12 +286,13 @@ async function start(interrupt: AbortSignal): Promise<void> {
           env: process.env,
           cli,
           path: () => mergedPath({ env: process.env, run: runCommand, signal: interrupt }),
-          worktreeEnvironment: (scoped) => worktrees.environment(scoped),
+          worktree: (scoped) => worktrees.worktree(scoped),
         },
         session,
         brokerEnv,
       ),
-    mintBrokerSession: () => sessionEnvironment(broker, connection.state()),
+    mintBrokerSession: (session) =>
+      sessionEnvironment(broker, connection.state(), () => worktrees.worktree(session)),
     revokeBrokerSession: (sessionId) => {
       broker.revokeSession(sessionId);
     },

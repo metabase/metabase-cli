@@ -1,4 +1,5 @@
 import type { SessionEnvironment } from "../../contracts/connection";
+import type { MetabaseWorktree } from "../../contracts/metabase";
 import type { Session } from "../../contracts/session";
 import { cliEnvironment, type CliLocation } from "../cli/paths";
 import type { MergedPath } from "../process/path";
@@ -7,12 +8,13 @@ export interface ProcessEnvironmentDeps {
   readonly env: NodeJS.ProcessEnv;
   readonly cli: CliLocation;
   readonly path: () => Promise<MergedPath>;
-  readonly worktreeEnvironment: (session: Session) => Promise<NodeJS.ProcessEnv>;
+  readonly worktree: (session: Session) => Promise<MetabaseWorktree>;
 }
 
 // What every process a session starts sees, the agent and a terminal alike: the app's `mb` first
-// on `PATH`, the broker's credential when there is a connection, and the Metabase worktree the
-// session syncs to.
+// on `PATH` and the broker's credential when there is a connection. The Metabase worktree is the
+// broker's to name, never the environment's; it is settled before the process starts so the first
+// `mb` call does not wait out the broker's timeout on it.
 export async function sessionProcessEnvironment(
   deps: ProcessEnvironmentDeps,
   session: Session,
@@ -28,6 +30,6 @@ export async function sessionProcessEnvironment(
           MB_AUTH_BROKER_TOKEN: broker.MB_AUTH_BROKER_TOKEN,
         };
   const cli = cliEnvironment(deps.cli, merged.value);
-  const worktreeEnv = await deps.worktreeEnvironment(session);
-  return { ...deps.env, ...cli, ...brokerEnv, ...worktreeEnv };
+  await deps.worktree(session);
+  return { ...deps.env, ...cli, ...brokerEnv };
 }

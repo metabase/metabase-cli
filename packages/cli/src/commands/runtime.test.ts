@@ -21,7 +21,6 @@ const PROBED_AT = "2026-03-04T05:06:07.000Z";
 const REPROBED_AT = "2026-03-04T06:00:00.000Z";
 
 const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were a head build past v${KNOWN_RANGE.max}.\n`;
-const UNKNOWN_NOTICE = `Could not parse the Metabase version; assuming it has every feature this CLI knows.\n`;
 
 function shapeErrorEnvelope(message: string): unknown {
   return { ok: false, error: { category: "response-shape", message, exitCode: 1 } };
@@ -469,7 +468,7 @@ describe("defineMetabaseCommand", () => {
     expect(ran).not.toHaveBeenCalled();
   });
 
-  it("reads an unparseable cached version as the newest known, says so once, and proceeds", async () => {
+  it("reads an unparseable cached version as the newest known, silently, and proceeds", async () => {
     await seedCachedProbe({
       edition: null,
       version: null,
@@ -492,12 +491,12 @@ describe("defineMetabaseCommand", () => {
 
     await runCommand(cmd, { rawArgs: [] });
 
-    expect(stderr.join("")).toBe(UNKNOWN_NOTICE);
+    expect(stderr.join("")).toBe("");
     expect(ran).toHaveBeenCalledOnce();
     expect(process.exitCode).toBe(0);
   });
 
-  it("prints one newer-server notice when the cached probe is above the known range, even for a baseline command", async () => {
+  it("prints no newer-server notice when the probe above the known range comes from the cache", async () => {
     await seedCachedProbe(probeAt(BEYOND_KNOWN));
 
     const cmd = defineMetabaseCommand({
@@ -513,7 +512,7 @@ describe("defineMetabaseCommand", () => {
 
     await runCommand(cmd, { rawArgs: [] });
 
-    expect(stderr.join("")).toBe(NEWER_NOTICE);
+    expect(stderr.join("")).toBe("");
     expect(process.exitCode).toBe(0);
   });
 

@@ -56,7 +56,6 @@ describe("MetabaseCli", () => {
           MB_AUTH_BROKER_TOKEN: FIXTURE_CREDENTIALS.MB_AUTH_BROKER_TOKEN,
           MB_SKILLS_DIR: cli.location.skills,
           ELECTRON_RUN_AS_NODE: "1",
-          MB_WORKTREE_ID: null,
         },
       },
     ]);

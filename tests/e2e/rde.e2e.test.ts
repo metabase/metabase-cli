@@ -168,6 +168,7 @@ describe("rde e2e", () => {
           body: {
             url: bootstrap.baseUrl,
             credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey },
+            worktreeId: null,
           },
         },
       ]);
@@ -199,6 +200,7 @@ describe("rde e2e", () => {
           body: {
             url: "https://other.example.com",
             credential: { kind: "apiKey", apiKey: bootstrap.adminApiKey },
+            worktreeId: null,
           },
         },
       ]);

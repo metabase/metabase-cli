@@ -47,7 +47,7 @@ describe("SettingsStore.open", () => {
         codex: { enabled: true, binaryPath: null },
       },
       theme: "system",
-      layout: { sidebar: 256, sidePanel: 560, tree: 224 },
+      layout: { sidebar: 280, sidePanel: 560, tree: 224 },
       agents: { models: { claude: "opus", codex: "gpt-6-astra" }, permissionMode: "ask" },
     });
   });

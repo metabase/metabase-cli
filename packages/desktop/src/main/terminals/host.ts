@@ -43,7 +43,7 @@ export interface TerminalHostDeps {
     session: Session,
     broker: SessionEnvironment | null,
   ) => Promise<NodeJS.ProcessEnv>;
-  readonly mintBrokerSession: () => SessionEnvironment | null;
+  readonly mintBrokerSession: (session: Session) => SessionEnvironment | null;
   readonly revokeBrokerSession: (brokerSessionId: string) => void;
   readonly shell: ShellCommand;
   readonly startPty: StartPty;
@@ -68,7 +68,7 @@ export class TerminalHost {
   async open(request: TerminalOpenRequest): Promise<TerminalOpened> {
     const snapshot = await this.deps.open(request.sessionId);
     const session = snapshot.session;
-    const broker = this.deps.mintBrokerSession();
+    const broker = this.deps.mintBrokerSession(session);
     const brokerSessionId = broker === null ? null : broker.sessionId;
     const terminalId = this.deps.newId();
     try {

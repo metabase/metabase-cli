@@ -84,7 +84,6 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
         const wantsProbe =
           !preflightSkipped && requirements !== null && requirements.features.length > 0;
         let cachedServer: CachedServer | null = null;
-        const noticeSkew = createSkewNotifier();
         // Imported here rather than at the top of the file so the resource namespaces `createClient`
         // composes — and the whole `domain/` layer behind them — stay off the chunk every command
         // loads, including `--help`, a flag error, and the commands that open no socket at all.
@@ -119,8 +118,9 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
             if (lookup !== null && server !== null) {
               if (lookup.source === "cache") {
                 cachedServer = { client: cachedClient, url: resolved.url, probe: lookup.probe };
+              } else {
+                noticeSkew(server);
               }
-              noticeSkew(server);
             }
           }
           return cachedClient;
@@ -128,7 +128,6 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
         const enforcePreflight = createPreflightEnforcer(
           requirements === null ? null : requirements.features,
           preflightSkipped,
-          noticeSkew,
         );
         const getClient = async (): Promise<MetabaseClient> => {
           const client = await rawGetClient();
@@ -161,22 +160,13 @@ function deriveRequirements(methods: readonly MethodKey[]): CommandRequirements 
   return { methods, features };
 }
 
-type SkewNotifier = (profile: ServerProfile) => void;
-
-// The notice is about the server, not the command, so the first profile a command resolves —
-// cached or freshly probed — is the one that speaks, and only once.
-function createSkewNotifier(): SkewNotifier {
-  let noticed = false;
-  return (profile) => {
-    if (noticed) {
-      return;
-    }
-    noticed = true;
-    const notice = skewNotice(profile);
-    if (notice !== null) {
-      warn(notice);
-    }
-  };
+// The notice is about the server, not the command, so it speaks when the CLI probes the server and
+// stays quiet on the cached probe the commands after it read.
+function noticeSkew(profile: ServerProfile): void {
+  const notice = skewNotice(profile);
+  if (notice !== null) {
+    warn(notice);
+  }
 }
 
 type PreflightEnforcer = (client: MetabaseClient) => Promise<void>;
@@ -188,7 +178,6 @@ const NO_OP_ENFORCER: PreflightEnforcer = async () => {};
 function createPreflightEnforcer(
   features: readonly FeatureName[] | null,
   skip: boolean,
-  noticeSkew: SkewNotifier,
 ): PreflightEnforcer {
   if (features === null || skip || features.length === 0) {
     return NO_OP_ENFORCER;
@@ -200,7 +189,6 @@ function createPreflightEnforcer(
     }
     done = true;
     const profile = await client.server();
-    noticeSkew(profile);
     const failure = checkFeatures(features, profile);
     if (failure !== null) {
       throw new CapabilityError(failure);

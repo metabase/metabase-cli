@@ -28,7 +28,7 @@ A response the CLI cannot parse, or a refusal it issues, under a cached probe tr
 1. `MB_AUTH_BROKER` and `MB_AUTH_BROKER_TOKEN`: the desktop app's token broker. The app sets both on every agent session together with `MB_URL`, answers `GET /v1/credential` with the connected user's token (or an API key) for the connected server, and renews it on `POST /v1/credential/refresh`, which the CLI calls once when Metabase answers 401. `MB_URL`, when set, must name the server the broker serves; a mismatch is a `ConfigError` naming both.
 2. `MB_URL` and `MB_API_KEY`: the developer and e2e path.
 
-With either source, `MB_WORKTREE_ID` names a remote-sync worktree, and every request then carries it as `X-Metabase-Worktree-Id`, so every command acts inside that worktree. A value that is not a positive integer is a `ConfigError` naming the variable.
+Under the broker, the broker names the remote-sync worktree the session works in, and every request carries it as `X-Metabase-Worktree-Id`, so every command acts inside that worktree; the environment has no say. With `MB_URL` and `MB_API_KEY`, `MB_WORKTREE_ID` names it instead, and a value that is not a positive integer is a `ConfigError` naming the variable.
 
 With neither, every command that reaches a server exits `2` with `no Metabase credential; run inside Metabase RDE, or set MB_URL and MB_API_KEY`. There are no profiles, no keyring, no config directory and no login command.
 
@@ -907,7 +907,7 @@ mb git-sync branches --json
 
 ### `mb git-sync worktree list`
 
-List the remote-sync worktrees, each a checkout of one branch that a request enters through `MB_WORKTREE_ID`.
+List the remote-sync worktrees, each a checkout of one branch that a request enters through the `X-Metabase-Worktree-Id` header.
 
 ```sh
 mb git-sync worktree list --json
@@ -1057,7 +1057,7 @@ Every `MB_` name is a constant in `packages/cli/src/core/env.ts`.
 | `MB_API_KEY`            | The API key, when no broker is set.                                                                                                                                       |
 | `MB_AUTH_BROKER`        | The desktop app's credential broker (`http://127.0.0.1:<port>`); set together with `MB_AUTH_BROKER_TOKEN`.                                                                |
 | `MB_AUTH_BROKER_TOKEN`  | The session's bearer token for the broker.                                                                                                                                |
-| `MB_WORKTREE_ID`        | A remote-sync worktree id (a positive integer). Every request carries it as `X-Metabase-Worktree-Id`, so every command acts inside that worktree; unset is the main app.  |
+| `MB_WORKTREE_ID`        | A remote-sync worktree id (a positive integer), read only without a broker. Every request carries it as `X-Metabase-Worktree-Id`; unset is the main app.                  |
 | `MB_VERBOSE`            | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                            |
 | `MB_CLI_SKIP_PREFLIGHT` | When set to `1`, bypasses the per-command server version / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
 | `MB_SKILLS_DIR`         | Override the directory `mb skills` scans (the app points it at the bundled `skill-data`; defaults to the CLI's own `skill-data` tree).                                    |

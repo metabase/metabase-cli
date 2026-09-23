@@ -11,8 +11,6 @@ Content lives in this repository as YAML in the representation format (`mb skill
 
 The direction is one way: files are edited here, checked with `mb validate`, committed and pushed with `git`, then imported. Exporting from the instance, stashing, creating branches on the instance and changing the sync scope are admin actions in Metabase, not commands here.
 
-When `MB_WORKTREE_ID` is set, every `mb` command acts inside that remote-sync worktree, a copy of the instance's synced content for one branch: reads, `status` and `import` see and change the worktree, never the main app. Transform and transform job runs are refused inside a worktree; the command reports the server's message.
-
 ## Read state before importing
 
 ```bash

@@ -15,10 +15,12 @@ const EXPIRES_AT = "2026-09-22T12:00:00.000Z";
 const OAUTH_GRANT = {
   url: "https://mb.example.com/",
   credential: { kind: "oauth", accessToken: "acc-1", expiresAt: EXPIRES_AT },
+  worktreeId: null,
 };
 const API_KEY_GRANT = {
   url: "https://mb.example.com",
   credential: { kind: "apiKey", apiKey: "k1" },
+  worktreeId: null,
 };
 
 describe("readBrokerTarget", () => {
@@ -89,6 +91,7 @@ describe("fetchBrokerCredential", () => {
     expect(granted).toEqual({
       url: "https://mb.example.com",
       credential: { kind: "apiKey", apiKey: "k1" },
+      worktreeId: null,
     });
   });
 

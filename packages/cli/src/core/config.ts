@@ -23,7 +23,9 @@ export interface ResolvedConfig {
   credential: Credential;
   // `null` when the credential cannot be renewed: the client then reports a 401 as it stands.
   refreshCredential: CredentialRefresher | null;
-  // The remote-sync worktree every request works inside, or `null` for the main app.
+  // The remote-sync worktree every request works inside, or `null` for the main app. Under the
+  // broker it is the app's to name, so a session cannot leave its worktree by changing its
+  // environment.
   worktreeId: number | null;
 }
 
@@ -57,7 +59,6 @@ function readWorktreeId(): number | null {
 // pointed at one Metabase never sends its token to another.
 export async function resolveConfig(options: ResolveConfigOptions): Promise<ResolvedConfig> {
   const envUrl = readOptionalEnv(ENV_URL);
-  const worktreeId = readWorktreeId();
   const broker = readBrokerTarget();
   if (broker !== null) {
     const granted = await fetchBrokerCredential(broker, options);
@@ -70,7 +71,7 @@ export async function resolveConfig(options: ResolveConfigOptions): Promise<Reso
       url: granted.url,
       credential: granted.credential,
       refreshCredential: createBrokerRefresher(broker, options),
-      worktreeId,
+      worktreeId: granted.worktreeId,
     };
   }
   const apiKey = readOptionalEnv(ENV_API_KEY);
@@ -81,6 +82,6 @@ export async function resolveConfig(options: ResolveConfigOptions): Promise<Reso
     url: normalizeUrl(envUrl),
     credential: { kind: "apiKey", apiKey },
     refreshCredential: null,
-    worktreeId,
+    worktreeId: readWorktreeId(),
   };
 }

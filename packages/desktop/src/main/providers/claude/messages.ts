@@ -37,6 +37,7 @@ import {
   appPermissionMode,
   toolKindOf,
   toolLabel,
+  toolErrorText,
   toolResultText,
   turnOutcome,
   turnUsage,
@@ -330,12 +331,14 @@ export class ClaudeMessageMapper {
     const touched = ToolUseResult.safeParse(toolUseResult);
     const filePath = touched.success ? touched.data.filePath : undefined;
     const hunks = touched.success ? touched.data.structuredPatch : undefined;
+    const failed = block.is_error === true;
+    const text = toolResultText(block.content);
     this.sink.emit({
       ...this.turnScope(turnId),
       type: "tool.completed",
       callId: block.tool_use_id,
-      status: block.is_error === true ? "error" : "ok",
-      output: toolResultText(block.content),
+      status: failed ? "error" : "ok",
+      output: failed ? toolErrorText(text) : text,
       files: filePath === undefined ? [] : [repoRelative(this.cwd, filePath)],
       patch: hunks === undefined ? null : unifiedPatch(hunks),
     });

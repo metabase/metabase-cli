@@ -18,8 +18,14 @@ export const BrokerCredential = z.discriminatedUnion("kind", [
 ]);
 export type BrokerCredential = z.infer<typeof BrokerCredential>;
 
+// `worktreeId` is the remote-sync worktree the session's every request carries, `null` for the
+// main app. The broker names it, never the session's environment.
 export const BrokerGrant = z
-  .object({ url: z.string().min(1), credential: BrokerCredential })
+  .object({
+    url: z.string().min(1),
+    credential: BrokerCredential,
+    worktreeId: z.number().int().positive().nullable(),
+  })
   .strict();
 export type BrokerGrant = z.infer<typeof BrokerGrant>;
 

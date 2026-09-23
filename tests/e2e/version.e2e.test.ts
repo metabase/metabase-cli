@@ -29,9 +29,6 @@ const MEASURES_REFUSAL =
   "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.";
 const UNREACHABLE_MESSAGE = "Could not reach Metabase: fetch failed";
 
-const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were a head build past v${KNOWN_RANGE.max}.`;
-const UNKNOWN_NOTICE = `Could not parse the Metabase version; assuming it has every feature this CLI knows.`;
-const OLDER_NOTICE = `Metabase v0.${BELOW_KNOWN}.0 is older than this CLI supports (v${KNOWN_RANGE.min}+); commands needing a newer feature are refused by name. Upgrade Metabase to v${KNOWN_RANGE.min} or later.`;
 
 // A server whose tag parses to nothing, as `probeServer` reports a head or local build.
 const UNPARSEABLE_PROBE: ServerInfo = {
@@ -120,7 +117,7 @@ describe("version skew notices e2e", () => {
     return { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey };
   }
 
-  it("prints exactly one newer-server notice on stderr and succeeds when the cached probe is above the known range", async () => {
+  it("prints no notice and succeeds when the cached probe is above the known range", async () => {
     await seedCachedProbeAt(bootstrap.baseUrl, probeAt(BEYOND_KNOWN));
 
     const result = await runCli({
@@ -129,11 +126,11 @@ describe("version skew notices e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.stderr).toBe(NEWER_NOTICE);
+    expect(result.stderr).toBe("");
     expect(parseJson(result.stdout, CardListEnvelope).returned).toBe(1);
   });
 
-  it("prints exactly one unknown-version notice on stderr and succeeds when the cached probe carries no parseable version", async () => {
+  it("prints no notice and succeeds when the cached probe carries no parseable version", async () => {
     await seedCachedProbeAt(bootstrap.baseUrl, UNPARSEABLE_PROBE);
 
     const result = await runCli({
@@ -142,11 +139,11 @@ describe("version skew notices e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.stderr).toBe(UNKNOWN_NOTICE);
+    expect(result.stderr).toBe("");
     expect(parseJson(result.stdout, CardListEnvelope).returned).toBe(1);
   });
 
-  it("prints exactly one older-server notice on stderr and still runs a baseline command when the cached probe is below the known range", async () => {
+  it("prints no notice and still runs a baseline command when the cached probe is below the known range", async () => {
     await seedCachedProbeAt(bootstrap.baseUrl, probeAt(BELOW_KNOWN));
 
     const result = await runCli({
@@ -155,7 +152,7 @@ describe("version skew notices e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.stderr).toBe(OLDER_NOTICE);
+    expect(result.stderr).toBe("");
     expect(parseJson(result.stdout, CardListEnvelope).returned).toBe(1);
   });
 

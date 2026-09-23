@@ -1,6 +1,6 @@
 import type { ConnectionState, SessionEnvironment } from "../../contracts/connection";
 
-import type { CredentialBroker } from "./broker";
+import type { CredentialBroker, WorktreeLookup } from "./broker";
 
 export const NOT_CONNECTED_MESSAGE = "Connect to Metabase in Settings first.";
 
@@ -9,11 +9,12 @@ export const NOT_CONNECTED_MESSAGE = "Connect to Metabase in Settings first.";
 export function sessionEnvironment(
   broker: CredentialBroker,
   state: ConnectionState,
+  worktree: WorktreeLookup,
 ): SessionEnvironment | null {
   if (state.kind === "disconnected") {
     return null;
   }
-  const session = broker.mintSession();
+  const session = broker.mintSession(worktree);
   return {
     sessionId: session.sessionId,
     MB_URL: state.url,

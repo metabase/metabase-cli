@@ -6,6 +6,7 @@ import { errorMessage } from "@metabase/client/errors";
 import { JSON_CONTENT_TYPE } from "@metabase/client/json";
 
 import { BrokerGrant, BrokerRefusal } from "../../contracts/broker";
+import type { MetabaseWorktree } from "../../contracts/metabase";
 
 import type { CredentialGrant } from "./refresh";
 
@@ -29,6 +30,11 @@ const MIN_REFRESH_SPACING_MS = 10_000;
 
 const UNAUTHORIZED_REASON = "this session token is not one RDE issued";
 const UNKNOWN_ROUTE_REASON = "no such broker route";
+const NO_WORKTREE_REASON = "the session's Metabase worktree could not be made";
+
+// Asked on every grant rather than once at minting, so a worktree ensured after the session
+// started, or one for the branch it moved to, reaches its next command.
+export type WorktreeLookup = () => Promise<MetabaseWorktree>;
 
 export interface BrokerSession {
   readonly sessionId: string;
@@ -44,6 +50,7 @@ interface BrokerDeps {
 
 interface SessionRecord {
   readonly sessionId: string;
+  readonly worktree: WorktreeLookup;
   lastRefreshAt: number | null;
 }
 
@@ -93,10 +100,10 @@ export class CredentialBroker {
     return this.origin;
   }
 
-  mintSession(): BrokerSession {
+  mintSession(worktree: WorktreeLookup): BrokerSession {
     const sessionId = randomUUID();
     const token = randomBytes(SESSION_TOKEN_BYTES).toString(TOKEN_ENCODING);
-    this.byToken.set(token, { sessionId, lastRefreshAt: null });
+    this.byToken.set(token, { sessionId, worktree, lastRefreshAt: null });
     this.tokenBySession.set(sessionId, token);
     this.deps.log(`broker: minted session ${sessionId}`);
     return { sessionId, token };
@@ -159,11 +166,11 @@ export class CredentialBroker {
       return;
     }
     if (request.method === "GET" && request.url === CREDENTIAL_PATH) {
-      this.answer(response, session, await this.deps.getAccessToken());
+      await this.answer(response, session, await this.deps.getAccessToken());
       return;
     }
     if (request.method === "POST" && request.url === REFRESH_PATH) {
-      this.answer(response, session, await this.renew(session));
+      await this.answer(response, session, await this.renew(session));
       return;
     }
     refuse(response, NOT_FOUND_STATUS, UNKNOWN_ROUTE_REASON);
@@ -182,15 +189,33 @@ export class CredentialBroker {
     return this.deps.forceRefresh();
   }
 
-  private answer(response: ServerResponse, session: SessionRecord, grant: CredentialGrant): void {
+  // A session whose worktree could not be made gets no credential at all: the main app is never
+  // where its work lands in the worktree's place.
+  private async answer(
+    response: ServerResponse,
+    session: SessionRecord,
+    grant: CredentialGrant,
+  ): Promise<void> {
     if (grant.kind === "unavailable") {
       this.deps.log(`broker: refused session ${session.sessionId}: ${grant.reason}`);
       refuse(response, UNAVAILABLE_STATUS, grant.reason);
       return;
     }
+    const worktree = await session.worktree();
+    if (worktree.kind === "failed") {
+      const reason = `${NO_WORKTREE_REASON}: ${worktree.message}`;
+      this.deps.log(`broker: refused session ${session.sessionId}: ${reason}`);
+      refuse(response, UNAVAILABLE_STATUS, reason);
+      return;
+    }
+    const worktreeId = worktree.kind === "ready" ? worktree.id : null;
     this.deps.log(
       `broker: granted a ${grant.credential.kind} credential to session ${session.sessionId}`,
     );
-    send(response, OK_STATUS, BrokerGrant.parse({ url: grant.url, credential: grant.credential }));
+    send(
+      response,
+      OK_STATUS,
+      BrokerGrant.parse({ url: grant.url, credential: grant.credential, worktreeId }),
+    );
   }
 }

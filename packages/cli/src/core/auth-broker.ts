@@ -26,9 +26,11 @@ const BrokerApiKeyCredential = z.object({
   apiKey: z.string().min(1),
 });
 
+// `worktreeId` is the remote-sync worktree the app bound this session to, `null` for the main app.
 const BrokerGrant = z.object({
   url: z.string().min(1),
   credential: z.discriminatedUnion("kind", [BrokerOAuthCredential, BrokerApiKeyCredential]),
+  worktreeId: z.number().int().positive().nullable(),
 });
 type BrokerGrant = z.infer<typeof BrokerGrant>;
 
@@ -42,6 +44,7 @@ export interface BrokerTarget {
 interface BrokerCredential {
   url: string;
   credential: Credential;
+  worktreeId: number | null;
 }
 
 interface BrokerRequestOptions {
@@ -109,7 +112,11 @@ async function requestBroker(
     );
   }
   const grant = parseJson(body, BrokerGrant, { source: url });
-  return { url: normalizeUrl(grant.url), credential: toClientCredential(grant) };
+  return {
+    url: normalizeUrl(grant.url),
+    credential: toClientCredential(grant),
+    worktreeId: grant.worktreeId,
+  };
 }
 
 export function fetchBrokerCredential(

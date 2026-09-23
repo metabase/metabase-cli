@@ -12,7 +12,6 @@ import { runCommand } from "../process/spawn";
 
 import { RUN_AS_NODE_ENV_VAR, SKILLS_DIR_ENV_VAR, cliLocation, type CliLocation } from "./paths";
 import { MetabaseCli } from "./runner";
-import { WORKTREE_ENV_VAR } from "../metabase/worktrees";
 
 const RESPONSES_FILE = "responses.mjs";
 const CALLS_FILE = "calls.jsonl";
@@ -24,7 +23,6 @@ const RECORDED_ENV = [
   "MB_AUTH_BROKER_TOKEN",
   SKILLS_DIR_ENV_VAR,
   RUN_AS_NODE_ENV_VAR,
-  WORKTREE_ENV_VAR,
 ];
 
 // Stands in for the CLI's entry: answers each command, keyed by its first two words, with a recorded

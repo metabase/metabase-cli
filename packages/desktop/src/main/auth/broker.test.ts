@@ -58,7 +58,7 @@ async function startBroker(): Promise<BrokerHarness> {
     fetch(`${broker.url}${path}`, { method, headers: { authorization: `Bearer ${token}` } });
   const harness: BrokerHarness = {
     broker,
-    session: broker.mintSession(),
+    session: broker.mintSession(async () => ({ kind: "absent" })),
     log,
     refreshCalls: () => refreshCalls,
     setGrant: (next) => {
@@ -93,6 +93,7 @@ describe("CredentialBroker", () => {
         accessToken: "access-token",
         expiresAt: "2026-09-22T13:00:00.000Z",
       },
+      worktreeId: null,
     });
   });
 
@@ -152,6 +153,7 @@ describe("CredentialBroker", () => {
         accessToken: "refreshed-token",
         expiresAt: "2026-09-22T14:00:00.000Z",
       },
+      worktreeId: null,
     });
     expect(await second.json()).toEqual({
       url: METABASE_URL,
@@ -160,6 +162,7 @@ describe("CredentialBroker", () => {
         accessToken: "access-token",
         expiresAt: "2026-09-22T13:00:00.000Z",
       },
+      worktreeId: null,
     });
   });
 

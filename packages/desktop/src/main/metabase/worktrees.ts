@@ -8,9 +8,6 @@ import type { Session } from "../../contracts/session";
 import type { MetabaseCli } from "../cli/runner";
 import { readCheckout, type Git } from "../git/service";
 
-// Every request `mb` makes under this variable carries the worktree header.
-export const WORKTREE_ENV_VAR = "MB_WORKTREE_ID";
-
 const ABSENT: MetabaseWorktree = { kind: "absent" };
 const ORIGIN = "origin";
 
@@ -59,10 +56,6 @@ function remoteSyncUrl(connection: ConnectionState): string | null {
   }
 }
 
-function environmentOf(worktree: MetabaseWorktree): NodeJS.ProcessEnv {
-  return worktree.kind === "ready" ? { [WORKTREE_ENV_VAR]: String(worktree.id) } : {};
-}
-
 // The one place that knows a session's Metabase worktree. `ensure` is idempotent on the server, so
 // the id is held in memory and asked for again after a restart rather than stored. A failure is held
 // like an id, so the app's calls and the agent it already started agree on where the session works
@@ -74,11 +67,7 @@ export class MetabaseWorktrees {
 
   async scope(session: Session): Promise<WorktreeScope> {
     const worktree = await this.worktree(session);
-    return { worktree, cli: this.deps.cli.withEnvironment(environmentOf(worktree)) };
-  }
-
-  async environment(session: Session): Promise<NodeJS.ProcessEnv> {
-    return environmentOf(await this.worktree(session));
+    return { worktree, cli: this.deps.cli.inWorktree(worktree) };
   }
 
   // Another session on the same branch works in the same worktree, so it outlives this one. A
@@ -102,7 +91,7 @@ export class MetabaseWorktrees {
     }
   }
 
-  private async worktree(session: Session): Promise<MetabaseWorktree> {
+  async worktree(session: Session): Promise<MetabaseWorktree> {
     const url = remoteSyncUrl(this.deps.connection());
     if (url === null) {
       return ABSENT;
@@ -177,7 +166,7 @@ export class MetabaseWorktrees {
 
   // An import that fails leaves the worktree standing and empty; the next sync imports again.
   private async fill(sessionId: string, worktree: MetabaseWorktree): Promise<void> {
-    const cli = this.deps.cli.withEnvironment(environmentOf(worktree));
+    const cli = this.deps.cli.inWorktree(worktree);
     const imported = await cli.run(this.deps.cwd, ["git-sync", "import"], SyncImportResult);
     if (imported.kind === "failed") {
       this.deps.log(`session ${sessionId}: the worktree imported nothing: ${imported.message}`);

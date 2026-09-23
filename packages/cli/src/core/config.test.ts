@@ -52,6 +52,7 @@ describe("resolveConfig", () => {
         body: {
           url: "https://mb.example.com",
           credential: { kind: "oauth", accessToken: "acc-1", expiresAt: EXPIRES_AT },
+          worktreeId: null,
         },
       },
     ]);
@@ -73,6 +74,7 @@ describe("resolveConfig", () => {
         body: {
           url: "https://mb.example.com",
           credential: { kind: "apiKey", apiKey: "broker-key" },
+          worktreeId: null,
         },
       },
     ]);
@@ -88,7 +90,11 @@ describe("resolveConfig", () => {
     await startBroker([
       {
         status: 200,
-        body: { url: "https://mb.example.com", credential: { kind: "apiKey", apiKey: "k" } },
+        body: {
+          url: "https://mb.example.com",
+          credential: { kind: "apiKey", apiKey: "k" },
+          worktreeId: null,
+        },
       },
     ]);
     process.env["MB_URL"] = "https://other.example.com";
@@ -104,7 +110,11 @@ describe("resolveConfig", () => {
     await startBroker([
       {
         status: 200,
-        body: { url: "https://mb.example.com", credential: { kind: "apiKey", apiKey: "k" } },
+        body: {
+          url: "https://mb.example.com",
+          credential: { kind: "apiKey", apiKey: "k" },
+          worktreeId: null,
+        },
       },
     ]);
 
@@ -120,6 +130,7 @@ describe("resolveConfig", () => {
         body: {
           url: "https://mb.example.com",
           credential: { kind: "oauth", accessToken: "acc-1", expiresAt: EXPIRES_AT },
+          worktreeId: null,
         },
       },
       {
@@ -127,6 +138,7 @@ describe("resolveConfig", () => {
         body: {
           url: "https://mb.example.com",
           credential: { kind: "oauth", accessToken: "acc-2", expiresAt: EXPIRES_AT },
+          worktreeId: null,
         },
       },
     ]);

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { parseJsonResult } from "@metabase/client/json";
 
 import type { SessionEnvironment } from "../../contracts/connection";
+import type { MetabaseWorktree } from "../../contracts/metabase";
+import type { WorktreeLookup } from "../auth/broker";
 import { NOT_CONNECTED_MESSAGE } from "../auth/session-environment";
 import { outputTail, type CommandResult, type RunCommand } from "../process/spawn";
 
@@ -54,7 +56,7 @@ interface CliDeps {
   readonly location: CliLocation;
   readonly run: RunCommand;
   readonly env: NodeJS.ProcessEnv;
-  readonly credentials: () => SessionEnvironment | null;
+  readonly credentials: (worktree: WorktreeLookup) => SessionEnvironment | null;
   readonly release: (brokerSessionId: string) => void;
   readonly signal: AbortSignal;
 }
@@ -93,14 +95,19 @@ function failureOf(invocation: string, url: string, result: CommandResult): CliF
   };
 }
 
-// The app runs the same `mb` a session does, under a broker session of its own that ends with the
-// command.
-export class MetabaseCli {
-  constructor(private readonly deps: CliDeps) {}
+const MAIN_APP: MetabaseWorktree = { kind: "absent" };
 
-  // The same CLI with more environment on every command it runs.
-  withEnvironment(env: NodeJS.ProcessEnv): MetabaseCli {
-    return new MetabaseCli({ ...this.deps, env: { ...this.deps.env, ...env } });
+// The app runs the same `mb` a session does, under a broker session of its own that ends with the
+// command and names the worktree the command works in.
+export class MetabaseCli {
+  constructor(
+    private readonly deps: CliDeps,
+    private readonly worktree: MetabaseWorktree = MAIN_APP,
+  ) {}
+
+  // The same CLI with every command it runs inside `worktree`.
+  inWorktree(worktree: MetabaseWorktree): MetabaseCli {
+    return new MetabaseCli(this.deps, worktree);
   }
 
   async run<Value>(
@@ -132,7 +139,8 @@ export class MetabaseCli {
     args: readonly string[],
     answeredExits: ReadonlySet<number>,
   ): Promise<CliOutcome<Printed>> {
-    const credentials = this.deps.credentials();
+    const worktree = this.worktree;
+    const credentials = this.deps.credentials(async () => worktree);
     if (credentials === null) {
       return { kind: "failed", message: NOT_CONNECTED_MESSAGE };
     }

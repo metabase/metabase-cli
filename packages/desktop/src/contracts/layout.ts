@@ -22,7 +22,7 @@ export interface PanelBounds {
 }
 
 export const PANEL_BOUNDS: Readonly<Record<PanelId, PanelBounds>> = {
-  sidebar: { min: 208, initial: 256, max: 416 },
+  sidebar: { min: 208, initial: 280, max: 416 },
   sidePanel: { min: 360, initial: 560, max: 960 },
   tree: { min: 160, initial: 224, max: 480 },
 };

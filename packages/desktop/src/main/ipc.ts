@@ -2,6 +2,7 @@ import { errorMessage } from "@metabase/client/errors";
 
 import type { SessionEnvironment } from "../contracts/connection";
 import { ipc, ipcHandler, testIpc } from "../contracts/ipc";
+import type { MetabaseWorktree } from "../contracts/metabase";
 import type { ProviderHealthList } from "../contracts/providers";
 import type {
   RepositoryChoice,
@@ -509,8 +510,13 @@ export function registerIpc(deps: MainDeps, register: IpcRegistrar): void {
   }
 }
 
+// A driver's session works in the main app.
+async function mainAppWorktree(): Promise<MetabaseWorktree> {
+  return { kind: "absent" };
+}
+
 function mintForTest(deps: MainDeps): SessionEnvironment {
-  const minted = sessionEnvironment(deps.broker, deps.connection.state());
+  const minted = sessionEnvironment(deps.broker, deps.connection.state(), mainAppWorktree);
   if (minted === null) {
     throw new Error(NOT_CONNECTED_MESSAGE);
   }

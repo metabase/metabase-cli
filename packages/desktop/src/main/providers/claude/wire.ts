@@ -215,6 +215,15 @@ export function toolResultText(content: string | readonly unknown[] | undefined)
     .join("");
 }
 
+// Claude Code wraps the message of a tool call it refused in this tag, which is protocol, not text a
+// person reads.
+const TOOL_ERROR_WRAPPER = /^\s*<tool_use_error>([\s\S]*)<\/tool_use_error>\s*$/u;
+
+export function toolErrorText(text: string): string {
+  const wrapped = TOOL_ERROR_WRAPPER.exec(text);
+  return wrapped?.[1] === undefined ? text : wrapped[1].trim();
+}
+
 export function unifiedPatch(hunks: readonly z.infer<typeof PatchHunk>[]): string | null {
   if (hunks.length === 0) {
     return null;
