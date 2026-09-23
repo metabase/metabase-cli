@@ -55,7 +55,7 @@ Metabase reads YAML from these top-level directories only; anything else in the 
 | Collection, card, dashboard, segment, measure… | its `entity_id`                                          |
 | User (`creator_id`)                            | email                                                    |
 
-Take table and field names from `.metadata/databases/` (the `metabase-database-metadata` skill). Take a `creator_id` from the files already in the repository, or ask the user for the email to use. A query run with `mb query` uses numeric ids instead; the `mbql` skill covers moving a query between the two forms.
+Take table and field names from the instance: `mb db get <id> --include tables`, then `mb table get <id> --include fields` (the `core` skill's db traversal). Take a `creator_id` from the files already in the repository, or ask the user for the email to use. A query run with `mb query` uses numeric ids instead; the `mbql` skill covers moving a query between the two forms.
 
 ## `serdes/meta`
 

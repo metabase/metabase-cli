@@ -35,6 +35,9 @@ type AnswerResolver = (answer: AnswerInput) => PermissionResult;
 type SystemPromptPreset = Extract<NonNullable<Options["systemPrompt"]>, { type: "preset" }>;
 
 export const SESSION_SETTING_SOURCES: NonNullable<Options["settingSources"]> = ["user", "project"];
+// No filesystem skill reaches the model: a user- or repo-level Metabase skill describes another
+// CLI, and the app's method comes from `mb skills` alone.
+const SESSION_SKILLS: NonNullable<Options["skills"]> = [];
 const ATTACHMENT_PREFIX = "@";
 const DECLINED_MESSAGE = "The user declined this tool call.";
 const STOPPED_MESSAGE = "The session stopped before this tool call was answered.";
@@ -83,6 +86,7 @@ export function claudeQueryOptions(launch: ClaudeLaunchOptions): Options {
     permissionMode: SDK_PERMISSION_MODES[launch.permissionMode],
     includePartialMessages: true,
     settingSources: launch.settingSources,
+    skills: SESSION_SKILLS,
     abortController: launch.abortController,
     canUseTool: launch.canUseTool,
     ...bypass,

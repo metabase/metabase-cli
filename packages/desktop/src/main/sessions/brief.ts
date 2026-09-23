@@ -19,8 +19,8 @@ export function sessionBrief(workspace: Workspace): string {
   return [
     `You are working in a Metabase content repository at ${workspace.path}, ${branchClause(workspace)}.`,
     "Content is files. Collections, cards, dashboards, documents, segments, measures, snippets, transforms and Python libraries are YAML files in the Metabase representation format; nothing creates or changes them through the API.",
-    "The connected Metabase's database schema is under `.metadata/databases/`; if it is missing, run `mb metadata extract`. The repository's own `databases/` holds content, not the schema.",
-    "`mb` is on PATH and already signed in to the connected Metabase; there is no auth, login or profile command. Before any other `mb` call, run `mb skills get core`, which indexes the other skills. The Metabase method comes from `mb skills` alone: a skill of another source, even one named `rde`, describes a different CLI. Check changed files with `mb validate`.",
+    "Read the connected Metabase's database schema through `mb`, database to schema to table to field: `mb db list`, `mb db get <id> --include tables`, `mb table get <id> --include fields`. The repository's own `databases/` holds content, not the schema.",
+    "`mb` on PATH is the app's own CLI, already signed in to the connected Metabase; never install, update or run another `mb`, and there is no auth, login or profile command. Before any other `mb` call, run `mb skills get core`, which indexes the other skills. The Metabase method comes from `mb skills` alone: a skill of another source, even one named `rde`, describes a different CLI. Check changed files with `mb validate`.",
     importLine(workspace),
     "Keep scratch notes and state in `.scratch/`.",
   ].join(" ");

@@ -55,7 +55,6 @@ export const FEATURE_RULES = {
   sourceReplacement: { since: 60, tokenFeature: "dependencies" },
   metricDefinitionQuery: { since: 60 },
   metricDimensionListing: { since: 64 },
-  metadataExport: { since: 60, until: 63, tokenFeature: "serialization" },
   oauthFullAccessScope: { since: 63 },
 } satisfies Record<string, FeatureRule>;
 

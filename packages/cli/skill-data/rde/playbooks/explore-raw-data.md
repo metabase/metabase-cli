@@ -11,7 +11,7 @@ Read first: [`state.md`](../references/state.md), [`profiling-catalog.md`](../re
 ```bash
 mb db list --json; mb db get $DB --include tables --json
 mb db sync-schema $DB --wait --json               # after new tables land
-ls .metadata/databases/                           # the schema on disk; mb skills get metabase-database-metadata
+mb db schemas $DB --json; mb db schema-tables $DB <schema> --json   # hundreds of tables: go by schema
 ls collections/ databases/ transforms/ 2>/dev/null; git log --oneline -5   # the content the repository already holds
 mb git-sync status --json                         # the branch the instance holds, the synced collections
 mb collection tree --json
@@ -25,7 +25,7 @@ mb table get <table-id> --include fields --json
 
 ## 1. Data not yet in the warehouse
 
-Landing data is the user's loader's job, untouched, into a schema Metabase reads; this CLI has no upload. Once it lands, `db sync-schema --wait`, and ask the user to refresh `.metadata/` (or run `mb metadata extract` when the instance offers it). Stop until `db get --include tables` lists the tables.
+Landing data is the user's loader's job, untouched, into a schema Metabase reads; this CLI has no upload. Once it lands, `db sync-schema --wait`. Stop until `db get --include tables` lists the tables.
 
 ## 2. Intake
 
@@ -41,7 +41,7 @@ Write the helper once; source it every session. Count every table in one query; 
 
 ## 5. Profile only what a question touches
 
-Per table on a question path: read its columns from `.metadata/databases/` (or `mb table get`), classify meaning versus loader plumbing (loader shape in `staging-rules.md`), then run the probe shapes in `profiling-catalog.md` (key uniqueness, enum coverage, foreign-key match rate, date agreement, trailing completeness) plus the domain file's. Personal data: once per job, per the contract. Check: no grain without a measured duplicate count, no join without a match rate.
+Per table on a question path: read its columns with `mb table get <id> --include fields`, classify meaning versus loader plumbing (loader shape in `staging-rules.md`), then run the probe shapes in `profiling-catalog.md` (key uniqueness, enum coverage, foreign-key match rate, date agreement, trailing completeness) plus the domain file's. Personal data: once per job, per the contract. Check: no grain without a measured duplicate count, no join without a match rate.
 
 ## 6. Inventory
 

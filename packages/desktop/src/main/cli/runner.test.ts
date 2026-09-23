@@ -5,7 +5,7 @@ import { NOT_CONNECTED_MESSAGE } from "../auth/session-environment";
 
 import { FIXTURE_CREDENTIALS, openCliFixture, recorded, type CliFixture } from "./cli-fixture";
 
-const Extracted = z.object({ tables: z.number().int() }).loose();
+const Counted = z.object({ tables: z.number().int() }).loose();
 
 const Report = z.object({ ok: z.boolean(), checked: z.number().int(), failed: z.number().int() });
 
@@ -26,19 +26,17 @@ afterEach(async () => {
 describe("MetabaseCli", () => {
   it("runs the CLI as Node under a broker session of its own and parses its JSON", async () => {
     const cli = await fixture();
-    await cli.answer("metadata extract", {
+    await cli.answer("db list", {
       stdout: JSON.stringify({
         databases: 1,
         tables: 7,
         fields: 40,
-        out: ".metadata",
-        export_file: ".metadata/table_metadata.json",
       }),
       stderr: "",
       exit: 0,
     });
 
-    const outcome = await cli.cli.run("/", ["metadata", "extract"], Extracted);
+    const outcome = await cli.cli.run("/", ["db", "list"], Counted);
 
     expect(outcome).toEqual({
       kind: "answered",
@@ -46,13 +44,11 @@ describe("MetabaseCli", () => {
         databases: 1,
         tables: 7,
         fields: 40,
-        out: ".metadata",
-        export_file: ".metadata/table_metadata.json",
       },
     });
     expect(await cli.calls()).toEqual([
       {
-        args: ["metadata", "extract", "--json"],
+        args: ["db", "list", "--json"],
         cwd: "/",
         env: {
           MB_URL: FIXTURE_CREDENTIALS.MB_URL,
@@ -75,7 +71,7 @@ describe("MetabaseCli", () => {
       exit: 2,
     });
 
-    expect(await cli.cli.run("/", ["git-sync", "status"], Extracted)).toEqual({
+    expect(await cli.cli.run("/", ["git-sync", "status"], Counted)).toEqual({
       kind: "failed",
       message:
         "This operation requires the 'remote_sync' premium feature (not enabled on this server).",
@@ -91,34 +87,19 @@ describe("MetabaseCli", () => {
       exit: 1,
     });
 
-    expect(await cli.cli.run("/", ["git-sync", "status"], Extracted)).toEqual({
+    expect(await cli.cli.run("/", ["git-sync", "status"], Counted)).toEqual({
       kind: "failed",
       message: `Metabase at ${FIXTURE_CREDENTIALS.MB_URL} didn't answer. Check that it's running and reachable, then try again.`,
     });
   });
 
-  it("reports a version refusal the same way", async () => {
-    const cli = await fixture();
-    await cli.answer("metadata extract", {
-      stdout: "",
-      stderr: await recorded("metadata-extract.head.stderr"),
-      exit: 2,
-    });
-
-    expect(await cli.cli.run("/", ["metadata", "extract"], Extracted)).toEqual({
-      kind: "failed",
-      message:
-        "This operation exists on Metabase v60 through v63 only (this server's version is unknown); later releases removed it.",
-    });
-  });
-
   it("names the command whose output does not match what the app reads", async () => {
     const cli = await fixture();
-    await cli.answer("metadata extract", { stdout: '{"tables":"seven"}', stderr: "", exit: 0 });
+    await cli.answer("db list", { stdout: '{"tables":"seven"}', stderr: "", exit: 0 });
 
-    expect(await cli.cli.run("/", ["metadata", "extract"], Extracted)).toEqual({
+    expect(await cli.cli.run("/", ["db", "list"], Counted)).toEqual({
       kind: "failed",
-      message: expect.stringContaining("mb metadata extract: "),
+      message: expect.stringContaining("mb db list: "),
     });
   });
 
@@ -126,7 +107,7 @@ describe("MetabaseCli", () => {
     const cli = await openCliFixture(null);
     fixtures.push(cli);
 
-    expect(await cli.cli.run("/", ["git-sync", "status"], Extracted)).toEqual({
+    expect(await cli.cli.run("/", ["git-sync", "status"], Counted)).toEqual({
       kind: "failed",
       message: NOT_CONNECTED_MESSAGE,
     });

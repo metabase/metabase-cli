@@ -49,7 +49,6 @@ import {
   featuresOf,
   instanceHead,
   lastSync,
-  metadataLine,
   panelProblem,
   pollsMetabase,
   sessionBranch,
@@ -643,8 +642,6 @@ function SessionMetabase({
   const [syncing, setSyncing] = useState(false);
   const [run, setRun] = useState<SyncRun>(SYNC_IDLE);
   const [confirming, setConfirming] = useState(false);
-  const [metadataOutcome, setMetadataOutcome] = useState<ActionOutcome | null>(null);
-  const [extracting, setExtracting] = useState(false);
   const sessionKey = `${snapshot.session.lastCheckpointSeq}:${syncCount(snapshot)}:${connectionKind}`;
 
   useEffect(() => {
@@ -715,18 +712,6 @@ function SessionMetabase({
     setSyncing(false);
     reloadPanel();
     reloadContent();
-  };
-
-  const refreshMetadata = async (): Promise<void> => {
-    setExtracting(true);
-    const outcome = await rde
-      .metabaseRefreshMetadata({ sessionId })
-      .catch(
-        (error: unknown): ActionOutcome => ({ kind: "refused", message: failureMessage(error) }),
-      );
-    setMetadataOutcome(outcome);
-    setExtracting(false);
-    reloadPanel();
   };
 
   const ignore = async (): Promise<void> => {
@@ -850,54 +835,24 @@ function SessionMetabase({
           onChanged={reloadContent}
         />
       </section>
-      <section aria-label="Metadata">
-        <SectionHead label="Metadata">
-          <p
-            data-metadata={state.metadata.kind}
-            className="min-w-0 flex-1 truncate text-meta text-ink-3"
-          >
-            {metadataLine(state.metadata, new Date())}
-          </p>
+      {state.unignored.length === 0 ? null : (
+        <section aria-label="Ignored files" className="space-y-2 p-3">
+          <StatusLine tone="warning">
+            {state.unignored.join(" and ")} isn&apos;t ignored, so it would land on the branch.
+          </StatusLine>
           <Button
-            variant="ghost"
-            size="icon-sm"
-            disabled={extracting}
-            aria-label="Refresh metadata"
-            title="Refresh metadata"
+            variant="outline"
+            size="xs"
+            className="ml-3.5"
             onClick={() => {
-              void refreshMetadata();
+              void ignore();
             }}
           >
-            <RefreshCw aria-hidden className={extracting ? "animate-spin" : undefined} />
+            <EyeOff aria-hidden />
+            Add to .gitignore
           </Button>
-        </SectionHead>
-        {metadataOutcome?.kind === "refused" || state.unignored.length > 0 ? (
-          <div className="space-y-2 px-3 pb-3">
-            {metadataOutcome?.kind === "refused" ? (
-              <Note tone="error">{metadataOutcome.message}</Note>
-            ) : null}
-            {state.unignored.length === 0 ? null : (
-              <>
-                <StatusLine tone="warning">
-                  {state.unignored.join(" and ")} aren&apos;t ignored, so they would land on the
-                  branch.
-                </StatusLine>
-                <Button
-                  variant="outline"
-                  size="xs"
-                  className="ml-3.5"
-                  onClick={() => {
-                    void ignore();
-                  }}
-                >
-                  <EyeOff aria-hidden />
-                  Add to .gitignore
-                </Button>
-              </>
-            )}
-          </div>
-        ) : null}
-      </section>
+        </section>
+      )}
       <Dialog
         open={confirming}
         onOpenChange={(next) => {

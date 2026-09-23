@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -30,7 +30,6 @@ const AT = "2026-09-22T12:00:00.000Z";
 const BRANCH = "rde/big-orders";
 const METABASE_URL = "http://metabase.test";
 const DASHBOARD_EID = "dAsHbOaRd00000000000a";
-const EXTRACTED_AT = new Date("2026-09-20T08:30:00.000Z");
 
 const GIT_ENV: NodeJS.ProcessEnv = {
   ...process.env,
@@ -342,7 +341,7 @@ describe("MetabaseLoop.sync", () => {
 });
 
 describe("MetabaseLoop.panel", () => {
-  it("reads the instance's sync state, the branch's readiness, the metadata tree and the ignore file", async () => {
+  it("reads the instance's sync state, the branch's readiness and the ignore file", async () => {
     const loop = await harness(BRANCH);
 
     expect(await loop.loop.panel(SESSION_ID)).toEqual({
@@ -356,8 +355,7 @@ describe("MetabaseLoop.panel", () => {
         collectionCount: 1,
       },
       readiness: { kind: "ready", branch: BRANCH, push: true, guard: null },
-      metadata: { kind: "absent" },
-      unignored: [".metadata/", ".scratch/"],
+      unignored: [".scratch/"],
     });
   });
 
@@ -430,22 +428,14 @@ describe("MetabaseLoop.panel", () => {
     expect(await loop.cli.calls()).toEqual([]);
   });
 
-  it("dates the metadata tree by its export and reads the instance's refusal as unavailable", async () => {
+  it("reads the instance's refusal as unavailable", async () => {
     const loop = await harness(BRANCH);
     await loop.cli.answer("git-sync status", {
       stdout: "",
       stderr: await recorded("git-sync-status.unlicensed.stderr"),
       exit: 2,
     });
-    await mkdir(join(loop.checkout, ".metadata"), { recursive: true });
-    const exported = join(loop.checkout, ".metadata", "table_metadata.json");
-    await writeFile(exported, "{}", "utf8");
-    await utimes(exported, EXTRACTED_AT, EXTRACTED_AT);
-
-    const panel = await loop.loop.panel(SESSION_ID);
-
-    expect(panel.metadata).toEqual({ kind: "present", extractedAt: EXTRACTED_AT.toISOString() });
-    expect(panel.remoteSync).toEqual({
+    expect((await loop.loop.panel(SESSION_ID)).remoteSync).toEqual({
       kind: "unavailable",
       message:
         "This operation requires the 'remote_sync' premium feature (not enabled on this server).",
@@ -462,7 +452,7 @@ describe("MetabaseLoop.ignoreAppDirectories", () => {
     await loop.loop.ignoreAppDirectories(SESSION_ID);
 
     expect(await readFile(join(loop.checkout, ".gitignore"), "utf8")).toBe(
-      "node_modules/\n.metadata/\n.scratch/\n",
+      "node_modules/\n.scratch/\n",
     );
     expect((await loop.loop.panel(SESSION_ID)).unignored).toEqual([]);
   });

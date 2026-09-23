@@ -6,20 +6,14 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { parseJson } from "@metabase/client/json";
-import { createServerProfile } from "@metabase/client/version/profile";
-import { checkFeatures } from "@metabase/client/version/requirement-check";
-import { methodRequirements } from "@metabase/client/version/requirements";
 
 import { EntityIdList } from "../../packages/cli/src/commands/entity-id";
-import { MetadataExtractResult } from "../../packages/cli/src/commands/metadata/extract";
 import { SearchListEnvelope } from "../../packages/cli/src/commands/search";
 import { TreeValidationReport } from "../../packages/cli/src/commands/validate";
 import { startBrokerFixture, type BrokerFixture } from "../../packages/cli/src/core/broker-fixture";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorMessage } from "./cli-error";
 import { runCli } from "./run-cli";
-import { bootstrapServerInfo } from "./seed-probe";
-import { requireServer } from "./server-gate";
 
 // The representation repository's own examples: every file validates, so a repository the app
 // creates from them validates too.
@@ -68,13 +62,6 @@ describe("rde e2e", () => {
     const dir = mkdtempSync(join(tmpdir(), "mb-rde-e2e-"));
     tempDirs.push(dir);
     return dir;
-  }
-
-  function authEnv(): Record<string, string> {
-    return {
-      MB_URL: bootstrap.baseUrl,
-      MB_API_KEY: bootstrap.adminApiKey,
-    };
   }
 
   describe("validate", () => {
@@ -153,55 +140,6 @@ describe("rde e2e", () => {
       expect(cliErrorMessage(result.stderr)).toContain(`unknown command: ${removed.unknown};`);
       expect(result.stdout).toBe("");
     });
-  });
-
-  describe("metadata extract", () => {
-    const lane = "rde › metadata extract on the seeded warehouse";
-    const skipReason = requireServer(lane, ["metadataExport"]);
-
-    it.skipIf(skipReason !== null)("writes the seeded warehouse's tree under --out", async () => {
-      const out = join(tempDir(), ".metadata");
-
-      const result = await runCli({
-        args: ["metadata", "extract", "--out", out, "--databases", "Warehouse", "--json"],
-        env: authEnv(),
-        timeoutMs: 120_000,
-      });
-
-      expect(result.exitCode, result.stderr).toBe(0);
-      const extracted = parseJson(result.stdout, MetadataExtractResult);
-      expect(extracted).toEqual({
-        databases: 1,
-        tables: expect.any(Number),
-        fields: expect.any(Number),
-        out: join(out, "databases"),
-        export_file: join(out, "table_metadata.json"),
-      });
-      expect(
-        readdirSync(join(out, "databases", "Warehouse", "schemas", "public", "tables")),
-      ).toContain("orders.yaml");
-    });
-
-    it.skipIf(skipReason === null)(
-      "refuses before any request on a server without the export, naming its range",
-      async () => {
-        const failure = checkFeatures(
-          methodRequirements("metadataExport.download"),
-          createServerProfile(bootstrapServerInfo(bootstrap.server)),
-        );
-        if (failure === null) {
-          throw new Error("the lane gate skipped a server that has the export");
-        }
-
-        const result = await runCli({
-          args: ["metadata", "extract", "--out", join(tempDir(), ".metadata"), "--json"],
-          env: authEnv(),
-        });
-
-        expect(result.exitCode).toBe(2);
-        expect(cliErrorMessage(result.stderr)).toBe(failure.detail);
-      },
-    );
   });
 
   describe("the app's token broker", () => {

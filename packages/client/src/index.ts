@@ -227,12 +227,6 @@ export {
 export { Library, LibraryChild, LibraryCompact } from "./domain/library";
 export { Measure, MeasureCompact, MeasureCreateInput, MeasureUpdateInput } from "./domain/measure";
 export {
-  MetadataExport,
-  MetadataExportDatabase,
-  MetadataExportField,
-  MetadataExportTable,
-} from "./domain/metadata-export";
-export {
   MetricAddableDimension,
   MetricAddableGroup,
   MetricBinning,

@@ -8,7 +8,6 @@ import {
   type EntityKind,
   type MetabaseEdit,
   type MetabaseWorktree,
-  type MetadataTree,
   type RemoteSyncState,
   type SyncReadiness,
   type SyncTaskSummary,
@@ -142,13 +141,6 @@ export function age(from: string, now: Date): string {
     return `${plural(Math.floor(elapsed / HOUR_MS), "hour")} ago`;
   }
   return `${plural(Math.floor(elapsed / DAY_MS), "day")} ago`;
-}
-
-export function metadataLine(tree: MetadataTree, now: Date): string {
-  if (tree.kind === "absent") {
-    return "Not extracted yet.";
-  }
-  return `Extracted ${age(tree.extractedAt, now)}`;
 }
 
 // What the head names: the instance by its host, which Metabase it runs, and in smaller type who

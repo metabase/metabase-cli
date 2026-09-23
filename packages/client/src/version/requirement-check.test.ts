@@ -43,23 +43,6 @@ describe("checkFeatures over a method's requirements", () => {
     });
   });
 
-  it("names the range a removed route exists on for a server past the rule's last major", () => {
-    expect(
-      checkFeatures(
-        methodRequirements("metadataExport.download"),
-        profileOf("v1.64.0", 64, { serialization: true }),
-      ),
-    ).toEqual({
-      reason: "version-too-new",
-      detail:
-        "This operation exists on Metabase v60 through v63 only (this server is v1.64.0); later releases removed it.",
-      feature: "metadataExport",
-      since: 60,
-      tokenFeature: "serialization",
-      serverVersion: "v1.64.0",
-    });
-  });
-
   it("names the premium feature for a token gate", () => {
     expect(
       checkFeatures(methodRequirements("gitSync.branches"), profileOf("v1.60.4", 60, null)),

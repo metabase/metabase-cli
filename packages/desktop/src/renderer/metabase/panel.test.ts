@@ -10,7 +10,6 @@ import {
   branchView,
   contentRows,
   instanceHead,
-  metadataLine,
   pollsMetabase,
   syncButton,
   syncRefusal,
@@ -27,15 +26,6 @@ describe("age", () => {
     expect(age("2026-09-22T11:59:00.000Z", NOW)).toBe("1 minute ago");
     expect(age("2026-09-22T09:10:00.000Z", NOW)).toBe("2 hours ago");
     expect(age("2026-09-19T12:00:00.000Z", NOW)).toBe("3 days ago");
-  });
-});
-
-describe("metadataLine", () => {
-  it("dates the tree by its export, or says there is none", () => {
-    expect(metadataLine({ kind: "present", extractedAt: "2026-09-22T10:00:00.000Z" }, NOW)).toBe(
-      "Extracted 2 hours ago",
-    );
-    expect(metadataLine({ kind: "absent" }, NOW)).toBe("Not extracted yet.");
   });
 });
 

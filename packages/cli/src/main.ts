@@ -24,7 +24,6 @@ const main: CommandDef = defineCommand({
     "transform-job": () => import("./commands/transform-job").then((mod) => mod.default),
     "transform-tag": () => import("./commands/transform-tag").then((mod) => mod.default),
     "transform-test": () => import("./commands/transform-test").then((mod) => mod.default),
-    metadata: () => import("./commands/metadata").then((mod) => mod.default),
     search: () => import("./commands/search").then((mod) => mod.default),
     "git-sync": () => import("./commands/git-sync").then((mod) => mod.default),
     snippet: () => import("./commands/snippet").then((mod) => mod.default),

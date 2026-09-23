@@ -49,7 +49,6 @@ export const COMMAND_SURFACE = [
   "transform-test update",
   "transform-test delete",
   "transform-test run",
-  "metadata extract",
   "search",
   "git-sync status",
   "git-sync tree",

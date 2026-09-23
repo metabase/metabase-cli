@@ -124,7 +124,7 @@ The structure, operators, options and stages stay; only the references change.
 | `["segment", {}, 12]`                                                         | `[segment, {}, <entity_id>]`                                   |
 | a field of a later stage: `["field", {"base-type": "type/Integer"}, "count"]` | unchanged: a column name stays a name                          |
 
-Names come from `.metadata/databases/` (`metabase-database-metadata`) or `mb table get <id> --include fields`; an `entity_id` comes from the entity's file, or `mb card get <id> --fields entity_id`. The `lib/uuid` values and aggregation references carry over as they are. A schemaless database writes `null` for the schema. After writing, `mb validate <file>`; after the import, `mb card query <id>` proves the stored query runs.
+Names come from `mb table get <id> --include fields` (or `mb table fields <id>`), reached through the `core` skill's db traversal; an `entity_id` comes from the entity's file, or `mb card get <id> --fields entity_id`. The `lib/uuid` values and aggregation references carry over as they are. A schemaless database writes `null` for the schema. After writing, `mb validate <file>`; after the import, `mb card query <id>` proves the stored query runs.
 
 ## Footgun: `dataset_query` is the flat mbql/query, not a legacy envelope
 

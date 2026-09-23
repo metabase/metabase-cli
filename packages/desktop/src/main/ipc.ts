@@ -407,13 +407,6 @@ export function registerIpc(deps: MainDeps, register: IpcRegistrar): void {
   );
 
   register(
-    ipc.metabaseRefreshMetadata.name,
-    ipcHandler(ipc.metabaseRefreshMetadata, (input) =>
-      deps.metabase.refreshMetadata(input.sessionId),
-    ),
-  );
-
-  register(
     ipc.metabaseIgnoreAppDirectories.name,
     ipcHandler(ipc.metabaseIgnoreAppDirectories, (input) =>
       deps.metabase.ignoreAppDirectories(input.sessionId),

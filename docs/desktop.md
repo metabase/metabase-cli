@@ -44,7 +44,7 @@ Content is files. Collections, cards, dashboards, documents, segments, measures,
 3. **Sync to Metabase** in the Metabase panel pushes the branch when origin does not have it, then runs `mb git-sync import --branch <branch>`. The panel shows the result and links to the collections, dashboards and transforms the import changed.
 4. The agent proves the change with `mb transform run`, `mb transform-test run` or `mb card query`.
 
-**Refresh metadata** writes the connected instance's database metadata to `.metadata/` in the session's checkout. The panel offers to add `.metadata/` and `.scratch/` to `.gitignore`, so that neither is committed.
+The agent reads the connected instance's database schema through `mb`, database to schema to table to field (`mb db list`, `mb db get`, `mb table get`, `mb field get`); nothing about the schema is written to the checkout. The panel offers to add `.scratch/`, the agent's scratch directory, to `.gitignore`, so that it is not committed.
 
 Remote sync is a Metabase Enterprise feature. On an instance without it, the panel says why it cannot sync and the Sync button stays disabled.
 

@@ -6,7 +6,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # Metadata
 
-Metabase reads the raw column types from the warehouse; **metadata** is the layer on top that makes columns behave: the right filter widget, joins, formatting, maps. It is a small set of settings with large, indirect effects. Read a column's current shape with `mb table get <id> --include fields`, `mb field get <id>`, its live cardinality with `mb field summary <id>`, and its cached distinct set with `mb field values <id>`; `.metadata/databases/` holds the same snapshot on disk (`metabase-database-metadata`).
+Metabase reads the raw column types from the warehouse; **metadata** is the layer on top that makes columns behave: the right filter widget, joins, formatting, maps. It is a small set of settings with large, indirect effects. Read a column's current shape with `mb table get <id> --include fields`, `mb field get <id>`, its live cardinality with `mb field summary <id>`, and its cached distinct set with `mb field values <id>`.
 
 ## Where metadata lives
 

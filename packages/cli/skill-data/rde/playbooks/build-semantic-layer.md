@@ -93,7 +93,7 @@ Each file also carries `entity_id`, `creator_id` and `serdes/meta` as the first 
 
 ## 1. STATE.md and tables
 
-Read STATE.md; every Models row a definition needs has `table_id` and rows, and the table is in `.metadata/databases/` or readable with `mb table get`; a missing one goes back to [`build-clean-tables.md`](build-clean-tables.md).
+Read STATE.md; every Models row a definition needs has `table_id` and rows, and the table is readable with `mb table get`; a missing one goes back to [`build-clean-tables.md`](build-clean-tables.md).
 
 ## 2. One starting object per table
 

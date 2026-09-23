@@ -44,9 +44,9 @@ const AGENT_LOOP_TIMEOUT_MS = 15 * 60_000;
 
 const SYNC_LABELS = /^(Sync to Metabase|Push and sync)$/u;
 
-const IGNORED_DIRECTORIES = [".metadata/", ".scratch/"];
+const IGNORED_DIRECTORIES = [".scratch/"];
 
-const REPO_FIRST_SKILLS = ["core", "metabase-representation-format", "metabase-database-metadata"];
+const REPO_FIRST_SKILLS = ["core", "metabase-representation-format"];
 
 async function seedOrigin(repositoryPath: string): Promise<string> {
   const bare = await temporaryDir("rde-origin-");
@@ -208,23 +208,9 @@ const METABASE_LOOP: Scenario = {
     const synced = await shoot(window, dir, UNIT, "loop");
     await note(`after Sync to Metabase: ${synced}`);
 
-    await sidePanel(window).getByRole("button", { name: "Refresh metadata" }).click();
-    const metadataNote = sidePanel(window)
-      .getByRole("region", { name: "Metadata" })
-      .getByRole("alert");
-    const refreshed = sidePanel(window).locator('[data-metadata="present"]');
-    await metadataNote
-      .or(refreshed)
-      .first()
-      .waitFor({ state: "visible", timeout: TURN_TIMEOUT_MS });
-    const metadata = await sidePanel(window).getByRole("region", { name: "Metadata" }).innerText();
-    await note(`the metadata section after Refresh metadata:\n${metadata}`);
-    const metadataShot = await shoot(window, dir, UNIT, "metadata");
-    await note(`the metadata section: ${metadataShot}`);
-
     await stopEverySession(window);
     await closeApp(running);
-    return `${first}, ${synced}, ${metadataShot}`;
+    return `${first}, ${synced}`;
   },
 };
 

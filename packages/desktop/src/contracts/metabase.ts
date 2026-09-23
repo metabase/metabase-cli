@@ -128,15 +128,6 @@ const SyncReady = z
 export const SyncReadiness = z.discriminatedUnion("kind", [SyncBlocked, SyncReady]);
 export type SyncReadiness = z.infer<typeof SyncReadiness>;
 
-const MetadataAbsent = z.object({ kind: z.literal("absent") }).strict();
-
-const MetadataPresent = z
-  .object({ kind: z.literal("present"), extractedAt: z.iso.datetime() })
-  .strict();
-
-export const MetadataTree = z.discriminatedUnion("kind", [MetadataAbsent, MetadataPresent]);
-export type MetadataTree = z.infer<typeof MetadataTree>;
-
 // What `mb git-sync worktree ensure --json` prints: the one worktree Metabase keeps for the branch.
 export const WorktreeEnsured = z
   .object({ id: z.number().int().positive(), branch: z.string().min(1) })
@@ -199,7 +190,6 @@ export const MetabasePanelState = z
     worktree: MetabaseWorktree,
     remoteSync: RemoteSyncState,
     readiness: SyncReadiness,
-    metadata: MetadataTree,
     unignored: z.array(z.string().min(1)),
   })
   .strict();

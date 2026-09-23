@@ -27,7 +27,7 @@ describe("sessionBrief", () => {
     for (const part of [
       "/home/ada/rde-worktrees/big-orders",
       "on branch rde/big-orders",
-      "`.metadata/databases/`",
+      "`mb db get <id> --include tables`",
       "`mb skills get core`",
       "`mb validate`",
       "`mb git-sync import --branch rde/big-orders --wait`",

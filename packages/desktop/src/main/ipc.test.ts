@@ -65,7 +65,6 @@ const PRODUCT_CHANNELS = [
   "metabase.sync",
   "metabase.runTransform",
   "metabase.runTransformTests",
-  "metabase.refreshMetadata",
   "metabase.ignoreAppDirectories",
   "updates.read",
   "updates.download",

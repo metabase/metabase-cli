@@ -2,7 +2,6 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "ignorePatterns": [
     "packages/cli/src/core/schema/data/**",
-    "packages/cli/src/core/metadata/reference/**",
     "packages/cli/src/core/schema/examples/**",
     "packages/cli/skill-data/*/spec.md",
     "packages/desktop/out/**",

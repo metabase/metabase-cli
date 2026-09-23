@@ -23,7 +23,6 @@ import { gitSyncResource } from "../resources/git-sync";
 import { glossaryResource } from "../resources/glossary";
 import { libraryResource } from "../resources/library";
 import { measureResource } from "../resources/measure";
-import { metadataExportResource } from "../resources/metadata-export";
 import { metricResource } from "../resources/metric";
 import { moderationReviewResource } from "../resources/moderation-review";
 import { notificationResource } from "../resources/notification";
@@ -330,16 +329,6 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     wireError: "unexpected request: GET /api/measure/1",
   },
   {
-    key: "metadataExport.download",
-    invoke: (t) =>
-      metadataExportResource(t).download({
-        "with-databases": true,
-        "with-tables": true,
-        "with-fields": true,
-      }),
-    wireError: "requestStream not implemented in fake client",
-  },
-  {
     key: "metric.dimensions",
     invoke: (t) => metricResource(t).dimensions(1),
     wireError: "unexpected request: GET /api/metric/1/dimension",
@@ -502,7 +491,7 @@ describe("METHOD_REQUIREMENTS", () => {
         })
         .map((feature) => `${key}: ${feature}`),
     );
-    expect(bounded).toEqual(["metadataExport.download: metadataExport"]);
+    expect(bounded).toEqual([]);
   });
 
   it("has every resource namespace driven below", () => {

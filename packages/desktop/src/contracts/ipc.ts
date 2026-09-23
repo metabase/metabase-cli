@@ -135,11 +135,6 @@ export const ipc = {
     input: TransformRequest,
     output: TransformTestsOutcome,
   },
-  metabaseRefreshMetadata: {
-    name: "metabase.refreshMetadata",
-    input: SessionRef,
-    output: ActionOutcome,
-  },
   metabaseIgnoreAppDirectories: {
     name: "metabase.ignoreAppDirectories",
     input: SessionRef,
@@ -327,7 +322,6 @@ export function createIpcBridge(transport: IpcTransport, subscribe: IpcSubscribe
     metabaseSync: (input) => invoke(ipc.metabaseSync, input),
     metabaseRunTransform: (input) => invoke(ipc.metabaseRunTransform, input),
     metabaseRunTransformTests: (input) => invoke(ipc.metabaseRunTransformTests, input),
-    metabaseRefreshMetadata: (input) => invoke(ipc.metabaseRefreshMetadata, input),
     metabaseIgnoreAppDirectories: (input) => invoke(ipc.metabaseIgnoreAppDirectories, input),
     updatesRead: () => invoke(ipc.updatesRead, undefined),
     updatesDownload: () => invoke(ipc.updatesDownload, undefined),

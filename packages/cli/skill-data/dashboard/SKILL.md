@@ -88,7 +88,7 @@ The mapping `target` uses the **legacy** field order, field second, unlike the q
 | Native raw variable                      | `[variable, [template-tag, <tag>]]`                          |
 | Text card placeholder `{{name}}`         | `[text-tag, name]`                                           |
 
-Table and field names come from `.metadata/databases/`; native tags from the `native-sql` skill. After the import, `mb dashboard parameter-values <id> <parameter-id>` lists what a widget offers; an empty list means the mapping or the field values are missing.
+Table and field names come from `mb table get <id> --include fields` (the `core` skill's db traversal); native tags from the `native-sql` skill. After the import, `mb dashboard parameter-values <id> <parameter-id>` lists what a widget offers; an empty list means the mapping or the field values are missing.
 
 ## Choose the interaction
 

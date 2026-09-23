@@ -1,6 +1,6 @@
 # Metabase RDE CLI
 
-The `mb` command the Metabase RDE desktop app puts on every agent session's `PATH`. It reads the connected Metabase (databases, tables, cards, dashboards, collections, transforms, the Library, remote sync), runs queries and transforms, validates repository content against the representation schemas, extracts database metadata, and serves the bundled agent skills. Content itself is files in the repository; the app's remote sync puts a branch into Metabase.
+The `mb` command the Metabase RDE desktop app puts on every agent session's `PATH`. It reads the connected Metabase (databases, tables, cards, dashboards, collections, transforms, the Library, remote sync), runs queries and transforms, validates repository content against the representation schemas, and serves the bundled agent skills. Content itself is files in the repository; the app's remote sync puts a branch into Metabase.
 
 The package is `@metabase/rde-cli`, private, built to `packages/cli/dist/cli.mjs` and bundled by the desktop app together with `packages/cli/skill-data/`. It is never installed from npm.
 
@@ -94,7 +94,6 @@ Every leaf command, as `mb --help --json` lists them. `packages/cli/src/commands
 | `mb transform-test update`       | Update a transform test by id                                                                                                                                                                                                                                                                                                                                                  |
 | `mb transform-test delete`       | Delete a transform test by id                                                                                                                                                                                                                                                                                                                                                  |
 | `mb transform-test run`          | Run a transform test by id and report each expectation                                                                                                                                                                                                                                                                                                                         |
-| `mb metadata extract`            | Export the warehouse metadata and write it as one YAML file per database and table                                                                                                                                                                                                                                                                                             |
 | `mb search`                      | Search Metabase content (cards, dashboards, collections, …)                                                                                                                                                                                                                                                                                                                    |
 | `mb git-sync status`             | Show current git-sync state (branch, dirty, current task)                                                                                                                                                                                                                                                                                                                      |
 | `mb git-sync tree`               | List the synced collections, their hierarchy, and the items in each                                                                                                                                                                                                                                                                                                            |
@@ -493,24 +492,6 @@ Row count and distinct count for the field (`GET /api/field/:id/summary`). Metab
 mb field summary 100
 mb field summary 100 --json
 ```
-
-## Database metadata on disk
-
-### `mb metadata extract`
-
-```sh
-mb metadata extract
-mb metadata extract --out .metadata --databases 'Sample Database' --json
-```
-
-| Flag                  | Description                                                               |
-| --------------------- | ------------------------------------------------------------------------- |
-| `--out <dir>`         | Output directory (default `.metadata`).                                   |
-| `--databases <names>` | Only these databases, by name, comma separated (default: every database). |
-
-Downloads the connected Metabase's databases, tables and fields (`POST /api/ee/serialization/metadata/export`, streamed) to `<out>/table_metadata.json`, then writes one YAML file per database and one per table with its fields inline under `<out>/databases/`, in the [database-metadata format](https://github.com/metabase/database-metadata): numeric ids are replaced by natural keys (`[database, schema, table, field]`), so the tree is readable and diffable. The `databases/` subtree is replaced on every run. Prints the counts and the output path; `--json` gives `{ databases, tables, fields, out, export_file }`.
-
-The endpoint exists on Metabase v60 through v63 with the `serialization` premium feature; on a later server the command refuses before any request, naming that range.
 
 ## Cards
 
@@ -1055,7 +1036,6 @@ Bundled skills:
 | `core`                           | Entry point: the file-then-sync loop, flag and output conventions, every command group               |
 | `rde`                            | The data-engineering method: raw tables to clean tables, definitions, dashboards and checked answers |
 | `metabase-representation-format` | The content file schemas and folder layout, with the full spec                                       |
-| `metabase-database-metadata`     | Reading the `.metadata/databases/` tree `metadata extract` writes                                    |
 | `mbql`                           | MBQL queries in `mb query` and in files, and moving between the two forms                            |
 | `native-sql`                     | Native SQL queries: template tags, field filters, snippets, card references                          |
 | `visualization`                  | Choosing a card's `display` and authoring `visualization_settings`                                   |

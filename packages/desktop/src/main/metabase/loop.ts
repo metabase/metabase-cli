@@ -1,4 +1,4 @@
-import { appendFile, readFile, stat } from "node:fs/promises";
+import { appendFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { z } from "zod";
@@ -21,7 +21,6 @@ import type {
   MetabaseEdit,
   MetabasePanelState,
   MetabaseWorktree,
-  MetadataTree,
   RemoteSyncState,
   SessionContent,
   SyncRequest,
@@ -45,8 +44,7 @@ import { offersRemoteSync, type MetabaseWorktrees, type WorktreeScope } from "./
 
 const ORIGIN = "origin";
 const GITIGNORE = ".gitignore";
-const APP_DIRECTORIES = [".metadata/", ".scratch/"] as const;
-const METADATA_EXPORT_SEGMENTS = [".metadata", "table_metadata.json"] as const;
+const APP_DIRECTORIES = [".scratch/"] as const;
 const NEWLINE = "\n";
 const NOT_IGNORED_EXIT = 1;
 
@@ -60,8 +58,6 @@ const SyncDirtyList = z.object({ data: z.array(SyncDirtyItem) }).loose();
 
 // The panel counts every edit, so the list is read past the CLI's output cap.
 const WHOLE_LIST = ["--max-bytes", "0"] as const;
-
-const MetadataExtractResult = z.object({ tables: z.number().int() }).loose();
 
 // A session's checkout and the CLI that reaches Metabase for it, inside its worktree when it has one.
 interface SessionScope extends WorktreeScope {
@@ -113,7 +109,7 @@ function refused(message: string): ActionOutcome {
   return { kind: "refused", message };
 }
 
-// Sync, metadata and the ignore file are all read from the session's own checkout, which for a
+// Sync and the ignore file are all read from the session's own checkout, which for a
 // worktree session is not the repository the user picked.
 export class MetabaseLoop {
   private readonly syncing = new Set<string>();
@@ -122,11 +118,10 @@ export class MetabaseLoop {
 
   async panel(sessionId: string): Promise<MetabasePanelState> {
     const { cwd, cli, worktree } = await this.scope(sessionId);
-    const [status, remote, remoteSync, metadata, unignored] = await Promise.all([
+    const [status, remote, remoteSync, unignored] = await Promise.all([
       this.deps.changes.status(sessionId),
       this.deps.git.read(cwd, ["remote", "get-url", ORIGIN]),
       this.remoteSync(cli, cwd),
-      this.metadataTree(cwd),
       this.unignored(cwd),
     ]);
     const readiness = syncReadiness({
@@ -135,7 +130,7 @@ export class MetabaseLoop {
       hasRemote: remote.kind === "answered",
       trackedBranch: remoteSync.kind === "read" ? remoteSync.branch : null,
     });
-    return { worktree, remoteSync, readiness, metadata, unignored };
+    return { worktree, remoteSync, readiness, unignored };
   }
 
   async content(sessionId: string): Promise<SessionContent> {
@@ -186,12 +181,6 @@ export class MetabaseLoop {
     } finally {
       this.syncing.delete(request.sessionId);
     }
-  }
-
-  async refreshMetadata(sessionId: string): Promise<ActionOutcome> {
-    const { cwd, cli } = await this.scope(sessionId);
-    const extracted = await cli.run(cwd, ["metadata", "extract"], MetadataExtractResult);
-    return extracted.kind === "failed" ? refused(extracted.message) : { kind: "done" };
   }
 
   async ignoreAppDirectories(sessionId: string): Promise<ActionOutcome> {
@@ -312,18 +301,6 @@ export class MetabaseLoop {
       task: taskSummary(status.value.current_task),
       collectionCount: status.value.synced_collections.length,
     };
-  }
-
-  private async metadataTree(cwd: string): Promise<MetadataTree> {
-    try {
-      const exported = await stat(join(cwd, ...METADATA_EXPORT_SEGMENTS));
-      return { kind: "present", extractedAt: exported.mtime.toISOString() };
-    } catch (error) {
-      if (isFileNotFoundError(error)) {
-        return { kind: "absent" };
-      }
-      throw error;
-    }
   }
 
   // `--no-index` asks what the rules say, so a directory that does not exist yet still answers.

@@ -695,7 +695,6 @@ describe("the shipped skills", () => {
       "document",
       "git-sync",
       "mbql",
-      "metabase-database-metadata",
       "metabase-representation-format",
       "metadata",
       "native-sql",
