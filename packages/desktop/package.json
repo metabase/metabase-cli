@@ -8,7 +8,7 @@
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "bun run --filter @metabase/client build && bun run --filter @metabase/rde-cli build && electron-vite dev",
+    "dev": "install-electron && bun run --filter @metabase/client build && bun run --filter @metabase/rde-cli build && electron-vite dev",
     "build": "bun run --filter @metabase/client build && bun run --filter @metabase/rde-cli build && electron-vite build",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "smoke": "bun scripts/smoke.ts",
