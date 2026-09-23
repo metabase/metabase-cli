@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const FieldVisibilityType = z.enum(["details-only", "hidden", "normal", "retired", "sensitive"]);
 
-const FieldValuesType = z.enum(["list", "search", "none", "auto-list"]);
+export const FieldValuesType = z.enum(["list", "search", "none", "auto-list"]);
 
 export const FieldBaseType = z.enum([
   "type/*",
