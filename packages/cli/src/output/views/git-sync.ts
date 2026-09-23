@@ -7,6 +7,8 @@ import {
   SyncTaskCompact,
   SyncTree,
   type SyncTreeCollection,
+  type SyncTreeItem,
+  type SyncTreeTransforms,
 } from "@metabase/client/domain/git-sync";
 
 import type { ResourceView } from "../view";
@@ -18,28 +20,50 @@ export const syncTreeView: ResourceView<SyncTree> = {
   tableColumns: [{ key: "collections", label: "Collections" }],
 };
 
-/** The synced collections as an indented outline, each followed by the items directly inside it. */
-export function formatSyncTree(tree: SyncTree): string {
-  if (tree.collections.length === 0) {
-    return "No collections are marked for sync.";
-  }
+const TRANSFORMS_HEADING = "Transforms";
+
+function itemLine(item: SyncTreeItem, indent: string): string {
+  return `${indent}${item.model}: ${item.name} (${item.id})`;
+}
+
+function outline(collections: readonly SyncTreeCollection[], depth: number): string[] {
   const childrenOf = (parentId: number | null): SyncTreeCollection[] =>
-    tree.collections.filter((collection) => collection.parent_id === parentId);
+    collections.filter((collection) => collection.parent_id === parentId);
   const lines: string[] = [];
-  const visit = (collection: SyncTreeCollection, depth: number): void => {
-    const indent = TREE_INDENT.repeat(depth);
+  const visit = (collection: SyncTreeCollection, level: number): void => {
+    const indent = TREE_INDENT.repeat(level);
     lines.push(`${indent}${collection.name} (${collection.id})`);
     for (const item of collection.items) {
-      lines.push(`${indent}${TREE_INDENT}${item.model}: ${item.name} (${item.id})`);
+      lines.push(itemLine(item, `${indent}${TREE_INDENT}`));
     }
     for (const child of childrenOf(collection.id)) {
-      visit(child, depth + 1);
+      visit(child, level + 1);
     }
   };
   for (const root of childrenOf(null)) {
-    visit(root, 0);
+    visit(root, depth);
   }
-  return lines.join("\n");
+  return lines;
+}
+
+function transformsOutline(transforms: SyncTreeTransforms): string[] {
+  return [
+    TRANSFORMS_HEADING,
+    ...outline(transforms.collections, 1),
+    ...transforms.items.map((item) => itemLine(item, TREE_INDENT)),
+  ];
+}
+
+/**
+ * The synced collections as an indented outline, each followed by the items directly inside it,
+ * then the transforms when the instance syncs them.
+ */
+export function formatSyncTree(tree: SyncTree): string {
+  if (tree.collections.length === 0 && tree.transforms === null) {
+    return "No collections are marked for sync.";
+  }
+  const transforms = tree.transforms === null ? [] : transformsOutline(tree.transforms);
+  return [...outline(tree.collections, 0), ...transforms].join("\n");
 }
 
 export const syncTaskView: ResourceView<SyncTask> = {

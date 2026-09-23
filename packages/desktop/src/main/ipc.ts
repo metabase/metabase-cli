@@ -415,6 +415,11 @@ export function registerIpc(deps: MainDeps, register: IpcRegistrar): void {
   );
 
   register(
+    ipc.metabaseTransformLastRun.name,
+    ipcHandler(ipc.metabaseTransformLastRun, (input) => deps.metabase.transformLastRun(input)),
+  );
+
+  register(
     ipc.metabaseIgnoreAppDirectories.name,
     ipcHandler(ipc.metabaseIgnoreAppDirectories, (input) =>
       deps.metabase.ignoreAppDirectories(input.sessionId),

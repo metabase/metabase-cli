@@ -180,5 +180,19 @@ export const SyncTreeCollection = z.object({
 });
 export type SyncTreeCollection = z.infer<typeof SyncTreeCollection>;
 
-export const SyncTree = z.object({ collections: z.array(SyncTreeCollection) });
+// Metabase syncs every transform as one unit when the instance syncs transforms at all: the
+// transforms namespace's collections, flat as the synced collections are, and the transforms that
+// sit in none of them.
+export const SyncTreeTransforms = z.object({
+  collections: z.array(SyncTreeCollection),
+  items: z.array(SyncTreeItem),
+});
+export type SyncTreeTransforms = z.infer<typeof SyncTreeTransforms>;
+
+// `transforms` is null when the instance does not sync transforms or the caller may not read whether
+// it does.
+export const SyncTree = z.object({
+  collections: z.array(SyncTreeCollection),
+  transforms: SyncTreeTransforms.nullable(),
+});
 export type SyncTree = z.infer<typeof SyncTree>;

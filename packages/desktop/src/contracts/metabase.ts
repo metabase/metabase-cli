@@ -245,6 +245,9 @@ export const TransformRunSummary = z
   .strict();
 export type TransformRunSummary = z.infer<typeof TransformRunSummary>;
 
+// A transform's last run, null when it never ran or the run cannot be read.
+export const TransformLastRun = TransformRunSummary.nullable();
+
 const TransformInMetabase = z
   .object({
     id: z.number().int().positive(),
@@ -303,7 +306,8 @@ export const TransformTestsOutcome = z.discriminatedUnion("kind", [TransformTest
 export type TransformTestsOutcome = z.infer<typeof TransformTestsOutcome>;
 
 // What `mb git-sync tree --json` prints: every collection the instance syncs, flat, each with the
-// items it holds directly. `parent_id` is a synced parent's id, null for a synced root.
+// items it holds directly, and the transforms when the instance syncs them, their collections flat
+// the same way beside the transforms in none. `parent_id` is a synced parent's id, null for a root.
 const GitSyncTreeItem = z
   .object({
     id: z.number().int(),
@@ -325,7 +329,17 @@ const GitSyncTreeCollection = z
   .loose();
 export type GitSyncTreeCollection = z.infer<typeof GitSyncTreeCollection>;
 
-export const GitSyncTree = z.object({ collections: z.array(GitSyncTreeCollection) }).loose();
+const GitSyncTreeTransforms = z
+  .object({ collections: z.array(GitSyncTreeCollection), items: z.array(GitSyncTreeItem) })
+  .loose();
+export type GitSyncTreeTransforms = z.infer<typeof GitSyncTreeTransforms>;
+
+export const GitSyncTree = z
+  .object({
+    collections: z.array(GitSyncTreeCollection),
+    transforms: GitSyncTreeTransforms.nullable(),
+  })
+  .loose();
 
 // `path` is the checkout's file that holds the item, null when no file there carries its entity id.
 export const SyncedItem = z
@@ -352,8 +366,19 @@ export const SyncedCollection = z.strictObject({
 });
 export type SyncedCollection = z.infer<typeof SyncedCollection>;
 
+// The transforms Metabase syncs as one unit: their collections nested, and the transforms in none.
+export const SyncedTransforms = z
+  .object({ collections: z.array(SyncedCollection), items: z.array(SyncedItem) })
+  .strict();
+export type SyncedTransforms = z.infer<typeof SyncedTransforms>;
+
+// `transforms` is null when the instance does not sync transforms.
 const SyncedTreeRead = z
-  .object({ kind: z.literal("read"), collections: z.array(SyncedCollection) })
+  .object({
+    kind: z.literal("read"),
+    collections: z.array(SyncedCollection),
+    transforms: SyncedTransforms.nullable(),
+  })
   .strict();
 
 // The content the instance syncs, nested the way its collections nest.

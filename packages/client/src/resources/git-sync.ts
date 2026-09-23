@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { Collection } from "../domain/collection";
+import { Collection, type CollectionId } from "../domain/collection";
 import {
   isSyncTaskTerminal,
   SyncBranchCreated,
@@ -15,6 +15,7 @@ import {
   type SyncTree,
   type SyncTreeCollection,
   SyncTreeItem,
+  type SyncTreeTransforms,
 } from "../domain/git-sync";
 import { Worktree } from "../domain/worktree";
 import { chainRequestFailure, HttpError } from "../http/errors";
@@ -47,11 +48,38 @@ const SyncTreeCollectionRow = z.object({
 });
 type SyncTreeCollectionRow = z.infer<typeof SyncTreeCollectionRow>;
 
+type SyncTreeCollectionSource = Pick<
+  SyncTreeCollectionRow,
+  "id" | "entity_id" | "name" | "location"
+>;
+
 const SyncTreeScopeRow = z.union([
   SyncTreeCollectionRow,
   z.object({ is_remote_synced: z.literal(false).nullable().optional() }),
 ]);
 type SyncTreeScopeRow = z.infer<typeof SyncTreeScopeRow>;
+
+const TRANSFORMS_NAMESPACE = "transforms";
+const ROOT_COLLECTION = "root";
+
+// A transforms collection is synced with the rest of its namespace rather than flagged on its own,
+// and the namespace's listing leads with its root, which is no collection of its own.
+const SyncTreeTransformsCollectionRow = SyncTreeCollectionRow.omit({ is_remote_synced: true });
+type SyncTreeTransformsCollectionRow = z.infer<typeof SyncTreeTransformsCollectionRow>;
+
+const SyncTreeTransformsScopeRow = z.union([
+  SyncTreeTransformsCollectionRow,
+  z.object({ id: z.literal(ROOT_COLLECTION) }),
+]);
+type SyncTreeTransformsScopeRow = z.infer<typeof SyncTreeTransformsScopeRow>;
+
+function isTransformsCollectionRow(
+  row: SyncTreeTransformsScopeRow,
+): row is SyncTreeTransformsCollectionRow {
+  return typeof row.id === "number";
+}
+
+const TransformsSyncedSetting = z.boolean();
 
 const SyncTreeSkippedRow = z.object({ model: z.enum(["collection", "table"]) });
 
@@ -352,17 +380,31 @@ export function gitSyncResource(transport: Transport) {
 
   /**
    * Every collection in git-sync's scope, flat, each with the items directly inside it, questions
-   * saved to a dashboard included. A collection's `parent_id` is set only when its parent is synced
-   * too. The collections are walked one after another.
+   * saved to a dashboard included, and the transforms when the instance syncs them. A collection's
+   * `parent_id` is set only when its parent is synced too. The collections are walked one after
+   * another.
    */
   async function syncedTree(options: RequestOptions = {}): Promise<SyncTree> {
     await transport.require("gitSync.syncedTree", options);
     const { features } = await transport.server(options);
     const scope = await listCollectionsWithLibrary(transport, SyncTreeScopeRow, options);
-    const synced = scope.filter(isSyncTreeCollectionRow);
-    const syncedIds = new Set(synced.map((collection) => collection.id));
     const query = { [dashboardQuestionsParam(features)]: true };
+    const collections = await treeCollections(
+      scope.filter(isSyncTreeCollectionRow),
+      query,
+      options,
+    );
+    const syncsTransforms = features.transforms && (await transformsSynced(options));
+    const transforms = syncsTransforms ? await transformsTree(options) : null;
+    return { collections, transforms };
+  }
 
+  async function treeCollections(
+    synced: readonly SyncTreeCollectionSource[],
+    query: Record<string, QueryValue>,
+    options: RequestOptions,
+  ): Promise<SyncTreeCollection[]> {
+    const syncedIds = new Set(synced.map((collection) => collection.id));
     const collections: SyncTreeCollection[] = [];
     for (const collection of synced) {
       const rows = await itemRows(collection.id, query, options);
@@ -374,11 +416,40 @@ export function gitSyncResource(transport: Transport) {
         items: await treeItems(rows, options),
       });
     }
-    return { collections };
+    return collections;
+  }
+
+  async function transformsSynced(options: RequestOptions): Promise<boolean> {
+    try {
+      const synced = await fetchOptionalParsed(
+        transport,
+        "/api/setting/remote-sync-transforms",
+        TransformsSyncedSetting,
+        options,
+      );
+      return synced === true;
+    } catch (error) {
+      if (isRemoteUnreadable(error)) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
+  async function transformsTree(options: RequestOptions): Promise<SyncTreeTransforms> {
+    const namespace = { namespace: TRANSFORMS_NAMESPACE };
+    const scope = await transport.requestParsed(
+      z.array(SyncTreeTransformsScopeRow),
+      "/api/collection",
+      { ...options, query: namespace },
+    );
+    const collections = await treeCollections(scope.filter(isTransformsCollectionRow), {}, options);
+    const rootRows = await itemRows(ROOT_COLLECTION, namespace, options);
+    return { collections, items: await treeItems(rootRows, options) };
   }
 
   async function itemRows(
-    collectionId: number,
+    collectionId: CollectionId,
     query: Record<string, QueryValue>,
     options: RequestOptions,
   ): Promise<SyncTreeItemRow[]> {

@@ -30,12 +30,14 @@ import type {
   MetabasePanelState,
   MetabaseWorktree,
   SessionContent,
+  SyncedItem,
   SyncedTree,
   TransformRunOutcome,
+  TransformRunSummary,
   TransformTestsOutcome,
 } from "../../contracts/metabase";
 import type { SessionSnapshot } from "../../contracts/session";
-import type { ConnectedFeatures, Theme } from "../../contracts/settings";
+import type { Theme } from "../../contracts/settings";
 import { assertNever } from "../../contracts/assert-never";
 import { rde } from "@/bridge";
 import { cn } from "@/cn";
@@ -48,7 +50,9 @@ import {
   contentWindow,
   featuresOf,
   instanceHead,
+  isSyncedTransform,
   lastSync,
+  openedTransformView,
   panelProblem,
   pollsMetabase,
   sessionBranch,
@@ -68,6 +72,8 @@ import {
   type SyncedTreeView,
   type TaskView,
   type TransformActivity,
+  type TransformReach,
+  type TransformView,
   type ValidationView,
 } from "@/metabase/panel";
 
@@ -342,6 +348,29 @@ function reasonsOf(run: ActionView, tests: ActionView): string[] {
   return [...new Set(reasons)];
 }
 
+interface OpenInMetabaseProps {
+  readonly name: string;
+  readonly url: string | null;
+}
+
+function OpenInMetabase({ name, url }: OpenInMetabaseProps): ReactElement {
+  if (url === null) {
+    return <span aria-hidden className="size-6 shrink-0" />;
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`Open ${name} in Metabase`}
+      title="Open in Metabase"
+      className={buttonVariants({ variant: "ghost", size: "icon-xs" })}
+    >
+      <ExternalLink aria-hidden />
+    </a>
+  );
+}
+
 interface RowProps {
   readonly row: ContentRow;
   readonly onOpenFile: (path: string) => void;
@@ -367,20 +396,7 @@ function Row({ row, onOpenFile, onRun, onRunTests }: RowProps): ReactElement {
         <span className="shrink-0 text-meta text-ink-3">
           {row.kind} · {row.change}
         </span>
-        {row.url === null ? (
-          <span aria-hidden className="size-6 shrink-0" />
-        ) : (
-          <a
-            href={row.url}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={`Open ${row.name} in Metabase`}
-            title="Open in Metabase"
-            className={buttonVariants({ variant: "ghost", size: "icon-xs" })}
-          >
-            <ExternalLink aria-hidden />
-          </a>
-        )}
+        <OpenInMetabase name={row.name} url={row.url} />
       </div>
       {row.validation === null || row.validation.lines.length === 0 ? null : (
         <div className={cn("space-y-0.5", ROW_INDENT)}>
@@ -401,56 +417,59 @@ function Row({ row, onOpenFile, onRun, onRunTests }: RowProps): ReactElement {
         </div>
       )}
       {transform === null ? null : (
-        <div className={cn("space-y-1 pb-1", ROW_INDENT)}>
-          <div className="flex items-center gap-1.5">
-            <ActionButton
-              action={transform.run}
-              label="Run"
-              runningLabel="Running"
-              icon={<Play aria-hidden />}
-              onRun={() => {
-                onRun(transform.id);
-              }}
-            />
-            <ActionButton
-              action={transform.tests}
-              label="Run tests"
-              runningLabel="Testing"
-              icon={<TestTube aria-hidden />}
-              onRun={() => {
-                onRunTests(transform.id);
-              }}
-            />
-          </div>
-          {reasonsOf(transform.run, transform.tests).map((reason) => (
-            <div key={reason} data-action-reason>
-              <StatusLine tone="quiet">{reason}</StatusLine>
-            </div>
-          ))}
-          {transform.lastRun === null ? null : (
-            <div data-last-run={transform.lastRun.status}>
-              <StatusLine tone={transform.lastRun.tone}>{transform.lastRun.text}</StatusLine>
-            </div>
-          )}
-          {transform.runRefusal === null ? null : <Note tone="error">{transform.runRefusal}</Note>}
-          {transform.testsLine === null ? null : (
-            <div data-tests-result>
-              <StatusLine tone={transform.testsLine.tone}>{transform.testsLine.text}</StatusLine>
-            </div>
-          )}
-        </div>
+        <TransformActions transform={transform} onRun={onRun} onRunTests={onRunTests} />
       )}
     </li>
   );
 }
 
-interface ContentProps {
-  readonly sessionId: string;
-  readonly content: SessionContent | null;
-  readonly failure: string | null;
-  readonly features: ConnectedFeatures | null;
-  readonly worktree: MetabaseWorktree;
-  readonly onChanged: () => void;
+interface TransformActionsProps {
+  readonly transform: TransformView;
+  readonly onRun: (transformId: number) => void;
+  readonly onRunTests: (transformId: number) => void;
+}
+
+function TransformActions({ transform, onRun, onRunTests }: TransformActionsProps): ReactElement {
+  return (
+    <div className={cn("space-y-1 pb-1", ROW_INDENT)}>
+      <div className="flex items-center gap-1.5">
+        <ActionButton
+          action={transform.run}
+          label="Run"
+          runningLabel="Running"
+          icon={<Play aria-hidden />}
+          onRun={() => {
+            onRun(transform.id);
+          }}
+        />
+        <ActionButton
+          action={transform.tests}
+          label="Run tests"
+          runningLabel="Testing"
+          icon={<TestTube aria-hidden />}
+          onRun={() => {
+            onRunTests(transform.id);
+          }}
+        />
+      </div>
+      {reasonsOf(transform.run, transform.tests).map((reason) => (
+        <div key={reason} data-action-reason>
+          <StatusLine tone="quiet">{reason}</StatusLine>
+        </div>
+      ))}
+      {transform.lastRun === null ? null : (
+        <div data-last-run={transform.lastRun.status}>
+          <StatusLine tone={transform.lastRun.tone}>{transform.lastRun.text}</StatusLine>
+        </div>
+      )}
+      {transform.runRefusal === null ? null : <Note tone="error">{transform.runRefusal}</Note>}
+      {transform.testsLine === null ? null : (
+        <div data-tests-result>
+          <StatusLine tone={transform.testsLine.tone}>{transform.testsLine.text}</StatusLine>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function refusedRun(error: unknown): TransformRunOutcome {
@@ -461,22 +480,16 @@ function refusedTests(error: unknown): TransformTestsOutcome {
   return { kind: "refused", message: failureMessage(error) };
 }
 
-const CONTENT_LABEL = "Content";
+// What this window asked of each transform, shared by its row in the overview and its head when it
+// is open from the tree, so a run started in one shows in the other.
+interface TransformActions {
+  readonly activityOf: (transformId: number) => TransformActivity;
+  readonly run: (transformId: number) => void;
+  readonly runTests: (transformId: number) => void;
+}
 
-function Content({
-  sessionId,
-  content,
-  failure,
-  features,
-  worktree,
-  onChanged,
-}: ContentProps): ReactElement {
+function useTransformActions(sessionId: string, onRan: () => void): TransformActions {
   const [activity, setActivity] = useState<ReadonlyMap<number, TransformActivity>>(new Map());
-  const [openRefusal, setOpenRefusal] = useState<string | null>(null);
-  const [filter, setFilter] = useState("");
-
-  const activityOf = (transformId: number): TransformActivity =>
-    activity.get(transformId) ?? IDLE_ACTIVITY;
 
   const update = (transformId: number, change: Partial<TransformActivity>): void => {
     setActivity((current) => {
@@ -490,7 +503,7 @@ function Content({
     update(transformId, { run: { kind: "running" } });
     const outcome = await rde.metabaseRunTransform({ sessionId, transformId }).catch(refusedRun);
     update(transformId, { run: { kind: "answered", outcome } });
-    onChanged();
+    onRan();
   };
 
   const runTests = async (transformId: number): Promise<void> => {
@@ -500,6 +513,31 @@ function Content({
       .catch(refusedTests);
     update(transformId, { tests: { kind: "answered", outcome } });
   };
+
+  return {
+    activityOf: (transformId) => activity.get(transformId) ?? IDLE_ACTIVITY,
+    run: (transformId) => {
+      void run(transformId);
+    },
+    runTests: (transformId) => {
+      void runTests(transformId);
+    },
+  };
+}
+
+interface ContentProps {
+  readonly sessionId: string;
+  readonly content: SessionContent | null;
+  readonly failure: string | null;
+  readonly reach: TransformReach;
+  readonly actions: TransformActions;
+}
+
+const CONTENT_LABEL = "Content";
+
+function Content({ sessionId, content, failure, reach, actions }: ContentProps): ReactElement {
+  const [openRefusal, setOpenRefusal] = useState<string | null>(null);
+  const [filter, setFilter] = useState("");
 
   const openFile = async (path: string): Promise<void> => {
     const outcome = await rde.changesOpenFile({ sessionId, path });
@@ -530,7 +568,7 @@ function Content({
       </>
     );
   }
-  const rows = contentRows(content.items, { features, worktree }, activityOf, new Date());
+  const rows = contentRows(content.items, reach, actions.activityOf, new Date());
   const shown = contentWindow(rows, filter);
   return (
     <>
@@ -558,12 +596,8 @@ function Content({
             onOpenFile={(path) => {
               void openFile(path);
             }}
-            onRun={(transformId) => {
-              void run(transformId);
-            }}
-            onRunTests={(transformId) => {
-              void runTests(transformId);
-            }}
+            onRun={actions.run}
+            onRunTests={actions.runTests}
           />
         ))}
       </ul>
@@ -576,6 +610,66 @@ function Content({
         </div>
       )}
     </>
+  );
+}
+
+interface OpenedTransformProps {
+  readonly sessionId: string;
+  readonly item: SyncedItem;
+  readonly content: SessionContent | null;
+  readonly reach: TransformReach;
+  readonly actions: TransformActions;
+  readonly refreshKey: string;
+}
+
+// A transform open from the tree leads with the head its row in the overview carries.
+function OpenedTransform({
+  sessionId,
+  item,
+  content,
+  reach,
+  actions,
+  refreshKey,
+}: OpenedTransformProps): ReactElement {
+  const [lastRun, setLastRun] = useState<TransformRunSummary | null>(null);
+
+  useEffect(() => {
+    rde.metabaseTransformLastRun({ sessionId, transformId: item.id }).then(setLastRun, () => {
+      setLastRun(null);
+    });
+  }, [sessionId, item.id, refreshKey]);
+
+  const activity = actions.activityOf(item.id);
+  const view = openedTransformView(item, content, lastRun, reach, activity, new Date());
+  const validation = view.validation;
+  return (
+    <section
+      aria-label={`Transform ${view.name}`}
+      className="shrink-0 space-y-1 border-b border-line py-1 pr-1.5 pl-3"
+    >
+      <div className="flex min-h-7 items-center gap-2">
+        {validation === null ? (
+          <span aria-hidden className="size-3.5 shrink-0" />
+        ) : (
+          <span className="shrink-0">{VALIDATION_ICONS[validation.kind]}</span>
+        )}
+        <span className="min-w-0 flex-1 truncate text-body text-ink">{view.name}</span>
+        <span className="shrink-0 text-meta text-ink-3">{view.meta}</span>
+        <OpenInMetabase name={view.name} url={view.url} />
+      </div>
+      {validation === null || validation.lines.length === 0 ? null : (
+        <ul className={cn("space-y-0.5 text-detail text-red", ROW_INDENT)}>
+          {validation.lines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      )}
+      <TransformActions
+        transform={view.transform}
+        onRun={actions.run}
+        onRunTests={actions.runTests}
+      />
+    </section>
   );
 }
 
@@ -614,11 +708,13 @@ function Frame({ header, opened, tree, children }: FrameProps): ReactElement {
 
 // The connection's kind is read again with the session, so a sign-out or a lost instance
 // mid-session changes what the panel says can run.
-// `opened` is the pane of the file chosen in `tree`, null while the overview shows.
+// `opened` is the pane of the file chosen in `tree`, null while the overview shows, and
+// `openedItem` the synced item it holds.
 interface SessionMetabaseProps {
   readonly snapshot: SessionSnapshot;
   readonly connection: ConnectionState;
   readonly opened: ReactNode;
+  readonly openedItem: SyncedItem | null;
   readonly tree: ReactNode;
   readonly onOpenSettings: () => void;
 }
@@ -627,6 +723,7 @@ function SessionMetabase({
   snapshot,
   connection,
   opened,
+  openedItem,
   tree,
   onOpenSettings,
 }: SessionMetabaseProps): ReactElement {
@@ -698,6 +795,8 @@ function SessionMetabase({
   const reloadContent = useCallback((): void => {
     setContentRevision((current) => current + 1);
   }, []);
+
+  const actions = useTransformActions(sessionId, reloadContent);
 
   const sync = async (confirmedGuard: boolean): Promise<void> => {
     setConfirming(false);
@@ -808,8 +907,27 @@ function SessionMetabase({
     </section>
   );
 
+  const reach: TransformReach = { features, worktree: state.worktree };
+  const openedPane =
+    opened === null || openedItem === null || !isSyncedTransform(openedItem) ? (
+      opened
+    ) : (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <OpenedTransform
+          key={openedItem.id}
+          sessionId={sessionId}
+          item={openedItem}
+          content={content}
+          reach={reach}
+          actions={actions}
+          refreshKey={sessionKey}
+        />
+        {opened}
+      </div>
+    );
+
   return (
-    <Frame header={header} opened={opened} tree={tree}>
+    <Frame header={header} opened={openedPane} tree={tree}>
       {hasRunNotes ? (
         <section aria-label="The last sync" className="space-y-2 border-b border-line px-3 py-3">
           {run.output.length === 0 ? null : (
@@ -830,9 +948,8 @@ function SessionMetabase({
           sessionId={sessionId}
           content={content}
           failure={contentFailure}
-          features={features}
-          worktree={state.worktree}
-          onChanged={reloadContent}
+          reach={reach}
+          actions={actions}
         />
       </section>
       {state.unignored.length === 0 ? null : (
@@ -911,10 +1028,9 @@ type TreeState = TreeLoading | TreeLoaded | TreeFailed;
 const TREE_LOADING: TreeLoading = { kind: "loading" };
 const TREE_LABEL = "Synced content";
 
-// `path` is the checkout file the item opens, null when the branch holds none.
 interface OpenedItem {
   readonly treePath: string;
-  readonly path: string | null;
+  readonly item: SyncedItem;
 }
 
 interface TreeHeadProps {
@@ -1010,7 +1126,7 @@ function problemOf(tree: TreeState): string | null {
 
 function viewOf(tree: TreeState): SyncedTreeView | null {
   return tree.kind === "loaded" && tree.tree.kind === "read"
-    ? syncedTreeView(tree.tree.collections)
+    ? syncedTreeView(tree.tree.collections, tree.tree.transforms)
     : null;
 }
 
@@ -1051,9 +1167,9 @@ function SessionPanel({
   const view = useMemo(() => viewOf(tree), [tree]);
 
   const select = (treePath: string): void => {
-    const path = view?.files.get(treePath);
-    if (path !== undefined) {
-      setOpened({ treePath, path });
+    const item = view?.files.get(treePath);
+    if (item !== undefined) {
+      setOpened({ treePath, item });
     }
   };
 
@@ -1062,6 +1178,7 @@ function SessionPanel({
       snapshot={snapshot}
       connection={connection}
       onOpenSettings={onOpenSettings}
+      openedItem={opened === null ? null : opened.item}
       opened={
         opened === null ? null : (
           <OpenedPane
@@ -1111,13 +1228,14 @@ function OpenedPane({
   theme,
   onMention,
 }: OpenedPaneProps): ReactElement {
-  if (opened.path === null) {
+  const path = opened.item.path;
+  if (path === null) {
     return <Empty icon={FileX} label="Not in this branch" />;
   }
   return (
     <FilePreviewPane
       sessionId={sessionId}
-      path={opened.path}
+      path={path}
       refreshKey={refreshKey}
       theme={theme}
       onMention={onMention}

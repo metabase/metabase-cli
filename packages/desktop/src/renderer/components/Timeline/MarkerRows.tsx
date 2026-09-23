@@ -35,17 +35,21 @@ interface CheckpointProps {
 
 export const Checkpoint = memo(function Checkpoint({ row }: CheckpointProps): ReactElement {
   return (
-    <div data-row="checkpoint" className={MARKER_ROW}>
-      <GitCommitHorizontal aria-hidden className="size-3.5 shrink-0" />
-      <span>{filesLabel(row.item.files.length)}</span>
-      <ul className="flex min-w-0 flex-wrap gap-x-3">
-        {row.item.files.map((file) => (
-          <li key={file.path} className="flex min-w-0 gap-1.5">
-            <span className="truncate text-ink-2">{file.path}</span>
-            <span className="shrink-0 tabular-nums">{changeLabel(file.added, file.removed)}</span>
-          </li>
-        ))}
-      </ul>
+    <div data-row="checkpoint" className="flex min-w-0 flex-col gap-1 text-detail text-ink-3">
+      <div className={MARKER_ROW}>
+        <GitCommitHorizontal aria-hidden className="size-3.5 shrink-0" />
+        <span>{filesLabel(row.item.files.length)}</span>
+      </div>
+      {row.item.files.length === 0 ? null : (
+        <ul className="flex min-w-0 flex-col gap-1 pb-1 pl-5.5">
+          {row.item.files.map((file) => (
+            <li key={file.path} className="flex min-w-0 items-center gap-2">
+              <span className="min-w-0 flex-1 truncate text-ink-2">{file.path}</span>
+              <span className="shrink-0 tabular-nums">{changeLabel(file.added, file.removed)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 });

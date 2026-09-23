@@ -28,6 +28,7 @@ import type {
   SyncedTree,
   TransformRequest,
   TransformRunOutcome,
+  TransformRunSummary,
   TransformTestsOutcome,
 } from "../../contracts/metabase";
 import type { SessionSnapshot } from "../../contracts/session";
@@ -38,8 +39,8 @@ import { presentCheckout, type SessionChanges } from "../sessions/changes";
 import { readSessionContent } from "./content";
 import { contentLinks, readContentEntities, translationRequest, type MetabaseSite } from "./links";
 import { syncReadiness } from "./readiness";
-import { runTransform, runTransformTests } from "./transforms";
-import { entityPaths, nestCollections } from "./tree";
+import { lastRunOf, runTransform, runTransformTests } from "./transforms";
+import { entityPaths, nestCollections, nestTransforms } from "./tree";
 import { offersRemoteSync, type MetabaseWorktrees, type WorktreeScope } from "./worktrees";
 
 const ORIGIN = "origin";
@@ -158,7 +159,17 @@ export class MetabaseLoop {
     if (listed.kind === "failed") {
       return { kind: "unavailable", message: listed.message };
     }
-    return { kind: "read", collections: nestCollections(listed.value.collections, paths) };
+    const tree = listed.value;
+    return {
+      kind: "read",
+      collections: nestCollections(tree.collections, paths),
+      transforms: tree.transforms === null ? null : nestTransforms(tree.transforms, paths),
+    };
+  }
+
+  async transformLastRun(request: TransformRequest): Promise<TransformRunSummary | null> {
+    const { cwd, cli } = await this.scope(request.sessionId);
+    return lastRunOf(cli, cwd, request.transformId);
   }
 
   async runTransform(request: TransformRequest): Promise<TransformRunOutcome> {

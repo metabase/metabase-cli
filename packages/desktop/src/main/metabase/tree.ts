@@ -6,8 +6,10 @@ import { isFileNotFoundError } from "@metabase/client/errors";
 import type {
   GitSyncTreeCollection,
   GitSyncTreeItem,
+  GitSyncTreeTransforms,
   SyncedCollection,
   SyncedItem,
+  SyncedTransforms,
 } from "../../contracts/metabase";
 
 import { contentEntity, isContentYaml } from "./links";
@@ -82,4 +84,14 @@ export function nestCollections(
       items: collection.items.map((item) => syncedItem(item, paths)),
     }));
   return nest(null);
+}
+
+export function nestTransforms(
+  transforms: GitSyncTreeTransforms,
+  paths: EntityPaths,
+): SyncedTransforms {
+  return {
+    collections: nestCollections(transforms.collections, paths),
+    items: transforms.items.map((item) => syncedItem(item, paths)),
+  };
 }

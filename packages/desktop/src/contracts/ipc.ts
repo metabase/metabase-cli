@@ -29,6 +29,7 @@ import {
   SessionContent,
   SyncRequest,
   SyncedTree,
+  TransformLastRun,
   TransformRequest,
   TransformRunOutcome,
   TransformTestsOutcome,
@@ -143,6 +144,11 @@ export const ipc = {
     name: "metabase.runTransformTests",
     input: TransformRequest,
     output: TransformTestsOutcome,
+  },
+  metabaseTransformLastRun: {
+    name: "metabase.transformLastRun",
+    input: TransformRequest,
+    output: TransformLastRun,
   },
   metabaseIgnoreAppDirectories: {
     name: "metabase.ignoreAppDirectories",
@@ -339,6 +345,7 @@ export function createIpcBridge(transport: IpcTransport, subscribe: IpcSubscribe
     metabaseSync: (input) => invoke(ipc.metabaseSync, input),
     metabaseRunTransform: (input) => invoke(ipc.metabaseRunTransform, input),
     metabaseRunTransformTests: (input) => invoke(ipc.metabaseRunTransformTests, input),
+    metabaseTransformLastRun: (input) => invoke(ipc.metabaseTransformLastRun, input),
     metabaseIgnoreAppDirectories: (input) => invoke(ipc.metabaseIgnoreAppDirectories, input),
     terminalOpen: (input) => invoke(ipc.terminalOpen, input),
     terminalWrite: (input) => invoke(ipc.terminalWrite, input),

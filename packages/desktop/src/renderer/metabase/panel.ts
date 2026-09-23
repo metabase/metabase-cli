@@ -9,10 +9,12 @@ import {
   type MetabaseEdit,
   type MetabaseWorktree,
   type RemoteSyncState,
+  type SessionContent,
   type SyncReadiness,
   type SyncTaskSummary,
   type SyncedCollection,
   type SyncedItem,
+  type SyncedTransforms,
   type TransformRunOutcome,
   type TransformRunSummary,
   type TransformTestsOutcome,
@@ -382,7 +384,7 @@ export interface TransformActivity {
 
 export const IDLE_ACTIVITY: TransformActivity = { run: { kind: "idle" }, tests: { kind: "idle" } };
 
-interface TransformView {
+export interface TransformView {
   readonly id: number;
   readonly run: ActionView;
   readonly tests: ActionView;
@@ -433,7 +435,7 @@ function validationView(validation: ContentValidation): ValidationView {
 
 // Where a transform could run: what the instance offers, and the worktree the session is in, which
 // runs none.
-interface TransformReach {
+export interface TransformReach {
   readonly features: ConnectedFeatures | null;
   readonly worktree: MetabaseWorktree;
 }
@@ -511,16 +513,17 @@ export function testsLine(outcome: TransformTestsOutcome): PlainLine {
   };
 }
 
+interface StoredTransform {
+  readonly id: number;
+  readonly lastRun: TransformRunSummary | null;
+}
+
 function transformView(
-  item: ContentItem,
+  transform: StoredTransform,
   reach: TransformReach,
   activity: TransformActivity,
   now: Date,
-): TransformView | null {
-  const transform = item.transform;
-  if (transform === null) {
-    return null;
-  }
+): TransformView {
   const ran = activity.run.kind === "answered" ? activity.run.outcome : null;
   const lastRun = ran?.kind === "ran" ? ran.run : transform.lastRun;
   return {
@@ -553,9 +556,51 @@ export function contentRows(
       transform:
         item.transform === null
           ? null
-          : transformView(item, reach, activity(item.transform.id), now),
+          : transformView(item.transform, reach, activity(item.transform.id), now),
     };
   });
+}
+
+const TRANSFORM_MODEL = "transform";
+
+// The head of a transform opened from the tree: what the session did to its file, and the same
+// actions its row in the overview offers. `lastRun` is the run Metabase last reported for it.
+export interface OpenedTransformView {
+  readonly name: string;
+  readonly meta: string;
+  readonly url: string | null;
+  readonly validation: ValidationView | null;
+  readonly transform: TransformView;
+}
+
+export function isSyncedTransform(item: SyncedItem): boolean {
+  return item.model === TRANSFORM_MODEL;
+}
+
+export function openedTransformView(
+  item: SyncedItem,
+  content: SessionContent | null,
+  lastRun: TransformRunSummary | null,
+  reach: TransformReach,
+  activity: TransformActivity,
+  now: Date,
+): OpenedTransformView {
+  const changed =
+    content === null || item.path === null
+      ? undefined
+      : content.items.find((change) => change.path === item.path);
+  const kind = KIND_LABELS.transform;
+  const transform = transformView({ id: item.id, lastRun }, reach, activity, now);
+  if (changed === undefined) {
+    return { name: item.name, meta: kind, url: null, validation: null, transform };
+  }
+  return {
+    name: item.name,
+    meta: `${kind} · ${CHANGE_LABELS[changed.change]}`,
+    url: changed.url,
+    validation: changed.validation === null ? null : validationView(changed.validation),
+    transform,
+  };
 }
 
 // What the content list shows: at most `CONTENT_ROWS_SHOWN` rows matching the filter, invalid files
@@ -587,18 +632,24 @@ export function contentWindow(rows: readonly ContentRow[], filter: string): Cont
 const NAME_SLASH = /\//gu;
 const SEGMENT_SLASH = "∕";
 const COLLECTION_QUALIFIER = "collection";
+const TRANSFORMS_FOLDER = "Transforms";
+const TRANSFORMS_QUALIFIER = "transforms";
+// Metabase's own id for the Transforms root, which is no collection.
+const TRANSFORMS_ROOT_ID = -1;
 
 // The synced content as `FileTree` takes it: a path per collection and item, built from the names
-// Metabase shows, and for each item's path the checkout file it opens, null when the branch holds
-// none.
+// Metabase shows, and for each item's path the item it names.
 export interface SyncedTreeView {
   readonly paths: readonly string[];
-  readonly files: ReadonlyMap<string, string | null>;
+  readonly files: ReadonlyMap<string, SyncedItem>;
 }
 
 interface FolderEntry {
   readonly kind: "folder";
-  readonly collection: SyncedCollection;
+  readonly name: string;
+  readonly qualifier: string;
+  readonly id: number;
+  readonly entries: readonly TreeEntry[];
 }
 
 interface LeafEntry {
@@ -628,8 +679,7 @@ interface LabelledEntry {
 function siblingOf(entry: TreeEntry): Sibling {
   switch (entry.kind) {
     case "folder": {
-      const collection = entry.collection;
-      return { name: collection.name, qualifier: COLLECTION_QUALIFIER, id: collection.id };
+      return { name: entry.name, qualifier: entry.qualifier, id: entry.id };
     }
     case "leaf": {
       return { name: entry.item.name, qualifier: entry.item.model, id: entry.item.id };
@@ -688,11 +738,35 @@ function labelSiblings(entries: readonly TreeEntry[]): LabelledEntry[] {
   });
 }
 
-function entriesOf(collection: SyncedCollection): TreeEntry[] {
+function entriesOf(
+  collections: readonly SyncedCollection[],
+  items: readonly SyncedItem[],
+): TreeEntry[] {
   return [
-    ...collection.collections.map((child): TreeEntry => ({ kind: "folder", collection: child })),
-    ...collection.items.map((item): TreeEntry => ({ kind: "leaf", item })),
+    ...collections.map(collectionEntry),
+    ...items.map((item): TreeEntry => ({ kind: "leaf", item })),
   ];
+}
+
+function collectionEntry(collection: SyncedCollection): TreeEntry {
+  return {
+    kind: "folder",
+    name: collection.name,
+    qualifier: COLLECTION_QUALIFIER,
+    id: collection.id,
+    entries: entriesOf(collection.collections, collection.items),
+  };
+}
+
+// The transforms are one folder beside the collections, as Metabase shows them.
+function transformsEntry(transforms: SyncedTransforms): TreeEntry {
+  return {
+    kind: "folder",
+    name: TRANSFORMS_FOLDER,
+    qualifier: TRANSFORMS_QUALIFIER,
+    id: TRANSFORMS_ROOT_ID,
+    entries: entriesOf(transforms.collections, transforms.items),
+  };
 }
 
 const LINE_BREAK = /\r?\n/u;
@@ -727,25 +801,26 @@ export function syncedItemsLine(view: SyncedTreeView): string | null {
 }
 
 // Every collection is a folder of its own, so one that holds nothing still shows.
-export function syncedTreeView(collections: readonly SyncedCollection[]): SyncedTreeView {
+export function syncedTreeView(
+  collections: readonly SyncedCollection[],
+  transforms: SyncedTransforms | null,
+): SyncedTreeView {
   const paths: string[] = [];
-  const files = new Map<string, string | null>();
+  const files = new Map<string, SyncedItem>();
   const walk = (prefix: string, entries: readonly TreeEntry[]): void => {
     for (const { label, entry } of labelSiblings(entries)) {
       if (entry.kind === "folder") {
         const folder = `${prefix}${label}${PATH_SEPARATOR}`;
         paths.push(folder);
-        walk(folder, entriesOf(entry.collection));
+        walk(folder, entry.entries);
       } else {
         const path = `${prefix}${label}`;
         paths.push(path);
-        files.set(path, entry.item.path);
+        files.set(path, entry.item);
       }
     }
   };
-  walk(
-    "",
-    collections.map((collection): TreeEntry => ({ kind: "folder", collection })),
-  );
+  const roots = collections.map(collectionEntry);
+  walk("", transforms === null ? roots : [...roots, transformsEntry(transforms)]);
   return { paths, files };
 }
