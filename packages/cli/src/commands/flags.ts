@@ -31,20 +31,6 @@ export const listFlags = {
   },
 } as const;
 
-// An endpoint whose unbounded read is expensive caps itself, so its `--limit` carries a real
-// default. The shared description promises the output cap is the only bound, which would be a
-// lie for such a command, and the `default` key is what `--help --json` shows an agent.
-export function listFlagsWithDefaultLimit(defaultLimit: number) {
-  return {
-    ...listFlags,
-    limit: {
-      type: "string",
-      description: "Max items to return",
-      default: String(defaultLimit),
-    },
-  } as const;
-}
-
 export const profileFlag = {
   profile: { type: "string", description: "Named profile (default: 'default')", alias: "p" },
 } as const;

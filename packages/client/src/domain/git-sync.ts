@@ -61,76 +61,6 @@ export const SyncTaskCompact = SyncTask.pick({
 }).strip();
 export type SyncTaskCompact = z.infer<typeof SyncTaskCompact>;
 
-export const SyncDirtyItem = z
-  .object({
-    id: z.number().int(),
-    name: z.string().nullable(),
-    model: z.string(),
-    sync_status: z.string(),
-    collection_id: z.number().int().positive().nullable().optional(),
-    description: z.string().nullable().optional(),
-    display: z.string().nullable().optional(),
-    query_type: z.string().nullable().optional(),
-    table_id: z.number().int().positive().nullable().optional(),
-    table_name: z.string().nullable().optional(),
-  })
-  .loose();
-export type SyncDirtyItem = z.infer<typeof SyncDirtyItem>;
-
-export const SyncDirtyItemCompact = SyncDirtyItem.pick({
-  id: true,
-  name: true,
-  model: true,
-  sync_status: true,
-  collection_id: true,
-}).strip();
-export type SyncDirtyItemCompact = z.infer<typeof SyncDirtyItemCompact>;
-
-export const SyncRemoteChanges = z.object({
-  has_changes: z.boolean(),
-  remote_version: z.string().nullable(),
-  local_version: z.string().nullable(),
-  cached: z.boolean(),
-});
-export type SyncRemoteChanges = z.infer<typeof SyncRemoteChanges>;
-
-export const SyncMergeSummary = z.object({
-  added: z.number().int(),
-  updated: z.number().int(),
-  removed: z.number().int(),
-});
-export type SyncMergeSummary = z.infer<typeof SyncMergeSummary>;
-
-export const SyncForcePushCasualties = z.object({
-  deleted: z.array(z.string()),
-  overwritten: z.array(z.string()),
-});
-export type SyncForcePushCasualties = z.infer<typeof SyncForcePushCasualties>;
-
-// `reason` names why no merge is possible; the server has one such cause, and `null` when a merge
-// base exists.
-export const SyncExportPreflight = z.object({
-  has_changes: z.boolean(),
-  clean: z.boolean(),
-  conflicts: z.array(z.string()),
-  summary: SyncMergeSummary,
-  force_push_casualties: SyncForcePushCasualties,
-  reason: z.literal("history-rewritten").nullable(),
-});
-export type SyncExportPreflight = z.infer<typeof SyncExportPreflight>;
-
-export const SyncBranchCreated = z.object({
-  status: z.literal("success"),
-  message: z.string(),
-});
-export type SyncBranchCreated = z.infer<typeof SyncBranchCreated>;
-
-export const SyncSettingsUpdateResult = z.object({
-  success: z.boolean(),
-  task_id: z.number().int().positive().optional(),
-});
-export type SyncSettingsUpdateResult = z.infer<typeof SyncSettingsUpdateResult>;
-
 // `final` is present only when the caller asked to wait, and null when the server had already
 // forgotten the task by the time the poll ran.
 export const SyncImportResult = z.object({
@@ -139,18 +69,3 @@ export const SyncImportResult = z.object({
   final: SyncTask.nullable().optional(),
 });
 export type SyncImportResult = z.infer<typeof SyncImportResult>;
-
-export const SyncExportResult = z.object({
-  message: z.string(),
-  task_id: z.number().int().positive(),
-  final: SyncTask.nullable().optional(),
-});
-export type SyncExportResult = z.infer<typeof SyncExportResult>;
-
-export const SyncStashResult = z.object({
-  status: z.literal("success"),
-  message: z.string(),
-  task_id: z.number().int().positive(),
-  final: SyncTask.nullable().optional(),
-});
-export type SyncStashResult = z.infer<typeof SyncStashResult>;

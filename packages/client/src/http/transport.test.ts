@@ -628,10 +628,10 @@ describe("createTransport.require", () => {
   const VERSION_TOO_OLD = {
     reason: "version-too-old",
     detail:
-      "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
-    feature: "measures",
-    since: 59,
-    tokenFeature: null,
+      "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.",
+    feature: "remoteSync",
+    since: 60,
+    tokenFeature: "remote_sync",
     serverVersion: "v0.58.0",
   };
 
@@ -643,7 +643,7 @@ describe("createTransport.require", () => {
       server: OSS_58,
     });
 
-    await expect(client.require("card.list")).resolves.toBeUndefined();
+    await expect(client.require("database.list")).resolves.toBeUndefined();
 
     expect(fakeFetch.calls).toEqual([]);
   });
@@ -656,7 +656,7 @@ describe("createTransport.require", () => {
       server: OSS_58,
     });
 
-    const error = await client.require("measure.list").catch((caught: unknown) => caught);
+    const error = await client.require("gitSync.import").catch((caught: unknown) => caught);
 
     assert(error instanceof CapabilityError, "expected CapabilityError");
     expect(error.userMessage).toBe(VERSION_TOO_OLD.detail);
@@ -672,7 +672,7 @@ describe("createTransport.require", () => {
     });
 
     const error = await client
-      .require("measure.list", { signal: AbortSignal.abort(new Error("already gone")) })
+      .require("gitSync.import", { signal: AbortSignal.abort(new Error("already gone")) })
       .catch((caught: unknown) => caught);
 
     assert(error instanceof AbortError, "expected AbortError");
@@ -687,7 +687,7 @@ describe("createTransport.require", () => {
       fetchImpl: fakeFetch.fetch,
     });
 
-    await expect(client.require("card.list")).resolves.toBeUndefined();
+    await expect(client.require("database.list")).resolves.toBeUndefined();
 
     expect(fakeFetch.calls).toEqual([]);
   });
@@ -701,7 +701,7 @@ describe("createTransport.require", () => {
       fetchImpl: fakeFetch.fetch,
     });
 
-    const error = await client.require("measure.list").catch((caught: unknown) => caught);
+    const error = await client.require("gitSync.import").catch((caught: unknown) => caught);
 
     assert(error instanceof CapabilityError, "expected CapabilityError");
     expect(error.developerDetail).toEqual(VERSION_TOO_OLD);
@@ -717,7 +717,7 @@ describe("createTransport.require", () => {
       enforceRequirements: false,
     });
 
-    await expect(client.require("measure.list")).resolves.toBeUndefined();
+    await expect(client.require("gitSync.import")).resolves.toBeUndefined();
 
     expect(fakeFetch.calls).toEqual([]);
   });
@@ -732,7 +732,7 @@ describe("createTransport.requireFeatures", () => {
     tokenFeatures: null,
   });
 
-  it("throws CapabilityError naming the first feature the profile lacks", async () => {
+  it("throws CapabilityError naming the feature the profile lacks", async () => {
     const fakeFetch = captureFetch([]);
     const client = createTransport(CONFIG, {
       userAgent: TEST_USER_AGENT,
@@ -740,18 +740,16 @@ describe("createTransport.requireFeatures", () => {
       server: OSS_58,
     });
 
-    const error = await client
-      .requireFeatures(["transforms", "measures"])
-      .catch((caught: unknown) => caught);
+    const error = await client.requireFeatures(["remoteSync"]).catch((caught: unknown) => caught);
 
     assert(error instanceof CapabilityError, "expected CapabilityError");
     expect(error.developerDetail).toEqual({
       reason: "version-too-old",
       detail:
-        "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
-      feature: "transforms",
-      since: 59,
-      tokenFeature: null,
+        "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.",
+      feature: "remoteSync",
+      since: 60,
+      tokenFeature: "remote_sync",
       serverVersion: "v0.58.0",
     });
     expect(fakeFetch.calls).toEqual([]);
@@ -778,7 +776,7 @@ describe("createTransport.requireFeatures", () => {
       enforceRequirements: false,
     });
 
-    await expect(client.requireFeatures(["measures"])).resolves.toBeUndefined();
+    await expect(client.requireFeatures(["remoteSync"])).resolves.toBeUndefined();
 
     expect(fakeFetch.calls).toEqual([]);
   });

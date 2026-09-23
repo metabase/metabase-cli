@@ -125,9 +125,10 @@ describe("createServerProfile", () => {
 
 describe("featureGap", () => {
   it("agrees with the profile's own feature switch", () => {
+    const granted = createServerProfile(released("v1.60.2", 60, { remote_sync: true }));
+    expect(granted.features.remoteSync).toBe(true);
+    expect(featureGap(granted, "remoteSync")).toBeNull();
     const profile = createServerProfile(released("v1.60.2", 60, { library: true }));
-    expect(profile.features.library).toBe(true);
-    expect(featureGap(profile, "library")).toBeNull();
     expect(profile.features.remoteSync).toBe(false);
     expect(featureGap(profile, "remoteSync")).toEqual({
       kind: "token",
@@ -137,7 +138,7 @@ describe("featureGap", () => {
 
   it("names the version on a major below the rule's first", () => {
     const profile = createServerProfile(released("v0.58.2", 58, null));
-    expect(featureGap(profile, "transforms")).toEqual({ kind: "version" });
+    expect(featureGap(profile, "remoteSync")).toEqual({ kind: "version" });
   });
 
   it("places an unparseable tag at the head slot, so only a token can be missing", () => {
@@ -149,7 +150,9 @@ describe("featureGap", () => {
       tokenFeatures: null,
     };
     const profile = createServerProfile(info);
-    expect(featureGap(profile, "transformJobRunIdIsNumeric")).toBeNull();
-    expect(featureGap(profile, "library")).toEqual({ kind: "token", tokenFeature: "library" });
+    expect(featureGap(profile, "remoteSync")).toEqual({
+      kind: "token",
+      tokenFeature: "remote_sync",
+    });
   });
 });

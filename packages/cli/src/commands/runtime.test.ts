@@ -290,9 +290,9 @@ describe("defineMetabaseCommand", () => {
 
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
-      meta: { name: "needs-activation", description: "wants job activation" },
+      meta: { name: "needs-remote-sync", description: "wants git sync" },
       args: {},
-      requires: ["transformJob.setActive"],
+      requires: ["gitSync.import"],
       async run({ getClient }) {
         await getClient();
         ran();
@@ -303,7 +303,7 @@ describe("defineMetabaseCommand", () => {
     await runCommand(cmd, { rawArgs: [] });
 
     expect(stderr.join("")).toContain(
-      "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.",
+      "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.",
     );
     expect(process.exitCode).toBe(2);
     expect(ran).not.toHaveBeenCalled();
@@ -315,9 +315,9 @@ describe("defineMetabaseCommand", () => {
 
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
-      meta: { name: "needs-library", description: "wants the library" },
+      meta: { name: "needs-remote-sync-token", description: "wants the remote-sync token" },
       args: {},
-      requires: ["library.get"],
+      requires: ["gitSync.import"],
       async run({ getClient }) {
         await getClient();
         ran();
@@ -328,7 +328,7 @@ describe("defineMetabaseCommand", () => {
     await runCommand(cmd, { rawArgs: [] });
 
     expect(stderr.join("")).toContain(
-      "This operation requires the 'library' premium feature (not enabled on this server).",
+      "This operation requires the 'remote_sync' premium feature (not enabled on this server).",
     );
     expect(process.exitCode).toBe(2);
     expect(ran).not.toHaveBeenCalled();
@@ -342,7 +342,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "two-methods", description: "calls two gated methods" },
       args: {},
-      requires: ["measure.list", "transformJob.setActive"],
+      requires: ["database.list", "gitSync.import"],
       async run({ getClient }) {
         await getClient();
         ran();
@@ -353,7 +353,7 @@ describe("defineMetabaseCommand", () => {
     await runCommand(cmd, { rawArgs: [] });
 
     expect(stderr.join("")).toContain(
-      "This operation requires Metabase v61+ (this server is v0.59.0). Upgrade Metabase to use it.",
+      "This operation requires Metabase v60+ (this server is v0.59.0). Upgrade Metabase to use it.",
     );
     expect(process.exitCode).toBe(2);
     expect(ran).not.toHaveBeenCalled();
@@ -367,7 +367,7 @@ describe("defineMetabaseCommand", () => {
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
       meta: { name: "baseline-only", description: "baseline methods only" },
-      requires: ["card.list", "user.current"],
+      requires: ["database.list", "user.current"],
       args: {},
       async run({ getClient }) {
         await getClient();
@@ -457,9 +457,9 @@ describe("defineMetabaseCommand", () => {
 
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
-      meta: { name: "probes-lazily", description: "wants measures" },
+      meta: { name: "probes-lazily", description: "wants git sync" },
       args: {},
-      requires: ["measure.list"],
+      requires: ["gitSync.import"],
       async run({ getClient }) {
         await getClient();
         ran();
@@ -473,7 +473,7 @@ describe("defineMetabaseCommand", () => {
       "https://m.example.com/api/session/properties",
     ]);
     expect(stderr.join("")).toContain(
-      "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
+      "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.",
     );
     expect(process.exitCode).toBe(2);
     expect(ran).not.toHaveBeenCalled();
@@ -486,9 +486,9 @@ describe("defineMetabaseCommand", () => {
 
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
-      meta: { name: "probe-fails", description: "wants measures" },
+      meta: { name: "probe-fails", description: "wants git sync" },
       args: {},
-      requires: ["measure.list"],
+      requires: ["gitSync.import"],
       async run({ getClient }) {
         await getClient();
         ran();
@@ -520,14 +520,14 @@ describe("defineMetabaseCommand", () => {
       version: null,
       date: null,
       hash: null,
-      tokenFeatures: null,
+      tokenFeatures: { remote_sync: true },
     });
 
     const ran = vi.fn();
     const cmd = defineMetabaseCommand({
-      meta: { name: "needs-activation-unknown", description: "wants job activation" },
+      meta: { name: "needs-remote-sync-unknown", description: "wants git sync" },
       args: {},
-      requires: ["transformJob.setActive"],
+      requires: ["gitSync.import"],
       async run({ getClient }) {
         await getClient();
         ran();
@@ -548,7 +548,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "baseline-on-newer", description: "baseline on a newer server" },
       args: {},
-      requires: ["card.list"],
+      requires: ["database.list"],
       async run({ getClient }) {
         await getClient();
         await getClient();
@@ -568,7 +568,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "supported", description: "supported server" },
       args: {},
-      requires: ["measure.list"],
+      requires: ["database.list"],
       async run({ getClient }) {
         await getClient();
       },
@@ -583,18 +583,21 @@ describe("defineMetabaseCommand", () => {
   it("prints the newer-server notice off the live probe when a gated command runs without a cached probe", async () => {
     await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
     const capture = captureFetch([
-      jsonResponse({ version: { tag: `v0.${BEYOND_KNOWN}.0` }, "token-features": {} }),
-      jsonResponse([]),
+      jsonResponse({
+        version: { tag: `v0.${BEYOND_KNOWN}.0` },
+        "token-features": { remote_sync: true },
+      }),
+      jsonResponse({ status: "success", task_id: null, message: null }),
     ]);
     vi.stubGlobal("fetch", capture.fetch);
 
     const cmd = defineMetabaseCommand({
-      meta: { name: "probes-newer", description: "wants measures on a newer server" },
+      meta: { name: "probes-newer", description: "wants git sync on a newer server" },
       args: {},
-      requires: ["measure.list"],
+      requires: ["gitSync.import"],
       async run({ getClient }) {
         const client = await getClient();
-        await client.measure.list();
+        await client.gitSync.import();
       },
     });
     const stderr = captureStderr();
@@ -604,7 +607,7 @@ describe("defineMetabaseCommand", () => {
     expect(stderr.join("")).toBe(NEWER_NOTICE);
     expect(capture.calls.map((call) => call.url)).toEqual([
       "https://m.example.com/api/session/properties",
-      "https://m.example.com/api/measure",
+      "https://m.example.com/api/ee/remote-sync/import",
     ]);
     expect(process.exitCode).toBe(0);
   });
@@ -612,8 +615,8 @@ describe("defineMetabaseCommand", () => {
   it("ignores the cached probe when --url points the profile at another server", async () => {
     await seedProbedProfile("default", probeAt(58));
     const capture = captureFetch([
-      jsonResponse({ version: { tag: "v0.61.0" }, "token-features": {} }),
-      jsonResponse([]),
+      jsonResponse({ version: { tag: "v0.61.0" }, "token-features": { remote_sync: true } }),
+      jsonResponse({ status: "success", task_id: null, message: null }),
     ]);
     vi.stubGlobal("fetch", capture.fetch);
 
@@ -621,10 +624,10 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "other-url", description: "same profile, other server" },
       args: { ...connectionFlags },
-      requires: ["measure.list"],
+      requires: ["gitSync.import"],
       async run({ getClient }) {
         const client = await getClient();
-        seen(await client.measure.list());
+        seen(await client.gitSync.import());
       },
     });
 
@@ -632,50 +635,51 @@ describe("defineMetabaseCommand", () => {
 
     expect(capture.calls.map((call) => call.url)).toEqual([
       "https://other.example.com/api/session/properties",
-      "https://other.example.com/api/measure",
+      "https://other.example.com/api/ee/remote-sync/import",
     ]);
-    expect(seen.mock.calls).toEqual([[{ data: [], total: null }]]);
+    expect(seen.mock.calls).toEqual([[{ message: null, task_id: null }]]);
   });
 
   describe("re-probe on a shape error", () => {
     const SHAPE_LEAD =
-      "On Metabase v0.59.0 the response shape was unexpected:\n" +
-      "  Invalid input: expected array, received object";
+      "On Metabase v0.60.0 the response shape was unexpected:\n" +
+      "  Invalid input: expected object, received array";
+    const REMOTE_SYNC = { remote_sync: true };
 
-    function measureListCommand() {
+    function importCommand() {
       return defineMetabaseCommand({
-        meta: { name: "lists-measures", description: "lists measures" },
+        meta: { name: "imports", description: "imports from git" },
         args: {},
-        requires: ["measure.list"],
+        requires: ["gitSync.import"],
         async run({ getClient }) {
           const client = await getClient();
-          await client.measure.list();
+          await client.gitSync.import();
         },
       });
     }
 
     it("re-probes once, writes a changed server back to the profile, and appends the change to the error", async () => {
-      await seedProbedProfile("default", probeAt(59));
+      await seedProbedProfile("default", probeAt(60, REMOTE_SYNC));
       vi.setSystemTime(new Date(REPROBED_AT));
       const capture = captureFetch([
-        jsonResponse({}),
+        jsonResponse([]),
         jsonResponse({
           version: { tag: "v0.63.4", date: "2026-09-01", hash: "abc1234" },
-          "token-features": { library: true },
+          "token-features": REMOTE_SYNC,
         }),
       ]);
       vi.stubGlobal("fetch", capture.fetch);
       const stderr = captureStderr();
 
-      await runCommand(measureListCommand(), { rawArgs: [] });
+      await runCommand(importCommand(), { rawArgs: [] });
 
       expect(capture.calls.map((call) => call.url)).toEqual([
-        "https://m.example.com/api/measure",
+        "https://m.example.com/api/ee/remote-sync/import",
         "https://m.example.com/api/session/properties",
       ]);
       expect(errorEnvelopeOf(stderr)).toEqual(
         shapeErrorEnvelope(
-          `${SHAPE_LEAD}\nThe server's version changed since the last probe (was v0.59.0, now v0.63.4); the profile was refreshed — retry the command.`,
+          `${SHAPE_LEAD}\nThe server's version changed since the last probe (was v0.60.0, now v0.63.4); the profile was refreshed — retry the command.`,
         ),
       );
       expect(process.exitCode).toBe(1);
@@ -686,7 +690,7 @@ describe("defineMetabaseCommand", () => {
           version: { tag: "v0.63.4", major: 63, patch: 4 },
           date: "2026-09-01",
           hash: "abc1234",
-          tokenFeatures: { library: true },
+          tokenFeatures: REMOTE_SYNC,
           user: { id: 1, name: "Tester", isAdmin: true },
         }),
       );
@@ -694,18 +698,21 @@ describe("defineMetabaseCommand", () => {
 
     it("names changed premium features when the version is the same", async () => {
       await seedProbedProfile("default", {
-        ...probeAt(59),
-        tokenFeatures: { library: false },
+        ...probeAt(60),
+        tokenFeatures: { remote_sync: true, library: false },
       });
       vi.setSystemTime(new Date(REPROBED_AT));
       const capture = captureFetch([
-        jsonResponse({}),
-        jsonResponse({ version: { tag: "v0.59.0" }, "token-features": { library: true } }),
+        jsonResponse([]),
+        jsonResponse({
+          version: { tag: "v0.60.0" },
+          "token-features": { remote_sync: true, library: true },
+        }),
       ]);
       vi.stubGlobal("fetch", capture.fetch);
       const stderr = captureStderr();
 
-      await runCommand(measureListCommand(), { rawArgs: [] });
+      await runCommand(importCommand(), { rawArgs: [] });
 
       expect(errorEnvelopeOf(stderr)).toEqual(
         shapeErrorEnvelope(
@@ -716,29 +723,29 @@ describe("defineMetabaseCommand", () => {
         reprobedRecord({
           at: REPROBED_AT,
           edition: "oss",
-          version: { tag: "v0.59.0", major: 59, patch: 0 },
+          version: { tag: "v0.60.0", major: 60, patch: 0 },
           date: null,
           hash: null,
-          tokenFeatures: { library: true },
+          tokenFeatures: { remote_sync: true, library: true },
           user: { id: 1, name: "Tester", isAdmin: true },
         }),
       );
     });
 
     it("reports the error unchanged and leaves the profile alone when the fresh probe agrees with the cache", async () => {
-      await seedProbedProfile("default", probeAt(59));
+      await seedProbedProfile("default", probeAt(60, REMOTE_SYNC));
       const before = await readProfileRecord("default");
       const capture = captureFetch([
-        jsonResponse({}),
-        jsonResponse({ version: { tag: "v0.59.0" }, "token-features": {} }),
+        jsonResponse([]),
+        jsonResponse({ version: { tag: "v0.60.0" }, "token-features": REMOTE_SYNC }),
       ]);
       vi.stubGlobal("fetch", capture.fetch);
       const stderr = captureStderr();
 
-      await runCommand(measureListCommand(), { rawArgs: [] });
+      await runCommand(importCommand(), { rawArgs: [] });
 
       expect(capture.calls.map((call) => call.url)).toEqual([
-        "https://m.example.com/api/measure",
+        "https://m.example.com/api/ee/remote-sync/import",
         "https://m.example.com/api/session/properties",
       ]);
       expect(errorEnvelopeOf(stderr)).toEqual(shapeErrorEnvelope(SHAPE_LEAD));
@@ -746,13 +753,13 @@ describe("defineMetabaseCommand", () => {
     });
 
     it("reports the error unchanged when the re-probe itself fails", async () => {
-      await seedProbedProfile("default", probeAt(59));
+      await seedProbedProfile("default", probeAt(60, REMOTE_SYNC));
       const before = await readProfileRecord("default");
-      const capture = captureFetch([jsonResponse({}), new TypeError("fetch failed")]);
+      const capture = captureFetch([jsonResponse([]), new TypeError("fetch failed")]);
       vi.stubGlobal("fetch", capture.fetch);
       const stderr = captureStderr();
 
-      await runCommand(measureListCommand(), { rawArgs: [] });
+      await runCommand(importCommand(), { rawArgs: [] });
 
       expect(errorEnvelopeOf(stderr)).toEqual(shapeErrorEnvelope(SHAPE_LEAD));
       expect(process.exitCode).toBe(1);
@@ -762,17 +769,17 @@ describe("defineMetabaseCommand", () => {
     it("never re-probes when the profile the client ran on was not the cached one", async () => {
       await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
       const capture = captureFetch([
-        jsonResponse({ version: { tag: "v0.59.0" }, "token-features": {} }),
-        jsonResponse({}),
+        jsonResponse({ version: { tag: "v0.60.0" }, "token-features": REMOTE_SYNC }),
+        jsonResponse([]),
       ]);
       vi.stubGlobal("fetch", capture.fetch);
       const stderr = captureStderr();
 
-      await runCommand(measureListCommand(), { rawArgs: [] });
+      await runCommand(importCommand(), { rawArgs: [] });
 
       expect(capture.calls.map((call) => call.url)).toEqual([
         "https://m.example.com/api/session/properties",
-        "https://m.example.com/api/measure",
+        "https://m.example.com/api/ee/remote-sync/import",
       ]);
       expect(errorEnvelopeOf(stderr)).toEqual(shapeErrorEnvelope(SHAPE_LEAD));
     });
@@ -780,7 +787,7 @@ describe("defineMetabaseCommand", () => {
     it("re-probes on a shape error even when the preflight was skipped", async () => {
       await seedProbedProfile("default", probeAt(58));
       const capture = captureFetch([
-        jsonResponse({}),
+        jsonResponse([]),
         jsonResponse({ version: { tag: "v0.63.0" }, "token-features": {} }),
       ]);
       vi.stubGlobal("fetch", capture.fetch);
@@ -788,10 +795,10 @@ describe("defineMetabaseCommand", () => {
       const cmd = defineMetabaseCommand({
         meta: { name: "skips-then-drifts", description: "skips preflight" },
         args: { ...connectionFlags },
-        requires: ["measure.list"],
+        requires: ["gitSync.import"],
         async run({ getClient }) {
           const client = await getClient();
-          await client.measure.list();
+          await client.gitSync.import();
         },
       });
 
@@ -800,7 +807,7 @@ describe("defineMetabaseCommand", () => {
       expect(errorEnvelopeOf(stderr)).toEqual(
         shapeErrorEnvelope(
           "On Metabase v0.58.0 the response shape was unexpected:\n" +
-            "  Invalid input: expected array, received object\n" +
+            "  Invalid input: expected object, received array\n" +
             "The server's version changed since the last probe (was v0.58.0, now v0.63.0); the profile was refreshed — retry the command.",
         ),
       );
@@ -808,15 +815,15 @@ describe("defineMetabaseCommand", () => {
   });
 
   describe("re-probe on a refusal", () => {
-    const ACTIVATION_REFUSAL =
-      "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.";
+    const REMOTE_SYNC_REFUSAL =
+      "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.";
     const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
 
-    function activationCommand() {
+    function importCommand() {
       return defineMetabaseCommand({
-        meta: { name: "needs-activation", description: "wants job activation" },
+        meta: { name: "needs-remote-sync", description: "wants git sync" },
         args: {},
-        requires: ["transformJob.setActive"],
+        requires: ["gitSync.import"],
         async run({ getClient }) {
           await getClient();
         },
@@ -832,14 +839,14 @@ describe("defineMetabaseCommand", () => {
       vi.stubGlobal("fetch", capture.fetch);
       const stderr = captureStderr();
 
-      await runCommand(activationCommand(), { rawArgs: [] });
+      await runCommand(importCommand(), { rawArgs: [] });
 
       expect(capture.calls.map((call) => call.url)).toEqual([
         "https://m.example.com/api/session/properties",
       ]);
       expect(errorEnvelopeOf(stderr)).toEqual(
         capabilityErrorEnvelope(
-          `${ACTIVATION_REFUSAL}\n` +
+          `${REMOTE_SYNC_REFUSAL}\n` +
             "The server's version changed since the last probe (was v0.58.0, now v0.61.3); the profile was refreshed — retry the command.",
         ),
       );
@@ -866,10 +873,10 @@ describe("defineMetabaseCommand", () => {
       vi.stubGlobal("fetch", capture.fetch);
       const stderr = captureStderr();
 
-      await runCommand(activationCommand(), { rawArgs: [] });
+      await runCommand(importCommand(), { rawArgs: [] });
 
       expect(errorEnvelopeOf(stderr)).toEqual(
-        capabilityErrorEnvelope(`${ACTIVATION_REFUSAL}\n${DOWNGRADE_REMEDY}`),
+        capabilityErrorEnvelope(`${REMOTE_SYNC_REFUSAL}\n${DOWNGRADE_REMEDY}`),
       );
       expect(await readProfileRecord("default")).toEqual(before);
     });
@@ -882,7 +889,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "skip-preflight-flag", description: "skip via flag" },
       args: { ...connectionFlags },
-      requires: ["transformJob.setActive"],
+      requires: ["gitSync.import"],
       async run({ getClient }) {
         await getClient();
         ran();
@@ -905,7 +912,7 @@ describe("defineMetabaseCommand", () => {
       requires: [],
       async run({ getClient }) {
         const client = await getClient();
-        await client.measure.list();
+        await client.gitSync.import();
         ran();
       },
     });
@@ -913,7 +920,7 @@ describe("defineMetabaseCommand", () => {
     await runCommand(cmd, { rawArgs: [] });
 
     expect(stderr.join("")).toContain(
-      "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
+      "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.",
     );
     expect(process.exitCode).toBe(2);
     expect(ran).not.toHaveBeenCalled();
@@ -921,24 +928,28 @@ describe("defineMetabaseCommand", () => {
 
   it("switches the client's own check off too when --skip-preflight is passed", async () => {
     await seedProbedProfile("default", probeAt(58));
-    const capture = captureFetch([jsonResponse([])]);
+    const capture = captureFetch([
+      jsonResponse({ status: "success", task_id: null, message: null }),
+    ]);
     vi.stubGlobal("fetch", capture.fetch);
 
     const seen = vi.fn();
     const cmd = defineMetabaseCommand({
       meta: { name: "skip-reaches-wire", description: "skip reaches the wire" },
       args: { ...connectionFlags },
-      requires: ["measure.list"],
+      requires: ["gitSync.import"],
       async run({ getClient }) {
         const client = await getClient();
-        seen(await client.measure.list());
+        seen(await client.gitSync.import());
       },
     });
 
     await runCommand(cmd, { rawArgs: ["--skip-preflight"] });
 
-    expect(capture.calls.map((call) => call.url)).toEqual(["https://m.example.com/api/measure"]);
-    expect(seen.mock.calls).toEqual([[{ data: [], total: null }]]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://m.example.com/api/ee/remote-sync/import",
+    ]);
+    expect(seen.mock.calls).toEqual([[{ message: null, task_id: null }]]);
   });
 
   it("bypasses the preflight check when MB_CLI_SKIP_PREFLIGHT=1 is set", async () => {
@@ -949,7 +960,7 @@ describe("defineMetabaseCommand", () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "skip-preflight", description: "skip" },
       args: {},
-      requires: ["transformJob.setActive"],
+      requires: ["gitSync.import"],
       async run({ getClient }) {
         await getClient();
         ran();

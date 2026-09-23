@@ -122,46 +122,6 @@ export const FieldSemanticType = z.enum([
 ]);
 export type FieldSemanticType = z.infer<typeof FieldSemanticType>;
 
-// Most severe first, the precedence the server's classifier applies when several match.
-export const FieldDataSensitivity = z.enum([
-  "SEC_KEY",
-  "SYS_TELEMETRY",
-  "PHI",
-  "BIO_GEN",
-  "PCI_FIN",
-  "SENS_PERS",
-  "PII",
-  "CORP_IP",
-  "BIZ_CONF",
-  "PUBLIC",
-]);
-export type FieldDataSensitivity = z.infer<typeof FieldDataSensitivity>;
-
-export const FieldCoercionStrategy = z.enum([
-  "Coercion/String->Temporal",
-  "Coercion/ISO8601->Temporal",
-  "Coercion/ISO8601->DateTime",
-  "Coercion/ISO8601->Time",
-  "Coercion/ISO8601->Date",
-  "Coercion/YYYYMMDDHHMMSSString->Temporal",
-  "Coercion/Bytes->Temporal",
-  "Coercion/YYYYMMDDHHMMSSBytes->Temporal",
-  "Coercion/ISO8601Bytes->Temporal",
-  "Coercion/Number->Temporal",
-  "Coercion/UNIXTime->Temporal",
-  "Coercion/UNIXSeconds->DateTime",
-  "Coercion/UNIXMilliSeconds->DateTime",
-  "Coercion/UNIXMicroSeconds->DateTime",
-  "Coercion/UNIXNanoSeconds->DateTime",
-  "Coercion/Temporal->Temporal",
-  "Coercion/DateTime->Date",
-  "Coercion/String->Number",
-  "Coercion/String->Float",
-  "Coercion/String->Integer",
-  "Coercion/Float->Integer",
-]);
-export type FieldCoercionStrategy = z.infer<typeof FieldCoercionStrategy>;
-
 export const Field = z
   .object({
     id: z.number().int(),
@@ -193,27 +153,6 @@ export const FieldCompact = Field.pick({
 }).strip();
 export type FieldCompact = z.infer<typeof FieldCompact>;
 
-const NonBlankNullable = z.string().min(1).nullable();
-
-export const FieldUpdateInput = z
-  .object({
-    display_name: NonBlankNullable.optional(),
-    description: NonBlankNullable.optional(),
-    caveats: NonBlankNullable.optional(),
-    points_of_interest: NonBlankNullable.optional(),
-    semantic_type: FieldSemanticType.nullable().optional(),
-    coercion_strategy: FieldCoercionStrategy.nullable().optional(),
-    data_sensitivity: FieldDataSensitivity.nullable().optional(),
-    fk_target_field_id: z.number().int().positive().nullable().optional(),
-    visibility_type: FieldVisibilityType.nullable().optional(),
-    has_field_values: FieldValuesType.nullable().optional(),
-    settings: z.record(z.string(), z.unknown()).nullable().optional(),
-    nfc_path: z.array(z.string().min(1)).nullable().optional(),
-    json_unfolding: z.boolean().nullable().optional(),
-  })
-  .loose();
-export type FieldUpdateInput = z.infer<typeof FieldUpdateInput>;
-
 export const FieldValues = z
   .object({
     values: z.array(z.array(z.unknown())),
@@ -230,19 +169,3 @@ export const FieldValuesCompact = FieldValues.pick({
   has_more_values: true,
 }).strip();
 export type FieldValuesCompact = z.infer<typeof FieldValuesCompact>;
-
-// Each match is `[value, label]` when the searched field differs from the one asked about, else
-// `[value]`; the cells are whatever the warehouse column holds.
-export const FieldSearchMatches = z.array(z.array(z.unknown()));
-export type FieldSearchMatches = z.infer<typeof FieldSearchMatches>;
-
-// `[value, remapped]` for the one row whose field equals the value asked about.
-export const FieldRemappedValue = z.tuple([z.unknown(), z.unknown()]);
-export type FieldRemappedValue = z.infer<typeof FieldRemappedValue>;
-
-export const FieldSummary = z.object({
-  field_id: z.number().int(),
-  count: z.number().int(),
-  distincts: z.number().int(),
-});
-export type FieldSummary = z.infer<typeof FieldSummary>;

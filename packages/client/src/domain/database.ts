@@ -33,10 +33,3 @@ export type DatabaseListInclude = z.infer<typeof DatabaseListInclude>;
 
 export const DatabaseGetInclude = z.enum(["tables", "tables.fields"]);
 export type DatabaseGetInclude = z.infer<typeof DatabaseGetInclude>;
-
-export const DatabaseSyncResult = z.object({
-  id: z.number().int(),
-  status: z.literal("ok"),
-  initial_sync_status: z.string().nullable().optional(),
-});
-export type DatabaseSyncResult = z.infer<typeof DatabaseSyncResult>;

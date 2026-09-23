@@ -79,14 +79,14 @@ describe("renderSkillList", () => {
 describe("skillFilterNotices", () => {
   const skipped: UnavailableSkill[] = [
     {
-      name: "transform",
+      name: "git-sync",
       failure: {
         reason: "version-too-old",
         detail:
-          "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
-        feature: "transforms",
-        since: 59,
-        tokenFeature: null,
+          "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.",
+        feature: "remoteSync",
+        since: 60,
+        tokenFeature: "remote_sync",
         serverVersion: "v0.58.0",
       },
     },
@@ -131,7 +131,7 @@ describe("skillFilterNotices", () => {
 
   it("names each skipped skill with the client's reason and the way around it", () => {
     expect(skillFilterNotices(skipped, { profileName: "default", cached: probed })).toEqual([
-      'Skipped skill "transform": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.',
+      'Skipped skill "git-sync": This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.',
     ]);
     expect(skillFilterNotices([], { profileName: "default", cached: probed })).toEqual([]);
   });

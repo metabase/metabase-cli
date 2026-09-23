@@ -46,10 +46,10 @@ const GAMMA_UNAVAILABLE_ON_58 = {
   failure: {
     reason: "version-too-old",
     detail:
-      "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.",
-    feature: "transforms",
-    since: 59,
-    tokenFeature: null,
+      "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.",
+    feature: "remoteSync",
+    since: 60,
+    tokenFeature: "remote_sync",
     serverVersion: "v0.58.0",
   },
 };
@@ -99,7 +99,7 @@ describe("skills list command", () => {
       data: [
         { name: "alpha", description: "The first skill." },
         { name: "beta", description: "The second skill." },
-        { name: "gamma", description: "The transform skill." },
+        { name: "gamma", description: "The git-sync skill." },
       ],
     });
   });
@@ -135,7 +135,7 @@ describe("skills list command", () => {
       "alpha\n  The first skill.\n\nbeta\n  The second skill.\n\n",
     );
     expect(stderr.chunks.join("")).toBe(
-      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n',
+      'Skipped skill "gamma": This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n',
     );
   });
 
@@ -159,12 +159,12 @@ describe("skills list command", () => {
       ].join("\n"),
     );
     expect(stderr.chunks.join("")).toBe(
-      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n',
+      'Skipped skill "gamma": This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n',
     );
   });
 
   it("lists every skill and reports nothing filtered when the server has the features", async () => {
-    await seedProbedProfile("default", probeAt(61));
+    await seedProbedProfile("default", probeAt(61, { remote_sync: true }));
     const stdout = capture(process.stdout);
     const stderr = capture(process.stderr);
 
@@ -180,7 +180,7 @@ describe("skills list command", () => {
       data: [
         { name: "alpha", description: "The first skill." },
         { name: "beta", description: "The second skill." },
-        { name: "gamma", description: "The transform skill." },
+        { name: "gamma", description: "The git-sync skill." },
       ],
     });
     expect(stderr.chunks).toEqual([]);
@@ -203,7 +203,7 @@ describe("skills list command", () => {
       data: [
         { name: "alpha", description: "The first skill." },
         { name: "beta", description: "The second skill." },
-        { name: "gamma", description: "The transform skill." },
+        { name: "gamma", description: "The git-sync skill." },
       ],
     });
     expect(stderr.chunks).toEqual([]);

@@ -30,32 +30,11 @@ describe("HTTP error messages (end-to-end)", () => {
 
   it("resource-missing 404 renders the GET path with verb and exits 1", async () => {
     const result = await runCli({
-      args: ["card", "get", "9999999", "--json"],
+      args: ["metadata", "9999999", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: GET /api/card/9999999.");
-  });
-
-  it("resource-missing 404 renders the verb for non-GET commands", async () => {
-    const result = await runCli({
-      args: ["card", "update", "9999999", "--json"],
-      stdin: JSON.stringify({ name: "x" }),
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: PUT /api/card/9999999.");
-  });
-
-  it("list filter against a missing model id reports not-found and exits 1", async () => {
-    const result = await runCli({
-      args: ["card", "list", "--filter", "using_model", "--model-id", "9999999", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Not found: GET /api/card");
+    expect(result.stderr).toContain("Not found: GET /api/database/9999999.");
   });
 });

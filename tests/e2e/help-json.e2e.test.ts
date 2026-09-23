@@ -39,20 +39,20 @@ describe("--help --json e2e", () => {
 
   it("emits a group-scoped index for a command group", async () => {
     const result = await runCli({
-      args: ["card", "--help", "--json"],
+      args: ["auth", "--help", "--json"],
       configHome: await makeIsolatedConfigHome(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
 
     const index = parseJson(result.stdout, CommandHelpIndex, { source: "--help --json" });
-    const card = await resolveCommandPath(main, ["card"]);
-    expect(index).toEqual(await buildHelpIndex(card, ["card"]));
+    const auth = await resolveCommandPath(main, ["auth"]);
+    expect(index).toEqual(await buildHelpIndex(auth, ["auth"]));
   });
 
   it("reports the client methods a gated command calls and their features", async () => {
     const result = await runCli({
-      args: ["transform-job", "set-active", "--help", "--json"],
+      args: ["save", "--help", "--json"],
       configHome: await makeIsolatedConfigHome(),
     });
 
@@ -60,38 +60,29 @@ describe("--help --json e2e", () => {
 
     const entry = parseJson(result.stdout, CommandHelpEntry, { source: "--help --json" });
     expect(entry.requires).toEqual({
-      methods: ["transformJob.setActive"],
-      features: ["transformJobActivation", "transforms"],
+      methods: ["gitSync.branch", "gitSync.import"],
+      features: ["remoteSync"],
     });
-  });
-
-  it("reports the premium feature behind a token-gated command", async () => {
-    const result = await runCli({
-      args: ["library", "get", "--help", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-
-    const entry = parseJson(result.stdout, CommandHelpEntry, { source: "--help --json" });
-    expect(entry.requires).toEqual({ methods: ["library.get"], features: ["library"] });
   });
 
   it("reports a baseline command's methods with no features", async () => {
     const result = await runCli({
-      args: ["card", "list", "--help", "--json"],
+      args: ["metadata", "--help", "--json"],
       configHome: await makeIsolatedConfigHome(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
 
     const entry = parseJson(result.stdout, CommandHelpEntry, { source: "--help --json" });
-    expect(entry.requires).toEqual({ methods: ["card.list"], features: [] });
+    expect(entry.requires).toEqual({
+      methods: ["database.list", "database.get", "field.values"],
+      features: [],
+    });
   });
 
   it("reports null requires for a command that never reaches a server", async () => {
     const result = await runCli({
-      args: ["uuid", "--help", "--json"],
+      args: ["check", "--help", "--json"],
       configHome: await makeIsolatedConfigHome(),
     });
 
@@ -103,14 +94,14 @@ describe("--help --json e2e", () => {
 
   it("emits the full entry with output schema and examples for a leaf command", async () => {
     const result = await runCli({
-      args: ["card", "query", "--help", "--json"],
+      args: ["metadata", "--help", "--json"],
       configHome: await makeIsolatedConfigHome(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
 
     const entry = parseJson(result.stdout, CommandHelpEntry, { source: "--help --json" });
-    const cardQuery = await resolveCommandPath(main, ["card", "query"]);
-    expect(entry).toEqual(await buildHelpEntry(cardQuery, ["card", "query"]));
+    const metadata = await resolveCommandPath(main, ["metadata"]);
+    expect(entry).toEqual(await buildHelpEntry(metadata, ["metadata"]));
   });
 });

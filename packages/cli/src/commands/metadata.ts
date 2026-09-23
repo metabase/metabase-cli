@@ -1,5 +1,3 @@
-import type { MetabaseClient } from "@metabase/client/client";
-
 import {
   hasDropdownValues,
   MetadataField,
@@ -9,7 +7,6 @@ import {
   rawValues,
 } from "../core/metadata";
 import { renderList } from "../output/render";
-import type { CommonContext } from "./context";
 import { listEnvelopeSchema } from "../output/types";
 import type { ResourceView } from "../output/view";
 import { databaseView } from "../output/views/database";
@@ -43,37 +40,6 @@ const metadataFieldView: ResourceView<MetadataField> = {
 
 const MetadataFieldListEnvelope = listEnvelopeSchema(MetadataField);
 
-async function renderDatabases(client: MetabaseClient, ctx: CommonContext): Promise<void> {
-  const { data, total } = await client.database.list();
-  renderList(windowList(data, ctx.range, total), databaseView, ctx);
-}
-
-async function renderTables(
-  client: MetabaseClient,
-  databaseId: number,
-  ctx: CommonContext,
-): Promise<void> {
-  const database = await client.database.get(databaseId, { include: "tables" });
-  renderList(windowList(metadataTables(database), ctx.range), metadataTableView, ctx);
-}
-
-async function renderFields(
-  client: MetabaseClient,
-  databaseId: number,
-  tableId: number,
-  ctx: CommonContext,
-): Promise<void> {
-  const database = await client.database.get(databaseId, { include: "tables.fields" });
-  const fields = metadataFields(database, tableId);
-  await Promise.all(
-    fields.filter(hasDropdownValues).map(async (field) => {
-      const { values } = await client.field.values(field.id);
-      field.values = rawValues(values);
-    }),
-  );
-  renderList(windowList(fields, ctx.range), metadataFieldView, ctx);
-}
-
 export default defineMetabaseCommand({
   meta: {
     name: "metadata",
@@ -96,14 +62,25 @@ export default defineMetabaseCommand({
   async run({ args, ctx, getClient }) {
     const client = await getClient();
     if (args.database === undefined) {
-      await renderDatabases(client, ctx);
+      const { data, total } = await client.database.list();
+      renderList(windowList(data, ctx.range, total), databaseView, ctx);
       return;
     }
     const databaseId = parseId(args.database, "database");
     if (args.table === undefined) {
-      await renderTables(client, databaseId, ctx);
+      const database = await client.database.get(databaseId, { include: "tables" });
+      renderList(windowList(metadataTables(database), ctx.range), metadataTableView, ctx);
       return;
     }
-    await renderFields(client, databaseId, parseId(args.table, "table"), ctx);
+    const tableId = parseId(args.table, "table");
+    const database = await client.database.get(databaseId, { include: "tables.fields" });
+    const fields = metadataFields(database, tableId);
+    await Promise.all(
+      fields.filter(hasDropdownValues).map(async (field) => {
+        const { values } = await client.field.values(field.id);
+        field.values = rawValues(values);
+      }),
+    );
+    renderList(windowList(fields, ctx.range), metadataFieldView, ctx);
   },
 });

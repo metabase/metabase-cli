@@ -69,7 +69,7 @@ describe("runCli env isolation e2e", () => {
   it("reports no credentials even when the parent shell exports MB_URL and MB_API_KEY", async () => {
     const configHome = await makeIsolatedConfigHome();
 
-    const result = await runCli({ args: ["db", "list", "--json"], configHome });
+    const result = await runCli({ args: ["metadata", "--json"], configHome });
 
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe(

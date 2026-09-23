@@ -2,8 +2,6 @@ import { defineCommand } from "citty";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { type MethodKey, methodRequirements } from "@metabase/client/version/requirements";
-
 import { defineMetabaseCommand } from "../commands/runtime";
 import main from "../main";
 import { buildHelpEntry, buildHelpIndex, resolveCommandPath } from "./command-help";
@@ -306,184 +304,13 @@ const ALL_COMMANDS = [
   "auth status",
   "auth list",
   "auth logout",
-  "db list",
-  "db get",
-  "db schemas",
-  "db schema-tables",
-  "db sync-schema",
-  "db rescan-values",
-  "table list",
-  "table get",
-  "table fields",
-  "table update",
-  "field get",
-  "field values",
-  "field summary",
-  "field update",
-  "upload csv",
-  "upload append",
-  "upload replace",
-  "content-translation download",
-  "content-translation upload",
-  "card list",
-  "card get",
-  "card query",
-  "card alerts",
-  "card create",
-  "card update",
-  "card archive",
-  "dashboard list",
-  "dashboard get",
-  "dashboard cards",
-  "dashboard parameter-values",
-  "dashboard subscriptions",
-  "dashboard create",
-  "dashboard update",
-  "dashboard update-dashcard",
-  "dashboard archive",
-  "subscription list",
-  "subscription get",
-  "subscription create",
-  "subscription update",
-  "subscription archive",
-  "alert list",
-  "alert get",
-  "alert create",
-  "alert update",
-  "alert send",
-  "alert archive",
-  "collection list",
-  "collection get",
-  "collection items",
-  "collection tree",
-  "collection create",
-  "collection archive",
-  "library get",
-  "library create",
-  "library publish",
-  "library unpublish",
-  "document list",
-  "document get",
-  "document create",
-  "document update",
-  "document archive",
-  "transform list",
-  "transform get",
-  "transform dependencies",
-  "transform create",
-  "transform update",
-  "transform delete",
-  "transform delete-table",
-  "transform run",
-  "transform cancel",
-  "transform get-run",
-  "transform runs",
-  "transform-job list",
-  "transform-job get",
-  "transform-job create",
-  "transform-job update",
-  "transform-job delete",
-  "transform-job run",
-  "transform-job transforms",
-  "transform-job set-active",
-  "transform-tag list",
-  "transform-tag create",
-  "transform-tag update",
-  "transform-tag delete",
-  "setting list",
-  "setting get",
-  "setting set",
-  "search",
-  "git-sync status",
-  "git-sync is-dirty",
-  "git-sync has-remote-changes",
-  "git-sync dirty",
-  "git-sync current-task",
-  "git-sync cancel-task",
-  "git-sync wait",
-  "git-sync import",
-  "git-sync export",
-  "git-sync stash",
-  "git-sync branches",
-  "git-sync create-branch",
-  "git-sync add-collection",
-  "git-sync remove-collection",
-  "setup",
-  "snippet list",
-  "snippet get",
-  "snippet create",
-  "snippet update",
-  "snippet archive",
-  "segment list",
-  "segment get",
-  "segment create",
-  "segment update",
-  "segment archive",
-  "measure list",
-  "measure get",
-  "measure create",
-  "measure update",
-  "measure archive",
-  "timeline list",
-  "timeline get",
-  "timeline events",
-  "timeline create",
-  "timeline update",
-  "timeline archive",
-  "timeline delete",
-  "timeline-event get",
-  "timeline-event create",
-  "timeline-event update",
-  "timeline-event archive",
-  "timeline-event delete",
-  "eid",
-  "query",
-  "uuid",
-  "upgrade",
+  "metadata",
+  "check",
+  "save",
   "skills list",
   "skills get",
   "skills path",
 ];
-
-const BODY_COMMANDS = [
-  "table update",
-  "field update",
-  "card create",
-  "card update",
-  "dashboard create",
-  "dashboard update",
-  "dashboard update-dashcard",
-  "subscription create",
-  "subscription update",
-  "alert create",
-  "alert update",
-  "collection create",
-  "document create",
-  "document update",
-  "transform create",
-  "transform update",
-  "transform-job create",
-  "transform-job update",
-  "transform-tag create",
-  "transform-tag update",
-  "setup",
-  "snippet create",
-  "snippet update",
-  "segment create",
-  "segment update",
-  "measure create",
-  "measure update",
-  "timeline create",
-  "timeline update",
-  "timeline-event create",
-  "timeline-event update",
-  "eid",
-  "query",
-];
-
-function requiresOf(method: MethodKey): CommandHelpEntry["requires"] {
-  return { methods: [method], features: Array.from(methodRequirements(method)) };
-}
 
 let cachedEntries: Promise<CommandHelpEntry[]> | null = null;
 
@@ -533,100 +360,20 @@ describe("command tree contract", () => {
     const withoutInputSchema = acceptingBody
       .filter((entry) => entry.inputSchema === null)
       .map((entry) => entry.command);
-    expect(acceptingBody.map((entry) => entry.command)).toEqual(BODY_COMMANDS);
+    expect(acceptingBody.map((entry) => entry.command)).toEqual([]);
     expect(withoutInputSchema).toEqual([]);
   });
 
-  it("reports the measure methods and the feature they need, and card list as baseline", async () => {
-    const entries = await allEntries();
-    const measureRequires = Object.fromEntries(
-      entries
-        .filter((entry) => entry.command.startsWith("measure "))
-        .map((entry) => [entry.command, entry.requires]),
-    );
-    expect(measureRequires).toEqual({
-      "measure list": { methods: ["measure.list"], features: ["measures"] },
-      "measure get": { methods: ["measure.get"], features: ["measures"] },
-      "measure create": { methods: ["measure.create"], features: ["measures"] },
-      "measure update": { methods: ["measure.update"], features: ["measures"] },
-      "measure archive": { methods: ["measure.archive"], features: ["measures"] },
-    });
-
-    const cardRequires = Object.fromEntries(
-      entries
-        .filter((entry) => entry.command === "card list")
-        .map((entry) => [entry.command, entry.requires]),
-    );
-    expect(cardRequires).toEqual({ "card list": { methods: ["card.list"], features: [] } });
-  });
-
-  it("reports the premium feature behind every content translation command", async () => {
+  it("carries each server command's methods and the features they need", async () => {
     const entries = await allEntries();
     const requires = Object.fromEntries(
       entries
-        .filter((entry) => entry.command.startsWith("content-translation "))
+        .filter((entry) => entry.command === "metadata" || entry.command === "save")
         .map((entry) => [entry.command, entry.requires]),
     );
     expect(requires).toEqual({
-      "content-translation download": {
-        methods: ["contentTranslation.download"],
-        features: ["contentTranslation"],
-      },
-      "content-translation upload": {
-        methods: ["contentTranslation.upload"],
-        features: ["contentTranslation"],
-      },
-    });
-  });
-
-  it("carries each transform method's requirements through to its command", async () => {
-    const entries = await allEntries();
-    const transformRequires = Object.fromEntries(
-      entries
-        .filter(
-          (entry) =>
-            entry.command.startsWith("transform ") || entry.command.startsWith("transform-job "),
-        )
-        .map((entry) => [entry.command, entry.requires]),
-    );
-    expect(transformRequires).toEqual({
-      "transform list": requiresOf("transform.list"),
-      "transform get": requiresOf("transform.get"),
-      "transform dependencies": requiresOf("transform.dependencies"),
-      "transform create": requiresOf("transform.create"),
-      "transform update": requiresOf("transform.update"),
-      "transform delete": requiresOf("transform.delete"),
-      "transform run": requiresOf("transform.run"),
-      "transform runs": requiresOf("transform.runPages"),
-      "transform get-run": requiresOf("transform.getRun"),
-      "transform cancel": requiresOf("transform.cancel"),
-      "transform delete-table": requiresOf("transform.deleteTable"),
-      "transform-job list": requiresOf("transformJob.list"),
-      "transform-job get": requiresOf("transformJob.get"),
-      "transform-job create": requiresOf("transformJob.create"),
-      "transform-job update": requiresOf("transformJob.update"),
-      "transform-job delete": requiresOf("transformJob.delete"),
-      "transform-job run": requiresOf("transformJob.run"),
-      "transform-job transforms": requiresOf("transformJob.transforms"),
-      "transform-job set-active": requiresOf("transformJob.setActive"),
-    });
-  });
-
-  it("advertises a --limit default on search alone, so the shared flag description stays true", async () => {
-    const entries = await allEntries();
-    const withDefault = Object.fromEntries(
-      entries
-        .map((entry) => [entry.command, entry.args.find((arg) => arg.name === "limit")] as const)
-        .filter(([, limit]) => limit?.default !== undefined),
-    );
-    expect(withDefault).toEqual({
-      search: {
-        name: "limit",
-        type: "string",
-        required: false,
-        description: "Max items to return",
-        default: "20",
-      },
+      metadata: { methods: ["database.list", "database.get", "field.values"], features: [] },
+      save: { methods: ["gitSync.branch", "gitSync.import"], features: ["remoteSync"] },
     });
   });
 
@@ -635,11 +382,10 @@ describe("command tree contract", () => {
     const local = entries.filter((entry) => entry.requires === null).map((entry) => entry.command);
     expect(local.toSorted()).toEqual([
       "auth status",
+      "check",
       "skills get",
       "skills list",
       "skills path",
-      "upgrade",
-      "uuid",
     ]);
   });
 });
