@@ -6,7 +6,8 @@ property that switches it on — blank means always), **assert** (the expectatio
 
 Expectation SQL names the transform's **target table** and its **declared input tables** under their
 real names; both are rewritten to the run's temp tables, so per-row recomputation joins against
-inputs are writable. Anything else you name is left exactly as written and reads the real table.
+inputs are writable. Anything else you name is refused (`transform-test.unremapped-reference`), so no
+check can read a real table.
 
 Ids (G1, A2, …) are for cross-referencing within the plan documents only — never surface them to the
 user bare.

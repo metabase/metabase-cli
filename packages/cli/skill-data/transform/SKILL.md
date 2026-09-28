@@ -190,11 +190,11 @@ mb transform-test run <id> --profile <n> --json               # exits non-zero u
 
 **`inputs`** — one per table the transform reads, each naming a `table` plus either `format: "sql"` with `sql`, or `format: "rows"` with `columns` (each a `name` and a `cast_type`) and `rows`.
 
-**`cast_type` is a `CAST` target, not a column type**, and the two vocabularies differ per warehouse: MySQL casts to `SIGNED` and reports `INTEGER`; ClickHouse takes `Nullable(Int32)` for a column that is `Int64`. So a body is warehouse-specific — don't copy a `database_type` out of a run result into a `cast_type`, and don't expect one body to run everywhere.
+**`cast_type` is a `CAST` target, not a column type**, and the two vocabularies differ per warehouse: MySQL casts to `SIGNED` and reports `BIGINT`; ClickHouse takes `Nullable(Int32)` for a column that is `Int64`. So a body is warehouse-specific — don't copy a `database_type` out of a run result into a `cast_type`, and don't expect one body to run everywhere.
 
 **`expectations`** — `type: "empty"` with the `sql` that must return no rows, or `type: "equals"`, which needs the same `format` split as an input (`"rows"` with `columns`/`rows`, or `"sql"` with a query). An `equals` without a `format` is refused.
 
-**An `empty` query may only name the transform's target table and its declared input tables.** Those are rewritten to the run's temp tables; any other table you name is left exactly as written and reads the real one — the single way a test run can touch production data.
+**Expectation SQL may only name the transform's target table and its declared input tables.** Those are rewritten to the run's temp tables; any other table is refused with `transform-test.unremapped-reference` (400), at `create`/`update` as well as `run`. Expectation names are unique within a test, and every `rows` row carries exactly its declared columns — both refused with the offending name.
 
 ```json
 {
