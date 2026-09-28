@@ -162,7 +162,7 @@ describe("query e2e", () => {
     expect(result.stderr).toContain("validation failed: 1 error(s)");
   });
 
-  it("run (no --dry-run) with an invalid body refuses to send and points at --dry-run", async () => {
+  it("run (no --dry-run) with an invalid body refuses to send and points at --skip-validate", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["query"],
@@ -176,7 +176,7 @@ describe("query e2e", () => {
       errors: [{ path: "/stages", message: "must NOT have fewer than 1 items" }],
     });
     expect(result.stderr).toContain(
-      "validation failed: 1 error(s) — pass --dry-run to check it without running",
+      "validation failed: 1 error(s) — fix them, or pass --skip-validate to send anyway",
     );
   });
 
@@ -461,7 +461,7 @@ describe("query e2e", () => {
       errors: [{ path: "/stages", message: "must NOT have fewer than 1 items" }],
     });
     expect(result.stderr).toContain(
-      "validation failed: 1 error(s) — pass --dry-run to check it without running",
+      "validation failed: 1 error(s) — fix them, or pass --skip-validate to send anyway",
     );
   });
 

@@ -48,7 +48,7 @@ const FORBIDDEN_STATUS = 403;
 // The server's message names no location in the body, so it points at the whole query.
 const WHOLE_QUERY_POINTER = "";
 
-const VALIDATION_HINT = " — pass --dry-run to check it without running";
+const VALIDATION_HINT = " — fix them, or pass --skip-validate to send anyway";
 
 interface PreflightOptions {
   readonly skip: boolean;
