@@ -1814,6 +1814,8 @@ Body sources: `--file`, `--body`, or stdin (exactly one). Body is JSON.
 
 Any non-MBQL 5 body skips pre-flight automatically — legacy MBQL 4 (`{ "type": "query", "database": N, "query": { "source-table": T, ... } }`), legacy native (`{ "type": "native", "database": N, "native": { "query": "..." } }`), or any other shape that doesn't carry `"lib/type": "mbql/query"`. The bundled schema only models MBQL 5; `/api/dataset` normalizes the rest server-side via `lib-be/normalize-query` (the same normalizer that backs `card create` / `transform create`), so behavior is symmetric across endpoints. `--dry-run` on a non-MBQL 5 body emits `{ ok: true, errors: [] }` (no schema applies). The double-wrap footgun — an MBQL 5 query nested inside a `{type:"query", query:…}` envelope — is still rejected with a `ConfigError` before send.
 
+`lib/uuid` is optional in MBQL 5 bodies: give clauses an empty `{}` options object and the server mints a unique `lib/uuid` per clause. Set one explicitly only on a clause that another clause references — ordering by an aggregation points at the aggregation's `lib/uuid` — and mint it with [`mb uuid`](#mb-uuid).
+
 `--skip-validate` is an escape hatch when the bundled schema disagrees with what the server actually accepts (drift, false negative, edge case) for MBQL 5 bodies. Validation is skipped entirely and the body is sent as-is. Mutually exclusive with `--dry-run` (which is itself the validation mode).
 
 Exit codes:
@@ -1851,13 +1853,14 @@ If the chained `PUT /api/dashboard/:id` fails _after_ the create has already ins
 
 ### `mb uuid`
 
-Mint UUID v4 strings (Node `crypto.randomUUID`) for MBQL clause `lib/uuid` slots, native template-tag ids, and any other Metabase-side identifier whose schema enforces RFC 4122 format. Agents must call this command to obtain UUIDs rather than authoring them by hand: the bundled MBQL 5 schema rejects placeholder strings (`a1`, `uuid-1`, etc.) at `format: "uuid"` validation.
+Mint UUID v4 strings (Node `crypto.randomUUID`) for native template-tag ids, the `lib/uuid` of an MBQL clause that another clause references, and any other Metabase-side identifier whose schema enforces RFC 4122 format. MBQL clauses that nothing references omit `lib/uuid` — the server mints one. When a UUID is needed, agents must call this command rather than authoring one by hand or reaching for `uuidgen`: the bundled MBQL 5 schema rejects placeholder strings (`a1`, `uuid-1`, etc.) at `format: "uuid"` validation.
 
 ```sh
 mb uuid                          # one UUID
 mb uuid --count 5                # five UUIDs, one per line (text mode in a TTY, JSON when piped)
 mb uuid --count 5 --json         # explicit JSON: ["…", "…", "…", "…", "…"]
 mb uuid --count 5 --format text  # explicit text: one UUID per line
+U=$(mb uuid --format text)       # capture one bare UUID in a shell variable
 ```
 
 Output: text mode prints one UUID per line; JSON mode prints a `string[]`. Default behavior follows the standard `--format auto` rule — JSON when stdout is a pipe, text when it's a TTY.

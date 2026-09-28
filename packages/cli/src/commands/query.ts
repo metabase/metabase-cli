@@ -30,7 +30,7 @@ export default defineMetabaseCommand({
     description: "Run an ad-hoc MBQL or native query",
   },
   details:
-    'Reads a JSON query body from --body, --file, or stdin and runs it. MBQL 5 is Metabase\'s structured query format, shaped {"lib/type":"mbql/query", "database": <id>, "stages": [...]}; it is checked against a bundled JSON Schema before sending — --print-schema prints that schema, and --dry-run reports any errors as {ok, errors:[{path, message}]} and exits 2 without sending. Legacy MBQL 4 and native-SQL bodies are not checked and run as-is.',
+    'Reads a JSON query body from --body, --file, or stdin and runs it. MBQL 5 is Metabase\'s structured query format, shaped {"lib/type":"mbql/query", "database": <id>, "stages": [...]}; it is checked against a bundled JSON Schema before sending — --print-schema prints that schema, and --dry-run reports any errors as {ok, errors:[{path, message}]} and exits 2 without sending. Clause options are usually an empty {}: lib/uuid is optional and the server mints one per clause; set one only on a clause another clause references, minted with `mb uuid`. Legacy MBQL 4 and native-SQL bodies are not checked and run as-is.',
   skills: [{ skill: "mbql", purpose: "body shape, clause rules, and the dry-run loop" }],
   requires: ["dataset.query"],
   args: {
@@ -52,6 +52,7 @@ export default defineMetabaseCommand({
   outputSchema: CardQueryResult,
   examples: [
     "mb query --print-schema",
+    `mb query --body '{"lib/type":"mbql/query","database":1,"stages":[{"lib/type":"mbql.stage/mbql","source-table":2,"aggregation":[["count",{}]]}]}'`,
     "cat q.json | mb query --dry-run",
     "mb query --file q.json",
     "mb query --file q.json --skip-validate",

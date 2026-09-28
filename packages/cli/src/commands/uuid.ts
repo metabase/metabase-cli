@@ -18,7 +18,7 @@ export default defineMetabaseCommand({
     description: "Mint random UUID v4 strings",
   },
   details:
-    "For MBQL `lib/uuid` slots, native template-tag ids, and other UUID fields. Mint fresh values here rather than authoring them by hand — the MBQL 5 schema rejects placeholder strings.",
+    "For native template-tag ids, other UUID fields, and the MBQL `lib/uuid` of a clause another clause references (MBQL clauses otherwise omit `lib/uuid` and the server mints one). Mint fresh values here rather than authoring them by hand — the MBQL 5 schema rejects placeholder strings. Output is JSON when piped; capture a bare value with `--format text`.",
   skills: [{ skill: "mbql", purpose: "where lib/uuid values are used" }],
   requires: null,
   args: {
@@ -30,7 +30,12 @@ export default defineMetabaseCommand({
     },
   },
   outputSchema: UuidList,
-  examples: ["mb uuid", "mb uuid --count 5", "mb uuid --count 5 --json"],
+  examples: [
+    "mb uuid",
+    "mb uuid --count 5",
+    "mb uuid --count 5 --json",
+    "U=$(mb uuid --format text)",
+  ],
   run({ args, ctx }) {
     const count = parseInteger(args.count, { name: "--count", min: 1 });
     if (count > MAX_COUNT) {
