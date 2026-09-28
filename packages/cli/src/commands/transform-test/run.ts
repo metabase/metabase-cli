@@ -3,7 +3,7 @@ import type {
   TransformTestRunResult,
 } from "@metabase/client/domain/transform-test";
 import { TransformTestRunResult as TransformTestRunResultSchema } from "@metabase/client/domain/transform-test";
-import { FailedOutcomeError } from "@metabase/client/errors";
+import { FailedResultError } from "@metabase/client/errors";
 import { DEFAULT_TIMEOUT_MS } from "@metabase/client/http/transport";
 
 import { renderSummary } from "../../output/render";
@@ -69,7 +69,7 @@ export default defineMetabaseCommand({
     const result = await client.transformTest.run(id, { timeoutMs, signal: interruptSignal });
     renderSummary(result, transformTestRunResultView, summaryLine(id, result), ctx);
     if (result.status !== "passed") {
-      throw new FailedOutcomeError(`transform test ${id} ${result.status}`);
+      throw new FailedResultError(`transform test ${id} ${result.status}`);
     }
   },
 });

@@ -177,7 +177,7 @@ If you really must `create + delete` instead, do the `delete` **before** the fir
 
 ## Transform tests
 
-A transform test replaces every table the transform reads with a fixture, runs it into a temp table, and checks that output. The transform and the expectations read only the run's temp tables; a `format: "sql"` input runs verbatim against the transform's source database, so it may read real tables. Only query transforms (native SQL or MBQL) can be tested, on a source database whose driver supports it — Postgres, MySQL, H2, ClickHouse, Redshift, SQL Server; not BigQuery or Snowflake — otherwise `create`/`update`/`run` refuse with `transform-test.unsupported-transform` / `unsupported-driver` (422).
+A transform test replaces every table the transform reads with a fixture, runs it into a temp table, and checks that output. The transform and the expectations read only the run's temp tables; a `format: "sql"` input runs verbatim against the transform's source database, so it may read real tables. Only query transforms (native SQL or MBQL) can be tested, and only on Postgres, MySQL, H2, ClickHouse, Redshift or SQL Server; otherwise `create`/`update`/`run` refuse with `transform-test.unsupported-transform` / `unsupported-driver` (422).
 
 ```bash
 mb transform-test list --transform <id> --profile <n> --json  # --transform is optional
@@ -185,14 +185,14 @@ mb transform-test get <id> --full --profile <n> --json        # --full for input
 mb transform-test create --file ./.scratch/test.json --profile <n> --json
 mb transform-test update <id> --file ./.scratch/patch.json --profile <n> --json
 mb transform-test delete <id> --yes --profile <n>
-mb transform-test run <id> --profile <n> --json               # exits non-zero unless it passes
+mb transform-test run <id> --profile <n> --json               # exits 1 unless it passes
 ```
 
 **`inputs`** — one per table the transform reads, each naming a `table` plus either `format: "sql"` with `sql`, or `format: "rows"` with `columns` (each a `name` and a `cast_type`) and `rows`.
 
 **`cast_type` is a `CAST` target, not a column type**, and the two vocabularies differ per warehouse: MySQL casts to `SIGNED` and reports `BIGINT`; ClickHouse takes `Nullable(Int32)` for a column that is `Int64`. So a body is warehouse-specific — don't copy a `database_type` out of a run result into a `cast_type`, and don't expect one body to run everywhere.
 
-**`expectations`** — `type: "empty"` with the `sql` that must return no rows, or `type: "equals"` with `format: "rows"` and the `columns` and `rows` the output must hold exactly.
+**`expectations`** — `type: "empty"` with the `sql` that must return no rows, or `type: "equals"` with `format: "rows"` and the `columns` and `rows` the output must hold exactly; an `equals` without a `format` is refused.
 
 **Expectation SQL may only name the transform's target table and its declared input tables.** Those are rewritten to the run's temp tables; any other table is refused with `transform-test.unremapped-reference` (400), at `create`/`update` as well as `run`. A column qualified by its table name (`people.id`) is refused the same way, in expectation SQL and in the transform's own SQL alike: qualify by an alias (`FROM people p … p.id`) or leave the column bare — for the transform's SQL that means editing the transform. Expectation names are unique within a test (refused with "expectation names must be unique within a test"), and every `rows` row carries exactly its declared columns (refused naming the missing or undeclared columns).
 

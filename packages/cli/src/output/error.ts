@@ -42,7 +42,7 @@ export function exitCodeFor(category: ErrorCategory): number {
     case "response-shape":
     case "timeout":
     case "internal":
-    case "outcome":
+    case "failed":
     case "unknown": {
       return FAILURE_EXIT_CODE;
     }

@@ -14,7 +14,7 @@ export type ErrorCategory =
   | "capability"
   | "abort"
   | "internal"
-  | "outcome"
+  | "failed"
   | "unknown";
 
 export interface NetworkErrorDetail {
@@ -221,16 +221,16 @@ export class InternalError extends MetabaseError {
 }
 
 // The operation ran to completion and what it reports is a negative result — a test that failed, a
-// run that ended in error. Nothing went wrong in the client or the CLI, so there is no detail to
-// debug: the report is in the output the caller already has.
-export class FailedOutcomeError extends MetabaseError {
-  readonly category = "outcome";
+// run that ended in error. Nothing went wrong in the client or its caller, so there is no detail to
+// debug: the report is in the result the caller already has.
+export class FailedResultError extends MetabaseError {
+  readonly category = "failed";
   readonly isRetryable = false;
   readonly developerDetail = null;
 
   constructor(message: string) {
     super(message);
-    this.name = "FailedOutcomeError";
+    this.name = "FailedResultError";
   }
 }
 
