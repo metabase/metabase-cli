@@ -45,7 +45,7 @@ export function dependencyResource(transport: Transport) {
   /**
    * The upstream dependency graph of one entity. `nodes` holds the starting entity plus every
    * entity it depends on, directly or transitively; each edge runs from the dependent to what it
-   * depends on.
+   * depends on. A measure starts a graph only on a server with `measureDependencyGraph`.
    */
   async function graph(
     type: DependencyType,
@@ -53,6 +53,9 @@ export function dependencyResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<DependencyGraph> {
     await transport.require("dependency.graph", options);
+    if (type === "measure") {
+      await transport.requireFeatures(["measureDependencyGraph"], options);
+    }
     return transport.requestParsed(DependencyGraph, "/api/ee/dependencies/graph", {
       ...options,
       query: { type, id },

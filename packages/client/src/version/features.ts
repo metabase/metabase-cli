@@ -40,6 +40,7 @@ export const FEATURE_RULES = {
   dashboardSubscriptionFilters: { since: 58, tokenFeature: "dashboard_subscription_filters" },
   dependencyGraph: { since: 58, tokenFeature: "dependencies" },
   dependencyItemListings: { since: 59, tokenFeature: "dependencies" },
+  measureDependencyGraph: { since: 59 },
   tableListAccessFilters: { since: 59 },
   tableListTransformTargets: { since: 60 },
   tableListPublishedFilter: { since: 63 },
