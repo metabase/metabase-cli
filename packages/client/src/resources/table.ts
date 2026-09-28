@@ -40,6 +40,7 @@ export interface TableListParams {
   "owner-email"?: string | undefined;
   "orphan-only"?: boolean | undefined;
   "unused-only"?: boolean | undefined;
+  "published-only"?: boolean | undefined;
   "can-query"?: boolean | undefined;
   "can-write"?: boolean | undefined;
   "include-transform-targets"?: boolean | undefined;
@@ -52,6 +53,7 @@ const LIST_PARAM_FEATURES: ReadonlyArray<readonly [keyof TableListParams, Featur
   ["can-write", "tableListAccessFilters"],
   ["include-transform-targets", "tableListTransformTargets"],
   ["unused-only", "tableUnusedFilter"],
+  ["published-only", "tableListPublishedFilter"],
 ];
 
 function listParamFeatures(params: TableListParams): FeatureName[] {
@@ -70,7 +72,7 @@ export function tableResource(transport: Transport) {
    * List every table the caller can see, across all databases. `term` matches names and display
    * names; `can-query` and `can-write` keep only the tables the caller may query or edit the
    * metadata of; `include-transform-targets` adds tables a transform writes to; `unused-only` keeps
-   * tables nothing depends on.
+   * tables nothing depends on; `published-only` keeps tables published to the library.
    */
   async function list(
     params: TableListParams = {},
@@ -90,6 +92,7 @@ export function tableResource(transport: Transport) {
         "owner-email": params["owner-email"],
         "orphan-only": params["orphan-only"],
         "unused-only": params["unused-only"],
+        "published-only": params["published-only"],
         "can-query": params["can-query"],
         "can-write": params["can-write"],
         "include-transform-targets": params["include-transform-targets"],

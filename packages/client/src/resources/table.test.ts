@@ -65,7 +65,7 @@ const CSV_FORM_BODY = {
   parts: [{ name: "file", value: CSV_TEXT, filename: "rows.csv", contentType: "text/csv" }],
 };
 
-// The first server whose listing takes every filter offered, and the oldest supported one.
+// The first server whose listing takes every filter the tests send, and the oldest supported one.
 const SERVER_60 = createServerProfile({
   edition: "oss",
   version: { kind: "release", tag: "v0.60.4", major: 60, patch: 4 },

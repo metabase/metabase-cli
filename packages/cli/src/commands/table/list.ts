@@ -47,6 +47,7 @@ export default defineMetabaseCommand({
       type: "boolean",
       description: "Only tables nothing depends on (needs the dependencies feature)",
     },
+    "published-only": { type: "boolean", description: "Only tables published to the library" },
     "can-query": { type: "boolean", description: "Only tables you can run queries against" },
     "can-write": { type: "boolean", description: "Only tables whose metadata you can edit" },
     "include-transform-targets": {
@@ -81,6 +82,7 @@ export default defineMetabaseCommand({
       "owner-email": args["owner-email"],
       "orphan-only": args["orphan-only"] ? true : undefined,
       "unused-only": args["unused-only"] ? true : undefined,
+      "published-only": args["published-only"] ? true : undefined,
       "can-query": args["can-query"] ? true : undefined,
       "can-write": args["can-write"] ? true : undefined,
       "include-transform-targets": args["include-transform-targets"] ? true : undefined,

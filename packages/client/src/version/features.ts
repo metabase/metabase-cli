@@ -43,6 +43,7 @@ export const FEATURE_RULES = {
   dependencyKebabCaseFilters: { since: 60 },
   tableListAccessFilters: { since: 59 },
   tableListTransformTargets: { since: 60 },
+  tableListPublishedFilter: { since: 63 },
   tableUnusedFilter: { since: 58, tokenFeature: "dependencies" },
   tableDataLayerTiers: { since: 59 },
   bulkTableEdit: { since: 59 },

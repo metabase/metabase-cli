@@ -486,6 +486,7 @@ mb table list --data-layer hidden --orphan-only --json
 | `--owner-email <email>`       | Only tables owned by this email.                                                                                               |
 | `--orphan-only`               | Only tables with no owner.                                                                                                     |
 | `--unused-only`               | Only tables nothing depends on. Needs the `dependencies` premium feature.                                                      |
+| `--published-only`            | Only tables published to the library (Metabase v63+).                                                                          |
 | `--can-query`                 | Only tables you can run queries against (Metabase v59+).                                                                       |
 | `--can-write`                 | Only tables whose metadata you can edit (Metabase v59+).                                                                       |
 | `--include-transform-targets` | Also list the inactive tables a transform writes to (Metabase v60+).                                                           |
