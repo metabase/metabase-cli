@@ -112,7 +112,11 @@ export function collectionResource(transport: Transport) {
     });
   }
 
-  /** Update a collection, patching only the fields the body carries. */
+  /**
+   * Update a collection, patching the fields the body carries. The server reads an absent
+   * `archived` as `false`, so a patch without it restores an archived collection, and a patch that
+   * moves a collection into the trash ignores `parent_id`.
+   */
   async function update(
     ref: CollectionId,
     params: CollectionUpdateInput,
