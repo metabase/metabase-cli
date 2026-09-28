@@ -1851,13 +1851,14 @@ If the chained `PUT /api/dashboard/:id` fails _after_ the create has already ins
 
 ### `mb uuid`
 
-Mint UUID v4 strings (Node `crypto.randomUUID`) for MBQL clause `lib/uuid` slots, native template-tag ids, and any other Metabase-side identifier whose schema enforces RFC 4122 format. Agents must call this command to obtain UUIDs rather than authoring them by hand: the bundled MBQL 5 schema rejects placeholder strings (`a1`, `uuid-1`, etc.) at `format: "uuid"` validation.
+Mint UUID v4 strings (Node `crypto.randomUUID`) for the values that must be a UUID: the `lib/uuid` of an aggregation that an MBQL aggregation ref points at, and a document node's `_id`. The MBQL pre-flight rejects a hand-written placeholder (`a1`, `uuid-1`) in a `lib/uuid`.
 
 ```sh
 mb uuid                          # one UUID
 mb uuid --count 5                # five UUIDs, one per line (text mode in a TTY, JSON when piped)
 mb uuid --count 5 --json         # explicit JSON: ["…", "…", "…", "…", "…"]
 mb uuid --count 5 --format text  # explicit text: one UUID per line
+U=$(mb uuid --format text)       # capture one bare UUID in a shell variable
 ```
 
 Output: text mode prints one UUID per line; JSON mode prints a `string[]`. Default behavior follows the standard `--format auto` rule — JSON when stdout is a pipe, text when it's a TTY.

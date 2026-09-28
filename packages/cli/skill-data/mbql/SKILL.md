@@ -55,7 +55,7 @@ An options key the server doesn't know is rejected or silently dropped, never ap
 
 ## Order and limit
 
-`order-by` holds `["asc", {}, <ref>]` / `["desc", {}, <ref>]`. To order by an aggregation of the same stage, set a `lib/uuid` from `mb uuid` in that aggregation's options and point the ref at the same string:
+`order-by` holds `["asc", {}, <ref>]` / `["desc", {}, <ref>]`. To order by an aggregation of the same stage, set a `lib/uuid` from `mb uuid --format text` (the bare value) in that aggregation's options and point the ref at the same string:
 
 ```json
 "aggregation": [["count", {}], ["sum", {"name": "revenue", "lib/uuid": "<uuid>"}, ["field", {}, 40]]],
