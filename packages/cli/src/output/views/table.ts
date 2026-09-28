@@ -23,6 +23,7 @@ export const tableView: ResourceView<Table> = {
     { key: "name", label: "Name" },
     { key: "display_name", label: "Display Name" },
     { key: "description", label: "Description" },
+    { key: "active", label: "Active" },
     { key: "is_published", label: "Published" },
   ],
 };

@@ -28,6 +28,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/GenericTable",
+    active: true,
     is_published: false,
   },
   {
@@ -38,6 +39,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    active: true,
     is_published: false,
   },
   {
@@ -48,6 +50,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    active: true,
     is_published: false,
   },
   {
@@ -58,6 +61,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    active: true,
     is_published: false,
   },
   {
@@ -68,6 +72,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/ProductTable",
+    active: true,
     is_published: false,
   },
   {
@@ -78,6 +83,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/GenericTable",
+    active: true,
     is_published: false,
   },
 ];
@@ -91,6 +97,7 @@ const ANALYTICS_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "analytics",
     entity_type: "entity/TransactionTable",
+    active: true,
     is_published: false,
   },
 ];

@@ -489,7 +489,7 @@ mb table list --data-layer hidden --orphan-only --json
 | `--published-only`            | Only tables published to the library (Metabase v63+).                                                                          |
 | `--can-query`                 | Only tables you can run queries against (Metabase v59+).                                                                       |
 | `--can-write`                 | Only tables whose metadata you can edit (Metabase v59+).                                                                       |
-| `--include-transform-targets` | Also list the inactive tables a transform writes to (Metabase v60+).                                                           |
+| `--include-transform-targets` | Also list the inactive tables a transform writes to, which carry `active: false` (Metabase v60+).                              |
 
 ### `mb table get <id>`
 
