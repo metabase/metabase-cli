@@ -13,9 +13,10 @@ export const TableForeignKeyListEnvelope = listEnvelopeSchema(TableForeignKeyCom
 export default defineMetabaseCommand({
   meta: {
     name: "fks",
-    description:
-      "List the foreign keys pointing at a table (every field that targets one of its fields)",
+    description: "List the foreign keys pointing at a table",
   },
+  details:
+    "Lists every active field whose `fk_target_field_id` is an active, unretired field of this table, the table's own self-references included. The server leaves out origin fields in inactive tables and in tables the caller cannot read, so a non-admin sees only the foreign keys from tables it can read. The text table names the origin as `<schema>.<table>.<field>`, or `<table>.<field>` on a database without schemas.",
   requires: ["table.fks"],
   args: {
     ...outputFlags,

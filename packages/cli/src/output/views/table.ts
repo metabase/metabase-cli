@@ -14,6 +14,17 @@ function formatFieldName(value: unknown): string {
   return parsed.success ? parsed.data.name : MALFORMED_CELL;
 }
 
+// A schemaless database answers its schema as `""`, which would otherwise print a leading dot.
+function formatOriginField(value: unknown): string {
+  const parsed = TableForeignKeyCompact.shape.origin.safeParse(value);
+  if (!parsed.success) {
+    return MALFORMED_CELL;
+  }
+  const { table, name } = parsed.data;
+  const qualifiedTable = table.schema ? `${table.schema}.${table.name}` : table.name;
+  return `${qualifiedTable}.${name}`;
+}
+
 export const tableView: ResourceView<Table> = {
   compactPick: TableCompact,
   tableColumns: [
@@ -32,7 +43,7 @@ export const tableForeignKeyView: ResourceView<TableForeignKey> = {
   compactPick: TableForeignKeyCompact,
   tableColumns: [
     { key: "origin_id", label: "Origin ID" },
-    { key: "origin", label: "Origin Field", format: formatFieldName },
+    { key: "origin", label: "Origin Field", format: formatOriginField },
     { key: "destination_id", label: "Destination ID" },
     { key: "destination", label: "Destination Field", format: formatFieldName },
     { key: "relationship", label: "Relationship" },

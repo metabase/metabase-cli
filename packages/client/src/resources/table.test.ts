@@ -85,9 +85,16 @@ const SERVER_58 = createServerProfile({
 const FOREIGN_KEY = {
   relationship: "Mt1",
   origin_id: 205,
-  origin: { ...FIELD, id: 205, table_id: 12, name: "order_id", fk_target_field_id: 100 },
+  origin: {
+    ...FIELD,
+    id: 205,
+    table_id: 12,
+    name: "order_id",
+    fk_target_field_id: 100,
+    table: { ...TABLE, id: 12, name: "order_items", display_name: "Order Items" },
+  },
   destination_id: 100,
-  destination: { ...FIELD, id: 100, name: "id" },
+  destination: { ...FIELD, id: 100, name: "id", table: TABLE },
 };
 
 function clientOver(responses: Array<Response>, server = SERVER_60) {

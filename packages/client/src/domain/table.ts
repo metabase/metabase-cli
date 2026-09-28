@@ -128,18 +128,31 @@ export const TableBulkEditInput = TableSelectors.extend({
 }).strict();
 export type TableBulkEditInput = z.infer<typeof TableBulkEditInput>;
 
-// A field in another table whose `fk_target_field_id` points into this one. Loose because both
+// A field whose `fk_target_field_id` points into this table, the table's own fields included. Both
 // ends arrive with their `table` hydrated.
+const TableForeignKeyEnd = Field.extend({ table: Table });
+
 export const TableForeignKey = z
   .object({
     relationship: z.literal("Mt1"),
     origin_id: z.number().int(),
-    origin: Field,
+    origin: TableForeignKeyEnd,
     destination_id: z.number().int(),
-    destination: Field,
+    destination: TableForeignKeyEnd,
   })
   .loose();
 export type TableForeignKey = z.infer<typeof TableForeignKey>;
+
+// The destination table is the one asked about, so only the origin keeps its table.
+const TableForeignKeyOriginCompact = FieldCompact.extend({
+  table: Table.pick({
+    id: true,
+    name: true,
+    display_name: true,
+    schema: true,
+    db_id: true,
+  }).strip(),
+});
 
 export const TableForeignKeyCompact = TableForeignKey.pick({
   relationship: true,
@@ -148,7 +161,7 @@ export const TableForeignKeyCompact = TableForeignKey.pick({
 })
   .strip()
   .extend({
-    origin: FieldCompact,
+    origin: TableForeignKeyOriginCompact,
     destination: FieldCompact,
   });
 export type TableForeignKeyCompact = z.infer<typeof TableForeignKeyCompact>;

@@ -573,6 +573,13 @@ describe("table e2e", () => {
     return field;
   }
 
+  function originTable(tableId: number) {
+    const table = SEEDED_WAREHOUSE_TABLES.find((row) => row.id === tableId);
+    assert(table !== undefined, `no seeded table ${tableId}`);
+    const { id, name, display_name, schema, db_id } = table;
+    return { id, name, display_name, schema, db_id };
+  }
+
   it("fks lists the fields in other tables that point at the table", async () => {
     const customersId = await fieldNamed(SEEDED.tables.customers, "id");
     const ordersCustomerId = await fieldNamed(SEEDED.tables.orders, "customer_id");
@@ -589,7 +596,7 @@ describe("table e2e", () => {
     const expectedRows = [ordersCustomerId, reviewsCustomerId].map((origin) => ({
       relationship: "Mt1",
       origin_id: origin.id,
-      origin,
+      origin: { ...origin, table: originTable(origin.table_id) },
       destination_id: customersId.id,
       destination: customersId,
     }));

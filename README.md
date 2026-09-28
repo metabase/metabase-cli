@@ -516,7 +516,7 @@ mb table fields 42 --json
 
 ### `mb table fks <id>`
 
-List the foreign keys pointing at a table: every field in another table whose `fk_target_field_id` is a field of this one. Each row carries the origin field, the destination field and the relationship (`Mt1`). A table nothing points at answers an empty list.
+List the foreign keys pointing at a table: every active field whose `fk_target_field_id` is an active, unretired field of this one, the table's own self-references included. The server leaves out origin fields in inactive tables and in tables the caller cannot read, so a non-admin sees only the foreign keys from tables it can read. Each row carries the origin field with its table (`id`, `name`, `display_name`, `schema`, `db_id`), the destination field and the relationship (`Mt1`); the text table names the origin as `<schema>.<table>.<field>`, or `<table>.<field>` on a database without schemas. A table nothing points at answers an empty list.
 
 ```sh
 mb table fks 42
