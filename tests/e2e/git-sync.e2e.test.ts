@@ -13,7 +13,7 @@ import { readBootstrap, type E2EBootstrap, type ServerIdentity } from "./bootstr
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { seedProbedProfile } from "./seed-profile";
-import { requirementFailure, requireServer } from "./server-gate";
+import { requirementFailure, requireServer, serverHas } from "./server-gate";
 
 const REMOTE_SYNC_REFUSAL =
   "This operation requires the 'remote_sync' premium feature (not enabled on this server).";
@@ -359,13 +359,21 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
     expect(parseJson(result.stdout, WaitResult)).toEqual({ status: "idle" });
   });
 
-  it("import without git-sync configured surfaces an HttpError", async () => {
+  it("import without git-sync configured refuses, before the request where the server expects a branch", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "import", "--no-wait", "--json"],
       configHome,
       env: authEnv(),
     });
+    if (serverHas("remoteSyncImportExpectsBranch")) {
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorCategory(result.stderr)).toBe("config");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "the tracked remote-sync branch could not be read (the remote-sync-branch setting is unset or unreadable), and this server requires it to import",
+      );
+      return;
+    }
     expect(result.exitCode).toBe(1);
     expect(cliErrorCategory(result.stderr)).toBe("http");
   });

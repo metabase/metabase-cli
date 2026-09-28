@@ -13,6 +13,7 @@ import {
   type SyncStashResult,
   SyncTask,
 } from "../domain/git-sync";
+import { ConfigError } from "../errors";
 import { HttpError } from "../http/errors";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
@@ -81,6 +82,7 @@ export interface SyncRemoteChangesParams {
 export interface SyncImportParams extends SyncWaitParams {
   branch?: string | undefined;
   force?: boolean | undefined;
+  expected_branch?: string | undefined;
 }
 
 export interface SyncExportParams extends SyncWaitParams {
@@ -154,23 +156,48 @@ export function gitSyncResource(transport: Transport) {
   /**
    * Import content from the remote into Metabase. The endpoint queues a task and returns at once;
    * pass `wait` to poll that task until it reaches a terminal status. A server already up to date
-   * answers no task id, and there is then nothing to poll.
+   * answers no task id, and there is then nothing to poll. A server that checks the branch the
+   * caller expects to be tracked refuses with 409 when `expected_branch` disagrees with the
+   * setting; left out, it is the tracked branch as read just before the request.
    */
   async function importFromRemote(
     params: SyncImportParams = {},
     options: RequestOptions = {},
   ): Promise<SyncImportResult> {
     await transport.require("gitSync.import", options);
+    const expectedBranch = await importExpectedBranch(params, options);
     const started = await transport.requestParsed(SyncImportStarted, "/api/ee/remote-sync/import", {
       ...options,
       method: "POST",
-      body: { branch: params.branch, force: params.force },
+      body: { branch: params.branch, force: params.force, expected_branch: expectedBranch },
     });
     const message = started.message ?? null;
     if (params.wait === undefined || started.task_id === null) {
       return { message, task_id: started.task_id };
     }
     return { message, task_id: started.task_id, final: await settle(params.wait, options) };
+  }
+
+  // A server that checks the expected branch rejects an import without one; an older one ignores
+  // the field, so it is read and sent only where it is checked.
+  async function importExpectedBranch(
+    params: SyncImportParams,
+    options: RequestOptions,
+  ): Promise<string | undefined> {
+    if (params.expected_branch !== undefined) {
+      return params.expected_branch;
+    }
+    const { features } = await transport.server(options);
+    if (!features.remoteSyncImportExpectsBranch) {
+      return undefined;
+    }
+    const tracked = await branch(options);
+    if (tracked === null) {
+      throw new ConfigError(
+        "the tracked remote-sync branch could not be read (the remote-sync-branch setting is unset or unreadable), and this server requires it to import",
+      );
+    }
+    return tracked;
   }
 
   /**
