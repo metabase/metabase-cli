@@ -229,6 +229,7 @@ export {
   SyncDirtyItem,
   SyncDirtyItemCompact,
   SyncExportPreflight,
+  SyncExportPreflightCompact,
   SyncExportResult,
   SyncForcePushCasualties,
   SyncImportResult,

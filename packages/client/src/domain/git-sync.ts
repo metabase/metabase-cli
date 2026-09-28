@@ -109,15 +109,27 @@ export type SyncForcePushCasualties = z.infer<typeof SyncForcePushCasualties>;
 
 // `reason` names why no merge is possible; the server has one such cause, and `null` when a merge
 // base exists.
-export const SyncExportPreflight = z.object({
-  has_changes: z.boolean(),
-  clean: z.boolean(),
-  conflicts: z.array(z.string()),
-  summary: SyncMergeSummary,
-  force_push_casualties: SyncForcePushCasualties,
-  reason: z.literal("history-rewritten").nullable(),
-});
+export const SyncExportPreflight = z
+  .object({
+    has_changes: z.boolean(),
+    clean: z.boolean(),
+    conflicts: z.array(z.string()),
+    summary: SyncMergeSummary,
+    force_push_casualties: SyncForcePushCasualties,
+    reason: z.literal("history-rewritten").nullable(),
+  })
+  .loose();
 export type SyncExportPreflight = z.infer<typeof SyncExportPreflight>;
+
+export const SyncExportPreflightCompact = SyncExportPreflight.pick({
+  has_changes: true,
+  clean: true,
+  conflicts: true,
+  summary: true,
+  force_push_casualties: true,
+  reason: true,
+}).strip();
+export type SyncExportPreflightCompact = z.infer<typeof SyncExportPreflightCompact>;
 
 export const SyncBranchCreated = z.object({
   status: z.literal("success"),
