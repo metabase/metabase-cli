@@ -359,9 +359,7 @@ describe("query e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe(
-      'query: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope.' +
-        " For MBQL 5, the body is the mbql/query value itself:" +
-        ' {"lib/type":"mbql/query", database:N, stages:[…]}.',
+      'query: the body is the query itself: {"lib/type": "mbql/query", "database": N, "stages": […]}.',
     );
     expect(result.stdout).toBe("");
   });

@@ -21,7 +21,7 @@ import { skipValidateFlag } from "./validate-query";
 const QueryBody = z
   .unknown()
   .describe(
-    "MBQL 5, legacy MBQL, or native query body — full MBQL 5 schema: mb query --print-schema",
+    'The query body: {"lib/type": "mbql/query", database, stages}; full schema: mb query --print-schema',
   );
 
 export default defineMetabaseCommand({

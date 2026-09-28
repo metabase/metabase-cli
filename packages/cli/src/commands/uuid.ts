@@ -18,8 +18,11 @@ export default defineMetabaseCommand({
     description: "Mint random UUID v4 strings",
   },
   details:
-    "For MBQL `lib/uuid` slots, native template-tag ids, and other UUID fields. Mint fresh values here rather than authoring them by hand — the MBQL 5 schema rejects placeholder strings.",
-  skills: [{ skill: "mbql", purpose: "where lib/uuid values are used" }],
+    "For the values that must be a UUID: the `lib/uuid` of an aggregation an MBQL aggregation ref points at, and a document node's `_id`.",
+  skills: [
+    { skill: "mbql", purpose: "aggregation refs" },
+    { skill: "document", purpose: "document node ids" },
+  ],
   requires: null,
   args: {
     ...outputFlags,

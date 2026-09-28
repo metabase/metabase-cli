@@ -43,7 +43,6 @@ describe("validateQuery", () => {
       errors: [
         { path: "/database", message: "must be integer" },
         { path: "/stages/0/source-table", message: "must be integer" },
-        { path: "/stages/0", message: 'must match "then" schema' },
       ],
     });
   });
@@ -138,7 +137,7 @@ describe("isLegacyEnvelopeWrappingMbql5", () => {
 });
 
 describe("ref-clause error messages", () => {
-  it("rewrites 'must be string' on aggregation_ref's UUID slot and reports the cascading 'then' shape errors verbatim", () => {
+  it("rewrites 'must be string' on aggregation_ref's third slot and drops the cascading 'then' restatements", () => {
     const outcome = validateQuery({
       "lib/type": "mbql/query",
       database: 1,
@@ -162,13 +161,8 @@ describe("ref-clause error messages", () => {
       errors: [
         {
           path: "/stages/0/order-by/0/2/2",
-          message: "must be the target aggregation's lib/uuid (string), not a numeric position",
+          message: "must be the lib/uuid of an aggregation in this stage",
         },
-        { path: "/stages/0/order-by/0/2", message: 'must match "then" schema' },
-        { path: "/stages/0/order-by/0/2", message: 'must match "then" schema' },
-        { path: "/stages/0/order-by/0", message: 'must match "then" schema' },
-        { path: "/stages/0/order-by/0", message: 'must match "then" schema' },
-        { path: "/stages/0", message: 'must match "then" schema' },
       ],
     });
   });
@@ -190,10 +184,8 @@ describe("ref-clause error messages", () => {
       errors: [
         {
           path: "/stages/0/fields/0/2",
-          message: "must be the target expression's name (string), not a numeric position",
+          message: "must be the name of an expression in this stage",
         },
-        { path: "/stages/0/fields/0", message: 'must match "then" schema' },
-        { path: "/stages/0", message: 'must match "then" schema' },
       ],
     });
   });
@@ -212,7 +204,7 @@ describe("ref-clause error messages", () => {
 });
 
 describe("clause-shape error messages", () => {
-  it("rewrites 'must be object' at /1 of a `field` clause to call out the MBQL5 vs MBQL4 ordering trap", () => {
+  it("rewrites 'must be object' at /1 of a `field` clause to show the field ref shape", () => {
     const outcome = validateQuery({
       "lib/type": "mbql/query",
       database: 1,
@@ -237,7 +229,7 @@ describe("clause-shape error messages", () => {
     });
   });
 
-  it("rewrites 'must be object' at /1 of an arbitrary clause with a generic options-position message that names the operator and the offending value", () => {
+  it("rewrites 'must be object' at /1 of an arbitrary clause with an options-position message that names the operator", () => {
     const outcome = validateQuery({
       "lib/type": "mbql/query",
       database: 1,
@@ -252,7 +244,7 @@ describe("clause-shape error messages", () => {
     expect(outcome.ok).toBe(false);
     expect(outcome.errors).toContainEqual({
       path: "/stages/0/aggregation/0/1",
-      message: clauseSlot1HintMessage("sum", "not-an-object"),
+      message: clauseSlot1HintMessage("sum"),
     });
   });
 
@@ -264,14 +256,13 @@ describe("clause-shape error messages", () => {
     });
     expect(outcome.ok).toBe(false);
     for (const issue of outcome.errors) {
-      expect(issue.message).not.toContain("clause options object");
-      expect(issue.message).not.toContain("field options object");
+      expect(issue.message).not.toContain("must be the options object");
     }
   });
 });
 
 describe("uuid-format error messages", () => {
-  it("replaces Ajv's bare 'must match format \"uuid\"' with a hint pointing at `mb uuid`", () => {
+  it("replaces Ajv's bare 'must match format \"uuid\"' with the `mb uuid` hint", () => {
     const outcome = validateQuery({
       "lib/type": "mbql/query",
       database: 1,
@@ -288,11 +279,6 @@ describe("uuid-format error messages", () => {
       path: "/stages/0/aggregation/0/1/lib~1uuid",
       message: UUID_HINT_MESSAGE,
     });
-  });
-
-  it("uuid hint string mentions `mb uuid` and notes that placeholders are rejected", () => {
-    expect(UUID_HINT_MESSAGE).toContain("mb uuid");
-    expect(UUID_HINT_MESSAGE).toContain("placeholder");
   });
 });
 

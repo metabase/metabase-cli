@@ -47,7 +47,7 @@ A dashboard filter is one entry in the dashboard's `parameters` array **plus** a
   "target": ["dimension", ["field", 1779, null]] }
 ```
 
-**`id` is a slug-like string you pick** (e.g. `order_status`), unique within the dashboard — Metabase stores any non-blank string verbatim, so reuse the `slug` rather than guessing an opaque value. If you genuinely need an opaque id, mint one with `mb uuid`; never fabricate one.
+**`id` is a slug-like string you pick** (e.g. `order_status`), unique within the dashboard — Metabase stores any non-blank string verbatim, so reuse the `slug` rather than guessing an opaque value.
 
 **`type` is a closed enum** — an unlisted value is a hard parse error that echoes the allowed set back: string ops `string/=` `string/!=` `string/contains` `string/does-not-contain` `string/starts-with` `string/ends-with`; number ops `number/=` `number/!=` `number/between` `number/>=` `number/<=`; date `date/single` `date/range` `date/relative` `date/month-year` `date/quarter-year` `date/all-options`; location `location/city` `location/state` `location/zip_code` `location/country`; plus `category`, `id`, `boolean/=`, `temporal-unit`, and bare `number`/`text`/`date`/`boolean`.
 

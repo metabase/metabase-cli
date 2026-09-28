@@ -4,13 +4,13 @@ Every template-tag body, the widget-type vocabulary, and the parameter-object sh
 
 ## Template-tag bodies by `type`
 
-The `template-tags` value is a map keyed by tag name; each entry's `name` must equal its key and the `{{name}}` in the SQL. `id` is a UUID — mint with `mb uuid`.
+The `template-tags` value is a map keyed by tag name; each entry's `name` must equal its key and the `{{name}}` in the SQL. `id` is any string unique among the tags; the tag's name serves.
 
 ### Raw variable — `text` / `number` / `date` / `boolean`
 
 ```json
 "min_total": {
-  "id": "<uuid>",
+  "id": "min_total",
   "name": "min_total",
   "display-name": "Minimum total",
   "type": "number",
@@ -24,7 +24,7 @@ The `template-tags` value is a map keyed by tag name; each entry's `name` must e
 | `name`         | ✓   | equals map key and `{{name}}`                |
 | `display-name` | ✓   | label shown in the widget                    |
 | `type`         | ✓   | `text` \| `number` \| `date` \| `boolean`    |
-| `id`           | —   | UUID; supply one                             |
+| `id`           | ✓   | unique among the tags; the tag's name        |
 | `required`     | —   | `true` blocks the run until a value is given |
 | `default`      | —   | value used when none passed (string form)    |
 
@@ -34,34 +34,31 @@ SQL: `{{min_total}}`, spliced literally — you write the operator (`total > {{m
 
 ```json
 "status": {
-  "id": "<uuid>",
+  "id": "status",
   "name": "status",
   "display-name": "Status",
   "type": "dimension",
   "dimension": ["field", {}, 141],
-  "widget-type": "string/=",
-  "default": null,
-  "options": null,
-  "alias": null
+  "widget-type": "string/="
 }
 ```
 
-| Field         | Req | Notes                                                                                                                                                  |
-| ------------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `type`        | ✓   | `"dimension"`                                                                                                                                          |
-| `dimension`   | ✓   | field ref `["field", {}, <id>]` — options object second, id third (the `mbql` rule); the legacy `["field", <id>, null]` form is rejected by pre-flight |
-| `widget-type` | ✓   | the widget/operator; must suit the column type (table below)                                                                                           |
-| `default`     | —   | e.g. a value, or a `["2024-01-01","2024-12-31"]` range                                                                                                 |
-| `options`     | —   | filter options map (e.g. case sensitivity), usually `null`                                                                                             |
-| `alias`       | —   | set when the column comes from an aliased table in the SQL                                                                                             |
+| Field         | Req | Notes                                                                               |
+| ------------- | --- | ----------------------------------------------------------------------------------- |
+| `type`        | ✓   | `"dimension"`                                                                       |
+| `dimension`   | ✓   | field ref `["field", {}, <id>]` — options object second, id third (the `mbql` rule) |
+| `widget-type` | ✓   | the widget/operator; must suit the column type (table below)                        |
+| `default`     | —   | e.g. a value, or a `["2024-01-01","2024-12-31"]` range                              |
+| `options`     | —   | filter options map (e.g. case sensitivity)                                          |
+| `alias`       | —   | set when the column comes from an aliased table in the SQL                          |
 
-SQL: bare — `WHERE {{status}}`. Never `WHERE status = {{status}}`. On write, send `{}` for the ref's options; the server fills a `lib/uuid` and the card reads back `["field", {"lib/uuid": "…"}, <id>]`.
+SQL: bare — `WHERE {{status}}`. Never `WHERE status = {{status}}`.
 
 ### Snippet — `snippet`
 
 ```json
 "snippet: Active Rows": {
-  "id": "<uuid>",
+  "id": "snippet: Active Rows",
   "name": "snippet: Active Rows",
   "display-name": "Snippet: Active Rows",
   "type": "snippet",
@@ -76,7 +73,7 @@ SQL: `{{snippet: Active Rows}}`. Create/manage the fragment with `mb snippet` (`
 
 ```json
 "#42": {
-  "id": "<uuid>",
+  "id": "#42",
   "name": "#42",
   "display-name": "#42",
   "type": "card",
@@ -96,7 +93,7 @@ A niche type that references a warehouse table by id (`{type: "table", table-id:
 
 ### Temporal unit — `temporal-unit`
 
-A widget that lets the viewer pick the time bucket (day/week/month/…) for a datetime column. Body mirrors a field filter (`dimension` legacy ref, optional `alias`) with `type: "temporal-unit"`.
+A widget that lets the viewer pick the time bucket (day/week/month/…) for a datetime column. Body mirrors a field filter (`dimension` field ref, optional `alias`) with `type: "temporal-unit"`.
 
 ## `widget-type` by column type
 
@@ -117,16 +114,15 @@ Closed enum — same vocabulary as a dashboard parameter `type`. Pick one whose 
 
 Same object, two contexts. `target` links the parameter to a template tag: `["dimension", ["template-tag", "<name>"]]` for a field filter, `["variable", ["template-tag", "<name>"]]` for a raw variable.
 
-**Declared** — in the card's `parameters` array, to set a default or a dropdown source:
+**Declared** — in the card's `parameters` array, to set a dropdown source. Its `id` is the tag's `id`; the default is the tag's `default`:
 
 ```json
 {
-  "id": "<uuid>",
+  "id": "status",
   "name": "status",
   "slug": "status",
   "type": "string/=",
   "target": ["dimension", ["template-tag", "status"]],
-  "default": "active",
   "values_source_type": "static-list",
   "values_source_config": { "values": ["active", "churned", "trial"] }
 }
@@ -160,14 +156,14 @@ What `mb card create --file` consumes:
         "native": "SELECT status, count(*) FROM orders WHERE total > {{min_total}} [[AND {{status}}]] GROUP BY status",
         "template-tags": {
           "min_total": {
-            "id": "<uuid>",
+            "id": "min_total",
             "name": "min_total",
             "display-name": "Minimum total",
             "type": "number",
             "default": "0"
           },
           "status": {
-            "id": "<uuid>",
+            "id": "status",
             "name": "status",
             "display-name": "Status",
             "type": "dimension",

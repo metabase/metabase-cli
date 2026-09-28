@@ -368,7 +368,7 @@ describe("card e2e", () => {
       errors: [{ path: "/database", message: "must be integer" }],
     });
     expect(result.stderr).toContain(
-      "card.dataset_query validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+      "card.dataset_query validation failed: 1 error(s) — fix them, or pass --skip-validate to send anyway",
     );
   });
 
@@ -523,7 +523,7 @@ describe("card e2e", () => {
       errors: [{ path: "/database", message: "must be integer" }],
     });
     expect(result.stderr).toContain(
-      "card.dataset_query validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+      "card.dataset_query validation failed: 1 error(s) — fix them, or pass --skip-validate to send anyway",
     );
   });
 

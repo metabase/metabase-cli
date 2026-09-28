@@ -308,7 +308,7 @@ Use for flow volume between nodes. Needs distinct source and target columns form
 
 A map keyed by a JSON-encoded column reference, applying to `table`, `pie`, `object`, the cartesian charts, and more.
 
-**Key forms:** prefer the name form `["name", "<output column name>"]` — it's what Metabase writes and is identical across API and portable forms. A legacy ref form `["ref", ["field", <id>, <opts>]]` exists for read-back; its inner field ref uses the **legacy order** (id second) with a numeric id in the API form — avoid it. In a JSON body the key is an escaped string: `"[\"name\",\"TOTAL\"]"`.
+**Key:** `["name", "<output column name>"]`, the key Metabase writes, the same in API and portable form; a card read back may key a column `["ref", ["field", <id>, …]]` instead, which Metabase reads before the name key, so edit a column's settings under the key it already has. In a JSON body the key is an escaped string: `"[\"name\",\"TOTAL\"]"`.
 
 | Key                  | Type         | Values                                                       | Applies to      |
 | -------------------- | ------------ | ------------------------------------------------------------ | --------------- |
@@ -412,19 +412,19 @@ click_behavior:
   linkType: dashboard            # or "question"
   targetId: Q_jD-f-9clKLFZ2TfUG2h
   parameterMapping:
-    target-param-uuid:
-      id: target-param-uuid
+    user_id:
+      id: user_id
       source: { id: USER_ID, name: User ID, type: column }
-      target: { id: target-param-uuid, type: parameter }
+      target: { id: user_id, type: parameter }
 
 # Crossfilter — map a clicked column to dashboard parameters
 click_behavior:
   type: crossfilter
   parameterMapping:
-    param-uuid:
-      id: param-uuid
+    category:
+      id: category
       source: { id: CATEGORY, name: Category, type: column }
-      target: { id: param-uuid, type: parameter }
+      target: { id: category, type: parameter }
 ```
 
 In `parameterMapping`, `source` is `{ id, name, type }` (type `"column"`/`"parameter"`) and `target` is `{ id, type }` (type `"parameter"`/`"dimension"`/`"variable"`); a `dimension` target also carries a `dimension` array.

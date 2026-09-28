@@ -24,9 +24,8 @@ export const ValidationOutcome = z.object({
 });
 export type ValidationOutcome = z.infer<typeof ValidationOutcome>;
 
-// MBQL 5 IDs are always positive integers in the only endpoint the CLI talks to
-// (`POST /api/dataset`). The bundled query.yaml `$ref`s id.yaml#/$defs/...; this
-// override declares every id $def as a positive integer.
+// The bundled id.yaml $defs are looser than what a Metabase server accepts, so every id $def is
+// overridden as a positive integer.
 const POSITIVE_INTEGER = { type: "integer", minimum: 1 } as const;
 const idSchema = {
   title: "ID",
@@ -37,6 +36,41 @@ const idSchema = {
     database_id: POSITIVE_INTEGER,
     table_id: POSITIVE_INTEGER,
     field_id: POSITIVE_INTEGER,
+  },
+};
+
+// The bundled metric, measure and segment refs name their target by serialization entity_id; over
+// the API it is the numeric id.
+function definitionRef(tag: string) {
+  return {
+    description: `[${tag}, options, id]`,
+    type: "array",
+    prefixItems: [{ const: tag }, { $ref: "query.yaml#/$defs/options" }, POSITIVE_INTEGER],
+    minItems: 3,
+    maxItems: 3,
+  };
+}
+
+const refSchemaWithIds = {
+  ...refSchema,
+  $defs: {
+    ...refSchema.$defs,
+    metric_ref: definitionRef("metric"),
+    measure_ref: definitionRef("measure"),
+    segment_ref: definitionRef("segment"),
+  },
+};
+
+// The bundled template tag demands a UUID id; the server takes any non-blank string.
+const templateTag = querySchema.$defs.template_tag;
+const querySchemaForApi = {
+  ...querySchema,
+  $defs: {
+    ...querySchema.$defs,
+    template_tag: {
+      ...templateTag,
+      properties: { ...templateTag.properties, id: { type: "string", minLength: 1 } },
+    },
   },
 };
 
@@ -54,9 +88,9 @@ function getValidator(): ValidateFunction {
   addFormats(ajv);
   ajv.addSchema(idSchema, "id.yaml");
   ajv.addSchema(parameterSchema, "parameter.yaml");
-  ajv.addSchema(refSchema, "ref.yaml");
+  ajv.addSchema(refSchemaWithIds, "ref.yaml");
   ajv.addSchema(temporalSchema, "temporal_bucketing.yaml");
-  ajv.addSchema(querySchema, "query.yaml");
+  ajv.addSchema(querySchemaForApi, "query.yaml");
   const compiled = ajv.getSchema("query.yaml");
   if (compiled === undefined) {
     throw new Error("internal: query.yaml validator not registered");
@@ -65,14 +99,12 @@ function getValidator(): ValidateFunction {
   return validator;
 }
 
-export const UUID_HINT_MESSAGE =
-  "must be a UUID v4 (RFC 4122) — run `mb uuid` (or `mb uuid --count N`) to mint one. The MBQL 5 schema rejects placeholder strings (`a1`, `uuid-1`, etc.); agents must call the CLI for UUIDs rather than authoring them.";
+export const UUID_HINT_MESSAGE = "must be a UUID from `mb uuid`";
 
-export const FIELD_SLOT1_HINT_MESSAGE =
-  'must be the field options object — MBQL 5 field refs are ["field", {options}, fieldId]; the legacy MBQL 4 shape ["field", id, opts] is not accepted here. (Tip: `mb uuid` mints `lib/uuid` strings if you need them.)';
+export const FIELD_SLOT1_HINT_MESSAGE = 'must be the options object: ["field", {}, <field id>]';
 
-export function clauseSlot1HintMessage(operator: string, slot1: unknown): string {
-  return `must be the clause options object — every MBQL 5 clause is ["${operator}", {options}, ...args]; got ${describeJsonValue(slot1)} at index 1`;
+export function clauseSlot1HintMessage(operator: string): string {
+  return `must be the options object: ["${operator}", {}, ...args]`;
 }
 
 const FormatErrorParams = z.object({ format: z.string() });
@@ -90,7 +122,7 @@ function runValidator(validatorFn: ValidateFunction, value: unknown): Validation
     return { ok: true, errors: [] };
   }
   const overrides = collectMessageOverrides(value);
-  const issues = validatorFn.errors ?? [];
+  const issues = (validatorFn.errors ?? []).filter((issue) => issue.keyword !== IF_KEYWORD);
   const errors = issues.map((issue) => {
     if (issue.message === undefined) {
       throw new Error(`Ajv issue at ${issue.instancePath} has no message`);
@@ -105,13 +137,9 @@ function runValidator(validatorFn: ValidateFunction, value: unknown): Validation
   return { ok: false, errors };
 }
 
-// Walks the candidate query and assembles per-path overrides for two common
-// hand-authoring traps. Index 1 of every clause must be an options object
-// (MBQL 5 puts opts second; the legacy MBQL 4 shape `[op, id, opts]` lands the
-// id in this slot — Ajv just says "must be object", which doesn't tell the
-// caller *why*). Index 2 of aggregation/expression refs must be a string
-// (the target's lib/uuid or name); a numeric position there is the legacy
-// position-index footgun.
+// An if/then failure only restates the issue its `then` branch already reported at a deeper path.
+const IF_KEYWORD = "if";
+
 function collectMessageOverrides(root: unknown): Map<string, string> {
   const overrides = new Map<string, string>();
   visit(root, "");
@@ -156,7 +184,7 @@ function clauseSlot1Message(clause: readonly unknown[]): string | null {
   if (operator === "field") {
     return FIELD_SLOT1_HINT_MESSAGE;
   }
-  return clauseSlot1HintMessage(operator, slot1);
+  return clauseSlot1HintMessage(operator);
 }
 
 function refSlot2Message(clause: readonly unknown[]): string | null {
@@ -173,38 +201,19 @@ function refSlot2Message(clause: readonly unknown[]): string | null {
   return refHintForKind(kind);
 }
 
-// Only `aggregation` and `expression` refs have unambiguously string-typed
-// third elements. `metric`, `measure`, and `segment` refs accept entity ids
-// that may be integer or string depending on the resource, so a "must be
-// string" rewrite for those would mislead — leave Ajv's bare message alone.
+// Only `aggregation` and `expression` refs take a string third element.
 function refHintForKind(kind: string): string | null {
   switch (kind) {
     case "aggregation": {
-      return "must be the target aggregation's lib/uuid (string), not a numeric position";
+      return "must be the lib/uuid of an aggregation in this stage";
     }
     case "expression": {
-      return "must be the target expression's name (string), not a numeric position";
+      return "must be the name of an expression in this stage";
     }
     default: {
       return null;
     }
   }
-}
-
-function describeJsonValue(value: unknown): string {
-  if (value === null) {
-    return "null";
-  }
-  if (Array.isArray(value)) {
-    return "array";
-  }
-  if (typeof value === "string") {
-    return `string ${JSON.stringify(value)}`;
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return `${typeof value} ${String(value)}`;
-  }
-  return typeof value;
 }
 
 export function validateQuery(value: unknown): ValidationOutcome {
@@ -253,9 +262,8 @@ export function assertNotLegacyEnvelopeWrappingMbql5(
     return;
   }
   throw new ConfigError(
-    `${options.contextLabel}: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope. ` +
-      `For MBQL 5, ${options.bodyNoun} is the mbql/query value itself: ` +
-      `{"lib/type":"mbql/query", database:N, stages:[…]}.`,
+    `${options.contextLabel}: ${options.bodyNoun} is the query itself: ` +
+      `{"lib/type": "mbql/query", "database": N, "stages": […]}.`,
   );
 }
 
@@ -272,11 +280,11 @@ export type QuerySchemaBundle = z.infer<typeof QuerySchemaBundle>;
 
 export function getQuerySchemaBundle(): QuerySchemaBundle {
   return {
-    schema: querySchema,
+    schema: querySchemaForApi,
     defs: {
       "id.yaml": idSchema,
       "parameter.yaml": parameterSchema,
-      "ref.yaml": refSchema,
+      "ref.yaml": refSchemaWithIds,
       "temporal_bucketing.yaml": temporalSchema,
     },
   };

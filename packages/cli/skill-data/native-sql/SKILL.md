@@ -8,7 +8,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 **Prefer a structured query.** Native SQL is a Metabase query whose single stage is raw SQL (`mbql.stage/native`) instead of structured MBQL (`mbql.stage/mbql`) — both are the same query envelope (`mbql`). Reach for a native stage only when a structured query genuinely can't express it — engine-specific functions, CTEs, window logic beyond `offset`, hairy hand-tuned SQL — or when the user asks for SQL. If you can write it as a structured stage, do.
 
-General flag conventions, body-input precedence, `./.scratch`, and `mb uuid` mechanics live in `core` (`mb skills get core`).
+General flag conventions, body-input precedence and `./.scratch` live in `core` (`mb skills get core`).
 
 ## The shape
 
@@ -45,7 +45,7 @@ Four kinds of tag, by `type`:
 | **Snippet**        | `snippet`                        | `{{snippet: Active Rows}}`    | a reusable SQL fragment (`mb snippet`)       |
 | **Card reference** | `card`                           | `{{#42}}` or `{{#42-slug}}`   | another saved query, as a subquery           |
 
-Give each tag an `id` — mint one per tag with `mb uuid` (never hand-write one). Wrap any clause that should be droppable when its value is empty in **`[[ … ]]`**, keyword and all: `[[AND {{status}}]]`, not `AND [[{{status}}]]`. Only one level of nesting; a query using several optional `[[AND …]]` blocks needs a real `WHERE` first (e.g. `WHERE true [[AND {{a}}]] [[AND {{b}}]]`).
+Give each tag an `id`, unique among the tags; the tag's name serves. Wrap any clause that should be droppable when its value is empty in **`[[ … ]]`**, keyword and all: `[[AND {{status}}]]`, not `AND [[{{status}}]]`. Only one level of nesting; a query using several optional `[[AND …]]` blocks needs a real `WHERE` first (e.g. `WHERE true [[AND {{a}}]] [[AND {{b}}]]`).
 
 ## The decision that matters: field filter vs. raw variable
 
@@ -62,7 +62,7 @@ Field filters only bind to a **real, connected database column** — not an expr
 
 ```json
 "status": {
-  "id": "9ddca4ca-3906-83fd-bc6b-8480ae9ab05e",
+  "id": "status",
   "name": "status",
   "display-name": "Status",
   "type": "dimension",
@@ -71,7 +71,7 @@ Field filters only bind to a **real, connected database column** — not an expr
 }
 ```
 
-**`dimension` is a field ref: `["field", {options}, <field-id>]`** — options object **second**, id **third**, exactly the `mbql` rule. The legacy `["field", <id>, null]` shape (id first) that the UI and older docs show is **rejected by pre-flight** here (`must be the field options object`). Send `{}` for the options; the server fills in a `lib/uuid`. The field id comes from `table get <id> --include fields`.
+**`dimension` is a field ref: `["field", {options}, <field-id>]`** — options object **second**, id **third**, exactly the `mbql` rule. Send `{}` for the options. The field id comes from `table get <id> --include fields`.
 
 `widget-type` must suit the column's type and is a closed enum (same vocabulary as dashboard filter `type`): string ops (`string/=`, `string/!=`, `string/contains`, `string/starts-with`, …), number ops (`number/=`, `number/between`, `number/>=`, …), dates (`date/all-options`, `date/range`, `date/relative`, `date/month-year`, …), plus `category`, `id`, `boolean/=`, and the `location/*` set. Text column → a `string/*` or `category`; datetime → a `date/*`; numeric → a `number/*`. `date/all-options` is the most flexible date widget.
 
@@ -79,7 +79,7 @@ Field filters only bind to a **real, connected database column** — not an expr
 
 ```json
 "min_total": {
-  "id": "35f1ecd4-d622-6d14-54be-750c498043cb",
+  "id": "min_total",
   "name": "min_total",
   "display-name": "Minimum total",
   "type": "number",
@@ -98,7 +98,7 @@ Snippet and card-reference bodies (and the full field list for every kind) are i
 
 ## Wiring, defaults, and running
 
-**Give a tag a default or a dropdown source** by declaring it in the card's `parameters` array (alongside `dataset_query`) — this is where `default`, and a `values_source_type` (`static-list` / `card`) live. Its `target` links back to the tag: `["dimension", ["template-tag", "status"]]` for a field filter, `["variable", ["template-tag", "min_total"]]` for a raw variable. (Metabase auto-derives basic `parameters` from the template tags, so you only declare them to add defaults or a value source.)
+**A tag's default is the tag's own `default`.** Metabase derives the card's `parameters` from the template tags; declare one in the card's `parameters` array (alongside `dataset_query`) only to give it a dropdown source, `values_source_type` (`static-list` / `card`). The declared parameter's `id` is the tag's `id`, and its `target` links back to the tag: `["dimension", ["template-tag", "status"]]` for a field filter, `["variable", ["template-tag", "min_total"]]` for a raw variable.
 
 **Run a saved card with values** via `card query`, whose `--parameters` is a JSON array of `{type, target, value}` — same `target` grammar:
 
@@ -111,7 +111,6 @@ mb card query 12 --parameters '[{"type":"string/=","target":["dimension",["templ
 ## Don't
 
 - Don't wrap a field filter in an operator (`WHERE col = {{ff}}`) — write it bare (`WHERE {{ff}}`).
-- Don't write the field-filter `dimension` in the legacy `["field", id, null]` shape — use `["field", {}, id]` (options second).
 - Don't author the flat `{type:"native", …}` form — send the native stage above.
 - Don't use native SQL for DDL or multiple statements — the editor is read-only, single-statement; `CREATE`/`UPDATE`/`;`-chained SQL is unsupported. To materialize a table, use a `transform`.
 - Don't expect `[[ ]]` to save you from a case/type mismatch — `WHERE plan = {{p}}` returns zero rows on a case-sensitive engine if the value's case is off; that's a value problem, not syntax.
