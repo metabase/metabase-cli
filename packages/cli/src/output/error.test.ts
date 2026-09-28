@@ -73,6 +73,7 @@ const CATEGORIES: ReadonlyArray<ErrorCategory> = [
   "capability",
   "abort",
   "internal",
+  "outcome",
   "unknown",
 ];
 
@@ -88,6 +89,7 @@ const EXPECTED_EXIT_CODES: Record<ErrorCategory, number> = {
   capability: 2,
   abort: 130,
   internal: 1,
+  outcome: 1,
   unknown: 1,
 };
 

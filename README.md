@@ -383,13 +383,13 @@ mb transform-tag delete 5 --yes
 
 ## Transform tests
 
-CRUD and run on `/api/ee/transform-test`. Requires Metabase v65 or newer with the `transforms-testing` premium feature. A transform test pins a transform's behaviour without touching real data: every table the transform reads is replaced by an `input` fixture, the transform runs into a temp table, and each `expectation` checks that output. The temp tables are dropped when the run ends.
+CRUD and run on `/api/ee/transform-test`. Requires Metabase v65 or newer with the `transforms-testing` premium feature. A transform test pins a transform's behaviour: every table the transform reads is replaced by an `input` fixture, the transform runs into a temp table, and each `expectation` checks that output. The temp tables are dropped when the run ends. The transform and the expectations read only those temp tables; a `format: "sql"` input runs verbatim against the transform's source database, so it may read real tables. Only query transforms (native SQL or MBQL) can be tested, on Postgres, MySQL, H2, ClickHouse, Redshift or SQL Server.
 
 An input names its `table` and carries either `format: "sql"` with a `sql` query or `format: "rows"` with `columns` (each a `name` and a `cast_type` the warehouse accepts as a `CAST` target) and `rows`; every row carries exactly the declared columns.
 
-An expectation is either `type: "empty"` with the `sql` that must return no rows, or `type: "equals"`, which takes the same `format` split as an input — `format: "rows"` with the `columns` and `rows` the output must hold exactly, or `format: "sql"` with a query returning them. An `equals` without a `format` is refused. Expectation names are unique within a test. Expectation SQL may name only the transform's target table and its declared input tables, which are rewritten to the run's temp tables; any other table is refused with `transform-test.unremapped-reference`.
+An expectation is either `type: "empty"` with the `sql` that must return no rows, or `type: "equals"` with `format: "rows"` and the `columns` and `rows` the output must hold exactly. Expectation names are unique within a test. Expectation SQL may name only the transform's target table and its declared input tables, which are rewritten to the run's temp tables; any other table, or a column qualified by a table name rather than an alias, is refused with `transform-test.unremapped-reference`.
 
-Create and update bodies are closed, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it can be sent back:
+Create and update bodies are closed at every level, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it can be sent back:
 
 ```sh
 mb transform-test get 1 --full --json \
@@ -448,12 +448,17 @@ mb transform-test delete 1 --yes
 
 ### `mb transform-test run <id>`
 
-Runs the transform against the fixtures and reports what each expectation found. Exits non-zero when the test does not pass, so it drops straight into CI.
+Runs the transform against the fixtures and reports what each expectation found. Exits 1 when the test does not pass, so it drops straight into CI.
 
 ```sh
 mb transform-test run 1
 mb transform-test run 1 --json
+mb transform-test run 1 --timeout 300000
 ```
+
+| Flag             | Description                                                                |
+| ---------------- | -------------------------------------------------------------------------- |
+| `--timeout <ms>` | Request timeout in ms (default 30000); the run is one synchronous request. |
 
 ## Databases
 

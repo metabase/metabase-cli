@@ -15,6 +15,9 @@ user bare.
 Throughout, `<target>` stands for the transform's target table as written in the transform's own
 definition, and `<input>` for a declared input table.
 
+`IS DISTINCT FROM` is the null-safe inequality; MySQL spells it `NOT (a <=> b)`, and where neither
+parses, `a <> b OR (a IS NULL) <> (b IS NULL)`.
+
 ## Grain & keys
 
 **G1 — Declared grain.** Every output table states "one row per X"; the declaration anchors every
