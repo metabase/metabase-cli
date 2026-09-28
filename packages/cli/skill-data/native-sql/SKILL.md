@@ -34,7 +34,7 @@ You may see an older flat form in cards created long ago — `{database, type:"n
 
 ## Parameters are template tags
 
-Every `{{name}}` in the SQL must have a matching entry in the stage's `template-tags`, keyed by that name. **The three must agree exactly:** the `{{name}}` in SQL = the map key = the entry's `"name"` field. Names are case-sensitive (`{{Cat}}` ≠ `{{cat}}`). A `{{name}}` with no entry fails at run time; an unused entry is ignored. A tag fails `--dry-run` and a run unless it has a value, a `default`, or sits inside an optional `[[ … ]]` clause.
+Every `{{name}}` in the SQL must have a matching entry in the stage's `template-tags`, keyed by that name. **The three must agree exactly:** the `{{name}}` in SQL = the map key = the entry's `"name"` field. Names are case-sensitive (`{{Cat}}` ≠ `{{cat}}`). A `{{name}}` with no entry fails at run time; an unused entry is ignored. `--dry-run` and a run fail on a raw variable with no value or `default` outside an optional `[[ … ]]` clause, and on any `"required": true` tag with no value; a field filter with no value compiles to `1 = 1` and matches every row.
 
 Four kinds of tag, by `type`:
 

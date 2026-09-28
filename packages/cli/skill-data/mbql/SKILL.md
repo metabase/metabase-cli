@@ -42,7 +42,7 @@ Every clause is `[op, {options}, ...args]` with the options object at position 1
 ["field", { "temporal-unit": "month" }, 22]
 ```
 
-The server drops an options key it doesn't know without an error, so spell keys exactly as written here. A field ref is `["field", {options}, <field id>]`. Its options: `temporal-unit` (bucket a date: `day`, `week`, `month`, `quarter`, `year`, …), `binning` (`{"strategy": "num-bins", "num-bins": 10}`), `join-alias` (a column of an explicit join), `source-field` (a column reached through an FK), `base-type` (on a column named by string, see Multi-stage).
+An options key the server doesn't know is rejected or silently dropped, never applied, so spell keys exactly as written here. A field ref is `["field", {options}, <field id>]`. Its options: `temporal-unit` (bucket a date: `day`, `week`, `month`, `quarter`, `year`, …), `binning` (`{"strategy": "num-bins", "num-bins": 10}`), `join-alias` (a column of an explicit join), `source-field` (a column reached through an FK), `base-type` (on a column named by string, see Multi-stage).
 
 ## Filters, aggregation, breakout
 
@@ -156,7 +156,7 @@ mb query --print-schema --profile <n> > ./.scratch/mbql-schema.json   # the full
 ```
 
 - `--dry-run` checks the shape locally, then has the server compile the query to SQL without running it. It answers `{ ok, errors: [{ path, message }], sql }`: exit `0` with the compiled `sql`, or exit `2` with `sql: null` when either check rejects the body. A local error's `path` is a JSON Pointer into the body; a server error's is `""`. Exit `1` means the compile could not run (the server refused permission, server unreachable).
-- The server compile catches what the shape check cannot: a ref to a missing aggregation or expression, an unknown clause, a duplicate `lib/uuid`, a missing table, field, card or segment, a template tag with no value outside an optional `[[ ]]` clause. Argument types and a later stage's column names are checked only by the warehouse, so a mistake there compiles and fails on the run. When a run fails, read the message and fix the body it names; an error naming nothing in the body (a `NullPointerException`) is a server fault, so stop editing a body that is otherwise correct.
+- The server compile catches what the shape check cannot: a ref to a missing aggregation or expression, an unknown clause, a duplicate `lib/uuid`, a missing table, field, card or segment, a raw-variable template tag with no value or `default` outside an optional `[[ ]]` clause, a `required` tag with no value. A column's type not suiting its operator and a misspelled column name in a later stage are caught only by the warehouse, so a mistake there compiles and fails on the run. When a run fails, read the message and fix the body it names; an error naming nothing in the body (a `NullPointerException`) is a server fault, so stop editing a body that is otherwise correct.
 - A run checks the shape first and never sends an invalid body; exit `1` is a server or warehouse error after that.
 - A server error `lib/uuid: missing required key` at a clause means that clause's arguments are wrong: their count, a unit it doesn't take, a bad time zone.
 - A run answers `data.rows` and slim `data.cols` (`name`, `display_name`, `base_type`, `semantic_type`); `--full` returns the raw `/api/dataset` envelope.
