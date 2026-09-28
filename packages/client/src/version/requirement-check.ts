@@ -5,6 +5,7 @@ import {
   versionTooOldMessage,
 } from "./preflight-error";
 import { featureGap, type ServerProfile } from "./profile";
+import { describeVersion } from "./tag";
 /** The first of `features` the profile lacks, or `null` when it has every one. */
 export function checkFeatures(
   features: readonly FeatureName[],
@@ -25,7 +26,7 @@ function describeGap(
   profile: ServerProfile,
 ): RequirementFailure {
   const rule: FeatureRule = FEATURE_RULES[feature];
-  const serverVersion = profile.version === null ? null : profile.version.tag;
+  const serverVersion = profile.version.tag;
   const tokenFeature = rule.tokenFeature ?? null;
   if (gap.kind === "token") {
     return {
@@ -39,7 +40,7 @@ function describeGap(
   }
   return {
     reason: "version-too-old",
-    detail: versionTooOldMessage(rule.since, serverVersion),
+    detail: versionTooOldMessage(rule.since, describeVersion(profile.version)),
     feature,
     since: rule.since,
     tokenFeature,

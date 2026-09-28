@@ -1,8 +1,11 @@
 import { z } from "zod";
 
+import { SessionProperties } from "../domain/session-properties";
 import { JSON_CONTENT_TYPE, parseJsonResult } from "../json";
 import { ConfigError, errorMessage, TimeoutError } from "../errors";
 import { assertEndpointOrigin } from "../url";
+import { PROBE_PATH, serverInfoFromProperties } from "../version/probe";
+import { createServerProfile } from "../version/profile";
 
 import { HttpError, isRetryableStatus } from "./errors";
 import { buildNetworkError } from "./network-error";
@@ -175,15 +178,12 @@ async function postForm<T>(
 export const OAUTH_UNSUPPORTED_MESSAGE =
   "this Metabase does not support OAuth login (requires Metabase v63 or newer)";
 
-// Probe whether the server supports OAuth login for the CLI. Returns null when it does not:
-// pre-v60 Metabase answers the discovery path with the SPA shell (200 text/html) or a 404, so
-// "unsupported" is any non-2xx or non-JSON response; v60–62 expose an OAuth authorization
-// server scoped to the agent API/MCP only — see the scopes_supported check below. Network-level
-// failures still throw.
+// Pre-v60 Metabase answers the discovery path with the SPA shell (200 text/html) or a 404, so "no
+// OAuth server" is any non-2xx or non-JSON response. Network-level failures still throw.
 // The well-known path is appended after any subpath (base + /.well-known/...), not inserted
 // between host and path as RFC 8414 prescribes — Metabase routes it like /api/*, so a
 // subpath-hosted instance serves discovery under its prefix.
-export async function tryDiscoverMetadata(
+async function fetchMetadata(
   baseUrl: string,
   userAgent: string,
 ): Promise<OAuthServerMetadata | null> {
@@ -199,15 +199,12 @@ export async function tryDiscoverMetadata(
     await response.body?.cancel().catch(() => undefined);
     return null;
   }
-  const metadata = await readJson(response, OAuthServerMetadata, "OAuth discovery");
-  // A server that doesn't grant the full-access scope only issues agent-API/MCP-scoped tokens
-  // (Metabase v60–62); the general REST API rejects them, so for the CLI it's "no OAuth support".
-  const scopes = metadata.scopes_supported;
-  if (scopes !== undefined && !scopes.includes(OAUTH_SCOPE)) {
-    return null;
-  }
-  // Pin every endpoint we will send secrets to back to the configured base URL's origin before
-  // any caller uses them, so a tampered discovery document can't redirect tokens to another host.
+  return readJson(response, OAuthServerMetadata, "OAuth discovery");
+}
+
+// Pin every endpoint we will send secrets to back to the configured base URL's origin before any
+// caller uses them, so a tampered discovery document can't redirect tokens to another host.
+function pinEndpoints(metadata: OAuthServerMetadata, baseUrl: string): OAuthServerMetadata {
   assertEndpointOrigin(metadata.issuer, baseUrl, "issuer");
   assertEndpointOrigin(metadata.authorization_endpoint, baseUrl, "authorization endpoint");
   assertEndpointOrigin(metadata.token_endpoint, baseUrl, "token endpoint");
@@ -220,7 +217,47 @@ export async function tryDiscoverMetadata(
   return metadata;
 }
 
-export async function discoverMetadata(
+// Discovery advertises the full-access scope from the v62 patch that introduced it through v63;
+// v60, v61 and the first v62 patches serve an OAuth server for the agent API only, and newer
+// servers keep the scope out of `scopes_supported` on purpose while still granting it. So a
+// discovery document that names the scope settles it, and otherwise the version does, read from
+// the properties endpoint, which answers without a credential.
+async function grantsFullAccessScope(
+  metadata: OAuthServerMetadata,
+  baseUrl: string,
+  userAgent: string,
+): Promise<boolean> {
+  if (metadata.scopes_supported?.includes(OAUTH_SCOPE) === true) {
+    return true;
+  }
+  const url = `${baseUrl}${PROBE_PATH}`;
+  const response = await oauthFetch({
+    url,
+    method: "GET",
+    userAgent,
+    headers: { accept: JSON_CONTENT_TYPE },
+  });
+  if (!response.ok) {
+    throw await failure(response, "Server properties", "GET", url);
+  }
+  const properties = await readJson(response, SessionProperties, "Server properties");
+  const profile = createServerProfile(serverInfoFromProperties(properties));
+  return profile.features.oauthFullAccessScope;
+}
+
+// The discovery document when the server can log a client in to the whole REST API, else null.
+export async function tryDiscoverMetadata(
+  baseUrl: string,
+  userAgent: string,
+): Promise<OAuthServerMetadata | null> {
+  const metadata = await fetchMetadata(baseUrl, userAgent);
+  if (metadata === null || !(await grantsFullAccessScope(metadata, baseUrl, userAgent))) {
+    return null;
+  }
+  return pinEndpoints(metadata, baseUrl);
+}
+
+export async function discoverLoginMetadata(
   baseUrl: string,
   userAgent: string,
 ): Promise<OAuthServerMetadata> {
@@ -229,6 +266,18 @@ export async function discoverMetadata(
     throw new ConfigError(OAUTH_UNSUPPORTED_MESSAGE);
   }
   return metadata;
+}
+
+// For a grant already held: the server that issued it needs no second look at what it supports.
+export async function discoverMetadata(
+  baseUrl: string,
+  userAgent: string,
+): Promise<OAuthServerMetadata> {
+  const metadata = await fetchMetadata(baseUrl, userAgent);
+  if (metadata === null) {
+    throw new ConfigError(OAUTH_UNSUPPORTED_MESSAGE);
+  }
+  return pinEndpoints(metadata, baseUrl);
 }
 
 export async function registerClient(input: ClientRegistration): Promise<RegisteredClient> {

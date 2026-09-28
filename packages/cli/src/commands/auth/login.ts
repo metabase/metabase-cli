@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Credential } from "@metabase/client/auth/credential";
 import { oauthLogin } from "@metabase/client/auth/oauth-login";
 import { revokeOAuthCredential } from "@metabase/client/auth/oauth-session";
-import { ConfigError, errorMessage } from "@metabase/client/errors";
+import { ConfigError, errorMessage, NetworkError, TimeoutError } from "@metabase/client/errors";
 import { tryDiscoverMetadata, type OAuthServerMetadata } from "@metabase/client/http/oauth";
 import { normalizeUrl } from "@metabase/client/url";
 
@@ -161,14 +161,15 @@ type LoginMethod = "oauth" | "apiKey";
 
 // Reaching the server but finding no CLI-capable OAuth server (pre-v63) degrades to the API key
 // prompt; not reaching it at all is an error worth stopping on before any credential is collected.
+// A server that answered, however badly, keeps the error that says how.
 async function probeOAuthSupport(url: string): Promise<OAuthServerMetadata | null> {
   try {
     return await tryDiscoverMetadata(url, USER_AGENT);
   } catch (error) {
-    if (error instanceof ConfigError) {
-      throw error;
+    if (error instanceof NetworkError || error instanceof TimeoutError) {
+      throw new ConfigError(`could not reach ${url}: ${errorMessage(error)}`);
     }
-    throw new ConfigError(`could not reach ${url}: ${errorMessage(error)}`);
+    throw error;
   }
 }
 

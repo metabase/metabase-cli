@@ -9,15 +9,15 @@ import { serverChangeNote, skewNotice, summarizeServer } from "./server-summary"
 function serverAt(major: number, tokenFeatures: ServerInfo["tokenFeatures"] = null): ServerInfo {
   return {
     edition: "oss",
-    version: { tag: `v0.${major}.0`, major, patch: 0 },
+    version: { kind: "release", tag: `v0.${major}.0`, major, patch: 0 },
     date: null,
     hash: null,
     tokenFeatures,
   };
 }
 
-const UNPARSEABLE: ServerInfo = {
-  version: null,
+const DEVELOPMENT: ServerInfo = {
+  version: { kind: "development", tag: "vUNKNOWN" },
   edition: null,
   date: null,
   hash: null,
@@ -65,14 +65,12 @@ describe("skewNotice", () => {
   it("points a newer server at mb upgrade and names the major it is read as", () => {
     const beyond = KNOWN_RANGE.max + 1;
     expect(skewNotice(createServerProfile(serverAt(beyond)))).toBe(
-      `Metabase v0.${beyond}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were a head build past v${KNOWN_RANGE.max}. Run \`mb upgrade\` for a newer CLI.`,
+      `Metabase v0.${beyond}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were v${KNOWN_RANGE.max + 1}. Run \`mb upgrade\` for a newer CLI.`,
     );
   });
 
-  it("says an unparseable version is read as a head build", () => {
-    expect(skewNotice(createServerProfile(UNPARSEABLE))).toBe(
-      `Could not parse the Metabase version; assuming a head build past v${KNOWN_RANGE.max}.`,
-    );
+  it("prints nothing for a development build", () => {
+    expect(skewNotice(createServerProfile(DEVELOPMENT))).toBeNull();
   });
 });
 
@@ -83,9 +81,9 @@ describe("serverChangeNote", () => {
     );
   });
 
-  it("describes a version that stopped parsing as unparseable", () => {
-    expect(serverChangeNote(serverAt(59), UNPARSEABLE)).toBe(
-      "The server's version changed since the last probe (was v0.59.0, now an unparseable version); the profile was refreshed — retry the command.",
+  it("names a development build that replaced a release", () => {
+    expect(serverChangeNote(serverAt(59), DEVELOPMENT)).toBe(
+      "The server's version changed since the last probe (was v0.59.0, now development build vUNKNOWN); the profile was refreshed — retry the command.",
     );
   });
 

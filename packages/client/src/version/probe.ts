@@ -1,15 +1,15 @@
 import { SessionProperties, type TokenFeatures } from "../domain/session-properties";
 import type { Transport } from "../http/transport";
 
-import { type Edition, editionFromTag, tryParseTag, type ParsedVersion } from "./tag";
+import { type Edition, editionFromTag, parseTag, type ServerVersion } from "./tag";
 
 export const PROBE_PATH = "/api/session/properties";
 export const PROBE_TIMEOUT_MS = 10_000;
 
 // `edition` is what the tag stamps, and null when the tag stamps nothing (`vUNKNOWN`); a `-SNAPSHOT`
-// tag stamps it even though it carries no usable version.
+// tag stamps it even though it names no release.
 export interface ServerInfo {
-  readonly version: ParsedVersion | null;
+  readonly version: ServerVersion;
   readonly edition: Edition | null;
   readonly date: string | null;
   readonly hash: string | null;
@@ -31,9 +31,13 @@ export async function probeServer(
     timeoutMs: PROBE_TIMEOUT_MS,
     retries: opts.retries ?? 0,
   });
+  return serverInfoFromProperties(properties);
+}
+
+export function serverInfoFromProperties(properties: SessionProperties): ServerInfo {
   const { tag } = properties.version;
   return {
-    version: tryParseTag(tag),
+    version: parseTag(tag),
     edition: editionFromTag(tag),
     date: properties.version.date ?? null,
     hash: properties.version.hash ?? null,

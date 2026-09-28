@@ -56,7 +56,16 @@ export type {
 
 export { probeServer } from "./version/probe";
 export type { ServerInfo } from "./version/probe";
-export { Edition, editionFromTag, ParsedVersion } from "./version/tag";
+export {
+  DevelopmentBuild,
+  describeVersion,
+  Edition,
+  editionFromTag,
+  parseTag,
+  ReleaseVersion,
+  ServerVersion,
+  StoredServerVersion,
+} from "./version/tag";
 export {
   evaluateFeatures,
   FEATURE_NAMES,
@@ -69,6 +78,7 @@ export type {
   FeatureGap,
   FeatureName,
   FeatureRule,
+  RuleMajor,
   TokenGap,
   VersionGap,
 } from "./version/features";

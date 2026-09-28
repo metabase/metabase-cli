@@ -1,6 +1,6 @@
 import { ConfigError } from "../errors";
 import {
-  discoverMetadata,
+  discoverLoginMetadata,
   exchangeCode,
   OAUTH_SCOPE,
   registerClient,
@@ -62,7 +62,7 @@ export async function oauthLogin(
   input: OAuthLoginInput,
   deps: OAuthLoginDeps,
 ): Promise<OAuthCredential> {
-  const metadata = input.metadata ?? (await discoverMetadata(input.baseUrl, input.userAgent));
+  const metadata = input.metadata ?? (await discoverLoginMetadata(input.baseUrl, input.userAgent));
   const pkce = generatePkce();
   const state = randomState();
   // The server validates state in-handler, so a forged callback can't consume the slot.

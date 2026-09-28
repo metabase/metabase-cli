@@ -57,17 +57,17 @@ export function probeAt(
   const tag = `v0.${major}.0`;
   return {
     edition: editionFromTag(tag),
-    version: { tag, major, patch: 0 },
+    version: { kind: "release", tag, major, patch: 0 },
     date: null,
     hash: null,
     tokenFeatures,
   };
 }
 
-// A server whose tag parses to nothing, as `probeServer` reports a head or local build.
-export const UNPARSEABLE_PROBE: ServerInfo = {
+// A master build, as `probeServer` reports the tag the head image carries.
+export const DEVELOPMENT_PROBE: ServerInfo = {
   edition: null,
-  version: null,
+  version: { kind: "development", tag: "vUNKNOWN" },
   date: null,
   hash: null,
   tokenFeatures: null,

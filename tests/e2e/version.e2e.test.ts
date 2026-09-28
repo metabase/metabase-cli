@@ -2,6 +2,7 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { parseJson } from "@metabase/client/json";
 import { KNOWN_RANGE } from "@metabase/client/version/known-range";
+import { describeVersion } from "@metabase/client/version/tag";
 
 import { AuthStatus } from "../../packages/cli/src/commands/auth/status";
 import { CardListEnvelope } from "../../packages/cli/src/commands/card/list";
@@ -10,7 +11,7 @@ import {
   probeAt,
   SEED_USER,
   type SeedTarget,
-  UNPARSEABLE_PROBE,
+  DEVELOPMENT_PROBE,
 } from "../../packages/cli/src/core/auth/temp-config-home";
 
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
@@ -28,8 +29,7 @@ const MEASURES_REFUSAL =
   "This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.";
 const UNREACHABLE_MESSAGE = "Could not reach Metabase: fetch failed";
 
-const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were a head build past v${KNOWN_RANGE.max}. Run \`mb upgrade\` for a newer CLI.`;
-const UNKNOWN_NOTICE = `Could not parse the Metabase version; assuming a head build past v${KNOWN_RANGE.max}.`;
+const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were v${KNOWN_RANGE.max + 1}. Run \`mb upgrade\` for a newer CLI.`;
 const OLDER_NOTICE = `Metabase v0.${BELOW_KNOWN}.0 is older than this CLI supports (v${KNOWN_RANGE.min}+); commands needing a newer feature are refused by name. Upgrade Metabase to v${KNOWN_RANGE.min} or later.`;
 
 describe("version preflight enforcement e2e", () => {
@@ -157,14 +157,14 @@ describe("version skew notices e2e", () => {
     expect(parseJson(result.stdout, CardListEnvelope).returned).toBe(1);
   });
 
-  it("prints exactly one unknown-version notice on stderr and succeeds when the cached probe carries no parseable version", async () => {
+  it("prints no notice and succeeds when the cached probe is a development build", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfileAt(configHome, liveTarget(), UNPARSEABLE_PROBE);
+    await seedProbedProfileAt(configHome, liveTarget(), DEVELOPMENT_PROBE);
 
     const result = await runCli({ args: ["card", "list", "--limit", "1", "--json"], configHome });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.stderr).toBe(UNKNOWN_NOTICE);
+    expect(result.stderr).toBe("");
     expect(parseJson(result.stdout, CardListEnvelope).returned).toBe(1);
   });
 
@@ -190,8 +190,7 @@ describe("version skew notices e2e", () => {
   });
 
   function versionChangedNote(cachedTag: string): string {
-    const liveLabel =
-      bootstrap.server.version === null ? "an unparseable version" : bootstrap.server.version.tag;
+    const liveLabel = describeVersion(bootstrap.server.version);
     return `The server's version changed since the last probe (was ${cachedTag}, now ${liveLabel}); the profile was refreshed — retry the command.`;
   }
 

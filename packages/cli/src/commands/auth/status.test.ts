@@ -118,7 +118,7 @@ describe("auth status command", () => {
     await writeProfile({ url: "https://m.example.com", apiKey: "secret" });
     const server: ServerInfo = {
       edition: "oss",
-      version: { tag: "v0.58.7", major: 58, patch: 7 },
+      version: { kind: "release", tag: "v0.58.7", major: 58, patch: 7 },
       date: null,
       hash: null,
       tokenFeatures: null,
@@ -136,7 +136,7 @@ describe("auth status command", () => {
       url: "https://m.example.com",
       method: "apiKey",
       user: { id: 42, name: "Alice", isAdmin: true },
-      version: { tag: "v0.58.7", major: 58, patch: 7 },
+      version: { kind: "release", tag: "v0.58.7", major: 58, patch: 7 },
       edition: "oss",
       skew: "supported",
       knownRange: KNOWN_RANGE,
@@ -152,7 +152,7 @@ describe("auth status command", () => {
     const beyond = KNOWN_RANGE.max + 5;
     const server: ServerInfo = {
       edition: "ee",
-      version: { tag: `v1.${beyond}.0`, major: beyond, patch: 0 },
+      version: { kind: "release", tag: `v1.${beyond}.0`, major: beyond, patch: 0 },
       date: null,
       hash: null,
       tokenFeatures: { library: true },
@@ -170,7 +170,7 @@ describe("auth status command", () => {
       url: "https://m.example.com",
       method: "apiKey",
       user: { id: 42, name: "Alice", isAdmin: true },
-      version: { tag: `v1.${beyond}.0`, major: beyond, patch: 0 },
+      version: { kind: "release", tag: `v1.${beyond}.0`, major: beyond, patch: 0 },
       edition: "ee",
       skew: "newer-than-known",
       knownRange: KNOWN_RANGE,

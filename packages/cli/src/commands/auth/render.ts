@@ -7,7 +7,7 @@ const SKEW_LABEL: Readonly<Record<Skew, string>> = Object.freeze({
   supported: "supported",
   "older-than-known": `older than this CLI supports (v${KNOWN_RANGE.min} min)`,
   "newer-than-known": `newer than this CLI knows (v${KNOWN_RANGE.max} max)`,
-  unknown: "unknown version",
+  development: "development build (newer than every release)",
 });
 
 function pickProperty(value: unknown, key: string): unknown {

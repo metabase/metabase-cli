@@ -402,7 +402,7 @@ describe("createTransport.server", () => {
   };
   const PROBED_PROFILE = createServerProfile({
     edition: "ee",
-    version: { tag: "v1.61.2", major: 61, patch: 2 },
+    version: { kind: "release", tag: "v1.61.2", major: 61, patch: 2 },
     date: "2026-05-19",
     hash: "0c64e27",
     tokenFeatures: { library: true },
@@ -596,7 +596,7 @@ describe("createTransport.server", () => {
       fetchImpl: fakeFetch.fetch,
       server: createServerProfile({
         edition: "oss",
-        version: { tag: `v0.${beyond}.0`, major: beyond, patch: 0 },
+        version: { kind: "release", tag: `v0.${beyond}.0`, major: beyond, patch: 0 },
         date: null,
         hash: null,
         tokenFeatures: null,
@@ -620,7 +620,7 @@ describe("createTransport.server", () => {
 describe("createTransport.require", () => {
   const OSS_58 = createServerProfile({
     edition: "oss",
-    version: { tag: "v0.58.0", major: 58, patch: 0 },
+    version: { kind: "release", tag: "v0.58.0", major: 58, patch: 0 },
     date: null,
     hash: null,
     tokenFeatures: null,
@@ -726,7 +726,7 @@ describe("createTransport.require", () => {
 describe("createTransport.requireFeatures", () => {
   const OSS_58 = createServerProfile({
     edition: "oss",
-    version: { tag: "v0.58.0", major: 58, patch: 0 },
+    version: { kind: "release", tag: "v0.58.0", major: 58, patch: 0 },
     date: null,
     hash: null,
     tokenFeatures: null,

@@ -96,7 +96,7 @@ describe("skillFilterNotices", () => {
     kind: "found",
     profile: createServerProfile({
       edition: "oss",
-      version: { tag: "v0.58.0", major: 58, patch: 0 },
+      version: { kind: "release", tag: "v0.58.0", major: 58, patch: 0 },
       date: null,
       hash: null,
       tokenFeatures: null,

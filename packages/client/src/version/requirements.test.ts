@@ -69,7 +69,7 @@ const CREDENTIALS: ClientCredentials = {
 // A method that picks its wire shape by generation reads the profile between asking and requesting.
 const SERVER = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.63.0", major: 63, patch: 0 },
+  version: { kind: "release", tag: "v0.63.0", major: 63, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,

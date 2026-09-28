@@ -121,7 +121,7 @@ const EXPIRING_POLL = { intervalMs: 1, timeoutMs: 5 };
 // links the output table only on the detail, as a hydrated `table`.
 const SERVER = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.59.0", major: 59, patch: 0 },
+  version: { kind: "release", tag: "v0.59.0", major: 59, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,
@@ -130,7 +130,7 @@ const SERVER = createServerProfile({
 // The first generation carrying `target_table_id` as a column on every transform endpoint.
 const TABLE_ID_COLUMN_SERVER = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.61.0", major: 61, patch: 0 },
+  version: { kind: "release", tag: "v0.61.0", major: 61, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,
@@ -139,7 +139,7 @@ const TABLE_ID_COLUMN_SERVER = createServerProfile({
 // The first generation whose transform routes include the checkpoint reset.
 const CHECKPOINT_SERVER = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.60.0", major: 60, patch: 0 },
+  version: { kind: "release", tag: "v0.60.0", major: 60, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,
@@ -148,7 +148,7 @@ const CHECKPOINT_SERVER = createServerProfile({
 // The first generation with DAG reprocess runs and the unified run history.
 const DAG_SERVER = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.64.0", major: 64, patch: 0 },
+  version: { kind: "release", tag: "v0.64.0", major: 64, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,

@@ -107,7 +107,7 @@ const READ_COLLECTIONS_CALL = {
 // own feature is refused here before it reaches the scripted wire.
 const SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.59.0", major: 59, patch: 0 },
+  version: { kind: "release", tag: "v1.59.0", major: 59, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { library: true },
@@ -116,7 +116,7 @@ const SERVER = createServerProfile({
 // The first generation whose `effective_children` carry each child's `type`.
 const TYPED_CHILDREN_SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.62.0", major: 62, patch: 0 },
+  version: { kind: "release", tag: "v1.62.0", major: 62, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { library: true },

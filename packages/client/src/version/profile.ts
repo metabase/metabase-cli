@@ -9,16 +9,17 @@ import {
   type FeatureName,
   Features,
   ruleGap,
+  type RuleMajor,
 } from "./features";
 import { KNOWN_RANGE } from "./known-range";
 import type { ServerInfo } from "./probe";
-import { Edition, ParsedVersion } from "./tag";
+import { Edition, ServerVersion } from "./tag";
 
-export const Skew = z.enum(["supported", "older-than-known", "newer-than-known", "unknown"]);
+export const Skew = z.enum(["supported", "older-than-known", "newer-than-known", "development"]);
 export type Skew = z.infer<typeof Skew>;
 
 export const ServerProfile = z.object({
-  version: ParsedVersion.nullable(),
+  version: ServerVersion,
   buildDate: z.string().nullable(),
   hash: z.string().nullable(),
   edition: Edition,
@@ -29,7 +30,7 @@ export const ServerProfile = z.object({
 export type ServerProfile = z.infer<typeof ServerProfile>;
 
 interface Placement {
-  readonly effectiveMajor: number;
+  readonly major: RuleMajor;
   readonly skew: Skew;
 }
 
@@ -41,7 +42,7 @@ export function createServerProfile(info: ServerInfo): ServerProfile {
     hash: info.hash,
     edition: detectEdition(info),
     tokenFeatures: info.tokenFeatures,
-    features: evaluateFeatures(placement.effectiveMajor, info.tokenFeatures),
+    features: evaluateFeatures(placement.major, info.tokenFeatures),
     skew: placement.skew,
   };
 }
@@ -50,20 +51,20 @@ export function createServerProfile(info: ServerInfo): ServerProfile {
 // agrees with the boolean in `features`.
 export function featureGap(profile: ServerProfile, feature: FeatureName): FeatureGap | null {
   const placement = place(profile.version);
-  return ruleGap(FEATURE_RULES[feature], placement.effectiveMajor, profile.tokenFeatures);
+  return ruleGap(FEATURE_RULES[feature], placement.major, profile.tokenFeatures);
 }
 
-function place(version: ParsedVersion | null): Placement {
-  if (version === null) {
-    return { effectiveMajor: KNOWN_RANGE.max + 1, skew: "unknown" };
+function place(version: ServerVersion): Placement {
+  if (version.kind === "development") {
+    return { major: "development", skew: "development" };
   }
   if (version.major > KNOWN_RANGE.max) {
-    return { effectiveMajor: KNOWN_RANGE.max + 1, skew: "newer-than-known" };
+    return { major: KNOWN_RANGE.max + 1, skew: "newer-than-known" };
   }
   if (version.major < KNOWN_RANGE.min) {
-    return { effectiveMajor: version.major, skew: "older-than-known" };
+    return { major: version.major, skew: "older-than-known" };
   }
-  return { effectiveMajor: version.major, skew: "supported" };
+  return { major: version.major, skew: "supported" };
 }
 
 // The tag is authoritative. Where it stamps no edition, `/api/session/properties` carries no other

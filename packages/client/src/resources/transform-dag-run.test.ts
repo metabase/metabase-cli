@@ -45,7 +45,7 @@ const BINARY_READ_HEADERS = {
 // The first generation with DAG reprocess runs.
 const SERVER = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.64.0", major: 64, patch: 0 },
+  version: { kind: "release", tag: "v0.64.0", major: 64, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,
@@ -53,7 +53,7 @@ const SERVER = createServerProfile({
 
 const OLDER_SERVER = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.63.0", major: 63, patch: 0 },
+  version: { kind: "release", tag: "v0.63.0", major: 63, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,

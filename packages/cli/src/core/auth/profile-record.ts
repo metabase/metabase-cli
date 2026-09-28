@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { TokenFeatures } from "@metabase/client/domain/session-properties";
-import { Edition, ParsedVersion } from "@metabase/client/version/tag";
+import { Edition, StoredServerVersion } from "@metabase/client/version/tag";
 
 export const ProbedUser = z.object({
   id: z.number().int(),
@@ -15,7 +15,7 @@ export type ProbedUser = z.infer<typeof ProbedUser>;
 // written before they were kept.
 export const ProfileLastProbe = z.object({
   at: z.iso.datetime(),
-  version: ParsedVersion.nullable(),
+  version: StoredServerVersion,
   edition: Edition.nullable().default(null),
   date: z.string().nullable().default(null),
   hash: z.string().nullable().default(null),
@@ -23,6 +23,13 @@ export const ProfileLastProbe = z.object({
   user: ProbedUser,
 });
 export type ProfileLastProbe = z.infer<typeof ProfileLastProbe>;
+
+// An older CLI stored a development build's version as `null`, keeping no tag to place it by; such a
+// probe reads as absent so the next command probes afresh.
+const UntaggedLastProbe = z
+  .object({ version: z.null() })
+  .loose()
+  .transform(() => null);
 
 export const ProfileFailureKind = z.enum(["auth", "network", "server"]);
 export type ProfileFailureKind = z.infer<typeof ProfileFailureKind>;
@@ -59,7 +66,7 @@ export const ProfileRecord = z
     url: z.string(),
     apiKey: z.string().nullable(),
     oauth: ProfileOAuth.nullable().default(null),
-    lastProbe: ProfileLastProbe.nullable(),
+    lastProbe: z.union([ProfileLastProbe, UntaggedLastProbe]).nullable(),
     lastFailure: ProfileLastFailure.nullable(),
   })
   .loose();

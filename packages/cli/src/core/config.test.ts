@@ -252,7 +252,7 @@ describe("resolveConfig", () => {
       user: { id: 1, name: "Tester", isAdmin: true },
       server: {
         edition: "oss",
-        version: { tag: "v0.58.7", major: 58, patch: 7 },
+        version: { kind: "release", tag: "v0.58.7", major: 58, patch: 7 },
         date: null,
         hash: null,
         tokenFeatures: null,

@@ -378,10 +378,7 @@ export function createTransport(config: ClientCredentials, options: ClientOption
 }
 
 function tagOf(profile: ServerProfile | null): string | null {
-  if (profile === null || profile.version === null) {
-    return null;
-  }
-  return profile.version.tag;
+  return profile === null ? null : profile.version.tag;
 }
 
 function buildUrl(

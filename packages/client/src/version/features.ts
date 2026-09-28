@@ -54,6 +54,7 @@ export const FEATURE_RULES = {
   sourceReplacement: { since: 60, tokenFeature: "dependencies" },
   metricDefinitionQuery: { since: 60 },
   metricDimensionListing: { since: 64 },
+  oauthFullAccessScope: { since: 63 },
 } satisfies Record<string, FeatureRule>;
 
 export type FeatureName = keyof typeof FEATURE_RULES;
@@ -68,23 +69,27 @@ export const FEATURE_NAMES: ReadonlyArray<FeatureName> =
 export const Features = z.record(z.enum(FEATURE_NAMES), z.boolean());
 export type Features = z.infer<typeof Features>;
 
+// The major a rule reads: a release's own, or `"development"` for a build ahead of every release,
+// which is past every `since` and every `until`.
+export type RuleMajor = number | "development";
+
 export function evaluateFeatures(
-  effectiveMajor: number,
+  major: RuleMajor,
   tokenFeatures: Readonly<TokenFeatures> | null,
 ): Features {
   const entries = FEATURE_NAMES.map((name) => [
     name,
-    ruleHolds(FEATURE_RULES[name], effectiveMajor, tokenFeatures),
+    ruleHolds(FEATURE_RULES[name], major, tokenFeatures),
   ]);
   return Features.parse(Object.fromEntries(entries));
 }
 
 function ruleHolds(
   rule: FeatureRule,
-  effectiveMajor: number,
+  major: RuleMajor,
   tokenFeatures: Readonly<TokenFeatures> | null,
 ): boolean {
-  return ruleGap(rule, effectiveMajor, tokenFeatures) === null;
+  return ruleGap(rule, major, tokenFeatures) === null;
 }
 
 export interface VersionGap {
@@ -102,13 +107,10 @@ export type FeatureGap = VersionGap | TokenGap;
 // and whether a token grants a route only matters once the route exists.
 export function ruleGap(
   rule: FeatureRule,
-  effectiveMajor: number,
+  major: RuleMajor,
   tokenFeatures: Readonly<TokenFeatures> | null,
 ): FeatureGap | null {
-  if (effectiveMajor < rule.since) {
-    return { kind: "version" };
-  }
-  if (rule.until !== undefined && effectiveMajor > rule.until) {
+  if (!versionHolds(rule, major)) {
     return { kind: "version" };
   }
   if (rule.tokenFeature === undefined) {
@@ -116,4 +118,11 @@ export function ruleGap(
   }
   const granted = tokenFeatures !== null && tokenFeatures[rule.tokenFeature] === true;
   return granted ? null : { kind: "token", tokenFeature: rule.tokenFeature };
+}
+
+function versionHolds(rule: FeatureRule, major: RuleMajor): boolean {
+  if (major === "development") {
+    return rule.until === undefined;
+  }
+  return major >= rule.since && (rule.until === undefined || major <= rule.until);
 }

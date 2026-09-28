@@ -5,7 +5,7 @@ import { Features } from "@metabase/client/version/features";
 import type { ServerInfo } from "@metabase/client/version/probe";
 import { KNOWN_RANGE } from "@metabase/client/version/known-range";
 import { createServerProfile, type ServerProfile, Skew } from "@metabase/client/version/profile";
-import { Edition, ParsedVersion } from "@metabase/client/version/tag";
+import { describeVersion, Edition, ServerVersion } from "@metabase/client/version/tag";
 
 const KnownRange = z.object({
   min: z.number().int(),
@@ -15,7 +15,7 @@ const KnownRange = z.object({
 // Derived from the probe when read, never stored — a persisted derivation would outlive the CLI
 // that wrote it. Every server field is `null` without a probe; `knownRange` is the CLI's own.
 export const ServerSummary = z.object({
-  version: ParsedVersion.nullable(),
+  version: ServerVersion.nullable(),
   edition: Edition.nullable(),
   skew: Skew.nullable(),
   knownRange: KnownRange,
@@ -46,27 +46,21 @@ export function summarizeServer(info: ServerInfo | null): ServerSummary {
   };
 }
 
-const UNPARSEABLE_VERSION_LABEL = "an unparseable version";
-
-function versionLabel(version: ParsedVersion | null): string {
-  return version === null ? UNPARSEABLE_VERSION_LABEL : version.tag;
-}
-
-// One line for a server outside the window this CLI was built against, or `null` inside it.
+// One line for a release outside the window this CLI was built against, or `null` otherwise. A
+// development build gets none: it is the server this CLI is developed against, and `auth status`
+// still names it.
 export function skewNotice(profile: ServerProfile): string | null {
   const { min, max } = KNOWN_RANGE;
   switch (profile.skew) {
-    case "supported": {
+    case "supported":
+    case "development": {
       return null;
     }
     case "older-than-known": {
-      return `Metabase ${versionLabel(profile.version)} is older than this CLI supports (v${min}+); commands needing a newer feature are refused by name. Upgrade Metabase to v${min} or later.`;
+      return `Metabase ${describeVersion(profile.version)} is older than this CLI supports (v${min}+); commands needing a newer feature are refused by name. Upgrade Metabase to v${min} or later.`;
     }
     case "newer-than-known": {
-      return `Metabase ${versionLabel(profile.version)} is newer than this CLI supports (up to v${max}); commands run as if it were a head build past v${max}. Run \`mb upgrade\` for a newer CLI.`;
-    }
-    case "unknown": {
-      return `Could not parse the Metabase version; assuming a head build past v${max}.`;
+      return `Metabase ${describeVersion(profile.version)} is newer than this CLI supports (up to v${max}); commands run as if it were v${max + 1}. Run \`mb upgrade\` for a newer CLI.`;
     }
   }
 }
@@ -76,8 +70,8 @@ const PROFILE_REFRESHED_REMEDY = "the profile was refreshed — retry the comman
 // What a fresh probe says that the cached one did not, or `null` when the two agree on everything
 // a feature switch reads: the version tag and the premium features.
 export function serverChangeNote(cached: ServerInfo, fresh: ServerInfo): string | null {
-  const before = versionLabel(cached.version);
-  const after = versionLabel(fresh.version);
+  const before = describeVersion(cached.version);
+  const after = describeVersion(fresh.version);
   if (before !== after) {
     return `The server's version changed since the last probe (was ${before}, now ${after}); ${PROFILE_REFRESHED_REMEDY}`;
   }

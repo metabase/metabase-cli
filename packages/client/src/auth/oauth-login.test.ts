@@ -35,7 +35,7 @@ vi.mock("../http/oauth", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../http/oauth")>();
   return {
     ...actual,
-    discoverMetadata: async () => {
+    discoverLoginMetadata: async () => {
       hoisted.discoverCalls += 1;
       return hoisted.metadata;
     },
