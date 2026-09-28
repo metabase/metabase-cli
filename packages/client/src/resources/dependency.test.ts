@@ -98,7 +98,7 @@ const V58_SERVER = createServerProfile({
   tokenFeatures: { dependencies: true },
 });
 
-// The first generation with the item listings, which still read their filters in snake_case.
+// The first generation with the item listings.
 const V59_SERVER = createServerProfile({
   edition: "ee",
   version: { kind: "release", tag: "v1.59.0", major: 59, patch: 0 },
@@ -299,7 +299,7 @@ describe("dependency resource wire requests", () => {
     expect(capture.calls).toEqual([]);
   });
 
-  it("lists dependents on a server that reads its filters in snake_case when none is set", async () => {
+  it("lists dependents on the first generation with the item listings", async () => {
     const { mb, capture } = clientOver([jsonResponse([CARD_NODE])], V59_SERVER);
 
     await mb.dependency.dependents("table", 3, { query: "ord", broken: true });
@@ -309,34 +309,23 @@ describe("dependency resource wire requests", () => {
     ]);
   });
 
-  it("refuses a renamed dependents filter before the wire on a server that reads snake_case", async () => {
-    const { mb, capture } = clientOver([], V59_SERVER);
+  it("sends a kebab-case dependents filter on the first generation with the item listings", async () => {
+    const { mb, capture } = clientOver([jsonResponse([CARD_NODE])], V59_SERVER);
 
-    const error = await thrownBy(() =>
-      mb.dependency.dependents("table", 3, { "dependent-types": ["card"] }),
-    );
+    await mb.dependency.dependents("table", 3, { "dependent-types": ["card"] });
 
-    assert(error instanceof CapabilityError, "expected CapabilityError");
-    expect(error.developerDetail).toEqual({
-      reason: "version-too-old",
-      detail:
-        "This operation requires Metabase v60+ (this server is v1.59.0). Upgrade Metabase to use it.",
-      feature: "dependencyKebabCaseFilters",
-      since: 60,
-      tokenFeature: null,
-      serverVersion: "v1.59.0",
-    });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/dependencies/graph/dependents?type=table&id=3&dependent-types=card",
+    ]);
   });
 
-  it("refuses a renamed item-listing filter before the wire on a server that reads snake_case", async () => {
-    const { mb, capture } = clientOver([], V59_SERVER);
+  it("sends a kebab-case item-listing filter on the first generation with the item listings", async () => {
+    const { mb, capture } = clientOver([jsonResponse({ data: [CARD_NODE], total: 1 })], V59_SERVER);
 
-    const pages = mb.dependency.unreferencedPages({ "sort-direction": "desc" });
-    const error = await thrownBy(() => pages[Symbol.asyncIterator]().next());
+    await collectPages(mb.dependency.unreferencedPages({ "sort-direction": "desc" }));
 
-    assert(error instanceof CapabilityError, "expected CapabilityError");
-    expect(error.developerDetail.feature).toBe("dependencyKebabCaseFilters");
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/dependencies/graph/unreferenced?sort-direction=desc&limit=50&offset=0",
+    ]);
   });
 });
