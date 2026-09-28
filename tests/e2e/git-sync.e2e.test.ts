@@ -251,7 +251,7 @@ describe.skipIf(preflightSkipReason !== null)(
       expect(result.exitCode).toBe(2);
       expect(cliErrorCategory(result.stderr)).toBe("config");
       expect(cliErrorMessage(result.stderr)).toBe(
-        "the tracked git-sync branch could not be read (the remote-sync-branch setting is unset or unreadable); pass --branch <name>",
+        "git-sync tracks no branch: the remote-sync-branch setting is unset",
       );
       expect(result.stdout).toBe("");
     });
@@ -370,15 +370,18 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
     expect(cliErrorCategory(result.stderr)).toBe("http");
   });
 
-  it("export without git-sync configured surfaces an HttpError", async () => {
+  it("export without a tracked branch refuses with ConfigError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "export", "--no-wait", "--json"],
       configHome,
       env: authEnv(),
     });
-    expect(result.exitCode).toBe(1);
-    expect(cliErrorCategory(result.stderr)).toBe("http");
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("config");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "git-sync tracks no branch: the remote-sync-branch setting is unset",
+    );
   });
 
   it("has-remote-changes without git-sync configured surfaces the server's 400 message", async () => {

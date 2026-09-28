@@ -58,12 +58,12 @@ mb git-sync export -m "commit message" --branch <branch> --profile <n>
 
 Pushes Metabase-side changes back to the configured remote. `-m` is the commit message; without it the server picks a default. Defaults to `--wait`.
 
-| Flag                | Purpose                                                  |
-| ------------------- | -------------------------------------------------------- |
-| `--branch <name>`   | Push to a specific branch instead of the configured one. |
-| `-m, --message <s>` | Commit message.                                          |
-| `--force`           | Force-push / overwrite remote. Confirm with the user.    |
-| `--no-wait`         | Don't poll.                                              |
+| Flag                | Purpose                                                                                                                                            |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--branch <name>`   | Defaults to the tracked `remote-sync-branch`; the server rejects any other branch with a 409. To push elsewhere, `stash` or `create-branch` first. |
+| `-m, --message <s>` | Commit message.                                                                                                                                    |
+| `--force`           | Force-push / overwrite remote. Confirm with the user.                                                                                              |
+| `--no-wait`         | Don't poll.                                                                                                                                        |
 
 Workflow:
 

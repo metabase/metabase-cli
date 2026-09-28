@@ -2029,7 +2029,7 @@ mb git-sync import --force --no-wait
 
 ### `mb git-sync export`
 
-Export Metabase changes back to the configured git remote (Metabase → repo). Auto-polls by default.
+Export Metabase changes back to the configured git remote (Metabase → repo). Auto-polls by default. The export targets the branch git-sync tracks; to push to a new branch, `stash` or `create-branch` first.
 
 ```sh
 mb git-sync export -m "update dashboards"
@@ -2037,14 +2037,14 @@ mb git-sync export --branch main --json
 mb git-sync export --no-wait
 ```
 
-| Flag                    | Description                                                         |
-| ----------------------- | ------------------------------------------------------------------- |
-| `--branch <name>`, `-b` | Branch to export to (defaults to the `remote-sync-branch` setting). |
-| `--message <msg>`, `-m` | Commit message for the export.                                      |
-| `--force`               | Force-push / overwrite the remote branch.                           |
-| `--wait` / `--no-wait`  | Poll until the task reaches a terminal status (default: wait).      |
-| `--timeout <ms>`        | Polling timeout in ms (default 600000). Used with `--wait`.         |
-| `--interval <ms>`       | Polling interval in ms (default 2000). Used with `--wait`.          |
+| Flag                    | Description                                                                                                                                                                                                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--branch <name>`, `-b` | Branch to export to (defaults to the `remote-sync-branch` setting). It must be the branch git-sync tracks; the server answers 409 with the current one. When the setting is unset or unreadable and no `--branch` is passed, the command refuses with exit 2. |
+| `--message <msg>`, `-m` | Commit message for the export.                                                                                                                                                                                                                                |
+| `--force`               | Force-push / overwrite the remote branch.                                                                                                                                                                                                                     |
+| `--wait` / `--no-wait`  | Poll until the task reaches a terminal status (default: wait).                                                                                                                                                                                                |
+| `--timeout <ms>`        | Polling timeout in ms (default 600000). Used with `--wait`.                                                                                                                                                                                                   |
+| `--interval <ms>`       | Polling interval in ms (default 2000). Used with `--wait`.                                                                                                                                                                                                    |
 
 ### `mb git-sync export-preflight`
 

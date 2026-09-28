@@ -9,6 +9,7 @@ import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 import { gitSyncWaitFlags, parseWaitFlags } from "../wait-flags";
 
+import { branchFlag, requireTrackedBranch } from "./branch-flag";
 import { formatSyncTask, taskPollOptions, throwIfFailedTask } from "./sync-task";
 
 export default defineMetabaseCommand({
@@ -16,14 +17,17 @@ export default defineMetabaseCommand({
     name: "export",
     description: "Export Metabase changes back to the configured git remote",
   },
-  requires: ["gitSync.export"],
+  details:
+    "The export targets the branch git-sync tracks: `--branch` defaults to the remote-sync-branch setting, and the server answers 409 for any other branch. To push to a new branch, use `git-sync stash` or `git-sync create-branch` first.",
+  requires: ["gitSync.export", "gitSync.branch"],
   args: {
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
     branch: {
       type: "string",
-      description: "Branch to export to (defaults to remote-sync-branch setting)",
+      description:
+        "Branch to export to; the tracked one (defaults to the remote-sync-branch setting)",
       alias: "b",
     },
     message: {
@@ -46,10 +50,9 @@ export default defineMetabaseCommand({
   ],
   async run({ args, ctx, getClient }) {
     const wait = parseWaitFlags(args);
-    const params: SyncExportParams = {};
-    if (args.branch !== undefined && args.branch !== "") {
-      params.branch = args.branch;
-    }
+    const mb = await getClient();
+    const branch = branchFlag(args.branch) ?? requireTrackedBranch(await mb.gitSync.branch());
+    const params: SyncExportParams = { branch };
     if (args.message !== undefined && args.message !== "") {
       params.message = args.message;
     }
@@ -60,7 +63,6 @@ export default defineMetabaseCommand({
       params.wait = taskPollOptions(wait.schedule);
     }
 
-    const mb = await getClient();
     const result = await mb.gitSync.export(params);
 
     if (!wait.enabled) {
