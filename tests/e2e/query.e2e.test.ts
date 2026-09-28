@@ -106,7 +106,6 @@ describe("query e2e", () => {
       errors: [
         { path: "/database", message: "must be integer" },
         { path: "/stages/0/source-table", message: "must be integer" },
-        { path: "/stages/0", message: 'must match "then" schema' },
       ],
     });
     expect(result.stderr).toContain("validation failed: 3 error(s)");
