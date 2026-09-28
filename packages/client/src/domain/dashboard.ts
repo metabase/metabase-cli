@@ -197,8 +197,8 @@ export const DashboardCopyInput = z
   .strict();
 export type DashboardCopyInput = z.infer<typeof DashboardCopyInput>;
 
-// A card the copy left behind because the caller cannot read it, cut down to its id; an older
-// server sends the whole card, which the loose object carries through.
+// A card the copy left out: one the caller cannot read arrives cut down to its id, any other
+// arrives whole, which the loose object carries through.
 export const DashboardUncopiedCard = z.object({ id: z.number().int() }).loose();
 export type DashboardUncopiedCard = z.infer<typeof DashboardUncopiedCard>;
 
