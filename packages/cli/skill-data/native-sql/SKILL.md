@@ -28,13 +28,13 @@ A native `dataset_query` is a query with one **native stage** — the `lib/type:
 }
 ```
 
-This is the form a card stores and returns — author it. The CLI **pre-flight-validates** it — the envelope, the template-tag shapes, the field refs — through the usual `--print-schema → --dry-run → run` loop (`mbql`), and a saved card **round-trips** in exactly this shape: `mb card get <id> --full --json`, edit the `stages[0].native` string, send it straight back. Only the SQL string is opaque to pre-flight — a **SQL** syntax error surfaces just when you run it, not at `--dry-run`. A parameterless query needs no `template-tags` — just the `native` string.
+This is the form a card stores and returns — author it. The CLI **pre-flight-validates** it — the envelope, the template-tag shapes, the field refs — through the usual `--print-schema → --dry-run → run` loop (`mbql`), and a saved card **round-trips** in exactly this shape: `mb card get <id> --full --json`, edit the `stages[0].native` string, send it straight back. Only the warehouse parses the SQL string, so a **SQL** syntax error surfaces when you run it, not at `--dry-run`. A parameterless query needs no `template-tags` — just the `native` string.
 
 You may see an older flat form in cards created long ago — `{database, type:"native", native:{query}}`. The server still accepts it (it normalizes to the above) but it skips pre-flight and doesn't round-trip — **don't author it**.
 
 ## Parameters are template tags
 
-Every `{{name}}` in the SQL must have a matching entry in the stage's `template-tags`, keyed by that name. **The three must agree exactly:** the `{{name}}` in SQL = the map key = the entry's `"name"` field. Names are case-sensitive (`{{Cat}}` ≠ `{{cat}}`). A `{{name}}` with no entry fails at run time; an unused entry is ignored.
+Every `{{name}}` in the SQL must have a matching entry in the stage's `template-tags`, keyed by that name. **The three must agree exactly:** the `{{name}}` in SQL = the map key = the entry's `"name"` field. Names are case-sensitive (`{{Cat}}` ≠ `{{cat}}`). A `{{name}}` with no entry fails at run time; an unused entry is ignored. A tag fails `--dry-run` and a run unless it has a value, a `default`, or sits inside an optional `[[ … ]]` clause.
 
 Four kinds of tag, by `type`:
 

@@ -63,10 +63,26 @@ const refSchemaWithIds = {
 
 // The bundled template tag demands a UUID id; the server takes any non-blank string.
 const templateTag = querySchema.$defs.template_tag;
+
+// The bundled native stage takes only the name-keyed map; the server also takes the list of tags it
+// returns on read, so a native query read back from a card validates unchanged.
+const nativeStage = querySchema.$defs.native_stage;
+const TEMPLATE_TAG_REF = { $ref: "#/$defs/template_tag" } as const;
 const querySchemaForApi = {
   ...querySchema,
   $defs: {
     ...querySchema.$defs,
+    native_stage: {
+      ...nativeStage,
+      properties: {
+        ...nativeStage.properties,
+        "template-tags": {
+          type: ["object", "array"],
+          additionalProperties: TEMPLATE_TAG_REF,
+          items: TEMPLATE_TAG_REF,
+        },
+      },
+    },
     template_tag: {
       ...templateTag,
       properties: { ...templateTag.properties, id: { type: "string", minLength: 1 } },

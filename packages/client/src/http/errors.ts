@@ -72,6 +72,12 @@ const FIELD_MESSAGE_SEPARATOR = "; ";
 const MAX_EXTRACTED_MESSAGE_LEN = 500;
 const ELLIPSIS = "…";
 
+// A Metabase schema error quotes the rejected value after `got: `, and for a reference error that
+// value is the whole normalized stage. The error sits inside a quoted EDN string, so the value runs
+// to the first unescaped quote. A short value (`got: 0`) is the useful part and stays whole.
+const GOT_VALUE_PATTERN = /got: ((?:[^"\\]|\\.)*)/g;
+const MAX_GOT_VALUE_LEN = 60;
+
 export interface HttpErrorDetail {
   status: number;
   statusText: string;
@@ -271,7 +277,7 @@ function plainTextMessage(
     return null;
   }
   const trimmed = sanitizedBody.trim();
-  return trimmed === "" ? null : capLength(trimmed);
+  return trimmed === "" ? null : condenseMessage(trimmed);
 }
 
 function buildRouteMissingMessage(input: HttpErrorInput): string {
@@ -352,19 +358,19 @@ function parseEnvelopeMessage(sanitizedBody: string | null): string | null {
   }
   const topLevel = envelope.message ?? envelope.error ?? envelope["error-message"];
   if (topLevel) {
-    return capLength(topLevel);
+    return condenseMessage(topLevel);
   }
   const viaMessage = envelope.via?.find((entry) => entry.message)?.message;
   if (viaMessage) {
-    return capLength(viaMessage);
+    return condenseMessage(viaMessage);
   }
   const specific = formatErrorTree(envelope["specific-errors"]);
   if (specific) {
-    return capLength(specific);
+    return condenseMessage(specific);
   }
   const generic = formatErrorTree(envelope.errors);
   if (generic) {
-    return capLength(generic);
+    return condenseMessage(generic);
   }
   return null;
 }
@@ -408,11 +414,19 @@ function collectLeafEntries(value: unknown, path: ReadonlyArray<string>): LeafEn
   return [];
 }
 
-function capLength(message: string): string {
-  if (message.length <= MAX_EXTRACTED_MESSAGE_LEN) {
-    return message;
+function condenseMessage(message: string): string {
+  const trimmed = message.replace(GOT_VALUE_PATTERN, trimGotValue);
+  if (trimmed.length <= MAX_EXTRACTED_MESSAGE_LEN) {
+    return trimmed;
   }
-  return message.slice(0, MAX_EXTRACTED_MESSAGE_LEN - ELLIPSIS.length) + ELLIPSIS;
+  return trimmed.slice(0, MAX_EXTRACTED_MESSAGE_LEN - ELLIPSIS.length) + ELLIPSIS;
+}
+
+function trimGotValue(match: string, value: string): string {
+  if (value.length <= MAX_GOT_VALUE_LEN) {
+    return match;
+  }
+  return `got: ${value.slice(0, MAX_GOT_VALUE_LEN)}${ELLIPSIS}`;
 }
 
 function defaultMessageForStatus(status: number): string {

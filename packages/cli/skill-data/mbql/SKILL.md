@@ -150,13 +150,14 @@ A measure is an aggregation, `["measure", {}, <measure id>]`, on its table, and 
 ## Authoring loop: print-schema → dry-run → run
 
 ```bash
-mb query --file q.json --dry-run --profile <n>        # validate, no network
-mb query --file q.json --profile <n> --json           # validate + run
+mb query --file q.json --dry-run --profile <n>        # check + compile on the server, no run
+mb query --file q.json --profile <n> --json           # check + run
 mb query --print-schema --profile <n> > ./.scratch/mbql-schema.json   # the full JSON Schema
 ```
 
-- `--dry-run` answers `{ ok, errors: [{ path, message }] }` (exit `0` valid, `2` invalid) and sends nothing. `path` is a JSON Pointer into the body. A run validates first and never sends an invalid body; exit `1` is a server error after a valid pre-flight.
-- The pre-flight checks the shape; the server checks sources and refs. Argument types and a later stage's column names are checked by neither: a mistake there fails as a warehouse error. When a run fails, read the message and fix the body it names.
+- `--dry-run` checks the shape locally, then has the server compile the query to SQL without running it. It answers `{ ok, errors: [{ path, message }], sql }`: exit `0` with the compiled `sql`, or exit `2` with `sql: null` when either check rejects the body. A local error's `path` is a JSON Pointer into the body; a server error's is `""`. Exit `1` means the compile could not run (the server refused permission, server unreachable).
+- The server compile catches what the shape check cannot: a ref to a missing aggregation or expression, an unknown clause, a duplicate `lib/uuid`, a missing table, field, card or segment, a template tag with no value outside an optional `[[ ]]` clause. Argument types and a later stage's column names are checked only by the warehouse, so a mistake there compiles and fails on the run. When a run fails, read the message and fix the body it names; an error naming nothing in the body (a `NullPointerException`) is a server fault, so stop editing a body that is otherwise correct.
+- A run checks the shape first and never sends an invalid body; exit `1` is a server or warehouse error after that.
 - A server error `lib/uuid: missing required key` at a clause means that clause's arguments are wrong: their count, a unit it doesn't take, a bad time zone.
 - A run answers `data.rows` and slim `data.cols` (`name`, `display_name`, `base_type`, `semantic_type`); `--full` returns the raw `/api/dataset` envelope.
 

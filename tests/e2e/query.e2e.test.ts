@@ -17,11 +17,11 @@ import { SEEDED } from "./seed/seeded";
 
 const VALID_QUERY = {
   "lib/type": "mbql/query",
-  database: 1,
+  database: SEEDED.warehouseDbId,
   stages: [
     {
       "lib/type": "mbql.stage/mbql",
-      "source-table": 7,
+      "source-table": SEEDED.tables.orders,
     },
   ],
 };
@@ -85,6 +85,7 @@ describe("query e2e", () => {
       args: ["query", "--dry-run"],
       stdin: JSON.stringify(VALID_QUERY),
       configHome,
+      env: authEnv(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
@@ -141,7 +142,7 @@ describe("query e2e", () => {
       errors: [{ path: "/stages", message: "must NOT have fewer than 1 items" }],
     });
     expect(result.stderr).toContain(
-      "validation failed: 1 error(s) — pass --dry-run to validate without sending",
+      "validation failed: 1 error(s) — pass --dry-run to check it without running",
     );
   });
 
@@ -296,6 +297,7 @@ describe("query e2e", () => {
         native: { query: "SELECT 1" },
       }),
       configHome,
+      env: authEnv(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
@@ -335,6 +337,7 @@ describe("query e2e", () => {
         query: { "source-table": SEEDED.tables.orders, limit: 1 },
       }),
       configHome,
+      env: authEnv(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);

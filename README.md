@@ -1799,34 +1799,34 @@ Entity ids are NanoIDs that can start with `-`, which the positional `<eids>` fo
 
 ### `mb query`
 
-Run an MBQL 5 query with built-in schema validation. Three modes — discover the schema (`--print-schema`), validate without sending (`--dry-run`), run.
+Run an MBQL 5 query with built-in schema validation. Three modes — discover the schema (`--print-schema`), check and compile without running (`--dry-run`), run.
 
 MBQL 5 bodies use numeric IDs (`database: 1`, `source-table: 7`) and POST to `/api/dataset`. The bundled query schema is synced from `@metabase/representations`; `id.yaml` is overridden to require positive integers for every ID `$def`.
 
 ```sh
 mb query --print-schema                     # JSON Schema bundle
-cat q.json | mb query --dry-run             # validate, no network
+cat q.json | mb query --dry-run             # check + compile on the server, no run
 mb query --file q.json
 mb query --file q.json --skip-validate      # bypass pre-flight; let server reject
 ```
 
 Body sources: `--file`, `--body`, or stdin (exactly one). Body is JSON.
 
-Any non-MBQL 5 body skips pre-flight automatically — legacy MBQL 4 (`{ "type": "query", "database": N, "query": { "source-table": T, ... } }`), legacy native (`{ "type": "native", "database": N, "native": { "query": "..." } }`), or any other shape that doesn't carry `"lib/type": "mbql/query"`. The bundled schema only models MBQL 5; `/api/dataset` normalizes the rest server-side via `lib-be/normalize-query` (the same normalizer that backs `card create` / `transform create`), so behavior is symmetric across endpoints. `--dry-run` on a non-MBQL 5 body emits `{ ok: true, errors: [] }` (no schema applies). The double-wrap footgun — an MBQL 5 query nested inside a `{type:"query", query:…}` envelope — is still rejected with a `ConfigError` before send.
+Any non-MBQL 5 body skips pre-flight automatically — legacy MBQL 4 (`{ "type": "query", "database": N, "query": { "source-table": T, ... } }`), legacy native (`{ "type": "native", "database": N, "native": { "query": "..." } }`), or any other shape that doesn't carry `"lib/type": "mbql/query"`. The bundled schema only models MBQL 5; `/api/dataset` normalizes the rest server-side via `lib-be/normalize-query` (the same normalizer that backs `card create` / `transform create`), so behavior is symmetric across endpoints. `--dry-run` on a non-MBQL 5 body goes straight to the server compile. The double-wrap footgun — an MBQL 5 query nested inside a `{type:"query", query:…}` envelope — is still rejected with a `ConfigError` before send.
 
-`--skip-validate` is an escape hatch when the bundled schema disagrees with what the server actually accepts (drift, false negative, edge case) for MBQL 5 bodies. Validation is skipped entirely and the body is sent as-is. Mutually exclusive with `--dry-run` (which is itself the validation mode).
+`--skip-validate` is an escape hatch when the bundled schema disagrees with what the server actually accepts (drift, false negative, edge case) for MBQL 5 bodies. Validation is skipped entirely and the body is sent as-is. Mutually exclusive with `--dry-run`, whose point is the local check.
 
 Exit codes:
 
-- `0` — valid (and the query ran successfully when not in dry-run).
-- `2` — validation failed, malformed body, or `ConfigError`.
-- `1` — server-side error after a valid pre-flight (network, HTTP 4xx/5xx).
+- `0` — the query ran, or with `--dry-run` compiled.
+- `2` — the local check or the server compile rejected the body, malformed body, or `ConfigError`.
+- `1` — server-side error after a valid pre-flight (network, HTTP 4xx/5xx), or with `--dry-run` a compile that could not run (no native query permission on the database, server unreachable).
 
 Output by mode:
 
 - `--print-schema` — `{ schema, defs: { "id.yaml", "parameter.yaml", "ref.yaml", "temporal_bucketing.yaml" } }`. The query schema's `$ref`s point into the `defs` namespace by file path; an agent can either feed the bundle directly into Ajv (`addSchema(defs["id.yaml"], "id.yaml")` etc., then `compile(schema)`) or read it as documentation.
-- `--dry-run` — `{ ok: boolean, errors: { path: string, message: string }[] }`. `path` is a JSON Pointer into the body, `message` is the Ajv error string.
-- Run failure (no `--dry-run`) — same `{ ok, errors }` envelope on stdout, exit 2, no request made.
+- `--dry-run` — `{ ok: boolean, errors: { path: string, message: string }[], sql: string | null }`. The local check runs first; when it passes, `POST /api/dataset/native` compiles the query without running it on the warehouse. A local error's `path` is a JSON Pointer into the body and `message` the Ajv error string; a server rejection (HTTP 400, or 500 from a reference it cannot resolve) is one error with `path: ""` and the server's message. `sql` is the compiled native query, `null` when it did not compile.
+- Local check failure (no `--dry-run`) — `{ ok, errors }` on stdout, exit 2, no request made.
 - Run success — the streamed `CardQueryResult`.
 
 ### MBQL 5 pre-flight in `card create`/`update`, `transform create`/`update`, `measure create`/`update`, and `segment create`/`update`
