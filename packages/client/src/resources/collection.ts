@@ -88,9 +88,9 @@ export function collectionResource(transport: Transport) {
   }
 
   /**
-   * List collections including the Library and its children, which the plain listing omits.
-   * The Library's own children carry neither `type` nor `is_remote_synced`, so this is where a
-   * caller resolves both.
+   * List every collection with no preset filter, the Library and its children among them. The
+   * Library's own children carry neither `type` nor `is_remote_synced`, so this is where a caller
+   * resolves both.
    */
   async function listWithLibrary(options: RequestOptions = {}): Promise<ListResult<Collection>> {
     await transport.require("collection.listWithLibrary", options);
