@@ -3,11 +3,16 @@ import { z } from "zod";
 import {
   Table,
   type TableBulkEditInput,
+  type TableBulkEditResult,
   type TableDataLayer,
   TableDataLayerTier,
   type TableDataSource,
   TableForeignKey,
   TableQueryMetadata,
+  type TableFieldValuesResult,
+  type TableSchemaSyncResult,
+  type TableSelectionResult,
+  TableSelectors,
   type TableUpdateInput,
 } from "../domain/table";
 import type { UploadUpdateAction, UploadUpdateResult } from "../domain/upload";
@@ -18,6 +23,7 @@ import type { FeatureName } from "../version/features";
 
 import { buildCsvFormData, type CsvFile } from "./csv-upload";
 import { fetchOptionalParsed } from "./optional-parsed";
+import { parseRequestBody } from "./request-body";
 
 // `GET /api/table` answers a bare array rather than a `{ data, total }` envelope, so the count a
 // caller reads off `ListResult` is the array's own length and the server reports none.
@@ -26,10 +32,13 @@ const TableApiList = z.array(Table);
 const TableApiFks = z.array(TableForeignKey);
 
 const SyncSchemaResponse = z.object({ status: z.literal("ok") });
-const RescanValuesResponse = z.object({ status: z.literal("success") });
+const FieldValuesResponse = z.object({ status: z.literal("success") });
 const BulkEditResponse = z.object({});
 
 const BULK_EDIT_PATH = "/api/data-studio/table/edit";
+const BULK_SYNC_SCHEMA_PATH = "/api/data-studio/table/sync-schema";
+const BULK_RESCAN_VALUES_PATH = "/api/data-studio/table/rescan-values";
+const BULK_DISCARD_VALUES_PATH = "/api/data-studio/table/discard-values";
 
 export interface TableListParams {
   term?: string | undefined;
@@ -170,40 +179,127 @@ export function tableResource(transport: Transport) {
   }
 
   /**
-   * Trigger a manual update of this table's schema metadata. The sync runs after the call returns;
-   * a warehouse the server cannot connect to is a 422.
+   * Trigger a sync of this table: its columns, their fingerprints and its cached field values. It
+   * never discovers new tables. The sync runs after the call returns; a warehouse the server cannot
+   * connect to is a 422.
    */
-  async function syncSchema(id: number, options: RequestOptions = {}): Promise<void> {
+  async function syncSchema(
+    id: number,
+    options: RequestOptions = {},
+  ): Promise<TableSchemaSyncResult> {
     await transport.require("table.syncSchema", options);
-    await transport.requestParsed(SyncSchemaResponse, `/api/table/${id}/sync_schema`, {
+    const ack = await transport.requestParsed(SyncSchemaResponse, `/api/table/${id}/sync_schema`, {
       ...options,
       method: "POST",
     });
+    return { id, status: ack.status };
   }
 
   /**
-   * Trigger an update of the field values of every eligible field of this table. The scan runs
-   * after the call returns.
+   * Trigger an update of the field values of every eligible field of this table that already has a
+   * cached set. The scan runs after the call returns.
    */
-  async function rescanValues(id: number, options: RequestOptions = {}): Promise<void> {
+  async function rescanValues(
+    id: number,
+    options: RequestOptions = {},
+  ): Promise<TableFieldValuesResult> {
     await transport.require("table.rescanValues", options);
-    await transport.requestParsed(RescanValuesResponse, `/api/table/${id}/rescan_values`, {
-      ...options,
-      method: "POST",
-    });
+    const ack = await transport.requestParsed(
+      FieldValuesResponse,
+      `/api/table/${id}/rescan_values`,
+      { ...options, method: "POST" },
+    );
+    return { id, status: ack.status };
+  }
+
+  /**
+   * Discard the cached field values of every field of this table, custom display values included.
+   * No scan recreates a discarded set; the server rebuilds it, without the display values, the next
+   * time the field's values are read.
+   */
+  async function discardValues(
+    id: number,
+    options: RequestOptions = {},
+  ): Promise<TableFieldValuesResult> {
+    await transport.require("table.discardValues", options);
+    const ack = await transport.requestParsed(
+      FieldValuesResponse,
+      `/api/table/${id}/discard_values`,
+      { ...options, method: "POST" },
+    );
+    return { id, status: ack.status };
   }
 
   /**
    * Set the same metadata on every table the selectors pick out. A table leaving the `hidden` data
-   * layer is re-synced after the call returns.
+   * layer is re-synced after the call returns. The server answers the same whether or not the
+   * selectors matched a table.
    */
-  async function bulkEdit(params: TableBulkEditInput, options: RequestOptions = {}): Promise<void> {
+  async function bulkEdit(
+    params: TableBulkEditInput,
+    options: RequestOptions = {},
+  ): Promise<TableBulkEditResult> {
     await transport.require("table.bulkEdit", options);
     await transport.requestParsed(BulkEditResponse, BULK_EDIT_PATH, {
       ...options,
       method: "POST",
       body: params,
     });
+    return { accepted: true, ...params };
+  }
+
+  // The selector endpoints answer no body, whether or not the selectors matched a table, so a
+  // malformed selector is refused here rather than acknowledged as a selection of nothing.
+  async function postSelection(
+    path: string,
+    selectors: TableSelectors,
+    options: RequestOptions,
+  ): Promise<TableSelectionResult> {
+    const body = parseRequestBody(TableSelectors, selectors, "table selectors");
+    await transport.requestRaw(path, {
+      ...options,
+      method: "POST",
+      body,
+      expectContentType: "binary",
+    });
+    return { accepted: true, ...body };
+  }
+
+  /**
+   * Trigger a sync of every table the selectors pick out: its columns, their fingerprints and its
+   * cached field values. Every database behind them must answer a connection test first, or the
+   * call is a 422; the syncs run after it returns.
+   */
+  async function bulkSyncSchema(
+    selectors: TableSelectors,
+    options: RequestOptions = {},
+  ): Promise<TableSelectionResult> {
+    await transport.require("table.bulkSyncSchema", options);
+    return postSelection(BULK_SYNC_SCHEMA_PATH, selectors, options);
+  }
+
+  /**
+   * Trigger a field-values rescan of every table the selectors pick out, refreshing the sets that
+   * are already cached. The scans run after the call returns.
+   */
+  async function bulkRescanValues(
+    selectors: TableSelectors,
+    options: RequestOptions = {},
+  ): Promise<TableSelectionResult> {
+    await transport.require("table.bulkRescanValues", options);
+    return postSelection(BULK_RESCAN_VALUES_PATH, selectors, options);
+  }
+
+  /**
+   * Discard the cached field values of every table the selectors pick out, custom display values
+   * included. No scan recreates a discarded set.
+   */
+  async function bulkDiscardValues(
+    selectors: TableSelectors,
+    options: RequestOptions = {},
+  ): Promise<TableSelectionResult> {
+    await transport.require("table.bulkDiscardValues", options);
+    return postSelection(BULK_DISCARD_VALUES_PATH, selectors, options);
   }
 
   async function updateFromCsv(
@@ -259,7 +355,11 @@ export function tableResource(transport: Transport) {
     fks,
     syncSchema,
     rescanValues,
+    discardValues,
     bulkEdit,
+    bulkSyncSchema,
+    bulkRescanValues,
+    bulkDiscardValues,
     appendCsv,
     replaceCsv,
   };

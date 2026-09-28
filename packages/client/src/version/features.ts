@@ -47,6 +47,7 @@ export const FEATURE_RULES = {
   tableUnusedFilter: { since: 58, tokenFeature: "dependencies" },
   tableDataLayerTiers: { since: 59 },
   bulkTableEdit: { since: 59 },
+  bulkTableSync: { since: 59 },
   erd: { since: 62, tokenFeature: "schema-viewer" },
   documentCopy: { since: 59 },
   transformInspector: { since: 60, tokenFeature: "transforms-python" },

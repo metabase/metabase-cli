@@ -107,26 +107,66 @@ export const TableUpdateInput = z
   .loose();
 export type TableUpdateInput = z.infer<typeof TableUpdateInput>;
 
-// A set of tables named by any mix of database ids, `"<db_id>:<schema>"` ids and table ids; the
-// selectors are unioned.
-export const TableSelectors = z.object({
-  database_ids: z.array(z.number().int().positive()).optional(),
-  schema_ids: z.array(z.string().min(1)).optional(),
-  table_ids: z.array(z.number().int().positive()).optional(),
+// The server splits a schema id on every `:`, reads the first part with `parse-long` as a database
+// id and the second as the schema name, an absent name matching the tables that have no schema. So
+// `"1:"` picks database 1's schema-less tables, a first part that is not a number selects nothing,
+// and a schema name holding a `:` is cut short and selects another schema. The database id must be
+// written plainly, without the sign or leading zeros `parse-long` would also read, in at most 18
+// digits, which always fit a `long`.
+export const TableSchemaId = z.string().regex(/^[1-9]\d{0,17}:[^:]*$/, {
+  error: 'expected a schema id "<db-id>:<schema>" with a positive database id',
 });
+
+// A set of tables named by any mix of database ids, `"<db_id>:<schema>"` ids and table ids; the
+// selectors are unioned. Strict because a server that drops an unknown key reads what is left as
+// a selection of nothing and answers as if it had acted.
+export const TableSelectors = z
+  .object({
+    database_ids: z.array(z.number().int().positive()).optional(),
+    schema_ids: z.array(TableSchemaId).optional(),
+    table_ids: z.array(z.number().int().positive()).optional(),
+  })
+  .strict();
 export type TableSelectors = z.infer<typeof TableSelectors>;
 
-// Strict because the server closes the body on every generation that has the route, so a stray key
-// is refused here rather than as a 400.
-export const TableBulkEditInput = TableSelectors.extend({
+// The metadata a bulk edit sets on every selected table. `data_authority` takes `null` only on a
+// server that records user edits apart from the table, whose own column is NOT NULL.
+export const TableBulkEditFields = z.object({
   data_authority: TableDataAuthority.nullable().optional(),
   data_source: TableDataSource.nullable().optional(),
   data_layer: TableDataLayerTier.nullable().optional(),
   entity_type: TableEntityType.nullable().optional(),
   owner_email: z.string().nullable().optional(),
   owner_user_id: z.number().int().nullable().optional(),
-}).strict();
+});
+
+// Strict because the server closes the body on every generation that has the route, so a stray key
+// is refused here rather than as a 400.
+export const TableBulkEditInput = TableSelectors.extend(TableBulkEditFields.shape).strict();
 export type TableBulkEditInput = z.infer<typeof TableBulkEditInput>;
+
+// The single-table sync endpoints acknowledge with a fixed status, restated with the table id.
+export const TableSchemaSyncResult = z.object({
+  id: z.number().int(),
+  status: z.literal("ok"),
+});
+export type TableSchemaSyncResult = z.infer<typeof TableSchemaSyncResult>;
+
+export const TableFieldValuesResult = z.object({
+  id: z.number().int(),
+  status: z.literal("success"),
+});
+export type TableFieldValuesResult = z.infer<typeof TableFieldValuesResult>;
+
+// The selector endpoints answer the same whether or not the selectors matched a table, so the
+// confirmation is the accepted request restated; it cannot say which tables were touched.
+export const TableSelectionResult = TableSelectors.extend({ accepted: z.literal(true) }).strict();
+export type TableSelectionResult = z.infer<typeof TableSelectionResult>;
+
+export const TableBulkEditResult = TableBulkEditInput.extend({
+  accepted: z.literal(true),
+}).strict();
+export type TableBulkEditResult = z.infer<typeof TableBulkEditResult>;
 
 // A field whose `fk_target_field_id` points into this table, the table's own fields included. Both
 // ends arrive with their `table` hydrated.

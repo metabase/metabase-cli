@@ -1,5 +1,5 @@
 import { ConfigError } from "@metabase/client/errors";
-import type { TableSelectors } from "@metabase/client/domain/table";
+import { TableSchemaId, type TableSelectors } from "@metabase/client/domain/table";
 import { parseCsv } from "../../runtime/csv";
 import { parseId } from "../parse-id";
 
@@ -25,10 +25,17 @@ function parseIdList(value: string | undefined, name: string): number[] {
   return parseCsv(value).map((part) => parseId(part, name));
 }
 
+function parseSchemaId(value: string): string {
+  if (!TableSchemaId.safeParse(value).success) {
+    throw new ConfigError(`invalid schema id: "${value}" (expected "<db-id>:<schema>")`);
+  }
+  return value;
+}
+
 export function parseTableSelectors(args: TableSelectorArgs): TableSelectors {
   const tableIds = parseIdList(args["table-ids"], "table id");
   const databaseIds = parseIdList(args["db-ids"], "database id");
-  const schemaNames = args.schemas === undefined ? [] : parseCsv(args.schemas);
+  const schemaNames = args.schemas === undefined ? [] : parseCsv(args.schemas).map(parseSchemaId);
   const selectors: TableSelectors = {};
   if (tableIds.length > 0) {
     selectors.table_ids = tableIds;

@@ -355,7 +355,9 @@ export { SetupInput, SetupResult, SetupResultCompact } from "./domain/setup";
 export { Snippet, SnippetCompact, SnippetCreateInput, SnippetUpdateInput } from "./domain/snippet";
 export {
   Table,
+  TableBulkEditFields,
   TableBulkEditInput,
+  TableBulkEditResult,
   TableCompact,
   TableDataLayer,
   TableDataLayerMedallion,
