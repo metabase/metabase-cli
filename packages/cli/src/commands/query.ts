@@ -49,7 +49,7 @@ export default defineMetabaseCommand({
     description: "Run an ad-hoc MBQL or native query",
   },
   details:
-    'Reads a JSON query body from --body, --file, or stdin and runs it. MBQL 5 is Metabase\'s structured query format, shaped {"lib/type":"mbql/query", "database": <id>, "stages": [...]}; it is checked against a bundled JSON Schema before sending, and --print-schema prints that schema. --dry-run checks the body without running it: the local schema check, then the server compiles it to native SQL without touching the warehouse. It prints {ok, errors:[{path, message}], sql} and exits 0 when the query compiled, 2 when either check rejected it. Legacy MBQL 4 and legacy native bodies skip the local check.',
+    'Reads a JSON query body from --body, --file, or stdin and runs it. MBQL 5 is Metabase\'s structured query format, shaped {"lib/type": "mbql/query", "database": <database id>, "stages": [{"lib/type": "mbql.stage/mbql", "source-table": <table id>, "aggregation": [["count", {}]]}]} with ids from `mb database list` and `mb table list`; it is checked against a bundled JSON Schema before sending, and --print-schema prints that schema. --dry-run checks the body without running it: the local schema check, then the server compiles it to native SQL without touching the warehouse. It prints {ok, errors:[{path, message}], sql} and exits 0 when the query compiled, 2 when either check rejected it. Legacy MBQL 4 and legacy native bodies skip the local check.',
   skills: [{ skill: "mbql", purpose: "body shape, clause rules, and the dry-run loop" }],
   requires: ["dataset.native", "dataset.query"],
   args: {
