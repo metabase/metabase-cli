@@ -20,6 +20,7 @@ const FIELD = {
   base_type: "type/Float",
   semantic_type: null,
   fk_target_field_id: null,
+  data_sensitivity: null,
 };
 
 const JSON_REQUEST_HEADERS = {

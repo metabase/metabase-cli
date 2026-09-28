@@ -197,6 +197,7 @@ export {
   FieldCoercionStrategy,
   FieldCompact,
   FieldDataSensitivity,
+  FieldDetail,
   FieldRemappedValue,
   FieldSearchMatches,
   FieldSemanticType,
@@ -204,6 +205,9 @@ export {
   FieldUpdateInput,
   FieldValues,
   FieldValuesCompact,
+  FieldWithDataSensitivity,
+  FieldWithDataSensitivityCompact,
+  hasDataSensitivity,
 } from "./domain/field";
 export {
   isSyncTaskFailed,

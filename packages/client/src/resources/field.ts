@@ -1,12 +1,15 @@
 import { z } from "zod";
 
 import {
-  Field,
+  type FieldDataSensitivity,
+  type FieldDetail,
+  fieldDetailSchema,
   FieldRemappedValue,
   FieldSearchMatches,
   type FieldSummary,
   type FieldUpdateInput,
   FieldValues,
+  FieldWithDataSensitivity,
 } from "../domain/field";
 import type { RequestOptions, Transport } from "../http/transport";
 
@@ -37,31 +40,58 @@ export interface FieldRemappingParams {
   value: string;
 }
 
+export interface FieldSetDataSensitivityParams {
+  data_sensitivity: FieldDataSensitivity | null;
+}
+
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function fieldResource(transport: Transport) {
-  /** Get one field by id. */
-  async function get(id: number, options: RequestOptions = {}): Promise<Field> {
+  /**
+   * Get one field by id. A server that labels data sensitivity answers `data_sensitivity`, `null`
+   * for an unlabelled field; any other answers the field without the key (`hasDataSensitivity`).
+   */
+  async function get(id: number, options: RequestOptions = {}): Promise<FieldDetail> {
     await transport.require("field.get", options);
-    return transport.requestParsed(Field, `/api/field/${id}`, { ...options });
+    const { features } = await transport.server(options);
+    return transport.requestParsed(fieldDetailSchema(features), `/api/field/${id}`, { ...options });
   }
 
   /**
    * Update a field by id, patching only the fields the body carries. A `data_sensitivity` label is
    * a person's call the server's classifier never overwrites, and `null` withdraws it so the
    * classifier's own applies again; a server without the column would drop the key silently, so
-   * the label is refused there before the wire.
+   * the label is refused there before the wire. Answers the field the way `get` does.
    */
   async function update(
     id: number,
     params: FieldUpdateInput,
     options: RequestOptions = {},
-  ): Promise<Field> {
+  ): Promise<FieldDetail> {
     await transport.require("field.update", options);
     await transport.requireFeatures(
       params.data_sensitivity === undefined ? [] : ["fieldDataSensitivity"],
       options,
     );
-    return transport.requestParsed(Field, `/api/field/${id}`, {
+    const { features } = await transport.server(options);
+    return transport.requestParsed(fieldDetailSchema(features), `/api/field/${id}`, {
+      ...options,
+      method: "PUT",
+      body: params,
+    });
+  }
+
+  /**
+   * Label a field's data sensitivity by hand. A person's label is never overwritten by the server's
+   * classifier; `null` withdraws it, so whatever label the classifier wrote shows again. Answers
+   * the field with the label it now carries.
+   */
+  async function setDataSensitivity(
+    id: number,
+    params: FieldSetDataSensitivityParams,
+    options: RequestOptions = {},
+  ): Promise<FieldWithDataSensitivity> {
+    await transport.require("field.setDataSensitivity", options);
+    return transport.requestParsed(FieldWithDataSensitivity, `/api/field/${id}`, {
       ...options,
       method: "PUT",
       body: params,
@@ -122,5 +152,5 @@ export function fieldResource(transport: Transport) {
     return transport.requestParsed(FieldValues, `/api/field/${id}/values`, { ...options });
   }
 
-  return { get, update, search, remapping, summary, values };
+  return { get, update, setDataSensitivity, search, remapping, summary, values };
 }

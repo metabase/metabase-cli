@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { Features } from "../version/features";
+
 const FieldVisibilityType = z.enum(["details-only", "hidden", "normal", "retired", "sensitive"]);
 
 const FieldValuesType = z.enum(["list", "search", "none", "auto-list"]);
@@ -192,6 +194,36 @@ export const FieldCompact = Field.pick({
   fk_target_field_id: true,
 }).strip();
 export type FieldCompact = z.infer<typeof FieldCompact>;
+
+// The shape the field endpoints answer on a server with the column: `data_sensitivity` is `null`
+// when the field is unlabelled.
+export const FieldWithDataSensitivity = Field.extend({
+  data_sensitivity: FieldDataSensitivity.nullable(),
+});
+export type FieldWithDataSensitivity = z.infer<typeof FieldWithDataSensitivity>;
+
+// A server without the column answers a plain `Field`, and it stays without the key: `null` already
+// means "unlabelled", so it cannot also mean "this server cannot say".
+export const FieldDetail = z.union([FieldWithDataSensitivity, Field]);
+export type FieldDetail = z.infer<typeof FieldDetail>;
+
+/** The shape `GET` and `PUT /api/field/{id}` answer on a server with `features`. */
+export function fieldDetailSchema(features: Features): z.ZodType<FieldDetail> {
+  return features.fieldDataSensitivity ? FieldWithDataSensitivity : Field;
+}
+
+/** Whether `field` came from a server that labels data sensitivity. */
+export function hasDataSensitivity(field: FieldDetail): field is FieldWithDataSensitivity {
+  return (
+    "data_sensitivity" in field &&
+    FieldWithDataSensitivity.shape.data_sensitivity.safeParse(field.data_sensitivity).success
+  );
+}
+
+export const FieldWithDataSensitivityCompact = FieldCompact.extend({
+  data_sensitivity: FieldDataSensitivity.nullable(),
+}).strip();
+export type FieldWithDataSensitivityCompact = z.infer<typeof FieldWithDataSensitivityCompact>;
 
 const NonBlankNullable = z.string().min(1).nullable();
 
