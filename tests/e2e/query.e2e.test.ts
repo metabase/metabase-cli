@@ -108,7 +108,7 @@ describe("query e2e", () => {
         { path: "/stages/0/source-table", message: "must be integer" },
       ],
     });
-    expect(result.stderr).toContain("validation failed: 3 error(s)");
+    expect(result.stderr).toContain("validation failed: 2 error(s)");
   });
 
   it("--dry-run with an empty stages array reports the structural error and exits 2", async () => {

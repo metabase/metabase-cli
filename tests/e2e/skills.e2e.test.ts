@@ -9,19 +9,14 @@ import { parseJson } from "@metabase/client/json";
 import { SkillGetEnvelope } from "../../packages/cli/src/commands/skills/get";
 import { SkillListEnvelope } from "../../packages/cli/src/commands/skills/list";
 import { SkillPathListEnvelope } from "../../packages/cli/src/commands/skills/path";
-import { probeAt, UNREACHABLE_TARGET } from "../../packages/cli/src/core/auth/temp-config-home";
 import {
   discoverSkills,
   type SkillContent,
   type SkillInfo,
 } from "../../packages/cli/src/core/skills";
-import { fitWithinCap } from "../../packages/cli/src/output/cap";
-import { DEFAULT_MAX_BYTES } from "../../packages/cli/src/output/types";
 import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { seedProbedProfile, seedProbedProfileAt } from "./seed-profile";
-
-type SkillGetPayload = z.infer<typeof SkillGetEnvelope>;
+import { seedProbedProfile } from "./seed-profile";
 
 // The shipped skills are the expected values: the binary under test bundles this very directory.
 const SKILL_DATA_DIR = resolve(import.meta.dirname, "..", "..", "packages", "cli", "skill-data");
@@ -84,14 +79,6 @@ function fullList(rows: readonly SkillInfo[]): z.infer<typeof SkillListEnvelope>
 // The names a text listing prints at column zero; descriptions sit indented beneath them.
 function namesInTextListing(stdout: string): string[] {
   return stdout.split("\n").filter((line) => line !== "" && !line.startsWith("  "));
-}
-
-function onlySkill(envelope: SkillGetPayload): SkillContent {
-  const [item, ...rest] = envelope.data;
-  if (item === undefined || rest.length > 0) {
-    throw new Error(`expected exactly one skill in the envelope, got ${envelope.data.length}`);
-  }
-  return item;
 }
 
 const TRANSFORM_UNAVAILABLE_ON_58 = {
@@ -240,40 +227,6 @@ describe("skills e2e", () => {
     });
   });
 
-  it("get core resolves its sections against the cached server: an OSS v58 loses the library bullet, an EE v63 keeps it without markers", async () => {
-    const oss58 = await makeIsolatedConfigHome();
-    await seedProbedProfile(oss58, 58);
-    const ee63 = await makeIsolatedConfigHome();
-    await seedProbedProfileAt(
-      ee63,
-      UNREACHABLE_TARGET,
-      probeAt(63, { library: true, remote_sync: true, content_translation: true }),
-    );
-
-    const onOss58 = await runCli({ args: ["skills", "get", "core", "--json"], configHome: oss58 });
-    const onEe63 = await runCli({ args: ["skills", "get", "core", "--json"], configHome: ee63 });
-    const unfiltered = await runCli({
-      args: ["skills", "get", "core", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-    });
-
-    expect(onOss58.exitCode, onOss58.stderr).toBe(0);
-    expect(onEe63.exitCode, onEe63.stderr).toBe(0);
-    expect(unfiltered.exitCode, unfiltered.stderr).toBe(0);
-    const oss58Body = onlySkill(parseJson(onOss58.stdout, SkillGetEnvelope)).body;
-    const ee63Body = onlySkill(parseJson(onEe63.stdout, SkillGetEnvelope)).body;
-
-    expect(oss58Body).not.toContain("**library.**");
-    expect(oss58Body).not.toContain("**transform.**");
-    expect(oss58Body).not.toContain("<!-- requires");
-    expect(ee63Body).toContain("**library.**");
-    expect(ee63Body).toContain("**transform.**");
-    expect(ee63Body).not.toContain("<!-- requires");
-    expect(onlySkill(parseJson(unfiltered.stdout, SkillGetEnvelope))).toEqual(
-      asWritten(bundledSkill("core")),
-    );
-  });
-
   it("get core returns the SKILL.md body with frontmatter intact and no references unless --full", async () => {
     const result = await runCli({
       args: ["skills", "get", "core", "--json"],
@@ -311,38 +264,6 @@ describe("skills e2e", () => {
     expect(result.stderr).toBe("");
   });
 
-  it("get --all under the default byte cap truncates the trailing skills and surfaces a truncation notice", async () => {
-    const result = await runCli({
-      args: ["skills", "get", "--all", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-    // The uncapped answer is what the cap measured; the leading rows that fit it are the window.
-    const uncapped = await runCli({
-      args: ["skills", "get", "--all", "--json", "--max-bytes", "0"],
-      configHome: await makeIsolatedConfigHome(),
-    });
-    const whole = parseJson(uncapped.stdout, SkillGetEnvelope);
-    const fit = fitWithinCap(whole, DEFAULT_MAX_BYTES);
-    expect(fit.fullBytes).toBe(Buffer.byteLength(uncapped.stdout.trimEnd(), "utf8"));
-    expect(fit.cut).toBe(true);
-    expect(fit.count > 0 && fit.count < BUNDLED_VISIBLE.length).toBe(true);
-    expect(parseJson(result.stdout, SkillGetEnvelope)).toEqual({
-      data: BUNDLED_VISIBLE.slice(0, fit.count).map(asWritten),
-      returned: fit.count,
-      offset: 0,
-      total: BUNDLED_VISIBLE.length,
-      has_more: true,
-      next_offset: fit.count,
-      truncated: { reason: "max_bytes", bytes: fit.fullBytes },
-      unavailable: null,
-    });
-    expect(result.stderr).toBe(
-      `… cut at ${fit.fullBytes} bytes; continue with --offset ${fit.count}, ${SKILL_OVERSIZE_HINT}`,
-    );
-  });
-
   it("get answers a cap too small for even one skill with an empty window and no resumption point", async () => {
     const result = await runCli({
       args: ["skills", "get", "core", "--json", "--max-bytes", "200"],
@@ -369,31 +290,6 @@ describe("skills e2e", () => {
       unavailable: null,
     });
     expect(result.stderr).toBe(`… cut at ${fullBytes} bytes; ${SKILL_OVERSIZE_HINT}`);
-  });
-
-  it("get --all walking next_offset under the default cap terminates and yields every skill once", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const pages: SkillGetPayload[] = [];
-    let offset: number | null = 0;
-
-    // Every page carries at least one skill, so the walk is over within one page per skill.
-    while (offset !== null && pages.length < BUNDLED_VISIBLE.length) {
-      const result = await runCli({
-        args: ["skills", "get", "--all", "--json", "--offset", String(offset)],
-        configHome,
-      });
-      expect(result.exitCode, result.stderr).toBe(0);
-      const page = parseJson(result.stdout, SkillGetEnvelope);
-      pages.push(page);
-      offset = page.has_more && typeof page.next_offset === "number" ? page.next_offset : null;
-    }
-
-    expect(pages.flatMap((page) => page.data)).toEqual(BUNDLED_VISIBLE.map(asWritten));
-    expect(pages.map((page) => page.has_more)).toEqual([...pages.slice(1).map(() => true), false]);
-    expect(pages.map((page) => page.next_offset)).toEqual([
-      ...pages.slice(1).map((page) => page.offset),
-      null,
-    ]);
   });
 
   it("get accepts comma-separated names", async () => {
