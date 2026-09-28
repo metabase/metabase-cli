@@ -68,7 +68,7 @@ const CSV_FORM_BODY = {
 // The first server whose listing takes every filter offered, and the oldest supported one.
 const SERVER_60 = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.60.4", major: 60, patch: 4 },
+  version: { kind: "release", tag: "v0.60.4", major: 60, patch: 4 },
   date: null,
   hash: null,
   tokenFeatures: null,
@@ -76,7 +76,7 @@ const SERVER_60 = createServerProfile({
 
 const SERVER_58 = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.58.0", major: 58, patch: 0 },
+  version: { kind: "release", tag: "v0.58.0", major: 58, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,

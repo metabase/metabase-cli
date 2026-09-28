@@ -33,7 +33,7 @@ const JSON_REQUEST_HEADERS = {
 // The least server that answers this resource; the unlicensed profile flips its one token key.
 const LICENSED = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.58.0", major: 58, patch: 0 },
+  version: { kind: "release", tag: "v1.58.0", major: 58, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { content_verification: true },
@@ -41,7 +41,7 @@ const LICENSED = createServerProfile({
 
 const UNLICENSED = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.58.0", major: 58, patch: 0 },
+  version: { kind: "release", tag: "v1.58.0", major: 58, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { content_verification: false },

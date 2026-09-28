@@ -44,7 +44,7 @@ const BINARY_READ_HEADERS = {
 // The first server whose fields carry a sensitivity label, and the last before it.
 const SERVER_64 = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.64.0", major: 64, patch: 0 },
+  version: { kind: "release", tag: "v0.64.0", major: 64, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,
@@ -52,7 +52,7 @@ const SERVER_64 = createServerProfile({
 
 const SERVER_63 = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.63.4", major: 63, patch: 4 },
+  version: { kind: "release", tag: "v0.63.4", major: 63, patch: 4 },
   date: null,
   hash: null,
   tokenFeatures: null,

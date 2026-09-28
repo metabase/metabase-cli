@@ -30,7 +30,7 @@ function profileAt(
 ): ServerProfile {
   return createServerProfile({
     edition: "oss",
-    version: { tag: `v0.${major}.0`, major, patch: 0 },
+    version: { kind: "release", tag: `v0.${major}.0`, major, patch: 0 },
     date: null,
     hash: null,
     tokenFeatures,

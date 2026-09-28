@@ -21,7 +21,7 @@ import {
   type TempConfigHome,
 } from "../../core/auth/temp-config-home";
 import { ENV_SKILLS_DIR } from "../../core/env";
-import { findSkillByName, loadAllSkills, readSkillContent } from "../../core/skills";
+import { loadVisibleSkills, readSkillContent } from "../../core/skills";
 import {
   createTempSkillsDir,
   GAMMA_SKILL_MD,
@@ -29,7 +29,7 @@ import {
   GAMMA_WITHOUT_ACTIVATION,
   type TempSkillsDir,
 } from "../../core/temp-skills-dir";
-import { fitWithinCap } from "../../output/cap";
+import { capListEnvelope } from "../../output/cap";
 import { DEFAULT_MAX_BYTES, FULL_RANGE } from "../../output/types";
 import { windowList } from "../../output/window";
 import skillsGetCommand, { SkillGetEnvelope } from "./get";
@@ -292,21 +292,16 @@ describe("skills get command", () => {
   });
 });
 
-// `core` is the skill every agent is told to load first, and it is a single indivisible row: once
-// its body outgrows the default cap the command has nothing left to drop and refuses outright.
-// The ceiling belongs at commit time, not in an agent session.
-describe("the shipped core skill", () => {
-  it("fits the default output cap as a one-row json envelope", () => {
-    const info = findSkillByName(loadAllSkills(), "core");
-    const envelope = windowList(
-      [readSkillContent(info, { includeExtras: false, profile: null })],
-      FULL_RANGE,
+// `core` is the skill every agent is told to load first, and a skill is one indivisible row: once
+// the first row outgrows the default cap, `get --all --json` opens on an empty window. The
+// ceiling belongs at commit time, not in an agent session.
+describe("the shipped skills", () => {
+  it("open `get --all --json` with core under the default output cap", () => {
+    const payloads = loadVisibleSkills().map((info) =>
+      readSkillContent(info, { includeExtras: false, profile: null }),
     );
+    const envelope = { ...windowList(payloads, FULL_RANGE), unavailable: null };
 
-    expect(fitWithinCap(envelope, DEFAULT_MAX_BYTES)).toEqual({
-      count: 1,
-      fullBytes: Buffer.byteLength(JSON.stringify(envelope), "utf8"),
-      cut: false,
-    });
+    expect(capListEnvelope(envelope, DEFAULT_MAX_BYTES).data[0]?.name).toBe("core");
   });
 });

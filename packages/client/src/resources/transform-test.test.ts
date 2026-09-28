@@ -91,7 +91,7 @@ const BINARY_READ_HEADERS = {
 
 const SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.65.0", major: 65, patch: 0 },
+  version: { kind: "release", tag: "v1.65.0", major: 65, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { "transforms-testing": true },
@@ -99,7 +99,7 @@ const SERVER = createServerProfile({
 
 const UNLICENSED_SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.65.0", major: 65, patch: 0 },
+  version: { kind: "release", tag: "v1.65.0", major: 65, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { "transforms-testing": false },
@@ -107,7 +107,7 @@ const UNLICENSED_SERVER = createServerProfile({
 
 const LICENSED_64 = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.64.0", major: 64, patch: 0 },
+  version: { kind: "release", tag: "v1.64.0", major: 64, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { "transforms-testing": true },

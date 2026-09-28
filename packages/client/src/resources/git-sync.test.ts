@@ -71,7 +71,7 @@ const IMMEDIATE_POLL = { intervalMs: 1, timeoutMs: 1_000 };
 // own feature is refused here before it reaches the scripted wire.
 const SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.60.0", major: 60, patch: 0 },
+  version: { kind: "release", tag: "v1.60.0", major: 60, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { remote_sync: true },
@@ -79,7 +79,7 @@ const SERVER = createServerProfile({
 
 const SERVER_WITH_PREFLIGHT = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.63.0", major: 63, patch: 0 },
+  version: { kind: "release", tag: "v1.63.0", major: 63, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { remote_sync: true },

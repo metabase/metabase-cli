@@ -82,7 +82,7 @@ describe("verifyAndProbe", () => {
       ok: true,
       user: { id: 1, name: "Admin", isAdmin: true },
       server: {
-        version: { tag: "v0.58.0", major: 58, patch: 0 },
+        version: { kind: "release", tag: "v0.58.0", major: 58, patch: 0 },
         edition: "oss",
         date: null,
         hash: null,

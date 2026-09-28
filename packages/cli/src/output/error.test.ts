@@ -148,7 +148,7 @@ describe("reportError", () => {
       ["transformJobActivation"],
       createServerProfile({
         edition: "oss",
-        version: { tag: "v0.58.0", major: 58, patch: 0 },
+        version: { kind: "release", tag: "v0.58.0", major: 58, patch: 0 },
         date: null,
         hash: null,
         tokenFeatures: null,
@@ -172,7 +172,7 @@ describe("reportError", () => {
       ["transformJobActivation"],
       createServerProfile({
         edition: "oss",
-        version: { tag: "v0.58.0", major: 58, patch: 0 },
+        version: { kind: "release", tag: "v0.58.0", major: 58, patch: 0 },
         date: null,
         hash: null,
         tokenFeatures: null,
@@ -214,7 +214,7 @@ describe("reportError", () => {
       ["library"],
       createServerProfile({
         edition: "oss",
-        version: { tag: "v0.61.0", major: 61, patch: 0 },
+        version: { kind: "release", tag: "v0.61.0", major: 61, patch: 0 },
         date: null,
         hash: null,
         tokenFeatures: null,
@@ -233,7 +233,7 @@ describe("reportError", () => {
       ["transformJobActivation"],
       createServerProfile({
         edition: "oss",
-        version: { tag: "v0.58.0", major: 58, patch: 0 },
+        version: { kind: "release", tag: "v0.58.0", major: 58, patch: 0 },
         date: null,
         hash: null,
         tokenFeatures: null,

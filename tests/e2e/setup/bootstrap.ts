@@ -738,7 +738,12 @@ async function keyStillWorks(apiKey: string): Promise<boolean> {
   }
 }
 
-async function readStoredBootstrap(): Promise<E2EBootstrap | null> {
+// The server block is re-probed on reuse, so a stored one written under older placement rules
+// never makes the credentials and seed look stale.
+const ReusableBootstrap = Bootstrap.omit({ server: true });
+type ReusableBootstrap = z.infer<typeof ReusableBootstrap>;
+
+async function readStoredBootstrap(): Promise<ReusableBootstrap | null> {
   let raw: string;
   try {
     raw = await fs.readFile(BOOTSTRAP_FILE_PATH, "utf8");
@@ -748,7 +753,7 @@ async function readStoredBootstrap(): Promise<E2EBootstrap | null> {
     }
     throw error;
   }
-  const parsed = parseJsonResult(raw, Bootstrap, { source: BOOTSTRAP_FILE_PATH });
+  const parsed = parseJsonResult(raw, ReusableBootstrap, { source: BOOTSTRAP_FILE_PATH });
   if (!parsed.ok) {
     process.stderr.write(
       `bootstrap: ignoring stale ${BOOTSTRAP_FILE_PATH} (${parsed.error.message}); regenerating\n`,

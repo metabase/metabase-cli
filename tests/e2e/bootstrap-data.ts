@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 import { isFileNotFoundError } from "@metabase/client/errors";
-import { Edition, ParsedVersion } from "@metabase/client/version/tag";
+import { Edition, StoredServerVersion } from "@metabase/client/version/tag";
 import { TokenFeatures } from "@metabase/client/domain/session-properties";
 import { parseJson } from "@metabase/client/json";
 
@@ -43,12 +43,12 @@ export const SeededIds = z.object({
 export type SeededIds = z.infer<typeof SeededIds>;
 
 export const ServerIdentity = z.object({
-  version: ParsedVersion.nullable(),
+  version: StoredServerVersion,
   edition: Edition.nullable().default(null),
   date: z.string().nullable().default(null),
   hash: z.string().nullable().default(null),
   tokenFeatures: TokenFeatures.nullable(),
-  // Whether the server supports full-API OAuth login (full-access scope advertised in discovery).
+  // Whether the server supports full-API OAuth login, as `tryDiscoverMetadata` decides it.
   oauthSupported: z.boolean().default(false),
 });
 export type ServerIdentity = z.infer<typeof ServerIdentity>;

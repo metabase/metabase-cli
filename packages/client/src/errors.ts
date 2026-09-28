@@ -189,6 +189,9 @@ function describeServer(tag: string, skew: Skew | null): string {
   if (skew === "newer-than-known") {
     return `${tag} (newer than this client supports, up to v${KNOWN_RANGE.max})`;
   }
+  if (skew === "development") {
+    return `development build ${tag} (newer than every release)`;
+  }
   return tag;
 }
 

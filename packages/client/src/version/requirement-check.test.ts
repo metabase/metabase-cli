@@ -8,7 +8,7 @@ import { methodRequirements } from "./requirements";
 
 function profileOf(tag: string, major: number, tokenFeatures: ServerInfo["tokenFeatures"]) {
   return createServerProfile({
-    version: { tag, major, patch: 0 },
+    version: { kind: "release", tag, major, patch: 0 },
     edition: editionFromTag(tag),
     date: null,
     hash: null,
@@ -99,10 +99,10 @@ describe("checkFeatures over a method's requirements", () => {
     });
   });
 
-  it("places an unparseable tag past the newest known major, so only a token can refuse it", () => {
+  it("places a development build past every release, so only a token can refuse it", () => {
     const head = createServerProfile({
       edition: null,
-      version: null,
+      version: { kind: "development", tag: "vUNKNOWN" },
       date: "2026-09-16",
       hash: "548573f",
       tokenFeatures: { remote_sync: false },
@@ -115,7 +115,7 @@ describe("checkFeatures over a method's requirements", () => {
       feature: "remoteSync",
       since: 60,
       tokenFeature: "remote_sync",
-      serverVersion: null,
+      serverVersion: "vUNKNOWN",
     });
   });
 });

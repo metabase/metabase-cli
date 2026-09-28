@@ -126,8 +126,8 @@ Each block is the `visualization_settings` to pair with the given `display`. The
 
 `column_settings` is a map **whose keys are themselves JSON-encoded arrays** — so inside a JSON body the inner quotes must be escaped. The key is a _string_, never an object.
 
-- **Prefer the name form:** `["name", "<output column name>"]` → in a JSON body, `"[\"name\",\"count\"]"`. This is the canonical key Metabase writes, and it's **identical in API and portable form**. Use it unless you have a reason not to.
-- **Ref form (legacy order!):** `["ref", ["field", <id>, <opts>]]`. The inner field ref uses the **legacy MBQL-4 order** `["field", id, options]` (id **second**) — _not_ the MBQL-5 order you use in `dataset_query`. In the API form `<id>` is the numeric field id. Because the order differs, this form is easy to get wrong — reach for the name form instead.
+- **Key by column name:** `["name", "<output column name>"]` → in a JSON body, `"[\"name\",\"count\"]"`. It is the key Metabase writes, the same in API and portable form.
+- A card read back may key a column `["ref", ["field", <id>, …]]` instead. Metabase reads that key before the name key, so edit a column's settings under the key it already has.
 
 ```json
 "column_settings": {
@@ -163,7 +163,6 @@ mb skills path visualization           # → the skill dir; then Read references
 - Don't put numeric field ids in `graph.dimensions`/`pie.metric`/`scalar.field`/`map.latitude_column` etc. — they take **output column-name strings**.
 - Don't reach for a `pie` with >5 slices, a `combo` of unrelated metrics, or a `pie`/`scalar` to show a trend — see Step 1.
 - Don't write a `column_settings` key as an object — it's a JSON **string** (`"[\"name\",\"COL\"]"`), inner quotes escaped.
-- Don't use the MBQL-5 field-ref order inside a `column_settings` `["ref", …]` key — that key uses the **legacy** `["field", id, opts]` order. Prefer the `["name", …]` form.
 - Don't expect a pre-flight to catch viz mistakes — there is none. Verify by reading the card back.
 - Don't hand-author complex charts when you can pull a working `visualization_settings` from a UI-built card.
 - Don't look for an event/annotation key in `visualization_settings` — vertical event markers on time-series charts come from timelines (`mb timeline` / `mb timeline-event`) living in the question's own collection (same collection only, no sub-collection inheritance; question view only, never dashboard cards).

@@ -16,14 +16,12 @@ export const RequirementFailure = z.object({
   feature: z.enum(FEATURE_NAMES),
   since: z.number().int(),
   tokenFeature: z.string().nullable(),
-  serverVersion: z.string().nullable(),
+  serverVersion: z.string(),
 });
 export type RequirementFailure = z.infer<typeof RequirementFailure>;
 
-export function versionTooOldMessage(since: number, serverVersion: string | null): string {
-  const server =
-    serverVersion === null ? "this server's version is unknown" : `this server is ${serverVersion}`;
-  return `This operation requires Metabase v${since}+ (${server}). Upgrade Metabase to use it.`;
+export function versionTooOldMessage(since: number, serverVersion: string): string {
+  return `This operation requires Metabase v${since}+ (this server is ${serverVersion}). Upgrade Metabase to use it.`;
 }
 
 export function missingTokenFeatureMessage(tokenFeature: string): string {

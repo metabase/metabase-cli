@@ -48,7 +48,7 @@ const JSON_READ_HEADERS = {
 // transforms.
 const SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.60.0", major: 60, patch: 0 },
+  version: { kind: "release", tag: "v1.60.0", major: 60, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { "transforms-python": true },
@@ -56,7 +56,7 @@ const SERVER = createServerProfile({
 
 const UNLICENSED_SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.60.0", major: 60, patch: 0 },
+  version: { kind: "release", tag: "v1.60.0", major: 60, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { "transforms-python": false },
@@ -65,7 +65,7 @@ const UNLICENSED_SERVER = createServerProfile({
 // Serves the library, but its test run takes source tables as an alias-to-id map.
 const MAP_SOURCE_TABLES_SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.59.0", major: 59, patch: 0 },
+  version: { kind: "release", tag: "v1.59.0", major: 59, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { "transforms-python": true },

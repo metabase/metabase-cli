@@ -1,11 +1,24 @@
 import { z } from "zod";
 
-export const ParsedVersion = z.object({
+export const ReleaseVersion = z.object({
+  kind: z.literal("release"),
   tag: z.string(),
   major: z.number().int().nonnegative(),
   patch: z.number().int().nonnegative(),
 });
-export type ParsedVersion = z.infer<typeof ParsedVersion>;
+export type ReleaseVersion = z.infer<typeof ReleaseVersion>;
+
+// Master and local builds report a tag that names no release (`vUNKNOWN`, `vLOCAL_DEV`,
+// `v0.1.0-SNAPSHOT`). Nothing but an unreleased build does, and such a build is ahead of every
+// release, so it carries the newest behaviour rather than an unknown one.
+export const DevelopmentBuild = z.object({
+  kind: z.literal("development"),
+  tag: z.string(),
+});
+export type DevelopmentBuild = z.infer<typeof DevelopmentBuild>;
+
+export const ServerVersion = z.discriminatedUnion("kind", [ReleaseVersion, DevelopmentBuild]);
+export type ServerVersion = z.infer<typeof ServerVersion>;
 
 export const Edition = z.enum(["oss", "ee"]);
 export type Edition = z.infer<typeof Edition>;
@@ -17,9 +30,7 @@ export type Edition = z.infer<typeof Edition>;
 const TAG = /^v?([01])\.(\d+)\.(\d+)(?:\.\d+)?(?:-([0-9A-Za-z.-]+))?$/;
 const OSS_EDITION_NUMBER = "0";
 
-// A locally built jar reports "v0.1.0-SNAPSHOT", which would read as Metabase v1 and make every version
-// gate fire against a server that actually carries the newest features. Metabase itself treats any
-// "-SNAPSHOT" tag as "no version", so we do too.
+// A `-SNAPSHOT` jar fits the release shape, but only an unreleased build reports one.
 const DEV_BUILD_SUFFIX = "SNAPSHOT";
 
 interface TagParts {
@@ -46,15 +57,26 @@ function tagParts(tag: string): TagParts | null {
   };
 }
 
-export function tryParseTag(tag: string): ParsedVersion | null {
+export function parseTag(tag: string): ServerVersion {
   const parts = tagParts(tag);
   if (parts === null || parts.prerelease === DEV_BUILD_SUFFIX) {
-    return null;
+    return { kind: "development", tag };
   }
-  return { tag, major: parts.major, patch: parts.patch };
+  return { kind: "release", tag, major: parts.major, patch: parts.patch };
 }
 
 export function editionFromTag(tag: string): Edition | null {
   const parts = tagParts(tag);
   return parts === null ? null : parts.edition;
 }
+
+export function describeVersion(version: ServerVersion): string {
+  return version.kind === "release" ? version.tag : `development build ${version.tag}`;
+}
+
+// A persisted version is re-derived from its tag, so a record written under older placement rules
+// reads the way this client places the tag today.
+export const StoredServerVersion = z
+  .object({ tag: z.string() })
+  .loose()
+  .transform(({ tag }) => parseTag(tag));

@@ -4,7 +4,7 @@ Command-line client for Metabase. Logs in to an instance in your browser (OAuth,
 
 ## Supported Metabase versions
 
-The CLI is built against Metabase majors **58 through 64** (the client's `KNOWN_RANGE`), the latest patch of each; a newer server, or a head build whose version tag does not parse, runs as a head build past the newest known major — every shape the client knows head answers with, and one stderr notice per run — and an older one keeps its real major, gets one stderr notice per run pointing at a Metabase upgrade, and is refused command by command with the version it needs.
+The CLI is built against Metabase majors **58 through 64** (the client's `KNOWN_RANGE`), the latest patch of each; a newer release runs as the major after the newest known one, with one stderr notice per run; a development build (master or a local build, reporting a tag such as `vUNKNOWN`) is treated as newer than every release, with every version-gated command available and no notice; and an older one keeps its real major, gets one stderr notice per run pointing at a Metabase upgrade, and is refused command by command with the version it needs.
 
 Every command declares the client methods it calls, and each method names the server features it needs — a feature is a minimum major version, a premium token feature, or both. The server version and token features are detected and cached when you run `mb auth login` (or `mb auth list`). For a command whose methods need a feature, a preflight check runs before the first request and refuses with an actionable message (exit code `2`) when:
 
@@ -13,7 +13,7 @@ Every command declares the client methods it calls, and each method names the se
 
 Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs without a cached probe, the CLI asks the server for its version once and decides on the answer; a server that cannot be reached fails the command with that network error. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `MB_CLI_SKIP_PREFLIGHT=1`. Both switch off the client's own check too, so every request goes to the wire and the server answers for itself — footguns, only for servers you know are patched.
 
-`mb auth status --json` reports the window as `knownRange` and where the server sits as `skew`. A server above the window is read as a head build past the newest known major — its additions pass through, and one stderr notice per run points at `mb upgrade`; a server whose version tag does not parse (head builds) is treated the same way with its own notice; a server below the window is `older-than-known`, still evaluated at its own major, with a notice naming the oldest major the CLI supports. A response the CLI cannot parse, or a refusal it issues, under a cached profile triggers one fresh probe: if the server's version or premium features changed since the cache was written, the profile is refreshed and the error says so — retry the command.
+`mb auth status --json` reports the window as `knownRange` and where the server sits as `skew`. A release above the window is read as the major after the newest known one: its additions pass through, and one stderr notice per run points at `mb upgrade`. A development build is `development`, ahead of every release, and prints no notice; a server below the window is `older-than-known`, still evaluated at its own major, with a notice naming the oldest major the CLI supports. A response the CLI cannot parse, or a refusal it issues, under a cached profile triggers one fresh probe: if the server's version or premium features changed since the cache was written, the profile is refreshed and the error says so — retry the command.
 
 ## Install
 
@@ -1799,34 +1799,34 @@ Entity ids are NanoIDs that can start with `-`, which the positional `<eids>` fo
 
 ### `mb query`
 
-Run an MBQL 5 query with built-in schema validation. Three modes — discover the schema (`--print-schema`), validate without sending (`--dry-run`), run.
+Run an MBQL 5 query with built-in schema validation. Three modes — discover the schema (`--print-schema`), check and compile without running (`--dry-run`), run.
 
 MBQL 5 bodies use numeric IDs (`database: 1`, `source-table: 7`) and POST to `/api/dataset`. The bundled query schema is synced from `@metabase/representations`; `id.yaml` is overridden to require positive integers for every ID `$def`.
 
 ```sh
 mb query --print-schema                     # JSON Schema bundle
-cat q.json | mb query --dry-run             # validate, no network
+cat q.json | mb query --dry-run             # check + compile on the server, no run
 mb query --file q.json
 mb query --file q.json --skip-validate      # bypass pre-flight; let server reject
 ```
 
 Body sources: `--file`, `--body`, or stdin (exactly one). Body is JSON.
 
-Any non-MBQL 5 body skips pre-flight automatically — legacy MBQL 4 (`{ "type": "query", "database": N, "query": { "source-table": T, ... } }`), legacy native (`{ "type": "native", "database": N, "native": { "query": "..." } }`), or any other shape that doesn't carry `"lib/type": "mbql/query"`. The bundled schema only models MBQL 5; `/api/dataset` normalizes the rest server-side via `lib-be/normalize-query` (the same normalizer that backs `card create` / `transform create`), so behavior is symmetric across endpoints. `--dry-run` on a non-MBQL 5 body emits `{ ok: true, errors: [] }` (no schema applies). The double-wrap footgun — an MBQL 5 query nested inside a `{type:"query", query:…}` envelope — is still rejected with a `ConfigError` before send.
+Any non-MBQL 5 body skips pre-flight automatically — legacy MBQL 4 (`{ "type": "query", "database": N, "query": { "source-table": T, ... } }`), legacy native (`{ "type": "native", "database": N, "native": { "query": "..." } }`), or any other shape that doesn't carry `"lib/type": "mbql/query"`. The bundled schema only models MBQL 5; `/api/dataset` normalizes the rest server-side via `lib-be/normalize-query` (the same normalizer that backs `card create` / `transform create`), so behavior is symmetric across endpoints. `--dry-run` on a non-MBQL 5 body goes straight to the server compile. The double-wrap footgun — an MBQL 5 query nested inside a `{type:"query", query:…}` envelope — is still rejected with a `ConfigError` before send.
 
-`--skip-validate` is an escape hatch when the bundled schema disagrees with what the server actually accepts (drift, false negative, edge case) for MBQL 5 bodies. Validation is skipped entirely and the body is sent as-is. Mutually exclusive with `--dry-run` (which is itself the validation mode).
+`--skip-validate` is an escape hatch when the bundled schema disagrees with what the server actually accepts (drift, false negative, edge case) for MBQL 5 bodies. Validation is skipped entirely and the body is sent as-is. Mutually exclusive with `--dry-run`, whose point is the local check.
 
 Exit codes:
 
-- `0` — valid (and the query ran successfully when not in dry-run).
-- `2` — validation failed, malformed body, or `ConfigError`.
-- `1` — server-side error after a valid pre-flight (network, HTTP 4xx/5xx).
+- `0` — the query ran, or with `--dry-run` compiled.
+- `2` — the local check or the server compile rejected the body, malformed body, or `ConfigError`.
+- `1` — server-side error after a valid pre-flight (network, HTTP 4xx/5xx), or with `--dry-run` a compile that could not run (no native query permission on the database, server unreachable).
 
 Output by mode:
 
 - `--print-schema` — `{ schema, defs: { "id.yaml", "parameter.yaml", "ref.yaml", "temporal_bucketing.yaml" } }`. The query schema's `$ref`s point into the `defs` namespace by file path; an agent can either feed the bundle directly into Ajv (`addSchema(defs["id.yaml"], "id.yaml")` etc., then `compile(schema)`) or read it as documentation.
-- `--dry-run` — `{ ok: boolean, errors: { path: string, message: string }[] }`. `path` is a JSON Pointer into the body, `message` is the Ajv error string.
-- Run failure (no `--dry-run`) — same `{ ok, errors }` envelope on stdout, exit 2, no request made.
+- `--dry-run` — `{ ok: boolean, errors: { path: string, message: string }[], sql: string | null }`. The local check runs first; when it passes, `POST /api/dataset/native` compiles the query without running it on the warehouse. A local error's `path` is a JSON Pointer into the body and `message` the Ajv error string; a server rejection (HTTP 400, or 500 from a reference it cannot resolve) is one error with `path: ""` and the server's message. `sql` is the compiled native query, `null` when it did not compile.
+- Local check failure (no `--dry-run`) — `{ ok, errors }` on stdout, exit 2, no request made.
 - Run success — the streamed `CardQueryResult`.
 
 ### MBQL 5 pre-flight in `card create`/`update`, `transform create`/`update`, `measure create`/`update`, and `segment create`/`update`
@@ -1851,13 +1851,14 @@ If the chained `PUT /api/dashboard/:id` fails _after_ the create has already ins
 
 ### `mb uuid`
 
-Mint UUID v4 strings (Node `crypto.randomUUID`) for MBQL clause `lib/uuid` slots, native template-tag ids, and any other Metabase-side identifier whose schema enforces RFC 4122 format. Agents must call this command to obtain UUIDs rather than authoring them by hand: the bundled MBQL 5 schema rejects placeholder strings (`a1`, `uuid-1`, etc.) at `format: "uuid"` validation.
+Mint UUID v4 strings (Node `crypto.randomUUID`) for the values that must be a UUID: the `lib/uuid` of an aggregation that an MBQL aggregation ref points at, and a document node's `_id`. The MBQL pre-flight rejects a hand-written placeholder (`a1`, `uuid-1`) in a `lib/uuid`.
 
 ```sh
 mb uuid                          # one UUID
 mb uuid --count 5                # five UUIDs, one per line (text mode in a TTY, JSON when piped)
 mb uuid --count 5 --json         # explicit JSON: ["…", "…", "…", "…", "…"]
 mb uuid --count 5 --format text  # explicit text: one UUID per line
+U=$(mb uuid --format text)       # capture one bare UUID in a shell variable
 ```
 
 Output: text mode prints one UUID per line; JSON mode prints a `string[]`. Default behavior follows the standard `--format auto` rule — JSON when stdout is a pipe, text when it's a TTY.

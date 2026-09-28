@@ -18,7 +18,7 @@ A transform has two halves:
 - `source` — the query to run (`type: "query"`, with `query.type` of `native` or `mbql`).
 - `target` — the warehouse destination (`type: "table"`, with `database`, `schema`, `name`).
 
-Native SQL is the simplest source — author it as an `mbql.stage/native` stage (the SQL string sits at `source.query.stages[0].native`), the form below. For a **structured** `source.query` (an `mbql.stage/mbql` stage) — the options-object-is-always-second clause rule, UUID minting, aggregation/order-by refs, naming aggregation output columns, and the `--print-schema` → `--dry-run` validation loop — see `mbql` (**`mb skills get mbql`**). Both stage types are the `mbql/query` shape, so `transform create`/`update` pre-flight them (only the legacy flat forms skip it). Pull a sample body with `mb transform get <id> --full --json`. For a transform target, naming aggregation output columns matters more than usual: a bare `count` / `avg_2` becomes the warehouse column name.
+Native SQL is the simplest source — author it as an `mbql.stage/native` stage (the SQL string sits at `source.query.stages[0].native`), the form below. For a **structured** `source.query` (an `mbql.stage/mbql` stage), the clause shape, order-by refs, naming aggregation output columns and the `--dry-run` loop are in `mbql` (**`mb skills get mbql`**). `transform create`/`update` pre-flight both stage types. Pull a sample body with `mb transform get <id> --full --json`. For a transform target, naming aggregation output columns matters more than usual: a bare `count` / `avg_2` becomes the warehouse column name.
 
 ## Create + run (native SQL)
 

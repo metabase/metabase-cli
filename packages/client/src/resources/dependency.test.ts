@@ -76,7 +76,7 @@ const JSON_READ_HEADERS = {
 
 const SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.64.0", major: 64, patch: 0 },
+  version: { kind: "release", tag: "v1.64.0", major: 64, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { dependencies: true },
@@ -84,7 +84,7 @@ const SERVER = createServerProfile({
 
 const UNLICENSED_SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.64.0", major: 64, patch: 0 },
+  version: { kind: "release", tag: "v1.64.0", major: 64, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { dependencies: false },
@@ -92,7 +92,7 @@ const UNLICENSED_SERVER = createServerProfile({
 
 const V58_SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.58.0", major: 58, patch: 0 },
+  version: { kind: "release", tag: "v1.58.0", major: 58, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { dependencies: true },
@@ -101,7 +101,7 @@ const V58_SERVER = createServerProfile({
 // The first generation with the item listings, which still read their filters in snake_case.
 const V59_SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.59.0", major: 59, patch: 0 },
+  version: { kind: "release", tag: "v1.59.0", major: 59, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { dependencies: true },

@@ -108,7 +108,7 @@ const LISTING = {
 
 const SERVER_64 = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.64.0", major: 64, patch: 0 },
+  version: { kind: "release", tag: "v0.64.0", major: 64, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,
@@ -116,7 +116,7 @@ const SERVER_64 = createServerProfile({
 
 const SERVER_63 = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.63.0", major: 63, patch: 0 },
+  version: { kind: "release", tag: "v0.63.0", major: 63, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,
@@ -124,7 +124,7 @@ const SERVER_63 = createServerProfile({
 
 const SERVER_59 = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.59.0", major: 59, patch: 0 },
+  version: { kind: "release", tag: "v0.59.0", major: 59, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,

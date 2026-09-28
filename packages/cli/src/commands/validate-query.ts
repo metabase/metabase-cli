@@ -43,8 +43,7 @@ interface PreflightOptions {
   readonly skip: boolean;
 }
 
-// Skips MBQL 4 / native — we only have a schema for MBQL 5 today, and the
-// legacy formats are still accepted by the server.
+// Only an `mbql/query` body has a bundled schema; a legacy `{type: …}` body goes out unchecked.
 export function preflightMbql5Query(
   query: unknown,
   labels: PreflightLabels,
@@ -63,6 +62,6 @@ export function preflightMbql5Query(
   }
   writeJson(outcome);
   throw new ConfigError(
-    `${labels.contextLabel}: ${outcome.errors.length} error(s) — pass valid MBQL 5 or use the legacy format`,
+    `${labels.contextLabel}: ${outcome.errors.length} error(s) — fix them, or pass --skip-validate to send anyway`,
   );
 }

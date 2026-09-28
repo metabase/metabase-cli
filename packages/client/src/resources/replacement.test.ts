@@ -74,7 +74,7 @@ const JSON_READ_HEADERS = {
 
 const SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.60.0", major: 60, patch: 0 },
+  version: { kind: "release", tag: "v1.60.0", major: 60, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { dependencies: true },
@@ -82,7 +82,7 @@ const SERVER = createServerProfile({
 
 const UNLICENSED_SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.60.0", major: 60, patch: 0 },
+  version: { kind: "release", tag: "v1.60.0", major: 60, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { dependencies: false },
@@ -90,7 +90,7 @@ const UNLICENSED_SERVER = createServerProfile({
 
 const PRE_REPLACEMENT_SERVER = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.59.0", major: 59, patch: 0 },
+  version: { kind: "release", tag: "v1.59.0", major: 59, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { dependencies: true },

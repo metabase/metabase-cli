@@ -44,7 +44,7 @@ const JSON_READ_HEADERS = {
 // The first server that copies a document, and the last before it.
 const SERVER_59 = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.59.0", major: 59, patch: 0 },
+  version: { kind: "release", tag: "v0.59.0", major: 59, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,
@@ -52,7 +52,7 @@ const SERVER_59 = createServerProfile({
 
 const SERVER_58 = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.58.2", major: 58, patch: 2 },
+  version: { kind: "release", tag: "v0.58.2", major: 58, patch: 2 },
   date: null,
   hash: null,
   tokenFeatures: null,

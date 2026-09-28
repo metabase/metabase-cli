@@ -56,7 +56,7 @@ const ERD = {
 
 const LICENSED_62 = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.62.0", major: 62, patch: 0 },
+  version: { kind: "release", tag: "v1.62.0", major: 62, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { "schema-viewer": true },
@@ -64,7 +64,7 @@ const LICENSED_62 = createServerProfile({
 
 const UNLICENSED_62 = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.62.0", major: 62, patch: 0 },
+  version: { kind: "release", tag: "v1.62.0", major: 62, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { "schema-viewer": false },
@@ -72,7 +72,7 @@ const UNLICENSED_62 = createServerProfile({
 
 const LICENSED_61 = createServerProfile({
   edition: "ee",
-  version: { tag: "v1.61.0", major: 61, patch: 0 },
+  version: { kind: "release", tag: "v1.61.0", major: 61, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { "schema-viewer": true },

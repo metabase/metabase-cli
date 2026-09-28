@@ -17,11 +17,11 @@ import { SEEDED } from "./seed/seeded";
 
 const VALID_QUERY = {
   "lib/type": "mbql/query",
-  database: 1,
+  database: SEEDED.warehouseDbId,
   stages: [
     {
       "lib/type": "mbql.stage/mbql",
-      "source-table": 7,
+      "source-table": SEEDED.tables.orders,
     },
   ],
 };
@@ -85,6 +85,7 @@ describe("query e2e", () => {
       args: ["query", "--dry-run"],
       stdin: JSON.stringify(VALID_QUERY),
       configHome,
+      env: authEnv(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
@@ -105,10 +106,9 @@ describe("query e2e", () => {
       errors: [
         { path: "/database", message: "must be integer" },
         { path: "/stages/0/source-table", message: "must be integer" },
-        { path: "/stages/0", message: 'must match "then" schema' },
       ],
     });
-    expect(result.stderr).toContain("validation failed: 3 error(s)");
+    expect(result.stderr).toContain("validation failed: 2 error(s)");
   });
 
   it("--dry-run with an empty stages array reports the structural error and exits 2", async () => {
@@ -141,7 +141,7 @@ describe("query e2e", () => {
       errors: [{ path: "/stages", message: "must NOT have fewer than 1 items" }],
     });
     expect(result.stderr).toContain(
-      "validation failed: 1 error(s) — pass --dry-run to validate without sending",
+      "validation failed: 1 error(s) — pass --dry-run to check it without running",
     );
   });
 
@@ -296,6 +296,7 @@ describe("query e2e", () => {
         native: { query: "SELECT 1" },
       }),
       configHome,
+      env: authEnv(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
@@ -335,6 +336,7 @@ describe("query e2e", () => {
         query: { "source-table": SEEDED.tables.orders, limit: 1 },
       }),
       configHome,
+      env: authEnv(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
@@ -359,9 +361,7 @@ describe("query e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe(
-      'query: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope.' +
-        " For MBQL 5, the body is the mbql/query value itself:" +
-        ' {"lib/type":"mbql/query", database:N, stages:[…]}.',
+      'query: the body is the query itself: {"lib/type": "mbql/query", "database": N, "stages": […]}.',
     );
     expect(result.stdout).toBe("");
   });

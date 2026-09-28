@@ -23,7 +23,7 @@ describe("probeServer", () => {
       }),
     );
     expect(await probeServer(client)).toEqual({
-      version: { tag: "v1.58.7", major: 58, patch: 7 },
+      version: { kind: "release", tag: "v1.58.7", major: 58, patch: 7 },
       edition: "ee",
       date: "2025-12-15",
       hash: "abc1234",
@@ -40,7 +40,7 @@ describe("probeServer", () => {
   it("returns null for token-features, date and hash when the server omits them", async () => {
     const { client } = createFakeClient(planning({ version: { tag: "v0.58.7" } }));
     expect(await probeServer(client)).toEqual({
-      version: { tag: "v0.58.7", major: 58, patch: 7 },
+      version: { kind: "release", tag: "v0.58.7", major: 58, patch: 7 },
       edition: "oss",
       date: null,
       hash: null,
@@ -48,7 +48,7 @@ describe("probeServer", () => {
     });
   });
 
-  it("returns version null for an unparseable head/nightly tag, token-features still passed through", async () => {
+  it("reads a head/nightly tag as a development build, token-features still passed through", async () => {
     const { client } = createFakeClient(
       planning({
         version: { tag: "vUNKNOWN" },
@@ -56,7 +56,7 @@ describe("probeServer", () => {
       }),
     );
     expect(await probeServer(client)).toEqual({
-      version: null,
+      version: { kind: "development", tag: "vUNKNOWN" },
       edition: null,
       date: null,
       hash: null,

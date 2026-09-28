@@ -1,18 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { editionFromTag, tryParseTag } from "./tag";
+import { editionFromTag, parseTag } from "./tag";
 
-describe("tryParseTag", () => {
+describe("parseTag", () => {
   it("parses a v0.* (OSS-prefixed) tag", () => {
-    expect(tryParseTag("v0.58.7")).toEqual({ tag: "v0.58.7", major: 58, patch: 7 });
+    expect(parseTag("v0.58.7")).toEqual({ kind: "release", tag: "v0.58.7", major: 58, patch: 7 });
   });
 
   it("parses a v1.* (EE-prefixed) tag", () => {
-    expect(tryParseTag("v1.58.7")).toEqual({ tag: "v1.58.7", major: 58, patch: 7 });
+    expect(parseTag("v1.58.7")).toEqual({ kind: "release", tag: "v1.58.7", major: 58, patch: 7 });
   });
 
   it("parses a multi-digit major", () => {
-    expect(tryParseTag("v0.105.0")).toEqual({
+    expect(parseTag("v0.105.0")).toEqual({
+      kind: "release",
       tag: "v0.105.0",
       major: 105,
       patch: 0,
@@ -20,15 +21,25 @@ describe("tryParseTag", () => {
   });
 
   it("accepts a tag without the leading v", () => {
-    expect(tryParseTag("1.59.12")).toEqual({ tag: "1.59.12", major: 59, patch: 12 });
+    expect(parseTag("1.59.12")).toEqual({ kind: "release", tag: "1.59.12", major: 59, patch: 12 });
   });
 
   it("parses a hotfix tag, whose fourth number semver would refuse", () => {
-    expect(tryParseTag("v0.62.19.5")).toEqual({ tag: "v0.62.19.5", major: 62, patch: 19 });
+    expect(parseTag("v0.62.19.5")).toEqual({
+      kind: "release",
+      tag: "v0.62.19.5",
+      major: 62,
+      patch: 19,
+    });
   });
 
   it("parses a release-candidate tag", () => {
-    expect(tryParseTag("v1.64.0-RC1")).toEqual({ tag: "v1.64.0-RC1", major: 64, patch: 0 });
+    expect(parseTag("v1.64.0-RC1")).toEqual({
+      kind: "release",
+      tag: "v1.64.0-RC1",
+      major: 64,
+      patch: 0,
+    });
   });
 
   it.each([
@@ -38,8 +49,8 @@ describe("tryParseTag", () => {
     ["a locally built jar tag that would read as v1", "v0.1.0-SNAPSHOT"],
     ["a snapshot build of a released line", "v0.59.12-SNAPSHOT"],
     ["a fifth number", "v0.62.19.5.1"],
-  ])("returns null on %s", (_label, input) => {
-    expect(tryParseTag(input)).toBeNull();
+  ])("reads %s as a development build", (_label, input) => {
+    expect(parseTag(input)).toEqual({ kind: "development", tag: input });
   });
 });
 

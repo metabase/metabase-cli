@@ -29,8 +29,7 @@ const BEYOND_KNOWN = KNOWN_RANGE.max + 5;
 const PROBED_AT = "2026-03-04T05:06:07.000Z";
 const REPROBED_AT = "2026-03-04T06:00:00.000Z";
 
-const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were a head build past v${KNOWN_RANGE.max}. Run \`mb upgrade\` for a newer CLI.\n`;
-const UNKNOWN_NOTICE = `Could not parse the Metabase version; assuming a head build past v${KNOWN_RANGE.max}.\n`;
+const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were v${KNOWN_RANGE.max + 1}. Run \`mb upgrade\` for a newer CLI.\n`;
 
 function shapeErrorEnvelope(message: string): unknown {
   return { ok: false, error: { category: "response-shape", message, exitCode: 1 } };
@@ -514,10 +513,10 @@ describe("defineMetabaseCommand", () => {
     expect(ran).not.toHaveBeenCalled();
   });
 
-  it("reads an unparseable cached version as the newest known, says so once, and proceeds", async () => {
+  it("runs a development build's newest-only method without a notice", async () => {
     await seedProbedProfile("default", {
       edition: null,
-      version: null,
+      version: { kind: "development", tag: "vUNKNOWN" },
       date: null,
       hash: null,
       tokenFeatures: null,
@@ -537,7 +536,7 @@ describe("defineMetabaseCommand", () => {
 
     await runCommand(cmd, { rawArgs: [] });
 
-    expect(stderr.join("")).toBe(UNKNOWN_NOTICE);
+    expect(stderr.join("")).toBe("");
     expect(ran).toHaveBeenCalledOnce();
     expect(process.exitCode).toBe(0);
   });
@@ -683,7 +682,7 @@ describe("defineMetabaseCommand", () => {
         reprobedRecord({
           at: REPROBED_AT,
           edition: "oss",
-          version: { tag: "v0.63.4", major: 63, patch: 4 },
+          version: { kind: "release", tag: "v0.63.4", major: 63, patch: 4 },
           date: "2026-09-01",
           hash: "abc1234",
           tokenFeatures: { library: true },
@@ -716,7 +715,7 @@ describe("defineMetabaseCommand", () => {
         reprobedRecord({
           at: REPROBED_AT,
           edition: "oss",
-          version: { tag: "v0.59.0", major: 59, patch: 0 },
+          version: { kind: "release", tag: "v0.59.0", major: 59, patch: 0 },
           date: null,
           hash: null,
           tokenFeatures: { library: true },
@@ -848,7 +847,7 @@ describe("defineMetabaseCommand", () => {
         reprobedRecord({
           at: REPROBED_AT,
           edition: "oss",
-          version: { tag: "v0.61.3", major: 61, patch: 3 },
+          version: { kind: "release", tag: "v0.61.3", major: 61, patch: 3 },
           date: null,
           hash: null,
           tokenFeatures: {},

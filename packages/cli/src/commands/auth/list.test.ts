@@ -78,7 +78,7 @@ const LATER = "2026-03-04T06:00:00.000Z";
 function successServer(): ServerInfo {
   return {
     edition: "oss",
-    version: { tag: "v0.58.7", major: 58, patch: 7 },
+    version: { kind: "release", tag: "v0.58.7", major: 58, patch: 7 },
     date: null,
     hash: null,
     tokenFeatures: null,
@@ -101,7 +101,7 @@ function okEntry(profile: string, url: string): AuthProfileEntry {
     authenticated: true,
     status: "ok",
     user: { id: 1, name: "Tester", isAdmin: true },
-    version: { tag: "v0.58.7", major: 58, patch: 7 },
+    version: { kind: "release", tag: "v0.58.7", major: 58, patch: 7 },
     edition: "oss",
     skew: "supported",
     knownRange: KNOWN_RANGE,
@@ -121,7 +121,7 @@ function probedRecord(name: string, url: string): ProfileRecord {
     lastProbe: {
       at: PROBED_AT,
       edition: "oss",
-      version: { tag: "v0.58.7", major: 58, patch: 7 },
+      version: { kind: "release", tag: "v0.58.7", major: 58, patch: 7 },
       date: null,
       hash: null,
       tokenFeatures: null,

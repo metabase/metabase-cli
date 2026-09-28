@@ -45,7 +45,7 @@ const BINARY_READ_HEADERS = {
 // own feature is refused here before it reaches the scripted wire.
 const SERVER = createServerProfile({
   edition: "oss",
-  version: { tag: "v0.59.0", major: 59, patch: 0 },
+  version: { kind: "release", tag: "v0.59.0", major: 59, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: null,

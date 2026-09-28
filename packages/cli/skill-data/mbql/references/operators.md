@@ -1,268 +1,109 @@
 # MBQL operator reference
 
-The complete clause vocabulary the bundled schema accepts, in the CLI's API/numeric
-form. The clause _structure_ and the slot-1-options rule are in the SKILL.md body —
-this file is the catalog of which operators exist and their arguments.
+Every clause is `[op, {options}, ...args]` with `{}` when there are no options. `<field>` is `["field", {}, <field id>]`, or any expression of the right type; `<pred>` is a filter clause. Clause heads are lowercase and hyphenated, exactly as written here.
 
-**Reading the tables.** Every clause is `[op, {options}, ...args]`. Below, `{…}`
-abbreviates the slot-1 options object — usually empty (`{}`), since `lib/uuid` is
-optional and the server generates it (see the SKILL body). It carries a value only
-when noted: an operator-specific option named in the row, or an explicit `lib/uuid`
-you mint to reference the clause. Field refs are numeric: `["field", {…}, <field-id>]`.
-Everything here passes `mb query --dry-run`; when in doubt, that loop is the authority.
+## Filters
 
-**Contents**
+A stage's `filters` are ANDed.
 
-- [Filter operators](#filter-operators) — Logical, Comparison, Null/empty, String match, Temporal, Segment
-- [Aggregation functions](#aggregation-functions) — including naming and the `offset` window function
-- [Expression operators](#expression-operators) — Arithmetic, Math, String, Temporal, Type conversion, Conditional
-- [References (within clauses)](#references-within-clauses) — field, expression, aggregation
-- [Field option: temporal bucketing](#field-option-temporal-bucketing)
-- [Field option: binning](#field-option-binning)
+- `["and", {}, <pred>, <pred>, …]` / `["or", …]`: two or more
+- `["not", {}, <pred>]`
+- `["=", {}, <field>, <v1>, <v2>, …]` / `["!=", …]`: several values mean any of them / none of them
+- `["in", {}, <field>, <v1>, <v2>, …]` / `["not-in", …]`: multi-value membership
+- `["<", {}, <a>, <b>]` / `["<=", …]` / `[">", …]` / `[">=", …]`
+- `["between", {}, <field>, <min>, <max>]`: inclusive; dates as `"2024-01-01"`
+- `["inside", {}, <lat>, <lon>, <lat-max>, <lon-min>, <lat-min>, <lon-max>]`: bounding box
+- `["is-null", {}, <field>]` / `["not-null", …]`
+- `["is-empty", {}, <field>]` / `["not-empty", …]`: NULL or `""`
+- `["contains", {}, <field>, "a", "b", …]` / `["does-not-contain", …]` / `["starts-with", …]` / `["ends-with", …]`: any of the strings (`does-not-contain`: none of them); `{"case-sensitive": false}` in options
+- `["time-interval", {}, <field>, <n>, "<unit>"]`: the `n` whole units before the current one (`n` negative) or after it, or `"current"` / `"last"` / `"next"` for a single unit; `{"include-current": true}` in options adds the current unit
+- `["relative-time-interval", {}, <field>, <n>, "<unit>", <offset n>, "<offset unit>"]`: a window shifted from now: last 3 months, a year ago
+- `["during", {}, <field>, "2024-03-15", "<unit>"]`: the whole unit containing the date
+- `["segment", {}, <segment id>]`: a saved segment, on its table
 
-> For relative date filters, prefer **`time-interval`** / **`relative-time-interval`**
-> (below). `relative-datetime` / `absolute-datetime` literals (e.g. from a UI-built
-> query) also work.
+Units for `time-interval` and friends: `millisecond`, `second`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`.
 
----
+## Aggregations
 
-## Filter operators
-
-A stage's `filters` is a list of boolean clauses, implicitly ANDed. Nest an explicit
-`["or", {…}, …]` for OR.
-
-### Logical
-
-| Op    | Args               | Notes                                                 |
-| ----- | ------------------ | ----------------------------------------------------- |
-| `and` | 2+ boolean clauses | Logical AND (usually implicit via the `filters` list) |
-| `or`  | 2+ boolean clauses | Logical OR                                            |
-| `not` | 1 boolean clause   | Logical NOT                                           |
-
-### Comparison
-
-| Op                | Args                                                     | Notes                   |
-| ----------------- | -------------------------------------------------------- | ----------------------- |
-| `=`               | field, 1+ values                                         | Multi-value = IN        |
-| `!=`              | field, 1+ values                                         | Multi-value = NOT IN    |
-| `<` `>` `<=` `>=` | 2 orderable                                              |                         |
-| `between`         | field, min, max                                          | Inclusive               |
-| `inside`          | lat-field, lon-field, lat-max, lon-min, lat-min, lon-max | Geographic bounding box |
-
-```json
-["between", {…}, ["field", {…}, 12], 10, 100]
-["=", {…}, ["field", {…}, 7], "Widget", "Gadget"]
-```
-
-### Null / empty
-
-| Op          | Args                | Notes                 |
-| ----------- | ------------------- | --------------------- |
-| `is-null`   | 1 expression        |                       |
-| `not-null`  | 1 expression        |                       |
-| `is-empty`  | 1 string expression | NULL or `""`          |
-| `not-empty` | 1 string expression | not NULL and not `""` |
-
-### String match
-
-N-ary (multiple values OR'd). Accept a `case-sensitive` option (default `true`) in the
-options object.
-
-| Op                 | Args              |
-| ------------------ | ----------------- |
-| `contains`         | field, 1+ strings |
-| `does-not-contain` | field, 1+ strings |
-| `starts-with`      | field, 1+ strings |
-| `ends-with`        | field, 1+ strings |
-
-```json
-["contains", { "case-sensitive": false }, ["field", {…}, 9], "widget"]
-```
-
-### Temporal
-
-| Op                       | Args                                                       | Notes                                               |
-| ------------------------ | ---------------------------------------------------------- | --------------------------------------------------- |
-| `time-interval`          | temporal-field, n, unit                                    | `n` = integer, or `"current"` / `"last"` / `"next"` |
-| `relative-time-interval` | temporal-field, value, bucket, offset-value, offset-bucket | interval with offset                                |
-
-Units (truncation only): `millisecond`, `second`, `minute`, `hour`, `day`, `week`,
-`month`, `quarter`, `year`.
-
-```json
-["time-interval", {…}, ["field", {…}, 22], -30, "day"]      // last 30 days
-["time-interval", {…}, ["field", {…}, 22], "current", "month"]
-```
-
-### Segment
-
-| Op        | Args       | Notes                     |
-| --------- | ---------- | ------------------------- |
-| `segment` | segment id | Reference a saved segment |
-
----
-
-## Aggregation functions
-
-A stage's `aggregation` is a list of aggregation clauses.
-
-| Op                      | Args                       | Notes                         |
-| ----------------------- | -------------------------- | ----------------------------- |
-| `count`                 | none, or 1 expression      | with arg: count non-NULL      |
-| `sum` `avg` `min` `max` | 1 numeric/orderable        |                               |
-| `distinct`              | 1 expression               | count of distinct values      |
-| `cum-count`             | none or 1 expression       | running count                 |
-| `cum-sum`               | 1 numeric                  | running sum                   |
-| `stddev` `var` `median` | 1 numeric                  |                               |
-| `percentile`            | numeric, p (0.0–1.0)       |                               |
-| `count-where`           | 1 boolean clause           |                               |
-| `sum-where`             | numeric, boolean clause    |                               |
-| `distinct-where`        | expression, boolean clause |                               |
-| `share`                 | 1 boolean clause           | proportion 0–1                |
-| `metric`                | metric id                  | reference a saved metric card |
+- `["count", {}]` / `["count", {}, <field>]`: rows / non-NULL values
+- `["sum", {}, <field>]` / `["avg", …]` / `["median", …]` / `["stddev", …]` / `["var", …]`: numeric
+- `["min", {}, <field>]` / `["max", …]`: any orderable
+- `["distinct", {}, <field>]`: count of distinct values
+- `["percentile", {}, <field>, 0.9]`: 0 to 1
+- `["count-where", {}, <pred>]`
+- `["sum-where", {}, <field>, <pred>]`
+- `["distinct-where", {}, <field>, <pred>]`
+- `["share", {}, <pred>]`: fraction of rows, 0 to 1
+- `["cum-count", {}]` / `["cum-sum", {}, <field>]`: running totals over the breakout
+- `["offset", {}, <aggregation>, <n>]`: the value n breakout rows back (negative) or ahead; in `aggregation` only
+- `["metric", {}, <card id>]`: a saved metric, on its table
 
 <!-- requires: measures -->
 
-`measure` takes a measure id and references a saved measure.
+`["measure", {}, <measure id>]` is a saved measure, on its table.
 
 <!-- /requires -->
 
-```json
-["count", {…}]
-["sum", {…}, ["field", {…}, 42]]
-["count-where", {…}, [">", {…}, ["field", {…}, 42], 100]]
-```
+Name the output in options: `["sum", {"name": "revenue", "display-name": "Revenue"}, <field>]`.
 
-**Naming** — set `name` (warehouse column) and/or `display-name` (UI header) in the
-options object: `["sum", { "name": "revenue", "display-name": "Revenue" }, …]`.
+## Expressions
 
-**Window function** — `offset` is only valid inside `aggregation`:
+Named in `expressions` by `{"lib/expression-name": "<name>"}` in the options, or used inline anywhere a value goes.
 
-| Op       | Args          | Notes                                             |
-| -------- | ------------- | ------------------------------------------------- |
-| `offset` | expression, n | value n rows before (negative) / after (positive) |
+**Math:** `["+", {}, a, b, …]`, `["-", …]`, `["*", …]`, `["/", …]` (always a float), `["abs", {}, x]`, `["ceil", …]`, `["floor", …]`, `["round", …]`, `["sqrt", …]`, `["exp", …]`, `["log", …]`, `["power", {}, base, exponent]`. `round` takes one argument and rounds to an integer.
 
----
+**Conversion:** `["integer", {}, <text or number>]`, `["float", {}, <text>]`, `["text", {}, <any>]`, `["date", {}, <text or datetime>]`, `["datetime", {}, <ISO text>]`, `["datetime", {"mode": "simple"}, <text>]`, `["datetime", {"mode": "unix-seconds"}, <number>]` (number modes `unix-seconds`, `unix-milliseconds`, `unix-microseconds`, `unix-nanoseconds`).
 
-## Expression operators
+**Text:** `["concat", {}, a, b, …]`, `["substring", {}, s, <start from 1>, <length>?]`, `["replace", {}, s, "find", "replacement"]`, `["regex-match-first", {}, s, "<regex>"]`, `["split-part", {}, s, "<delimiter>", <position from 1>]`, `["length", {}, s]`, `["trim", …]`, `["ltrim", …]`, `["rtrim", …]`, `["upper", …]`, `["lower", …]`, `["host", {}, <url>]`, `["domain", …]`, `["subdomain", …]`, `["path", …]`.
 
-Used in `expressions` (named, via `lib/expression-name` in options) and inline.
-
-### Arithmetic
-
-| Op  | Args                               | Notes                |
-| --- | ---------------------------------- | -------------------- |
-| `+` | 2+ numeric, or temporal + interval |                      |
-| `-` | 1+ numeric, or temporal − interval | unary = negation     |
-| `*` | 2+ numeric                         |                      |
-| `/` | 2+ numeric                         | always returns float |
-
-### Math
-
-| Op                           | Args           |
-| ---------------------------- | -------------- |
-| `abs` `ceil` `floor` `round` | 1 numeric      |
-| `power`                      | base, exponent |
-| `sqrt` `exp` `log`           | 1 numeric      |
-
-### String
-
-| Op                                 | Args                            |
-| ---------------------------------- | ------------------------------- |
-| `concat`                           | 2+ expressions                  |
-| `substring`                        | str, start (1-indexed), length? |
-| `replace`                          | str, find, replace              |
-| `regex-match-first`                | str, regex                      |
-| `split-part`                       | str, delimiter, position        |
-| `trim` `ltrim` `rtrim`             | 1 string                        |
-| `upper` `lower`                    | 1 string                        |
-| `length`                           | 1 string                        |
-| `host` `domain` `subdomain` `path` | 1 URL string                    |
-
-### Temporal
-
-| Op                                                                                  | Args                            | Notes                      |
-| ----------------------------------------------------------------------------------- | ------------------------------- | -------------------------- |
-| `now`                                                                               | none                            | datetime                   |
-| `today`                                                                             | none                            | date                       |
-| `interval`                                                                          | amount, unit                    | a temporal interval        |
-| `datetime-add`                                                                      | temporal, amount, unit          |                            |
-| `datetime-subtract`                                                                 | temporal, amount, unit          |                            |
-| `datetime-diff`                                                                     | datetime1, datetime2, unit      |                            |
-| `convert-timezone`                                                                  | temporal, target-tz, source-tz? |                            |
-| `get-year` `get-quarter` `get-month` `get-day` `get-hour` `get-minute` `get-second` | 1 temporal                      | integer component          |
-| `get-day-of-week`                                                                   | temporal, mode?                 | mode `iso`/`us`/`instance` |
-| `get-week`                                                                          | temporal, mode?                 | mode `iso`/`us`/`instance` |
-| `temporal-extract`                                                                  | temporal, unit, mode?           | generic extraction         |
-| `month-name` `quarter-name` `day-name`                                              | 1 integer                       | name from number           |
-
-Add/subtract/interval units: `year`, `quarter`, `month`, `week`, `day`, `hour`,
-`minute`, `second`, `millisecond`. `datetime-diff` units: same minus `millisecond`.
-`temporal-extract` units: `year-of-era`, `quarter-of-year`, `month-of-year`,
-`week-of-year-iso`, `week-of-year-us`, `week-of-year-instance`, `day-of-month`,
-`day-of-week`, `day-of-week-iso`, `hour-of-day`, `minute-of-hour`, `second-of-minute`.
-
-### Type conversion
-
-| Op        | Args              |
-| --------- | ----------------- |
-| `integer` | string or numeric |
-| `float`   | string            |
-| `text`    | 1 expression      |
-
-### Conditional
-
-| Op         | Args                           | Notes                                                |
-| ---------- | ------------------------------ | ---------------------------------------------------- |
-| `case`     | `[[cond, value], …]`, default? | if/then/else; default is the trailing positional arg |
-| `if`       | same as `case`                 | alias for `case`                                     |
-| `coalesce` | 2+ expressions                 | first non-null                                       |
+**Conditional:** `["case", {}, [[<pred>, <value>], [<pred>, <value>]], <default>?]` (alias `if`), `["coalesce", {}, a, b, …]`.
 
 ```json
-["case", { "lib/expression-name": "Tier" },
-  [[[">", {…}, ["field", {…}, 14], 100], "Premium"],
-   [["<=", {…}, ["field", {…}, 14], 20], "Budget"]],
-  "Standard"]
+[
+  "case",
+  { "lib/expression-name": "Tier" },
+  [
+    [[">", {}, ["field", {}, 14], 100], "Premium"],
+    [["<=", {}, ["field", {}, 14], 20], "Budget"]
+  ],
+  "Standard"
+]
 ```
 
-(`case`'s first arg is a list of `[condition, value]` pairs; the optional 4th
-positional arg is the default.)
+**Dates:**
 
----
+- `["now", {}]` / `["today", {}]`
+- `["datetime-add", {}, <date>, <n>, "<unit>"]` / `["datetime-subtract", …]`: `n` an integer
+- `["datetime-diff", {}, <from>, <to>, "<unit>"]`: units `second` … `year`; the way to subtract two dates
+- `["interval", {}, <n>, "<unit>"]`: added to a date with `+`
+- `["get-year", {}, <date>]` / `get-quarter` / `get-month` / `get-day` / `get-hour` / `get-minute` / `get-second`: an integer; a quarter is `1`–`4`
+- `["get-week", {}, <date>]` / `["get-day-of-week", {}, <date>]`: a fourth argument `"iso"`, `"us"` or `"instance"` sets the week convention
+- `["temporal-extract", {}, <date>, "<extract unit>"]`: `year-of-era`, `quarter-of-year`, `month-of-year`, `week-of-year-iso`, `week-of-year-us`, `week-of-year-instance`, `day-of-month`, `day-of-week`, `day-of-week-iso`, `hour-of-day`, `minute-of-hour`, `second-of-minute`
+- `["month-name", {}, <1–12>]` / `["quarter-name", {}, <1–4>]` / `["day-name", {}, <1–7>]`
+- `["convert-timezone", {}, <date>, "America/New_York", "<from tz>"?]`
+- `["relative-datetime", {}, <n>, "<unit>"]` / `["relative-datetime", {}, "current"]`: a point relative to now, for comparisons
+- `["absolute-datetime", {}, "2024-03-15T00:00:00", "<unit>"]`: the unit is required, `"default"` keeps the literal; a date literal (`"2024-03-15"`) takes a date unit (`day` … `year`) or `"default"`
 
-## References (within clauses)
+Add, subtract, diff and interval units: `millisecond` (not diff), `second`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`.
 
-| Ref         | Shape                                | Notes                                                                          |
-| ----------- | ------------------------------------ | ------------------------------------------------------------------------------ |
-| field       | `["field", {…}, <field-id>]`         | numeric id; options may carry `base-type`, `temporal-unit`, `binning`          |
-| expression  | `["expression", {…}, "<name>"]`      | by the expression's `lib/expression-name` string                               |
-| aggregation | `["aggregation", {…}, "<agg-uuid>"]` | 3rd arg is the **string** `lib/uuid` of the target aggregation, not a position |
+## Field option: `temporal-unit`
 
-## Field option: temporal bucketing
+On a date field ref, mostly in `breakout`:
 
-`temporal-unit` in a field ref's options buckets a datetime.
+- Truncation: `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year` (and `millisecond`, `second`).
+- Extraction, an integer: `minute-of-hour`, `hour-of-day`, `day-of-week`, `day-of-month`, `day-of-year`, `week-of-year`, `month-of-year`, `quarter-of-year`, `year-of-era`, `second-of-minute`.
+- `default` lets Metabase pick.
 
-- Truncation: `default`, `millisecond`, `second`, `minute`, `hour`, `day`, `week`,
-  `month`, `quarter`, `year`.
-- Extraction (returns an integer): `minute-of-hour`, `hour-of-day`, `day-of-week`,
-  `day-of-month`, `day-of-year`, `week-of-year`, `month-of-year`, `quarter-of-year`,
-  `year-of-era`, `second-of-minute`. (The `*-iso`/`*-us` variants are `temporal-extract`
-  operator modes, not field-option bucketing units.)
+## Field option: `binning`
 
-```json
-["field", { "temporal-unit": "month" }, 22]
-```
+On a numeric or coordinate field ref in `breakout`:
 
-## Field option: binning
+- `{"strategy": "num-bins", "num-bins": 10}`: equal-width bins.
+- `{"strategy": "bin-width", "bin-width": 5}`: a fixed width.
+- `{"strategy": "default"}`: Metabase picks.
 
-`binning` in a field ref's options groups a numeric/coordinate column.
+## References
 
-| `strategy`  | Extra property       | Notes                            |
-| ----------- | -------------------- | -------------------------------- |
-| `num-bins`  | `num-bins` (integer) | fixed number of equal-width bins |
-| `bin-width` | `bin-width` (number) | fixed bin width                  |
-| `default`   | —                    | Metabase chooses                 |
-
-```json
-["field", { "binning": { "strategy": "num-bins", "num-bins": 10 } }, 14]
-```
+- field: `["field", {…}, <field id>]`, or `["field", {"base-type": "type/…"}, "<column name>"]` for a previous stage's or a source card's column
+- expression: `["expression", {}, "<expression name>"]`, same stage
+- aggregation: `["aggregation", {}, "<lib/uuid>"]`, the `lib/uuid` (from `mb uuid`) set in the options of an aggregation of the same stage

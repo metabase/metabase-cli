@@ -78,7 +78,7 @@ describe("preflightMbql5Query", () => {
       ),
     ).toThrow(
       new ConfigError(
-        "card.dataset_query validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+        "card.dataset_query validation failed: 1 error(s) — fix them, or pass --skip-validate to send anyway",
       ),
     );
     expect(parseJson(streams.stdout, ValidationOutcome)).toEqual({
@@ -115,9 +115,8 @@ describe("preflightMbql5Query", () => {
       preflightMbql5Query(doubleWrapped, CARD_DATASET_QUERY_LABELS, { skip: false }),
     ).toThrow(
       new ConfigError(
-        'card.dataset_query validation failed: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope. ' +
-          "For MBQL 5, dataset_query is the mbql/query value itself: " +
-          '{"lib/type":"mbql/query", database:N, stages:[…]}.',
+        `card.dataset_query validation failed: dataset_query is the query itself: ` +
+          '{"lib/type": "mbql/query", "database": N, "stages": […]}.',
       ),
     );
     expect(streams.stdout).toBe("");
@@ -138,9 +137,8 @@ describe("preflightMbql5Query", () => {
       preflightMbql5Query(doubleWrapped, TRANSFORM_SOURCE_QUERY_LABELS, { skip: false }),
     ).toThrow(
       new ConfigError(
-        'transform.source.query validation failed: MBQL 5 query nested inside a legacy {type:"query", query:…} envelope. ' +
-          "For MBQL 5, source.query is the mbql/query value itself: " +
-          '{"lib/type":"mbql/query", database:N, stages:[…]}.',
+        `transform.source.query validation failed: source.query is the query itself: ` +
+          '{"lib/type": "mbql/query", "database": N, "stages": […]}.',
       ),
     );
     expect(streams.stdout).toBe("");

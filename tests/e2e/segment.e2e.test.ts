@@ -144,7 +144,7 @@ describe("segment e2e", () => {
       errors: [{ path: "/stages", message: "must NOT have fewer than 1 items" }],
     });
     expect(result.stderr).toContain(
-      "segment.definition validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+      "segment.definition validation failed: 1 error(s) — fix them, or pass --skip-validate to send anyway",
     );
   });
 
@@ -258,7 +258,7 @@ describe("segment e2e", () => {
       errors: [{ path: "/stages", message: "must NOT have fewer than 1 items" }],
     });
     expect(result.stderr).toContain(
-      "segment.definition validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+      "segment.definition validation failed: 1 error(s) — fix them, or pass --skip-validate to send anyway",
     );
   });
 

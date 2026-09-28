@@ -61,8 +61,8 @@ function recordGateSkip(lane: string, reason: string): void {
 }
 
 // The same profile the CLI builds from a cached probe, so a gate and the command it guards agree:
-// a head build's unparseable tag lands past the newest known major and every version-gated suite
-// runs there, while a token feature the server lacks still skips.
+// a development build is ahead of every release and every version-gated suite runs there, while a
+// token feature the server lacks still skips.
 function resolveServerProfile(): ServerProfile {
   return createServerProfile(readBootstrapSync().server);
 }
@@ -84,8 +84,8 @@ const OAUTH_UNSUPPORTED_REASON =
 
 // Gate for the OAuth login suite: a version check would be wrong here (head images without the
 // OAuth backend would run and fail), so bootstrap probes the discovery endpoint live and the
-// suite keys off that. The probe also rejects the agent-API-only OAuth server v60–62 ship
-// (no full-access scope advertised). Re-run `bun run e2e:bootstrap` after switching images.
+// suite keys off that. The probe also rejects the agent-API-only OAuth server v60, v61 and the
+// first v62 patches ship. Re-run `bun run e2e:bootstrap` after switching images.
 export function requireOAuthServer(lane: string): string | null {
   if (readBootstrapSync().server.oauthSupported) {
     return null;

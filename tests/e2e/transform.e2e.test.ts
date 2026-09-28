@@ -512,7 +512,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       errors: [{ path: "/database", message: "must be integer" }],
     });
     expect(cliErrorMessage(result.stderr)).toBe(
-      "transform.source.query validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+      "transform.source.query validation failed: 1 error(s) — fix them, or pass --skip-validate to send anyway",
     );
   });
 
@@ -540,7 +540,7 @@ describe.skipIf(skipReason !== null)("transform e2e", () => {
       errors: [{ path: "/database", message: "must be integer" }],
     });
     expect(cliErrorMessage(result.stderr)).toBe(
-      "transform.source.query validation failed: 1 error(s) — pass valid MBQL 5 or use the legacy format",
+      "transform.source.query validation failed: 1 error(s) — fix them, or pass --skip-validate to send anyway",
     );
   });
 
