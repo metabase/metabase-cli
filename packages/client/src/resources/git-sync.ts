@@ -90,6 +90,7 @@ export interface SyncRemoteChangesParams {
 export interface SyncImportParams extends SyncWaitParams {
   branch?: string | undefined;
   force?: boolean | undefined;
+  merge?: boolean | undefined;
   expected_branch?: string | undefined;
 }
 
@@ -97,6 +98,7 @@ export interface SyncExportParams extends SyncWaitParams {
   branch?: string | undefined;
   message?: string | undefined;
   force?: boolean | undefined;
+  merge?: boolean | undefined;
 }
 
 export interface SyncExportPreflightParams {
@@ -164,20 +166,28 @@ export function gitSyncResource(transport: Transport) {
   /**
    * Import content from the remote into Metabase. The endpoint queues a task and returns at once;
    * pass `wait` to poll that task until it reaches a terminal status. A server already up to date
-   * answers no task id, and there is then nothing to poll. A server that checks the branch the
-   * caller expects to be tracked refuses with 409 when `expected_branch` disagrees with the
-   * setting; left out, it is the tracked branch as read just before the request.
+   * answers no task id, and there is then nothing to poll. A server that guards the tracked branch
+   * refuses with 409 when `expected_branch` disagrees with the setting; left out, it is the tracked
+   * branch as read just before the request. `merge` folds the remote's changes into local content
+   * by a three-way merge and keeps un-pushed local changes, where a plain import refuses on a dirty
+   * instance.
    */
   async function importFromRemote(
     params: SyncImportParams = {},
     options: RequestOptions = {},
   ): Promise<SyncImportResult> {
     await transport.require("gitSync.import", options);
-    const expectedBranch = await importExpectedBranch(params, options);
+    await requireMerge(params.merge, options);
+    const expectedBranch = await guardedBranch(params.expected_branch, options);
     const started = await transport.requestParsed(SyncImportStarted, "/api/ee/remote-sync/import", {
       ...options,
       method: "POST",
-      body: { branch: params.branch, force: params.force, expected_branch: expectedBranch },
+      body: {
+        branch: params.branch,
+        force: params.force,
+        merge: params.merge,
+        expected_branch: expectedBranch,
+      },
     });
     const message = started.message ?? null;
     if (params.wait === undefined || started.task_id === null) {
@@ -186,41 +196,53 @@ export function gitSyncResource(transport: Transport) {
     return { message, task_id: started.task_id, final: await settle(params.wait, options) };
   }
 
-  // A server that checks the expected branch rejects an import without one; an older one ignores
-  // the field, so it is read and sent only where it is checked.
-  async function importExpectedBranch(
-    params: SyncImportParams,
+  async function requireMerge(merge: boolean | undefined, options: RequestOptions): Promise<void> {
+    if (merge === true) {
+      await transport.requireFeatures(["remoteSyncMerge"], options);
+    }
+  }
+
+  // A server that guards the tracked branch rejects an import or export that does not name it; an
+  // older one falls back to the setting by itself, so the setting is read only where it is checked.
+  async function guardedBranch(
+    given: string | undefined,
     options: RequestOptions,
   ): Promise<string | undefined> {
-    if (params.expected_branch !== undefined) {
-      return params.expected_branch;
+    if (given !== undefined) {
+      return given;
     }
     const { features } = await transport.server(options);
-    if (!features.remoteSyncImportExpectsBranch) {
+    if (!features.remoteSyncBranchGuard) {
       return undefined;
     }
-    const tracked = await branch(options);
-    if (tracked === null) {
-      throw new ConfigError(
-        "the tracked remote-sync branch could not be read (the remote-sync-branch setting is unset or unreadable), and this server requires it to import",
-      );
-    }
-    return tracked;
+    return trackedBranch(options);
   }
 
   /**
    * Export Metabase's content to the remote. The endpoint queues a task and returns at once; pass
-   * `wait` to poll that task until it reaches a terminal status.
+   * `wait` to poll that task until it reaches a terminal status. A server that guards the tracked
+   * branch refuses with 409 when `branch` is not the tracked one; left out, it is the tracked branch
+   * as read just before the request there, and the server's own default elsewhere. When the remote
+   * has moved past the last sync, a plain export ends in a `conflict` task where `merge` is
+   * available, and is refused with 400 before any task elsewhere; `merge` folds the remote's changes
+   * in by a three-way merge instead, and `force` overwrites them.
    */
   async function exportToRemote(
     params: SyncExportParams = {},
     options: RequestOptions = {},
   ): Promise<SyncExportResult> {
     await transport.require("gitSync.export", options);
+    await requireMerge(params.merge, options);
+    const branchName = await guardedBranch(params.branch, options);
     const started = await transport.requestParsed(SyncExportStarted, "/api/ee/remote-sync/export", {
       ...options,
       method: "POST",
-      body: { branch: params.branch, message: params.message, force: params.force },
+      body: {
+        branch: branchName,
+        message: params.message,
+        force: params.force,
+        merge: params.merge,
+      },
     });
     if (params.wait === undefined) {
       return { message: started.message, task_id: started.task_id };
@@ -360,6 +382,16 @@ export function gitSyncResource(transport: Transport) {
     return tracked;
   }
 
+  /** The branch git-sync tracks, refused when none is configured or the caller may not read it. */
+  async function trackedBranch(options: RequestOptions = {}): Promise<string> {
+    await transport.require("gitSync.trackedBranch", options);
+    const tracked = await branch(options);
+    if (tracked === null) {
+      throw new ConfigError("git-sync tracks no branch: the remote-sync-branch setting is unset");
+    }
+    return tracked;
+  }
+
   /**
    * Poll the current task until it reaches a terminal status. A server with no task at all
    * answers null, which is terminal in the same sense: nothing further will happen.
@@ -396,6 +428,7 @@ export function gitSyncResource(transport: Transport) {
     syncedCollections,
     remoteUrl,
     branch,
+    trackedBranch,
     waitForTask,
   };
 }

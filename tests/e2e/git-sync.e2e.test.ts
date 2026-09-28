@@ -176,7 +176,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
     expect(result.exitCode, result.stderr).toBe(0);
     const entry = parseJson(result.stdout, CommandHelpEntry, { source: "--help --json" });
     expect(entry.requires).toEqual({
-      methods: ["gitSync.exportPreflight", "gitSync.branch"],
+      methods: ["gitSync.exportPreflight", "gitSync.trackedBranch"],
       features: ["remoteSyncExportPreflight"],
     });
   });
@@ -366,11 +366,11 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
       configHome,
       env: authEnv(),
     });
-    if (serverHas("remoteSyncImportExpectsBranch")) {
+    if (serverHas("remoteSyncBranchGuard")) {
       expect(result.exitCode).toBe(2);
       expect(cliErrorCategory(result.stderr)).toBe("config");
       expect(cliErrorMessage(result.stderr)).toBe(
-        "the tracked remote-sync branch could not be read (the remote-sync-branch setting is unset or unreadable), and this server requires it to import",
+        "git-sync tracks no branch: the remote-sync-branch setting is unset",
       );
       return;
     }
@@ -378,18 +378,23 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
     expect(cliErrorCategory(result.stderr)).toBe("http");
   });
 
-  it("export without a tracked branch refuses with ConfigError", async () => {
+  it("export without git-sync configured refuses, before the request where the server expects a branch", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "export", "--no-wait", "--json"],
       configHome,
       env: authEnv(),
     });
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorCategory(result.stderr)).toBe("config");
-    expect(cliErrorMessage(result.stderr)).toBe(
-      "git-sync tracks no branch: the remote-sync-branch setting is unset",
-    );
+    if (serverHas("remoteSyncBranchGuard")) {
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorCategory(result.stderr)).toBe("config");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "git-sync tracks no branch: the remote-sync-branch setting is unset",
+      );
+      return;
+    }
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorCategory(result.stderr)).toBe("http");
   });
 
   it("has-remote-changes without git-sync configured surfaces the server's 400 message", async () => {

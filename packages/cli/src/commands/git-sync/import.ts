@@ -1,4 +1,5 @@
 import { SyncImportResult } from "@metabase/client/domain/git-sync";
+import { ConfigError } from "@metabase/client/errors";
 import type { SyncImportParams } from "@metabase/client/resources/git-sync";
 
 import { renderSummary } from "../../output/render";
@@ -7,6 +8,7 @@ import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 import { gitSyncWaitFlags, parseWaitFlags } from "../wait-flags";
 
+import { branchFlag } from "./branch-flag";
 import { formatSyncTask, taskPollOptions, throwIfFailedTask } from "./sync-task";
 
 export default defineMetabaseCommand({
@@ -14,6 +16,8 @@ export default defineMetabaseCommand({
     name: "import",
     description: "Import content from the configured git remote into Metabase",
   },
+  details:
+    "A plain import refuses while Metabase holds un-pushed changes; --force discards them, --merge (Metabase 63+) keeps them and folds the remote's changes in by a three-way merge. A merge ends the task in `conflict`, leaving local content untouched, when entities changed on both sides or when there is no merge base: the remote history was rewritten, or the instance has never synced. A task that ends in `conflict` makes the server count the remote commit it saw as synced, so a retry, --merge included, no longer sees the remote's changes: resolve a conflict with --force on the side to keep, or `git-sync create-branch` then export, never with a retry.",
   requires: ["gitSync.import"],
   args: {
     ...outputFlags,
@@ -29,6 +33,11 @@ export default defineMetabaseCommand({
       description: "Discard local Metabase-side dirty changes (LOSSY)",
       default: false,
     },
+    merge: {
+      type: "boolean",
+      description: "Keep un-pushed local changes and fold the remote's in by a three-way merge",
+      default: false,
+    },
     ...gitSyncWaitFlags,
   },
   outputSchema: SyncImportResult,
@@ -36,15 +45,23 @@ export default defineMetabaseCommand({
     "mb git-sync import",
     "mb git-sync import --branch main --json",
     "mb git-sync import --force --no-wait",
+    "mb git-sync import --merge",
   ],
   async run({ args, ctx, getClient }) {
     const wait = parseWaitFlags(args);
+    if (args.merge && args.force) {
+      throw new ConfigError("--merge cannot be combined with --force");
+    }
+    const branch = branchFlag(args.branch);
     const params: SyncImportParams = {};
-    if (args.branch !== undefined && args.branch !== "") {
-      params.branch = args.branch;
+    if (branch !== null) {
+      params.branch = branch;
     }
     if (args.force) {
       params.force = true;
+    }
+    if (args.merge) {
+      params.merge = true;
     }
     if (wait.enabled) {
       params.wait = taskPollOptions(wait.schedule);

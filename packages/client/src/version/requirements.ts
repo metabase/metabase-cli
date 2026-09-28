@@ -78,6 +78,7 @@ export const METHOD_REQUIREMENTS = {
   "gitSync.syncedCollections": ["remoteSync"],
   "gitSync.remoteUrl": [],
   "gitSync.branch": [],
+  "gitSync.trackedBranch": [],
   "gitSync.waitForTask": ["remoteSync"],
   "glossary.list": [],
   "glossary.create": [],

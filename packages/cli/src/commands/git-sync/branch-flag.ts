@@ -10,10 +10,3 @@ export function branchFlag(value: string | undefined): string | null {
   }
   return value;
 }
-
-export function requireTrackedBranch(tracked: string | null): string {
-  if (tracked === null) {
-    throw new ConfigError("git-sync tracks no branch: the remote-sync-branch setting is unset");
-  }
-  return tracked;
-}
