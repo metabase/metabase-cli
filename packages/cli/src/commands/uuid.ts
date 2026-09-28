@@ -18,7 +18,7 @@ export default defineMetabaseCommand({
     description: "Mint random UUID v4 strings",
   },
   details:
-    "For native template-tag ids, other UUID fields, and the MBQL `lib/uuid` of a clause another clause references (MBQL clauses otherwise omit `lib/uuid` and the server mints one). Mint fresh values here rather than authoring them by hand — the MBQL 5 schema rejects placeholder strings. Output is JSON when piped; capture a bare value with `--format text`.",
+    "For native template-tag ids and the MBQL `lib/uuid` of a clause another clause references (other clauses omit it). Never hand-write or `uuidgen` a UUID. Piped output is JSON; `--format text` prints bare values.",
   skills: [{ skill: "mbql", purpose: "where lib/uuid values are used" }],
   requires: null,
   args: {
