@@ -1513,12 +1513,17 @@ Plus the shared output and window flags — see [Output](#output).
 
 ### `mb collection tree`
 
-Fetch the full collection hierarchy as a nested tree. Output is always JSON — the recursive structure does not render meaningfully as a key/value table.
+Fetch the full collection hierarchy as a nested tree. Output is always JSON — the recursive structure does not render meaningfully as a key/value table. The tree leaves out the Library collections (`library`, `library-data`, `library-metrics`) unless you pass `--include-library`; the default `collection list` includes them.
 
 ```sh
 mb collection tree
 mb collection tree --json
+mb collection tree --include-library
 ```
+
+| Flag                | Description                      |
+| ------------------- | -------------------------------- |
+| `--include-library` | Include the Library collections. |
 
 ### `mb collection create`
 

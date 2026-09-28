@@ -41,6 +41,11 @@ export interface CollectionItemListParams {
   pinned_state?: CollectionPinnedState | undefined;
 }
 
+export interface CollectionTreeParams {
+  /** Include the Library collections, which the tree leaves out by default. */
+  "include-library"?: boolean | undefined;
+}
+
 // The walk's own settings, minus the query the method builds from `CollectionItemListParams`.
 export type CollectionItemPageOptions = Omit<PaginateOptions, "query">;
 
@@ -160,10 +165,14 @@ export function collectionResource(transport: Transport) {
   }
 
   /** Fetch the collection hierarchy as a forest of nested nodes. */
-  async function tree(options: RequestOptions = {}): Promise<ListResult<CollectionTreeNode>> {
+  async function tree(
+    params: CollectionTreeParams = {},
+    options: RequestOptions = {},
+  ): Promise<ListResult<CollectionTreeNode>> {
     await transport.require("collection.tree", options);
     const data = await transport.requestParsed(CollectionTreeApiList, "/api/collection/tree", {
       ...options,
+      query: { "include-library": params["include-library"] },
     });
     return { data, total: null };
   }
