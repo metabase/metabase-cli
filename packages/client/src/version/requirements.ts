@@ -14,7 +14,6 @@ export const METHOD_REQUIREMENTS = {
   "card.exportQuery": [],
   "card.queryMetadata": [],
   "collection.list": [],
-  "collection.listWithLibrary": [],
   "collection.get": [],
   "collection.create": [],
   "collection.update": [],

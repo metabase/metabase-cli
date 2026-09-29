@@ -20,7 +20,7 @@ import type { ListResult } from "../list";
 import { type PollOptions, pollUntil } from "../poll";
 import { PROBE_PATH } from "../version/probe";
 
-import { listCollectionsWithLibrary } from "./collection";
+import { listCollectionsAs } from "./collection";
 import { fetchOptionalParsed } from "./optional-parsed";
 
 // The sync scope is decided from three fields of every collection on the instance, so it reads them
@@ -340,7 +340,7 @@ export function gitSyncResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<ListResult<SyncScopeCollection>> {
     await transport.require("gitSync.syncedCollections", options);
-    const data = await listCollectionsWithLibrary(transport, SyncScopeCollection, options);
+    const data = await listCollectionsAs(transport, SyncScopeCollection, options);
     return { data: data.filter((entry) => entry.is_remote_synced === true), total: null };
   }
 

@@ -10,7 +10,7 @@ import {
 } from "../domain/library";
 import type { TableSelectors } from "../domain/table";
 import type { RequestOptions, Transport } from "../http/transport";
-import { listCollectionsWithLibrary } from "./collection";
+import { listCollectionsAs } from "./collection";
 
 // The trailing slash is part of the route: Metabase mounts the Library API under `/library` and
 // registers both the read and the create endpoint at `"/"` within it.
@@ -41,7 +41,7 @@ export function libraryResource(transport: Transport) {
   }
 
   async function libraryListing(options: RequestOptions): Promise<LibraryListing> {
-    const data = await listCollectionsWithLibrary(transport, LibraryCollectionInfo, options);
+    const data = await listCollectionsAs(transport, LibraryCollectionInfo, options);
     const byId = new Map<number, LibraryCollectionInfo>();
     for (const collection of data) {
       if (typeof collection.id === "number") {

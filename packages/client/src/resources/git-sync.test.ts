@@ -504,14 +504,14 @@ describe("git-sync resource wire requests", () => {
     ]);
   });
 
-  it("reads the synced collections off the library-inclusive collection listing", async () => {
+  it("reads the synced collections off the collection listing", async () => {
     const { mb, capture } = clientOver([jsonResponse([])]);
 
     await mb.gitSync.syncedCollections();
 
     expect(capture.calls).toEqual([
       {
-        url: "https://mb.example.com/metabase/api/collection?include-library=true",
+        url: "https://mb.example.com/metabase/api/collection",
         method: "GET",
         headers: JSON_READ_HEADERS,
         body: null,

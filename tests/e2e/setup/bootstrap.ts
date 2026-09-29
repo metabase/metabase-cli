@@ -540,7 +540,7 @@ async function seedContent(
 
 const LIBRARY_DATA_COLLECTION_TYPE = "library-data";
 
-// `/api/collection?include-library=true` mixes numeric ids with the virtual `root` string id, so
+// `/api/collection` mixes numeric ids with the virtual `root` string id, so
 // the id is a union; real library collections always carry a numeric id.
 const LibraryCollectionResponse = z
   .object({
@@ -567,9 +567,7 @@ async function ensureLibraryDataCollection(client: Transport): Promise<number> {
 }
 
 async function findLibraryDataCollectionId(client: Transport): Promise<number | null> {
-  const collections = await client.requestParsed(LibraryCollectionListResponse, "/api/collection", {
-    query: { "include-library": true },
-  });
+  const collections = await client.requestParsed(LibraryCollectionListResponse, "/api/collection");
   const dataCollection = collections.find((c) => c.type === LIBRARY_DATA_COLLECTION_TYPE);
   if (dataCollection === undefined) {
     return null;

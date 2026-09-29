@@ -93,7 +93,7 @@ const BINARY_WRITE_HEADERS = {
 };
 
 const ROOT_URL = "https://mb.example.com/metabase/api/ee/library/";
-const COLLECTIONS_URL = "https://mb.example.com/metabase/api/collection?include-library=true";
+const COLLECTIONS_URL = "https://mb.example.com/metabase/api/collection";
 
 const READ_ROOT_CALL = { url: ROOT_URL, method: "GET", headers: JSON_READ_HEADERS, body: null };
 const READ_COLLECTIONS_CALL = {
