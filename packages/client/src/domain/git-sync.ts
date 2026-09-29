@@ -58,6 +58,7 @@ export const SyncTaskCompact = SyncTask.pick({
   progress: true,
   version: true,
   error_message: true,
+  conflicts: true,
 }).strip();
 export type SyncTaskCompact = z.infer<typeof SyncTaskCompact>;
 
