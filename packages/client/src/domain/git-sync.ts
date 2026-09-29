@@ -107,8 +107,6 @@ export const SyncForcePushCasualties = z.object({
 });
 export type SyncForcePushCasualties = z.infer<typeof SyncForcePushCasualties>;
 
-// `reason` names why no merge is possible; the server has one such cause, and `null` when a merge
-// base exists.
 export const SyncExportPreflight = z
   .object({
     has_changes: z.boolean(),
