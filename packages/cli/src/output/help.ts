@@ -226,6 +226,9 @@ interface SubCommandMatch {
 interface CommandPath {
   segments: string[];
   unknownToken: string | null;
+  command: CommandDef;
+  // Where the reached command's own tokens begin: what citty hands it as `rawArgs`.
+  argsStart: number;
 }
 
 // Citty's renderUsage only knows a command's immediate parent, so the leaf USAGE line drops
@@ -250,13 +253,32 @@ async function walkCommandPath(root: CommandDef, rawArgs: readonly string[]): Pr
     }
     const match = await findSubCommand(subCommands, token);
     if (match === null) {
-      return { segments, unknownToken: token };
+      return { segments, unknownToken: token, command: current, argsStart: index };
     }
     segments.push(match.name);
     current = match.command;
     index += 1;
   }
-  return { segments, unknownToken: null };
+  return { segments, unknownToken: null, command: current, argsStart: index };
+}
+
+interface LeafArgv {
+  argsDef: ArgsDef;
+  argsStart: number;
+}
+
+// The command a run of `rawArgs` lands on and where its own tokens begin, or `null` when it lands
+// on a group, which parses no arguments of its own.
+export async function resolveLeafArgv(
+  root: CommandDef,
+  rawArgs: readonly string[],
+): Promise<LeafArgv | null> {
+  const path = await walkCommandPath(root, rawArgs);
+  if (path.unknownToken !== null || (await resolveCitty(path.command.subCommands)) !== undefined) {
+    return null;
+  }
+  const argsDef = (await resolveCitty(path.command.args)) ?? {};
+  return { argsDef, argsStart: path.argsStart };
 }
 
 export async function resolveBreadcrumb(

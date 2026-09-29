@@ -4,11 +4,18 @@ import type { ArgsDef, CommandDef } from "citty";
 
 import { ConfigError } from "@metabase/client/errors";
 
+import { separatePositionals } from "./commands/argv";
 import { hoistGlobalFlags } from "./commands/global-flags";
 import { trustSystemCa } from "./core/system-ca";
 import main from "./main";
 import { reportError } from "./output/error";
-import { findUnknownCommand, resolveBreadcrumb, showUsage, showUsageJson } from "./output/help";
+import {
+  findUnknownCommand,
+  resolveBreadcrumb,
+  resolveLeafArgv,
+  showUsage,
+  showUsageJson,
+} from "./output/help";
 import { installInterruptHandler } from "./runtime/interrupt";
 
 const HELP_FLAGS: ReadonlySet<string> = new Set(["--help", "-h"]);
@@ -17,7 +24,7 @@ const JSON_HELP_FLAG = "--json";
 async function run(): Promise<void> {
   installInterruptHandler((code) => process.exit(code));
   trustSystemCa();
-  const rawArgs = hoistGlobalFlags(process.argv.slice(2));
+  const rawArgs = await normalizeArgv(process.argv.slice(2));
   const wantsJsonHelp = rawArgs.includes(JSON_HELP_FLAG);
 
   const showUsageWithBreadcrumb = async <T extends ArgsDef = ArgsDef>(
@@ -44,6 +51,16 @@ async function run(): Promise<void> {
     }
   }
   await runMain(main, { showUsage: showUsageWithBreadcrumb, rawArgs });
+}
+
+async function normalizeArgv(argv: readonly string[]): Promise<string[]> {
+  const hoisted = hoistGlobalFlags(argv);
+  const leaf = await resolveLeafArgv(main, hoisted);
+  if (leaf === null) {
+    return hoisted;
+  }
+  const leafArgs = separatePositionals(hoisted.slice(leaf.argsStart), leaf.argsDef);
+  return [...hoisted.slice(0, leaf.argsStart), ...leafArgs];
 }
 
 void run().catch((error: unknown) => {

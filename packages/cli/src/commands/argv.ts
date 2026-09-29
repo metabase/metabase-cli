@@ -6,6 +6,8 @@ import { flagConsumesValue, normalizeFlag, toAliasArray } from "../runtime/citty
 const ARGUMENT_SEPARATOR = "--";
 const NEGATION_PREFIX = "no-";
 const BUILTIN_FLAGS: ReadonlyArray<string> = ["help", "h", "version", "v"];
+// No flag name starts with a digit, so a token like `-5` or `-0.5` can only be a value.
+const NEGATIVE_NUMBER = /^-\.?\d/;
 
 // Maps every spelling a flag can take (name, alias, camel or kebab case) to its declared key.
 type FlagKeys = ReadonlyMap<string, string>;
@@ -37,7 +39,7 @@ function scanArgv(rawArgs: readonly string[], argsDef: ArgsDef): ScannedArgv {
       positionals.push(...rawArgs.slice(index + 1));
       break;
     }
-    if (!isFlagToken(token)) {
+    if (!isFlagToken(token) || NEGATIVE_NUMBER.test(token)) {
       positionals.push(token);
       index += 1;
       continue;
@@ -47,6 +49,20 @@ function scanArgv(rawArgs: readonly string[], argsDef: ArgsDef): ScannedArgv {
     index += consumed ? 2 : 1;
   }
   return { flags, positionals };
+}
+
+// citty reads `-5` as a flag named "5", which leaves `field remapping 1 2 -5` a positional short.
+// Moving every positional behind `--`, flags first, keeps the order of both and makes citty bind
+// the number as the value it is.
+export function separatePositionals(rawArgs: readonly string[], argsDef: ArgsDef): string[] {
+  const scanned = scanArgv(rawArgs, argsDef);
+  if (!scanned.positionals.some((positional) => NEGATIVE_NUMBER.test(positional))) {
+    return [...rawArgs];
+  }
+  const flagTokens = scanned.flags.flatMap((occurrence) =>
+    occurrence.value === undefined ? [occurrence.token] : [occurrence.token, occurrence.value],
+  );
+  return [...flagTokens, ARGUMENT_SEPARATOR, ...scanned.positionals];
 }
 
 // Refuses what citty would otherwise parse into something the user did not type: an undeclared
