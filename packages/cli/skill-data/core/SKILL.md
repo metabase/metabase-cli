@@ -38,11 +38,12 @@ Once a name is established, pass `--profile <name>` to **every** subsequent comm
 
 ## Flag conventions
 
-**`--profile` is per-subcommand — it attaches after the full verb chain, not before it.**
+**`--profile` goes before or after the verb chain, never inside it.**
 
 ```bash
 ✅ mb table list --profile prod --json
-❌ mb --profile prod table list           # → error: "Unknown command prod"
+✅ mb --profile prod table list
+❌ mb table --profile prod list  # → unknown command: prod
 ```
 
 **`--wait` for async operations.** `transform run`, `git-sync import`, and similar verbs return immediately by default. Pass `--wait` whenever the next step depends on completion — without it you race the operation and see "not ready" / transient connection refusals.
