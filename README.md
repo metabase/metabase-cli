@@ -398,10 +398,10 @@ mb db list --saved --json
 mb db list --include tables --json   # every db with its compact table map
 ```
 
-| Flag                | Description                                                                                                                                                                             |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--include <which>` | Hydrate related entities. Currently only `tables` is supported (each database is returned with its compact `tables`). To map a single warehouse, prefer `db get <id> --include tables`. |
-| `--saved`           | Include the Saved Questions virtual database in the list. The virtual db has id `-1337` and no `engine`.                                                                                |
+| Flag                | Description                                                                                                                                                                                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--include <which>` | Hydrate related entities. Currently only `tables` is supported (each database is returned with its compact `tables`). To map a single warehouse, prefer `db get <id> --include tables`.          |
+| `--saved`           | Include the Saved Questions virtual database in the list. The virtual db has id `-1337` and no `engine`, and its `--include tables` are the saved questions, each with a `card__<id>` string id. |
 
 ### `mb db get <id>`
 

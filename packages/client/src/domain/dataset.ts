@@ -1,8 +1,12 @@
 import { z } from "zod";
 
 import type { Features } from "../version/features";
-import { CardType } from "./card";
-import { Database, DatabaseCompact } from "./database";
+import {
+  Database,
+  DatabaseCompact,
+  DatabaseVirtualTable,
+  DatabaseVirtualTableCompact,
+} from "./database";
 import { Field, FieldBaseType, FieldCompact, FieldSemanticType } from "./field";
 import { Snippet, SnippetCompact } from "./snippet";
 import { TableQueryMetadata, TableQueryMetadataCompact } from "./table";
@@ -73,32 +77,13 @@ export const VirtualFieldCompact = VirtualField.pick({
 }).strip();
 export type VirtualFieldCompact = z.infer<typeof VirtualFieldCompact>;
 
-// A card standing in as a source table, id `card__<id>`.
-export const VirtualTable = z
-  .object({
-    id: z.string(),
-    db_id: z.number().int(),
-    display_name: z.string(),
-    schema: z.string(),
-    description: z.string().nullable(),
-    type: CardType,
-    moderated_status: z.string().nullable(),
-    entity_id: z.string().nullable(),
-    fields: z.array(VirtualField),
-  })
-  .loose();
+// A card standing in as a source table, id `card__<id>`, with its columns.
+export const VirtualTable = DatabaseVirtualTable.extend({ fields: z.array(VirtualField) });
 export type VirtualTable = z.infer<typeof VirtualTable>;
 
-export const VirtualTableCompact = VirtualTable.pick({
-  id: true,
-  db_id: true,
-  display_name: true,
-  schema: true,
-  description: true,
-  type: true,
-})
-  .strip()
-  .extend({ fields: z.array(VirtualFieldCompact) });
+export const VirtualTableCompact = DatabaseVirtualTableCompact.extend({
+  fields: z.array(VirtualFieldCompact),
+});
 export type VirtualTableCompact = z.infer<typeof VirtualTableCompact>;
 
 export const QueryMetadata = z

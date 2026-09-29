@@ -1,7 +1,36 @@
 import { z } from "zod";
 
+import { CardType } from "./card";
 import { Table, TableCompact } from "./table";
 
+// A saved question standing in as a table of the Saved Questions virtual database, id `card__<id>`.
+// A database listing carries it without its columns.
+export const DatabaseVirtualTable = z
+  .object({
+    id: z.string(),
+    db_id: z.number().int(),
+    display_name: z.string(),
+    schema: z.string(),
+    description: z.string().nullable(),
+    type: CardType,
+    moderated_status: z.string().nullable(),
+    entity_id: z.string().nullable(),
+  })
+  .loose();
+export type DatabaseVirtualTable = z.infer<typeof DatabaseVirtualTable>;
+
+export const DatabaseVirtualTableCompact = DatabaseVirtualTable.pick({
+  id: true,
+  db_id: true,
+  display_name: true,
+  schema: true,
+  description: true,
+  type: true,
+}).strip();
+export type DatabaseVirtualTableCompact = z.infer<typeof DatabaseVirtualTableCompact>;
+
+// A real table's id is a number and a virtual table's a `card__N` string, which is what tells the
+// two members apart; only the Saved Questions database lists virtual ones.
 export const Database = z
   .object({
     id: z.number().int(),
@@ -9,7 +38,7 @@ export const Database = z
     engine: z.string().optional(),
     is_saved_questions: z.boolean().optional(),
     initial_sync_status: z.string().nullable().optional(),
-    tables: z.array(Table).optional(),
+    tables: z.array(z.union([Table, DatabaseVirtualTable])).optional(),
   })
   .loose();
 export type Database = z.infer<typeof Database>;
@@ -22,7 +51,7 @@ export const DatabaseCompact = Database.pick({
 })
   .strip()
   .extend({
-    tables: z.array(TableCompact).optional(),
+    tables: z.array(z.union([TableCompact, DatabaseVirtualTableCompact])).optional(),
   });
 export type DatabaseCompact = z.infer<typeof DatabaseCompact>;
 

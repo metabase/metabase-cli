@@ -155,6 +155,8 @@ export {
   DatabaseGetInclude,
   DatabaseListInclude,
   DatabaseSyncResult,
+  DatabaseVirtualTable,
+  DatabaseVirtualTableCompact,
 } from "./domain/database";
 export {
   CompiledQuery,

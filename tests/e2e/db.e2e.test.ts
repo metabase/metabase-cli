@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { Database, DatabaseCompact, DatabaseSyncResult } from "@metabase/client/domain/database";
 import { TableCompact } from "@metabase/client/domain/table";
@@ -18,6 +19,11 @@ import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 
 const SAVED_QUESTIONS_VIRTUAL_DB_ID = -1337;
+
+// A warehouse database lists real tables only; the virtual ones belong to the Saved Questions database.
+const WarehouseDatabaseCompact = DatabaseCompact.extend({
+  tables: z.array(TableCompact).optional(),
+});
 
 const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
   {
@@ -232,7 +238,7 @@ describe("db e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const parsed = parseJson(result.stdout, DatabaseCompact);
+    const parsed = parseJson(result.stdout, WarehouseDatabaseCompact);
     expect({ ...parsed, tables: (parsed.tables ?? []).toSorted((a, b) => a.id - b.id) }).toEqual({
       id: SEEDED.warehouseDbId,
       name: "Warehouse",
@@ -249,7 +255,7 @@ describe("db e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const parsed = parseJson(result.stdout, DatabaseCompact);
+    const parsed = parseJson(result.stdout, WarehouseDatabaseCompact);
     expect({
       tableIds: (parsed.tables ?? []).map((table) => table.id).toSorted(),
       everyTableHasFields: (parsed.tables ?? []).every((table) => (table.fields ?? []).length > 0),
