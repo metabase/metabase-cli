@@ -135,7 +135,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
   it("remove-collection with negative positional fails with ConfigError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["git-sync", "remove-collection", "--", "-3", "--json"],
+      args: ["git-sync", "remove-collection", "--json", "--", "-3"],
       configHome,
     });
     expect(result.exitCode).toBe(2);

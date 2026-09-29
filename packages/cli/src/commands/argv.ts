@@ -10,39 +10,83 @@ const BUILTIN_FLAGS: ReadonlyArray<string> = ["help", "h", "version", "v"];
 // Maps every spelling a flag can take (name, alias, camel or kebab case) to its declared key.
 type FlagKeys = ReadonlyMap<string, string>;
 
-// Refuses what citty would otherwise parse into something the user did not type: an undeclared
-// flag; a value-taking flag whose value is missing, which citty fills with the next flag
-// (`--text --remove` stores the note "--remove" and never removes) or with ""; and a value-taking
-// flag given twice, of which citty keeps only the last.
-export function assertArgv(rawArgs: readonly string[], argsDef: ArgsDef): void {
-  const keys = flagKeys(argsDef);
-  const seenValueFlags = new Map<string, string>();
+// One flag as typed, with the token citty hands it as its value when it takes one.
+interface FlagOccurrence {
+  token: string;
+  consumed: boolean;
+  value: string | undefined;
+}
+
+interface ScannedArgv {
+  flags: FlagOccurrence[];
+  positionals: string[];
+}
+
+// Classifies tokens the way citty will read them: a value-taking flag swallows the next token
+// whatever it is, and everything after `--` is positional.
+function scanArgv(rawArgs: readonly string[], argsDef: ArgsDef): ScannedArgv {
+  const flags: FlagOccurrence[] = [];
+  const positionals: string[] = [];
   let index = 0;
   while (index < rawArgs.length) {
     const token = rawArgs[index];
-    if (token === undefined || token === ARGUMENT_SEPARATOR) {
-      return;
+    if (token === undefined) {
+      break;
+    }
+    if (token === ARGUMENT_SEPARATOR) {
+      positionals.push(...rawArgs.slice(index + 1));
+      break;
     }
     if (!isFlagToken(token)) {
+      positionals.push(token);
       index += 1;
       continue;
     }
-    const flag = resolveFlag(token, keys);
+    const consumed = flagConsumesValue(token, argsDef);
+    flags.push({ token, consumed, value: consumed ? rawArgs[index + 1] : undefined });
+    index += consumed ? 2 : 1;
+  }
+  return { flags, positionals };
+}
+
+// Refuses what citty would otherwise parse into something the user did not type: an undeclared
+// flag; a value-taking flag whose value is missing, which citty fills with the next flag
+// (`--text --remove` stores the note "--remove" and never removes) or with ""; a value-taking
+// flag given twice, of which citty keeps only the last; and a positional beyond the declared
+// ones, which citty drops.
+export function assertArgv(rawArgs: readonly string[], argsDef: ArgsDef): void {
+  const keys = flagKeys(argsDef);
+  const scanned = scanArgv(rawArgs, argsDef);
+  const seenValueFlags = new Map<string, string>();
+  for (const occurrence of scanned.flags) {
+    const flag = resolveFlag(occurrence.token, keys);
     if (flag === null) {
-      throw new ConfigError(`unknown flag: ${displayFlag(token)}`);
+      throw new ConfigError(`unknown flag: ${displayFlag(occurrence.token)}`);
     }
     if (flag.negated || !takesValue(argsDef, flag.key)) {
-      index += 1;
       continue;
     }
-    assertFirstOccurrence(token, flag.key, seenValueFlags);
-    if (token.includes("=")) {
-      index += 1;
-      continue;
+    assertFirstOccurrence(occurrence.token, flag.key, seenValueFlags);
+    if (occurrence.consumed) {
+      assertValueFollows(occurrence.token, occurrence.value, keys);
     }
-    assertValueFollows(token, rawArgs[index + 1], keys);
-    index += 2;
   }
+  assertPositionalCount(scanned.positionals, argsDef);
+}
+
+function assertPositionalCount(positionals: readonly string[], argsDef: ArgsDef): void {
+  const declared = Object.entries(argsDef)
+    .filter(([, def]) => def.type === "positional")
+    .map(([name]) => `<${name}>`);
+  const extra = positionals[declared.length];
+  if (extra === undefined) {
+    return;
+  }
+  const takes =
+    declared.length === 0
+      ? "this command takes no positional arguments"
+      : `this command takes ${declared.join(" ")}`;
+  throw new ConfigError(`unexpected argument: "${extra}" (${takes})`);
 }
 
 function assertFirstOccurrence(token: string, key: string, seen: Map<string, string>): void {
