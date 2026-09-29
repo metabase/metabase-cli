@@ -13,9 +13,10 @@ import {
   parseFlagToken,
   readArgv,
 } from "../runtime/citty";
+import { LIST_SEPARATOR } from "../runtime/csv";
 
 const BUILTIN_FLAGS: ReadonlyArray<string> = ["--help", "-h", "--version", "-v"];
-const LIST_SEPARATOR = ",";
+const SHELL_SAFE_WORD = /^[\w.,:/@%+=-]+$/;
 
 function commandSpellings(argsDef: ArgsDef): FlagSpellings {
   const builtins = BUILTIN_FLAGS.map((flag): [string, ResolvedFlag] => [
@@ -132,14 +133,26 @@ function assertEachGivenOnce(valueFlags: readonly ValueFlag[]): void {
   }
 }
 
+// Offered as `--<key>=<value>` so a pasted suggestion binds as written: a value starting with "-"
+// in its own token reads as a flag, and node binds a one-letter alias's "=" into the value.
 function joinedSpelling(repeat: ValueFlag, valueFlags: readonly ValueFlag[]): string {
   if (repeat.flag.takes !== "list") {
     return "";
   }
-  const values = valueFlags
+  const joined = valueFlags
     .filter((valueFlag) => valueFlag.flag.key === repeat.flag.key)
-    .map((valueFlag) => valueFlag.value);
-  return `, as ${repeat.name} ${values.join(LIST_SEPARATOR)}`;
+    .map((valueFlag) => valueFlag.value)
+    .join(LIST_SEPARATOR);
+  return `, as --${repeat.flag.key}=${quoteForShell(joined)}`;
+}
+
+// A POSIX shell passes a single-quoted word through untouched except for the quote itself, which
+// has to close the quoting, sit escaped, and reopen it.
+function quoteForShell(value: string): string {
+  if (SHELL_SAFE_WORD.test(value)) {
+    return value;
+  }
+  return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
 function readFlagValue(item: FlagItem, spellings: FlagSpellings): string {

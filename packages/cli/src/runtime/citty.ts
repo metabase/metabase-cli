@@ -67,7 +67,11 @@ export function flagSpellings(argsDef: ArgsDef): FlagSpellings {
 }
 
 // citty ignores keys it does not know, so a string flag whose value is a comma-separated list
-// declares `list: true` beside its type for the argv check to read.
+// carries this marker beside its type for the argv check to read.
+export interface ListMarker {
+  list: true;
+}
+
 function flagTakes(def: ArgDef): FlagTakes {
   if (def.type === "string" && "list" in def && def.list === true) {
     return "list";
@@ -121,8 +125,6 @@ export interface FlagItem extends ParsedFlag {
   index: number;
   // Whether citty binds the next token as this flag's value, whatever that token is.
   consumesNext: boolean;
-  // What citty binds as the value of a flag that takes one: the next token when it consumes one,
-  // else the inline value; null when there is none.
   value: string | null;
   end: number;
 }

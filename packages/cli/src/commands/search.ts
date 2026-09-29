@@ -4,10 +4,16 @@ import { searchResultView } from "../output/views/search";
 import { renderList } from "../output/render";
 import { listEnvelopeSchema } from "../output/types";
 import { windowServerPage } from "../output/window";
-import { parseEnumCsv } from "../runtime/csv";
+import { LIST_SEPARATOR, parseEnumCsv } from "../runtime/csv";
 
 import type { CommonContext } from "./context";
-import { connectionFlags, listFlagsWithDefaultLimit, outputFlags, profileFlag } from "./flags";
+import {
+  connectionFlags,
+  listFlag,
+  listFlagsWithDefaultLimit,
+  outputFlags,
+  profileFlag,
+} from "./flags";
 import { parseId, parseIdCsv } from "./parse-id";
 import { parseOptionalText } from "./parse-text";
 import { defineMetabaseCommand } from "./runtime";
@@ -16,7 +22,7 @@ import { defineMetabaseCommand } from "./runtime";
 // the per-row `can_write` permission check on every one — a cost the output cap would then throw
 // away. The window is the request, so it has to be sized before the request is made.
 const DEFAULT_LIMIT = 20;
-const SEARCH_MODELS_DESCRIPTION = `Comma-separated model filter: ${SEARCH_MODELS.join(",")}`;
+const SEARCH_MODELS_DESCRIPTION = `Comma-separated model filter: ${SEARCH_MODELS.join(LIST_SEPARATOR)}`;
 
 const RESULT_METADATA = "result_metadata";
 
@@ -41,12 +47,11 @@ export default defineMetabaseCommand({
       description: "Search query string",
       required: false,
     },
-    models: {
+    models: listFlag({
       type: "string",
-      list: true,
       description: SEARCH_MODELS_DESCRIPTION,
       alias: "m",
-    },
+    }),
     archived: {
       type: "boolean",
       description: "Search only archived items (instead of only active ones)",
@@ -65,12 +70,11 @@ export default defineMetabaseCommand({
       description:
         "Restrict to one collection by id: its own row, subcollections and the content filed under them, never segments, measures or transforms (dashboard questions need --include-dashboard-questions)",
     },
-    "created-by": {
+    "created-by": listFlag({
       type: "string",
-      list: true,
       description:
         "Comma-separated user ids; matches items created by any of them (drops models with no creator)",
-    },
+    }),
     "search-native-query": {
       type: "boolean",
       description:

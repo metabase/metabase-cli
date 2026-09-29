@@ -2,9 +2,11 @@ import type { ZodEnum } from "zod";
 
 import { ConfigError } from "@metabase/client/errors";
 
+export const LIST_SEPARATOR = ",";
+
 export function parseCsv(raw: string): string[] {
   return raw
-    .split(",")
+    .split(LIST_SEPARATOR)
     .map((part) => part.trim())
     .filter((part) => part.length > 0);
 }

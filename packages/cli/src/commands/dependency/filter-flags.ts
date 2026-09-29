@@ -10,8 +10,9 @@ import type {
   DependencyItemListParams,
 } from "@metabase/client/resources/dependency";
 
-import { parseEnum, parseEnumCsv } from "../../runtime/csv";
+import { LIST_SEPARATOR, parseEnum, parseEnumCsv } from "../../runtime/csv";
 import type { FlagValues } from "../flag-values";
+import { listFlag } from "../flags";
 import { parseOptionalText } from "../parse-text";
 
 const sharedFilterFlags = {
@@ -26,16 +27,14 @@ const sharedFilterFlags = {
 } as const;
 
 export const dependentFilterFlags = {
-  "dependent-types": {
+  "dependent-types": listFlag({
     type: "string",
-    list: true,
-    description: `Comma-separated entity kinds to keep: ${DependencyType.options.join(",")}`,
-  },
-  "dependent-card-types": {
+    description: `Comma-separated entity kinds to keep: ${DependencyType.options.join(LIST_SEPARATOR)}`,
+  }),
+  "dependent-card-types": listFlag({
     type: "string",
-    list: true,
-    description: `Comma-separated card kinds to keep (narrows card dependents only): ${CardType.options.join(",")}`,
-  },
+    description: `Comma-separated card kinds to keep (narrows card dependents only): ${CardType.options.join(LIST_SEPARATOR)}`,
+  }),
   "sort-column": {
     type: "string",
     description: `Sort by: ${DependentsSortColumn.options.join("|")} (default: name)`,
@@ -67,16 +66,14 @@ export const queryFlag = {
 } as const;
 
 export const itemFilterFlags = {
-  types: {
+  types: listFlag({
     type: "string",
-    list: true,
-    description: `Comma-separated entity kinds to list: ${DependencyType.options.join(",")}`,
-  },
-  "card-types": {
+    description: `Comma-separated entity kinds to list: ${DependencyType.options.join(LIST_SEPARATOR)}`,
+  }),
+  "card-types": listFlag({
     type: "string",
-    list: true,
-    description: `Comma-separated card kinds to list (narrows cards only): ${CardType.options.join(",")}`,
-  },
+    description: `Comma-separated card kinds to list (narrows cards only): ${CardType.options.join(LIST_SEPARATOR)}`,
+  }),
   ...queryFlag,
   "sort-column": {
     type: "string",

@@ -10,8 +10,8 @@ import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
 import { collectionItemView } from "../../output/views/collection";
 import { collectForOutput } from "../../output/window";
-import { parseEnum, parseEnumCsv } from "../../runtime/csv";
-import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";
+import { LIST_SEPARATOR, parseEnum, parseEnumCsv } from "../../runtime/csv";
+import { connectionFlags, listFlag, listFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 import { parseCollectionRef } from "./parse-ref";
 
@@ -30,12 +30,11 @@ export default defineMetabaseCommand({
       description: 'Collection id, 21-char entity id, or one of: "root", "trash"',
       required: true,
     },
-    models: {
+    models: listFlag({
       type: "string",
-      list: true,
-      description: `Comma-separated model filter: ${COLLECTION_ITEM_FILTER_MODELS.join(",")}`,
+      description: `Comma-separated model filter: ${COLLECTION_ITEM_FILTER_MODELS.join(LIST_SEPARATOR)}`,
       alias: "m",
-    },
+    }),
     archived: {
       type: "boolean",
       description: "Return archived items instead of unarchived",

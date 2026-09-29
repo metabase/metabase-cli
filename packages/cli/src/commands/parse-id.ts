@@ -1,3 +1,4 @@
+import { LIST_SEPARATOR } from "../runtime/csv";
 import { parseInteger } from "./parse-integer";
 
 export function parseId(value: string, name = "id"): number {
@@ -7,5 +8,5 @@ export function parseId(value: string, name = "id"): number {
 // Not `parseCsv`: an empty part (`""`, `1,,2`) is a shell expansion that resolved to nothing, and
 // dropping it would read the typo as a narrower filter, or as none at all.
 export function parseIdCsv(raw: string, name: string): number[] {
-  return raw.split(",").map((part) => parseId(part, name));
+  return raw.split(LIST_SEPARATOR).map((part) => parseId(part, name));
 }

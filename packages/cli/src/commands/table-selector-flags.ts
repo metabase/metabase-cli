@@ -1,17 +1,18 @@
 import { ConfigError } from "@metabase/client/errors";
 import { TableSchemaId, TableSelectors } from "@metabase/client/domain/table";
+import { LIST_SEPARATOR } from "../runtime/csv";
 import type { FlagValues } from "./flag-values";
+import { listFlag } from "./flags";
 import { parseIdCsv } from "./parse-id";
 
 export const tableSelectorFlags = {
-  "table-ids": { type: "string", list: true, description: "Comma-separated table ids" },
-  "db-ids": { type: "string", list: true, description: "Comma-separated database ids" },
-  schemas: {
+  "table-ids": listFlag({ type: "string", description: "Comma-separated table ids" }),
+  "db-ids": listFlag({ type: "string", description: "Comma-separated database ids" }),
+  schemas: listFlag({
     type: "string",
-    list: true,
     description:
       'Comma-separated schema ids, each "<db-id>:<schema>" (e.g. 1:public; 1: for the tables with no schema)',
-  },
+  }),
 } as const;
 
 type TableSelectorFlags = typeof tableSelectorFlags;
@@ -52,7 +53,7 @@ export function parseTableSelectors(args: TableSelectorArgs): TableSelectors {
     selectors.database_ids = parseIdCsv(args["db-ids"], "database id");
   }
   if (args.schemas !== undefined) {
-    selectors.schema_ids = args.schemas.split(",").map(parseSchemaId);
+    selectors.schema_ids = args.schemas.split(LIST_SEPARATOR).map(parseSchemaId);
   }
   if (Object.keys(selectors).length === 0) {
     throw new ConfigError("provide at least one selector: --table-ids, --db-ids, or --schemas");
