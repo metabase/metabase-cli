@@ -6,6 +6,7 @@ import {
   type FlagItem,
   type FlagSpellings,
   type ResolvedFlag,
+  NEGATION_PREFIX,
   flagSpellings,
   isFlagToken,
   isNegativeNumber,
@@ -43,10 +44,11 @@ export function separatePositionals(rawArgs: readonly string[], argsDef: ArgsDef
 }
 
 // Refuses what citty would otherwise parse into something the user did not type: an undeclared
-// flag or a spelling citty does not bind; a value-taking flag whose value is missing, which citty
-// fills with the next flag (`--text --remove` stores the note "--remove" and never removes) or
-// with ""; a value-taking flag given twice, of which citty keeps only the last; and a positional
-// beyond the declared ones, which citty drops.
+// flag or a spelling citty does not bind; `--no-` on a flag that takes a value, which citty turns
+// into `false`; a value-taking flag whose value is missing, which citty fills with the next flag
+// (`--text --remove` stores the note "--remove" and never removes) or with ""; a value-taking flag
+// given twice, of which citty keeps only the last; and a positional beyond the declared ones,
+// which citty drops.
 export function assertArgv(rawArgs: readonly string[], argsDef: ArgsDef): void {
   const spellings = commandSpellings(argsDef);
   const seenValueFlags = new Map<string, string>();
@@ -66,8 +68,12 @@ function assertFlag(item: FlagItem, spellings: FlagSpellings, seen: Map<string, 
   if (flag === null) {
     throw new ConfigError(`unknown flag: ${name}`);
   }
-  if (flag.negated || !flag.takesValue) {
+  if (!flag.takesValue) {
     return;
+  }
+  if (flag.negated) {
+    const positive = `--${name.slice(NEGATION_PREFIX.length)}`;
+    throw new ConfigError(`${name}: ${positive} takes a value, so it cannot be negated`);
   }
   assertFirstOccurrence(name, flag.key, seen);
   if (item.consumesNext) {
