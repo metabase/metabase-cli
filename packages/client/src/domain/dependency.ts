@@ -56,8 +56,8 @@ export const DependencyItemsSortColumn = z.enum([
 ]);
 export type DependencyItemsSortColumn = z.infer<typeof DependencyItemsSortColumn>;
 
-// A card's, dashboard's or document's collection is hydrated with `is_personal`; a snippet's or a
-// transform's is not, so the key is absent there on every server.
+// A card's, dashboard's or document's collection is hydrated with `is_personal`; a snippet's is
+// not, so the key is absent there on every server. A transform's data carries no collection.
 const DependencyCollectionRef = z
   .object({
     id: CollectionId,
