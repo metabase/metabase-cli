@@ -15,15 +15,16 @@ import { DependencyBrokenListEnvelope } from "../../packages/cli/src/commands/de
 import { DependencyDependentsListEnvelope } from "../../packages/cli/src/commands/dependency/dependents";
 import { DependencyUnreferencedListEnvelope } from "../../packages/cli/src/commands/dependency/unreferenced";
 import { CommandHelpEntry } from "../../packages/cli/src/runtime/command-help";
-import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
+import { readBootstrap, type E2EBootstrap, type ServerIdentity } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { seedProbedProfile } from "./seed-profile";
 import { SEEDED } from "./seed/seeded";
-import { requireServer, serverHas } from "./server-gate";
+import { requirementFailure, requireServer, serverHas } from "./server-gate";
 
 const DEPENDENCIES_REFUSAL =
   "This operation requires the 'dependencies' premium feature (not enabled on this server).";
+const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
 const DEPENDENCY_TYPES =
   "table, card, snippet, transform, dashboard, document, sandbox, segment, measure";
 const CARD_TYPES = "question, model, metric";
@@ -51,6 +52,19 @@ const skipReason = requireServer("dependency › dependency e2e against EE depen
   "dependencyItemListings",
   "dependencyGraph",
 ]);
+const listingGap = requirementFailure(["dependencyItemListings"]);
+
+// The listing verbs need a newer server than `graph`, and the preflight reports the version gap
+// before the missing token feature.
+function listingLiveRefusal(server: ServerIdentity): string {
+  if (listingGap?.reason !== "version-too-old") {
+    return DEPENDENCIES_REFUSAL;
+  }
+  if (server.version === null) {
+    throw new Error("a server with no parsed version is placed past the window, never below it");
+  }
+  return `This operation requires Metabase v59+ (this server is ${server.version.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`;
+}
 
 describe("dependency arg validation e2e (no Metabase contact required)", () => {
   const tempDirs: string[] = [];
@@ -216,22 +230,34 @@ describe.skipIf(serverHas("dependencyGraph"))(
       return dir;
     }
 
+    async function runLive(verb: string[]) {
+      return runCli({
+        args: ["dependency", ...verb, "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey },
+      });
+    }
+
+    it("graph refuses with CapabilityError (exit 2) after a live probe", async () => {
+      const result = await runLive(["graph", "card", String(SEEDED.ordersCardId)]);
+
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorCategory(result.stderr)).toBe("capability");
+      expect(cliErrorMessage(result.stderr)).toBe(DEPENDENCIES_REFUSAL);
+      expect(result.stdout).toBe("");
+    });
+
     it.each([
-      ["graph", "card", String(SEEDED.ordersCardId)],
       ["dependents", "card", String(SEEDED.ordersCardId)],
       ["broken", "table", String(SEEDED.tables.orders)],
       ["unreferenced"],
       ["breaking"],
     ])("%s refuses with CapabilityError (exit 2) after a live probe", async (...verb) => {
-      const result = await runCli({
-        args: ["dependency", ...verb, "--json"],
-        configHome: await makeIsolatedConfigHome(),
-        env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey },
-      });
+      const result = await runLive(verb);
 
       expect(result.exitCode).toBe(2);
       expect(cliErrorCategory(result.stderr)).toBe("capability");
-      expect(cliErrorMessage(result.stderr)).toBe(DEPENDENCIES_REFUSAL);
+      expect(cliErrorMessage(result.stderr)).toBe(listingLiveRefusal(bootstrap.server));
       expect(result.stdout).toBe("");
     });
   },
