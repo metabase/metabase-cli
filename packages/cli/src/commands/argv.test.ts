@@ -34,11 +34,9 @@ function expectUnknownFlag(rawArgs: readonly string[], display: string): void {
 describe("assertArgv", () => {
   it("accepts declared flags across camelCase, kebab-case, alias, and inline-value forms", () => {
     expect(() =>
-      assertArgv(
-        ["--json", "--max-bytes", "0", "--maxBytes=0", "-m", "card", "--filter=mine", "42"],
-        ARGS,
-      ),
+      assertArgv(["--json", "--max-bytes", "0", "-m", "card", "--filter=mine", "42"], ARGS),
     ).not.toThrow();
+    expect(() => assertArgv(["--maxBytes=0"], ARGS)).not.toThrow();
   });
 
   it("does not flag a positional argument", () => {
