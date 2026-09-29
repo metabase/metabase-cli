@@ -230,7 +230,7 @@ describe.skipIf(skipReason !== null)(
       );
 
       expect(result.exitCode, result.stderr).toBe(0);
-      expect(result.stdout).toBe(`Verified dashboard ${SEEDED.ordersDashboardId}.\n`);
+      expect(result.stdout).toBe(`Verified dashboard ${SEEDED.ordersDashboardId}.`);
     });
 
     it("verify of a missing card is Not found (exit 1)", async () => {
