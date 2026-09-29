@@ -3,7 +3,7 @@ import { z } from "zod";
 import { ConfigError } from "@metabase/client/errors";
 import { CollectionTreeNode } from "@metabase/client/domain/collection";
 import { writeJson } from "../../output/render";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { connectionFlags, formatFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 export const CollectionTreeResponse = z.array(CollectionTreeNode);
@@ -15,7 +15,7 @@ export default defineMetabaseCommand({
   },
   requires: ["collection.tree"],
   args: {
-    ...outputFlags,
+    ...formatFlags,
     ...profileFlag,
     ...connectionFlags,
     "include-library": {

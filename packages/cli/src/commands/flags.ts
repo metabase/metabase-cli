@@ -1,8 +1,14 @@
 import { DEFAULT_MAX_BYTES } from "../output/types";
 
-export const outputFlags = {
+// A command whose output is always the server's JSON as-is has nothing to project or cap, so it
+// takes only the format pair, which still picks the shape of an error report.
+export const formatFlags = {
   format: { type: "string", description: "auto | json | text", default: "auto" },
   json: { type: "boolean", description: "Shorthand for --format json" },
+} as const;
+
+export const outputFlags = {
+  ...formatFlags,
   full: {
     type: "boolean",
     description: "Return the full object (default: compact)",
