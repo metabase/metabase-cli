@@ -79,9 +79,9 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
       const commonArgs = pickCommonArgs(args);
       let reportFormat: CommonContext["format"] | undefined;
       try {
-        reportFormat = resolveOutputFormat(commonArgs);
-        const ctx = resolveCommonFlags(commonArgs);
+        reportFormat = resolveReportFormat(commonArgs, rawArgs, def.args);
         assertArgv(rawArgs, def.args);
+        const ctx = resolveCommonFlags(commonArgs);
         let cachedConfig: ResolvedConfig | null = null;
         let cachedClient: MetabaseClient | null = null;
         const getResolvedConfig = async (): Promise<ResolvedConfig> => {
@@ -265,6 +265,21 @@ async function refreshChangedProbe(cached: CachedServer): Promise<string | null>
   }
   await writeProbeResult(cached.profileName, { user: cached.probe.user, server: fresh });
   return note;
+}
+
+// The error report takes the format the flags ask for, so it is resolved before argv is checked.
+// A `--format` that swallowed the next flag is an argv mistake, though, and is named as one.
+function resolveReportFormat(
+  commonArgs: CommonArgs,
+  rawArgs: readonly string[],
+  argsDef: ArgsDef,
+): CommonContext["format"] {
+  try {
+    return resolveOutputFormat(commonArgs);
+  } catch (error) {
+    assertArgv(rawArgs, argsDef);
+    throw error;
+  }
 }
 
 function pickCommonArgs<A extends ArgsDef>(args: ParsedArgs<A>): CommonArgs {
