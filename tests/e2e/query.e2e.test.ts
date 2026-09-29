@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { CardQueryResult, CardQueryResultCompact } from "@metabase/client/domain/card";
+import { CompiledQuery, QueryMetadataCompact } from "@metabase/client/domain/dataset";
 import { parseJson } from "@metabase/client/json";
 
 import {
@@ -12,7 +13,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { assertCompactColumns, assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
-import { QUERY_NORMALIZATION_MESSAGE } from "./server-gate";
+import { QUERY_NORMALIZATION_MESSAGE, serverHas } from "./server-gate";
 import { SEEDED } from "./seed/seeded";
 
 const VALID_QUERY = {
@@ -42,6 +43,46 @@ const EMPTY_STAGES_QUERY = {
   database: 1,
   stages: [],
 };
+
+const ORDERS_BY_STATUS_SQL = "SELECT status, COUNT(*) AS n FROM orders GROUP BY status";
+const ORDERS_STATUS_COUNT = 5;
+
+function ordersQuery(): Record<string, unknown> {
+  return {
+    "lib/type": "mbql/query",
+    database: SEEDED.warehouseDbId,
+    stages: [{ "lib/type": "mbql.stage/mbql", "source-table": SEEDED.tables.orders }],
+  };
+}
+
+// Aggregated, so no generation of the server appends its default row limit to the compiled SQL.
+function ordersCountQuery(): Record<string, unknown> {
+  return {
+    "lib/type": "mbql/query",
+    database: SEEDED.warehouseDbId,
+    stages: [
+      {
+        "lib/type": "mbql.stage/mbql",
+        "source-table": SEEDED.tables.orders,
+        aggregation: [["count", {}]],
+      },
+    ],
+  };
+}
+
+function ordersByStatusNative(): Record<string, unknown> {
+  return {
+    type: "native",
+    database: SEEDED.warehouseDbId,
+    native: { query: ORDERS_BY_STATUS_SQL },
+  };
+}
+
+// A server that drops the compiled query's collection from every answer cannot say whether it has
+// one.
+function compiledCollection(): Pick<CompiledQuery, "collection"> {
+  return serverHas("compiledQueryOmitsCollection") ? { collection: null } : {};
+}
 
 describe("query e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -127,7 +168,7 @@ describe("query e2e", () => {
     expect(result.stderr).toContain("validation failed: 1 error(s)");
   });
 
-  it("run (no --dry-run) with an invalid body refuses to send and points at --dry-run", async () => {
+  it("run (no --dry-run) with an invalid body refuses to send and points at --skip-validate", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["query"],
@@ -141,7 +182,7 @@ describe("query e2e", () => {
       errors: [{ path: "/stages", message: "must NOT have fewer than 1 items" }],
     });
     expect(result.stderr).toContain(
-      "validation failed: 1 error(s) — pass --dry-run to check it without running",
+      "validation failed: 1 error(s) — fix them, or pass --skip-validate to send anyway",
     );
   });
 
@@ -363,6 +404,204 @@ describe("query e2e", () => {
     expect(cliErrorMessage(result.stderr)).toBe(
       'query: the body is the query itself: {"lib/type": "mbql/query", "database": N, "stages": […]}.',
     );
+    expect(result.stdout).toBe("");
+  });
+
+  it("--compile prints the compiled SQL prettified, as the server defaults to", async () => {
+    const result = await runCli({
+      args: ["query", "--compile", "--json"],
+      stdin: JSON.stringify(ordersQuery()),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const compiled = parseJson(result.stdout, CompiledQuery);
+    expect(compiled).toEqual({
+      query: expect.stringContaining('FROM\n  "public"."orders"'),
+      params: null,
+      ...compiledCollection(),
+    });
+  });
+
+  it("--compile --no-pretty prints the compiled SQL on one line", async () => {
+    const result = await runCli({
+      args: ["query", "--compile", "--no-pretty", "--json"],
+      stdin: JSON.stringify(ordersQuery()),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const compiled = parseJson(result.stdout, CompiledQuery);
+    expect(compiled).toEqual({
+      query: expect.stringContaining(' FROM "public"."orders"'),
+      params: null,
+      ...compiledCollection(),
+    });
+    expect(compiled.query).not.toContain("\n");
+  });
+
+  it("--compile in text mode prints the bare SQL so it composes in a shell", async () => {
+    const result = await runCli({
+      args: ["query", "--compile", "--no-pretty", "--format", "text"],
+      stdin: JSON.stringify(ordersCountQuery()),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.stdout.startsWith("SELECT ")).toBe(true);
+    expect(result.stdout.endsWith(' FROM "public"."orders"')).toBe(true);
+  });
+
+  it("--compile still pre-flights an MBQL 5 body and refuses to send an invalid one", async () => {
+    const result = await runCli({
+      args: ["query", "--compile"],
+      stdin: JSON.stringify(EMPTY_STAGES_QUERY),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(parseJson(result.stdout, ValidationOutcome)).toEqual({
+      ok: false,
+      errors: [{ path: "/stages", message: "must NOT have fewer than 1 items" }],
+    });
+    expect(result.stderr).toContain(
+      "validation failed: 1 error(s) — fix them, or pass --skip-validate to send anyway",
+    );
+  });
+
+  it("--compile refuses a body that is not a query before any request", async () => {
+    const result = await runCli({
+      args: ["query", "--compile"],
+      stdin: "{}",
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      'dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected',
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("--metadata lists the source table and its FK target, compact by default", async () => {
+    const result = await runCli({
+      args: ["query", "--metadata", "--json"],
+      stdin: JSON.stringify(ordersQuery()),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const metadata = parseJson(result.stdout, QueryMetadataCompact);
+    expect({
+      databases: metadata.databases.map((database) => database.name),
+      tables: metadata.tables.map((table) => table.display_name).toSorted(),
+      tableIds: metadata.tables.map((table) => table.id).toSorted(),
+      fields: metadata.fields,
+      snippets: metadata.snippets,
+    }).toEqual({
+      databases: ["Warehouse"],
+      tables: ["Customers", "Orders"],
+      tableIds: [SEEDED.tables.customers, SEEDED.tables.orders].toSorted(),
+      fields: [],
+      snippets: [],
+    });
+  });
+
+  it("--metadata in text mode prints one line of names per kind", async () => {
+    const result = await runCli({
+      args: ["query", "--metadata", "--format", "text"],
+      stdin: JSON.stringify(ordersQuery()),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.stdout).toBe(
+      ["Databases  Warehouse", "Tables     Customers, Orders", "Fields     ", "Snippets   "].join(
+        "\n",
+      ),
+    );
+  });
+
+  it("--export-format csv streams a CSV with the header row and one line per group", async () => {
+    const result = await runCli({
+      args: ["query", "--export-format", "csv"],
+      stdin: JSON.stringify(ordersByStatusNative()),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const lines = result.stdout.trim().split("\n");
+    expect(lines[0]).toBe("status,n");
+    expect(lines.length).toBe(ORDERS_STATUS_COUNT + 1);
+  });
+
+  it("--export-format xlsx streams an XLSX file (zip magic bytes)", async () => {
+    const result = await runCli({
+      args: ["query", "--export-format", "xlsx"],
+      stdin: JSON.stringify(ordersByStatusNative()),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.stdout.slice(0, 4)).toBe("\x50\x4b\x03\x04");
+  });
+
+  it("--export-format with an invalid value fails with ConfigError", async () => {
+    const result = await runCli({
+      args: ["query", "--export-format", "html"],
+      stdin: JSON.stringify(ordersByStatusNative()),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      'invalid --export-format: "html" (expected one of: csv, json, xlsx)',
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("refuses two mode flags naming both, before reading the body", async () => {
+    const result = await runCli({
+      args: ["query", "--dry-run", "--compile", "--export-format", "csv"],
+      configHome: await makeIsolatedConfigHome(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "--dry-run cannot be combined with --compile, --export-format",
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("refuses --no-pretty outside --compile", async () => {
+    const result = await runCli({
+      args: ["query", "--metadata", "--no-pretty"],
+      configHome: await makeIsolatedConfigHome(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe("--no-pretty requires --compile");
+    expect(result.stdout).toBe("");
+  });
+
+  it("refuses an export-only flag without --export-format", async () => {
+    const result = await runCli({
+      args: ["query", "--format-rows"],
+      configHome: await makeIsolatedConfigHome(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe("--format-rows requires --export-format");
     expect(result.stdout).toBe("");
   });
 });

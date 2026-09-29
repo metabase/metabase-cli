@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { Features } from "../version/features";
 import { Collection, CollectionId, CollectionType } from "./collection";
+import { TableSelectors } from "./table";
 
 // The endpoint hydrates its children as a projection: one generation adds `type`, none carries
 // `is_remote_synced`.
@@ -44,6 +45,13 @@ export const LibraryCollectionInfo = Collection.pick({
 export type LibraryCollectionInfo = z.infer<typeof LibraryCollectionInfo>;
 
 export type LibraryListing = ReadonlyMap<number, LibraryCollectionInfo>;
+
+// The tables to publish and the Library data collection that receives them. Strict like the
+// selectors it extends.
+export const LibraryPublishTablesInput = TableSelectors.extend({
+  collection_id: z.number().int().positive(),
+}).strict();
+export type LibraryPublishTablesInput = z.infer<typeof LibraryPublishTablesInput>;
 
 const LibraryWireV59 = Collection.extend({
   effective_children: z.array(LibraryChildWireV59),

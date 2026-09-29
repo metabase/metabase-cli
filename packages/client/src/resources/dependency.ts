@@ -14,7 +14,6 @@ import type { SortDirection } from "../domain/query";
 import type { QueryValue, RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { type Page, type PaginateOptions, paginatePages } from "../paginate";
-import type { FeatureName } from "../version/features";
 
 const DependencyNodeApiList = z.array(DependencyNode);
 const DependencyEntityApiList = z.array(DependencyEntity);
@@ -42,31 +41,11 @@ export interface DependencyItemListParams {
 
 export type DependencyItemPageOptions = Omit<PaginateOptions, "query">;
 
-// Metabase 59 reads these six filters in snake_case from an open query map, so the kebab-case key
-// the newer servers take is dropped there without a word; `types`, `query`, `broken` and the paging
-// window kept their names. A call that sets one is refused on 59 before the wire.
-const RENAMED_FILTERS = [
-  "dependent-types",
-  "dependent-card-types",
-  "card-types",
-  "include-personal-collections",
-  "sort-column",
-  "sort-direction",
-] as const;
-
-type RenamedFilter = (typeof RENAMED_FILTERS)[number];
-
-function filterFeatures(params: Readonly<Partial<Record<RenamedFilter, unknown>>>): FeatureName[] {
-  return RENAMED_FILTERS.some((key) => params[key] !== undefined)
-    ? ["dependencyKebabCaseFilters"]
-    : [];
-}
-
 export function dependencyResource(transport: Transport) {
   /**
    * The upstream dependency graph of one entity. `nodes` holds the starting entity plus every
    * entity it depends on, directly or transitively; each edge runs from the dependent to what it
-   * depends on.
+   * depends on. A measure starts a graph only on a server with `measureDependencyGraph`.
    */
   async function graph(
     type: DependencyType,
@@ -74,6 +53,9 @@ export function dependencyResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<DependencyGraph> {
     await transport.require("dependency.graph", options);
+    if (type === "measure") {
+      await transport.requireFeatures(["measureDependencyGraph"], options);
+    }
     return transport.requestParsed(DependencyGraph, "/api/ee/dependencies/graph", {
       ...options,
       query: { type, id },
@@ -93,7 +75,6 @@ export function dependencyResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<ListResult<DependencyNode>> {
     await transport.require("dependency.dependents", options);
-    await transport.requireFeatures(filterFeatures(params), options);
     const data = await transport.requestParsed(
       DependencyNodeApiList,
       "/api/ee/dependencies/graph/dependents",
@@ -128,7 +109,6 @@ export function dependencyResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<ListResult<DependencyEntity>> {
     await transport.require("dependency.broken", options);
-    await transport.requireFeatures(filterFeatures(params), options);
     const data = await transport.requestParsed(
       DependencyEntityApiList,
       "/api/ee/dependencies/graph/broken",
@@ -149,18 +129,23 @@ export function dependencyResource(transport: Transport) {
   }
 
   /**
-   * Walk the entities nothing depends on, one page at a time. `types` and `card-types` narrow
-   * which kinds are listed, `query` matches against names and locations,
+   * Walk the entities that no readable, unarchived dependent depends on, one page at a time: an
+   * entity used only by archived content, or by content the caller cannot read, is listed. `types`
+   * and `card-types` narrow which kinds are listed, `query` matches against names and locations,
    * `include-personal-collections` admits content in personal collections, and `sort-column` /
-   * `sort-direction` order the result. This endpoint pages on the server, so the caller consumes
-   * pages and decides how far to pull.
+   * `sort-direction` order the result. A `query` leaves sandboxes out, since they have no name or
+   * location to match, so sandboxes alone with a `query` answer one empty page without a request.
+   * This endpoint pages on the server, so the caller consumes pages and decides how far to pull.
    */
   async function* unreferencedPages(
     params: DependencyItemListParams = {},
     options: DependencyItemPageOptions = {},
   ): AsyncIterable<Page<DependencyNode>> {
     await transport.require("dependency.unreferencedPages", options);
-    await transport.requireFeatures(filterFeatures(params), options);
+    if (queryLeavesNoKind(params)) {
+      yield { items: [], total: 0 };
+      return;
+    }
     yield* paginatePages(transport, "/api/ee/dependencies/graph/unreferenced", DependencyNode, {
       query: itemListQuery(params),
       ...(options.offset !== undefined && { offset: options.offset }),
@@ -182,7 +167,10 @@ export function dependencyResource(transport: Transport) {
     options: DependencyItemPageOptions = {},
   ): AsyncIterable<Page<BreakingSource>> {
     await transport.require("dependency.breakingPages", options);
-    await transport.requireFeatures(filterFeatures(params), options);
+    if (queryLeavesNoKind(params)) {
+      yield { items: [], total: 0 };
+      return;
+    }
     yield* paginatePages(transport, "/api/ee/dependencies/graph/breaking", BreakingSource, {
       query: itemListQuery(params),
       ...(options.offset !== undefined && { offset: options.offset }),
@@ -195,9 +183,21 @@ export function dependencyResource(transport: Transport) {
   return { graph, dependents, broken, unreferencedPages, breakingPages };
 }
 
+// The server drops sandboxes from the kinds a `query` searches and builds one SQL union branch per
+// remaining kind; with sandboxes the only kind asked for, the union is empty and the request fails
+// instead of answering nothing.
+function queryLeavesNoKind(params: DependencyItemListParams): boolean {
+  const { query, types } = params;
+  if (query === undefined || types === undefined || types.length === 0) {
+    return false;
+  }
+  return types.every((type) => type === "sandbox");
+}
+
+// One union branch per listed kind, so a kind listed twice would list and count its entities twice.
 function itemListQuery(params: DependencyItemListParams): Record<string, QueryValue> {
   return {
-    types: params.types,
+    types: params.types === undefined ? undefined : [...new Set(params.types)],
     "card-types": params["card-types"],
     query: params.query,
     "include-personal-collections": params["include-personal-collections"],

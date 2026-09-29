@@ -33,6 +33,7 @@ const TABLE = {
   db_id: 1,
   schema: "public",
   entity_type: "entity/TransactionTable",
+  active: true,
 };
 
 const JSON_REQUEST_HEADERS = {
@@ -65,7 +66,7 @@ const CSV_FORM_BODY = {
   parts: [{ name: "file", value: CSV_TEXT, filename: "rows.csv", contentType: "text/csv" }],
 };
 
-// The first server whose listing takes every filter offered, and the oldest supported one.
+// The first server whose listing takes every filter the tests send, and the oldest supported one.
 const SERVER_60 = createServerProfile({
   edition: "oss",
   version: { kind: "release", tag: "v0.60.4", major: 60, patch: 4 },
@@ -85,9 +86,16 @@ const SERVER_58 = createServerProfile({
 const FOREIGN_KEY = {
   relationship: "Mt1",
   origin_id: 205,
-  origin: { ...FIELD, id: 205, table_id: 12, name: "order_id", fk_target_field_id: 100 },
+  origin: {
+    ...FIELD,
+    id: 205,
+    table_id: 12,
+    name: "order_id",
+    fk_target_field_id: 100,
+    table: { ...TABLE, id: 12, name: "order_items", display_name: "Order Items" },
+  },
   destination_id: 100,
-  destination: { ...FIELD, id: 100, name: "id" },
+  destination: { ...FIELD, id: 100, name: "id", table: TABLE },
 };
 
 function clientOver(responses: Array<Response>, server = SERVER_60) {

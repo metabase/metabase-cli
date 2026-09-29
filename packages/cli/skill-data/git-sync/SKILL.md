@@ -1,6 +1,6 @@
 ---
 name: git-sync
-description: Round-trip Metabase content (cards, dashboards, transforms, snippets, collections, Library-published table/field metadata) between an instance and a git remote via `mb git-sync …` — status, dirty / has-remote-changes checks, import, export (with branch guard), branches, stash, add/remove a collection from sync. Load when the user wants to "import the latest changes", "export to git", "push my changes to the repo", "open a PR with my Metabase changes", "git sync", "dirty check", "stash before pulling", "add a collection to sync", or anything `mb git-sync …`.
+description: Round-trip Metabase content (cards, dashboards, transforms, snippets, collections, Library-published table/field metadata) between an instance and a git remote via `mb git-sync …` — status, dirty / has-remote-changes checks, import, export (with branch guard and a preflight preview), branches, stash, add/remove a collection from sync. Load when the user wants to "import the latest changes", "export to git", "push my changes to the repo", "open a PR with my Metabase changes", "git sync", "dirty check", "stash before pulling", "add a collection to sync", or anything `mb git-sync …`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 requires: [remoteSync]
 ---
@@ -15,7 +15,13 @@ This skill covers the import/export workflow. Flag conventions and auth setup li
 
 ## Precondition: read state before mutating
 
-Always run `status` (or `is-dirty` + `has-remote-changes`) before `import` or `export`. Importing on a dirty instance silently rejects unless you pass `--force`; exporting when the instance is behind the remote pushes a stale state.
+Always run `status` (or `is-dirty` + `has-remote-changes`) before `import` or `export`. Importing on a dirty instance silently rejects unless you pass `--force`.
+
+<!-- requires: remoteSyncMerge -->
+
+Exporting after the remote moved on ends in a `conflict` task unless the export merges or forces.
+
+<!-- /requires -->
 
 ```bash
 mb git-sync status              --profile <n> --json   # → branch, dirty, current task
@@ -50,6 +56,14 @@ Workflow:
 2. Confirm `has-remote-changes` reports `has_changes: true` — there's actually something to import.
 3. `git-sync import --branch <branch>` — runs to terminal status by default.
 
+<!-- requires: remoteSyncMerge -->
+
+### Pull without discarding local work
+
+`mb git-sync import --merge` keeps un-pushed local changes and folds the remote's in by a three-way merge, where a plain import refuses on a dirty instance and `--force` discards the local work. Entities changed on both sides, or no merge base (a remote whose history was rewritten, or an instance that has never synced), end the task in `conflict` without touching local state; the conflicting entities are listed in the task's `conflicts`. It does not combine with `--force`.
+
+<!-- /requires -->
+
 ## Export (instance → remote)
 
 ```bash
@@ -58,12 +72,12 @@ mb git-sync export -m "commit message" --branch <branch> --profile <n>
 
 Pushes Metabase-side changes back to the configured remote. `-m` is the commit message; without it the server picks a default. Defaults to `--wait`.
 
-| Flag                | Purpose                                                  |
-| ------------------- | -------------------------------------------------------- |
-| `--branch <name>`   | Push to a specific branch instead of the configured one. |
-| `-m, --message <s>` | Commit message.                                          |
-| `--force`           | Force-push / overwrite remote. Confirm with the user.    |
-| `--no-wait`         | Don't poll.                                              |
+| Flag                | Purpose                                                                                            |
+| ------------------- | -------------------------------------------------------------------------------------------------- |
+| `--branch <name>`   | Defaults to the tracked `remote-sync-branch`. To push elsewhere, `stash` or `create-branch` first. |
+| `-m, --message <s>` | Commit message.                                                                                    |
+| `--force`           | Force-push / overwrite remote. Confirm with the user.                                              |
+| `--no-wait`         | Don't poll.                                                                                        |
 
 Workflow:
 
@@ -71,6 +85,44 @@ Workflow:
 2. Read state (above) — confirm `is-dirty` reports there's something to export.
 3. `git-sync export -m "..."` — pushes and polls.
 4. (Optional) `git-sync status` — verify `is_dirty: false` after.
+
+<!-- requires: remoteSyncBranchGuard -->
+
+`--branch` only asserts the branch you believe is tracked: the server rejects any other with a 409 naming the current one. Left out, the CLI reads the tracked branch first and refuses when none is tracked or the caller is not an admin.
+
+<!-- /requires -->
+
+<!-- requires: remoteSyncMerge -->
+
+### Merge when the remote moved on
+
+`mb git-sync export --merge -m "..."` folds the remote's changes in by a three-way merge, pushes the result and reconciles it into Metabase, where a plain export ends in a `conflict` task. Entities changed on both sides, or a remote whose history was rewritten, still end it in `conflict` and write nothing. It does not combine with `--force`.
+
+<!-- /requires -->
+
+<!-- requires: remoteSyncExportPreflight, remoteSyncMerge -->
+
+### Preview the push first
+
+```bash
+mb git-sync export-preflight --profile <n> --json   # → {has_changes, clean, conflicts, summary, force_push_casualties, reason}
+```
+
+A dry run against the live remote branch, writing nothing. Read it between the state check and the export, and decide from the fields:
+
+| Answer                              | Meaning                                                                                                                                                                     | Move                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `has_changes: false`                | The remote has not moved past the last sync, or nothing has been synced yet — and then `force_push_casualties` is empty whatever the remote holds.                          | `export -m "..."` applies as-is. Don't read empty casualties on a never-synced instance as leave to `--force`.                                                                                                                                                                                                                                                                                                     |
+| `has_changes: true`, `reason: null` | The remote moved on. `clean` says whether a three-way merge would apply; `conflicts` names the entities changed on both sides; `summary` counts what a merge would fold in. | `clean: true`: `export --merge -m "..."`. `clean: false`: the conflicts need the user's call — `create-branch <name>` then `export -m "..."` pushes Metabase's side to a new branch and leaves the old one untouched, `import --force` takes the remote's side, `export --force` takes Metabase's. A plain `export` ends in a `conflict` task, and so does `stash`: its new branch starts at the moved remote tip. |
+| `reason: "history-rewritten"`       | The remote was force-pushed or rebased, so there is no merge base.                                                                                                          | Only `export --force` can push, and only with the user's explicit go-ahead; `force_push_casualties` is exactly what it would delete or overwrite.                                                                                                                                                                                                                                                                  |
+
+`force_push_casualties` is reported on every answer: it is the remote content a force push would discard instead of merging, so read it before ever passing `--force`. It is empty when nothing has been synced yet, yet `export --force` then replaces the remote's managed directories wholesale: check the remote before forcing a first export. `--branch` defaults to the tracked `remote-sync-branch`; the server rejects any other branch with a 409 naming the current one, so pass it only to assert the branch you believe is tracked.
+
+### After a `conflict` task
+
+A task that ends in `conflict` makes the server count the remote commit it saw as synced. From then on `has-remote-changes` and `export-preflight` report nothing pending, and a retried `export`, `export --merge` or `import --merge` succeeds without bringing the remote's changes into Metabase; a full re-export can then remove them from the remote. So read `export-preflight` before exporting rather than letting an export find the divergence, and never answer a conflict with a retry: take the user's call between `import --force` (the remote's side), `export --force` (Metabase's side) and `create-branch <name>` then `export` (Metabase's side on a new branch).
+
+<!-- /requires -->
 
 ### Branch guard: don't export to main/master without confirmation
 
@@ -82,7 +134,7 @@ If the branch is `main` or `master`, prompt with `AskUserQuestion`:
 
 > "The instance is tracking `<branch>` — exporting commits straight to it. Switch to a feature branch first?"
 >
-> 1. **Create a feature branch** — agent suggests a name (e.g., `agent/<task>`); run `mb git-sync create-branch <name> --profile <n>`. This exports current dirty state to the new branch and switches the instance's tracked branch to it; subsequent `git-sync export` calls go to that branch.
+> 1. **Create a feature branch** — agent suggests a name (e.g., `agent/<task>`); run `mb git-sync create-branch <name> --profile <n>`. This creates the branch on the remote from the last synced commit (the tracked branch's tip when nothing has synced yet) and switches the instance's tracked branch to it; the next `git-sync export` pushes the dirty state there.
 > 2. **Proceed on `main`/`master`** — explicitly accepted.
 
 Skip the prompt only if the user's instructions already specified the branch (e.g., they explicitly said "export to main" or named a feature branch). Don't silently default to whatever `remote-sync-branch` happens to point at.

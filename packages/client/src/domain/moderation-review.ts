@@ -31,7 +31,8 @@ export const ModerationReviewCompact = ModerationReview.pick({
 }).strip();
 export type ModerationReviewCompact = z.infer<typeof ModerationReviewCompact>;
 
-// The server closes the body map, so a key beyond these four is a 400 there; refuse it here instead.
+// Some servers answer a key beyond these four with 400 and others drop it silently; refusing it
+// here gives every server the loud outcome.
 export const ModerationReviewCreateInput = z
   .object({
     moderated_item_id: z.number().int().positive(),

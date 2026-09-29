@@ -106,21 +106,6 @@ describe("collection resource wire requests", () => {
     ]);
   });
 
-  it("sends the library-inclusive listing as the include-library parameter", async () => {
-    const { mb, capture } = clientOver([jsonResponse([COLLECTION])]);
-
-    await mb.collection.listWithLibrary();
-
-    expect(capture.calls).toEqual([
-      {
-        url: "https://mb.example.com/metabase/api/collection?include-library=true",
-        method: "GET",
-        headers: JSON_READ_HEADERS,
-        body: null,
-      },
-    ]);
-  });
-
   it("sends the get request for a numeric id", async () => {
     const { mb, capture } = clientOver([jsonResponse(COLLECTION)]);
 
@@ -252,10 +237,10 @@ describe("collection resource wire requests", () => {
 });
 
 describe("collection resource results", () => {
-  it("parses the library-inclusive listing through the full collection schema", async () => {
+  it("parses the listing through the full collection schema", async () => {
     const { mb } = clientOver([jsonResponse([COLLECTION, UNPINNED_TYPE_COLLECTION])]);
 
-    const error = await mb.collection.listWithLibrary().catch((caught: unknown) => caught);
+    const error = await mb.collection.list().catch((caught: unknown) => caught);
 
     assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
     expect(error.userMessage).toBe(

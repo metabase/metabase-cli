@@ -2,6 +2,8 @@ import {
   SyncBranchCreated,
   type SyncDirtyItem,
   SyncDirtyItemCompact,
+  type SyncExportPreflight,
+  SyncExportPreflightCompact,
   SyncExportResult,
   SyncImportResult,
   SyncRemoteChanges,
@@ -86,3 +88,47 @@ export const syncStashView: ResourceView<SyncStashResult> = {
     { key: "message", label: "Message" },
   ],
 };
+
+export const syncExportPreflightView: ResourceView<SyncExportPreflight> = {
+  compactPick: SyncExportPreflightCompact,
+  tableColumns: [],
+};
+
+function preflightHeadline(branch: string, result: SyncExportPreflight): string {
+  if (result.reason === "history-rewritten") {
+    return `Branch ${branch}: the remote history was rewritten, so no merge base exists; only a force push can export.`;
+  }
+  if (!result.has_changes) {
+    return `Branch ${branch}: the remote has not moved past the last sync (a task that ended in conflict counts as one), or nothing has been synced yet; an export applies as-is.`;
+  }
+  if (result.clean) {
+    return `Branch ${branch}: the remote has moved on; a merge applies cleanly.`;
+  }
+  return `Branch ${branch}: the remote has moved on; a merge would conflict.`;
+}
+
+function labelledBlock(title: string, labels: readonly string[]): string[] {
+  if (labels.length === 0) {
+    return [];
+  }
+  return [`${title} (${labels.length}):`, ...labels.map((label) => `  ${label}`)];
+}
+
+function mergeSummaryLine(result: SyncExportPreflight): string[] {
+  if (!result.has_changes || result.reason !== null) {
+    return [];
+  }
+  const { added, updated, removed } = result.summary;
+  return [`A merge would fold in ${added} added, ${updated} updated, ${removed} removed.`];
+}
+
+export function formatExportPreflight(branch: string, result: SyncExportPreflight): string {
+  const casualties = result.force_push_casualties;
+  return [
+    preflightHeadline(branch, result),
+    ...labelledBlock("Conflicts", result.conflicts),
+    ...mergeSummaryLine(result),
+    ...labelledBlock("A force push would delete", casualties.deleted),
+    ...labelledBlock("A force push would overwrite", casualties.overwritten),
+  ].join("\n");
+}

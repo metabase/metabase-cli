@@ -5,12 +5,14 @@ import {
   type Library,
   LibraryCollectionInfo,
   type LibraryListing,
+  LibraryPublishTablesInput,
   libraryWireSchema,
   toLibrary,
 } from "../domain/library";
-import type { TableSelectors } from "../domain/table";
+import { TableSelectors } from "../domain/table";
 import type { RequestOptions, Transport } from "../http/transport";
-import { listCollectionsWithLibrary } from "./collection";
+import { listCollectionsAs } from "./collection";
+import { parseRequestBody } from "./request-body";
 
 // The trailing slash is part of the route: Metabase mounts the Library API under `/library` and
 // registers both the read and the create endpoint at `"/"` within it.
@@ -21,10 +23,6 @@ const UNPUBLISH_TABLES_PATH = "/api/ee/data-studio/table/unpublish-tables";
 const LIBRARY_DATA_TYPE = "library-data";
 
 const PublishTablesResponse = z.object({ target_collection: Collection.nullable() });
-
-export interface LibraryPublishParams extends TableSelectors {
-  collection_id: number;
-}
 
 export function libraryResource(transport: Transport) {
   /** Get the Library root and its child collections, or `null` on an instance that has none. */
@@ -41,7 +39,7 @@ export function libraryResource(transport: Transport) {
   }
 
   async function libraryListing(options: RequestOptions): Promise<LibraryListing> {
-    const data = await listCollectionsWithLibrary(transport, LibraryCollectionInfo, options);
+    const data = await listCollectionsAs(transport, LibraryCollectionInfo, options);
     const byId = new Map<number, LibraryCollectionInfo>();
     for (const collection of data) {
       if (typeof collection.id === "number") {
@@ -87,34 +85,39 @@ export function libraryResource(transport: Transport) {
 
   /**
    * Publish tables — and every upstream table they depend on — into a collection, so they lead the
-   * data pickers and rank up in search. Answers the collection they landed in.
+   * data pickers and rank up in search. Answers the collection they landed in. The endpoint
+   * answers the same whether or not the selectors matched a table, so a body that does not match
+   * `LibraryPublishTablesInput` is refused before any request.
    */
   async function publishTables(
-    params: LibraryPublishParams,
+    params: LibraryPublishTablesInput,
     options: RequestOptions = {},
   ): Promise<Collection | null> {
     await transport.require("library.publishTables", options);
+    const body = parseRequestBody(LibraryPublishTablesInput, params, "tables to publish");
     const response = await transport.requestParsed(PublishTablesResponse, PUBLISH_TABLES_PATH, {
       ...options,
       method: "POST",
-      body: params,
+      body,
     });
     return response.target_collection;
   }
 
   /**
    * Clear the Library collection from tables, and recursively from every downstream table that
-   * depends on them. The endpoint answers no JSON body.
+   * depends on them. The endpoint answers no JSON body, whether or not the selectors matched a
+   * table, so selectors that do not match `TableSelectors` are refused before any request.
    */
   async function unpublishTables(
     params: TableSelectors,
     options: RequestOptions = {},
   ): Promise<void> {
     await transport.require("library.unpublishTables", options);
+    const body = parseRequestBody(TableSelectors, params, "table selectors");
     await transport.requestRaw(UNPUBLISH_TABLES_PATH, {
       ...options,
       method: "POST",
-      body: params,
+      body,
       expectContentType: "binary",
     });
   }

@@ -126,9 +126,13 @@ export function dashboardResource(transport: Transport) {
 
   /**
    * Copy a dashboard, with its tabs and dashcards, into `collection_id` (root when absent). A deep
-   * copy duplicates the cards it can; otherwise the copy references them, except dashboard
-   * questions, which are always duplicated. Cards the caller cannot read are left behind and
-   * reported as `uncopied`.
+   * copy duplicates its questions and metrics and references its models. With `is_deep_copy`
+   * false or absent the copy references every card, and a dashboard holding unarchived dashboard
+   * questions is refused. Archived cards, cards the caller cannot read, and every card on a
+   * dashcard whose main card the caller cannot read are left out and reported as `uncopied`, once
+   * per dashcard they sat on. A left-out main card takes its dashcard with it; a left-out series
+   * card stays on a dashcard whose main card is referenced and is dropped from one whose main card
+   * is duplicated. Action, link and placeholder dashcards are not copied.
    */
   async function copy(
     id: number,

@@ -93,7 +93,7 @@ const BINARY_WRITE_HEADERS = {
 };
 
 const ROOT_URL = "https://mb.example.com/metabase/api/ee/library/";
-const COLLECTIONS_URL = "https://mb.example.com/metabase/api/collection?include-library=true";
+const COLLECTIONS_URL = "https://mb.example.com/metabase/api/collection";
 
 const READ_ROOT_CALL = { url: ROOT_URL, method: "GET", headers: JSON_READ_HEADERS, body: null };
 const READ_COLLECTIONS_CALL = {
@@ -213,7 +213,7 @@ describe("library resource wire requests", () => {
         url: "https://mb.example.com/metabase/api/ee/data-studio/table/publish-tables",
         method: "POST",
         headers: JSON_REQUEST_HEADERS,
-        body: '{"collection_id":11,"table_ids":[3,4],"schema_ids":["1:pub"]}',
+        body: '{"schema_ids":["1:pub"],"table_ids":[3,4],"collection_id":11}',
       },
     ]);
   });

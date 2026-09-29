@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { Features } from "../version/features";
+
 const FieldVisibilityType = z.enum(["details-only", "hidden", "normal", "retired", "sensitive"]);
 
 const FieldValuesType = z.enum(["list", "search", "none", "auto-list"]);
@@ -193,6 +195,36 @@ export const FieldCompact = Field.pick({
 }).strip();
 export type FieldCompact = z.infer<typeof FieldCompact>;
 
+// The shape the field endpoints answer on a server with the column: `data_sensitivity` is `null`
+// when the field is unlabelled.
+export const FieldWithDataSensitivity = Field.extend({
+  data_sensitivity: FieldDataSensitivity.nullable(),
+});
+export type FieldWithDataSensitivity = z.infer<typeof FieldWithDataSensitivity>;
+
+// A server without the column answers a plain `Field`, and it stays without the key: `null` already
+// means "unlabelled", so it cannot also mean "this server cannot say".
+export const FieldDetail = z.union([FieldWithDataSensitivity, Field]);
+export type FieldDetail = z.infer<typeof FieldDetail>;
+
+/** The shape `GET` and `PUT /api/field/{id}` answer on a server with `features`. */
+export function fieldDetailSchema(features: Features): z.ZodType<FieldDetail> {
+  return features.fieldDataSensitivity ? FieldWithDataSensitivity : Field;
+}
+
+/** Whether `field` came from a server that labels data sensitivity. */
+export function hasDataSensitivity(field: FieldDetail): field is FieldWithDataSensitivity {
+  return (
+    "data_sensitivity" in field &&
+    FieldWithDataSensitivity.shape.data_sensitivity.safeParse(field.data_sensitivity).success
+  );
+}
+
+export const FieldWithDataSensitivityCompact = FieldCompact.extend({
+  data_sensitivity: FieldDataSensitivity.nullable(),
+}).strip();
+export type FieldWithDataSensitivityCompact = z.infer<typeof FieldWithDataSensitivityCompact>;
+
 const NonBlankNullable = z.string().min(1).nullable();
 
 export const FieldUpdateInput = z
@@ -231,14 +263,54 @@ export const FieldValuesCompact = FieldValues.pick({
 }).strip();
 export type FieldValuesCompact = z.infer<typeof FieldValuesCompact>;
 
-// Each match is `[value, label]` when the searched field differs from the one asked about, else
-// `[value]`; the cells are whatever the warehouse column holds.
-export const FieldSearchMatches = z.array(z.array(z.unknown()));
+// Each match is `[value]` when both fields resolve to the same field once FKs are followed, else
+// `[value, label]`, the label being the display value for a field with custom display values; the
+// cells are whatever the warehouse column holds.
+export const FieldSearchMatches = z.array(
+  z.union([z.tuple([z.unknown()]), z.tuple([z.unknown(), z.unknown()])]),
+);
 export type FieldSearchMatches = z.infer<typeof FieldSearchMatches>;
 
+const FieldRemappedPair = z.tuple([z.unknown(), z.unknown()]);
+
+// The server deduplicates the columns it selects, so when the field (after following an FK) and the
+// remapped field are one column the row carries it once, and that value is its own remapping.
+const FieldRemappedSingle = z
+  .tuple([z.unknown()])
+  .transform(([value]): z.infer<typeof FieldRemappedPair> => [value, value]);
+
 // `[value, remapped]` for the one row whose field equals the value asked about.
-export const FieldRemappedValue = z.tuple([z.unknown(), z.unknown()]);
+export const FieldRemappedValue = z.union([FieldRemappedPair, FieldRemappedSingle]);
 export type FieldRemappedValue = z.infer<typeof FieldRemappedValue>;
+
+// A server that runs the lookup with display remapping on appends a display column after the one or
+// two columns asked for, for each of them that has one, so the row has one to four cells. The first
+// two are the pair unless the two ids name one field, whose value is then its own remapping.
+const FieldRemappedRowWireV59 = z.array(z.unknown()).min(1);
+
+function firstTwoCells(row: unknown[]): FieldRemappedValue {
+  const [value, second] = row;
+  return row.length === 1 ? [value, value] : [value, second];
+}
+
+function valueTwice(row: unknown[]): FieldRemappedValue {
+  const [value] = row;
+  return [value, value];
+}
+
+/**
+ * The row `GET /api/field/{id}/remapping/{remapped-id}` answers on a server with `features`, read as
+ * `FieldRemappedValue`. `sameField` says the two ids name one field.
+ */
+export function fieldRemappedValueSchema(
+  features: Features,
+  sameField: boolean,
+): z.ZodType<FieldRemappedValue> {
+  if (!features.fieldRemappingAppendsDisplayColumns) {
+    return FieldRemappedValue;
+  }
+  return FieldRemappedRowWireV59.transform(sameField ? valueTwice : firstTwoCells);
+}
 
 export const FieldSummary = z.object({
   field_id: z.number().int(),

@@ -22,6 +22,9 @@ import { SEEDED } from "./seed/seeded";
 
 const ORDERS_OVERVIEW_NAME = "Orders Overview";
 const ORDERS_OVERVIEW_DESCRIPTION = "E2E seeded dashboard with one orders dashcard.";
+const ORDERS_BY_STATUS_NAME = "Orders by status";
+const COPY_NAME = "Orders Overview (copy)";
+const COPY_DESCRIPTION = "Deep copy made by the e2e suite.";
 
 const ORDERS_OVERVIEW_COMPACT = {
   id: SEEDED.ordersDashboardId,
@@ -922,5 +925,138 @@ describe("dashboard e2e", () => {
       has_more: false,
       next_offset: null,
     });
+  });
+
+  async function copyDashboard(...flags: string[]) {
+    return runCli({
+      args: ["dashboard", "copy", String(SEEDED.ordersDashboardId), ...flags, "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+  }
+
+  async function dashcardsOf(dashboardId: number) {
+    const result = await runCli({
+      args: ["dashboard", "cards", String(dashboardId), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    return parseJson(result.stdout, DashcardListEnvelope);
+  }
+
+  it("copy lands a shallow copy in the root collection whose dashcard references the seeded card", async () => {
+    const result = await copyDashboard();
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const copy = parseJson(result.stdout, DashboardCompact);
+    expect(copy).toEqual({
+      id: expect.any(Number),
+      name: ORDERS_OVERVIEW_NAME,
+      description: ORDERS_OVERVIEW_DESCRIPTION,
+      archived: false,
+      collection_id: null,
+    });
+    expect(copy.id).not.toBe(SEEDED.ordersDashboardId);
+
+    expect(await dashcardsOf(copy.id)).toEqual({
+      data: [
+        {
+          id: expect.any(Number),
+          dashboard_id: copy.id,
+          card_id: SEEDED.ordersCardId,
+          dashboard_tab_id: null,
+          row: 0,
+          col: 0,
+          size_x: 12,
+          size_y: 6,
+        },
+      ],
+      returned: 1,
+      offset: 0,
+      total: 1,
+      has_more: false,
+      next_offset: null,
+    });
+  });
+
+  it("copy --deep into the seeded collection duplicates the card under the given name and description", async () => {
+    const result = await copyDashboard(
+      "--deep",
+      "--collection-id",
+      String(SEEDED.defaultCollectionId),
+      "--name",
+      COPY_NAME,
+      "--description",
+      COPY_DESCRIPTION,
+    );
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const copy = parseJson(result.stdout, DashboardCompact);
+    expect(copy).toEqual({
+      id: expect.any(Number),
+      name: COPY_NAME,
+      description: COPY_DESCRIPTION,
+      archived: false,
+      collection_id: SEEDED.defaultCollectionId,
+    });
+
+    const dashcards = await dashcardsOf(copy.id);
+    const copiedCardId = dashcards.data[0]?.card_id;
+    assert(
+      copiedCardId !== undefined && copiedCardId !== null && dashcards.data.length === 1,
+      `expected exactly 1 dashcard with a card, got ${JSON.stringify(dashcards.data)}`,
+    );
+    expect(copiedCardId).not.toBe(SEEDED.ordersCardId);
+
+    const cardResult = await runCli({
+      args: ["card", "get", String(copiedCardId), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(cardResult.exitCode, cardResult.stderr).toBe(0);
+    expect(parseJson(cardResult.stdout, CardCompact)).toEqual({
+      id: copiedCardId,
+      name: `${ORDERS_BY_STATUS_NAME} - Duplicate`,
+      type: "question",
+      display: "table",
+      archived: false,
+      database_id: SEEDED.warehouseDbId,
+      collection_id: SEEDED.defaultCollectionId,
+      description: null,
+    });
+  });
+
+  it("copy with a non-integer --collection-position fails fast with ConfigError", async () => {
+    const result = await copyDashboard("--collection-position", "abc");
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain(
+      'invalid --collection-position: "abc" (expected integer)',
+    );
+    expect(result.stdout).toBe("");
+  });
+
+  it("copy with a non-integer id fails fast with ConfigError", async () => {
+    const result = await runCli({
+      args: ["dashboard", "copy", "abc", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("copy against a missing dashboard id surfaces a 404 HttpError", async () => {
+    const result = await runCli({
+      args: ["dashboard", "copy", "9999999", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Not found: POST /api/dashboard/9999999/copy.");
   });
 });

@@ -8,7 +8,7 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 Metabase reads the raw column types from your warehouse; **metadata** is the layer you edit on top to make columns behave well — the right filter widget, joins, formatting, maps. You set it per-column with `mb field update <id>` and per-table with `mb table update <id>`. Both are **PATCH** — send only the keys you're changing.
 
-Metadata is a small set of fields with large, indirect effects. Get the field ids from `mb table get <id> --include fields` (or `mb table fields <id>`); inspect a column's shape with `mb field get <id>`, its live cardinality with `mb field summary <id>`, its cached distinct set with `mb field values <id>`. General flag/output/body mechanics live in `core`.
+Metadata is a small set of fields with large, indirect effects. Get the field ids from `mb table get <id> --include fields` (or `mb table fields <id>`); inspect a column's shape with `mb field get <id>`, its live cardinality with `mb field summary <id>`, its cached distinct set with `mb field values <id>`. To find rows by what a person typed, `mb field search <id> <search-id> --value <text>` answers `{ value, label }` pairs (an id column searched by a name column gives id/name pairs across the FK; both must land on one table, or it answers nothing), and `mb field remapping <id> <remapped-id> <value>` resolves one value to its display value. General flag/output/body mechanics live in `core`.
 
 ## The causal chain — set X, unlock Y
 
@@ -30,6 +30,18 @@ This is the whole point of the skill. Each edit below is a key in the `field upd
 
 `table update` carries the table-level equivalents: `display_name`, `description`, `visibility_type` (`hidden` / `technical` / `cruft` — hides the whole table from the builder), `field_order`, and `entity_type`.
 
+<!-- requires: bulkTableEdit -->
+
+To set the same `entity_type`, `data_layer`, `data_source`, `data_authority`, `owner_email`, or `owner_user_id` on many tables at once, `mb table bulk-edit --body '{"schema_ids":["1:public"],"data_layer":"final"}'` takes `table_ids`, `database_ids`, and `schema_ids` (`"<db-id>:<schema>"`) selectors in the same body. A configured `data_authority` cannot be set back to `unconfigured`, and `data_source` never moves to or from `metabase-transform`; a selected table that breaks either rule fails the call. The server answers the same whether or not a selector matched a table, so confirm the edit with `mb table list` (e.g. `--data-layer final`).
+
+<!-- /requires -->
+
+<!-- requires: tableUserValueWithdrawal, bulkTableEdit -->
+
+`null` withdraws an edit: `data_source` and `data_layer` read back empty, while `entity_type`, `owner_email`, `owner_user_id`, and `data_authority` fall back to the values Metabase keeps for the table — the entity type it derives from the table name, and usually no owner and `unconfigured`. A call that fails on a rule may already have edited the selected tables that carried no earlier edit, so re-check with `mb table list` after a refusal.
+
+<!-- /requires -->
+
 ## Foreign keys are the highest-leverage edit
 
 A FK relationship is what makes a warehouse browsable. Set it in **two keys on the FK column**, in one PATCH:
@@ -43,7 +55,7 @@ mb field update 1711 --body '{"semantic_type":"type/FK","fk_target_field_id":168
 - Queries can pull columns from the related table with no explicit join — `["field", {"source-field": 1711}, 1682]` in MBQL (see `mbql`).
 - Dashboard **linked filters** become possible (a State filter narrowing a City filter). **Linked filters read only these table-metadata FKs** — never a join you wrote inside a saved question — which is why a linked filter that "shows values it shouldn't" almost always means the FK isn't set in metadata. (See `dashboard`.)
 
-Removing the `type/FK` semantic type auto-clears `fk_target_field_id`. Point a FK only at a field in the **same database** — a cross-database target is invalid and never resolves to a relationship.
+`mb table fks <id>` lists the FKs already pointing at a table (origin field with its table, destination field), so check it before adding one; it leaves out origins in tables you cannot read, so an absent FK is conclusive only for an admin. Removing the `type/FK` semantic type auto-clears `fk_target_field_id`. Point a FK only at a field in the **same database** — a cross-database target is invalid and never resolves to a relationship.
 
 ## Semantic types are labels, not casts
 
@@ -61,13 +73,31 @@ The full semantic-type catalog — every value grouped by the base type it attac
 
 ## Sync, scan, fingerprint — three different refreshes
 
-When a column looks stale or missing, know which one you need (`db` verbs, mechanics in `core`):
+When a column looks stale or missing, know which one you need (`db` and `table` verbs, mechanics in `core`):
 
-- **Sync** (`mb db sync-schema <id> --wait`) — re-reads table/column **structure** (new tables, new columns, types). Run after a schema change.
-- **Scan / rescan** (`mb db rescan-values <id>`) — refreshes the **distinct-value sets** behind dropdown filters. Run when a `list` column's values changed but its dropdown is stale.
+- **Sync** (`mb db sync-schema <id> --wait`) — re-reads table/column **structure** (new tables, new columns, types). Run after a schema change. `mb table sync-schema <id>` re-syncs one known table (columns, fingerprints, field values), never finds a new table, and offers nothing to wait on.
+- **Scan / rescan** (`mb db rescan-values <id>`, or `mb table rescan-values <id>` for one table) — refreshes the cached **distinct-value sets** behind dropdown filters, skipping a set unread for 14 days or never read. Run when a `list` column's values changed but its dropdown is stale. `mb table discard-values <id> --yes` deletes a table's sets and their custom display values; no scan recreates them, only the next read does.
 - **Fingerprint** — value-distribution stats (min/max, null count) computed on a sample; drives smart defaults. Refreshed by sync; not a separate CLI verb.
 
-A newly connected database or a missing expected column usually just needs a `sync-schema --wait` before you conclude anything.
+A newly connected database or a missing expected column usually just needs a `db sync-schema <id> --wait` before you conclude anything.
+
+<!-- requires: bulkTableSync -->
+
+For a set of tables, `mb table bulk-sync-schema`, `bulk-rescan-values`, and `bulk-discard-values --yes` take `--table-ids`, `--db-ids`, and `--schemas 1:public` selectors (`1:` for the tables with no schema) and need an admin or data analyst.
+
+<!-- /requires -->
+
+<!-- requires: fieldDataSensitivity -->
+
+## Data sensitivity is a label a person owns
+
+Each column carries a `data_sensitivity` label (`SEC_KEY`, `SYS_TELEMETRY`, `PHI`, `BIO_GEN`, `PCI_FIN`, `SENS_PERS`, `PII`, `CORP_IP`, `BIZ_CONF`, `PUBLIC`, most severe first) or `null`. A server that enables its classifier (off by default) labels columns from their name, types and fingerprint during sync; otherwise only people do. `mb field set-sensitivity <id> PII` labels one column and the classifier never overwrites it; `mb field set-sensitivity <id> none` withdraws that label, leaving the classifier's if there is one. Read it back with `mb field get <id>`. The label masks and restricts nothing.
+
+<!-- /requires -->
+
+## Glossary — the business terms behind the columns
+
+Column metadata says what a field is; the glossary says what the business means by a word. Entries are instance-wide `{term, definition}` pairs, listed on the Glossary pages of Data Studio and the Data Reference and fed to Metabot as context, so defining "Churn" or "Active customer" once shapes every answer built on those columns. `mb glossary list --search <text>` matches terms and definitions (there is no `get`); `mb glossary create --term "Churn" --definition "…"` adds one, or pass a body with exactly `term` and `definition`; `mb glossary update <id>` replaces both fields; `mb glossary delete <id> --yes` removes one. Terms are unique.
 
 ## Don't
 

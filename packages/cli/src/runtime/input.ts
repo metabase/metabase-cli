@@ -14,6 +14,11 @@ export const DEFAULT_FLAG_NAME = "--body";
 
 const SOURCE_LIST = `${DEFAULT_FLAG_NAME}, --file, stdin, or a positional argument`;
 
+/** The value of a string flag, or `null` when it was left out or passed empty. */
+export function givenValue(value: string | undefined): string | null {
+  return value === undefined || value === "" ? null : value;
+}
+
 export async function readInput(sources: InputSources): Promise<string> {
   if (sources.flag) {
     return sources.flag;

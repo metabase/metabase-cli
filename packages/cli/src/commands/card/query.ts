@@ -1,14 +1,13 @@
 import { z } from "zod";
 
 import { CardQueryResult } from "@metabase/client/domain/card";
-import { ExportFormat } from "@metabase/client/domain/query";
-import { ConfigError } from "@metabase/client/errors";
 import { parseJson } from "@metabase/client/json";
 
 import { formatQueryResult } from "../../output/query-result";
 import { renderSummary } from "../../output/render";
 import { pipeToStdout } from "../../output/stream";
 import { cardQueryView } from "../../output/views/card";
+import { assertStreamedOutput, exportFlags, readExportRequest } from "../export-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { parseOptionalInteger } from "../parse-integer";
@@ -28,29 +27,14 @@ export default defineMetabaseCommand({
     ...profileFlag,
     ...connectionFlags,
     id: { type: "positional", description: "Card id", required: true },
-    "export-format": {
-      type: "string",
-      description: `Bypass JSON envelope and stream raw export: ${ExportFormat.options.join(" | ")}`,
-    },
+    ...exportFlags,
     parameters: {
       type: "string",
       description: "JSON array of Metabase parameter objects to pass with the query",
     },
     limit: {
       type: "string",
-      description: "Cap rows kept in the JSON envelope (no effect on streamed exports)",
-    },
-    "format-rows": {
-      type: "boolean",
-      description:
-        "Streamed exports only: apply visualization-settings formatting to values (default false)",
-      default: false,
-    },
-    "pivot-results": {
-      type: "boolean",
-      description:
-        "Streamed exports only: emit the pivoted output for pivot questions (default false)",
-      default: false,
+      description: "Cap rows kept in the JSON envelope; refused with --export-format",
     },
   },
   outputSchema: CardQueryResult,
@@ -63,19 +47,20 @@ export default defineMetabaseCommand({
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const parameters = parseParameters(args.parameters);
-    const client = await getClient();
+    const exportRequest = readExportRequest(args);
 
-    const exportFormatRaw = args["export-format"];
-    if (exportFormatRaw !== undefined && exportFormatRaw !== "") {
-      const stream = await client.card.exportQuery(id, parseExportFormat(exportFormatRaw), {
+    if (exportRequest !== null) {
+      assertStreamedOutput(ctx);
+      const client = await getClient();
+      const stream = await client.card.exportQuery(id, exportRequest.format, {
         parameters,
-        format_rows: args["format-rows"],
-        pivot_results: args["pivot-results"],
+        ...exportRequest.params,
       });
       await pipeToStdout(stream);
       return;
     }
 
+    const client = await getClient();
     const result = await client.card.query(id, { parameters });
     const limit = parseOptionalInteger(args.limit, { name: "--limit", min: 1 });
     const limited = applyLimit(result, limit);
@@ -88,16 +73,6 @@ function parseParameters(raw: string | undefined): unknown[] {
     return [];
   }
   return parseJson(raw, QueryParameters, { source: "--parameters" });
-}
-
-function parseExportFormat(raw: string): ExportFormat {
-  const result = ExportFormat.safeParse(raw);
-  if (!result.success) {
-    throw new ConfigError(
-      `invalid --export-format: "${raw}" (expected: ${ExportFormat.options.join(", ")})`,
-    );
-  }
-  return result.data;
 }
 
 function applyLimit(result: CardQueryResult, limit: number | null): CardQueryResult {

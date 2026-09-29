@@ -5,7 +5,7 @@ import { renderSummary } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
-import { parseTableSelectors, tableSelectorFlags } from "./selectors";
+import { parseTableSelectors, tableSelectorFlags } from "../table-selector-flags";
 
 export const LibraryUnpublishResult = z.object({
   unpublished: z.literal(true),

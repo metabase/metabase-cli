@@ -1,7 +1,8 @@
 import { CardQueryResult } from "../domain/card";
-import { CompiledQuery, QueryMetadata } from "../domain/dataset";
-import type { DatasetQuery, ExportFormat } from "../domain/query";
+import { type CompiledQuery, compiledQuerySchema, QueryMetadata } from "../domain/dataset";
+import type { DatasetQuery, ExportFormat, VisualizationSettings } from "../domain/query";
 import type { RequestOptions, Transport } from "../http/transport";
+import { assertPivotedExport } from "./pivot-export";
 
 export interface DatasetNativeParams {
   pretty?: boolean | undefined;
@@ -9,8 +10,10 @@ export interface DatasetNativeParams {
 
 export interface DatasetExportParams {
   query: DatasetQuery;
+  visualization_settings?: VisualizationSettings | undefined;
   format_rows: boolean;
   pivot_results: boolean;
+  csv_include_bom: boolean;
 }
 
 export function datasetResource(transport: Transport) {
@@ -37,7 +40,8 @@ export function datasetResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<CompiledQuery> {
     await transport.require("dataset.native", options);
-    return transport.requestParsed(CompiledQuery, "/api/dataset/native", {
+    const { features } = await transport.server(options);
+    return transport.requestParsed(compiledQuerySchema(features), "/api/dataset/native", {
       ...options,
       method: "POST",
       body: { ...datasetQuery, pretty: params.pretty },
@@ -62,8 +66,15 @@ export function datasetResource(transport: Transport) {
   }
 
   /**
-   * Run an ad-hoc query and stream its result as a download. Unlike `query`, this endpoint answers
-   * bytes, so a caller consumes the stream rather than a value.
+   * Execute a query and download the result data as a file in the specified format. Unlike
+   * `query`, this endpoint answers bytes, so a caller consumes the stream rather than a value.
+   * `visualization_settings` drive `format_rows` column formatting and, through
+   * `pivot_table.column_split`, the layout `pivot_results` lays the rows out in. The server only
+   * computes that layout for a query it runs as a pivot, which it reads from the query's own
+   * `was-pivot`, so `pivot_results` sets it. A pivot the server would answer with plain rows (a
+   * JSON export, or pivoted exports turned off) is refused. `csv_include_bom` opens a CSV with a
+   * UTF-8 byte order mark; a server without it drops the key silently, so asking for one is refused
+   * there before the wire.
    */
   async function exportQuery(
     format: ExportFormat,
@@ -71,13 +82,23 @@ export function datasetResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<ReadableStream<Uint8Array>> {
     await transport.require("dataset.exportQuery", options);
+    await transport.requireFeatures(
+      params.csv_include_bom ? ["exportCsvByteOrderMark"] : [],
+      options,
+    );
+    if (params.pivot_results) {
+      await assertPivotedExport(transport, format, options);
+    }
+    const exported = params.pivot_results ? { ...params.query, "was-pivot": true } : params.query;
     return transport.requestStream(`/api/dataset/${format}`, {
       ...options,
       method: "POST",
       body: {
-        query: params.query,
+        query: exported,
+        visualization_settings: params.visualization_settings,
         format_rows: params.format_rows,
         pivot_results: params.pivot_results,
+        csv_include_bom: params.csv_include_bom,
       },
     });
   }

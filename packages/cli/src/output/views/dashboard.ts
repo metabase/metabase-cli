@@ -1,6 +1,8 @@
 import {
   type Dashboard,
   DashboardCompact,
+  type DashboardCopy,
+  DashboardCopyCompact,
   type Dashcard,
   DashcardCompact,
 } from "@metabase/client/domain/dashboard";
@@ -28,4 +30,9 @@ export const dashboardView: ResourceView<Dashboard> = {
     { key: "collection_id", label: "Collection" },
     { key: "archived", label: "Archived" },
   ],
+};
+
+export const dashboardCopyView: ResourceView<DashboardCopy> = {
+  compactPick: DashboardCopyCompact,
+  tableColumns: dashboardView.tableColumns,
 };

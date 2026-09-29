@@ -1,6 +1,6 @@
 ---
 name: document
-description: Author and edit Metabase documents via `mb` — the TipTap (ProseMirror) JSON body shape, the node-type inventory (paragraphs, headings, lists, plus the Metabase-custom `cardEmbed` / `smartLink` / `flexContainer` / `resizeNode`), the per-node-type `_id` requirement, embedding existing or brand-new cards, and the list/get/create/update/archive verbs. Load when the user touches documents — "create a document", "add a card to a document", "edit a document", "list documents", or anything `mb document …`.
+description: Author and edit Metabase documents via `mb` — the TipTap (ProseMirror) JSON body shape, the node-type inventory (paragraphs, headings, lists, plus the Metabase-custom `cardEmbed` / `smartLink` / `flexContainer` / `resizeNode`), the per-node-type `_id` requirement, embedding existing or brand-new cards, and the list/get/create/update/copy/archive verbs. Load when the user touches documents — "create a document", "add a card to a document", "edit a document", "copy a document", "list documents", or anything `mb document …`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
@@ -20,9 +20,20 @@ mb document update <id> --file patch.json --profile <name> --json   # PATCH sema
 mb document archive <id> --profile <name> --json         # soft-delete (PUT archived:true)
 ```
 
+<!-- requires: documentCopy -->
+
+```bash
+mb document copy <id> --name "<name>" --collection-id <id> --profile <name> --json   # duplicate with its saved cards
+```
+
+<!-- /requires -->
+
 - `list` returns the standard list envelope (see `core`). The compact item is `{id, name, collection_id, archived, creator_id, can_write}` and omits the (potentially huge) `document` body — pull the body with `get --full`.
 - `archive` is the only delete, mirroring `card` / `dashboard`. **Unarchive** with `mb document update <id> --body '{"archived":false}'`.
 - `update` is PATCH — send only the keys you want to change: `name`, `document`, `collection_id`, `collection_position`, `archived`, and `cards` (inline card creation works on update too, not just create — see below). Replacing `document` replaces the **whole** body; there is no partial-node patch.
+<!-- requires: documentCopy -->
+- `copy` duplicates a document together with the cards saved inside it, whose embeds in the copied body point at the duplicates. `--name` defaults to the source name. Without `--collection-id` the copy lands in the root collection; an archived source is not found.
+<!-- /requires -->
 
 ## Node ids (`_id`)
 

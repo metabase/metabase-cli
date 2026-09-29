@@ -8,14 +8,39 @@ import { SyncDirtyListEnvelope } from "../../packages/cli/src/commands/git-sync/
 import { IsDirtyResult } from "../../packages/cli/src/commands/git-sync/is-dirty";
 import { SyncStatus } from "../../packages/cli/src/commands/git-sync/status";
 import { WaitResult } from "../../packages/cli/src/commands/git-sync/wait";
-import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
+import { CommandHelpEntry } from "../../packages/cli/src/runtime/command-help";
+import { readBootstrap, type E2EBootstrap, type ServerIdentity } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
-import { requireServer } from "./server-gate";
+import { seedProbedProfile } from "./seed-profile";
+import { requirementFailure, requireServer, serverHas } from "./server-gate";
+
+const REMOTE_SYNC_REFUSAL =
+  "This operation requires the 'remote_sync' premium feature (not enabled on this server).";
+const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
 
 const skipReason = requireServer("git-sync › git-sync e2e against EE git-sync endpoints", [
   "remoteSync",
 ]);
+const preflightSkipReason = requireServer(
+  "git-sync › export-preflight against a licensed server with the preflight route",
+  ["remoteSyncExportPreflight"],
+);
+const preflightGap = requirementFailure(["remoteSyncExportPreflight"]);
+
+function olderServerRefusal(serverTag: string): string {
+  return `This operation requires Metabase v63+ (this server is ${serverTag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`;
+}
+
+function preflightLiveRefusal(server: ServerIdentity): string {
+  if (preflightGap?.reason !== "version-too-old") {
+    return REMOTE_SYNC_REFUSAL;
+  }
+  if (server.version === null) {
+    throw new Error("a server with no parsed version is placed past the window, never below it");
+  }
+  return olderServerRefusal(server.version.tag);
+}
 
 describe("git-sync arg validation e2e (no Metabase contact required)", () => {
   const tempDirs: string[] = [];
@@ -110,14 +135,137 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
   it("remove-collection with negative positional fails with ConfigError", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
-      args: ["git-sync", "remove-collection", "--", "-3", "--json"],
+      args: ["git-sync", "remove-collection", "--json", "--", "-3"],
       configHome,
     });
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe("invalid id: -3 (must be ≥ 1)");
     expect(result.stdout).toBe("");
   });
+
+  it("export-preflight refuses before any request when the cached probe lacks remote sync", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfile(configHome, 64);
+
+    const result = await runCli({ args: ["git-sync", "export-preflight", "--json"], configHome });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("capability");
+    expect(cliErrorMessage(result.stderr)).toBe(REMOTE_SYNC_REFUSAL);
+    expect(result.stdout).toBe("");
+  });
+
+  it("export-preflight refuses before any request when the cached probe is older than the route", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    await seedProbedProfile(configHome, 62);
+
+    const result = await runCli({ args: ["git-sync", "export-preflight", "--json"], configHome });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("capability");
+    expect(cliErrorMessage(result.stderr)).toBe(olderServerRefusal("v0.62.0"));
+    expect(result.stdout).toBe("");
+  });
+
+  it("help --json reports the preflight feature and the branch read behind export-preflight", async () => {
+    const result = await runCli({
+      args: ["git-sync", "export-preflight", "--help", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const entry = parseJson(result.stdout, CommandHelpEntry, { source: "--help --json" });
+    expect(entry.requires).toEqual({
+      methods: ["gitSync.exportPreflight", "gitSync.trackedBranch"],
+      features: ["remoteSyncExportPreflight"],
+    });
+  });
 });
+
+describe.skipIf(preflightSkipReason === null)(
+  "git-sync export-preflight capability gate against a server without the preflight route",
+  () => {
+    let bootstrap: E2EBootstrap;
+    const tempDirs: string[] = [];
+
+    beforeAll(async () => {
+      bootstrap = await readBootstrap();
+    });
+
+    afterEach(async () => {
+      await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+    });
+
+    async function makeIsolatedConfigHome(): Promise<string> {
+      const dir = await mkTempConfigHome();
+      tempDirs.push(dir);
+      return dir;
+    }
+
+    it("export-preflight refuses with CapabilityError (exit 2) after a live probe", async () => {
+      const result = await runCli({
+        args: ["git-sync", "export-preflight", "--branch", "main", "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey },
+      });
+
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorCategory(result.stderr)).toBe("capability");
+      expect(cliErrorMessage(result.stderr)).toBe(preflightLiveRefusal(bootstrap.server));
+      expect(result.stdout).toBe("");
+    });
+  },
+);
+
+describe.skipIf(preflightSkipReason !== null)(
+  "git-sync › export-preflight against a licensed server with the preflight route",
+  () => {
+    let bootstrap: E2EBootstrap;
+    const tempDirs: string[] = [];
+
+    beforeAll(async () => {
+      bootstrap = await readBootstrap();
+    });
+
+    afterEach(async () => {
+      await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+    });
+
+    async function makeIsolatedConfigHome(): Promise<string> {
+      const dir = await mkTempConfigHome();
+      tempDirs.push(dir);
+      return dir;
+    }
+
+    async function runPreflight(...args: string[]) {
+      return runCli({
+        args: ["git-sync", "export-preflight", ...args, "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey },
+      });
+    }
+
+    it("refuses with ConfigError when no branch is tracked and none is passed", async () => {
+      const result = await runPreflight();
+
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorCategory(result.stderr)).toBe("config");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "git-sync tracks no branch: the remote-sync-branch setting is unset",
+      );
+      expect(result.stdout).toBe("");
+    });
+
+    it("surfaces the server's 400 message when a branch is passed but git-sync is not configured", async () => {
+      const result = await runPreflight("--branch", "main");
+
+      expect(result.exitCode).toBe(1);
+      expect(cliErrorCategory(result.stderr)).toBe("http");
+      expect(cliErrorMessage(result.stderr)).toBe("Remote sync is not configured.");
+      expect(result.stdout).toBe("");
+    });
+  },
+);
 
 describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints", () => {
   let bootstrap: E2EBootstrap;
@@ -211,24 +359,40 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
     expect(parseJson(result.stdout, WaitResult)).toEqual({ status: "idle" });
   });
 
-  it("import without git-sync configured surfaces an HttpError", async () => {
+  it("import without git-sync configured refuses, before the request where the server expects a branch", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "import", "--no-wait", "--json"],
       configHome,
       env: authEnv(),
     });
+    if (serverHas("remoteSyncBranchGuard")) {
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorCategory(result.stderr)).toBe("config");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "git-sync tracks no branch: the remote-sync-branch setting is unset",
+      );
+      return;
+    }
     expect(result.exitCode).toBe(1);
     expect(cliErrorCategory(result.stderr)).toBe("http");
   });
 
-  it("export without git-sync configured surfaces an HttpError", async () => {
+  it("export without git-sync configured refuses, before the request where the server expects a branch", async () => {
     const configHome = await makeIsolatedConfigHome();
     const result = await runCli({
       args: ["git-sync", "export", "--no-wait", "--json"],
       configHome,
       env: authEnv(),
     });
+    if (serverHas("remoteSyncBranchGuard")) {
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorCategory(result.stderr)).toBe("config");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "git-sync tracks no branch: the remote-sync-branch setting is unset",
+      );
+      return;
+    }
     expect(result.exitCode).toBe(1);
     expect(cliErrorCategory(result.stderr)).toBe("http");
   });

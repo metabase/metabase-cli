@@ -5,6 +5,7 @@ import {
   COLLECTION_PINNED_STATES,
   Collection,
   CollectionCompact,
+  type CollectionId,
 } from "@metabase/client/domain/collection";
 import { parseJson } from "@metabase/client/json";
 
@@ -616,5 +617,235 @@ describe("collection e2e", () => {
       "request body: value did not match expected schema\n  /name: Invalid input: expected string, received undefined",
     );
     expect(result.stdout).toBe("");
+  });
+
+  async function createCollection(name: string): Promise<Collection> {
+    const result = await runCli({
+      args: ["collection", "create", "--body", JSON.stringify({ name }), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    return parseJson(result.stdout, Collection);
+  }
+
+  async function getCompact(id: CollectionId): Promise<CollectionCompact> {
+    const result = await runCli({
+      args: ["collection", "get", String(id), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    return parseJson(result.stdout, CollectionCompact);
+  }
+
+  it("update --name and --description patch the collection and get reads them back", async () => {
+    const created = await createCollection("e2e_update_me");
+
+    const result = await runCli({
+      args: [
+        "collection",
+        "update",
+        String(created.id),
+        "--name",
+        "e2e_renamed",
+        "--description",
+        "described in test",
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const expected = {
+      id: created.id,
+      name: "e2e_renamed",
+      description: "described in test",
+      archived: false,
+      location: "/",
+      parent_id: null,
+      type: null,
+      authority_level: null,
+      is_personal: false,
+      is_remote_synced: false,
+    };
+    expect(parseJson(result.stdout, CollectionCompact)).toEqual(expected);
+    expect(await getCompact(created.id)).toEqual(expected);
+  });
+
+  it("update --parent-id moves the collection under the seeded collection and root moves it back", async () => {
+    const created = await createCollection("e2e_move_me");
+
+    const moved = await runCli({
+      args: [
+        "collection",
+        "update",
+        String(created.id),
+        "--parent-id",
+        String(SEEDED.defaultCollectionId),
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(moved.exitCode, moved.stderr).toBe(0);
+    expect(parseJson(moved.stdout, CollectionCompact)).toEqual({
+      id: created.id,
+      name: "e2e_move_me",
+      description: null,
+      archived: false,
+      location: `/${SEEDED.defaultCollectionId}/`,
+      parent_id: SEEDED.defaultCollectionId,
+      type: null,
+      authority_level: null,
+      is_personal: false,
+      is_remote_synced: false,
+    });
+
+    const returned = await runCli({
+      args: ["collection", "update", String(created.id), "--parent-id", "root", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(returned.exitCode, returned.stderr).toBe(0);
+    expect(parseJson(returned.stdout, CollectionCompact)).toEqual({
+      id: created.id,
+      name: "e2e_move_me",
+      description: null,
+      archived: false,
+      location: "/",
+      parent_id: null,
+      type: null,
+      authority_level: null,
+      is_personal: false,
+      is_remote_synced: false,
+    });
+  });
+
+  it("update from a JSON body patches the keys it carries", async () => {
+    const created = await createCollection("e2e_body_update");
+
+    const result = await runCli({
+      args: ["collection", "update", String(created.id), "--json"],
+      stdin: JSON.stringify({ name: "e2e_body_renamed", parent_id: SEEDED.defaultCollectionId }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, CollectionCompact)).toEqual({
+      id: created.id,
+      name: "e2e_body_renamed",
+      description: null,
+      archived: false,
+      location: `/${SEEDED.defaultCollectionId}/`,
+      parent_id: SEEDED.defaultCollectionId,
+      type: null,
+      authority_level: null,
+      is_personal: false,
+      is_remote_synced: false,
+    });
+  });
+
+  it("update --format text prints the summary line", async () => {
+    const created = await createCollection("e2e_text_update");
+
+    const result = await runCli({
+      args: [
+        "collection",
+        "update",
+        String(created.id),
+        "--name",
+        "e2e_text_renamed",
+        "--format",
+        "text",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.stdout).toBe(`Updated collection ${created.id} "e2e_text_renamed".`);
+  });
+
+  it("update without --archived keeps an archived collection archived", async () => {
+    const created = await createCollection("e2e_keep_archived");
+    const archivedCompact = {
+      id: created.id,
+      name: "e2e_keep_archived",
+      description: null,
+      archived: true,
+      location: "/",
+      parent_id: null,
+      type: null,
+      authority_level: null,
+      is_personal: false,
+      is_remote_synced: false,
+    };
+    const archived = await runCli({
+      args: ["collection", "archive", String(created.id), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(archived.exitCode, archived.stderr).toBe(0);
+    expect(parseJson(archived.stdout, CollectionCompact)).toEqual(archivedCompact);
+
+    const result = await runCli({
+      args: ["collection", "update", String(created.id), "--name", "e2e_still_archived", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, CollectionCompact)).toEqual({
+      ...archivedCompact,
+      name: "e2e_still_archived",
+    });
+  });
+
+  it("update refuses a body beside a patch flag before any request", async () => {
+    const result = await runCli({
+      args: [
+        "collection",
+        "update",
+        String(SEEDED.defaultCollectionId),
+        "--name",
+        "x",
+        "--body",
+        JSON.stringify({ name: "y" }),
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe("--name cannot be combined with --body or --file");
+    expect(result.stdout).toBe("");
+    expect(await getCompact(SEEDED.defaultCollectionId)).toEqual(DEFAULT_COMPACT);
+  });
+
+  it("update takes the integer id only and refuses the root alias with ConfigError", async () => {
+    const result = await runCli({
+      args: ["collection", "update", "root", "--name", "x", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe('invalid id: "root" (expected integer)');
+    expect(result.stdout).toBe("");
+  });
+
+  it("update against a missing collection id surfaces a 404 HttpError", async () => {
+    const result = await runCli({
+      args: ["collection", "update", "9999999", "--name", "x", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorMessage(result.stderr)).toBe("Not found: GET /api/collection/9999999.");
   });
 });

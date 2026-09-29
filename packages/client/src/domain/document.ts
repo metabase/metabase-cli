@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { NonBlankText } from "./text";
+
 export const TipTapNode = z.looseObject({
   type: z.string(),
   text: z.string().optional(),
@@ -128,10 +130,11 @@ export const DocumentUpdateInput = z
   .loose();
 export type DocumentUpdateInput = z.infer<typeof DocumentUpdateInput>;
 
-// The newest server closes the body map, so the input names exactly the keys it takes.
+// The newest server closes the body map, so the input names exactly the keys it takes. Copy
+// validates its name apart from create and update: it refuses a blank one and caps no length.
 export const DocumentCopyInput = z
   .object({
-    name: DocumentName.nullable().optional(),
+    name: NonBlankText.nullable().optional(),
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
   })

@@ -1,6 +1,7 @@
 import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
+import { ConfigError } from "../errors";
 import { HttpError } from "../http/errors";
 import type { ClientCredentials } from "../http/transport";
 import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
@@ -503,14 +504,14 @@ describe("git-sync resource wire requests", () => {
     ]);
   });
 
-  it("reads the synced collections off the library-inclusive collection listing", async () => {
+  it("reads the synced collections off the collection listing", async () => {
     const { mb, capture } = clientOver([jsonResponse([])]);
 
     await mb.gitSync.syncedCollections();
 
     expect(capture.calls).toEqual([
       {
-        url: "https://mb.example.com/metabase/api/collection?include-library=true",
+        url: "https://mb.example.com/metabase/api/collection",
         method: "GET",
         headers: JSON_READ_HEADERS,
         body: null,
@@ -595,43 +596,53 @@ describe("git-sync resource wire requests", () => {
     expect(error.message).toBe("boom");
   });
 
-  it("reads the tracked branch off its own setting", async () => {
-    const { mb, capture } = clientOver([jsonResponse("main")]);
+  it("reads the tracked branch off the session properties", async () => {
+    const { mb, capture } = clientOver([jsonResponse({ "remote-sync-branch": "main" })]);
 
     await mb.gitSync.branch();
 
     expect(capture.calls).toEqual([
       {
-        url: "https://mb.example.com/metabase/api/setting/remote-sync-branch",
+        url: "https://mb.example.com/metabase/api/session/properties",
         method: "GET",
-        headers: BINARY_READ_HEADERS,
+        headers: JSON_READ_HEADERS,
         body: null,
       },
     ]);
   });
 
-  it("reads an unset branch setting's 204 as no branch", async () => {
-    const { mb } = clientOver([noContent()]);
+  it("answers the effective branch, an environment-set one included", async () => {
+    const { mb } = clientOver([jsonResponse({ "remote-sync-branch": "main" })]);
 
-    expect(await mb.gitSync.branch()).toBeNull();
+    expect(await mb.gitSync.branch()).toBe("main");
   });
 
   it("reads an unconfigured branch setting's null as no branch", async () => {
-    const { mb } = clientOver([jsonResponse(null)]);
+    const { mb } = clientOver([jsonResponse({ "remote-sync-branch": null })]);
 
     expect(await mb.gitSync.branch()).toBeNull();
   });
 
-  it("reports no branch when the caller may not read settings", async () => {
+  it("refuses rather than reading a setting the caller may not see as unset", async () => {
+    const { mb } = clientOver([jsonResponse({ "site-name": "Metabase" })]);
+
+    const error = await thrownBy(() => mb.gitSync.branch());
+
+    expect(error).toBeInstanceOf(ConfigError);
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toBe(
+      "the remote-sync-branch setting is not readable: it is visible to admins only, and absent on a server without the remote-sync module",
+    );
+  });
+
+  it("rethrows a permission failure on the properties rather than reading it as unset", async () => {
     const { mb } = clientOver([jsonResponse({ message: "You don't have permissions" }, 403)]);
 
-    expect(await mb.gitSync.branch()).toBeNull();
-  });
+    const error = await thrownBy(() => mb.gitSync.branch({ retries: 0 }));
 
-  it("reports no branch when the setting is not registered on the server", async () => {
-    const { mb } = clientOver([jsonResponse({ message: "Not found." }, 404)]);
-
-    expect(await mb.gitSync.branch()).toBeNull();
+    expect(error).toBeInstanceOf(HttpError);
+    assert(error instanceof HttpError, "expected HttpError");
+    expect(error.status).toBe(403);
   });
 
   it("rethrows a branch failure that is neither a permission nor a registration answer", async () => {

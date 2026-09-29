@@ -49,11 +49,12 @@ describe("search resource wire requests", () => {
       created_by: [3, 4],
       search_native_query: true,
       include_metadata: true,
+      include_dashboard_questions: true,
     });
 
     expect(capture.calls).toEqual([
       {
-        url: "https://mb.example.com/metabase/api/search?q=orders&models=card&models=dashboard&archived=true&limit=20&offset=40&table_db_id=2&verified=true&collection=7&created_by=3&created_by=4&search_native_query=true&include_metadata=true",
+        url: "https://mb.example.com/metabase/api/search?q=orders&models=card&models=dashboard&archived=true&limit=20&offset=40&table_db_id=2&verified=true&collection=7&created_by=3&created_by=4&search_native_query=true&include_metadata=true&include_dashboard_questions=true",
         method: "GET",
         headers: JSON_READ_HEADERS,
         body: null,

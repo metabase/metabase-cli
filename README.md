@@ -398,10 +398,10 @@ mb db list --saved --json
 mb db list --include tables --json   # every db with its compact table map
 ```
 
-| Flag                | Description                                                                                                                                                                             |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--include <which>` | Hydrate related entities. Currently only `tables` is supported (each database is returned with its compact `tables`). To map a single warehouse, prefer `db get <id> --include tables`. |
-| `--saved`           | Include the Saved Questions virtual database in the list. The virtual db has id `-1337` and no `engine`.                                                                                |
+| Flag                | Description                                                                                                                                                                                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--include <which>` | Hydrate related entities. Currently only `tables` is supported (each database is returned with its compact `tables`). To map a single warehouse, prefer `db get <id> --include tables`.          |
+| `--saved`           | Include the Saved Questions virtual database in the list. The virtual db has id `-1337` and no `engine`, and its `--include tables` are the saved questions, each with a `card__<id>` string id. |
 
 ### `mb db get <id>`
 
@@ -469,11 +469,27 @@ Returns every table in the chosen database (or across all databases) as a flat c
 ```sh
 mb table list
 mb table list --db-id 1 --json
+mb table list --term order --can-query --json
+mb table list --data-layer hidden --orphan-only --json
 ```
 
-| Flag           | Description                         |
-| -------------- | ----------------------------------- |
-| `--db-id <id>` | Filter tables by their database id. |
+`--db-id` narrows the list on the client; every other flag is applied by the server. A filter the server is too old to honour is refused before any request (exit 2) rather than dropped.
+
+| Flag                          | Description                                                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `--db-id <id>`                | Filter tables by their database id.                                                                                            |
+| `--term <text>`               | Match table names and display names by prefix; `*` is a wildcard (`--term 'order*'`, `--term ite` also matches `Order Items`). |
+| `--visibility-type <type>`    | Only tables with this visibility: `hidden`, `technical`, `cruft`.                                                              |
+| `--data-layer <layer>`        | Only tables in this data layer: `final`, `internal`, `hidden` (Metabase v58 names them `gold`, `silver`, `bronze`, `copper`).  |
+| `--data-source <source>`      | Only tables from this data source: `unknown`, `ingested`, `metabase-transform`, `transform`, `source-data`, `upload`.          |
+| `--owner-user-id <id>`        | Only tables owned by this user id.                                                                                             |
+| `--owner-email <email>`       | Only tables owned by this email.                                                                                               |
+| `--orphan-only`               | Only tables with no owner.                                                                                                     |
+| `--unused-only`               | Only tables nothing depends on. Needs the `dependencies` premium feature.                                                      |
+| `--published-only`            | Only tables published to the library (Metabase v63+).                                                                          |
+| `--can-query`                 | Only tables you can run queries against (Metabase v59+).                                                                       |
+| `--can-write`                 | Only tables whose metadata you can edit (Metabase v59+).                                                                       |
+| `--include-transform-targets` | Also list the inactive tables a transform writes to, which carry `active: false` (Metabase v60+).                              |
 
 ### `mb table get <id>`
 
@@ -498,6 +514,15 @@ mb table fields 42
 mb table fields 42 --json
 ```
 
+### `mb table fks <id>`
+
+List the foreign keys pointing at a table: every active field whose `fk_target_field_id` is an active, unretired field of this one, the table's own self-references included. The server leaves out origin fields in inactive tables and in tables the caller cannot read, so a non-admin sees only the foreign keys from tables it can read. Each row carries the origin field with its table (`id`, `name`, `display_name`, `schema`, `db_id`), the destination field and the relationship (`Mt1`); the text table names the origin as `<schema>.<table>.<field>`, or `<table>.<field>` on a database without schemas. A table nothing points at answers an empty list.
+
+```sh
+mb table fks 42
+mb table fks 42 --json
+```
+
 ### `mb table update <id>`
 
 Patch a table (`PUT /api/table/:id`). Body fields: `display_name`, `description`, `caveats`, `points_of_interest`, `entity_type`, `visibility_type`, `field_order`, `show_in_getting_started`. Pass the body via `--body`, `--file`, or stdin (exactly one).
@@ -510,11 +535,60 @@ echo '{"description":"Customer dimension"}' | mb table update 42
 
 Publish status surfaces on the table itself — `table get`/`table list` carry `is_published` (and `collection_id` under `--full`). Publishing tables to the Library is done with [`mb library publish`](#library).
 
+### `mb table sync-schema <id>`
+
+Trigger a manual sync of one table (`POST /api/table/:id/sync_schema`): it re-reads the table's columns, fingerprints them, and refreshes the table's cached field values. It never discovers new tables; a table the warehouse just gained needs `mb db sync-schema <id>`. Returns `{ id, status: "ok" }` once the sync has been queued; the work happens asynchronously on the server, which reports no completion to wait on. A warehouse the server cannot connect to is refused with a 422. To sync a set of tables use `mb table bulk-sync-schema`.
+
+```sh
+mb table sync-schema 42
+mb table sync-schema 42 --json
+```
+
+### `mb table rescan-values <id>`
+
+Trigger a rescan of one table's cached field values (`POST /api/table/:id/rescan_values`). Only the sets already cached and read in the last 14 days are refreshed; a set never read, discarded, or unread for longer is skipped until a read rebuilds or revives it. Returns `{ id, status: "success" }` once the rescan has been queued.
+
+```sh
+mb table rescan-values 42
+mb table rescan-values 42 --json
+```
+
+### `mb table discard-values <id>`
+
+Discard one table's cached field values (`POST /api/table/:id/discard_values`), and with them any custom display values set on those values. No scan recreates a discarded set, neither `mb table rescan-values` nor the database's scheduled scan; Metabase rebuilds a set, without its display values, the next time it is read (a filter dropdown, `mb field values <id>`). Asks for confirmation on a terminal and refuses without `--yes` when stdin is not a TTY. Returns `{ id, discarded, aborted }`.
+
+```sh
+mb table discard-values 42 --yes
+mb table discard-values 42
+```
+
+### `mb table bulk-edit`
+
+Set the same metadata on every table a selector picks out (`POST /api/data-studio/table/edit`, Metabase v59+). The body selects tables with any of `table_ids`, `database_ids`, and `schema_ids` (each schema id is `"<db-id>:<schema>"`, e.g. `1:public`; the selectors are unioned) and sets any of `data_authority`, `data_source`, `data_layer`, `entity_type`, `owner_email`, `owner_user_id` on all of them. A configured `data_authority` cannot be set back to `unconfigured`, and `data_source` never moves to or from `metabase-transform`. A selected table that breaks either rule fails the call: before Metabase 64 no table is edited, while on 64 the selected tables Metabase held no user edits for may already carry the new values. Before Metabase 64, `null` clears a field, `null` for `data_authority` is refused before any request, and the next scheduled analysis overwrites `entity_type` with the type it derives from the table name. On Metabase 64, `null` withdraws the edit: `data_source` and `data_layer` read back empty, while `entity_type`, `owner_email`, `owner_user_id`, and `data_authority` fall back to the values Metabase keeps for the table, which are the name-derived entity type and the owner and data authority from before the upgrade (no owner and `unconfigured` for a table published then or created since). A body that selects nothing or sets nothing is refused before any request. Pass the body via `--body`, `--file`, or stdin (exactly one). The server answers `{}` whether or not a selector matched a table, so the command returns the accepted request restated, `{ accepted: true, ...body }`, and cannot say which tables were edited. Metabase 58 serves the same edit only on Enterprise, at `/api/ee/data-studio/table/edit` with the medallion layer names; the command does not reach it, because a method's requirements cannot say "58 with the `data-studio` token, or 59 and later", and the medallion names do not map onto the `final` / `internal` / `hidden` layers the body takes.
+
+```sh
+mb table bulk-edit --body '{"table_ids":[42,43],"owner_email":"dba@example.com"}'
+mb table bulk-edit --body '{"schema_ids":["1:public"],"data_layer":"final"}' --json
+cat edit.json | mb table bulk-edit
+```
+
+### `mb table bulk-sync-schema` / `bulk-rescan-values` / `bulk-discard-values`
+
+The selector forms of `sync-schema`, `rescan-values`, and `discard-values` (`POST /api/data-studio/table/sync-schema`, `/rescan-values`, `/discard-values`, Metabase v59+). Select tables with `--table-ids`, `--db-ids`, or `--schemas` (comma-separated; each schema id is `"<db-id>:<schema>"` with a positive database id, and `1:` selects the tables of database 1 that have no schema); the selectors are unioned. Only an admin or a data analyst may call them; anyone else gets a 403. `bulk-sync-schema` first tests the connection of every database behind the selection and is refused with a 422 if one fails. `bulk-discard-values` asks for confirmation like `discard-values` and needs `--yes` when stdin is not a TTY. The server answers no body whether or not a selector matched a table, so each command returns the accepted request restated, e.g. `{ accepted: true, schema_ids: ["1:public"] }` (`bulk-discard-values` adds `aborted`).
+
+```sh
+mb table bulk-sync-schema --schemas 1:public
+mb table bulk-rescan-values --db-ids 1 --json
+mb table bulk-discard-values --table-ids 42,43 --yes
+```
+
 ## Fields
 
 Inspect and edit individual columns via `/api/field`.
 
 ### `mb field get <id>`
+
+Get one field (`GET /api/field/:id`). Its `data_sensitivity` is the label `mb field set-sensitivity` sets, or `null` when the field has none; a server older than Metabase v64 has no such label, so the key and the Sensitivity column are left out.
 
 ```sh
 mb field get 100
@@ -545,6 +619,41 @@ Patch a field (`PUT /api/field/:id`). Body fields: `display_name`, `description`
 ```sh
 mb field update 100 --body '{"description":"customer email","semantic_type":"type/Email"}'
 mb field update 100 --file patch.json
+```
+
+### `mb field search <id> <search-id>`
+
+Search the values of one field and answer them paired with another field's values (`GET /api/field/:id/search/:search-id`). Each row is `{ value, label }`: a distinct pair of a value of `<id>` and the value of `<search-id>` on the same warehouse row, ordered by value. A FK on either side is followed to the key it points at, so searching an id column by a name column answers id/name pairs; after that both fields must be on one table, and a pair that is not answers no rows rather than an error, as does any failure of the warehouse query. `--value` keeps the rows whose `<search-id>` value contains it, case-insensitively; without it the first `--limit` rows are answered, so one of the two is required. `label` is `null` when `<id>` and `<search-id>` resolve to the same field once FKs are followed. A field with custom display values answers every mapped value instead, with its display value as `label`, matching `--value` against the display value and ignoring `<search-id>`. The endpoint takes no offset and reports no count, so `total` is `null`, every request asks for the rows from the first, at most 1000 at first and twice as many on each request after until the window is covered, and `has_more` is proven by one row fetched past it.
+
+```sh
+mb field search 100 101 --value ada
+mb field search 100 101 --value ada --limit 5 --json
+mb field search 100 101 --limit 20 --json
+```
+
+| Flag             | Description                                               |
+| ---------------- | --------------------------------------------------------- |
+| `--value <text>` | Text the searched values must contain (case-insensitive). |
+| `--limit <n>`    | Max rows to return; required when `--value` is absent.    |
+| `--offset <n>`   | Start at this row index; pass the previous `next_offset`. |
+
+### `mb field remapping <id> <remapped-id> <value>`
+
+Look up another field's value on the one row where a field equals a value (`GET /api/field/:id/remapping/:remapped-id`). Answers `{ found: true, value, label }` with `label` the value of `<remapped-id>`, or `{ found: false }` when no row matches. A FK `<id>` is followed to the key it points at, and `<remapped-id>` must be on that key's table: the server answers a pair that is not, and any failure of the warehouse query, as `{ found: false }` rather than an error. When `<id>` is numeric the server reads the leading number of `<value>` and ignores any text after it (`20abc` looks up 20), failing only a value with no leading number; a value starting with `-` goes after `--` (`mb field remapping 100 101 -- -5`). In text mode the label prints bare, so `NAME=$(mb field remapping 100 101 20 --format text)` composes; an empty line means either no row matched or the matched label is empty, which `--json` tells apart.
+
+```sh
+mb field remapping 100 101 20
+mb field remapping 100 101 20 --json
+```
+
+### `mb field set-sensitivity <id> <label|none>`
+
+Label a field's data sensitivity by hand (`PUT /api/field/:id` with `data_sensitivity`). A label set here is a person's call that the server's classifier never overwrites; `none` withdraws it, and the field then shows the label the classifier wrote, if it wrote one (the classifier is off unless the server enables it, and a label it wrote stays after it is switched off), else none. Labels, most severe first: `SEC_KEY`, `SYS_TELEMETRY`, `PHI`, `BIO_GEN`, `PCI_FIN`, `SENS_PERS`, `PII`, `CORP_IP`, `BIZ_CONF`, `PUBLIC`. Answers the field with its `data_sensitivity`; `mb field get <id>` reads it back. Requires Metabase v64 or newer.
+
+```sh
+mb field set-sensitivity 100 PII
+mb field set-sensitivity 100 none
+mb field set-sensitivity 100 PHI --json
 ```
 
 ## Upload
@@ -636,7 +745,7 @@ mb card get 1 --json --full
 
 ### `mb card query <id>`
 
-Run the card's query. Without `--export-format`, returns the Metabase JSON envelope (`status`, `row_count`, `data: { rows, cols }`, …). With `--export-format csv`, `--export-format json`, or `--export-format xlsx`, the export bytes stream straight to stdout.
+Run the card's query. Without `--export-format`, returns the Metabase JSON envelope (`status`, `row_count`, `data: { rows, cols }`, …). With `--export-format csv`, `--export-format json`, or `--export-format xlsx`, the export bytes stream straight to stdout, capped at the server's download row limit. An export refuses `--full`, `--fields`, `--max-bytes` and `--limit`, which shape only the JSON output; `--json` and `--format` still pick the shape of an error.
 
 ```sh
 mb card query 1 --json
@@ -647,13 +756,14 @@ mb card query 1 --export-format xlsx > export.xlsx
 mb card query 1 --parameters '[{"type":"category","value":"A","target":["variable",["template-tag","c"]]}]'
 ```
 
-| Flag                    | Description                                                                                            |
-| ----------------------- | ------------------------------------------------------------------------------------------------------ |
-| `--export-format <fmt>` | Stream the export instead of the JSON envelope. One of `csv`, `json`, `xlsx`.                          |
-| `--parameters <json>`   | JSON array of Metabase parameter objects (the same shape Metabase POSTs from a dashboard).             |
-| `--limit <n>`           | Cap rows kept in the JSON envelope. No effect on streamed exports.                                     |
-| `--format-rows`         | Streamed exports only: apply the card's visualization-settings formatting to values (default `false`). |
-| `--pivot-results`       | Streamed exports only: emit the pivoted output for pivot questions (default `false`).                  |
+| Flag                    | Description                                                                                                                                                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--export-format <fmt>` | Stream the export instead of the JSON envelope. One of `csv`, `json`, `xlsx`.                                                                                                                                            |
+| `--parameters <json>`   | JSON array of Metabase parameter objects (the same shape Metabase POSTs from a dashboard).                                                                                                                               |
+| `--limit <n>`           | Cap rows kept in the JSON envelope. Refused with `--export-format`.                                                                                                                                                      |
+| `--format-rows`         | Streamed exports only: format values as Metabase displays them, the card's column settings included (default `false`). Refused without `--export-format`.                                                                |
+| `--pivot-results`       | With `--export-format csv` or `xlsx`: lay a pivot question's rows out as the pivot, with its subtotals (default `false`). Refused when the server has pivoted exports turned off (the `enable-pivoted-exports` setting). |
+| `--csv-include-bom`     | With `--export-format csv`: open the file with a UTF-8 byte order mark, so Excel reads it as UTF-8 (default `false`). Metabase v63+.                                                                                     |
 
 ### `mb card alerts <id>`
 
@@ -699,6 +809,21 @@ mb card update 1 --file patch.json --skip-validate
 | `--body <json>`   | Inline JSON body.                                                                                                                                      |
 | `--file <path>`   | Path to JSON body file.                                                                                                                                |
 | `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
+
+### `mb card verify <id>`
+
+Mark a card verified, or withdraw the mark with `--remove` (`POST /api/moderation-review` with `moderated_item_type: "card"`). Admins only. Verified content carries a check mark in the product and ranks higher in search (`search --verified`). Each call adds a review and makes it the card's most recent one; `--remove` records a review with no status, which withdraws the verification. Changing the card's query (`card update` with a new `dataset_query`, or a revision revert) withdraws it too: the server records a review with no status and a note saying the edit unverified it. `card get <id> --fields moderation_reviews --json` reads the card's reviews, newest first; the first one's `status` is the current state. Prints the review: `id`, `moderated_item_id`, `moderated_item_type`, `status` (`verified` or `null`), `text`, `most_recent`; `--full` adds `moderator_id` and the timestamps. Needs the `content_verification` premium feature (Pro/Enterprise); the command is refused by name before any request without it.
+
+```sh
+mb card verify 1
+mb card verify 1 --text "Reviewed the joins" --json
+mb card verify 1 --remove
+```
+
+| Flag            | Description                                       |
+| --------------- | ------------------------------------------------- |
+| `--text <note>` | Note stored with the review.                      |
+| `--remove`      | Withdraw the verification instead of granting it. |
 
 ### `mb card archive <id>`
 
@@ -825,6 +950,39 @@ cat patch.json | mb dashboard update-dashcard 1 5
 | `visualization_settings` | object                             |
 
 The patch must contain at least one field; an empty object is rejected before the network round-trip.
+
+### `mb dashboard copy <id>`
+
+Copy a dashboard, with its tabs and dashcards, into a collection (`POST /api/dashboard/:id/copy`). The copy references the source cards; `--deep` duplicates its questions and metrics into the target collection instead and keeps referencing its models. A dashboard holding dashboard questions (cards saved inside the dashboard) must be copied with `--deep`. Copied into the source dashboard's own collection, a duplicated card's name gets the suffix ` - Duplicate`, translated into the user's Metabase language. Archived cards, cards you cannot read, and every card on a dashcard whose main card you cannot read are left out, and the output lists them by id as `uncopied`, once per dashcard they sat on (the text summary names each id once). A left-out main card takes its dashcard with it; a left-out series card stays on a dashcard whose main card is referenced and is dropped from one whose main card is duplicated. Action, link and placeholder dashcards are not copied. Prints the new dashboard.
+
+```sh
+mb dashboard copy 1
+mb dashboard copy 1 --name "Orders (copy)" --collection-id 4 --json
+mb dashboard copy 1 --deep --json
+```
+
+| Flag                        | Description                                                      |
+| --------------------------- | ---------------------------------------------------------------- |
+| `--name <name>`             | Name for the copy (default: the source name).                    |
+| `--description <text>`      | Description for the copy (default: the source description).      |
+| `--collection-id <id>`      | Collection to copy into (default: the root collection).          |
+| `--collection-position <n>` | Pin the copy at this position in the collection.                 |
+| `--deep`                    | Duplicate the questions and metrics instead of referencing them. |
+
+### `mb dashboard verify <id>`
+
+Mark a dashboard verified, or withdraw the mark with `--remove` (`POST /api/moderation-review` with `moderated_item_type: "dashboard"`). Admins only. Verified content carries a check mark in the product and ranks higher in search (`search --verified`). Each call adds a review and makes it the dashboard's most recent one; `--remove` records a review with no status, which withdraws the verification. `dashboard get <id> --fields moderation_reviews --json` reads the dashboard's reviews, newest first; the first one's `status` is the current state. Prints the review: `id`, `moderated_item_id`, `moderated_item_type`, `status` (`verified` or `null`), `text`, `most_recent`; `--full` adds `moderator_id` and the timestamps. Needs the `content_verification` premium feature (Pro/Enterprise); the command is refused by name before any request without it.
+
+```sh
+mb dashboard verify 1
+mb dashboard verify 1 --text "Reviewed the joins" --json
+mb dashboard verify 1 --remove
+```
+
+| Flag            | Description                                       |
+| --------------- | ------------------------------------------------- |
+| `--text <note>` | Note stored with the review.                      |
+| `--remove`      | Withdraw the verification instead of granting it. |
 
 ### `mb dashboard archive <id>`
 
@@ -1025,6 +1183,85 @@ mb measure archive 1 --revision-message "deprecated"
 | Flag                        | Description                                 |
 | --------------------------- | ------------------------------------------- |
 | `--revision-message <text>` | Audit-log message recorded with the change. |
+
+## Dependencies
+
+What Metabase content depends on and what depends on it, from `/api/ee/dependencies`. Metabase records an edge from every card, dashboard, document, snippet, transform, sandbox, segment or measure to what its query reads (a table, a card, a snippet, a transform's output), and analyses each dependent's query for errors traced back to what it reads. Every verb needs the `dependencies` premium feature (Pro/Enterprise) and is refused by name before any request without it; `graph` works on every supported server (a measure as its starting entity from Metabase v59), the other four need Metabase v59 or newer. The graph is recomputed by a background job shortly after content changes, so a freshly saved query can take a few seconds to appear.
+
+Every row is `{ id, type, data }` plus, where the verb reports it, `dependents_count`, a map from usage kind (`question`, `model`, `metric`, `dashboard`, `document`, `transform`, …) to how many depend on the row directly, or `null` when nothing does. `data` names and places the entity by kind: a table carries `name`, `display_name`, `db_id`, `schema` and its `db` (`{ id, name }`); a card `name`, `type` (`question` | `model` | `metric`), `database_id`, `view_count` and its `collection` (plus the `dashboard` or `document` it lives inside, when it does); a dashboard or document its `view_count` and `collection`, a snippet its `collection`; a segment, measure or sandbox its `table` (`{ id, name, display_name }`); a transform carries its `name` and `description` only, with `table` always `null`. The compact projection keeps those; `--full` adds the heavier hydrations (a table's `fields`, a card's `result_metadata`, creators, last-edit info). An entity's location, which `--query` matches and `--sort-column location` orders by and the text table shows, is the dashboard, document or collection holding a card, a table's database, a segment's or measure's table, and the collection of a snippet, dashboard or document; a sandbox has none. A transform's row carries no collection: `unreferenced` and `breaking`, which match and sort on the server, use its collection's name (`Transforms` for one at the root), while `dependents`, `broken` and the text table give it no location.
+
+Archived and dropped content: from Metabase v63 `graph` includes archived upstream entities; older servers leave them out. `dependents`, `broken` and `unreferenced` leave archived cards, dashboards, documents, snippets, segments and measures out on every server. From v63 `unreferenced` and `breaking` also keep dropped and hidden tables, and `breaking` keeps archived sources, so a dropped table or an archived card that broke its dependents is reported; older servers leave all of these out, and only an `archived` parameter the newer ones dropped would bring them back, so the CLI does not offer it.
+
+`<type>` is one of `table`, `card`, `snippet`, `transform`, `dashboard`, `document`, `sandbox`, `segment`, `measure`.
+
+### `mb dependency graph <type> <id>`
+
+Show everything an entity depends on, directly or transitively: `nodes` holds the entity and every upstream entity, each with its `dependents_count`; `edges` run from a dependent to what it depends on.
+
+```sh
+mb dependency graph card 1
+mb dependency graph table 12 --json
+mb dependency graph transform 3 --fields edges
+```
+
+### `mb dependency dependents <type> <id>`
+
+List the entities that depend directly on an entity, each with its own `dependents_count`, so a chain can be followed one hop at a time. The server filters and sorts; `--limit` / `--offset` window the answer here.
+
+```sh
+mb dependency dependents table 12
+mb dependency dependents card 1 --dependent-types card,dashboard --json
+mb dependency dependents table 12 --broken --json
+mb dependency dependents card 1 --sort-column view-count --sort-direction desc
+```
+
+| Flag                             | Description                                                                                                                       |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--dependent-types`              | Comma-separated entity kinds to keep (the `<type>` vocabulary).                                                                   |
+| `--dependent-card-types`         | Comma-separated card kinds to keep: `question`, `model`, `metric`. Narrows card dependents only; other kinds stay.                |
+| `--broken`                       | Only the dependents whose query analysis failed, whatever the cause; their `dependents_count` then counts only broken dependents. |
+| `--query`                        | Keep entities whose name or location contains this text, case-insensitively. Must not be blank.                                   |
+| `--include-personal-collections` | Also list content in personal collections (left out by default).                                                                  |
+| `--sort-column`                  | `name` (default), `location` or `view-count`.                                                                                     |
+| `--sort-direction`               | `asc` (default) or `desc`.                                                                                                        |
+
+### `mb dependency broken <type> <id>`
+
+List the entities whose queries an entity has broken: those where query analysis traced a validation error (a missing column, a syntax error) back to it, whether they read it directly or through others. Rows are `{ id, type, data }` with no `dependents_count`. Only a table, a card or (from Metabase v60) a transform can be traced as the cause, so any other `<type>` lists nothing. `dependents --broken` answers a different set: the direct dependents whose analysis failed for any cause. Takes the `dependents` flags except `--broken` and `--query`.
+
+```sh
+mb dependency broken table 12
+mb dependency broken card 1 --dependent-types card --json
+```
+
+### `mb dependency unreferenced`
+
+List the entities nothing depends on, across the whole instance. Only a dependent the caller can read and that is not archived counts, so an entity used only by archived content, or by content in collections the caller cannot read, is listed. Every kind is listed unless `--types` narrows it; a `--query` leaves sandboxes out, since they have no name or location to match. The server pages the answer, so `total` is its count and `--limit` / `--offset` size the request.
+
+```sh
+mb dependency unreferenced
+mb dependency unreferenced --types card --card-types model,metric --json
+mb dependency unreferenced --query orders --sort-column location --json
+```
+
+| Flag                             | Description                                                                                              |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `--types`                        | Comma-separated entity kinds to list (the `<type>` vocabulary).                                          |
+| `--card-types`                   | Comma-separated card kinds to list: `question`, `model`, `metric`. Narrows cards only; other kinds stay. |
+| `--query`                        | Keep entities whose name or location contains this text, case-insensitively. Must not be blank.          |
+| `--include-personal-collections` | Also list content in personal collections (left out by default).                                         |
+| `--sort-column`                  | `name` (default), `location`, `dependents-with-errors` or `dependents-errors`.                           |
+| `--sort-direction`               | `asc` (default) or `desc`.                                                                               |
+
+### `mb dependency breaking`
+
+List the entities whose dependents carry query errors, across the whole instance. Each row is a source of breakage with `dependents_errors`, the validation errors traced back to it, each naming the dependent (`analyzed_entity_type`, `analyzed_entity_id`) it was found in and its `error_type` (`missing-column`, `syntax-error`, …). Cards and tables are listed unless `--types` says otherwise; only a table, a card or (from Metabase v60) a transform can be a source, so any other kind lists nothing. Takes the `unreferenced` flags.
+
+```sh
+mb dependency breaking
+mb dependency breaking --types table --json
+mb dependency breaking --sort-column dependents-errors --sort-direction desc --json
+```
 
 ## Timelines
 
@@ -1336,7 +1573,7 @@ mb alert archive 9 --json
 
 ## Collections
 
-Read collections on `/api/collection`. Collections are the folders that contain cards, dashboards, and other collections. The list endpoint surfaces a virtual root collection (id `"root"`) alongside regular numeric ids; the get endpoint accepts only the numeric id.
+Read and edit collections on `/api/collection`. Collections are the folders that contain cards, dashboards, and other collections. The list endpoint surfaces a virtual root collection (id `"root"`) alongside regular numeric ids; `get` and `items` accept the aliases and entity ids described below, while `update` and `archive` take the numeric id only.
 
 ### `mb collection list`
 
@@ -1385,12 +1622,17 @@ Plus the shared output and window flags — see [Output](#output).
 
 ### `mb collection tree`
 
-Fetch the full collection hierarchy as a nested tree. Output is always JSON — the recursive structure does not render meaningfully as a key/value table.
+Fetch the full collection hierarchy as a nested tree. Output is always JSON — the recursive structure does not render meaningfully as a key/value table. The tree leaves out the Library collections (`library`, `library-data`, `library-metrics`) unless you pass `--include-library`; the default `collection list` includes them. The tree is the server's JSON as-is, so `--full`, `--fields` and `--max-bytes` are refused.
 
 ```sh
 mb collection tree
 mb collection tree --json
+mb collection tree --include-library
 ```
+
+| Flag                | Description                      |
+| ------------------- | -------------------------------- |
+| `--include-library` | Include the Library collections. |
 
 ### `mb collection create`
 
@@ -1409,9 +1651,41 @@ mb collection create --body '{"name":"ETL"}' --namespace transforms
 | `--file <path>`    | Path to JSON body file. Use `-` to read from stdin.                                                                                                                                                              |
 | `--namespace <ns>` | Collection namespace (`transforms`, `snippets`, `analytics`, `shared-tenant-collection`, `tenant-specific`). Omit for a normal collection; required for a collection a transform's `collection_id` can point at. |
 
+### `mb collection update <id>`
+
+Rename, describe, move, trash, or restore a collection. Patches only what you send. Pass the patch as flags, or as a JSON body with any of `name`, `description` (`null` clears it), `parent_id` (`null` for the top level), `authority_level`, and `archived`; the two forms are alternatives, and a body beside a patch flag is refused with a `ConfigError` (exit 2). A body with no key, with a key outside that list, or with a value of the wrong type fails validation (exit 1) before any request.
+
+```sh
+mb collection update 4 --name "Marketing"
+mb collection update 4 --description "Campaign reporting" --parent-id 2
+mb collection update 4 --parent-id root
+mb collection update 4 --clear-description
+mb collection update 4 --archived false
+mb collection update 4 --body '{"parent_id":null,"authority_level":"official"}'
+mb collection update 4 --file patch.json --json
+```
+
+| Flag                       | Description                                                         |
+| -------------------------- | ------------------------------------------------------------------- |
+| `--name <text>`            | New name.                                                           |
+| `--description <text>`     | New description.                                                    |
+| `--clear-description`      | Remove the description. Refused beside `--description`.             |
+| `--parent-id <id \| root>` | Collection to move it under, or `root` for the top level.           |
+| `--archived <true\|false>` | `true` moves it to the trash, `false` restores it. Omit to keep it. |
+| `--body <json>`            | Inline JSON body.                                                   |
+| `--file <path>`            | Path to JSON body file. Use `-` to read from stdin.                 |
+
+`<id>` is the integer id only; `root`, `trash`, and entity ids are refused before any request. A blank `--name` or `--description` (empty or whitespace only) is refused too, since the server takes a non-blank string; blank follows the server's whitespace set, so a no-break space counts as text.
+
+The server reads a body without `archived` as `archived: false`, which would restore an archived collection. So when the patch leaves `archived` out, the CLI reads the collection first and sends its current state: an archived collection stays in the trash while you edit it, and comes back only with `--archived false` (or `"archived": false`). Restoring with `--parent-id` puts it under that parent instead of its old location; `--parent-id` alone moves an archived collection and leaves it in the trash.
+
+The server ignores `parent_id` in a request that trashes a collection. So `--archived true` with `--parent-id` on a collection that is not in the trash is sent as two requests, the move with every other change and then the trash; if the second fails, the error says the collection was moved but not trashed.
+
+Setting or clearing `authority_level` (`"official"`) needs admin and the Official Collections feature (Pro/Enterprise); without the feature the server answers 402. Sending the value the collection already has is not a change and passes on any instance.
+
 ### `mb collection archive <id>`
 
-Soft-delete a collection by setting `archived: true`. The archived collection stays available via `collection list --filter archived` until permanently deleted server-side. Restore it from the trash in the Metabase UI.
+Soft-delete a collection by setting `archived: true`. The archived collection stays available via `collection list --filter archived` until permanently deleted server-side. Restore it with `mb collection update <id> --archived false`.
 
 ```sh
 mb collection archive 4
@@ -1467,7 +1741,7 @@ mb library unpublish --db-ids 1 --json
 
 ## Documents
 
-CRUD on `/api/document`. A document is a rich-text page that mixes prose with embedded saved questions (`cardEmbed`) and inline links to Metabase entities (`smartLink`). The body is a [TipTap](https://tiptap.dev/) (ProseMirror) JSON tree stored under `content_type: application/json+vnd.prose-mirror`. The agent-facing format reference lives in the bundled `document` skill (`mb skills get document`). It's a baseline OSS feature — no elevated server version or premium token required.
+CRUD on `/api/document`. A document is a rich-text page that mixes prose with embedded saved questions (`cardEmbed`) and inline links to Metabase entities (`smartLink`). The body is a [TipTap](https://tiptap.dev/) (ProseMirror) JSON tree stored under `content_type: application/json+vnd.prose-mirror`. The agent-facing format reference lives in the bundled `document` skill (`mb skills get document`). It's a baseline OSS feature — no premium token required, and every verb but `copy` runs on every supported server.
 
 ### `mb document list`
 
@@ -1518,6 +1792,21 @@ mb document update 1 --body '{"archived":false}'
 | `--body <json>` | Inline JSON body.       |
 | `--file <path>` | Path to JSON body file. |
 
+### `mb document copy <id>`
+
+Copy a document into a collection (`POST /api/document/:id/copy`, Metabase v59+). The copy duplicates the cards saved inside the document into the target collection and carries the source body with their embeds pointing at the duplicates. An archived source is not found. Prints the new document.
+
+```sh
+mb document copy 1
+mb document copy 1 --name "Notes (copy)" --collection-id 4 --json
+```
+
+| Flag                        | Description                                             |
+| --------------------------- | ------------------------------------------------------- |
+| `--name <name>`             | Name for the copy (default: the source name).           |
+| `--collection-id <id>`      | Collection to copy into (default: the root collection). |
+| `--collection-position <n>` | Pin the copy at this position in the collection.        |
+
 ### `mb document archive <id>`
 
 Soft-delete a document by setting `archived: true`. To unarchive use `mb document update <id> --body '{"archived":false}'`.
@@ -1526,6 +1815,57 @@ Soft-delete a document by setting `archived: true`. To unarchive use `mb documen
 mb document archive 1
 mb document archive 1 --json
 ```
+
+## Glossary
+
+The instance-wide list of business terms and their definitions, from `/api/glossary`. Entries are listed on the Glossary pages of Data Studio and the Data Reference and are handed to Metabot as context, so a definition written once shapes every answer that uses the term. Every verb runs on every supported server; a server may restrict writes to admins and data analysts. Terms are unique. There is no get-by-id endpoint — use `list --search`.
+
+### `mb glossary list`
+
+Lists every entry in term order. `--search <text>` keeps the entries whose term or definition contains the text, case-insensitively. Some servers read `%` and `_` in the text as SQL LIKE wildcards rather than literal characters; a blank `--search` is refused.
+
+```sh
+mb glossary list
+mb glossary list --search churn --json
+```
+
+### `mb glossary create`
+
+Create an entry from `--term` and `--definition` together, or from a JSON body that holds exactly those two keys. The flags cannot be combined with `--body` or `--file`, and a body piped on stdin is not read while they are given. A blank or whitespace-only term or definition is refused.
+
+```sh
+mb glossary create --term "Churn" --definition "Customers lost in a calendar month"
+mb glossary create --body '{"term":"Churn","definition":"Customers lost in a calendar month"}'
+mb glossary create --file entry.json
+```
+
+| Flag                  | Description                          |
+| --------------------- | ------------------------------------ |
+| `--term <text>`       | The term (used with `--definition`). |
+| `--definition <text>` | The definition (used with `--term`). |
+| `--body <json>`       | Inline JSON body.                    |
+| `--file <path>`       | Path to JSON body file.              |
+
+### `mb glossary update <id>`
+
+Replace both the term and the definition of an entry. Takes the same flags and body as `create`.
+
+```sh
+mb glossary update 3 --term "Churn" --definition "Customers lost in a calendar month"
+mb glossary update 3 --body '{"term":"Churn","definition":"Customers lost in a calendar month"}'
+```
+
+### `mb glossary delete <id>`
+
+Delete an entry. Prompts for confirmation on a TTY; requires `--yes` otherwise.
+
+```sh
+mb glossary delete 3 --yes
+```
+
+| Flag    | Description        |
+| ------- | ------------------ |
+| `--yes` | Skip confirmation. |
 
 ## Settings
 
@@ -1577,16 +1917,23 @@ Search Metabase content (cards, dashboards, collections, tables, …). Returns a
 mb search orders
 mb search --models card,dashboard --limit 10 --json
 mb search products --archived
+mb search --collection 12 --created-by 3,7 --include-dashboard-questions --json
+mb search revenue --search-native-query --include-metadata --full --json
 ```
 
-| Flag             | Description                                                                                                                                       |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--models`, `-m` | Comma-separated model filter: `card,dataset,metric,dashboard,collection,database,table,segment,measure,document,action,transform,indexed-entity`. |
-| `--archived`     | Include archived items only.                                                                                                                      |
-| `--limit`        | Max results to return (default `20` — `search` is the one list verb with its own default).                                                        |
-| `--offset`       | Where the window starts, applied by the server (default `0`).                                                                                     |
-| `--db-id`        | Restrict to items on a given database id.                                                                                                         |
-| `--verified`     | Only verified content.                                                                                                                            |
+| Flag                            | Description                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--models`, `-m`                | Comma-separated model filter: `card,dataset,metric,dashboard,collection,database,table,segment,measure,document,action,transform,indexed-entity`.                                                                                                                                                                                                  |
+| `--archived`                    | Include archived items only.                                                                                                                                                                                                                                                                                                                       |
+| `--limit`                       | Max results to return (default `20` — `search` is the one list verb with its own default).                                                                                                                                                                                                                                                         |
+| `--offset`                      | Where the window starts, applied by the server (default `0`).                                                                                                                                                                                                                                                                                      |
+| `--db-id`                       | Restrict to items on a given database id.                                                                                                                                                                                                                                                                                                          |
+| `--verified`                    | Only verified content.                                                                                                                                                                                                                                                                                                                             |
+| `--collection`                  | Restrict to one collection by id: the collection's own row, its subcollections and the content filed under them. Segments, measures and transforms never match, tables only once published to the Library, and a transforms collection is not searchable at all. Questions saved into a dashboard match only with `--include-dashboard-questions`. |
+| `--created-by`                  | Comma-separated user ids; matches items created by any of them. Only kinds that record a creator can match — cards, models, metrics, dashboards, actions, documents, and measures from Metabase 60 — so collections, tables, databases, segments, transforms and indexed entities drop out.                                                        |
+| `--search-native-query`         | Also match native query text. Narrows the result to the models that carry a query — cards, models, metrics, actions, transforms — so dashboards, collections and tables drop out.                                                                                                                                                                  |
+| `--include-metadata`            | Attach the `result_metadata` of each card, model and metric row. Only `--json` with `--full`, or `--fields` naming `result_metadata`, prints it, so the flag needs one of them.                                                                                                                                                                    |
+| `--include-dashboard-questions` | Also match questions saved into a dashboard, which search leaves out by default.                                                                                                                                                                                                                                                                   |
 
 ## Git Sync
 
@@ -1670,34 +2017,55 @@ Import content from the configured git remote into Metabase (repo → Metabase).
 mb git-sync import
 mb git-sync import --branch main --json
 mb git-sync import --force --no-wait
+mb git-sync import --merge
 ```
 
-| Flag                    | Description                                                           |
-| ----------------------- | --------------------------------------------------------------------- |
-| `--branch <name>`, `-b` | Branch to import from (defaults to the `remote-sync-branch` setting). |
-| `--force`               | Discard local Metabase-side dirty changes before importing (LOSSY).   |
-| `--wait` / `--no-wait`  | Poll until the task reaches a terminal status (default: wait).        |
-| `--timeout <ms>`        | Polling timeout in ms (default 600000). Used with `--wait`.           |
-| `--interval <ms>`       | Polling interval in ms (default 2000). Used with `--wait`.            |
+| Flag                    | Description                                                                                                                                                                                                                                                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--branch <name>`, `-b` | Branch to import from (defaults to the `remote-sync-branch` setting). A blank name is refused with exit 2.                                                                                                                                                                                                    |
+| `--force`               | Discard local Metabase-side dirty changes before importing (LOSSY).                                                                                                                                                                                                                                           |
+| `--merge`               | Keep un-pushed local changes and fold the remote's in by a three-way merge; entities changed on both sides, or no merge base (a rewritten remote history, or an instance that has never synced), end the task in `conflict` without touching local state. Not with `--force`. Requires Metabase v63 or newer. |
+| `--wait` / `--no-wait`  | Poll until the task reaches a terminal status (default: wait).                                                                                                                                                                                                                                                |
+| `--timeout <ms>`        | Polling timeout in ms (default 600000). Used with `--wait`.                                                                                                                                                                                                                                                   |
+| `--interval <ms>`       | Polling interval in ms (default 2000). Used with `--wait`.                                                                                                                                                                                                                                                    |
+
+On Metabase v63 and newer the import also asserts which branch git-sync tracks, read from the session properties just before the request (an environment-set `MB_REMOTE_SYNC_BRANCH` included). When no branch is tracked the command refuses with exit 2; when the caller is not an admin, so the setting is not readable, it refuses with exit 2 rather than reading it as unset. A task that ends in `conflict` lists the conflicting entities in its text output and error. The server then counts the remote commit that task saw as synced, so a retry, `--merge` included, no longer sees the remote's changes: resolve a conflict with `--force` on the side to keep, or `create-branch` then `export`, never with a retry.
 
 ### `mb git-sync export`
 
-Export Metabase changes back to the configured git remote (Metabase → repo). Auto-polls by default.
+Export Metabase changes back to the configured git remote (Metabase → repo). Auto-polls by default. The export targets the branch git-sync tracks; to push to a new branch, `stash` or `create-branch` first. When the remote has moved past the last sync, a plain export ends in a `conflict` task on Metabase v63 and newer, and is refused with a 400 on older servers. Such a task names the divergence in its text output and error, and leaves the remote's commit counted as synced, as an import conflict does: never answer it with a retry.
 
 ```sh
 mb git-sync export -m "update dashboards"
+mb git-sync export --merge -m "update dashboards"
 mb git-sync export --branch main --json
 mb git-sync export --no-wait
 ```
 
-| Flag                    | Description                                                         |
-| ----------------------- | ------------------------------------------------------------------- |
-| `--branch <name>`, `-b` | Branch to export to (defaults to the `remote-sync-branch` setting). |
-| `--message <msg>`, `-m` | Commit message for the export.                                      |
-| `--force`               | Force-push / overwrite the remote branch.                           |
-| `--wait` / `--no-wait`  | Poll until the task reaches a terminal status (default: wait).      |
-| `--timeout <ms>`        | Polling timeout in ms (default 600000). Used with `--wait`.         |
-| `--interval <ms>`       | Polling interval in ms (default 2000). Used with `--wait`.          |
+| Flag                    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--branch <name>`, `-b` | Branch to export to (defaults to the `remote-sync-branch` setting). On Metabase v63 and newer it must be the branch git-sync tracks (the server answers 409 with the current one), and with no `--branch` the command refuses with exit 2 when no branch is tracked or the setting is not readable. Older servers export to the named branch and switch git-sync to it, refusing with 400 when that branch's tip is not the last synced commit unless `--force` is given. A blank name is refused with exit 2. |
+| `--message <msg>`, `-m` | Commit message for the export.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `--force`               | Force-push / overwrite the remote branch.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `--merge`               | When the remote moved past the last sync, fold its changes in by a three-way merge instead of ending in a `conflict` task; entities changed on both sides still end it in `conflict`, writing nothing. Not with `--force`. Requires Metabase v63 or newer.                                                                                                                                                                                                                                                     |
+| `--wait` / `--no-wait`  | Poll until the task reaches a terminal status (default: wait).                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `--timeout <ms>`        | Polling timeout in ms (default 600000). Used with `--wait`.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `--interval <ms>`       | Polling interval in ms (default 2000). Used with `--wait`.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+
+### `mb git-sync export-preflight`
+
+Preview what an export would do against the live remote branch, without writing anything: whether the remote has moved past the last sync, whether a three-way merge would apply cleanly, which entities would conflict, what a merge would fold in, and what a force push would discard. Requires Metabase v63 or newer.
+
+```sh
+mb git-sync export-preflight
+mb git-sync export-preflight --branch main --json
+```
+
+| Flag                    | Description                                                                                                                                                                                        |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--branch <name>`, `-b` | Branch to preview against (defaults to the `remote-sync-branch` setting). It must be the branch git-sync tracks; the server answers 409 with the current one. A blank name is refused with exit 2. |
+
+The result is the server's `{ has_changes, clean, conflicts, summary: { added, updated, removed }, force_push_casualties: { deleted, overwritten }, reason }`. `reason` is `"history-rewritten"` when the remote was force-pushed or rebased so no merge base exists (a merge is impossible; only `export --force` can push), otherwise `null`. When `clean` is true, `export --merge` applies the merge; when it is false, `create-branch <name>` then `export` pushes Metabase's state to a new branch and leaves the old one untouched. `has_changes` is also false after a task that ended in `conflict`, which the server counts as synced. `force_push_casualties` is empty when nothing has been synced yet, although a forced export then replaces the remote's managed directories wholesale. Text output is one headline for the branch, then the conflicts, the merge summary and the casualties, each only when there is something to list. When no `--branch` is passed and no branch is tracked, or the setting is not readable (the caller is not an admin), the command refuses with exit 2 before contacting the remote. The tracked branch is read from the session properties, so one set by `MB_REMOTE_SYNC_BRANCH` counts.
 
 ### `mb git-sync stash`
 
@@ -1726,7 +2094,7 @@ mb git-sync branches --json
 
 ### `mb git-sync create-branch <name>`
 
-Create a new branch on the git remote (from the last imported version) and switch sync to it.
+Create a new branch on the git remote and switch sync to it. The branch starts at the last synced commit, or at the tracked branch's tip when nothing has synced yet; nothing is exported until the next `git-sync export`.
 
 ```sh
 mb git-sync create-branch feat/dashboards
@@ -1799,7 +2167,7 @@ Entity ids are NanoIDs that can start with `-`, which the positional `<eids>` fo
 
 ### `mb query`
 
-Run an MBQL 5 query with built-in schema validation. Three modes — discover the schema (`--print-schema`), check and compile without running (`--dry-run`), run.
+Run an MBQL 5 query with built-in schema validation, or ask the server what it would do with one. Modes — discover the schema (`--print-schema`), check and compile without running (`--dry-run`), run, compile to native (`--compile`), list what the query touches (`--metadata`), stream the rows as a download (`--export-format`). `--dry-run`, `--compile`, `--metadata` and `--export-format` are mutually exclusive, and `--print-schema` takes none of them.
 
 MBQL 5 bodies use numeric IDs (`database: 1`, `source-table: 7`) and POST to `/api/dataset`. The bundled query schema is synced from `@metabase/representations`; `id.yaml` is overridden to require positive integers for every ID `$def`.
 
@@ -1808,19 +2176,39 @@ mb query --print-schema                     # JSON Schema bundle
 cat q.json | mb query --dry-run             # check + compile on the server, no run
 mb query --file q.json
 mb query --file q.json --skip-validate      # bypass pre-flight; let server reject
+mb query --file q.json --compile            # the SQL the server compiles it to, prettified
+mb query --file q.json --compile --no-pretty --format text   # one line, bare, for $(…)
+mb query --file q.json --metadata --json    # databases, tables, fields, snippets it touches
+mb query --file q.json --export-format csv > rows.csv
+mb query --file pivot.json --export-format xlsx --pivot-results \
+  --visualization-settings '{"pivot_table.column_split":{"rows":["category"],"columns":["status"],"values":["count"]}}' > pivot.xlsx
 ```
 
 Body sources: `--file`, `--body`, or stdin (exactly one). Body is JSON.
 
-Any non-MBQL 5 body skips pre-flight automatically — legacy MBQL 4 (`{ "type": "query", "database": N, "query": { "source-table": T, ... } }`), legacy native (`{ "type": "native", "database": N, "native": { "query": "..." } }`), or any other shape that doesn't carry `"lib/type": "mbql/query"`. The bundled schema only models MBQL 5; `/api/dataset` normalizes the rest server-side via `lib-be/normalize-query` (the same normalizer that backs `card create` / `transform create`), so behavior is symmetric across endpoints. `--dry-run` on a non-MBQL 5 body goes straight to the server compile. The double-wrap footgun — an MBQL 5 query nested inside a `{type:"query", query:…}` envelope — is still rejected with a `ConfigError` before send.
+| Flag                              | Description                                                                                                                                                                                                                                                                                                                                          |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--print-schema`                  | Emit the bundled MBQL 5 query JSON Schema and exit; no body required. Refused beside `--dry-run`, `--compile`, `--metadata` or `--export-format`.                                                                                                                                                                                                    |
+| `--dry-run`                       | Check the body and compile it on the server without running it; prints `{ ok, errors, sql }`.                                                                                                                                                                                                                                                        |
+| `--compile`                       | Print the native query the server compiles the body to (`{ query, params }`) instead of running it. Text output is the bare query. Needs native query permission on the body's database.                                                                                                                                                             |
+| `--pretty` / `--no-pretty`        | With `--compile`: format the native query for reading (default: on, as on the server). `--no-pretty` compiles to one line. Either is refused without `--compile`.                                                                                                                                                                                    |
+| `--metadata`                      | Print the databases, tables, fields and snippets the body references. The FK targets of the source tables ride along; compact by default.                                                                                                                                                                                                            |
+| `--export-format <fmt>`           | Stream the rows as a download instead of the JSON envelope. One of `csv`, `json`, `xlsx`.                                                                                                                                                                                                                                                            |
+| `--visualization-settings <json>` | Streamed exports only: the visualization settings object an ad-hoc query has no card to take from. Its `column_settings` shape `--format-rows`; its `pivot_table.column_split` is the layout `--pivot-results` needs. Refused without `--export-format`.                                                                                             |
+| `--format-rows`                   | Streamed exports only: format values as Metabase displays them, `--visualization-settings` column settings included (default `false`). Refused without `--export-format`.                                                                                                                                                                            |
+| `--pivot-results`                 | With `--export-format csv` or `xlsx`: run the body as a pivot query and lay its rows out as the pivot `--visualization-settings` describes, with subtotals (default `false`). Refused without a `pivot_table.column_split` in `--visualization-settings`, and when the server has pivoted exports turned off (the `enable-pivoted-exports` setting). |
+| `--csv-include-bom`               | With `--export-format csv`: open the file with a UTF-8 byte order mark, so Excel reads it as UTF-8 (default `false`). Metabase v63+.                                                                                                                                                                                                                 |
+| `--skip-validate`                 | Skip the local MBQL 5 pre-flight and let the server be the authority. Mutually exclusive with `--dry-run`.                                                                                                                                                                                                                                           |
+
+Any non-MBQL 5 body skips pre-flight automatically — legacy MBQL 4 (`{ "type": "query", "database": N, "query": { "source-table": T, ... } }`), legacy native (`{ "type": "native", "database": N, "native": { "query": "..." } }`), or any other shape that doesn't carry `"lib/type": "mbql/query"`. The bundled schema only models MBQL 5; `/api/dataset` normalizes the rest server-side via `lib-be/normalize-query` (the same normalizer that backs `card create` / `transform create`), so behavior is symmetric across endpoints. `--dry-run` on a non-MBQL 5 body goes straight to the server compile. The double-wrap footgun — an MBQL 5 query nested inside a `{type:"query", query:…}` envelope — is still rejected with a `ConfigError` before send. The pre-flight applies to every server-bound mode: `--compile`, `--metadata` and `--export-format` refuse an invalid MBQL 5 body the same way a run does.
 
 `--skip-validate` is an escape hatch when the bundled schema disagrees with what the server actually accepts (drift, false negative, edge case) for MBQL 5 bodies. Validation is skipped entirely and the body is sent as-is. Mutually exclusive with `--dry-run`, whose point is the local check.
 
 Exit codes:
 
-- `0` — the query ran, or with `--dry-run` compiled.
-- `2` — the local check or the server compile rejected the body, malformed body, or `ConfigError`.
-- `1` — server-side error after a valid pre-flight (network, HTTP 4xx/5xx), or with `--dry-run` a compile that could not run (no native query permission on the database, server unreachable).
+- `0` — the query ran, with `--dry-run` or `--compile` compiled, or with `--metadata` answered.
+- `2` — the local check, or with `--dry-run` the server compile, rejected the body; malformed body (including one without `lib/type` or `type`, in every mode), or `ConfigError`.
+- `1` — server-side error after a valid pre-flight (network, HTTP 4xx/5xx), or with `--dry-run` or `--compile` a compile that could not run (no native query permission on the database, no access to a table or card the query reads, server unreachable).
 
 Output by mode:
 
@@ -1828,6 +2216,9 @@ Output by mode:
 - `--dry-run` — `{ ok: boolean, errors: { path: string, message: string }[], sql: string | null }`. The local check runs first; when it passes, `POST /api/dataset/native` compiles the query without running it on the warehouse. A local error's `path` is a JSON Pointer into the body and `message` the Ajv error string; a server rejection (HTTP 400, or 500 from a reference it cannot resolve) is one error with `path: ""` and the server's message. `sql` is the compiled native query, `null` when it did not compile.
 - Local check failure (no `--dry-run`) — `{ ok, errors }` on stdout, exit 2, no request made.
 - Run success — the streamed `CardQueryResult`.
+- `--compile` — `{ query, params }`, plus `collection` for a document database; a server that drops the key from its answer (Metabase v59–v62) reports `collection: null`. The server inlines parameters into the query, so `params` is `null` for a SQL driver. It is the query as compiled, not as a run executes it: a run also caps an unaggregated query at the server's row limit, which the compile leaves out. Compiling needs native query permission on the database and access to every table and card the query reads; without them the server refuses with 403 (exit 1). Text output is the query alone; a document driver's stage list prints as JSON.
+- `--metadata` — `{ databases, tables, fields, snippets }`. `tables` includes the source table and the tables its foreign keys point at; a card used as a source appears as a virtual table with a `card__<id>` id. `fields` are the fields native template tags (field filters) and snippets point at; an MBQL body's own columns sit inside its tables. Compact by default (names, ids, types); `--full` carries every hydrated field, which exceeds the default `--max-bytes` for most tables.
+- `--export-format` — the export bytes, straight to stdout, capped at the server's download row limit. `--full`, `--fields` and `--max-bytes` are refused, since they shape only the JSON output; `--json` and `--format` still pick the shape of an error.
 
 ### MBQL 5 pre-flight in `card create`/`update`, `transform create`/`update`, `measure create`/`update`, and `segment create`/`update`
 

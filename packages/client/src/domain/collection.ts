@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { NonBlankText } from "./text";
+
 export const CollectionId = z.union([z.number().int(), z.string()]);
 export type CollectionId = z.infer<typeof CollectionId>;
 
@@ -157,13 +159,21 @@ export const CollectionCreateInput = z
   .loose();
 export type CollectionCreateInput = z.infer<typeof CollectionCreateInput>;
 
-export const CollectionUpdateInput = z
+// The server drops a key it does not declare and reads an absent `archived` as false, so a
+// misspelt key would leave an empty patch that still restores an archived collection. The input
+// therefore names exactly the keys the server takes and refuses a patch that carries none.
+const CollectionUpdateFields = z
   .object({
-    name: z.string().min(1).optional(),
-    description: z.string().min(1).nullable().optional(),
+    name: NonBlankText.optional(),
+    description: NonBlankText.nullable().optional(),
     parent_id: z.number().int().positive().nullable().optional(),
     authority_level: CollectionAuthorityLevel.nullable().optional(),
     archived: z.boolean().optional(),
   })
-  .loose();
+  .strict();
+
+export const CollectionUpdateInput = CollectionUpdateFields.refine(
+  (patch) => Object.keys(patch).length > 0,
+  `the patch is empty: give at least one of ${Object.keys(CollectionUpdateFields.shape).join(", ")}`,
+);
 export type CollectionUpdateInput = z.infer<typeof CollectionUpdateInput>;

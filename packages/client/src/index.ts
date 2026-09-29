@@ -136,6 +136,7 @@ export {
   Dashboard,
   DashboardCompact,
   DashboardCopy,
+  DashboardCopyCompact,
   DashboardCopyInput,
   DashboardCreateInput,
   DashboardDetail,
@@ -154,19 +155,34 @@ export {
   DatabaseGetInclude,
   DatabaseListInclude,
   DatabaseSyncResult,
+  DatabaseVirtualTable,
+  DatabaseVirtualTableCompact,
 } from "./domain/database";
-export { CompiledQuery, QueryMetadata, VirtualField, VirtualTable } from "./domain/dataset";
+export {
+  CompiledQuery,
+  CompiledQueryCompact,
+  QueryMetadata,
+  QueryMetadataCompact,
+  VirtualField,
+  VirtualFieldCompact,
+  VirtualTable,
+  VirtualTableCompact,
+} from "./domain/dataset";
 export {
   BreakingSource,
+  BreakingSourceCompact,
   DependencyEdge,
   DependencyEntity,
+  DependencyEntityCompact,
   DependencyEntityData,
   DependencyErrorSourceType,
   DependencyFindingError,
   DependencyFindingErrorType,
   DependencyGraph,
+  DependencyGraphCompact,
   DependencyItemsSortColumn,
   DependencyNode,
+  DependencyNodeCompact,
   DependencyType,
   DependencyUsageType,
   DependentsSortColumn,
@@ -196,6 +212,7 @@ export {
   FieldCoercionStrategy,
   FieldCompact,
   FieldDataSensitivity,
+  FieldDetail,
   FieldRemappedValue,
   FieldSearchMatches,
   FieldSemanticType,
@@ -203,6 +220,9 @@ export {
   FieldUpdateInput,
   FieldValues,
   FieldValuesCompact,
+  FieldWithDataSensitivity,
+  FieldWithDataSensitivityCompact,
+  hasDataSensitivity,
 } from "./domain/field";
 export {
   isSyncTaskFailed,
@@ -211,6 +231,7 @@ export {
   SyncDirtyItem,
   SyncDirtyItemCompact,
   SyncExportPreflight,
+  SyncExportPreflightCompact,
   SyncExportResult,
   SyncForcePushCasualties,
   SyncImportResult,
@@ -229,7 +250,7 @@ export {
   GlossaryCreateInput,
   GlossaryUpdateInput,
 } from "./domain/glossary";
-export { Library, LibraryChild, LibraryCompact } from "./domain/library";
+export { Library, LibraryChild, LibraryCompact, LibraryPublishTablesInput } from "./domain/library";
 export { Measure, MeasureCompact, MeasureCreateInput, MeasureUpdateInput } from "./domain/measure";
 export {
   MetricAddableDimension,
@@ -323,7 +344,13 @@ export {
   PulseScheduleType,
   PulseUpdateInput,
 } from "./domain/pulse";
-export { DatasetQuery, ExportFormat, SortDirection } from "./domain/query";
+export {
+  DatasetQuery,
+  ExportFormat,
+  PivotExportFormat,
+  SortDirection,
+  VisualizationSettings,
+} from "./domain/query";
 export {
   ReplacementCheck,
   ReplacementColumn,
@@ -355,16 +382,23 @@ export { SetupInput, SetupResult, SetupResultCompact } from "./domain/setup";
 export { Snippet, SnippetCompact, SnippetCreateInput, SnippetUpdateInput } from "./domain/snippet";
 export {
   Table,
+  TableBulkEditFields,
   TableBulkEditInput,
+  TableBulkEditResult,
   TableCompact,
   TableDataLayer,
   TableDataLayerMedallion,
   TableDataLayerTier,
   TableDataSource,
+  TableFieldValuesResult,
   TableForeignKey,
   TableForeignKeyCompact,
   TableGetInclude,
   TableQueryMetadata,
+  TableQueryMetadataCompact,
+  TableSchemaId,
+  TableSchemaSyncResult,
+  TableSelectionResult,
   TableSelectors,
   TableUpdateInput,
   TableVisibilityType,

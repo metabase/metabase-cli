@@ -41,6 +41,11 @@ export interface CollectionItemListParams {
   pinned_state?: CollectionPinnedState | undefined;
 }
 
+export interface CollectionTreeParams {
+  /** Include the Library collections, which the tree leaves out by default. */
+  "include-library"?: boolean | undefined;
+}
+
 // The walk's own settings, minus the query the method builds from `CollectionItemListParams`.
 export type CollectionItemPageOptions = Omit<PaginateOptions, "query">;
 
@@ -51,25 +56,25 @@ function refPath(ref: CollectionId): string {
 }
 
 /**
- * List collections including the Library and its children, parsing each through the caller's own
- * projection. `Collection` pins `type`, `namespace` and `authority_level` to closed enums, so a
- * consumer reading a few fields off every collection on the instance narrows here: one collection
- * carrying a server value outside those sets then costs nothing to a caller that never reads the
- * field.
+ * List every collection the caller can read, the Library and its children among them, parsing each
+ * through the caller's own projection. `Collection` pins `type`, `namespace` and `authority_level`
+ * to closed enums, so a consumer reading a few fields off every collection on the instance narrows
+ * here: one collection carrying a server value outside those sets then costs nothing to a caller
+ * that never reads the field.
  */
-export async function listCollectionsWithLibrary<T>(
+export async function listCollectionsAs<T>(
   transport: Transport,
   schema: z.ZodType<T>,
   options: RequestOptions = {},
 ): Promise<T[]> {
-  return transport.requestParsed(z.array(schema), "/api/collection", {
-    ...options,
-    query: { "include-library": true },
-  });
+  return transport.requestParsed(z.array(schema), "/api/collection", { ...options });
 }
 
 export function collectionResource(transport: Transport) {
-  /** List collections. `filter` picks a server-side preset: everything, archived, or personal. */
+  /**
+   * List collections. `filter` picks a server-side preset: everything, archived, or personal. Every
+   * preset includes the Library collections that match it.
+   */
   async function list(
     params: CollectionListParams = {},
     options: RequestOptions = {},
@@ -79,17 +84,6 @@ export function collectionResource(transport: Transport) {
       ...options,
       query: COLLECTION_LIST_QUERY[params.filter ?? DEFAULT_LIST_FILTER],
     });
-    return { data, total: null };
-  }
-
-  /**
-   * List collections including the Library and its children, which the plain listing omits.
-   * The Library's own children carry neither `type` nor `is_remote_synced`, so this is where a
-   * caller resolves both.
-   */
-  async function listWithLibrary(options: RequestOptions = {}): Promise<ListResult<Collection>> {
-    await transport.require("collection.listWithLibrary", options);
-    const data = await listCollectionsWithLibrary(transport, Collection, options);
     return { data, total: null };
   }
 
@@ -112,7 +106,11 @@ export function collectionResource(transport: Transport) {
     });
   }
 
-  /** Update a collection, patching only the fields the body carries. */
+  /**
+   * Update a collection, patching the fields the body carries. The server reads an absent
+   * `archived` as `false`, so a patch without it restores an archived collection, and a patch that
+   * moves a collection into the trash ignores `parent_id`.
+   */
   async function update(
     ref: CollectionId,
     params: CollectionUpdateInput,
@@ -156,13 +154,17 @@ export function collectionResource(transport: Transport) {
   }
 
   /** Fetch the collection hierarchy as a forest of nested nodes. */
-  async function tree(options: RequestOptions = {}): Promise<ListResult<CollectionTreeNode>> {
+  async function tree(
+    params: CollectionTreeParams = {},
+    options: RequestOptions = {},
+  ): Promise<ListResult<CollectionTreeNode>> {
     await transport.require("collection.tree", options);
     const data = await transport.requestParsed(CollectionTreeApiList, "/api/collection/tree", {
       ...options,
+      query: { "include-library": params["include-library"] },
     });
     return { data, total: null };
   }
 
-  return { list, listWithLibrary, get, create, update, archive, itemPages, tree };
+  return { list, get, create, update, archive, itemPages, tree };
 }

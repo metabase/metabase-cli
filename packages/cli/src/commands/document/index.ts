@@ -9,6 +9,7 @@ export default defineCommandGroup({
     get: () => import("./get").then((mod) => mod.default),
     create: () => import("./create").then((mod) => mod.default),
     update: () => import("./update").then((mod) => mod.default),
+    copy: () => import("./copy").then((mod) => mod.default),
     archive: () => import("./archive").then((mod) => mod.default),
   },
 });

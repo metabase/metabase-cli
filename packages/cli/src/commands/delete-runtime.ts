@@ -33,26 +33,41 @@ interface ConfirmAndDeleteArgs {
   ctx: CommonContext;
 }
 
+interface ConfirmArgs {
+  yes: boolean;
+  /** What the refusal names, e.g. `delete 42`. */
+  action: string;
+  promptMessage: string;
+}
+
+// `true` to go ahead. Without `--yes` a terminal is asked; anything else is refused, because a
+// script that forgot `--yes` must not destroy what it never saw a prompt for.
+export async function confirmDestructive(args: ConfirmArgs): Promise<boolean> {
+  if (args.yes) {
+    return true;
+  }
+  if (process.stdin.isTTY !== true) {
+    throw new ConfigError(
+      `refusing to ${args.action} without confirmation — pass --yes to proceed non-interactively`,
+    );
+  }
+  return promptConfirm({ message: args.promptMessage, initialValue: false });
+}
+
 export async function confirmAndDelete(args: ConfirmAndDeleteArgs): Promise<void> {
-  if (!args.yes) {
-    if (process.stdin.isTTY !== true) {
-      throw new ConfigError(
-        `refusing to delete ${args.id} without confirmation — pass --yes to proceed non-interactively`,
-      );
-    }
-    const ok = await promptConfirm({
-      message: args.promptMessage,
-      initialValue: false,
-    });
-    if (!ok) {
-      renderSummary(
-        { deleted: false, aborted: true, id: args.id },
-        deleteResultView,
-        args.abortMessage,
-        args.ctx,
-      );
-      return;
-    }
+  const confirmed = await confirmDestructive({
+    yes: args.yes,
+    action: `delete ${args.id}`,
+    promptMessage: args.promptMessage,
+  });
+  if (!confirmed) {
+    renderSummary(
+      { deleted: false, aborted: true, id: args.id },
+      deleteResultView,
+      args.abortMessage,
+      args.ctx,
+    );
+    return;
   }
   await args.deleteResource();
   renderSummary(
