@@ -1,4 +1,4 @@
-import type { ArgsDef, CommandDef, CommandMeta, Resolvable, SubCommandsDef } from "citty";
+import type { ArgDef, ArgsDef, CommandDef, CommandMeta, Resolvable, SubCommandsDef } from "citty";
 
 type CittyValue = CommandMeta | ArgsDef | SubCommandsDef | CommandDef;
 
@@ -32,10 +32,12 @@ const WORD_SEPARATORS: ReadonlySet<string> = new Set(["-", "_", "/", "."]);
 const NEGATIVE_NUMBER = /^-\.?\d/;
 const DIGIT = /\d/;
 
+type FlagTakes = "nothing" | "value" | "list";
+
 export interface ResolvedFlag {
   key: string;
   negated: boolean;
-  takesValue: boolean;
+  takes: FlagTakes;
 }
 
 // Every token citty binds to a declared flag. citty hands node's parser the flag's name, that
@@ -50,43 +52,60 @@ export function flagSpellings(argsDef: ArgsDef): FlagSpellings {
     if (def.type === "positional") {
       continue;
     }
-    const takesValue = def.type === "string" || def.type === "enum";
+    const takes = flagTakes(def);
     const aliases = "alias" in def ? toAliasArray(def.alias) : [];
     const words = splitWords(key);
     for (const name of new Set([key, camelCase(words), kebabCase(words), ...aliases])) {
-      spellings.set(`${LONG_PREFIX}${name}`, { key, negated: false, takesValue });
-      spellings.set(`${NEGATION_PREFIX}${name}`, { key, negated: true, takesValue });
+      spellings.set(`${LONG_PREFIX}${name}`, { key, negated: false, takes });
+      spellings.set(`${NEGATION_PREFIX}${name}`, { key, negated: true, takes });
     }
     for (const letter of aliases.filter((alias) => alias.length === 1)) {
-      spellings.set(`${SHORT_PREFIX}${letter}`, { key, negated: false, takesValue });
+      spellings.set(`${SHORT_PREFIX}${letter}`, { key, negated: false, takes });
     }
   }
   return spellings;
+}
+
+// citty ignores keys it does not know, so a string flag whose value is a comma-separated list
+// declares `list: true` beside its type for the argv check to read.
+function flagTakes(def: ArgDef): FlagTakes {
+  if (def.type === "string" && "list" in def && def.list === true) {
+    return "list";
+  }
+  return def.type === "string" || def.type === "enum" ? "value" : "nothing";
 }
 
 export interface ParsedFlag {
   // The flag as typed, without the value attached to it.
   name: string;
   flag: ResolvedFlag | null;
-  hasInlineValue: boolean;
+  // The value written into the flag's own token, or null when the token carries none.
+  inlineValue: string | null;
 }
 
 export function parseFlagToken(token: string, spellings: FlagSpellings): ParsedFlag {
   const equals = token.indexOf(INLINE_VALUE);
   const name = equals === -1 ? token : token.slice(0, equals);
-  const hasInlineValue = equals !== -1;
+  const inlineValue = equals === -1 ? null : readInlineValue(token, name);
   const flag = spellings.get(name);
   if (flag !== undefined) {
     // citty drops a `--no-x=…` token whole rather than negating `x`.
-    return { name, flag: flag.negated && hasInlineValue ? null : flag, hasInlineValue };
+    return { name, flag: flag.negated && inlineValue !== null ? null : flag, inlineValue };
   }
   // `-mcard`: node's parser reads a one-letter value flag's value from the rest of the token.
   const short = name.slice(0, SHORT_FLAG_LENGTH);
   const shortFlag = name.startsWith(LONG_PREFIX) ? undefined : spellings.get(short);
-  if (shortFlag !== undefined && shortFlag.takesValue) {
-    return { name: short, flag: shortFlag, hasInlineValue: true };
+  if (shortFlag !== undefined && shortFlag.takes !== "nothing") {
+    return { name: short, flag: shortFlag, inlineValue: readInlineValue(token, short) };
   }
-  return { name, flag: null, hasInlineValue };
+  return { name, flag: null, inlineValue };
+}
+
+// node's parser reads a long flag's value after the `=`, and a one-letter flag's value as the rest
+// of its token, so `-m=card` binds "=card".
+function readInlineValue(token: string, name: string): string {
+  const start = name.startsWith(LONG_PREFIX) ? name.length + INLINE_VALUE.length : name.length;
+  return token.slice(start);
 }
 
 export function isFlagToken(token: string): boolean {
@@ -102,7 +121,9 @@ export interface FlagItem extends ParsedFlag {
   index: number;
   // Whether citty binds the next token as this flag's value, whatever that token is.
   consumesNext: boolean;
-  value: string | undefined;
+  // What citty binds as the value of a flag that takes one: the next token when it consumes one,
+  // else the inline value; null when there is none.
+  value: string | null;
   end: number;
 }
 
@@ -152,9 +173,11 @@ export function* readArgv(
 
 function readFlag(rawArgs: readonly string[], index: number, parsed: ParsedFlag): FlagItem {
   const { flag } = parsed;
-  const consumesNext = flag !== null && flag.takesValue && !flag.negated && !parsed.hasInlineValue;
-  const value = consumesNext ? rawArgs[index + 1] : undefined;
-  const end = value === undefined ? index + 1 : index + 2;
+  const consumesNext =
+    flag !== null && flag.takes !== "nothing" && !flag.negated && parsed.inlineValue === null;
+  const next = consumesNext ? rawArgs[index + 1] : undefined;
+  const end = next === undefined ? index + 1 : index + 2;
+  const value = consumesNext ? (next ?? null) : parsed.inlineValue;
   return { kind: "flag", index, ...parsed, consumesNext, value, end };
 }
 

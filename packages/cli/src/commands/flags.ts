@@ -15,6 +15,7 @@ export const outputFlags = {
   },
   fields: {
     type: "string",
+    list: true,
     description: "Dot-paths, comma separated (mutually exclusive with --full)",
   },
   maxBytes: {

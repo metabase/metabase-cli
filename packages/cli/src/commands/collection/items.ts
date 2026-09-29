@@ -32,6 +32,7 @@ export default defineMetabaseCommand({
     },
     models: {
       type: "string",
+      list: true,
       description: `Comma-separated model filter: ${COLLECTION_ITEM_FILTER_MODELS.join(",")}`,
       alias: "m",
     },

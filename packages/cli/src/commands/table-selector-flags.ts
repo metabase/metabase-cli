@@ -4,10 +4,11 @@ import type { FlagValues } from "./flag-values";
 import { parseIdCsv } from "./parse-id";
 
 export const tableSelectorFlags = {
-  "table-ids": { type: "string", description: "Comma-separated table ids" },
-  "db-ids": { type: "string", description: "Comma-separated database ids" },
+  "table-ids": { type: "string", list: true, description: "Comma-separated table ids" },
+  "db-ids": { type: "string", list: true, description: "Comma-separated database ids" },
   schemas: {
     type: "string",
+    list: true,
     description:
       'Comma-separated schema ids, each "<db-id>:<schema>" (e.g. 1:public; 1: for the tables with no schema)',
   },

@@ -28,10 +28,12 @@ const sharedFilterFlags = {
 export const dependentFilterFlags = {
   "dependent-types": {
     type: "string",
+    list: true,
     description: `Comma-separated entity kinds to keep: ${DependencyType.options.join(",")}`,
   },
   "dependent-card-types": {
     type: "string",
+    list: true,
     description: `Comma-separated card kinds to keep (narrows card dependents only): ${CardType.options.join(",")}`,
   },
   "sort-column": {
@@ -67,10 +69,12 @@ export const queryFlag = {
 export const itemFilterFlags = {
   types: {
     type: "string",
+    list: true,
     description: `Comma-separated entity kinds to list: ${DependencyType.options.join(",")}`,
   },
   "card-types": {
     type: "string",
+    list: true,
     description: `Comma-separated card kinds to list (narrows cards only): ${CardType.options.join(",")}`,
   },
   ...queryFlag,

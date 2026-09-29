@@ -43,6 +43,7 @@ export default defineMetabaseCommand({
     },
     models: {
       type: "string",
+      list: true,
       description: SEARCH_MODELS_DESCRIPTION,
       alias: "m",
     },
@@ -66,6 +67,7 @@ export default defineMetabaseCommand({
     },
     "created-by": {
       type: "string",
+      list: true,
       description:
         "Comma-separated user ids; matches items created by any of them (drops models with no creator)",
     },

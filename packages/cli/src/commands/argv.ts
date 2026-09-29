@@ -15,11 +15,12 @@ import {
 } from "../runtime/citty";
 
 const BUILTIN_FLAGS: ReadonlyArray<string> = ["--help", "-h", "--version", "-v"];
+const LIST_SEPARATOR = ",";
 
 function commandSpellings(argsDef: ArgsDef): FlagSpellings {
   const builtins = BUILTIN_FLAGS.map((flag): [string, ResolvedFlag] => [
     flag,
-    { key: flag, negated: false, takesValue: false },
+    { key: flag, negated: false, takes: "nothing" },
   ]);
   return new Map([...builtins, ...flagSpellings(argsDef)]);
 }
@@ -63,34 +64,41 @@ export function givenFlagKeys(rawArgs: readonly string[], argsDef: ArgsDef): Rea
 // which citty drops.
 export function assertArgv(rawArgs: readonly string[], argsDef: ArgsDef): void {
   const spellings = commandSpellings(argsDef);
-  const seenValueFlags = new Map<string, string>();
+  const valueFlags: ValueFlag[] = [];
   const positionals: string[] = [];
   for (const item of readArgv(rawArgs, spellings)) {
     if (item.kind === "positional") {
       positionals.push(item.token);
     } else if (item.kind === "flag") {
-      assertFlag(item, spellings, seenValueFlags);
+      const valueFlag = readValueFlag(item, spellings);
+      if (valueFlag !== null) {
+        valueFlags.push(valueFlag);
+      }
     }
   }
+  assertEachGivenOnce(valueFlags);
   assertPositionalCount(positionals, argsDef);
 }
 
-function assertFlag(item: FlagItem, spellings: FlagSpellings, seen: Map<string, string>): void {
+interface ValueFlag {
+  name: string;
+  flag: ResolvedFlag;
+  value: string;
+}
+
+function readValueFlag(item: FlagItem, spellings: FlagSpellings): ValueFlag | null {
   const { flag, name } = item;
   if (flag === null) {
     throw new ConfigError(`unknown flag: ${name}`);
   }
-  if (!flag.takesValue) {
-    return;
+  if (flag.takes === "nothing") {
+    return null;
   }
   if (flag.negated) {
     const positive = `--${name.slice(NEGATION_PREFIX.length)}`;
     throw new ConfigError(`${name}: ${positive} takes a value, so it cannot be negated`);
   }
-  assertFirstOccurrence(name, flag.key, seen);
-  if (item.consumesNext) {
-    assertValueFollows(name, item.value, spellings);
-  }
+  return { name, flag, value: readFlagValue(item, spellings) };
 }
 
 function assertPositionalCount(positionals: readonly string[], argsDef: ArgsDef): void {
@@ -108,29 +116,43 @@ function assertPositionalCount(positionals: readonly string[], argsDef: ArgsDef)
   throw new ConfigError(`unexpected argument: "${extra}" (${takes})`);
 }
 
-function assertFirstOccurrence(name: string, key: string, seen: Map<string, string>): void {
-  const earlier = seen.get(key);
-  if (earlier === undefined) {
-    seen.set(key, name);
-    return;
+// Runs after every flag is read, so the joined spelling offered for a list flag holds only values
+// that each passed the checks above.
+function assertEachGivenOnce(valueFlags: readonly ValueFlag[]): void {
+  const first = new Map<string, ValueFlag>();
+  for (const repeat of valueFlags) {
+    const earlier = first.get(repeat.flag.key);
+    if (earlier === undefined) {
+      first.set(repeat.flag.key, repeat);
+      continue;
+    }
+    const also = earlier.name === repeat.name ? "" : ` (also as ${earlier.name})`;
+    const joined = joinedSpelling(repeat, valueFlags);
+    throw new ConfigError(`${repeat.name} is given more than once${also}; pass it once${joined}`);
   }
-  const also = earlier === name ? "" : ` (also as ${earlier})`;
-  throw new ConfigError(`${name} is given more than once${also}; pass it once`);
 }
 
-function assertValueFollows(
-  name: string,
-  value: string | undefined,
-  spellings: FlagSpellings,
-): void {
-  if (value === undefined || value === ARGUMENT_SEPARATOR) {
+function joinedSpelling(repeat: ValueFlag, valueFlags: readonly ValueFlag[]): string {
+  if (repeat.flag.takes !== "list") {
+    return "";
+  }
+  const values = valueFlags
+    .filter((valueFlag) => valueFlag.flag.key === repeat.flag.key)
+    .map((valueFlag) => valueFlag.value);
+  return `, as ${repeat.name} ${values.join(LIST_SEPARATOR)}`;
+}
+
+function readFlagValue(item: FlagItem, spellings: FlagSpellings): string {
+  const { name, value, consumesNext } = item;
+  if (value === null || (consumesNext && value === ARGUMENT_SEPARATOR)) {
     throw new ConfigError(`${name} needs a value`);
   }
-  if (readsAsFlag(value, spellings)) {
+  if (consumesNext && readsAsFlag(value, spellings)) {
     throw new ConfigError(
       `${name} needs a value, but the flag ${parseFlagToken(value, spellings).name} follows it; write ${name}=<value> for a value that starts with "-"`,
     );
   }
+  return value;
 }
 
 // citty strips every `--no-…` token before parsing, so one is never a value: the flag takes the
