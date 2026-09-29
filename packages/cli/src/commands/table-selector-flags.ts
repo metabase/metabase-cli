@@ -1,9 +1,7 @@
-import type { ParsedArgs } from "citty";
-
 import { ConfigError } from "@metabase/client/errors";
 import { TableSchemaId, TableSelectors } from "@metabase/client/domain/table";
-import { parseCsv } from "../runtime/csv";
-import { parseId } from "./parse-id";
+import type { FlagValues } from "./flag-values";
+import { parseIdCsv } from "./parse-id";
 
 export const tableSelectorFlags = {
   "table-ids": { type: "string", description: "Comma-separated table ids" },
@@ -16,7 +14,7 @@ export const tableSelectorFlags = {
 } as const;
 
 type TableSelectorFlags = typeof tableSelectorFlags;
-type TableSelectorArgs = Pick<ParsedArgs<TableSelectorFlags>, keyof TableSelectorFlags>;
+type TableSelectorArgs = FlagValues<TableSelectorFlags>;
 
 const SELECTOR_FLAGS: Record<keyof TableSelectors, keyof TableSelectorFlags> = {
   table_ids: "table-ids",
@@ -34,14 +32,8 @@ export function selectionSummary(action: string, selectors: TableSelectors): str
   return `${action} accepted for the tables selected by ${flags.join(", ")}; the server does not report which tables matched.`;
 }
 
-function parseIdList(value: string | undefined, name: string): number[] {
-  if (value === undefined) {
-    return [];
-  }
-  return parseCsv(value).map((part) => parseId(part, name));
-}
-
-function parseSchemaId(value: string): string {
+function parseSchemaId(part: string): string {
+  const value = part.trim();
   if (!TableSchemaId.safeParse(value).success) {
     throw new ConfigError(
       `invalid schema id: "${value}" (expected "<db-id>:<schema>" with a positive database id)`,
@@ -51,18 +43,15 @@ function parseSchemaId(value: string): string {
 }
 
 export function parseTableSelectors(args: TableSelectorArgs): TableSelectors {
-  const tableIds = parseIdList(args["table-ids"], "table id");
-  const databaseIds = parseIdList(args["db-ids"], "database id");
-  const schemaNames = args.schemas === undefined ? [] : parseCsv(args.schemas).map(parseSchemaId);
   const selectors: TableSelectors = {};
-  if (tableIds.length > 0) {
-    selectors.table_ids = tableIds;
+  if (args["table-ids"] !== undefined) {
+    selectors.table_ids = parseIdCsv(args["table-ids"], "table id");
   }
-  if (databaseIds.length > 0) {
-    selectors.database_ids = databaseIds;
+  if (args["db-ids"] !== undefined) {
+    selectors.database_ids = parseIdCsv(args["db-ids"], "database id");
   }
-  if (schemaNames.length > 0) {
-    selectors.schema_ids = schemaNames;
+  if (args.schemas !== undefined) {
+    selectors.schema_ids = args.schemas.split(",").map(parseSchemaId);
   }
   if (Object.keys(selectors).length === 0) {
     throw new ConfigError("provide at least one selector: --table-ids, --db-ids, or --schemas");

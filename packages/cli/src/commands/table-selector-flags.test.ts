@@ -46,9 +46,9 @@ describe("parseTableSelectors", () => {
     );
   });
 
-  it("throws ConfigError when selectors are present but empty after splitting", () => {
+  it("rejects an empty part rather than dropping it", () => {
     expect(() => parse({ "table-ids": " , ", schemas: "" })).toThrow(
-      new ConfigError("provide at least one selector: --table-ids, --db-ids, or --schemas"),
+      new ConfigError('invalid table id: " " (expected integer)'),
     );
   });
 

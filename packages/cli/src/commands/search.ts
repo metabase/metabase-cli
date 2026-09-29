@@ -7,7 +7,7 @@ import { windowServerPage } from "../output/window";
 import { parseEnumCsv } from "../runtime/csv";
 
 import { connectionFlags, listFlagsWithDefaultLimit, outputFlags, profileFlag } from "./flags";
-import { parseId } from "./parse-id";
+import { parseId, parseIdCsv } from "./parse-id";
 import { defineMetabaseCommand } from "./runtime";
 
 // Unbounded, the server ranks and then hydrates up to `max-filtered-results` (1000) rows, running
@@ -94,7 +94,9 @@ export default defineMetabaseCommand({
     const models = parseEnumCsv(args.models, SearchModel, "--models");
     const collection =
       args.collection === undefined ? undefined : parseId(args.collection, "--collection");
-    const createdBy = parseIdCsv(args["created-by"], "--created-by");
+    const createdByRaw = args["created-by"];
+    const createdBy =
+      createdByRaw === undefined ? undefined : parseIdCsv(createdByRaw, "--created-by");
     const includeMetadata = args["include-metadata"] === true;
     if (includeMetadata && !ctx.full && ctx.fields === undefined) {
       throw new ConfigError(
@@ -121,15 +123,6 @@ export default defineMetabaseCommand({
     renderList(windowServerPage(data, total, ctx.range), searchResultView, ctx);
   },
 });
-
-// Not `parseCsv`: an empty part (`""`, `1,,2`) is a shell expansion that resolved to nothing, and
-// dropping it would read the typo as "no filter".
-function parseIdCsv(raw: string | undefined, name: string): number[] | undefined {
-  if (raw === undefined) {
-    return undefined;
-  }
-  return raw.split(",").map((part) => parseId(part, name));
-}
 
 function nonEmpty(value: string | undefined): string | undefined {
   if (typeof value !== "string") {
