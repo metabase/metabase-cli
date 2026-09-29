@@ -18,6 +18,7 @@ import { HttpError } from "../http/errors";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { type PollOptions, pollUntil } from "../poll";
+import { PROBE_PATH } from "../version/probe";
 
 import { listCollectionsWithLibrary } from "./collection";
 import { fetchOptionalParsed } from "./optional-parsed";
@@ -56,6 +57,13 @@ const SyncStashStarted = z.object({
 });
 
 const RemoteSyncSetting = z.string().nullable();
+
+// `/api/setting/remote-sync-branch` answers nothing for a branch set by environment variable, while
+// the session properties carry every setting's effective value, and carry a setting only when the
+// caller may read it: an absent key is "not readable", a null one "unset".
+const RemoteSyncBranchProperty = z.object({
+  "remote-sync-branch": z.string().nullable().optional(),
+});
 
 const FORBIDDEN_STATUS = 403;
 const UNREGISTERED_STATUS = 404;
@@ -334,24 +342,22 @@ export function gitSyncResource(transport: Transport) {
   }
 
   /**
-   * The branch git-sync tracks, or null when none is configured, the caller may not read it, or
-   * the server has no remote-sync module.
+   * The branch git-sync tracks, or null when none is configured. Refuses when the caller may not
+   * read the setting (it is admin-only) or the server has no remote-sync module, rather than
+   * reading either as unset.
    */
   async function branch(options: RequestOptions = {}): Promise<string | null> {
     await transport.require("gitSync.branch", options);
-    try {
-      return await fetchOptionalParsed(
-        transport,
-        "/api/setting/remote-sync-branch",
-        RemoteSyncSetting,
-        options,
+    const properties = await transport.requestParsed(RemoteSyncBranchProperty, PROBE_PATH, {
+      ...options,
+    });
+    const tracked = properties["remote-sync-branch"];
+    if (tracked === undefined) {
+      throw new ConfigError(
+        "the remote-sync-branch setting is not readable: it is visible to admins only, and absent on a server without the remote-sync module",
       );
-    } catch (error) {
-      if (isRemoteUnreadable(error)) {
-        return null;
-      }
-      throw error;
     }
+    return tracked;
   }
 
   /**

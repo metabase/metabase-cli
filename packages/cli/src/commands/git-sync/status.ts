@@ -47,12 +47,14 @@ export default defineMetabaseCommand({
   examples: ["mb git-sync status", "mb git-sync status --json"],
   async run({ ctx, getClient }) {
     const mb = await getClient();
-    const [branch, isDirty, currentTask, collections] = await Promise.all([
-      mb.gitSync.branch(),
+    const [isDirty, currentTask, collections] = await Promise.all([
       mb.gitSync.isDirty(),
       mb.gitSync.currentTask(),
       mb.gitSync.syncedCollections(),
     ]);
+    // The branch read refuses a non-admin by itself; asking only after the admin-only endpoints
+    // keeps that caller's failure the server's 403 rather than whichever request lost the race.
+    const branch = await mb.gitSync.branch();
     const syncedCollections: SyncedCollection[] = collections.data.map((collection) => ({
       id: collection.id,
       name: collection.name,
