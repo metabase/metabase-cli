@@ -14,12 +14,15 @@ export function parseEnumCsv<T extends string>(
   schema: ZodEnum<Record<string, T>>,
   flagName: string,
 ): T[] | undefined {
-  if (raw === undefined || raw === "") {
+  if (raw === undefined) {
     return undefined;
   }
+  const allowed = Object.values(schema.enum).join(", ");
   const parts = parseCsv(raw);
+  // An empty value is what a shell hands over for an expansion that resolved to nothing
+  // (`--models "$KINDS"`); reading it as "no filter" would widen the request the caller meant to narrow.
   if (parts.length === 0) {
-    return undefined;
+    throw new ConfigError(`invalid ${flagName} value: "${raw}" (expected one of: ${allowed})`);
   }
   const accepted: T[] = [];
   const rejected: string[] = [];
@@ -32,7 +35,6 @@ export function parseEnumCsv<T extends string>(
     }
   }
   if (rejected.length > 0) {
-    const allowed = Object.values(schema.enum).join(", ");
     throw new ConfigError(
       `invalid ${flagName} value: ${rejected.join(", ")} (expected one of: ${allowed})`,
     );
