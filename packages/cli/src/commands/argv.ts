@@ -1,93 +1,78 @@
 import type { ArgsDef } from "citty";
 
 import { ConfigError } from "@metabase/client/errors";
-import { flagConsumesValue, normalizeFlag, toAliasArray } from "../runtime/citty";
+import {
+  ARGUMENT_SEPARATOR,
+  type FlagItem,
+  type FlagSpellings,
+  type ResolvedFlag,
+  flagSpellings,
+  isFlagToken,
+  isNegativeNumber,
+  parseFlagToken,
+  readArgv,
+} from "../runtime/citty";
 
-const ARGUMENT_SEPARATOR = "--";
-const NEGATION_PREFIX = "no-";
-const BUILTIN_FLAGS: ReadonlyArray<string> = ["help", "h", "version", "v"];
-// No flag name starts with a digit, so a token like `-5` or `-0.5` can only be a value.
-const NEGATIVE_NUMBER = /^-\.?\d/;
+const BUILTIN_FLAGS: ReadonlyArray<string> = ["--help", "-h", "--version", "-v"];
 
-// Maps every spelling a flag can take (name, alias, camel or kebab case) to its declared key.
-type FlagKeys = ReadonlyMap<string, string>;
-
-// One flag as typed, with the token citty hands it as its value when it takes one.
-interface FlagOccurrence {
-  token: string;
-  consumed: boolean;
-  value: string | undefined;
+function commandSpellings(argsDef: ArgsDef): FlagSpellings {
+  const builtins = BUILTIN_FLAGS.map((flag): [string, ResolvedFlag] => [
+    flag,
+    { key: flag, negated: false, takesValue: false },
+  ]);
+  return new Map([...builtins, ...flagSpellings(argsDef)]);
 }
 
-interface ScannedArgv {
-  flags: FlagOccurrence[];
-  positionals: string[];
-}
-
-// Classifies tokens the way citty will read them: a value-taking flag swallows the next token
-// whatever it is, and everything after `--` is positional.
-function scanArgv(rawArgs: readonly string[], argsDef: ArgsDef): ScannedArgv {
-  const flags: FlagOccurrence[] = [];
-  const positionals: string[] = [];
-  let index = 0;
-  while (index < rawArgs.length) {
-    const token = rawArgs[index];
-    if (token === undefined) {
-      break;
-    }
-    if (token === ARGUMENT_SEPARATOR) {
-      positionals.push(...rawArgs.slice(index + 1));
-      break;
-    }
-    if (!isFlagToken(token) || NEGATIVE_NUMBER.test(token)) {
-      positionals.push(token);
-      index += 1;
-      continue;
-    }
-    const consumed = flagConsumesValue(token, argsDef);
-    flags.push({ token, consumed, value: consumed ? rawArgs[index + 1] : undefined });
-    index += consumed ? 2 : 1;
-  }
-  return { flags, positionals };
-}
-
-// citty reads `-5` as a flag named "5", which leaves `field remapping 1 2 -5` a positional short.
-// Moving every positional behind `--`, flags first, keeps the order of both and makes citty bind
-// the number as the value it is.
+// Node's parser reads `-5` as a flag named "5", which leaves `field remapping 1 2 -5` a positional
+// short. Moving every positional behind `--`, flags first, keeps the order of both and makes citty
+// bind the number as the value it is.
 export function separatePositionals(rawArgs: readonly string[], argsDef: ArgsDef): string[] {
-  const scanned = scanArgv(rawArgs, argsDef);
-  if (!scanned.positionals.some((positional) => NEGATIVE_NUMBER.test(positional))) {
+  const flagTokens: string[] = [];
+  const positionals: string[] = [];
+  for (const item of readArgv(rawArgs, commandSpellings(argsDef))) {
+    if (item.kind === "flag") {
+      flagTokens.push(...rawArgs.slice(item.index, item.end));
+    } else if (item.kind === "positional") {
+      positionals.push(item.token);
+    }
+  }
+  if (!positionals.some(isNegativeNumber)) {
     return [...rawArgs];
   }
-  const flagTokens = scanned.flags.flatMap((occurrence) =>
-    occurrence.value === undefined ? [occurrence.token] : [occurrence.token, occurrence.value],
-  );
-  return [...flagTokens, ARGUMENT_SEPARATOR, ...scanned.positionals];
+  return [...flagTokens, ARGUMENT_SEPARATOR, ...positionals];
 }
 
 // Refuses what citty would otherwise parse into something the user did not type: an undeclared
-// flag; a value-taking flag whose value is missing, which citty fills with the next flag
-// (`--text --remove` stores the note "--remove" and never removes) or with ""; a value-taking
-// flag given twice, of which citty keeps only the last; and a positional beyond the declared
-// ones, which citty drops.
+// flag or a spelling citty does not bind; a value-taking flag whose value is missing, which citty
+// fills with the next flag (`--text --remove` stores the note "--remove" and never removes) or
+// with ""; a value-taking flag given twice, of which citty keeps only the last; and a positional
+// beyond the declared ones, which citty drops.
 export function assertArgv(rawArgs: readonly string[], argsDef: ArgsDef): void {
-  const keys = flagKeys(argsDef);
-  const scanned = scanArgv(rawArgs, argsDef);
+  const spellings = commandSpellings(argsDef);
   const seenValueFlags = new Map<string, string>();
-  for (const occurrence of scanned.flags) {
-    const flag = resolveFlag(occurrence.token, keys);
-    if (flag === null) {
-      throw new ConfigError(`unknown flag: ${displayFlag(occurrence.token)}`);
-    }
-    if (flag.negated || !takesValue(argsDef, flag.key)) {
-      continue;
-    }
-    assertFirstOccurrence(occurrence.token, flag.key, seenValueFlags);
-    if (occurrence.consumed) {
-      assertValueFollows(occurrence.token, occurrence.value, keys);
+  const positionals: string[] = [];
+  for (const item of readArgv(rawArgs, spellings)) {
+    if (item.kind === "positional") {
+      positionals.push(item.token);
+    } else if (item.kind === "flag") {
+      assertFlag(item, spellings, seenValueFlags);
     }
   }
-  assertPositionalCount(scanned.positionals, argsDef);
+  assertPositionalCount(positionals, argsDef);
+}
+
+function assertFlag(item: FlagItem, spellings: FlagSpellings, seen: Map<string, string>): void {
+  const { flag, name } = item;
+  if (flag === null) {
+    throw new ConfigError(`unknown flag: ${name}`);
+  }
+  if (flag.negated || !flag.takesValue) {
+    return;
+  }
+  assertFirstOccurrence(name, flag.key, seen);
+  if (item.consumesNext) {
+    assertValueFollows(name, item.value, spellings);
+  }
 }
 
 function assertPositionalCount(positionals: readonly string[], argsDef: ArgsDef): void {
@@ -105,68 +90,33 @@ function assertPositionalCount(positionals: readonly string[], argsDef: ArgsDef)
   throw new ConfigError(`unexpected argument: "${extra}" (${takes})`);
 }
 
-function assertFirstOccurrence(token: string, key: string, seen: Map<string, string>): void {
-  const spelling = displayFlag(token);
+function assertFirstOccurrence(name: string, key: string, seen: Map<string, string>): void {
   const earlier = seen.get(key);
   if (earlier === undefined) {
-    seen.set(key, spelling);
+    seen.set(key, name);
     return;
   }
-  const also = earlier === spelling ? "" : ` (also as ${earlier})`;
-  throw new ConfigError(`${spelling} is given more than once${also}; pass it once`);
+  const also = earlier === name ? "" : ` (also as ${earlier})`;
+  throw new ConfigError(`${name} is given more than once${also}; pass it once`);
 }
 
-function assertValueFollows(token: string, value: string | undefined, keys: FlagKeys): void {
+function assertValueFollows(
+  name: string,
+  value: string | undefined,
+  spellings: FlagSpellings,
+): void {
   if (value === undefined || value === ARGUMENT_SEPARATOR) {
-    throw new ConfigError(`${token} needs a value`);
+    throw new ConfigError(`${name} needs a value`);
   }
-  if (isFlagToken(value) && resolveFlag(value, keys) !== null) {
+  if (readsAsFlag(value, spellings)) {
     throw new ConfigError(
-      `${token} needs a value, but the flag ${displayFlag(value)} follows it; write ${token}=<value> for a value that starts with "-"`,
+      `${name} needs a value, but the flag ${parseFlagToken(value, spellings).name} follows it; write ${name}=<value> for a value that starts with "-"`,
     );
   }
 }
 
-function takesValue(argsDef: ArgsDef, key: string): boolean {
-  return flagConsumesValue(`--${key}`, argsDef);
-}
-
-function flagKeys(argsDef: ArgsDef): Map<string, string> {
-  const keys = new Map<string, string>(BUILTIN_FLAGS.map((flag) => [normalizeFlag(flag), flag]));
-  for (const [name, def] of Object.entries(argsDef)) {
-    keys.set(normalizeFlag(name), name);
-    if ("alias" in def) {
-      for (const alias of toAliasArray(def.alias)) {
-        keys.set(normalizeFlag(alias), name);
-      }
-    }
-  }
-  return keys;
-}
-
-interface ResolvedFlag {
-  key: string;
-  negated: boolean;
-}
-
-function resolveFlag(token: string, keys: FlagKeys): ResolvedFlag | null {
-  const name = displayFlag(token).replace(/^-+/, "");
-  const key = keys.get(normalizeFlag(name));
-  if (key !== undefined) {
-    return { key, negated: false };
-  }
-  if (!name.startsWith(NEGATION_PREFIX)) {
-    return null;
-  }
-  const negatedKey = keys.get(normalizeFlag(name.slice(NEGATION_PREFIX.length)));
-  return negatedKey === undefined ? null : { key: negatedKey, negated: true };
-}
-
-function isFlagToken(token: string): boolean {
-  return token.startsWith("-") && token !== "-";
-}
-
-function displayFlag(token: string): string {
-  const equals = token.indexOf("=");
-  return equals === -1 ? token : token.slice(0, equals);
+// A declared flag in the value's place is taken as the value, though it was surely meant as the
+// flag.
+function readsAsFlag(value: string, spellings: FlagSpellings): boolean {
+  return isFlagToken(value) && parseFlagToken(value, spellings).flag !== null;
 }

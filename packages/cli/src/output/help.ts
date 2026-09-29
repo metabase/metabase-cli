@@ -1,7 +1,7 @@
 import { renderUsage } from "citty";
 import type { ArgsDef, CommandDef, SubCommandsDef } from "citty";
 
-import { flagConsumesValue, resolveCitty, toAliasArray } from "../runtime/citty";
+import { flagSpellings, readArgv, resolveCitty, toAliasArray } from "../runtime/citty";
 import { getMetabaseAugment, type SkillPointer } from "../runtime/command-augment";
 import { buildHelpEntry, buildHelpIndex } from "../runtime/command-help";
 import { jsonLine } from "./render";
@@ -297,24 +297,15 @@ export async function findUnknownCommand(
 }
 
 function skipFlags(rawArgs: readonly string[], start: number, argsDef: ArgsDef): number {
-  let index = start;
-  while (index < rawArgs.length) {
-    const token = rawArgs[index];
-    if (token === undefined) {
-      return index;
+  for (const item of readArgv(rawArgs, flagSpellings(argsDef), start)) {
+    if (item.kind === "positional") {
+      return item.index;
     }
-    if (token === "--") {
+    if (item.kind === "separator") {
       return rawArgs.length;
     }
-    if (!token.startsWith("-")) {
-      return index;
-    }
-    if (flagConsumesValue(token, argsDef)) {
-      index += 1;
-    }
-    index += 1;
   }
-  return index;
+  return rawArgs.length;
 }
 
 async function findSubCommand(
