@@ -8,6 +8,7 @@ import { parseEnumCsv } from "../runtime/csv";
 
 import { connectionFlags, listFlagsWithDefaultLimit, outputFlags, profileFlag } from "./flags";
 import { parseId, parseIdCsv } from "./parse-id";
+import { parseOptionalText } from "./parse-text";
 import { defineMetabaseCommand } from "./runtime";
 
 // Unbounded, the server ranks and then hydrates up to `max-filtered-results` (1000) rows, running
@@ -103,10 +104,11 @@ export default defineMetabaseCommand({
         "--include-metadata needs --full or --fields: the compact row drops result_metadata",
       );
     }
+    const q = parseOptionalText(args.query, "query");
     const client = await getClient();
 
     const { data, total } = await client.search.query({
-      q: nonEmpty(args.query),
+      q,
       models,
       archived: args.archived ? true : undefined,
       limit: ctx.range.limit,
@@ -123,11 +125,3 @@ export default defineMetabaseCommand({
     renderList(windowServerPage(data, total, ctx.range), searchResultView, ctx);
   },
 });
-
-function nonEmpty(value: string | undefined): string | undefined {
-  if (typeof value !== "string") {
-    return undefined;
-  }
-  const trimmed = value.trim();
-  return trimmed.length === 0 ? undefined : trimmed;
-}

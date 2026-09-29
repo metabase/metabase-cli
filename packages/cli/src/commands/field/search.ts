@@ -8,6 +8,7 @@ import { FieldValueLabel, fieldValueLabelView, toValueLabel } from "../../output
 import { collectForOutput, type PageRequest } from "../../output/window";
 import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
+import { parseText } from "../parse-text";
 import { defineMetabaseCommand } from "../runtime";
 
 export const FieldSearchListEnvelope = listEnvelopeSchema(FieldValueLabel);
@@ -24,10 +25,7 @@ export function fieldSearchValue(
     }
     return undefined;
   }
-  if (value.trim() === "") {
-    throw new ConfigError("invalid --value: must not be blank");
-  }
-  return value;
+  return parseText(value, "--value");
 }
 
 // A walk opens with what the server answers a search sent no `limit`, or with the caller's window

@@ -1,5 +1,3 @@
-import { ConfigError } from "@metabase/client/errors";
-
 import { formatScalar, renderSummary } from "../../output/render";
 import {
   type FieldRemappingMatch,
@@ -11,6 +9,7 @@ import {
 } from "../../output/views/field";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
+import { parseText } from "../parse-text";
 import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
@@ -38,11 +37,9 @@ export default defineMetabaseCommand({
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const remappedId = parseId(args["remapped-id"], "remapped-id");
-    if (args.value.trim() === "") {
-      throw new ConfigError("invalid value: must not be blank");
-    }
+    const value = parseText(args.value, "value");
     const client = await getClient();
-    const pair = await client.field.remapping(id, remappedId, { value: args.value });
+    const pair = await client.field.remapping(id, remappedId, { value });
     if (pair === null) {
       const miss: FieldRemappingMiss = { found: false };
       renderSummary(miss, fieldRemappingMissView, "", ctx);

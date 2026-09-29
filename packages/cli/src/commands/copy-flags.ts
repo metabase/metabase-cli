@@ -1,8 +1,7 @@
 import type { FlagValues } from "./flag-values";
 
-import { ConfigError } from "@metabase/client/errors";
-
 import { parseOptionalInteger } from "./parse-integer";
+import { parseOptionalText } from "./parse-text";
 
 export const copyFlags = {
   name: { type: "string", description: "Name for the copy (default: the source name)" },
@@ -21,18 +20,11 @@ interface CopyTarget {
 
 export function parseCopyFlags(args: FlagValues<typeof copyFlags>): CopyTarget {
   return {
-    name: parseCopyName(args.name),
+    name: parseOptionalText(args.name, "--name"),
     collection_id: parseOptionalInteger(args["collection-id"], { name: "--collection-id", min: 1 }),
     collection_position: parseOptionalInteger(args["collection-position"], {
       name: "--collection-position",
       min: 1,
     }),
   };
-}
-
-function parseCopyName(name: string | undefined): string | undefined {
-  if (name !== undefined && name.trim() === "") {
-    throw new ConfigError("invalid --name: must not be blank");
-  }
-  return name;
 }
