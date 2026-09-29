@@ -4,6 +4,8 @@ import { createClient } from "../client";
 import { NetworkError } from "../errors";
 import type { ClientCredentials } from "../http/transport";
 import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
+import { KNOWN_RANGE } from "../version/known-range";
+import { createServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
   url: "https://mb.example.com/metabase",
@@ -37,11 +39,26 @@ const COMPILED = { query: "SELECT 1", params: null };
 
 const EMPTY_METADATA = { databases: [], tables: [], fields: [], snippets: [] };
 
+// The newest server in the window, whose compile answer carries a document query's collection.
+const SERVER = createServerProfile({
+  edition: "oss",
+  version: {
+    kind: "release",
+    tag: `v0.${KNOWN_RANGE.max}.0`,
+    major: KNOWN_RANGE.max,
+    patch: 0,
+  },
+  date: null,
+  hash: null,
+  tokenFeatures: null,
+});
+
 function clientOver(responses: Array<Response>) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
     userAgent: TEST_USER_AGENT,
     fetchImpl: capture.fetch,
+    server: SERVER,
   });
   return { mb, capture };
 }

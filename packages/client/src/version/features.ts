@@ -38,6 +38,7 @@ export const FEATURE_RULES = {
   invalidMbqlIsBadRequest: { since: 59 },
   boxplotDisplay: { since: 59 },
   nativeTableTemplateTag: { since: 59 },
+  compiledQueryOmitsCollection: { since: 59, until: 62 },
   smartLinkMeasureModel: { since: 60 },
   dashboardSubscriptionFilters: { since: 58, tokenFeature: "dashboard_subscription_filters" },
   dependencyGraph: { since: 58, tokenFeature: "dependencies" },

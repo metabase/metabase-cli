@@ -1,5 +1,5 @@
 import { CardQueryResult } from "../domain/card";
-import { CompiledQuery, QueryMetadata } from "../domain/dataset";
+import { type CompiledQuery, compiledQuerySchema, QueryMetadata } from "../domain/dataset";
 import type { DatasetQuery, ExportFormat, VisualizationSettings } from "../domain/query";
 import type { RequestOptions, Transport } from "../http/transport";
 import { assertPivotedExport } from "./pivot-export";
@@ -40,7 +40,8 @@ export function datasetResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<CompiledQuery> {
     await transport.require("dataset.native", options);
-    return transport.requestParsed(CompiledQuery, "/api/dataset/native", {
+    const { features } = await transport.server(options);
+    return transport.requestParsed(compiledQuerySchema(features), "/api/dataset/native", {
       ...options,
       method: "POST",
       body: { ...datasetQuery, pretty: params.pretty },

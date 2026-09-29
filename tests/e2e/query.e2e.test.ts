@@ -13,7 +13,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { assertCompactColumns, assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
-import { QUERY_NORMALIZATION_MESSAGE } from "./server-gate";
+import { QUERY_NORMALIZATION_MESSAGE, serverHas } from "./server-gate";
 import { SEEDED } from "./seed/seeded";
 
 const VALID_QUERY = {
@@ -76,6 +76,12 @@ function ordersByStatusNative(): Record<string, unknown> {
     database: SEEDED.warehouseDbId,
     native: { query: ORDERS_BY_STATUS_SQL },
   };
+}
+
+// A server that drops the compiled query's collection from every answer cannot say whether it has
+// one.
+function compiledCollection(): Pick<CompiledQuery, "collection"> {
+  return serverHas("compiledQueryOmitsCollection") ? { collection: null } : {};
 }
 
 describe("query e2e", () => {
@@ -414,6 +420,7 @@ describe("query e2e", () => {
     expect(compiled).toEqual({
       query: expect.stringContaining('FROM\n  "public"."orders"'),
       params: null,
+      ...compiledCollection(),
     });
   });
 
@@ -430,6 +437,7 @@ describe("query e2e", () => {
     expect(compiled).toEqual({
       query: expect.stringContaining(' FROM "public"."orders"'),
       params: null,
+      ...compiledCollection(),
     });
     expect(compiled.query).not.toContain("\n");
   });
