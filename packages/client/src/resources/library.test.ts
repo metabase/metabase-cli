@@ -213,7 +213,7 @@ describe("library resource wire requests", () => {
         url: "https://mb.example.com/metabase/api/ee/data-studio/table/publish-tables",
         method: "POST",
         headers: JSON_REQUEST_HEADERS,
-        body: '{"collection_id":11,"table_ids":[3,4],"schema_ids":["1:pub"]}',
+        body: '{"schema_ids":["1:pub"],"table_ids":[3,4],"collection_id":11}',
       },
     ]);
   });
