@@ -44,7 +44,7 @@ import {
   type CommonArgs,
   type CommonContext,
 } from "./context";
-import { assertKnownFlags } from "./known-flags";
+import { assertArgv } from "./argv";
 
 export { SKIP_PREFLIGHT_ENV };
 
@@ -81,7 +81,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
       try {
         reportFormat = resolveOutputFormat(commonArgs);
         const ctx = resolveCommonFlags(commonArgs);
-        assertKnownFlags(rawArgs, def.args);
+        assertArgv(rawArgs, def.args);
         let cachedConfig: ResolvedConfig | null = null;
         let cachedClient: MetabaseClient | null = null;
         const getResolvedConfig = async (): Promise<ResolvedConfig> => {

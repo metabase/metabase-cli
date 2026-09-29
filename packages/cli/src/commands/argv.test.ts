@@ -3,7 +3,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import { ConfigError } from "@metabase/client/errors";
 
-import { assertKnownFlags } from "./known-flags";
+import { assertArgv } from "./argv";
 
 const ARGS: ArgsDef = {
   format: { type: "string", default: "auto" },
@@ -21,20 +21,20 @@ function thrownBy(run: () => void): unknown {
   } catch (error: unknown) {
     return error;
   }
-  throw new Error("expected assertKnownFlags to throw");
+  throw new Error("expected assertArgv to throw");
 }
 
 function expectUnknownFlag(rawArgs: readonly string[], display: string): void {
-  const error = thrownBy(() => assertKnownFlags(rawArgs, ARGS));
+  const error = thrownBy(() => assertArgv(rawArgs, ARGS));
   expect(error).toBeInstanceOf(ConfigError);
   assert(error instanceof ConfigError, "expected ConfigError");
   expect(error.message).toBe(`unknown flag: ${display}`);
 }
 
-describe("assertKnownFlags", () => {
+describe("assertArgv", () => {
   it("accepts declared flags across camelCase, kebab-case, alias, and inline-value forms", () => {
     expect(() =>
-      assertKnownFlags(
+      assertArgv(
         ["--json", "--max-bytes", "0", "--maxBytes=0", "-m", "card", "--filter=mine", "42"],
         ARGS,
       ),
@@ -42,11 +42,11 @@ describe("assertKnownFlags", () => {
   });
 
   it("does not flag a positional argument", () => {
-    expect(() => assertKnownFlags(["42"], ARGS)).not.toThrow();
+    expect(() => assertArgv(["42"], ARGS)).not.toThrow();
   });
 
   it("does not treat the value of a value-flag as a flag, even when it starts with a dash", () => {
-    expect(() => assertKnownFlags(["--models", "-weird-value"], ARGS)).not.toThrow();
+    expect(() => assertArgv(["--models", "-weird-value"], ARGS)).not.toThrow();
   });
 
   it("rejects an unknown flag and names it", () => {
@@ -66,7 +66,7 @@ describe("assertKnownFlags", () => {
   });
 
   it("accepts the negated form of a declared boolean flag", () => {
-    expect(() => assertKnownFlags(["--no-verified"], ARGS)).not.toThrow();
+    expect(() => assertArgv(["--no-verified"], ARGS)).not.toThrow();
   });
 
   it("rejects a negated unknown flag", () => {
@@ -74,11 +74,11 @@ describe("assertKnownFlags", () => {
   });
 
   it("stops checking after the -- separator", () => {
-    expect(() => assertKnownFlags(["--json", "--", "--not-a-flag"], ARGS)).not.toThrow();
+    expect(() => assertArgv(["--json", "--", "--not-a-flag"], ARGS)).not.toThrow();
   });
 
   it("allows the builtin --help and --version flags", () => {
-    expect(() => assertKnownFlags(["--help"], ARGS)).not.toThrow();
-    expect(() => assertKnownFlags(["--version"], ARGS)).not.toThrow();
+    expect(() => assertArgv(["--help"], ARGS)).not.toThrow();
+    expect(() => assertArgv(["--version"], ARGS)).not.toThrow();
   });
 });
