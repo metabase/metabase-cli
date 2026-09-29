@@ -129,17 +129,23 @@ export function dependencyResource(transport: Transport) {
   }
 
   /**
-   * Walk the entities nothing depends on, one page at a time. `types` and `card-types` narrow
-   * which kinds are listed, `query` matches against names and locations,
+   * Walk the entities that no readable, unarchived dependent depends on, one page at a time: an
+   * entity used only by archived content, or by content the caller cannot read, is listed. `types`
+   * and `card-types` narrow which kinds are listed, `query` matches against names and locations,
    * `include-personal-collections` admits content in personal collections, and `sort-column` /
-   * `sort-direction` order the result. This endpoint pages on the server, so the caller consumes
-   * pages and decides how far to pull.
+   * `sort-direction` order the result. A `query` leaves sandboxes out, since they have no name or
+   * location to match, so sandboxes alone with a `query` answer one empty page without a request.
+   * This endpoint pages on the server, so the caller consumes pages and decides how far to pull.
    */
   async function* unreferencedPages(
     params: DependencyItemListParams = {},
     options: DependencyItemPageOptions = {},
   ): AsyncIterable<Page<DependencyNode>> {
     await transport.require("dependency.unreferencedPages", options);
+    if (queryLeavesNoKind(params)) {
+      yield { items: [], total: 0 };
+      return;
+    }
     yield* paginatePages(transport, "/api/ee/dependencies/graph/unreferenced", DependencyNode, {
       query: itemListQuery(params),
       ...(options.offset !== undefined && { offset: options.offset }),
@@ -161,6 +167,10 @@ export function dependencyResource(transport: Transport) {
     options: DependencyItemPageOptions = {},
   ): AsyncIterable<Page<BreakingSource>> {
     await transport.require("dependency.breakingPages", options);
+    if (queryLeavesNoKind(params)) {
+      yield { items: [], total: 0 };
+      return;
+    }
     yield* paginatePages(transport, "/api/ee/dependencies/graph/breaking", BreakingSource, {
       query: itemListQuery(params),
       ...(options.offset !== undefined && { offset: options.offset }),
@@ -173,9 +183,21 @@ export function dependencyResource(transport: Transport) {
   return { graph, dependents, broken, unreferencedPages, breakingPages };
 }
 
+// The server drops sandboxes from the kinds a `query` searches and builds one SQL union branch per
+// remaining kind; with sandboxes the only kind asked for, the union is empty and the request fails
+// instead of answering nothing.
+function queryLeavesNoKind(params: DependencyItemListParams): boolean {
+  const { query, types } = params;
+  if (query === undefined || types === undefined || types.length === 0) {
+    return false;
+  }
+  return types.every((type) => type === "sandbox");
+}
+
+// One union branch per listed kind, so a kind listed twice would list and count its entities twice.
 function itemListQuery(params: DependencyItemListParams): Record<string, QueryValue> {
   return {
-    types: params.types,
+    types: params.types === undefined ? undefined : [...new Set(params.types)],
     "card-types": params["card-types"],
     query: params.query,
     "include-personal-collections": params["include-personal-collections"],
