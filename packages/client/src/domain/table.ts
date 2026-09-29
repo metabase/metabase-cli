@@ -137,11 +137,11 @@ export const TableBulkEditFields = z.object({
   data_layer: TableDataLayerTier.nullable().optional(),
   entity_type: TableEntityType.nullable().optional(),
   owner_email: z.string().nullable().optional(),
-  owner_user_id: z.number().int().nullable().optional(),
+  owner_user_id: z.number().int().positive().nullable().optional(),
 });
 
-// Strict because the server closes the body on every generation that has the route, so a stray key
-// is refused here rather than as a 400.
+// Strict because the server drops a key it does not know and answers as if it had applied the
+// rest, so a stray key is refused here rather than silently ignored.
 export const TableBulkEditInput = TableSelectors.extend(TableBulkEditFields.shape).strict();
 export type TableBulkEditInput = z.infer<typeof TableBulkEditInput>;
 
