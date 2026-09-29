@@ -33,6 +33,7 @@ const TABLE = {
   db_id: 1,
   schema: "public",
   entity_type: "entity/TransactionTable",
+  active: true,
 };
 
 const JSON_REQUEST_HEADERS = {

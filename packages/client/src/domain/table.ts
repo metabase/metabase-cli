@@ -27,7 +27,7 @@ export const Table = z
     schema: z.string().nullable(),
     entity_type: TableEntityType.nullable(),
     visibility_type: TableVisibilityType.nullable().optional(),
-    active: z.boolean().optional(),
+    active: z.boolean(),
     is_published: z.boolean().optional(),
     collection_id: z.number().int().nullable().optional(),
     fields: z.array(Field).optional(),
