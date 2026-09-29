@@ -90,13 +90,14 @@ function assertPositionalCount(positionals: readonly string[], argsDef: ArgsDef)
 }
 
 function assertFirstOccurrence(token: string, key: string, seen: Map<string, string>): void {
+  const spelling = displayFlag(token);
   const earlier = seen.get(key);
-  if (earlier !== undefined) {
-    throw new ConfigError(
-      `${displayFlag(token)} is given more than once (first as ${earlier}); pass it once`,
-    );
+  if (earlier === undefined) {
+    seen.set(key, spelling);
+    return;
   }
-  seen.set(key, displayFlag(token));
+  const also = earlier === spelling ? "" : ` (also as ${earlier})`;
+  throw new ConfigError(`${spelling} is given more than once${also}; pass it once`);
 }
 
 function assertValueFollows(token: string, value: string | undefined, keys: FlagKeys): void {
