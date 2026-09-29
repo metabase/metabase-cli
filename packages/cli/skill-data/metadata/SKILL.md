@@ -73,13 +73,13 @@ The full semantic-type catalog — every value grouped by the base type it attac
 
 ## Sync, scan, fingerprint — three different refreshes
 
-When a column looks stale or missing, know which one you need (`db` verbs, mechanics in `core`):
+When a column looks stale or missing, know which one you need (`db` and `table` verbs, mechanics in `core`):
 
 - **Sync** (`mb db sync-schema <id> --wait`) — re-reads table/column **structure** (new tables, new columns, types). Run after a schema change. `mb table sync-schema <id>` re-syncs one known table (columns, fingerprints, field values), never finds a new table, and offers nothing to wait on.
 - **Scan / rescan** (`mb db rescan-values <id>`, or `mb table rescan-values <id>` for one table) — refreshes the cached **distinct-value sets** behind dropdown filters, skipping a set unread for 14 days or never read. Run when a `list` column's values changed but its dropdown is stale. `mb table discard-values <id> --yes` deletes a table's sets and their custom display values; no scan recreates them, only the next read does.
 - **Fingerprint** — value-distribution stats (min/max, null count) computed on a sample; drives smart defaults. Refreshed by sync; not a separate CLI verb.
 
-A newly connected database or a missing expected column usually just needs a `sync-schema --wait` before you conclude anything.
+A newly connected database or a missing expected column usually just needs a `db sync-schema <id> --wait` before you conclude anything.
 
 <!-- requires: bulkTableSync -->
 
