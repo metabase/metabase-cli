@@ -109,11 +109,11 @@ function assertPositionalCount(positionals: readonly string[], argsDef: ArgsDef)
   if (extra === undefined) {
     return;
   }
-  const takes =
+  const detail =
     declared.length === 0
       ? "this command takes no positional arguments"
-      : `this command takes ${declared.join(" ")}`;
-  throw new ConfigError(`unexpected argument: "${extra}" (${takes})`);
+      : `this command takes ${declared.join(" ")}; quote an argument that contains spaces`;
+  throw new ConfigError(`unexpected argument: "${extra}" (${detail})`);
 }
 
 // Runs after every flag is read, so the joined spelling offered for a list flag holds only values
