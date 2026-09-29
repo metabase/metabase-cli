@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { NonBlankText } from "./text";
+
 const GlossaryCreator = z
   .object({
     id: z.number().int(),
@@ -33,8 +35,8 @@ export type GlossaryCompact = z.infer<typeof GlossaryCompact>;
 // here rather than let it vanish.
 export const GlossaryCreateInput = z
   .object({
-    term: z.string().min(1),
-    definition: z.string().min(1),
+    term: NonBlankText,
+    definition: NonBlankText,
   })
   .strict();
 export type GlossaryCreateInput = z.infer<typeof GlossaryCreateInput>;
