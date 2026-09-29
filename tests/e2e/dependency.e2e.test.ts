@@ -401,6 +401,12 @@ describe.skipIf(skipReason !== null)("dependency e2e against EE dependency endpo
     };
   }
 
+  function readsWarehouse(node: DependencyNodeCompact): boolean {
+    return (
+      node.data.database_id === SEEDED.warehouseDbId || node.data.db_id === SEEDED.warehouseDbId
+    );
+  }
+
   it("graph answers a card's upstream table once the backfill has run, the edge running from the card to the table", async () => {
     const cardId = await createOrdersCard();
     const edge = {
@@ -492,19 +498,13 @@ describe.skipIf(skipReason !== null)("dependency e2e against EE dependency endpo
     expect(envelope.total).toBe(envelope.returned);
   });
 
+  // Scoped to the seed's collection: servers before 60 also list the Usage analytics dashboards.
   it("unreferenced pages on the server: --limit 1 answers the first by name with a resumption point, --offset resumes", async () => {
     const scratchId = await createDashboard(null);
+    const scope = ["--types", "dashboard", "--query", DEFAULT_COLLECTION_NAME, "--limit", "1"];
 
-    const first = await runDependency("unreferenced", "--types", "dashboard", "--limit", "1");
-    const second = await runDependency(
-      "unreferenced",
-      "--types",
-      "dashboard",
-      "--limit",
-      "1",
-      "--offset",
-      "1",
-    );
+    const first = await runDependency("unreferenced", ...scope);
+    const second = await runDependency("unreferenced", ...scope, "--offset", "1");
 
     expect(first.exitCode, first.stderr).toBe(0);
     expect(parseJson(first.stdout, DependencyUnreferencedListEnvelope)).toEqual({
@@ -556,11 +556,13 @@ describe.skipIf(skipReason !== null)("dependency e2e against EE dependency endpo
     });
   });
 
-  it("breaking answers nothing when no dependent carries a query error", async () => {
+  // The Usage analytics content can carry query errors of its own, so only the warehouse is asserted.
+  it("breaking names no warehouse source when no seeded dependent carries a query error", async () => {
     const result = await runDependency("breaking");
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, DependencyBreakingListEnvelope)).toEqual(EMPTY_LIST);
+    const envelope = parseJson(result.stdout, DependencyBreakingListEnvelope);
+    expect(envelope.data.filter(readsWarehouse)).toEqual([]);
   });
 
   it("graph of a missing entity is Not found (exit 1)", async () => {

@@ -49,6 +49,8 @@ const HEALTH_POLL_INTERVAL_MS = 1000;
 const SYNC_TIMEOUT_MS = 90_000;
 const SYNC_POLL_INTERVAL_MS = 1000;
 const SYNC_MIN_TABLES = 5;
+const BACKFILL_TIMEOUT_MS = 120_000;
+const BACKFILL_POLL_INTERVAL_MS = 1000;
 
 const WAREHOUSE_DB_NAME = "Warehouse";
 const WAREHOUSE_CONNECTION = {
@@ -78,6 +80,7 @@ const SessionResponse = z.object({ id: z.string() });
 const ApiKeyResponse = z.object({ unmasked_key: z.string() }).loose();
 const AdminUserResponse = z.object({ personal_collection_id: z.number().int().positive() }).loose();
 const EntityWithIdResponse = z.object({ id: z.number() }).loose();
+const BackfillStatusResponse = z.object({ complete: z.boolean() }).loose();
 const FieldMeta = z.object({ id: z.number().int(), name: z.string() }).loose();
 const TableMeta = z
   .object({ id: z.number().int(), name: z.string(), fields: z.array(FieldMeta).optional() })
@@ -152,6 +155,9 @@ async function main(): Promise<void> {
   const limitedKeyUser = await limitedClient.requestParsed(CurrentUser, "/api/user/current");
   await assertLimitedKeyCannotQueryOrdersCard(limitedClient, seeded.ordersCardId);
 
+  if (createServerProfile(server).features.dependencyAsyncBackfill) {
+    await waitForDependencyBackfill(client);
+  }
   await captureSnapshot(client);
 
   await writeStoredBootstrap({
@@ -591,6 +597,18 @@ async function waitForDatabaseSync(client: Transport, databaseId: number): Promi
       client.requestParsed(DatabaseMetadataResponse, `/api/database/${databaseId}/metadata`),
     (metadata) => metadata.tables.length >= SYNC_MIN_TABLES,
     { intervalMs: SYNC_POLL_INTERVAL_MS, timeoutMs: SYNC_TIMEOUT_MS },
+  );
+}
+
+// The dependency graph is filled by a Quartz job whose state lives in the app DB. A snapshot taken
+// while the job still owes the seed and the Usage analytics content its first pass restores that
+// debt before every test, and can restore the job mid-run, so a fresh entity's edge never lands.
+async function waitForDependencyBackfill(client: Transport): Promise<void> {
+  await pollUntil(
+    async () =>
+      client.requestParsed(BackfillStatusResponse, "/api/ee/dependencies/backfill-status"),
+    (status) => status.complete,
+    { intervalMs: BACKFILL_POLL_INTERVAL_MS, timeoutMs: BACKFILL_TIMEOUT_MS },
   );
 }
 
