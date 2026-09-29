@@ -23,18 +23,55 @@ export function taskPollOptions(schedule: WaitSchedule): PollOptions {
   return { ...schedule, backoff: "exponential" };
 }
 
+// The server records the remote commit a conflicted task saw as the last sync, so after a conflict
+// neither a retry nor a merge detects the remote's changes any more.
+const CONFLICT_REMEDY =
+  "The server now counts the remote's commit as synced, so a retry, --merge included, would not see its changes: keep one side with import --force or export --force, or push Metabase's side to a new branch with create-branch then export.";
+
+// A plain export that finds the remote moved on ends in conflict with no entity to name: the
+// divergence itself is the conflict.
+const DIVERGED_EXPORT = "the remote branch moved past the last sync";
+
 export function throwIfFailedTask(final: SyncTask | null, verb: string): void {
   if (final === null || !isSyncTaskFailed(final.status)) {
     return;
   }
-  const detail = final.error_message ? `: ${final.error_message}` : "";
-  throw new Error(`git-sync ${verb} ${final.status}${detail}`);
+  const failure = withDetail(`git-sync ${verb} ${final.status}`, taskDetail(final));
+  if (final.status === "conflict") {
+    throw new Error(`${sentence(failure)} ${CONFLICT_REMEDY}`);
+  }
+  throw new Error(failure);
+}
+
+// A task that ends in conflict carries no error message: the labels of the entities it conflicted
+// on are its only account of what went wrong.
+function taskDetail(task: SyncTask): string | null {
+  if (task.error_message) {
+    return task.error_message;
+  }
+  const conflicts = task.conflicts ?? null;
+  if (conflicts !== null && conflicts.length > 0) {
+    return conflicts.join("; ");
+  }
+  if (task.status === "conflict" && task.sync_task_type === "export") {
+    return DIVERGED_EXPORT;
+  }
+  return null;
+}
+
+function withDetail(head: string, detail: string | null): string {
+  return detail === null ? head : `${head}: ${detail}`;
+}
+
+// Server messages and conflict labels may already end a sentence.
+function sentence(text: string): string {
+  return text.endsWith(".") ? text : `${text}.`;
 }
 
 export function formatSyncTask(task: SyncTask): string {
   const kind = task.sync_task_type === "export" ? "Export" : "Import";
   const label = `${kind} task #${task.id}`;
-  const detail = task.error_message ? `: ${task.error_message}` : "";
+  const detail = taskDetail(task);
   switch (task.status) {
     case "running": {
       const percent = task.progress === null ? "" : ` (${Math.round(task.progress * 100)}%)`;
@@ -44,13 +81,13 @@ export function formatSyncTask(task: SyncTask): string {
       return `${label} succeeded.`;
     }
     case "errored": {
-      return `${label} errored${detail}.`;
+      return sentence(withDetail(`${label} errored`, detail));
     }
     case "timed-out": {
-      return `${label} timed out${detail}.`;
+      return sentence(withDetail(`${label} timed out`, detail));
     }
     case "conflict": {
-      return `${label} hit conflicts${detail}.`;
+      return sentence(withDetail(`${label} hit conflicts`, detail));
     }
     case "cancelled": {
       return `${label} was cancelled.`;
