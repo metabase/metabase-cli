@@ -43,6 +43,18 @@ export function separatePositionals(rawArgs: readonly string[], argsDef: ArgsDef
   return [...flagTokens, ARGUMENT_SEPARATOR, ...positionals];
 }
 
+// The declared flags the user typed, by key: citty fills a flag's default in whether or not it
+// was typed.
+export function givenFlagKeys(rawArgs: readonly string[], argsDef: ArgsDef): ReadonlySet<string> {
+  const keys = new Set<string>();
+  for (const item of readArgv(rawArgs, flagSpellings(argsDef))) {
+    if (item.kind === "flag" && item.flag !== null && !item.flag.negated) {
+      keys.add(item.flag.key);
+    }
+  }
+  return keys;
+}
+
 // Refuses what citty would otherwise parse into something the user did not type: an undeclared
 // flag or a spelling citty does not bind; `--no-` on a flag that takes a value, which citty turns
 // into `false`; a value-taking flag whose value is missing, which citty fills with the next flag

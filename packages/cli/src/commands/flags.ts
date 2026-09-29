@@ -19,7 +19,8 @@ export const outputFlags = {
   },
   maxBytes: {
     type: "string",
-    description: `Output size cap; 0 disables (default: ${DEFAULT_MAX_BYTES})`,
+    description: "Output size cap; 0 disables",
+    default: String(DEFAULT_MAX_BYTES),
     alias: "max-bytes",
   },
 } as const;

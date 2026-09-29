@@ -44,7 +44,7 @@ import {
   type CommonArgs,
   type CommonContext,
 } from "./context";
-import { assertArgv } from "./argv";
+import { assertArgv, givenFlagKeys } from "./argv";
 
 export { SKIP_PREFLIGHT_ENV };
 
@@ -76,7 +76,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
     meta: def.meta,
     args: def.args,
     async run({ args, rawArgs }) {
-      const commonArgs = pickCommonArgs(args);
+      const commonArgs = pickCommonArgs(args, givenFlagKeys(rawArgs, def.args));
       let reportFormat: CommonContext["format"] | undefined;
       try {
         reportFormat = resolveReportFormat(commonArgs, rawArgs, def.args);
@@ -282,7 +282,10 @@ function resolveReportFormat(
   }
 }
 
-function pickCommonArgs<A extends ArgsDef>(args: ParsedArgs<A>): CommonArgs {
+function pickCommonArgs<A extends ArgsDef>(
+  args: ParsedArgs<A>,
+  given: ReadonlySet<string>,
+): CommonArgs {
   const out: CommonArgs = {};
   if (typeof args["format"] === "string") {
     out.format = args["format"];
@@ -296,7 +299,9 @@ function pickCommonArgs<A extends ArgsDef>(args: ParsedArgs<A>): CommonArgs {
   if (typeof args["fields"] === "string") {
     out.fields = args["fields"];
   }
-  if (typeof args["maxBytes"] === "string") {
+  // citty fills the default in; only a typed --max-bytes counts, so a command whose output it
+  // cannot cap can refuse it.
+  if (typeof args["maxBytes"] === "string" && given.has("maxBytes")) {
     out.maxBytes = args["maxBytes"];
   }
   if (typeof args["limit"] === "string") {
