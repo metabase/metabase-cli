@@ -6,6 +6,7 @@ import { listEnvelopeSchema } from "../output/types";
 import { windowServerPage } from "../output/window";
 import { parseEnumCsv } from "../runtime/csv";
 
+import type { CommonContext } from "./context";
 import { connectionFlags, listFlagsWithDefaultLimit, outputFlags, profileFlag } from "./flags";
 import { parseId, parseIdCsv } from "./parse-id";
 import { parseOptionalText } from "./parse-text";
@@ -16,6 +17,8 @@ import { defineMetabaseCommand } from "./runtime";
 // away. The window is the request, so it has to be sized before the request is made.
 const DEFAULT_LIMIT = 20;
 const SEARCH_MODELS_DESCRIPTION = `Comma-separated model filter: ${SEARCH_MODELS.join(",")}`;
+
+const RESULT_METADATA = "result_metadata";
 
 export const SearchListEnvelope = listEnvelopeSchema(SearchResultCompact);
 
@@ -74,7 +77,7 @@ export default defineMetabaseCommand({
     "include-metadata": {
       type: "boolean",
       description:
-        "Attach result_metadata to card, model and metric rows (needs --full or --fields)",
+        "Attach result_metadata to card, model and metric rows (needs --json --full, or --fields naming result_metadata)",
     },
     "include-dashboard-questions": {
       type: "boolean",
@@ -99,9 +102,9 @@ export default defineMetabaseCommand({
     const createdBy =
       createdByRaw === undefined ? undefined : parseIdCsv(createdByRaw, "--created-by");
     const includeMetadata = args["include-metadata"] === true;
-    if (includeMetadata && !ctx.full && ctx.fields === undefined) {
+    if (includeMetadata && !printsResultMetadata(ctx)) {
       throw new ConfigError(
-        "--include-metadata needs --full or --fields: the compact row drops result_metadata",
+        "--include-metadata needs --json --full, or --fields naming result_metadata: every other output drops it",
       );
     }
     const q = parseOptionalText(args.query, "query");
@@ -125,3 +128,14 @@ export default defineMetabaseCommand({
     renderList(windowServerPage(data, total, ctx.range), searchResultView, ctx);
   },
 });
+
+// A text list renders its columns whatever `--full` says, so only the full JSON row or a projection
+// that names the field carries what `include_metadata` makes the server look up.
+function printsResultMetadata(ctx: CommonContext): boolean {
+  if (ctx.fields !== undefined) {
+    return ctx.fields.some(
+      (path) => path === RESULT_METADATA || path.startsWith(`${RESULT_METADATA}.`),
+    );
+  }
+  return ctx.full && ctx.format === "json";
+}
