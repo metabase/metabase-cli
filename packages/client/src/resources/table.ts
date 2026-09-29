@@ -240,12 +240,24 @@ export function tableResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<TableBulkEditResult> {
     await transport.require("table.bulkEdit", options);
+    await requireDataAuthorityNull(params.data_authority, options);
     await transport.requestParsed(BulkEditResponse, BULK_EDIT_PATH, {
       ...options,
       method: "POST",
       body: params,
     });
     return { accepted: true, ...params };
+  }
+
+  // A server that keeps `data_authority` on the table itself, where the column is NOT NULL, has no
+  // `null` to store: the request fails there rather than withdrawing a value.
+  async function requireDataAuthorityNull(
+    value: TableBulkEditInput["data_authority"],
+    options: RequestOptions,
+  ): Promise<void> {
+    if (value === null) {
+      await transport.requireFeatures(["tableUserValueWithdrawal"], options);
+    }
   }
 
   // The selector endpoints answer no body, whether or not the selectors matched a table, so a
