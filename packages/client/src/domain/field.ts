@@ -283,6 +283,35 @@ const FieldRemappedSingle = z
 export const FieldRemappedValue = z.union([FieldRemappedPair, FieldRemappedSingle]);
 export type FieldRemappedValue = z.infer<typeof FieldRemappedValue>;
 
+// A server that runs the lookup with display remapping on appends a display column after the one or
+// two columns asked for, for each of them that has one, so the row has one to four cells. The first
+// two are the pair unless the two ids name one field, whose value is then its own remapping.
+const FieldRemappedRowWireV59 = z.array(z.unknown()).min(1);
+
+function firstTwoCells(row: unknown[]): FieldRemappedValue {
+  const [value, second] = row;
+  return row.length === 1 ? [value, value] : [value, second];
+}
+
+function valueTwice(row: unknown[]): FieldRemappedValue {
+  const [value] = row;
+  return [value, value];
+}
+
+/**
+ * The row `GET /api/field/{id}/remapping/{remapped-id}` answers on a server with `features`, read as
+ * `FieldRemappedValue`. `sameField` says the two ids name one field.
+ */
+export function fieldRemappedValueSchema(
+  features: Features,
+  sameField: boolean,
+): z.ZodType<FieldRemappedValue> {
+  if (!features.fieldRemappingAppendsDisplayColumns) {
+    return FieldRemappedValue;
+  }
+  return FieldRemappedRowWireV59.transform(sameField ? valueTwice : firstTwoCells);
+}
+
 export const FieldSummary = z.object({
   field_id: z.number().int(),
   count: z.number().int(),

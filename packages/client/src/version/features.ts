@@ -30,6 +30,7 @@ export const FEATURE_RULES = {
   transformJobRunIdIsNumeric: { since: 64 },
   transformCheckpointReset: { since: 60 },
   fieldDataSensitivity: { since: 64 },
+  fieldRemappingAppendsDisplayColumns: { since: 58, until: 59 },
   transformDagRuns: { since: 64 },
   unifiedTransformRuns: { since: 64 },
   transformTests: { since: 65, tokenFeature: "transforms-testing" },

@@ -4,7 +4,8 @@ import {
   type FieldDataSensitivity,
   type FieldDetail,
   fieldDetailSchema,
-  FieldRemappedValue,
+  type FieldRemappedValue,
+  fieldRemappedValueSchema,
   FieldSearchMatches,
   type FieldSummary,
   type FieldUpdateInput,
@@ -131,10 +132,11 @@ export function fieldResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<FieldRemappedValue | null> {
     await transport.require("field.remapping", options);
+    const { features } = await transport.server(options);
     return fetchOptionalParsed(
       transport,
       `/api/field/${id}/remapping/${remappedId}`,
-      FieldRemappedValue,
+      fieldRemappedValueSchema(features, id === remappedId),
       { ...options, query: { value: params.value } },
     );
   }
