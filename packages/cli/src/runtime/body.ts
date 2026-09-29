@@ -3,7 +3,7 @@ import type { ZodType } from "zod";
 import { ConfigError } from "@metabase/client/errors";
 import { parseJson } from "@metabase/client/json";
 
-import { DEFAULT_FLAG_NAME, readInput, type InputSources } from "./input";
+import { DEFAULT_FLAG_NAME, givenValue, readInput, type InputSources } from "./input";
 
 interface BodySources extends InputSources {
   source?: string | undefined;
@@ -17,13 +17,13 @@ export async function readBody<T>(sources: BodySources, schema: ZodType<T>): Pro
 
 function assertSingleSource(sources: BodySources): void {
   const provided: string[] = [];
-  if (sources.flag !== undefined && sources.flag !== "") {
+  if (givenValue(sources.flag) !== null) {
     provided.push(DEFAULT_FLAG_NAME);
   }
-  if (sources.file !== undefined && sources.file !== "") {
+  if (givenValue(sources.file) !== null) {
     provided.push("--file");
   }
-  if (sources.positional !== undefined && sources.positional !== "") {
+  if (givenValue(sources.positional) !== null) {
     provided.push("positional");
   }
   if (provided.length > 1) {
