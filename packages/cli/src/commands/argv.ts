@@ -121,8 +121,12 @@ function assertValueFollows(
   }
 }
 
-// A declared flag in the value's place is taken as the value, though it was surely meant as the
-// flag.
+// citty strips every `--no-…` token before parsing, so one is never a value: the flag takes the
+// token after it instead. A declared flag in the value's place is taken as the value, though it
+// was surely meant as the flag.
 function readsAsFlag(value: string, spellings: FlagSpellings): boolean {
-  return isFlagToken(value) && parseFlagToken(value, spellings).flag !== null;
+  if (!isFlagToken(value)) {
+    return false;
+  }
+  return value.startsWith(NEGATION_PREFIX) || parseFlagToken(value, spellings).flag !== null;
 }
