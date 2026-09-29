@@ -2094,7 +2094,7 @@ mb git-sync branches --json
 
 ### `mb git-sync create-branch <name>`
 
-Create a new branch on the git remote (from the last imported version) and switch sync to it.
+Create a new branch on the git remote and switch sync to it. The branch starts at the last synced commit, or at the tracked branch's tip when nothing has synced yet; nothing is exported until the next `git-sync export`.
 
 ```sh
 mb git-sync create-branch feat/dashboards

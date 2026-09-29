@@ -134,7 +134,7 @@ If the branch is `main` or `master`, prompt with `AskUserQuestion`:
 
 > "The instance is tracking `<branch>` — exporting commits straight to it. Switch to a feature branch first?"
 >
-> 1. **Create a feature branch** — agent suggests a name (e.g., `agent/<task>`); run `mb git-sync create-branch <name> --profile <n>`. This exports current dirty state to the new branch and switches the instance's tracked branch to it; subsequent `git-sync export` calls go to that branch.
+> 1. **Create a feature branch** — agent suggests a name (e.g., `agent/<task>`); run `mb git-sync create-branch <name> --profile <n>`. This creates the branch on the remote from the last synced commit (the tracked branch's tip when nothing has synced yet) and switches the instance's tracked branch to it; the next `git-sync export` pushes the dirty state there.
 > 2. **Proceed on `main`/`master`** — explicitly accepted.
 
 Skip the prompt only if the user's instructions already specified the branch (e.g., they explicitly said "export to main" or named a feature branch). Don't silently default to whatever `remote-sync-branch` happens to point at.
