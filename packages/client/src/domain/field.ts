@@ -271,8 +271,16 @@ export const FieldSearchMatches = z.array(
 );
 export type FieldSearchMatches = z.infer<typeof FieldSearchMatches>;
 
+const FieldRemappedPair = z.tuple([z.unknown(), z.unknown()]);
+
+// The server deduplicates the columns it selects, so when the field (after following an FK) and the
+// remapped field are one column the row carries it once, and that value is its own remapping.
+const FieldRemappedSingle = z
+  .tuple([z.unknown()])
+  .transform(([value]): z.infer<typeof FieldRemappedPair> => [value, value]);
+
 // `[value, remapped]` for the one row whose field equals the value asked about.
-export const FieldRemappedValue = z.tuple([z.unknown(), z.unknown()]);
+export const FieldRemappedValue = z.union([FieldRemappedPair, FieldRemappedSingle]);
 export type FieldRemappedValue = z.infer<typeof FieldRemappedValue>;
 
 export const FieldSummary = z.object({

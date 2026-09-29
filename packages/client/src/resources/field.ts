@@ -121,7 +121,8 @@ export function fieldResource(transport: Transport) {
 
   /**
    * The value of `remappedId` on the one row where `id` equals `value`, as `[value, remapped]`,
-   * or `null` when no row matches. `value` is parsed as a number for a numeric field.
+   * or `null` when no row matches. For a numeric field the server reads the leading number of
+   * `value` and ignores any text after it, refusing only a `value` that has none.
    */
   async function remapping(
     id: number,
