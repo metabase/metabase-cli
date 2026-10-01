@@ -102,22 +102,26 @@ Log in to a Metabase instance and save the credential to a profile. Interactive 
 - **In your browser** (recommended; requires Metabase v63 or newer) — the CLI opens Metabase, you sign in with your password or SSO and approve the CLI, and a short-lived access token plus a rotating refresh token are stored. Tokens refresh automatically; you never paste a secret.
 - **With an API key** — paste a key from Admin settings → Authentication → API keys.
 
+On a machine with no browser — an SSH session, or a Linux box with neither `DISPLAY` nor `WAYLAND_DISPLAY` — browser login doesn't try to launch one. It prints the authorization URL: open it in a browser on any machine, approve, and the browser is redirected to `http://127.0.0.1:<port>/callback?code=…&state=…`. That page fails to load when the browser runs elsewhere, but its address bar holds the URL; paste it at the prompt. The paste is checked against the login's `state` exactly as the redirect would be, and surrounding whitespace, a missing scheme, a trailing `/` after `/callback` and the backslashes zsh's `url-quote-magic` adds are tolerated. The loopback listener stays up meanwhile, so an SSH port forward (`ssh -L <port>:127.0.0.1:<port>`) or replaying the redirect with `curl` on the same machine completes the login too — whichever arrives first wins. `--no-browser` picks this path explicitly; `--browser` launches a browser anyway. Setting `$BROWSER` counts as having one.
+
 Against a server older than v63 the CLI detects the missing OAuth support and falls back to the API key prompt automatically. Supplying an API key (flag, env, or stdin) always skips the browser flow, so CI and scripts behave exactly as before.
 
 On success the server is probed once — the rendered output shows the user, role (`Admin`/`User`), Metabase version and skew (`--json` adds `edition`, `knownRange` and `features`), and the probe is cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good credential and gains a `lastFailure` entry.
 
-| Flag                     | Description                                                                                                                                    |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `MB_URL`, then prompts. |
-| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead.                                                             |
-| `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                       |
-| `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                      |
-| `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                       |
+| Flag                     | Description                                                                                                                                                                   |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `MB_URL`, then prompts.                                |
+| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead.                                                                                            |
+| `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                                                      |
+| `--no-browser`           | Don't launch a browser; print the authorization URL and paste back the URL the browser was redirected to. Auto-selected over SSH or without a display; `--browser` overrides. |
+| `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                                                     |
+| `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                                                      |
 
 Non-interactive (non-TTY) login requires an API key; resolution order: `--api-key` → piped stdin → `MB_API_KEY` (first non-empty wins). Without one, non-interactive login fails rather than prompting.
 
 ```sh
 mb auth login                                            # interactive: browser or API key
+mb auth login --no-browser --url https://m.example.com   # headless: paste the redirect URL back
 echo "$MB_KEY" | mb auth login --url https://m.example.com
 mb auth login --url https://m.example.com < key.txt
 ```

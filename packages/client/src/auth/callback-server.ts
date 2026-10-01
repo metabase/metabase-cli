@@ -5,6 +5,7 @@ import { ConfigError } from "../errors";
 
 const LOOPBACK_HOST = "127.0.0.1";
 const CALLBACK_PATH = "/callback";
+const CALLBACK_PATH_SLASHED = `${CALLBACK_PATH}/`;
 const DEFAULT_TIMEOUT_MS = 300_000;
 
 export interface CallbackParams {
@@ -18,14 +19,21 @@ export interface CallbackServer {
   close(): void;
 }
 
-interface QueryResult {
+export interface CallbackQuery {
   code: string | null;
   state: string | null;
   error: string | null;
   errorDescription: string | null;
 }
 
-function parseCallbackQuery(rawUrl: string): QueryResult {
+// A redirect URL carries no literal backslash or whitespace, so both only ever come from the trip
+// through a terminal: zsh's url-quote-magic escapes `?`, `=` and `&` as it is pasted, and a long URL
+// wraps. Stripping them recovers the URL the browser was sent to.
+export function stripPasteArtifacts(raw: string): string {
+  return raw.replace(/[\\\s]/g, "");
+}
+
+export function parseCallbackQuery(rawUrl: string): CallbackQuery {
   const queryStart = rawUrl.indexOf("?");
   const params = new URLSearchParams(queryStart === -1 ? "" : rawUrl.slice(queryStart + 1));
   return {
@@ -36,10 +44,13 @@ function parseCallbackQuery(rawUrl: string): QueryResult {
   };
 }
 
-function isCallbackPath(rawUrl: string): boolean {
+export function isCallbackPath(path: string): boolean {
+  return path === CALLBACK_PATH || path === CALLBACK_PATH_SLASHED;
+}
+
+function requestPath(rawUrl: string): string {
   const queryStart = rawUrl.indexOf("?");
-  const path = queryStart === -1 ? rawUrl : rawUrl.slice(0, queryStart);
-  return path === CALLBACK_PATH;
+  return queryStart === -1 ? rawUrl : rawUrl.slice(0, queryStart);
 }
 
 // The message can carry attacker-controlled query content (error_description from the redirect),
@@ -94,8 +105,10 @@ export function startCallbackServer(
     let outcome: CallbackParams | Error | null = null;
 
     const server = createServer((req: IncomingMessage, res: ServerResponse) => {
-      const rawUrl = req.url ?? "";
-      if (!isCallbackPath(rawUrl)) {
+      // A redirect replayed by hand (curl from another shell) arrives with whatever the shell left
+      // in it, so it is cleaned the same way a pasted one is.
+      const rawUrl = req.url === undefined ? null : stripPasteArtifacts(req.url);
+      if (rawUrl === null || !isCallbackPath(requestPath(rawUrl))) {
         respond(res, 404, "Not found", "Unexpected request.");
         return;
       }

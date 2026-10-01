@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   browserOpener,
+  browserUnavailableReason,
   ProcessNotFoundError,
   runProcess,
   runProcessBinary,
@@ -80,6 +81,39 @@ function decodeCmdEscapes(escaped: string): string {
   }
   return decoded;
 }
+
+describe("browserUnavailableReason", () => {
+  const SSH = { SSH_CONNECTION: "10.0.0.1 50000 10.0.0.2 22" };
+
+  it("lets a desktop session open a browser", () => {
+    expect(browserUnavailableReason("darwin", {})).toBeNull();
+    expect(browserUnavailableReason("win32", {})).toBeNull();
+    expect(browserUnavailableReason("linux", { DISPLAY: ":0" })).toBeNull();
+    expect(browserUnavailableReason("linux", { WAYLAND_DISPLAY: "wayland-0" })).toBeNull();
+  });
+
+  it("refuses over SSH, where the browser would open on the remote host", () => {
+    expect(browserUnavailableReason("linux", { ...SSH, DISPLAY: "localhost:10.0" })).toBe(
+      "this is an SSH session",
+    );
+    expect(browserUnavailableReason("darwin", { SSH_TTY: "/dev/ttys001" })).toBe(
+      "this is an SSH session",
+    );
+  });
+
+  it("refuses on a Unix host with no display server", () => {
+    expect(browserUnavailableReason("linux", {})).toBe("no graphical display is available");
+    expect(browserUnavailableReason("freebsd", { DISPLAY: "" })).toBe(
+      "no graphical display is available",
+    );
+  });
+
+  it("trusts an explicit $BROWSER even over SSH", () => {
+    expect(
+      browserUnavailableReason("linux", { ...SSH, BROWSER: "/usr/bin/forward-open" }),
+    ).toBeNull();
+  });
+});
 
 describe("runProcess", () => {
   it("captures stdout and exit code 0", async () => {

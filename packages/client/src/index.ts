@@ -45,7 +45,12 @@ export type {
 } from "./errors";
 
 export { oauthLogin } from "./auth/oauth-login";
-export type { OAuthLoginDeps, OAuthLoginInput } from "./auth/oauth-login";
+export type {
+  OAuthLoginDeps,
+  OAuthLoginInput,
+  PastedRedirectPrompt,
+  PastedRedirectReader,
+} from "./auth/oauth-login";
 export { refreshOAuthCredential, revokeOAuthCredential } from "./auth/oauth-session";
 export type {
   ApiKeyCredential,

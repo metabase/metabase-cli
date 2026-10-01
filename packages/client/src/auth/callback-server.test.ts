@@ -1,3 +1,5 @@
+import { request } from "node:http";
+
 import { assert, describe, expect, it } from "vitest";
 
 import { ConfigError } from "../errors";
@@ -8,6 +10,20 @@ const STATE = "the-state";
 
 async function hit(redirectUri: string, query: string): Promise<Response> {
   return fetch(`${redirectUri}${query}`);
+}
+
+// fetch would normalize the path the way a browser does; a hand-replayed redirect (curl from a
+// shell) reaches the server byte for byte, so this sends the raw request target.
+function hitRaw(redirectUri: string, target: string): Promise<number | undefined> {
+  const { hostname, port } = new URL(redirectUri);
+  return new Promise((resolve, reject) => {
+    const req = request({ host: hostname, port, path: target }, (res) => {
+      res.resume();
+      resolve(res.statusCode);
+    });
+    req.on("error", reject);
+    req.end();
+  });
 }
 
 async function withServer(fn: (server: CallbackServer) => Promise<void>): Promise<void> {
@@ -76,6 +92,27 @@ describe("startCallbackServer", () => {
       const genuine = await hit(server.redirectUri, `?code=real-code&state=${STATE}`);
       expect(genuine.status).toBe(200);
       expect(await pending).toEqual({ code: "real-code", state: STATE });
+    });
+  });
+
+  it("accepts a trailing slash after /callback", async () => {
+    await withServer(async (server) => {
+      const pending = server.waitForCallback();
+      const response = await fetch(`${server.redirectUri}/?code=the-code&state=${STATE}`);
+      expect(response.status).toBe(200);
+      expect(await pending).toEqual({ code: "the-code", state: STATE });
+    });
+  });
+
+  it("accepts a redirect replayed with zsh url-quote-magic's backslash escapes", async () => {
+    await withServer(async (server) => {
+      const pending = server.waitForCallback();
+      const status = await hitRaw(
+        server.redirectUri,
+        `/callback\\?code\\=the-code\\&iss\\=https%3A%2F%2Fmb.example.com\\&state\\=${STATE}`,
+      );
+      expect(status).toBe(200);
+      expect(await pending).toEqual({ code: "the-code", state: STATE });
     });
   });
 
