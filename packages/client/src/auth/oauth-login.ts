@@ -7,8 +7,9 @@ import {
   type OAuthServerMetadata,
 } from "../http/oauth";
 
-import { startCallbackServer } from "./callback-server";
+import { startCallbackServer, type CallbackServer } from "./callback-server";
 import { oauthCredentialFromTokens, type OAuthCredential } from "./credential";
+import { parsePastedRedirect } from "./pasted-redirect";
 import { generatePkce, randomState } from "./pkce";
 
 export interface OAuthLoginInput {
@@ -24,10 +25,25 @@ export interface OAuthLoginInput {
   timeoutMs?: number;
 }
 
+// What a paste reader is handed: `validate` returns why an input cannot complete this login (or
+// null when it can), so a reader can re-ask on a bad paste; `signal` aborts once the loopback
+// redirect has won the race and the paste is no longer wanted.
+export interface PastedRedirectPrompt {
+  validate: (input: string) => string | null;
+  signal: AbortSignal;
+}
+
+export type PastedRedirectReader = (prompt: PastedRedirectPrompt) => Promise<string>;
+
 export interface OAuthLoginDeps {
   openBrowser: (url: string) => Promise<boolean>;
   onAuthorizeUrl: (url: string, opened: boolean) => void;
   now: () => number;
+  // Consulted only when `openBrowser` reports it did not open one: the browser that completes
+  // consent may then be on another machine, whose redirect to this machine's loopback never
+  // arrives. The user pastes the URL that browser landed on instead, and whichever of the paste and
+  // the loopback redirect comes first completes the login.
+  readPastedRedirect?: PastedRedirectReader;
 }
 
 function buildAuthorizeUrl(authorizationEndpoint: string, params: Record<string, string>): string {
@@ -86,11 +102,15 @@ export async function oauthLogin(
     const opened = await deps.openBrowser(authorizeUrl);
     deps.onAuthorizeUrl(authorizeUrl, opened);
 
-    const callback = await server.waitForCallback();
+    const code = await authorizationCode(
+      server,
+      state,
+      opened ? undefined : deps.readPastedRedirect,
+    );
 
     const tokens = await exchangeCode({
       tokenEndpoint: metadata.token_endpoint,
-      code: callback.code,
+      code,
       redirectUri: server.redirectUri,
       clientId,
       codeVerifier: pkce.verifier,
@@ -105,4 +125,45 @@ export async function oauthLogin(
   } finally {
     server.close();
   }
+}
+
+async function authorizationCode(
+  server: CallbackServer,
+  state: string,
+  readPastedRedirect: PastedRedirectReader | undefined,
+): Promise<string> {
+  if (readPastedRedirect === undefined) {
+    return (await server.waitForCallback()).code;
+  }
+  const pasteAbort = new AbortController();
+  try {
+    return await Promise.race([
+      server.waitForCallback().then((callback) => callback.code),
+      readPastedCode(readPastedRedirect, state, pasteAbort.signal),
+    ]);
+  } finally {
+    pasteAbort.abort();
+  }
+}
+
+async function readPastedCode(
+  readPastedRedirect: PastedRedirectReader,
+  state: string,
+  signal: AbortSignal,
+): Promise<string> {
+  const input = await readPastedRedirect({
+    validate: (candidate) => {
+      const parsed = parsePastedRedirect(candidate, state);
+      return parsed.kind === "invalid" ? parsed.reason : null;
+    },
+    signal,
+  });
+  const parsed = parsePastedRedirect(input, state);
+  if (parsed.kind === "denied") {
+    throw parsed.error;
+  }
+  if (parsed.kind === "invalid") {
+    throw new ConfigError(parsed.reason);
+  }
+  return parsed.code;
 }

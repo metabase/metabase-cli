@@ -54,7 +54,10 @@ OAuth authenticates as a person rather than as a service account. `oauthLogin` r
 authorization-code flow with PKCE against a loopback redirect: `openBrowser` and `onAuthorizeUrl` are
 the caller's, so the client never decides how a URL reaches a user, and `clientName` is what dynamic
 client registration persists on the user's Metabase. Access tokens expire and refresh tokens rotate,
-so a long-lived client passes `refreshCredential` and keeps the newest grant.
+so a long-lived client passes `refreshCredential` and keeps the newest grant. When `openBrowser` resolves
+`false` the browser may be on another machine, so an optional `readPastedRedirect` is asked for the URL
+the user's browser landed on; it races the loopback redirect, and its `validate` and `signal` let it
+re-ask on a bad paste and stand down when the redirect arrives first.
 
 Binding a loopback listener and waiting on a browser is not something a harness can drive unattended,
 so the block below is fenced `illustrative`: the extractor compiles it and stops there.

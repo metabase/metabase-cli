@@ -182,6 +182,37 @@ export function browserOpener(platform: NodeJS.Platform, url: string): BrowserOp
   return { command: "xdg-open", args: [url], windowsVerbatim: false };
 }
 
+const BROWSER_VAR = "BROWSER";
+const SSH_SESSION_VARS = ["SSH_CONNECTION", "SSH_TTY"] as const;
+const DISPLAY_VARS = ["DISPLAY", "WAYLAND_DISPLAY"] as const;
+
+function isSet(env: NodeJS.ProcessEnv, name: string): boolean {
+  const value = env[name];
+  return value !== undefined && value !== "";
+}
+
+// Why launching a browser here would not reach the person at the keyboard, or null when it should.
+// Over SSH a launched browser opens on the remote host's screen, if it has one; a Unix box with no
+// display server has nothing to open one on, and xdg-open may fall back to a text browser that
+// takes over the terminal. $BROWSER is the user naming an opener that works for this session (an
+// editor's remote terminal forwards it to the local machine), so it overrides both.
+export function browserUnavailableReason(
+  platform: NodeJS.Platform,
+  env: NodeJS.ProcessEnv,
+): string | null {
+  if (isSet(env, BROWSER_VAR)) {
+    return null;
+  }
+  if (SSH_SESSION_VARS.some((name) => isSet(env, name))) {
+    return "this is an SSH session";
+  }
+  const hasDisplay = DISPLAY_VARS.some((name) => isSet(env, name));
+  if (platform !== "darwin" && platform !== "win32" && !hasDisplay) {
+    return "no graphical display is available";
+  }
+  return null;
+}
+
 // Best-effort launch of the platform browser, detached so the CLI keeps running while the user
 // completes login. Resolves false (rather than throwing) when the opener binary is missing, so
 // callers can fall back to printing the URL for manual paste.

@@ -54,7 +54,7 @@ vi.mock("../http/oauth", async (importOriginal) => {
 import { TEST_USER_AGENT } from "../testing/fetch-capture";
 import { OAuthServerMetadata } from "../http/oauth";
 
-import { oauthLogin } from "./oauth-login";
+import { oauthLogin, type OAuthLoginDeps, type PastedRedirectPrompt } from "./oauth-login";
 
 const DEFAULT_TOKENS: OAuthTokens = {
   access_token: "acc",
@@ -96,6 +96,58 @@ function forgingThenGenuineBrowser(): (url: string) => Promise<boolean> {
     return true;
   };
 }
+
+interface AuthorizeRedirect {
+  redirectUri: string;
+  state: string;
+}
+
+function authorizeRedirect(authorizeUrl: string): AuthorizeRedirect {
+  const params = new URL(authorizeUrl).searchParams;
+  const redirectUri = params.get("redirect_uri");
+  const state = params.get("state");
+  assert(redirectUri !== null && state !== null, "expected redirect_uri and state");
+  return { redirectUri, state };
+}
+
+// A browser on another machine: nothing opens here, and the user pastes back where it landed.
+interface PastingUser {
+  announced: string[];
+  prompts: PastedRedirectPrompt[];
+}
+
+function announcedRedirect(user: PastingUser): AuthorizeRedirect {
+  const [url] = user.announced;
+  assert(url !== undefined, "expected the authorize URL to be announced");
+  return authorizeRedirect(url);
+}
+
+function onlyPrompt(user: PastingUser): PastedRedirectPrompt {
+  const [prompt] = user.prompts;
+  assert(prompt !== undefined, "expected the paste reader to be consulted");
+  return prompt;
+}
+
+function noBrowserDeps(
+  user: PastingUser,
+  paste: (redirect: AuthorizeRedirect) => Promise<string>,
+): OAuthLoginDeps {
+  return {
+    openBrowser: async () => false,
+    onAuthorizeUrl: (url: string) => user.announced.push(url),
+    readPastedRedirect: (prompt: PastedRedirectPrompt) => {
+      user.prompts.push(prompt);
+      return paste(announcedRedirect(user));
+    },
+    now: () => NOW,
+  };
+}
+
+const LOGIN_INPUT = {
+  baseUrl: "https://mb.example.com",
+  userAgent: TEST_USER_AGENT,
+  clientName: TEST_CLIENT_NAME,
+};
 
 describe("oauthLogin", () => {
   afterEach(() => {
@@ -287,5 +339,116 @@ describe("oauthLogin", () => {
     assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toContain("dynamic client registration disabled");
     expect(hoisted.registerCalls).toBe(0);
+  });
+
+  describe("without a browser", () => {
+    it("exchanges the code from the pasted redirect against the authorized redirect_uri", async () => {
+      const user: PastingUser = { announced: [], prompts: [] };
+      const credential = await oauthLogin(
+        LOGIN_INPUT,
+        noBrowserDeps(
+          user,
+          async ({ redirectUri, state }) => `${redirectUri}?code=pasted-code&state=${state}`,
+        ),
+      );
+      expect(credential.accessToken).toBe("acc");
+      expect(hoisted.exchange).toEqual({
+        tokenEndpoint: "https://mb.example.com/oauth/token",
+        code: "pasted-code",
+        redirectUri: announcedRedirect(user).redirectUri,
+        clientId: "client-xyz",
+        codeVerifier: expect.any(String),
+        userAgent: TEST_USER_AGENT,
+      });
+    });
+
+    it("completes on the loopback redirect and withdraws the paste prompt", async () => {
+      const user: PastingUser = { announced: [], prompts: [] };
+      const credential = await oauthLogin(
+        LOGIN_INPUT,
+        noBrowserDeps(user, async ({ redirectUri, state }) => {
+          await fetch(`${redirectUri}?code=loopback-code&state=${state}`);
+          return new Promise<string>(() => undefined);
+        }),
+      );
+      expect(credential.accessToken).toBe("acc");
+      expect(hoisted.exchange?.code).toBe("loopback-code");
+      expect(user.prompts.map((prompt) => prompt.signal.aborted)).toEqual([true]);
+    });
+
+    it("hands the reader a validator that holds pastes to this login's state", async () => {
+      const user: PastingUser = { announced: [], prompts: [] };
+      await oauthLogin(
+        LOGIN_INPUT,
+        noBrowserDeps(
+          user,
+          async ({ redirectUri, state }) => `${redirectUri}?code=c&state=${state}`,
+        ),
+      );
+      const prompt = onlyPrompt(user);
+      const { redirectUri, state } = announcedRedirect(user);
+      expect(prompt.validate(`${redirectUri}?code=c&state=${state}`)).toBeNull();
+      expect(prompt.validate(`${redirectUri}?code=c&state=stale`)).toBe(
+        "the pasted URL's state does not match this login; it belongs to a different or earlier attempt",
+      );
+      // A denial is a complete answer, not a bad paste: the reader returns it rather than re-asking.
+      expect(prompt.validate(`${redirectUri}?error=access_denied&state=${state}`)).toBeNull();
+    });
+
+    it("rejects with the denial when the pasted redirect carries an error", async () => {
+      const user: PastingUser = { announced: [], prompts: [] };
+      const error = await oauthLogin(
+        LOGIN_INPUT,
+        noBrowserDeps(
+          user,
+          async ({ redirectUri, state }) => `${redirectUri}?error=access_denied&state=${state}`,
+        ),
+      ).catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(ConfigError);
+      assert(error instanceof ConfigError, "expected ConfigError");
+      expect(error.message).toBe("authorization denied: access_denied");
+      expect(hoisted.exchange).toBeNull();
+    });
+
+    it("rejects a pasted redirect the reader passed through unvalidated", async () => {
+      const user: PastingUser = { announced: [], prompts: [] };
+      const error = await oauthLogin(
+        LOGIN_INPUT,
+        noBrowserDeps(user, async ({ redirectUri }) => `${redirectUri}?code=c&state=forged`),
+      ).catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(ConfigError);
+      assert(error instanceof ConfigError, "expected ConfigError");
+      expect(error.message).toBe(
+        "the pasted URL's state does not match this login; it belongs to a different or earlier attempt",
+      );
+      expect(hoisted.exchange).toBeNull();
+    });
+
+    it("times out while the paste prompt is open and withdraws it", async () => {
+      const user: PastingUser = { announced: [], prompts: [] };
+      const timeoutMs = 25;
+      const error = await oauthLogin(
+        { ...LOGIN_INPUT, timeoutMs },
+        noBrowserDeps(user, () => new Promise<string>(() => undefined)),
+      ).catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(ConfigError);
+      assert(error instanceof ConfigError, "expected ConfigError");
+      expect(error.message).toBe(`timed out waiting for browser login after ${timeoutMs}ms`);
+      expect(onlyPrompt(user).signal.aborted).toBe(true);
+    });
+
+    it("does not prompt for a paste when the browser opened", async () => {
+      const prompts: PastedRedirectPrompt[] = [];
+      await oauthLogin(LOGIN_INPUT, {
+        openBrowser: browserDriver(),
+        onAuthorizeUrl: () => undefined,
+        readPastedRedirect: async (prompt) => {
+          prompts.push(prompt);
+          return new Promise<string>(() => undefined);
+        },
+        now: () => NOW,
+      });
+      expect(prompts).toEqual([]);
+    });
   });
 });

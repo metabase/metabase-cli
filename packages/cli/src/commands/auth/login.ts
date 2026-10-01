@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import type { Credential } from "@metabase/client/auth/credential";
-import { oauthLogin } from "@metabase/client/auth/oauth-login";
+import { oauthLogin, type OAuthLoginDeps } from "@metabase/client/auth/oauth-login";
 import { revokeOAuthCredential } from "@metabase/client/auth/oauth-session";
 import { ConfigError, errorMessage, NetworkError, TimeoutError } from "@metabase/client/errors";
 import { tryDiscoverMetadata, type OAuthServerMetadata } from "@metabase/client/http/oauth";
@@ -24,12 +24,12 @@ import { ProbedUser } from "../../core/auth/profile-record";
 import { ServerSummary, summarizeServer } from "../../core/auth/server-summary";
 import { OAUTH_CLIENT_NAME, USER_AGENT } from "../../core/user-agent";
 import { warn } from "../../output/notice";
-import { promptPassword, promptSelect, promptText } from "../../output/prompt";
+import { promptLine, promptPassword, promptSelect, promptText } from "../../output/prompt";
 import { renderSummary } from "../../output/render";
 import { EMPTY_CELL } from "../../output/table";
 import type { ResourceView } from "../../output/view";
 import { interruptSignal } from "../../runtime/interrupt";
-import { openBrowser } from "../../runtime/process";
+import { browserUnavailableReason, openBrowser } from "../../runtime/process";
 import { readInput } from "../../runtime/input";
 import type { CommonContext } from "../context";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -71,7 +71,7 @@ const loginView: ResourceView<LoginResultJson> = {
 export default defineMetabaseCommand({
   meta: { name: "login", description: "Log in to a Metabase instance for a profile" },
   details:
-    "Interactive login offers browser OAuth (recommended; Metabase v63+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a refreshing access token. For CI/non-interactive use, supply an API key via --api-key, piped stdin, or $MB_API_KEY (first non-empty wins); any of these skips the browser flow, even on a TTY. The URL comes from --url or $MB_URL, prompted when stdin is a TTY.",
+    "Interactive login offers browser OAuth (recommended; Metabase v63+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a refreshing access token. On a machine without a browser (an SSH session, or no display) the CLI prints the authorization URL instead: open it in a browser anywhere, approve, and paste back the URL that browser is redirected to — it fails to load there, since it points at this machine's loopback, and the address bar still holds it. Pass --no-browser to choose that explicitly, or --browser to launch one anyway. For CI/non-interactive use, supply an API key via --api-key, piped stdin, or $MB_API_KEY (first non-empty wins); any of these skips the browser flow, even on a TTY. The URL comes from --url or $MB_URL, prompted when stdin is a TTY.",
   requires: ["user.current"],
   args: {
     ...outputFlags,
@@ -81,6 +81,11 @@ export default defineMetabaseCommand({
       type: "string",
       description: "Pre-registered OAuth client id (when dynamic registration is disabled)",
       alias: "client-id",
+    },
+    browser: {
+      type: "boolean",
+      description:
+        "Launch a browser for OAuth login (default: auto; off over SSH or without a display). Pass --no-browser to print the URL and paste the redirect back",
     },
     "skip-verify": {
       type: "boolean",
@@ -93,6 +98,7 @@ export default defineMetabaseCommand({
     "mb auth login --url https://metabase.example.com",
     "echo $MB_API_KEY | mb auth login --url https://metabase.example.com",
     "mb auth login --profile staging --url https://staging.example.com",
+    "mb auth login --no-browser --url https://metabase.example.com",
   ],
   async run({ args, ctx }) {
     const profileName = await resolveLoginProfile(args.profile);
@@ -149,7 +155,7 @@ export default defineMetabaseCommand({
         ...(metadata !== null && { metadata }),
         ...(args.clientId !== undefined && { clientId: args.clientId }),
       },
-      { openBrowser, onAuthorizeUrl: announceAuthorizeUrl, now: () => Date.now() },
+      browserLoginDeps(args.browser),
     );
     await completeLogin(profileName, url, credential, args["skip-verify"], ctx, () =>
       writeOAuthProfile(url, credential, profileName),
@@ -308,12 +314,38 @@ async function persistWithWarning(persist: PersistCredential): Promise<void> {
   consumeKeyringDowngradeWarning();
 }
 
+// `--browser` / `--no-browser` decide outright; unset, the CLI launches one only where it would
+// reach the person at the keyboard.
+function browserLoginDeps(browserFlag: boolean | undefined): OAuthLoginDeps {
+  const unavailable = browserUnavailableReason(process.platform, process.env);
+  const launch = browserFlag ?? unavailable === null;
+  if (browserFlag === undefined && unavailable !== null) {
+    warn(`Not opening a browser: ${unavailable} (pass --browser to open one anyway).`);
+  }
+  return {
+    openBrowser: launch ? openBrowser : async () => false,
+    onAuthorizeUrl: announceAuthorizeUrl,
+    readPastedRedirect: ({ validate, signal }) =>
+      promptLine({
+        message: PASTE_PROMPT,
+        validate,
+        signal: AbortSignal.any([signal, interruptSignal]),
+      }),
+    now: () => Date.now(),
+  };
+}
+
+const PASTE_PROMPT = "Paste the URL your browser was redirected to (or wait for the redirect):";
+
 function announceAuthorizeUrl(url: string, opened: boolean): void {
   if (opened) {
     warn(`Opening your browser to finish login. If it didn't open, visit:\n  ${url}`);
     return;
   }
-  warn(`Open this URL in your browser to finish login:\n  ${url}`);
+  warn(
+    `Open this URL in a browser on any machine to finish login:\n  ${url}\n` +
+      "After you approve, the browser is sent to an http://127.0.0.1 address. If that page fails to load, copy the full URL from its address bar.",
+  );
 }
 
 function formatVerifyFailureMessage(profileName: string, failure: VerifyFailure): string {
