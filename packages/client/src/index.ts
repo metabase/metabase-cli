@@ -21,6 +21,7 @@ export {
   ChainedRequestError,
   ConfigError,
   errorMessage,
+  FailedResultError,
   InternalError,
   isFileNotFoundError,
   MetabaseError,

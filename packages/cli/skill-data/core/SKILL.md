@@ -12,7 +12,7 @@ Top-level command groups (run `mb <group> --help` to discover verbs):
 
 ```
 auth | db | table | field | upload | content-translation | query | card | dashboard | snippet | segment | measure | collection | library
-document | glossary | timeline | timeline-event | transform | transform-job | transform-tag | alert | subscription | setting
+document | glossary | timeline | timeline-event | transform | transform-job | transform-tag | transform-test | alert | subscription | setting
 search | dependency | git-sync | setup | eid | uuid | upgrade | skills
 ```
 
@@ -171,6 +171,9 @@ This file is enough for any single-command task. For anything deeper, load the r
 - **`notification`** — scheduled delivery: question alerts (`mb alert`) and dashboard subscriptions (`mb subscription`). Choosing between them, the two schedule/recipient contracts, channel prerequisites, testing a send.
 <!-- requires: transforms -->
 - **`transform`** — transform body JSON, create + run-with-wait, run inspection, tags, jobs.
+  <!-- /requires -->
+  <!-- requires: transformTests -->
+- **`transform-test-plan`** — planning transform tests.
 <!-- /requires -->
 - **`document`** — Metabase documents (TipTap body, embedding cards).
 <!-- requires: remoteSync -->

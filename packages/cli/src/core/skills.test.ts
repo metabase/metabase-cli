@@ -682,6 +682,7 @@ describe("the shipped skills", () => {
       "data-action": ["dataActionsWithoutModel"],
       "git-sync": ["remoteSync"],
       transform: ["transforms"],
+      "transform-test-plan": ["transformTests"],
     });
     const withMarkersLeft = all
       .filter((skill) => {
@@ -702,6 +703,7 @@ describe("the shipped skills", () => {
       "native-sql",
       "notification",
       "transform",
+      "transform-test-plan",
       "visualization",
     ]);
     expect(withMarkersLeft).toEqual([]);

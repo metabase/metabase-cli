@@ -32,7 +32,7 @@ export type ExpectedContentType = "json" | "text" | "binary";
 
 export const DEFAULT_METHOD: HttpMethod = "GET";
 
-const DEFAULT_TIMEOUT_MS = 30_000;
+export const DEFAULT_TIMEOUT_MS = 30_000;
 const OCTET_STREAM_CONTENT_TYPE = "application/octet-stream";
 const TEXT_CONTENT_TYPE_PREFIX = "text/";
 const ERROR_BODY_BYTE_CAP = 64 * 1024;
