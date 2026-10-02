@@ -1056,6 +1056,72 @@ mb snippet archive 1
 mb snippet archive 1 --json
 ```
 
+## Data actions
+
+CRUD on `/api/action` plus `execute`. A data action is a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`) filed in a collection. Data actions are off by default: an admin must enable them on the target database first. `mb data-action create` authors data actions only — no `model_id`, no implicit data actions — and needs a server whose data actions do not require a model.
+
+### `mb data-action list`
+
+```sh
+mb data-action list
+mb data-action list --json
+```
+
+### `mb data-action get <id>`
+
+```sh
+mb data-action get 1
+mb data-action get 1 --json --full
+```
+
+### `mb data-action create`
+
+```sh
+cat data-action.json | mb data-action create
+mb data-action create --file data-action.json
+mb data-action create --file data-action.json --skip-validate
+```
+
+| Flag              | Description                                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--body <json>`   | Inline JSON body.                                                                                                                                      |
+| `--file <path>`   | Path to JSON body file.                                                                                                                                |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
+
+Body fields: `name` (required), `type` (required, `"query"`), `database_id` (required), `dataset_query` (required native query whose `{{tag}}` placeholders are its inputs), `parameters` (one per template tag), `collection_id` (optional; the root when omitted), `description`, `visualization_settings`.
+
+### `mb data-action update <id>`
+
+Patch a data action; the body carries only the fields to change (`name`, `database_id`, `dataset_query`, `parameters`, `collection_id`, `description`, `visualization_settings`, `archived`).
+
+```sh
+cat patch.json | mb data-action update 1
+mb data-action update 1 --body '{"name":"Rename an order"}'
+```
+
+### `mb data-action archive <id>`
+
+```sh
+mb data-action archive 1
+```
+
+### `mb data-action delete <id>`
+
+Delete a data action and the dashboard buttons that run it.
+
+```sh
+mb data-action delete 1 --yes
+```
+
+### `mb data-action execute <id>`
+
+Run a data action. The body is `{"parameters": {...}}` keyed by parameter id; the result reports `rows-affected`.
+
+```sh
+mb data-action execute 1 --body '{"parameters":{"id":1,"note":"rush"}}'
+mb data-action execute 1 --file values.json
+```
+
 ## Segments
 
 CRUD on `/api/segment`. A segment is a saved MBQL filter macro tied to a table — used in card filters to share a reusable predicate. Mutating endpoints require a `revision_message` for the audit log.
