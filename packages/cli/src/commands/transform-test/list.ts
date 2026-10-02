@@ -18,13 +18,16 @@ export default defineMetabaseCommand({
     ...listFlags,
     ...profileFlag,
     ...connectionFlags,
-    transform: { type: "string", description: "Only the tests of this transform id" },
+    "transform-id": { type: "string", description: "Only the tests of this transform id" },
   },
   outputSchema: TransformTestListEnvelope,
-  examples: ["mb transform-test list", "mb transform-test list --transform 1 --json"],
+  examples: ["mb transform-test list", "mb transform-test list --transform-id 1 --json"],
   async run({ args, ctx, getClient }) {
     const client = await getClient();
-    const transformId = args.transform === undefined ? undefined : parseId(args.transform);
+    const transformId =
+      args["transform-id"] === undefined
+        ? undefined
+        : parseId(args["transform-id"], "--transform-id");
     const { data } = await client.transformTest.list({ "transform-id": transformId });
     renderList(windowList(data, ctx.range), transformTestView, ctx);
   },

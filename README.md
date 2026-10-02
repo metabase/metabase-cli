@@ -401,12 +401,12 @@ mb transform-test get 1 --full --json \
 
 ```sh
 mb transform-test list --json
-mb transform-test list --transform 1
+mb transform-test list --transform-id 1
 ```
 
-| Flag               | Description                          |
-| ------------------ | ------------------------------------ |
-| `--transform <id>` | Only the tests of this transform id. |
+| Flag                  | Description                          |
+| --------------------- | ------------------------------------ |
+| `--transform-id <id>` | Only the tests of this transform id. |
 
 ### `mb transform-test get <id>`
 
