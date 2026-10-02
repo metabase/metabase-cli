@@ -26,6 +26,11 @@ const BUNDLED_VISIBLE_NAMES = [
   "core",
   "dashboard",
   "data-action",
+  "data-app",
+  "data-app-actions",
+  "data-app-migrate",
+  "data-app-routing",
+  "data-app-semantic-layer",
   "data-workflow",
   "document",
   "git-sync",
@@ -108,6 +113,29 @@ const DATA_ACTION_UNAVAILABLE_ON_58 = {
   },
 };
 
+function dataAppUnavailableOn58(name: string) {
+  return {
+    name,
+    failure: {
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v65+ (this server is v0.58.0). Upgrade Metabase to use it.",
+      feature: "dataApps",
+      since: 65,
+      tokenFeature: "data-apps",
+      serverVersion: "v0.58.0",
+    },
+  };
+}
+
+const DATA_APP_SKILLS = [
+  "data-app",
+  "data-app-actions",
+  "data-app-migrate",
+  "data-app-routing",
+  "data-app-semantic-layer",
+];
+
 const GIT_SYNC_UNAVAILABLE_ON_58 = {
   name: "git-sync",
   failure: {
@@ -121,7 +149,7 @@ const GIT_SYNC_UNAVAILABLE_ON_58 = {
   },
 };
 
-const FEATURE_BOUND_ON_58 = new Set(["data-action", "git-sync", "transform"]);
+const FEATURE_BOUND_ON_58 = new Set(["data-action", ...DATA_APP_SKILLS, "git-sync", "transform"]);
 
 describe("skills e2e", () => {
   const tempDirs: string[] = [];
@@ -136,11 +164,11 @@ describe("skills e2e", () => {
     return dir;
   }
 
-  it("ships exactly the twelve visible skills this suite names", () => {
+  it("ships exactly the seventeen visible skills this suite names", () => {
     expect(BUNDLED_VISIBLE.map((skill) => skill.name)).toEqual([...BUNDLED_VISIBLE_NAMES]);
   });
 
-  it("list returns the twelve bundled non-hidden skills, sorted by name, with `unavailable: null` and a clean stderr when there is no cached probe", async () => {
+  it("list returns the seventeen bundled non-hidden skills, sorted by name, with `unavailable: null` and a clean stderr when there is no cached probe", async () => {
     const result = await runCli({
       args: ["skills", "list", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -174,6 +202,7 @@ describe("skills e2e", () => {
       ...fullList(usable),
       unavailable: [
         DATA_ACTION_UNAVAILABLE_ON_58,
+        ...DATA_APP_SKILLS.map(dataAppUnavailableOn58),
         GIT_SYNC_UNAVAILABLE_ON_58,
         TRANSFORM_UNAVAILABLE_ON_58,
       ],
@@ -208,6 +237,10 @@ describe("skills e2e", () => {
     expect(result.stderr).toBe(
       [
         `Skipped skill "data-action": ${DATA_ACTION_UNAVAILABLE_ON_58.failure.detail} Pass --unfiltered to print it anyway.`,
+        ...DATA_APP_SKILLS.map(
+          (name) =>
+            `Skipped skill "${name}": ${dataAppUnavailableOn58(name).failure.detail} Pass --unfiltered to print it anyway.`,
+        ),
         `Skipped skill "git-sync": ${GIT_SYNC_UNAVAILABLE_ON_58.failure.detail} Pass --unfiltered to print it anyway.`,
         `Skipped skill "transform": ${TRANSFORM_UNAVAILABLE_ON_58.failure.detail} Pass --unfiltered to print it anyway.`,
       ].join("\n"),

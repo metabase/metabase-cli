@@ -23,6 +23,7 @@ const main: CommandDef = defineCommand({
     dashboard: () => import("./commands/dashboard").then((mod) => mod.default),
     subscription: () => import("./commands/subscription").then((mod) => mod.default),
     "data-action": () => import("./commands/data-action").then((mod) => mod.default),
+    "data-app": () => import("./commands/data-app").then((mod) => mod.default),
     alert: () => import("./commands/alert").then((mod) => mod.default),
     collection: () => import("./commands/collection").then((mod) => mod.default),
     library: () => import("./commands/library").then((mod) => mod.default),
