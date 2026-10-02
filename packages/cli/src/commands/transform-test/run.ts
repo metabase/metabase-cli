@@ -1,22 +1,16 @@
-import type {
-  TransformTestExpectationResult,
+import {
+  type TransformTestExpectationResult,
   TransformTestRunResult,
 } from "@metabase/client/domain/transform-test";
-import { TransformTestRunResult as TransformTestRunResultSchema } from "@metabase/client/domain/transform-test";
-import { FailedResultError } from "@metabase/client/errors";
+import { ConfigError, FailedResultError } from "@metabase/client/errors";
 import { DEFAULT_TIMEOUT_MS } from "@metabase/client/http/transport";
 
-import { renderSummary } from "../../output/render";
-import type { ResourceView } from "../../output/view";
+import { renderSummaryWithinMaxBytes } from "../../output/render";
+import { transformTestRunResultView } from "../../output/views/transform-test";
 import { interruptSignal } from "../../runtime/interrupt";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
-
-const transformTestRunResultView: ResourceView<TransformTestRunResult> = {
-  compactPick: TransformTestRunResultSchema,
-  tableColumns: [{ key: "status", label: "Status" }],
-};
 
 type ExpectationStatus = TransformTestExpectationResult["status"];
 
@@ -43,7 +37,7 @@ function summaryLine(id: number, result: TransformTestRunResult): string {
 export default defineMetabaseCommand({
   meta: { name: "run", description: "Run a transform test by id" },
   details:
-    "Runs the transform against temp tables built from the test's inputs, checks every expectation against its output, and drops the temp tables. The transform and the expectations read only those temp tables; a `format: \"sql\"` input runs verbatim against the transform's source database. The run is one synchronous request, so --timeout bounds the whole of it. --json reports what each expectation found, including the rows a comparison disagreed on. A test that does not pass exits 1.",
+    "Runs the transform against temp tables built from the test's inputs, checks every expectation against its output, and drops the temp tables. The transform and the expectations read only those temp tables; a `format: \"sql\"` input runs verbatim against the transform's source database. The run is one synchronous request, so --timeout bounds the whole of it. --json reports what each expectation found, including the rows a comparison disagreed on. A test that does not pass exits 1, also when its report is over --max-bytes and is not printed; the error then names the expectations that did not pass.",
   requires: ["transformTest.run"],
   args: {
     ...outputFlags,
@@ -56,7 +50,7 @@ export default defineMetabaseCommand({
     },
     id: { type: "positional", description: "Transform test id", required: true },
   },
-  outputSchema: TransformTestRunResultSchema,
+  outputSchema: TransformTestRunResult,
   examples: [
     "mb transform-test run 1",
     "mb transform-test run 1 --json",
@@ -67,9 +61,17 @@ export default defineMetabaseCommand({
     const timeoutMs = parseId(args.timeout, "timeout");
     const client = await getClient();
     const result = await client.transformTest.run(id, { timeoutMs, signal: interruptSignal });
-    renderSummary(result, transformTestRunResultView, summaryLine(id, result), ctx);
-    if (result.status !== "passed") {
-      throw new FailedResultError(`transform test ${id} ${result.status}`);
+    const summary = summaryLine(id, result);
+    const oversize = renderSummaryWithinMaxBytes(result, transformTestRunResultView, summary, ctx);
+    if (result.status === "passed") {
+      if (oversize !== null) {
+        throw new ConfigError(oversize);
+      }
+      return;
     }
+    // The run has already happened, so a report too big to print still owes the caller its outcome.
+    const failure =
+      oversize === null ? `transform test ${id} ${result.status}` : `${summary} Its ${oversize}`;
+    throw new FailedResultError(failure);
   },
 });

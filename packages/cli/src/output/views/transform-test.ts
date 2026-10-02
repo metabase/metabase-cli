@@ -1,4 +1,8 @@
-import { type TransformTest, TransformTestCompact } from "@metabase/client/domain/transform-test";
+import {
+  type TransformTest,
+  TransformTestCompact,
+  TransformTestRunResult,
+} from "@metabase/client/domain/transform-test";
 
 import type { ResourceView } from "../view";
 
@@ -10,4 +14,9 @@ export const transformTestView: ResourceView<TransformTest> = {
     { key: "name", label: "Name" },
     { key: "description", label: "Description" },
   ],
+};
+
+export const transformTestRunResultView: ResourceView<TransformTestRunResult> = {
+  compactPick: TransformTestRunResult,
+  tableColumns: [{ key: "status", label: "Status" }],
 };
