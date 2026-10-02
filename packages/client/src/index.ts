@@ -21,6 +21,7 @@ export {
   ChainedRequestError,
   ConfigError,
   errorMessage,
+  FailedResultError,
   InternalError,
   isFileNotFoundError,
   MetabaseError,
@@ -149,6 +150,16 @@ export {
   DashcardCompact,
   DashcardPatchInput,
 } from "./domain/dashboard";
+export {
+  DataAction,
+  DataActionCompact,
+  DataActionCreateInput,
+  DataActionExecuteInput,
+  DataActionExecuteResult,
+  DataActionParameter,
+  dataActionSchema,
+  DataActionUpdateInput,
+} from "./domain/data-action";
 export {
   Database,
   DatabaseCompact,

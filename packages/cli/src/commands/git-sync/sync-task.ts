@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { isSyncTaskFailed, SyncTask } from "@metabase/client/domain/git-sync";
+import { FailedResultError } from "@metabase/client/errors";
 import type { PollOptions } from "@metabase/client/poll";
 
 import type { ResourceView } from "../../output/view";
@@ -38,9 +39,9 @@ export function throwIfFailedTask(final: SyncTask | null, verb: string): void {
   }
   const failure = withDetail(`git-sync ${verb} ${final.status}`, taskDetail(final));
   if (final.status === "conflict") {
-    throw new Error(`${sentence(failure)} ${CONFLICT_REMEDY}`);
+    throw new FailedResultError(`${sentence(failure)} ${CONFLICT_REMEDY}`);
   }
-  throw new Error(failure);
+  throw new FailedResultError(failure);
 }
 
 // A task that ends in conflict carries no error message: the labels of the entities it conflicted

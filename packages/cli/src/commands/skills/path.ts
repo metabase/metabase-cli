@@ -20,7 +20,7 @@ const SkillPath = z.object({
 });
 type SkillPathJson = z.infer<typeof SkillPath>;
 
-export const SkillPathListEnvelope = listEnvelopeSchema(SkillPath);
+const SkillPathListEnvelope = listEnvelopeSchema(SkillPath);
 
 const skillPathView: ResourceView<SkillPathJson> = {
   compactPick: SkillPath,

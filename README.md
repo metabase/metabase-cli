@@ -381,6 +381,85 @@ mb transform-tag delete 5 --yes
 | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
+## Transform tests
+
+CRUD and run on `/api/ee/transform-test`. Requires Metabase v65 or newer with the `transforms-testing` premium feature. A transform test pins a transform's behaviour: every table the transform reads is replaced by an `input` fixture, the transform runs into a temp table, and each `expectation` checks that output. The temp tables are dropped when the run ends. The transform and the expectations read only those temp tables; a `format: "sql"` input runs verbatim against the transform's source database, so it may read real tables. Only query transforms (native SQL or MBQL) can be tested, on Postgres, MySQL, H2, ClickHouse, Redshift or SQL Server.
+
+An input names its `table` and carries either `format: "sql"` with a `sql` query or `format: "rows"` with `columns` (each a `name` and a `cast_type` the warehouse accepts as a `CAST` target) and `rows`; every row carries exactly the declared columns.
+
+An expectation is either `type: "empty"` with the `sql` that must return no rows, or `type: "equals"` with `format: "rows"` and the `columns` and `rows` the output must hold exactly. Expectation names are unique within a test. Expectation SQL may name only the transform's target table and its declared input tables, which are rewritten to the run's temp tables; any other table, or a column qualified by a table name rather than an alias, is refused with `transform-test.unremapped-reference`.
+
+Create and update bodies are closed at every level, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it can be sent back:
+
+```sh
+mb transform-test get 1 --full --json \
+  | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at)' \
+  | mb transform-test update 1
+```
+
+### `mb transform-test list`
+
+```sh
+mb transform-test list --json
+mb transform-test list --transform-id 1
+```
+
+| Flag                  | Description                          |
+| --------------------- | ------------------------------------ |
+| `--transform-id <id>` | Only the tests of this transform id. |
+
+### `mb transform-test get <id>`
+
+The compact form carries the id, transform, name and description; `--full` adds the `inputs` and `expectations` themselves.
+
+```sh
+mb transform-test get 1
+mb transform-test get 1 --full --json
+```
+
+### `mb transform-test create`
+
+```sh
+mb transform-test create --file transform-test.json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb transform-test update <id>`
+
+Only the fields the body carries are patched; `inputs` and `expectations` replace what is stored rather than merging into it.
+
+```sh
+mb transform-test update 1 --body '{"name":"renamed"}'
+```
+
+### `mb transform-test delete <id>`
+
+```sh
+mb transform-test delete 1 --yes
+```
+
+| Flag    | Description                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
+
+### `mb transform-test run <id>`
+
+Runs the transform against the fixtures and reports what each expectation found. Exits 1 when the test does not pass, so it drops straight into CI.
+
+```sh
+mb transform-test run 1
+mb transform-test run 1 --json
+mb transform-test run 1 --timeout 300000
+```
+
+| Flag             | Description                                                                |
+| ---------------- | -------------------------------------------------------------------------- |
+| `--timeout <ms>` | Request timeout in ms (default 30000); the run is one synchronous request. |
+
 ## Databases
 
 Read warehouse metadata from `/api/database`. The `db` group exposes the full database list, the per-database record with optional table/field hydration, schema and table inspection, and the two manual-sync triggers.
@@ -1054,6 +1133,72 @@ Soft-delete a snippet by setting `archived: true`. To unarchive use `mb snippet 
 ```sh
 mb snippet archive 1
 mb snippet archive 1 --json
+```
+
+## Data actions
+
+CRUD on `/api/action` plus `execute`. A data action is a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`) filed in a collection. Data actions are off by default: an admin must enable them on the target database first. `mb data-action create` authors data actions only — no `model_id`, no implicit data actions — and needs a server whose data actions do not require a model.
+
+### `mb data-action list`
+
+```sh
+mb data-action list
+mb data-action list --json
+```
+
+### `mb data-action get <id>`
+
+```sh
+mb data-action get 1
+mb data-action get 1 --json --full
+```
+
+### `mb data-action create`
+
+```sh
+cat data-action.json | mb data-action create
+mb data-action create --file data-action.json
+mb data-action create --file data-action.json --skip-validate
+```
+
+| Flag              | Description                                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--body <json>`   | Inline JSON body.                                                                                                                                      |
+| `--file <path>`   | Path to JSON body file.                                                                                                                                |
+| `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
+
+Body fields: `name` (required), `type` (required, `"query"`), `database_id` (required), `dataset_query` (required native query whose `{{tag}}` placeholders are its inputs), `parameters` (one per template tag), `collection_id` (optional; the root when omitted), `description`, `visualization_settings`.
+
+### `mb data-action update <id>`
+
+Patch a data action; the body carries only the fields to change (`name`, `database_id`, `dataset_query`, `parameters`, `collection_id`, `description`, `visualization_settings`, `archived`).
+
+```sh
+cat patch.json | mb data-action update 1
+mb data-action update 1 --body '{"name":"Rename an order"}'
+```
+
+### `mb data-action archive <id>`
+
+```sh
+mb data-action archive 1
+```
+
+### `mb data-action delete <id>`
+
+Delete a data action and the dashboard buttons that run it.
+
+```sh
+mb data-action delete 1 --yes
+```
+
+### `mb data-action execute <id>`
+
+Run a data action. The body is `{"parameters": {...}}` keyed by parameter id; the result reports `rows-affected`.
+
+```sh
+mb data-action execute 1 --body '{"parameters":{"id":1,"note":"rush"}}'
+mb data-action execute 1 --file values.json
 ```
 
 ## Segments
