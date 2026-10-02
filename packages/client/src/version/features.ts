@@ -17,6 +17,8 @@ export interface FeatureRule {
 export const FEATURE_RULES = {
   dataActionCollections: { since: 65 },
   dataActionsWithoutModel: { since: 65 },
+  dataApps: { since: 65, tokenFeature: "data-apps" },
+  typedSchemas: { since: 65 },
   transforms: { since: 59 },
   transformJobActivation: { since: 61 },
   measures: { since: 59 },

@@ -13,6 +13,7 @@ import { collectionResource } from "../resources/collection";
 import { contentTranslationResource } from "../resources/content-translation";
 import { dashboardResource } from "../resources/dashboard";
 import { dataActionResource } from "../resources/data-action";
+import { dataAppResource } from "../resources/data-app";
 import { databaseResource } from "../resources/database";
 import { datasetResource } from "../resources/dataset";
 import { dependencyResource } from "../resources/dependency";
@@ -278,6 +279,11 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     key: "dataAction.get",
     invoke: (t) => dataActionResource(t).get(1),
     wireError: "unexpected request: GET /api/action/1",
+  },
+  {
+    key: "dataApp.repoStatus",
+    invoke: (t) => dataAppResource(t).repoStatus(),
+    wireError: "unexpected request: GET /api/apps/repo-status",
   },
   {
     key: "database.schemas",

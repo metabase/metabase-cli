@@ -160,6 +160,20 @@ export {
   DataActionUpdateInput,
 } from "./domain/data-action";
 export {
+  DATA_APP_SLUG_PATTERN,
+  DataApp,
+  DataAppCompact,
+  DataAppCreateInput,
+  DataAppEntry,
+  DataAppListFilter,
+  DataAppPermissionWarning,
+  DataAppPermissionWarningsInput,
+  DataAppRepoStatus,
+  DataAppSummary,
+  DataAppUpdateInput,
+  TypedSchemaScope,
+} from "./domain/data-app";
+export {
   Database,
   DatabaseCompact,
   DatabaseGetInclude,
