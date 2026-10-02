@@ -25,6 +25,7 @@ const BUNDLED_VISIBLE = discoverSkills([SKILL_DATA_DIR]).filter((skill) => !skil
 const BUNDLED_VISIBLE_NAMES = [
   "core",
   "dashboard",
+  "data-action",
   "data-workflow",
   "document",
   "git-sync",
@@ -94,6 +95,19 @@ const TRANSFORM_UNAVAILABLE_ON_58 = {
   },
 };
 
+const DATA_ACTION_UNAVAILABLE_ON_58 = {
+  name: "data-action",
+  failure: {
+    reason: "version-too-old",
+    detail:
+      "This operation requires Metabase v65+ (this server is v0.58.0). Upgrade Metabase to use it.",
+    feature: "dataActionsWithoutModel",
+    since: 65,
+    tokenFeature: null,
+    serverVersion: "v0.58.0",
+  },
+};
+
 const GIT_SYNC_UNAVAILABLE_ON_58 = {
   name: "git-sync",
   failure: {
@@ -106,6 +120,8 @@ const GIT_SYNC_UNAVAILABLE_ON_58 = {
     serverVersion: "v0.58.0",
   },
 };
+
+const FEATURE_BOUND_ON_58 = new Set(["data-action", "git-sync", "transform"]);
 
 describe("skills e2e", () => {
   const tempDirs: string[] = [];
@@ -120,11 +136,11 @@ describe("skills e2e", () => {
     return dir;
   }
 
-  it("ships exactly the eleven visible skills this suite names", () => {
+  it("ships exactly the twelve visible skills this suite names", () => {
     expect(BUNDLED_VISIBLE.map((skill) => skill.name)).toEqual([...BUNDLED_VISIBLE_NAMES]);
   });
 
-  it("list returns the eleven bundled non-hidden skills, sorted by name, with `unavailable: null` and a clean stderr when there is no cached probe", async () => {
+  it("list returns the twelve bundled non-hidden skills, sorted by name, with `unavailable: null` and a clean stderr when there is no cached probe", async () => {
     const result = await runCli({
       args: ["skills", "list", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -153,12 +169,14 @@ describe("skills e2e", () => {
     const result = await runCli({ args: ["skills", "list", "--json"], configHome });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const usable = BUNDLED_VISIBLE.filter(
-      (skill) => skill.name !== "git-sync" && skill.name !== "transform",
-    );
+    const usable = BUNDLED_VISIBLE.filter((skill) => !FEATURE_BOUND_ON_58.has(skill.name));
     expect(parseJson(result.stdout, SkillListEnvelope)).toEqual({
       ...fullList(usable),
-      unavailable: [GIT_SYNC_UNAVAILABLE_ON_58, TRANSFORM_UNAVAILABLE_ON_58],
+      unavailable: [
+        DATA_ACTION_UNAVAILABLE_ON_58,
+        GIT_SYNC_UNAVAILABLE_ON_58,
+        TRANSFORM_UNAVAILABLE_ON_58,
+      ],
     });
     expect(result.stderr).toBe("");
   });
@@ -185,10 +203,11 @@ describe("skills e2e", () => {
 
     expect(result.exitCode).toBe(0);
     expect(namesInTextListing(result.stdout)).toEqual(
-      BUNDLED_VISIBLE_NAMES.filter((name) => name !== "git-sync" && name !== "transform"),
+      BUNDLED_VISIBLE_NAMES.filter((name) => !FEATURE_BOUND_ON_58.has(name)),
     );
     expect(result.stderr).toBe(
       [
+        `Skipped skill "data-action": ${DATA_ACTION_UNAVAILABLE_ON_58.failure.detail} Pass --unfiltered to print it anyway.`,
         `Skipped skill "git-sync": ${GIT_SYNC_UNAVAILABLE_ON_58.failure.detail} Pass --unfiltered to print it anyway.`,
         `Skipped skill "transform": ${TRANSFORM_UNAVAILABLE_ON_58.failure.detail} Pass --unfiltered to print it anyway.`,
       ].join("\n"),

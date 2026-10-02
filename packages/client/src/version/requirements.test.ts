@@ -12,6 +12,7 @@ import { cardResource } from "../resources/card";
 import { collectionResource } from "../resources/collection";
 import { contentTranslationResource } from "../resources/content-translation";
 import { dashboardResource } from "../resources/dashboard";
+import { dataActionResource } from "../resources/data-action";
 import { databaseResource } from "../resources/database";
 import { datasetResource } from "../resources/dataset";
 import { dependencyResource } from "../resources/dependency";
@@ -272,6 +273,11 @@ const DRIVES: ReadonlyArray<ResourceDrive> = [
     key: "dashboard.get",
     invoke: (t) => dashboardResource(t).get(1),
     wireError: "unexpected request: GET /api/dashboard/1",
+  },
+  {
+    key: "dataAction.get",
+    invoke: (t) => dataActionResource(t).get(1),
+    wireError: "unexpected request: GET /api/action/1",
   },
   {
     key: "database.schemas",

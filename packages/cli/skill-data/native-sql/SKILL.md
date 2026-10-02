@@ -112,6 +112,6 @@ mb card query 12 --parameters '[{"type":"string/=","target":["dimension",["templ
 
 - Don't wrap a field filter in an operator (`WHERE col = {{ff}}`) — write it bare (`WHERE {{ff}}`).
 - Don't author the flat `{type:"native", …}` form — send the native stage above.
-- Don't use native SQL for DDL or multiple statements — the editor is read-only, single-statement; `CREATE`/`UPDATE`/`;`-chained SQL is unsupported. To materialize a table, use a `transform`.
+- Don't use native SQL for DDL or multiple statements — the editor is read-only, single-statement; `CREATE`/`UPDATE`/`;`-chained SQL is unsupported. To materialize a table, use a `transform`; to write rows (`INSERT`/`UPDATE`/`DELETE`), use a data action (`data-action`).
 - Don't expect `[[ ]]` to save you from a case/type mismatch — `WHERE plan = {{p}}` returns zero rows on a case-sensitive engine if the value's case is off; that's a value problem, not syntax.
 - Don't reach for native when a structured query fits — you lose the engine-independence and readability of an `mbql.stage/mbql` stage.
