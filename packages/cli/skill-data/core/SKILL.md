@@ -148,9 +148,6 @@ Routine verb shapes (list / get / create / update), every flag, and output schem
 - **search vs. list.** Enumerate with `… list` verbs; `search` ranks a query or spans resources. `--search-native-query` matches native query text and keeps only query-bearing models; dashboard questions need `--include-dashboard-questions`.
 <!-- requires: transforms -->
 - **transform.** Iterate with `transform update <id>`, never `delete` + `create` (keeps the row, `entity_id`, materialized table, and YAML filename — avoids `_2` suffixes and noisy git history). `transform run` needs `--wait` (or `--sync`, which also waits for the output table to register and returns `target_table_id`) or you get only `{run_id, final:null}`. (→ `transform`.)
-  <!-- /requires -->
-  <!-- requires: transformTests -->
-- **transform-test.** `transform-test run <id>` checks a transform against fixtures in temp tables — only a `format: "sql"` input reads the source database — and exits 1 unless it passes. (→ `transform`.)
 <!-- /requires -->
 - **setup is one-shot.** `mb setup` walks `/api/setup` for a **fresh** instance only — errors against an already-configured one. Mostly for bootstrapping local / e2e instances.
 - **eid** translates a string entity id → numeric id: `mb eid --model <model> <eid1,eid2> --json`. Entity ids are NanoIDs that can start with `-`, which the positional form misreads as a flag (shell quotes don't help) — for those, use `--body '{"entity_ids":{"card":["-…"]}}'` (the id is a JSON string value, immune to flag parsing).
@@ -176,7 +173,7 @@ This file is enough for any single-command task. For anything deeper, load the r
 - **`transform`** — transform body JSON, create + run-with-wait, run inspection, tags, jobs.
   <!-- /requires -->
   <!-- requires: transformTests -->
-- **`transform-test-plan`** — deciding _what_ to test in a transform: the fixture cast, the expectations, the coverage matrix. (`transform` has the `mb transform-test` shapes.)
+- **`transform-test-plan`** — planning transform tests.
 <!-- /requires -->
 - **`document`** — Metabase documents (TipTap body, embedding cards).
 <!-- requires: remoteSync -->
