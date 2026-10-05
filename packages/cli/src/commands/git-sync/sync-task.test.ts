@@ -58,6 +58,23 @@ describe("throwIfFailedTask", () => {
     );
   });
 
+  it("names the divergence and points a conflict at the remedies rather than a retry", () => {
+    expect(() => throwIfFailedTask(task({ status: "conflict", conflicts: [] }), "export")).toThrow(
+      "git-sync export conflict: the remote branch changed since the last sync. Never retry it: the server may count the remote's commit as synced, so a retry, --merge included, may not see its changes. Keep the remote's side with import --force, Metabase's with export --force, or both through a reviewed PR from a new branch: see `mb skills get git-sync`, \"After a conflict task\".",
+    );
+  });
+
+  it("names the server's conflict labels ahead of the remedy", () => {
+    expect(() =>
+      throwIfFailedTask(
+        task({ status: "conflict", conflicts: ["Remote branch changed since the last sync."] }),
+        "export",
+      ),
+    ).toThrow(
+      "git-sync export conflict: Remote branch changed since the last sync. Never retry it:",
+    );
+  });
+
   it("does not throw for a cancelled task, which is not a failure", () => {
     expect(() => throwIfFailedTask(task({ status: "cancelled" }), "task")).not.toThrow();
   });

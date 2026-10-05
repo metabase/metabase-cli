@@ -23,15 +23,14 @@ export function taskPollOptions(schedule: WaitSchedule): PollOptions {
   return { ...schedule, backoff: "exponential" };
 }
 
-// Some servers record the remote commit a conflicted task saw as the last sync, so after a conflict
-// neither a retry nor a merge detects the remote's changes any more, and the server version cannot
-// tell which: the fix is being backported to patch releases.
+// Some servers record the remote commit a conflicted task saw as the last sync, and no feature rule
+// tells them apart, so after a conflict neither a retry nor a merge may detect the remote's changes.
 const CONFLICT_REMEDY =
-  "The server may now count the remote's commit as synced, so a retry, --merge included, may not see its changes: keep one side with import --force or export --force, or push Metabase's side to a new branch with create-branch then export, reload it with import --force, merge that branch in git, then switch back with import --branch <original>.";
+  "Never retry it: the server may count the remote's commit as synced, so a retry, --merge included, may not see its changes. Keep the remote's side with import --force, Metabase's with export --force, or both through a reviewed PR from a new branch: see `mb skills get git-sync`, \"After a conflict task\".";
 
 // A plain export that finds the remote moved on ends in conflict with no entity to name: the
 // divergence itself is the conflict.
-const DIVERGED_EXPORT = "the remote branch moved past the last sync";
+const DIVERGED_EXPORT = "the remote branch changed since the last sync";
 
 export function throwIfFailedTask(final: SyncTask | null, verb: string): void {
   if (final === null || !isSyncTaskFailed(final.status)) {
