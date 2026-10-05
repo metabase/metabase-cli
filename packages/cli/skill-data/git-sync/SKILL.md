@@ -120,7 +120,7 @@ A dry run against the live remote branch, writing nothing. Read it between the s
 
 ### After a `conflict` task
 
-A task that ends in `conflict` makes the server count the remote commit it saw as synced. From then on `has-remote-changes` and `export-preflight` report nothing pending, and a retried `export`, `export --merge` or `import --merge` succeeds without bringing the remote's changes into Metabase; a full re-export can then remove them from the remote. So read `export-preflight` before exporting rather than letting an export find the divergence, and never answer a conflict with a retry: take the user's call between `import --force` (the remote's side), `export --force` (Metabase's side) and `create-branch <name>` then `export` (Metabase's side on a new branch).
+A task that ends in `conflict` may make the server count the remote commit it saw as synced; the server version does not say whether it does. If it does, from then on `has-remote-changes` and `export-preflight` report nothing pending, and a retried `export`, `export --merge` or `import --merge` succeeds without bringing the remote's changes into Metabase; a full re-export can then remove them from the remote. So read `export-preflight` before exporting rather than letting an export find the divergence, and never answer a conflict with a retry: take the user's call between `import --force` (the remote's side), `export --force` (Metabase's side) and `create-branch <name>` then `export` (Metabase's side on a new branch).
 
 <!-- /requires -->
 

@@ -16,7 +16,7 @@ const NO_CHANGES: SyncExportPreflight = {
 describe("formatExportPreflight", () => {
   it("says an export applies as-is when the remote is at the last synced version", () => {
     expect(formatExportPreflight("main", NO_CHANGES)).toBe(
-      "Branch main: the remote has not moved past the last sync (a task that ended in conflict counts as one), or nothing has been synced yet; an export applies as-is.",
+      "Branch main: the remote has not moved past the last sync (on some servers a task that ended in conflict counts as one), or nothing has been synced yet; an export applies as-is.",
     );
   });
 
