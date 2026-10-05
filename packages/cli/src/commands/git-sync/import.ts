@@ -17,7 +17,7 @@ export default defineMetabaseCommand({
     description: "Import content from the configured git remote into Metabase",
   },
   details:
-    "A plain import refuses while Metabase holds un-pushed changes; --force discards them, --merge (Metabase 63+) keeps them and folds the remote's changes in by a three-way merge. A merge ends the task in `conflict`, leaving local content untouched, when entities changed on both sides or when there is no merge base: the remote history was rewritten, or the instance has never synced. A task that ends in `conflict` may make the server count the remote commit it saw as synced, so a retry, --merge included, may no longer see the remote's changes: resolve a conflict with --force on the side to keep, or `git-sync create-branch`, export, then `import --force` and merge the new branch in git, never with a retry.",
+    "A plain import refuses while Metabase holds un-pushed changes; --force discards them, --merge (Metabase 63+) keeps them and folds the remote's changes in by a three-way merge. A merge ends the task in `conflict`, leaving local content untouched, when entities changed on both sides or when there is no merge base: the remote history was rewritten, or the instance has never synced. A task that ends in `conflict` may make the server count the remote commit it saw as synced, so a retry, --merge included, may no longer see the remote's changes: resolve a conflict with --force on the side to keep, or `git-sync create-branch`, export, then `import --force`, merge the new branch in git, and switch back with `import --branch <original>`, never with a retry.",
   requires: ["gitSync.import"],
   args: {
     ...outputFlags,
