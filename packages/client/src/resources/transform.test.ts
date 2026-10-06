@@ -7,9 +7,12 @@ import {
   captureFetch,
   type FetchScript,
   jsonResponse,
+  probeResponse,
+  routeMissingResponse,
   TEST_USER_AGENT,
 } from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -361,8 +364,8 @@ describe("transform resource wire requests", () => {
     ]);
   });
 
-  it("refuses the checkpoint reset before the wire on a server without the route", async () => {
-    const { mb, capture } = clientOver([]);
+  it("explains an unrouted checkpoint reset on a server without the route", async () => {
+    const { mb, capture } = clientOver([routeMissingResponse(), probeResponse(SERVER)]);
 
     const error = await mb.transform.resetCheckpoint(7).catch((caught: unknown) => caught);
 
@@ -376,7 +379,10 @@ describe("transform resource wire requests", () => {
       tokenFeature: null,
       serverVersion: "v0.59.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/transform/7/reset-checkpoint",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 
   it("sends the checkpoint reset request", async () => {
@@ -436,8 +442,8 @@ describe("transform resource wire requests", () => {
     ]);
   });
 
-  it("refuses a DAG run before the wire on a server without DAG runs", async () => {
-    const { mb, capture } = clientOver([]);
+  it("explains an unrouted DAG run on a server without DAG runs", async () => {
+    const { mb, capture } = clientOver([routeMissingResponse(), probeResponse(SERVER)]);
 
     const error = await mb.transform
       .runDag(7, { direction: "downstream" })
@@ -453,7 +459,10 @@ describe("transform resource wire requests", () => {
       tokenFeature: null,
       serverVersion: "v0.59.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/transform/7/run-dag",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 
   it("starts a run and returns without polling when no wait is given", async () => {

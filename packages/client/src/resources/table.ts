@@ -20,6 +20,7 @@ import { ConfigError } from "../errors";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import type { FeatureName } from "../version/features";
+import { explainer } from "../version/refusal";
 
 import { buildCsvFormData, type CsvFile } from "./csv-upload";
 import { fetchOptionalParsed } from "./optional-parsed";
@@ -56,7 +57,9 @@ export interface TableListParams {
 }
 
 // Older servers leave the query map open and drop a filter they do not know without a word, so a
-// filter that arrived after the oldest supported major is refused by name before the wire.
+// filter that arrived after the oldest supported major is refused by name before the wire. Every
+// server applies such a filter only when it is `true`, so a `false` one reads the same dropped or
+// not and needs no feature.
 const LIST_PARAM_FEATURES: ReadonlyArray<readonly [keyof TableListParams, FeatureName]> = [
   ["can-query", "tableListAccessFilters"],
   ["can-write", "tableListAccessFilters"],
@@ -66,9 +69,16 @@ const LIST_PARAM_FEATURES: ReadonlyArray<readonly [keyof TableListParams, Featur
 ];
 
 function listParamFeatures(params: TableListParams): FeatureName[] {
-  return LIST_PARAM_FEATURES.filter(([param]) => params[param] !== undefined).map(
+  return LIST_PARAM_FEATURES.filter(([param]) => params[param] === true).map(
     ([, feature]) => feature,
   );
+}
+
+// A server older than the tier vocabulary rejects a tier name; the rejection names the feature.
+function dataLayerFeatures(value: TableDataLayer | null | undefined): FeatureName[] {
+  return value !== null && value !== undefined && TableDataLayerTier.safeParse(value).success
+    ? ["tableDataLayerTiers"]
+    : [];
 }
 
 const UPLOAD_UPDATE_PATHS: Record<UploadUpdateAction, string> = {
@@ -77,6 +87,8 @@ const UPLOAD_UPDATE_PATHS: Record<UploadUpdateAction, string> = {
 };
 
 export function tableResource(transport: Transport) {
+  const explain = explainer(transport, "table");
+
   /**
    * List every table the caller can see, across all databases. `term` matches names and display
    * names; `can-query` and `can-write` keep only the tables the caller may query or edit the
@@ -87,9 +99,7 @@ export function tableResource(transport: Transport) {
     params: TableListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Table>> {
-    await transport.require("table.list", options);
     await transport.requireFeatures(listParamFeatures(params), options);
-    await requireDataLayer(params["data-layer"], options);
     const data = await transport.requestParsed(TableApiList, "/api/table", {
       ...options,
       query: {
@@ -112,7 +122,6 @@ export function tableResource(transport: Transport) {
 
   /** Get one table by id, without its fields. */
   async function get(id: number, options: RequestOptions = {}): Promise<Table> {
-    await transport.require("table.get", options);
     return transport.requestParsed(Table, `/api/table/${id}`, { ...options });
   }
 
@@ -122,29 +131,28 @@ export function tableResource(transport: Transport) {
     params: TableUpdateInput,
     options: RequestOptions = {},
   ): Promise<Table> {
-    await transport.require("table.update", options);
-    await requireDataLayer(params.data_layer, options);
-    return transport.requestParsed(Table, `/api/table/${id}`, {
+    await refuseRewrittenDataLayer(params.data_layer, options);
+    await requireDataAuthorityNull(params.data_authority, options);
+    const updated = await transport.requestParsed(Table, `/api/table/${id}`, {
       ...options,
       method: "PUT",
       body: params,
     });
+    assertCollectionWritten(params.collection_id, updated);
+    return updated;
   }
 
-  // A tier name is refused below 59 by feature; a medallion name is refused from 59 on by value,
-  // because a requirement can only say a server is too old, never too new.
-  async function requireDataLayer(
+  // A server that names tiers maps a medallion name onto one on update without a word, and for
+  // `copper` leaves the table visible while storing it hidden, so the name is refused by value
+  // before the wire. A tier name on an older server is that server's own 400.
+  async function refuseRewrittenDataLayer(
     value: TableDataLayer | null | undefined,
     options: RequestOptions,
   ): Promise<void> {
-    if (value === null || value === undefined) {
+    if (value === null || value === undefined || TableDataLayerTier.safeParse(value).success) {
       return;
     }
-    if (TableDataLayerTier.safeParse(value).success) {
-      await transport.requireFeatures(["tableDataLayerTiers"], options);
-      return;
-    }
-    const { features } = await transport.server(options);
+    const { features } = await transport.verifiedServer(options);
     if (features.tableDataLayerTiers) {
       throw new ConfigError(
         `data_layer "${value}" is a medallion name; this server names a table's layer ${TableDataLayerTier.options.join(", ")}`,
@@ -157,7 +165,6 @@ export function tableResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<TableQueryMetadata> {
-    await transport.require("table.queryMetadata", options);
     return transport.requestParsed(TableQueryMetadata, `/api/table/${id}/query_metadata`, {
       ...options,
     });
@@ -171,7 +178,6 @@ export function tableResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<ListResult<TableForeignKey>> {
-    await transport.require("table.fks", options);
     const data = await fetchOptionalParsed(transport, `/api/table/${id}/fks`, TableApiFks, {
       ...options,
     });
@@ -187,7 +193,6 @@ export function tableResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<TableSchemaSyncResult> {
-    await transport.require("table.syncSchema", options);
     const ack = await transport.requestParsed(SyncSchemaResponse, `/api/table/${id}/sync_schema`, {
       ...options,
       method: "POST",
@@ -203,7 +208,6 @@ export function tableResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<TableFieldValuesResult> {
-    await transport.require("table.rescanValues", options);
     const ack = await transport.requestParsed(
       FieldValuesResponse,
       `/api/table/${id}/rescan_values`,
@@ -221,7 +225,6 @@ export function tableResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<TableFieldValuesResult> {
-    await transport.require("table.discardValues", options);
     const ack = await transport.requestParsed(
       FieldValuesResponse,
       `/api/table/${id}/discard_values`,
@@ -239,7 +242,6 @@ export function tableResource(transport: Transport) {
     params: TableBulkEditInput,
     options: RequestOptions = {},
   ): Promise<TableBulkEditResult> {
-    await transport.require("table.bulkEdit", options);
     await requireDataAuthorityNull(params.data_authority, options);
     await transport.requestParsed(BulkEditResponse, BULK_EDIT_PATH, {
       ...options,
@@ -250,9 +252,11 @@ export function tableResource(transport: Transport) {
   }
 
   // A server that keeps `data_authority` on the table itself, where the column is NOT NULL, has no
-  // `null` to store: the request fails there rather than withdrawing a value.
+  // `null` to store: the single-table update and the bulk edit both hand it to that column, and
+  // the database fails the write as a bare 500, or an app database that coerces NULL stores
+  // something other than a withdrawal. Neither names the cause, so it is refused here.
   async function requireDataAuthorityNull(
-    value: TableBulkEditInput["data_authority"],
+    value: TableUpdateInput["data_authority"],
     options: RequestOptions,
   ): Promise<void> {
     if (value === null) {
@@ -286,7 +290,6 @@ export function tableResource(transport: Transport) {
     selectors: TableSelectors,
     options: RequestOptions = {},
   ): Promise<TableSelectionResult> {
-    await transport.require("table.bulkSyncSchema", options);
     return postSelection(BULK_SYNC_SCHEMA_PATH, selectors, options);
   }
 
@@ -298,7 +301,6 @@ export function tableResource(transport: Transport) {
     selectors: TableSelectors,
     options: RequestOptions = {},
   ): Promise<TableSelectionResult> {
-    await transport.require("table.bulkRescanValues", options);
     return postSelection(BULK_RESCAN_VALUES_PATH, selectors, options);
   }
 
@@ -310,7 +312,6 @@ export function tableResource(transport: Transport) {
     selectors: TableSelectors,
     options: RequestOptions = {},
   ): Promise<TableSelectionResult> {
-    await transport.require("table.bulkDiscardValues", options);
     return postSelection(BULK_DISCARD_VALUES_PATH, selectors, options);
   }
 
@@ -340,7 +341,6 @@ export function tableResource(transport: Transport) {
     file: CsvFile,
     options: RequestOptions = {},
   ): Promise<UploadUpdateResult> {
-    await transport.require("table.appendCsv", options);
     return updateFromCsv(id, "append", file, options);
   }
 
@@ -355,24 +355,39 @@ export function tableResource(transport: Transport) {
     file: CsvFile,
     options: RequestOptions = {},
   ): Promise<UploadUpdateResult> {
-    await transport.require("table.replaceCsv", options);
     return updateFromCsv(id, "replace", file, options);
   }
 
   return {
-    list,
+    list: explain("list", list, (params) => dataLayerFeatures(params?.["data-layer"])),
     get,
-    update,
+    update: explain("update", update, (_id, params) => dataLayerFeatures(params.data_layer)),
     queryMetadata,
     fks,
     syncSchema,
     rescanValues,
     discardValues,
-    bulkEdit,
-    bulkSyncSchema,
-    bulkRescanValues,
-    bulkDiscardValues,
+    bulkEdit: explain("bulkEdit", bulkEdit),
+    bulkSyncSchema: explain("bulkSyncSchema", bulkSyncSchema),
+    bulkRescanValues: explain("bulkRescanValues", bulkRescanValues),
+    bulkDiscardValues: explain("bulkDiscardValues", bulkDiscardValues),
     appendCsv,
     replaceCsv,
   };
+}
+
+// A server whose update predates publishing a table takes `collection_id` in its open body, leaves
+// it out of the columns it writes, and answers 200 with the table where it was. Which servers do
+// is a matter of patch release, not major, so the table the server answers is the judge.
+function assertCollectionWritten(requested: TableUpdateInput["collection_id"], table: Table): void {
+  if (requested === undefined || table.collection_id === requested) {
+    return;
+  }
+  const stayed =
+    table.collection_id === null || table.collection_id === undefined
+      ? "in no collection"
+      : `in collection ${table.collection_id}`;
+  throw new ConfigError(
+    `the server applied the update but left table ${table.id} ${stayed}: it does not move a table to a collection through an update`,
+  );
 }

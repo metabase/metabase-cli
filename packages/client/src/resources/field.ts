@@ -52,7 +52,6 @@ export function fieldResource(transport: Transport) {
    * for an unlabelled field; any other answers the field without the key (`hasDataSensitivity`).
    */
   async function get(id: number, options: RequestOptions = {}): Promise<FieldDetail> {
-    await transport.require("field.get", options);
     const { features } = await transport.server(options);
     return transport.requestParsed(fieldDetailSchema(features), `/api/field/${id}`, { ...options });
   }
@@ -68,7 +67,6 @@ export function fieldResource(transport: Transport) {
     params: FieldUpdateInput,
     options: RequestOptions = {},
   ): Promise<FieldDetail> {
-    await transport.require("field.update", options);
     await transport.requireFeatures(
       params.data_sensitivity === undefined ? [] : ["fieldDataSensitivity"],
       options,
@@ -83,15 +81,16 @@ export function fieldResource(transport: Transport) {
 
   /**
    * Label a field's data sensitivity by hand. A person's label is never overwritten by the server's
-   * classifier; `null` withdraws it, so whatever label the classifier wrote shows again. Answers
-   * the field with the label it now carries.
+   * classifier; `null` withdraws it, so whatever label the classifier wrote shows again. A server
+   * without the column drops the key silently, so the label is refused there before the wire.
+   * Answers the field with the label it now carries.
    */
   async function setDataSensitivity(
     id: number,
     params: FieldSetDataSensitivityParams,
     options: RequestOptions = {},
   ): Promise<FieldWithDataSensitivity> {
-    await transport.require("field.setDataSensitivity", options);
+    await transport.requireFeatures(["fieldDataSensitivity"], options);
     return transport.requestParsed(FieldWithDataSensitivity, `/api/field/${id}`, {
       ...options,
       method: "PUT",
@@ -113,7 +112,6 @@ export function fieldResource(transport: Transport) {
     params: FieldSearchParams,
     options: RequestOptions = {},
   ): Promise<FieldSearchMatches> {
-    await transport.require("field.search", options);
     return transport.requestParsed(FieldSearchMatches, `/api/field/${id}/search/${searchId}`, {
       ...options,
       query: { value: params.value, limit: params.limit },
@@ -131,7 +129,6 @@ export function fieldResource(transport: Transport) {
     params: FieldRemappingParams,
     options: RequestOptions = {},
   ): Promise<FieldRemappedValue | null> {
-    await transport.require("field.remapping", options);
     const { features } = await transport.server(options);
     return fetchOptionalParsed(
       transport,
@@ -143,7 +140,6 @@ export function fieldResource(transport: Transport) {
 
   /** Get the row count and the distinct-value count for a field. */
   async function summary(id: number, options: RequestOptions = {}): Promise<FieldSummary> {
-    await transport.require("field.summary", options);
     const [[, count], [, distincts]] = await transport.requestParsed(
       FieldApiSummary,
       `/api/field/${id}/summary`,
@@ -154,9 +150,16 @@ export function fieldResource(transport: Transport) {
 
   /** Get the cached distinct values Metabase holds for a field. */
   async function values(id: number, options: RequestOptions = {}): Promise<FieldValues> {
-    await transport.require("field.values", options);
     return transport.requestParsed(FieldValues, `/api/field/${id}/values`, { ...options });
   }
 
-  return { get, update, setDataSensitivity, search, remapping, summary, values };
+  return {
+    get,
+    update,
+    setDataSensitivity,
+    search,
+    remapping,
+    summary,
+    values,
+  };
 }

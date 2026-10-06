@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import {
+  Pulse,
   PulseCompact,
   type PulseChannelCompact,
   type PulseCreateInput,
@@ -9,9 +10,10 @@ import { parseJson } from "@metabase/client/json";
 
 import { SubscriptionListEnvelope } from "../../packages/cli/src/commands/subscription/list";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
-import { cliErrorMessage } from "./cli-error";
+import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
+import { serverHas } from "./server-gate";
 
 const SUBSCRIPTION_NAME = "Weekly orders";
 const RECIPIENT = "team@example.com";
@@ -137,6 +139,47 @@ describe("subscription e2e", () => {
     expect(result.exitCode, result.stderr).toBe(0);
     const created = parseJson(result.stdout, PulseCompact);
     expect(created).toEqual(expectedCompact(created.id));
+  });
+
+  it("create with the subscription's own filter values keeps them, or refuses where the server would send unfiltered results", async () => {
+    const regionFilter = { id: "e2e-region", type: "category", default: ["West"] };
+    const configHome = await makeIsolatedConfigHome();
+    const result = await runCli({
+      args: ["subscription", "create", "--json"],
+      stdin: JSON.stringify({ ...NEW_SUBSCRIPTION_BODY, parameters: [regionFilter] }),
+      configHome,
+      env: authEnv(),
+    });
+
+    const listed = async () => {
+      const list = await runCli({
+        args: ["subscription", "list", "--json"],
+        configHome,
+        env: authEnv(),
+      });
+      expect(list.exitCode, list.stderr).toBe(0);
+      return parseJson(list.stdout, SubscriptionListEnvelope).total;
+    };
+    if (serverHas("dashboardSubscriptionFilters")) {
+      expect(result.exitCode, result.stderr).toBe(0);
+      const created = parseJson(result.stdout, PulseCompact);
+      const full = await runCli({
+        args: ["subscription", "get", String(created.id), "--full", "--json"],
+        configHome,
+        env: authEnv(),
+      });
+      expect(full.exitCode, full.stderr).toBe(0);
+      expect(parseJson(full.stdout, Pulse).parameters).toEqual([regionFilter]);
+      expect(await listed()).toBe(1);
+      return;
+    }
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorCategory(result.stderr)).toBe("capability");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "This operation requires the 'dashboard_subscription_filters' premium feature (not enabled on this server).",
+    );
+    expect(result.stdout).toBe("");
+    expect(await listed()).toBe(0);
   });
 
   it("create with an unknown channel_type fails on Zod validation before any request", async () => {

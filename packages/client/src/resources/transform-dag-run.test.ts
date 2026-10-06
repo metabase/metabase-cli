@@ -6,9 +6,12 @@ import {
   captureFetch,
   type FetchScript,
   jsonResponse,
+  probeResponse,
+  routeMissingResponse,
   TEST_USER_AGENT,
 } from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -102,8 +105,11 @@ describe("transform-dag-run resource wire requests", () => {
     ]);
   });
 
-  it("refuses before the wire on a server without DAG runs", async () => {
-    const { mb, capture } = clientOver([], OLDER_SERVER);
+  it("explains an unrouted call on a server without DAG runs", async () => {
+    const { mb, capture } = clientOver(
+      [routeMissingResponse(), probeResponse(OLDER_SERVER)],
+      OLDER_SERVER,
+    );
 
     const error = await mb.transformDagRun.transformRuns(90).catch((caught: unknown) => caught);
 
@@ -117,6 +123,9 @@ describe("transform-dag-run resource wire requests", () => {
       tokenFeature: null,
       serverVersion: "v0.63.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/transform-dag-run/90/transform-runs",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 });

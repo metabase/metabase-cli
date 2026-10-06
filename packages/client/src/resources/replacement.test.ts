@@ -11,9 +11,13 @@ import {
   captureFetch,
   type FetchScript,
   jsonResponse,
+  premiumRefusalResponse,
+  probeResponse,
+  routeMissingResponse,
   TEST_USER_AGENT,
 } from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -255,8 +259,11 @@ describe("replacement resource wire requests", () => {
     );
   });
 
-  it("refuses before the wire on a server without the dependencies token", async () => {
-    const { mb, capture } = clientOver([], UNLICENSED_SERVER);
+  it("explains a premium refusal as the missing dependencies token", async () => {
+    const { mb, capture } = clientOver(
+      [premiumRefusalResponse("Dependencies"), probeResponse(UNLICENSED_SERVER)],
+      UNLICENSED_SERVER,
+    );
 
     const error = await mb.replacement
       .checkReplaceSource(SOURCE_SWAP)
@@ -272,11 +279,17 @@ describe("replacement resource wire requests", () => {
       tokenFeature: "dependencies",
       serverVersion: "v1.60.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/replacement/check-replace-source",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 
-  it("refuses before the wire on a licensed server that predates replacement", async () => {
-    const { mb, capture } = clientOver([], PRE_REPLACEMENT_SERVER);
+  it("explains an unrouted call on a licensed server that predates replacement", async () => {
+    const { mb, capture } = clientOver(
+      [routeMissingResponse(), probeResponse(PRE_REPLACEMENT_SERVER)],
+      PRE_REPLACEMENT_SERVER,
+    );
 
     const error = await mb.replacement.listRuns().catch((caught: unknown) => caught);
 
@@ -290,6 +303,9 @@ describe("replacement resource wire requests", () => {
       tokenFeature: "dependencies",
       serverVersion: "v1.59.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/replacement/runs",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 });

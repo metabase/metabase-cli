@@ -80,8 +80,22 @@ export function requireServer(lane: string, required: readonly FeatureName[]): s
   return failure.detail;
 }
 
+// The inverse gate, for a lane pinning how a server without `features` answers: a stack holding
+// every one of them cannot show that, so the lane skips there and is reported like any other.
+export function requireServerWithout(
+  lane: string,
+  features: readonly FeatureName[],
+): string | null {
+  if (requirementFailure(features) !== null) {
+    return null;
+  }
+  const reason = `this server has ${features.join(", ")}, so it cannot show how one without them answers`;
+  recordGateSkip(lane, reason);
+  return reason;
+}
+
 const OAUTH_UNSUPPORTED_REASON =
-  "server does not support full-API OAuth login (Metabase v63+) — re-run e2e:bootstrap if the image changed";
+  "server does not support full-API OAuth login (Metabase v62.3.3+) — re-run e2e:bootstrap if the image changed";
 
 // Gate for the OAuth login suite: a version check would be wrong here (head images without the
 // OAuth backend would run and fail), so bootstrap probes the discovery endpoint live and the
@@ -95,13 +109,13 @@ export function requireOAuthServer(lane: string): string | null {
   return OAUTH_UNSUPPORTED_REASON;
 }
 
-// The first of `required` this stack lacks, as the CLI's preflight would report it, so a suite
-// pinning a live refusal can pick the generation's exact message by its reason.
+// The first of `required` this stack lacks, as the client explains the server's refusal of it, so a
+// suite pinning a live refusal can pick the generation's exact message by its reason.
 export function requirementFailure(required: readonly FeatureName[]): RequirementFailure | null {
   return checkFeatures(required, resolveServerProfile());
 }
 
-// The exact question the CLI's preflight and the client's `require()` ask. It logs nothing: a
+// The exact question the client asks of a fresh probe to explain a refusal or to check a parameter. It logs nothing: a
 // suite reading it asserts one of two exact outcomes rather than skipping coverage.
 export function serverHas(feature: FeatureName): boolean {
   return resolveServerProfile().features[feature];

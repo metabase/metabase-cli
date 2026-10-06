@@ -2,8 +2,15 @@ import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
+import {
+  captureFetch,
+  jsonResponse,
+  probeResponse,
+  TEST_USER_AGENT,
+  thrownBy,
+} from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -99,8 +106,21 @@ describe("revision resource wire requests", () => {
     expect(await mb.revision.list("card", 94)).toEqual({ data: [REVISION], total: null });
   });
 
-  it("refuses a measure's revisions before the wire on a server without measures", async () => {
-    const { mb, capture } = clientOver([], SERVER_58);
+  it("explains a rejected measure entity on a server without measures", async () => {
+    const { mb, capture } = clientOver(
+      [
+        jsonResponse(
+          {
+            errors: {
+              entity: "value must be one of: card, dashboard, document, segment, transform.",
+            },
+          },
+          400,
+        ),
+        probeResponse(SERVER_58),
+      ],
+      SERVER_58,
+    );
 
     const error = await thrownBy(() => mb.revision.list("measure", 3));
 
@@ -114,7 +134,10 @@ describe("revision resource wire requests", () => {
       tokenFeature: null,
       serverVersion: "v0.58.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/revision/measure/3",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 
   it("lists a card's revisions on the oldest supported server without asking it", async () => {
@@ -160,8 +183,17 @@ describe("revision resource wire requests", () => {
     });
   });
 
-  it("refuses a transform revert before the wire on a server without transforms", async () => {
-    const { mb, capture } = clientOver([], SERVER_58);
+  it("explains a rejected transform entity on a server without transforms", async () => {
+    const { mb, capture } = clientOver(
+      [
+        jsonResponse(
+          { errors: { entity: "value must be one of: card, dashboard, document, segment." } },
+          400,
+        ),
+        probeResponse(SERVER_58),
+      ],
+      SERVER_58,
+    );
 
     const error = await thrownBy(() =>
       mb.revision.revert({ entity: "transform", id: 5, revision_id: 2 }),
@@ -177,6 +209,9 @@ describe("revision resource wire requests", () => {
       tokenFeature: null,
       serverVersion: "v0.58.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/revision/revert",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 });

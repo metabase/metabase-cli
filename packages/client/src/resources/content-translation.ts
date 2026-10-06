@@ -1,14 +1,16 @@
 import { ContentTranslationUploadResult } from "../domain/content-translation";
 import type { RequestOptions, Transport } from "../http/transport";
+import { explainer } from "../version/refusal";
 
 import { buildCsvFormData, type CsvFile } from "./csv-upload";
 
 const CONTENT_TRANSLATION_PATH = "/api/ee/content-translation";
 
 export function contentTranslationResource(transport: Transport) {
+  const explain = explainer(transport, "contentTranslation");
+
   /** Download the complete content translation dictionary as CSV. */
   async function download(options: RequestOptions = {}): Promise<ReadableStream<Uint8Array>> {
-    await transport.require("contentTranslation.download", options);
     return transport.requestStream(`${CONTENT_TRANSLATION_PATH}/csv`, options);
   }
 
@@ -17,7 +19,6 @@ export function contentTranslationResource(transport: Transport) {
     file: CsvFile,
     options: RequestOptions = {},
   ): Promise<ContentTranslationUploadResult> {
-    await transport.require("contentTranslation.upload", options);
     const form = buildCsvFormData(file);
     return transport.requestParsed(
       ContentTranslationUploadResult,
@@ -30,5 +31,8 @@ export function contentTranslationResource(transport: Transport) {
     );
   }
 
-  return { download, upload };
+  return {
+    download: explain("download", download),
+    upload: explain("upload", upload),
+  };
 }

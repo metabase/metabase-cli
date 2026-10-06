@@ -2,8 +2,16 @@ import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
+import {
+  captureFetch,
+  jsonResponse,
+  probeResponse,
+  routeMissingResponse,
+  TEST_USER_AGENT,
+  thrownBy,
+} from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -182,8 +190,11 @@ describe("document resource wire requests", () => {
     ]);
   });
 
-  it("refuses the copy before the wire on a server without the route", async () => {
-    const { mb, capture } = clientOver([], SERVER_58);
+  it("explains an unrouted copy by a fresh probe on a server without the route", async () => {
+    const { mb, capture } = clientOver(
+      [routeMissingResponse(), probeResponse(SERVER_58)],
+      SERVER_58,
+    );
 
     const error = await thrownBy(() => mb.document.copy(4));
 
@@ -197,6 +208,9 @@ describe("document resource wire requests", () => {
       tokenFeature: null,
       serverVersion: "v0.58.2",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/document/4/copy",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 });

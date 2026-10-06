@@ -4,8 +4,16 @@ import { createClient } from "../client";
 import type { MetricDefinition } from "../domain/metric";
 import { ResponseShapeError } from "../errors";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
+import {
+  captureFetch,
+  jsonResponse,
+  probeResponse,
+  routeMissingResponse,
+  TEST_USER_AGENT,
+  thrownBy,
+} from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -240,8 +248,11 @@ describe("metric resource wire requests", () => {
     );
   });
 
-  it("refuses the dimension listing before the wire on a server older than the route", async () => {
-    const { mb, capture } = clientOver([], SERVER_63);
+  it("explains an unrouted dimension listing on a server older than the route", async () => {
+    const { mb, capture } = clientOver(
+      [routeMissingResponse(), probeResponse(SERVER_63)],
+      SERVER_63,
+    );
 
     const error = await thrownBy(() => mb.metric.dimensions(42));
 
@@ -255,11 +266,17 @@ describe("metric resource wire requests", () => {
       tokenFeature: null,
       serverVersion: "v0.63.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/metric/42/dimension",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 
-  it("refuses a definition query before the wire on a server without the metric routes", async () => {
-    const { mb, capture } = clientOver([], SERVER_59);
+  it("explains an unrouted definition query on a server without the metric routes", async () => {
+    const { mb, capture } = clientOver(
+      [routeMissingResponse(), probeResponse(SERVER_59)],
+      SERVER_59,
+    );
 
     const error = await thrownBy(() => mb.metric.query(AVERAGE_ORDER));
 
@@ -273,6 +290,9 @@ describe("metric resource wire requests", () => {
       tokenFeature: null,
       serverVersion: "v0.59.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/metric/dataset",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 });

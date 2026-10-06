@@ -43,12 +43,18 @@ export function searchResource(transport: Transport) {
    * actions, transforms), `include_metadata` attaches each card's `result_metadata`,
    * `include_dashboard_questions` also matches questions saved into a dashboard (excluded by
    * default), and `limit`/`offset` are the window the server applies before ranking hydration.
+   * `verified` needs the `content_verification` premium feature, and is refused before the wire
+   * without it.
    */
   async function query(
     params: SearchParams = {},
     options: RequestOptions = {},
   ): Promise<SearchPage> {
-    await transport.require("search.query", options);
+    // A server without content verification drops the filter and answers unverified results as
+    // if they had been filtered.
+    if (params.verified === true) {
+      await transport.requireFeatures(["contentVerification"], options);
+    }
     const response = await transport.requestParsed(SearchApiResponse, "/api/search", {
       ...options,
       query: {

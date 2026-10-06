@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import type { Features } from "../version/features";
 import {
   Database,
   DatabaseCompact,
@@ -17,27 +16,12 @@ export const CompiledQuery = z
     // and a stage list otherwise.
     query: z.union([z.string(), z.array(z.unknown())]),
     params: z.array(z.unknown()).nullable().optional(),
-    // A document driver's source collection, absent for a query that reads none. `null` is a server
-    // that drops the key from every answer, so it cannot say.
+    // A document driver's source collection, absent for a query that reads none. Some patch
+    // releases drop the key from every answer, so its absence on a document query says nothing.
     collection: z.string().nullable().optional(),
   })
   .loose();
 export type CompiledQuery = z.infer<typeof CompiledQuery>;
-
-const CompiledQueryWireWithoutCollection = CompiledQuery.omit({ collection: true });
-
-function withUnknownCollection(
-  wire: z.infer<typeof CompiledQueryWireWithoutCollection>,
-): CompiledQuery {
-  return { ...wire, collection: null };
-}
-
-/** The shape `POST /api/dataset/native` answers on a server with `features`, read as `CompiledQuery`. */
-export function compiledQuerySchema(features: Features): z.ZodType<CompiledQuery> {
-  return features.compiledQueryOmitsCollection
-    ? CompiledQueryWireWithoutCollection.transform(withUnknownCollection)
-    : CompiledQuery;
-}
 
 export const CompiledQueryCompact = CompiledQuery.pick({
   query: true,

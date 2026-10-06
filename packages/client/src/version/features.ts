@@ -19,7 +19,8 @@ export const FEATURE_RULES = {
   transformJobActivation: { since: 61 },
   measures: { since: 59 },
   library: { since: 59, tokenFeature: "library" },
-  remoteSync: { since: 60, tokenFeature: "remote_sync" },
+  remoteSync: { since: 58, tokenFeature: "remote_sync" },
+  remoteSyncRemoteChanges: { since: 59, tokenFeature: "remote_sync" },
   remoteSyncExportPreflight: { since: 63, tokenFeature: "remote_sync" },
   remoteSyncBranchGuard: { since: 63 },
   remoteSyncMerge: { since: 63, tokenFeature: "remote_sync" },
@@ -39,7 +40,6 @@ export const FEATURE_RULES = {
   invalidMbqlIsBadRequest: { since: 59 },
   boxplotDisplay: { since: 59 },
   nativeTableTemplateTag: { since: 59 },
-  compiledQueryOmitsCollection: { since: 59, until: 62 },
   smartLinkMeasureModel: { since: 60 },
   dashboardSubscriptionFilters: { since: 58, tokenFeature: "dashboard_subscription_filters" },
   dependencyGraph: { since: 58, tokenFeature: "dependencies" },
@@ -62,7 +62,7 @@ export const FEATURE_RULES = {
   sourceReplacement: { since: 60, tokenFeature: "dependencies" },
   metricDefinitionQuery: { since: 60 },
   metricDimensionListing: { since: 64 },
-  oauthFullAccessScope: { since: 63 },
+  oauthFullAccessScopeUnadvertised: { since: 64 },
   exportCsvByteOrderMark: { since: 63 },
 } satisfies Record<string, FeatureRule>;
 

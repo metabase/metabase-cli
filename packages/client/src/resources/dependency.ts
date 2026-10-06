@@ -14,6 +14,8 @@ import type { SortDirection } from "../domain/query";
 import type { QueryValue, RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { type Page, type PaginateOptions, paginatePages } from "../paginate";
+import { methodRequirements } from "../version/requirements";
+import { explainer } from "../version/refusal";
 
 const DependencyNodeApiList = z.array(DependencyNode);
 const DependencyEntityApiList = z.array(DependencyEntity);
@@ -42,6 +44,8 @@ export interface DependencyItemListParams {
 export type DependencyItemPageOptions = Omit<PaginateOptions, "query">;
 
 export function dependencyResource(transport: Transport) {
+  const explain = explainer(transport, "dependency");
+
   /**
    * The upstream dependency graph of one entity. `nodes` holds the starting entity plus every
    * entity it depends on, directly or transitively; each edge runs from the dependent to what it
@@ -52,10 +56,6 @@ export function dependencyResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<DependencyGraph> {
-    await transport.require("dependency.graph", options);
-    if (type === "measure") {
-      await transport.requireFeatures(["measureDependencyGraph"], options);
-    }
     return transport.requestParsed(DependencyGraph, "/api/ee/dependencies/graph", {
       ...options,
       query: { type, id },
@@ -74,7 +74,6 @@ export function dependencyResource(transport: Transport) {
     params: DependencyDependentsParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<DependencyNode>> {
-    await transport.require("dependency.dependents", options);
     const data = await transport.requestParsed(
       DependencyNodeApiList,
       "/api/ee/dependencies/graph/dependents",
@@ -108,7 +107,6 @@ export function dependencyResource(transport: Transport) {
     params: DependencyBrokenParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<DependencyEntity>> {
-    await transport.require("dependency.broken", options);
     const data = await transport.requestParsed(
       DependencyEntityApiList,
       "/api/ee/dependencies/graph/broken",
@@ -141,7 +139,6 @@ export function dependencyResource(transport: Transport) {
     params: DependencyItemListParams = {},
     options: DependencyItemPageOptions = {},
   ): AsyncIterable<Page<DependencyNode>> {
-    await transport.require("dependency.unreferencedPages", options);
     if (queryLeavesNoKind(params)) {
       yield { items: [], total: 0 };
       return;
@@ -152,6 +149,7 @@ export function dependencyResource(transport: Transport) {
       ...(options.max !== undefined && { max: options.max }),
       ...(options.pageSize !== undefined && { pageSize: options.pageSize }),
       ...(options.signal !== undefined && { signal: options.signal }),
+      features: methodRequirements("dependency.unreferencedPages"),
     });
   }
 
@@ -166,7 +164,6 @@ export function dependencyResource(transport: Transport) {
     params: DependencyItemListParams = {},
     options: DependencyItemPageOptions = {},
   ): AsyncIterable<Page<BreakingSource>> {
-    await transport.require("dependency.breakingPages", options);
     if (queryLeavesNoKind(params)) {
       yield { items: [], total: 0 };
       return;
@@ -177,10 +174,19 @@ export function dependencyResource(transport: Transport) {
       ...(options.max !== undefined && { max: options.max }),
       ...(options.pageSize !== undefined && { pageSize: options.pageSize }),
       ...(options.signal !== undefined && { signal: options.signal }),
+      features: methodRequirements("dependency.breakingPages"),
     });
   }
 
-  return { graph, dependents, broken, unreferencedPages, breakingPages };
+  return {
+    graph: explain("graph", graph, (type) =>
+      type === "measure" ? ["measureDependencyGraph"] : [],
+    ),
+    dependents: explain("dependents", dependents),
+    broken: explain("broken", broken),
+    unreferencedPages: unreferencedPages,
+    breakingPages: breakingPages,
+  };
 }
 
 // The server drops sandboxes from the kinds a `query` searches and builds one SQL union branch per

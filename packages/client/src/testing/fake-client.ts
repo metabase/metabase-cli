@@ -8,8 +8,8 @@ import {
 } from "../http/transport";
 import { NO_SERVER_TAG, parseJsonResponse } from "../http/response-shape";
 import type { FeatureName } from "../version/features";
+import { PROBE_PATH } from "../version/probe";
 import type { ServerProfile } from "../version/profile";
-import type { MethodKey } from "../version/requirements";
 
 const FAKE_STATUS = 200;
 
@@ -49,32 +49,30 @@ export interface FakeClientPlan {
   readonly server?: ServerProfile;
 }
 
-// A key a resource method required, with how many requests the fake had already served by then —
-// zero proves the method asked before it reached for the wire.
-export interface FakeRequirement {
-  readonly key: MethodKey;
-  readonly precedingRequests: number;
-}
-
-// A feature list a method asked for because of a parameter it was given, recorded the same way.
+// A feature list a method asked for because of a parameter it was given, with how many requests the
+// fake had already served by then — zero proves the method asked before it reached for the wire.
 export interface FakeFeatureRequirement {
   readonly features: ReadonlyArray<FeatureName>;
   readonly precedingRequests: number;
 }
 
-// The fake records what a method required and never refuses: enforcement belongs to the real
-// transport and is proven there, so a resource test needs no profile to reach its wire assertions.
+// The fake records what a method required and never refuses or explains: both belong to the real
+// transport and are proven there, so a resource test needs no profile to reach its wire assertions.
 export interface FakeClient {
   readonly client: Transport;
   readonly calls: ReadonlyArray<FakeClientCall>;
-  readonly required: ReadonlyArray<FakeRequirement>;
   readonly requiredFeatures: ReadonlyArray<FakeFeatureRequirement>;
 }
 
 export function createFakeClient(plan: FakeClientPlan = {}): FakeClient {
   const calls: FakeClientCall[] = [];
-  const required: FakeRequirement[] = [];
   const requiredFeatures: FakeFeatureRequirement[] = [];
+  const plannedServer = (): ServerProfile => {
+    if (plan.server === undefined) {
+      throw new Error("no server profile in fake client plan");
+    }
+    return plan.server;
+  };
   const client: Transport = {
     async requestParsed<T>(
       schema: ZodType<T>,
@@ -110,17 +108,20 @@ export function createFakeClient(plan: FakeClientPlan = {}): FakeClient {
       throw new Error("requestStream not implemented in fake client");
     },
     async server() {
-      if (plan.server === undefined) {
-        throw new Error("no server profile in fake client plan");
-      }
-      return plan.server;
+      return plannedServer();
     },
-    async require(key) {
-      required.push({ key, precedingRequests: calls.length });
+    async verifiedServer() {
+      return plannedServer();
+    },
+    async probe(reader) {
+      return client.requestParsed(reader, PROBE_PATH);
     },
     async requireFeatures(features) {
       requiredFeatures.push({ features, precedingRequests: calls.length });
     },
+    async explainRefusal(_features, error) {
+      return error;
+    },
   };
-  return { client, calls, required, requiredFeatures };
+  return { client, calls, requiredFeatures };
 }

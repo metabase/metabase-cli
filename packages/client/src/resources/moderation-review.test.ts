@@ -2,8 +2,16 @@ import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
+import {
+  captureFetch,
+  jsonResponse,
+  premiumRefusalResponse,
+  probeResponse,
+  TEST_USER_AGENT,
+  thrownBy,
+} from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -111,8 +119,11 @@ describe("moderation-review resource wire requests", () => {
     ).toEqual(REVIEW);
   });
 
-  it("refuses before the wire when the server grants no content_verification token", async () => {
-    const { mb, capture } = clientOver([], UNLICENSED);
+  it("explains a premium refusal as the missing content_verification token", async () => {
+    const { mb, capture } = clientOver(
+      [premiumRefusalResponse("Content verification"), probeResponse(UNLICENSED)],
+      UNLICENSED,
+    );
 
     const error = await thrownBy(() =>
       mb.moderationReview.create({ moderated_item_id: 42, moderated_item_type: "card" }),
@@ -128,6 +139,9 @@ describe("moderation-review resource wire requests", () => {
       tokenFeature: "content_verification",
       serverVersion: "v1.58.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/moderation-review",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 });

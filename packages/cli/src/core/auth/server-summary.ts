@@ -57,7 +57,7 @@ export function skewNotice(profile: ServerProfile): string | null {
       return null;
     }
     case "older-than-known": {
-      return `Metabase ${describeVersion(profile.version)} is older than this CLI supports (v${min}+); commands needing a newer feature are refused by name. Upgrade Metabase to v${min} or later.`;
+      return `Metabase ${describeVersion(profile.version)} is older than this CLI supports (v${min}+); a command needing a newer feature is sent, and the server's refusal names it. Upgrade Metabase to v${min} or later.`;
     }
     case "newer-than-known": {
       return `Metabase ${describeVersion(profile.version)} is newer than this CLI supports (up to v${max}); commands run as if it were v${max + 1}. Run \`mb upgrade\` for a newer CLI.`;
@@ -67,9 +67,12 @@ export function skewNotice(profile: ServerProfile): string | null {
 
 const PROFILE_REFRESHED_REMEDY = "the profile was refreshed — retry the command.";
 
+// What a feature switch reads off a probe.
+type ServerIdentity = Pick<ServerInfo, "version" | "tokenFeatures">;
+
 // What a fresh probe says that the cached one did not, or `null` when the two agree on everything
 // a feature switch reads: the version tag and the premium features.
-export function serverChangeNote(cached: ServerInfo, fresh: ServerInfo): string | null {
+export function serverChangeNote(cached: ServerIdentity, fresh: ServerIdentity): string | null {
   const before = describeVersion(cached.version);
   const after = describeVersion(fresh.version);
   if (before !== after) {

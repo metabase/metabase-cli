@@ -1080,24 +1080,5 @@ describe.skipIf(serverHas("transforms"))(
       );
       expect(result.stdout).toBe("");
     });
-
-    it("--skip-preflight bypasses the gate and surfaces the raw server 404 the gate prevents (exit 1)", async () => {
-      const serverTag = bootstrap.server.version?.tag;
-      assert(serverTag !== undefined, "gate block requires a known cached server version");
-      const configHome = await loginWithCachedProbe();
-
-      const result = await runCli({
-        args: ["transform", "list", "--skip-preflight", "--json"],
-        configHome,
-      });
-
-      expect(result.exitCode).toBe(1);
-      expect(cliErrorMessage(result.stderr)).toBe(
-        `This endpoint is not available on Metabase ${serverTag}: GET /api/transform. ` +
-          "It may require a newer Metabase major version.\n" +
-          "Run `mb auth list` to see this server's version.",
-      );
-      expect(result.stdout).toBe("");
-    });
   },
 );

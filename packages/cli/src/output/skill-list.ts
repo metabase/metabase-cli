@@ -45,14 +45,24 @@ export function skillFilterNotices(
     return [];
   }
   if (unavailable !== null) {
-    return unavailable.map(
+    const skipped = unavailable.map(
       (skill) =>
         `Skipped skill "${skill.name}": ${skill.failure.detail} Pass --unfiltered to print it anyway.`,
     );
+    if (skipped.length === 0 || context.cached.kind !== "found") {
+      return skipped;
+    }
+    return [...skipped, probeAgeNotice(context.profileName, context.cached.probedAt)];
   }
   return context.cached.kind === "found"
     ? []
     : [unfilteredNotice(context.profileName, context.cached)];
+}
+
+// The filter reads the server as it was at the last probe, and a license activated since would still
+// read as missing, so the notice says when that was and how to look again.
+function probeAgeNotice(profileName: string, probedAt: string): string {
+  return `Skills are filtered by profile "${profileName}"'s server as probed at ${probedAt} (run \`mb auth list\` to probe it again).`;
 }
 
 function unfilteredNotice(profileName: string, miss: CachedProbeMiss): string {

@@ -7,9 +7,13 @@ import {
   captureFetch,
   type FetchScript,
   jsonResponse,
+  premiumRefusalResponse,
+  probeResponse,
+  routeMissingResponse,
   TEST_USER_AGENT,
 } from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -154,8 +158,11 @@ describe("transform-inspector resource wire requests", () => {
     ]);
   });
 
-  it("refuses before the wire on a server without the Python transforms token", async () => {
-    const { mb, capture } = clientOver([], UNLICENSED_SERVER);
+  it("explains a premium refusal as the missing Python transforms token", async () => {
+    const { mb, capture } = clientOver(
+      [premiumRefusalResponse("Python transforms"), probeResponse(UNLICENSED_SERVER)],
+      UNLICENSED_SERVER,
+    );
 
     const error = await mb.transformInspector.discover(7).catch((caught: unknown) => caught);
 
@@ -169,11 +176,17 @@ describe("transform-inspector resource wire requests", () => {
       tokenFeature: "transforms-python",
       serverVersion: "v1.60.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/transforms/7/inspect",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 
-  it("refuses before the wire on a server older than the inspector, whatever its token grants", async () => {
-    const { mb, capture } = clientOver([], OLDER_LICENSED_SERVER);
+  it("explains an unrouted call on a server older than the inspector, whatever its token grants", async () => {
+    const { mb, capture } = clientOver(
+      [routeMissingResponse(), probeResponse(OLDER_LICENSED_SERVER)],
+      OLDER_LICENSED_SERVER,
+    );
 
     const error = await mb.transformInspector.discover(7).catch((caught: unknown) => caught);
 
@@ -187,6 +200,9 @@ describe("transform-inspector resource wire requests", () => {
       tokenFeature: "transforms-python",
       serverVersion: "v1.59.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/transforms/7/inspect",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 });

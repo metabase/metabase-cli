@@ -2,7 +2,16 @@ import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
+import {
+  captureFetch,
+  jsonResponse,
+  premiumRefusalResponse,
+  probeResponse,
+  routeMissingResponse,
+  TEST_USER_AGENT,
+  thrownBy,
+} from "../testing/fetch-capture";
+import { PROBE_PATH } from "../version/probe";
 import { CapabilityError } from "../version/preflight-error";
 import { createServerProfile } from "../version/profile";
 
@@ -110,8 +119,20 @@ describe("erd resource wire requests", () => {
     expect(await mb.erd.get({ "database-id": 1 })).toEqual(ERD);
   });
 
-  it("refuses before the wire on a server without the schema viewer token", async () => {
-    const { mb, capture } = clientOver([], UNLICENSED_62);
+  it("sends the request a cached profile without the token would have refused", async () => {
+    const { mb, capture } = clientOver([jsonResponse(ERD)], UNLICENSED_62);
+
+    expect(await mb.erd.get({ "database-id": 1 })).toEqual(ERD);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/erd?database-id=1",
+    ]);
+  });
+
+  it("explains a premium refusal by a fresh probe as the missing schema viewer token", async () => {
+    const { mb, capture } = clientOver([
+      premiumRefusalResponse("Schema Viewer"),
+      probeResponse(UNLICENSED_62),
+    ]);
 
     const error = await thrownBy(() => mb.erd.get({ "database-id": 1 }));
 
@@ -125,11 +146,14 @@ describe("erd resource wire requests", () => {
       tokenFeature: "schema-viewer",
       serverVersion: "v1.62.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/erd?database-id=1",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 
-  it("refuses before the wire on a server older than the route, whatever its token grants", async () => {
-    const { mb, capture } = clientOver([], LICENSED_61);
+  it("explains an unrouted path on a server older than the route, whatever its token grants", async () => {
+    const { mb, capture } = clientOver([routeMissingResponse(), probeResponse(LICENSED_61)]);
 
     const error = await thrownBy(() => mb.erd.get({ "database-id": 1 }));
 
@@ -143,6 +167,9 @@ describe("erd resource wire requests", () => {
       tokenFeature: "schema-viewer",
       serverVersion: "v1.61.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/erd?database-id=1",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 });

@@ -6,18 +6,20 @@ import {
   type TransformLensQueryInput,
 } from "../domain/transform-inspector";
 import type { RequestOptions, Transport } from "../http/transport";
+import { explainer } from "../version/refusal";
 
 function lensPath(id: number, lensId: string): string {
   return `/api/ee/transforms/${id}/inspect/${encodeURIComponent(lensId)}`;
 }
 
 export function transformInspectorResource(transport: Transport) {
+  const explain = explainer(transport, "transformInspector");
+
   /**
    * Discover what the inspector can show for a transform: its source and target tables with field
    * statistics, the fields its query touches, and the lenses available on it.
    */
   async function discover(id: number, options: RequestOptions = {}): Promise<TransformInspection> {
-    await transport.require("transformInspector.discover", options);
     return transport.requestParsed(TransformInspection, `/api/ee/transforms/${id}/inspect`, {
       ...options,
     });
@@ -34,7 +36,6 @@ export function transformInspectorResource(transport: Transport) {
     params: LensParams = {},
     options: RequestOptions = {},
   ): Promise<TransformLens> {
-    await transport.require("transformInspector.lens", options);
     return transport.requestParsed(TransformLens, lensPath(id, lensId), {
       ...options,
       query: { join_step: params.join_step },
@@ -52,7 +53,6 @@ export function transformInspectorResource(transport: Transport) {
     params: TransformLensQueryInput,
     options: RequestOptions = {},
   ): Promise<CardQueryResult> {
-    await transport.require("transformInspector.query", options);
     return transport.requestParsed(CardQueryResult, `${lensPath(id, lensId)}/query`, {
       ...options,
       method: "POST",
@@ -60,5 +60,9 @@ export function transformInspectorResource(transport: Transport) {
     });
   }
 
-  return { discover, lens, query };
+  return {
+    discover: explain("discover", discover),
+    lens: explain("lens", lens),
+    query: explain("query", query),
+  };
 }

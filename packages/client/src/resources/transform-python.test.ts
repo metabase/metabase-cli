@@ -8,9 +8,12 @@ import {
   captureFetch,
   type FetchScript,
   jsonResponse,
+  premiumRefusalResponse,
+  probeResponse,
   TEST_USER_AGENT,
 } from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -155,8 +158,11 @@ describe("transform-python resource wire requests", () => {
     );
   });
 
-  it("refuses before the wire on a server without the Python transforms token", async () => {
-    const { mb, capture } = clientOver([], UNLICENSED_SERVER);
+  it("explains a premium refusal as the missing Python transforms token", async () => {
+    const { mb, capture } = clientOver(
+      [premiumRefusalResponse("Python transforms"), probeResponse(UNLICENSED_SERVER)],
+      UNLICENSED_SERVER,
+    );
 
     const error = await mb.transformPython.getLibrary("common").catch((caught: unknown) => caught);
 
@@ -170,11 +176,20 @@ describe("transform-python resource wire requests", () => {
       tokenFeature: "transforms-python",
       serverVersion: "v1.60.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/transforms-python/library/common",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 
-  it("refuses a test run before the wire on a server that takes source tables as a map", async () => {
-    const { mb, capture } = clientOver([], MAP_SOURCE_TABLES_SERVER);
+  it("explains a rejected test run on a server that takes source tables as a map", async () => {
+    const { mb, capture } = clientOver(
+      [
+        jsonResponse({ errors: { source_tables: "map from table alias to table id" } }, 400),
+        probeResponse(MAP_SOURCE_TABLES_SERVER),
+      ],
+      MAP_SOURCE_TABLES_SERVER,
+    );
 
     const error = await mb.transformPython.testRun(TEST_RUN).catch((caught: unknown) => caught);
 
@@ -188,6 +203,9 @@ describe("transform-python resource wire requests", () => {
       tokenFeature: "transforms-python",
       serverVersion: "v1.59.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/transforms-python/test-run",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 });

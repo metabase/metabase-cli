@@ -15,7 +15,7 @@ This skill covers the import/export workflow. Flag conventions and auth setup li
 
 ## Precondition: read state before mutating
 
-Always run `status` (or `is-dirty` + `has-remote-changes`) before `import` or `export`. Importing on a dirty instance silently rejects unless you pass `--force`.
+Always run `status` (or the individual checks below) before `import` or `export`. Importing on a dirty instance silently rejects unless you pass `--force`.
 
 <!-- requires: remoteSyncMerge -->
 
@@ -26,10 +26,17 @@ Exporting after the remote moved on ends in a `conflict` task unless the export 
 ```bash
 mb git-sync status              --profile <n> --json   # → branch, dirty, current task
 mb git-sync is-dirty            --profile <n> --json   # → {is_dirty: bool}; instance has unexported changes
-mb git-sync has-remote-changes  --profile <n> --json   # → {has_changes: bool, remote_version, local_version, cached}; remote has unimported commits
 mb git-sync dirty               --profile <n> --json   # → list the dirty objects
 mb git-sync current-task        --profile <n> --json   # → in-flight task (or idle)
 ```
+
+<!-- requires: remoteSyncRemoteChanges -->
+
+```bash
+mb git-sync has-remote-changes  --profile <n> --json   # → {has_changes: bool, remote_version, local_version, cached}; remote has unimported commits
+```
+
+<!-- /requires -->
 
 **Clean up before exporting.** If you've created entities you intend to delete (a failed transform you're going to retry, a card you authored to test a body shape, a draft dashboard) — do the deletes _before_ the first `git-sync export`. Once committed, the cleanup needs a second commit, and the failed entity stays visible in `git log` forever. For transforms, prefer `transform update <id>` over delete + create (see the `transform` skill).
 
@@ -53,8 +60,13 @@ Pulls the configured branch and applies it to the instance. Polls until the task
 Workflow:
 
 1. Read state (above) — confirm `is_dirty: false` (or `--force` is intended).
-2. Confirm `has-remote-changes` reports `has_changes: true` — there's actually something to import.
-3. `git-sync import --branch <branch>` — runs to terminal status by default.
+2. `git-sync import --branch <branch>` — runs to terminal status by default.
+
+<!-- requires: remoteSyncRemoteChanges -->
+
+Between the two, confirm `has-remote-changes` reports `has_changes: true` — there's actually something to import.
+
+<!-- /requires -->
 
 <!-- requires: remoteSyncMerge -->
 

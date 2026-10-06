@@ -8,6 +8,7 @@ import {
 } from "../domain/transform-test";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
+import { explainer } from "../version/refusal";
 
 // `GET /api/ee/transform-test` answers a bare array rather than a `{ data, total }` envelope, so
 // the count a caller reads off `ListResult` is the array's own length and the server reports none.
@@ -19,12 +20,13 @@ export interface TransformTestListParams {
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function transformTestResource(transport: Transport) {
+  const explain = explainer(transport, "transformTest");
+
   /** List the transform tests, optionally only those of one transform. */
   async function list(
     params: TransformTestListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<TransformTest>> {
-    await transport.require("transformTest.list", options);
     const data = await transport.requestParsed(TransformTestApiList, "/api/ee/transform-test", {
       ...options,
       query: { "transform-id": params["transform-id"] },
@@ -34,7 +36,6 @@ export function transformTestResource(transport: Transport) {
 
   /** Get a transform test by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<TransformTest> {
-    await transport.require("transformTest.get", options);
     return transport.requestParsed(TransformTest, `/api/ee/transform-test/${id}`, { ...options });
   }
 
@@ -47,7 +48,6 @@ export function transformTestResource(transport: Transport) {
     params: TransformTestCreateInput,
     options: RequestOptions = {},
   ): Promise<TransformTest> {
-    await transport.require("transformTest.create", options);
     return transport.requestParsed(TransformTest, "/api/ee/transform-test", {
       ...options,
       method: "POST",
@@ -64,7 +64,6 @@ export function transformTestResource(transport: Transport) {
     params: TransformTestUpdateInput,
     options: RequestOptions = {},
   ): Promise<TransformTest> {
-    await transport.require("transformTest.update", options);
     return transport.requestParsed(TransformTest, `/api/ee/transform-test/${id}`, {
       ...options,
       method: "PUT",
@@ -74,7 +73,6 @@ export function transformTestResource(transport: Transport) {
 
   /** Delete a transform test by id. */
   async function remove(id: number, options: RequestOptions = {}): Promise<void> {
-    await transport.require("transformTest.delete", options);
     await transport.requestRaw(`/api/ee/transform-test/${id}`, {
       ...options,
       method: "DELETE",
@@ -89,12 +87,18 @@ export function transformTestResource(transport: Transport) {
    * refused and nothing meaningful ran.
    */
   async function run(id: number, options: RequestOptions = {}): Promise<TransformTestRunResult> {
-    await transport.require("transformTest.run", options);
     return transport.requestParsed(TransformTestRunResult, `/api/ee/transform-test/${id}/run`, {
       ...options,
       method: "POST",
     });
   }
 
-  return { list, get, create, update, delete: remove, run };
+  return {
+    list: explain("list", list),
+    get: explain("get", get),
+    create: explain("create", create),
+    update: explain("update", update),
+    delete: explain("delete", remove),
+    run: explain("run", run),
+  };
 }

@@ -18,10 +18,10 @@ import {
 } from "./setup/oauth-harness";
 
 // The full-API OAuth backend (the session-middleware bearer bridge plus the mb:full scope) ships
-// in Metabase v63, so head images have it and the 58–61 matrix stacks don't: ≤59 has no OAuth
-// server at all, and 60–62 expose one scoped to the agent API/MCP only — its bearer tokens 401 on
-// the REST API. The suite self-skips when bootstrap's live discovery probe found no authorization
-// server advertising the full-access scope.
+// from Metabase v62.3.3, so head images have it and the 58–61 matrix stacks don't: ≤59 has no
+// OAuth server at all, and 60, 61 and the earlier 62 patches expose one scoped to the agent
+// API/MCP only — its bearer tokens 401 on the REST API. The suite self-skips when bootstrap's live
+// discovery probe found no authorization server granting the full-access scope.
 //
 // `mb auth login` opens a real browser, so we can't drive it as a subprocess. Instead we run the
 // library `oauthLogin()` in-process with an injected "browser" that authenticates as admin and

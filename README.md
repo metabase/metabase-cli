@@ -1,19 +1,19 @@
 # metabase-cli
 
-Command-line client for Metabase. Logs in to an instance in your browser (OAuth, Metabase v63+) or with an API key, and stores credentials securely on your machine.
+Command-line client for Metabase. Logs in to an instance in your browser (OAuth, Metabase v62.3.3+) or with an API key, and stores credentials securely on your machine.
 
 ## Supported Metabase versions
 
 The CLI is built against Metabase majors **58 through 64** (the client's `KNOWN_RANGE`), the latest patch of each; a newer release runs as the major after the newest known one, with one stderr notice per run; a development build (master or a local build, reporting a tag such as `vUNKNOWN`) is treated as newer than every release, with every version-gated command available and no notice; and an older one keeps its real major, gets one stderr notice per run pointing at a Metabase upgrade, and is refused command by command with the version it needs.
 
-Every command declares the client methods it calls, and each method names the server features it needs — a feature is a minimum major version, a premium token feature, or both. The server version and token features are detected and cached when you run `mb auth login` (or `mb auth list`). For a command whose methods need a feature, a preflight check runs before the first request and refuses with an actionable message (exit code `2`) when:
+Every command declares the client methods it calls, and each method names the server features it needs — a feature is a minimum major version, a premium token feature, or both. The server decides whether a request is allowed: every command sends its requests, and when the server refuses one (an endpoint it does not serve, or a premium feature it does not grant), the CLI probes the server once and reports what is missing with an actionable message (exit code `2`):
 
 - the server is older than the command's minimum version, or
 - the command needs a premium feature (e.g. `remote_sync`, `content_translation`, `library`) that isn't enabled.
 
-Plain OSS commands against a v0.58+ server (the majority) carry no elevated requirement and skip the preflight entirely. When a gated command runs without a cached probe, the CLI asks the server for its version once and decides on the answer; a server that cannot be reached fails the command with that network error. To bypass the check for a single run, pass `--skip-preflight`; to bypass it process-wide (e.g. in CI), set `MB_CLI_SKIP_PREFLIGHT=1`. Both switch off the client's own check too, so every request goes to the wire and the server answers for itself — footguns, only for servers you know are patched.
+A license activated or a server upgraded after `mb auth login` takes effect on the next command; nothing has to be refreshed first. The one refusal issued before a request is for a parameter a server without the feature would drop without a word, answering as if it had never been sent — `table list --unused-only` without the `dependencies` feature lists every table. Such a parameter is judged against a probe taken in the same run, never the cached one, so a command passing it costs one request more than it would otherwise, even when the cache grants the feature: a cache can be wrong in that direction too, after a license lapses.
 
-`mb auth status --json` reports the window as `knownRange` and where the server sits as `skew`. A release above the window is read as the major after the newest known one: its additions pass through, and one stderr notice per run points at `mb upgrade`. A development build is `development`, ahead of every release, and prints no notice; a server below the window is `older-than-known`, still evaluated at its own major, with a notice naming the oldest major the CLI supports. A response the CLI cannot parse, or a refusal it issues, under a cached profile triggers one fresh probe: if the server's version or premium features changed since the cache was written, the profile is refreshed and the error says so — retry the command.
+`mb auth status --json` reports the window as `knownRange` and where the server sits as `skew`. A release above the window is read as the major after the newest known one: its additions pass through, and one stderr notice per run points at `mb upgrade`. A development build is `development`, ahead of every release, and prints no notice; a server below the window is `older-than-known`, still evaluated at its own major, with a notice naming the oldest major the CLI supports. A response the CLI cannot parse under a cached profile triggers one fresh probe: if the server's version or premium features changed since the cache was written, the profile is refreshed and the error says so — retry the command.
 
 ## Install
 
@@ -99,10 +99,10 @@ Credentials are stored per-profile. The default profile is named `default`. Use 
 
 Log in to a Metabase instance and save the credential to a profile. Interactive login offers two methods:
 
-- **In your browser** (recommended; requires Metabase v63 or newer) — the CLI opens Metabase, you sign in with your password or SSO and approve the CLI, and a short-lived access token plus a rotating refresh token are stored. Tokens refresh automatically; you never paste a secret.
+- **In your browser** (recommended; requires Metabase v62.3.3 or newer) — the CLI opens Metabase, you sign in with your password or SSO and approve the CLI, and a short-lived access token plus a rotating refresh token are stored. Tokens refresh automatically; you never paste a secret.
 - **With an API key** — paste a key from Admin settings → Authentication → API keys.
 
-Against a server older than v63 the CLI detects the missing OAuth support and falls back to the API key prompt automatically. Supplying an API key (flag, env, or stdin) always skips the browser flow, so CI and scripts behave exactly as before.
+Against an older server the CLI detects the missing OAuth support and falls back to the API key prompt automatically. Supplying an API key (flag, env, or stdin) always skips the browser flow, so CI and scripts behave exactly as before.
 
 On success the server is probed once — the rendered output shows the user, role (`Admin`/`User`), Metabase version and skew (`--json` adds `edition`, `knownRange` and `features`), and the probe is cached in `<configDir>/profiles.json` so later commands skip re-probing. Failure of either the auth probe (`/api/user/current`) or the server probe (`/api/session/properties`) rejects the login; an existing profile keeps its last-known-good credential and gains a `lastFailure` entry.
 
@@ -124,7 +124,7 @@ mb auth login --url https://m.example.com < key.txt
 
 ### `mb auth status`
 
-Show whether a profile is authenticated. The output includes the auth method (`OAuth` or `API key`) alongside the cached user, role, server version and skew (`supported`, `older than this CLI supports (vN min)`, `newer than this CLI knows (vN max)`, or `unknown version`). `--json` adds what the CLI derives from the cached probe: `edition`, `skew`, `knownRange` and the `features` map the preflight checks.
+Show whether a profile is authenticated. The output includes the auth method (`OAuth` or `API key`) alongside the cached user, role, server version and skew (`supported`, `older than this CLI supports (vN min)`, `newer than this CLI knows (vN max)`, or `unknown version`). `--json` adds what the CLI derives from the cached probe: `edition`, `skew`, `knownRange` and the `features` map an explained refusal names.
 
 ```sh
 mb auth status
@@ -525,7 +525,7 @@ mb table fks 42 --json
 
 ### `mb table update <id>`
 
-Patch a table (`PUT /api/table/:id`). Body fields: `display_name`, `description`, `caveats`, `points_of_interest`, `entity_type`, `visibility_type`, `field_order`, `show_in_getting_started`. Pass the body via `--body`, `--file`, or stdin (exactly one).
+Patch a table (`PUT /api/table/:id`). Body fields: `display_name`, `description`, `caveats`, `points_of_interest`, `entity_type`, `visibility_type`, `field_order`, `show_in_getting_started`, `data_authority`, `data_source`, `data_layer`, `owner_email`, `owner_user_id`, `collection_id`. Pass the body via `--body`, `--file`, or stdin (exactly one). `display_name`, `entity_type`, `show_in_getting_started`, `field_order` and `collection_id` take no `null`: the server would drop it and leave the value as it was. Two values a server would take without doing what they ask are refused before the request, judged against a probe of the server taken in the same run: `data_authority: null` before Metabase 64, which the server writes into a column that takes no `null` and fails with a bare 500 or stores something other than a withdrawal; and a medallion `data_layer` (`gold`, `silver`, `bronze`, `copper`) on a server that names its layers `final` / `internal` / `hidden`, which maps it onto one of those. A `collection_id` is checked against the table the server answers instead, because whether an update moves a table depends on the server's patch release: one that drops it leaves the table where it was, and the command fails (exit 2) after the rest of the update has been applied.
 
 ```sh
 mb table update 42 --body '{"display_name":"Customers"}'
@@ -812,7 +812,7 @@ mb card update 1 --file patch.json --skip-validate
 
 ### `mb card verify <id>`
 
-Mark a card verified, or withdraw the mark with `--remove` (`POST /api/moderation-review` with `moderated_item_type: "card"`). Admins only. Verified content carries a check mark in the product and ranks higher in search (`search --verified`). Each call adds a review and makes it the card's most recent one; `--remove` records a review with no status, which withdraws the verification. Changing the card's query (`card update` with a new `dataset_query`, or a revision revert) withdraws it too: the server records a review with no status and a note saying the edit unverified it. `card get <id> --fields moderation_reviews --json` reads the card's reviews, newest first; the first one's `status` is the current state. Prints the review: `id`, `moderated_item_id`, `moderated_item_type`, `status` (`verified` or `null`), `text`, `most_recent`; `--full` adds `moderator_id` and the timestamps. Needs the `content_verification` premium feature (Pro/Enterprise); the command is refused by name before any request without it.
+Mark a card verified, or withdraw the mark with `--remove` (`POST /api/moderation-review` with `moderated_item_type: "card"`). Admins only. Verified content carries a check mark in the product and ranks higher in search (`search --verified`). Each call adds a review and makes it the card's most recent one; `--remove` records a review with no status, which withdraws the verification. Changing the card's query (`card update` with a new `dataset_query`, or a revision revert) withdraws it too: the server records a review with no status and a note saying the edit unverified it. `card get <id> --fields moderation_reviews --json` reads the card's reviews, newest first; the first one's `status` is the current state. Prints the review: `id`, `moderated_item_id`, `moderated_item_type`, `status` (`verified` or `null`), `text`, `most_recent`; `--full` adds `moderator_id` and the timestamps. Needs the `content_verification` premium feature (Pro/Enterprise); without it the server refuses the request, and the error names the feature.
 
 ```sh
 mb card verify 1
@@ -971,7 +971,7 @@ mb dashboard copy 1 --deep --json
 
 ### `mb dashboard verify <id>`
 
-Mark a dashboard verified, or withdraw the mark with `--remove` (`POST /api/moderation-review` with `moderated_item_type: "dashboard"`). Admins only. Verified content carries a check mark in the product and ranks higher in search (`search --verified`). Each call adds a review and makes it the dashboard's most recent one; `--remove` records a review with no status, which withdraws the verification. `dashboard get <id> --fields moderation_reviews --json` reads the dashboard's reviews, newest first; the first one's `status` is the current state. Prints the review: `id`, `moderated_item_id`, `moderated_item_type`, `status` (`verified` or `null`), `text`, `most_recent`; `--full` adds `moderator_id` and the timestamps. Needs the `content_verification` premium feature (Pro/Enterprise); the command is refused by name before any request without it.
+Mark a dashboard verified, or withdraw the mark with `--remove` (`POST /api/moderation-review` with `moderated_item_type: "dashboard"`). Admins only. Verified content carries a check mark in the product and ranks higher in search (`search --verified`). Each call adds a review and makes it the dashboard's most recent one; `--remove` records a review with no status, which withdraws the verification. `dashboard get <id> --fields moderation_reviews --json` reads the dashboard's reviews, newest first; the first one's `status` is the current state. Prints the review: `id`, `moderated_item_id`, `moderated_item_type`, `status` (`verified` or `null`), `text`, `most_recent`; `--full` adds `moderator_id` and the timestamps. Needs the `content_verification` premium feature (Pro/Enterprise); without it the server refuses the request, and the error names the feature.
 
 ```sh
 mb dashboard verify 1
@@ -1186,7 +1186,7 @@ mb measure archive 1 --revision-message "deprecated"
 
 ## Dependencies
 
-What Metabase content depends on and what depends on it, from `/api/ee/dependencies`. Metabase records an edge from every card, dashboard, document, snippet, transform, sandbox, segment or measure to what its query reads (a table, a card, a snippet, a transform's output), and analyses each dependent's query for errors traced back to what it reads. Every verb needs the `dependencies` premium feature (Pro/Enterprise) and is refused by name before any request without it; `graph` works on every supported server (a measure as its starting entity from Metabase v59), the other four need Metabase v59 or newer. The graph is recomputed by a background job shortly after content changes, so a freshly saved query can take a few seconds to appear.
+What Metabase content depends on and what depends on it, from `/api/ee/dependencies`. Metabase records an edge from every card, dashboard, document, snippet, transform, sandbox, segment or measure to what its query reads (a table, a card, a snippet, a transform's output), and analyses each dependent's query for errors traced back to what it reads. Every verb needs the `dependencies` premium feature (Pro/Enterprise), and without it the server's refusal is reported as that missing feature; `graph` works on every supported server (a measure as its starting entity from Metabase v59), the other four need Metabase v59 or newer. The graph is recomputed by a background job shortly after content changes, so a freshly saved query can take a few seconds to appear.
 
 Every row is `{ id, type, data }` plus, where the verb reports it, `dependents_count`, a map from usage kind (`question`, `model`, `metric`, `dashboard`, `document`, `transform`, …) to how many depend on the row directly, or `null` when nothing does. `data` names and places the entity by kind: a table carries `name`, `display_name`, `db_id`, `schema` and its `db` (`{ id, name }`); a card `name`, `type` (`question` | `model` | `metric`), `database_id`, `view_count` and its `collection` (plus the `dashboard` or `document` it lives inside, when it does); a dashboard or document its `view_count` and `collection`, a snippet its `collection`; a segment, measure or sandbox its `table` (`{ id, name, display_name }`); a transform carries its `name` and `description` only, with `table` always `null`. The compact projection keeps those; `--full` adds the heavier hydrations (a table's `fields`, a card's `result_metadata`, creators, last-edit info). An entity's location, which `--query` matches and `--sort-column location` orders by and the text table shows, is the dashboard, document or collection holding a card, a table's database, a segment's or measure's table, and the collection of a snippet, dashboard or document; a sandbox has none. A transform's row carries no collection: `unreferenced` and `breaking`, which match and sort on the server, use its collection's name (`Transforms` for one at the root), while `dependents`, `broken` and the text table give it no location.
 
@@ -1446,7 +1446,7 @@ The compact view returns `id`, `name`, `dashboard_id`, `collection_id`, `archive
 
 ### `mb subscription create`
 
-The body needs `name`, `dashboard_id`, `cards`, and `channels`.
+The body needs `name`, `dashboard_id`, `cards`, and `channels`. Non-empty `parameters` (filter values for this subscription only) need the `dashboard_subscription_filters` premium feature and are refused before any request without it (exit 2), because a server without it stores them but sends the dashboard's own filter values; the same holds on `update`.
 
 Each channel names a `channel_type` (`email`, `slack`, `http`) and a `schedule_type` (`hourly`, `daily`, `weekly`, `monthly`) plus the fields that schedule needs: `daily` needs `schedule_hour` (0–23); `weekly` also needs `schedule_day` (`mon`…`sun`); `monthly` also needs `schedule_frame` (`first`, `mid`, `last`). Email recipients are `{"email":"a@b.com"}` or `{"id":<user-id>}`; Slack targets a channel with `"details":{"channel":"#general"}`. A channel is `enabled` unless you say otherwise.
 
@@ -1928,7 +1928,7 @@ mb search revenue --search-native-query --include-metadata --full --json
 | `--limit`                       | Max results to return (default `20` — `search` is the one list verb with its own default).                                                                                                                                                                                                                                                         |
 | `--offset`                      | Where the window starts, applied by the server (default `0`).                                                                                                                                                                                                                                                                                      |
 | `--db-id`                       | Restrict to items on a given database id.                                                                                                                                                                                                                                                                                                          |
-| `--verified`                    | Only verified content.                                                                                                                                                                                                                                                                                                                             |
+| `--verified`                    | Only verified content. Needs the `content_verification` premium feature; refused before any request without it, since a server without it ignores the filter.                                                                                                                                                                                      |
 | `--collection`                  | Restrict to one collection by id: the collection's own row, its subcollections and the content filed under them. Segments, measures and transforms never match, tables only once published to the Library, and a transforms collection is not searchable at all. Questions saved into a dashboard match only with `--include-dashboard-questions`. |
 | `--created-by`                  | Comma-separated user ids; matches items created by any of them. Only kinds that record a creator can match — cards, models, metrics, dashboards, actions, documents, and measures from Metabase 60 — so collections, tables, databases, segments, transforms and indexed entities drop out.                                                        |
 | `--search-native-query`         | Also match native query text. Narrows the result to the models that carry a query — cards, models, metrics, actions, transforms — so dashboards, collections and tables drop out.                                                                                                                                                                  |
@@ -1937,7 +1937,7 @@ mb search revenue --search-native-query --include-metadata --full --json
 
 ## Git Sync
 
-Drive Metabase Enterprise Remote Sync (`/api/ee/remote-sync`) — import / export Metabase content against a configured git remote, inspect dirty state, and manage branches. All git-sync commands require Metabase v60 or newer, the `remote_sync` premium feature on an active EE token, and superuser credentials.
+Drive Metabase Enterprise Remote Sync (`/api/ee/remote-sync`) — import / export Metabase content against a configured git remote, inspect dirty state, and manage branches. All git-sync commands require the `remote_sync` premium feature on an active EE token and superuser credentials.
 
 ### `mb git-sync status`
 
@@ -1958,7 +1958,7 @@ mb git-sync is-dirty --json
 
 ### `mb git-sync has-remote-changes`
 
-Compare the latest version on the remote branch against the version Metabase last imported. Cached for a short TTL server-side; pass `--force-refresh` to bypass.
+Compare the latest version on the remote branch against the version Metabase last imported. Cached for a short TTL server-side; pass `--force-refresh` to bypass. Requires Metabase v59 or newer.
 
 ```sh
 mb git-sync has-remote-changes
@@ -2029,7 +2029,7 @@ mb git-sync import --merge
 | `--timeout <ms>`        | Polling timeout in ms (default 600000). Used with `--wait`.                                                                                                                                                                                                                                                   |
 | `--interval <ms>`       | Polling interval in ms (default 2000). Used with `--wait`.                                                                                                                                                                                                                                                    |
 
-On Metabase v63 and newer the import also asserts which branch git-sync tracks, read from the session properties just before the request (an environment-set `MB_REMOTE_SYNC_BRANCH` included). When no branch is tracked the command refuses with exit 2; when the caller is not an admin, so the setting is not readable, it refuses with exit 2 rather than reading it as unset. A task that ends in `conflict` lists the conflicting entities in its text output and error. The server may then count the remote commit that task saw as synced, so a retry, `--merge` included, may no longer see the remote's changes. Never answer a conflict with a retry: keep one side with `--force`, or both through a reviewed PR from a new branch (git-sync skill, "After a conflict task").
+The import also asserts which branch git-sync tracks, read from the session properties just before the request (an environment-set `MB_REMOTE_SYNC_BRANCH` included); Metabase v63 and newer reject an import whose assertion disagrees, and older servers ignore it. On a server that grants remote sync, the command refuses with exit 2 when no branch is tracked, and when the caller is not an admin, so the setting is not readable, rather than reading it as unset. On a server without remote sync the request is sent without the assertion and the server's refusal names the missing feature. A task that ends in `conflict` lists the conflicting entities in its text output and error. The server may then count the remote commit that task saw as synced, so a retry, `--merge` included, may no longer see the remote's changes. Never answer a conflict with a retry: keep one side with `--force`, or both through a reviewed PR from a new branch (git-sync skill, "After a conflict task").
 
 ### `mb git-sync export`
 
@@ -2044,7 +2044,7 @@ mb git-sync export --no-wait
 
 | Flag                    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--branch <name>`, `-b` | Branch to export to (defaults to the `remote-sync-branch` setting). On Metabase v63 and newer it must be the branch git-sync tracks (the server answers 409 with the current one), and with no `--branch` the command refuses with exit 2 when no branch is tracked or the setting is not readable. Older servers export to the named branch and switch git-sync to it, refusing with 400 when that branch's tip is not the last synced commit unless `--force` is given. A blank name is refused with exit 2. |
+| `--branch <name>`, `-b` | Branch to export to (defaults to the `remote-sync-branch` setting). On Metabase v63 and newer it must be the branch git-sync tracks (the server answers 409 with the current one), and with no `--branch` the export goes to the tracked branch, read as `import` reads it, with the same refusals. Older servers export to the named branch and switch git-sync to it, refusing with 400 when that branch's tip is not the last synced commit unless `--force` is given. A blank name is refused with exit 2. |
 | `--message <msg>`, `-m` | Commit message for the export.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `--force`               | Force-push / overwrite the remote branch.                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `--merge`               | When the remote moved past the last sync, fold its changes in by a three-way merge instead of ending in a `conflict` task; entities changed on both sides still end it in `conflict`, writing nothing. Not with `--force`. Requires Metabase v63 or newer.                                                                                                                                                                                                                                                     |
@@ -2349,17 +2349,16 @@ Exit codes: `0` success (a skill the server cannot use is reported, not refused)
 
 ## Environment variables
 
-| Variable                 | Effect                                                                                                                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MB_URL`                 | Default URL for `auth login` and config resolution.                                                                                                                       |
-| `MB_API_KEY`             | Default API key (makes `auth login` non-interactive, skipping the browser flow; not stored).                                                                              |
-| `MB_PROFILE`             | Default profile when `--profile` is omitted. Falls back to `default`.                                                                                                     |
-| `MB_VERBOSE`             | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                                                            |
-| `MB_CLI_SKIP_PREFLIGHT`  | When set to `1`, bypasses the per-command server version / token-feature preflight check. Escape hatch for patched Metabase builds; can mask real compatibility problems. |
-| `MB_CLI_DISABLE_KEYRING` | When set to `1`, skips the OS keychain and stores credentials as plaintext in the profiles file.                                                                          |
-| `MB_SKILLS_DIR`          | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees).                                                    |
+| Variable                 | Effect                                                                                                                 |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `MB_URL`                 | Default URL for `auth login` and config resolution.                                                                    |
+| `MB_API_KEY`             | Default API key (makes `auth login` non-interactive, skipping the browser flow; not stored).                           |
+| `MB_PROFILE`             | Default profile when `--profile` is omitted. Falls back to `default`.                                                  |
+| `MB_VERBOSE`             | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                         |
+| `MB_CLI_DISABLE_KEYRING` | When set to `1`, skips the OS keychain and stores credentials as plaintext in the profiles file.                       |
+| `MB_SKILLS_DIR`          | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees). |
 
-The former `METABASE_`-prefixed names (`METABASE_URL`, `METABASE_API_KEY`, `METABASE_PROFILE`, `METABASE_VERBOSE`, `METABASE_CLI_SKIP_PREFLIGHT`, `METABASE_CLI_DISABLE_KEYRING`) are deprecated but still honored; the CLI prints a one-line warning to stderr when it falls back to one. Switch to the `MB_`-prefixed names.
+The former `METABASE_`-prefixed names (`METABASE_URL`, `METABASE_API_KEY`, `METABASE_PROFILE`, `METABASE_VERBOSE`, `METABASE_CLI_DISABLE_KEYRING`) are deprecated but still honored; the CLI prints a one-line warning to stderr when it falls back to one. Switch to the `MB_`-prefixed names.
 
 ## Agent integration
 

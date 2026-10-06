@@ -11,7 +11,6 @@ export function eidTranslationResource(transport: Transport) {
     params: EidTranslateInput,
     options: RequestOptions = {},
   ): Promise<EidTranslateResult> {
-    await transport.require("eidTranslation.translate", options);
     return transport.requestParsed(EidTranslateResult, "/api/eid-translation/translate", {
       ...options,
       method: "POST",

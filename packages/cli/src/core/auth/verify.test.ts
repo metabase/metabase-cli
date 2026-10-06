@@ -54,7 +54,7 @@ describe("verifyAndProbe", () => {
       await answered;
       return jsonResponse(body);
     };
-    const capture = captureFetch([held(SESSION_PROPERTIES), held(CURRENT_USER)]);
+    const capture = captureFetch([held(CURRENT_USER), held(SESSION_PROPERTIES)]);
     vi.stubGlobal("fetch", capture.fetch);
 
     const pending = verifyAndProbe(BASE_URL, CREDENTIAL);
@@ -62,13 +62,13 @@ describe("verifyAndProbe", () => {
       await flushPending();
       expect(capture.calls).toEqual([
         {
-          url: `${BASE_URL}/api/session/properties`,
+          url: `${BASE_URL}/api/user/current`,
           method: "GET",
           headers: READ_HEADERS,
           body: null,
         },
         {
-          url: `${BASE_URL}/api/user/current`,
+          url: `${BASE_URL}/api/session/properties`,
           method: "GET",
           headers: READ_HEADERS,
           body: null,

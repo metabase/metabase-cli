@@ -3,6 +3,7 @@ import { z } from "zod";
 import { Measure, type MeasureCreateInput, type MeasureUpdateInput } from "../domain/measure";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
+import { explainer } from "../version/refusal";
 
 // `GET /api/measure` answers a bare array rather than a `{ data, total }` envelope, so the count a
 // caller reads off `ListResult` is the array's own length and the server reports none.
@@ -13,16 +14,16 @@ export interface MeasureArchiveParams {
 }
 
 export function measureResource(transport: Transport) {
+  const explain = explainer(transport, "measure");
+
   /** List measures. */
   async function list(options: RequestOptions = {}): Promise<ListResult<Measure>> {
-    await transport.require("measure.list", options);
     const data = await transport.requestParsed(MeasureApiList, "/api/measure", { ...options });
     return { data, total: null };
   }
 
   /** Get one measure by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<Measure> {
-    await transport.require("measure.get", options);
     return transport.requestParsed(Measure, `/api/measure/${id}`, { ...options });
   }
 
@@ -31,7 +32,6 @@ export function measureResource(transport: Transport) {
     params: MeasureCreateInput,
     options: RequestOptions = {},
   ): Promise<Measure> {
-    await transport.require("measure.create", options);
     return transport.requestParsed(Measure, "/api/measure", {
       ...options,
       method: "POST",
@@ -48,7 +48,6 @@ export function measureResource(transport: Transport) {
     params: MeasureUpdateInput,
     options: RequestOptions = {},
   ): Promise<Measure> {
-    await transport.require("measure.update", options);
     return transport.requestParsed(Measure, `/api/measure/${id}`, {
       ...options,
       method: "PUT",
@@ -65,9 +64,14 @@ export function measureResource(transport: Transport) {
     params: MeasureArchiveParams,
     options: RequestOptions = {},
   ): Promise<Measure> {
-    await transport.require("measure.archive", options);
     return update(id, { archived: true, revision_message: params.revision_message }, options);
   }
 
-  return { list, get, create, update, archive };
+  return {
+    list: explain("list", list),
+    get: explain("get", get),
+    create: explain("create", create),
+    update: explain("update", update),
+    archive: explain("archive", archive),
+  };
 }

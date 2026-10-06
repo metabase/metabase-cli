@@ -2,6 +2,7 @@ import { z, type ZodType } from "zod";
 
 import { ConfigError, InternalError } from "./errors";
 import type { Transport, QueryValue } from "./http/transport";
+import type { FeatureName } from "./version/features";
 
 export const DEFAULT_PAGE_SIZE = 50;
 
@@ -11,6 +12,9 @@ export interface PaginateOptions {
   offset?: number;
   max?: number;
   signal?: AbortSignal;
+  // What the listing needs from the server, so a page the server rejects for lacking one of them
+  // reads as that feature.
+  features?: readonly FeatureName[];
 }
 
 export interface Page<T> {
@@ -45,10 +49,19 @@ export async function* paginatePages<T>(
     const remaining = max - taken;
     const limit = Math.min(pageSize, remaining);
     const offset = start + taken;
-    const envelope = await client.requestParsed(envelopeSchema, path, {
-      query: { ...opts.query, limit, offset },
-      ...(opts.signal !== undefined && { signal: opts.signal }),
-    });
+    const wait = opts.signal === undefined ? {} : { signal: opts.signal };
+    let envelope: PaginatedEnvelope<T>;
+    try {
+      envelope = await client.requestParsed(envelopeSchema, path, {
+        query: { ...opts.query, limit, offset },
+        ...wait,
+      });
+    } catch (error) {
+      if (opts.features === undefined) {
+        throw error;
+      }
+      throw await client.explainRefusal(opts.features, error, wait);
+    }
 
     const items =
       envelope.data.length > remaining ? envelope.data.slice(0, remaining) : envelope.data;

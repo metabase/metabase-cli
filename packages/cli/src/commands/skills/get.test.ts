@@ -154,7 +154,7 @@ describe("skills get command", () => {
   });
 
   it("prints nothing but the skipped note in text mode for a withheld skill", async () => {
-    await seedProbedProfile("default", probeAt(58));
+    const probedAt = await seedProbedProfile("default", probeAt(58));
     const stdout = capture(process.stdout);
     const stderr = capture(process.stderr);
 
@@ -162,7 +162,8 @@ describe("skills get command", () => {
 
     expect(stdout.chunks).toEqual([]);
     expect(stderr.chunks.join("")).toBe(
-      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n',
+      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n' +
+        `Skills are filtered by profile "default"'s server as probed at ${probedAt} (run \`mb auth list\` to probe it again).\n`,
     );
   });
 

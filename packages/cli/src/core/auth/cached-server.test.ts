@@ -45,11 +45,12 @@ describe("readCachedServerProfile", () => {
   });
 
   it("derives the profile from the record's cached probe", async () => {
-    await seedProbedProfile("staging", probeAt(61, { library: true }));
+    const probedAt = await seedProbedProfile("staging", probeAt(61, { library: true }));
 
     expect(await readCachedServerProfile("staging")).toEqual({
       kind: "found",
       profile: createServerProfile(probeAt(61, { library: true })),
+      probedAt,
     });
   });
 
@@ -64,12 +65,13 @@ describe("readCachedServerProfile", () => {
   });
 
   it("keeps the record's probe when the environment names the record's own server", async () => {
-    await seedProbedProfile("staging", probeAt(61));
+    const probedAt = await seedProbedProfile("staging", probeAt(61));
     process.env["MB_URL"] = "http://127.0.0.1:1/";
 
     expect(await readCachedServerProfile("staging")).toEqual({
       kind: "found",
       profile: createServerProfile(probeAt(61)),
+      probedAt,
     });
   });
 });

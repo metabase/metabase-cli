@@ -3,8 +3,16 @@ import { assert, describe, expect, it } from "vitest";
 import { createClient } from "../client";
 import { ConfigError } from "../errors";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
+import {
+  captureFetch,
+  jsonResponse,
+  probeResponse,
+  routeMissingResponse,
+  TEST_USER_AGENT,
+  thrownBy,
+} from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile } from "../version/profile";
 
 import type { CsvFile } from "./csv-upload";
@@ -75,6 +83,16 @@ const SERVER_60 = createServerProfile({
   tokenFeatures: null,
 });
 
+const PROBE_URL = `https://mb.example.com/metabase${PROBE_PATH}`;
+
+// What a medallion-era server answers a tier name with: its enum rejects the value.
+function dataLayerRejected(): Response {
+  return jsonResponse(
+    { errors: { data_layer: "nullable enum of gold, silver, bronze, copper" } },
+    400,
+  );
+}
+
 const SERVER_58 = createServerProfile({
   edition: "oss",
   version: { kind: "release", tag: "v0.58.0", major: 58, patch: 0 },
@@ -82,6 +100,17 @@ const SERVER_58 = createServerProfile({
   hash: null,
   tokenFeatures: null,
 });
+
+// The first server that keeps a table's user edits apart from the table, so a `null` withdraws one.
+const SERVER_64 = createServerProfile({
+  edition: "oss",
+  version: { kind: "release", tag: "v0.64.1", major: 64, patch: 1 },
+  date: null,
+  hash: null,
+  tokenFeatures: null,
+});
+
+const TABLE_URL = "https://mb.example.com/metabase/api/table/11";
 
 const FOREIGN_KEY = {
   relationship: "Mt1",
@@ -124,8 +153,8 @@ describe("table resource wire requests", () => {
     ]);
   });
 
-  it("sends every list filter under the server's own kebab-case name", async () => {
-    const { mb, capture } = clientOver([jsonResponse([TABLE])]);
+  it("sends every list filter under the server's own kebab-case name, after probing for the access filters", async () => {
+    const { mb, capture } = clientOver([probeResponse(SERVER_60), jsonResponse([TABLE])]);
 
     await mb.table.list({
       term: "ord",
@@ -141,12 +170,13 @@ describe("table resource wire requests", () => {
     });
 
     expect(capture.calls.map((call) => call.url)).toEqual([
+      PROBE_URL,
       "https://mb.example.com/metabase/api/table?term=ord&visibility-type=hidden&data-layer=final&data-source=upload&owner-user-id=7&owner-email=ada%40example.com&orphan-only=false&can-query=true&can-write=false&include-transform-targets=true",
     ]);
   });
 
-  it("refuses an access filter before the wire on a server whose listing drops it", async () => {
-    const { mb, capture } = clientOver([], SERVER_58);
+  it("refuses an access filter before the wire on a server whose listing drops it, as a fresh probe finds it", async () => {
+    const { mb, capture } = clientOver([probeResponse(SERVER_58)]);
 
     const error = await thrownBy(() => mb.table.list({ term: "ord", "can-query": true }));
 
@@ -160,11 +190,24 @@ describe("table resource wire requests", () => {
       tokenFeature: null,
       serverVersion: "v0.58.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([PROBE_URL]);
+  });
+
+  it("sends an access filter a cached profile from before an upgrade would have refused", async () => {
+    const { mb, capture } = clientOver(
+      [probeResponse(SERVER_60), jsonResponse([TABLE])],
+      SERVER_58,
+    );
+
+    expect(await mb.table.list({ "can-query": true })).toEqual({ data: [TABLE], total: null });
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      PROBE_URL,
+      "https://mb.example.com/metabase/api/table?can-query=true",
+    ]);
   });
 
   it("refuses the unused filter before the wire on a server without dependency tracking", async () => {
-    const { mb, capture } = clientOver([]);
+    const { mb, capture } = clientOver([probeResponse(SERVER_60)]);
 
     const error = await thrownBy(() => mb.table.list({ "unused-only": true }));
 
@@ -178,7 +221,7 @@ describe("table resource wire requests", () => {
       tokenFeature: "dependencies",
       serverVersion: "v0.60.4",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([PROBE_URL]);
   });
 
   it("lists with the filters the oldest supported server takes without asking it", async () => {
@@ -188,6 +231,22 @@ describe("table resource wire requests", () => {
 
     expect(capture.calls.map((call) => call.url)).toEqual([
       "https://mb.example.com/metabase/api/table?term=ord&orphan-only=true",
+    ]);
+  });
+
+  it("lists with every gated filter set to false without asking the oldest supported server", async () => {
+    const { mb, capture } = clientOver([jsonResponse([TABLE])], SERVER_58);
+
+    await mb.table.list({
+      "can-query": false,
+      "can-write": false,
+      "include-transform-targets": false,
+      "unused-only": false,
+      "published-only": false,
+    });
+
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/table?unused-only=false&published-only=false&can-query=false&can-write=false&include-transform-targets=false",
     ]);
   });
 
@@ -275,8 +334,11 @@ describe("table resource wire requests", () => {
     ]);
   });
 
-  it("refuses the bulk edit before the wire on a server below its floor", async () => {
-    const { mb, capture } = clientOver([], SERVER_58);
+  it("explains an unrouted bulk edit on a server below its floor", async () => {
+    const { mb, capture } = clientOver(
+      [routeMissingResponse(), probeResponse(SERVER_58)],
+      SERVER_58,
+    );
 
     const error = await thrownBy(() => mb.table.bulkEdit({ table_ids: [11], data_layer: "final" }));
 
@@ -290,7 +352,10 @@ describe("table resource wire requests", () => {
       tokenFeature: null,
       serverVersion: "v0.58.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/data-studio/table/edit",
+      PROBE_URL,
+    ]);
   });
 
   it("sends the get request", async () => {
@@ -323,8 +388,8 @@ describe("table resource wire requests", () => {
     ]);
   });
 
-  it("refuses a tier name for data_layer before the wire on a server that speaks medallions", async () => {
-    const { mb, capture } = clientOver([], SERVER_58);
+  it("explains a rejected tier name for data_layer on a server that speaks medallions", async () => {
+    const { mb, capture } = clientOver([dataLayerRejected(), probeResponse(SERVER_58)], SERVER_58);
 
     const error = await thrownBy(() => mb.table.update(11, { data_layer: "final" }));
 
@@ -338,19 +403,22 @@ describe("table resource wire requests", () => {
       tokenFeature: null,
       serverVersion: "v0.58.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/table/11",
+      PROBE_URL,
+    ]);
   });
 
-  it("sends a medallion name for data_layer to the server that speaks it", async () => {
-    const { mb, capture } = clientOver([jsonResponse(TABLE)], SERVER_58);
+  it("sends a medallion name for data_layer to the server a fresh probe finds speaking it", async () => {
+    const { mb, capture } = clientOver([probeResponse(SERVER_58), jsonResponse(TABLE)], SERVER_58);
 
     await mb.table.update(11, { data_layer: "gold" });
 
-    expect(capture.calls.map((call) => call.body)).toEqual(['{"data_layer":"gold"}']);
+    expect(capture.calls.map((call) => call.body)).toEqual([null, '{"data_layer":"gold"}']);
   });
 
   it("refuses a medallion name for data_layer before the wire on a server that speaks tiers", async () => {
-    const { mb, capture } = clientOver([]);
+    const { mb, capture } = clientOver([probeResponse(SERVER_60)]);
 
     const error = await thrownBy(() => mb.table.update(11, { data_layer: "gold" }));
 
@@ -358,17 +426,73 @@ describe("table resource wire requests", () => {
     expect(error.message).toBe(
       'data_layer "gold" is a medallion name; this server names a table\'s layer final, internal, hidden',
     );
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([PROBE_URL]);
   });
 
-  it("refuses a tier name in the data-layer filter on a server that speaks medallions", async () => {
-    const { mb, capture } = clientOver([], SERVER_58);
+  it("refuses a data_authority withdrawal on update before the wire on a server that keeps it on the table, as a fresh probe finds it", async () => {
+    const { mb, capture } = clientOver([probeResponse(SERVER_60)], SERVER_64);
+
+    const error = await thrownBy(() => mb.table.update(11, { data_authority: null }));
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v64+ (this server is v0.60.4). Upgrade Metabase to use it.",
+      feature: "tableUserValueWithdrawal",
+      since: 64,
+      tokenFeature: null,
+      serverVersion: "v0.60.4",
+    });
+    expect(capture.calls.map((call) => call.url)).toEqual([PROBE_URL]);
+  });
+
+  it("sends a data_authority withdrawal on update to the server a fresh probe finds keeping user edits apart", async () => {
+    const { mb, capture } = clientOver([probeResponse(SERVER_64), jsonResponse(TABLE)]);
+
+    await mb.table.update(11, { data_authority: null });
+
+    expect(
+      capture.calls.map((call) => ({ url: call.url, method: call.method, body: call.body })),
+    ).toEqual([
+      { url: PROBE_URL, method: "GET", body: null },
+      { url: TABLE_URL, method: "PUT", body: '{"data_authority":null}' },
+    ]);
+  });
+
+  it("fails an update the server answers with the table outside the collection asked for", async () => {
+    const { mb, capture } = clientOver([jsonResponse(TABLE)], SERVER_64);
+
+    const error = await thrownBy(() => mb.table.update(11, { collection_id: 7 }));
+
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toBe(
+      "the server applied the update but left table 11 in no collection: it does not move a table to a collection through an update",
+    );
+    expect(capture.calls.map((call) => call.url)).toEqual([TABLE_URL]);
+  });
+
+  it("sends a collection on update without consulting the server first", async () => {
+    const { mb, capture } = clientOver([jsonResponse({ ...TABLE, collection_id: 7 })]);
+
+    await mb.table.update(11, { collection_id: 7 });
+
+    expect(
+      capture.calls.map((call) => ({ url: call.url, method: call.method, body: call.body })),
+    ).toEqual([{ url: TABLE_URL, method: "PUT", body: '{"collection_id":7}' }]);
+  });
+
+  it("explains a rejected tier name in the data-layer filter on a server that speaks medallions", async () => {
+    const { mb, capture } = clientOver([dataLayerRejected(), probeResponse(SERVER_58)], SERVER_58);
 
     const error = await thrownBy(() => mb.table.list({ "data-layer": "hidden" }));
 
     assert(error instanceof CapabilityError, "expected CapabilityError");
     expect(error.developerDetail.feature).toBe("tableDataLayerTiers");
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/table?data-layer=hidden",
+      PROBE_URL,
+    ]);
   });
 
   it("sends the query-metadata request", async () => {

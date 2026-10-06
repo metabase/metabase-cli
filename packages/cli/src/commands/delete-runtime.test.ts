@@ -20,7 +20,6 @@ const CTX: CommonContext = {
   url: undefined,
   apiKey: undefined,
   profile: undefined,
-  skipPreflight: false,
 };
 
 describe("confirmAndDelete", () => {

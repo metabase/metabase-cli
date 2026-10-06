@@ -7,6 +7,7 @@ import {
 } from "../domain/transform-tag";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
+import { explainer } from "../version/refusal";
 
 // `GET /api/transform-tag` answers a bare array rather than a `{ data, total }` envelope, so the
 // count a caller reads off `ListResult` is the array's own length and the server reports none.
@@ -14,9 +15,10 @@ const TransformTagApiList = z.array(TransformTag);
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function transformTagResource(transport: Transport) {
+  const explain = explainer(transport, "transformTag");
+
   /** List every transform tag the caller can see, built-in tags included. */
   async function list(options: RequestOptions = {}): Promise<ListResult<TransformTag>> {
-    await transport.require("transformTag.list", options);
     const data = await transport.requestParsed(TransformTagApiList, "/api/transform-tag", {
       ...options,
     });
@@ -28,7 +30,6 @@ export function transformTagResource(transport: Transport) {
     params: TransformTagCreateInput,
     options: RequestOptions = {},
   ): Promise<TransformTag> {
-    await transport.require("transformTag.create", options);
     return transport.requestParsed(TransformTag, "/api/transform-tag", {
       ...options,
       method: "POST",
@@ -42,7 +43,6 @@ export function transformTagResource(transport: Transport) {
     params: TransformTagUpdateInput,
     options: RequestOptions = {},
   ): Promise<TransformTag> {
-    await transport.require("transformTag.update", options);
     return transport.requestParsed(TransformTag, `/api/transform-tag/${id}`, {
       ...options,
       method: "PUT",
@@ -52,7 +52,6 @@ export function transformTagResource(transport: Transport) {
 
   /** Delete a transform tag by id, detaching it from every transform and job carrying it. */
   async function remove(id: number, options: RequestOptions = {}): Promise<void> {
-    await transport.require("transformTag.delete", options);
     await transport.requestRaw(`/api/transform-tag/${id}`, {
       ...options,
       method: "DELETE",
@@ -60,5 +59,10 @@ export function transformTagResource(transport: Transport) {
     });
   }
 
-  return { list, create, update, delete: remove };
+  return {
+    list: explain("list", list),
+    create: explain("create", create),
+    update: explain("update", update),
+    delete: explain("delete", remove),
+  };
 }

@@ -2,8 +2,15 @@ import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
+import {
+  captureFetch,
+  jsonResponse,
+  probeResponse,
+  TEST_USER_AGENT,
+  thrownBy,
+} from "../testing/fetch-capture";
 import { CapabilityError } from "../version/preflight-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -108,12 +115,21 @@ describe("field resource wire requests", () => {
     expect(capture.calls.map((call) => call.body)).toEqual(['{"semantic_type":"type/Price"}']);
   });
 
-  it("sends the sensitivity label as a PUT carrying only that key", async () => {
-    const { mb, capture } = clientOver([jsonResponse({ ...FIELD, data_sensitivity: "PII" })]);
+  it("sends the sensitivity label as a PUT carrying only that key, once a fresh probe finds the column", async () => {
+    const { mb, capture } = clientOver([
+      probeResponse(SERVER_64),
+      jsonResponse({ ...FIELD, data_sensitivity: "PII" }),
+    ]);
 
     await mb.field.update(101, { data_sensitivity: "PII" });
 
     expect(capture.calls).toEqual([
+      {
+        url: `https://mb.example.com/metabase${PROBE_PATH}`,
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
       {
         url: "https://mb.example.com/metabase/api/field/101",
         method: "PUT",
@@ -124,15 +140,18 @@ describe("field resource wire requests", () => {
   });
 
   it("sends a withdrawn sensitivity label as null", async () => {
-    const { mb, capture } = clientOver([jsonResponse({ ...FIELD, data_sensitivity: null })]);
+    const { mb, capture } = clientOver([
+      probeResponse(SERVER_64),
+      jsonResponse({ ...FIELD, data_sensitivity: null }),
+    ]);
 
     await mb.field.update(101, { data_sensitivity: null });
 
-    expect(capture.calls.map((call) => call.body)).toEqual(['{"data_sensitivity":null}']);
+    expect(capture.calls.map((call) => call.body)).toEqual([null, '{"data_sensitivity":null}']);
   });
 
-  it("refuses the sensitivity label before the wire on a server without the column", async () => {
-    const { mb, capture } = clientOver([], SERVER_63);
+  it("refuses the sensitivity label before the wire on a server a fresh probe finds without the column", async () => {
+    const { mb, capture } = clientOver([probeResponse(SERVER_63)]);
 
     const error = await thrownBy(() => mb.field.update(101, { data_sensitivity: "PII" }));
 
@@ -146,7 +165,9 @@ describe("field resource wire requests", () => {
       tokenFeature: null,
       serverVersion: "v0.63.4",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 
   it("sends the search request with the value and limit as the query string", async () => {

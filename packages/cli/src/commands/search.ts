@@ -63,7 +63,8 @@ export default defineMetabaseCommand({
     },
     verified: {
       type: "boolean",
-      description: "Only verified content",
+      description:
+        "Only verified content. Needs the content_verification premium feature, and is refused without it: a server without it ignores the filter",
     },
     collection: {
       type: "string",

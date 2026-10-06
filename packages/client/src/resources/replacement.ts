@@ -9,6 +9,7 @@ import {
 } from "../domain/replacement";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
+import { explainer } from "../version/refusal";
 
 const ReplacementApiRunList = z.array(ReplacementRun);
 
@@ -20,6 +21,8 @@ export interface ReplacementRunListParams {
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function replacementResource(transport: Transport) {
+  const explain = explainer(transport, "replacement");
+
   /**
    * Check whether every usage of a source entity could be rewritten to read a target entity
    * instead: the two must share a database, the target must not depend on the source, every source
@@ -30,7 +33,6 @@ export function replacementResource(transport: Transport) {
     params: ReplacementSourceInput,
     options: RequestOptions = {},
   ): Promise<ReplacementCheck> {
-    await transport.require("replacement.checkReplaceSource", options);
     return transport.requestParsed(ReplacementCheck, "/api/ee/replacement/check-replace-source", {
       ...options,
       method: "POST",
@@ -47,7 +49,6 @@ export function replacementResource(transport: Transport) {
     params: ReplacementSourceInput,
     options: RequestOptions = {},
   ): Promise<ReplacementRunStarted> {
-    await transport.require("replacement.replaceSource", options);
     return transport.requestParsed(ReplacementRunStarted, "/api/ee/replacement/replace-source", {
       ...options,
       method: "POST",
@@ -66,7 +67,6 @@ export function replacementResource(transport: Transport) {
     params: ReplacementModelWithTransformInput,
     options: RequestOptions = {},
   ): Promise<ReplacementRunStarted> {
-    await transport.require("replacement.replaceModelWithTransform", options);
     return transport.requestParsed(
       ReplacementRunStarted,
       "/api/ee/replacement/replace-model-with-transform",
@@ -82,7 +82,6 @@ export function replacementResource(transport: Transport) {
     params: ReplacementRunListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<ReplacementRun>> {
-    await transport.require("replacement.listRuns", options);
     const data = await transport.requestParsed(ReplacementApiRunList, "/api/ee/replacement/runs", {
       ...options,
       query: { "is-active": params["is-active"] },
@@ -92,7 +91,6 @@ export function replacementResource(transport: Transport) {
 
   /** Get one replacement run by id, with its status and progress. Admins only. */
   async function getRun(id: number, options: RequestOptions = {}): Promise<ReplacementRun> {
-    await transport.require("replacement.getRun", options);
     return transport.requestParsed(ReplacementRun, `/api/ee/replacement/runs/${id}`, {
       ...options,
     });
@@ -100,7 +98,6 @@ export function replacementResource(transport: Transport) {
 
   /** Cancel the replacement in progress. Refuses with a 409 once the run has ended. Admins only. */
   async function cancelRun(id: number, options: RequestOptions = {}): Promise<void> {
-    await transport.require("replacement.cancelRun", options);
     await transport.requestParsed(CancelRunResponse, `/api/ee/replacement/runs/${id}/cancel`, {
       ...options,
       method: "POST",
@@ -108,11 +105,11 @@ export function replacementResource(transport: Transport) {
   }
 
   return {
-    checkReplaceSource,
-    replaceSource,
-    replaceModelWithTransform,
-    listRuns,
-    getRun,
-    cancelRun,
+    checkReplaceSource: explain("checkReplaceSource", checkReplaceSource),
+    replaceSource: explain("replaceSource", replaceSource),
+    replaceModelWithTransform: explain("replaceModelWithTransform", replaceModelWithTransform),
+    listRuns: explain("listRuns", listRuns),
+    getRun: explain("getRun", getRun),
+    cancelRun: explain("cancelRun", cancelRun),
   };
 }

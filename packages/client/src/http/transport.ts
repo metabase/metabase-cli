@@ -1,15 +1,15 @@
 import type { ZodType } from "zod";
 
-import { errorMessage, NetworkError, TimeoutError } from "../errors";
+import { SessionProperties } from "../domain/session-properties";
+import { AbortError, errorMessage, MetabaseError, NetworkError, TimeoutError } from "../errors";
 import { JSON_CONTENT_TYPE } from "../json";
 import { combineAborts, throwIfAborted, untilAborted } from "../signal";
 import { normalizeUrl } from "../url";
 import type { FeatureName } from "../version/features";
 import { CapabilityError } from "../version/preflight-error";
-import { probeServer } from "../version/probe";
+import { probeProperties, serverInfoFromProperties, type ServerInfo } from "../version/probe";
 import { createServerProfile, type ServerProfile, type Skew } from "../version/profile";
 import { checkFeatures } from "../version/requirement-check";
-import { type MethodKey, methodRequirements } from "../version/requirements";
 
 import {
   assertCredentialHeaderSafe,
@@ -26,6 +26,11 @@ import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries, type RetryOutcome } 
 import type { RedactionContext } from "./sanitize";
 
 const UNAUTHORIZED_STATUS = 401;
+
+// What a server answers for a route it does not serve, or serves only under a token feature it
+// lacks: unrouted, a verb the route lacks included (404), a path that lands on an older route's
+// typed id (400), or the premium refusal (402).
+const REFUSAL_STATUSES: ReadonlySet<number> = new Set([400, 402, 404]);
 
 export type HttpMethod = "GET" | "HEAD" | "OPTIONS" | "POST" | "PUT" | "PATCH" | "DELETE";
 export type ExpectedContentType = "json" | "text" | "binary";
@@ -64,18 +69,39 @@ export interface Transport {
   requestRaw(path: string, opts?: TransportRequestOptions): Promise<Response>;
   requestStream(path: string, opts?: TransportRequestOptions): Promise<ReadableStream<Uint8Array>>;
   // The profile handed in at construction, or else the one the first call probes and every later
-  // call shares. `signal` ends this caller's wait; the probe itself is the client's and is cancelled
-  // only by the client's own signal, so a later call still finds it settled.
+  // call shares. `signal` ends this caller's wait; the probe itself is the client's and is
+  // cancelled only by the client's own signal, so a later call still finds it settled.
   server(options?: WaitOptions): Promise<ServerProfile>;
-  // Throws `CapabilityError` when the server lacks a feature the method needs, before any request
-  // leaves. A method that needs nothing resolves without consulting the server.
-  require(key: MethodKey, options?: WaitOptions): Promise<void>;
-  // The same refusal for features a method needs only because of the parameters it was handed,
-  // which the method table cannot express. An empty list resolves without consulting the server.
+  // A profile this client probed itself, never one handed in, for a verdict the server cannot give:
+  // a profile cached before an upgrade or a license change would refuse what the server allows.
+  verifiedServer(options?: WaitOptions): Promise<ServerProfile>;
+  // The session properties read afresh through `reader` and taken as this client's verified
+  // profile, so a resource needing a setting they carry pays one request for both. The read is the
+  // caller's, so it runs under the caller's `timeoutMs` and `retries` as any request does; `signal`
+  // ends only this caller's wait, because the profile the read settles is the client's.
+  probe<T extends SessionProperties>(reader: ZodType<T>, options?: ProbeReadOptions): Promise<T>;
+  // Throws `CapabilityError` before the wire for features a method needs only because of the
+  // parameters it was handed, where a server without them would drop the parameter and answer as
+  // if it had never been sent. An empty list resolves without consulting the server.
   requireFeatures(features: readonly FeatureName[], options?: WaitOptions): Promise<void>;
+  // The error a request failed with, as a `CapabilityError` when the server refused it for lacking
+  // one of `features`, and unchanged otherwise. The explaining probe waits no longer than the
+  // failed call's own `timeoutMs`, and the error stands when it runs out.
+  explainRefusal(
+    features: readonly FeatureName[],
+    error: unknown,
+    options?: ExplainOptions,
+  ): Promise<unknown>;
 }
 
 export type WaitOptions = Pick<RequestOptions, "signal">;
+export type ExplainOptions = Pick<RequestOptions, "signal" | "timeoutMs">;
+export type ProbeReadOptions = Pick<RequestOptions, "signal" | "timeoutMs" | "retries">;
+
+interface Probed<T> {
+  properties: T;
+  profile: ServerProfile;
+}
 
 export interface ClientCredentials {
   url: string;
@@ -115,20 +141,25 @@ export interface ClientOptions {
   // has settled on; a caller that resolves the tag some other way passes its own.
   getServerTag?: ServerTagResolver;
   refreshCredential?: CredentialRefresher;
+  // Called with every probe this client runs, so a caller that handed in a cached profile can keep
+  // its cache as current as the server's last answer. The calls waiting on the probe resume once
+  // the hook returns; the profile is settled before it is called, so a call the hook makes, or one
+  // that starts while it runs, reads that profile without waiting. A call that reads the session
+  // properties afresh (git-sync's tracked branch) is a probe of its own and calls the hook again,
+  // so the hook makes none. A hook that throws fails the calls waiting on the probe and leaves its
+  // profile settled, so one doing best-effort work catches its own failures.
+  onServerProbed?: (info: ServerInfo) => Promise<void> | void;
   // Cancels every request this client makes; composed with the per-request `signal` and the
   // timeout. A process-level interrupt is the caller's to own and to hand over here.
   signal?: AbortSignal;
-  // `false` sends every method to the wire whatever the profile says, leaving the server to answer
-  // for itself. Defaults to `true`.
-  enforceRequirements?: boolean;
 }
 
 export function createTransport(config: ClientCredentials, options: ClientOptions): Transport {
   const baseUrl = normalizeUrl(config.url);
   assertCredentialHeaderSafe(config.credential);
   const fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
-  // The server every error names: the profile handed in, or else the one a probe has settled on. A
-  // pending probe is never awaited here — a shape error inside the probe would wait on its own parse.
+  // The server every error names: the profile handed in, or else the one a probe has settled on.
+  // A pending probe is never awaited here: a shape error inside the probe would wait on itself.
   let settledProfile: ServerProfile | null = options.server ?? null;
   const getServerTag = options.getServerTag ?? (async () => tagOf(settledProfile));
   const serverSkew = (): Skew | null => (settledProfile === null ? null : settledProfile.skew);
@@ -299,49 +330,130 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     };
   }
 
-  let serverProfile: Promise<ServerProfile> | null =
-    options.server === undefined ? null : Promise.resolve(options.server);
+  const handedIn = options.server === undefined ? null : Promise.resolve(options.server);
+  // The profile the newest settled probe read, and the newest probe a caller is waiting on until
+  // one has. Probes are numbered as they start, so one that settles after a later one has cannot
+  // put the older answer back.
+  let verified: ServerProfile | null = null;
+  let probing: Promise<ServerProfile> | null = null;
+  let startedProbes = 0;
+  let settledProbe = 0;
 
-  // A failed probe is not memoized: the next call asks again rather than replaying one transient
-  // failure for the life of the client.
-  async function server(wait: WaitOptions = {}): Promise<ServerProfile> {
-    throwIfAborted(wait.signal);
-    if (serverProfile === null) {
-      const probe = probeServer(transport).then((info) => {
-        settledProfile = createServerProfile(info);
-        return settledProfile;
-      });
-      probe.catch(() => {
-        serverProfile = null;
-      });
-      serverProfile = probe;
-    }
-    return untilAborted(serverProfile, wait.signal);
+  // The profile settles before the hook runs, so a call the hook makes reads it instead of waiting
+  // on the hook, while a call already waiting on the probe resumes only once the hook has returned.
+  // A probe whose request fails is not memoized: the next call asks again rather than replaying
+  // one transient failure for the life of the client. A hook that throws has seen the profile, so
+  // the profile stays settled and the hook is not called for it again.
+  function startProbe<T extends SessionProperties>(
+    reader: ZodType<T>,
+    budget: Pick<RequestOptions, "timeoutMs" | "retries"> = {},
+  ): Promise<Probed<T>> {
+    startedProbes += 1;
+    const sequence = startedProbes;
+    const probed = probeProperties(transport, reader, budget).then(async (properties) => {
+      const info = serverInfoFromProperties(properties);
+      const profile = createServerProfile(info);
+      if (sequence > settledProbe) {
+        settledProbe = sequence;
+        verified = profile;
+        settledProfile = profile;
+      }
+      await options.onServerProbed?.(info);
+      return { properties, profile };
+    });
+    const profile = probed.then((settled) => settled.profile);
+    const release = (): void => {
+      if (probing === profile) {
+        probing = null;
+      }
+    };
+    profile.then(release, release);
+    probing = profile;
+    return probed;
   }
 
-  const enforceRequirements = options.enforceRequirements ?? true;
+  function verifyingProbe(): Promise<ServerProfile> {
+    if (verified !== null) {
+      return Promise.resolve(verified);
+    }
+    return probing ?? startProbe(SessionProperties).then((probed) => probed.profile);
+  }
+
+  // A verifying probe in flight is awaited so a shape read sees the newest server, but its failure
+  // falls back to the profile handed in rather than failing a read that profile can serve.
+  async function server(wait: WaitOptions = {}): Promise<ServerProfile> {
+    throwIfAborted(wait.signal);
+    if (handedIn === null || verified !== null) {
+      return untilAborted(verifyingProbe(), wait.signal);
+    }
+    const settled = probing === null ? handedIn : probing.catch(fallBackToHandedIn(handedIn));
+    return untilAborted(settled, wait.signal);
+  }
+
+  async function verifiedServer(wait: WaitOptions = {}): Promise<ServerProfile> {
+    throwIfAborted(wait.signal);
+    return untilAborted(verifyingProbe(), wait.signal);
+  }
+
+  async function probe<T extends SessionProperties>(
+    reader: ZodType<T>,
+    read: ProbeReadOptions = {},
+  ): Promise<T> {
+    throwIfAborted(read.signal);
+    const budget = {
+      timeoutMs: read.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      retries: read.retries ?? DEFAULT_MAX_RETRIES,
+    };
+    const probed = await untilAborted(startProbe(reader, budget), read.signal);
+    return probed.properties;
+  }
 
   async function requireFeatures(
     features: readonly FeatureName[],
     wait: WaitOptions = {},
   ): Promise<void> {
-    if (!enforceRequirements || features.length === 0) {
+    if (features.length === 0) {
       return;
     }
-    const failure = checkFeatures(features, await server(wait));
+    const failure = checkFeatures(features, await verifiedServer(wait));
     if (failure !== null) {
       throw new CapabilityError(failure);
     }
   }
 
-  async function requireMethod(key: MethodKey, wait: WaitOptions = {}): Promise<void> {
-    return requireFeatures(methodRequirements(key), wait);
+  // The server's own refusal is the verdict; the profile only names what was missing. A server that
+  // turns out to have every feature failed for some other reason, and its error stands.
+  async function explainRefusal(
+    features: readonly FeatureName[],
+    error: unknown,
+    explain: ExplainOptions = {},
+  ): Promise<unknown> {
+    if (features.length === 0 || !isRefusal(error)) {
+      return error;
+    }
+    const timeout =
+      explain.timeoutMs === undefined ? undefined : AbortSignal.timeout(explain.timeoutMs);
+    let profile: ServerProfile;
+    try {
+      profile = await verifiedServer({ signal: combineAborts(explain.signal, timeout) });
+    } catch (probeError) {
+      // A probe that cannot answer leaves the refusal unexplained; an interrupt is the caller's.
+      const isInterrupt = probeError instanceof AbortError && timeout?.aborted !== true;
+      if (probeError instanceof MetabaseError && !isInterrupt) {
+        return error;
+      }
+      throw probeError;
+    }
+    const failure = checkFeatures(features, profile);
+    return failure === null ? error : new CapabilityError(failure);
   }
 
   const transport: Transport = {
     server,
-    require: requireMethod,
+    verifiedServer,
+    probe,
     requireFeatures,
+    explainRefusal,
     async requestRaw(path, opts) {
       return (await executeWithAuthRefresh(path, opts ?? {})).response;
     },
@@ -375,6 +487,25 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     },
   };
   return transport;
+}
+
+// A 404 for a missing row comes from a route the server serves, so no feature can be what it lacks.
+function isRefusal(error: unknown): boolean {
+  if (!(error instanceof HttpError) || error.kind === "resource-missing") {
+    return false;
+  }
+  return REFUSAL_STATUSES.has(error.status);
+}
+
+function fallBackToHandedIn(
+  handedIn: Promise<ServerProfile>,
+): (error: unknown) => Promise<ServerProfile> {
+  return (error) => {
+    if (error instanceof MetabaseError && !(error instanceof AbortError)) {
+      return handedIn;
+    }
+    throw error;
+  };
 }
 
 function tagOf(profile: ServerProfile | null): string | null {

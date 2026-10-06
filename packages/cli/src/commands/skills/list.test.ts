@@ -125,7 +125,7 @@ describe("skills list command", () => {
   });
 
   it("names each skipped skill and the way to read it anyway in text mode", async () => {
-    await seedProbedProfile("default", probeAt(58));
+    const probedAt = await seedProbedProfile("default", probeAt(58));
     const stdout = capture(process.stdout);
     const stderr = capture(process.stderr);
 
@@ -135,12 +135,13 @@ describe("skills list command", () => {
       "alpha\n  The first skill.\n\nbeta\n  The second skill.\n\n",
     );
     expect(stderr.chunks.join("")).toBe(
-      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n',
+      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n' +
+        `Skills are filtered by profile "default"'s server as probed at ${probedAt} (run \`mb auth list\` to probe it again).\n`,
     );
   });
 
   it("names each skipped skill in a projected text listing too", async () => {
-    await seedProbedProfile("default", probeAt(58));
+    const probedAt = await seedProbedProfile("default", probeAt(58));
     const stdout = capture(process.stdout);
     const stderr = capture(process.stderr);
 
@@ -159,7 +160,8 @@ describe("skills list command", () => {
       ].join("\n"),
     );
     expect(stderr.chunks.join("")).toBe(
-      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n',
+      'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n' +
+        `Skills are filtered by profile "default"'s server as probed at ${probedAt} (run \`mb auth list\` to probe it again).\n`,
     );
   });
 

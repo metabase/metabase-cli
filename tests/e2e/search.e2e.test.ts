@@ -12,6 +12,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
+import { serverHas } from "./server-gate";
 
 const ORDERS_BY_STATUS_COMPACT = {
   id: SEEDED.ordersCardId,
@@ -109,6 +110,41 @@ describe("search e2e", () => {
       next_offset: null,
       limit: 10,
     });
+  });
+
+  it("--verified finds only verified content, or refuses where the server would ignore the filter", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const search = async () =>
+      runCli({ args: ["search", "Orders", "--verified", "--json"], configHome, env: authEnv() });
+
+    if (!serverHas("contentVerification")) {
+      const result = await search();
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorCategory(result.stderr)).toBe("capability");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "This operation requires the 'content_verification' premium feature (not enabled on this server).",
+      );
+      expect(result.stdout).toBe("");
+      return;
+    }
+    const verified = await runCli({
+      args: ["card", "verify", String(SEEDED.ordersCardId), "--json"],
+      configHome,
+      env: authEnv(),
+    });
+    expect(verified.exitCode, verified.stderr).toBe(0);
+
+    const envelope = await pollUntil(
+      async () => {
+        const result = await search();
+        expect(result.exitCode, result.stderr).toBe(0);
+        return parseJson(result.stdout, SearchListEnvelope);
+      },
+      (found) => found.returned > 0,
+      SEARCH_INDEX_POLL,
+    );
+
+    expect(envelope.data).toEqual([ORDERS_BY_STATUS_COMPACT]);
   });
 
   it("--models card narrows the result to the cards-only set", async () => {
