@@ -19,6 +19,7 @@ interface StatusClassification {
   message?: string;
 }
 
+const FORBIDDEN_STATUS = 403;
 const NOT_FOUND_STATUS = 404;
 
 const TEXT_CONTENT_TYPE = "text/plain";
@@ -256,14 +257,24 @@ function buildUserMessage(
   if (fromBody !== null) {
     return fromBody;
   }
-  if (kind === "auth") {
-    return `Invalid or unauthorized API key (host: ${hostFromUrl(input.url)}).`;
-  }
   const fromText = plainTextMessage(sanitizedBody, redactedHeaders);
+  if (kind === "auth") {
+    return authMessage(input, fromText);
+  }
   if (fromText !== null) {
     return fromText;
   }
   return defaultMessageForStatus(input.status);
+}
+
+// A 403 means Metabase accepted the key and refused the request, and its plain-text body says why
+// ("A table with that name already exists."). A 401 body ("Unauthenticated") says less than the
+// key message does.
+function authMessage(input: HttpErrorInput, fromText: string | null): string {
+  if (input.status === FORBIDDEN_STATUS && fromText !== null) {
+    return fromText;
+  }
+  return `Invalid or unauthorized API key (host: ${hostFromUrl(input.url)}).`;
 }
 
 // Metabase answers some rejections — a query that fails normalization, for one — with a text/plain

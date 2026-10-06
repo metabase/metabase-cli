@@ -157,6 +157,23 @@ describe("HttpError message extraction", () => {
     );
   });
 
+  it("names Metabase's reason for a 403 with a text/plain body instead of blaming the key", () => {
+    const refused = buildHttpError({
+      status: 403,
+      responseHeaders: textHeaders(),
+      rawBody: "A table with that name already exists.",
+    });
+    expect(refused.message).toBe("A table with that name already exists.");
+    expect(refused.kind).toBe("auth");
+  });
+
+  it("keeps the key message for a 401 whose text/plain body is only Unauthenticated", () => {
+    expect(
+      buildHttpError({ status: 401, responseHeaders: textHeaders(), rawBody: "Unauthenticated" })
+        .message,
+    ).toBe("Invalid or unauthorized API key (host: example.invalid).");
+  });
+
   it("falls back to status defaults for 408 and 429 with no body", () => {
     expect(buildHttpError({ status: 408, rawBody: null }).message).toBe(
       "Metabase timed out responding.",
