@@ -29,8 +29,12 @@ const CONFLICT_REMEDY =
   "Never retry it: the server may count the remote's commit as synced, so a retry, --merge included, may not see its changes. Keep the remote's side with import --force, Metabase's with export --force, or both through a reviewed PR from a new branch: see `mb skills get git-sync`, \"After a conflict task\".";
 
 // A plain export that finds the remote moved on ends in conflict with no entity to name: the
-// divergence itself is the conflict.
+// divergence itself is the conflict. Newer servers record it as the `remote-changed` token; older
+// ones record nothing.
 const DIVERGED_EXPORT = "the remote branch changed since the last sync";
+
+// Tokens the server records in place of entity labels; the CLI owns their wording.
+const CONFLICT_TOKENS: ReadonlyMap<string, string> = new Map([["remote-changed", DIVERGED_EXPORT]]);
 
 export function throwIfFailedTask(final: SyncTask | null, verb: string): void {
   if (final === null || !isSyncTaskFailed(final.status)) {
@@ -51,7 +55,7 @@ function taskDetail(task: SyncTask): string | null {
   }
   const conflicts = task.conflicts ?? null;
   if (conflicts !== null && conflicts.length > 0) {
-    return conflicts.join("; ");
+    return conflicts.map((conflict) => CONFLICT_TOKENS.get(conflict) ?? conflict).join("; ");
   }
   if (task.status === "conflict" && task.sync_task_type === "export") {
     return DIVERGED_EXPORT;

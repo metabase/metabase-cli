@@ -64,15 +64,21 @@ describe("throwIfFailedTask", () => {
     );
   });
 
-  it("names the server's conflict labels ahead of the remedy", () => {
+  it("words the server's remote-changed token instead of printing it", () => {
+    expect(() =>
+      throwIfFailedTask(task({ status: "conflict", conflicts: ["remote-changed"] }), "export"),
+    ).toThrow(
+      "git-sync export conflict: the remote branch changed since the last sync. Never retry it:",
+    );
+  });
+
+  it("names the server's entity labels ahead of the remedy", () => {
     expect(() =>
       throwIfFailedTask(
-        task({ status: "conflict", conflicts: ["Remote branch changed since the last sync."] }),
+        task({ status: "conflict", conflicts: ["Card A (collections/a.yaml)"] }),
         "export",
       ),
-    ).toThrow(
-      "git-sync export conflict: Remote branch changed since the last sync. Never retry it:",
-    );
+    ).toThrow("git-sync export conflict: Card A (collections/a.yaml). Never retry it:");
   });
 
   it("does not throw for a cancelled task, which is not a failure", () => {
