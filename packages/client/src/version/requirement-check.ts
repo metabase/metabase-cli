@@ -3,7 +3,7 @@ import {
   missingTokenFeatureMessage,
   type RequirementFailure,
   versionTooOldMessage,
-} from "./preflight-error";
+} from "./capability-error";
 import { featureGap, type ServerProfile } from "./profile";
 import { describeVersion } from "./tag";
 

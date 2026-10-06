@@ -12,7 +12,7 @@ import {
   thrownBy,
 } from "../testing/fetch-capture";
 import { PROBE_PATH } from "../version/probe";
-import { CapabilityError } from "../version/preflight-error";
+import { CapabilityError } from "../version/capability-error";
 import { createServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {

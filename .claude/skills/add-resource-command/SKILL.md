@@ -419,7 +419,7 @@ A comprehensive suite for a typical list/get pair covers, at minimum:
 
 Assertions are exact at every level — these are not stylistic preferences, they are hard rules from CLAUDE.md and the `add-e2e-test` skill:
 
-- **Exit codes** — always the exact integer (`toBe(0)`, `toBe(1)`, `toBe(2)`, `toBe(130)`). Never `.not.toBe(0)`. The `packages/client/src/errors.ts` taxonomy is fixed: `ConfigError`=2, `CapabilityError` (`packages/client/src/version/preflight-error.ts`)=2, `AbortError`=130, all others=1.
+- **Exit codes** — always the exact integer (`toBe(0)`, `toBe(1)`, `toBe(2)`, `toBe(130)`). Never `.not.toBe(0)`. The `packages/client/src/errors.ts` taxonomy is fixed: `ConfigError`=2, `CapabilityError` (`packages/client/src/version/capability-error.ts`)=2, `AbortError`=130, all others=1.
 - **Error strings** — always `toContain("<exact substring>")` or `toBe("<exact full string>")`. Never `toMatch(/.../i)`. Look the literal up in `packages/` and pin it. A regex with `\d+` or `.*` for a dynamic part is FAIL — build the expected string from the same source the production code consumed and assert with `toBe`.
 - **Parsed payloads** — always one full `toEqual({ ... })`. Field-by-field `toBe` after `parseJson` is FAIL.
 
@@ -509,7 +509,7 @@ If either skill surfaces a structural issue (missing `.strip()`, a request built
 - [ ] Closed enums pinned via `z.enum([...])` where the backend defines a closed set.
 - [ ] Schema scope is query/agent-relevant fields only — no sync flags, fingerprints, audit timestamps, or other internal plumbing unless they drive an actual decision.
 - [ ] No fixture or schema-parse unit test added.
-- [ ] **Resource file** `packages/client/src/resources/<r>.ts` exports `<r>Resource(transport)`, holds every `/api/` path and every transport call, and follows all nine conventions — positional path params then params then options, Metabase's own field names, transport concerns in `options`, wire envelopes module-private, domain values returned, `ListResult<T>` for a non-paginated list, `encodeURIComponent` on every string path param, a doc comment per method, a `METHOD_REQUIREMENTS` entry per method, and the namespace composed in `createClient` through `explain("<r>", …)`.
+- [ ] **Resource file** `packages/client/src/resources/<r>.ts` exports `<r>Resource(transport)`, holds every `/api/` path and every transport call, and follows all nine conventions — positional path params then params then options, Metabase's own field names, transport concerns in `options`, wire envelopes module-private, domain values returned, `ListResult<T>` for a non-paginated list, `encodeURIComponent` on every string path param, a doc comment per method, a `METHOD_REQUIREMENTS` entry per method, and each gated method exported through the `explain` / `explainWalk` of `explainer(transport, "<r>")`.
 - [ ] **Requirements** — every method has its `"<r>.<method>"` entry in `METHOD_REQUIREMENTS`; a gated route has a behaviour-named rule in `FEATURE_RULES` verified against the Metabase release branches; a shape that differs by generation has its `<Resource>WireV<N>` + converter + exported reader, with converter unit tests per generation.
 - [ ] **Namespace composed** onto `packages/client/src/client.ts` as `<r>: <r>Resource(transport)`.
 - [ ] **Wire test** `packages/client/src/resources/<r>.test.ts` asserts URL, method, headers and body for every method through `captureFetch`.

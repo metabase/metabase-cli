@@ -5,6 +5,8 @@ export const ENV_URL = "MB_URL";
 export const ENV_API_KEY = "MB_API_KEY";
 export const ENV_PROFILE = "MB_PROFILE";
 export const ENV_VERBOSE = "MB_VERBOSE";
+// Read only to warn that it no longer does anything.
+export const ENV_SKIP_PREFLIGHT = "MB_CLI_SKIP_PREFLIGHT";
 export const ENV_DISABLE_KEYRING = "MB_CLI_DISABLE_KEYRING";
 export const ENV_SKILLS_DIR = "MB_SKILLS_DIR";
 

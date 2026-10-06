@@ -21,7 +21,7 @@ import {
   probeResponse,
   TEST_USER_AGENT,
 } from "../testing/fetch-capture";
-import { CapabilityError } from "../version/preflight-error";
+import { CapabilityError } from "../version/capability-error";
 import { SessionProperties } from "../domain/session-properties";
 import { PROBE_PATH, type ServerInfo } from "../version/probe";
 import { KNOWN_RANGE } from "../version/known-range";

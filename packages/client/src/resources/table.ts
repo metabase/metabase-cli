@@ -79,7 +79,7 @@ function listParamFeatures(params: TableListParams): FeatureName[] {
 // it travels in: `data-layer` on the list filter, `data_layer` on an update.
 function dataLayerFeatures(
   value: TableDataLayer | null | undefined,
-  field: string,
+  field: keyof TableListParams | keyof TableUpdateInput,
 ): ParameterRequirement[] {
   const isTierName =
     value !== null && value !== undefined && TableDataLayerTier.safeParse(value).success;
@@ -398,9 +398,8 @@ function assertCollectionWritten(
   if (requested === undefined || table.collection_id === requested) {
     return;
   }
-  const answered = table.collection_id;
-  const stayed =
-    answered === null || answered === undefined ? "in no collection" : `in collection ${answered}`;
+  const answered = table.collection_id ?? null;
+  const stayed = answered === null ? "in no collection" : `in collection ${answered}`;
   throw new PartialWriteError(
     `the server applied the rest of the update to table ${table.id} but not collection_id: the table stays ${stayed}, because this server does not move a table to a collection through an update`,
     { method: "PUT", path, field: "collection_id", requested, answered },

@@ -39,7 +39,7 @@
     "./version/features": "./dist/version/features.js",
     "./version/known-range": "./dist/version/known-range.js",
     "./version/profile": "./dist/version/profile.js",
-    "./version/preflight-error": "./dist/version/preflight-error.js",
+    "./version/capability-error": "./dist/version/capability-error.js",
     "./version/probe": "./dist/version/probe.js",
     "./version/requirement-check": "./dist/version/requirement-check.js",
     "./version/requirements": "./dist/version/requirements.js",

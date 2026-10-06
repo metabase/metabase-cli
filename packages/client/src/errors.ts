@@ -273,7 +273,8 @@ export interface PartialWriteDetail {
   path: string;
   field: string;
   requested: number;
-  answered: number | null | undefined;
+  // `null` for a table the server answered in no collection, the field left out included.
+  answered: number | null;
 }
 
 // The server answered success having written all but one field, so the request is neither a

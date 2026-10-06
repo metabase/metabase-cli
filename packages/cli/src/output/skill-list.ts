@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { RequirementFailure } from "@metabase/client/version/preflight-error";
+import { RequirementFailure } from "@metabase/client/version/capability-error";
 
 import type { CachedProbeMiss, CachedServerProfile } from "../core/auth/cached-server";
 import type { UnavailableSkill } from "../core/skills";
@@ -59,10 +59,11 @@ export function skillFilterNotices(
     : [unfilteredNotice(context.profileName, context.cached)];
 }
 
-// The filter reads the server as it was at the last probe, and a license activated since would still
-// read as missing, so the notice says when that was and how to look again.
+// The filter reads the server as the profile last recorded it, when it was logged in, listed, or
+// seen to have changed; a license activated since would still read as missing, so the notice says
+// when that was and how to look again.
 function probeAgeNotice(profileName: string, probedAt: string): string {
-  return `Skills are filtered by profile "${profileName}"'s server as probed at ${probedAt} (run \`mb auth list\` to probe it again).`;
+  return `Skills are filtered by profile "${profileName}"'s server as last recorded at ${probedAt} (run \`mb auth list\` to probe it again).`;
 }
 
 function unfilteredNotice(profileName: string, miss: CachedProbeMiss): string {

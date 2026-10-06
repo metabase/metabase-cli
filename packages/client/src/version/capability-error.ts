@@ -7,7 +7,7 @@ import { FEATURE_NAMES } from "./features";
 
 // The one refusal status that is also an ordinary validation failure: a server lacking a parameter's
 // feature rejects the unknown parameter with it, and so does any server rejecting a bad value.
-const BAD_REQUEST_STATUS = 400;
+export const BAD_REQUEST_STATUS = 400;
 
 export const RequirementReason = z.enum(["version-too-old", "missing-token-feature"]);
 export type RequirementReason = z.infer<typeof RequirementReason>;

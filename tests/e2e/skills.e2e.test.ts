@@ -191,7 +191,7 @@ describe("skills e2e", () => {
       [
         `Skipped skill "git-sync": ${GIT_SYNC_UNAVAILABLE_ON_58.failure.detail} Pass --unfiltered to print it anyway.`,
         `Skipped skill "transform": ${TRANSFORM_UNAVAILABLE_ON_58.failure.detail} Pass --unfiltered to print it anyway.`,
-        `Skills are filtered by profile "default"'s server as probed at ${probedAt} (run \`mb auth list\` to probe it again).`,
+        `Skills are filtered by profile "default"'s server as last recorded at ${probedAt} (run \`mb auth list\` to probe it again).`,
       ].join("\n"),
     );
   });

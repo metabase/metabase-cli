@@ -1,6 +1,6 @@
 import { AbortError, toMetabaseError } from "@metabase/client/errors";
 import type { ErrorCategory, MetabaseError } from "@metabase/client/errors";
-import type { RequirementFailure } from "@metabase/client/version/preflight-error";
+import type { RequirementFailure } from "@metabase/client/version/capability-error";
 
 import { ProfileRefreshedError } from "../core/profile-refreshed-error";
 import { consumeLegacyEnvWarnings, ENV_VERBOSE, readEnv } from "../core/env";

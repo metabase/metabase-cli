@@ -10,7 +10,7 @@ import {
   type Features,
   isFeatureName,
 } from "@metabase/client/version/features";
-import type { RequirementFailure } from "@metabase/client/version/preflight-error";
+import type { RequirementFailure } from "@metabase/client/version/capability-error";
 import type { ServerProfile } from "@metabase/client/version/profile";
 import { checkFeatures } from "@metabase/client/version/requirement-check";
 

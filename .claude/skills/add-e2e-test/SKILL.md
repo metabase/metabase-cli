@@ -164,7 +164,7 @@ Which package a schema belongs to is a boundary question, not a stylistic one. A
 **5b. Assertion strictness.** Every assertion is exact:
 
 - **Parsed payloads:** one `toEqual({ ...full expected... })` over the parsed object — never a sequence of `expect(parsed.id).toBe(...)`, `expect(parsed.name).toBe(...)`. The whole point of `parseJson` is that the structure is now in your hands; pinning each field individually leaves the rest untested and lets a regression that flips an unchecked field pass silently.
-- **Exit codes:** `expect(result.exitCode).toBe(<n>)` with the exact integer. Never `.not.toBe(0)`. The taxonomy is `packages/client/src/errors.ts`: `ConfigError` → 2, `CapabilityError` (`packages/client/src/version/preflight-error.ts`) → 2, `AbortError` → 130, everything else (`HttpError`, `ValidationError`, `NetworkError`, `TimeoutError`, `UnknownError`) → 1. A test that says "non-zero" doesn't distinguish "the right error fired" from "any failure at all".
+- **Exit codes:** `expect(result.exitCode).toBe(<n>)` with the exact integer. Never `.not.toBe(0)`. The taxonomy is `packages/client/src/errors.ts`: `ConfigError` → 2, `CapabilityError` (`packages/client/src/version/capability-error.ts`) → 2, `AbortError` → 130, everything else (`HttpError`, `ValidationError`, `NetworkError`, `TimeoutError`, `UnknownError`) → 1. A test that says "non-zero" doesn't distinguish "the right error fired" from "any failure at all".
 - **Error strings:** the harness is never a TTY, so the CLI renders errors as a JSON envelope on stderr rather than plain text. Assert through `cliErrorMessage(result.stderr)` from `./cli-error`, which unwraps that envelope and hands back the human message:
 
   ```ts

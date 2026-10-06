@@ -13,7 +13,7 @@ import {
   ValidationError,
 } from "@metabase/client/errors";
 import { HttpError } from "@metabase/client/http/errors";
-import { CapabilityError } from "@metabase/client/version/preflight-error";
+import { CapabilityError } from "@metabase/client/version/capability-error";
 import { createServerProfile } from "@metabase/client/version/profile";
 import { checkFeatures } from "@metabase/client/version/requirement-check";
 import { ProfileRefreshedError } from "../core/profile-refreshed-error";

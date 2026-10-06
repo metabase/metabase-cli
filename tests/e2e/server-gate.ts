@@ -8,7 +8,7 @@ import { isFileNotFoundError } from "@metabase/client/errors";
 import { parseJson } from "@metabase/client/json";
 import type { FeatureName } from "@metabase/client/version/features";
 import { createServerProfile, type ServerProfile } from "@metabase/client/version/profile";
-import type { RequirementFailure } from "@metabase/client/version/preflight-error";
+import type { RequirementFailure } from "@metabase/client/version/capability-error";
 import { checkFeatures } from "@metabase/client/version/requirement-check";
 
 import { readBootstrapSync } from "./bootstrap-data";

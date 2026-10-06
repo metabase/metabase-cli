@@ -99,7 +99,7 @@ export {
 } from "./version/requirements";
 export type { MethodKey } from "./version/requirements";
 export { checkFeatures } from "./version/requirement-check";
-export { CapabilityError, RequirementFailure, RequirementReason } from "./version/preflight-error";
+export { CapabilityError, RequirementFailure, RequirementReason } from "./version/capability-error";
 
 export type { Page, PaginateOptions } from "./paginate";
 export { pollUntil } from "./poll";

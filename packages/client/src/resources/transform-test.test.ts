@@ -17,7 +17,7 @@ import {
   TEST_USER_AGENT,
   thrownBy,
 } from "../testing/fetch-capture";
-import { CapabilityError } from "../version/preflight-error";
+import { CapabilityError } from "../version/capability-error";
 import { PROBE_PATH } from "../version/probe";
 import { createServerProfile, type ServerProfile } from "../version/profile";
 

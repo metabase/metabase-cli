@@ -6,10 +6,11 @@ import { JSON_CONTENT_TYPE } from "../json";
 import { combineAborts, throwIfAborted, untilAborted } from "../signal";
 import { normalizeUrl } from "../url";
 import type { FeatureName } from "../version/features";
-import { CapabilityError } from "../version/preflight-error";
+import { CapabilityError } from "../version/capability-error";
 import { probeProperties, serverInfoFromProperties, type ServerInfo } from "../version/probe";
 import { createServerProfile, type ServerProfile } from "../version/profile";
-import { type CallRequirement, callFeatures, checkFeatures } from "../version/requirement-check";
+import { explainedFailure, mayBeRefusal } from "../version/refusal";
+import { type CallRequirement, checkFeatures } from "../version/requirement-check";
 
 import {
   assertCredentialHeaderSafe,
@@ -19,23 +20,13 @@ import {
   type CredentialRefresher,
 } from "../auth/credential";
 
-import { FIELD_PATH_SEPARATOR, HttpError, isRetryableStatus } from "./errors";
+import { HttpError, isRetryableStatus } from "./errors";
 import { buildNetworkError, isConnectionClosed } from "./network-error";
 import { parseJsonResponse } from "./response-shape";
 import { backoffDelay, DEFAULT_MAX_RETRIES, runWithRetries, type RetryOutcome } from "./retry";
 import type { RedactionContext } from "./sanitize";
 
 const UNAUTHORIZED_STATUS = 401;
-
-// What a server answers for what it does not serve: unrouted, a verb the route lacks included
-// (404); the premium refusal, which a gated prefix answers before routing (402); and a 400 for a
-// value outside an older enum (a revert's `entity`, a graph's `type`, the `data-layer` filter), a
-// body an older route reads in another shape (a Python test run's `source_tables`), or a model check
-// that names no field (a tier-named `data_layer` on an update). A 400 is also an ordinary validation
-// failure, so it is the feature's refusal only when nothing in it points elsewhere
-// (`pointsElsewhere`), and an explained one quotes the server.
-const REFUSAL_STATUSES: ReadonlySet<number> = new Set([400, 402, 404]);
-const BAD_REQUEST_STATUS = 400;
 
 export type HttpMethod = "GET" | "HEAD" | "OPTIONS" | "POST" | "PUT" | "PATCH" | "DELETE";
 export type ExpectedContentType = "json" | "text" | "binary";
@@ -95,25 +86,14 @@ export interface Transport {
   // this check exists to prevent. An empty list resolves without consulting the server.
   requireFeatures(features: readonly FeatureName[], options?: WaitOptions): Promise<void>;
   // The error a call failed with, as a `CapabilityError` carrying the server's answer when the
-  // server refused it for lacking one of the features `call` needs, and unchanged otherwise. The explaining probe
-  // runs under the failed request's own budget — no longer than its `timeoutMs`, and ending with its
-  // `signal` — or the default one for an error rebuilt after the request; the error stands when
-  // time runs out, and only an abort that is no timeout surfaces as an interrupt.
+  // server refused it for lacking one of the features `call` needs, and unchanged otherwise. The
+  // explaining probe is bounded by its own timeout and the client's signal; the error stands when
+  // the probe fails, and an interrupt surfaces as one.
   explainRefusal(call: CallRequirement, error: unknown): Promise<unknown>;
 }
 
 export type WaitOptions = Pick<RequestOptions, "signal">;
 export type ProbeReadOptions = Pick<RequestOptions, "signal" | "timeoutMs" | "retries">;
-
-// The caller's own bound on a request, kept for a failure the request ends in so that explaining it
-// waits no longer than the request was allowed to. The client-wide signal is not the caller's: the
-// probe honours it on its own.
-interface RequestBudget {
-  signal: AbortSignal | undefined;
-  timeoutMs: number;
-}
-
-const DEFAULT_BUDGET: RequestBudget = { signal: undefined, timeoutMs: DEFAULT_TIMEOUT_MS };
 
 interface Probed<T> {
   properties: T;
@@ -136,7 +116,6 @@ interface PreparedRequest {
   retries: number;
   idempotent: boolean;
   timeoutMs: number;
-  callerSignal: AbortSignal | undefined;
   cancelSignal: AbortSignal;
 }
 
@@ -160,13 +139,13 @@ export interface ClientOptions {
   // own. A shape error read under a profile names that profile, the one its reader was chosen for.
   getServerTag?: ServerTagResolver;
   refreshCredential?: CredentialRefresher;
-  // Called with the answer of every probe this client runs, so a caller that handed in a cached
-  // profile can keep its cache as current as the server's last answer. Only the newest probe started
+  // Called with the answer of every probe this client runs and the profile derived from it, so a
+  // caller that handed in a cached profile can keep its cache as current as the server's last answer. Only the newest probe started
   // reaches it, so it never sees an older answer after a newer one. It is called before the calls
   // waiting on the probe resume and is not awaited: a caller with slow work to do (a cache write)
   // keeps the promise and settles it itself. A hook that throws fails the probe, which is then not
   // kept.
-  onServerProbed?: (info: ServerInfo) => void;
+  onServerProbed?: (info: ServerInfo, profile: ServerProfile) => void;
   // Cancels every request this client makes; composed with the per-request `signal` and the
   // timeout. A process-level interrupt is the caller's to own and to hand over here.
   signal?: AbortSignal;
@@ -186,7 +165,6 @@ export function createTransport(config: ClientCredentials, options: ClientOption
   let credential = config.credential;
   const knownSecrets = new Set(credentialSecrets(credential));
   const redactionContext: RedactionContext = { knownSecrets };
-  const failedRequestBudgets = new WeakMap<HttpError, RequestBudget>();
 
   // Single-flight: concurrent 401s (e.g. verify's parallel user+probe requests) must share one
   // refresh. The server rotates refresh tokens, so a second concurrent refresh would replay the
@@ -292,12 +270,6 @@ export function createTransport(config: ClientCredentials, options: ClientOption
       // A cancellation during the backoff sleep surfaces as the timer's own rejection, which
       // carries none of the taxonomy; the signal's reason does.
       throwIfAborted(prepared.cancelSignal);
-      if (error instanceof HttpError) {
-        failedRequestBudgets.set(error, {
-          signal: prepared.callerSignal,
-          timeoutMs: prepared.timeoutMs,
-        });
-      }
       throw error;
     }
   }
@@ -352,7 +324,6 @@ export function createTransport(config: ClientCredentials, options: ClientOption
       retries: opts.retries ?? DEFAULT_MAX_RETRIES,
       idempotent: opts.idempotent ?? IDEMPOTENT_METHODS.has(method),
       timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-      callerSignal: opts.signal,
       cancelSignal: combineAborts(opts.signal, options.signal),
     };
   }
@@ -369,7 +340,7 @@ export function createTransport(config: ClientCredentials, options: ClientOption
       const info = serverInfoFromProperties(properties);
       const profile = createServerProfile(info);
       if (newest === probed) {
-        options.onServerProbed?.(info);
+        options.onServerProbed?.(info, profile);
         inForce = profile;
       }
       return { properties, profile };
@@ -435,35 +406,22 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     }
   }
 
-  // The server's own refusal is the verdict; the profile only names what was missing. A server that
-  // turns out to have every feature failed for some other reason, and its error stands.
+  // The server's own refusal is the verdict; the profile only names what was missing.
   async function explainRefusal(call: CallRequirement, error: unknown): Promise<unknown> {
-    const features = callFeatures(call);
-    if (features.length === 0 || !isRefusal(error)) {
+    if (!mayBeRefusal(call, error)) {
       return error;
     }
-    // An `HttpError` rebuilt after its request (`chainRequestFailure`) is still the server's
-    // refusal, so it is explained under the budget every request starts with.
-    const budget = failedRequestBudgets.get(error) ?? DEFAULT_BUDGET;
-    const wait = combineAborts(budget.signal, AbortSignal.timeout(budget.timeoutMs));
     let profile: ServerProfile;
     try {
-      profile = await verifiedServer({ signal: wait });
+      profile = await verifiedServer();
     } catch (probeError) {
-      // A probe that cannot answer leaves the refusal unexplained, and so does one a timeout cut
-      // short — this one's, or one the caller composed into its signal, as a wait schedule does. Any
-      // other abort is an interrupt, and the caller's.
-      const isInterrupt = probeError instanceof AbortError && !timedOut(wait);
-      if (probeError instanceof MetabaseError && !isInterrupt) {
+      if (probeError instanceof MetabaseError && !(probeError instanceof AbortError)) {
         return error;
       }
       throw probeError;
     }
-    const failure = checkFeatures(features, profile);
-    if (failure === null || pointsElsewhere(call, profile, error)) {
-      return error;
-    }
-    return new CapabilityError(failure, error);
+    const failure = explainedFailure(call, profile, error);
+    return failure === null ? error : new CapabilityError(failure, error);
   }
 
   const transport: Transport = {
@@ -508,54 +466,6 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     },
   };
   return transport;
-}
-
-// A 404 for a missing row comes from a route the server serves, so no feature can be what it lacks.
-function isRefusal(error: unknown): error is HttpError {
-  if (!(error instanceof HttpError) || error.kind === "resource-missing") {
-    return false;
-  }
-  return REFUSAL_STATUSES.has(error.status);
-}
-
-// A 400 names the fields it rejected, and one naming a field the missing parameter features do not
-// gate rejected the call for that field: an argument needing a feature the server lacks rode along
-// with a value the server refuses anyway. A server lacking a feature the method itself needs cannot
-// serve the call whatever field it names, so nothing points elsewhere; nor does a 400 that names no
-// field at all.
-function pointsElsewhere(
-  call: CallRequirement,
-  profile: ServerProfile,
-  refusal: HttpError,
-): boolean {
-  if (refusal.status !== BAD_REQUEST_STATUS || checkFeatures(call.method, profile) !== null) {
-    return false;
-  }
-  const named = rejectedFields(refusal);
-  const gated = new Set(
-    call.parameters
-      .filter((parameter) => checkFeatures([parameter.feature], profile) !== null)
-      .flatMap((parameter) => parameter.fields),
-  );
-  return named.some((field) => !gated.has(field));
-}
-
-// The top-level request field of every rejection the server listed; a nested one is keyed by its
-// dot-joined path.
-function rejectedFields(refusal: HttpError): string[] {
-  return [refusal.fieldErrors, refusal.specificFieldErrors].flatMap((errors) =>
-    errors === null ? [] : Object.keys(errors).map(topLevelField),
-  );
-}
-
-function topLevelField(path: string): string {
-  const end = path.indexOf(FIELD_PATH_SEPARATOR);
-  return end === -1 ? path : path.slice(0, end);
-}
-
-function timedOut(signal: AbortSignal): boolean {
-  const reason: unknown = signal.reason;
-  return reason instanceof DOMException && reason.name === "TimeoutError";
 }
 
 // A probe that fails is no reason to fail a read the profile it would have replaced can serve; an

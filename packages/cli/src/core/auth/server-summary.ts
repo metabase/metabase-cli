@@ -65,23 +65,40 @@ export function skewNotice(profile: ServerProfile): string | null {
   }
 }
 
-const PROFILE_REFRESHED_REMEDY = "the profile was refreshed — retry the command.";
+const PROFILE_REFRESHED = "the profile was refreshed";
+const SAFE_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD", "OPTIONS"]);
 
 // What a feature switch reads off a probe.
 type ServerIdentity = Pick<ServerInfo, "version" | "tokenFeatures">;
 
-// What a fresh probe says that the cached one did not, or `null` when the two agree on everything
-// a feature switch reads: the version tag and the premium features.
-export function serverChangeNote(cached: ServerIdentity, fresh: ServerIdentity): string | null {
+/** Whether two probes agree on everything a feature switch reads: the version tag and the premium features. */
+export function sameServer(a: ServerIdentity, b: ServerIdentity): boolean {
+  return (
+    describeVersion(a.version) === describeVersion(b.version) &&
+    sameTokenFeatures(a.tokenFeatures, b.tokenFeatures)
+  );
+}
+
+// What a fresh probe says that the cached one did not, with what to do about a request of `method`
+// read under the cached one, or `null` when the two are the same server. A read is safe to repeat;
+// a write the server answered may have landed, and repeating it could apply it twice.
+export function serverChangeNote(
+  cached: ServerIdentity,
+  fresh: ServerIdentity,
+  method: string,
+): string | null {
+  if (sameServer(cached, fresh)) {
+    return null;
+  }
+  const remedy = SAFE_METHODS.has(method)
+    ? `${PROFILE_REFRESHED} — retry the command.`
+    : `${PROFILE_REFRESHED}, but the request may have been applied — check before retrying.`;
   const before = describeVersion(cached.version);
   const after = describeVersion(fresh.version);
   if (before !== after) {
-    return `The server's version changed since the last probe (was ${before}, now ${after}); ${PROFILE_REFRESHED_REMEDY}`;
+    return `The server's version changed since the last probe (was ${before}, now ${after}); ${remedy}`;
   }
-  if (!sameTokenFeatures(cached.tokenFeatures, fresh.tokenFeatures)) {
-    return `The server's premium features changed since the last probe; ${PROFILE_REFRESHED_REMEDY}`;
-  }
-  return null;
+  return `The server's premium features changed since the last probe; ${remedy}`;
 }
 
 // Only a granted feature turns a switch on, so a map the server did not report, an empty one, and

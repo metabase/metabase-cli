@@ -136,7 +136,7 @@ describe("skills list command", () => {
     );
     expect(stderr.chunks.join("")).toBe(
       'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n' +
-        `Skills are filtered by profile "default"'s server as probed at ${probedAt} (run \`mb auth list\` to probe it again).\n`,
+        `Skills are filtered by profile "default"'s server as last recorded at ${probedAt} (run \`mb auth list\` to probe it again).\n`,
     );
   });
 
@@ -161,7 +161,7 @@ describe("skills list command", () => {
     );
     expect(stderr.chunks.join("")).toBe(
       'Skipped skill "gamma": This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it. Pass --unfiltered to print it anyway.\n' +
-        `Skills are filtered by profile "default"'s server as probed at ${probedAt} (run \`mb auth list\` to probe it again).\n`,
+        `Skills are filtered by profile "default"'s server as last recorded at ${probedAt} (run \`mb auth list\` to probe it again).\n`,
     );
   });
 
