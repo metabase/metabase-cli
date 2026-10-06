@@ -122,12 +122,19 @@ function sessionProperties(settings: object, profile: ServerProfile = SERVER): R
   return jsonResponse({ version: { tag: profile.version.tag }, ...settings });
 }
 
-// The session properties an admin reads on a server tracking `branch`.
-function trackedBranchResponse(branch: string): Response {
-  return sessionProperties({
-    "remote-sync-branch": branch,
-    "token-features": { remote_sync: true },
-  });
+// The session properties an admin reads on a server tracking `branch`, by default one that guards
+// it and so is sent it.
+function trackedBranchResponse(
+  branch: string,
+  profile: ServerProfile = SERVER_WITH_PREFLIGHT,
+): Response {
+  return sessionProperties(
+    {
+      "remote-sync-branch": branch,
+      "token-features": { remote_sync: true },
+    },
+    profile,
+  );
 }
 
 function noContent(): Response {
@@ -286,15 +293,15 @@ describe("git-sync resource wire requests", () => {
     expect(capture.calls.map((call) => call.body)).toEqual(['{"expected_branch":"dev"}']);
   });
 
-  it("sends the tracked branch to a server before the branch guard, which ignores it", async () => {
+  it("sends no tracked branch to a server before the branch guard, which reads its own", async () => {
     const { mb, capture } = clientOver([
-      trackedBranchResponse("main"),
+      trackedBranchResponse("main", SERVER),
       jsonResponse({ status: "success", task_id: 12, message: "Import queued" }),
     ]);
 
     await mb.gitSync.import();
 
-    expect(capture.calls.map((call) => call.body)).toEqual([null, '{"expected_branch":"main"}']);
+    expect(capture.calls.map((call) => call.body)).toEqual([null, "{}"]);
   });
 
   it("sends no expected branch where the setting is hidden on a server without remote sync, and explains its refusal", async () => {
@@ -409,7 +416,7 @@ describe("git-sync resource wire requests", () => {
     ]);
   });
 
-  it("explains a refused import from its own branch read, without probing again", async () => {
+  it("explains a refused import from its own branch read, without probing again or naming a branch", async () => {
     const { mb, capture } = clientOver([
       sessionProperties(
         { "remote-sync-branch": "main", "token-features": { remote_sync: false } },
@@ -432,7 +439,7 @@ describe("git-sync resource wire requests", () => {
     });
     expect(capture.calls.map((call) => [call.url, call.body])).toEqual([
       [PROBE_URL, null],
-      ["https://mb.example.com/metabase/api/ee/remote-sync/import", '{"expected_branch":"main"}'],
+      ["https://mb.example.com/metabase/api/ee/remote-sync/import", "{}"],
     ]);
   });
 
@@ -606,7 +613,7 @@ describe("git-sync resource wire requests", () => {
 
   it("explains a refused preflight of the tracked branch by the branch read, in two requests", async () => {
     const { mb, capture } = clientOver(
-      [trackedBranchResponse("main"), routeMissingResponse()],
+      [trackedBranchResponse("main", SERVER), routeMissingResponse()],
       SERVER_WITH_PREFLIGHT,
     );
 

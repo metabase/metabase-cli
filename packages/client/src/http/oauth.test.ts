@@ -87,14 +87,14 @@ describe("oauth HTTP boundary", () => {
     expect(await tryDiscoverMetadata("https://mb.example.com", TEST_USER_AGENT)).toBeNull();
   });
 
-  it("accepts a discovery document that omits scopes_supported when the version grants the full-access scope", async () => {
+  it("accepts a discovery document that omits scopes_supported on a version that grants the full-access scope without advertising it", async () => {
     installFetch([
       jsonResponse({
         issuer: "https://mb.example.com",
         authorization_endpoint: "https://mb.example.com/oauth/authorize",
         token_endpoint: TOKEN_ENDPOINT,
       }),
-      jsonResponse({ version: { tag: "v0.63.1" } }),
+      jsonResponse({ version: { tag: "v0.64.0" } }),
     ]);
     expect(await tryDiscoverMetadata("https://mb.example.com", TEST_USER_AGENT)).toEqual({
       issuer: "https://mb.example.com",

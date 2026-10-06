@@ -610,8 +610,9 @@ describe("defineMetabaseCommand", () => {
       expect(stderr).toEqual([NEWER_NOTICE]);
     });
 
-    it("saves a probe that agrees with the record, dating it by the probe", async () => {
+    it("leaves the record alone when the probe agrees with it", async () => {
       await seedProbedProfile("default", probeAt(63, { content_verification: true }));
+      const seeded = await readProfileRecord("default");
       vi.setSystemTime(new Date(REPROBED_AT));
       const capture = captureFetch([
         jsonResponse({
@@ -625,17 +626,7 @@ describe("defineMetabaseCommand", () => {
       await runCommand(verifiedSearchCommand(), { rawArgs: [] });
 
       expect(process.exitCode).toBe(0);
-      expect(await readProfileRecord("default")).toEqual(
-        reprobedRecord({
-          at: REPROBED_AT,
-          edition: "oss",
-          version: { kind: "release", tag: "v0.63.0", major: 63, patch: 0 },
-          date: null,
-          hash: null,
-          tokenFeatures: { content_verification: true },
-          user: { id: 1, name: "Tester", isAdmin: true },
-        }),
-      );
+      expect(await readProfileRecord("default")).toEqual(seeded);
     });
   });
 
@@ -729,6 +720,7 @@ describe("defineMetabaseCommand", () => {
 
     it("reports the error unchanged when the fresh probe agrees with the cache", async () => {
       await seedProbedProfile("default", probeAt(59));
+      const seeded = await readProfileRecord("default");
       vi.setSystemTime(new Date(REPROBED_AT));
       const capture = captureFetch([
         jsonResponse({}),
@@ -744,17 +736,7 @@ describe("defineMetabaseCommand", () => {
         "https://m.example.com/api/session/properties",
       ]);
       expect(errorEnvelopeOf(stderr)).toEqual(shapeErrorEnvelope(SHAPE_LEAD));
-      expect(await readProfileRecord("default")).toEqual(
-        reprobedRecord({
-          at: REPROBED_AT,
-          edition: "oss",
-          version: { kind: "release", tag: "v0.59.0", major: 59, patch: 0 },
-          date: null,
-          hash: null,
-          tokenFeatures: {},
-          user: { id: 1, name: "Tester", isAdmin: true },
-        }),
-      );
+      expect(await readProfileRecord("default")).toEqual(seeded);
     });
 
     it("reports the error unchanged when the re-probe itself fails", async () => {

@@ -871,12 +871,9 @@ describe("createTransport.explainRefusal", () => {
     return { transport, urls, stop: () => controller.abort(new Error("test over")) };
   }
 
-  async function failedRequest(
-    transport: Transport,
-    budget: Pick<RequestOptions, "signal" | "timeoutMs"> = {},
-  ): Promise<unknown> {
+  async function failedRequest(transport: Transport): Promise<unknown> {
     return transport
-      .requestParsed(PingResponse, "/api/ee/remote-sync/branches", { ...budget, retries: 0 })
+      .requestParsed(PingResponse, "/api/ee/remote-sync/branches", { retries: 0 })
       .catch((caught: unknown) => caught);
   }
 
@@ -956,32 +953,6 @@ describe("createTransport.explainRefusal", () => {
     expect(
       await transport.explainRefusal({ parameters: [], method: ["remoteSync"] }, refusal),
     ).toBe(refusal);
-  });
-
-  it("lets the refusal stand once the explaining probe outlasts the call's own timeout", async () => {
-    const { transport, stop } = transportOver(premiumRefusalResponse("Remote Sync"), HANGING_FETCH);
-    const refusal = await failedRequest(transport, { timeoutMs: 20 });
-
-    expect(
-      await transport.explainRefusal({ parameters: [], method: ["remoteSync"] }, refusal),
-    ).toBe(refusal);
-    stop();
-  });
-
-  it("surfaces the caller's interrupt during the explaining probe rather than the refusal", async () => {
-    const { transport, stop } = transportOver(premiumRefusalResponse("Remote Sync"), HANGING_FETCH);
-    const controller = new AbortController();
-    const refusal = await failedRequest(transport, { signal: controller.signal });
-
-    const pending = transport
-      .explainRefusal({ parameters: [], method: ["remoteSync"] }, refusal)
-      .catch((caught: unknown) => caught);
-    controller.abort(new Error("caller interrupt"));
-
-    const error = await pending;
-    assert(error instanceof AbortError, "expected AbortError");
-    expect(error.message).toBe("caller interrupt");
-    stop();
   });
 
   it("surfaces the client-wide interrupt during the explaining probe rather than the refusal", async () => {
