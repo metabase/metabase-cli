@@ -13,7 +13,7 @@ function lensPath(id: number, lensId: string): string {
 }
 
 export function transformInspectorResource(transport: Transport) {
-  const explain = explainer(transport, "transformInspector");
+  const { explain } = explainer(transport, "transformInspector");
 
   /**
    * Discover what the inspector can show for a transform: its source and target tables with field

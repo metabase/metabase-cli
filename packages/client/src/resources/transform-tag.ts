@@ -15,7 +15,7 @@ const TransformTagApiList = z.array(TransformTag);
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function transformTagResource(transport: Transport) {
-  const explain = explainer(transport, "transformTag");
+  const { explain } = explainer(transport, "transformTag");
 
   /** List every transform tag the caller can see, built-in tags included. */
   async function list(options: RequestOptions = {}): Promise<ListResult<TransformTag>> {

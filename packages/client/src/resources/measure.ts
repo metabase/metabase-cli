@@ -14,7 +14,7 @@ export interface MeasureArchiveParams {
 }
 
 export function measureResource(transport: Transport) {
-  const explain = explainer(transport, "measure");
+  const { explain } = explainer(transport, "measure");
 
   /** List measures. */
   async function list(options: RequestOptions = {}): Promise<ListResult<Measure>> {

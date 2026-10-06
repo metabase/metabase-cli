@@ -11,6 +11,7 @@ import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import type { FeatureName } from "../version/features";
 import { explainer } from "../version/refusal";
+import type { ParameterRequirement } from "../version/requirement-check";
 
 // `GET /api/revision/{entity}/{id}` answers a bare array, newest first, that the server does not
 // count.
@@ -23,22 +24,22 @@ const RevisionApiRevert: z.ZodType<RevisionRevert> = z.union([
   RevisionRow.transform((revision) => ({ outcome: "unchanged" as const, revision })),
 ]);
 
-// An older server rejects an entity kind it does not revision (an unrouted 404, or a 400 on the
-// enum), and the rejection is explained by the feature that brought the kind.
+// An older server rejects an entity kind it does not revision: an unrouted 404 for the listing, a
+// 400 naming `entity` for a revert. The rejection is explained by the feature that brought the kind.
 const ENTITY_FEATURES: Partial<Record<RevisionEntity, FeatureName>> = {
   measure: "measures",
   transform: "transforms",
 };
 
-function entityFeatures(entity: RevisionEntity): FeatureName[] {
+function entityFeatures(entity: RevisionEntity): ParameterRequirement[] {
   const feature = ENTITY_FEATURES[entity];
-  return feature === undefined ? [] : [feature];
+  return feature === undefined ? [] : [{ feature, fields: ["entity"] }];
 }
 
 // Every path parameter here is an enum member or a numeric id, so no fragment needs
 // `encodeURIComponent`.
 export function revisionResource(transport: Transport) {
-  const explain = explainer(transport, "revision");
+  const { explain } = explainer(transport, "revision");
 
   /** List the revisions of an entity the caller may read, newest first, each with its diff. */
   async function list(

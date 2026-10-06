@@ -26,7 +26,7 @@ const LIBRARY_DATA_TYPE = "library-data";
 const PublishTablesResponse = z.object({ target_collection: Collection.nullable() });
 
 export function libraryResource(transport: Transport) {
-  const explain = explainer(transport, "library");
+  const { explain } = explainer(transport, "library");
 
   /** Get the Library root and its child collections, or `null` on an instance that has none. */
   async function get(options: RequestOptions = {}): Promise<Library | null> {

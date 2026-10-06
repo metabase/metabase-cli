@@ -11,7 +11,7 @@ export interface ErdParams {
 }
 
 export function erdResource(transport: Transport) {
-  const explain = explainer(transport, "erd");
+  const { explain } = explainer(transport, "erd");
 
   /**
    * Get the entity relationship diagram of a database: the readable tables as nodes, each with its

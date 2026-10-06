@@ -14,8 +14,8 @@ import type { SortDirection } from "../domain/query";
 import type { QueryValue, RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { type Page, type PaginateOptions, paginatePages } from "../paginate";
-import { methodRequirements } from "../version/requirements";
 import { explainer } from "../version/refusal";
+import type { ParameterRequirement } from "../version/requirement-check";
 
 const DependencyNodeApiList = z.array(DependencyNode);
 const DependencyEntityApiList = z.array(DependencyEntity);
@@ -43,8 +43,14 @@ export interface DependencyItemListParams {
 
 export type DependencyItemPageOptions = Omit<PaginateOptions, "query">;
 
+// A server older than measure graphs rejects a measure as the starting entity with a 400 naming
+// `type`.
+function graphTypeFeatures(type: DependencyType): ParameterRequirement[] {
+  return type === "measure" ? [{ feature: "measureDependencyGraph", fields: ["type"] }] : [];
+}
+
 export function dependencyResource(transport: Transport) {
-  const explain = explainer(transport, "dependency");
+  const { explain, explainWalk } = explainer(transport, "dependency");
 
   /**
    * The upstream dependency graph of one entity. `nodes` holds the starting entity plus every
@@ -149,7 +155,6 @@ export function dependencyResource(transport: Transport) {
       ...(options.max !== undefined && { max: options.max }),
       ...(options.pageSize !== undefined && { pageSize: options.pageSize }),
       ...(options.signal !== undefined && { signal: options.signal }),
-      features: methodRequirements("dependency.unreferencedPages"),
     });
   }
 
@@ -174,18 +179,15 @@ export function dependencyResource(transport: Transport) {
       ...(options.max !== undefined && { max: options.max }),
       ...(options.pageSize !== undefined && { pageSize: options.pageSize }),
       ...(options.signal !== undefined && { signal: options.signal }),
-      features: methodRequirements("dependency.breakingPages"),
     });
   }
 
   return {
-    graph: explain("graph", graph, (type) =>
-      type === "measure" ? ["measureDependencyGraph"] : [],
-    ),
+    graph: explain("graph", graph, graphTypeFeatures),
     dependents: explain("dependents", dependents),
     broken: explain("broken", broken),
-    unreferencedPages: unreferencedPages,
-    breakingPages: breakingPages,
+    unreferencedPages: explainWalk("unreferencedPages", unreferencedPages),
+    breakingPages: explainWalk("breakingPages", breakingPages),
   };
 }
 

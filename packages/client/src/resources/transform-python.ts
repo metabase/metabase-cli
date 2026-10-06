@@ -27,7 +27,7 @@ function libraryPath(path: string): string {
 }
 
 export function transformPythonResource(transport: Transport) {
-  const explain = explainer(transport, "transformPython");
+  const { explain } = explainer(transport, "transformPython");
 
   /** Get the Python library at a path, the user module every Python transform can import. */
   async function getLibrary(path: string, options: RequestOptions = {}): Promise<PythonLibrary> {

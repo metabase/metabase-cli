@@ -40,6 +40,7 @@ export function exitCodeFor(category: ErrorCategory): number {
     case "http":
     case "validation":
     case "response-shape":
+    case "partial-write":
     case "timeout":
     case "internal":
     case "unknown": {

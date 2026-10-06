@@ -21,7 +21,7 @@ export interface TransformJobRunParams {
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function transformJobResource(transport: Transport) {
-  const explain = explainer(transport, "transformJob");
+  const { explain } = explainer(transport, "transformJob");
 
   /** List every transform job the caller can see. */
   async function list(options: RequestOptions = {}): Promise<ListResult<TransformJob>> {

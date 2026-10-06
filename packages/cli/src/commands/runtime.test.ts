@@ -610,9 +610,8 @@ describe("defineMetabaseCommand", () => {
       expect(stderr).toEqual([NEWER_NOTICE]);
     });
 
-    it("leaves the record alone when the probe agrees with it", async () => {
+    it("saves a probe that agrees with the record, dating it by the probe", async () => {
       await seedProbedProfile("default", probeAt(63, { content_verification: true }));
-      const before = await readProfileRecord("default");
       vi.setSystemTime(new Date(REPROBED_AT));
       const capture = captureFetch([
         jsonResponse({
@@ -626,7 +625,17 @@ describe("defineMetabaseCommand", () => {
       await runCommand(verifiedSearchCommand(), { rawArgs: [] });
 
       expect(process.exitCode).toBe(0);
-      expect(await readProfileRecord("default")).toEqual(before);
+      expect(await readProfileRecord("default")).toEqual(
+        reprobedRecord({
+          at: REPROBED_AT,
+          edition: "oss",
+          version: { kind: "release", tag: "v0.63.0", major: 63, patch: 0 },
+          date: null,
+          hash: null,
+          tokenFeatures: { content_verification: true },
+          user: { id: 1, name: "Tester", isAdmin: true },
+        }),
+      );
     });
   });
 
@@ -718,9 +727,9 @@ describe("defineMetabaseCommand", () => {
       );
     });
 
-    it("reports the error unchanged and leaves the profile alone when the fresh probe agrees with the cache", async () => {
+    it("reports the error unchanged when the fresh probe agrees with the cache", async () => {
       await seedProbedProfile("default", probeAt(59));
-      const before = await readProfileRecord("default");
+      vi.setSystemTime(new Date(REPROBED_AT));
       const capture = captureFetch([
         jsonResponse({}),
         jsonResponse({ version: { tag: "v0.59.0" }, "token-features": {} }),
@@ -735,7 +744,17 @@ describe("defineMetabaseCommand", () => {
         "https://m.example.com/api/session/properties",
       ]);
       expect(errorEnvelopeOf(stderr)).toEqual(shapeErrorEnvelope(SHAPE_LEAD));
-      expect(await readProfileRecord("default")).toEqual(before);
+      expect(await readProfileRecord("default")).toEqual(
+        reprobedRecord({
+          at: REPROBED_AT,
+          edition: "oss",
+          version: { kind: "release", tag: "v0.59.0", major: 59, patch: 0 },
+          date: null,
+          hash: null,
+          tokenFeatures: {},
+          user: { id: 1, name: "Tester", isAdmin: true },
+        }),
+      );
     });
 
     it("reports the error unchanged when the re-probe itself fails", async () => {
@@ -777,15 +796,21 @@ describe("defineMetabaseCommand", () => {
       expect(process.exitCode).toBe(INTERRUPT_EXIT_CODE);
     });
 
-    it("never re-probes when the profile the client ran on was not the cached one", async () => {
+    it("reports the error unchanged when the profile the client ran on was not the cached one", async () => {
       await writeProfile({ url: "https://m.example.com", apiKey: "secret-key" });
-      const capture = captureFetch([jsonResponse({})]);
+      const capture = captureFetch([
+        jsonResponse({}),
+        jsonResponse({ version: { tag: "v0.63.0" }, "token-features": {} }),
+      ]);
       vi.stubGlobal("fetch", capture.fetch);
       const stderr = captureStderr();
 
       await runCommand(measureListCommand(), { rawArgs: [] });
 
-      expect(capture.calls.map((call) => call.url)).toEqual(["https://m.example.com/api/measure"]);
+      expect(capture.calls.map((call) => call.url)).toEqual([
+        "https://m.example.com/api/measure",
+        "https://m.example.com/api/session/properties",
+      ]);
       expect(errorEnvelopeOf(stderr)).toEqual(
         shapeErrorEnvelope(
           "Metabase returned unexpected response shape:\n  Invalid input: expected array, received object",

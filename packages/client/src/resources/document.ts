@@ -15,7 +15,7 @@ import { explainer } from "../version/refusal";
 const DocumentApiList = z.object({ items: z.array(Document) }).loose();
 
 export function documentResource(transport: Transport) {
-  const explain = explainer(transport, "document");
+  const { explain } = explainer(transport, "document");
 
   /** Get existing documents. */
   async function list(options: RequestOptions = {}): Promise<ListResult<Document>> {

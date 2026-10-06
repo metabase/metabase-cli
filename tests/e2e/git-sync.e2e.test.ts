@@ -190,7 +190,7 @@ describe("git-sync arg validation e2e (no Metabase contact required)", () => {
     const entry = parseJson(result.stdout, CommandHelpEntry, { source: "--help --json" });
     expect(entry.requires).toEqual({
       methods: ["gitSync.exportPreflight", "gitSync.trackedBranch"],
-      features: ["remoteSyncExportPreflight"],
+      features: ["remoteSyncExportPreflight", "remoteSync"],
     });
   });
 });

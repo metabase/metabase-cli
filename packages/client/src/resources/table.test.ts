@@ -1,7 +1,7 @@
 import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
-import { ConfigError } from "../errors";
+import { ConfigError, PartialWriteError } from "../errors";
 import type { ClientCredentials } from "../http/transport";
 import {
   captureFetch,
@@ -86,11 +86,17 @@ const SERVER_60 = createServerProfile({
 const PROBE_URL = `https://mb.example.com/metabase${PROBE_PATH}`;
 
 // What a medallion-era server answers a tier name with: its enum rejects the value.
-function dataLayerRejected(): Response {
+// A medallion server checks an update's `data_layer` in the model rather than the request schema,
+// so its 400 names no field.
+function dataLayerUpdateRejected(value: string): Response {
   return jsonResponse(
-    { errors: { data_layer: "nullable enum of gold, silver, bronze, copper" } },
+    { message: `Invalid value ${value}. Must be one of gold, silver, bronze, copper`, value },
     400,
   );
+}
+
+function dataLayerFilterRejected(): Response {
+  return jsonResponse({ errors: { "data-layer": "enum of gold, silver, bronze, copper" } }, 400);
 }
 
 const SERVER_58 = createServerProfile({
@@ -389,7 +395,10 @@ describe("table resource wire requests", () => {
   });
 
   it("explains a rejected tier name for data_layer on a server that speaks medallions", async () => {
-    const { mb, capture } = clientOver([dataLayerRejected(), probeResponse(SERVER_58)], SERVER_58);
+    const { mb, capture } = clientOver(
+      [dataLayerUpdateRejected("final"), probeResponse(SERVER_58)],
+      SERVER_58,
+    );
 
     const error = await thrownBy(() => mb.table.update(11, { data_layer: "final" }));
 
@@ -465,9 +474,9 @@ describe("table resource wire requests", () => {
 
     const error = await thrownBy(() => mb.table.update(11, { collection_id: 7 }));
 
-    assert(error instanceof ConfigError, "expected ConfigError");
+    assert(error instanceof PartialWriteError, "expected PartialWriteError");
     expect(error.message).toBe(
-      "the server applied the update but left table 11 in no collection: it does not move a table to a collection through an update",
+      "the server applied the rest of the update to table 11 but not collection_id: the table stays in no collection, because this server does not move a table to a collection through an update",
     );
     expect(capture.calls.map((call) => call.url)).toEqual([TABLE_URL]);
   });
@@ -483,7 +492,10 @@ describe("table resource wire requests", () => {
   });
 
   it("explains a rejected tier name in the data-layer filter on a server that speaks medallions", async () => {
-    const { mb, capture } = clientOver([dataLayerRejected(), probeResponse(SERVER_58)], SERVER_58);
+    const { mb, capture } = clientOver(
+      [dataLayerFilterRejected(), probeResponse(SERVER_58)],
+      SERVER_58,
+    );
 
     const error = await thrownBy(() => mb.table.list({ "data-layer": "hidden" }));
 

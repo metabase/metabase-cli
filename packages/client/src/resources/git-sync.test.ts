@@ -340,23 +340,26 @@ describe("git-sync resource wire requests", () => {
     ]);
   });
 
-  it("refuses an import for a caller who cannot read the setting on a server granting remote sync", async () => {
+  it("refuses an import for a caller who cannot read the setting on a server guarding the branch", async () => {
     const { mb, capture } = clientOver([
-      sessionProperties({ "token-features": { remote_sync: true } }),
+      sessionProperties({ "token-features": { remote_sync: true } }, SERVER_WITH_PREFLIGHT),
     ]);
 
     const error = await thrownBy(() => mb.gitSync.import());
 
     assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe(
-      "the remote-sync-branch setting is not readable: it is visible to admins only, and absent on a server without the remote-sync module",
+      "the remote-sync-branch setting is not readable: it is visible to admins only",
     );
     expect(capture.calls).toEqual([PROPERTIES_READ]);
   });
 
-  it("refuses an import when the server tracks no branch", async () => {
+  it("refuses an import when a server guarding the branch tracks none", async () => {
     const { mb, capture } = clientOver([
-      sessionProperties({ "remote-sync-branch": null, "token-features": { remote_sync: true } }),
+      sessionProperties(
+        { "remote-sync-branch": null, "token-features": { remote_sync: true } },
+        SERVER_WITH_PREFLIGHT,
+      ),
     ]);
 
     const error = await thrownBy(() => mb.gitSync.import());
@@ -740,11 +743,15 @@ describe("git-sync resource wire requests", () => {
   });
 
   it("reads the synced collections off the collection listing", async () => {
-    const { mb, capture } = clientOver([jsonResponse([])]);
+    const { mb, capture } = clientOver([
+      sessionProperties({ "token-features": { remote_sync: true } }),
+      jsonResponse([]),
+    ]);
 
     await mb.gitSync.syncedCollections();
 
     expect(capture.calls).toEqual([
+      PROPERTIES_READ,
       {
         url: "https://mb.example.com/metabase/api/collection",
         method: "GET",
@@ -757,6 +764,7 @@ describe("git-sync resource wire requests", () => {
   it("keeps only the collections the server flagged for sync", async () => {
     const synced = { id: 4, name: "Ops", is_remote_synced: true };
     const { mb } = clientOver([
+      sessionProperties({ "token-features": { remote_sync: true } }),
       jsonResponse([
         { id: 51, name: "Data", is_remote_synced: false },
         synced,
@@ -770,6 +778,7 @@ describe("git-sync resource wire requests", () => {
 
   it("reads the sync scope past collections whose enum fields carry unpinned values", async () => {
     const { mb } = clientOver([
+      sessionProperties({ "token-features": { remote_sync: true } }),
       jsonResponse([
         { ...UNPINNED_ENUM_FIELDS, id: 51, name: "Workspace", is_remote_synced: false },
         { ...UNPINNED_ENUM_FIELDS, id: 4, name: "Ops", is_remote_synced: true },
@@ -832,7 +841,7 @@ describe("git-sync resource wire requests", () => {
   });
 
   it("reads the tracked branch off the session properties", async () => {
-    const { mb, capture } = clientOver([sessionProperties({ "remote-sync-branch": "main" })]);
+    const { mb, capture } = clientOver([trackedBranchResponse("main")]);
 
     await mb.gitSync.branch();
 
@@ -847,26 +856,30 @@ describe("git-sync resource wire requests", () => {
   });
 
   it("answers the effective branch, an environment-set one included", async () => {
-    const { mb } = clientOver([sessionProperties({ "remote-sync-branch": "main" })]);
+    const { mb } = clientOver([trackedBranchResponse("main")]);
 
     expect(await mb.gitSync.branch()).toBe("main");
   });
 
   it("reads an unconfigured branch setting's null as no branch", async () => {
-    const { mb } = clientOver([sessionProperties({ "remote-sync-branch": null })]);
+    const { mb } = clientOver([
+      sessionProperties({ "remote-sync-branch": null, "token-features": { remote_sync: true } }),
+    ]);
 
     expect(await mb.gitSync.branch()).toBeNull();
   });
 
   it("refuses rather than reading a setting the caller may not see as unset", async () => {
-    const { mb } = clientOver([sessionProperties({ "site-name": "Metabase" })]);
+    const { mb } = clientOver([
+      sessionProperties({ "site-name": "Metabase", "token-features": { remote_sync: true } }),
+    ]);
 
     const error = await thrownBy(() => mb.gitSync.branch());
 
     expect(error).toBeInstanceOf(ConfigError);
     assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe(
-      "the remote-sync-branch setting is not readable: it is visible to admins only, and absent on a server without the remote-sync module",
+      "the remote-sync-branch setting is not readable: it is visible to admins only",
     );
   });
 

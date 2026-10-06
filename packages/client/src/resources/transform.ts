@@ -26,7 +26,6 @@ import type { ListResult } from "../list";
 import { type Page, type PaginateOptions, paginatePages } from "../paginate";
 import { type PollOptions, pollUntil } from "../poll";
 import type { Features } from "../version/features";
-import { methodRequirements } from "../version/requirements";
 import { explainer } from "../version/refusal";
 
 // `GET /api/transform` and `GET /api/transform/{id}/dependencies` both answer a bare array rather
@@ -82,7 +81,7 @@ const TransformDagTransformList = z.array(TransformDagTransform);
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function transformResource(transport: Transport) {
-  const explain = explainer(transport, "transform");
+  const { explain, explainWalk } = explainer(transport, "transform");
 
   async function requestTransformList(
     path: string,
@@ -179,7 +178,6 @@ export function transformResource(transport: Transport) {
       ...(options.max !== undefined && { max: options.max }),
       ...(options.pageSize !== undefined && { pageSize: options.pageSize }),
       ...(options.signal !== undefined && { signal: options.signal }),
-      features: methodRequirements("transform.runPages"),
     });
   }
 
@@ -206,7 +204,6 @@ export function transformResource(transport: Transport) {
       ...(options.max !== undefined && { max: options.max }),
       ...(options.pageSize !== undefined && { pageSize: options.pageSize }),
       ...(options.signal !== undefined && { signal: options.signal }),
-      features: methodRequirements("transform.runSummaryPages"),
     });
   }
 
@@ -323,8 +320,8 @@ export function transformResource(transport: Transport) {
     dependencies: explain("dependencies", dependencies),
     cancel: explain("cancel", cancel),
     getRun: explain("getRun", getRun),
-    runPages: runPages,
-    runSummaryPages: runSummaryPages,
+    runPages: explainWalk("runPages", runPages),
+    runSummaryPages: explainWalk("runSummaryPages", runSummaryPages),
     resetCheckpoint: explain("resetCheckpoint", resetCheckpoint),
     runDag: explain("runDag", runDag),
     dagTransforms: explain("dagTransforms", dagTransforms),

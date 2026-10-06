@@ -96,6 +96,7 @@ const FieldErrorTree = z.record(z.string(), FieldErrorNodeSchema);
 export type FieldErrors = Record<string, string>;
 
 const FIELD_MESSAGE_SEPARATOR = "; ";
+export const FIELD_PATH_SEPARATOR = ".";
 
 const MAX_EXTRACTED_MESSAGE_LEN = 500;
 const ELLIPSIS = "…";
@@ -496,7 +497,7 @@ function formatLeafEntry(entry: LeafEntry): string {
 function collectLeafEntries(value: unknown, path: ReadonlyArray<string>): LeafEntry[] {
   if (typeof value === "string") {
     const trimmed = value.trim();
-    return trimmed === "" ? [] : [{ path: path.join("."), message: trimmed }];
+    return trimmed === "" ? [] : [{ path: path.join(FIELD_PATH_SEPARATOR), message: trimmed }];
   }
   if (Array.isArray(value)) {
     const messages = value.filter(
@@ -505,7 +506,9 @@ function collectLeafEntries(value: unknown, path: ReadonlyArray<string>): LeafEn
     if (messages.length === 0) {
       return [];
     }
-    return [{ path: path.join("."), message: messages.join(FIELD_MESSAGE_SEPARATOR) }];
+    return [
+      { path: path.join(FIELD_PATH_SEPARATOR), message: messages.join(FIELD_MESSAGE_SEPARATOR) },
+    ];
   }
   if (isPlainObject(value)) {
     return Object.entries(value).flatMap(([key, child]) =>

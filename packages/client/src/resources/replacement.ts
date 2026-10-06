@@ -21,7 +21,7 @@ export interface ReplacementRunListParams {
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function replacementResource(transport: Transport) {
-  const explain = explainer(transport, "replacement");
+  const { explain } = explainer(transport, "replacement");
 
   /**
    * Check whether every usage of a source entity could be rewritten to read a target entity

@@ -5,7 +5,7 @@ import { explainer } from "../version/refusal";
 import { parseRequestBody } from "./request-body";
 
 export function moderationReviewResource(transport: Transport) {
-  const explain = explainer(transport, "moderationReview");
+  const { explain } = explainer(transport, "moderationReview");
 
   /**
    * Create a moderation review on a card or dashboard. `status: "verified"` marks the item

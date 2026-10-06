@@ -1,70 +1,72 @@
-import type { ExplainOptions, Transport } from "../http/transport";
+import { InternalError } from "../errors";
+import type { Transport } from "../http/transport";
 
-import type { FeatureName } from "./features";
+import type { CallRequirement, ParameterRequirement } from "./requirement-check";
 import { isMethodKey, type MethodKey, methodRequirements } from "./requirements";
 
 // The features a call needs only because of the arguments it was handed, where a server without
 // them rejects the request rather than dropping the argument.
-export type ParameterFeatures<A extends unknown[]> = (...args: A) => readonly FeatureName[];
+export type ParameterFeatures<A extends unknown[]> = (
+  ...args: A
+) => readonly ParameterRequirement[];
 
 type NamespaceOf<K> = K extends `${infer N}.${string}` ? N : never;
 type MethodNamespace = NamespaceOf<MethodKey>;
 type NameIn<K, N extends string> = K extends `${N}.${infer M}` ? M : never;
 type MethodName<N extends MethodNamespace> = NameIn<MethodKey, N>;
 
-type Explain<N extends MethodNamespace> = <A extends unknown[], R>(
-  name: MethodName<N>,
-  method: (...args: A) => Promise<R>,
-  // The method alone sets the exposed signature; a callback reading fewer arguments must not drop
-  // the rest from it.
-  parameterFeatures?: NoInfer<ParameterFeatures<A>>,
-) => (...args: A) => Promise<R>;
-
 // Wraps one resource's gated methods as the client exposes them: the server decides whether the
-// call is allowed, and a refusal it answers with reads as the feature it lacks. Parameter features
-// come first, since a parameter's floor sits above its method's.
-export function explainer<N extends MethodNamespace>(
-  transport: Transport,
-  namespace: N,
-): Explain<N> {
-  return (name, method, parameterFeatures) => {
+// call is allowed, and a refusal it answers with reads as the feature it lacks. `explain` wraps a
+// method answering a promise, `explainWalk` one answering an async iterable, whose failure at any
+// step is explained as it is thrown. The method alone sets the exposed signature, so `parameters`
+// is `NoInfer`: a callback reading fewer arguments must not drop the rest from it.
+export function explainer<N extends MethodNamespace>(transport: Transport, namespace: N) {
+  function explain<A extends unknown[], R>(
+    name: MethodName<N>,
+    method: (...args: A) => Promise<R>,
+    parameters?: NoInfer<ParameterFeatures<A>>,
+  ): (...args: A) => Promise<R> {
     const key = methodKey(namespace, name);
     return async (...args) => {
       try {
         return await method(...args);
       } catch (error) {
-        const features = [
-          ...(parameterFeatures === undefined ? [] : parameterFeatures(...args)),
-          ...methodRequirements(key),
-        ];
-        throw await transport.explainRefusal(features, error, explainOptionsOf(args));
+        throw await transport.explainRefusal(callRequirement(key, parameters, args), error);
       }
     };
-  };
+  }
+
+  function explainWalk<A extends unknown[], T>(
+    name: MethodName<N>,
+    method: (...args: A) => AsyncIterable<T>,
+    parameters?: NoInfer<ParameterFeatures<A>>,
+  ): (...args: A) => AsyncIterable<T> {
+    const key = methodKey(namespace, name);
+    return async function* (...args) {
+      try {
+        yield* method(...args);
+      } catch (error) {
+        throw await transport.explainRefusal(callRequirement(key, parameters, args), error);
+      }
+    };
+  }
+
+  return { explain, explainWalk };
 }
 
 function methodKey(namespace: string, name: string): MethodKey {
   const key = `${namespace}.${name}`;
   if (!isMethodKey(key)) {
-    throw new Error(`no requirements entry for ${key}`);
+    throw new InternalError(`no requirements entry for ${key}`);
   }
   return key;
 }
 
-// Every resource method takes its `RequestOptions` last, and a call that leaves them out ends on
-// its params instead. Metabase names no field `signal` or `timeoutMs`, so a trailing argument
-// holding either is the caller's own budget for the call: its `RequestOptions`, or a wait schedule
-// (`PollOptions`) whose signal and overall timeout bound the explanation as they bound the wait.
-function explainOptionsOf(args: readonly unknown[]): ExplainOptions {
-  const last = args.at(-1);
-  if (typeof last !== "object" || last === null) {
-    return {};
-  }
-  const signal = "signal" in last && last.signal instanceof AbortSignal ? last.signal : null;
-  const timeoutMs =
-    "timeoutMs" in last && typeof last.timeoutMs === "number" ? last.timeoutMs : null;
-  return {
-    ...(signal !== null && { signal }),
-    ...(timeoutMs !== null && { timeoutMs }),
-  };
+function callRequirement<A extends unknown[]>(
+  key: MethodKey,
+  parameters: ParameterFeatures<A> | undefined,
+  args: A,
+): CallRequirement {
+  const brought = parameters === undefined ? [] : parameters(...args);
+  return { parameters: brought, method: methodRequirements(key) };
 }

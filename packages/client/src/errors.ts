@@ -12,6 +12,7 @@ export type ErrorCategory =
   | "timeout"
   | "config"
   | "capability"
+  | "partial-write"
   | "abort"
   | "internal"
   | "unknown";
@@ -48,6 +49,9 @@ export interface ZodResponseShapeDetail {
   url: string;
   status: number;
   zodIssues: ZodError["issues"];
+  // The server the reader was chosen for: the profile in force when the request started, which a
+  // caller compares with a fresh probe to tell a stale choice from a shape the server changed.
+  // `null` when no profile was in force and nothing else named the server.
   serverTag: string | null;
   serverSkew: Skew | null;
 }
@@ -261,6 +265,28 @@ export class UnknownError extends MetabaseError {
     super(input.originalMessage);
     this.name = "UnknownError";
     this.developerDetail = input;
+  }
+}
+
+export interface PartialWriteDetail {
+  method: string;
+  path: string;
+  field: string;
+  requested: number;
+  answered: number | null | undefined;
+}
+
+// The server answered success having written all but one field, so the request is neither a
+// failure nor a success; repeating it rewrites what landed and still leaves the field as it was.
+export class PartialWriteError extends MetabaseError {
+  readonly category = "partial-write";
+  readonly isRetryable = false;
+  readonly developerDetail: PartialWriteDetail;
+
+  constructor(message: string, developerDetail: PartialWriteDetail) {
+    super(message);
+    this.name = "PartialWriteError";
+    this.developerDetail = developerDetail;
   }
 }
 

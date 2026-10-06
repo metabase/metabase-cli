@@ -31,7 +31,7 @@ const BEYOND_KNOWN = KNOWN_RANGE.max + 5;
 const BELOW_KNOWN = KNOWN_RANGE.min - 1;
 
 const NEWER_NOTICE = `Metabase v0.${BEYOND_KNOWN}.0 is newer than this CLI supports (up to v${KNOWN_RANGE.max}); commands run as if it were v${KNOWN_RANGE.max + 1}. Run \`mb upgrade\` for a newer CLI.`;
-const OLDER_NOTICE = `Metabase v0.${BELOW_KNOWN}.0 is older than this CLI supports (v${KNOWN_RANGE.min}+); a command needing a newer feature is sent, and the server's refusal names it. Upgrade Metabase to v${KNOWN_RANGE.min} or later.`;
+const OLDER_NOTICE = `Metabase v0.${BELOW_KNOWN}.0 is older than this CLI supports (v${KNOWN_RANGE.min}+); a command relying on a newer feature may fail. Upgrade Metabase to v${KNOWN_RANGE.min} or later.`;
 
 describe("server-decided gating e2e", () => {
   const tempDirs: string[] = [];

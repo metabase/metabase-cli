@@ -2,14 +2,8 @@ import { assert, describe, expect, it } from "vitest";
 import { z, type ZodType } from "zod";
 
 import { AbortError, ConfigError, errorMessage, InternalError } from "./errors";
-import {
-  type ClientCredentials,
-  createTransport,
-  type ExplainOptions,
-  type Transport,
-} from "./http/transport";
-import { captureFetch, premiumRefusalResponse, TEST_USER_AGENT } from "./testing/fetch-capture";
-import type { FeatureName } from "./version/features";
+import { type Transport, type ClientCredentials, createTransport } from "./http/transport";
+import { TEST_USER_AGENT } from "./testing/fetch-capture";
 import { type Page, type PaginateOptions, paginatePages } from "./paginate";
 
 const CONFIG: ClientCredentials = {
@@ -428,32 +422,6 @@ describe("paginate", () => {
       { limit: "2", offset: "0" },
       { limit: "2", offset: "2" },
     ]);
-  });
-
-  it("explains a refused page by the walk's features, waiting on the caller's own signal", async () => {
-    const transport = createTransport(CONFIG, {
-      userAgent: TEST_USER_AGENT,
-      fetchImpl: captureFetch([premiumRefusalResponse("Transforms")]).fetch,
-    });
-    const asked: Array<{ features: readonly FeatureName[]; options: ExplainOptions | undefined }> =
-      [];
-    const explained = new Error("explained");
-    const client: Transport = {
-      ...transport,
-      async explainRefusal(features, _error, options) {
-        asked.push({ features, options });
-        return explained;
-      },
-    };
-    const controller = new AbortController();
-
-    const error = await collect(client, "/api/transform/run", Card, {
-      signal: controller.signal,
-      features: ["transforms"],
-    }).catch((caught: unknown) => caught);
-
-    expect(error).toBe(explained);
-    expect(asked).toEqual([{ features: ["transforms"], options: { signal: controller.signal } }]);
   });
 
   it("reports the server total on every page it yields", async () => {

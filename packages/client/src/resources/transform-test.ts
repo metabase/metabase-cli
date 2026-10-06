@@ -20,7 +20,7 @@ export interface TransformTestListParams {
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function transformTestResource(transport: Transport) {
-  const explain = explainer(transport, "transformTest");
+  const { explain } = explainer(transport, "transformTest");
 
   /** List the transform tests, optionally only those of one transform. */
   async function list(

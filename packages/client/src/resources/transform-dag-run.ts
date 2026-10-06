@@ -10,7 +10,7 @@ const TransformMemberRunList = z.array(TransformMemberRun);
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function transformDagRunResource(transport: Transport) {
-  const explain = explainer(transport, "transformDagRun");
+  const { explain } = explainer(transport, "transformDagRun");
 
   /**
    * List the transform runs a DAG run coordinated so far. A member run is inserted when its

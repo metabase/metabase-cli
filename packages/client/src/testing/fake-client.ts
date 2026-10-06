@@ -119,7 +119,7 @@ export function createFakeClient(plan: FakeClientPlan = {}): FakeClient {
     async requireFeatures(features) {
       requiredFeatures.push({ features, precedingRequests: calls.length });
     },
-    async explainRefusal(_features, error) {
+    async explainRefusal(_call, error) {
       return error;
     },
   };

@@ -7,7 +7,7 @@ import { buildCsvFormData, type CsvFile } from "./csv-upload";
 const CONTENT_TRANSLATION_PATH = "/api/ee/content-translation";
 
 export function contentTranslationResource(transport: Transport) {
-  const explain = explainer(transport, "contentTranslation");
+  const { explain } = explainer(transport, "contentTranslation");
 
   /** Download the complete content translation dictionary as CSV. */
   async function download(options: RequestOptions = {}): Promise<ReadableStream<Uint8Array>> {

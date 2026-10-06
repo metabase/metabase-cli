@@ -25,7 +25,7 @@ import { CapabilityError } from "../version/preflight-error";
 import { SessionProperties } from "../domain/session-properties";
 import { PROBE_PATH, type ServerInfo } from "../version/probe";
 import { KNOWN_RANGE } from "../version/known-range";
-import { createServerProfile } from "../version/profile";
+import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CONFIG: ClientCredentials = {
   url: "https://m.example.com",
@@ -767,8 +767,7 @@ describe("createTransport.verifiedServer", () => {
       userAgent: TEST_USER_AGENT,
       fetchImpl: captureFetch([probeResponse(UPGRADED_63)]).fetch,
       server: CACHED_58,
-      onServerProbed: async (info) => {
-        await delay(1);
+      onServerProbed: (info) => {
         seen.push(info);
       },
     });
@@ -786,23 +785,22 @@ describe("createTransport.verifiedServer", () => {
     ]);
   });
 
-  it("settles the profile before the hook, so a hook calling back into the client does not wait on itself", async () => {
+  it("lets a hook call back into the client without waiting on itself", async () => {
     const fakeFetch = captureFetch([probeResponse(UPGRADED_63)]);
-    const readByHook: string[] = [];
+    const readByHook: Promise<ServerProfile[]>[] = [];
     const client: Transport = createTransport(CONFIG, {
       userAgent: TEST_USER_AGENT,
       fetchImpl: fakeFetch.fetch,
       server: CACHED_58,
-      onServerProbed: async () => {
-        const [verified, read] = await Promise.all([client.verifiedServer(), client.server()]);
-        readByHook.push(verified.version.tag, read.version.tag);
+      onServerProbed: () => {
+        readByHook.push(Promise.all([client.verifiedServer(), client.server()]));
       },
     });
 
     const verified = await client.verifiedServer();
 
     expect(verified).toEqual(UPGRADED_63);
-    expect(readByHook).toEqual(["v1.63.0", "v1.63.0"]);
+    expect(await Promise.all(readByHook)).toEqual([[UPGRADED_63, UPGRADED_63]]);
     expect(fakeFetch.calls.map((call) => call.url)).toEqual([`https://m.example.com${PROBE_PATH}`]);
   });
 
@@ -873,9 +871,12 @@ describe("createTransport.explainRefusal", () => {
     return { transport, urls, stop: () => controller.abort(new Error("test over")) };
   }
 
-  async function failedRequest(transport: Transport): Promise<unknown> {
+  async function failedRequest(
+    transport: Transport,
+    budget: Pick<RequestOptions, "signal" | "timeoutMs"> = {},
+  ): Promise<unknown> {
     return transport
-      .requestParsed(PingResponse, "/api/ee/remote-sync/branches", { retries: 0 })
+      .requestParsed(PingResponse, "/api/ee/remote-sync/branches", { ...budget, retries: 0 })
       .catch((caught: unknown) => caught);
   }
 
@@ -886,7 +887,10 @@ describe("createTransport.explainRefusal", () => {
     );
     const refusal = await failedRequest(transport);
 
-    const explained = await transport.explainRefusal(["remoteSync"], refusal);
+    const explained = await transport.explainRefusal(
+      { parameters: [], method: ["remoteSync"] },
+      refusal,
+    );
 
     assert(explained instanceof CapabilityError, "expected CapabilityError");
     expect(explained.developerDetail).toEqual({
@@ -911,7 +915,9 @@ describe("createTransport.explainRefusal", () => {
     );
     const refusal = await failedRequest(transport);
 
-    expect(await transport.explainRefusal(["remoteSync"], refusal)).toBe(refusal);
+    expect(
+      await transport.explainRefusal({ parameters: [], method: ["remoteSync"] }, refusal),
+    ).toBe(refusal);
   });
 
   it("never blames a missing row on a feature, and asks the server nothing", async () => {
@@ -921,7 +927,9 @@ describe("createTransport.explainRefusal", () => {
     );
     const missing = await failedRequest(transport);
 
-    expect(await transport.explainRefusal(["remoteSync"], missing)).toBe(missing);
+    expect(
+      await transport.explainRefusal({ parameters: [], method: ["remoteSync"] }, missing),
+    ).toBe(missing);
     expect(urls).toEqual(["https://m.example.com/api/ee/remote-sync/branches"]);
   });
 
@@ -932,7 +940,9 @@ describe("createTransport.explainRefusal", () => {
     );
     const failure = await failedRequest(transport);
 
-    expect(await transport.explainRefusal(["remoteSync"], failure)).toBe(failure);
+    expect(
+      await transport.explainRefusal({ parameters: [], method: ["remoteSync"] }, failure),
+    ).toBe(failure);
     expect(urls).toEqual(["https://m.example.com/api/ee/remote-sync/branches"]);
   });
 
@@ -943,26 +953,28 @@ describe("createTransport.explainRefusal", () => {
     );
     const refusal = await failedRequest(transport);
 
-    expect(await transport.explainRefusal(["remoteSync"], refusal)).toBe(refusal);
+    expect(
+      await transport.explainRefusal({ parameters: [], method: ["remoteSync"] }, refusal),
+    ).toBe(refusal);
   });
 
   it("lets the refusal stand once the explaining probe outlasts the call's own timeout", async () => {
     const { transport, stop } = transportOver(premiumRefusalResponse("Remote Sync"), HANGING_FETCH);
-    const refusal = await failedRequest(transport);
+    const refusal = await failedRequest(transport, { timeoutMs: 20 });
 
-    expect(await transport.explainRefusal(["remoteSync"], refusal, { timeoutMs: 20 })).toBe(
-      refusal,
-    );
+    expect(
+      await transport.explainRefusal({ parameters: [], method: ["remoteSync"] }, refusal),
+    ).toBe(refusal);
     stop();
   });
 
   it("surfaces the caller's interrupt during the explaining probe rather than the refusal", async () => {
     const { transport, stop } = transportOver(premiumRefusalResponse("Remote Sync"), HANGING_FETCH);
-    const refusal = await failedRequest(transport);
     const controller = new AbortController();
+    const refusal = await failedRequest(transport, { signal: controller.signal });
 
     const pending = transport
-      .explainRefusal(["remoteSync"], refusal, { signal: controller.signal })
+      .explainRefusal({ parameters: [], method: ["remoteSync"] }, refusal)
       .catch((caught: unknown) => caught);
     controller.abort(new Error("caller interrupt"));
 
@@ -977,7 +989,7 @@ describe("createTransport.explainRefusal", () => {
     const refusal = await failedRequest(transport);
 
     const pending = transport
-      .explainRefusal(["remoteSync"], refusal)
+      .explainRefusal({ parameters: [], method: ["remoteSync"] }, refusal)
       .catch((caught: unknown) => caught);
     stop();
 
@@ -993,7 +1005,7 @@ describe("createTransport.explainRefusal", () => {
     );
     const refusal = await failedRequest(transport);
 
-    expect(await transport.explainRefusal([], refusal)).toBe(refusal);
+    expect(await transport.explainRefusal({ parameters: [], method: [] }, refusal)).toBe(refusal);
     expect(urls).toEqual(["https://m.example.com/api/ee/remote-sync/branches"]);
   });
 });

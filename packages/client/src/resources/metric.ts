@@ -15,7 +15,7 @@ export interface MetricDimensionListParams {
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function metricResource(transport: Transport) {
-  const explain = explainer(transport, "metric");
+  const { explain } = explainer(transport, "metric");
 
   /**
    * Run a metric definition and return the query result envelope: one metric or measure, or an

@@ -1,8 +1,13 @@
 import { z } from "zod";
 
 import { MetabaseError } from "../errors";
+import type { HttpError } from "../http/errors";
 
 import { FEATURE_NAMES } from "./features";
+
+// The one refusal status that is also an ordinary validation failure: a server lacking a parameter's
+// feature rejects the unknown parameter with it, and so does any server rejecting a bad value.
+const BAD_REQUEST_STATUS = 400;
 
 export const RequirementReason = z.enum(["version-too-old", "missing-token-feature"]);
 export type RequirementReason = z.infer<typeof RequirementReason>;
@@ -28,14 +33,25 @@ export function missingTokenFeatureMessage(tokenFeature: string): string {
   return `This operation requires the '${tokenFeature}' premium feature (not enabled on this server).`;
 }
 
+// An explained refusal carries the server's answer as its `cause`. A 400 may have rejected the call
+// for a reason other than the missing feature, so its message also quotes what the server said; a
+// 402 or an unrouted 404 says nothing the requirement does not. The field errors stay structured on
+// the cause rather than being re-rendered here.
 export class CapabilityError extends MetabaseError {
   readonly category = "capability";
   readonly isRetryable = false;
   readonly developerDetail: RequirementFailure;
 
-  constructor(failure: RequirementFailure) {
-    super(failure.detail);
+  constructor(failure: RequirementFailure, refusal: HttpError | null = null) {
+    super(capabilityMessage(failure, refusal), refusal === null ? undefined : { cause: refusal });
     this.name = "CapabilityError";
     this.developerDetail = failure;
   }
+}
+
+function capabilityMessage(failure: RequirementFailure, refusal: HttpError | null): string {
+  if (refusal === null || refusal.status !== BAD_REQUEST_STATUS) {
+    return failure.detail;
+  }
+  return `${failure.detail}\nMetabase answered ${refusal.status}: ${refusal.message}`;
 }

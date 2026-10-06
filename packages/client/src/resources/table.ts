@@ -16,11 +16,12 @@ import {
   type TableUpdateInput,
 } from "../domain/table";
 import type { UploadUpdateAction, UploadUpdateResult } from "../domain/upload";
-import { ConfigError } from "../errors";
+import { ConfigError, PartialWriteError } from "../errors";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import type { FeatureName } from "../version/features";
 import { explainer } from "../version/refusal";
+import type { ParameterRequirement } from "../version/requirement-check";
 
 import { buildCsvFormData, type CsvFile } from "./csv-upload";
 import { fetchOptionalParsed } from "./optional-parsed";
@@ -74,11 +75,15 @@ function listParamFeatures(params: TableListParams): FeatureName[] {
   );
 }
 
-// A server older than the tier vocabulary rejects a tier name; the rejection names the feature.
-function dataLayerFeatures(value: TableDataLayer | null | undefined): FeatureName[] {
-  return value !== null && value !== undefined && TableDataLayerTier.safeParse(value).success
-    ? ["tableDataLayerTiers"]
-    : [];
+// A server older than the tier vocabulary rejects a tier name with a 400 naming the request field
+// it travels in: `data-layer` on the list filter, `data_layer` on an update.
+function dataLayerFeatures(
+  value: TableDataLayer | null | undefined,
+  field: string,
+): ParameterRequirement[] {
+  const isTierName =
+    value !== null && value !== undefined && TableDataLayerTier.safeParse(value).success;
+  return isTierName ? [{ feature: "tableDataLayerTiers", fields: [field] }] : [];
 }
 
 const UPLOAD_UPDATE_PATHS: Record<UploadUpdateAction, string> = {
@@ -87,7 +92,7 @@ const UPLOAD_UPDATE_PATHS: Record<UploadUpdateAction, string> = {
 };
 
 export function tableResource(transport: Transport) {
-  const explain = explainer(transport, "table");
+  const { explain } = explainer(transport, "table");
 
   /**
    * List every table the caller can see, across all databases. `term` matches names and display
@@ -133,18 +138,20 @@ export function tableResource(transport: Transport) {
   ): Promise<Table> {
     await refuseRewrittenDataLayer(params.data_layer, options);
     await requireDataAuthorityNull(params.data_authority, options);
-    const updated = await transport.requestParsed(Table, `/api/table/${id}`, {
+    const path = `/api/table/${id}`;
+    const updated = await transport.requestParsed(Table, path, {
       ...options,
       method: "PUT",
       body: params,
     });
-    assertCollectionWritten(params.collection_id, updated);
+    assertCollectionWritten(path, params.collection_id, updated);
     return updated;
   }
 
   // A server that names tiers maps a medallion name onto one on update without a word, and for
   // `copper` leaves the table visible while storing it hidden, so the name is refused by value
-  // before the wire. A tier name on an older server is that server's own 400.
+  // before the wire. A tier name on an older server is that server's own 400. The list filter needs
+  // no such check: every server validates it against its own vocabulary and answers 400 naming it.
   async function refuseRewrittenDataLayer(
     value: TableDataLayer | null | undefined,
     options: RequestOptions,
@@ -359,9 +366,13 @@ export function tableResource(transport: Transport) {
   }
 
   return {
-    list: explain("list", list, (params) => dataLayerFeatures(params?.["data-layer"])),
+    list: explain("list", list, (params) =>
+      dataLayerFeatures(params?.["data-layer"], "data-layer"),
+    ),
     get,
-    update: explain("update", update, (_id, params) => dataLayerFeatures(params.data_layer)),
+    update: explain("update", update, (_id, params) =>
+      dataLayerFeatures(params.data_layer, "data_layer"),
+    ),
     queryMetadata,
     fks,
     syncSchema,
@@ -379,15 +390,19 @@ export function tableResource(transport: Transport) {
 // A server whose update predates publishing a table takes `collection_id` in its open body, leaves
 // it out of the columns it writes, and answers 200 with the table where it was. Which servers do
 // is a matter of patch release, not major, so the table the server answers is the judge.
-function assertCollectionWritten(requested: TableUpdateInput["collection_id"], table: Table): void {
+function assertCollectionWritten(
+  path: string,
+  requested: TableUpdateInput["collection_id"],
+  table: Table,
+): void {
   if (requested === undefined || table.collection_id === requested) {
     return;
   }
+  const answered = table.collection_id;
   const stayed =
-    table.collection_id === null || table.collection_id === undefined
-      ? "in no collection"
-      : `in collection ${table.collection_id}`;
-  throw new ConfigError(
-    `the server applied the update but left table ${table.id} ${stayed}: it does not move a table to a collection through an update`,
+    answered === null || answered === undefined ? "in no collection" : `in collection ${answered}`;
+  throw new PartialWriteError(
+    `the server applied the rest of the update to table ${table.id} but not collection_id: the table stays ${stayed}, because this server does not move a table to a collection through an update`,
+    { method: "PUT", path, field: "collection_id", requested, answered },
   );
 }
