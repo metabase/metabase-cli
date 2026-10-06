@@ -31,12 +31,12 @@ const STATUS_CLASSIFICATIONS: Record<number, StatusClassification> = {
   401: { retryable: false },
   403: {
     retryable: false,
-    message: "Metabase refused the request: the API key's user is not allowed to do this.",
+    message: "The request was refused (403): the signed-in user is not allowed to do this.",
   },
   404: { retryable: false },
   409: {
     retryable: false,
-    message: "Metabase refused the request: it conflicts with what already exists.",
+    message: "The request was refused (409): it conflicts with what already exists.",
   },
   408: { retryable: true, message: "Metabase timed out responding." },
   425: { retryable: true },

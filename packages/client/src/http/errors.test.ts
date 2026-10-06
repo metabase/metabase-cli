@@ -153,7 +153,7 @@ describe("HttpError message extraction", () => {
 
   it("calls a 403 with no body a refusal, not a bad key, since Metabase identified the user", () => {
     expect(buildHttpError({ status: 403, rawBody: null }).message).toBe(
-      "Metabase refused the request: the API key's user is not allowed to do this.",
+      "The request was refused (403): the signed-in user is not allowed to do this.",
     );
   });
 
@@ -186,7 +186,7 @@ describe("HttpError message extraction", () => {
 
   it("calls a 409 with no body a conflict", () => {
     expect(buildHttpError({ status: 409, rawBody: null }).message).toBe(
-      "Metabase refused the request: it conflicts with what already exists.",
+      "The request was refused (409): it conflicts with what already exists.",
     );
   });
 
