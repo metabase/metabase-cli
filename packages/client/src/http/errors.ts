@@ -267,14 +267,14 @@ function buildUserMessage(
   return defaultMessageForStatus(input.status);
 }
 
-// A 403 means Metabase accepted the key and refused the request, and its plain-text body says why
-// ("A table with that name already exists."). A 401 body ("Unauthenticated") says less than the
-// key message does.
+// The status decides: a 401 is a credential Metabase did not accept, a 403 a request it refused
+// from a user it did identify, so a 403 never blames the key. A plain-text reason, when Metabase
+// sends one, only makes the refusal specific.
 function authMessage(input: HttpErrorInput, fromText: string | null): string {
-  if (input.status === FORBIDDEN_STATUS && fromText !== null) {
-    return fromText;
+  if (input.status !== FORBIDDEN_STATUS) {
+    return `Invalid or unauthorized API key (host: ${hostFromUrl(input.url)}).`;
   }
-  return `Invalid or unauthorized API key (host: ${hostFromUrl(input.url)}).`;
+  return fromText ?? "Metabase refused the request: the API key's user is not allowed to do this.";
 }
 
 // Metabase answers some rejections — a query that fails normalization, for one — with a text/plain

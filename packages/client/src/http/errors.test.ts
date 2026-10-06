@@ -151,9 +151,9 @@ describe("HttpError message extraction", () => {
     );
   });
 
-  it("emits an auth message with the host for 403 with no body", () => {
+  it("calls a 403 with no body a refusal, not a bad key, since Metabase identified the user", () => {
     expect(buildHttpError({ status: 403, rawBody: null }).message).toBe(
-      "Invalid or unauthorized API key (host: example.invalid).",
+      "Metabase refused the request: the API key's user is not allowed to do this.",
     );
   });
 
