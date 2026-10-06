@@ -237,7 +237,7 @@ export function dashboardResource(transport: Transport) {
       if (error.kind === "resource-missing") {
         return { reason: "missing" };
       }
-      if (error.kind === "auth") {
+      if (error.kind === "auth" || error.kind === "forbidden") {
         return { reason: "unreadable", detail: error.userMessage };
       }
       throw error;

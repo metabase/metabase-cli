@@ -10,6 +10,8 @@ export type HttpErrorKind =
   | "route-missing"
   | "resource-missing"
   | "auth"
+  | "forbidden"
+  | "conflict"
   | "rate-limit"
   | "server-error"
   | "generic";
@@ -19,7 +21,6 @@ interface StatusClassification {
   message?: string;
 }
 
-const FORBIDDEN_STATUS = 403;
 const NOT_FOUND_STATUS = 404;
 
 const TEXT_CONTENT_TYPE = "text/plain";
@@ -28,8 +29,15 @@ const RESOURCE_MISSING_LITERAL = "Not found.";
 
 const STATUS_CLASSIFICATIONS: Record<number, StatusClassification> = {
   401: { retryable: false },
-  403: { retryable: false },
+  403: {
+    retryable: false,
+    message: "Metabase refused the request: the API key's user is not allowed to do this.",
+  },
   404: { retryable: false },
+  409: {
+    retryable: false,
+    message: "Metabase refused the request: it conflicts with what already exists.",
+  },
   408: { retryable: true, message: "Metabase timed out responding." },
   425: { retryable: true },
   429: { retryable: true, message: "Metabase rate-limited the request." },
@@ -199,8 +207,16 @@ function classifyKind(
   sanitizedBody: string | null,
   redactedHeaders: Record<string, string>,
 ): HttpErrorKind {
-  if (status === 401 || status === 403) {
+  // 401: Metabase did not accept the credential. 403: it identified the user and refused the
+  // request. 409: the request conflicts with existing state. None of the last two is about the key.
+  if (status === 401) {
     return "auth";
+  }
+  if (status === 403) {
+    return "forbidden";
+  }
+  if (status === 409) {
+    return "conflict";
   }
   if (status === NOT_FOUND_STATUS) {
     return isRouteMissingResponse(sanitizedBody, redactedHeaders)
@@ -257,24 +273,14 @@ function buildUserMessage(
   if (fromBody !== null) {
     return fromBody;
   }
-  const fromText = plainTextMessage(sanitizedBody, redactedHeaders);
   if (kind === "auth") {
-    return authMessage(input, fromText);
+    return `Invalid or unauthorized API key (host: ${hostFromUrl(input.url)}).`;
   }
+  const fromText = plainTextMessage(sanitizedBody, redactedHeaders);
   if (fromText !== null) {
     return fromText;
   }
   return defaultMessageForStatus(input.status);
-}
-
-// The status decides: a 401 is a credential Metabase did not accept, a 403 a request it refused
-// from a user it did identify, so a 403 never blames the key. A plain-text reason, when Metabase
-// sends one, only makes the refusal specific.
-function authMessage(input: HttpErrorInput, fromText: string | null): string {
-  if (input.status !== FORBIDDEN_STATUS) {
-    return `Invalid or unauthorized API key (host: ${hostFromUrl(input.url)}).`;
-  }
-  return fromText ?? "Metabase refused the request: the API key's user is not allowed to do this.";
 }
 
 // Metabase answers some rejections — a query that fails normalization, for one — with a text/plain
