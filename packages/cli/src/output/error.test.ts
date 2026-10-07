@@ -161,6 +161,7 @@ describe("reportError", () => {
     expect(streams.stderr).toBe(
       "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.\n" +
         "Or install an `@metabase/cli` release that targets this server.\n" +
+        "If this server does support it, rerun with --skip-preflight; a server without it may ignore or rewrite what it does not support and answer without saying so.\n" +
         "(rerun with MB_VERBOSE=1 for details)\n",
     );
     expect(process.exitCode).toBe(2);
@@ -226,6 +227,7 @@ describe("reportError", () => {
     reportError(new CapabilityError(failure));
     expect(streams.stderr).toBe(
       "This operation requires the 'library' premium feature (not enabled on this server).\n" +
+        "If this server does support it, rerun with --skip-preflight; a server without it may ignore or rewrite what it does not support and answer without saying so.\n" +
         "(rerun with MB_VERBOSE=1 for details)\n",
     );
   });
@@ -250,7 +252,8 @@ describe("reportError", () => {
           category: "capability",
           message:
             "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.\n" +
-            "Or install an `@metabase/cli` release that targets this server.",
+            "Or install an `@metabase/cli` release that targets this server.\n" +
+            "If this server does support it, rerun with --skip-preflight; a server without it may ignore or rewrite what it does not support and answer without saying so.",
           exitCode: 2,
         },
       }) + "\n",

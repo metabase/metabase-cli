@@ -228,9 +228,12 @@ describe("showUsage", () => {
     const out = chunks.join("");
     expect(out).toContain("--max-bytes=<max_bytes>");
     expect(out).toContain("--api-key=<api_key>");
+    expect(out).toContain("--skip-preflight");
     expect(out).not.toContain("--maxBytes");
     expect(out).not.toContain("--apiKey");
+    expect(out).not.toContain("--skipPreflight");
     expect(out).not.toMatch(/(?<!-)-max-bytes/);
+    expect(out).not.toMatch(/(?<!-)-skip-preflight/);
   });
 
   it("lists -h, --help in the OPTIONS block", async () => {

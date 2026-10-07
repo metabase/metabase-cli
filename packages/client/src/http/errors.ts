@@ -21,7 +21,17 @@ interface StatusClassification {
   message?: string;
 }
 
-const NOT_FOUND_STATUS = 404;
+export const BAD_REQUEST_STATUS = 400;
+export const UNAUTHORIZED_STATUS = 401;
+export const PAYMENT_REQUIRED_STATUS = 402;
+export const FORBIDDEN_STATUS = 403;
+export const NOT_FOUND_STATUS = 404;
+export const CONFLICT_STATUS = 409;
+export const TOO_MANY_REQUESTS_STATUS = 429;
+export const INTERNAL_SERVER_ERROR_STATUS = 500;
+
+const SERVER_ERROR_STATUSES_START = 500;
+const SERVER_ERROR_STATUSES_END = 600;
 
 const TEXT_CONTENT_TYPE = "text/plain";
 const ROUTE_MISSING_LITERAL = "API endpoint does not exist.";
@@ -137,19 +147,25 @@ export class HttpError extends MetabaseError {
   readonly category = "http";
   readonly status: number;
   readonly kind: HttpErrorKind;
+  // What the server itself said about the failure, from its envelope's message or field errors or
+  // a plain-text body, or `null` when it said nothing and the message is this client's own.
+  readonly serverMessage: string | null;
   readonly developerDetail: HttpErrorDetail;
 
   constructor(input: HttpErrorInput) {
     const sanitizedBody = sanitizeBody(input.rawBody, input.redactionContext);
     const redactedHeaders = redactHeaders(input.responseHeaders);
     const kind = classifyKind(input.status, sanitizedBody, redactedHeaders);
-    super(
-      input.overrideUserMessage ?? buildUserMessage(kind, input, sanitizedBody, redactedHeaders),
-    );
+    const said: ServerSaid = {
+      envelope: parseEnvelopeMessage(sanitizedBody),
+      text: plainTextMessage(sanitizedBody, redactedHeaders),
+    };
+    super(input.overrideUserMessage ?? buildUserMessage(kind, input, said));
     const fields = extractEnvelopeViews(sanitizedBody);
     this.name = "HttpError";
     this.status = input.status;
     this.kind = kind;
+    this.serverMessage = said.envelope ?? said.text;
     this.developerDetail = {
       status: input.status,
       statusText: input.statusText,
@@ -244,13 +260,13 @@ function classifyKind(
 ): HttpErrorKind {
   // 401: Metabase did not accept the credential. 403: it identified the user and refused the
   // request. 409: the request conflicts with existing state. None of the last two is about the key.
-  if (status === 401) {
+  if (status === UNAUTHORIZED_STATUS) {
     return "auth";
   }
-  if (status === 403) {
+  if (status === FORBIDDEN_STATUS) {
     return "forbidden";
   }
-  if (status === 409) {
+  if (status === CONFLICT_STATUS) {
     return "conflict";
   }
   if (status === NOT_FOUND_STATUS) {
@@ -258,10 +274,10 @@ function classifyKind(
       ? "route-missing"
       : "resource-missing";
   }
-  if (status === 429) {
+  if (status === TOO_MANY_REQUESTS_STATUS) {
     return "rate-limit";
   }
-  if (status >= 500 && status < 600) {
+  if (status >= SERVER_ERROR_STATUSES_START && status < SERVER_ERROR_STATUSES_END) {
     return "server-error";
   }
   return "generic";
@@ -290,12 +306,13 @@ function isRouteMissingResponse(
   return parseEnvelope(sanitizedBody) === null;
 }
 
-function buildUserMessage(
-  kind: HttpErrorKind,
-  input: HttpErrorInput,
-  sanitizedBody: string | null,
-  redactedHeaders: Record<string, string>,
-): string {
+// The message a failure body carries, read once for the user message and `serverMessage` both.
+interface ServerSaid {
+  envelope: string | null;
+  text: string | null;
+}
+
+function buildUserMessage(kind: HttpErrorKind, input: HttpErrorInput, said: ServerSaid): string {
   if (kind === "route-missing") {
     return buildRouteMissingMessage(input);
   }
@@ -304,16 +321,14 @@ function buildUserMessage(
   }
   // Messages we generate read as full sentences ending in a period; messages quoted from a
   // Metabase response envelope (parseEnvelopeMessage) are passed through verbatim, periods or not.
-  const fromBody = parseEnvelopeMessage(sanitizedBody);
-  if (fromBody !== null) {
-    return fromBody;
+  if (said.envelope !== null) {
+    return said.envelope;
   }
   if (kind === "auth") {
     return `Invalid or unauthorized API key (host: ${hostFromUrl(input.url)}).`;
   }
-  const fromText = plainTextMessage(sanitizedBody, redactedHeaders);
-  if (fromText !== null) {
-    return fromText;
+  if (said.text !== null) {
+    return said.text;
   }
   return defaultMessageForStatus(input.status);
 }

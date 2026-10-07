@@ -13,6 +13,7 @@ import { parseJson } from "@metabase/client/json";
 
 import { FieldSearchListEnvelope } from "../../packages/cli/src/commands/field/search";
 import { FieldListEnvelope } from "../../packages/cli/src/commands/table/fields";
+import { PREFLIGHT_SKIP_REMEDY } from "../../packages/cli/src/output/notice";
 import { FieldRemappingResult } from "../../packages/cli/src/output/views/field";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
@@ -24,7 +25,7 @@ import { requireServer, serverHas } from "./server-gate";
 const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
 
 function sensitivityRefusal(serverTag: string): string {
-  return `This operation requires Metabase v64+ (this server is ${serverTag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`;
+  return `This operation requires Metabase v64+ (this server is ${serverTag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}\n${PREFLIGHT_SKIP_REMEDY}`;
 }
 
 describe("field e2e", () => {

@@ -14,8 +14,7 @@ import type { SortDirection } from "../domain/query";
 import type { QueryValue, RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { type Page, type PaginateOptions, paginatePages } from "../paginate";
-import { explainer } from "../version/refusal";
-import type { ParameterRequirement } from "../version/requirement-check";
+import { explainer, type ParameterRequirement } from "../version/refusal";
 
 const DependencyNodeApiList = z.array(DependencyNode);
 const DependencyEntityApiList = z.array(DependencyEntity);

@@ -1,7 +1,7 @@
 import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
-import { ConfigError, PartialWriteError } from "../errors";
+import { PartialWriteError } from "../errors";
 import type { ClientCredentials } from "../http/transport";
 import {
   captureFetch,
@@ -431,9 +431,9 @@ describe("table resource wire requests", () => {
 
     const error = await thrownBy(() => mb.table.update(11, { data_layer: "gold" }));
 
-    assert(error instanceof ConfigError, "expected ConfigError");
+    assert(error instanceof CapabilityError, "expected CapabilityError");
     expect(error.message).toBe(
-      'data_layer "gold" is a medallion name; this server names a table\'s layer final, internal, hidden',
+      'data_layer "gold" is a medallion name; this server names a table\'s layer final, internal, hidden and would map it onto one of those without a word',
     );
     expect(capture.calls.map((call) => call.url)).toEqual([PROBE_URL]);
   });
@@ -476,7 +476,7 @@ describe("table resource wire requests", () => {
 
     assert(error instanceof PartialWriteError, "expected PartialWriteError");
     expect(error.message).toBe(
-      "the server applied the rest of the update to table 11 but not collection_id: the table stays in no collection, because this server does not move a table to a collection through an update",
+      "the server applied the rest of the update to table 11 but not collection_id: it answered the table without reporting a collection, because this server does not move a table to a collection through an update",
     );
     expect(capture.calls.map((call) => call.url)).toEqual([TABLE_URL]);
   });

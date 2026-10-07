@@ -32,6 +32,9 @@ export interface CommonContext {
   url: string | undefined;
   apiKey: string | undefined;
   profile: string | undefined;
+  // Unset when neither `--skip-preflight` nor `--no-skip-preflight` was typed, so the environment
+  // decides.
+  skipPreflight: boolean | undefined;
 }
 
 interface ResolveOptions {
@@ -65,6 +68,7 @@ export function resolveCommonFlags(args: CommonArgs, options: ResolveOptions = {
     url: args.url,
     apiKey: args.apiKey,
     profile: args.profile,
+    skipPreflight: args.skipPreflight,
   };
 }
 

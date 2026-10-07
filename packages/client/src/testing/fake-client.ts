@@ -1,5 +1,6 @@
 import type { ZodType } from "zod";
 
+import { ConfigError } from "../errors";
 import {
   type Transport,
   DEFAULT_METHOD,
@@ -56,8 +57,11 @@ export interface FakeFeatureRequirement {
   readonly precedingRequests: number;
 }
 
-// The fake records what a method required and never refuses or explains: both belong to the real
-// transport and are proven there, so a resource test needs no profile to reach its wire assertions.
+// The fake records what a method required and never refuses: that belongs to the real transport and
+// is proven there, so a resource test needs no profile to reach its wire assertions. A refusal a
+// resource judged itself is thrown, as a transport whose caller skips none throws it. A failure is
+// explained for real against the plan's profile; without one the explaining probe fails short of an
+// interrupt, so the failure stands.
 export interface FakeClient {
   readonly client: Transport;
   readonly calls: ReadonlyArray<FakeClientCall>;
@@ -111,7 +115,10 @@ export function createFakeClient(plan: FakeClientPlan = {}): FakeClient {
       return plannedServer();
     },
     async verifiedServer() {
-      return plannedServer();
+      if (plan.server === undefined) {
+        throw new ConfigError("no server profile in fake client plan");
+      }
+      return plan.server;
     },
     async probe(reader) {
       return client.requestParsed(reader, PROBE_PATH);
@@ -119,9 +126,13 @@ export function createFakeClient(plan: FakeClientPlan = {}): FakeClient {
     async requireFeatures(features) {
       requiredFeatures.push({ features, precedingRequests: calls.length });
     },
-    async explainRefusal(_call, error) {
-      return error;
+    async preflightServer() {
+      return client.verifiedServer();
     },
+    refuseBeforeSending(refusal) {
+      throw refusal;
+    },
+    async probesSettled() {},
   };
   return { client, calls, requiredFeatures };
 }

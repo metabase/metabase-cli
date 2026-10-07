@@ -7,6 +7,7 @@ import { parseJson } from "@metabase/client/json";
 import { pollUntil } from "@metabase/client/poll";
 
 import { SearchListEnvelope } from "../../packages/cli/src/commands/search";
+import { PREFLIGHT_SKIP_REMEDY } from "../../packages/cli/src/output/notice";
 import { listEnvelopeSchema } from "../../packages/cli/src/output/types";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
@@ -122,7 +123,7 @@ describe("search e2e", () => {
       expect(result.exitCode).toBe(2);
       expect(cliErrorCategory(result.stderr)).toBe("capability");
       expect(cliErrorMessage(result.stderr)).toBe(
-        "This operation requires the 'content_verification' premium feature (not enabled on this server).",
+        `This operation requires the 'content_verification' premium feature (not enabled on this server).\n${PREFLIGHT_SKIP_REMEDY}`,
       );
       expect(result.stdout).toBe("");
       return;

@@ -1,10 +1,8 @@
 // Test-only fetch double (the keyring-mock pattern): scripted responses plus a capture of every
 // call, shared by the client/oauth/logout suites so each doesn't grow its own drifting stub.
 
+import { NOT_FOUND_STATUS, PAYMENT_REQUIRED_STATUS } from "../http/errors";
 import type { ServerProfile } from "../version/profile";
-
-const NOT_FOUND_STATUS = 404;
-const PAYMENT_REQUIRED_STATUS = 402;
 
 // A caller identity no production code could produce, so a hardcoded fallback cannot fake it.
 export const TEST_USER_AGENT = "some-embedder/9.9.9";

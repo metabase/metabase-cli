@@ -105,13 +105,13 @@ export function cardResource(transport: Transport) {
     params: CardExportParams,
     options: RequestOptions = {},
   ): Promise<ReadableStream<Uint8Array>> {
+    if (params.pivot_results) {
+      await assertPivotedExport(transport, format, options);
+    }
     await transport.requireFeatures(
       params.csv_include_bom ? ["exportCsvByteOrderMark"] : [],
       options,
     );
-    if (params.pivot_results) {
-      await assertPivotedExport(transport, format, options);
-    }
     const body = new URLSearchParams({
       parameters: JSON.stringify(params.parameters),
       format_rows: String(params.format_rows),

@@ -293,7 +293,7 @@ describe("git-sync resource wire requests", () => {
     expect(capture.calls.map((call) => call.body)).toEqual(['{"expected_branch":"dev"}']);
   });
 
-  it("sends no tracked branch to a server before the branch guard, which reads its own", async () => {
+  it("sends the tracked branch to a server before the branch guard, which ignores it", async () => {
     const { mb, capture } = clientOver([
       trackedBranchResponse("main", SERVER),
       jsonResponse({ status: "success", task_id: 12, message: "Import queued" }),
@@ -301,7 +301,7 @@ describe("git-sync resource wire requests", () => {
 
     await mb.gitSync.import();
 
-    expect(capture.calls.map((call) => call.body)).toEqual([null, "{}"]);
+    expect(capture.calls.map((call) => call.body)).toEqual([null, '{"expected_branch":"main"}']);
   });
 
   it("sends no expected branch where the setting is hidden on a server without remote sync, and explains its refusal", async () => {
@@ -356,7 +356,7 @@ describe("git-sync resource wire requests", () => {
 
     assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe(
-      "the remote-sync-branch setting is not readable: it is visible to admins only",
+      "the remote-sync-branch setting is not readable: only admins see it, and a server without remote sync has none",
     );
     expect(capture.calls).toEqual([PROPERTIES_READ]);
   });
@@ -886,7 +886,7 @@ describe("git-sync resource wire requests", () => {
     expect(error).toBeInstanceOf(ConfigError);
     assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe(
-      "the remote-sync-branch setting is not readable: it is visible to admins only",
+      "the remote-sync-branch setting is not readable: only admins see it, and a server without remote sync has none",
     );
   });
 

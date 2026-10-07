@@ -15,11 +15,12 @@ import {
 } from "../domain/git-sync";
 import { SessionProperties } from "../domain/session-properties";
 import { ConfigError } from "../errors";
-import { HttpError } from "../http/errors";
+import { FORBIDDEN_STATUS, HttpError, NOT_FOUND_STATUS } from "../http/errors";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { type PollOptions, pollUntil } from "../poll";
 import type { Features } from "../version/features";
+import { profileFromProperties } from "../version/probe";
 import { explainer } from "../version/refusal";
 
 import { listCollectionsAs } from "./collection";
@@ -63,19 +64,16 @@ const RemoteSyncSetting = z.string().nullable();
 // `/api/setting/remote-sync-branch` answers nothing for a branch set by environment variable, while
 // the session properties carry every setting's effective value, and carry a setting only when the
 // caller may read it: an absent key is "not readable", a null one "unset". They are read as a
-// probe, so the merge check and a refusal's explanation that follow the read need no request of
-// their own.
+// probe, so the features a branch read, an import or an export judges by that same answer, and a
+// refusal's explanation that follows, need no request of their own.
 const RemoteSyncBranchProperty = SessionProperties.extend({
   "remote-sync-branch": z.string().nullable().optional(),
 });
 type RemoteSyncBranchProperty = z.infer<typeof RemoteSyncBranchProperty>;
 
 const BRANCH_UNREADABLE_MESSAGE =
-  "the remote-sync-branch setting is not readable: it is visible to admins only";
+  "the remote-sync-branch setting is not readable: only admins see it, and a server without remote sync has none";
 const BRANCH_UNSET_MESSAGE = "git-sync tracks no branch: the remote-sync-branch setting is unset";
-
-const FORBIDDEN_STATUS = 403;
-const UNREGISTERED_STATUS = 404;
 
 // The remote-sync settings are admin-readable only, and unregistered on servers without the
 // remote-sync module; both answers mean "no usable remote", not a failure of the caller's request.
@@ -83,7 +81,7 @@ function isRemoteUnreadable(error: unknown): boolean {
   if (!(error instanceof HttpError)) {
     return false;
   }
-  return error.status === FORBIDDEN_STATUS || error.status === UNREGISTERED_STATUS;
+  return error.status === FORBIDDEN_STATUS || error.status === NOT_FOUND_STATUS;
 }
 
 // Presence of `wait` is the choice to block: the schedule is the caller's, the terminal condition
@@ -124,7 +122,7 @@ export interface SyncCreateBranchParams {
 }
 
 export function gitSyncResource(transport: Transport) {
-  const { explain } = explainer(transport, "gitSync");
+  const { explain, refuse, refuseAfterReading } = explainer(transport, "gitSync");
 
   /** Get the running or most recently finished sync task, or null when the server has none. */
   async function currentTask(options: RequestOptions = {}): Promise<SyncTask | null> {
@@ -174,17 +172,19 @@ export function gitSyncResource(transport: Transport) {
    * pass `wait` to poll that task until it reaches a terminal status. A server already up to date
    * answers no task id, and there is then nothing to poll. A server that guards the tracked branch
    * refuses with 409 when `expected_branch` disagrees with the setting; left out, it is the tracked
-   * branch as read just before the request, and the request is refused before the wire when the
-   * setting is unset or hidden from the caller. A server without the guard ignores the assertion,
-   * so it gets none unless the caller names one. `merge` folds the remote's
-   * changes into local content by a three-way merge and keeps un-pushed local changes, where a
-   * plain import refuses on a dirty instance.
+   * branch as read just before the request, on every server with remote sync. A server that guards
+   * the branch also requires it, so there the request is refused before the wire when the setting
+   * is unset or hidden from the caller; a server without the guard ignores the assertion, and gets
+   * none when there is none to read. `merge` folds the remote's changes into local content by a
+   * three-way merge and keeps un-pushed local changes, where a plain import refuses on a dirty
+   * instance.
    */
   async function importFromRemote(
     params: SyncImportParams = {},
     options: RequestOptions = {},
   ): Promise<SyncImportResult> {
-    const expectedBranch = await syncBranch(params.expected_branch, params.merge, options);
+    const expectedBranch = await expectedBranchFor(params.expected_branch, options);
+    await requireMerge(params.merge, options);
     const started = await transport.requestParsed(SyncImportStarted, "/api/ee/remote-sync/import", {
       ...options,
       method: "POST",
@@ -202,28 +202,48 @@ export function gitSyncResource(transport: Transport) {
     return { message, task_id: started.task_id, final: await settle(params.wait, options) };
   }
 
-  // The branch to name when the caller named none: the tracked one, read from the session
-  // properties, and only for a server that guards it. Such a server requires it on an import and an
-  // export, so there an unset setting, or one hidden from a caller who is not an admin, is refused
-  // before the wire. An older server reads the setting itself in the same request; it ignores an
-  // import's assertion and takes an export's branch as a switch, so naming one read a moment
-  // earlier would undo a switch another admin made in between. The merge check and the features
-  // both read the profile the branch read settles, so neither costs a request.
-  async function syncBranch(
+  // The import's assertion when the caller named none: the tracked branch, sent on every server
+  // with remote sync, since one without the guard ignores it.
+  async function expectedBranchFor(
     given: string | undefined,
-    merge: boolean | undefined,
     options: RequestOptions,
   ): Promise<string | undefined> {
-    const properties =
-      given === undefined ? await transport.probe(RemoteSyncBranchProperty, options) : null;
+    if (given !== undefined) {
+      return given;
+    }
+    return importAssertion(await readTrackedBranch(options));
+  }
+
+  // The export's branch when the caller named none: the tracked one, only for a server that guards
+  // it. An older server reads the setting itself in the same request and takes an export's branch
+  // as a switch, so naming one read a moment earlier would undo a switch another admin made in
+  // between.
+  async function exportBranchFor(
+    given: string | undefined,
+    options: RequestOptions,
+  ): Promise<string | undefined> {
+    if (given !== undefined) {
+      return given;
+    }
+    return exportBranch(await readTrackedBranch(options));
+  }
+
+  // The features are judged by the profile this same read describes, and the merge check that
+  // follows finds this probe or a later one settled or in flight, so neither costs a request.
+  async function readTrackedBranch(options: RequestOptions): Promise<TrackedBranchRead> {
+    const properties = await transport.probe(RemoteSyncBranchProperty, options);
+    return {
+      tracked: properties["remote-sync-branch"],
+      features: profileFromProperties(properties).features,
+    };
+  }
+
+  // An import or export before `remoteSyncMerge` ignores `merge` and runs a plain one, which on a
+  // dirty instance or a moved remote is the very outcome the merge was asked to avoid.
+  async function requireMerge(merge: boolean | undefined, options: RequestOptions): Promise<void> {
     if (merge === true) {
       await transport.requireFeatures(["remoteSyncMerge"], options);
     }
-    if (properties === null) {
-      return given;
-    }
-    const { features } = await transport.verifiedServer(options);
-    return defaultBranch(properties["remote-sync-branch"], features);
   }
 
   /**
@@ -241,7 +261,8 @@ export function gitSyncResource(transport: Transport) {
     params: SyncExportParams = {},
     options: RequestOptions = {},
   ): Promise<SyncExportResult> {
-    const branchName = await syncBranch(params.branch, params.merge, options);
+    const branchName = await exportBranchFor(params.branch, options);
+    await requireMerge(params.merge, options);
     const started = await transport.requestParsed(SyncExportStarted, "/api/ee/remote-sync/export", {
       ...options,
       method: "POST",
@@ -342,9 +363,6 @@ export function gitSyncResource(transport: Transport) {
   async function syncedCollections(
     options: RequestOptions = {},
   ): Promise<ListResult<SyncScopeCollection>> {
-    // A server without remote sync lists its collections without `is_remote_synced`, which would
-    // read as an empty sync scope rather than as a server with no git-sync at all.
-    await transport.requireFeatures(["remoteSync"], options);
     const data = await listCollectionsAs(transport, SyncScopeCollection, options);
     return { data: data.filter((entry) => entry.is_remote_synced === true), total: null };
   }
@@ -372,12 +390,7 @@ export function gitSyncResource(transport: Transport) {
    * remote sync or the caller may not read the setting (it is admin-only), rather than reading
    * either as unset.
    */
-  async function branch(options: RequestOptions = {}): Promise<string | null> {
-    const properties = await transport.probe(RemoteSyncBranchProperty, options);
-    // An EE server without the remote_sync token still shows its admin the setting, which would
-    // read as a branch git-sync tracks; the profile the read just settled refuses it without
-    // another request.
-    await transport.requireFeatures(["remoteSync"], options);
+  function branch(properties: RemoteSyncBranchProperty): string | null {
     const tracked = properties["remote-sync-branch"];
     if (tracked === undefined) {
       throw new ConfigError(BRANCH_UNREADABLE_MESSAGE);
@@ -389,8 +402,8 @@ export function gitSyncResource(transport: Transport) {
    * The branch git-sync tracks, refused when none is configured, the server has no remote sync, or
    * the caller may not read it.
    */
-  async function trackedBranch(options: RequestOptions = {}): Promise<string> {
-    const tracked = await branch(options);
+  function trackedBranch(properties: RemoteSyncBranchProperty): string {
+    const tracked = branch(properties);
     if (tracked === null) {
       throw new ConfigError(BRANCH_UNSET_MESSAGE);
     }
@@ -429,21 +442,48 @@ export function gitSyncResource(transport: Transport) {
     branches: explain("branches", branches),
     createBranch: explain("createBranch", createBranch),
     setCollectionSynced: explain("setCollectionSynced", setCollectionSynced),
-    syncedCollections,
+    // A server without remote sync lists its collections without `is_remote_synced`, which would
+    // read as an empty sync scope rather than as a server with no git-sync at all.
+    syncedCollections: refuse("syncedCollections", syncedCollections),
     remoteUrl,
-    branch,
-    trackedBranch,
+    // An EE server without the remote_sync token still shows its admin the setting, which would
+    // read as a branch git-sync tracks. The refusal judges the profile the setting's read settles,
+    // so it costs no request of its own.
+    branch: refuseAfterReading("branch", RemoteSyncBranchProperty, branch),
+    trackedBranch: refuseAfterReading("trackedBranch", RemoteSyncBranchProperty, trackedBranch),
     waitForTask: explain("waitForTask", waitForTask),
   };
 }
 
-function defaultBranch(
-  tracked: RemoteSyncBranchProperty["remote-sync-branch"],
-  features: Features,
-): string | undefined {
-  if (!features.remoteSync || !features.remoteSyncBranchGuard) {
+// The tracked branch as one read of the session properties found it, beside the features of the
+// server that answered.
+interface TrackedBranchRead {
+  tracked: RemoteSyncBranchProperty["remote-sync-branch"];
+  features: Features;
+}
+
+// Only a server that guards the branch rejects an import without the assertion, so only there is
+// an unset or unreadable setting refused before the wire.
+function importAssertion(read: TrackedBranchRead): string | undefined {
+  if (!read.features.remoteSync) {
     return undefined;
   }
+  if (read.features.remoteSyncBranchGuard) {
+    return requiredBranch(read.tracked);
+  }
+  return typeof read.tracked === "string" ? read.tracked : undefined;
+}
+
+function exportBranch(read: TrackedBranchRead): string | undefined {
+  if (!read.features.remoteSync || !read.features.remoteSyncBranchGuard) {
+    return undefined;
+  }
+  return requiredBranch(read.tracked);
+}
+
+// A server guarding the branch requires it, so an unset setting, or one hidden from a caller who
+// is not an admin, is refused before the wire.
+function requiredBranch(tracked: RemoteSyncBranchProperty["remote-sync-branch"]): string {
   if (typeof tracked === "string") {
     return tracked;
   }

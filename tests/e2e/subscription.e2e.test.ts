@@ -9,6 +9,7 @@ import {
 import { parseJson } from "@metabase/client/json";
 
 import { SubscriptionListEnvelope } from "../../packages/cli/src/commands/subscription/list";
+import { PREFLIGHT_SKIP_REMEDY } from "../../packages/cli/src/output/notice";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
@@ -176,7 +177,7 @@ describe("subscription e2e", () => {
     expect(result.exitCode).toBe(2);
     expect(cliErrorCategory(result.stderr)).toBe("capability");
     expect(cliErrorMessage(result.stderr)).toBe(
-      "This operation requires the 'dashboard_subscription_filters' premium feature (not enabled on this server).",
+      `This operation requires the 'dashboard_subscription_filters' premium feature (not enabled on this server).\n${PREFLIGHT_SKIP_REMEDY}`,
     );
     expect(result.stdout).toBe("");
     expect(await listed()).toBe(0);

@@ -16,12 +16,13 @@ import {
   type TableUpdateInput,
 } from "../domain/table";
 import type { UploadUpdateAction, UploadUpdateResult } from "../domain/upload";
-import { ConfigError, PartialWriteError } from "../errors";
+import { type PartialWriteAnswer, PartialWriteError } from "../errors";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import type { FeatureName } from "../version/features";
-import { explainer } from "../version/refusal";
-import type { ParameterRequirement } from "../version/requirement-check";
+import { CapabilityError } from "../version/capability-error";
+import { explainer, type ParameterRequirement } from "../version/refusal";
+import { supersedingFeature } from "../version/requirement-check";
 
 import { buildCsvFormData, type CsvFile } from "./csv-upload";
 import { fetchOptionalParsed } from "./optional-parsed";
@@ -81,9 +82,11 @@ function dataLayerFeatures(
   value: TableDataLayer | null | undefined,
   field: keyof TableListParams | keyof TableUpdateInput,
 ): ParameterRequirement[] {
-  const isTierName =
-    value !== null && value !== undefined && TableDataLayerTier.safeParse(value).success;
-  return isTierName ? [{ feature: "tableDataLayerTiers", fields: [field] }] : [];
+  return isTierName(value) ? [{ feature: "tableDataLayerTiers", fields: [field] }] : [];
+}
+
+function isTierName(value: TableDataLayer | null | undefined): boolean {
+  return value !== null && value !== undefined && TableDataLayerTier.safeParse(value).success;
 }
 
 const UPLOAD_UPDATE_PATHS: Record<UploadUpdateAction, string> = {
@@ -156,14 +159,18 @@ export function tableResource(transport: Transport) {
     value: TableDataLayer | null | undefined,
     options: RequestOptions,
   ): Promise<void> {
-    if (value === null || value === undefined || TableDataLayerTier.safeParse(value).success) {
+    if (value === null || value === undefined || isTierName(value)) {
       return;
     }
-    const { features } = await transport.verifiedServer(options);
-    if (features.tableDataLayerTiers) {
-      throw new ConfigError(
-        `data_layer "${value}" is a medallion name; this server names a table's layer ${TableDataLayerTier.options.join(", ")}`,
-      );
+    const profile = await transport.preflightServer(options);
+    if (profile === null) {
+      return;
+    }
+    const tiers = TableDataLayerTier.options.join(", ");
+    const detail = `data_layer "${value}" is a medallion name; this server names a table's layer ${tiers} and would map it onto one of those without a word`;
+    const failure = supersedingFeature("tableDataLayerTiers", profile, detail);
+    if (failure !== null) {
+      transport.refuseBeforeSending(new CapabilityError(failure));
     }
   }
 
@@ -398,10 +405,22 @@ function assertCollectionWritten(
   if (requested === undefined || table.collection_id === requested) {
     return;
   }
-  const answered = table.collection_id ?? null;
-  const stayed = answered === null ? "in no collection" : `in collection ${answered}`;
+  const answered: PartialWriteAnswer =
+    table.collection_id === undefined
+      ? { kind: "unreported" }
+      : { kind: "reported", value: table.collection_id };
   throw new PartialWriteError(
-    `the server applied the rest of the update to table ${table.id} but not collection_id: the table stays ${stayed}, because this server does not move a table to a collection through an update`,
+    `the server applied the rest of the update to table ${table.id} but not collection_id: ${describeCollectionAnswer(answered)}, because this server does not move a table to a collection through an update`,
     { method: "PUT", path, field: "collection_id", requested, answered },
   );
+}
+
+function describeCollectionAnswer(answered: PartialWriteAnswer): string {
+  if (answered.kind === "unreported") {
+    return "it answered the table without reporting a collection";
+  }
+  if (answered.value === null) {
+    return "the table stays in no collection";
+  }
+  return `the table stays in collection ${answered.value}`;
 }

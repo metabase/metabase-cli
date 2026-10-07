@@ -77,13 +77,13 @@ export function datasetResource(transport: Transport) {
     params: DatasetExportParams,
     options: RequestOptions = {},
   ): Promise<ReadableStream<Uint8Array>> {
+    if (params.pivot_results) {
+      await assertPivotedExport(transport, format, options);
+    }
     await transport.requireFeatures(
       params.csv_include_bom ? ["exportCsvByteOrderMark"] : [],
       options,
     );
-    if (params.pivot_results) {
-      await assertPivotedExport(transport, format, options);
-    }
     const exported = params.pivot_results ? { ...params.query, "was-pivot": true } : params.query;
     return transport.requestStream(`/api/dataset/${format}`, {
       ...options,

@@ -1,8 +1,7 @@
-import type { ZodType } from "zod";
-
 import { SessionProperties, type TokenFeatures } from "../domain/session-properties";
 import type { Transport } from "../http/transport";
 
+import { createServerProfile, type ServerProfile } from "./profile";
 import { type Edition, editionFromTag, parseTag, type ServerVersion } from "./tag";
 
 export const PROBE_PATH = "/api/session/properties";
@@ -18,9 +17,14 @@ export interface ServerInfo {
   readonly tokenFeatures: Readonly<TokenFeatures> | null;
 }
 
-interface ProbeOptions {
+export interface ProbeOptions {
   timeoutMs?: number;
   retries?: number;
+}
+
+export interface ProbeBudget {
+  timeoutMs: number;
+  retries: number;
 }
 
 // The probe runs before a profile exists, so it asks only for the wire.
@@ -30,20 +34,16 @@ export async function probeServer(
   client: ProbeTransport,
   opts: ProbeOptions = {},
 ): Promise<ServerInfo> {
-  return serverInfoFromProperties(await probeProperties(client, SessionProperties, opts));
+  return serverInfoFromProperties(
+    await client.requestParsed(SessionProperties, PROBE_PATH, probeBudget(opts)),
+  );
 }
 
-// The session properties through `reader`, for a caller that wants a setting they carry beside the
-// version and token features a probe reads.
-export async function probeProperties<T extends SessionProperties>(
-  client: ProbeTransport,
-  reader: ZodType<T>,
-  opts: ProbeOptions = {},
-): Promise<T> {
-  return client.requestParsed(reader, PROBE_PATH, {
+export function probeBudget(opts: ProbeOptions): ProbeBudget {
+  return {
     timeoutMs: opts.timeoutMs ?? PROBE_TIMEOUT_MS,
     retries: opts.retries ?? 0,
-  });
+  };
 }
 
 export function serverInfoFromProperties(properties: SessionProperties): ServerInfo {
@@ -55,4 +55,10 @@ export function serverInfoFromProperties(properties: SessionProperties): ServerI
     hash: properties.version.hash ?? null,
     tokenFeatures: properties["token-features"] ?? null,
   };
+}
+
+// The profile one read of the session properties describes, for a call judged by its own read
+// rather than by whichever probe is newest by the time it asks.
+export function profileFromProperties(properties: SessionProperties): ServerProfile {
+  return createServerProfile(serverInfoFromProperties(properties));
 }

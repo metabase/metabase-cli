@@ -66,7 +66,12 @@ export function skewNotice(profile: ServerProfile): string | null {
 }
 
 const PROFILE_REFRESHED = "the profile was refreshed";
+const PROFILE_STALE = "the profile could not be updated (the warning above says why)";
 const SAFE_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD", "OPTIONS"]);
+
+// Whether the profile record holds what the newest probe said: it did already or the save landed
+// (`current`), or the save failed (`stale`).
+export type ProfileState = "current" | "stale";
 
 // What a feature switch reads off a probe.
 type ServerIdentity = Pick<ServerInfo, "version" | "tokenFeatures">;
@@ -81,24 +86,36 @@ export function sameServer(a: ServerIdentity, b: ServerIdentity): boolean {
 
 // What a fresh probe says that the cached one did not, with what to do about a request of `method`
 // read under the cached one, or `null` when the two are the same server. A read is safe to repeat;
-// a write the server answered may have landed, and repeating it could apply it twice.
+// a write the server answered may have landed, and repeating it could apply it twice. A profile
+// left `stale` would choose the same shape again, so a read is worth repeating only once the save
+// can land.
 export function serverChangeNote(
   cached: ServerIdentity,
   fresh: ServerIdentity,
   method: string,
+  profile: ProfileState,
 ): string | null {
   if (sameServer(cached, fresh)) {
     return null;
   }
-  const remedy = SAFE_METHODS.has(method)
-    ? `${PROFILE_REFRESHED} — retry the command.`
-    : `${PROFILE_REFRESHED}, but the request may have been applied — check before retrying.`;
+  const remedy = changeRemedy(SAFE_METHODS.has(method), profile);
   const before = describeVersion(cached.version);
   const after = describeVersion(fresh.version);
   if (before !== after) {
     return `The server's version changed since the last probe (was ${before}, now ${after}); ${remedy}`;
   }
   return `The server's premium features changed since the last probe; ${remedy}`;
+}
+
+function changeRemedy(isSafe: boolean, profile: ProfileState): string {
+  if (profile === "current") {
+    return isSafe
+      ? `${PROFILE_REFRESHED} — retry the command.`
+      : `${PROFILE_REFRESHED}, but the request may have been applied — check before retrying.`;
+  }
+  return isSafe
+    ? `${PROFILE_STALE} — retry the command once it can be.`
+    : `${PROFILE_STALE}, and the request may have been applied — check before retrying.`;
 }
 
 // Only a granted feature turns a switch on, so a map the server did not report, an empty one, and

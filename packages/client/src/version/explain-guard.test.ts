@@ -9,27 +9,20 @@ import { isMethodKey, METHOD_KEYS, methodRequirements } from "./requirements";
 const RESOURCES = resolve(dirname(fileURLToPath(import.meta.url)), "..", "resources");
 
 const NAMESPACE = /explainer\(transport, "(\w+)"\)/;
-// `explain("<name>", <fn>` or `explainWalk("<name>", <fn>`, and whether a parameter-feature
-// callback follows the method.
-const EXPLAINED = /\bexplain(?:Walk)?\(\s*"(\w+)",\s*\w+\s*(,)?/g;
-
-// Methods whose whole requirement guards an answer a server without it would give wrongly without
-// a word, so they refuse before the request through `requireFeatures` and the server never gets to
-// refuse them.
-const REFUSED_BEFORE_THE_REQUEST: ReadonlySet<string> = new Set([
-  "field.setDataSensitivity",
-  "gitSync.syncedCollections",
-  "gitSync.branch",
-  "gitSync.trackedBranch",
-]);
+// `explain("<name>", <fn>`, `explainWalk("<name>", <fn>` or `refuse("<name>", <fn>`, and whether a
+// parameter-feature callback follows the method; or `refuseAfterReading("<name>"`, whose reader
+// comes before the method and which takes no callback.
+const WRAPPED =
+  /\b(?:(?:explain(?:Walk)?|refuse)\(\s*"(\w+)",\s*\w+\s*(,)?|refuseAfterReading\(\s*"(\w+)",)/g;
 
 interface Wiring {
-  explained: Set<string>;
+  // One entry per wrapping, so a method wrapped twice appears twice.
+  wrapped: string[];
   explainedWithParameters: Set<string>;
 }
 
 function readWiring(): Wiring {
-  const wiring: Wiring = { explained: new Set(), explainedWithParameters: new Set() };
+  const wiring: Wiring = { wrapped: [], explainedWithParameters: new Set() };
   for (const file of readdirSync(RESOURCES)) {
     if (!file.endsWith(".ts") || file.endsWith(".test.ts")) {
       continue;
@@ -39,12 +32,13 @@ function readWiring(): Wiring {
     if (namespace === undefined) {
       continue;
     }
-    for (const [, name, parameters] of source.matchAll(EXPLAINED)) {
+    for (const [, wrappedName, parameters, readingName] of source.matchAll(WRAPPED)) {
+      const name = wrappedName ?? readingName;
       if (name === undefined) {
         continue;
       }
       const key = `${namespace}.${name}`;
-      wiring.explained.add(key);
+      wiring.wrapped.push(key);
       if (parameters !== undefined) {
         wiring.explainedWithParameters.add(key);
       }
@@ -57,19 +51,19 @@ describe("the explanation of gated methods", () => {
   const wiring = readWiring();
 
   // An unwrapped gated method still works; its refusal just reaches the caller as a bare HTTP
-  // error instead of the feature the server lacks.
-  it("wraps every method that needs a feature", () => {
-    const unexplained = METHOD_KEYS.filter(
+  // error instead of the feature the server lacks. A method refused before the request is never
+  // the server's to refuse, so explaining it as well would have nothing to explain.
+  it("wraps every method that needs a feature exactly once", () => {
+    const miswrapped = METHOD_KEYS.filter(
       (key) =>
         methodRequirements(key).length > 0 &&
-        !wiring.explained.has(key) &&
-        !REFUSED_BEFORE_THE_REQUEST.has(key),
+        wiring.wrapped.filter((wrapped) => wrapped === key).length !== 1,
     );
-    expect(unexplained).toEqual([]);
+    expect(miswrapped).toEqual([]);
   });
 
   it("wraps nothing that could have no feature to name", () => {
-    const pointless = [...wiring.explained].filter(
+    const pointless = [...new Set(wiring.wrapped)].filter(
       (key) =>
         isMethodKey(key) &&
         methodRequirements(key).length === 0 &&

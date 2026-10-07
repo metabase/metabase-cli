@@ -13,6 +13,7 @@ import {
   FieldWithDataSensitivity,
 } from "../domain/field";
 import type { RequestOptions, Transport } from "../http/transport";
+import { explainer } from "../version/refusal";
 
 import { fetchOptionalParsed } from "./optional-parsed";
 
@@ -47,6 +48,8 @@ export interface FieldSetDataSensitivityParams {
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function fieldResource(transport: Transport) {
+  const { refuse } = explainer(transport, "field");
+
   /**
    * Get one field by id. A server that labels data sensitivity answers `data_sensitivity`, `null`
    * for an unlabelled field; any other answers the field without the key (`hasDataSensitivity`).
@@ -90,7 +93,6 @@ export function fieldResource(transport: Transport) {
     params: FieldSetDataSensitivityParams,
     options: RequestOptions = {},
   ): Promise<FieldWithDataSensitivity> {
-    await transport.requireFeatures(["fieldDataSensitivity"], options);
     return transport.requestParsed(FieldWithDataSensitivity, `/api/field/${id}`, {
       ...options,
       method: "PUT",
@@ -156,7 +158,9 @@ export function fieldResource(transport: Transport) {
   return {
     get,
     update,
-    setDataSensitivity,
+    // A server without the column drops `data_sensitivity` from the update and answers the field
+    // as if the label had never been sent.
+    setDataSensitivity: refuse("setDataSensitivity", setDataSensitivity),
     search,
     remapping,
     summary,

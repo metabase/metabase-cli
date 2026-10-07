@@ -1,19 +1,23 @@
-import { InternalError } from "../errors";
-import { FIELD_PATH_SEPARATOR, HttpError } from "../http/errors";
-import type { Transport } from "../http/transport";
+import type { ZodType } from "zod";
 
-import { BAD_REQUEST_STATUS, type RequirementFailure } from "./capability-error";
-import type { ServerProfile } from "./profile";
+import type { SessionProperties } from "../domain/session-properties";
+import { InternalError, isNonInterruptFailure } from "../errors";
 import {
-  type CallRequirement,
-  callFeatures,
-  checkFeatures,
-  type ParameterRequirement,
-} from "./requirement-check";
-import { isMethodKey, type MethodKey, methodRequirements } from "./requirements";
+  BAD_REQUEST_STATUS,
+  FIELD_PATH_SEPARATOR,
+  HttpError,
+  NOT_FOUND_STATUS,
+  PAYMENT_REQUIRED_STATUS,
+} from "../http/errors";
+import type { RequestOptions, Transport, WaitOptions } from "../http/transport";
+import { isPlainObject } from "../predicates";
 
-const PAYMENT_REQUIRED_STATUS = 402;
-const NOT_FOUND_STATUS = 404;
+import { CapabilityError, type RequirementFailure } from "./capability-error";
+import type { FeatureName } from "./features";
+import { profileFromProperties } from "./probe";
+import type { ServerProfile } from "./profile";
+import { checkFeatures, featureFailures } from "./requirement-check";
+import { isMethodKey, type MethodKey, methodRequirements } from "./requirements";
 
 // What a server answers for what it does not serve: unrouted, a verb the route lacks included
 // (404); the premium refusal, which a gated prefix answers before routing (402); and a 400 for a
@@ -25,11 +29,27 @@ const REFUSAL_STATUSES: ReadonlySet<number> = new Set([
   NOT_FOUND_STATUS,
 ]);
 
+// A feature a call needs only because of an argument it was handed, with the request fields that
+// argument travels in, as a server rejecting it names them.
+export interface ParameterRequirement {
+  readonly feature: FeatureName;
+  readonly fields: readonly string[];
+}
+
+// What one call needs from the server: the features its arguments brought, then the method's own.
+export interface CallRequirement {
+  readonly parameters: readonly ParameterRequirement[];
+  readonly method: readonly FeatureName[];
+}
+
 // The features a call needs only because of the arguments it was handed, where a server without
 // them rejects the request rather than dropping the argument.
 export type ParameterFeatures<A extends unknown[]> = (
   ...args: A
 ) => readonly ParameterRequirement[];
+
+// A method's arguments, ending in the `RequestOptions` a caller may leave out.
+type WithOptions<A extends unknown[]> = [...A, options?: RequestOptions | undefined];
 
 type NamespaceOf<K> = K extends `${infer N}.${string}` ? N : never;
 type MethodNamespace = NamespaceOf<MethodKey>;
@@ -40,7 +60,12 @@ type MethodName<N extends MethodNamespace> = NameIn<MethodKey, N>;
 // call is allowed, and a refusal it answers with reads as the feature it lacks. `explain` wraps a
 // method answering a promise, `explainWalk` one answering an async iterable, whose failure at any
 // step is explained as it is thrown. The method alone sets the exposed signature, so `parameters`
-// is `NoInfer`: a callback reading fewer arguments must not drop the rest from it.
+// is `NoInfer`: a callback reading fewer arguments must not drop the rest from it. `refuse` wraps
+// the exception, a method a server without its features would answer wrongly without a word: the
+// call is refused before the request, against a profile the client probed itself, and the server
+// never gets to refuse it, unless the caller skips such refusals, which the transport's
+// `refuseBeforeSending` decides. `refuseAfterReading` wraps such a method answering from the
+// session properties alone, which it is handed read afresh.
 export function explainer<N extends MethodNamespace>(transport: Transport, namespace: N) {
   function explain<A extends unknown[], R>(
     name: MethodName<N>,
@@ -52,7 +77,7 @@ export function explainer<N extends MethodNamespace>(transport: Transport, names
       try {
         return await method(...args);
       } catch (error) {
-        throw await transport.explainRefusal(callRequirement(key, parameters, args), error);
+        throw await explainRefusal(transport, callRequirement(key, parameters, args), error);
       }
     };
   }
@@ -67,12 +92,57 @@ export function explainer<N extends MethodNamespace>(transport: Transport, names
       try {
         yield* method(...args);
       } catch (error) {
-        throw await transport.explainRefusal(callRequirement(key, parameters, args), error);
+        throw await explainRefusal(transport, callRequirement(key, parameters, args), error);
       }
     };
   }
 
-  return { explain, explainWalk };
+  // The wait for the profile ends with the signal the call's trailing `RequestOptions` carries, as
+  // the call's own requests do.
+  function refuse<A extends unknown[], R>(
+    name: MethodName<N>,
+    method: (...args: WithOptions<A>) => Promise<R>,
+  ): (...args: WithOptions<A>) => Promise<R> {
+    const key = methodKey(namespace, name);
+    return async (...args: WithOptions<A>) => {
+      await transport.requireFeatures(methodRequirements(key), trailingWait(args));
+      return method(...args);
+    };
+  }
+
+  // The read is a probe of the call's own, never an older one settled, so a setting changed since
+  // is seen. The refusal judges the profile that same answer describes, not whichever probe is
+  // newest by the time it asks, so the call costs one request however other calls interleave. The
+  // call takes nothing but the options, so they never need telling apart from an argument of the
+  // method's own, and their budget is the read's. The read is also the method's own data, so a
+  // failed read fails the call even when the caller skips checks before the wire.
+  function refuseAfterReading<P extends SessionProperties, R>(
+    name: MethodName<N>,
+    reader: ZodType<P>,
+    method: (properties: P) => R,
+  ): (options?: RequestOptions) => Promise<R> {
+    const key = methodKey(namespace, name);
+    return async (options: RequestOptions = {}) => {
+      const properties = await transport.probe(reader, options);
+      const profile = profileFromProperties(properties);
+      for (const failure of featureFailures(methodRequirements(key), profile)) {
+        transport.refuseBeforeSending(new CapabilityError(failure));
+      }
+      return method(properties);
+    };
+  }
+
+  return { explain, explainWalk, refuse, refuseAfterReading };
+}
+
+// The options are the last argument whenever a caller passes them; left out, the last argument is
+// one of the method's own, and none of those carries an abort signal.
+function trailingWait(args: readonly unknown[]): WaitOptions {
+  const last = args.at(-1);
+  if (isPlainObject(last) && last["signal"] instanceof AbortSignal) {
+    return { signal: last["signal"] };
+  }
+  return {};
 }
 
 function methodKey(namespace: string, name: string): MethodKey {
@@ -93,11 +163,44 @@ function callRequirement<A extends unknown[]>(
 }
 
 /**
+ * The error a call failed with, as a `CapabilityError` carrying the server's answer when the server
+ * refused it for lacking one of the features `call` needs, and unchanged otherwise. The server's own
+ * refusal is the verdict; the profile only names what was missing. The explaining probe is bounded
+ * by its own timeout and the client's signal; the error stands when the probe fails, and an
+ * interrupt surfaces as one.
+ */
+export async function explainRefusal(
+  transport: Pick<Transport, "verifiedServer">,
+  call: CallRequirement,
+  error: unknown,
+): Promise<unknown> {
+  if (!mayBeRefusal(call, error)) {
+    return error;
+  }
+  let profile: ServerProfile;
+  try {
+    profile = await transport.verifiedServer();
+  } catch (probeError) {
+    if (isNonInterruptFailure(probeError)) {
+      return error;
+    }
+    throw probeError;
+  }
+  const failure = explainedFailure(call, profile, error);
+  return failure === null ? error : new CapabilityError(failure, error);
+}
+
+/** Every feature `call` needs, parameters first, since a parameter's floor sits above its method's. */
+function callFeatures(call: CallRequirement): FeatureName[] {
+  return [...call.parameters.map((parameter) => parameter.feature), ...call.method];
+}
+
+/**
  * Whether `error` may be the server refusing `call` for a feature it lacks. A call that needs no
  * feature cannot be, and neither can a 404 for a missing row, which comes from a route the server
  * serves.
  */
-export function mayBeRefusal(call: CallRequirement, error: unknown): error is HttpError {
+function mayBeRefusal(call: CallRequirement, error: unknown): error is HttpError {
   if (callFeatures(call).length === 0) {
     return false;
   }
@@ -111,7 +214,7 @@ export function mayBeRefusal(call: CallRequirement, error: unknown): error is Ht
  * The feature `profile` lacks that explains `refusal` of `call`, or `null` when the server has every
  * feature the call needs, so it failed for some other reason, or when the refusal points elsewhere.
  */
-export function explainedFailure(
+function explainedFailure(
   call: CallRequirement,
   profile: ServerProfile,
   refusal: HttpError,

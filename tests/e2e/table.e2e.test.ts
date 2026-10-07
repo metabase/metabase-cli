@@ -15,6 +15,7 @@ import { FieldListEnvelope } from "../../packages/cli/src/commands/table/fields"
 import { TableForeignKeyListEnvelope } from "../../packages/cli/src/commands/table/fks";
 import { tableFieldsOversizeHint } from "../../packages/cli/src/commands/table/hints";
 import { TableListEnvelope } from "../../packages/cli/src/commands/table/list";
+import { PREFLIGHT_SKIP_REMEDY } from "../../packages/cli/src/output/notice";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
@@ -326,7 +327,7 @@ describe("table e2e", () => {
     }
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe(
-      `This operation requires Metabase v59+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`,
+      `This operation requires Metabase v59+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}\n${PREFLIGHT_SKIP_REMEDY}`,
     );
   });
 
@@ -342,7 +343,7 @@ describe("table e2e", () => {
     }
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe(
-      `This operation requires Metabase v60+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`,
+      `This operation requires Metabase v60+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}\n${PREFLIGHT_SKIP_REMEDY}`,
     );
   });
 
@@ -359,7 +360,7 @@ describe("table e2e", () => {
     }
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe(
-      "This operation requires the 'dependencies' premium feature (not enabled on this server).",
+      `This operation requires the 'dependencies' premium feature (not enabled on this server).\n${PREFLIGHT_SKIP_REMEDY}`,
     );
   });
 
@@ -748,7 +749,7 @@ describe("table e2e", () => {
     }
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe(
-      `This operation requires Metabase v64+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`,
+      `This operation requires Metabase v64+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}\n${PREFLIGHT_SKIP_REMEDY}`,
     );
     expect(result.stdout).toBe("");
   });

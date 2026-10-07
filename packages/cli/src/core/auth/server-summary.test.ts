@@ -76,39 +76,48 @@ describe("skewNotice", () => {
 
 describe("serverChangeNote", () => {
   it("names both tags when the version changed", () => {
-    expect(serverChangeNote(serverAt(59), serverAt(63), "GET")).toBe(
+    expect(serverChangeNote(serverAt(59), serverAt(63), "GET", "current")).toBe(
       "The server's version changed since the last probe (was v0.59.0, now v0.63.0); the profile was refreshed — retry the command.",
     );
   });
 
   it("names a development build that replaced a release", () => {
-    expect(serverChangeNote(serverAt(59), DEVELOPMENT, "GET")).toBe(
+    expect(serverChangeNote(serverAt(59), DEVELOPMENT, "GET", "current")).toBe(
       "The server's version changed since the last probe (was v0.59.0, now development build vUNKNOWN); the profile was refreshed — retry the command.",
     );
   });
 
   it("reports a premium feature the server started granting under the same version", () => {
     expect(
-      serverChangeNote(serverAt(59, { library: false }), serverAt(59, { library: true }), "GET"),
+      serverChangeNote(
+        serverAt(59, { library: false }),
+        serverAt(59, { library: true }),
+        "GET",
+        "current",
+      ),
     ).toBe(
       "The server's premium features changed since the last probe; the profile was refreshed — retry the command.",
     );
   });
 
   it("reports a premium feature the server stopped granting", () => {
-    expect(serverChangeNote(serverAt(59, { library: true }), serverAt(59, null), "GET")).toBe(
+    expect(
+      serverChangeNote(serverAt(59, { library: true }), serverAt(59, null), "GET", "current"),
+    ).toBe(
       "The server's premium features changed since the last probe; the profile was refreshed — retry the command.",
     );
   });
 
   it("treats an unreported map, an empty one, and a denied feature as the same grants", () => {
-    expect(serverChangeNote(serverAt(59, null), serverAt(59, {}), "GET")).toBeNull();
-    expect(serverChangeNote(serverAt(59, {}), serverAt(59, { library: false }), "GET")).toBeNull();
+    expect(serverChangeNote(serverAt(59, null), serverAt(59, {}), "GET", "current")).toBeNull();
+    expect(
+      serverChangeNote(serverAt(59, {}), serverAt(59, { library: false }), "GET", "current"),
+    ).toBeNull();
   });
 
   it("is null when tag and grants agree even though the build moved", () => {
     const cached = serverAt(59, { library: true });
     const fresh: ServerInfo = { ...cached, date: "2026-09-16", hash: "abc1234" };
-    expect(serverChangeNote(cached, fresh, "GET")).toBeNull();
+    expect(serverChangeNote(cached, fresh, "GET", "current")).toBeNull();
   });
 });

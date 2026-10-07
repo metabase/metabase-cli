@@ -234,6 +234,13 @@ export class AbortError extends MetabaseError {
   }
 }
 
+// A failure from this taxonomy that is not an interrupt: what a caller treating a request as
+// optional sets aside. An interrupt is the user's own and still ends the work, and an error outside
+// the taxonomy is a bug and still surfaces.
+export function isNonInterruptFailure(error: unknown): error is MetabaseError {
+  return error instanceof MetabaseError && !(error instanceof AbortError);
+}
+
 export class ChainedRequestError extends MetabaseError {
   override readonly cause: MetabaseError;
 
@@ -268,13 +275,26 @@ export class UnknownError extends MetabaseError {
   }
 }
 
+// The value the server's answer reported for the field it left unwritten, `null` when it reported
+// the field empty.
+export interface PartialWriteReported {
+  kind: "reported";
+  value: number | null;
+}
+
+// The server's answer left the field out, so it said nothing of where the write left it.
+export interface PartialWriteUnreported {
+  kind: "unreported";
+}
+
+export type PartialWriteAnswer = PartialWriteReported | PartialWriteUnreported;
+
 export interface PartialWriteDetail {
   method: string;
   path: string;
   field: string;
   requested: number;
-  // `null` for a table the server answered in no collection, the field left out included.
-  answered: number | null;
+  answered: PartialWriteAnswer;
 }
 
 // The server answered success having written all but one field, so the request is neither a

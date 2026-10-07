@@ -1,19 +1,21 @@
 import { z } from "zod";
 
 import { MetabaseError } from "../errors";
-import type { HttpError } from "../http/errors";
+import { BAD_REQUEST_STATUS, type HttpError } from "../http/errors";
 
 import { FEATURE_NAMES } from "./features";
 
-// The one refusal status that is also an ordinary validation failure: a server lacking a parameter's
-// feature rejects the unknown parameter with it, and so does any server rejecting a bad value.
-export const BAD_REQUEST_STATUS = 400;
-
-export const RequirementReason = z.enum(["version-too-old", "missing-token-feature"]);
+export const RequirementReason = z.enum([
+  "version-too-old",
+  "missing-token-feature",
+  "superseded-by-feature",
+]);
 export type RequirementReason = z.infer<typeof RequirementReason>;
 
 // The feature a client method needed and the profile lacked, with the rule that decided it, so a
-// consumer can explain the refusal without re-reading the feature table. A schema rather than a
+// consumer can explain the refusal without re-reading the feature table. `superseded-by-feature`
+// is the converse: the profile has the feature, which takes the value the call carried out of the
+// server's vocabulary. A schema rather than a
 // bare type because a consumer that reports the refusal in its own output wants to describe it.
 export const RequirementFailure = z.object({
   reason: RequirementReason,
@@ -34,9 +36,9 @@ export function missingTokenFeatureMessage(tokenFeature: string): string {
 }
 
 // An explained refusal carries the server's answer as its `cause`. A 400 may have rejected the call
-// for a reason other than the missing feature, so its message also quotes what the server said; a
-// 402 or an unrouted 404 says nothing the requirement does not. The field errors stay structured on
-// the cause rather than being re-rendered here.
+// for a reason other than the missing feature, so its message also quotes what the server said,
+// when it said anything; a 402 or an unrouted 404 says nothing the requirement does not. The field
+// errors stay structured on the cause rather than being re-rendered here.
 export class CapabilityError extends MetabaseError {
   readonly category = "capability";
   readonly isRetryable = false;
@@ -53,5 +55,9 @@ function capabilityMessage(failure: RequirementFailure, refusal: HttpError | nul
   if (refusal === null || refusal.status !== BAD_REQUEST_STATUS) {
     return failure.detail;
   }
-  return `${failure.detail}\nMetabase answered ${refusal.status}: ${refusal.message}`;
+  const said = refusal.serverMessage;
+  if (said === null) {
+    return failure.detail;
+  }
+  return `${failure.detail}\nMetabase answered ${refusal.status}: ${said}`;
 }

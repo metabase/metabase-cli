@@ -3,20 +3,21 @@ import type { ArgsDef, CommandDef, CommandMeta, ParsedArgs } from "citty";
 import type { ZodType } from "zod";
 
 import type { MetabaseClient } from "@metabase/client/client";
-import {
-  AbortError,
-  errorMessage,
-  MetabaseError,
-  ResponseShapeError,
-} from "@metabase/client/errors";
+import { errorMessage, isNonInterruptFailure, ResponseShapeError } from "@metabase/client/errors";
 import { HttpError } from "@metabase/client/http/errors";
+import type { ClientOptions, SkippedPreflight } from "@metabase/client/http/transport";
 import type { ServerInfo } from "@metabase/client/version/probe";
 import { createServerProfile, type ServerProfile } from "@metabase/client/version/profile";
 import { type MethodKey, methodRequirements } from "@metabase/client/version/requirements";
 
 import type { ProfileLastProbe } from "../core/auth/profile-record";
 import { ProfileRefreshedError } from "../core/profile-refreshed-error";
-import { sameServer, serverChangeNote, skewNotice } from "../core/auth/server-summary";
+import {
+  type ProfileState,
+  sameServer,
+  serverChangeNote,
+  skewNotice,
+} from "../core/auth/server-summary";
 import { readCachedProbe } from "../core/auth/cached-server";
 import {
   consumeKeyringDowngradeWarning,
@@ -29,10 +30,10 @@ import {
   type ConfigFlags,
   type ResolvedConfig,
 } from "../core/config";
-import { consumeLegacyEnvWarnings } from "../core/env";
+import { consumeLegacyEnvWarnings, ENV_SKIP_PREFLIGHT, readEnv } from "../core/env";
 import { USER_AGENT } from "../core/user-agent";
 import { reportError } from "../output/error";
-import { warn } from "../output/notice";
+import { preflightSkippedNotice, preflightUncheckedNotice, warn } from "../output/notice";
 import {
   type CommandRequirements,
   setMetabaseAugment,
@@ -88,8 +89,9 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
           }
           return cachedConfig;
         };
-        const run: RunState = { server: null, writes: Promise.resolve() };
+        const run: RunState = { server: null, profileSave: Promise.resolve("current") };
         const noticeSkew = createSkewNotifier();
+        const skipPreflight = ctx.skipPreflight ?? readEnv(ENV_SKIP_PREFLIGHT) === "1";
         // Imported here rather than at the top of the file so the resource namespaces
         // `createClient` composes — and the whole `domain/` layer behind them — stay off the chunk
         // every command loads, including `--help`, a flag error, and the commands that open no
@@ -112,9 +114,10 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
               onServerProbed: (fresh, profile) => {
                 noticeSkew(profile);
                 if (saveProbe !== null) {
-                  run.writes = run.writes.then(() => saveProbe(fresh));
+                  run.profileSave = run.profileSave.then(() => saveProbe(fresh));
                 }
               },
+              ...(skipPreflight && { onPreflightSkipped: createPreflightSkipWarner() }),
               signal: interruptSignal,
             },
           );
@@ -134,7 +137,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
         } catch (error) {
           throw await diagnoseFailure(error, run);
         } finally {
-          await run.writes;
+          await settleRun(run);
           emitPendingWarnings();
         }
       } catch (error) {
@@ -190,34 +193,80 @@ function createSkewNotifier(): SkewNotifier {
   };
 }
 
-type ProbeSaver = (fresh: ServerInfo) => Promise<void>;
+type PreflightSkipWarner = NonNullable<ClientOptions["onPreflightSkipped"]>;
+
+// A check a run skips on every page of a walk, or on each of several calls, carries one risk, so
+// each distinct refusal warns once, and a server that could not be checked warns once whatever
+// each failed probe said.
+function createPreflightSkipWarner(): PreflightSkipWarner {
+  const warned = new Set<string>();
+  return (skipped) => {
+    const notice = skippedPreflightNotice(skipped);
+    const key = skipped.kind === "unverified" ? skipped.kind : notice;
+    if (warned.has(key)) {
+      return;
+    }
+    warned.add(key);
+    warn(notice);
+  };
+}
+
+function skippedPreflightNotice(skipped: SkippedPreflight): string {
+  if (skipped.kind === "refused") {
+    return preflightSkippedNotice(skipped.refusal.message);
+  }
+  return preflightUncheckedNotice(skipped.failure.message);
+}
+
+type ProbeSaver = (fresh: ServerInfo) => Promise<ProfileState>;
 
 // A probe that finds the server changed since the cache was written is saved, so the skills filter
 // and the next run's shape choices read the server as it is; one that agrees with the cache is not,
 // so a run that probes rewrites the profiles file only when it has something new to say. The cache
 // is a convenience, so a write that fails warns rather than failing the command the probe served.
+// Each save answers whether the profile now holds what that probe said, which a probe agreeing with
+// the last one saved inherits from that save.
 function createProbeSaver(profileName: string, cached: ProfileLastProbe): ProbeSaver {
   let current: ServerInfo = cached;
+  let state: ProfileState = "current";
   return async (fresh) => {
     if (sameServer(current, fresh)) {
-      return;
+      return state;
     }
     current = fresh;
     try {
       await writeProbeResult(profileName, { user: cached.user, server: fresh });
+      state = "current";
     } catch (error) {
       warn(
         `Could not save the server's new probe to profile "${profileName}": ${errorMessage(error)}`,
       );
+      state = "stale";
     }
+    return state;
   };
 }
 
-// What a run knows of its server once the client is built, and the cache writes the client's probes
-// have queued, which the run waits on before it ends.
+// What a run knows of its server once the client is built, and the newest profile save the client's
+// probes have queued, which settles after every save queued before it and which the run waits on
+// before it ends.
 interface RunState {
   server: RunServer | null;
-  writes: Promise<void>;
+  profileSave: Promise<ProfileState>;
+}
+
+// A probe still in flight when the command ends may yet queue a save, which the process exiting
+// right after would cut off midway, so the run waits for its probes before the saves they queued,
+// and goes round again when a save was queued while it waited.
+async function settleRun(run: RunState): Promise<void> {
+  let awaited: Promise<ProfileState> | null = null;
+  while (awaited !== run.profileSave) {
+    if (run.server !== null) {
+      await run.server.client.probesSettled();
+    }
+    awaited = run.profileSave;
+    await awaited;
+  }
 }
 
 interface RunServer {
@@ -228,8 +277,10 @@ interface RunServer {
 // A failure that skew could explain earns the probe that names the server, on the way out; it is
 // free once the run has probed, because the client keeps its probe. With no cached profile the
 // probe only lets the skew notice speak. Under one, only a shape read under that profile's tag is
-// worth it: a probe settled mid-run with the same tag at worst adds a needless note. The command is
-// never retried, because its request may have been a write.
+// worth it: a probe settled mid-run with the same tag at worst adds a needless note. The note
+// waits for that probe's save, queued before the probe answers, since it tells the user whether
+// the profile now holds it. The command is never retried, because its request may have been a
+// write.
 async function diagnoseFailure(error: unknown, run: RunState): Promise<unknown> {
   if (run.server === null || !isSkewSymptom(error)) {
     return error;
@@ -247,11 +298,11 @@ async function diagnoseFailure(error: unknown, run: RunState): Promise<unknown> 
   if (fresh === null) {
     return error;
   }
-  const note = serverChangeNote(cachedProbe, fresh, detail.method);
+  const note = serverChangeNote(cachedProbe, fresh, detail.method, await run.profileSave);
   return note === null ? error : new ProfileRefreshedError(error, note);
 }
 
-function isSkewSymptom(error: unknown): error is MetabaseError {
+function isSkewSymptom(error: unknown): error is ResponseShapeError | HttpError {
   if (error instanceof ResponseShapeError) {
     return true;
   }
@@ -265,7 +316,7 @@ async function probeOnTheWayOut(client: MetabaseClient): Promise<ServerProfile |
   try {
     return await client.verifiedServer();
   } catch (error) {
-    if (error instanceof MetabaseError && !(error instanceof AbortError)) {
+    if (isNonInterruptFailure(error)) {
       return null;
     }
     throw error;
@@ -323,6 +374,9 @@ function pickCommonArgs<A extends ArgsDef>(
   }
   if (typeof args["apiKey"] === "string") {
     out.apiKey = args["apiKey"];
+  }
+  if (typeof args["skipPreflight"] === "boolean") {
+    out.skipPreflight = args["skipPreflight"];
   }
   return out;
 }

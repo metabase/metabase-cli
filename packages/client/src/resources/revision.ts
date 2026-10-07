@@ -10,8 +10,7 @@ import {
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import type { FeatureName } from "../version/features";
-import { explainer } from "../version/refusal";
-import type { ParameterRequirement } from "../version/requirement-check";
+import { explainer, type ParameterRequirement } from "../version/refusal";
 
 // `GET /api/revision/{entity}/{id}` answers a bare array, newest first, that the server does not
 // count.

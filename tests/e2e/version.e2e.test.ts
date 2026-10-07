@@ -160,9 +160,10 @@ describe("version skew notices e2e", () => {
     expect(result.stderr).toBe("");
   });
 
-  function versionChangedNote(cachedTag: string): string {
+  // `transform-job run` is a POST, so the note cannot offer a retry: the run may have started.
+  function versionChangedAfterWriteNote(cachedTag: string): string {
     const liveLabel = describeVersion(bootstrap.server.version);
-    return `The server's version changed since the last probe (was ${cachedTag}, now ${liveLabel}); the profile was refreshed — retry the command.`;
+    return `The server's version changed since the last probe (was ${cachedTag}, now ${liveLabel}); the profile was refreshed, but the request may have been applied — check before retrying.`;
   }
 
   async function expectRefreshedProbe(configHome: string, seededAt: string): Promise<void> {
@@ -203,7 +204,7 @@ describe("version skew notices e2e", () => {
       expect(cliErrorMessage(result.stderr)).toBe(
         "On Metabase v0.59.0 the response shape was unexpected:\n" +
           "  job_run_id: Invalid input: expected string, received null\n" +
-          versionChangedNote("v0.59.0"),
+          versionChangedAfterWriteNote("v0.59.0"),
       );
 
       await expectRefreshedProbe(configHome, seededAt);

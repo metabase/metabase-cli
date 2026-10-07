@@ -7,24 +7,6 @@ import {
 import { featureGap, type ServerProfile } from "./profile";
 import { describeVersion } from "./tag";
 
-// A feature a call needs only because of an argument it was handed, with the request fields that
-// argument travels in, as a server rejecting it names them.
-export interface ParameterRequirement {
-  readonly feature: FeatureName;
-  readonly fields: readonly string[];
-}
-
-// What one call needs from the server: the features its arguments brought, then the method's own.
-export interface CallRequirement {
-  readonly parameters: readonly ParameterRequirement[];
-  readonly method: readonly FeatureName[];
-}
-
-/** Every feature `call` needs, parameters first, since a parameter's floor sits above its method's. */
-export function callFeatures(call: CallRequirement): FeatureName[] {
-  return [...call.parameters.map((parameter) => parameter.feature), ...call.method];
-}
-
 /** The first of `features` the profile lacks, or `null` when it has every one. */
 export function checkFeatures(
   features: readonly FeatureName[],
@@ -37,6 +19,43 @@ export function checkFeatures(
     }
   }
   return null;
+}
+
+/**
+ * The verdict that the profile has `feature`, which takes the value `detail` describes out of the
+ * server's vocabulary, or `null` when the profile lacks it.
+ */
+export function supersedingFeature(
+  feature: FeatureName,
+  profile: ServerProfile,
+  detail: string,
+): RequirementFailure | null {
+  if (featureGap(profile, feature) !== null) {
+    return null;
+  }
+  const rule: FeatureRule = FEATURE_RULES[feature];
+  return {
+    reason: "superseded-by-feature",
+    detail,
+    feature,
+    since: rule.since,
+    tokenFeature: rule.tokenFeature ?? null,
+    serverVersion: profile.version.tag,
+  };
+}
+
+/**
+ * Every one of `features` the profile lacks, each once and in the order given, so a caller that
+ * goes on past the first still hears of the rest.
+ */
+export function featureFailures(
+  features: readonly FeatureName[],
+  profile: ServerProfile,
+): RequirementFailure[] {
+  return [...new Set(features)].flatMap((feature) => {
+    const failure = checkFeatures([feature], profile);
+    return failure === null ? [] : [failure];
+  });
 }
 
 function describeGap(
