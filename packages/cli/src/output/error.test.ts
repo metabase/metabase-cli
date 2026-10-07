@@ -340,6 +340,8 @@ describe("reportError", () => {
             fieldErrors: { name: "value must be a non-blank string." },
             specificFieldErrors: null,
             errorCode: null,
+            nonRemoteSyncedDependencies: null,
+            remoteSyncedDependents: null,
           },
         },
       }) + "\n";

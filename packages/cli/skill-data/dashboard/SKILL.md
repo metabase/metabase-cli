@@ -12,6 +12,12 @@ A dashboard starts as cards on a grid; it becomes an **app** when filters drive 
 
 Inspect before you wire: `mb dashboard get <id> --json` hydrates `parameters`, `dashcards`, and `tabs`; `mb dashboard cards <id>` lists just the dashcards. To start from an existing dashboard, `mb dashboard copy <id> --collection-id <id> --json` copies it with its tabs and dashcards (the cards stay referenced; `--deep` duplicates the questions and metrics into the target collection, and a dashboard holding dashboard questions needs it). Cards left out of the copy come back by id as `uncopied`.
 
+<!-- requires: remoteSync -->
+
+A dashboard bound for a remote-synced collection is built in it directly: create the dashboard there, then its cards. A card only this dashboard shows is best a **dashboard question** — `card create` with `"dashboard_id": <dash-id>` and the dashboard's `collection_id` — so the dashboard and its questions move as one unit. A card shared across dashboards is a regular card and moves into the synced collection before any dashboard that uses it (`git-sync` → "Moving content into or out of a synced collection").
+
+<!-- /requires -->
+
 ## Layout: the grid is 24 columns — not 12
 
 Every dashcard carries `{col, row, size_x, size_y}` in grid units: `col` is 0-indexed from the left edge, `row` grows downward, and `col + size_x ≤ 24`. **Full-width is `size_x: 24` — Metabase's per-chart _default_ width of 12 is half a row.** A layout authored on the usual 12-column web-grid assumption crams the whole dashboard into the left half of the viewport. The server stores whatever geometry you send — overlaps and gaps included, no auto-fix.

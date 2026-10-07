@@ -247,6 +247,8 @@ tests for a Node `ENOENT`, while an HTTP 404 arrives as an `HttpError` carrying 
 `HttpError` also carries a `kind` separating a route this Metabase does not serve from a row that is
 gone, and `fieldErrors` for a 400 the server attributed to named request fields.
 
+A 400 refusing a remote-sync move carries the content behind it: `nonRemoteSyncedDependencies` lists the ids of the content outside remote sync that must enter it first, and `remoteSyncedDependents` lists the synced content, as model name to id, that uses what the request tried to archive or move out of sync. Both are `null` on any other failure, and the error's message names the same content.
+
 ### Cancellation
 
 The client registers no signal handler and reads no process state, so cancellation reaches it as an

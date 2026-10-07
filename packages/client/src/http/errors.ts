@@ -56,8 +56,27 @@ const ErrorEnvelope = z
     "specific-errors": z.unknown().optional(),
     errors: z.unknown().optional(),
     "error-code": z.string().optional(),
+    "non-remote-synced-models": z.unknown().optional(),
+    "remote-synced-models": z.unknown().optional(),
   })
   .loose();
+
+// The server names the content blocking a move into remote sync by bare id, without its model.
+const NonRemoteSyncedDependencies = z.array(z.number().int()).min(1);
+
+// Model name to id. A dependent reached through a dashboard card names the card and its dashboard
+// in one entry (`{"DashboardCard": 7, "Dashboard": 3}`).
+const RemoteSyncedDependent = z.record(z.string(), z.number().int());
+export type RemoteSyncedDependent = z.infer<typeof RemoteSyncedDependent>;
+
+const RemoteSyncedDependents = z.array(RemoteSyncedDependent).min(1);
+
+const MAX_LISTED_REMOTE_SYNC_ENTRIES = 20;
+const REMOTE_SYNC_ENTRY_SEPARATOR = ", ";
+const NON_REMOTE_SYNCED_REMEDY =
+  "Move that content into a synced collection first, or move the collection that holds it.";
+const REMOTE_SYNCED_REMEDY =
+  "Update that content so it no longer uses this first, or move it out of sync along with this.";
 
 interface FieldErrorBranch {
   [field: string]: FieldErrorNode;
@@ -97,6 +116,8 @@ export interface HttpErrorDetail {
   fieldErrors: FieldErrors | null;
   specificFieldErrors: FieldErrors | null;
   errorCode: string | null;
+  nonRemoteSyncedDependencies: number[] | null;
+  remoteSyncedDependents: RemoteSyncedDependent[] | null;
 }
 
 export interface HttpErrorInput {
@@ -138,6 +159,8 @@ export class HttpError extends MetabaseError {
       fieldErrors: fields.fieldErrors,
       specificFieldErrors: fields.specificFieldErrors,
       errorCode: fields.errorCode,
+      nonRemoteSyncedDependencies: fields.nonRemoteSyncedDependencies,
+      remoteSyncedDependents: fields.remoteSyncedDependents,
     };
   }
 
@@ -159,6 +182,17 @@ export class HttpError extends MetabaseError {
 
   get errorCode(): string | null {
     return this.developerDetail.errorCode;
+  }
+
+  // Ids of the cards, snippets, and actions that must enter remote sync before the content this
+  // request moved or created into a synced collection can.
+  get nonRemoteSyncedDependencies(): number[] | null {
+    return this.developerDetail.nonRemoteSyncedDependencies;
+  }
+
+  // The synced content that uses what this request tried to archive or move out of remote sync.
+  get remoteSyncedDependents(): RemoteSyncedDependent[] | null {
+    return this.developerDetail.remoteSyncedDependents;
   }
 }
 
@@ -331,12 +365,16 @@ interface EnvelopeViews {
   fieldErrors: FieldErrors | null;
   specificFieldErrors: FieldErrors | null;
   errorCode: string | null;
+  nonRemoteSyncedDependencies: number[] | null;
+  remoteSyncedDependents: RemoteSyncedDependent[] | null;
 }
 
 const NO_ENVELOPE_VIEWS: EnvelopeViews = {
   fieldErrors: null,
   specificFieldErrors: null,
   errorCode: null,
+  nonRemoteSyncedDependencies: null,
+  remoteSyncedDependents: null,
 };
 
 // Read off the sanitized body rather than the raw one, so a secret quoted back inside a field
@@ -350,7 +388,18 @@ function extractEnvelopeViews(sanitizedBody: string | null): EnvelopeViews {
     fieldErrors: parseFieldErrors(envelope.errors),
     specificFieldErrors: parseFieldErrors(envelope["specific-errors"]),
     errorCode: envelope["error-code"] ?? null,
+    nonRemoteSyncedDependencies: parseOrNull(
+      NonRemoteSyncedDependencies,
+      envelope["non-remote-synced-models"],
+    ),
+    remoteSyncedDependents: parseOrNull(RemoteSyncedDependents, envelope["remote-synced-models"]),
   };
+}
+
+// Like the field errors, an unrecognised value costs only its own structured view.
+function parseOrNull<T>(schema: z.ZodType<T>, value: unknown): T | null {
+  const parsed = schema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 // An HTTP failure is already the error path, so a value the field-error shape does not recognise
@@ -375,7 +424,7 @@ function parseEnvelopeMessage(sanitizedBody: string | null): string | null {
   }
   const topLevel = envelope.message ?? envelope.error ?? envelope["error-message"];
   if (topLevel) {
-    return condenseMessage(topLevel);
+    return appendRemoteSyncConflict(condenseMessage(topLevel), envelope);
   }
   const viaMessage = envelope.via?.find((entry) => entry.message)?.message;
   if (viaMessage) {
@@ -390,6 +439,41 @@ function parseEnvelopeMessage(sanitizedBody: string | null): string | null {
     return condenseMessage(generic);
   }
   return null;
+}
+
+// The server's sentence says a remote-sync move was refused but not over which content, which the
+// envelope carries alongside it. Appended after condensing so the list and remedy are never cut.
+function appendRemoteSyncConflict(message: string, envelope: ErrorEnvelope): string {
+  const dependencies = parseOrNull(
+    NonRemoteSyncedDependencies,
+    envelope["non-remote-synced-models"],
+  );
+  if (dependencies !== null) {
+    const ids = listRemoteSyncEntries(dependencies.map(String));
+    return `${withoutTrailingPeriod(message)}: ids ${ids}. ${NON_REMOTE_SYNCED_REMEDY}`;
+  }
+  const dependents = parseOrNull(RemoteSyncedDependents, envelope["remote-synced-models"]);
+  if (dependents !== null) {
+    const named = listRemoteSyncEntries([...new Set(dependents.map(formatRemoteSyncedDependent))]);
+    return `${withoutTrailingPeriod(message)}: ${named}. ${REMOTE_SYNCED_REMEDY}`;
+  }
+  return message;
+}
+
+function formatRemoteSyncedDependent(dependent: RemoteSyncedDependent): string {
+  return Object.entries(dependent)
+    .map(([model, id]) => `${model} ${id}`)
+    .join(" / ");
+}
+
+function listRemoteSyncEntries(entries: ReadonlyArray<string>): string {
+  const listed = entries.slice(0, MAX_LISTED_REMOTE_SYNC_ENTRIES).join(REMOTE_SYNC_ENTRY_SEPARATOR);
+  const unlisted = entries.length - MAX_LISTED_REMOTE_SYNC_ENTRIES;
+  return unlisted > 0 ? `${listed}${REMOTE_SYNC_ENTRY_SEPARATOR}and ${unlisted} more` : listed;
+}
+
+function withoutTrailingPeriod(message: string): string {
+  return message.endsWith(".") ? message.slice(0, -1) : message;
 }
 
 interface LeafEntry {
