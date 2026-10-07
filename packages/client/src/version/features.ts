@@ -21,6 +21,7 @@ export const FEATURE_RULES = {
   library: { since: 59, tokenFeature: "library" },
   remoteSync: { since: 58, tokenFeature: "remote_sync" },
   remoteSyncRemoteChanges: { since: 59, tokenFeature: "remote_sync" },
+  remoteSyncCollectionsOnlyUpdate: { since: 60 },
   remoteSyncExportPreflight: { since: 63, tokenFeature: "remote_sync" },
   remoteSyncBranchGuard: { since: 63 },
   remoteSyncMerge: { since: 63, tokenFeature: "remote_sync" },

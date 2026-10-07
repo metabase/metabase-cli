@@ -71,6 +71,19 @@ const RemoteSyncBranchProperty = SessionProperties.extend({
 });
 type RemoteSyncBranchProperty = z.infer<typeof RemoteSyncBranchProperty>;
 
+// Absent when the caller may not read the setting, null when no remote is configured.
+const RemoteSyncUrlProperty = SessionProperties.extend({
+  "remote-sync-url": z.string().nullable().optional(),
+});
+
+// The token is sensitive, so the server shows it masked, and keeps the stored token when an
+// update carries that masked form back.
+interface SyncSettingsUpdateBody {
+  collections: Record<number, boolean>;
+  "remote-sync-url"?: string;
+  "remote-sync-token"?: string;
+}
+
 const BRANCH_UNREADABLE_MESSAGE =
   "the remote-sync-branch setting is not readable: only admins see it, and a server without remote sync has none";
 const BRANCH_UNSET_MESSAGE = "git-sync tracks no branch: the remote-sync-branch setting is unset";
@@ -345,7 +358,12 @@ export function gitSyncResource(transport: Transport) {
 
   /**
    * Mark one collection as git-synced, or unmark it. The server cascades the flag to descendants
-   * by location prefix, and may queue an export task to carry the change to the remote.
+   * by location prefix, and may queue an import task to bring the instance in line with the
+   * remote. A server without `remoteSyncCollectionsOnlyUpdate` validates every settings update as
+   * a remote configuration and fails one naming no remote, after it has applied the flag, so it is
+   * sent the remote's URL and its token as the server shows it, which it checks against the remote
+   * and keeps as they are, or a blank URL when no remote is configured, which clears the remote
+   * settings that are already empty.
    */
   async function setCollectionSynced(
     collectionId: number,
@@ -355,8 +373,37 @@ export function gitSyncResource(transport: Transport) {
     return transport.requestParsed(SyncSettingsUpdateResult, "/api/ee/remote-sync/settings", {
       ...options,
       method: "PUT",
-      body: { collections: { [collectionId]: synced } },
+      body: await settingsUpdateBody({ [collectionId]: synced }, options),
     });
+  }
+
+  async function settingsUpdateBody(
+    collections: SyncSettingsUpdateBody["collections"],
+    options: RequestOptions,
+  ): Promise<SyncSettingsUpdateBody> {
+    const { features } = await transport.server(options);
+    if (features.remoteSyncCollectionsOnlyUpdate) {
+      return { collections };
+    }
+    const properties = await transport.probe(RemoteSyncUrlProperty, options);
+    const url = properties["remote-sync-url"];
+    // Hidden from a caller who is not an admin, whose update the server refuses before reading it.
+    if (url === undefined) {
+      return { collections };
+    }
+    if (url === null) {
+      return { collections, "remote-sync-url": "" };
+    }
+    const token = await fetchOptionalParsed(
+      transport,
+      "/api/setting/remote-sync-token",
+      RemoteSyncSetting,
+      options,
+    );
+    if (token === null) {
+      return { collections, "remote-sync-url": url };
+    }
+    return { collections, "remote-sync-url": url, "remote-sync-token": token };
   }
 
   /** The collections currently in git-sync's scope. */
