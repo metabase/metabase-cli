@@ -72,11 +72,4 @@ export const profileFlag = {
 export const connectionFlags = {
   url: { type: "string", description: "Metabase URL" },
   apiKey: { type: "string", description: "API key", alias: "api-key" },
-  // Accepted so a script written for a release that checked the server before sending still runs;
-  // the server decides every call, so it only warns.
-  skipPreflight: {
-    type: "boolean",
-    description: "Deprecated, no effect: the server decides every call",
-    alias: "skip-preflight",
-  },
 } as const;

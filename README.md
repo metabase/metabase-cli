@@ -2349,15 +2349,14 @@ Exit codes: `0` success (a skill the server cannot use is reported, not refused)
 
 ## Environment variables
 
-| Variable                 | Effect                                                                                                                               |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `MB_URL`                 | Default URL for `auth login` and config resolution.                                                                                  |
-| `MB_API_KEY`             | Default API key (makes `auth login` non-interactive, skipping the browser flow; not stored).                                         |
-| `MB_PROFILE`             | Default profile when `--profile` is omitted. Falls back to `default`.                                                                |
-| `MB_VERBOSE`             | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                                       |
-| `MB_CLI_DISABLE_KEYRING` | When set to `1`, skips the OS keychain and stores credentials as plaintext in the profiles file.                                     |
-| `MB_SKILLS_DIR`          | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees).               |
-| `MB_CLI_SKIP_PREFLIGHT`  | Deprecated, no effect beyond a warning, like `--skip-preflight`: every call goes to the server, which decides whether it is allowed. |
+| Variable                 | Effect                                                                                                                 |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `MB_URL`                 | Default URL for `auth login` and config resolution.                                                                    |
+| `MB_API_KEY`             | Default API key (makes `auth login` non-interactive, skipping the browser flow; not stored).                           |
+| `MB_PROFILE`             | Default profile when `--profile` is omitted. Falls back to `default`.                                                  |
+| `MB_VERBOSE`             | When set to `1`, prints structured developer-detail JSON to stderr on failure.                                         |
+| `MB_CLI_DISABLE_KEYRING` | When set to `1`, skips the OS keychain and stores credentials as plaintext in the profiles file.                       |
+| `MB_SKILLS_DIR`          | Override the directory `mb skills` scans (dev/test only; defaults to the CLI's bundled `skills` + `skill-data` trees). |
 
 The former `METABASE_`-prefixed names (`METABASE_URL`, `METABASE_API_KEY`, `METABASE_PROFILE`, `METABASE_VERBOSE`, `METABASE_CLI_DISABLE_KEYRING`) are deprecated but still honored; the CLI prints a one-line warning to stderr when it falls back to one. Switch to the `MB_`-prefixed names.
 

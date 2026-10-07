@@ -29,7 +29,7 @@ import {
   type ConfigFlags,
   type ResolvedConfig,
 } from "../core/config";
-import { consumeLegacyEnvWarnings, ENV_SKIP_PREFLIGHT, readEnv } from "../core/env";
+import { consumeLegacyEnvWarnings } from "../core/env";
 import { USER_AGENT } from "../core/user-agent";
 import { reportError } from "../output/error";
 import { warn } from "../output/notice";
@@ -80,9 +80,6 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
       try {
         reportFormat = resolveReportFormat(commonArgs, rawArgs, def.args);
         assertArgv(rawArgs, def.args);
-        if (args["skipPreflight"] === true || readEnv(ENV_SKIP_PREFLIGHT) !== undefined) {
-          warn(SKIP_PREFLIGHT_NOTICE);
-        }
         const ctx = resolveCommonFlags(commonArgs);
         let cachedConfig: ResolvedConfig | null = null;
         const getResolvedConfig = async (): Promise<ResolvedConfig> => {
@@ -155,8 +152,6 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
   });
   return cmd;
 }
-
-const SKIP_PREFLIGHT_NOTICE = `--skip-preflight and ${ENV_SKIP_PREFLIGHT} have no effect and will be removed: every call goes to the server, which decides whether it is allowed.`;
 
 function deriveRequirements(methods: readonly MethodKey[]): CommandRequirements {
   const features = [...new Set(methods.flatMap((key) => methodRequirements(key)))];
