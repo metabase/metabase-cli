@@ -15,7 +15,12 @@ export type {
 export type { ListResult } from "./list";
 
 export { HttpError, isHttpNotFound } from "./http/errors";
-export type { FieldErrors, HttpErrorDetail, HttpErrorKind } from "./http/errors";
+export type {
+  FieldErrors,
+  HttpErrorDetail,
+  HttpErrorKind,
+  RemoteSyncedDependent,
+} from "./http/errors";
 export {
   AbortError,
   ChainedRequestError,

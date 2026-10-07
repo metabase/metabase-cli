@@ -183,6 +183,32 @@ mb setting set remote-sync-type '"read-write"' --profile <n>
 
 **Verifying the result.** `mb git-sync status --profile <n> --json` lists the flagged collections under `synced_collections`, and `mb collection get <id> --json` shows the per-collection `is_remote_synced` flag.
 
+## Moving content into or out of a synced collection
+
+When remote sync is configured and the content is meant to be versioned, create it in the synced collection from the start. Nothing reaches git until `git-sync export`, and "Clean up before exporting" covers the drafts.
+
+Synced content may only depend on synced content. Creating a card, dashboard, document, or collection in a synced collection, moving one in, or updating one inside it walks its dependencies, and the server refuses with 400 `Uses content that is not remote synced.` if any of them sits outside sync scope. What counts as a dependency:
+
+- **Card:** the cards it is built on (source model, question, or metric), cards referenced as `{{#id}}` in native SQL, the card behind a filter's value source (`values_source_config.card_id`), and snippets — a snippet counts as synced only when the Library is.
+- **Dashboard:** every dashcard's card, `series` cards, cards in parameter mappings and parameter value sources, actions, and the cards and dashboards a link card points to.
+- Warehouse tables never count: a card on a raw table moves freely.
+
+Three ways through:
+
+1. **Bottom-up.** Move the sources first — models, then metrics, then the questions built on them — and the dashboard last. `card update <id> --body '{"collection_id":<synced-id>}'`, then `dashboard update <id> --body '{"collection_id":<synced-id>}'`.
+2. **The whole containing collection.** `mb collection update <id> --parent-id <synced-id>` checks once, after the whole subtree has moved, so references inside the subtree pass.
+3. **Dashboard questions.** A card created with `dashboard_id` (and the dashboard's `collection_id`) moves with its dashboard in the same transaction, so it never blocks the move.
+
+The reverse holds too: archiving something, or moving it out of sync scope, is refused with 400 `Used by remote synced content.` while synced content still depends on it. The error names the dependents by model and id (`Used by remote synced content: Card 12, Dashboard 3. …`); move or archive those first, or leave the dependency in place.
+
+Reading the inbound refusal: the error lists the blocking content as bare ids with no model type (`Uses content that is not remote synced: ids 412, 77. …`) — these are the dependencies to move first. Most are cards (`mb card get <id>`); otherwise try `mb dashboard get <id>` or `mb snippet get <id>`, and match the name against the content you meant to move.
+
+<!-- requires: dependencyGraph -->
+
+To plan the order before the first move, `mb dependency graph dashboard <id> --json` (or `card <id>`) lists everything the entity reads from; every card and snippet node outside the synced collection moves first.
+
+<!-- /requires -->
+
 <!-- requires: library -->
 
 ## Published table metadata (Library) and sync scope
@@ -208,6 +234,7 @@ Flagging the collection records it for the next export, which serializes its cur
 - Don't run `git-sync import --force` or `git-sync export --force` without explicit user confirmation. Both are lossy — `--force` import discards instance-side work, `--force` export overwrites the remote branch.
 - Don't drive `git-sync` against a Metabase instance that doesn't have remote-sync configured — every verb returns an error pointing at the missing `remote-sync-*` settings. To check: `mb setting get remote-sync-url --profile <n> --json`.
 - Don't author content directly via `card create` / `transform create` and then assume `git-sync export` will commit it cleanly — the instance and repo can drift if you mix direct API writes with sync-tracked changes. If you do, follow direct writes immediately with `git-sync export -m "..."` to keep them in step.
+- Don't move a dashboard or question into a synced collection before what it depends on, and don't retry a `Uses content that is not remote synced.` refusal unchanged. Move the listed dependencies first, move the whole containing collection, or build the content in the synced collection to begin with (see "Moving content into or out of a synced collection").
 - Don't omit `-m` on `export` if the user wants a meaningful commit message — the default server-generated message is generic.
 - Don't `git-sync export` to `main`/`master` without explicit user confirmation — sync work is conventionally on a feature branch. See "Branch guard" above.
 - Don't reach for `mb setting set` to mark a collection as remote-synced — that endpoint writes single-key settings, not the bulk `collections` map. Use `mb git-sync add-collection <id>` / `mb git-sync remove-collection <id>` (above), and remember the toggle cascades to descendants.
