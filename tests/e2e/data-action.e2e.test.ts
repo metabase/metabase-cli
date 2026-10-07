@@ -16,7 +16,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
-import { requireServer, serverHas } from "./server-gate";
+import { requireServer, requireServerWithout } from "./server-gate";
 
 const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
 
@@ -206,7 +206,12 @@ describe.skipIf(skipReason !== null)("data-action e2e", () => {
   });
 });
 
-describe.skipIf(serverHas("dataActionsWithoutModel"))(
+const withoutModellessSkipReason = requireServerWithout(
+  "data-action › data-action on servers that need a model",
+  ["dataActionsWithoutModel"],
+);
+
+describe.skipIf(withoutModellessSkipReason !== null)(
   "data-action on servers that need a model",
   () => {
     let bootstrap: E2EBootstrap;
@@ -220,7 +225,7 @@ describe.skipIf(serverHas("dataActionsWithoutModel"))(
       await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
     });
 
-    it("create refuses with CapabilityError (exit 2) after a live probe, before sending the body", async () => {
+    it("create is explained as the missing feature (exit 2) when the server rejects it", async () => {
       const configHome = await mkTempConfigHome();
       tempDirs.push(configHome);
 

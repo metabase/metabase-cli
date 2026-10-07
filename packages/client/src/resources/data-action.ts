@@ -10,7 +10,14 @@ import {
 } from "../domain/data-action";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
-import { explainer } from "../version/refusal";
+import { explainer, type ParameterRequirement } from "../version/refusal";
+
+// A server whose data actions have no collection rejects `collection_id` with a 400 naming it.
+function collectionFeatures(params: DataActionUpdateInput): ParameterRequirement[] {
+  return params.collection_id === undefined
+    ? []
+    : [{ feature: "dataActionCollections", fields: ["collection_id"] }];
+}
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function dataActionResource(transport: Transport) {
@@ -92,7 +99,7 @@ export function dataActionResource(transport: Transport) {
     list,
     get,
     create: explain("create", create),
-    update,
+    update: explain("update", update, (_id, params) => collectionFeatures(params)),
     archive,
     delete: remove,
     execute,
