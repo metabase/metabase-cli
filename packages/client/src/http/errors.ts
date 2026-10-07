@@ -10,6 +10,8 @@ export type HttpErrorKind =
   | "route-missing"
   | "resource-missing"
   | "auth"
+  | "forbidden"
+  | "conflict"
   | "rate-limit"
   | "server-error"
   | "generic";
@@ -27,8 +29,15 @@ const RESOURCE_MISSING_LITERAL = "Not found.";
 
 const STATUS_CLASSIFICATIONS: Record<number, StatusClassification> = {
   401: { retryable: false },
-  403: { retryable: false },
+  403: {
+    retryable: false,
+    message: "The request was refused (403): the signed-in user is not allowed to do this.",
+  },
   404: { retryable: false },
+  409: {
+    retryable: false,
+    message: "The request was refused (409): it conflicts with what already exists.",
+  },
   408: { retryable: true, message: "Metabase timed out responding." },
   425: { retryable: true },
   429: { retryable: true, message: "Metabase rate-limited the request." },
@@ -198,8 +207,16 @@ function classifyKind(
   sanitizedBody: string | null,
   redactedHeaders: Record<string, string>,
 ): HttpErrorKind {
-  if (status === 401 || status === 403) {
+  // 401: Metabase did not accept the credential. 403: it identified the user and refused the
+  // request. 409: the request conflicts with existing state. None of the last two is about the key.
+  if (status === 401) {
     return "auth";
+  }
+  if (status === 403) {
+    return "forbidden";
+  }
+  if (status === 409) {
+    return "conflict";
   }
   if (status === NOT_FOUND_STATUS) {
     return isRouteMissingResponse(sanitizedBody, redactedHeaders)

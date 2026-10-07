@@ -389,7 +389,7 @@ carries the request context and the Zod issues, and a hand-decoded body or heade
 `ConfigError` and `InternalError` split blame: the first is input a caller could correct, the second
 is a caller that violated a function's contract, which is a bug in the calling code. `HttpError`
 carries the status and response body, redacted of known secrets at construction, plus a `kind`
-(`HttpErrorKind`) separating a route Metabase does not serve from a row that is gone;
+(`HttpErrorKind`) separating a route Metabase does not serve from a row that is gone, and a credential Metabase did not accept (`auth`, 401) from a request it refused for an identified user (`forbidden`, 403) or that conflicts with existing state (`conflict`, 409);
 `isHttpNotFound(value)` answers the coarser question of whether a thrown value is an `HttpError` with
 status 404. `ChainedRequestError` wraps a cause and delegates its category and retryability to it.
 `toMetabaseError(unknown)` normalizes a thrown value into the taxonomy.

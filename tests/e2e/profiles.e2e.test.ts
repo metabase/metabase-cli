@@ -199,7 +199,7 @@ describe("profiles e2e", () => {
       configHome,
     });
     expect(limitedQuery.exitCode).toBe(1);
-    expect(limitedQuery.stderr).toContain("Invalid or unauthorized API key");
+    expect(limitedQuery.stderr).toContain("You don't have permissions to do that.");
     expect(limitedQuery.stdout).toBe("");
   });
 
