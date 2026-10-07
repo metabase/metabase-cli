@@ -10,9 +10,9 @@ import { CommandHelpEntry } from "../../packages/cli/src/runtime/command-help";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { seedProbedProfile } from "./seed-profile";
+import { seedProbedProfile, UNREACHABLE_SEED_MESSAGE } from "./seed-profile";
 import { SEEDED } from "./seed/seeded";
-import { requireServer } from "./server-gate";
+import { requireServer, requireServerWithout } from "./server-gate";
 
 const CONTENT_VERIFICATION_REFUSAL =
   "This operation requires the 'content_verification' premium feature (not enabled on this server).";
@@ -57,15 +57,15 @@ describe("verify arg validation e2e (no Metabase contact required)", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("refuses before any request when the cached probe lacks content verification", async () => {
+  it("sends the verification a cached probe without content verification would have refused", async () => {
     const configHome = await makeIsolatedConfigHome();
     await seedProbedProfile(configHome, 64);
 
     const result = await runCli({ args: ["card", "verify", "1", "--json"], configHome });
 
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorCategory(result.stderr)).toBe("capability");
-    expect(cliErrorMessage(result.stderr)).toBe(CONTENT_VERIFICATION_REFUSAL);
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorCategory(result.stderr)).toBe("network");
+    expect(cliErrorMessage(result.stderr)).toBe(UNREACHABLE_SEED_MESSAGE);
     expect(result.stdout).toBe("");
   });
 
@@ -87,7 +87,12 @@ describe("verify arg validation e2e (no Metabase contact required)", () => {
   );
 });
 
-describe.skipIf(skipReason === null)(
+const withoutVerificationSkipReason = requireServerWithout(
+  "verify › verify against a server without content verification",
+  ["contentVerification"],
+);
+
+describe.skipIf(withoutVerificationSkipReason !== null)(
   "verify capability gate against a server without content verification",
   () => {
     let bootstrap: E2EBootstrap;

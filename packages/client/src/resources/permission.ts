@@ -9,7 +9,6 @@ export function permissionResource(transport: Transport) {
    * one database is the question.
    */
   async function graph(options: RequestOptions = {}): Promise<PermissionsGraph> {
-    await transport.require("permission.graph", options);
     return transport.requestParsed(PermissionsGraph, "/api/permissions/graph", { ...options });
   }
 
@@ -22,7 +21,6 @@ export function permissionResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<PermissionsGraph> {
-    await transport.require("permission.databaseGraph", options);
     return transport.requestParsed(PermissionsGraph, `/api/permissions/graph/db/${id}`, {
       ...options,
     });
@@ -30,7 +28,6 @@ export function permissionResource(transport: Transport) {
 
   /** Get the data permissions of one group on every database. Admin only. */
   async function groupGraph(id: number, options: RequestOptions = {}): Promise<PermissionsGraph> {
-    await transport.require("permission.groupGraph", options);
     return transport.requestParsed(PermissionsGraph, `/api/permissions/graph/group/${id}`, {
       ...options,
     });

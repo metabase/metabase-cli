@@ -97,11 +97,11 @@ const TRANSFORM_UNAVAILABLE_ON_58 = {
 const GIT_SYNC_UNAVAILABLE_ON_58 = {
   name: "git-sync",
   failure: {
-    reason: "version-too-old",
+    reason: "missing-token-feature",
     detail:
-      "This operation requires Metabase v60+ (this server is v0.58.0). Upgrade Metabase to use it.",
+      "This operation requires the 'remote_sync' premium feature (not enabled on this server).",
     feature: "remoteSync",
-    since: 60,
+    since: 58,
     tokenFeature: "remote_sync",
     serverVersion: "v0.58.0",
   },
@@ -177,9 +177,9 @@ describe("skills e2e", () => {
     expect(result.stderr).toBe("");
   });
 
-  it("list in text mode against a v58 profile names each skipped skill on stderr", async () => {
+  it("list in text mode against a v58 profile names each skipped skill and the probe it judged by", async () => {
     const configHome = await makeIsolatedConfigHome();
-    await seedProbedProfile(configHome, 58);
+    const probedAt = await seedProbedProfile(configHome, 58);
 
     const result = await runCli({ args: ["skills", "list", "--format", "text"], configHome });
 
@@ -191,6 +191,7 @@ describe("skills e2e", () => {
       [
         `Skipped skill "git-sync": ${GIT_SYNC_UNAVAILABLE_ON_58.failure.detail} Pass --unfiltered to print it anyway.`,
         `Skipped skill "transform": ${TRANSFORM_UNAVAILABLE_ON_58.failure.detail} Pass --unfiltered to print it anyway.`,
+        `Skills are filtered by profile "default"'s server as last recorded at ${probedAt} (run \`mb auth list\` to probe it again).`,
       ].join("\n"),
     );
   });

@@ -125,21 +125,6 @@ describe("createFakeClient", () => {
     await expect(client.server()).rejects.toThrow("no server profile in fake client plan");
   });
 
-  it("records each required key with the requests already served, and refuses none", async () => {
-    const fake = createFakeClient({
-      routes: [{ path: PATH, reply: { kind: "body", body: { id: 1, email: "read@b.com" } } }],
-    });
-
-    await fake.client.require("gitSync.branches");
-    await fake.client.requestParsed(PingResponse, PATH);
-    await fake.client.require("card.list");
-
-    expect(fake.required).toEqual([
-      { key: "gitSync.branches", precedingRequests: 0 },
-      { key: "card.list", precedingRequests: 1 },
-    ]);
-  });
-
   it("records each feature list a parameter asked for, with the requests already served", async () => {
     const fake = createFakeClient({
       routes: [{ path: PATH, reply: { kind: "body", body: { id: 1, email: "read@b.com" } } }],

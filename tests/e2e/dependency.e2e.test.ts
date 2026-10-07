@@ -18,7 +18,7 @@ import { CommandHelpEntry } from "../../packages/cli/src/runtime/command-help";
 import { readBootstrap, type E2EBootstrap, type ServerIdentity } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { seedProbedProfile } from "./seed-profile";
+import { seedProbedProfile, UNREACHABLE_SEED_MESSAGE } from "./seed-profile";
 import { SEEDED } from "./seed/seeded";
 import { requirementFailure, requireServer, serverHas } from "./server-gate";
 
@@ -54,8 +54,8 @@ const skipReason = requireServer("dependency › dependency e2e against EE depen
 ]);
 const listingGap = requirementFailure(["dependencyItemListings"]);
 
-// The listing verbs need a newer server than `graph`, and the preflight reports the version gap
-// before the missing token feature.
+// The listing verbs need a newer server than `graph`, and the explained refusal names the version
+// gap before the missing token feature.
 function listingLiveRefusal(server: ServerIdentity): string {
   if (listingGap?.reason !== "version-too-old") {
     return DEPENDENCIES_REFUSAL;
@@ -160,7 +160,7 @@ describe("dependency arg validation e2e (no Metabase contact required)", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("graph refuses before any request when the cached probe lacks the dependencies feature", async () => {
+  it("graph sends the request a cached probe without the dependencies feature would have refused", async () => {
     const configHome = await makeIsolatedConfigHome();
     await seedProbedProfile(configHome, 64);
 
@@ -169,21 +169,21 @@ describe("dependency arg validation e2e (no Metabase contact required)", () => {
       configHome,
     });
 
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorCategory(result.stderr)).toBe("capability");
-    expect(cliErrorMessage(result.stderr)).toBe(DEPENDENCIES_REFUSAL);
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorCategory(result.stderr)).toBe("network");
+    expect(cliErrorMessage(result.stderr)).toBe(UNREACHABLE_SEED_MESSAGE);
     expect(result.stdout).toBe("");
   });
 
-  it("unreferenced refuses before any request when the cached probe lacks the dependencies feature", async () => {
+  it("unreferenced sends the request a cached probe without the dependencies feature would have refused", async () => {
     const configHome = await makeIsolatedConfigHome();
     await seedProbedProfile(configHome, 64);
 
     const result = await runCli({ args: ["dependency", "unreferenced", "--json"], configHome });
 
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorCategory(result.stderr)).toBe("capability");
-    expect(cliErrorMessage(result.stderr)).toBe(DEPENDENCIES_REFUSAL);
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorCategory(result.stderr)).toBe("network");
+    expect(cliErrorMessage(result.stderr)).toBe(UNREACHABLE_SEED_MESSAGE);
     expect(result.stdout).toBe("");
   });
 

@@ -7,9 +7,12 @@ export type {
   ClientOptions,
   ExpectedContentType,
   HttpMethod,
+  PreflightRefused,
+  PreflightUnverified,
   QueryValue,
   RequestOptions,
   ServerTagResolver,
+  SkippedPreflight,
   TransportRequestOptions,
 } from "./http/transport";
 export type { ListResult } from "./list";
@@ -30,6 +33,7 @@ export {
   isFileNotFoundError,
   MetabaseError,
   NetworkError,
+  PartialWriteError,
   ResponseShapeError,
   TimeoutError,
   toMetabaseError,
@@ -41,6 +45,10 @@ export type {
   ErrorCategory,
   HttpTimeoutDetail,
   NetworkErrorDetail,
+  PartialWriteAnswer,
+  PartialWriteDetail,
+  PartialWriteReported,
+  PartialWriteUnreported,
   PollingTimeoutDetail,
   ResponseShapeErrorDetail,
   TimeoutErrorDetail,
@@ -96,8 +104,8 @@ export {
   methodRequirements,
 } from "./version/requirements";
 export type { MethodKey } from "./version/requirements";
-export { checkFeatures } from "./version/requirement-check";
-export { CapabilityError, RequirementFailure, RequirementReason } from "./version/preflight-error";
+export { checkFeatures, featureFailures } from "./version/requirement-check";
+export { CapabilityError, RequirementFailure, RequirementReason } from "./version/capability-error";
 
 export type { Page, PaginateOptions } from "./paginate";
 export { pollUntil } from "./poll";

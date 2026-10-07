@@ -1,5 +1,5 @@
 import { CardQueryResult } from "../domain/card";
-import { type CompiledQuery, compiledQuerySchema, QueryMetadata } from "../domain/dataset";
+import { CompiledQuery, QueryMetadata } from "../domain/dataset";
 import type { DatasetQuery, ExportFormat, VisualizationSettings } from "../domain/query";
 import type { RequestOptions, Transport } from "../http/transport";
 import { assertPivotedExport } from "./pivot-export";
@@ -22,7 +22,6 @@ export function datasetResource(transport: Transport) {
    * MBQL, or native — rather than a reference to a saved one, so nothing here is a card.
    */
   async function query(body: unknown, options: RequestOptions = {}): Promise<CardQueryResult> {
-    await transport.require("dataset.query", options);
     return transport.requestParsed(CardQueryResult, "/api/dataset", {
       ...options,
       method: "POST",
@@ -39,9 +38,7 @@ export function datasetResource(transport: Transport) {
     params: DatasetNativeParams = {},
     options: RequestOptions = {},
   ): Promise<CompiledQuery> {
-    await transport.require("dataset.native", options);
-    const { features } = await transport.server(options);
-    return transport.requestParsed(compiledQuerySchema(features), "/api/dataset/native", {
+    return transport.requestParsed(CompiledQuery, "/api/dataset/native", {
       ...options,
       method: "POST",
       body: { ...datasetQuery, pretty: params.pretty },
@@ -57,7 +54,6 @@ export function datasetResource(transport: Transport) {
     datasetQuery: DatasetQuery,
     options: RequestOptions = {},
   ): Promise<QueryMetadata> {
-    await transport.require("dataset.queryMetadata", options);
     return transport.requestParsed(QueryMetadata, "/api/dataset/query_metadata", {
       ...options,
       method: "POST",
@@ -81,14 +77,13 @@ export function datasetResource(transport: Transport) {
     params: DatasetExportParams,
     options: RequestOptions = {},
   ): Promise<ReadableStream<Uint8Array>> {
-    await transport.require("dataset.exportQuery", options);
+    if (params.pivot_results) {
+      await assertPivotedExport(transport, format, options);
+    }
     await transport.requireFeatures(
       params.csv_include_bom ? ["exportCsvByteOrderMark"] : [],
       options,
     );
-    if (params.pivot_results) {
-      await assertPivotedExport(transport, format, options);
-    }
     const exported = params.pivot_results ? { ...params.query, "was-pivot": true } : params.query;
     return transport.requestStream(`/api/dataset/${format}`, {
       ...options,

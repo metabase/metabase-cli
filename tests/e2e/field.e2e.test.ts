@@ -13,18 +13,19 @@ import { parseJson } from "@metabase/client/json";
 
 import { FieldSearchListEnvelope } from "../../packages/cli/src/commands/field/search";
 import { FieldListEnvelope } from "../../packages/cli/src/commands/table/fields";
+import { PREFLIGHT_SKIP_REMEDY } from "../../packages/cli/src/output/notice";
 import { FieldRemappingResult } from "../../packages/cli/src/output/views/field";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { seedProbedProfile } from "./seed-profile";
+import { seedProbedProfile, UNREACHABLE_SEED_MESSAGE } from "./seed-profile";
 import { SEEDED } from "./seed/seeded";
 import { requireServer, serverHas } from "./server-gate";
 
 const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
 
 function sensitivityRefusal(serverTag: string): string {
-  return `This operation requires Metabase v64+ (this server is ${serverTag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`;
+  return `This operation requires Metabase v64+ (this server is ${serverTag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}\n${PREFLIGHT_SKIP_REMEDY}`;
 }
 
 describe("field e2e", () => {
@@ -624,7 +625,7 @@ describe("field e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("set-sensitivity refuses before any request when the cached probe says v63", async () => {
+  it("set-sensitivity asks the server itself rather than a cached v63 probe", async () => {
     const configHome = await makeIsolatedConfigHome();
     await seedProbedProfile(configHome, 63);
 
@@ -633,9 +634,31 @@ describe("field e2e", () => {
       configHome,
     });
 
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorCategory(result.stderr)).toBe("network");
+    expect(cliErrorMessage(result.stderr)).toBe(UNREACHABLE_SEED_MESSAGE);
+    expect(result.stdout).toBe("");
+  });
+
+  it("set-sensitivity labels a field, or refuses where a fresh probe shows the server would drop the label", async () => {
+    const result = await runCli({
+      args: ["field", "set-sensitivity", String(customersEmailFieldId), "PII", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    if (serverHas("fieldDataSensitivity")) {
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, FieldWithDataSensitivityCompact).data_sensitivity).toBe(
+        "PII",
+      );
+      return;
+    }
+    const serverTag = bootstrap.server.version?.tag;
+    assert(serverTag !== undefined, "a server without the column is a release with a tag");
     expect(result.exitCode).toBe(2);
     expect(cliErrorCategory(result.stderr)).toBe("capability");
-    expect(cliErrorMessage(result.stderr)).toBe(sensitivityRefusal("v0.63.0"));
+    expect(cliErrorMessage(result.stderr)).toBe(sensitivityRefusal(serverTag));
     expect(result.stdout).toBe("");
   });
 

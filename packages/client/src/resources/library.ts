@@ -11,6 +11,7 @@ import {
 } from "../domain/library";
 import { TableSelectors } from "../domain/table";
 import type { RequestOptions, Transport } from "../http/transport";
+import { explainer } from "../version/refusal";
 import { listCollectionsAs } from "./collection";
 import { parseRequestBody } from "./request-body";
 
@@ -25,9 +26,10 @@ const LIBRARY_DATA_TYPE = "library-data";
 const PublishTablesResponse = z.object({ target_collection: Collection.nullable() });
 
 export function libraryResource(transport: Transport) {
+  const { explain } = explainer(transport, "library");
+
   /** Get the Library root and its child collections, or `null` on an instance that has none. */
   async function get(options: RequestOptions = {}): Promise<Library | null> {
-    await transport.require("library.get", options);
     const { features } = await transport.server(options);
     const wire = await transport.requestParsed(libraryWireSchema(features), LIBRARY_ROOT_PATH, {
       ...options,
@@ -56,7 +58,6 @@ export function libraryResource(transport: Transport) {
    * back from a refetch, which together make this idempotent.
    */
   async function create(options: RequestOptions = {}): Promise<Library> {
-    await transport.require("library.create", options);
     const existing = await get(options);
     if (existing !== null) {
       return existing;
@@ -71,7 +72,6 @@ export function libraryResource(transport: Transport) {
 
   /** The id of the Library's Data collection, creating the Library first when it does not exist. */
   async function ensureDataCollectionId(options: RequestOptions = {}): Promise<number> {
-    await transport.require("library.ensureDataCollectionId", options);
     const library = await create(options);
     const data = library.effective_children.find((child) => child.type === LIBRARY_DATA_TYPE);
     if (data === undefined) {
@@ -93,7 +93,6 @@ export function libraryResource(transport: Transport) {
     params: LibraryPublishTablesInput,
     options: RequestOptions = {},
   ): Promise<Collection | null> {
-    await transport.require("library.publishTables", options);
     const body = parseRequestBody(LibraryPublishTablesInput, params, "tables to publish");
     const response = await transport.requestParsed(PublishTablesResponse, PUBLISH_TABLES_PATH, {
       ...options,
@@ -112,7 +111,6 @@ export function libraryResource(transport: Transport) {
     params: TableSelectors,
     options: RequestOptions = {},
   ): Promise<void> {
-    await transport.require("library.unpublishTables", options);
     const body = parseRequestBody(TableSelectors, params, "table selectors");
     await transport.requestRaw(UNPUBLISH_TABLES_PATH, {
       ...options,
@@ -122,5 +120,11 @@ export function libraryResource(transport: Transport) {
     });
   }
 
-  return { get, create, ensureDataCollectionId, publishTables, unpublishTables };
+  return {
+    get: explain("get", get),
+    create: explain("create", create),
+    ensureDataCollectionId: explain("ensureDataCollectionId", ensureDataCollectionId),
+    publishTables: explain("publishTables", publishTables),
+    unpublishTables: explain("unpublishTables", unpublishTables),
+  };
 }

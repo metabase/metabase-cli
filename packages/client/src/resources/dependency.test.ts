@@ -5,12 +5,16 @@ import type { ClientCredentials } from "../http/transport";
 import type { Page } from "../paginate";
 import {
   captureFetch,
+  type FetchScript,
   jsonResponse,
+  premiumRefusalResponse,
+  probeResponse,
+  routeMissingResponse,
   TEST_USER_AGENT,
   thrownBy,
-  type FetchScript,
 } from "../testing/fetch-capture";
-import { CapabilityError } from "../version/preflight-error";
+import { CapabilityError } from "../version/capability-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -257,8 +261,11 @@ describe("dependency resource wire requests", () => {
     ]);
   });
 
-  it("refuses a server without the token feature before any request leaves", async () => {
-    const { mb, capture } = clientOver([], UNLICENSED_SERVER);
+  it("explains a premium refusal by a fresh probe as the missing dependencies token", async () => {
+    const { mb, capture } = clientOver(
+      [premiumRefusalResponse("Dependencies"), probeResponse(UNLICENSED_SERVER)],
+      UNLICENSED_SERVER,
+    );
 
     const error = await thrownBy(() => mb.dependency.graph("card", 7));
 
@@ -275,11 +282,17 @@ describe("dependency resource wire requests", () => {
       tokenFeature: "dependencies",
       serverVersion: "v1.64.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/dependencies/graph?type=card&id=7",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 
-  it("refuses the item listings on a licensed server below their floor, naming the feature", async () => {
-    const { mb, capture } = clientOver([], V58_SERVER);
+  it("explains an unrouted item listing on a licensed server below its floor, naming the feature", async () => {
+    const { mb, capture } = clientOver(
+      [routeMissingResponse(), probeResponse(V58_SERVER)],
+      V58_SERVER,
+    );
 
     const error = await thrownBy(() => mb.dependency.dependents("table", 3));
 
@@ -296,7 +309,10 @@ describe("dependency resource wire requests", () => {
       tokenFeature: "dependencies",
       serverVersion: "v1.58.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/dependencies/graph/dependents?type=table&id=3",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 
   it("lists dependents on the first generation with the item listings", async () => {

@@ -79,7 +79,6 @@ export function collectionResource(transport: Transport) {
     params: CollectionListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Collection>> {
-    await transport.require("collection.list", options);
     const data = await transport.requestParsed(CollectionApiList, "/api/collection", {
       ...options,
       query: COLLECTION_LIST_QUERY[params.filter ?? DEFAULT_LIST_FILTER],
@@ -89,7 +88,6 @@ export function collectionResource(transport: Transport) {
 
   /** Get one collection by id, entity id, or the `root`/`trash` alias. */
   async function get(ref: CollectionId, options: RequestOptions = {}): Promise<Collection> {
-    await transport.require("collection.get", options);
     return transport.requestParsed(Collection, `/api/collection/${refPath(ref)}`, { ...options });
   }
 
@@ -98,7 +96,6 @@ export function collectionResource(transport: Transport) {
     params: CollectionCreateInput,
     options: RequestOptions = {},
   ): Promise<Collection> {
-    await transport.require("collection.create", options);
     return transport.requestParsed(Collection, "/api/collection", {
       ...options,
       method: "POST",
@@ -116,7 +113,6 @@ export function collectionResource(transport: Transport) {
     params: CollectionUpdateInput,
     options: RequestOptions = {},
   ): Promise<Collection> {
-    await transport.require("collection.update", options);
     return transport.requestParsed(Collection, `/api/collection/${refPath(ref)}`, {
       ...options,
       method: "PUT",
@@ -126,7 +122,6 @@ export function collectionResource(transport: Transport) {
 
   /** Archive (soft-delete) a collection. Metabase models this as an update, not its own endpoint. */
   async function archive(ref: CollectionId, options: RequestOptions = {}): Promise<Collection> {
-    await transport.require("collection.archive", options);
     return update(ref, { archived: true }, options);
   }
 
@@ -139,7 +134,6 @@ export function collectionResource(transport: Transport) {
     params: CollectionItemListParams = {},
     options: CollectionItemPageOptions = {},
   ): AsyncIterable<Page<CollectionItem>> {
-    await transport.require("collection.itemPages", options);
     yield* paginatePages(transport, `/api/collection/${refPath(ref)}/items`, CollectionItem, {
       query: {
         models: params.models,
@@ -158,7 +152,6 @@ export function collectionResource(transport: Transport) {
     params: CollectionTreeParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<CollectionTreeNode>> {
-    await transport.require("collection.tree", options);
     const data = await transport.requestParsed(CollectionTreeApiList, "/api/collection/tree", {
       ...options,
       query: { "include-library": params["include-library"] },

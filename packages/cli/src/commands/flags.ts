@@ -74,7 +74,8 @@ export const connectionFlags = {
   apiKey: { type: "string", description: "API key", alias: "api-key" },
   skipPreflight: {
     type: "boolean",
-    description: "Skip the server version capability check for this command",
+    description:
+      "Skip the client's version and license checks made before a request, and let the server answer",
     alias: "skip-preflight",
   },
 } as const;

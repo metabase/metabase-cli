@@ -218,10 +218,11 @@ function pinEndpoints(metadata: OAuthServerMetadata, baseUrl: string): OAuthServ
 }
 
 // Discovery advertises the full-access scope from the v62 patch that introduced it through v63;
-// v60, v61 and the first v62 patches serve an OAuth server for the agent API only, and newer
-// servers keep the scope out of `scopes_supported` on purpose while still granting it. So a
-// discovery document that names the scope settles it, and otherwise the version does, read from
-// the properties endpoint, which answers without a credential.
+// v60, v61 and the earlier v62 patches serve an OAuth server for the agent API only, and v64 keeps
+// the scope out of `scopes_supported` on purpose while still granting it. A v62 major cannot say
+// which side of that patch it is on, so a discovery document that names the scope settles it, and
+// only one that does not falls back to the version, read from the properties endpoint, which
+// answers without a credential.
 async function grantsFullAccessScope(
   metadata: OAuthServerMetadata,
   baseUrl: string,
@@ -242,7 +243,7 @@ async function grantsFullAccessScope(
   }
   const properties = await readJson(response, SessionProperties, "Server properties");
   const profile = createServerProfile(serverInfoFromProperties(properties));
-  return profile.features.oauthFullAccessScope;
+  return profile.features.oauthFullAccessScopeUnadvertised;
 }
 
 // The discovery document when the server can log a client in to the whole REST API, else null.

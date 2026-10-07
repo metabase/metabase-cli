@@ -39,14 +39,19 @@ export function setupTempConfigHome(): TempConfigHome {
   };
 }
 
-// A profile record as `auth login` would have left it: the key stored, the server probed.
+// A profile record as `auth login` would have left it: the key stored, the server probed. Answers
+// when the probe was taken, which a notice dated by it names.
 export async function seedProbedProfile(
   name: string,
   server: ServerInfo,
   target: SeedTarget = UNREACHABLE_TARGET,
-): Promise<void> {
+): Promise<string> {
   await writeProfile(target, name);
-  await writeProbeResult(name, { user: SEED_USER, server });
+  const probe = await writeProbeResult(name, { user: SEED_USER, server });
+  if (probe === null) {
+    throw new Error(`profile "${name}" vanished before its probe was written`);
+  }
+  return probe.at;
 }
 
 // A released server at `major`, as `probeServer` would report it: the edition is what the tag stamps.

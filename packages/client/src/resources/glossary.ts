@@ -22,7 +22,6 @@ export function glossaryResource(transport: Transport) {
     params: GlossaryListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Glossary>> {
-    await transport.require("glossary.list", options);
     const response = await transport.requestParsed(GlossaryApiList, "/api/glossary", {
       ...options,
       query: { search: params.search },
@@ -35,7 +34,6 @@ export function glossaryResource(transport: Transport) {
     params: GlossaryCreateInput,
     options: RequestOptions = {},
   ): Promise<Glossary> {
-    await transport.require("glossary.create", options);
     return transport.requestParsed(Glossary, "/api/glossary", {
       ...options,
       method: "POST",
@@ -49,7 +47,6 @@ export function glossaryResource(transport: Transport) {
     params: GlossaryUpdateInput,
     options: RequestOptions = {},
   ): Promise<Glossary> {
-    await transport.require("glossary.update", options);
     return transport.requestParsed(Glossary, `/api/glossary/${id}`, {
       ...options,
       method: "PUT",
@@ -59,7 +56,6 @@ export function glossaryResource(transport: Transport) {
 
   /** Delete a glossary entry by id. */
   async function remove(id: number, options: RequestOptions = {}): Promise<void> {
-    await transport.require("glossary.delete", options);
     await transport.requestRaw(`/api/glossary/${id}`, {
       ...options,
       method: "DELETE",

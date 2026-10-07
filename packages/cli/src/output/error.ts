@@ -1,10 +1,13 @@
 import { AbortError, toMetabaseError } from "@metabase/client/errors";
 import type { ErrorCategory, MetabaseError } from "@metabase/client/errors";
-import type { RequirementFailure } from "@metabase/client/version/preflight-error";
+import {
+  CapabilityError,
+  type RequirementFailure,
+} from "@metabase/client/version/capability-error";
 
 import { ProfileRefreshedError } from "../core/profile-refreshed-error";
 import { consumeLegacyEnvWarnings, ENV_VERBOSE, readEnv } from "../core/env";
-import { warn } from "./notice";
+import { PREFLIGHT_SKIP_REMEDY, warn } from "./notice";
 import { isPromptCancel } from "./prompt";
 import { serializeJson } from "./render";
 import type { Format } from "./types";
@@ -40,6 +43,7 @@ export function exitCodeFor(category: ErrorCategory): number {
     case "http":
     case "validation":
     case "response-shape":
+    case "partial-write":
     case "timeout":
     case "internal":
     case "unknown": {
@@ -90,6 +94,12 @@ function isRouteMissing(handled: MetabaseError): boolean {
   return "kind" in handled && handled.kind === ROUTE_MISSING_KIND;
 }
 
+// A refusal the client made before the wire carries no server answer as its cause. One the server
+// answered does, and no flag gets a call past the server's own refusal.
+function isRefusedBeforeSending(handled: MetabaseError): boolean {
+  return handled instanceof CapabilityError && handled.cause === undefined;
+}
+
 // What the CLI adds to a message the client had to phrase without knowing who would print it. Both
 // output formats carry them, so an agent reading `--json` gets the same remediation a human does.
 function remediesFor(handled: MetabaseError): readonly string[] {
@@ -97,13 +107,12 @@ function remediesFor(handled: MetabaseError): readonly string[] {
   if (handled instanceof ProfileRefreshedError) {
     return [];
   }
-  if (isVersionTooOld(handled.developerDetail)) {
-    return [DOWNGRADE_REMEDY];
-  }
   if (isRouteMissing(handled)) {
     return [ROUTE_MISSING_REMEDY];
   }
-  return [];
+  const downgrade = isVersionTooOld(handled.developerDetail) ? [DOWNGRADE_REMEDY] : [];
+  const skip = isRefusedBeforeSending(handled) ? [PREFLIGHT_SKIP_REMEDY] : [];
+  return [...downgrade, ...skip];
 }
 
 function writeTextError(handled: MetabaseError, verbose: boolean): void {

@@ -1,5 +1,5 @@
 import { ConfigError } from "@metabase/client/errors";
-import { HttpError } from "@metabase/client/http/errors";
+import { BAD_REQUEST_STATUS, HttpError } from "@metabase/client/http/errors";
 
 const TRANSFORMS_NAMESPACE_HINT =
   'transforms can only be filed in a :transforms-namespace collection. Create one with `mb collection create --body \'{"name":"…"}\' --namespace transforms` and pass its id as collection_id, or omit collection_id to leave the transform uncollected.';
@@ -11,7 +11,7 @@ const TRANSFORMS_NAMESPACE_HINT =
 export function enrichTransformCollectionError(error: unknown): unknown {
   if (
     error instanceof HttpError &&
-    error.status === 400 &&
+    error.status === BAD_REQUEST_STATUS &&
     /:transforms namespace/i.test(error.message)
   ) {
     return new ConfigError(`${error.message} — ${TRANSFORMS_NAMESPACE_HINT}`);

@@ -51,7 +51,7 @@ describe("checkFeatures over a method's requirements", () => {
       detail:
         "This operation requires the 'remote_sync' premium feature (not enabled on this server).",
       feature: "remoteSync",
-      since: 60,
+      since: 58,
       tokenFeature: "remote_sync",
       serverVersion: "v1.60.4",
     });
@@ -113,7 +113,7 @@ describe("checkFeatures over a method's requirements", () => {
       detail:
         "This operation requires the 'remote_sync' premium feature (not enabled on this server).",
       feature: "remoteSync",
-      since: 60,
+      since: 58,
       tokenFeature: "remote_sync",
       serverVersion: "vUNKNOWN",
     });

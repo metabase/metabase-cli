@@ -10,6 +10,7 @@ import {
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import type { FeatureName } from "../version/features";
+import { explainer, type ParameterRequirement } from "../version/refusal";
 
 // `GET /api/revision/{entity}/{id}` answers a bare array, newest first, that the server does not
 // count.
@@ -22,29 +23,29 @@ const RevisionApiRevert: z.ZodType<RevisionRevert> = z.union([
   RevisionRow.transform((revision) => ({ outcome: "unchanged" as const, revision })),
 ]);
 
-// An entity kind an older server does not revision is refused by the feature that brought it,
-// rather than as that server's route-missing 404.
+// An older server rejects an entity kind it does not revision: an unrouted 404 for the listing, a
+// 400 naming `entity` for a revert. The rejection is explained by the feature that brought the kind.
 const ENTITY_FEATURES: Partial<Record<RevisionEntity, FeatureName>> = {
   measure: "measures",
   transform: "transforms",
 };
 
-function entityFeatures(entity: RevisionEntity): FeatureName[] {
+function entityFeatures(entity: RevisionEntity): ParameterRequirement[] {
   const feature = ENTITY_FEATURES[entity];
-  return feature === undefined ? [] : [feature];
+  return feature === undefined ? [] : [{ feature, fields: ["entity"] }];
 }
 
 // Every path parameter here is an enum member or a numeric id, so no fragment needs
 // `encodeURIComponent`.
 export function revisionResource(transport: Transport) {
+  const { explain } = explainer(transport, "revision");
+
   /** List the revisions of an entity the caller may read, newest first, each with its diff. */
   async function list(
     entity: RevisionEntity,
     id: number,
     options: RequestOptions = {},
   ): Promise<ListResult<Revision>> {
-    await transport.require("revision.list", options);
-    await transport.requireFeatures(entityFeatures(entity), options);
     const data = await transport.requestParsed(RevisionApiList, `/api/revision/${entity}/${id}`, {
       ...options,
     });
@@ -59,8 +60,6 @@ export function revisionResource(transport: Transport) {
     params: RevisionRevertInput,
     options: RequestOptions = {},
   ): Promise<RevisionRevert> {
-    await transport.require("revision.revert", options);
-    await transport.requireFeatures(entityFeatures(params.entity), options);
     return transport.requestParsed(RevisionApiRevert, "/api/revision/revert", {
       ...options,
       method: "POST",
@@ -68,5 +67,8 @@ export function revisionResource(transport: Transport) {
     });
   }
 
-  return { list, revert };
+  return {
+    list: explain("list", list, entityFeatures),
+    revert: explain("revert", revert, (params) => entityFeatures(params.entity)),
+  };
 }

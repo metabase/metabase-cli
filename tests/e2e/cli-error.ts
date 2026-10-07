@@ -17,7 +17,7 @@ const CliErrorEnvelope = z
 type CliErrorEnvelope = z.infer<typeof CliErrorEnvelope>;
 
 // The e2e harness is never a TTY, so the CLI renders errors as a JSON envelope on stderr (the
-// agent-facing path); in a TTY it renders plain text. Any leading warn() lines (e.g. preflight
+// agent-facing path); in a TTY it renders plain text. Any leading warn() lines (e.g. skew
 // notices) precede the envelope, whose first line starts with "{".
 function parseEnvelope(stderr: string): CliErrorEnvelope | null {
   const lines = stderr.split("\n");

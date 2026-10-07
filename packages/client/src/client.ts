@@ -85,6 +85,8 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     upload: uploadResource(transport),
     user: userResource(transport),
     server: transport.server,
+    verifiedServer: transport.verifiedServer,
+    probesSettled: transport.probesSettled,
     // The escape hatch: an endpoint the client never models still has to cost a consumer nothing.
     requestParsed: transport.requestParsed,
     requestRaw: transport.requestRaw,

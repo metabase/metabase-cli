@@ -13,7 +13,7 @@ import {
   ValidationError,
 } from "@metabase/client/errors";
 import { HttpError } from "@metabase/client/http/errors";
-import { CapabilityError } from "@metabase/client/version/preflight-error";
+import { CapabilityError } from "@metabase/client/version/capability-error";
 import { createServerProfile } from "@metabase/client/version/profile";
 import { checkFeatures } from "@metabase/client/version/requirement-check";
 import { ProfileRefreshedError } from "../core/profile-refreshed-error";
@@ -71,6 +71,7 @@ const CATEGORIES: ReadonlyArray<ErrorCategory> = [
   "timeout",
   "config",
   "capability",
+  "partial-write",
   "abort",
   "internal",
   "unknown",
@@ -86,6 +87,7 @@ const EXPECTED_EXIT_CODES: Record<ErrorCategory, number> = {
   timeout: 1,
   config: 2,
   capability: 2,
+  "partial-write": 1,
   abort: 130,
   internal: 1,
   unknown: 1,
@@ -159,6 +161,7 @@ describe("reportError", () => {
     expect(streams.stderr).toBe(
       "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.\n" +
         "Or install an `@metabase/cli` release that targets this server.\n" +
+        "If this server does support it, rerun with --skip-preflight; a server without it may ignore or rewrite what it does not support and answer without saying so.\n" +
         "(rerun with MB_VERBOSE=1 for details)\n",
     );
     expect(process.exitCode).toBe(2);
@@ -224,6 +227,7 @@ describe("reportError", () => {
     reportError(new CapabilityError(failure));
     expect(streams.stderr).toBe(
       "This operation requires the 'library' premium feature (not enabled on this server).\n" +
+        "If this server does support it, rerun with --skip-preflight; a server without it may ignore or rewrite what it does not support and answer without saying so.\n" +
         "(rerun with MB_VERBOSE=1 for details)\n",
     );
   });
@@ -248,7 +252,8 @@ describe("reportError", () => {
           category: "capability",
           message:
             "This operation requires Metabase v61+ (this server is v0.58.0). Upgrade Metabase to use it.\n" +
-            "Or install an `@metabase/cli` release that targets this server.",
+            "Or install an `@metabase/cli` release that targets this server.\n" +
+            "If this server does support it, rerun with --skip-preflight; a server without it may ignore or rewrite what it does not support and answer without saying so.",
           exitCode: 2,
         },
       }) + "\n",

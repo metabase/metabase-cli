@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { type SearchModel, SearchResult } from "../domain/search";
 import type { RequestOptions, Transport } from "../http/transport";
+import { explainer, type ParameterRequirement } from "../version/refusal";
 
 // `GET /api/search` applies the window itself and reports the count across the whole result set,
 // so `total` is the server's and never the returned slice's length. It is required rather than
@@ -33,7 +34,18 @@ export interface SearchParams {
   include_dashboard_questions?: boolean | undefined;
 }
 
+// Every server lacking both `content_verification` and `official_collections` answers 402 for a
+// `verified` filter, which the parameter's feature explains. One granting `official_collections`
+// alone takes the filter but applies it only under `content_verification`, answering unfiltered
+// results, or none on the legacy in-place engine, without a word, so the parameter is also refused
+// before the wire.
+function verifiedFeatures(params: SearchParams = {}): ParameterRequirement[] {
+  return params.verified === true ? [{ feature: "contentVerification", fields: ["verified"] }] : [];
+}
+
 export function searchResource(transport: Transport) {
+  const { explain } = explainer(transport, "search");
+
   /**
    * Search over the instance's content, ranked against `q`. `models` narrows which kinds of entity
    * may match, `archived` swaps the active set for the archived one, `table_db_id` restricts to
@@ -43,12 +55,18 @@ export function searchResource(transport: Transport) {
    * actions, transforms), `include_metadata` attaches each card's `result_metadata`,
    * `include_dashboard_questions` also matches questions saved into a dashboard (excluded by
    * default), and `limit`/`offset` are the window the server applies before ranking hydration.
+   * `verified` needs the `content_verification` premium feature, and is refused before the wire
+   * without it: a server granting neither it nor `official_collections` refuses the filter, and one
+   * granting `official_collections` alone takes it without applying it.
    */
   async function query(
     params: SearchParams = {},
     options: RequestOptions = {},
   ): Promise<SearchPage> {
-    await transport.require("search.query", options);
+    await transport.requireFeatures(
+      verifiedFeatures(params).map((requirement) => requirement.feature),
+      options,
+    );
     const response = await transport.requestParsed(SearchApiResponse, "/api/search", {
       ...options,
       query: {
@@ -69,5 +87,5 @@ export function searchResource(transport: Transport) {
     return { data: response.data, total: response.total };
   }
 
-  return { query };
+  return { query: explain("query", query, verifiedFeatures) };
 }
