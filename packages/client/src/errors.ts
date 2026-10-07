@@ -12,6 +12,7 @@ export type ErrorCategory =
   | "timeout"
   | "config"
   | "capability"
+  | "partial-write"
   | "abort"
   | "internal"
   | "failed"
@@ -49,6 +50,9 @@ export interface ZodResponseShapeDetail {
   url: string;
   status: number;
   zodIssues: ZodError["issues"];
+  // The server the reader was chosen for: the profile in force when the request started, which a
+  // caller compares with a fresh probe to tell a stale choice from a shape the server changed.
+  // `null` when no profile was in force and nothing else named the server.
   serverTag: string | null;
   serverSkew: Skew | null;
 }
@@ -245,6 +249,13 @@ export class AbortError extends MetabaseError {
   }
 }
 
+// A failure from this taxonomy that is not an interrupt: what a caller treating a request as
+// optional sets aside. An interrupt is the user's own and still ends the work, and an error outside
+// the taxonomy is a bug and still surfaces.
+export function isNonInterruptFailure(error: unknown): error is MetabaseError {
+  return error instanceof MetabaseError && !(error instanceof AbortError);
+}
+
 export class ChainedRequestError extends MetabaseError {
   override readonly cause: MetabaseError;
 
@@ -276,6 +287,42 @@ export class UnknownError extends MetabaseError {
     super(input.originalMessage);
     this.name = "UnknownError";
     this.developerDetail = input;
+  }
+}
+
+// The value the server's answer reported for the field it left unwritten, `null` when it reported
+// the field empty.
+export interface PartialWriteReported {
+  kind: "reported";
+  value: number | null;
+}
+
+// The server's answer left the field out, so it said nothing of where the write left it.
+export interface PartialWriteUnreported {
+  kind: "unreported";
+}
+
+export type PartialWriteAnswer = PartialWriteReported | PartialWriteUnreported;
+
+export interface PartialWriteDetail {
+  method: string;
+  path: string;
+  field: string;
+  requested: number;
+  answered: PartialWriteAnswer;
+}
+
+// The server answered success having written all but one field, so the request is neither a
+// failure nor a success; repeating it rewrites what landed and still leaves the field as it was.
+export class PartialWriteError extends MetabaseError {
+  readonly category = "partial-write";
+  readonly isRetryable = false;
+  readonly developerDetail: PartialWriteDetail;
+
+  constructor(message: string, developerDetail: PartialWriteDetail) {
+    super(message);
+    this.name = "PartialWriteError";
+    this.developerDetail = developerDetail;
   }
 }
 

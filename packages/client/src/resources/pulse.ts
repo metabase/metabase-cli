@@ -34,7 +34,6 @@ export function pulseResource(transport: Transport) {
     params: PulseListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Pulse>> {
-    await transport.require("pulse.list", options);
     const data = await transport.requestParsed(PulseApiList, "/api/pulse", {
       ...options,
       query: { dashboard_id: params.dashboard_id, archived: params.archived },
@@ -44,13 +43,16 @@ export function pulseResource(transport: Transport) {
 
   /** Get one dashboard subscription by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<Pulse> {
-    await transport.require("pulse.get", options);
     return transport.requestParsed(Pulse, `/api/pulse/${id}`, { ...options });
   }
 
-  /** Create a dashboard subscription — its cards and its delivery channels — from a full body. */
+  /**
+   * Create a dashboard subscription — its cards and its delivery channels — from a full body.
+   * Non-empty `parameters` need the `dashboard_subscription_filters` premium feature, and are
+   * refused before the wire without it.
+   */
   async function create(params: PulseCreateInput, options: RequestOptions = {}): Promise<Pulse> {
-    await transport.require("pulse.create", options);
+    await requireSubscriptionFilters(params.parameters, options);
     return transport.requestParsed(Pulse, "/api/pulse", {
       ...options,
       method: "POST",
@@ -58,13 +60,16 @@ export function pulseResource(transport: Transport) {
     });
   }
 
-  /** Update a dashboard subscription by id, carrying the server-defaulted flags forward. */
+  /**
+   * Update a dashboard subscription by id, carrying the server-defaulted flags forward. Non-empty
+   * `parameters` are refused as on `create`.
+   */
   async function update(
     id: number,
     params: PulseUpdateInput,
     options: RequestOptions = {},
   ): Promise<Pulse> {
-    await transport.require("pulse.update", options);
+    await requireSubscriptionFilters(params.parameters, options);
     const current = await get(id, options);
     return transport.requestParsed(Pulse, `/api/pulse/${id}`, {
       ...options,
@@ -78,8 +83,18 @@ export function pulseResource(transport: Transport) {
    * update, and disables each of the subscription's channels as a side effect.
    */
   async function archive(id: number, options: RequestOptions = {}): Promise<Pulse> {
-    await transport.require("pulse.archive", options);
     return update(id, { archived: true }, options);
+  }
+
+  // A server without the feature stores `parameters` without complaint but sends the dashboard's
+  // own filter values, so an audience meant to get one slice would get every row the dashboard shows.
+  async function requireSubscriptionFilters(
+    parameters: PulseCreateInput["parameters"],
+    options: RequestOptions,
+  ): Promise<void> {
+    if (parameters !== undefined && parameters.length > 0) {
+      await transport.requireFeatures(["dashboardSubscriptionFilters"], options);
+    }
   }
 
   return { list, get, create, update, archive };

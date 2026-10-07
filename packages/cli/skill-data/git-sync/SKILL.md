@@ -15,7 +15,7 @@ This skill covers the import/export workflow. Flag conventions and auth setup li
 
 ## Precondition: read state before mutating
 
-Always run `status` (or `is-dirty` + `has-remote-changes`) before `import` or `export`. Importing on a dirty instance silently rejects unless you pass `--force`.
+Always run `status` (or the individual checks below) before `import` or `export`. Importing on a dirty instance silently rejects unless you pass `--force`.
 
 <!-- requires: remoteSyncMerge -->
 
@@ -26,10 +26,17 @@ Exporting after the remote moved on ends in a `conflict` task unless the export 
 ```bash
 mb git-sync status              --profile <n> --json   # → branch, dirty, current task
 mb git-sync is-dirty            --profile <n> --json   # → {is_dirty: bool}; instance has unexported changes
-mb git-sync has-remote-changes  --profile <n> --json   # → {has_changes: bool, remote_version, local_version, cached}; remote has unimported commits
 mb git-sync dirty               --profile <n> --json   # → list the dirty objects
 mb git-sync current-task        --profile <n> --json   # → in-flight task (or idle)
 ```
+
+<!-- requires: remoteSyncRemoteChanges -->
+
+```bash
+mb git-sync has-remote-changes  --profile <n> --json   # → {has_changes: bool, remote_version, local_version, cached}; remote has unimported commits
+```
+
+<!-- /requires -->
 
 **Clean up before exporting.** If you've created entities you intend to delete (a failed transform you're going to retry, a card you authored to test a body shape, a draft dashboard) — do the deletes _before_ the first `git-sync export`. Once committed, the cleanup needs a second commit, and the failed entity stays visible in `git log` forever. For transforms, prefer `transform update <id>` over delete + create (see the `transform` skill).
 
@@ -53,8 +60,13 @@ Pulls the configured branch and applies it to the instance. Polls until the task
 Workflow:
 
 1. Read state (above) — confirm `is_dirty: false` (or `--force` is intended).
-2. Confirm `has-remote-changes` reports `has_changes: true` — there's actually something to import.
-3. `git-sync import --branch <branch>` — runs to terminal status by default.
+2. `git-sync import --branch <branch>` — runs to terminal status by default.
+
+<!-- requires: remoteSyncRemoteChanges -->
+
+Between the two, confirm `has-remote-changes` reports `has_changes: true` — there's actually something to import.
+
+<!-- /requires -->
 
 <!-- requires: remoteSyncMerge -->
 
@@ -110,17 +122,29 @@ mb git-sync export-preflight --profile <n> --json   # → {has_changes, clean, c
 
 A dry run against the live remote branch, writing nothing. Read it between the state check and the export, and decide from the fields:
 
-| Answer                              | Meaning                                                                                                                                                                     | Move                                                                                                                                                                                                                                                                                                                                                                                                               |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `has_changes: false`                | The remote has not moved past the last sync, or nothing has been synced yet — and then `force_push_casualties` is empty whatever the remote holds.                          | `export -m "..."` applies as-is. Don't read empty casualties on a never-synced instance as leave to `--force`.                                                                                                                                                                                                                                                                                                     |
-| `has_changes: true`, `reason: null` | The remote moved on. `clean` says whether a three-way merge would apply; `conflicts` names the entities changed on both sides; `summary` counts what a merge would fold in. | `clean: true`: `export --merge -m "..."`. `clean: false`: the conflicts need the user's call — `create-branch <name>` then `export -m "..."` pushes Metabase's side to a new branch and leaves the old one untouched, `import --force` takes the remote's side, `export --force` takes Metabase's. A plain `export` ends in a `conflict` task, and so does `stash`: its new branch starts at the moved remote tip. |
-| `reason: "history-rewritten"`       | The remote was force-pushed or rebased, so there is no merge base.                                                                                                          | Only `export --force` can push, and only with the user's explicit go-ahead; `force_push_casualties` is exactly what it would delete or overwrite.                                                                                                                                                                                                                                                                  |
+| Answer                              | Meaning                                                                                                                                                                     | Move                                                                                                                                                                                                                                                                    |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `has_changes: false`                | The remote has not moved past the last sync, or nothing has been synced yet — and then `force_push_casualties` is empty whatever the remote holds.                          | `export -m "..."` applies as-is. Don't read empty casualties on a never-synced instance as leave to `--force`.                                                                                                                                                          |
+| `has_changes: true`, `reason: null` | The remote moved on. `clean` says whether a three-way merge would apply; `conflicts` names the entities changed on both sides; `summary` counts what a merge would fold in. | `clean: true`: `export --merge -m "..."`. `clean: false`: the conflicts need the user's call between the three options under "After a `conflict` task". A plain `export` ends in a `conflict` task, and so does `stash`: its new branch starts at the moved remote tip. |
+| `reason: "history-rewritten"`       | The remote was force-pushed or rebased, so there is no merge base.                                                                                                          | Only `export --force` can push, and only with the user's explicit go-ahead; `force_push_casualties` is exactly what it would delete or overwrite.                                                                                                                       |
 
-`force_push_casualties` is reported on every answer: it is the remote content a force push would discard instead of merging, so read it before ever passing `--force`. It is empty when nothing has been synced yet, yet `export --force` then replaces the remote's managed directories wholesale: check the remote before forcing a first export. `--branch` defaults to the tracked `remote-sync-branch`; the server rejects any other branch with a 409 naming the current one, so pass it only to assert the branch you believe is tracked.
+`force_push_casualties` is reported on every answer: it is the remote content a force push would discard instead of merging, so read it before ever passing `--force`. It is empty when nothing has been synced yet, yet `export --force` then replaces the remote's managed directories wholesale: check the remote before forcing a first export.
+
+Read the preflight before every export: an export that finds the divergence itself ends in `conflict`, and after that these fields can't be trusted (below).
 
 ### After a `conflict` task
 
-A task that ends in `conflict` makes the server count the remote commit it saw as synced. From then on `has-remote-changes` and `export-preflight` report nothing pending, and a retried `export`, `export --merge` or `import --merge` succeeds without bringing the remote's changes into Metabase; a full re-export can then remove them from the remote. So read `export-preflight` before exporting rather than letting an export find the divergence, and never answer a conflict with a retry: take the user's call between `import --force` (the remote's side), `export --force` (Metabase's side) and `create-branch <name>` then `export` (Metabase's side on a new branch).
+Never answer a conflict with a retry. A task that ends in `conflict` may make the server count the remote commit it saw as synced; the server version does not say whether it does. If it does, `has-remote-changes` and `export-preflight` report nothing pending, `force_push_casualties` comes back empty, and a retried `export`, `export --merge` or `import --merge` succeeds without bringing the remote's changes into Metabase; a later full or forced export can then overwrite them on the remote. So don't decide from those reads. Take the user's call between:
+
+- **The remote's side:** `import --force`. Discards Metabase's un-pushed work.
+- **Metabase's side:** `export --force`. Overwrites the remote, and its casualties can't be previewed after a conflict: show the user the remote's commits since the last export in git first.
+- **Both, through a reviewed PR:**
+  1. Note the tracked branch from `mb git-sync status --json` (`branch`): this is `<original>`.
+  2. `mb git-sync create-branch <name>`
+  3. `mb git-sync export -m "..."`
+  4. `mb git-sync import --force`, which reloads the instance from `<name>`.
+  5. Open a PR from `<name>` into `<original>` and review its diff before it merges. If the server counted the conflict as synced, `<name>` starts at the remote's tip, so the PR can undo the remote's edits to the conflicting entities without a git conflict: restore any such edit in the PR.
+  6. Once the PR merges, `mb git-sync import --branch <original>` tracks the original branch again and loads the merged result.
 
 <!-- /requires -->
 
@@ -169,7 +193,7 @@ mb git-sync remove-collection <collection-id> --profile <n> --json
 
 `<collection-id>` is a **positive integer** (the bulk endpoint's schema is `pos-int? → boolean`; nano-id / `root` / `trash` refs are not supported). Get the id from `collection list` (see `core`).
 
-Both verbs return `{ success: true, task_id?: <id> }`. The optional `task_id` only appears when the toggle triggered a follow-up task (e.g., a finalization import after switching to read-only mode); for a normal add/remove in read-write, expect `{ success: true }` and nothing else.
+Both verbs return `{ success: true }`, plus a `task_id` only when the toggle started a follow-up task (e.g. a finalization import after switching to read-only).
 
 **Cascade.** A toggle on a parent cascades to every descendant by `location` prefix — `add-collection 4` flips `4` plus every collection nested under it. `remove-collection 4` is the symmetric inverse. There is no per-leaf-only mode.
 
@@ -182,6 +206,32 @@ mb setting set remote-sync-type '"read-write"' --profile <n>
 (`setting set` parses the value as strict JSON — mind the inner double quotes; see `core`.) The server also rejects switching to `:read-only` while the Remote Sync collection is dirty; export or `--force` import first if you're going the other way.
 
 **Verifying the result.** `mb git-sync status --profile <n> --json` lists the flagged collections under `synced_collections`, and `mb collection get <id> --json` shows the per-collection `is_remote_synced` flag.
+
+## Moving content into or out of a synced collection
+
+When remote sync is configured and the content is meant to be versioned, create it in the synced collection from the start. Nothing reaches git until `git-sync export`, and "Clean up before exporting" covers the drafts.
+
+Synced content may only depend on synced content. Creating a card, dashboard, document, or collection in a synced collection, moving one in, or updating one inside it walks its dependencies, and the server refuses with 400 `Uses content that is not remote synced.` if any of them sits outside sync scope. What counts as a dependency:
+
+- **Card:** the cards it is built on (source model, question, or metric), cards referenced as `{{#id}}` in native SQL, the card behind a filter's value source (`values_source_config.card_id`), and snippets — a snippet counts as synced only when the Library is.
+- **Dashboard:** every dashcard's card, `series` cards, cards in parameter mappings and parameter value sources, actions, and the cards and dashboards a link card points to.
+- Warehouse tables never count: a card on a raw table moves freely.
+
+Three ways through:
+
+1. **Bottom-up.** Move the sources first — models, then metrics, then the questions built on them — and the dashboard last. `card update <id> --body '{"collection_id":<synced-id>}'`, then `dashboard update <id> --body '{"collection_id":<synced-id>}'`.
+2. **The whole containing collection.** `mb collection update <id> --parent-id <synced-id>` checks once, after the whole subtree has moved, so references inside the subtree pass.
+3. **Dashboard questions.** A card created with `dashboard_id` (and the dashboard's `collection_id`) moves with its dashboard in the same transaction, so it never blocks the move.
+
+The reverse holds too: archiving something, or moving it out of sync scope, is refused with 400 `Used by remote synced content.` while synced content still depends on it. The error names the dependents by model and id (`Used by remote synced content: Card 12, Dashboard 3. …`); move or archive those first, or leave the dependency in place.
+
+Reading the inbound refusal: the error lists the blocking content as bare ids with no model type (`Uses content that is not remote synced: ids 412, 77. …`) — these are the dependencies to move first. Most are cards (`mb card get <id>`); otherwise try `mb dashboard get <id>` or `mb snippet get <id>`, and match the name against the content you meant to move.
+
+<!-- requires: dependencyGraph -->
+
+To plan the order before the first move, `mb dependency graph dashboard <id> --json` (or `card <id>`) lists everything the entity reads from; every card and snippet node outside the synced collection moves first.
+
+<!-- /requires -->
 
 <!-- requires: library -->
 
@@ -203,11 +253,11 @@ Flagging the collection records it for the next export, which serializes its cur
 
 ## Don't (git-sync-specific)
 
-- Don't turn instance-side changes into hand-written repo files. When the changes were made against the instance, export them (`stash` / `create-branch` + `export`) and PR the exported branch; reconstructing them as YAML by hand — or pushing files in paths/formats the serializer doesn't own — produces content that never applies on import, and pushing behind Metabase's back races its own sync tasks. Hand-editing YAML belongs to the repo-first workflow, in the serialized layout the repo already uses.
+- Don't turn instance-side changes into hand-written repo files: export them and PR the exported branch (see the top of this skill). Files pushed behind Metabase's back race its own sync tasks.
 - Don't conclude from an empty `dirty` list that a change type isn't tracked. Dirty-tracking only records changes to _eligible_ objects; the usual cause is scope (the collection isn't flagged — see "Published table metadata"), not capability. Check `synced_collections` in `status` before concluding.
 - Don't run `git-sync import --force` or `git-sync export --force` without explicit user confirmation. Both are lossy — `--force` import discards instance-side work, `--force` export overwrites the remote branch.
 - Don't drive `git-sync` against a Metabase instance that doesn't have remote-sync configured — every verb returns an error pointing at the missing `remote-sync-*` settings. To check: `mb setting get remote-sync-url --profile <n> --json`.
 - Don't author content directly via `card create` / `transform create` and then assume `git-sync export` will commit it cleanly — the instance and repo can drift if you mix direct API writes with sync-tracked changes. If you do, follow direct writes immediately with `git-sync export -m "..."` to keep them in step.
+- Don't move a dashboard or question into a synced collection before what it depends on, and don't retry a `Uses content that is not remote synced.` refusal unchanged. Move the listed dependencies first, move the whole containing collection, or build the content in the synced collection to begin with (see "Moving content into or out of a synced collection").
 - Don't omit `-m` on `export` if the user wants a meaningful commit message — the default server-generated message is generic.
-- Don't `git-sync export` to `main`/`master` without explicit user confirmation — sync work is conventionally on a feature branch. See "Branch guard" above.
 - Don't reach for `mb setting set` to mark a collection as remote-synced — that endpoint writes single-key settings, not the bulk `collections` map. Use `mb git-sync add-collection <id>` / `mb git-sync remove-collection <id>` (above), and remember the toggle cascades to descendants.

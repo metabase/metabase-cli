@@ -9,12 +9,16 @@ import { HttpError } from "../http/errors";
 import type { ClientCredentials } from "../http/transport";
 import {
   captureFetch,
+  type FetchScript,
   jsonResponse,
+  premiumRefusalResponse,
+  probeResponse,
+  routeMissingResponse,
   TEST_USER_AGENT,
   thrownBy,
-  type FetchScript,
 } from "../testing/fetch-capture";
-import { CapabilityError } from "../version/preflight-error";
+import { CapabilityError } from "../version/capability-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -246,8 +250,11 @@ describe("transform-test resource wire requests", () => {
     expect(error.specificFieldErrors).toEqual({ name: "should be at least 1 character" });
   });
 
-  it("refuses before the wire on a server older than the route, whatever its token grants", async () => {
-    const { mb, capture } = clientOver([], LICENSED_64);
+  it("explains an unrouted call on a server older than the route, whatever its token grants", async () => {
+    const { mb, capture } = clientOver(
+      [routeMissingResponse(), probeResponse(LICENSED_64)],
+      LICENSED_64,
+    );
 
     const error = await thrownBy(() => mb.transformTest.list());
 
@@ -261,11 +268,17 @@ describe("transform-test resource wire requests", () => {
       tokenFeature: "transforms-testing",
       serverVersion: "v1.64.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/transform-test",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 
-  it("refuses a server without the token feature before any request leaves", async () => {
-    const { mb, capture } = clientOver([], UNLICENSED_SERVER);
+  it("explains a premium refusal as the missing transforms-testing token", async () => {
+    const { mb, capture } = clientOver(
+      [premiumRefusalResponse("Transforms testing"), probeResponse(UNLICENSED_SERVER)],
+      UNLICENSED_SERVER,
+    );
 
     const error = await thrownBy(() => mb.transformTest.list());
 
@@ -282,6 +295,9 @@ describe("transform-test resource wire requests", () => {
       tokenFeature: "transforms-testing",
       serverVersion: "v1.65.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/transform-test",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 });

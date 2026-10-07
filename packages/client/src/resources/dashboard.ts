@@ -77,7 +77,6 @@ export function dashboardResource(transport: Transport) {
     params: DashboardListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Dashboard>> {
-    await transport.require("dashboard.list", options);
     const data = await transport.requestParsed(DashboardApiList, "/api/dashboard", {
       ...options,
       query: { f: params.f },
@@ -87,7 +86,6 @@ export function dashboardResource(transport: Transport) {
 
   /** Get one dashboard by id, with its dashcards, tabs and parameters. */
   async function get(id: number, options: RequestOptions = {}): Promise<DashboardDetail> {
-    await transport.require("dashboard.get", options);
     return transport.requestParsed(DashboardDetail, `/api/dashboard/${id}`, { ...options });
   }
 
@@ -99,7 +97,6 @@ export function dashboardResource(transport: Transport) {
     params: DashboardCreateInput,
     options: RequestOptions = {},
   ): Promise<Dashboard> {
-    await transport.require("dashboard.create", options);
     return transport.requestParsed(Dashboard, "/api/dashboard", {
       ...options,
       method: "POST",
@@ -116,7 +113,6 @@ export function dashboardResource(transport: Transport) {
     params: DashboardUpdateInput,
     options: RequestOptions = {},
   ): Promise<DashboardDetail> {
-    await transport.require("dashboard.update", options);
     return transport.requestParsed(DashboardDetail, `/api/dashboard/${id}`, {
       ...options,
       method: "PUT",
@@ -139,7 +135,6 @@ export function dashboardResource(transport: Transport) {
     params: DashboardCopyInput = {},
     options: RequestOptions = {},
   ): Promise<DashboardCopy> {
-    await transport.require("dashboard.copy", options);
     return transport.requestParsed(DashboardCopy, `/api/dashboard/${id}/copy`, {
       ...options,
       method: "POST",
@@ -153,7 +148,6 @@ export function dashboardResource(transport: Transport) {
    * an archive is a state change on the dashboard itself, and its dashcards are not part of it.
    */
   async function archive(id: number, options: RequestOptions = {}): Promise<Dashboard> {
-    await transport.require("dashboard.archive", options);
     return transport.requestParsed(Dashboard, `/api/dashboard/${id}`, {
       ...options,
       method: "PUT",
@@ -172,7 +166,6 @@ export function dashboardResource(transport: Transport) {
     params: DashcardPatchInput,
     options: RequestOptions = {},
   ): Promise<Dashcard> {
-    await transport.require("dashboard.updateDashcard", options);
     const dashboard = await get(dashboardId, options);
     const target = dashboard.dashcards.find((dashcard) => dashcard.id === dashcardId);
     if (target === undefined) {
@@ -202,7 +195,6 @@ export function dashboardResource(transport: Transport) {
     dashcards: ReadonlyArray<unknown> | null | undefined,
     options: RequestOptions = {},
   ): Promise<DashcardCardIssue[]> {
-    await transport.require("dashboard.checkCardReferences", options);
     const grouped = groupByCardId(collectCardReferences(dashcards));
     const checks = await Promise.all(
       Array.from(grouped.entries()).map(
@@ -237,7 +229,7 @@ export function dashboardResource(transport: Transport) {
       if (error.kind === "resource-missing") {
         return { reason: "missing" };
       }
-      if (error.kind === "auth") {
+      if (error.kind === "auth" || error.kind === "forbidden") {
         return { reason: "unreadable", detail: error.userMessage };
       }
       throw error;
@@ -252,7 +244,6 @@ export function dashboardResource(transport: Transport) {
     parameterId: string,
     options: RequestOptions = {},
   ): Promise<ParameterValues> {
-    await transport.require("dashboard.parameterValues", options);
     return transport.requestParsed(
       ParameterValues,
       `/api/dashboard/${dashboardId}/params/${encodeURIComponent(parameterId)}/values`,
@@ -270,7 +261,6 @@ export function dashboardResource(transport: Transport) {
     query: string,
     options: RequestOptions = {},
   ): Promise<ParameterValues> {
-    await transport.require("dashboard.searchParameterValues", options);
     const parameter = encodeURIComponent(parameterId);
     return transport.requestParsed(
       ParameterValues,

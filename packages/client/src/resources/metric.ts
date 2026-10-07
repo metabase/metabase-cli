@@ -5,6 +5,7 @@ import {
   MetricDimensionListing,
 } from "../domain/metric";
 import type { RequestOptions, Transport } from "../http/transport";
+import { explainer } from "../version/refusal";
 
 export interface MetricDimensionListParams {
   query?: string | undefined;
@@ -14,6 +15,8 @@ export interface MetricDimensionListParams {
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function metricResource(transport: Transport) {
+  const { explain } = explainer(transport, "metric");
+
   /**
    * Run a metric definition and return the query result envelope: one metric or measure, or an
    * arithmetic expression over several, each leaf filtered and projected on its own `lib/uuid`.
@@ -22,7 +25,6 @@ export function metricResource(transport: Transport) {
     definition: MetricDefinition,
     options: RequestOptions = {},
   ): Promise<CardQueryResult> {
-    await transport.require("metric.query", options);
     return transport.requestParsed(CardQueryResult, "/api/metric/dataset", {
       ...options,
       method: "POST",
@@ -38,7 +40,6 @@ export function metricResource(transport: Transport) {
     definition: MetricDefinition,
     options: RequestOptions = {},
   ): Promise<MetricBreakoutValues> {
-    await transport.require("metric.breakoutValues", options);
     return transport.requestParsed(MetricBreakoutValues, "/api/metric/breakout-values", {
       ...options,
       method: "POST",
@@ -55,7 +56,6 @@ export function metricResource(transport: Transport) {
     params: MetricDimensionListParams = {},
     options: RequestOptions = {},
   ): Promise<MetricDimensionListing> {
-    await transport.require("metric.dimensions", options);
     return transport.requestParsed(MetricDimensionListing, `/api/metric/${id}/dimension`, {
       ...options,
       query: {
@@ -66,5 +66,9 @@ export function metricResource(transport: Transport) {
     });
   }
 
-  return { query, breakoutValues, dimensions };
+  return {
+    query: explain("query", query),
+    breakoutValues: explain("breakoutValues", breakoutValues),
+    dimensions: explain("dimensions", dimensions),
+  };
 }

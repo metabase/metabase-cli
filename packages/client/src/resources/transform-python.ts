@@ -9,6 +9,7 @@ import {
   type PythonTestRunResult,
 } from "../domain/transform-python";
 import type { RequestOptions, Transport } from "../http/transport";
+import { explainer } from "../version/refusal";
 
 // The two answers a test run gives share only `logs`, so each is told apart by the key only it
 // carries.
@@ -26,9 +27,10 @@ function libraryPath(path: string): string {
 }
 
 export function transformPythonResource(transport: Transport) {
+  const { explain } = explainer(transport, "transformPython");
+
   /** Get the Python library at a path, the user module every Python transform can import. */
   async function getLibrary(path: string, options: RequestOptions = {}): Promise<PythonLibrary> {
-    await transport.require("transformPython.getLibrary", options);
     return transport.requestParsed(PythonLibrary, libraryPath(path), { ...options });
   }
 
@@ -38,7 +40,6 @@ export function transformPythonResource(transport: Transport) {
     params: PythonLibraryUpdateInput,
     options: RequestOptions = {},
   ): Promise<PythonLibrary> {
-    await transport.require("transformPython.updateLibrary", options);
     return transport.requestParsed(PythonLibrary, libraryPath(path), {
       ...options,
       method: "PUT",
@@ -55,7 +56,6 @@ export function transformPythonResource(transport: Transport) {
     params: PythonTestRunInput,
     options: RequestOptions = {},
   ): Promise<PythonTestRunResult> {
-    await transport.require("transformPython.testRun", options);
     return transport.requestParsed(PythonApiTestRun, "/api/ee/transforms-python/test-run", {
       ...options,
       method: "POST",
@@ -63,5 +63,9 @@ export function transformPythonResource(transport: Transport) {
     });
   }
 
-  return { getLibrary, updateLibrary, testRun };
+  return {
+    getLibrary: explain("getLibrary", getLibrary),
+    updateLibrary: explain("updateLibrary", updateLibrary),
+    testRun: explain("testRun", testRun),
+  };
 }

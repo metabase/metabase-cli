@@ -3,8 +3,14 @@ import { describe, expect, it } from "vitest";
 import { createClient } from "../client";
 import type { DataActionCreateInput } from "../domain/data-action";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, jsonResponse, TEST_USER_AGENT } from "../testing/fetch-capture";
-import { CapabilityError } from "../version/preflight-error";
+import {
+  captureFetch,
+  jsonResponse,
+  probeResponse,
+  TEST_USER_AGENT,
+} from "../testing/fetch-capture";
+import { CapabilityError } from "../version/capability-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -143,11 +149,20 @@ describe("data action resource wire requests", () => {
     ]);
   });
 
-  it("refuses create on a server whose data actions need a model, before any request", async () => {
-    const { mb, capture } = clientOver([], V64_SERVER);
+  it("explains a create rejected by a server whose data actions need a model", async () => {
+    const { mb, capture } = clientOver(
+      [
+        jsonResponse({ errors: { model_id: "value must be an integer greater than zero." } }, 400),
+        probeResponse(V64_SERVER),
+      ],
+      V64_SERVER,
+    );
 
     await expect(mb.dataAction.create(CREATE_BODY)).rejects.toBeInstanceOf(CapabilityError);
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/action",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 
   it("sends the update request with only the patched fields", async () => {

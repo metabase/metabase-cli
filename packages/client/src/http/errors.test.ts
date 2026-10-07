@@ -151,9 +151,42 @@ describe("HttpError message extraction", () => {
     );
   });
 
-  it("emits an auth message with the host for 403 with no body", () => {
+  it("calls a 403 with no body a refusal, not a bad key, since Metabase identified the user", () => {
     expect(buildHttpError({ status: 403, rawBody: null }).message).toBe(
-      "Invalid or unauthorized API key (host: example.invalid).",
+      "The request was refused (403): the signed-in user is not allowed to do this.",
+    );
+  });
+
+  it("names Metabase's reason for a 403 with a text/plain body instead of blaming the key", () => {
+    const refused = buildHttpError({
+      status: 403,
+      responseHeaders: textHeaders(),
+      rawBody: "A table with that name already exists.",
+    });
+    expect(refused.message).toBe("A table with that name already exists.");
+    expect(refused.kind).toBe("forbidden");
+  });
+
+  it("keeps the key message for a 401 whose text/plain body is only Unauthenticated", () => {
+    expect(
+      buildHttpError({ status: 401, responseHeaders: textHeaders(), rawBody: "Unauthenticated" })
+        .message,
+    ).toBe("Invalid or unauthorized API key (host: example.invalid).");
+  });
+
+  it("names Metabase's reason for a 409 with a text/plain body", () => {
+    expect(
+      buildHttpError({
+        status: 409,
+        responseHeaders: textHeaders(),
+        rawBody: "A table with that name already exists.",
+      }).message,
+    ).toBe("A table with that name already exists.");
+  });
+
+  it("calls a 409 with no body a conflict", () => {
+    expect(buildHttpError({ status: 409, rawBody: null }).message).toBe(
+      "The request was refused (409): it conflicts with what already exists.",
     );
   });
 
@@ -309,9 +342,16 @@ describe("HttpError field errors", () => {
 });
 
 describe("HttpError kind classification", () => {
-  it("classifies 401 and 403 as auth", () => {
+  it("classifies 401 as auth: the credential was not accepted", () => {
     expect(buildHttpError({ status: 401 }).kind).toBe("auth");
-    expect(buildHttpError({ status: 403 }).kind).toBe("auth");
+  });
+
+  it("classifies 403 as forbidden: the user was identified and refused", () => {
+    expect(buildHttpError({ status: 403 }).kind).toBe("forbidden");
+  });
+
+  it("classifies 409 as conflict", () => {
+    expect(buildHttpError({ status: 409 }).kind).toBe("conflict");
   });
 
   it("classifies 429 as rate-limit", () => {

@@ -3,9 +3,10 @@ import {
   missingTokenFeatureMessage,
   type RequirementFailure,
   versionTooOldMessage,
-} from "./preflight-error";
+} from "./capability-error";
 import { featureGap, type ServerProfile } from "./profile";
 import { describeVersion } from "./tag";
+
 /** The first of `features` the profile lacks, or `null` when it has every one. */
 export function checkFeatures(
   features: readonly FeatureName[],
@@ -18,6 +19,43 @@ export function checkFeatures(
     }
   }
   return null;
+}
+
+/**
+ * The verdict that the profile has `feature`, which takes the value `detail` describes out of the
+ * server's vocabulary, or `null` when the profile lacks it.
+ */
+export function supersedingFeature(
+  feature: FeatureName,
+  profile: ServerProfile,
+  detail: string,
+): RequirementFailure | null {
+  if (featureGap(profile, feature) !== null) {
+    return null;
+  }
+  const rule: FeatureRule = FEATURE_RULES[feature];
+  return {
+    reason: "superseded-by-feature",
+    detail,
+    feature,
+    since: rule.since,
+    tokenFeature: rule.tokenFeature ?? null,
+    serverVersion: profile.version.tag,
+  };
+}
+
+/**
+ * Every one of `features` the profile lacks, each once and in the order given, so a caller that
+ * goes on past the first still hears of the rest.
+ */
+export function featureFailures(
+  features: readonly FeatureName[],
+  profile: ServerProfile,
+): RequirementFailure[] {
+  return [...new Set(features)].flatMap((feature) => {
+    const failure = checkFeatures([feature], profile);
+    return failure === null ? [] : [failure];
+  });
 }
 
 function describeGap(

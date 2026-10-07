@@ -73,7 +73,9 @@ export async function verifyAndProbe(
 
 function failure(error: unknown, which: VerifyWhich): VerifyFailure {
   if (error instanceof HttpError) {
-    const kind = error.status === 401 || error.status === 403 ? "auth" : "server";
+    // Only a 401 is a credential Metabase did not take; a 403 here comes from whatever answered
+    // instead of Metabase, which serves every identified user their own record.
+    const kind = error.kind === "auth" ? "auth" : "server";
     return {
       ok: false,
       which,

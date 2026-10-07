@@ -1,13 +1,14 @@
 import { z } from "zod";
 
 import { type ExportFormat, PivotExportFormat } from "../domain/query";
+import { SessionProperties } from "../domain/session-properties";
 import { ConfigError } from "../errors";
 import type { RequestOptions, Transport } from "../http/transport";
-import { PROBE_PATH } from "../version/probe";
 
 // The session properties carry every setting the caller may read; the check needs only this one,
-// which every signed-in user may read.
-const PivotedExportsSetting = z.object({ "enable-pivoted-exports": z.boolean() });
+// which every signed-in user may read. They are read as a probe, so the export's own features and a
+// refusal's explanation that follow need no request of their own.
+const PivotedExportsProperty = SessionProperties.extend({ "enable-pivoted-exports": z.boolean() });
 
 /**
  * Refuse a pivoted export the server would answer with plain rows: a JSON export keeps only the
@@ -23,10 +24,8 @@ export async function assertPivotedExport(
       `a ${format} export cannot be pivoted; only ${PivotExportFormat.options.join(" and ")} can`,
     );
   }
-  const setting = await transport.requestParsed(PivotedExportsSetting, PROBE_PATH, {
-    ...options,
-  });
-  if (!setting["enable-pivoted-exports"]) {
+  const properties = await transport.probe(PivotedExportsProperty, options);
+  if (!properties["enable-pivoted-exports"]) {
     throw new ConfigError(
       "the server has pivoted exports turned off (the enable-pivoted-exports setting), so it would export the plain rows",
     );

@@ -196,6 +196,12 @@ function describeKind(kind: HttpErrorKind): string {
     case "auth": {
       return "the credential was rejected";
     }
+    case "forbidden": {
+      return "the user was identified and the request refused";
+    }
+    case "conflict": {
+      return "the request conflicts with existing state";
+    }
     case "rate-limit": {
       return "the caller is sending too fast";
     }
@@ -291,6 +297,8 @@ describe("@metabase/client barrel as a consumer surface", () => {
       fieldErrors: null,
       specificFieldErrors: null,
       errorCode: null,
+      nonRemoteSyncedDependencies: null,
+      remoteSyncedDependents: null,
     });
   });
 

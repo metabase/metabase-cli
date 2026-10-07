@@ -210,6 +210,20 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
+// One read-modify-write of the profiles file at a time within this process: a probe saved while a
+// token refresh runs would otherwise rename back a file it read before the rotated token landed,
+// and the two would share one temp path.
+let profilesFileQueue: Promise<unknown> = Promise.resolve();
+
+function exclusively<T>(update: () => Promise<T>): Promise<T> {
+  const result = profilesFileQueue.then(update);
+  profilesFileQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
 async function writeProfilesFile(file: ProfilesFile): Promise<void> {
   const path = profilesFilePath();
   if (file.profiles.length === 0) {
@@ -220,7 +234,7 @@ async function writeProfilesFile(file: ProfilesFile): Promise<void> {
   await fs.mkdir(dirname(path), { recursive: true, mode: PROFILES_DIR_MODE });
   // Write to a per-process temp file and atomically rename it into place. A crash or a concurrent
   // writer can then never leave a half-written profiles.json — which readProfilesFile would treat
-  // as corrupt and discard, silently wiping every stored profile. (A concurrent writer may still
+  // as corrupt and discard, silently wiping every stored profile. (Another process may still
   // overwrite a just-rotated token, but the client's reactive 401-refresh recovers that.)
   const tmpPath = `${path}.${process.pid}.tmp`;
   await fs.writeFile(tmpPath, JSON.stringify(file, null, 2) + "\n", { mode: PROFILES_FILE_MODE });
@@ -383,29 +397,31 @@ export async function writeProfile(
   profile: Profile,
   name: string = DEFAULT_PROFILE,
 ): Promise<CredentialLocation> {
-  const location = persistSecret(account.profileApiKey(name), profile.apiKey);
-  const inlineApiKey = location.backend === "file" ? profile.apiKey : null;
+  return exclusively(async () => {
+    const location = persistSecret(account.profileApiKey(name), profile.apiKey);
+    const inlineApiKey = location.backend === "file" ? profile.apiKey : null;
 
-  const file = await readProfilesFile();
-  const existing = findRecord(file, name);
-  // Switching a profile to an API key clears any prior OAuth credential it held.
-  flagResidualIfUnconfirmed(existing, "oauth", [
-    removeKeyringEntry(account.profileOAuthAccess(name)),
-    removeKeyringEntry(account.profileOAuthRefresh(name)),
-  ]);
-  const updated: ProfileRecord =
-    existing === null
-      ? {
-          name,
-          url: profile.url,
-          apiKey: inlineApiKey,
-          oauth: null,
-          lastProbe: null,
-          lastFailure: null,
-        }
-      : { ...existing, url: profile.url, apiKey: inlineApiKey, oauth: null };
-  await upsertRecord(file, name, updated);
-  return location;
+    const file = await readProfilesFile();
+    const existing = findRecord(file, name);
+    // Switching a profile to an API key clears any prior OAuth credential it held.
+    flagResidualIfUnconfirmed(existing, "oauth", [
+      removeKeyringEntry(account.profileOAuthAccess(name)),
+      removeKeyringEntry(account.profileOAuthRefresh(name)),
+    ]);
+    const updated: ProfileRecord =
+      existing === null
+        ? {
+            name,
+            url: profile.url,
+            apiKey: inlineApiKey,
+            oauth: null,
+            lastProbe: null,
+            lastFailure: null,
+          }
+        : { ...existing, url: profile.url, apiKey: inlineApiKey, oauth: null };
+    await upsertRecord(file, name, updated);
+    return location;
+  });
 }
 
 export async function writeOAuthProfile(
@@ -413,60 +429,66 @@ export async function writeOAuthProfile(
   credential: OAuthCredential,
   name: string = DEFAULT_PROFILE,
 ): Promise<CredentialLocation> {
-  const accessKey = account.profileOAuthAccess(name);
-  const refreshKey = account.profileOAuthRefresh(name);
-  const accessLocation = persistSecret(accessKey, credential.accessToken);
-  const refreshLocation = persistSecret(refreshKey, credential.refreshToken);
-  const onFile = accessLocation.backend === "file" || refreshLocation.backend === "file";
+  return exclusively(async () => {
+    const accessKey = account.profileOAuthAccess(name);
+    const refreshKey = account.profileOAuthRefresh(name);
+    const accessLocation = persistSecret(accessKey, credential.accessToken);
+    const refreshLocation = persistSecret(refreshKey, credential.refreshToken);
+    const onFile = accessLocation.backend === "file" || refreshLocation.backend === "file";
 
-  const oauth: ProfileOAuth = {
-    accessToken: onFile ? credential.accessToken : null,
-    refreshToken: onFile ? credential.refreshToken : null,
-    expiresAt: credential.expiresAt,
-    clientId: credential.clientId,
-  };
-  const file = await readProfilesFile();
-  const existing = findRecord(file, name);
-  // A credential that was keyring-backed but now lands on file (keychain hiccup during refresh) is
-  // a silent downgrade to plaintext — flag it so the command shell can warn.
-  if (onFile && existing !== null && sideIsKeyringBacked(existing, "oauth")) {
-    keyringDowngradeNotice = keyringFallbackWarning(fileLocation(accessKey));
-  }
-  // Switching a profile to OAuth clears any prior API key it held.
-  flagResidualIfUnconfirmed(existing, "apiKey", [removeKeyringEntry(account.profileApiKey(name))]);
-  const updated: ProfileRecord =
-    existing === null
-      ? { name, url, apiKey: null, oauth, lastProbe: null, lastFailure: null }
-      : { ...existing, url, apiKey: null, oauth };
-  await upsertRecord(file, name, updated);
-  return onFile
-    ? fileLocation(accessKey)
-    : { backend: "keyring", service: KEYRING_SERVICE, account: accessKey };
+    const oauth: ProfileOAuth = {
+      accessToken: onFile ? credential.accessToken : null,
+      refreshToken: onFile ? credential.refreshToken : null,
+      expiresAt: credential.expiresAt,
+      clientId: credential.clientId,
+    };
+    const file = await readProfilesFile();
+    const existing = findRecord(file, name);
+    // A credential that was keyring-backed but now lands on file (keychain hiccup during refresh) is
+    // a silent downgrade to plaintext — flag it so the command shell can warn.
+    if (onFile && existing !== null && sideIsKeyringBacked(existing, "oauth")) {
+      keyringDowngradeNotice = keyringFallbackWarning(fileLocation(accessKey));
+    }
+    // Switching a profile to OAuth clears any prior API key it held.
+    flagResidualIfUnconfirmed(existing, "apiKey", [
+      removeKeyringEntry(account.profileApiKey(name)),
+    ]);
+    const updated: ProfileRecord =
+      existing === null
+        ? { name, url, apiKey: null, oauth, lastProbe: null, lastFailure: null }
+        : { ...existing, url, apiKey: null, oauth };
+    await upsertRecord(file, name, updated);
+    return onFile
+      ? fileLocation(accessKey)
+      : { backend: "keyring", service: KEYRING_SERVICE, account: accessKey };
+  });
 }
 
 export async function writeProbeResult(
   name: string,
   input: ProbeWriteInput,
 ): Promise<ProfileLastProbe | null> {
-  const probe = ProfileLastProbe.parse({
-    at: new Date().toISOString(),
-    version: input.server.version,
-    edition: input.server.edition,
-    date: input.server.date,
-    hash: input.server.hash,
-    tokenFeatures: input.server.tokenFeatures,
-    user: input.user,
+  return exclusively(async () => {
+    const probe = ProfileLastProbe.parse({
+      at: new Date().toISOString(),
+      version: input.server.version,
+      edition: input.server.edition,
+      date: input.server.date,
+      hash: input.server.hash,
+      tokenFeatures: input.server.tokenFeatures,
+      user: input.user,
+    });
+    const file = await readProfilesFile();
+    const existing = findRecord(file, name);
+    if (existing === null) {
+      return null;
+    }
+    const profiles = file.profiles.map((entry) =>
+      entry.name === name ? { ...entry, lastProbe: probe, lastFailure: null } : entry,
+    );
+    await writeProfilesFile({ ...file, profiles });
+    return probe;
   });
-  const file = await readProfilesFile();
-  const existing = findRecord(file, name);
-  if (existing === null) {
-    return null;
-  }
-  const profiles = file.profiles.map((entry) =>
-    entry.name === name ? { ...entry, lastProbe: probe, lastFailure: null } : entry,
-  );
-  await writeProfilesFile({ ...file, profiles });
-  return probe;
 }
 
 interface ProbeFailureInput {
@@ -478,40 +500,44 @@ export async function writeProbeFailure(
   name: string,
   input: ProbeFailureInput,
 ): Promise<ProfileLastFailure | null> {
-  const failure = ProfileLastFailure.parse({
-    at: new Date().toISOString(),
-    kind: input.kind,
-    reason: input.reason,
+  return exclusively(async () => {
+    const failure = ProfileLastFailure.parse({
+      at: new Date().toISOString(),
+      kind: input.kind,
+      reason: input.reason,
+    });
+    const file = await readProfilesFile();
+    const existing = findRecord(file, name);
+    if (existing === null) {
+      return null;
+    }
+    const profiles = file.profiles.map((entry) =>
+      entry.name === name ? { ...entry, lastFailure: failure } : entry,
+    );
+    await writeProfilesFile({ ...file, profiles });
+    return failure;
   });
-  const file = await readProfilesFile();
-  const existing = findRecord(file, name);
-  if (existing === null) {
-    return null;
-  }
-  const profiles = file.profiles.map((entry) =>
-    entry.name === name ? { ...entry, lastFailure: failure } : entry,
-  );
-  await writeProfilesFile({ ...file, profiles });
-  return failure;
 }
 
 export async function clearProfile(name: string = DEFAULT_PROFILE): Promise<boolean> {
-  const file = await readProfilesFile();
-  const existing = findRecord(file, name);
-  const removals = [
-    removeKeyringEntry(account.profileApiKey(name)),
-    removeKeyringEntry(account.profileOAuthAccess(name)),
-    removeKeyringEntry(account.profileOAuthRefresh(name)),
-  ];
-  if (existing !== null) {
-    flagResidualIfUnconfirmed(existing, existing.oauth !== null ? "oauth" : "apiKey", removals);
-  }
-  if (existing === null) {
-    return false;
-  }
-  await writeProfilesFile({
-    ...file,
-    profiles: file.profiles.filter((entry) => entry.name !== name),
+  return exclusively(async () => {
+    const file = await readProfilesFile();
+    const existing = findRecord(file, name);
+    const removals = [
+      removeKeyringEntry(account.profileApiKey(name)),
+      removeKeyringEntry(account.profileOAuthAccess(name)),
+      removeKeyringEntry(account.profileOAuthRefresh(name)),
+    ];
+    if (existing !== null) {
+      flagResidualIfUnconfirmed(existing, existing.oauth !== null ? "oauth" : "apiKey", removals);
+    }
+    if (existing === null) {
+      return false;
+    }
+    await writeProfilesFile({
+      ...file,
+      profiles: file.profiles.filter((entry) => entry.name !== name),
+    });
+    return true;
   });
-  return true;
 }

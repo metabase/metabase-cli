@@ -151,7 +151,7 @@ describe("resolveCommonFlags — full result shape", () => {
       url: undefined,
       apiKey: undefined,
       profile: undefined,
-      skipPreflight: false,
+      skipPreflight: undefined,
     });
   });
 

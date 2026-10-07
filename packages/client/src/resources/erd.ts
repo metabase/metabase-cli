@@ -1,5 +1,6 @@
 import { Erd } from "../domain/erd";
 import type { RequestOptions, Transport } from "../http/transport";
+import { explainer } from "../version/refusal";
 
 const ERD_PATH = "/api/ee/erd";
 
@@ -10,6 +11,8 @@ export interface ErdParams {
 }
 
 export function erdResource(transport: Transport) {
+  const { explain } = explainer(transport, "erd");
+
   /**
    * Get the entity relationship diagram of a database: the readable tables as nodes, each with its
    * fields, and the foreign keys between them as edges. `table-ids` makes those tables the focal
@@ -17,7 +20,6 @@ export function erdResource(transport: Transport) {
    * none.
    */
   async function get(params: ErdParams, options: RequestOptions = {}): Promise<Erd> {
-    await transport.require("erd.get", options);
     return transport.requestParsed(Erd, ERD_PATH, {
       ...options,
       query: {
@@ -28,5 +30,5 @@ export function erdResource(transport: Transport) {
     });
   }
 
-  return { get };
+  return { get: explain("get", get) };
 }

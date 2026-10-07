@@ -1,5 +1,6 @@
 import type { ZodType } from "zod";
 
+import { ConfigError } from "../errors";
 import {
   type Transport,
   DEFAULT_METHOD,
@@ -8,8 +9,8 @@ import {
 } from "../http/transport";
 import { NO_SERVER_TAG, parseJsonResponse } from "../http/response-shape";
 import type { FeatureName } from "../version/features";
+import { PROBE_PATH } from "../version/probe";
 import type { ServerProfile } from "../version/profile";
-import type { MethodKey } from "../version/requirements";
 
 const FAKE_STATUS = 200;
 
@@ -49,32 +50,33 @@ export interface FakeClientPlan {
   readonly server?: ServerProfile;
 }
 
-// A key a resource method required, with how many requests the fake had already served by then —
-// zero proves the method asked before it reached for the wire.
-export interface FakeRequirement {
-  readonly key: MethodKey;
-  readonly precedingRequests: number;
-}
-
-// A feature list a method asked for because of a parameter it was given, recorded the same way.
+// A feature list a method asked for because of a parameter it was given, with how many requests the
+// fake had already served by then — zero proves the method asked before it reached for the wire.
 export interface FakeFeatureRequirement {
   readonly features: ReadonlyArray<FeatureName>;
   readonly precedingRequests: number;
 }
 
-// The fake records what a method required and never refuses: enforcement belongs to the real
-// transport and is proven there, so a resource test needs no profile to reach its wire assertions.
+// The fake records what a method required and never refuses: that belongs to the real transport and
+// is proven there, so a resource test needs no profile to reach its wire assertions. A refusal a
+// resource judged itself is thrown, as a transport whose caller skips none throws it. A failure is
+// explained for real against the plan's profile; without one the explaining probe fails short of an
+// interrupt, so the failure stands.
 export interface FakeClient {
   readonly client: Transport;
   readonly calls: ReadonlyArray<FakeClientCall>;
-  readonly required: ReadonlyArray<FakeRequirement>;
   readonly requiredFeatures: ReadonlyArray<FakeFeatureRequirement>;
 }
 
 export function createFakeClient(plan: FakeClientPlan = {}): FakeClient {
   const calls: FakeClientCall[] = [];
-  const required: FakeRequirement[] = [];
   const requiredFeatures: FakeFeatureRequirement[] = [];
+  const plannedServer = (): ServerProfile => {
+    if (plan.server === undefined) {
+      throw new Error("no server profile in fake client plan");
+    }
+    return plan.server;
+  };
   const client: Transport = {
     async requestParsed<T>(
       schema: ZodType<T>,
@@ -110,17 +112,27 @@ export function createFakeClient(plan: FakeClientPlan = {}): FakeClient {
       throw new Error("requestStream not implemented in fake client");
     },
     async server() {
+      return plannedServer();
+    },
+    async verifiedServer() {
       if (plan.server === undefined) {
-        throw new Error("no server profile in fake client plan");
+        throw new ConfigError("no server profile in fake client plan");
       }
       return plan.server;
     },
-    async require(key) {
-      required.push({ key, precedingRequests: calls.length });
+    async probe(reader) {
+      return client.requestParsed(reader, PROBE_PATH);
     },
     async requireFeatures(features) {
       requiredFeatures.push({ features, precedingRequests: calls.length });
     },
+    async preflightServer() {
+      return client.verifiedServer();
+    },
+    refuseBeforeSending(refusal) {
+      throw refusal;
+    },
+    async probesSettled() {},
   };
-  return { client, calls, required, requiredFeatures };
+  return { client, calls, requiredFeatures };
 }

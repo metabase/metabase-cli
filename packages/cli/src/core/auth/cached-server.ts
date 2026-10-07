@@ -32,6 +32,7 @@ type CachedProbeLookup = CachedProbeFound | CachedProbeMiss;
 interface CachedServerFound {
   kind: "found";
   profile: ServerProfile;
+  probedAt: string;
 }
 
 export type CachedServerProfile = CachedServerFound | CachedProbeMiss;
@@ -70,5 +71,5 @@ export async function readCachedServerProfile(profileName: string): Promise<Cach
   if (hit.kind !== "found") {
     return hit;
   }
-  return { kind: "found", profile: createServerProfile(hit.probe) };
+  return { kind: "found", profile: createServerProfile(hit.probe), probedAt: hit.probe.at };
 }

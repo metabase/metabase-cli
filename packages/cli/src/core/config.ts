@@ -15,13 +15,7 @@ import {
   readProfileRecord,
   writeOAuthProfile,
 } from "./auth/storage";
-import { ENV_API_KEY, ENV_PROFILE, ENV_SKIP_PREFLIGHT, ENV_URL, readEnv } from "./env";
-
-export const SKIP_PREFLIGHT_ENV = ENV_SKIP_PREFLIGHT;
-
-export function isPreflightSkipped(): boolean {
-  return readEnv(ENV_SKIP_PREFLIGHT) === "1";
-}
+import { ENV_API_KEY, ENV_PROFILE, ENV_URL, readEnv } from "./env";
 
 type ConfigSource = "flag" | "env" | "stored" | "mixed";
 

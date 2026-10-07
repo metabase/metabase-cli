@@ -4,8 +4,17 @@ import { createClient } from "../client";
 import { ConfigError } from "../errors";
 import { HttpError } from "../http/errors";
 import type { ClientCredentials } from "../http/transport";
-import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
-import { CapabilityError } from "../version/preflight-error";
+import {
+  captureFetch,
+  jsonResponse,
+  premiumRefusalResponse,
+  probeResponse,
+  routeMissingResponse,
+  TEST_USER_AGENT,
+  thrownBy,
+} from "../testing/fetch-capture";
+import { CapabilityError } from "../version/capability-error";
+import { PROBE_PATH } from "../version/probe";
 import { createServerProfile, type ServerProfile } from "../version/profile";
 
 const CREDENTIALS: ClientCredentials = {
@@ -86,6 +95,14 @@ const SERVER_WITH_PREFLIGHT = createServerProfile({
   tokenFeatures: { remote_sync: true },
 });
 
+const UNLICENSED_SERVER = createServerProfile({
+  edition: "ee",
+  version: { kind: "release", tag: "v1.63.0", major: 63, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: { remote_sync: false },
+});
+
 function clientOver(responses: Array<Response>, server: ServerProfile = SERVER) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
@@ -94,6 +111,30 @@ function clientOver(responses: Array<Response>, server: ServerProfile = SERVER) 
     server,
   });
   return { mb, capture };
+}
+
+const PROBE_URL = `https://mb.example.com/metabase${PROBE_PATH}`;
+
+const PROPERTIES_READ = { url: PROBE_URL, method: "GET", headers: JSON_READ_HEADERS, body: null };
+
+// The session properties `profile`'s server answers, carrying the settings in `settings`.
+function sessionProperties(settings: object, profile: ServerProfile = SERVER): Response {
+  return jsonResponse({ version: { tag: profile.version.tag }, ...settings });
+}
+
+// The session properties an admin reads on a server tracking `branch`, by default one that guards
+// it and so is sent it.
+function trackedBranchResponse(
+  branch: string,
+  profile: ServerProfile = SERVER_WITH_PREFLIGHT,
+): Response {
+  return sessionProperties(
+    {
+      "remote-sync-branch": branch,
+      "token-features": { remote_sync: true },
+    },
+    profile,
+  );
 }
 
 function noContent(): Response {
@@ -223,25 +264,188 @@ describe("git-sync resource wire requests", () => {
     ]);
   });
 
-  it("sends the import request with the branch and force fields it was given", async () => {
+  it("sends the import request with the branch and force fields it was given, expecting the tracked branch", async () => {
     const { mb, capture } = clientOver([
+      trackedBranchResponse("main"),
       jsonResponse({ status: "success", task_id: 12, message: "Import queued" }),
     ]);
 
-    await mb.gitSync.import({ branch: "main", force: true });
+    await mb.gitSync.import({ branch: "release", force: true });
 
     expect(capture.calls).toEqual([
+      PROPERTIES_READ,
       {
         url: "https://mb.example.com/metabase/api/ee/remote-sync/import",
         method: "POST",
         headers: JSON_WRITE_HEADERS,
-        body: '{"branch":"main","force":true}',
+        body: '{"branch":"release","force":true,"expected_branch":"main"}',
       },
+    ]);
+  });
+
+  it("sends the expected branch it was given without reading the setting", async () => {
+    const { mb, capture } = clientOver([
+      jsonResponse({ status: "success", task_id: 12, message: "Import queued" }),
+    ]);
+
+    await mb.gitSync.import({ expected_branch: "dev" });
+
+    expect(capture.calls.map((call) => call.body)).toEqual(['{"expected_branch":"dev"}']);
+  });
+
+  it("sends the tracked branch to a server before the branch guard, which ignores it", async () => {
+    const { mb, capture } = clientOver([
+      trackedBranchResponse("main", SERVER),
+      jsonResponse({ status: "success", task_id: 12, message: "Import queued" }),
+    ]);
+
+    await mb.gitSync.import();
+
+    expect(capture.calls.map((call) => call.body)).toEqual([null, '{"expected_branch":"main"}']);
+  });
+
+  it("sends no expected branch where the setting is hidden on a server without remote sync, and explains its refusal", async () => {
+    const { mb, capture } = clientOver([
+      sessionProperties({ "token-features": { remote_sync: false } }, UNLICENSED_SERVER),
+      premiumRefusalResponse("Remote Sync"),
+    ]);
+
+    const error = await thrownBy(() => mb.gitSync.import());
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "missing-token-feature",
+      detail:
+        "This operation requires the 'remote_sync' premium feature (not enabled on this server).",
+      feature: "remoteSync",
+      since: 58,
+      tokenFeature: "remote_sync",
+      serverVersion: "v1.63.0",
+    });
+    expect(capture.calls.map((call) => [call.url, call.body])).toEqual([
+      [PROBE_URL, null],
+      ["https://mb.example.com/metabase/api/ee/remote-sync/import", "{}"],
+    ]);
+  });
+
+  it("sends no expected branch to a licensed-out server whose setting is unset, and explains its refusal", async () => {
+    const { mb, capture } = clientOver([
+      sessionProperties(
+        { "remote-sync-branch": null, "token-features": { remote_sync: false } },
+        UNLICENSED_SERVER,
+      ),
+      premiumRefusalResponse("Remote Sync"),
+    ]);
+
+    const error = await thrownBy(() => mb.gitSync.export());
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail.feature).toBe("remoteSync");
+    expect(capture.calls.map((call) => [call.url, call.body])).toEqual([
+      [PROBE_URL, null],
+      ["https://mb.example.com/metabase/api/ee/remote-sync/export", "{}"],
+    ]);
+  });
+
+  it("refuses an import for a caller who cannot read the setting on a server guarding the branch", async () => {
+    const { mb, capture } = clientOver([
+      sessionProperties({ "token-features": { remote_sync: true } }, SERVER_WITH_PREFLIGHT),
+    ]);
+
+    const error = await thrownBy(() => mb.gitSync.import());
+
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toBe(
+      "the remote-sync-branch setting is not readable: only admins see it, and a server without remote sync has none",
+    );
+    expect(capture.calls).toEqual([PROPERTIES_READ]);
+  });
+
+  it("refuses an import when a server guarding the branch tracks none", async () => {
+    const { mb, capture } = clientOver([
+      sessionProperties(
+        { "remote-sync-branch": null, "token-features": { remote_sync: true } },
+        SERVER_WITH_PREFLIGHT,
+      ),
+    ]);
+
+    const error = await thrownBy(() => mb.gitSync.import());
+
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toBe(
+      "git-sync tracks no branch: the remote-sync-branch setting is unset",
+    );
+    expect(capture.calls).toEqual([PROPERTIES_READ]);
+  });
+
+  it("refuses a merge before the wire on a server a fresh probe finds without three-way merge", async () => {
+    const { mb, capture } = clientOver([probeResponse(SERVER)], SERVER_WITH_PREFLIGHT);
+
+    const error = await thrownBy(() => mb.gitSync.import({ merge: true }));
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v63+ (this server is v1.60.0). Upgrade Metabase to use it.",
+      feature: "remoteSyncMerge",
+      since: 63,
+      tokenFeature: "remote_sync",
+      serverVersion: "v1.60.0",
+    });
+    expect(capture.calls).toEqual([PROPERTIES_READ]);
+  });
+
+  it("judges a merge by the branch read, sending nothing more before the import", async () => {
+    const { mb, capture } = clientOver([
+      sessionProperties(
+        { "remote-sync-branch": "main", "token-features": { remote_sync: true } },
+        SERVER_WITH_PREFLIGHT,
+      ),
+      jsonResponse({ status: "success", task_id: 12, message: "Import queued" }),
+    ]);
+
+    await mb.gitSync.import({ merge: true });
+
+    expect(capture.calls.map((call) => [call.url, call.body])).toEqual([
+      [PROBE_URL, null],
+      [
+        "https://mb.example.com/metabase/api/ee/remote-sync/import",
+        '{"merge":true,"expected_branch":"main"}',
+      ],
+    ]);
+  });
+
+  it("explains a refused import from its own branch read, without probing again or naming a branch", async () => {
+    const { mb, capture } = clientOver([
+      sessionProperties(
+        { "remote-sync-branch": "main", "token-features": { remote_sync: false } },
+        UNLICENSED_SERVER,
+      ),
+      premiumRefusalResponse("Remote Sync"),
+    ]);
+
+    const error = await thrownBy(() => mb.gitSync.import());
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "missing-token-feature",
+      detail:
+        "This operation requires the 'remote_sync' premium feature (not enabled on this server).",
+      feature: "remoteSync",
+      since: 58,
+      tokenFeature: "remote_sync",
+      serverVersion: "v1.63.0",
+    });
+    expect(capture.calls.map((call) => [call.url, call.body])).toEqual([
+      [PROBE_URL, null],
+      ["https://mb.example.com/metabase/api/ee/remote-sync/import", "{}"],
     ]);
   });
 
   it("returns the started import without a final task when no wait is given", async () => {
     const { mb } = clientOver([
+      trackedBranchResponse("main"),
       jsonResponse({ status: "success", task_id: 12, message: "Import queued" }),
     ]);
 
@@ -250,6 +454,7 @@ describe("git-sync resource wire requests", () => {
 
   it("polls the current task after the import POST when a wait schedule is given", async () => {
     const { mb, capture } = clientOver([
+      trackedBranchResponse("main"),
       jsonResponse({ status: "success", task_id: 12, message: "Import queued" }),
       jsonResponse(RUNNING_TASK),
       jsonResponse(SETTLED_TASK),
@@ -258,11 +463,12 @@ describe("git-sync resource wire requests", () => {
     await mb.gitSync.import({ wait: IMMEDIATE_POLL });
 
     expect(capture.calls).toEqual([
+      PROPERTIES_READ,
       {
         url: "https://mb.example.com/metabase/api/ee/remote-sync/import",
         method: "POST",
         headers: JSON_WRITE_HEADERS,
-        body: "{}",
+        body: '{"expected_branch":"main"}',
       },
       {
         url: "https://mb.example.com/metabase/api/ee/remote-sync/current-task",
@@ -281,6 +487,7 @@ describe("git-sync resource wire requests", () => {
 
   it("reports the settled task alongside the import that started it", async () => {
     const { mb } = clientOver([
+      trackedBranchResponse("main"),
       jsonResponse({ status: "success", task_id: 12, message: "Import queued" }),
       jsonResponse(SETTLED_TASK),
     ]);
@@ -294,17 +501,19 @@ describe("git-sync resource wire requests", () => {
 
   it("does not poll for an import the server answered with no task to wait on", async () => {
     const { mb, capture } = clientOver([
+      trackedBranchResponse("main"),
       jsonResponse({ status: "success", task_id: null, message: "Already up to date" }),
     ]);
 
     await mb.gitSync.import({ wait: IMMEDIATE_POLL });
 
     expect(capture.calls).toEqual([
+      PROPERTIES_READ,
       {
         url: "https://mb.example.com/metabase/api/ee/remote-sync/import",
         method: "POST",
         headers: JSON_WRITE_HEADERS,
-        body: "{}",
+        body: '{"expected_branch":"main"}',
       },
     ]);
   });
@@ -324,8 +533,23 @@ describe("git-sync resource wire requests", () => {
     ]);
   });
 
+  it("sends the tracked branch as the export's branch when none is given", async () => {
+    const { mb, capture } = clientOver([
+      trackedBranchResponse("main"),
+      jsonResponse({ message: "Export queued", task_id: 8 }),
+    ]);
+
+    await mb.gitSync.export({ message: "update dashboards" });
+
+    expect(capture.calls.map((call) => call.body)).toEqual([
+      null,
+      '{"branch":"main","message":"update dashboards"}',
+    ]);
+  });
+
   it("reports the settled task alongside the export that started it", async () => {
     const { mb } = clientOver([
+      trackedBranchResponse("main"),
       jsonResponse({ message: "Export queued", task_id: 8 }),
       jsonResponse(SETTLED_TASK),
     ]);
@@ -366,8 +590,8 @@ describe("git-sync resource wire requests", () => {
     expect(await mb.gitSync.exportPreflight({ branch: "main" })).toEqual(diverged);
   });
 
-  it("refuses the export preflight before the wire on a server older than the route", async () => {
-    const { mb, capture } = clientOver([]);
+  it("explains an unrouted export preflight on a server older than the route", async () => {
+    const { mb, capture } = clientOver([routeMissingResponse(), probeResponse(SERVER)]);
 
     const error = await thrownBy(() => mb.gitSync.exportPreflight({ branch: "main" }));
 
@@ -381,7 +605,28 @@ describe("git-sync resource wire requests", () => {
       tokenFeature: "remote_sync",
       serverVersion: "v1.60.0",
     });
-    expect(capture.calls).toEqual([]);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/remote-sync/export-preflight?branch=main",
+      PROBE_URL,
+    ]);
+  });
+
+  it("explains a refused preflight of the tracked branch by the branch read, in two requests", async () => {
+    const { mb, capture } = clientOver(
+      [trackedBranchResponse("main", SERVER), routeMissingResponse()],
+      SERVER_WITH_PREFLIGHT,
+    );
+
+    const error = await thrownBy(async () =>
+      mb.gitSync.exportPreflight({ branch: await mb.gitSync.trackedBranch() }),
+    );
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail.feature).toBe("remoteSyncExportPreflight");
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      PROBE_URL,
+      "https://mb.example.com/metabase/api/ee/remote-sync/export-preflight?branch=main",
+    ]);
   });
 
   it("surfaces a branch mismatch as the server's conflict answer", async () => {
@@ -505,11 +750,15 @@ describe("git-sync resource wire requests", () => {
   });
 
   it("reads the synced collections off the collection listing", async () => {
-    const { mb, capture } = clientOver([jsonResponse([])]);
+    const { mb, capture } = clientOver([
+      sessionProperties({ "token-features": { remote_sync: true } }),
+      jsonResponse([]),
+    ]);
 
     await mb.gitSync.syncedCollections();
 
     expect(capture.calls).toEqual([
+      PROPERTIES_READ,
       {
         url: "https://mb.example.com/metabase/api/collection",
         method: "GET",
@@ -522,6 +771,7 @@ describe("git-sync resource wire requests", () => {
   it("keeps only the collections the server flagged for sync", async () => {
     const synced = { id: 4, name: "Ops", is_remote_synced: true };
     const { mb } = clientOver([
+      sessionProperties({ "token-features": { remote_sync: true } }),
       jsonResponse([
         { id: 51, name: "Data", is_remote_synced: false },
         synced,
@@ -535,6 +785,7 @@ describe("git-sync resource wire requests", () => {
 
   it("reads the sync scope past collections whose enum fields carry unpinned values", async () => {
     const { mb } = clientOver([
+      sessionProperties({ "token-features": { remote_sync: true } }),
       jsonResponse([
         { ...UNPINNED_ENUM_FIELDS, id: 51, name: "Workspace", is_remote_synced: false },
         { ...UNPINNED_ENUM_FIELDS, id: 4, name: "Ops", is_remote_synced: true },
@@ -597,7 +848,7 @@ describe("git-sync resource wire requests", () => {
   });
 
   it("reads the tracked branch off the session properties", async () => {
-    const { mb, capture } = clientOver([jsonResponse({ "remote-sync-branch": "main" })]);
+    const { mb, capture } = clientOver([trackedBranchResponse("main")]);
 
     await mb.gitSync.branch();
 
@@ -612,26 +863,30 @@ describe("git-sync resource wire requests", () => {
   });
 
   it("answers the effective branch, an environment-set one included", async () => {
-    const { mb } = clientOver([jsonResponse({ "remote-sync-branch": "main" })]);
+    const { mb } = clientOver([trackedBranchResponse("main")]);
 
     expect(await mb.gitSync.branch()).toBe("main");
   });
 
   it("reads an unconfigured branch setting's null as no branch", async () => {
-    const { mb } = clientOver([jsonResponse({ "remote-sync-branch": null })]);
+    const { mb } = clientOver([
+      sessionProperties({ "remote-sync-branch": null, "token-features": { remote_sync: true } }),
+    ]);
 
     expect(await mb.gitSync.branch()).toBeNull();
   });
 
   it("refuses rather than reading a setting the caller may not see as unset", async () => {
-    const { mb } = clientOver([jsonResponse({ "site-name": "Metabase" })]);
+    const { mb } = clientOver([
+      sessionProperties({ "site-name": "Metabase", "token-features": { remote_sync: true } }),
+    ]);
 
     const error = await thrownBy(() => mb.gitSync.branch());
 
     expect(error).toBeInstanceOf(ConfigError);
     assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toBe(
-      "the remote-sync-branch setting is not readable: it is visible to admins only, and absent on a server without the remote-sync module",
+      "the remote-sync-branch setting is not readable: only admins see it, and a server without remote sync has none",
     );
   });
 

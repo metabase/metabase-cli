@@ -8,7 +8,7 @@ import { DocumentListEnvelope } from "../../packages/cli/src/commands/document/l
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { seedProbedProfile } from "./seed-profile";
+import { seedProbedProfile, UNREACHABLE_SEED_MESSAGE } from "./seed-profile";
 import { SEEDED } from "./seed/seeded";
 import { serverHas } from "./server-gate";
 
@@ -297,7 +297,7 @@ describe("document e2e", () => {
     expect(cliErrorMessage(result.stderr)).toBe(copyRefusal(bootstrap.server.version?.tag));
   });
 
-  it("copy refuses before any request when the cached probe says v58", async () => {
+  it("copy sends the request a cached v58 probe would have refused", async () => {
     const configHome = await makeIsolatedConfigHome();
     await seedProbedProfile(configHome, 58);
 
@@ -306,9 +306,9 @@ describe("document e2e", () => {
       configHome,
     });
 
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorCategory(result.stderr)).toBe("capability");
-    expect(cliErrorMessage(result.stderr)).toBe(copyRefusal("v0.58.0"));
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorCategory(result.stderr)).toBe("network");
+    expect(cliErrorMessage(result.stderr)).toBe(UNREACHABLE_SEED_MESSAGE);
     expect(result.stdout).toBe("");
   });
 

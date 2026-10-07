@@ -54,7 +54,7 @@ describe("verifyAndProbe", () => {
       await answered;
       return jsonResponse(body);
     };
-    const capture = captureFetch([held(SESSION_PROPERTIES), held(CURRENT_USER)]);
+    const capture = captureFetch([held(CURRENT_USER), held(SESSION_PROPERTIES)]);
     vi.stubGlobal("fetch", capture.fetch);
 
     const pending = verifyAndProbe(BASE_URL, CREDENTIAL);
@@ -62,13 +62,13 @@ describe("verifyAndProbe", () => {
       await flushPending();
       expect(capture.calls).toEqual([
         {
-          url: `${BASE_URL}/api/session/properties`,
+          url: `${BASE_URL}/api/user/current`,
           method: "GET",
           headers: READ_HEADERS,
           body: null,
         },
         {
-          url: `${BASE_URL}/api/user/current`,
+          url: `${BASE_URL}/api/session/properties`,
           method: "GET",
           headers: READ_HEADERS,
           body: null,
@@ -93,6 +93,38 @@ describe("verifyAndProbe", () => {
 
   // A transport failure names no route, and a login that reports only "verification failed
   // (current user)" leaves a user unable to tell a blocked route from an unreachable host.
+  it("reads a 401 on the user as a credential problem", async () => {
+    // The user read reaches fetch first.
+    const capture = captureFetch([
+      jsonResponse({ message: "Unauthenticated" }, 401),
+      jsonResponse(SESSION_PROPERTIES),
+    ]);
+    vi.stubGlobal("fetch", capture.fetch);
+
+    expect(await verifyAndProbe(BASE_URL, CREDENTIAL)).toMatchObject({
+      ok: false,
+      which: "user",
+      kind: "auth",
+      status: 401,
+    });
+  });
+
+  it("reads a 403 on the user as a server problem, since Metabase serves every identified user", async () => {
+    // The user read reaches fetch first.
+    const capture = captureFetch([
+      jsonResponse({ message: "Forbidden" }, 403),
+      jsonResponse(SESSION_PROPERTIES),
+    ]);
+    vi.stubGlobal("fetch", capture.fetch);
+
+    expect(await verifyAndProbe(BASE_URL, CREDENTIAL)).toMatchObject({
+      ok: false,
+      which: "user",
+      kind: "server",
+      status: 403,
+    });
+  });
+
   it("names the request a transport failure never reached", async () => {
     const unreachable = [new TypeError("fetch failed"), new TypeError("fetch failed")];
     const capture = captureFetch(unreachable);

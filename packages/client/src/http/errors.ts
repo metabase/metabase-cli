@@ -10,6 +10,8 @@ export type HttpErrorKind =
   | "route-missing"
   | "resource-missing"
   | "auth"
+  | "forbidden"
+  | "conflict"
   | "rate-limit"
   | "server-error"
   | "generic";
@@ -19,7 +21,17 @@ interface StatusClassification {
   message?: string;
 }
 
-const NOT_FOUND_STATUS = 404;
+export const BAD_REQUEST_STATUS = 400;
+export const UNAUTHORIZED_STATUS = 401;
+export const PAYMENT_REQUIRED_STATUS = 402;
+export const FORBIDDEN_STATUS = 403;
+export const NOT_FOUND_STATUS = 404;
+export const CONFLICT_STATUS = 409;
+export const TOO_MANY_REQUESTS_STATUS = 429;
+export const INTERNAL_SERVER_ERROR_STATUS = 500;
+
+const SERVER_ERROR_STATUSES_START = 500;
+const SERVER_ERROR_STATUSES_END = 600;
 
 const TEXT_CONTENT_TYPE = "text/plain";
 const ROUTE_MISSING_LITERAL = "API endpoint does not exist.";
@@ -27,8 +39,15 @@ const RESOURCE_MISSING_LITERAL = "Not found.";
 
 const STATUS_CLASSIFICATIONS: Record<number, StatusClassification> = {
   401: { retryable: false },
-  403: { retryable: false },
+  403: {
+    retryable: false,
+    message: "The request was refused (403): the signed-in user is not allowed to do this.",
+  },
   404: { retryable: false },
+  409: {
+    retryable: false,
+    message: "The request was refused (409): it conflicts with what already exists.",
+  },
   408: { retryable: true, message: "Metabase timed out responding." },
   425: { retryable: true },
   429: { retryable: true, message: "Metabase rate-limited the request." },
@@ -47,8 +66,27 @@ const ErrorEnvelope = z
     "specific-errors": z.unknown().optional(),
     errors: z.unknown().optional(),
     "error-code": z.string().optional(),
+    "non-remote-synced-models": z.unknown().optional(),
+    "remote-synced-models": z.unknown().optional(),
   })
   .loose();
+
+// The server names the content blocking a move into remote sync by bare id, without its model.
+const NonRemoteSyncedDependencies = z.array(z.number().int()).min(1);
+
+// Model name to id. A dependent reached through a dashboard card names the card and its dashboard
+// in one entry (`{"DashboardCard": 7, "Dashboard": 3}`).
+const RemoteSyncedDependent = z.record(z.string(), z.number().int());
+export type RemoteSyncedDependent = z.infer<typeof RemoteSyncedDependent>;
+
+const RemoteSyncedDependents = z.array(RemoteSyncedDependent).min(1);
+
+const MAX_LISTED_REMOTE_SYNC_ENTRIES = 20;
+const REMOTE_SYNC_ENTRY_SEPARATOR = ", ";
+const NON_REMOTE_SYNCED_REMEDY =
+  "Move that content into a synced collection first, or move the collection that holds it.";
+const REMOTE_SYNCED_REMEDY =
+  "Update that content so it no longer uses this first, or move it out of sync along with this.";
 
 interface FieldErrorBranch {
   [field: string]: FieldErrorNode;
@@ -68,6 +106,7 @@ const FieldErrorTree = z.record(z.string(), FieldErrorNodeSchema);
 export type FieldErrors = Record<string, string>;
 
 const FIELD_MESSAGE_SEPARATOR = "; ";
+export const FIELD_PATH_SEPARATOR = ".";
 
 const MAX_EXTRACTED_MESSAGE_LEN = 500;
 const ELLIPSIS = "…";
@@ -88,6 +127,8 @@ export interface HttpErrorDetail {
   fieldErrors: FieldErrors | null;
   specificFieldErrors: FieldErrors | null;
   errorCode: string | null;
+  nonRemoteSyncedDependencies: number[] | null;
+  remoteSyncedDependents: RemoteSyncedDependent[] | null;
 }
 
 export interface HttpErrorInput {
@@ -106,19 +147,25 @@ export class HttpError extends MetabaseError {
   readonly category = "http";
   readonly status: number;
   readonly kind: HttpErrorKind;
+  // What the server itself said about the failure, from its envelope's message or field errors or
+  // a plain-text body, or `null` when it said nothing and the message is this client's own.
+  readonly serverMessage: string | null;
   readonly developerDetail: HttpErrorDetail;
 
   constructor(input: HttpErrorInput) {
     const sanitizedBody = sanitizeBody(input.rawBody, input.redactionContext);
     const redactedHeaders = redactHeaders(input.responseHeaders);
     const kind = classifyKind(input.status, sanitizedBody, redactedHeaders);
-    super(
-      input.overrideUserMessage ?? buildUserMessage(kind, input, sanitizedBody, redactedHeaders),
-    );
+    const said: ServerSaid = {
+      envelope: parseEnvelopeMessage(sanitizedBody),
+      text: plainTextMessage(sanitizedBody, redactedHeaders),
+    };
+    super(input.overrideUserMessage ?? buildUserMessage(kind, input, said));
     const fields = extractEnvelopeViews(sanitizedBody);
     this.name = "HttpError";
     this.status = input.status;
     this.kind = kind;
+    this.serverMessage = said.envelope ?? said.text;
     this.developerDetail = {
       status: input.status,
       statusText: input.statusText,
@@ -129,6 +176,8 @@ export class HttpError extends MetabaseError {
       fieldErrors: fields.fieldErrors,
       specificFieldErrors: fields.specificFieldErrors,
       errorCode: fields.errorCode,
+      nonRemoteSyncedDependencies: fields.nonRemoteSyncedDependencies,
+      remoteSyncedDependents: fields.remoteSyncedDependents,
     };
   }
 
@@ -150,6 +199,17 @@ export class HttpError extends MetabaseError {
 
   get errorCode(): string | null {
     return this.developerDetail.errorCode;
+  }
+
+  // Ids of the cards, snippets, and actions that must enter remote sync before the content this
+  // request moved or created into a synced collection can.
+  get nonRemoteSyncedDependencies(): number[] | null {
+    return this.developerDetail.nonRemoteSyncedDependencies;
+  }
+
+  // The synced content that uses what this request tried to archive or move out of remote sync.
+  get remoteSyncedDependents(): RemoteSyncedDependent[] | null {
+    return this.developerDetail.remoteSyncedDependents;
   }
 }
 
@@ -198,18 +258,26 @@ function classifyKind(
   sanitizedBody: string | null,
   redactedHeaders: Record<string, string>,
 ): HttpErrorKind {
-  if (status === 401 || status === 403) {
+  // 401: Metabase did not accept the credential. 403: it identified the user and refused the
+  // request. 409: the request conflicts with existing state. None of the last two is about the key.
+  if (status === UNAUTHORIZED_STATUS) {
     return "auth";
+  }
+  if (status === FORBIDDEN_STATUS) {
+    return "forbidden";
+  }
+  if (status === CONFLICT_STATUS) {
+    return "conflict";
   }
   if (status === NOT_FOUND_STATUS) {
     return isRouteMissingResponse(sanitizedBody, redactedHeaders)
       ? "route-missing"
       : "resource-missing";
   }
-  if (status === 429) {
+  if (status === TOO_MANY_REQUESTS_STATUS) {
     return "rate-limit";
   }
-  if (status >= 500 && status < 600) {
+  if (status >= SERVER_ERROR_STATUSES_START && status < SERVER_ERROR_STATUSES_END) {
     return "server-error";
   }
   return "generic";
@@ -238,12 +306,13 @@ function isRouteMissingResponse(
   return parseEnvelope(sanitizedBody) === null;
 }
 
-function buildUserMessage(
-  kind: HttpErrorKind,
-  input: HttpErrorInput,
-  sanitizedBody: string | null,
-  redactedHeaders: Record<string, string>,
-): string {
+// The message a failure body carries, read once for the user message and `serverMessage` both.
+interface ServerSaid {
+  envelope: string | null;
+  text: string | null;
+}
+
+function buildUserMessage(kind: HttpErrorKind, input: HttpErrorInput, said: ServerSaid): string {
   if (kind === "route-missing") {
     return buildRouteMissingMessage(input);
   }
@@ -252,16 +321,14 @@ function buildUserMessage(
   }
   // Messages we generate read as full sentences ending in a period; messages quoted from a
   // Metabase response envelope (parseEnvelopeMessage) are passed through verbatim, periods or not.
-  const fromBody = parseEnvelopeMessage(sanitizedBody);
-  if (fromBody !== null) {
-    return fromBody;
+  if (said.envelope !== null) {
+    return said.envelope;
   }
   if (kind === "auth") {
     return `Invalid or unauthorized API key (host: ${hostFromUrl(input.url)}).`;
   }
-  const fromText = plainTextMessage(sanitizedBody, redactedHeaders);
-  if (fromText !== null) {
-    return fromText;
+  if (said.text !== null) {
+    return said.text;
   }
   return defaultMessageForStatus(input.status);
 }
@@ -314,12 +381,16 @@ interface EnvelopeViews {
   fieldErrors: FieldErrors | null;
   specificFieldErrors: FieldErrors | null;
   errorCode: string | null;
+  nonRemoteSyncedDependencies: number[] | null;
+  remoteSyncedDependents: RemoteSyncedDependent[] | null;
 }
 
 const NO_ENVELOPE_VIEWS: EnvelopeViews = {
   fieldErrors: null,
   specificFieldErrors: null,
   errorCode: null,
+  nonRemoteSyncedDependencies: null,
+  remoteSyncedDependents: null,
 };
 
 // Read off the sanitized body rather than the raw one, so a secret quoted back inside a field
@@ -333,7 +404,18 @@ function extractEnvelopeViews(sanitizedBody: string | null): EnvelopeViews {
     fieldErrors: parseFieldErrors(envelope.errors),
     specificFieldErrors: parseFieldErrors(envelope["specific-errors"]),
     errorCode: envelope["error-code"] ?? null,
+    nonRemoteSyncedDependencies: parseOrNull(
+      NonRemoteSyncedDependencies,
+      envelope["non-remote-synced-models"],
+    ),
+    remoteSyncedDependents: parseOrNull(RemoteSyncedDependents, envelope["remote-synced-models"]),
   };
+}
+
+// Like the field errors, an unrecognised value costs only its own structured view.
+function parseOrNull<T>(schema: z.ZodType<T>, value: unknown): T | null {
+  const parsed = schema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 // An HTTP failure is already the error path, so a value the field-error shape does not recognise
@@ -358,7 +440,7 @@ function parseEnvelopeMessage(sanitizedBody: string | null): string | null {
   }
   const topLevel = envelope.message ?? envelope.error ?? envelope["error-message"];
   if (topLevel) {
-    return condenseMessage(topLevel);
+    return appendRemoteSyncConflict(condenseMessage(topLevel), envelope);
   }
   const viaMessage = envelope.via?.find((entry) => entry.message)?.message;
   if (viaMessage) {
@@ -373,6 +455,41 @@ function parseEnvelopeMessage(sanitizedBody: string | null): string | null {
     return condenseMessage(generic);
   }
   return null;
+}
+
+// The server's sentence says a remote-sync move was refused but not over which content, which the
+// envelope carries alongside it. Appended after condensing so the list and remedy are never cut.
+function appendRemoteSyncConflict(message: string, envelope: ErrorEnvelope): string {
+  const dependencies = parseOrNull(
+    NonRemoteSyncedDependencies,
+    envelope["non-remote-synced-models"],
+  );
+  if (dependencies !== null) {
+    const ids = listRemoteSyncEntries(dependencies.map(String));
+    return `${withoutTrailingPeriod(message)}: ids ${ids}. ${NON_REMOTE_SYNCED_REMEDY}`;
+  }
+  const dependents = parseOrNull(RemoteSyncedDependents, envelope["remote-synced-models"]);
+  if (dependents !== null) {
+    const named = listRemoteSyncEntries([...new Set(dependents.map(formatRemoteSyncedDependent))]);
+    return `${withoutTrailingPeriod(message)}: ${named}. ${REMOTE_SYNCED_REMEDY}`;
+  }
+  return message;
+}
+
+function formatRemoteSyncedDependent(dependent: RemoteSyncedDependent): string {
+  return Object.entries(dependent)
+    .map(([model, id]) => `${model} ${id}`)
+    .join(" / ");
+}
+
+function listRemoteSyncEntries(entries: ReadonlyArray<string>): string {
+  const listed = entries.slice(0, MAX_LISTED_REMOTE_SYNC_ENTRIES).join(REMOTE_SYNC_ENTRY_SEPARATOR);
+  const unlisted = entries.length - MAX_LISTED_REMOTE_SYNC_ENTRIES;
+  return unlisted > 0 ? `${listed}${REMOTE_SYNC_ENTRY_SEPARATOR}and ${unlisted} more` : listed;
+}
+
+function withoutTrailingPeriod(message: string): string {
+  return message.endsWith(".") ? message.slice(0, -1) : message;
 }
 
 interface LeafEntry {
@@ -395,7 +512,7 @@ function formatLeafEntry(entry: LeafEntry): string {
 function collectLeafEntries(value: unknown, path: ReadonlyArray<string>): LeafEntry[] {
   if (typeof value === "string") {
     const trimmed = value.trim();
-    return trimmed === "" ? [] : [{ path: path.join("."), message: trimmed }];
+    return trimmed === "" ? [] : [{ path: path.join(FIELD_PATH_SEPARATOR), message: trimmed }];
   }
   if (Array.isArray(value)) {
     const messages = value.filter(
@@ -404,7 +521,9 @@ function collectLeafEntries(value: unknown, path: ReadonlyArray<string>): LeafEn
     if (messages.length === 0) {
       return [];
     }
-    return [{ path: path.join("."), message: messages.join(FIELD_MESSAGE_SEPARATOR) }];
+    return [
+      { path: path.join(FIELD_PATH_SEPARATOR), message: messages.join(FIELD_MESSAGE_SEPARATOR) },
+    ];
   }
   if (isPlainObject(value)) {
     return Object.entries(value).flatMap(([key, child]) =>

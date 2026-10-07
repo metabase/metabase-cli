@@ -4,7 +4,13 @@ import { CardQueryResult } from "@metabase/client/domain/card";
 import { CompiledQuery, QueryMetadata } from "@metabase/client/domain/dataset";
 import { DatasetQuery } from "@metabase/client/domain/query";
 import { ConfigError, type MetabaseError } from "@metabase/client/errors";
-import { chainRequestFailure, HttpError } from "@metabase/client/http/errors";
+import {
+  BAD_REQUEST_STATUS,
+  chainRequestFailure,
+  FORBIDDEN_STATUS,
+  HttpError,
+  INTERNAL_SERVER_ERROR_STATUS,
+} from "@metabase/client/http/errors";
 
 import {
   assertNotLegacyEnvelopeWrappingMbql5,
@@ -42,8 +48,10 @@ const QueryOutput = z.union([CardQueryResult, QueryDryRunOutcome, CompiledQuery,
 
 // A compile never touches the warehouse, and the server answers query problems (a missing table,
 // an unfilled template tag) with 500 as well as 400, so both are reported against the body.
-const COMPILE_REJECTION_STATUSES: ReadonlySet<number> = new Set([400, 500]);
-const FORBIDDEN_STATUS = 403;
+const COMPILE_REJECTION_STATUSES: ReadonlySet<number> = new Set([
+  BAD_REQUEST_STATUS,
+  INTERNAL_SERVER_ERROR_STATUS,
+]);
 
 // The server's message names no location in the body, so it points at the whole query.
 const WHOLE_QUERY_POINTER = "";

@@ -12,6 +12,7 @@ import {
 } from "../domain/transform-job";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
+import { explainer } from "../version/refusal";
 
 export interface TransformJobRunParams {
   /** Re-run the whole plan, including dependencies that are already fresh. */
@@ -20,9 +21,10 @@ export interface TransformJobRunParams {
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function transformJobResource(transport: Transport) {
+  const { explain } = explainer(transport, "transformJob");
+
   /** List every transform job the caller can see. */
   async function list(options: RequestOptions = {}): Promise<ListResult<TransformJob>> {
-    await transport.require("transformJob.list", options);
     const { features } = await transport.server(options);
     // A bare array rather than a `{ data, total }` envelope, so the server reports no count.
     const data = await transport.requestParsed(
@@ -35,7 +37,6 @@ export function transformJobResource(transport: Transport) {
 
   /** Get one transform job by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<TransformJob> {
-    await transport.require("transformJob.get", options);
     const { features } = await transport.server(options);
     return transport.requestParsed(transformJobSchema(features), `/api/transform-job/${id}`, {
       ...options,
@@ -47,7 +48,6 @@ export function transformJobResource(transport: Transport) {
     params: TransformJobCreateInput,
     options: RequestOptions = {},
   ): Promise<TransformJob> {
-    await transport.require("transformJob.create", options);
     const { features } = await transport.server(options);
     return transport.requestParsed(transformJobSchema(features), "/api/transform-job", {
       ...options,
@@ -62,7 +62,6 @@ export function transformJobResource(transport: Transport) {
     params: TransformJobUpdateInput,
     options: RequestOptions = {},
   ): Promise<TransformJob> {
-    await transport.require("transformJob.update", options);
     const { features } = await transport.server(options);
     return transport.requestParsed(transformJobSchema(features), `/api/transform-job/${id}`, {
       ...options,
@@ -73,7 +72,6 @@ export function transformJobResource(transport: Transport) {
 
   /** Delete a transform job by id, leaving the transforms it ran untouched. */
   async function remove(id: number, options: RequestOptions = {}): Promise<void> {
-    await transport.require("transformJob.delete", options);
     await transport.requestRaw(`/api/transform-job/${id}`, {
       ...options,
       method: "DELETE",
@@ -90,7 +88,6 @@ export function transformJobResource(transport: Transport) {
     params: TransformJobRunParams = {},
     options: RequestOptions = {},
   ): Promise<TransformJobRunResult> {
-    await transport.require("transformJob.run", options);
     const { features } = await transport.server(options);
     return transport.requestParsed(
       transformJobRunResultSchema(features),
@@ -104,7 +101,6 @@ export function transformJobResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<ListResult<Transform>> {
-    await transport.require("transformJob.transforms", options);
     const { features } = await transport.server(options);
     const data = await transport.requestParsed(
       z.array(transformRowSchema(features)),
@@ -122,7 +118,6 @@ export function transformJobResource(transport: Transport) {
     active: boolean,
     options: RequestOptions = {},
   ): Promise<TransformJobActiveResult> {
-    await transport.require("transformJob.setActive", options);
     return transport.requestParsed(TransformJobActiveResult, "/api/transform-job/active", {
       ...options,
       method: "PUT",
@@ -130,5 +125,14 @@ export function transformJobResource(transport: Transport) {
     });
   }
 
-  return { list, get, create, update, delete: remove, run, transforms, setActive };
+  return {
+    list: explain("list", list),
+    get: explain("get", get),
+    create: explain("create", create),
+    update: explain("update", update),
+    delete: explain("delete", remove),
+    run: explain("run", run),
+    transforms: explain("transforms", transforms),
+    setActive: explain("setActive", setActive),
+  };
 }

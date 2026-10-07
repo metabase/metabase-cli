@@ -28,7 +28,7 @@ For a typical list/get pair on a new resource:
 
 1. `packages/client/src/domain/<r>.ts` — the schema pair (`<Resource>` + `<Resource>Compact`). No fixture, no schema-parse unit test.
 2. Updated `packages/client/src/index.ts` — re-export every value the domain file exports from the public barrel.
-3. `packages/client/src/resources/<r>.ts` — `<r>Resource(transport)`, one method per endpoint, each opening with `await transport.require("<r>.<method>")`.
+3. `packages/client/src/resources/<r>.ts` — `<r>Resource(transport)`, one method per endpoint.
 4. Updated `packages/client/src/version/requirements.ts` — one `"<r>.<method>"` entry per method in `METHOD_REQUIREMENTS`, and a rule in `packages/client/src/version/features.ts` if the route is gated by a major or a token feature.
 5. Updated `packages/client/src/client.ts` — compose the namespace onto the client as `<r>: <r>Resource(transport)`.
 6. `packages/client/src/resources/<r>.test.ts` — the wire test: one `it` per method, asserting the exact URL, method, headers and body through `captureFetch`.
@@ -159,7 +159,6 @@ export function cardResource(transport: Transport) {
     params: CardListParams = {},
     options: RequestOptions = {},
   ): Promise<ListResult<Card>> {
-    await transport.require("card.list");
     const data = await transport.requestParsed(CardApiList, "/api/card", {
       ...options,
       query: { f: params.f, model_id: params.model_id },
@@ -169,13 +168,11 @@ export function cardResource(transport: Transport) {
 
   /** Get one card by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<Card> {
-    await transport.require("card.get");
     return transport.requestParsed(Card, `/api/card/${id}`, { ...options });
   }
 
   /** Create a card — a question, a model, or a metric — from a full card body. */
   async function create(params: CardCreateInput, options: RequestOptions = {}): Promise<Card> {
-    await transport.require("card.create");
     return transport.requestParsed(Card, "/api/card", { ...options, method: "POST", body: params });
   }
 
@@ -185,7 +182,6 @@ export function cardResource(transport: Transport) {
     params: CardUpdateInput,
     options: RequestOptions = {},
   ): Promise<Card> {
-    await transport.require("card.update");
     return transport.requestParsed(Card, `/api/card/${id}`, {
       ...options,
       method: "PUT",
@@ -195,7 +191,6 @@ export function cardResource(transport: Transport) {
 
   /** Archive (soft-delete) a card by id. Metabase models this as an update, not its own endpoint. */
   async function archive(id: number, options: RequestOptions = {}): Promise<Card> {
-    await transport.require("card.archive");
     return update(id, { archived: true }, options);
   }
 
@@ -219,7 +214,7 @@ The nine conventions every method follows:
    `ListResult<T>` = `{ data, total }`.
 7. A string path parameter always goes through `encodeURIComponent`.
 8. Every method carries the endpoint's description as a doc comment.
-9. Every method opens with `await transport.require("<r>.<method>")`, keyed exactly as the method is reached on the client, and that key has an entry in `METHOD_REQUIREMENTS` (`packages/client/src/version/requirements.ts`): `[]` when every supported server answers the route, otherwise the feature names it needs, strictest first. `requirements.test.ts` fails a key the table lacks, a table key no method requires, and a method requiring a key from another resource's namespace. A method whose wire shape is selected by generation then reads `const { features } = await transport.server()` and parses with the reader from Step 1a.
+9. Every method has an entry in `METHOD_REQUIREMENTS` (`packages/client/src/version/requirements.ts`), keyed exactly as the method is reached on the client: `[]` when every supported server answers the route, otherwise the feature names it needs, strictest first. A gated method is exported through `explain("<method>", method)`, where `const { explain, explainWalk, refuse, refuseAfterReading } = explainer(transport, "<r>")` from `packages/client/src/version/refusal.ts` opens the factory (take only the wrappers the resource uses), and a `<thing>Pages` method answering an async iterable through `explainWalk("<method>", method)`, so the server's rejection reads as the feature it lacks; nothing refuses on the table's word, and `explain-guard.test.ts` fails a gated method not wrapped exactly once. A parameter only some servers accept is handled by what an unsupporting server does with it: one it rejects (a 400 on an enum, a 404) is sent and named through `explain`'s third argument, a small named function beside the method that takes the method's arguments and returns `{ feature, fields }` entries — the feature, and the request `fields` the argument travels in as the server names them in a 400; one it ignores while a newer server requires it is sent on every server; one it drops or rewrites without a word is refused before the wire with `await transport.requireFeatures([...], options)` (a check by value reads `transport.preflightServer(options)` and refuses through `transport.refuseBeforeSending`, never by throwing), with a comment saying what the server would do. A method every call of which such a server would answer wrongly without a word (its whole answer misread, or its whole body dropped) is exported through `refuse("<method>", method)` instead of `explain`, with that comment beside it in the factory's return: `refuse` runs the method's whole `METHOD_REQUIREMENTS` entry through `transport.requireFeatures` before the call, so the method must end in optional `RequestOptions`. Such a method answering from a setting the session properties carry is exported through `refuseAfterReading("<method>", reader, method)` instead, where `reader` extends `SessionProperties` with the setting and `method` is a pure function of the properties read: the wrapper reads them afresh through `transport.probe`, judges the entry against the profile that read settled, and exposes a method taking only optional `RequestOptions`, so the call costs one request. `requirements.test.ts` fails a client method the table lacks and a table key no method answers to.
 
 Convention 7 has a companion habit: when every path parameter on a resource is a numeric id, say so in a one-line comment at the top of the factory, so a reader knows the omission was decided rather than forgotten.
 
@@ -351,7 +346,7 @@ renderList(envelope, collectionItemView, ctx);
 
 `collectForOutput` pulls only as far as the output byte budget can display, so an unbounded listing over a large collection costs a page or two rather than a full drain the cap then discards. It sizes each request through the `PageRequest` it hands the source — forward `max` and `pageSize` verbatim, or the budget cannot bound the walk.
 
-Every command declares `requires`: the list of `"<r>.<method>"` keys its `run` body reaches (plus the methods of any helper it hands the client to), or `null` for a command that never touches a Metabase server. `packages/cli/src/commands/requires-guard.test.ts` reads the body and fails a declaration that differs from the calls in it, so the list is transcribed, not chosen. The preflight derives the features from `METHOD_REQUIREMENTS`, runs once per command against the profile's cached probe (or one live probe), and refuses with the client's own message and exit code 2; a command whose methods need nothing never preflights. `help --json` reports the derived `requires: { methods, features }`. Nothing on the command names a version.
+Every command declares `requires`: the list of `"<r>.<method>"` keys its `run` body reaches (plus the methods of any helper it hands the client to), or `null` for a command that never touches a Metabase server. `packages/cli/src/commands/requires-guard.test.ts` reads the body and fails a declaration that differs from the calls in it, so the list is transcribed, not chosen. The CLI runs no check of its own: the client sends each call and explains a refusal by the method's features, with exit code 2. `help --json` reports the features derived from `METHOD_REQUIREMENTS` as `requires: { methods, features }`. Nothing on the command names a version.
 
 The `<Resource>ListEnvelope` export is **mandatory**. It is consumed by JSON help (`--help --json`, via `outputSchema`) and by the matching e2e test (which imports it back to parse `--json` output). Do **not** redeclare the envelope shape inline anywhere. It is the _CLI's_ envelope — `{ data, returned, offset, limit?, total?, has_more, next_offset?, truncated? }`, declared in `packages/cli/src/output/types.ts` — and has nothing to do with the server's wire envelope, which stayed module-private in Step 2.
 
@@ -424,7 +419,7 @@ A comprehensive suite for a typical list/get pair covers, at minimum:
 
 Assertions are exact at every level — these are not stylistic preferences, they are hard rules from CLAUDE.md and the `add-e2e-test` skill:
 
-- **Exit codes** — always the exact integer (`toBe(0)`, `toBe(1)`, `toBe(2)`, `toBe(130)`). Never `.not.toBe(0)`. The `packages/client/src/errors.ts` taxonomy is fixed: `ConfigError`=2, `CapabilityError` (`packages/client/src/version/preflight-error.ts`)=2, `AbortError`=130, all others=1.
+- **Exit codes** — always the exact integer (`toBe(0)`, `toBe(1)`, `toBe(2)`, `toBe(130)`). Never `.not.toBe(0)`. The `packages/client/src/errors.ts` taxonomy is fixed: `ConfigError`=2, `CapabilityError` (`packages/client/src/version/capability-error.ts`)=2, `AbortError`=130, all others=1.
 - **Error strings** — always `toContain("<exact substring>")` or `toBe("<exact full string>")`. Never `toMatch(/.../i)`. Look the literal up in `packages/` and pin it. A regex with `\d+` or `.*` for a dynamic part is FAIL — build the expected string from the same source the production code consumed and assert with `toBe`.
 - **Parsed payloads** — always one full `toEqual({ ... })`. Field-by-field `toBe` after `parseJson` is FAIL.
 
@@ -461,7 +456,7 @@ rg -n "/api/" packages/client/src/domain/<r>.ts && echo FAIL || echo OK   # endp
 rg -n "\.request(Parsed|Raw|Stream)\(" packages/client/src/resources/<r>.ts || echo "FAIL: no transport call — is this file doing anything?"
 rg -n "\$\{[a-zA-Z_$][\w$]*\}" packages/client/src/resources/<r>.ts   # every string interpolation: numeric id, or encodeURIComponent?
 rg -n "<r>Resource" packages/client/src/client.ts || echo "FAIL: namespace not composed onto the client"
-rg -n "transport\.require\(\"<r>\." packages/client/src/resources/<r>.ts || echo "FAIL: no require() — every method opens with one"
+rg -n "explainer\(transport, \"<r>\"\)" packages/client/src/resources/<r>.ts || echo "CHECK: no explainer — right only when METHOD_REQUIREMENTS gates no <r> method"
 rg -n "\"<r>\." packages/client/src/version/requirements.ts || echo "FAIL: no METHOD_REQUIREMENTS entries for <r>"
 rg -n "\.major\s*(<|>|=)" packages/client/src/domain/<r>.ts packages/client/src/resources/<r>.ts && echo FAIL || echo OK   # only version/features.ts compares a major
 
@@ -514,7 +509,7 @@ If either skill surfaces a structural issue (missing `.strip()`, a request built
 - [ ] Closed enums pinned via `z.enum([...])` where the backend defines a closed set.
 - [ ] Schema scope is query/agent-relevant fields only — no sync flags, fingerprints, audit timestamps, or other internal plumbing unless they drive an actual decision.
 - [ ] No fixture or schema-parse unit test added.
-- [ ] **Resource file** `packages/client/src/resources/<r>.ts` exports `<r>Resource(transport)`, holds every `/api/` path and every transport call, and follows all nine conventions — positional path params then params then options, Metabase's own field names, transport concerns in `options`, wire envelopes module-private, domain values returned, `ListResult<T>` for a non-paginated list, `encodeURIComponent` on every string path param, a doc comment per method, `await transport.require("<r>.<method>")` first in every method.
+- [ ] **Resource file** `packages/client/src/resources/<r>.ts` exports `<r>Resource(transport)`, holds every `/api/` path and every transport call, and follows all nine conventions — positional path params then params then options, Metabase's own field names, transport concerns in `options`, wire envelopes module-private, domain values returned, `ListResult<T>` for a non-paginated list, `encodeURIComponent` on every string path param, a doc comment per method, a `METHOD_REQUIREMENTS` entry per method, and each gated method exported through exactly one of the `explain` / `explainWalk` / `refuse` / `refuseAfterReading` of `explainer(transport, "<r>")`.
 - [ ] **Requirements** — every method has its `"<r>.<method>"` entry in `METHOD_REQUIREMENTS`; a gated route has a behaviour-named rule in `FEATURE_RULES` verified against the Metabase release branches; a shape that differs by generation has its `<Resource>WireV<N>` + converter + exported reader, with converter unit tests per generation.
 - [ ] **Namespace composed** onto `packages/client/src/client.ts` as `<r>: <r>Resource(transport)`.
 - [ ] **Wire test** `packages/client/src/resources/<r>.test.ts` asserts URL, method, headers and body for every method through `captureFetch`.

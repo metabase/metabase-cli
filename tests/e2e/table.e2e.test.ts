@@ -15,10 +15,11 @@ import { FieldListEnvelope } from "../../packages/cli/src/commands/table/fields"
 import { TableForeignKeyListEnvelope } from "../../packages/cli/src/commands/table/fks";
 import { tableFieldsOversizeHint } from "../../packages/cli/src/commands/table/hints";
 import { TableListEnvelope } from "../../packages/cli/src/commands/table/list";
+import { PREFLIGHT_SKIP_REMEDY } from "../../packages/cli/src/output/notice";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { seedProbedProfile } from "./seed-profile";
+import { seedProbedProfile, UNREACHABLE_SEED_MESSAGE } from "./seed-profile";
 import { SEEDED } from "./seed/seeded";
 import { serverHas } from "./server-gate";
 
@@ -326,7 +327,7 @@ describe("table e2e", () => {
     }
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe(
-      `This operation requires Metabase v59+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`,
+      `This operation requires Metabase v59+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}\n${PREFLIGHT_SKIP_REMEDY}`,
     );
   });
 
@@ -342,7 +343,7 @@ describe("table e2e", () => {
     }
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe(
-      `This operation requires Metabase v60+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`,
+      `This operation requires Metabase v60+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}\n${PREFLIGHT_SKIP_REMEDY}`,
     );
   });
 
@@ -359,35 +360,31 @@ describe("table e2e", () => {
     }
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe(
-      "This operation requires the 'dependencies' premium feature (not enabled on this server).",
+      `This operation requires the 'dependencies' premium feature (not enabled on this server).\n${PREFLIGHT_SKIP_REMEDY}`,
     );
   });
 
-  it("list --can-query refuses before any request when the cached probe says v58", async () => {
+  it("list --can-query asks the server itself rather than a cached v58 probe", async () => {
     const configHome = await makeIsolatedConfigHome();
     await seedProbedProfile(configHome, 58);
 
     const result = await runCli({ args: ["table", "list", "--can-query", "--json"], configHome });
 
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorCategory(result.stderr)).toBe("capability");
-    expect(cliErrorMessage(result.stderr)).toBe(
-      `This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`,
-    );
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorCategory(result.stderr)).toBe("network");
+    expect(cliErrorMessage(result.stderr)).toBe(UNREACHABLE_SEED_MESSAGE);
     expect(result.stdout).toBe("");
   });
 
-  it("list --unused-only refuses before any request when the cached probe lacks the dependencies feature", async () => {
+  it("list --unused-only asks the server itself rather than a cached probe without the dependencies feature", async () => {
     const configHome = await makeIsolatedConfigHome();
     await seedProbedProfile(configHome, 58);
 
     const result = await runCli({ args: ["table", "list", "--unused-only", "--json"], configHome });
 
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorCategory(result.stderr)).toBe("capability");
-    expect(cliErrorMessage(result.stderr)).toBe(
-      "This operation requires the 'dependencies' premium feature (not enabled on this server).",
-    );
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorCategory(result.stderr)).toBe("network");
+    expect(cliErrorMessage(result.stderr)).toBe(UNREACHABLE_SEED_MESSAGE);
     expect(result.stdout).toBe("");
   });
 
@@ -401,7 +398,7 @@ describe("table e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("list refuses a medallion data layer name on a server that speaks tiers, and sends it to one that speaks medallions", async () => {
+  it("list sends a medallion data layer name, which a server that speaks tiers rejects and one that speaks medallions filters by", async () => {
     const result = await listWarehouse("--data-layer", "gold");
 
     if (!serverHas("tableDataLayerTiers")) {
@@ -409,10 +406,10 @@ describe("table e2e", () => {
       expect(parseJson(result.stdout, TableListEnvelope)).toEqual(warehouseEnvelope([]));
       return;
     }
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorCategory(result.stderr)).toBe("config");
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorCategory(result.stderr)).toBe("http");
     expect(cliErrorMessage(result.stderr)).toBe(
-      'data_layer "gold" is a medallion name; this server names a table\'s layer final, internal, hidden',
+      "data-layer: should be either :final, :internal or :hidden, received: :gold",
     );
     expect(result.stdout).toBe("");
   });
@@ -731,6 +728,32 @@ describe("table e2e", () => {
     expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
   });
 
+  it("update withdraws data_authority on a server that keeps user edits apart, or refuses before the request on one that would fail the write", async () => {
+    const result = await runCli({
+      args: [
+        "table",
+        "update",
+        String(SEEDED.tables.reviews),
+        "--body",
+        JSON.stringify({ data_authority: null }),
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    if (serverHas("tableUserValueWithdrawal")) {
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(parseJson(result.stdout, Table).id).toBe(SEEDED.tables.reviews);
+      return;
+    }
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      `This operation requires Metabase v64+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}\n${PREFLIGHT_SKIP_REMEDY}`,
+    );
+    expect(result.stdout).toBe("");
+  });
+
   it("sync-schema queues a schema sync for the table and returns ok", async () => {
     const result = await runCli({
       args: ["table", "sync-schema", String(SEEDED.tables.reviews), "--json"],
@@ -833,7 +856,7 @@ describe("table e2e", () => {
     expect(cliErrorMessage(result.stderr)).toBe(bulkEditRefusal(bootstrap.server.version?.tag));
   });
 
-  it("bulk-edit refuses before any request when the cached probe says v58", async () => {
+  it("bulk-edit sends the request a cached v58 probe would have refused", async () => {
     const configHome = await makeIsolatedConfigHome();
     await seedProbedProfile(configHome, 58);
 
@@ -848,9 +871,9 @@ describe("table e2e", () => {
       configHome,
     });
 
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorCategory(result.stderr)).toBe("capability");
-    expect(cliErrorMessage(result.stderr)).toBe(bulkEditRefusal("v0.58.0"));
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorCategory(result.stderr)).toBe("network");
+    expect(cliErrorMessage(result.stderr)).toBe(UNREACHABLE_SEED_MESSAGE);
     expect(result.stdout).toBe("");
   });
 

@@ -99,7 +99,7 @@ function preflightHeadline(branch: string, result: SyncExportPreflight): string 
     return `Branch ${branch}: the remote history was rewritten, so no merge base exists; only a force push can export.`;
   }
   if (!result.has_changes) {
-    return `Branch ${branch}: the remote has not moved past the last sync (a task that ended in conflict counts as one), or nothing has been synced yet; an export applies as-is.`;
+    return `Branch ${branch}: the remote has not moved past the last sync (on some servers a task that ended in conflict counts as one), or nothing has been synced yet; an export applies as-is.`;
   }
   if (result.clean) {
     return `Branch ${branch}: the remote has moved on; a merge applies cleanly.`;
