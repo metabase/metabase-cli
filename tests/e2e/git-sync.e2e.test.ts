@@ -30,6 +30,10 @@ const preflightSkipReason = requireServer(
   "git-sync › export-preflight against a licensed server with the preflight route",
   ["remoteSyncExportPreflight"],
 );
+const branchGuardSkipReason = requireServer(
+  "git-sync › import and export refuse an unset branch on a server guarding it",
+  ["remoteSyncBranchGuard"],
+);
 const preflightGap = requirementFailure(["remoteSyncExportPreflight"]);
 const remoteSyncGap = requirementFailure(["remoteSync"]);
 const withoutRemoteSyncSkipReason = requireServerWithout(
@@ -421,37 +425,43 @@ describe.skipIf(skipReason !== null)("git-sync e2e against EE git-sync endpoints
     expect(parseJson(result.stdout, WaitResult)).toEqual({ status: "idle" });
   });
 
-  it("import without git-sync configured refuses before the request, having read the unset branch", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["git-sync", "import", "--no-wait", "--json"],
-      configHome,
-      env: authEnv(),
-    });
+  it.skipIf(branchGuardSkipReason !== null)(
+    "import without git-sync configured refuses before the request, having read the unset branch",
+    async () => {
+      const configHome = await makeIsolatedConfigHome();
+      const result = await runCli({
+        args: ["git-sync", "import", "--no-wait", "--json"],
+        configHome,
+        env: authEnv(),
+      });
 
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorCategory(result.stderr)).toBe("config");
-    expect(cliErrorMessage(result.stderr)).toBe(
-      "git-sync tracks no branch: the remote-sync-branch setting is unset",
-    );
-    expect(result.stdout).toBe("");
-  });
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorCategory(result.stderr)).toBe("config");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "git-sync tracks no branch: the remote-sync-branch setting is unset",
+      );
+      expect(result.stdout).toBe("");
+    },
+  );
 
-  it("export without git-sync configured refuses before the request, having read the unset branch", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["git-sync", "export", "--no-wait", "--json"],
-      configHome,
-      env: authEnv(),
-    });
+  it.skipIf(branchGuardSkipReason !== null)(
+    "export without git-sync configured refuses before the request, having read the unset branch",
+    async () => {
+      const configHome = await makeIsolatedConfigHome();
+      const result = await runCli({
+        args: ["git-sync", "export", "--no-wait", "--json"],
+        configHome,
+        env: authEnv(),
+      });
 
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorCategory(result.stderr)).toBe("config");
-    expect(cliErrorMessage(result.stderr)).toBe(
-      "git-sync tracks no branch: the remote-sync-branch setting is unset",
-    );
-    expect(result.stdout).toBe("");
-  });
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorCategory(result.stderr)).toBe("config");
+      expect(cliErrorMessage(result.stderr)).toBe(
+        "git-sync tracks no branch: the remote-sync-branch setting is unset",
+      );
+      expect(result.stdout).toBe("");
+    },
+  );
 
   it.skipIf(remoteChangesSkipReason !== null)(
     "has-remote-changes without git-sync configured surfaces the server's 400 message",
