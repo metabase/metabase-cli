@@ -1,6 +1,17 @@
 import { z } from "zod";
 
-export const TimelineIcon = z.enum(["star", "cake", "mail", "warning", "bell", "cloud"]);
+export const TimelineIcon = z.enum([
+  "star",
+  "cake",
+  "mail",
+  "mail_at",
+  "warning",
+  "bell",
+  "cloud",
+  "info",
+  "note",
+  "event",
+]);
 export type TimelineIcon = z.infer<typeof TimelineIcon>;
 
 export const TimelineEvent = z

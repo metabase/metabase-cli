@@ -14,6 +14,7 @@ export const CollectionType = z.enum([
   "library",
   "library-data",
   "library-metrics",
+  "library-dashboards",
   "tenant-specific-root-collection",
 ]);
 export type CollectionType = z.infer<typeof CollectionType>;
@@ -25,6 +26,8 @@ export const CollectionNamespace = z.enum([
   "analytics",
   "shared-tenant-collection",
   "tenant-specific",
+  "data-apps",
+  "data-actions",
 ]);
 export type CollectionNamespace = z.infer<typeof CollectionNamespace>;
 
@@ -39,6 +42,7 @@ export const COLLECTION_ITEM_FILTER_MODELS = [
   "snippet",
   "collection",
   "document",
+  "exploration",
   "table",
   "transform",
   "measure",
@@ -49,8 +53,12 @@ export const COLLECTION_ITEM_FILTER_MODELS = [
 export const CollectionItemFilterModel = z.enum(COLLECTION_ITEM_FILTER_MODELS);
 export type CollectionItemFilterModel = z.infer<typeof CollectionItemFilterModel>;
 
-// `indexed-entity` is a valid response model but not accepted as a filter value.
-export const COLLECTION_ITEM_MODELS = [...COLLECTION_ITEM_FILTER_MODELS, "indexed-entity"] as const;
+// `indexed-entity` and `action` are valid response models but not accepted as filter values.
+export const COLLECTION_ITEM_MODELS = [
+  ...COLLECTION_ITEM_FILTER_MODELS,
+  "indexed-entity",
+  "action",
+] as const;
 export const CollectionItemModel = z.enum(COLLECTION_ITEM_MODELS);
 export type CollectionItemModel = z.infer<typeof CollectionItemModel>;
 

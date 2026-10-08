@@ -28,6 +28,7 @@ const RevisionApiRevert: z.ZodType<RevisionRevert> = z.union([
 const ENTITY_FEATURES: Partial<Record<RevisionEntity, FeatureName>> = {
   measure: "measures",
   transform: "transforms",
+  "transform-test": "transformTests",
 };
 
 function entityFeatures(entity: RevisionEntity): ParameterRequirement[] {

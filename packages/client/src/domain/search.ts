@@ -11,6 +11,7 @@ export const SEARCH_MODELS = [
   "segment",
   "measure",
   "document",
+  "exploration",
   "action",
   "transform",
   "indexed-entity",

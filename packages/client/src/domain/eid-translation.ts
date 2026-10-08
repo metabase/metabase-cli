@@ -10,6 +10,7 @@ export const EID_MODELS = [
   "dataset",
   "dimension",
   "document",
+  "exploration",
   "measure",
   "metric",
   "permissions-group",
