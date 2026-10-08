@@ -244,7 +244,9 @@ describe.skipIf(withoutModellessSkipReason !== null)(
       expect(result.exitCode).toBe(2);
       expect(cliErrorCategory(result.stderr)).toBe("capability");
       expect(cliErrorMessage(result.stderr)).toBe(
-        `This operation requires Metabase v65+ (this server is ${bootstrap.server.version.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`,
+        `This operation requires Metabase v65+ (this server is ${bootstrap.server.version.tag}). Upgrade Metabase to use it.\n` +
+          "Metabase answered 400: model_id: missing required key, received: nil\n" +
+          DOWNGRADE_REMEDY,
       );
       expect(result.stdout).toBe("");
     });
