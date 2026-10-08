@@ -61,7 +61,7 @@ const UNPINNED_ENUM_COLLECTION = {
 const ABSENT_LIBRARY = { data: null };
 
 const MISSING_TYPE_ISSUE =
-  'Invalid option: expected one of "instance-analytics"|"trash"|"library"|"library-data"|"library-metrics"|"tenant-specific-root-collection"';
+  'Invalid option: expected one of "instance-analytics"|"trash"|"library"|"library-data"|"library-metrics"|"library-dashboards"|"tenant-specific-root-collection"';
 
 const TARGET_COLLECTION = {
   id: 11,

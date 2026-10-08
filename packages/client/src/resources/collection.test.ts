@@ -246,7 +246,7 @@ describe("collection resource results", () => {
     expect(error.userMessage).toBe(
       "Metabase returned unexpected response shape:\n" +
         '  [1].type: Invalid option: expected one of "instance-analytics"|"trash"|"library"|' +
-        '"library-data"|"library-metrics"|"tenant-specific-root-collection"',
+        '"library-data"|"library-metrics"|"library-dashboards"|"tenant-specific-root-collection"',
     );
   });
 });

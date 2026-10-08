@@ -234,7 +234,7 @@ export type TransformTestExpectationResult = z.infer<typeof TransformTestExpecta
 
 export const TransformTestRunResult = z
   .object({
-    status: z.enum(["passed", "failed"]),
+    status: z.enum(["passed", "failed", "error"]),
     expectations: z.array(TransformTestExpectationResult),
     tables: z.record(z.string(), z.string()),
   })

@@ -7,6 +7,7 @@ export const RevisionEntity = z.enum([
   "measure",
   "segment",
   "transform",
+  "transform-test",
 ]);
 export type RevisionEntity = z.infer<typeof RevisionEntity>;
 
