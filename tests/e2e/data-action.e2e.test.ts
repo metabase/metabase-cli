@@ -30,7 +30,7 @@ function createBody(): DataActionCreateInput {
     name: ACTION_NAME,
     type: "query",
     database_id: SEEDED.warehouseDbId,
-    collection_id: SEEDED.defaultCollectionId,
+    collection_id: null,
     dataset_query: {
       "lib/type": "mbql/query",
       database: SEEDED.warehouseDbId,
@@ -117,7 +117,7 @@ describe.skipIf(skipReason !== null)("data-action e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("create files a model-less query action in its collection, and list and get read it back", async () => {
+  it("create files a model-less query action in the data actions root, and list and get read it back", async () => {
     await enableActionsOnWarehouse();
 
     const created = await createAction();
@@ -126,7 +126,7 @@ describe.skipIf(skipReason !== null)("data-action e2e", () => {
       type: "query",
       model_id: null,
       database_id: SEEDED.warehouseDbId,
-      collection_id: SEEDED.defaultCollectionId,
+      collection_id: null,
       archived: false,
     });
 
@@ -137,7 +137,7 @@ describe.skipIf(skipReason !== null)("data-action e2e", () => {
         id: created.id,
         name: ACTION_NAME,
         type: "query",
-        collection_id: SEEDED.defaultCollectionId,
+        collection_id: null,
         database_id: SEEDED.warehouseDbId,
         archived: false,
       },
