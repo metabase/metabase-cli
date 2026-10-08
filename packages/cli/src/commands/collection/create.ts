@@ -1,12 +1,15 @@
-import { Collection, CollectionCreateInput } from "@metabase/client/domain/collection";
+import {
+  Collection,
+  CollectionCreateInput,
+  CollectionNamespace,
+} from "@metabase/client/domain/collection";
 import { collectionView } from "../../output/views/collection";
 import { renderSummary } from "../../output/render";
 import { readBody } from "../../runtime/body";
+import { parseEnum } from "../../runtime/csv";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
-
-import { namespaceFlag, parseNamespaceFlag } from "./namespace-flag";
 
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a collection from a JSON spec" },
@@ -18,7 +21,10 @@ export default defineMetabaseCommand({
     ...profileFlag,
     ...connectionFlags,
     ...bodyInputFlags,
-    ...namespaceFlag,
+    namespace: {
+      type: "string",
+      description: `Collection namespace: ${CollectionNamespace.options.join("|")} (omit for a normal collection)`,
+    },
   },
   inputSchema: CollectionCreateInput,
   outputSchema: Collection,
@@ -31,10 +37,8 @@ export default defineMetabaseCommand({
   ],
   async run({ args, ctx, getClient }) {
     const body = await readBody({ flag: args.body, file: args.file }, CollectionCreateInput);
-    const namespace = parseNamespaceFlag(args.namespace);
-    if (namespace !== undefined) {
-      body.namespace = namespace;
-    }
+    body.namespace =
+      parseEnum(args.namespace, CollectionNamespace, "--namespace") ?? body.namespace;
     const client = await getClient();
     const created = await client.collection.create(body);
     renderSummary(

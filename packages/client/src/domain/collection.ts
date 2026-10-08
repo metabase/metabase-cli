@@ -27,7 +27,6 @@ export const CollectionNamespace = z.enum([
   "shared-tenant-collection",
   "tenant-specific",
   "data-apps",
-  "data-actions",
 ]);
 export type CollectionNamespace = z.infer<typeof CollectionNamespace>;
 

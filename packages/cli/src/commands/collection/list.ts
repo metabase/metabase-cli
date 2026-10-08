@@ -1,14 +1,17 @@
-import { CollectionCompact, CollectionListFilter } from "@metabase/client/domain/collection";
+import {
+  CollectionCompact,
+  CollectionListFilter,
+  CollectionNamespace,
+} from "@metabase/client/domain/collection";
 
 import { collectionView } from "../../output/views/collection";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
 import { windowList } from "../../output/window";
+import { parseEnum } from "../../runtime/csv";
 import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";
 import { parseEnumFlag } from "../parse-enum";
 import { defineMetabaseCommand } from "../runtime";
-
-import { namespaceFlag, parseNamespaceFlag } from "./namespace-flag";
 
 export const CollectionListEnvelope = listEnvelopeSchema(CollectionCompact);
 
@@ -25,7 +28,10 @@ export default defineMetabaseCommand({
       description: `Filter preset: ${CollectionListFilter.options.join("|")}`,
       default: "all",
     },
-    ...namespaceFlag,
+    namespace: {
+      type: "string",
+      description: `Collection namespace: ${CollectionNamespace.options.join("|")} (omit for a normal collection)`,
+    },
   },
   outputSchema: CollectionListEnvelope,
   examples: [
@@ -39,7 +45,7 @@ export default defineMetabaseCommand({
     const client = await getClient();
     const collections = await client.collection.list({
       filter,
-      namespace: parseNamespaceFlag(args.namespace),
+      namespace: parseEnum(args.namespace, CollectionNamespace, "--namespace"),
     });
     renderList(windowList(collections.data, ctx.range), collectionView, ctx);
   },

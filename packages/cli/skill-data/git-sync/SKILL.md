@@ -253,7 +253,7 @@ Flagging the collection records it for the next export, which serializes its cur
 
 <!-- requires: library, dataActionCollections -->
 
-Data actions (`data-action`) in the data actions tree travel with the Library: while the Library is synced, the tree's folders and data actions sync too, under `collections/data-actions/` in the repo. The tree can't be added with `add-collection`, and in read-only mode its data actions can't be changed. A data action attached to a model syncs with the model's collection.
+Data actions (`data-action`) in the data actions tree sync with the Library, folders included, under `collections/data_actions/` in the repo. `add-collection` doesn't apply to the tree, and in read-only mode its data actions can't be changed. A data action attached to a model syncs with the model's collection.
 
 <!-- /requires -->
 
