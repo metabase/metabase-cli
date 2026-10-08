@@ -13,7 +13,7 @@ Top-level command groups (run `mb <group> --help` to discover verbs):
 ```
 auth | db | table | field | upload | content-translation | query | card | dashboard | snippet | segment | measure | collection | library
 document | glossary | timeline | timeline-event | transform | transform-job | transform-tag | transform-test | alert | subscription | setting
-search | dependency | git-sync | setup | eid | uuid | upgrade | skills
+search | dependency | git-sync | data-action | setup | eid | uuid | upgrade | skills
 ```
 
 The conventions below — auth, flags, output, body input — hold across **every** group. Per-command flags and examples live in each command's `--help`; add `--json` for the machine-readable form with the output JSON Schema. A few flows have their own skills (see "Specialized skills"). When a card needs a query, prefer MBQL over native SQL (portable, pre-flight-validated — load `mbql`); fall back to native SQL when MBQL can't express it.
@@ -124,7 +124,7 @@ mb transform --help --json | jq -r '.commands[].command'  # verbs under "transfo
 
 ## Resource quirks worth memorizing
 
-Routine verb shapes (list / get / create / update), every flag, and output schemas live in each command's `--help` (add `--json` for output schemas). Below is only what help does _not_ tell you: footguns and non-obvious behaviors.
+What `--help` doesn't say: footguns and non-obvious behaviors.
 
 - **db traversal: the hydration ladder.** Start with `database get <db-id> --include tables` — the compact table map (id, name, schema, description per table), one call that fits most databases. Pick the relevant tables, then `table fields <table-id>` per table (bounded: fields are per-table). `--include tables.fields` is the full rollup — small databases only. Hundreds of tables? Traverse by schema (`database schemas <db-id>` → `database schema-tables <db-id> <schema>`) or look tables up by name (`search <term> --models table --db-id <db-id> --limit 10`). `db sync-schema` / `rescan-values` queue async work and return `{status:"ok"}` at once; `sync-schema --wait` blocks until `initial_sync_status: complete`.
 - **table fields.** `table get` never returns fields on its own — pass `--include fields` (compact; the underlying query_metadata response also carries FK targets and dimensions, visible under `--full`) or use `table fields <id>` (list envelope). `table update` patches table-level metadata only; physical columns aren't editable.
@@ -179,7 +179,10 @@ This file is enough for any single-command task. For anything deeper, load the r
 - **`transform-test-plan`** — planning transform tests.
 <!-- /requires -->
 - **`document`** — Metabase documents (TipTap body, embedding cards).
-<!-- requires: remoteSync -->
+<!-- requires: dataActionsWithoutModel -->
+- **`data-action`** — saved SQL writes: enabling, body, parameters, running.
+  <!-- /requires -->
+  <!-- requires: remoteSync -->
 - **`git-sync`** — round-tripping content to/from a git remote.
 <!-- /requires -->
 - **`data-workflow`** — the guided, end-to-end data workflow: investigate raw data, build clean analysis-ready tables, define reusable segments/measures/metrics, answer questions, build dashboards. **Start here when the user states a goal rather than a single verb** — "make sense of my data", "build a data model", "be my data analyst". It detects where the data is and routes to the right stage.
