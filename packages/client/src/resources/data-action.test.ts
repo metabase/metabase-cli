@@ -121,11 +121,13 @@ describe("data action resource wire requests", () => {
     const result = await mb.dataAction.list({ archived: true });
 
     expect(result).toEqual({ data: [archivedAction], total: null });
-    expect(capture.calls.map((call) => call.url)).toEqual([
-      `https://mb.example.com/metabase${PROBE_PATH}`,
-      "https://mb.example.com/metabase/api/action?archived=true",
-    ]);
-    expect(capture.calls.slice(1)).toEqual([
+    expect(capture.calls).toEqual([
+      {
+        url: `https://mb.example.com/metabase${PROBE_PATH}`,
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
       {
         url: "https://mb.example.com/metabase/api/action?archived=true",
         method: "GET",

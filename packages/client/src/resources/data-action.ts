@@ -36,7 +36,7 @@ export function dataActionResource(transport: Transport) {
   /**
    * List the actions the caller can see, unarchived unless `archived` is set. `GET /api/action`
    * answers a bare array. A server without archived listing ignores `archived` and answers the
-   * unarchived actions, so it is refused before the wire there.
+   * unarchived actions, so asking for archived ones is refused there before the wire.
    */
   async function list(
     params: DataActionListParams = {},

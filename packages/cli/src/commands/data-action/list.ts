@@ -18,17 +18,18 @@ export default defineMetabaseCommand({
     ...listFlags,
     ...profileFlag,
     ...connectionFlags,
-    archived: {
-      type: "boolean",
-      description: "List archived data actions instead of unarchived ones",
-    },
+    archived: { type: "boolean", description: "Show archived data actions instead of active ones" },
   },
   outputSchema: DataActionListEnvelope,
-  examples: ["mb data-action list", "mb data-action list --json", "mb data-action list --archived"],
+  examples: [
+    "mb data-action list",
+    "mb data-action list --json",
+    "mb data-action list --archived --json",
+  ],
   async run({ args, ctx, getClient }) {
     const client = await getClient();
     const { data, total } = await client.dataAction.list({
-      archived: args.archived ? true : undefined,
+      archived: args.archived || undefined,
     });
     renderList(windowList(data, ctx.range, total), dataActionView, ctx);
   },
