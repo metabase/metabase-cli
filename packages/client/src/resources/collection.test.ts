@@ -91,6 +91,21 @@ describe("collection resource wire requests", () => {
     ]);
   });
 
+  it("sends the namespace parameter in the list request", async () => {
+    const { mb, capture } = clientOver([jsonResponse([COLLECTION])]);
+
+    await mb.collection.list({ namespace: "data-actions" });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/collection?namespace=data-actions",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
   it("sends the personal filter preset as the personal-only parameter", async () => {
     const { mb, capture } = clientOver([jsonResponse([COLLECTION])]);
 
@@ -213,6 +228,21 @@ describe("collection resource wire requests", () => {
         url:
           "https://mb.example.com/metabase/api/collection/root/items" +
           "?models=card&models=dashboard&archived=true&pinned_state=is_pinned&limit=2&offset=10",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("sends the namespace parameter in the tree request", async () => {
+    const { mb, capture } = clientOver([jsonResponse([TREE_NODE])]);
+
+    await mb.collection.tree({ namespace: "data-actions" });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/collection/tree?namespace=data-actions",
         method: "GET",
         headers: JSON_READ_HEADERS,
         body: null,

@@ -7,6 +7,7 @@ import {
   CollectionItem,
   type CollectionItemFilterModel,
   type CollectionListFilter,
+  type CollectionNamespace,
   type CollectionPinnedState,
   CollectionTreeNode,
   type CollectionUpdateInput,
@@ -33,6 +34,8 @@ const DEFAULT_LIST_FILTER = "all";
 
 export interface CollectionListParams {
   filter?: CollectionListFilter | undefined;
+  /** List the collections of this namespace instead of the normal ones. */
+  namespace?: CollectionNamespace | undefined;
 }
 
 export interface CollectionItemListParams {
@@ -44,6 +47,8 @@ export interface CollectionItemListParams {
 export interface CollectionTreeParams {
   /** Include the Library collections, which the tree leaves out by default. */
   "include-library"?: boolean | undefined;
+  /** Fetch the collections of this namespace instead of the normal ones. */
+  namespace?: CollectionNamespace | undefined;
 }
 
 // The walk's own settings, minus the query the method builds from `CollectionItemListParams`.
@@ -73,7 +78,8 @@ export async function listCollectionsAs<T>(
 export function collectionResource(transport: Transport) {
   /**
    * List collections. `filter` picks a server-side preset: everything, archived, or personal. Every
-   * preset includes the Library collections that match it.
+   * preset includes the Library collections that match it. `namespace` lists the collections of
+   * that namespace, its root among them, instead of the normal ones.
    */
   async function list(
     params: CollectionListParams = {},
@@ -81,7 +87,10 @@ export function collectionResource(transport: Transport) {
   ): Promise<ListResult<Collection>> {
     const data = await transport.requestParsed(CollectionApiList, "/api/collection", {
       ...options,
-      query: COLLECTION_LIST_QUERY[params.filter ?? DEFAULT_LIST_FILTER],
+      query: {
+        ...COLLECTION_LIST_QUERY[params.filter ?? DEFAULT_LIST_FILTER],
+        namespace: params.namespace,
+      },
     });
     return { data, total: null };
   }
@@ -154,7 +163,7 @@ export function collectionResource(transport: Transport) {
   ): Promise<ListResult<CollectionTreeNode>> {
     const data = await transport.requestParsed(CollectionTreeApiList, "/api/collection/tree", {
       ...options,
-      query: { "include-library": params["include-library"] },
+      query: { "include-library": params["include-library"], namespace: params.namespace },
     });
     return { data, total: null };
   }

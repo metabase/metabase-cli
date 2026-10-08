@@ -19,6 +19,15 @@ function collectionFeatures(params: DataActionUpdateInput): ParameterRequirement
     : [{ feature: "dataActionCollections", fields: ["collection_id"] }];
 }
 
+export interface DataActionListParams {
+  /** List archived data actions instead of unarchived ones. */
+  archived?: boolean | undefined;
+}
+
+function isDataAction(action: DataAction): boolean {
+  return action.model_id === null;
+}
+
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function dataActionResource(transport: Transport) {
   const { explain } = explainer(transport, "dataAction");
@@ -28,11 +37,23 @@ export function dataActionResource(transport: Transport) {
     return dataActionSchema(features);
   }
 
-  /** List the unarchived data actions the caller can see. `GET /api/action` answers a bare array. */
-  async function list(options: RequestOptions = {}): Promise<ListResult<DataAction>> {
+  /**
+   * List the data actions the caller can see, unarchived unless `archived` is set. `GET /api/action`
+   * answers a bare array that also holds the actions of models, which are not data actions. A server
+   * without archived listing ignores `archived` and answers the unarchived actions, so it is refused
+   * before the wire there.
+   */
+  async function list(
+    params: DataActionListParams = {},
+    options: RequestOptions = {},
+  ): Promise<ListResult<DataAction>> {
+    await transport.requireFeatures(params.archived ? ["dataActionArchivedList"] : [], options);
     const schema = await readSchema(options);
-    const data = await transport.requestParsed(z.array(schema), "/api/action", { ...options });
-    return { data, total: null };
+    const actions = await transport.requestParsed(z.array(schema), "/api/action", {
+      ...options,
+      query: { archived: params.archived },
+    });
+    return { data: actions.filter(isDataAction), total: null };
   }
 
   /** Get one unarchived data action by id. */
@@ -41,7 +62,10 @@ export function dataActionResource(transport: Transport) {
     return transport.requestParsed(schema, `/api/action/${id}`, { ...options });
   }
 
-  /** Create a data action — a parameterized native query that writes to a database — in a collection. */
+  /**
+   * Create a data action — a parameterized native query that writes to a database — in a data
+   * actions collection, or in their root without a `collection_id`.
+   */
   async function create(
     params: DataActionCreateInput,
     options: RequestOptions = {},
@@ -73,7 +97,7 @@ export function dataActionResource(transport: Transport) {
     return update(id, { archived: true }, options);
   }
 
-  /** Delete a data action by id, removing it and the dashboard buttons that run it. */
+  /** Delete a data action by id. */
   async function remove(id: number, options: RequestOptions = {}): Promise<void> {
     await transport.requestRaw(`/api/action/${id}`, {
       ...options,

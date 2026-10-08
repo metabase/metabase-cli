@@ -21,6 +21,7 @@ export type CollectionType = z.infer<typeof CollectionType>;
 export const CollectionNamespace = z.enum([
   "transforms",
   "snippets",
+  "data-actions",
   "analytics",
   "shared-tenant-collection",
   "tenant-specific",

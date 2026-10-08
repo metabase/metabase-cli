@@ -6,6 +6,8 @@ import { writeJson } from "../../output/render";
 import { connectionFlags, formatFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
+import { namespaceFlag, parseNamespaceFlag } from "./namespace-flag";
+
 export const CollectionTreeResponse = z.array(CollectionTreeNode);
 
 export default defineMetabaseCommand({
@@ -22,12 +24,14 @@ export default defineMetabaseCommand({
       type: "boolean",
       description: "Include the Library collections, which the tree leaves out by default",
     },
+    ...namespaceFlag,
   },
   outputSchema: CollectionTreeResponse,
   examples: [
     "mb collection tree",
     "mb collection tree --json",
     "mb collection tree --include-library",
+    "mb collection tree --namespace data-actions",
   ],
   async run({ args, ctx, getClient }) {
     if (ctx.format === "text") {
@@ -36,6 +40,7 @@ export default defineMetabaseCommand({
     const client = await getClient();
     const tree = await client.collection.tree({
       "include-library": args["include-library"] ? true : undefined,
+      namespace: parseNamespaceFlag(args.namespace),
     });
     writeJson(tree.data);
   },

@@ -8,6 +8,8 @@ import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";
 import { parseEnumFlag } from "../parse-enum";
 import { defineMetabaseCommand } from "../runtime";
 
+import { namespaceFlag, parseNamespaceFlag } from "./namespace-flag";
+
 export const CollectionListEnvelope = listEnvelopeSchema(CollectionCompact);
 
 export default defineMetabaseCommand({
@@ -23,17 +25,22 @@ export default defineMetabaseCommand({
       description: `Filter preset: ${CollectionListFilter.options.join("|")}`,
       default: "all",
     },
+    ...namespaceFlag,
   },
   outputSchema: CollectionListEnvelope,
   examples: [
     "mb collection list",
     "mb collection list --json",
     "mb collection list --filter archived --json",
+    "mb collection list --namespace data-actions",
   ],
   async run({ args, ctx, getClient }) {
     const filter = parseEnumFlag(args.filter, CollectionListFilter, "filter");
     const client = await getClient();
-    const collections = await client.collection.list({ filter });
+    const collections = await client.collection.list({
+      filter,
+      namespace: parseNamespaceFlag(args.namespace),
+    });
     renderList(windowList(collections.data, ctx.range), collectionView, ctx);
   },
 });

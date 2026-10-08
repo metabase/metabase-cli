@@ -679,7 +679,7 @@ describe("the shipped skills", () => {
     );
 
     expect(bound).toEqual({
-      "data-action": ["dataActionsWithoutModel"],
+      "data-action": ["dataActionsWithoutModel", "dataActionCollections", "dataActionArchivedList"],
       "git-sync": ["remoteSync"],
       transform: ["transforms"],
       "transform-test-plan": ["transformTests"],

@@ -111,6 +111,48 @@ describe("data action resource wire requests", () => {
     ]);
   });
 
+  it("leaves the actions of models out of the list", async () => {
+    const modelAction = { ...ACTION, id: 8, model_id: 5 };
+    const { mb } = clientOver([jsonResponse([ACTION, modelAction])]);
+
+    const result = await mb.dataAction.list();
+
+    expect(result).toEqual({ data: [ACTION], total: null });
+  });
+
+  it("sends archived in the list request", async () => {
+    const archivedAction = { ...ACTION, archived: true };
+    const { mb, capture } = clientOver([
+      probeResponse(HEAD_SERVER),
+      jsonResponse([archivedAction]),
+    ]);
+
+    const result = await mb.dataAction.list({ archived: true });
+
+    expect(result).toEqual({ data: [archivedAction], total: null });
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+      "https://mb.example.com/metabase/api/action?archived=true",
+    ]);
+    expect(capture.calls.slice(1)).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/action?archived=true",
+        method: "GET",
+        headers: JSON_READ_HEADERS,
+        body: null,
+      },
+    ]);
+  });
+
+  it("refuses archived before the wire on a server that would answer the unarchived actions", async () => {
+    const { mb, capture } = clientOver([probeResponse(V64_SERVER)], V64_SERVER);
+
+    await expect(mb.dataAction.list({ archived: true })).rejects.toBeInstanceOf(CapabilityError);
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
+  });
+
   it("reads a data action without a collection on a server whose data actions have none", async () => {
     const { mb } = clientOver([jsonResponse([ACTION_V64])], V64_SERVER);
 

@@ -251,6 +251,12 @@ Flagging the collection records it for the next export, which serializes its cur
 
 <!-- /requires -->
 
+<!-- requires: library, dataActionCollections -->
+
+Data actions (`data-action`) travel with the Library rather than with a collection: while the Library is synced, every data action in the data actions root or a data actions folder, and those folders, sync too, under `collections/data-actions/` in the repo. They can't be added with `add-collection`, and in read-only mode they can't be changed.
+
+<!-- /requires -->
+
 ## Don't (git-sync-specific)
 
 - Don't turn instance-side changes into hand-written repo files: export them and PR the exported branch (see the top of this skill). Files pushed behind Metabase's back race its own sync tasks.
