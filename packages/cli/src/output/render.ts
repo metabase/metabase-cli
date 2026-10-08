@@ -34,10 +34,12 @@ export function writeText(text: string): void {
 type KeyValuePair = readonly [label: string, value: string];
 
 export function renderItem<T>(item: T, view: ResourceView<T>, opts: RenderOptions): void {
+  writeWithinMaxBytes(itemBody(item, view, opts), opts);
+}
+
+function itemBody<T>(item: T, view: ResourceView<T>, opts: RenderOptions): string {
   const projected = applyProjection(item, view, opts.full, opts.fields);
-  const body = renderItemBody(item, view, projected, opts) + "\n";
-  assertItemWithinMaxBytes(body, opts);
-  process.stdout.write(body);
+  return renderItemBody(item, view, projected, opts) + "\n";
 }
 
 // Default text/human view prints `summaryText` — a bare scalar for single-value lookups
@@ -53,13 +55,35 @@ export function renderSummary<T>(
   summaryText: string | (() => string),
   opts: RenderOptions,
 ): void {
-  if (opts.format === "json" || opts.fields !== undefined || opts.full) {
-    renderItem(item, view, opts);
-    return;
+  writeWithinMaxBytes(summaryBody(item, view, summaryText, opts), opts);
+}
+
+// renderSummary for a command whose result outranks the cap: over it, nothing is written and the
+// refusal comes back as a message, so the caller can still report what the result was.
+export function renderSummaryWithinMaxBytes<T>(
+  item: T,
+  view: ResourceView<T>,
+  summaryText: string | (() => string),
+  opts: RenderOptions,
+): string | null {
+  const body = summaryBody(item, view, summaryText, opts);
+  const oversize = oversizeMessage(body, opts);
+  if (oversize === null) {
+    process.stdout.write(body);
   }
-  const body = (typeof summaryText === "function" ? summaryText() : summaryText) + "\n";
-  assertItemWithinMaxBytes(body, opts);
-  process.stdout.write(body);
+  return oversize;
+}
+
+function summaryBody<T>(
+  item: T,
+  view: ResourceView<T>,
+  summaryText: string | (() => string),
+  opts: RenderOptions,
+): string {
+  if (opts.format === "json" || opts.fields !== undefined || opts.full) {
+    return itemBody(item, view, opts);
+  }
+  return (typeof summaryText === "function" ? summaryText() : summaryText) + "\n";
 }
 
 export function renderList<T>(
@@ -199,13 +223,21 @@ function renderKeyValueLines(pairs: ReadonlyArray<KeyValuePair>): string {
   return pairs.map(([label, value]) => `${label.padEnd(padding)}  ${value}`).join("\n");
 }
 
-function assertItemWithinMaxBytes(body: string, opts: RenderOptions): void {
+function writeWithinMaxBytes(body: string, opts: RenderOptions): void {
+  const oversize = oversizeMessage(body, opts);
+  if (oversize !== null) {
+    throw new ConfigError(oversize);
+  }
+  process.stdout.write(body);
+}
+
+function oversizeMessage(body: string, opts: RenderOptions): string | null {
   if (opts.maxBytes <= 0) {
-    return;
+    return null;
   }
   const bytes = Buffer.byteLength(body, "utf8");
   if (bytes <= opts.maxBytes) {
-    return;
+    return null;
   }
-  throw new ConfigError(itemOversizeMessage(bytes, opts.maxBytes, opts.oversizeHint));
+  return itemOversizeMessage(bytes, opts.maxBytes, opts.oversizeHint);
 }

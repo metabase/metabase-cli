@@ -378,8 +378,8 @@ Types: `MetabaseClient`, `Transport`, `ClientCredentials`, `ClientOptions`, `Req
 ### Errors
 
 `MetabaseError` is the abstract root of the taxonomy: `NetworkError`, `TimeoutError`,
-`ValidationError`, `ResponseShapeError`, `ConfigError`, `InternalError`, `AbortError`,
-`ChainedRequestError`, `UnknownError`, `PartialWriteError`, `CapabilityError`, and `HttpError`. Every one carries a `category`
+`ValidationError`, `ResponseShapeError`, `ConfigError`, `InternalError`, `FailedResultError`,
+`AbortError`, `ChainedRequestError`, `UnknownError`, `PartialWriteError`, `CapabilityError`, and `HttpError`. Every one carries a `category`
 (`ErrorCategory`), an `isRetryable`, a `userMessage`, and a `developerDetail` typed per class —
 `NetworkErrorDetail`, `TimeoutErrorDetail` (the `HttpTimeoutDetail | PollingTimeoutDetail` union),
 `ValidationErrorDetail`, `ResponseShapeErrorDetail` (the
@@ -391,7 +391,9 @@ carries the request context and the Zod issues, and a hand-decoded body or heade
 `metabase-…` response header — carries the source it was read from and the raw value.
 
 `ConfigError` and `InternalError` split blame: the first is input a caller could correct, the second
-is a caller that violated a function's contract, which is a bug in the calling code. `HttpError`
+is a caller that violated a function's contract, which is a bug in the calling code.
+`FailedResultError` is neither: the operation ran and its result is a failure — a test that did not
+pass, a run that ended errored — with nothing to debug beyond the result itself. `HttpError`
 carries the status and response body, redacted of known secrets at construction, plus a `kind`
 (`HttpErrorKind`) separating a route Metabase does not serve from a row that is gone, and a credential Metabase did not accept (`auth`, 401) from a request it refused for an identified user (`forbidden`, 403) or that conflicts with existing state (`conflict`, 409);
 `isHttpNotFound(value)` answers the coarser question of whether a thrown value is an `HttpError` with

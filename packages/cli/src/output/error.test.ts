@@ -74,6 +74,7 @@ const CATEGORIES: ReadonlyArray<ErrorCategory> = [
   "partial-write",
   "abort",
   "internal",
+  "failed",
   "unknown",
 ];
 
@@ -90,6 +91,7 @@ const EXPECTED_EXIT_CODES: Record<ErrorCategory, number> = {
   "partial-write": 1,
   abort: 130,
   internal: 1,
+  failed: 1,
   unknown: 1,
 };
 

@@ -1,4 +1,5 @@
 import { isTransformRunFailed, TransformRunResult } from "@metabase/client/domain/transform";
+import { FailedResultError } from "@metabase/client/errors";
 
 import { renderSummary } from "../../output/render";
 import type { ResourceView } from "../../output/view";
@@ -19,7 +20,7 @@ const transformRunResultView: ResourceView<TransformRunResult> = {
 export default defineMetabaseCommand({
   meta: { name: "run", description: "Trigger a transform run by id" },
   details:
-    "Starts a run and returns immediately. --wait polls the run to a terminal status. --sync additionally waits until the run's output table is registered and returns its `target_table_id`, so you can build MBQL cards against it — the run registers the table itself, so no separate `db sync-schema` is needed; --sync implies waiting for the run.",
+    "Starts a run and returns immediately. --wait polls the run to a terminal status. --sync additionally waits until the run's output table is registered and returns its `target_table_id`, so you can build MBQL cards against it — the run registers the table itself, so no separate `db sync-schema` is needed; --sync implies waiting for the run. While waiting, a run that does not succeed exits 1.",
   requires: ["transform.run"],
   args: {
     ...outputFlags,
@@ -63,7 +64,7 @@ export default defineMetabaseCommand({
     // Waiting was asked for, so the absence of a run to report on means none was started.
     if (result.run_id === null || result.final === null) {
       renderSummary(result, transformRunResultView, result.message, ctx);
-      throw new Error(`transform run did not start: ${result.message}`);
+      throw new FailedResultError(`transform run did not start: ${result.message}`);
     }
 
     const status = result.final.status;
@@ -75,7 +76,7 @@ export default defineMetabaseCommand({
     );
 
     if (isTransformRunFailed(status)) {
-      throw new Error(`transform run ${result.run_id} ${status}`);
+      throw new FailedResultError(`transform run ${result.run_id} ${status}`);
     }
   },
 });

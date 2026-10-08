@@ -46,6 +46,7 @@ export function exitCodeFor(category: ErrorCategory): number {
     case "partial-write":
     case "timeout":
     case "internal":
+    case "failed":
     case "unknown": {
       return FAILURE_EXIT_CODE;
     }

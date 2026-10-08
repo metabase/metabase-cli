@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Features } from "../version/features";
 import { CronUiDisplayType } from "./cron";
 
-const JobRunStatus = z.enum(["started", "succeeded", "failed", "timeout"]);
+const JobRunStatus = z.enum(["started", "succeeded", "failed", "timeout", "canceled"]);
 
 const JobRunMethod = z.enum(["manual", "cron"]);
 

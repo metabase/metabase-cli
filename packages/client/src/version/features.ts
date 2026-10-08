@@ -7,7 +7,7 @@ import type { TokenFeatures } from "../domain/session-properties";
 // version it arrived in, so a rule reads the same after the majors around it leave the window.
 // The table is the one place a server behaviour is pinned to a generation, so it also holds rules
 // only the e2e suite branches on (`invalidMbqlIsBadRequest`, `collectionItemsTotalOnEmptyPage`,
-// `transformTargetTableLinkedOnCreate`); a rule with no reader in `resources/` is not an orphan.
+// `transformTargetTableLinkedOnCreate`, `libraryDashboards`); a rule with no reader in `resources/` is not an orphan.
 export interface FeatureRule {
   readonly since: number;
   readonly until?: number;
@@ -15,10 +15,13 @@ export interface FeatureRule {
 }
 
 export const FEATURE_RULES = {
+  dataActionCollections: { since: 65 },
+  dataActionsWithoutModel: { since: 65 },
   transforms: { since: 59 },
   transformJobActivation: { since: 61 },
   measures: { since: 59 },
   library: { since: 59, tokenFeature: "library" },
+  libraryDashboards: { since: 65 },
   remoteSync: { since: 58, tokenFeature: "remote_sync" },
   remoteSyncRemoteChanges: { since: 59, tokenFeature: "remote_sync" },
   remoteSyncCollectionsOnlyUpdate: { since: 60 },

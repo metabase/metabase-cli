@@ -12,8 +12,8 @@ Top-level command groups (run `mb <group> --help` to discover verbs):
 
 ```
 auth | db | table | field | upload | content-translation | query | card | dashboard | snippet | segment | measure | collection | library
-document | glossary | timeline | timeline-event | transform | transform-job | transform-tag | alert | subscription | setting
-search | dependency | git-sync | setup | eid | uuid | upgrade | skills
+document | glossary | timeline | timeline-event | transform | transform-job | transform-tag | transform-test | alert | subscription | setting
+search | dependency | git-sync | data-action | setup | eid | uuid | upgrade | skills
 ```
 
 The conventions below — auth, flags, output, body input — hold across **every** group. Per-command flags and examples live in each command's `--help`; add `--json` for the machine-readable form with the output JSON Schema. A few flows have their own skills (see "Specialized skills"). When a card needs a query, prefer MBQL over native SQL (portable, pre-flight-validated — load `mbql`); fall back to native SQL when MBQL can't express it.
@@ -124,7 +124,7 @@ mb transform --help --json | jq -r '.commands[].command'  # verbs under "transfo
 
 ## Resource quirks worth memorizing
 
-Routine verb shapes (list / get / create / update), every flag, and output schemas live in each command's `--help` (add `--json` for output schemas). Below is only what help does _not_ tell you: footguns and non-obvious behaviors.
+What `--help` doesn't say: footguns and non-obvious behaviors.
 
 - **db traversal: the hydration ladder.** Start with `database get <db-id> --include tables` — the compact table map (id, name, schema, description per table), one call that fits most databases. Pick the relevant tables, then `table fields <table-id>` per table (bounded: fields are per-table). `--include tables.fields` is the full rollup — small databases only. Hundreds of tables? Traverse by schema (`database schemas <db-id>` → `database schema-tables <db-id> <schema>`) or look tables up by name (`search <term> --models table --db-id <db-id> --limit 10`). `db sync-schema` / `rescan-values` queue async work and return `{status:"ok"}` at once; `sync-schema --wait` blocks until `initial_sync_status: complete`.
 - **table fields.** `table get` never returns fields on its own — pass `--include fields` (compact; the underlying query_metadata response also carries FK targets and dimensions, visible under `--full`) or use `table fields <id>` (list envelope). `table update` patches table-level metadata only; physical columns aren't editable.
@@ -134,7 +134,7 @@ Routine verb shapes (list / get / create / update), every flag, and output schem
 - **content-translation.** Admin-only, and separate from Remote Sync. `content-translation download > translations.csv` streams the complete active dictionary; `content-translation upload --file translations.csv` replaces every active translation with the file's contents. Always upload the canonical complete CSV, never a partial patch. An empty dictionary downloads as Metabase's four-row sample dictionary — don't re-upload it as real translations. Metabase limits dictionaries to 1.5 MiB.
 <!-- /requires -->
 - **card.** `dataset_query` is the `mbql/query` object itself (→ `mbql`). `--export-format csv|xlsx` streams the raw export (pipe to a file), bypassing the JSON envelope. `archive` is the only delete; unarchive with `update --body '{"archived":false}'`. `visualization_settings` keys are scoped by `display` and aren't pre-flighted — see `visualization`.
-- **dashboard.** Dashcards round-trip through `PUT /api/dashboard/:id` (no per-dashcard endpoint): `update-dashcard <dash-id> <dashcard-id>` patches one safely; `update --body '{"dashcards":[…]}'` replaces the whole set (omitted ids are deleted server-side; negative ids for new cards). Every dashcard must include `card_id`, including existing rows; use `card_id:null` plus a `visualization_settings.virtual_card` block (`{display:"text"|"heading"|"link"|…}`) for non-question cards. `create` accepts the **same** `dashcards` array in its initial body, so lay out the whole dashboard in one call. `create`/`update` pre-flight every positive `card_id` and exit **2** with `{ok:false,errors:[…]}` on a bad ref (non-bypassable). `dashboard get <id>` (or `--full`) hydrates dashcards/tabs; `list` omits them. **The grid is 24 columns wide:** each dashcard's `{col, row, size_x, size_y}` is in grid units — **full-width is `size_x: 24`**. Keep `col + size_x ≤ 24`, start a full-width stack's `col` at 0, and don't overlap (the server stores collisions as sent — no auto-fix). Layout patterns and per-chart default sizes → the `dashboard` skill; load it before composing any `dashcards` array.
+- **dashboard.** Dashcards round-trip through `PUT /api/dashboard/:id` (no per-dashcard endpoint): `update-dashcard <dash-id> <dashcard-id>` patches one safely; `update --body '{"dashcards":[…]}'` replaces the whole set (omitted ids are deleted server-side; negative ids for new cards). Every dashcard, existing ones included, needs `card_id`; use `card_id:null` plus a `visualization_settings.virtual_card` block (`{display:"text"|"heading"|"link"|…}`) for non-question cards. `create` takes the **same** `dashcards` array, so lay out the whole dashboard in one call. `create`/`update` pre-flight every positive `card_id` and exit **2** with `{ok:false,errors:[…]}` on a bad ref (non-bypassable). `dashboard get <id>` (or `--full`) hydrates dashcards/tabs; `list` omits them. **The grid is 24 columns wide:** each dashcard's `{col, row, size_x, size_y}` is in grid units — **full-width is `size_x: 24`**. Keep `col + size_x ≤ 24`, start a full-width stack's `col` at 0, and don't overlap (the server stores collisions as sent). Load the `dashboard` skill (layout patterns, per-chart default sizes) before composing any `dashcards` array.
 - **dashboard parameters (filters).** A dashboard's `parameters` array holds its filter widgets; they're part of the dashboard record, so read them with `dashboard get <id> --fields parameters --json` (no separate verb). **Editing replaces the _whole_ array** (like dashcards), so it's a read-modify-write loop and omitting a parameter deletes it. A parameter only filters a card once it is **mapped** onto that dashcard's `parameter_mappings` — an unmapped parameter is an inert widget. `type` is a **closed enum**; an unlisted value is a hard parse error that echoes the full allowed set back to you. `dashboard parameter-values <id> <parameter-id> [--query <substr>]` fetches a widget's selectable values (`{values, has_more_values}`; `--query` is a case-insensitive substring search). Parameter types, ids, mapping targets, and value sources → the `dashboard` skill; load it before authoring a `parameters` array.
 <!-- requires: contentVerification -->
 - **verify.** `card verify <id>` / `dashboard verify <id>` (admins only) mark it verified (rank boost, `search --verified`). `--remove` (or a card query edit) withdraws it; `--text` adds a note; `get <id> --fields moderation_reviews` reads it. Verify only what you checked and the user approved.
@@ -174,9 +174,15 @@ This file is enough for any single-command task. For anything deeper, load the r
 - **`notification`** — scheduled delivery: question alerts (`mb alert`) and dashboard subscriptions (`mb subscription`). Choosing between them, the two schedule/recipient contracts, channel prerequisites, testing a send.
 <!-- requires: transforms -->
 - **`transform`** — transform body JSON, create + run-with-wait, run inspection, tags, jobs.
+  <!-- /requires -->
+  <!-- requires: transformTests -->
+- **`transform-test-plan`** — planning transform tests.
 <!-- /requires -->
 - **`document`** — Metabase documents (TipTap body, embedding cards).
-<!-- requires: remoteSync -->
+<!-- requires: dataActionsWithoutModel -->
+- **`data-action`** — saved SQL writes: enabling, body, parameters, running.
+  <!-- /requires -->
+  <!-- requires: remoteSync -->
 - **`git-sync`** — round-tripping content to/from a git remote.
 <!-- /requires -->
 - **`data-workflow`** — the guided, end-to-end data workflow: investigate raw data, build clean analysis-ready tables, define reusable segments/measures/metrics, answer questions, build dashboards. **Start here when the user states a goal rather than a single verb** — "make sense of my data", "build a data model", "be my data analyst". It detects where the data is and routes to the right stage.

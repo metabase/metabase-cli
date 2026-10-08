@@ -24,6 +24,11 @@ export const CARD_DATASET_QUERY_LABELS: PreflightLabels = {
   bodyNoun: "dataset_query",
 };
 
+export const DATA_ACTION_DATASET_QUERY_LABELS: PreflightLabels = {
+  contextLabel: "dataAction.dataset_query validation failed",
+  bodyNoun: "dataset_query",
+};
+
 export const TRANSFORM_SOURCE_QUERY_LABELS: PreflightLabels = {
   contextLabel: "transform.source.query validation failed",
   bodyNoun: "source.query",
