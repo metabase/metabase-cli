@@ -10,7 +10,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
-import { requireServer } from "./server-gate";
+import { requireServer, serverHas } from "./server-gate";
 
 const LIBRARY_UNAVAILABLE = requireServer("library › with the library feature", ["library"]);
 const REMOTE_SYNC_UNAVAILABLE = requireServer(
@@ -40,7 +40,16 @@ function childrenByName(library: Library): LibraryChild[] {
   return library.effective_children.toSorted((a, b) => a.name.localeCompare(b.name));
 }
 
+const LIBRARY_DASHBOARDS_CHILD = {
+  id: expect.any(Number),
+  name: "Dashboards",
+  description: null,
+  type: "library-dashboards",
+  is_remote_synced: false,
+};
+
 const LIBRARY_CHILDREN = [
+  ...(serverHas("libraryDashboards") ? [LIBRARY_DASHBOARDS_CHILD] : []),
   {
     id: SEEDED.libraryDataCollectionId,
     name: "Data",
