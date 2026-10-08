@@ -58,8 +58,8 @@ export function dataActionResource(transport: Transport) {
   }
 
   /**
-   * Create a data action — a parameterized native query that writes to a database — in a data
-   * actions collection, or in their root without a `collection_id`.
+   * Create a data action — a parameterized native query that writes to a database — in the data
+   * actions tree: a `data-actions` collection, or the root without a `collection_id`.
    */
   async function create(
     params: DataActionCreateInput,

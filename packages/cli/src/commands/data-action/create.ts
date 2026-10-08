@@ -14,7 +14,7 @@ import {
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a data action from JSON" },
   details:
-    'A data action is a parameterized native query that writes to a database, filed in a data actions folder. The JSON body needs `name`, `type: "query"`, `database_id`, a native `dataset_query` whose `{{tag}}` placeholders are its inputs, and `parameters` targeting those tags; `collection_id` picks a folder from `mb collection list --namespace data-actions` (omit for the data actions root) — a regular collection is rejected. Data actions must be enabled on the database. An MBQL 5 `dataset_query` is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass.',
+    'A data action is a parameterized native query that writes to a database, created in the data actions tree. The JSON body needs `name`, `type: "query"`, `database_id`, a native `dataset_query` whose `{{tag}}` placeholders are its inputs, and `parameters` targeting those tags; `collection_id` picks a folder from `mb collection list --namespace data-actions` (omit for the root of the tree) — a regular collection is rejected. Data actions must be enabled on the database. An MBQL 5 `dataset_query` is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass.',
   skills: [
     { skill: "data-action", purpose: "author a data action and its parameters" },
     { skill: "native-sql", purpose: "the native query and its template tags" },

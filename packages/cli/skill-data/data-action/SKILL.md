@@ -1,21 +1,21 @@
 ---
 name: data-action
-description: Author and run Metabase data actions with the `mb` CLI — saved, parameterized native SQL writes (INSERT, UPDATE, DELETE) with no model, filed in a data actions folder and run with values. Covers the database setting, folders, the body, template-tag parameters, running, and the lifecycle. Triggers — "add a data action", "let users update a row", "a form that saves to the database", "an app that inserts a record", "run a write query", "delete rows from Metabase".
+description: Author and run Metabase data actions with the `mb` CLI — saved, parameterized native SQL writes (INSERT, UPDATE, DELETE), created in the data actions tree and run with values. Covers the database setting, the tree, the body, template-tag parameters, running, and the lifecycle. Triggers — "add a data action", "let users update a row", "a form that saves to the database", "an app that inserts a record", "run a write query", "delete rows from Metabase".
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 requires: [dataActionsWithoutModel, dataActionCollections, dataActionArchivedList]
 ---
 
 # Data actions
 
-A data action is one native SQL write (`INSERT`, `UPDATE` or `DELETE`) with named inputs and no model. It lives in the data actions root or a data actions folder. Data apps and `mb data-action execute` run it; dashboards don't. The query and its template tags follow `native-sql`; flags and `./.scratch` follow `core`.
+A data action is one native SQL write (`INSERT`, `UPDATE` or `DELETE`) with named inputs. Create data actions in the **data actions tree**: its root and folders, which live in the `data-actions` collection namespace. Some data actions are attached to a model instead (`model_id` set) and sit in the model's collection; `mb` lists, runs, updates and archives those too. Data apps and `mb data-action execute` run any data action. The query and its template tags follow `native-sql`; flags and `./.scratch` follow `core`.
 
 ## Before creating
 
 1. **Database.** Run `mb db get <id> --full --json`.
    - `features` must contain `"actions"`. If it doesn't, the driver can't write; pick another database.
    - `settings["database-enable-actions"]` must be `true`. If it isn't, ask the user to have an admin turn on **Data actions** for the database (Admin → Databases); `mb` can't. Until then, create, execute and query changes fail with `Actions are not enabled.`
-2. **Folder.** Run `mb collection list --namespace data-actions --json`; `root` is the data actions root. Make one with `mb collection create --namespace data-actions --body '{"name":"Billing"}'`. A regular collection is rejected.
-3. **Access.** Folder permissions decide access: View runs an action, Curate edits it. Admins set them in Metabase; `mb` can't. Without access a call answers 403.
+2. **Folder.** Run `mb collection list --namespace data-actions --json`; `root` is the root of the data actions tree. Make a folder with `mb collection create --namespace data-actions --body '{"name":"Billing"}'`. A regular collection is rejected.
+3. **Access.** In the tree, folder permissions decide access: View runs a data action, Curate edits it. Admins set them in Metabase; `mb` can't. Without access a call answers 403.
 
 ## Body
 
@@ -72,9 +72,9 @@ A data action is one native SQL write (`INSERT`, `UPDATE` or `DELETE`) with name
 }
 ```
 
-- `type` is `"query"`. Never send `model_id`.
+- `type` is `"query"`. Don't send `model_id`: `mb` creates data actions in the tree.
 - `database_id` equals `dataset_query.database`.
-- `collection_id` is a data actions folder id; omit it for the root.
+- `collection_id` is a folder of the tree; omit it for the root.
 - One statement, no `;`. `create` and `update` validate `dataset_query` as `native-sql` does.
 
 ## Parameters
@@ -113,10 +113,10 @@ mb data-action execute <id> --body '{"parameters":{"order_id":1042,"note":"rush 
 
 - Find data actions with `list`, not `mb search`: search leaves out the ones in folders.
 - Archiving or deleting a folder archives or deletes the data actions in it.
-- `list` also returns actions that belong to a model (`model_id` set). Those are model actions, not data actions; leave them as they are.
+- `list` returns every data action, the ones attached to a model (`model_id` set) included. Those stay with their model: don't move them into the tree.
 
 ## Don't
 
-- Don't create a model for a data action, or file one in a regular collection.
+- Don't create a model to hold a new data action, or file one in a regular collection.
 - Don't concatenate values into the SQL; every value goes through a template tag.
 - Don't run a data action on production data without the user's go-ahead.
