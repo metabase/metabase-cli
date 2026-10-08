@@ -111,15 +111,6 @@ describe("data action resource wire requests", () => {
     ]);
   });
 
-  it("leaves the actions of models out of the list", async () => {
-    const modelAction = { ...ACTION, id: 8, model_id: 5 };
-    const { mb } = clientOver([jsonResponse([ACTION, modelAction])]);
-
-    const result = await mb.dataAction.list();
-
-    expect(result).toEqual({ data: [ACTION], total: null });
-  });
-
   it("sends archived in the list request", async () => {
     const archivedAction = { ...ACTION, archived: true };
     const { mb, capture } = clientOver([

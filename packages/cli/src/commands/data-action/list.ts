@@ -11,7 +11,7 @@ export const DataActionListEnvelope = listEnvelopeSchema(DataActionCompact);
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List data actions" },
   details:
-    "Lists the actions without a model the caller can see, unarchived unless --archived is passed. Actions that belong to a model are not data actions and are left out.",
+    "Lists the actions the caller can see, unarchived unless --archived is passed. A data action has `model_id: null`; an action with a model id belongs to that model.",
   requires: ["dataAction.list"],
   args: {
     ...outputFlags,

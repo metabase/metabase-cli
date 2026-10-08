@@ -113,7 +113,7 @@ mb data-action execute <id> --body '{"parameters":{"order_id":1042,"note":"rush 
 
 - Find data actions with `list`, not `mb search`: search leaves out the ones in folders.
 - Archiving or deleting a folder archives or deletes the data actions in it.
-- `list` leaves out actions that belong to a model. Those are model actions; leave them as they are.
+- `list` also returns actions that belong to a model (`model_id` set). Those are model actions, not data actions; leave them as they are.
 
 ## Don't
 

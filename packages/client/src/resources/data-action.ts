@@ -24,10 +24,6 @@ export interface DataActionListParams {
   archived?: boolean | undefined;
 }
 
-function isDataAction(action: DataAction): boolean {
-  return action.model_id === null;
-}
-
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function dataActionResource(transport: Transport) {
   const { explain } = explainer(transport, "dataAction");
@@ -38,10 +34,9 @@ export function dataActionResource(transport: Transport) {
   }
 
   /**
-   * List the data actions the caller can see, unarchived unless `archived` is set. `GET /api/action`
-   * answers a bare array that also holds the actions of models, which are not data actions. A server
-   * without archived listing ignores `archived` and answers the unarchived actions, so it is refused
-   * before the wire there.
+   * List the actions the caller can see, unarchived unless `archived` is set. `GET /api/action`
+   * answers a bare array. A server without archived listing ignores `archived` and answers the
+   * unarchived actions, so it is refused before the wire there.
    */
   async function list(
     params: DataActionListParams = {},
@@ -49,11 +44,11 @@ export function dataActionResource(transport: Transport) {
   ): Promise<ListResult<DataAction>> {
     await transport.requireFeatures(params.archived ? ["dataActionArchivedList"] : [], options);
     const schema = await readSchema(options);
-    const actions = await transport.requestParsed(z.array(schema), "/api/action", {
+    const data = await transport.requestParsed(z.array(schema), "/api/action", {
       ...options,
       query: { archived: params.archived },
     });
-    return { data: actions.filter(isDataAction), total: null };
+    return { data, total: null };
   }
 
   /** Get one unarchived data action by id. */
