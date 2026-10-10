@@ -34,7 +34,8 @@ export const SearchResult = z
     id: z.union([z.number().int(), z.string()]),
     name: z.string(),
     model: SearchModel,
-    description: z.string().nullable(),
+    // A model whose search spec carries no description (documents, indexed entities) leaves the key out.
+    description: z.string().nullable().optional(),
     archived: z.boolean().nullable(),
     collection: SearchResultCollection.nullable(),
     result_metadata: z.array(z.unknown()).nullable().optional(),

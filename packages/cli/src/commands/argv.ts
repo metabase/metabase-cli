@@ -102,6 +102,23 @@ function readValueFlag(item: FlagItem, spellings: FlagSpellings): ValueFlag | nu
   return { name, flag, value: readFlagValue(item, spellings) };
 }
 
+// citty refuses a missing required positional before a command runs, by printing the command's
+// help (its JSON help under `--json`) and a bare message, so a mistyped flag standing where the
+// positional belongs reads as a help request. Checked ahead of citty, it is the argv error it is.
+export function assertRequiredPositionals(rawArgs: readonly string[], argsDef: ArgsDef): void {
+  const given = [...readArgv(rawArgs, commandSpellings(argsDef))].filter(
+    (item) => item.kind === "positional",
+  ).length;
+  const declared = Object.entries(argsDef).filter(([, def]) => def.type === "positional");
+  const missing = declared.slice(given).find(([, def]) => def.required === true);
+  if (missing === undefined) {
+    return;
+  }
+  assertArgv(rawArgs, argsDef);
+  const usage = declared.map(([name]) => `<${name}>`).join(" ");
+  throw new ConfigError(`missing argument: <${missing[0]}> (this command takes ${usage})`);
+}
+
 function assertPositionalCount(positionals: readonly string[], argsDef: ArgsDef): void {
   const declared = Object.entries(argsDef)
     .filter(([, def]) => def.type === "positional")

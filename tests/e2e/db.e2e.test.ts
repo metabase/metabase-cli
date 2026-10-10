@@ -519,4 +519,30 @@ describe("db e2e", () => {
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toBe('invalid state: "yes" (expected one of: on, off)');
   });
+
+  it("set-data-actions with a flag where the state belongs refuses the flag instead of printing help", async () => {
+    const result = await runCli({
+      args: ["db", "set-data-actions", String(SEEDED.warehouseDbId), "--on", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(cliErrorMessage(result.stderr)).toBe("unknown flag: --on");
+  });
+
+  it("set-data-actions without the state names the missing argument", async () => {
+    const result = await runCli({
+      args: ["db", "set-data-actions", String(SEEDED.warehouseDbId), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "missing argument: <state> (this command takes <id> <state>)",
+    );
+  });
 });
