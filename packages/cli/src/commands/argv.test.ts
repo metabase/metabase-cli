@@ -89,7 +89,7 @@ const TWO_POSITIONALS: ArgsDef = {
 
 describe("assertRequiredPositionals", () => {
   it("accepts argv that gives every required positional", () => {
-    expect(() => assertRequiredPositionals(["1", "on", "--json"], TWO_POSITIONALS)).not.toThrow();
+    expect(() => assertRequiredPositionals(["1", "true", "--json"], TWO_POSITIONALS)).not.toThrow();
   });
 
   it("names the missing positional and the command's positionals", () => {

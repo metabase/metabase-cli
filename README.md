@@ -540,13 +540,13 @@ mb db rescan-values 1
 mb db rescan-values 1 --json
 ```
 
-### `mb db set-data-actions <id> <on|off>`
+### `mb db set-data-actions <id> <true|false>`
 
-Turn data actions on or off for a database (`PUT /api/database/:id` with `settings: {"database-enable-actions": …}`), the Data actions toggle of Admin → Databases. While it is off, data actions on the database can be neither created nor run. Needs an admin, and a driver that lists `actions` in its `features`. Returns the database with its `settings`; a state other than `on` or `off` is refused before the request (exit 2).
+Enable or disable data actions for a database (`PUT /api/database/:id` with `settings: {"database-enable-actions": …}`), the Data actions toggle of Admin → Databases. While it is off, data actions on the database can be neither created nor run. Needs an admin, and a driver that lists `actions` in its `features`. Returns the database with its `settings`; a value other than `true` or `false` is refused before the request (exit 2).
 
 ```sh
-mb db set-data-actions 2 on
-mb db set-data-actions 2 off --json
+mb db set-data-actions 2 true
+mb db set-data-actions 2 false --json
 ```
 
 ## Tables
@@ -1149,7 +1149,7 @@ mb snippet archive 1 --json
 
 ## Data actions
 
-CRUD on `/api/action` plus `execute`. A data action is a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`) filed in a collection. Data actions are off by default: an admin must enable them on the target database first (`mb db set-data-actions <id> on`). `mb data-action create` authors data actions only — no `model_id`, no implicit data actions — and needs a server whose data actions do not require a model.
+CRUD on `/api/action` plus `execute`. A data action is a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`) filed in a collection. Data actions are off by default: an admin must enable them on the target database first (`mb db set-data-actions <id> true`). `mb data-action create` authors data actions only — no `model_id`, no implicit data actions — and needs a server whose data actions do not require a model.
 
 ### `mb data-action list`
 

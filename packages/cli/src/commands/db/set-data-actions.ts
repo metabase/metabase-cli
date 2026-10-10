@@ -9,12 +9,12 @@ import { parseEnumFlag } from "../parse-enum";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
-const DataActionsState = z.enum(["on", "off"]);
+const EnabledWord = z.enum(["true", "false"]);
 
 export default defineMetabaseCommand({
   meta: {
     name: "set-data-actions",
-    description: "Turn data actions on or off for a database",
+    description: "Enable or disable data actions for a database",
   },
   details:
     "The Data actions toggle of Admin → Databases (the `database-enable-actions` database setting): while it is off, data actions on the database can be neither created nor run. Needs an admin. The driver must support writes: `mb db get <id> --full --json` lists `actions` in `features`. Answers the database with its `settings`.",
@@ -25,26 +25,25 @@ export default defineMetabaseCommand({
     ...profileFlag,
     ...connectionFlags,
     id: { type: "positional", description: "Database id", required: true },
-    state: {
+    enabled: {
       type: "positional",
-      description: `Data actions state (${DataActionsState.options.join(" | ")})`,
+      description: "true to enable data actions, false to disable",
       required: true,
     },
   },
   outputSchema: DatabaseWithSettings,
-  examples: ["mb db set-data-actions 2 on", "mb db set-data-actions 2 off --json"],
+  examples: ["mb db set-data-actions 2 true", "mb db set-data-actions 2 false --json"],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
-    const enabled = parseEnumFlag(args.state, DataActionsState, "state") === "on";
+    const enabled = parseEnumFlag(args.enabled, EnabledWord, "enabled") === "true";
     const client = await getClient();
     const database = await client.database.update(id, {
       settings: { "database-enable-actions": enabled },
     });
-    const state = enabled ? "on" : "off";
     renderSummary(
       database,
       databaseDataActionsView,
-      `Turned data actions ${state} for database ${database.id} "${database.name}".`,
+      `${enabled ? "Enabled" : "Disabled"} data actions for database ${database.id} "${database.name}".`,
       ctx,
     );
   },

@@ -20,7 +20,7 @@ mb db get <id> --full --json
 ```
 
 - `features` must contain `"actions"` — otherwise the driver cannot run writes; pick another database.
-- `settings["database-enable-actions"]` must be `true`. Create and execute fail with `Actions are not enabled.` until then. An admin profile turns it on with `mb db set-data-actions <id> on`; anyone else asks an admin to. Turning it on lets anyone with access to the database's actions write to it, so confirm with the user first.
+- `settings["database-enable-actions"]` must be `true`. Create and execute fail with `Actions are not enabled.` until then. An admin profile turns it on with `mb db set-data-actions <id> true`; anyone else asks an admin to. Turning it on lets anyone with access to the database's actions write to it, so confirm with the user first.
 
 ## Pick the collection
 

@@ -473,10 +473,10 @@ describe("db e2e", () => {
     expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
   });
 
-  it("set-data-actions turns the database setting on and off, and get reads it back", async () => {
+  it("set-data-actions enables and disables the database setting, and get reads it back", async () => {
     const id = String(SEEDED.warehouseDbId);
     const on = await runCli({
-      args: ["db", "set-data-actions", id, "on", "--json"],
+      args: ["db", "set-data-actions", id, "true", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -489,7 +489,7 @@ describe("db e2e", () => {
     });
 
     const off = await runCli({
-      args: ["db", "set-data-actions", id, "off", "--json"],
+      args: ["db", "set-data-actions", id, "false", "--json"],
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -509,7 +509,7 @@ describe("db e2e", () => {
     );
   });
 
-  it("set-data-actions refuses a state other than on or off before any request", async () => {
+  it("set-data-actions refuses a value other than true or false before any request", async () => {
     const result = await runCli({
       args: ["db", "set-data-actions", String(SEEDED.warehouseDbId), "yes", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -517,10 +517,12 @@ describe("db e2e", () => {
     });
 
     expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toBe('invalid state: "yes" (expected one of: on, off)');
+    expect(cliErrorMessage(result.stderr)).toBe(
+      'invalid enabled: "yes" (expected one of: true, false)',
+    );
   });
 
-  it("set-data-actions with a flag where the state belongs refuses the flag instead of printing help", async () => {
+  it("set-data-actions with a flag where the value belongs refuses the flag instead of printing help", async () => {
     const result = await runCli({
       args: ["db", "set-data-actions", String(SEEDED.warehouseDbId), "--on", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -532,7 +534,7 @@ describe("db e2e", () => {
     expect(cliErrorMessage(result.stderr)).toBe("unknown flag: --on");
   });
 
-  it("set-data-actions without the state names the missing argument", async () => {
+  it("set-data-actions without the value names the missing argument", async () => {
     const result = await runCli({
       args: ["db", "set-data-actions", String(SEEDED.warehouseDbId), "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -542,7 +544,7 @@ describe("db e2e", () => {
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
     expect(cliErrorMessage(result.stderr)).toBe(
-      "missing argument: <state> (this command takes <id> <state>)",
+      "missing argument: <enabled> (this command takes <id> <enabled>)",
     );
   });
 });
