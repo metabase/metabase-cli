@@ -37,7 +37,7 @@ vi.mock("../../core/auth/verify", () => ({
 }));
 
 import authListCommand, { AuthProfileListEnvelope } from "./list";
-import { writeProfile, readProfileRecord } from "../../core/auth/storage";
+import { keyringService, readProfileRecord, writeProfile } from "../../core/auth/storage";
 import { setupTempConfigHome, type TempConfigHome } from "../../core/auth/temp-config-home";
 
 interface CapturedStdout {
@@ -313,6 +313,6 @@ describe("auth list command", () => {
         reason: "Could not reach Metabase: getaddrinfo ENOTFOUND",
       },
     });
-    expect(hoisted.store.get("metabase-cli:profile:stable:apiKey")).toBe("good");
+    expect(hoisted.store.get(`${keyringService()}:profile:stable:apiKey`)).toBe("good");
   });
 });

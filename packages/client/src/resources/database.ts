@@ -5,6 +5,8 @@ import {
   type DatabaseGetInclude,
   type DatabaseListInclude,
   type DatabaseSyncResult,
+  type DatabaseUpdateInput,
+  DatabaseWithSettings,
 } from "../domain/database";
 import { Table } from "../domain/table";
 import type { RequestOptions, Transport } from "../http/transport";
@@ -71,6 +73,19 @@ export function databaseResource(transport: Transport) {
     });
   }
 
+  /** Update a database's settings by id; the server merges them into the ones it holds. */
+  async function update(
+    id: number,
+    params: DatabaseUpdateInput,
+    options: RequestOptions = {},
+  ): Promise<DatabaseWithSettings> {
+    return transport.requestParsed(DatabaseWithSettings, `/api/database/${id}`, {
+      ...options,
+      method: "PUT",
+      body: params,
+    });
+  }
+
   /** List the schema names in a database. */
   async function schemas(id: number, options: RequestOptions = {}): Promise<ListResult<string>> {
     const data = await transport.requestParsed(
@@ -134,5 +149,5 @@ export function databaseResource(transport: Transport) {
     return { id, status: ack.status };
   }
 
-  return { list, get, schemas, schemaTables, syncSchema, rescanValues };
+  return { list, get, update, schemas, schemaTables, syncSchema, rescanValues };
 }

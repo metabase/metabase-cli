@@ -598,6 +598,42 @@ describe("auth e2e", () => {
     });
   });
 
+  it("login with --api-key - reads the key from piped stdin", async () => {
+    const configHome = await makeIsolatedConfigHome();
+
+    const login = await runCli({
+      args: ["auth", "login", "--url", bootstrap.baseUrl, "--api-key", "-", "--json"],
+      configHome,
+      stdin: `${bootstrap.adminApiKey}\n`,
+    });
+
+    expect(login.exitCode, login.stderr).toBe(0);
+    expect(login.stderr).not.toContain("--api-key is visible in shell history");
+    const payload = parseJson(login.stdout, LoginResult);
+    expect(payload).toEqual({
+      profile: "default",
+      url: bootstrap.baseUrl,
+      authenticated: true,
+      user: userOf(payload),
+      ...summarizeServer(bootstrap.server),
+    });
+  });
+
+  it("login with --api-key - and an empty stdin fails naming the flag", async () => {
+    const configHome = await makeIsolatedConfigHome();
+
+    const login = await runCli({
+      args: ["auth", "login", "--url", bootstrap.baseUrl, "--api-key", "-", "--json"],
+      configHome,
+      stdin: "",
+    });
+
+    expect(login.exitCode).toBe(2);
+    expect(cliErrorMessage(login.stderr)).toBe(
+      "--api-key - read nothing from stdin; pipe the API key in",
+    );
+  });
+
   it("logout proceeds without --yes when stdin is not a TTY (non-interactive auto-confirm)", async () => {
     const configHome = await makeIsolatedConfigHome();
 

@@ -1,7 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { Database, DatabaseCompact, DatabaseSyncResult } from "@metabase/client/domain/database";
+import {
+  Database,
+  DatabaseCompact,
+  DatabaseSyncResult,
+  DatabaseWithSettings,
+  DatabaseWithSettingsCompact,
+} from "@metabase/client/domain/database";
 import { TableCompact } from "@metabase/client/domain/table";
 import { parseJson } from "@metabase/client/json";
 
@@ -458,5 +464,52 @@ describe("db e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+  });
+
+  it("set-data-actions turns the database setting on and off, and get reads it back", async () => {
+    const id = String(SEEDED.warehouseDbId);
+    const on = await runCli({
+      args: ["db", "set-data-actions", id, "on", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(on.exitCode, on.stderr).toBe(0);
+    expect(parseJson(on.stdout, DatabaseWithSettingsCompact)).toEqual({
+      id: SEEDED.warehouseDbId,
+      name: "Warehouse",
+      engine: "postgres",
+      settings: { "database-enable-actions": true },
+    });
+
+    const off = await runCli({
+      args: ["db", "set-data-actions", id, "off", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(off.exitCode, off.stderr).toBe(0);
+    expect(parseJson(off.stdout, DatabaseWithSettingsCompact).settings).toEqual({
+      "database-enable-actions": false,
+    });
+
+    const get = await runCli({
+      args: ["db", "get", id, "--json", "--full"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(get.exitCode, get.stderr).toBe(0);
+    expect(parseJson(get.stdout, DatabaseWithSettings).settings?.["database-enable-actions"]).toBe(
+      false,
+    );
+  });
+
+  it("set-data-actions refuses a state other than on or off before any request", async () => {
+    const result = await runCli({
+      args: ["db", "set-data-actions", String(SEEDED.warehouseDbId), "yes", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe('invalid state: "yes" (expected one of: on, off)');
   });
 });

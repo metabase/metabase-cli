@@ -28,6 +28,7 @@ const ORDERS_BY_STATUS_COMPACT = {
   archived: false,
   database_id: SEEDED.warehouseDbId,
   collection_id: SEEDED.defaultCollectionId,
+  dashboard_id: null,
   description: null,
 } as const;
 
@@ -38,6 +39,7 @@ const NEW_CARD_COMPACT = {
   archived: false,
   database_id: SEEDED.warehouseDbId,
   collection_id: SEEDED.defaultCollectionId,
+  dashboard_id: null,
   description: null,
 } as const;
 
@@ -324,6 +326,21 @@ describe("card e2e", () => {
 
     const archived = await archiveCard(created.id);
     expect(archived).toEqual({ ...NEW_CARD_COMPACT, id: created.id, archived: true });
+  });
+
+  it("update moving a card into a dashboard shows its dashboard_id in the compact view", async () => {
+    const result = await runCli({
+      args: ["card", "update", String(SEEDED.ordersCardId), "--json"],
+      stdin: JSON.stringify({ dashboard_id: SEEDED.ordersDashboardId }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, CardCompact)).toEqual({
+      ...ORDERS_BY_STATUS_COMPACT,
+      dashboard_id: SEEDED.ordersDashboardId,
+    });
   });
 
   it("create with a body missing required fields fails on Zod validation", async () => {

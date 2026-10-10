@@ -1023,6 +1023,7 @@ describe("dashboard e2e", () => {
       archived: false,
       database_id: SEEDED.warehouseDbId,
       collection_id: SEEDED.defaultCollectionId,
+      dashboard_id: null,
       description: null,
     });
   });

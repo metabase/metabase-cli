@@ -8,6 +8,7 @@ import { refreshOAuthCredential } from "@metabase/client/auth/oauth-session";
 import { ConfigError } from "@metabase/client/errors";
 import { normalizeUrl } from "@metabase/client/url";
 
+import { STDIN_ARG } from "../runtime/input";
 import { USER_AGENT } from "./user-agent";
 import {
   DEFAULT_PROFILE,
@@ -63,6 +64,11 @@ export function readEnvCredentials(): EnvCredentials {
 }
 
 export async function resolveConfig(flags: ConfigFlags): Promise<ResolvedConfig> {
+  if (flags.apiKey === STDIN_ARG) {
+    throw new ConfigError(
+      `--api-key - reads stdin only for \`mb auth login\`; log in a profile or set ${ENV_API_KEY} instead`,
+    );
+  }
   const profile = resolveProfileName(flags.profile);
   const env = readEnvCredentials();
   const hasUrl = Boolean(flags.url ?? env.url);

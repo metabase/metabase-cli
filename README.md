@@ -111,7 +111,7 @@ On success the server is probed once — the rendered output shows the user, rol
 | Flag                     | Description                                                                                                                                    |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--url <url>`            | Metabase URL, including any subpath if the instance is hosted under one (`https://my.org.com/metabase`). Falls back to `MB_URL`, then prompts. |
-| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead.                                                             |
+| `--api-key <value>`      | API key. Skips the browser flow. Visible in shell history — pipe on stdin instead; `--api-key -` reads the key from piped stdin.               |
 | `--client-id <id>`       | Pre-registered OAuth client id (only needed when dynamic client registration is disabled on the server).                                       |
 | `--profile <name>`, `-p` | Profile to write to (default: `default`).                                                                                                      |
 | `--skip-verify`          | Save without contacting the server (no probe, no cache).                                                                                       |
@@ -122,6 +122,7 @@ Non-interactive (non-TTY) login requires an API key; resolution order: `--api-ke
 mb auth login                                            # interactive: browser or API key
 echo "$MB_KEY" | mb auth login --url https://m.example.com
 mb auth login --url https://m.example.com < key.txt
+mb auth login --url https://m.example.com --api-key - < key.txt
 ```
 
 ### `mb auth status`
@@ -141,7 +142,7 @@ mb auth status --profile staging
 
 ### `mb auth list`
 
-List configured authentication profiles. All profile metadata (URL, auth method, last successful probe, last failure) lives in `<configDir>/profiles.json` at mode `0600`; the secrets (API key, or OAuth access/refresh tokens) sit in the OS keychain when available, or inline in the same file when the keychain is unavailable.
+List configured authentication profiles. All profile metadata (URL, auth method, last successful probe, last failure) lives in `<configDir>/profiles.json` at mode `0600`; the secrets (API key, or OAuth access/refresh tokens) sit in the OS keychain when available (service `metabase-cli:<configDir>`, so each config directory keeps its own), or inline in the same file when the keychain is unavailable.
 
 `auth list` re-probes every profile, one at a time — a probe can refresh and rewrite an expired OAuth token, so probes are serialized to avoid racing on the shared `profiles.json`. On success it refreshes `lastProbe` (Metabase version, token features, user identity) and clears `lastFailure`; on failure it updates `lastFailure` and leaves the prior `lastProbe`/`url`/credential untouched. Rendered columns: `Profile | URL | Auth | Status | Role | Version | Skew | Last probed`; `--json` rows carry the same derived `edition`, `skew`, `knownRange` and `features` as `auth status`. Failed rows append a one-line footer pointing at `mb auth login --profile <name>`.
 
@@ -537,6 +538,15 @@ Trigger a rescan of cached field values (`POST /api/database/:id/rescan_values`)
 ```sh
 mb db rescan-values 1
 mb db rescan-values 1 --json
+```
+
+### `mb db set-data-actions <id> <on|off>`
+
+Turn data actions on or off for a database (`PUT /api/database/:id` with `settings: {"database-enable-actions": …}`), the Data actions toggle of Admin → Databases. While it is off, data actions on the database can be neither created nor run. Needs an admin, and a driver that lists `actions` in its `features`. Returns the database with its `settings`; a state other than `on` or `off` is refused before the request (exit 2).
+
+```sh
+mb db set-data-actions 2 on
+mb db set-data-actions 2 off --json
 ```
 
 ## Tables
@@ -1139,7 +1149,7 @@ mb snippet archive 1 --json
 
 ## Data actions
 
-CRUD on `/api/action` plus `execute`. A data action is a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`) filed in a collection. Data actions are off by default: an admin must enable them on the target database first. `mb data-action create` authors data actions only — no `model_id`, no implicit data actions — and needs a server whose data actions do not require a model.
+CRUD on `/api/action` plus `execute`. A data action is a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`) filed in a collection. Data actions are off by default: an admin must enable them on the target database first (`mb db set-data-actions <id> on`). `mb data-action create` authors data actions only — no `model_id`, no implicit data actions — and needs a server whose data actions do not require a model.
 
 ### `mb data-action list`
 
@@ -1169,7 +1179,7 @@ mb data-action create --file data-action.json --skip-validate
 | `--file <path>`   | Path to JSON body file.                                                                                                                                |
 | `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-Body fields: `name` (required), `type` (required, `"query"`), `database_id` (required), `dataset_query` (required native query whose `{{tag}}` placeholders are its inputs), `parameters` (one per template tag), `collection_id` (optional; the root when omitted), `description`, `visualization_settings`.
+Body fields: `name` (required), `type` (required, `"query"`), `database_id` (required), `dataset_query` (required native query whose `{{tag}}` placeholders are its inputs), `parameters` (one per template tag), `collection_id` (optional; a collection in the `data-actions` or `data-apps` namespace, such as one made by `mb collection create --namespace data-actions`, or the data actions root when omitted — a regular collection is refused), `description`, `visualization_settings`.
 
 ### `mb data-action update <id>`
 
@@ -2180,7 +2190,7 @@ The import also asserts which branch git-sync tracks, read from the session prop
 
 ### `mb git-sync export`
 
-Export Metabase changes back to the configured git remote (Metabase → repo). Auto-polls by default. The export targets the branch git-sync tracks; to push to a new branch, `stash` or `create-branch` first. When the remote has moved past the last sync, a plain export ends in a `conflict` task on Metabase v63 and newer, and is refused with a 400 on older servers. Such a task names the divergence in its text output and error, and may leave the remote's commit counted as synced, as an import conflict may: never answer it with a retry.
+Export Metabase changes back to the configured git remote (Metabase → repo). Auto-polls by default. The export targets the branch git-sync tracks; to push to a new branch, `stash` or `create-branch` first. A `--branch` other than the tracked one is looked up in `git-sync branches` first, and one missing from the remote is refused with exit 2, naming `mb git-sync create-branch <branch>`. When the remote has moved past the last sync, a plain export ends in a `conflict` task on Metabase v63 and newer, and is refused with a 400 on older servers. Such a task names the divergence in its text output and error, and may leave the remote's commit counted as synced, as an import conflict may: never answer it with a retry.
 
 ```sh
 mb git-sync export -m "update dashboards"

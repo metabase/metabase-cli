@@ -30,7 +30,7 @@ import { EMPTY_CELL } from "../../output/table";
 import type { ResourceView } from "../../output/view";
 import { interruptSignal } from "../../runtime/interrupt";
 import { openBrowser } from "../../runtime/process";
-import { readInput } from "../../runtime/input";
+import { readInput, STDIN_ARG } from "../../runtime/input";
 import type { CommonContext } from "../context";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -71,7 +71,7 @@ const loginView: ResourceView<LoginResultJson> = {
 export default defineMetabaseCommand({
   meta: { name: "login", description: "Log in to a Metabase instance for a profile" },
   details:
-    "Interactive login offers browser OAuth (recommended; Metabase v63+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a refreshing access token. For CI/non-interactive use, supply an API key via --api-key, piped stdin, or $MB_API_KEY (first non-empty wins); any of these skips the browser flow, even on a TTY. The URL comes from --url or $MB_URL, prompted when stdin is a TTY.",
+    "Interactive login offers browser OAuth (recommended; Metabase v63+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a refreshing access token. For CI/non-interactive use, supply an API key via --api-key (`--api-key -` reads it from stdin), piped stdin, or $MB_API_KEY (first non-empty wins); any of these skips the browser flow, even on a TTY. The URL comes from --url or $MB_URL, prompted when stdin is a TTY.",
   requires: ["user.current"],
   args: {
     ...outputFlags,
@@ -92,13 +92,14 @@ export default defineMetabaseCommand({
   examples: [
     "mb auth login --url https://metabase.example.com",
     "echo $MB_API_KEY | mb auth login --url https://metabase.example.com",
+    "pass show metabase | mb auth login --url https://metabase.example.com --api-key -",
     "mb auth login --profile staging --url https://staging.example.com",
   ],
   async run({ args, ctx }) {
     const profileName = await resolveLoginProfile(args.profile);
     const env = readEnvCredentials();
 
-    if (args.apiKey) {
+    if (args.apiKey && args.apiKey !== STDIN_ARG) {
       warn(
         "warning: --api-key is visible in shell history and process listings — pipe the key on stdin or set MB_API_KEY instead",
       );
@@ -354,6 +355,9 @@ async function nonInteractiveApiKey(
   flagKey: string | undefined,
   envKey: string | null,
 ): Promise<string | null> {
+  if (flagKey === STDIN_ARG) {
+    return await apiKeyFromStdin();
+  }
   if (flagKey) {
     return flagKey;
   }
@@ -370,6 +374,19 @@ async function nonInteractiveApiKey(
     return envKey;
   }
   return null;
+}
+
+async function apiKeyFromStdin(): Promise<string> {
+  if (process.stdin.isTTY) {
+    throw new ConfigError(
+      "--api-key - reads the key from piped stdin, but stdin is a terminal; pipe the key in or omit --api-key to be prompted",
+    );
+  }
+  const piped = (await readInput({ file: STDIN_ARG })).trim();
+  if (piped === "") {
+    throw new ConfigError("--api-key - read nothing from stdin; pipe the API key in");
+  }
+  return piped;
 }
 
 async function promptForUrl(): Promise<string> {
