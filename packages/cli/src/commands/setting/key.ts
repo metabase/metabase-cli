@@ -1,6 +1,6 @@
 import { ConfigError } from "@metabase/client/errors";
 
-const SETTING_KEY_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
+const SETTING_KEY_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*\??$/;
 
 export function parseSettingKey(value: string): string {
   const trimmed = value.trim();

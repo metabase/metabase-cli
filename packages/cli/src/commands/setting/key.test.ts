@@ -18,6 +18,10 @@ describe("parseSettingKey", () => {
     expect(parseSettingKey("  remote-sync-branch  ")).toBe("remote-sync-branch");
   });
 
+  it("accepts a key ending in a question mark, as Metabase's boolean status settings do", () => {
+    expect(parseSettingKey("email-configured?")).toBe("email-configured?");
+  });
+
   it("rejects a key that is not a kebab-case identifier", () => {
     const error = thrownBy(() => parseSettingKey("not a key!"));
     expect(error).toBeInstanceOf(ConfigError);
