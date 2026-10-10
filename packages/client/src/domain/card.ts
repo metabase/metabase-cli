@@ -53,6 +53,7 @@ export const CardCompact = Card.pick({
   archived: true,
   database_id: true,
   collection_id: true,
+  dashboard_id: true,
   description: true,
 }).strip();
 export type CardCompact = z.infer<typeof CardCompact>;

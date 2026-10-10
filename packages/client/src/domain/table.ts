@@ -51,6 +51,7 @@ export const TableCompact = Table.pick({
   db_id: true,
   schema: true,
   entity_type: true,
+  visibility_type: true,
   active: true,
   is_published: true,
 })

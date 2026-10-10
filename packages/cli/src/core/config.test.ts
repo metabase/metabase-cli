@@ -202,6 +202,16 @@ describe("resolveConfig", () => {
     );
   });
 
+  it("refuses --api-key - outside auth login rather than sending it as a key", async () => {
+    const error = await resolveConfig({ url: "https://m.example.com", apiKey: "-" }).catch(
+      (thrown: unknown) => thrown,
+    );
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toBe(
+      "--api-key - reads stdin only for `mb auth login`; log in a profile or set MB_API_KEY instead",
+    );
+  });
+
   it("throws ConfigError when nothing is configured", async () => {
     const error = await resolveConfig({}).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);

@@ -2,6 +2,7 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Card, CardCompact, type CardCreateInput } from "@metabase/client/domain/card";
+import { DocumentCompact } from "@metabase/client/domain/document";
 import { SEARCH_MODELS, SearchResult } from "@metabase/client/domain/search";
 import { parseJson } from "@metabase/client/json";
 import { pollUntil } from "@metabase/client/poll";
@@ -355,6 +356,42 @@ describe("search e2e", () => {
       next_offset: null,
       limit: 20,
     });
+  });
+
+  it("--models across cards, dashboards, metrics and documents answers a document row, which carries no description", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const created = await runCli({
+      args: ["document", "create", "--json"],
+      stdin: JSON.stringify({
+        name: "Orders memo",
+        collection_id: SEEDED.defaultCollectionId,
+        document: { type: "doc", content: [] },
+      }),
+      configHome,
+      env: authEnv(),
+    });
+    expect(created.exitCode, created.stderr).toBe(0);
+    const documentId = parseJson(created.stdout, DocumentCompact).id;
+
+    const envelope = await pollUntil(
+      async () => {
+        const result = await runCli({
+          args: ["search", "Orders", "--models", "card,dashboard,metric,document", "--json"],
+          configHome,
+          env: authEnv(),
+        });
+        expect(result.exitCode, result.stderr).toBe(0);
+        return parseJson(result.stdout, SearchListEnvelope);
+      },
+      (candidate) => candidate.data.some((row) => row.model === "document"),
+      SEARCH_INDEX_POLL,
+    );
+
+    expect(envelope.data.toSorted((a, b) => a.model.localeCompare(b.model))).toEqual([
+      ORDERS_BY_STATUS_COMPACT,
+      ORDERS_OVERVIEW_COMPACT,
+      { id: documentId, name: "Orders memo", model: "document" },
+    ]);
   });
 
   it("--include-metadata attaches the card's result columns to its full row", async () => {

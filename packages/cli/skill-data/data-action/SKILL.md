@@ -1,6 +1,6 @@
 ---
 name: data-action
-description: Author and run Metabase data actions with the `mb` CLI — saved, parameterized native SQL writes (INSERT, UPDATE, DELETE) filed in a collection and run with values. Covers enabling them on a database, the body, mapping template tags to parameters, running, and the lifecycle. Triggers — "add a data action", "let users update a row", "a button that inserts a record", "run a write query", "a form that saves to the database", "delete rows from Metabase".
+description: Author and run Metabase data actions with the `mb` CLI — saved, parameterized native SQL writes (INSERT, UPDATE, DELETE) filed in a collection and run with values. Covers enabling them on a database, the collection they go in, the body, mapping template tags to parameters, running, and the lifecycle. Triggers — "add a data action", "let users update a row", "a button that inserts a record", "run a write query", "a form that saves to the database", "delete rows from Metabase".
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 requires: [dataActionsWithoutModel]
 ---
@@ -13,16 +13,26 @@ Flag conventions and `./.scratch` are in `core`; the native query and its templa
 
 ## Check the database first
 
-Data actions are off on every database until an admin turns on **Model actions** for it (Admin → Databases → the database). `mb` cannot change that setting.
+Data actions are off on every database until an admin turns on **Data actions** for it ("Allow data actions that use this database to be run", Admin → Databases → the database). That toggle is the database setting `database-enable-actions`.
 
 ```bash
 mb db get <id> --full --json
 ```
 
 - `features` must contain `"actions"` — otherwise the driver cannot run writes; pick another database.
-- `settings["database-enable-actions"]` must be `true`. If it is not, ask the user to have an admin enable it. Create and execute fail with `Actions are not enabled.` until then.
+- `settings["database-enable-actions"]` must be `true`. Create and execute fail with `Actions are not enabled.` until then. An admin profile turns it on with `mb db set-data-actions <id> true`; anyone else asks an admin to. Turning it on lets anyone with access to the database's actions write to it, so confirm with the user first.
+
+## Pick the collection
+
+A data action goes in a data actions collection, a data app collection, or the data actions root (omit `collection_id`). A regular collection is refused with `An action without a model can only go in a data actions or data app collection.` Make one with:
+
+```bash
+mb collection create --namespace data-actions --body '{"name":"Order actions"}' --json
+```
 
 ## The body
+
+Mint one template-tag `id` per tag with `mb uuid --count <n> --format text`.
 
 ```json
 {
@@ -39,14 +49,14 @@ mb db get <id> --full --json
         "native": "UPDATE orders SET note = {{note}} WHERE id = {{order_id}}",
         "template-tags": {
           "order_id": {
-            "id": "order_id",
+            "id": "6f1c9a4e-2b7d-4e0a-9c3f-1d2e3f4a5b6c",
             "name": "order_id",
             "display-name": "Order ID",
             "type": "number",
             "required": true
           },
           "note": {
-            "id": "note",
+            "id": "0b8d7c6e-5f4a-4b3c-8d2e-1f0a9b8c7d6e",
             "name": "note",
             "display-name": "Note",
             "type": "text",
@@ -78,7 +88,8 @@ mb db get <id> --full --json
 ```
 
 - `type` is always `"query"`. Never set `model_id` or `type: "implicit"`; `mb data-action create` refuses both.
-- `database_id` and `dataset_query.database` are the same id (`mb db list`). Omit `collection_id` for the root collection (`mb collection list`).
+- `database_id` and `dataset_query.database` are the same id (`mb db list`). `collection_id` is the data actions collection (here `12`); omit it for the data actions root.
+- A template tag's `id` is a UUID, unique among the tags: the representation schema requires one.
 - One statement, no `;`. `create` and `update` validate `dataset_query` as `native-sql` does.
 
 ## Parameters: one per template tag
@@ -92,7 +103,7 @@ Each `{{name}}` needs a `template-tags` entry and a `parameters` entry, all usin
 | `date`     | `date/single`    |
 | `boolean`  | `boolean/=`      |
 
-- Parameter `id` and `slug` are the tag name; `target` is `["variable", ["template-tag", "<name>"]]`.
+- Parameter `id` and `slug` are the tag name (not the tag's UUID `id`); `target` is `["variable", ["template-tag", "<name>"]]`.
 - Use raw variables only. A field filter (`type: "dimension"`), snippet or card reference does not work in a write — write the comparison yourself (`WHERE id = {{order_id}}`).
 - Set `required: true` on every input the statement cannot run without (`WHERE` keys, `NOT NULL` columns).
 - Wrap an optional input in `[[ … ]]` with `required: false`; the clause drops out when no value is given. This makes one action do partial updates: `UPDATE orders SET updated_at = now() [[, note = {{note}}]] [[, status = {{status}}]] WHERE id = {{order_id}}`.

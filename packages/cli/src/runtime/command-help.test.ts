@@ -312,6 +312,7 @@ const ALL_COMMANDS = [
   "db schema-tables",
   "db sync-schema",
   "db rescan-values",
+  "db set-data-actions",
   "table list",
   "table get",
   "table fields",

@@ -12,6 +12,8 @@ export interface InputSources {
 
 export const DEFAULT_FLAG_NAME = "--body";
 
+export const STDIN_ARG = "-";
+
 const SOURCE_LIST = `${DEFAULT_FLAG_NAME}, --file, stdin, or a positional argument`;
 
 /** The value of a string flag, or `null` when it was left out or passed empty. */
@@ -46,7 +48,7 @@ export async function readInput(sources: InputSources): Promise<string> {
 }
 
 async function readFileSource(path: string): Promise<string> {
-  if (path === "-") {
+  if (path === STDIN_ARG) {
     return await drainStdin();
   }
   try {

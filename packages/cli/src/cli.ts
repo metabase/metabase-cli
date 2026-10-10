@@ -1,10 +1,12 @@
 #!/usr/bin/env node
-import { runMain } from "citty";
+import { parseArgs, runMain } from "citty";
 import type { ArgsDef, CommandDef } from "citty";
 
 import { ConfigError } from "@metabase/client/errors";
 
-import { separatePositionals } from "./commands/argv";
+import { assertRequiredPositionals, separatePositionals } from "./commands/argv";
+import { resolveOutputFormat } from "./commands/context";
+import type { Format } from "./output/types";
 import { hoistGlobalFlags } from "./commands/global-flags";
 import { trustSystemCa } from "./core/system-ca";
 import main from "./main";
@@ -20,6 +22,7 @@ import { installInterruptHandler } from "./runtime/interrupt";
 
 const HELP_FLAGS: ReadonlySet<string> = new Set(["--help", "-h"]);
 const JSON_HELP_FLAG = "--json";
+const OUTPUT_FORMAT_FLAGS = ["json", "format"] as const;
 
 async function run(): Promise<void> {
   installInterruptHandler((code) => process.exit(code));
@@ -49,8 +52,46 @@ async function run(): Promise<void> {
       reportError(new ConfigError(`unknown command: ${unknown}`));
       return;
     }
+    if (await refusedLeafArgv(rawArgs)) {
+      return;
+    }
   }
   await runMain(main, { showUsage: showUsageWithBreadcrumb, rawArgs });
+}
+
+async function refusedLeafArgv(rawArgs: readonly string[]): Promise<boolean> {
+  const leaf = await resolveLeafArgv(main, rawArgs);
+  if (leaf === null) {
+    return false;
+  }
+  const leafArgs = rawArgs.slice(leaf.argsStart);
+  try {
+    assertRequiredPositionals(leafArgs, leaf.argsDef);
+    return false;
+  } catch (error) {
+    reportError(error, reportFormat(leafArgs, leaf.argsDef));
+    return true;
+  }
+}
+
+// Parsed against the output flags alone: citty's parse of the whole definition throws on the very
+// positional that is missing. A `--format` value the command would itself refuse leaves the argv
+// error in plain text.
+function reportFormat(leafArgs: readonly string[], argsDef: ArgsDef): Format | undefined {
+  const outputFlags = Object.fromEntries(
+    OUTPUT_FORMAT_FLAGS.flatMap((key) => {
+      const def = argsDef[key];
+      return def === undefined ? [] : [[key, def]];
+    }),
+  );
+  const parsed = parseArgs([...leafArgs], outputFlags);
+  const format = parsed["format"];
+  const json = parsed["json"] === true;
+  try {
+    return resolveOutputFormat(typeof format === "string" ? { json, format } : { json });
+  } catch {
+    return undefined;
+  }
 }
 
 async function normalizeArgv(argv: readonly string[]): Promise<string[]> {

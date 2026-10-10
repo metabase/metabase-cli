@@ -43,6 +43,7 @@ const ORDERS_OVERVIEW_FIRST_DASHCARD_COMPACT = {
   col: 0,
   size_x: 12,
   size_y: 6,
+  parameter_mappings: [],
 } as const;
 
 const ORDERS_OVERVIEW_DETAIL_COMPACT = {
@@ -338,6 +339,7 @@ describe("dashboard e2e", () => {
           col: 0,
           size_x: 12,
           size_y: 6,
+          parameter_mappings: [],
         },
       ],
       returned: 1,
@@ -346,6 +348,35 @@ describe("dashboard e2e", () => {
       has_more: false,
       next_offset: null,
     });
+  });
+
+  it("cards shows each dashcard's parameter mappings in compact form", async () => {
+    const mapping = {
+      parameter_id: "order_id",
+      card_id: SEEDED.ordersCardId,
+      target: ["dimension", ["field", SEEDED.fields.ordersId, null], { "stage-number": 0 }],
+    };
+    const created = await runCli({
+      args: ["dashboard", "create", "--json"],
+      stdin: JSON.stringify({
+        name: "e2e_dashboard_with_mapping",
+        collection_id: SEEDED.defaultCollectionId,
+        parameters: [{ id: "order_id", slug: "order_id", name: "Order ID", type: "id" }],
+        dashcards: [
+          {
+            ...singleDashcardBody("unused", SEEDED.ordersCardId).dashcards[0],
+            parameter_mappings: [mapping],
+          },
+        ],
+      }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(created.exitCode, created.stderr).toBe(0);
+    const dashboardId = parseJson(created.stdout, DashboardCompact).id;
+
+    const envelope = await dashcardsOf(dashboardId);
+    expect(envelope.data.map((dashcard) => dashcard.parameter_mappings)).toEqual([[mapping]]);
   });
 
   it("cards with a non-integer id fails fast with ConfigError", async () => {
@@ -494,6 +525,7 @@ describe("dashboard e2e", () => {
           col: 0,
           size_x: 12,
           size_y: 6,
+          parameter_mappings: [],
         },
       ],
     });
@@ -685,6 +717,7 @@ describe("dashboard e2e", () => {
       col: 2,
       size_x: 10,
       size_y: 5,
+      parameter_mappings: [],
     });
   });
 
@@ -821,6 +854,7 @@ describe("dashboard e2e", () => {
       col: 1,
       size_x: 12,
       size_y: 6,
+      parameter_mappings: [],
     });
     expect(untouched).toEqual({
       id: secondDashcard.id,
@@ -831,6 +865,7 @@ describe("dashboard e2e", () => {
       col: 0,
       size_x: 6,
       size_y: 3,
+      parameter_mappings: [],
     });
   });
 
@@ -970,6 +1005,7 @@ describe("dashboard e2e", () => {
           col: 0,
           size_x: 12,
           size_y: 6,
+          parameter_mappings: [],
         },
       ],
       returned: 1,
@@ -1023,6 +1059,7 @@ describe("dashboard e2e", () => {
       archived: false,
       database_id: SEEDED.warehouseDbId,
       collection_id: SEEDED.defaultCollectionId,
+      dashboard_id: null,
       description: null,
     });
   });

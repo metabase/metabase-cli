@@ -28,6 +28,7 @@ const REVIEWS_COMPACT = {
   db_id: SEEDED.warehouseDbId,
   schema: "public",
   entity_type: "entity/GenericTable",
+  visibility_type: null,
   active: true,
   is_published: false,
 };

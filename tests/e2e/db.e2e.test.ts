@@ -1,7 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { Database, DatabaseCompact, DatabaseSyncResult } from "@metabase/client/domain/database";
+import {
+  Database,
+  DatabaseCompact,
+  DatabaseSyncResult,
+  DatabaseWithSettings,
+  DatabaseWithSettingsCompact,
+} from "@metabase/client/domain/database";
 import { TableCompact } from "@metabase/client/domain/table";
 import { parseJson } from "@metabase/client/json";
 
@@ -34,6 +40,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/GenericTable",
+    visibility_type: null,
     active: true,
     is_published: false,
   },
@@ -45,6 +52,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    visibility_type: null,
     active: true,
     is_published: false,
   },
@@ -56,6 +64,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    visibility_type: null,
     active: true,
     is_published: false,
   },
@@ -67,6 +76,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    visibility_type: null,
     active: true,
     is_published: false,
   },
@@ -78,6 +88,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/ProductTable",
+    visibility_type: null,
     active: true,
     is_published: false,
   },
@@ -89,6 +100,7 @@ const PUBLIC_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/GenericTable",
+    visibility_type: null,
     active: true,
     is_published: false,
   },
@@ -103,6 +115,7 @@ const ANALYTICS_TABLES_SORTED_BY_DISPLAY_NAME: TableCompact[] = [
     db_id: SEEDED.warehouseDbId,
     schema: "analytics",
     entity_type: "entity/TransactionTable",
+    visibility_type: null,
     active: true,
     is_published: false,
   },
@@ -458,5 +471,80 @@ describe("db e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
+  });
+
+  it("set-data-actions enables and disables the database setting, and get reads it back", async () => {
+    const id = String(SEEDED.warehouseDbId);
+    const on = await runCli({
+      args: ["db", "set-data-actions", id, "true", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(on.exitCode, on.stderr).toBe(0);
+    expect(parseJson(on.stdout, DatabaseWithSettingsCompact)).toEqual({
+      id: SEEDED.warehouseDbId,
+      name: "Warehouse",
+      engine: "postgres",
+      settings: { "database-enable-actions": true },
+    });
+
+    const off = await runCli({
+      args: ["db", "set-data-actions", id, "false", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(off.exitCode, off.stderr).toBe(0);
+    expect(parseJson(off.stdout, DatabaseWithSettingsCompact).settings).toEqual({
+      "database-enable-actions": false,
+    });
+
+    const get = await runCli({
+      args: ["db", "get", id, "--json", "--full"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(get.exitCode, get.stderr).toBe(0);
+    expect(parseJson(get.stdout, DatabaseWithSettings).settings?.["database-enable-actions"]).toBe(
+      false,
+    );
+  });
+
+  it("set-data-actions refuses a value other than true or false before any request", async () => {
+    const result = await runCli({
+      args: ["db", "set-data-actions", String(SEEDED.warehouseDbId), "yes", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      'invalid enabled: "yes" (expected one of: true, false)',
+    );
+  });
+
+  it("set-data-actions with a flag where the value belongs refuses the flag instead of printing help", async () => {
+    const result = await runCli({
+      args: ["db", "set-data-actions", String(SEEDED.warehouseDbId), "--on", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(cliErrorMessage(result.stderr)).toBe("unknown flag: --on");
+  });
+
+  it("set-data-actions without the value names the missing argument", async () => {
+    const result = await runCli({
+      args: ["db", "set-data-actions", String(SEEDED.warehouseDbId), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(cliErrorMessage(result.stderr)).toBe(
+      "missing argument: <enabled> (this command takes <id> <enabled>)",
+    );
   });
 });

@@ -151,9 +151,12 @@ export const SyncImportResult = z.object({
 });
 export type SyncImportResult = z.infer<typeof SyncImportResult>;
 
+// `branch` is the branch the export targets, null where the request named none and a server without
+// the branch guard exports to the one it tracks.
 export const SyncExportResult = z.object({
   message: z.string(),
   task_id: z.number().int().positive(),
+  branch: z.string().nullable(),
   final: SyncTask.nullable().optional(),
 });
 export type SyncExportResult = z.infer<typeof SyncExportResult>;

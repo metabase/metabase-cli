@@ -19,8 +19,8 @@ export default defineMetabaseCommand({
     description: "Export Metabase changes back to the configured git remote",
   },
   details:
-    "The export targets the branch git-sync tracks. On Metabase 63+ `--branch` defaults to it and must name it (the server answers 409 for any other branch); older servers export to the branch `--branch` names and switch git-sync to it, refusing with 400 when that branch's tip is not the last synced commit unless --force is given. To push to a new branch, use `git-sync stash` or `git-sync create-branch` first. When the remote has moved past the last sync, a plain export ends in a `conflict` task on 63+ and is refused with 400 on older servers. --merge (63+) folds the remote's changes in by a three-way merge (entities changed on both sides still end in `conflict`), --force overwrites them. `git-sync export-preflight` previews which applies. A task that ends in `conflict` may make the server count the remote commit it saw as synced, so a retry, --merge included, may no longer see the remote's changes. Never answer a conflict with a retry: keep the remote's side with `import --force`, Metabase's with `export --force`, or both through a reviewed PR from a new branch (`mb skills get git-sync`, \"After a conflict task\").",
-  requires: ["gitSync.export"],
+    "The export targets the branch git-sync tracks. On Metabase 63+ `--branch` defaults to it and must name it (the server answers 409 for any other branch); older servers export to the branch `--branch` names and switch git-sync to it, refusing with 400 when that branch's tip is not the last synced commit unless --force is given. To push to a new branch, use `git-sync stash` or `git-sync create-branch` first; a `--branch` missing from the remote is refused before the export with a pointer to `create-branch`. When the remote has moved past the last sync, a plain export ends in a `conflict` task on 63+ and is refused with 400 on older servers. --merge (63+) folds the remote's changes in by a three-way merge (entities changed on both sides still end in `conflict`), --force overwrites them. `git-sync export-preflight` previews which applies. A task that ends in `conflict` may make the server count the remote commit it saw as synced, so a retry, --merge included, may no longer see the remote's changes. Never answer a conflict with a retry: keep the remote's side with `import --force`, Metabase's with `export --force`, or both through a reviewed PR from a new branch (`mb skills get git-sync`, \"After a conflict task\").",
+  requires: ["gitSync.branch", "gitSync.branches", "gitSync.export"],
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -80,20 +80,40 @@ export default defineMetabaseCommand({
     }
 
     const mb = await getClient();
+    // A guarded server answers an export to a branch missing from the remote with a 409 about the
+    // tracked branch having moved, which points away from the fix.
+    if (branch !== null && (await mb.gitSync.branch()) !== branch) {
+      const remote = await mb.gitSync.branches();
+      if (!remote.data.includes(branch)) {
+        throw missingBranchError(branch);
+      }
+    }
     const result = await mb.gitSync.export(params);
 
+    const target = result.branch === null ? "" : ` Branch: ${result.branch}.`;
     if (!wait.enabled) {
-      renderSummary(result, syncExportView, `Started export task #${result.task_id}.`, ctx);
+      renderSummary(
+        result,
+        syncExportView,
+        `Started export task #${result.task_id}.${target}`,
+        ctx,
+      );
     } else {
       const final = result.final ?? null;
       const text =
         final === null ? `Export task #${result.task_id} finished.` : formatSyncTask(final);
-      renderSummary(result, syncExportView, text, ctx);
+      renderSummary(result, syncExportView, `${text}${target}`, ctx);
       throwIfFailedTask(final, "export");
     }
     emitRealignHint(ctx);
   },
 });
+
+function missingBranchError(branch: string): ConfigError {
+  return new ConfigError(
+    `branch "${branch}" does not exist on the remote; run \`mb git-sync create-branch ${branch}\` to create it and switch git-sync to it, then export without --branch`,
+  );
+}
 
 function emitRealignHint(ctx: CommonContext): void {
   if (ctx.format !== "text") {

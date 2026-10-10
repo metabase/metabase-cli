@@ -63,6 +63,35 @@ export type DatabaseListInclude = z.infer<typeof DatabaseListInclude>;
 export const DatabaseGetInclude = z.enum(["tables", "tables.fields"]);
 export type DatabaseGetInclude = z.infer<typeof DatabaseGetInclude>;
 
+// The server merges a database's settings key by key, so an update names only the ones it changes.
+const DATA_ACTIONS_SETTING = "database-enable-actions";
+
+export const DatabaseSettings = z
+  .object({ [DATA_ACTIONS_SETTING]: z.boolean().optional() })
+  .loose();
+export type DatabaseSettings = z.infer<typeof DatabaseSettings>;
+
+export const DatabaseWithSettings = Database.extend({ settings: DatabaseSettings.nullable() });
+export type DatabaseWithSettings = z.infer<typeof DatabaseWithSettings>;
+
+export const DatabaseWithSettingsCompact = DatabaseWithSettings.pick({
+  id: true,
+  name: true,
+  engine: true,
+})
+  .strip()
+  .extend({
+    settings: DatabaseSettings.pick({ [DATA_ACTIONS_SETTING]: true })
+      .strip()
+      .nullable(),
+  });
+export type DatabaseWithSettingsCompact = z.infer<typeof DatabaseWithSettingsCompact>;
+
+export const DatabaseUpdateInput = z
+  .object({ settings: z.object({ [DATA_ACTIONS_SETTING]: z.boolean() }).strict() })
+  .strict();
+export type DatabaseUpdateInput = z.infer<typeof DatabaseUpdateInput>;
+
 export const DatabaseSyncResult = z.object({
   id: z.number().int(),
   status: z.literal("ok"),

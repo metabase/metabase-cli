@@ -23,7 +23,7 @@ import { seedProbedProfile, UNREACHABLE_SEED_MESSAGE } from "./seed-profile";
 import { SEEDED } from "./seed/seeded";
 import { serverHas } from "./server-gate";
 
-const CUSTOMERS_COMPACT = {
+const CUSTOMERS_COMPACT: TableCompact = {
   id: SEEDED.tables.customers,
   name: "customers",
   display_name: "Customers",
@@ -31,11 +31,12 @@ const CUSTOMERS_COMPACT = {
   db_id: SEEDED.warehouseDbId,
   schema: "public",
   entity_type: "entity/GenericTable",
+  visibility_type: null,
   active: true,
   is_published: false,
 };
 
-const REVIEWS_COMPACT = {
+const REVIEWS_COMPACT: TableCompact = {
   id: SEEDED.tables.reviews,
   name: "reviews",
   display_name: "Reviews",
@@ -43,11 +44,12 @@ const REVIEWS_COMPACT = {
   db_id: SEEDED.warehouseDbId,
   schema: "public",
   entity_type: "entity/GenericTable",
+  visibility_type: null,
   active: true,
   is_published: false,
 };
 
-const SEEDED_WAREHOUSE_TABLES = [
+const SEEDED_WAREHOUSE_TABLES: TableCompact[] = [
   CUSTOMERS_COMPACT,
   {
     id: SEEDED.tables.dailySales,
@@ -57,6 +59,7 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "analytics",
     entity_type: "entity/TransactionTable",
+    visibility_type: null,
     active: true,
     is_published: false,
   },
@@ -68,6 +71,7 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    visibility_type: null,
     active: true,
     is_published: false,
   },
@@ -79,6 +83,7 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    visibility_type: null,
     active: true,
     is_published: false,
   },
@@ -90,6 +95,7 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/TransactionTable",
+    visibility_type: null,
     active: true,
     is_published: false,
   },
@@ -101,6 +107,7 @@ const SEEDED_WAREHOUSE_TABLES = [
     db_id: SEEDED.warehouseDbId,
     schema: "public",
     entity_type: "entity/ProductTable",
+    visibility_type: null,
     active: true,
     is_published: false,
   },
@@ -119,7 +126,7 @@ function bulkEditRefusal(serverTag: string | undefined): string {
   return `This operation requires Metabase v59+ (this server is ${serverTag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`;
 }
 
-function warehouseEnvelope(data: typeof SEEDED_WAREHOUSE_TABLES) {
+function warehouseEnvelope(data: TableCompact[]) {
   return {
     data,
     returned: data.length,
@@ -279,7 +286,7 @@ describe("table e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, TableListEnvelope)).toEqual(
-      warehouseEnvelope([REVIEWS_COMPACT]),
+      warehouseEnvelope([{ ...REVIEWS_COMPACT, visibility_type: "hidden" }]),
     );
   });
 
@@ -695,6 +702,27 @@ describe("table e2e", () => {
     });
     expect(restore.exitCode, restore.stderr).toBe(0);
     expect(parseJson(restore.stdout, Table).description).toBeNull();
+  });
+
+  it("update shows the visibility it set in the compact view", async () => {
+    const result = await runCli({
+      args: [
+        "table",
+        "update",
+        String(SEEDED.tables.reviews),
+        "--body",
+        JSON.stringify({ visibility_type: "hidden" }),
+        "--json",
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, TableCompact)).toEqual({
+      ...REVIEWS_COMPACT,
+      visibility_type: "hidden",
+    });
   });
 
   it("update rejects multiple body sources", async () => {

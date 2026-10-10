@@ -2,7 +2,7 @@ import { defineCommandGroup } from "../group";
 
 export default defineCommandGroup({
   name: "db",
-  description: "Inspect and sync Metabase databases",
+  description: "Inspect and sync Metabase databases, and turn their data actions on or off",
   alias: "database",
   skills: [
     { skill: "core", purpose: "the database traversal ladder and schema sync" },
@@ -15,5 +15,6 @@ export default defineCommandGroup({
     "schema-tables": () => import("./schema-tables").then((m) => m.default),
     "sync-schema": () => import("./sync-schema").then((m) => m.default),
     "rescan-values": () => import("./rescan-values").then((m) => m.default),
+    "set-data-actions": () => import("./set-data-actions").then((m) => m.default),
   },
 });

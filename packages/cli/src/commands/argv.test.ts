@@ -3,7 +3,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import { ConfigError } from "@metabase/client/errors";
 
-import { assertArgv } from "./argv";
+import { assertArgv, assertRequiredPositionals } from "./argv";
 
 const ARGS: ArgsDef = {
   format: { type: "string", default: "auto" },
@@ -78,5 +78,29 @@ describe("assertArgv", () => {
   it("allows the builtin --help and --version flags", () => {
     expect(() => assertArgv(["--help"], ARGS)).not.toThrow();
     expect(() => assertArgv(["--version"], ARGS)).not.toThrow();
+  });
+});
+
+const TWO_POSITIONALS: ArgsDef = {
+  json: { type: "boolean" },
+  id: { type: "positional", required: true },
+  state: { type: "positional", required: true },
+};
+
+describe("assertRequiredPositionals", () => {
+  it("accepts argv that gives every required positional", () => {
+    expect(() => assertRequiredPositionals(["1", "true", "--json"], TWO_POSITIONALS)).not.toThrow();
+  });
+
+  it("names the missing positional and the command's positionals", () => {
+    const error = thrownBy(() => assertRequiredPositionals(["1", "--json"], TWO_POSITIONALS));
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toBe("missing argument: <state> (this command takes <id> <state>)");
+  });
+
+  it("reports an unknown flag standing where the positional belongs as the unknown flag", () => {
+    const error = thrownBy(() => assertRequiredPositionals(["1", "--on"], TWO_POSITIONALS));
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toBe("unknown flag: --on");
   });
 });
