@@ -36,6 +36,7 @@ export const DashcardCompact = Dashcard.pick({
   col: true,
   size_x: true,
   size_y: true,
+  parameter_mappings: true,
 }).strip();
 export type DashcardCompact = z.infer<typeof DashcardCompact>;
 

@@ -539,8 +539,11 @@ describe("git-sync resource wire requests", () => {
       jsonResponse({ message: "Export queued", task_id: 8 }),
     ]);
 
-    await mb.gitSync.export({ message: "update dashboards" });
-
+    expect(await mb.gitSync.export({ message: "update dashboards" })).toEqual({
+      message: "Export queued",
+      task_id: 8,
+      branch: "main",
+    });
     expect(capture.calls.map((call) => call.body)).toEqual([
       null,
       '{"branch":"main","message":"update dashboards"}',
@@ -557,6 +560,7 @@ describe("git-sync resource wire requests", () => {
     expect(await mb.gitSync.export({ wait: IMMEDIATE_POLL })).toEqual({
       message: "Export queued",
       task_id: 8,
+      branch: "main",
       final: SETTLED_TASK,
     });
   });

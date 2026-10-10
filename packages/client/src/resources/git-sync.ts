@@ -286,14 +286,15 @@ export function gitSyncResource(transport: Transport) {
         merge: params.merge,
       },
     });
-    if (params.wait === undefined) {
-      return { message: started.message, task_id: started.task_id };
-    }
-    return {
+    const accepted = {
       message: started.message,
       task_id: started.task_id,
-      final: await settle(params.wait, options),
+      branch: branchName ?? null,
     };
+    if (params.wait === undefined) {
+      return accepted;
+    }
+    return { ...accepted, final: await settle(params.wait, options) };
   }
 
   /**

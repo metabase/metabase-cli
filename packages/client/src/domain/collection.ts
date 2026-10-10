@@ -97,6 +97,7 @@ export const CollectionCompact = Collection.pick({
   location: true,
   parent_id: true,
   type: true,
+  namespace: true,
   authority_level: true,
   is_personal: true,
   is_remote_synced: true,

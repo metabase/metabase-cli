@@ -90,13 +90,19 @@ export default defineMetabaseCommand({
     }
     const result = await mb.gitSync.export(params);
 
+    const target = result.branch === null ? "" : ` Branch: ${result.branch}.`;
     if (!wait.enabled) {
-      renderSummary(result, syncExportView, `Started export task #${result.task_id}.`, ctx);
+      renderSummary(
+        result,
+        syncExportView,
+        `Started export task #${result.task_id}.${target}`,
+        ctx,
+      );
     } else {
       const final = result.final ?? null;
       const text =
         final === null ? `Export task #${result.task_id} finished.` : formatSyncTask(final);
-      renderSummary(result, syncExportView, text, ctx);
+      renderSummary(result, syncExportView, `${text}${target}`, ctx);
       throwIfFailedTask(final, "export");
     }
     emitRealignHint(ctx);

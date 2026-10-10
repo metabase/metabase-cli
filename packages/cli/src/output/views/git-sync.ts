@@ -76,6 +76,7 @@ export const syncExportView: ResourceView<SyncExportResult> = {
   compactPick: SyncExportResult,
   tableColumns: [
     { key: "task_id", label: "Task ID" },
+    { key: "branch", label: "Branch" },
     { key: "message", label: "Message" },
   ],
 };

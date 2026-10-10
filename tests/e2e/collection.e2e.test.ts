@@ -6,6 +6,7 @@ import {
   Collection,
   CollectionCompact,
   type CollectionId,
+  CollectionNamespace,
 } from "@metabase/client/domain/collection";
 import { parseJson } from "@metabase/client/json";
 
@@ -28,6 +29,7 @@ const DEFAULT_COMPACT = {
   location: "/",
   parent_id: null,
   type: null,
+  namespace: null,
   authority_level: null,
   is_personal: false,
   is_remote_synced: false,
@@ -50,6 +52,7 @@ const ADMIN_PERSONAL_COMPACT = {
   location: "/",
   parent_id: null,
   type: null,
+  namespace: null,
   authority_level: null,
   is_personal: true,
   is_remote_synced: false,
@@ -63,6 +66,7 @@ const TRASH_COMPACT = {
   location: "/",
   parent_id: null,
   type: "trash",
+  namespace: null,
   authority_level: null,
   is_personal: false,
   is_remote_synced: false,
@@ -598,10 +602,55 @@ describe("collection e2e", () => {
       location: `/${SEEDED.defaultCollectionId}/`,
       parent_id: SEEDED.defaultCollectionId,
       type: null,
+      namespace: null,
       authority_level: null,
       is_personal: false,
       is_remote_synced: false,
     });
+  });
+
+  it("create --namespace shows the namespace, and list --namespace lists that namespace alone", async () => {
+    const createResult = await runCli({
+      args: ["collection", "create", "--namespace", "transforms", "--json"],
+      stdin: JSON.stringify({ name: "e2e_transforms_collection" }),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(createResult.exitCode, createResult.stderr).toBe(0);
+    const created = parseJson(createResult.stdout, CollectionCompact);
+    expect(created).toEqual({
+      id: created.id,
+      name: "e2e_transforms_collection",
+      description: null,
+      archived: false,
+      location: "/",
+      type: null,
+      namespace: "transforms",
+      authority_level: null,
+      is_remote_synced: false,
+    });
+
+    const listResult = await runCli({
+      args: ["collection", "list", "--namespace", "transforms", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(listResult.exitCode, listResult.stderr).toBe(0);
+    const ids = parseJson(listResult.stdout, CollectionListEnvelope).data.map((row) => row.id);
+    expect(ids).toEqual(["root", created.id]);
+  });
+
+  it("list --namespace refuses an unknown namespace before any request", async () => {
+    const result = await runCli({
+      args: ["collection", "list", "--namespace", "widgets", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe(
+      `invalid namespace: "widgets" (expected one of: ${CollectionNamespace.options.join(", ")})`,
+    );
   });
 
   it("create with a body missing the required name field fails on Zod validation", async () => {
@@ -666,6 +715,7 @@ describe("collection e2e", () => {
       location: "/",
       parent_id: null,
       type: null,
+      namespace: null,
       authority_level: null,
       is_personal: false,
       is_remote_synced: false,
@@ -698,6 +748,7 @@ describe("collection e2e", () => {
       location: `/${SEEDED.defaultCollectionId}/`,
       parent_id: SEEDED.defaultCollectionId,
       type: null,
+      namespace: null,
       authority_level: null,
       is_personal: false,
       is_remote_synced: false,
@@ -717,6 +768,7 @@ describe("collection e2e", () => {
       location: "/",
       parent_id: null,
       type: null,
+      namespace: null,
       authority_level: null,
       is_personal: false,
       is_remote_synced: false,
@@ -742,6 +794,7 @@ describe("collection e2e", () => {
       location: `/${SEEDED.defaultCollectionId}/`,
       parent_id: SEEDED.defaultCollectionId,
       type: null,
+      namespace: null,
       authority_level: null,
       is_personal: false,
       is_remote_synced: false,
@@ -779,6 +832,7 @@ describe("collection e2e", () => {
       location: "/",
       parent_id: null,
       type: null,
+      namespace: null,
       authority_level: null,
       is_personal: false,
       is_remote_synced: false,

@@ -1738,11 +1738,13 @@ Read and edit collections on `/api/collection`. Collections are the folders that
 mb collection list
 mb collection list --json
 mb collection list --filter archived --json
+mb collection list --namespace transforms --json
 ```
 
-| Flag                | Description                                                                                                     |
-| ------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `--filter <preset>` | One of `all` (default), `archived` (returns the trash collection only), `personal` (only personal collections). |
+| Flag                | Description                                                                                                            |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `--filter <preset>` | One of `all` (default), `archived` (returns the trash collection only), `personal` (only personal collections).        |
+| `--namespace <ns>`  | List one namespace's collections (`transforms`, `snippets`, `data-actions`, …), with its root, instead of normal ones. |
 
 ### `mb collection get <id>`
 
@@ -2190,7 +2192,7 @@ The import also asserts which branch git-sync tracks, read from the session prop
 
 ### `mb git-sync export`
 
-Export Metabase changes back to the configured git remote (Metabase → repo). Auto-polls by default. The export targets the branch git-sync tracks; to push to a new branch, `stash` or `create-branch` first. A `--branch` other than the tracked one is looked up in `git-sync branches` first, and one missing from the remote is refused with exit 2, naming `mb git-sync create-branch <branch>`. When the remote has moved past the last sync, a plain export ends in a `conflict` task on Metabase v63 and newer, and is refused with a 400 on older servers. Such a task names the divergence in its text output and error, and may leave the remote's commit counted as synced, as an import conflict may: never answer it with a retry.
+Export Metabase changes back to the configured git remote (Metabase → repo). Auto-polls by default. The export targets the branch git-sync tracks; to push to a new branch, `stash` or `create-branch` first. The result names the target `branch` (`null` only where no `--branch` was given and the server, older than v63, exports to the one it tracks), and the text output ends with it. A `--branch` other than the tracked one is looked up in `git-sync branches` first, and one missing from the remote is refused with exit 2, naming `mb git-sync create-branch <branch>`. When the remote has moved past the last sync, a plain export ends in a `conflict` task on Metabase v63 and newer, and is refused with a 400 on older servers. Such a task names the divergence in its text output and error, and may leave the remote's commit counted as synced, as an import conflict may: never answer it with a retry.
 
 ```sh
 mb git-sync export -m "update dashboards"
