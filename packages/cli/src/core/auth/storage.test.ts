@@ -22,7 +22,6 @@ import * as storage from "./storage";
 
 const {
   clearProfile,
-  keyringService,
   consumeKeychainResidualWarning,
   consumeKeyringDowngradeWarning,
   consumeLegacyStorageWarning,
@@ -93,10 +92,10 @@ describe("profiles (keyring backend)", () => {
     const location = await writeProfile({ url: "https://m.example.com", apiKey: "secret" });
     expect(location).toEqual({
       backend: "keyring",
-      service: keyringService(),
+      service: "metabase-cli",
       account: "profile:default:apiKey",
     });
-    expect(hoisted.store.get(`${keyringService()}:profile:default:apiKey`)).toBe("secret");
+    expect(hoisted.store.get("metabase-cli:profile:default:apiKey")).toBe("secret");
 
     const file = parseJson(readFileSync(profilesFilePath(), "utf8"), ProfilesFile);
     expect(file).toEqual({
@@ -135,44 +134,6 @@ describe("profiles (keyring backend)", () => {
     });
   });
 
-  it("keeps same-named profiles in different config directories apart", async () => {
-    await writeProfile({ url: "https://first.example.com", apiKey: "first-key" });
-    const second = setupTempConfigHome();
-    try {
-      await writeProfile({ url: "https://second.example.com", apiKey: "second-key" });
-      expect(await readProfileCredential()).toEqual({
-        url: "https://second.example.com",
-        credential: { kind: "apiKey", apiKey: "second-key" },
-      });
-    } finally {
-      second.cleanup();
-    }
-    expect(await readProfileCredential()).toEqual({
-      url: "https://first.example.com",
-      credential: { kind: "apiKey", apiKey: "first-key" },
-    });
-  });
-
-  it("reads a key stored under the unscoped service and copies it into this directory's scope", async () => {
-    await writeProfile({ url: "https://m.example.com", apiKey: "old-key" });
-    hoisted.store.delete(`${keyringService()}:profile:default:apiKey`);
-    hoisted.store.set("metabase-cli:profile:default:apiKey", "old-key");
-
-    expect(await readProfileCredential()).toEqual({
-      url: "https://m.example.com",
-      credential: { kind: "apiKey", apiKey: "old-key" },
-    });
-    expect(hoisted.store.get(`${keyringService()}:profile:default:apiKey`)).toBe("old-key");
-  });
-
-  it("clearProfile also removes the key stored under the unscoped service", async () => {
-    await writeProfile({ url: "https://m.example.com", apiKey: "k" });
-    hoisted.store.set("metabase-cli:profile:default:apiKey", "old-key");
-
-    expect(await clearProfile()).toBe(true);
-    expect(hoisted.store.get("metabase-cli:profile:default:apiKey")).toBeUndefined();
-  });
-
   it("preserves user add order (no sort) and overwrites existing entries in place", async () => {
     await writeProfile({ url: "https://1.example.com", apiKey: "k1" }, "zeta");
     await writeProfile({ url: "https://2.example.com", apiKey: "k2" }, "alpha");
@@ -191,7 +152,7 @@ describe("profiles (keyring backend)", () => {
 
     expect(await clearProfile("a")).toBe(true);
     expect(await readProfileCredential("a")).toBeNull();
-    expect(hoisted.store.get(`${keyringService()}:profile:a:apiKey`)).toBeUndefined();
+    expect(hoisted.store.get("metabase-cli:profile:a:apiKey")).toBeUndefined();
     expect(await readProfileCredential("b")).toEqual({
       url: "https://b.example.com",
       credential: { kind: "apiKey", apiKey: "b" },
@@ -386,7 +347,7 @@ describe("writeProbeResult and writeProbeFailure", () => {
       lastProbe: ALICE_PROBE,
       lastFailure: { at: FAILED_AT, kind: "auth", reason: "Invalid or unauthorized API key" },
     });
-    expect(hoisted.store.get(`${keyringService()}:profile:p:apiKey`)).toBe("k");
+    expect(hoisted.store.get("metabase-cli:profile:p:apiKey")).toBe("k");
   });
 });
 
@@ -422,7 +383,7 @@ describe("MB_CLI_DISABLE_KEYRING", () => {
     const location = await writeProfile({ url: "https://m.example.com", apiKey: "secret" });
     expect(location).toEqual({
       backend: "keyring",
-      service: keyringService(),
+      service: "metabase-cli",
       account: "profile:default:apiKey",
     });
   });
@@ -533,8 +494,8 @@ describe("OAuth profiles (keyring backend)", () => {
       lastProbe: null,
       lastFailure: null,
     });
-    expect(hoisted.store.get(`${keyringService()}:profile:default:oauthAccess`)).toBe("access-1");
-    expect(hoisted.store.get(`${keyringService()}:profile:default:oauthRefresh`)).toBe("refresh-1");
+    expect(hoisted.store.get("metabase-cli:profile:default:oauthAccess")).toBe("access-1");
+    expect(hoisted.store.get("metabase-cli:profile:default:oauthRefresh")).toBe("refresh-1");
   });
 
   it("switching an OAuth profile to an API key clears the OAuth tokens", async () => {
@@ -545,8 +506,8 @@ describe("OAuth profiles (keyring backend)", () => {
       credential: { kind: "apiKey", apiKey: "k" },
     });
     expect(await readProfileRecord()).toEqual(defaultRecord(null));
-    expect(hoisted.store.get(`${keyringService()}:profile:default:oauthAccess`)).toBeUndefined();
-    expect(hoisted.store.get(`${keyringService()}:profile:default:oauthRefresh`)).toBeUndefined();
+    expect(hoisted.store.get("metabase-cli:profile:default:oauthAccess")).toBeUndefined();
+    expect(hoisted.store.get("metabase-cli:profile:default:oauthRefresh")).toBeUndefined();
   });
 
   it("switching an API key profile to OAuth clears the API key", async () => {
@@ -569,14 +530,14 @@ describe("OAuth profiles (keyring backend)", () => {
       lastProbe: null,
       lastFailure: null,
     });
-    expect(hoisted.store.get(`${keyringService()}:profile:default:apiKey`)).toBeUndefined();
+    expect(hoisted.store.get("metabase-cli:profile:default:apiKey")).toBeUndefined();
   });
 
   it("clearProfile removes the OAuth tokens from the keyring", async () => {
     await writeOAuthProfile("https://m.example.com", OAUTH);
     expect(await clearProfile()).toBe(true);
-    expect(hoisted.store.get(`${keyringService()}:profile:default:oauthAccess`)).toBeUndefined();
-    expect(hoisted.store.get(`${keyringService()}:profile:default:oauthRefresh`)).toBeUndefined();
+    expect(hoisted.store.get("metabase-cli:profile:default:oauthAccess")).toBeUndefined();
+    expect(hoisted.store.get("metabase-cli:profile:default:oauthRefresh")).toBeUndefined();
     expect(await readProfileCredential()).toBeNull();
   });
 
@@ -600,7 +561,7 @@ describe("OAuth profiles (keyring backend)", () => {
     }
     // The recovered keyring still holds the pre-rotation tokens; the inline file copy is
     // authoritative, so the stale keyring entry must not shadow it.
-    expect(hoisted.store.get(`${keyringService()}:profile:default:oauthRefresh`)).toBe("refresh-1");
+    expect(hoisted.store.get("metabase-cli:profile:default:oauthRefresh")).toBe("refresh-1");
     expect(await readProfileCredential()).toEqual({
       url: "https://m.example.com",
       credential: rotated,

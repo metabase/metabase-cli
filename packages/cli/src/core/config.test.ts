@@ -40,7 +40,6 @@ import type { OAuthCredential } from "@metabase/client/auth/credential";
 import { ConfigError } from "@metabase/client/errors";
 
 import {
-  keyringService,
   readProfileCredential,
   writeOAuthProfile,
   writeProbeFailure,
@@ -243,7 +242,7 @@ describe("resolveConfig", () => {
       kind: "auth",
       reason: "Invalid or unauthorized API key",
     });
-    hoisted.store.delete(`${keyringService()}:profile:lost:apiKey`);
+    hoisted.store.delete("metabase-cli:profile:lost:apiKey");
 
     const error = await resolveConfig({ profile: "lost" }).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);
@@ -269,7 +268,7 @@ describe("resolveConfig", () => {
         tokenFeatures: null,
       },
     });
-    hoisted.store.delete(`${keyringService()}:profile:recovers:apiKey`);
+    hoisted.store.delete("metabase-cli:profile:recovers:apiKey");
 
     const error = await resolveConfig({ profile: "recovers" }).catch((thrown: unknown) => thrown);
     expect(error).toBeInstanceOf(ConfigError);

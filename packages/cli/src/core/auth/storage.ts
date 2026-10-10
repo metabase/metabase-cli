@@ -19,7 +19,7 @@ import {
   type ProfileRecord,
 } from "./profile-record";
 
-const LEGACY_KEYRING_SERVICE = "metabase-cli";
+const KEYRING_SERVICE = "metabase-cli";
 const PROFILES_FILE = "profiles.json";
 const LEGACY_CREDENTIALS_FILE = "credentials.json";
 const LEGACY_REJECTIONS_FILE = "rejections.json";
@@ -118,11 +118,6 @@ export function consumeKeyringDowngradeWarning(): string | null {
   return message;
 }
 
-// Scoped by config directory so two config homes holding a same-named profile keep separate secrets.
-export function keyringService(): string {
-  return `${LEGACY_KEYRING_SERVICE}:${configDir()}`;
-}
-
 function keyringEnabled(): boolean {
   return readEnv(ENV_DISABLE_KEYRING) !== "1";
 }
@@ -133,24 +128,24 @@ function keyringEnabled(): boolean {
 // tell a recoverable backend issue from a real bug, and the design choice is
 // graceful degradation to the file backend either way — so every throw routes
 // to the fallback, deliberately.
-function trySetKeyring(service: string, key: CredentialAccount, value: string): boolean {
+function trySetKeyring(key: CredentialAccount, value: string): boolean {
   if (!keyringEnabled()) {
     return false;
   }
   try {
-    new Entry(service, key).setPassword(value);
+    new Entry(KEYRING_SERVICE, key).setPassword(value);
     return true;
   } catch {
     return false;
   }
 }
 
-function tryReadKeyring(service: string, key: CredentialAccount): string | null | undefined {
+function tryReadKeyring(key: CredentialAccount): string | null | undefined {
   if (!keyringEnabled()) {
     return undefined;
   }
   try {
-    return new Entry(service, key).getPassword();
+    return new Entry(KEYRING_SERVICE, key).getPassword();
   } catch {
     return undefined;
   }
@@ -160,19 +155,15 @@ function tryReadKeyring(service: string, key: CredentialAccount): string | null 
 // existed or not); "failed" — the backend threw, so we cannot confirm the secret is gone.
 type KeyringRemoval = "skipped" | "removed" | "absent" | "failed";
 
-function removeKeyringEntryIn(service: string, key: CredentialAccount): KeyringRemoval {
+function removeKeyringEntry(key: CredentialAccount): KeyringRemoval {
   if (!keyringEnabled()) {
     return "skipped";
   }
   try {
-    return new Entry(service, key).deletePassword() ? "removed" : "absent";
+    return new Entry(KEYRING_SERVICE, key).deletePassword() ? "removed" : "absent";
   } catch {
     return "failed";
   }
-}
-
-function removeKeyringEntry(key: CredentialAccount): KeyringRemoval {
-  return removeKeyringEntryIn(keyringService(), key);
 }
 
 async function readProfilesFile(): Promise<ProfilesFile> {
@@ -313,8 +304,8 @@ export function keyringFallbackWarning(location: FileLocation): string {
 }
 
 function persistSecret(key: CredentialAccount, value: string): CredentialLocation {
-  if (trySetKeyring(keyringService(), key, value)) {
-    return { backend: "keyring", service: keyringService(), account: key };
+  if (trySetKeyring(key, value)) {
+    return { backend: "keyring", service: KEYRING_SERVICE, account: key };
   }
   // Falling back to the plaintext file (keyring unavailable): drop any stale keyring entry so a
   // recovered vault can't later shadow the file copy with an out-of-date secret.
@@ -328,23 +319,7 @@ function resolveSecret(key: CredentialAccount, inline: string | null): string | 
   if (inline !== null) {
     return inline;
   }
-  const scoped = tryReadKeyring(keyringService(), key);
-  if (scoped !== null && scoped !== undefined) {
-    return scoped;
-  }
-  return adoptLegacySecret(key);
-}
-
-// Secrets stored before the service was scoped by config directory live under the bare service;
-// copying one into this directory's scope keeps it readable after another directory's logout
-// removes the shared entry.
-function adoptLegacySecret(key: CredentialAccount): string | null {
-  const legacy = tryReadKeyring(LEGACY_KEYRING_SERVICE, key);
-  if (legacy === null || legacy === undefined) {
-    return null;
-  }
-  trySetKeyring(keyringService(), key, legacy);
-  return legacy;
+  return tryReadKeyring(key) ?? null;
 }
 
 export async function readProfileCredential(
@@ -485,7 +460,7 @@ export async function writeOAuthProfile(
     await upsertRecord(file, name, updated);
     return onFile
       ? fileLocation(accessKey)
-      : { backend: "keyring", service: keyringService(), account: accessKey };
+      : { backend: "keyring", service: KEYRING_SERVICE, account: accessKey };
   });
 }
 
@@ -548,15 +523,11 @@ export async function clearProfile(name: string = DEFAULT_PROFILE): Promise<bool
   return exclusively(async () => {
     const file = await readProfilesFile();
     const existing = findRecord(file, name);
-    const accounts = [
-      account.profileApiKey(name),
-      account.profileOAuthAccess(name),
-      account.profileOAuthRefresh(name),
+    const removals = [
+      removeKeyringEntry(account.profileApiKey(name)),
+      removeKeyringEntry(account.profileOAuthAccess(name)),
+      removeKeyringEntry(account.profileOAuthRefresh(name)),
     ];
-    const removals = accounts.flatMap((key) => [
-      removeKeyringEntry(key),
-      removeKeyringEntryIn(LEGACY_KEYRING_SERVICE, key),
-    ]);
     if (existing !== null) {
       flagResidualIfUnconfirmed(existing, existing.oauth !== null ? "oauth" : "apiKey", removals);
     }

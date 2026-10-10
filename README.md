@@ -142,7 +142,7 @@ mb auth status --profile staging
 
 ### `mb auth list`
 
-List configured authentication profiles. All profile metadata (URL, auth method, last successful probe, last failure) lives in `<configDir>/profiles.json` at mode `0600`; the secrets (API key, or OAuth access/refresh tokens) sit in the OS keychain when available (service `metabase-cli:<configDir>`, so each config directory keeps its own), or inline in the same file when the keychain is unavailable.
+List configured authentication profiles. All profile metadata (URL, auth method, last successful probe, last failure) lives in `<configDir>/profiles.json` at mode `0600`; the secrets (API key, or OAuth access/refresh tokens) sit in the OS keychain when available, or inline in the same file when the keychain is unavailable.
 
 `auth list` re-probes every profile, one at a time — a probe can refresh and rewrite an expired OAuth token, so probes are serialized to avoid racing on the shared `profiles.json`. On success it refreshes `lastProbe` (Metabase version, token features, user identity) and clears `lastFailure`; on failure it updates `lastFailure` and leaves the prior `lastProbe`/`url`/credential untouched. Rendered columns: `Profile | URL | Auth | Status | Role | Version | Skew | Last probed`; `--json` rows carry the same derived `edition`, `skew`, `knownRange` and `features` as `auth status`. Failed rows append a one-line footer pointing at `mb auth login --profile <name>`.
 
