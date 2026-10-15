@@ -2188,6 +2188,39 @@ mb group delete 3 --yes
 | ------- | ------------------ |
 | `--yes` | Skip confirmation. |
 
+## Permissions
+
+Data permissions, from `/api/permissions`: what each permission group can see and query in each database. Every verb needs an admin.
+
+### `mb permission graph`
+
+Prints the data permissions graph as JSON: `{revision, groups}`, keyed by group id, then database id. A permission holds one value for a whole database, one per schema, or one per table id under a schema. A permission left out is at its least permissive value (`blocked`, `no`). `--db` reads one database and `--group` one group; the two cannot be combined.
+
+```sh
+mb permission graph
+mb permission graph --db 2
+mb permission graph --group 3
+```
+
+| Flag           | Description            |
+| -------------- | ---------------------- |
+| `--db <id>`    | Only this database id. |
+| `--group <id>` | Only this group id.    |
+
+### `mb permission update-graph`
+
+Update data permissions from a JSON body in the shape `graph` prints. Only the groups and databases the body names change. `revision` must be the latest the server holds, so read the graph, change it and send it back; the server rejects an update made against an older revision, so a change someone made in between is never overwritten. Prints the new revision.
+
+```sh
+mb permission update-graph --file graph.json
+mb permission update-graph --body '{"revision":7,"groups":{"3":{"2":{"view-data":"blocked","create-queries":"no"}}}}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
 ## Settings
 
 Read and write Metabase instance settings via `/api/setting`. Listing all settings requires admin privileges; per-key reads/writes additionally enforce per-setting access. Setting values are always JSON — `"main"` is the string `main`, `42` is a number, `null` deletes the override and resets the value to its default.

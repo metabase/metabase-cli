@@ -1,7 +1,8 @@
 import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
-import { ResponseShapeError } from "../errors";
+import type { PermissionsGraphUpdateInput } from "../domain/permission";
+import { ConfigError, ResponseShapeError } from "../errors";
 import type { ClientCredentials } from "../http/transport";
 import { captureFetch, jsonResponse, TEST_USER_AGENT, thrownBy } from "../testing/fetch-capture";
 import { createServerProfile } from "../version/profile";
@@ -15,6 +16,26 @@ const JSON_READ_HEADERS = {
   accept: "application/json",
   "user-agent": TEST_USER_AGENT,
   "x-api-key": "mb_wire_test_key",
+};
+
+const JSON_WRITE_HEADERS = {
+  accept: "application/json",
+  "content-type": "application/json",
+  "user-agent": TEST_USER_AGENT,
+  "x-api-key": "mb_wire_test_key",
+};
+
+// Group 5 may query table 11 with the query builder and is blocked from table 12.
+const UPDATE: PermissionsGraphUpdateInput = {
+  revision: 7,
+  groups: {
+    "5": {
+      "1": {
+        "view-data": { public: { "11": "unrestricted", "12": "blocked" } },
+        "create-queries": { public: { "11": "query-builder", "12": "no" } },
+      },
+    },
+  },
 };
 
 const ADMIN_DATABASE_PERMISSIONS = {
@@ -129,5 +150,38 @@ describe("permission resource wire requests", () => {
     expect(error.message).toBe(
       'On Metabase v0.58.0 the response shape was unexpected:\n  groups.5.1["view-data"]: Invalid input',
     );
+  });
+});
+
+describe("permission graph update", () => {
+  it("sends the update and asks for no graph back", async () => {
+    const { mb, capture } = clientOver([jsonResponse({ revision: 8 })]);
+
+    await mb.permission.updateGraph(UPDATE);
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/permissions/graph?skip-graph=true",
+        method: "PUT",
+        headers: JSON_WRITE_HEADERS,
+        body: JSON.stringify(UPDATE),
+      },
+    ]);
+  });
+
+  it("answers the revision the update created", async () => {
+    const { mb } = clientOver([jsonResponse({ revision: 8 })]);
+
+    expect(await mb.permission.updateGraph(UPDATE)).toEqual({ revision: 8 });
+  });
+
+  it("refuses a negative revision before any request", async () => {
+    const { mb, capture } = clientOver([]);
+
+    const error = await thrownBy(() => mb.permission.updateGraph({ ...UPDATE, revision: -1 }));
+
+    assert(error instanceof ConfigError, "expected ConfigError");
+    expect(error.message).toContain("invalid permissions graph update: revision");
+    expect(capture.calls).toEqual([]);
   });
 });

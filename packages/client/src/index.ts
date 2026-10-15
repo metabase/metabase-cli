@@ -397,6 +397,8 @@ export {
   PermissionGroupCreateInput,
   PermissionGroupUpdateInput,
   PermissionsGraph,
+  PermissionsGraphRevision,
+  PermissionsGraphUpdateInput,
   SavedPermissionGroup,
   SavedPermissionGroupCompact,
   ViewDataPermission,

@@ -133,6 +133,7 @@ export const METHOD_REQUIREMENTS = {
   "permission.graph": [],
   "permission.databaseGraph": [],
   "permission.groupGraph": [],
+  "permission.updateGraph": [],
   "pulse.list": [],
   "pulse.get": [],
   "pulse.create": [],

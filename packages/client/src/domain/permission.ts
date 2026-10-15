@@ -101,3 +101,20 @@ export type PermissionGroupCreateInput = z.infer<typeof PermissionGroupCreateInp
 
 export const PermissionGroupUpdateInput = PermissionGroupCreateInput;
 export type PermissionGroupUpdateInput = PermissionGroupCreateInput;
+// Only the groups and databases named in `groups` change; `revision` must be the latest the server
+// holds, or it rejects the update. The server reads `revision` as optional and also takes `force`,
+// which skips that check, and `impersonations`; both are left out, so an update never overwrites a
+// change made since the graph was read, and any other key is refused.
+export const PermissionsGraphUpdateInput = z
+  .object({
+    revision: z.number().int().nonnegative(),
+    groups: z.record(z.string(), z.record(z.string(), DatabasePermissions)),
+  })
+  .strict();
+export type PermissionsGraphUpdateInput = z.infer<typeof PermissionsGraphUpdateInput>;
+
+// The answer to an update that skips returning the graph: the revision the update created.
+export const PermissionsGraphRevision = z
+  .object({ revision: z.number().int().nonnegative() })
+  .loose();
+export type PermissionsGraphRevision = z.infer<typeof PermissionsGraphRevision>;

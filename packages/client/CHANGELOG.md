@@ -2,6 +2,10 @@
 
 Notable changes to `@metabase/client`.
 
+## Unreleased
+
+- `permission.updateGraph` updates the data permissions graph from `PermissionsGraphUpdateInput` (`{revision, groups}`) and answers the new `PermissionsGraphRevision`, both on the barrel.
+
 ## 0.3.0
 
 - `group.list`, `group.create`, `group.update` and `group.delete` list, create, rename and delete permission groups. `group.list` replaces `permission.groups`, which is gone, and answers the same `PermissionGroup` list. A create or rename takes a `PermissionGroupCreateInput` or `PermissionGroupUpdateInput`, the name alone, and answers a `SavedPermissionGroup` (compact: `SavedPermissionGroupCompact`): a `PermissionGroup` without `member_count`, which only the listing counts. `PermissionGroupCompact` gains `member_count`, so a value built by hand must now carry it. A built-in group, one with a `magic_group_type`, cannot be renamed or deleted.
