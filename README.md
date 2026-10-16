@@ -2026,6 +2026,54 @@ mb glossary delete 3 --yes
 | ------- | ------------------ |
 | `--yes` | Skip confirmation. |
 
+## Groups
+
+Permission groups (user groups), from `/api/permissions/group`. Every verb needs an admin. A group's members come from Metabase's people admin or an identity provider (SSO group mappings, SCIM); these commands manage the groups themselves. The built-in All Users and Administrators groups cannot be renamed or deleted.
+
+### `mb group list`
+
+Lists every group with its `id`, `name` and `member_count`. A group's `id` is the key it is listed under in the data permissions graph.
+
+```sh
+mb group list
+mb group list --json
+```
+
+### `mb group create`
+
+Create a group from `--name`, or from a JSON body that holds exactly a `name` key. The flag cannot be combined with `--body` or `--file`. A blank name is refused. The new group has no members and no permissions.
+
+```sh
+mb group create --name "Analysts"
+mb group create --body '{"name":"Analysts"}'
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--name <text>` | The group name.         |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb group update <id>`
+
+Rename a group. Takes the same flags and body as `create`.
+
+```sh
+mb group update 3 --name "Data analysts"
+```
+
+### `mb group delete <id>`
+
+Delete a group with its memberships and permissions. Its members keep their other groups. Prompts for confirmation on a TTY; requires `--yes` otherwise.
+
+```sh
+mb group delete 3 --yes
+```
+
+| Flag    | Description        |
+| ------- | ------------------ |
+| `--yes` | Skip confirmation. |
+
 ## Settings
 
 Read and write Metabase instance settings via `/api/setting`. Listing all settings requires admin privileges; per-key reads/writes additionally enforce per-setting access. Setting values are always JSON — `"main"` is the string `main`, `42` is a number, `null` deletes the override and resets the value to its default.
