@@ -309,6 +309,7 @@ export {
   GlossaryCreateInput,
   GlossaryUpdateInput,
 } from "./domain/glossary";
+export { Group, GroupCreateInput, GroupUpdateInput } from "./domain/group";
 export { Library, LibraryChild, LibraryCompact, LibraryPublishTablesInput } from "./domain/library";
 export { Measure, MeasureCompact, MeasureCreateInput, MeasureUpdateInput } from "./domain/measure";
 export {
