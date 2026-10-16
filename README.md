@@ -549,6 +549,29 @@ mb db set-data-actions 2 true
 mb db set-data-actions 2 false --json
 ```
 
+### `mb db create`
+
+Add a database connection from a JSON body `{name, engine, details}`. `engine` is the driver (`postgres`, `bigquery-cloud-sdk`, `snowflake`, …) and `details` its connection settings, the keys the driver's form in Admin → Databases asks for. The server tests the connection before saving it and refuses one it cannot open; a saved database starts its first sync. Pass a body holding secrets with `--file` or on stdin rather than `--body`, so it stays out of shell history. Needs an admin.
+
+```sh
+mb db create --file database.json
+cat database.json | mb db create --json
+```
+
+| Flag            | Description             |
+| --------------- | ----------------------- |
+| `--body <json>` | Inline JSON body.       |
+| `--file <path>` | Path to JSON body file. |
+
+### `mb db update <id>`
+
+Update a database from a JSON body naming any of `name`, `details` and `settings`; only those change, and changed `details` are tested before they are saved. `mb db get <id> --full --json` answers the current `details` with every secret replaced by `**MetabasePass**`, and a secret sent back as that placeholder keeps the stored value: read the details, change what you need, and send them back. Needs an admin or, with advanced permissions, the Manage database permission on it.
+
+```sh
+mb db update 2 --body '{"name":"Warehouse"}'
+mb db update 2 --file details.json
+```
+
 ## Tables
 
 Inspect and edit warehouse tables via `/api/table`. For agent-driven field introspection, `table get --include fields` is the default — it returns the table plus its columns in a single bounded response.

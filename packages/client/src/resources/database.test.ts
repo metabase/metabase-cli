@@ -37,6 +37,13 @@ const JSON_READ_HEADERS = {
   "x-api-key": "mb_wire_test_key",
 };
 
+const JSON_WRITE_HEADERS = {
+  accept: "application/json",
+  "content-type": "application/json",
+  "user-agent": TEST_USER_AGENT,
+  "x-api-key": "mb_wire_test_key",
+};
+
 const IMMEDIATE_POLL = { intervalMs: 1, timeoutMs: 1_000 };
 
 function clientOver(responses: Array<Response>) {
@@ -214,5 +221,50 @@ describe("database resource wire requests", () => {
     const { mb } = clientOver([jsonResponse({ status: "ok" })]);
 
     expect(await mb.database.rescanValues(9)).toEqual({ id: 9, status: "ok" });
+  });
+
+  it("sends the create request with the connection details", async () => {
+    const { mb, capture } = clientOver([
+      jsonResponse({ id: 9, name: "Warehouse", engine: "postgres" }),
+    ]);
+    const body = { name: "Warehouse", engine: "postgres", details: { host: "db", port: 5432 } };
+
+    expect(await mb.database.create(body)).toEqual({
+      id: 9,
+      name: "Warehouse",
+      engine: "postgres",
+    });
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/database",
+        method: "POST",
+        headers: JSON_WRITE_HEADERS,
+        body: JSON.stringify(body),
+      },
+    ]);
+  });
+
+  it("sends only the keys an update names", async () => {
+    const { mb, capture } = clientOver([
+      jsonResponse({ id: 9, name: "Warehouse (copy)", engine: "postgres", settings: null }),
+    ]);
+
+    await mb.database.update(9, { name: "Warehouse (copy)" });
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/database/9",
+        method: "PUT",
+        headers: JSON_WRITE_HEADERS,
+        body: JSON.stringify({ name: "Warehouse (copy)" }),
+      },
+    ]);
+  });
+
+  it("reads the redacted connection details an admin is answered", async () => {
+    const details = { host: "db", port: 5432, password: "**MetabasePass**" };
+    const { mb } = clientOver([jsonResponse({ ...DATABASE, details })]);
+
+    expect((await mb.database.get(9)).details).toEqual(details);
   });
 });
