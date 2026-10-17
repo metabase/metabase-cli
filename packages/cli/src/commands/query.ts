@@ -26,9 +26,11 @@ import { cardQueryView } from "../output/views/card";
 import { compiledQueryView, queryMetadataView } from "../output/views/dataset";
 import { readBody } from "../runtime/body";
 import type { InputSources } from "../runtime/input";
+import { interruptSignal } from "../runtime/interrupt";
 import { bodyInputFlags } from "./body-flags";
 import { assertStreamedOutput } from "./export-flags";
-import { connectionFlags, outputFlags, profileFlag } from "./flags";
+import { connectionFlags, outputFlags, profileFlag, timeoutFlag } from "./flags";
+import { parseId } from "./parse-id";
 import { queryModeFlags, resolveQueryMode } from "./query-mode";
 import { defineMetabaseCommand } from "./runtime";
 import { skipValidateFlag } from "./validate-query";
@@ -69,13 +71,14 @@ export default defineMetabaseCommand({
     description: "Run, compile, or inspect an ad-hoc MBQL or native query",
   },
   details:
-    'Reads a JSON query body from --body, --file, or stdin and runs it. MBQL 5 is Metabase\'s structured query format, shaped {"lib/type": "mbql/query", "database": <database id>, "stages": [{"lib/type": "mbql.stage/mbql", "source-table": <table id>, "aggregation": [["count", {}]]}]} with ids from `mb database list` and `mb table list`; it is checked against a bundled JSON Schema before sending, and --print-schema prints that schema. --dry-run checks the body without running it: the local schema check, then the server compiles it to native SQL without touching the warehouse. It prints {ok, errors:[{path, message}], sql} and exits 0 when the query compiled, 2 when either check rejected it. Legacy MBQL 4 and legacy native bodies skip the local check. --compile prints the native query the server compiles the body to, --metadata the databases, tables, fields and snippets the body touches, and --export-format streams the rows as csv, json or xlsx; the three are mutually exclusive with each other, with --dry-run and with --print-schema. An export takes its column formatting and pivot layout from --visualization-settings, since an ad-hoc query has no card to read them from: --pivot-results needs their pivot_table.column_split.',
+    'Reads a JSON query body from --body, --file, or stdin and runs it. MBQL 5 is Metabase\'s structured query format, shaped {"lib/type": "mbql/query", "database": <database id>, "stages": [{"lib/type": "mbql.stage/mbql", "source-table": <table id>, "aggregation": [["count", {}]]}]} with ids from `mb database list` and `mb table list`; it is checked against a bundled JSON Schema before sending, and --print-schema prints that schema. --dry-run checks the body without running it: the local schema check, then the server compiles it to native SQL without touching the warehouse. It prints {ok, errors:[{path, message}], sql} and exits 0 when the query compiled, 2 when either check rejected it. Legacy MBQL 4 and legacy native bodies skip the local check. --compile prints the native query the server compiles the body to, --metadata the databases, tables, fields and snippets the body touches, and --export-format streams the rows as csv, json or xlsx; the three are mutually exclusive with each other, with --dry-run and with --print-schema. An export takes its column formatting and pivot layout from --visualization-settings, since an ad-hoc query has no card to read them from: --pivot-results needs their pivot_table.column_split. A run or an export is one request, so --timeout bounds the whole of it.',
   skills: [{ skill: "mbql", purpose: "body shape, clause rules, and the dry-run loop" }],
   requires: ["dataset.exportQuery", "dataset.native", "dataset.query", "dataset.queryMetadata"],
   args: {
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
+    ...timeoutFlag,
     ...bodyInputFlags,
     ...queryModeFlags,
     ...skipValidateFlag,
@@ -90,6 +93,7 @@ export default defineMetabaseCommand({
     "mb query --file q.json --metadata --json",
     "mb query --file q.json --export-format csv > rows.csv",
     "mb query --file q.json --skip-validate",
+    "mb query --file q.json --timeout 300000",
   ],
   async run({ args, ctx, getClient }) {
     const mode = resolveQueryMode(args);
@@ -98,6 +102,8 @@ export default defineMetabaseCommand({
       return;
     }
 
+    const timeoutMs = parseId(args.timeout, "timeout");
+    const requestOptions = { timeoutMs, signal: interruptSignal };
     const skip = args["skip-validate"] === true;
     if (mode.kind === "dry-run" && skip) {
       throw new ConfigError("--skip-validate cannot be combined with --dry-run");
@@ -122,7 +128,7 @@ export default defineMetabaseCommand({
     const client = await getClient();
 
     if (mode.kind === "run") {
-      const queryResult = await client.dataset.query(datasetQuery);
+      const queryResult = await client.dataset.query(datasetQuery, requestOptions);
       renderSummary(queryResult, cardQueryView, () => formatQueryResult(queryResult), ctx);
       return;
     }
@@ -141,10 +147,11 @@ export default defineMetabaseCommand({
         return;
       }
       case "export": {
-        const stream = await client.dataset.exportQuery(mode.format, {
-          query: datasetQuery,
-          ...mode.params,
-        });
+        const stream = await client.dataset.exportQuery(
+          mode.format,
+          { query: datasetQuery, ...mode.params },
+          requestOptions,
+        );
         await pipeToStdout(stream);
         return;
       }
