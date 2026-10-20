@@ -11,14 +11,15 @@ import { ConfigError } from "@metabase/client/errors";
 import { QuerySchemaBundle } from "../core/schema/validate";
 import main from "../main";
 import { writeJson, writeText } from "../output/render";
-import { renderTypeScript, type RenderOptions } from "../output/schema-ts";
+import { type PathNote, renderTypeScript, type RenderOptions } from "../output/schema-ts";
 import { resolveCitty } from "../runtime/citty";
 import {
+  type EmbeddedDocument,
   getMetabaseAugment,
   type MetabaseAugment,
   type SchemaContract,
 } from "../runtime/command-augment";
-import { resolveCommandPath } from "../runtime/command-help";
+import { CLI_NAME, resolveCommandPath } from "../runtime/command-help";
 import { toJsonSchema } from "../runtime/json-schema";
 import { defineMetabaseCommand } from "./runtime";
 
@@ -150,7 +151,10 @@ function readContract(augment: MetabaseAugment | null, side: Side): SchemaContra
   if (side === "input") {
     return augment.input;
   }
-  return augment.outputSchema === null ? null : { kind: "zod", schema: augment.outputSchema };
+  if (augment.outputSchema === null) {
+    return null;
+  }
+  return { kind: "zod", schema: augment.outputSchema, embedded: [] };
 }
 
 function missingSchema(command: string, side: Side): ConfigError {
@@ -175,7 +179,11 @@ function contractJson(contract: SchemaContract, side: Side): unknown {
 
 function contractTypeScript(contract: SchemaContract, side: Side, mode: RenderMode): string {
   if (contract.kind === "zod") {
-    return renderTypeScript(contractJson(contract, side), { ...mode, name: TYPE_NAMES[side] });
+    return renderTypeScript(contractJson(contract, side), {
+      ...mode,
+      name: TYPE_NAMES[side],
+      notes: contract.embedded.map(embeddedNote),
+    });
   }
   const { documentName, bundle } = contract.source;
   return renderTypeScript(bundle.schema, {
@@ -184,4 +192,12 @@ function contractTypeScript(contract: SchemaContract, side: Side, mode: RenderMo
     documentName,
     documents: bundle.defs,
   });
+}
+
+function embeddedNote(embedded: EmbeddedDocument): PathNote {
+  const { title, command } = embedded.source;
+  return {
+    path: embedded.path,
+    note: `${title} checked against \`${CLI_NAME} schema ${command.join(" ")}\``,
+  };
 }

@@ -3,7 +3,7 @@
 type Input = {
 name: string // non-empty
 table_id: number // int; >0
-definition: Record<string, unknown> // MBQL query holding exactly one aggregation
+definition: Record<string, unknown> // MBQL query holding exactly one aggregation; MBQL 5 query checked against `mb schema query`
 description?: string | null
 }
 

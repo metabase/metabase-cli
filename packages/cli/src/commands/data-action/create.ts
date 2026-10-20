@@ -1,15 +1,10 @@
 import { DataAction, DataActionCreateInput } from "@metabase/client/domain/data-action";
 import { dataActionView } from "../../output/views/data-action";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
-import {
-  DATA_ACTION_DATASET_QUERY_LABELS,
-  preflightMbql5Query,
-  skipValidateFlag,
-} from "../validate-query";
+import { DATA_ACTION_DATASET_QUERY, skipValidateFlag } from "../validate-query";
 
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a data action from JSON" },
@@ -28,17 +23,15 @@ export default defineMetabaseCommand({
     ...skipValidateFlag,
   },
   inputSchema: DataActionCreateInput,
+  embeddedDocuments: [DATA_ACTION_DATASET_QUERY],
   outputSchema: DataAction,
   examples: [
     "cat data-action.json | mb data-action create",
     "mb data-action create --file data-action.json",
     "mb data-action create --file data-action.json --skip-validate",
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, DataActionCreateInput);
-    preflightMbql5Query(body.dataset_query, DATA_ACTION_DATASET_QUERY_LABELS, {
-      skip: args["skip-validate"] === true,
-    });
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const created = await client.dataAction.create(body);
     renderSummary(

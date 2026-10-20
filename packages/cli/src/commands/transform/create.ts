@@ -1,15 +1,10 @@
 import { Transform, TransformCreateInput } from "@metabase/client/domain/transform";
 import { transformView } from "../../output/views/transform";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
-import {
-  TRANSFORM_SOURCE_QUERY_LABELS,
-  preflightMbql5Query,
-  skipValidateFlag,
-} from "../validate-query";
+import { TRANSFORM_SOURCE_QUERY, skipValidateFlag } from "../validate-query";
 
 import { enrichTransformCollectionError } from "./collection-namespace";
 
@@ -30,19 +25,15 @@ export default defineMetabaseCommand({
     ...skipValidateFlag,
   },
   inputSchema: TransformCreateInput,
+  embeddedDocuments: [TRANSFORM_SOURCE_QUERY],
   outputSchema: Transform,
   examples: [
     "cat transform.json | mb transform create",
     "mb transform create --file transform.json",
     "mb transform create --file transform.json --skip-validate",
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, TransformCreateInput);
-    if (body.source.type === "query") {
-      preflightMbql5Query(body.source.query, TRANSFORM_SOURCE_QUERY_LABELS, {
-        skip: args["skip-validate"] === true,
-      });
-    }
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const created = await client.transform.create(body).catch((error: unknown) => {
       throw enrichTransformCollectionError(error);

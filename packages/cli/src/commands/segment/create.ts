@@ -1,15 +1,10 @@
 import { Segment, SegmentCreateInput } from "@metabase/client/domain/segment";
 import { segmentView } from "../../output/views/segment";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
-import {
-  SEGMENT_DEFINITION_LABELS,
-  preflightMbql5Query,
-  skipValidateFlag,
-} from "../validate-query";
+import { SEGMENT_DEFINITION, skipValidateFlag } from "../validate-query";
 
 export default defineMetabaseCommand({
   meta: {
@@ -28,17 +23,15 @@ export default defineMetabaseCommand({
     ...skipValidateFlag,
   },
   inputSchema: SegmentCreateInput,
+  embeddedDocuments: [SEGMENT_DEFINITION],
   outputSchema: Segment,
   examples: [
     "cat segment.json | mb segment create",
     "mb segment create --file segment.json",
     "mb segment create --file segment.json --skip-validate",
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, SegmentCreateInput);
-    preflightMbql5Query(body.definition, SEGMENT_DEFINITION_LABELS, {
-      skip: args["skip-validate"] === true,
-    });
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const created = await client.segment.create(body);
     renderSummary(created, segmentView, `Created segment ${created.id} "${created.name}".`, ctx);

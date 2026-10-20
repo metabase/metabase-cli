@@ -14,9 +14,7 @@ import {
 
 import {
   assertNotLegacyEnvelopeWrappingMbql5,
-  getQuerySchemaBundle,
   isMbql5Query,
-  QUERY_SCHEMA_DOCUMENT,
   validateQuery,
   ValidationOutcome,
 } from "../core/schema/validate";
@@ -32,7 +30,7 @@ import { assertStreamedOutput } from "./export-flags";
 import { connectionFlags, outputFlags, profileFlag } from "./flags";
 import { queryModeFlags, resolveQueryMode } from "./query-mode";
 import { defineMetabaseCommand } from "./runtime";
-import { skipValidateFlag } from "./validate-query";
+import { QUERY_DOCUMENTS, skipValidateFlag } from "./validate-query";
 
 const QueryBody = z.unknown();
 
@@ -77,7 +75,7 @@ export default defineMetabaseCommand({
     ...queryModeFlags,
     ...skipValidateFlag,
   },
-  inputDocuments: { documentName: QUERY_SCHEMA_DOCUMENT, bundle: getQuerySchemaBundle() },
+  inputDocuments: QUERY_DOCUMENTS,
   outputSchema: QueryOutput,
   examples: [
     "mb schema query",

@@ -44,6 +44,8 @@ vi.mock("../runtime/interrupt", async (importOriginal) => {
 const { defineMetabaseCommand } = await import("./runtime");
 const { INTERRUPT_EXIT_CODE } = await import("../runtime/interrupt");
 const { connectionFlags, listFlags, outputFlags, profileFlag } = await import("./flags");
+const { bodyInputFlags } = await import("./body-flags");
+const { CARD_DATASET_QUERY, skipValidateFlag } = await import("./validate-query");
 const { profilesFilePath, readProfileRecord, writeProbeResult, writeProfile } =
   await import("../core/auth/storage");
 
@@ -89,6 +91,27 @@ function captureStderr(): string[] {
     return true;
   });
   return captured;
+}
+
+const INVALID_QUERY_BODY = JSON.stringify({
+  dataset_query: {
+    "lib/type": "mbql/query",
+    database: "oops",
+    stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
+  },
+});
+
+function embeddedQueryCommand(sent: (body: unknown) => void) {
+  return defineMetabaseCommand({
+    meta: { name: "save-card", description: "save a card" },
+    requires: null,
+    args: { ...bodyInputFlags, ...skipValidateFlag },
+    inputSchema: z.object({ dataset_query: z.unknown() }),
+    embeddedDocuments: [CARD_DATASET_QUERY],
+    async run({ args, readBody }) {
+      sent(await readBody({ flag: args.body, file: args.file }));
+    },
+  });
 }
 
 describe("defineMetabaseCommand", () => {
@@ -227,6 +250,35 @@ describe("defineMetabaseCommand", () => {
       },
     });
     expect(process.exitCode).toBe(2);
+  });
+
+  it("checks each declared embedded document as readBody parses the body", async () => {
+    const sent = vi.fn<(body: unknown) => void>();
+    const cmd = embeddedQueryCommand(sent);
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    const stderr = captureStderr();
+
+    await runCommand(cmd, { rawArgs: ["--body", INVALID_QUERY_BODY] });
+
+    expect(errorEnvelopeOf(stderr)).toEqual({
+      ok: false,
+      error: {
+        category: "config",
+        message:
+          "card.dataset_query validation failed: 1 error(s) — fix them, or pass --skip-validate to send anyway",
+        exitCode: 2,
+      },
+    });
+    expect(sent).not.toHaveBeenCalled();
+  });
+
+  it("hands readBody's caller the body unchecked under --skip-validate", async () => {
+    const sent = vi.fn<(body: unknown) => void>();
+    const cmd = embeddedQueryCommand(sent);
+
+    await runCommand(cmd, { rawArgs: ["--body", INVALID_QUERY_BODY, "--skip-validate"] });
+
+    expect(sent).toHaveBeenCalledWith(parseJson(INVALID_QUERY_BODY, z.unknown()));
   });
 
   it("reports a rejected --limit as a JSON error envelope and never runs the command", async () => {

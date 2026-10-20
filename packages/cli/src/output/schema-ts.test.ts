@@ -575,4 +575,88 @@ describe("renderTypeScript", () => {
       "type Input = string",
     );
   });
+
+  it("notes a member at a path in every alternative that has it, after its own notes", () => {
+    const schema = z.strictObject({
+      source: z.discriminatedUnion("type", [
+        z.strictObject({ type: z.literal("query"), query: z.unknown().describe("A query") }),
+        z.strictObject({ type: z.literal("python"), body: z.string() }),
+      ]),
+    });
+    const rendered = renderTypeScript(toJsonSchema(schema, { io: "input" }), {
+      name: "Input",
+      notes: [{ path: ["source", "query"], note: "checked elsewhere" }],
+    });
+    expect(rendered).toBe(
+      [
+        "type Input = {",
+        "source:",
+        "| {",
+        'type: "query"',
+        "query: unknown // A query; checked elsewhere",
+        "}",
+        '| { type: "python", body: string }',
+        "}",
+      ].join("\n"),
+    );
+  });
+
+  it("refuses a note at a path no member reaches", () => {
+    const schema = z.strictObject({ query: z.unknown() });
+    expect(() =>
+      renderTypeScript(toJsonSchema(schema, { io: "input" }), {
+        name: "Input",
+        notes: [{ path: ["source", "query"], note: "checked elsewhere" }],
+      }),
+    ).toThrow(new Error('no member at "source.query" to note'));
+  });
+
+  it("notes a branch reached through a shared $ref on an inlined copy, leaving the definition bare", () => {
+    const shared = {
+      type: "object",
+      properties: { query: { type: "string" } },
+      required: ["query"],
+      additionalProperties: false,
+    };
+    const schema = {
+      type: "object",
+      properties: {
+        source: {
+          anyOf: [
+            {
+              type: "object",
+              properties: { query: { description: "A query" } },
+              required: ["query"],
+              additionalProperties: false,
+            },
+            { $ref: "#/$defs/Shared" },
+          ],
+        },
+        other: { $ref: "#/$defs/Shared" },
+      },
+      required: ["source", "other"],
+      additionalProperties: false,
+      $defs: { Shared: shared },
+    };
+    const rendered = renderTypeScript(schema, {
+      name: "Input",
+      strict: true,
+      notes: [{ path: ["source", "query"], note: "checked elsewhere" }],
+    });
+    expect(rendered).toBe(
+      [
+        "type Shared = { query: string }",
+        "type Input = {",
+        "source:",
+        "| {",
+        "query: unknown // A query; checked elsewhere",
+        "}",
+        "| {",
+        "query: string // checked elsewhere",
+        "}",
+        "other: Shared",
+        "}",
+      ].join("\n"),
+    );
+  });
 });

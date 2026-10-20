@@ -1,16 +1,11 @@
 import { Transform, TransformUpdateInput } from "@metabase/client/domain/transform";
 import { transformView } from "../../output/views/transform";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
-import {
-  TRANSFORM_SOURCE_QUERY_LABELS,
-  preflightMbql5Query,
-  skipValidateFlag,
-} from "../validate-query";
+import { TRANSFORM_SOURCE_QUERY, skipValidateFlag } from "../validate-query";
 
 import { enrichTransformCollectionError } from "./collection-namespace";
 
@@ -32,6 +27,7 @@ export default defineMetabaseCommand({
     ...skipValidateFlag,
   },
   inputSchema: TransformUpdateInput,
+  embeddedDocuments: [TRANSFORM_SOURCE_QUERY],
   outputSchema: Transform,
   examples: [
     "cat patch.json | mb transform update 1",
@@ -39,14 +35,9 @@ export default defineMetabaseCommand({
     'mb transform update 1 --body \'{"name":"renamed"}\'',
     "mb transform update 1 --file patch.json --skip-validate",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, TransformUpdateInput);
-    if (body.source !== undefined && body.source.type === "query") {
-      preflightMbql5Query(body.source.query, TRANSFORM_SOURCE_QUERY_LABELS, {
-        skip: args["skip-validate"] === true,
-      });
-    }
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const updated = await client.transform.update(id, body).catch((error: unknown) => {
       throw enrichTransformCollectionError(error);

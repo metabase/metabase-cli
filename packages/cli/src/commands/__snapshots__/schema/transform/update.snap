@@ -6,7 +6,7 @@ description?: string | null
 source?:
 | {
 type: "query"
-query: unknown // Native SQL or MBQL query
+query: unknown // Native SQL or MBQL query; MBQL 5 query checked against `mb schema query`
 "source-incremental-strategy"?: {
 type: "checkpoint"
 "checkpoint-filter-field-id"?: number // int; >0

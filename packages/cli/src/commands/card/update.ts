@@ -1,16 +1,11 @@
 import { Card, CardUpdateInput } from "@metabase/client/domain/card";
 import { cardView } from "../../output/views/card";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
-import {
-  CARD_DATASET_QUERY_LABELS,
-  preflightMbql5Query,
-  skipValidateFlag,
-} from "../validate-query";
+import { CARD_DATASET_QUERY, skipValidateFlag } from "../validate-query";
 
 export default defineMetabaseCommand({
   meta: {
@@ -33,6 +28,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Card id", required: true },
   },
   inputSchema: CardUpdateInput,
+  embeddedDocuments: [CARD_DATASET_QUERY],
   outputSchema: Card,
   examples: [
     "cat patch.json | mb card update 1",
@@ -42,12 +38,9 @@ export default defineMetabaseCommand({
     "mb card update 1 --body '{\"archived\":true}'",
     "mb card update 1 --file patch.json --skip-validate",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, CardUpdateInput);
-    preflightMbql5Query(body.dataset_query, CARD_DATASET_QUERY_LABELS, {
-      skip: args["skip-validate"] === true,
-    });
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const updated = await client.card.update(id, body);
     renderSummary(updated, cardView, `Updated card ${updated.id} "${updated.name}".`, ctx);

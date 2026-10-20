@@ -1,16 +1,11 @@
 import { Measure, MeasureUpdateInput } from "@metabase/client/domain/measure";
 import { measureView } from "../../output/views/measure";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
-import {
-  MEASURE_DEFINITION_LABELS,
-  preflightMbql5Query,
-  skipValidateFlag,
-} from "../validate-query";
+import { MEASURE_DEFINITION, skipValidateFlag } from "../validate-query";
 
 export default defineMetabaseCommand({
   meta: {
@@ -30,6 +25,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Measure id", required: true },
   },
   inputSchema: MeasureUpdateInput,
+  embeddedDocuments: [MEASURE_DEFINITION],
   outputSchema: Measure,
   examples: [
     "cat patch.json | mb measure update 1",
@@ -37,12 +33,9 @@ export default defineMetabaseCommand({
     'mb measure update 1 --body \'{"name":"renamed","revision_message":"rename"}\'',
     "mb measure update 1 --file patch.json --skip-validate",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, MeasureUpdateInput);
-    preflightMbql5Query(body.definition, MEASURE_DEFINITION_LABELS, {
-      skip: args["skip-validate"] === true,
-    });
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const updated = await client.measure.update(id, body);
     renderSummary(updated, measureView, `Updated measure ${updated.id} "${updated.name}".`, ctx);

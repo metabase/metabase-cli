@@ -1,16 +1,11 @@
 import { Segment, SegmentUpdateInput } from "@metabase/client/domain/segment";
 import { segmentView } from "../../output/views/segment";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
-import {
-  SEGMENT_DEFINITION_LABELS,
-  preflightMbql5Query,
-  skipValidateFlag,
-} from "../validate-query";
+import { SEGMENT_DEFINITION, skipValidateFlag } from "../validate-query";
 
 export default defineMetabaseCommand({
   meta: {
@@ -30,6 +25,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Segment id", required: true },
   },
   inputSchema: SegmentUpdateInput,
+  embeddedDocuments: [SEGMENT_DEFINITION],
   outputSchema: Segment,
   examples: [
     "cat patch.json | mb segment update 1",
@@ -37,12 +33,9 @@ export default defineMetabaseCommand({
     'mb segment update 1 --body \'{"name":"renamed","revision_message":"rename"}\'',
     "mb segment update 1 --file patch.json --skip-validate",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, SegmentUpdateInput);
-    preflightMbql5Query(body.definition, SEGMENT_DEFINITION_LABELS, {
-      skip: args["skip-validate"] === true,
-    });
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const updated = await client.segment.update(id, body);
     renderSummary(updated, segmentView, `Updated segment ${updated.id} "${updated.name}".`, ctx);

@@ -5,7 +5,7 @@ import { parseJson } from "@metabase/client/json";
 
 import { DEFAULT_FLAG_NAME, givenValue, readInput, type InputSources } from "./input";
 
-interface BodySources extends InputSources {
+export interface BodySources extends InputSources {
   source?: string | undefined;
 }
 

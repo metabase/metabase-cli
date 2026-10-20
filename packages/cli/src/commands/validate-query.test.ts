@@ -5,9 +5,9 @@ import { parseJson } from "@metabase/client/json";
 
 import { ValidationOutcome } from "../core/schema/validate";
 import {
-  CARD_DATASET_QUERY_LABELS,
-  TRANSFORM_SOURCE_QUERY_LABELS,
-  preflightMbql5Query,
+  CARD_DATASET_QUERY,
+  TRANSFORM_SOURCE_QUERY,
+  preflightEmbeddedQuery,
 } from "./validate-query";
 
 interface Streams {
@@ -33,32 +33,35 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("preflightMbql5Query", () => {
+describe("preflightEmbeddedQuery", () => {
   it("returns silently when the body is not MBQL 5 (legacy MBQL 4)", () => {
-    preflightMbql5Query(
-      { type: "query", database: 1, query: { "source-table": 5 } },
-      CARD_DATASET_QUERY_LABELS,
+    preflightEmbeddedQuery(
+      { dataset_query: { type: "query", database: 1, query: { "source-table": 5 } } },
+      CARD_DATASET_QUERY,
       { skip: false },
     );
     expect(streams.stdout).toBe("");
     expect(streams.stderr).toBe("");
   });
 
-  it("returns silently when the body is undefined / null / non-object", () => {
-    preflightMbql5Query(undefined, CARD_DATASET_QUERY_LABELS, { skip: false });
-    preflightMbql5Query(null, CARD_DATASET_QUERY_LABELS, { skip: false });
-    preflightMbql5Query("native sql", CARD_DATASET_QUERY_LABELS, { skip: false });
+  it("returns silently when the query is absent, null, or not an object", () => {
+    preflightEmbeddedQuery({}, CARD_DATASET_QUERY, { skip: false });
+    preflightEmbeddedQuery({ dataset_query: null }, CARD_DATASET_QUERY, { skip: false });
+    preflightEmbeddedQuery({ dataset_query: "native sql" }, CARD_DATASET_QUERY, { skip: false });
+    preflightEmbeddedQuery({ source: { type: "python" } }, TRANSFORM_SOURCE_QUERY, { skip: false });
     expect(streams.stdout).toBe("");
   });
 
   it("returns silently when the MBQL 5 body validates", () => {
-    preflightMbql5Query(
+    preflightEmbeddedQuery(
       {
-        "lib/type": "mbql/query",
-        database: 1,
-        stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
+        dataset_query: {
+          "lib/type": "mbql/query",
+          database: 1,
+          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
+        },
       },
-      CARD_DATASET_QUERY_LABELS,
+      CARD_DATASET_QUERY,
       { skip: false },
     );
     expect(streams.stdout).toBe("");
@@ -67,13 +70,15 @@ describe("preflightMbql5Query", () => {
 
   it("writes the structured envelope and throws ConfigError when MBQL 5 validation fails", () => {
     expect(() =>
-      preflightMbql5Query(
+      preflightEmbeddedQuery(
         {
-          "lib/type": "mbql/query",
-          database: "oops",
-          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
+          dataset_query: {
+            "lib/type": "mbql/query",
+            database: "oops",
+            stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
+          },
         },
-        CARD_DATASET_QUERY_LABELS,
+        CARD_DATASET_QUERY,
         { skip: false },
       ),
     ).toThrow(
@@ -87,14 +92,32 @@ describe("preflightMbql5Query", () => {
     });
   });
 
-  it("returns silently when skip is true, regardless of body validity", () => {
-    preflightMbql5Query(
+  it("leaves a stray query beside a python transform source unchecked", () => {
+    preflightEmbeddedQuery(
       {
-        "lib/type": "mbql/query",
-        database: "oops",
-        stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
+        source: {
+          type: "python",
+          body: "",
+          query: { "lib/type": "mbql/query", database: "oops", stages: [] },
+        },
       },
-      CARD_DATASET_QUERY_LABELS,
+      TRANSFORM_SOURCE_QUERY,
+      { skip: false },
+    );
+    expect(streams.stdout).toBe("");
+    expect(streams.stderr).toBe("");
+  });
+
+  it("returns silently when skip is true, regardless of body validity", () => {
+    preflightEmbeddedQuery(
+      {
+        dataset_query: {
+          "lib/type": "mbql/query",
+          database: "oops",
+          stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
+        },
+      },
+      CARD_DATASET_QUERY,
       { skip: true },
     );
     expect(streams.stdout).toBe("");
@@ -112,7 +135,7 @@ describe("preflightMbql5Query", () => {
       },
     };
     expect(() =>
-      preflightMbql5Query(doubleWrapped, CARD_DATASET_QUERY_LABELS, { skip: false }),
+      preflightEmbeddedQuery({ dataset_query: doubleWrapped }, CARD_DATASET_QUERY, { skip: false }),
     ).toThrow(
       new ConfigError(
         `card.dataset_query validation failed: dataset_query is the query itself: ` +
@@ -134,7 +157,11 @@ describe("preflightMbql5Query", () => {
       },
     };
     expect(() =>
-      preflightMbql5Query(doubleWrapped, TRANSFORM_SOURCE_QUERY_LABELS, { skip: false }),
+      preflightEmbeddedQuery(
+        { source: { type: "query", query: doubleWrapped } },
+        TRANSFORM_SOURCE_QUERY,
+        { skip: false },
+      ),
     ).toThrow(
       new ConfigError(
         `transform.source.query validation failed: source.query is the query itself: ` +
@@ -146,13 +173,15 @@ describe("preflightMbql5Query", () => {
   });
 
   it("legacy-envelope detection is bypassed by skip", () => {
-    preflightMbql5Query(
+    preflightEmbeddedQuery(
       {
-        type: "query",
-        database: 2,
-        query: { "lib/type": "mbql/query", database: 2, stages: [] },
+        dataset_query: {
+          type: "query",
+          database: 2,
+          query: { "lib/type": "mbql/query", database: 2, stages: [] },
+        },
       },
-      CARD_DATASET_QUERY_LABELS,
+      CARD_DATASET_QUERY,
       { skip: true },
     );
     expect(streams.stdout).toBe("");

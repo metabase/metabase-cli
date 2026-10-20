@@ -8,6 +8,7 @@ import { parseJson } from "@metabase/client/json";
 import { getQuerySchemaBundle } from "../core/schema/validate";
 import main from "../main";
 import { getMetabaseAugment } from "../runtime/command-augment";
+import { resolveCitty } from "../runtime/citty";
 import { buildHelpIndex, resolveCommandPath } from "../runtime/command-help";
 import schemaCommand, { schemaTypeScript } from "./schema";
 
@@ -198,6 +199,26 @@ function snapshotText(schemas: CommandSchemas): string {
   const input = schemas.input === null ? [] : [`// ${command}\n${schemas.input}`];
   return `${[...input, `// ${command} --output\n${schemas.output}`].join("\n\n")}\n`;
 }
+
+describe("checked documents", () => {
+  it("names the documents a body is checked against on exactly the commands taking --skip-validate", async () => {
+    const checking: string[] = [];
+    const skippable: string[] = [];
+    for (const command of LEAVES) {
+      const leaf = await resolveCommandPath(main, command.split(" "));
+      const input = getMetabaseAugment(leaf)?.input ?? null;
+      if (input !== null && (input.kind === "documents" || input.embedded.length > 0)) {
+        checking.push(command);
+      }
+      const args = await resolveCitty(leaf.args);
+      if (args !== undefined && "skip-validate" in args) {
+        skippable.push(command);
+      }
+    }
+
+    expect(checking).toEqual(skippable);
+  });
+});
 
 describe("schema snapshots", () => {
   it.each(LEAVES)("%s", async (command) => {

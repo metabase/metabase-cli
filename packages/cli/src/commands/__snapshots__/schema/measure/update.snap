@@ -2,7 +2,7 @@
 // Objects accept keys beyond the ones listed.
 type Input = {
 name?: string | null // non-empty
-definition?: Record<string, unknown> | null // MBQL query holding exactly one aggregation
+definition?: Record<string, unknown> | null // MBQL query holding exactly one aggregation; MBQL 5 query checked against `mb schema query`
 revision_message: string // non-empty
 archived?: boolean | null
 description?: string | null

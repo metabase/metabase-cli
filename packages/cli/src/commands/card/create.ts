@@ -1,15 +1,10 @@
 import { Card, CardCreateInput } from "@metabase/client/domain/card";
 import { cardView } from "../../output/views/card";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
-import {
-  CARD_DATASET_QUERY_LABELS,
-  preflightMbql5Query,
-  skipValidateFlag,
-} from "../validate-query";
+import { CARD_DATASET_QUERY, skipValidateFlag } from "../validate-query";
 
 export default defineMetabaseCommand({
   meta: {
@@ -32,6 +27,7 @@ export default defineMetabaseCommand({
     ...skipValidateFlag,
   },
   inputSchema: CardCreateInput,
+  embeddedDocuments: [CARD_DATASET_QUERY],
   outputSchema: Card,
   examples: [
     "cat card.json | mb card create",
@@ -39,11 +35,8 @@ export default defineMetabaseCommand({
     'mb card create --body \'{"name":"x","display":"table","dataset_query":{...},"visualization_settings":{}}\'',
     "mb card create --file card.json --skip-validate",
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, CardCreateInput);
-    preflightMbql5Query(body.dataset_query, CARD_DATASET_QUERY_LABELS, {
-      skip: args["skip-validate"] === true,
-    });
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const created = await client.card.create(body);
     renderSummary(created, cardView, `Created card ${created.id} "${created.name}".`, ctx);
