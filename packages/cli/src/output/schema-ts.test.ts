@@ -7,7 +7,6 @@ import { renderTypeScript } from "./schema-ts";
 
 const OPEN_OBJECTS_HEADER = "// Objects accept keys beyond the ones listed.";
 
-// Written as JSON text: a JSON Schema conditional carries a `then` key no object literal may have.
 function parseFixture(text: string): unknown {
   return parseJson(text, z.unknown());
 }

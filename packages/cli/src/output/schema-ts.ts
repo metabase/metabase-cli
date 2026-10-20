@@ -57,8 +57,6 @@ type SchemaNode = z.infer<typeof SchemaNode>;
 const Schema = z.union([z.boolean(), SchemaNode]);
 type Schema = z.infer<typeof Schema>;
 
-// The conditional keywords stay out of the parsed shape, where a `then` member would make every
-// parsed node a thenable; `readConditional` parses them where they are read.
 const CONDITIONAL_KEYWORDS = ["if", "then", "else"];
 
 const HANDLED: ReadonlySet<string> = new Set([
@@ -283,8 +281,6 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     return aliasReference(resolved.name);
   }
 
-  // An unnamed schema is inlined at each use, unless it reaches itself: then it needs a name to
-  // refer to, so it becomes an alias after all.
   function convertUnnamed(name: string, id: string, resolved: ResolvedRef): Typed {
     if (aliasOwners.get(name) === id) {
       return aliasReference(name);
@@ -474,10 +470,9 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     };
   }
 
-  // A tuple spells its length bounds out: a bounded rest becomes optional elements, a required one
-  // repeats the rest type, so no length constraint is left over for a comment. Zod writes no
-  // minItems on a tuple, so without one every prefix element is required except a trailing run
-  // whose defaults fill it in; an optional element leaves no trace and renders required.
+  // Zod writes no minItems on a tuple, so without one every prefix element is required except a
+  // trailing run whose defaults fill it in; an optional element leaves no trace and renders
+  // required.
   function convertTuple(node: SchemaNode, prefix: readonly Schema[], document: Document): Typed {
     const fixed = prefix.map((element) => convert(element, document).type);
     const required = node.minItems ?? defaultedTailStart(prefix);
@@ -589,7 +584,6 @@ function declaredTypes(node: SchemaNode): readonly TypeName[] {
   return [...(objectLike ? (["object"] as const) : []), ...(arrayLike ? (["array"] as const) : [])];
 }
 
-// A bare type adds nothing next to an allOf, anyOf, or $ref that already spells the shape out.
 function isBare(type: TsType): boolean {
   switch (type.kind) {
     case "name": {
@@ -796,8 +790,6 @@ function intersectionOf(types: readonly TsType[]): TsType {
   return others.length === 0 ? only : { kind: "intersection", parts };
 }
 
-// A lone branch, or one beside null, passes its notes up as they are. Beside other branches a note
-// has to say which branch it belongs to, so it is labelled with the branch's printed type.
 function unionTyped(branches: readonly Typed[]): Typed {
   const type = unionOf(branches.map((branch) => branch.type));
   const valued = branches.filter((branch) => !isNull(branch.type));
@@ -807,8 +799,6 @@ function unionTyped(branches: readonly Typed[]): Typed {
   return { type, notes: labelledNotes(valued) };
 }
 
-// Only a bare name labels a branch unambiguously; a branch printed like another, or as a composite
-// type, keeps its notes to itself.
 function labelledNotes(branches: readonly Typed[]): string[] {
   const labelled = branches.map((branch) => ({
     label: branch.type.kind === "name" ? branch.type.text : null,
