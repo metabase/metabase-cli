@@ -1,3 +1,14 @@
 // mb schema schema --output
-// The JSON Schema (draft 2020-12) of the command's body or output
-type Output = Record<string, unknown>
+// Objects accept keys beyond the ones listed.
+// The JSON Schema (draft 2020-12) of the command's body or output; for query's body, the MBQL 5 schema documents
+type Output =
+| { $schema: string }
+| {
+schema: unknown
+defs: {
+"id.yaml": unknown
+"parameter.yaml": unknown
+"ref.yaml": unknown
+"temporal_bucketing.yaml": unknown
+}
+}

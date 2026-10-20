@@ -2401,7 +2401,7 @@ If the chained `PUT /api/dashboard/:id` fails _after_ the create has already ins
 
 ### `mb schema <command> [subcommand]`
 
-Print the contract of another command. By default that is the JSON body it accepts, written as TypeScript type declarations. TypeScript is the compact view to read before writing a body or parsing a result, so it is the default down a pipe too (`--format auto` means text here). `--json` prints the JSON Schema instead, for a validator.
+Print the contract of another command: the JSON body it accepts, or with `--output` the JSON it prints. It prints TypeScript type declarations unless `--json` is passed, also down a pipe, because TypeScript is the compact view to read before writing a body or parsing a result. `--json` prints the JSON Schema instead, for a validator. The command takes no `--format`.
 
 ```sh
 mb schema card create                 # the body card create accepts, as TypeScript
@@ -2410,7 +2410,7 @@ mb schema card create --json          # the same body as JSON Schema (draft 2020
 mb schema query                       # the MBQL 5 query schema
 ```
 
-A member marked `?` may be left out, a defaulted one included. A trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, and the field's description. A schema that recurs across commands is declared once under the client's name for it (`Parameter`, `ParameterMapping`, `ParameterTarget`, `Dashcard`, `DashboardTab`, `CollectionTreeNode`, `TipTapNode`, `FieldBaseType`, `FieldSemanticType`), and the same names key the JSON Schema's `$defs`.
+A member marked `?` may be left out, a defaulted one included. A trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, and the field's description. A schema that recurs across commands, such as a dashboard parameter, is declared once under the client's name for it, and the same name keys the JSON Schema's `$defs`. When a union's branches carry different constraints, the comment labels each with its branch's type, as in `// number: int, >0; string: 21 chars`.
 
 `mb schema query` prints the MBQL 5 query schema that `query`, `card`, `transform`, `segment` and `measure` bodies are checked against. With `--json` it is the bundle `mb query --print-schema` prints.
 

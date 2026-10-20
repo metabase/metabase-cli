@@ -64,10 +64,19 @@ describe("schema command", () => {
   });
 
   it("prints what a command prints under --output", async () => {
-    const run = await runSchema(["schema", "--output"]);
+    const run = await runSchema(["transform-tag", "create", "--output"]);
 
     expect(run.stdout).toBe(
-      "// The JSON Schema (draft 2020-12) of the command's body or output\ntype Output = Record<string, unknown>\n",
+      [
+        "// Objects accept keys beyond the ones listed.",
+        "type Output = {",
+        "id: number // int",
+        "name: string",
+        "entity_id: string | null",
+        "built_in_type: string | null",
+        "}",
+        "",
+      ].join("\n"),
     );
   });
 
@@ -112,34 +121,48 @@ describe("schema command", () => {
     const byAlias = await runSchema(["database", "list", "--output"]);
     const byName = await runSchema(["db", "list", "--output"]);
 
-    expect(byAlias.stdout).toBe(byName.stdout);
+    expect(byName.exitCode).toBe(undefined);
+    expect(byName.stderr).toBe("");
+    expect(byAlias).toEqual(byName);
   });
 
   it("refuses a group, naming its commands", async () => {
-    const run = await runSchema(["card", "--format", "text"]);
+    const run = await runSchema(["card"]);
 
     expect(run.exitCode).toBe(2);
-    expect(run.stderr).toContain(
-      "card is a command group; name one of its commands: list, get, query, alerts, create, update, verify, archive",
+    expect(errorEnvelopeOf(run)).toEqual(
+      configErrorEnvelope(
+        "card is a command group; name one of its commands: list, get, query, alerts, create, update, verify, archive",
+      ),
     );
   });
 
   it("refuses a command path that names no command", async () => {
-    const run = await runSchema(["card", "creat", "--format", "text"]);
+    const run = await runSchema(["card", "creat"]);
 
     expect(run.exitCode).toBe(2);
-    expect(run.stderr).toContain("unknown command: card creat");
+    expect(errorEnvelopeOf(run)).toEqual(configErrorEnvelope("unknown command: card creat"));
   });
 
   it("refuses the input of a command that takes no body, pointing at --output", async () => {
-    const run = await runSchema(["card", "get", "--format", "text"]);
+    const run = await runSchema(["card", "get"]);
 
     expect(run.exitCode).toBe(2);
-    expect(run.stderr).toContain(
-      "card get takes no JSON body, so it has no input schema; pass --output for the schema of what it prints",
+    expect(errorEnvelopeOf(run)).toEqual(
+      configErrorEnvelope(
+        "card get takes no JSON body, so it has no input schema; pass --output for the schema of what it prints",
+      ),
     );
   });
 });
+
+function errorEnvelopeOf(run: SchemaRun): unknown {
+  return parseJson(run.stderr, z.unknown(), { source: "stderr" });
+}
+
+function configErrorEnvelope(message: string): unknown {
+  return { ok: false, error: { category: "config", message, exitCode: 2 } };
+}
 
 interface CommandSchemas {
   readonly segments: readonly string[];

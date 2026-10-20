@@ -8,8 +8,8 @@ import { FieldBaseType, FieldSemanticType } from "@metabase/client/domain/field"
 import { Parameter, ParameterMapping, ParameterTarget } from "@metabase/client/domain/parameter";
 import { ConfigError } from "@metabase/client/errors";
 
+import { QuerySchemaBundle } from "../core/schema/validate";
 import main from "../main";
-import { resolveFormat } from "../output/format";
 import { writeJson, writeText } from "../output/render";
 import { renderTypeScript } from "../output/schema-ts";
 import { resolveCitty } from "../runtime/citty";
@@ -19,7 +19,6 @@ import {
   type MetabaseAugment,
 } from "../runtime/command-augment";
 import { resolveCommandPath } from "../runtime/command-help";
-import { formatFlags } from "./flags";
 import { defineMetabaseCommand } from "./runtime";
 
 const TYPE_NAMES = { input: "Input", output: "Output" } as const;
@@ -73,9 +72,11 @@ interface DocumentContract {
 
 type Contract = ZodContract | DocumentContract;
 
-const JsonSchemaDocument = z
-  .record(z.string(), z.unknown())
-  .describe("The JSON Schema (draft 2020-12) of the command's body or output");
+const PrintedSchema = z
+  .union([z.object({ $schema: z.string() }).loose(), QuerySchemaBundle])
+  .describe(
+    "The JSON Schema (draft 2020-12) of the command's body or output; for query's body, the MBQL 5 schema documents",
+  );
 
 export default defineMetabaseCommand({
   meta: {
@@ -83,10 +84,10 @@ export default defineMetabaseCommand({
     description: "Print the schema of a command's JSON body or output",
   },
   details:
-    "Names another command and prints the JSON body it accepts as TypeScript type declarations, or with --output the JSON it prints. TypeScript is the compact view to read before writing a body or parsing a result, so it is printed by default, down a pipe too; --json prints the JSON Schema instead, for a validator. A member marked `?` may be left out, and a trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, and the field's description. `mb schema query` prints the MBQL 5 query schema that query, card, transform, segment and measure bodies are checked against.",
+    "Names another command and prints the JSON body it accepts as TypeScript type declarations, or with --output the JSON it prints. It prints TypeScript unless --json is passed, down a pipe too, since TypeScript is the compact view to read before writing a body or parsing a result. --json prints the JSON Schema instead, for a validator. A member marked `?` may be left out, and a trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, and the field's description. `mb schema query` prints the MBQL 5 query schema that query, card, transform, segment and measure bodies are checked against.",
   requires: null,
   args: {
-    ...formatFlags,
+    json: { type: "boolean", description: "Print the JSON Schema instead of TypeScript" },
     output: {
       type: "boolean",
       description: "Print the schema of the command's output instead of its body",
@@ -102,7 +103,7 @@ export default defineMetabaseCommand({
       description: "The command within that group (create, get, …)",
     },
   },
-  outputSchema: JsonSchemaDocument,
+  outputSchema: PrintedSchema,
   examples: [
     "mb schema card create",
     "mb schema dashboard get --output",
@@ -117,8 +118,7 @@ export default defineMetabaseCommand({
     if (contract === null) {
       throw missingSchema(path.join(" "), side);
     }
-    // TypeScript is the view an agent reads, so `auto` means text even down a pipe.
-    if (resolveFormat({ json: args.json, format: args.format, isTty: true }) === "json") {
+    if (args.json === true) {
       writeJson(contractJson(contract));
       return;
     }
