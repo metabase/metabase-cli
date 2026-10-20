@@ -121,7 +121,7 @@ interface TsMember {
   readonly key: string;
   readonly optional: boolean;
   readonly type: TsType;
-  readonly notes: readonly string[];
+  readonly notes: readonly Note[];
 }
 
 interface TsObject {
@@ -148,9 +148,41 @@ interface TsIntersection {
 
 type TsType = TsName | TsArray | TsTuple | TsObject | TsRecord | TsUnion | TsIntersection;
 
+// Where a schema node sits: its document's key and a JSON Pointer into that document.
+export interface SchemaLocation {
+  readonly document: string;
+  readonly pointer: string;
+}
+
+// A note and the node whose rule it states. A node built while converting another (a narrowed
+// branch, a tagged dispatch shape) states its rules at its source's location.
+interface StatedNote {
+  readonly kind: "stated";
+  readonly text: string;
+  readonly location: SchemaLocation;
+}
+
+interface NoteGroup {
+  readonly kind: "group";
+  readonly label: string;
+  readonly notes: readonly Note[];
+}
+
+type Note = StatedNote | NoteGroup;
+
+interface PrintedNote {
+  readonly location: SchemaLocation;
+  readonly text: string;
+}
+
+export interface RenderedTypeScript {
+  readonly text: string;
+  readonly notes: readonly PrintedNote[];
+}
+
 interface Typed {
   readonly type: TsType;
-  readonly notes: readonly string[];
+  readonly notes: readonly Note[];
 }
 
 const UNKNOWN: TsName = { kind: "name", text: "unknown" };
@@ -173,6 +205,8 @@ const DEFS_POINTER = "/$defs/";
 const UNNAMED_DEF = /^__schema(\d+)$/;
 const PROMOTED_PREFIX = "Schema";
 const ENTRY_DOCUMENT = "";
+const ENTRY_POINTER = "";
+const ALTERNATIVE_KEYWORDS = ["anyOf", "oneOf"] as const;
 const DISPATCH_MEMBER_KEYWORDS = ["if", "then"];
 const OPEN_OBJECTS_HEADER = "// Objects accept keys beyond the ones listed.";
 const OPEN_DISPATCH_HEADER = "// A tag beyond the ones listed is accepted unchecked.";
@@ -188,8 +222,13 @@ interface Document {
   readonly root: Schema;
 }
 
-interface ResolvedRef {
+interface Place {
   readonly document: Document;
+  readonly pointer: string;
+}
+
+interface ResolvedRef {
+  readonly place: Place;
   readonly name: string | null;
   readonly schema: Schema;
 }
@@ -223,6 +262,14 @@ interface Dispatch {
 }
 
 export function renderTypeScript(input: unknown, options: RenderOptions): string {
+  return renderTypeScriptWithNotes(input, options).text;
+}
+
+// The notes are the ones the text prints, each with the location of the node that states it.
+export function renderTypeScriptWithNotes(
+  input: unknown,
+  options: RenderOptions,
+): RenderedTypeScript {
   const entryKey = options.documentName ?? ENTRY_DOCUMENT;
   const entry: Document = { key: entryKey, root: Schema.parse(input) };
   const documents = new Map(
@@ -230,18 +277,23 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
   );
   const aliasOwners = new Map<string, string>([[options.name, `${entryKey}#`]]);
   const declarations: string[] = [];
+  const printed: PrintedNote[] = [];
   const inlining = new Set<string>();
   const recursive = new Set<string>();
   let sawOpenObject = false;
   let sawOpenDispatch = false;
 
-  const root = convert(entry.root, entry);
-  declarations.push(declaration(options.name, root));
+  declare(options.name, convert(entry.root, { document: entry, pointer: ENTRY_POINTER }));
   const header = [
     ...(sawOpenObject ? [OPEN_OBJECTS_HEADER] : []),
     ...(sawOpenDispatch ? [OPEN_DISPATCH_HEADER] : []),
   ];
-  return [...header, ...declarations].join("\n");
+  return { text: [...header, ...declarations].join("\n"), notes: printed };
+
+  function declare(name: string, typed: Typed): void {
+    declarations.push(declaration(name, typed));
+    printed.push(...typed.notes.flatMap(statedNotes), ...memberNotes(typed.type));
+  }
 
   function documentFor(name: string, from: Document): Document {
     if (name === ENTRY_DOCUMENT) {
@@ -261,8 +313,9 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
       throw new Error(`unsupported $ref "${ref}"`);
     }
     const document = documentFor(ref.slice(0, hash), from);
+    const place = { document, pointer: fragment };
     if (fragment === "") {
-      return { document, name: null, schema: document.root };
+      return { place, name: null, schema: document.root };
     }
     const pointer = fragment.slice(DEFS_POINTER.length);
     const name = decodePointer(pointer);
@@ -271,24 +324,24 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     if (target === undefined) {
       throw new Error(`$ref "${ref}" points at no $defs entry`);
     }
-    return { document, name, schema: target };
+    return { place, name, schema: target };
   }
 
   function convertRef(ref: string, from: Document): Typed {
     const resolved = resolve(ref, from);
     if (resolved.name === null) {
-      if (resolved.document !== entry) {
+      if (resolved.place.document !== entry) {
         throw new Error(`$ref "${ref}" names a whole document`);
       }
       return aliasReference(options.name);
     }
-    const id = `${resolved.document.key}#${resolved.name}`;
+    const id = `${resolved.place.document.key}#${resolved.name}`;
     const unnamed = UNNAMED_DEF.exec(resolved.name);
     if (unnamed !== null) {
       return convertUnnamed(`${PROMOTED_PREFIX}${unnamed[1]}`, id, resolved);
     }
     if (claimName(resolved.name, id)) {
-      declarations.push(declaration(resolved.name, convert(resolved.schema, resolved.document)));
+      declare(resolved.name, convert(resolved.schema, resolved.place));
     }
     return aliasReference(resolved.name);
   }
@@ -302,13 +355,13 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
       return aliasReference(name);
     }
     inlining.add(id);
-    const inlined = convert(resolved.schema, resolved.document);
+    const inlined = convert(resolved.schema, resolved.place);
     inlining.delete(id);
     if (!recursive.has(id)) {
       return inlined;
     }
     claimName(name, id);
-    declarations.push(declaration(name, inlined));
+    declare(name, inlined);
     return aliasReference(name);
   }
 
@@ -327,7 +380,7 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     return true;
   }
 
-  function convert(schema: Schema, document: Document): Typed {
+  function convert(schema: Schema, place: Place): Typed {
     if (schema === true) {
       return UNTYPED;
     }
@@ -335,8 +388,8 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
       return { type: NEVER, notes: [] };
     }
     checkKeywords(schema);
-    const core = convertCore(schema, document);
-    return { type: core.type, notes: [...core.notes, ...annotationNotes(schema)] };
+    const core = convertCore(schema, place);
+    return { type: core.type, notes: [...core.notes, ...statedAt(annotationNotes(schema), place)] };
   }
 
   function checkKeywords(node: SchemaNode): void {
@@ -347,7 +400,7 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     }
   }
 
-  function convertCore(node: SchemaNode, document: Document): Typed {
+  function convertCore(node: SchemaNode, place: Place): Typed {
     if (node.const !== undefined) {
       return { type: literal(node.const), notes: [] };
     }
@@ -355,11 +408,12 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
       return { type: unionOf(node.enum.map(literal)), notes: [] };
     }
     const dispatch = node.allOf === undefined ? null : readDispatch(node.allOf);
-    const base = convertConditionalBase(withoutImpliedCount(node, dispatch, document), document);
+    const implied = withoutImpliedCount(node, dispatch, place.document);
+    const base = convertConditionalBase(implied, place);
     const composites = [
-      ...(node.$ref === undefined ? [] : [convertRef(node.$ref, document)]),
-      ...convertAlternatives(node, document),
-      ...(node.allOf === undefined ? [] : [convertAllOf(node, node.allOf, dispatch, document)]),
+      ...(node.$ref === undefined ? [] : [convertRef(node.$ref, place.document)]),
+      ...convertAlternatives(node, place),
+      ...(node.allOf === undefined ? [] : [convertAllOf(node, node.allOf, dispatch, place)]),
     ];
     return combine(base, composites);
   }
@@ -389,50 +443,55 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
       return shape.minItems ?? shape.prefixItems?.length ?? 0;
     }
     const target = resolve(shape.$ref, document);
-    return requiredLength(target.schema, target.document);
+    return requiredLength(target.schema, target.place.document);
   }
 
-  function convertAlternatives(node: SchemaNode, document: Document): Typed[] {
-    const alternatives = [node.anyOf, node.oneOf].filter((list) => list !== undefined);
-    return alternatives.map((list) => unionTyped(list.map((branch) => convert(branch, document))));
+  function convertAlternatives(node: SchemaNode, place: Place): Typed[] {
+    return ALTERNATIVE_KEYWORDS.flatMap((keyword) => {
+      const list = node[keyword];
+      if (list === undefined) {
+        return [];
+      }
+      return [unionTyped(list.map((branch, index) => convert(branch, at(place, keyword, index))))];
+    });
   }
 
-  function convertConditionalBase(node: SchemaNode, document: Document): Typed | null {
+  function convertConditionalBase(node: SchemaNode, place: Place): Typed | null {
     const conditional = readConditional(node);
     if (conditional === null) {
-      return convertBase(node, document);
+      return convertBase(node, place);
     }
     const tested = readTypeTest(conditional.test);
     if (tested !== null) {
-      return convertTypeTest(node, conditional, tested, document);
+      return convertTypeTest(node, conditional, tested, place);
     }
     throw new Error(
       `unsupported "if" outside an allOf dispatch: ${JSON.stringify(conditional.test)}`,
     );
   }
 
-  function convertBase(node: SchemaNode, document: Document): Typed | null {
+  function convertBase(node: SchemaNode, place: Place): Typed | null {
     const types = declaredTypes(node);
     if (types.length > 0) {
-      return unionTyped(types.map((type) => convertTyped(node, type, document)));
+      return unionTyped(types.map((type) => convertTyped(node, type, place)));
     }
-    return node.$ref === undefined ? null : convertRefSiblings(node, node.$ref, document);
+    return node.$ref === undefined ? null : convertRefSiblings(node, node.$ref, place);
   }
 
   // A `$ref`'s sibling assertions narrow whatever its target admits, so they read under the
   // target's types. Integer counts as number here: the target's own notes already say int.
-  function convertRefSiblings(node: SchemaNode, ref: string, document: Document): Typed | null {
-    const types = referencedTypes(ref, document, new Set());
+  function convertRefSiblings(node: SchemaNode, ref: string, place: Place): Typed | null {
+    const types = referencedTypes(ref, place.document, new Set());
     if (types.length === 0) {
       return null;
     }
     const asserted = new Set(types.map((type) => (type === "integer" ? "number" : type)));
-    return unionTyped([...asserted].map((type) => convertTyped(node, type, document)));
+    return unionTyped([...asserted].map((type) => convertTyped(node, type, place)));
   }
 
   function referencedTypes(ref: string, from: Document, seen: Set<string>): readonly TypeName[] {
     const resolved = resolve(ref, from);
-    const id = `${resolved.document.key}#${resolved.name ?? ""}`;
+    const id = `${resolved.place.document.key}#${resolved.name ?? ""}`;
     if (typeof resolved.schema === "boolean" || seen.has(id)) {
       return [];
     }
@@ -441,34 +500,36 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     if (types.length > 0 || resolved.schema.$ref === undefined) {
       return types;
     }
-    return referencedTypes(resolved.schema.$ref, resolved.document, seen);
+    return referencedTypes(resolved.schema.$ref, resolved.place.document, seen);
   }
 
   function convertTypeTest(
     node: SchemaNode,
     conditional: Conditional,
     tested: TypeName,
-    document: Document,
+    place: Place,
   ): Typed | null {
     const { consequent, alternative } = conditional;
     if (consequent === null) {
-      return convertBase(node, document);
+      return convertBase(node, place);
     }
     const stated = node.type !== undefined;
     const declared = stated ? declaredTypes(node) : JSON_TYPES;
     const passing = new Set(
       declared.map((type) => overlap(tested, type)).filter((type) => type !== null),
     );
-    const passed = [...passing].map((type) => convert(narrow(consequent, type), document));
+    const then = at(place, "then");
+    const passed = [...passing].map((type) => convert(narrow(consequent, type), then));
     const failing = declared.filter((type) => !passesWhole(tested, type));
     if (alternative === null) {
-      return unionTyped([...failing.map((type) => convertTyped(node, type, document)), ...passed]);
+      return unionTyped([...failing.map((type) => convertTyped(node, type, place)), ...passed]);
     }
+    const otherwise = at(place, "else");
     if (!stated) {
-      return unionTyped([...passed, convert(alternative, document)]);
+      return unionTyped([...passed, convert(alternative, otherwise)]);
     }
     const failed = failing.map((type) =>
-      combine(convertTyped(node, type, document), [convert(narrow(alternative, type), document)]),
+      combine(convertTyped(node, type, place), [convert(narrow(alternative, type), otherwise)]),
     );
     return unionTyped([...passed, ...failed]);
   }
@@ -477,16 +538,20 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     node: SchemaNode,
     members: readonly Schema[],
     dispatch: Dispatch | null,
-    document: Document,
+    place: Place,
   ): Typed {
     if (dispatch === null) {
-      return intersectionTyped(members.map((member) => convert(member, document)));
+      return intersectionTyped(
+        members.map((member, index) => convert(member, at(place, "allOf", index))),
+      );
     }
-    const unclaimed = unclaimedTags(node, dispatch, document);
+    const unclaimed = unclaimedTags(node, dispatch, place.document);
     if (unclaimed === null) {
       sawOpenDispatch = true;
     }
-    const branches = dispatch.branches.map((branch) => convertBranch(branch, document));
+    const branches = dispatch.branches.map((branch, index) =>
+      convertBranch(branch, at(place, "allOf", index, "then")),
+    );
     const fallback = unclaimed === null ? null : fallbackBranch(dispatch.slot, unclaimed);
     return unionTyped(fallback === null ? branches : [...branches, fallback]);
   }
@@ -508,16 +573,16 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     return listed.filter((value) => !claimed.has(value));
   }
 
-  function convertBranch(branch: DispatchBranch, document: Document): Typed {
+  function convertBranch(branch: DispatchBranch, place: Place): Typed {
     const { slot, shape } = branch;
     if (slot.kind === "tuple" || typeof shape === "boolean") {
-      return convert(shape, document);
+      return convert(shape, place);
     }
     if (shape.$ref !== undefined) {
       const tagType = unionOf(branch.tag.map(literal));
       const tag: TsMember = { key: slot.key, optional: false, type: tagType, notes: [] };
       const tagged: TsObject = { kind: "object", members: [tag] };
-      return intersectionTyped([convert(shape, document), { type: tagged, notes: [] }]);
+      return intersectionTyped([convert(shape, place), { type: tagged, notes: [] }]);
     }
     const tagged: SchemaNode = {
       ...shape,
@@ -525,19 +590,19 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
       properties: { [slot.key]: { enum: [...branch.tag] }, ...shape.properties },
       required: [slot.key, ...(shape.required ?? [])],
     };
-    return convert(tagged, document);
+    return convert(tagged, place);
   }
 
-  function convertTyped(node: SchemaNode, type: TypeName, document: Document): Typed {
+  function convertTyped(node: SchemaNode, type: TypeName, place: Place): Typed {
     switch (type) {
       case "string": {
-        return { type: STRING, notes: stringNotes(node) };
+        return { type: STRING, notes: statedAt(stringNotes(node), place) };
       }
       case "number": {
-        return { type: NUMBER, notes: rangeNotes(node) };
+        return { type: NUMBER, notes: statedAt(rangeNotes(node), place) };
       }
       case "integer": {
-        return { type: NUMBER, notes: ["int", ...rangeNotes(node)] };
+        return { type: NUMBER, notes: statedAt(["int", ...rangeNotes(node)], place) };
       }
       case "boolean": {
         return { type: BOOLEAN, notes: [] };
@@ -546,23 +611,23 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
         return { type: NULL, notes: [] };
       }
       case "array": {
-        return convertArray(node, document);
+        return convertArray(node, place);
       }
       case "object": {
-        return convertObject(node, document);
+        return convertObject(node, place);
       }
     }
   }
 
-  function convertArray(node: SchemaNode, document: Document): Typed {
+  function convertArray(node: SchemaNode, place: Place): Typed {
     if (node.prefixItems !== undefined) {
-      return convertTuple(node, node.prefixItems, document);
+      return convertTuple(node, node.prefixItems, place);
     }
-    const element = node.items === undefined ? UNTYPED : convert(node.items, document);
+    const element = node.items === undefined ? UNTYPED : convert(node.items, at(place, "items"));
     return {
       type: { kind: "array", element: element.type },
       notes: [
-        ...countNotes(node.minItems, node.maxItems, "items"),
+        ...statedAt(countNotes(node.minItems, node.maxItems, "items"), place),
         ...nestedNotes("items", element.notes),
       ],
     };
@@ -570,8 +635,10 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
 
   // JSON Schema reads a tuple with no minItems as all optional; this reads it as all required, since
   // a tuple names its elements to have them. An absent `items` leaves the tail open, as it does.
-  function convertTuple(node: SchemaNode, prefix: readonly Schema[], document: Document): Typed {
-    const elements = prefix.map((element) => convert(element, document));
+  function convertTuple(node: SchemaNode, prefix: readonly Schema[], place: Place): Typed {
+    const elements = prefix.map((element, index) =>
+      convert(element, at(place, "prefixItems", index)),
+    );
     const fixed = elements.map((element) => element.type);
     const elementNotes = elements.flatMap((element, index) =>
       nestedNotes(`[${index}]`, element.notes),
@@ -580,7 +647,7 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     if (node.items === false) {
       return { type: tupleOf(fixed, required, null), notes: elementNotes };
     }
-    const rest = node.items === undefined ? UNTYPED : convert(node.items, document);
+    const rest = node.items === undefined ? UNTYPED : convert(node.items, at(place, "items"));
     const spelled = Math.max(fixed.length, node.maxItems ?? required);
     const spelledRest = Array.from({ length: spelled - fixed.length }, () => rest.type);
     const openRest = node.maxItems === undefined ? rest.type : null;
@@ -590,35 +657,35 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     };
   }
 
-  function convertObject(node: SchemaNode, document: Document): Typed {
-    const members = convertMembers(node, document);
+  function convertObject(node: SchemaNode, place: Place): Typed {
+    const members = convertMembers(node, place);
     const extra =
       node.additionalProperties === undefined
         ? UNTYPED
-        : convert(node.additionalProperties, document);
+        : convert(node.additionalProperties, at(place, "additionalProperties"));
     if (members.length > 0) {
-      return objectWithExtra({ kind: "object", members }, extra);
+      return objectWithExtra({ kind: "object", members }, extra, place);
     }
     if (extra.type === NEVER) {
       return { type: record(STRING, NEVER, false), notes: [] };
     }
-    return convertRecord(node, extra, document);
+    return convertRecord(node, extra, place);
   }
 
-  function convertMembers(node: SchemaNode, document: Document): TsMember[] {
+  function convertMembers(node: SchemaNode, place: Place): TsMember[] {
     if (node.properties === undefined) {
       return [];
     }
     const required = new Set(node.required);
     return Object.entries(node.properties).map(([key, property]) => {
-      const typed = convert(property, document);
+      const typed = convert(property, at(place, "properties", key));
       return { key, optional: !required.has(key), type: typed.type, notes: typed.notes };
     });
   }
 
   // TypeScript cannot say "these members, and any other key of type V" without forcing V to admit
   // every member's type too, so a typed catchall is stated in the comment instead.
-  function objectWithExtra(object: TsObject, extra: Typed): Typed {
+  function objectWithExtra(object: TsObject, extra: Typed, place: Place): Typed {
     if (extra.type === NEVER) {
       return { type: object, notes: [] };
     }
@@ -626,7 +693,10 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
       sawOpenObject = true;
       return { type: object, notes: [] };
     }
-    return { type: object, notes: [`other keys: ${singleLine(print(extra.type))}`] };
+    return {
+      type: object,
+      notes: statedAt([`other keys: ${singleLine(print(extra.type))}`], place),
+    };
   }
 
   // Zod moves an enum it sees twice into $defs, so the literals may sit behind a $ref.
@@ -635,17 +705,17 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
       return literalValues(schema);
     }
     const resolved = resolve(schema.$ref, document);
-    return listedLiterals(resolved.schema, resolved.document);
+    return listedLiterals(resolved.schema, resolved.place.document);
   }
 
-  function convertRecord(node: SchemaNode, value: Typed, document: Document): Typed {
+  function convertRecord(node: SchemaNode, value: Typed, place: Place): Typed {
     const valueNotes = nestedNotes("values", value.notes);
     if (node.propertyNames === undefined) {
       return { type: record(STRING, value.type, false), notes: valueNotes };
     }
     // JSON Schema applies propertyNames to keys, and a key is always a string.
-    const keys = convert(narrow(node.propertyNames, "string"), document);
-    const listed = listedLiterals(node.propertyNames, document);
+    const keys = convert(narrow(node.propertyNames, "string"), at(place, "propertyNames"));
+    const listed = listedLiterals(node.propertyNames, place.document);
     const required = new Set(node.required);
     const exhaustive = listed === null || listed.every((key) => required.has(String(key)));
     return {
@@ -653,6 +723,70 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
       notes: [...nestedNotes("keys", keys.notes), ...valueNotes],
     };
   }
+}
+
+function at(place: Place, ...segments: readonly (string | number)[]): Place {
+  return { document: place.document, pointer: appendPointer(place.pointer, segments) };
+}
+
+export function childLocation(
+  location: SchemaLocation,
+  ...segments: readonly (string | number)[]
+): SchemaLocation {
+  return { document: location.document, pointer: appendPointer(location.pointer, segments) };
+}
+
+function appendPointer(pointer: string, segments: readonly (string | number)[]): string {
+  const encoded = segments.map((segment) =>
+    String(segment).replaceAll("~", "~0").replaceAll("/", "~1"),
+  );
+  return [pointer, ...encoded].join("/");
+}
+
+function statedAt(texts: readonly string[], place: Place): StatedNote[] {
+  const location = { document: place.document.key, pointer: place.pointer };
+  return texts.map((text) => ({ kind: "stated", text, location }));
+}
+
+function statedNotes(note: Note): StatedNote[] {
+  return note.kind === "stated" ? [note] : note.notes.flatMap(statedNotes);
+}
+
+function memberNotes(type: TsType): StatedNote[] {
+  switch (type.kind) {
+    case "name": {
+      return [];
+    }
+    case "array": {
+      return memberNotes(type.element);
+    }
+    case "tuple": {
+      const rest = type.rest === null ? [] : [type.rest];
+      return [...type.elements.map((element) => element.type), ...rest].flatMap(memberNotes);
+    }
+    case "object": {
+      return type.members.flatMap((member) => [
+        ...member.notes.flatMap(statedNotes),
+        ...memberNotes(member.type),
+      ]);
+    }
+    case "record": {
+      return [type.key, type.value].flatMap(memberNotes);
+    }
+    case "union": {
+      return type.members.flatMap(memberNotes);
+    }
+    case "intersection": {
+      return type.parts.flatMap(memberNotes);
+    }
+  }
+}
+
+function noteText(note: Note): string {
+  if (note.kind === "stated") {
+    return note.text;
+  }
+  return `${note.label}: ${note.notes.map(noteText).join(NESTED_NOTE_SEPARATOR)}`;
 }
 
 function parseDocuments(raw: Readonly<Record<string, unknown>> | undefined): Document[] {
@@ -865,8 +999,9 @@ function unionOf(types: readonly TsType[]): TsType {
     return UNKNOWN;
   }
   const seen = new Set<string>();
+  // Two members a reader cannot tell apart are one, whichever nodes their notes came from.
   const members = flat.filter((type) => {
-    const key = JSON.stringify(type);
+    const key = print(type);
     if (type === NEVER || seen.has(key)) {
       return false;
     }
@@ -902,7 +1037,7 @@ function unionTyped(branches: readonly Typed[]): Typed {
   return { type, notes: labelledNotes(valued) };
 }
 
-function labelledNotes(branches: readonly Typed[]): string[] {
+function labelledNotes(branches: readonly Typed[]): Note[] {
   const totals = new Map<string, number>();
   const labelled = branches.map((branch) => {
     const label = branchLabel(branch.type);
@@ -915,7 +1050,7 @@ function labelledNotes(branches: readonly Typed[]): string[] {
       return branch.notes;
     }
     const shown = totals.get(label) === 1 ? label : `${label} #${ordinal}`;
-    return [`${shown}: ${branch.notes.join(NESTED_NOTE_SEPARATOR)}`];
+    return [{ kind: "group", label: shown, notes: branch.notes }];
   });
 }
 
@@ -1033,13 +1168,14 @@ function oneLine(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-function nestedNotes(label: string, notes: readonly string[]): string[] {
-  return notes.length === 0 ? [] : [`${label}: ${notes.join(NESTED_NOTE_SEPARATOR)}`];
+function nestedNotes(label: string, notes: readonly Note[]): Note[] {
+  return notes.length === 0 ? [] : [{ kind: "group", label, notes }];
 }
 
 function declaration(name: string, typed: Typed): string {
   const text = print(typed.type);
-  const comment = typed.notes.length === 0 ? [] : [`// ${typed.notes.join(NOTE_SEPARATOR)}`];
+  const comment =
+    typed.notes.length === 0 ? [] : [`// ${typed.notes.map(noteText).join(NOTE_SEPARATOR)}`];
   return [...comment, `type ${name} =${spaceBefore(text)}${text}`].join("\n");
 }
 
@@ -1127,6 +1263,6 @@ function printMember(member: TsMember): string {
   if (member.notes.length === 0) {
     return line;
   }
-  const comment = `// ${member.notes.join(NOTE_SEPARATOR)}`;
+  const comment = `// ${member.notes.map(noteText).join(NOTE_SEPARATOR)}`;
   return type.includes("\n") ? `${comment}\n${line}` : `${line} ${comment}`;
 }

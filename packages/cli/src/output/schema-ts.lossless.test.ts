@@ -12,7 +12,7 @@ import {
 import main from "../main";
 import { getMetabaseAugment } from "../runtime/command-augment";
 import { buildHelpIndex, resolveCommandPath } from "../runtime/command-help";
-import { NOTE_SEPARATOR, REFINED_PREFIX } from "../runtime/json-schema";
+import { REFINED_PREFIX } from "../runtime/json-schema";
 import { compileTypeScript } from "../testing/compile-typescript";
 import {
   generateSample,
@@ -25,7 +25,15 @@ import {
   statedTypes,
   type TypeName,
 } from "../testing/schema-samples";
-import { isStatedBound, renderTypeScript, Schema, type SchemaNode } from "./schema-ts";
+import {
+  childLocation,
+  isStatedBound,
+  renderTypeScriptWithNotes,
+  type RenderedTypeScript,
+  Schema,
+  type SchemaLocation,
+  type SchemaNode,
+} from "./schema-ts";
 
 type Family = "command" | "mbql";
 
@@ -34,7 +42,8 @@ interface Contract extends SampleSource {
   readonly family: Family;
   readonly typeName: string;
   readonly accepts: (value: Json) => boolean;
-  readonly render: () => string;
+  readonly refinedBy: (value: Json) => readonly string[];
+  readonly render: () => RenderedTypeScript;
 }
 
 type MutationKind =
@@ -55,10 +64,11 @@ type MutationKind =
   | "bad-record-key"
   | "refinement";
 
+// `token` is the note that states the rule, verbatim, or null for a rule no note states.
 interface MemberRule {
   readonly kind: "member";
-  readonly node: SchemaNode;
-  readonly tokens: readonly string[];
+  readonly location: SchemaLocation;
+  readonly token: string | null;
 }
 
 interface BranchRule {
@@ -66,9 +76,10 @@ interface BranchRule {
   readonly site: Site;
 }
 
+// `locations` are every node the value at the refined path meets.
 interface RefinementRule {
   readonly kind: "refinement";
-  readonly node: SchemaNode | null;
+  readonly locations: readonly SchemaLocation[];
 }
 
 type Rule = MemberRule | BranchRule | RefinementRule;
@@ -143,10 +154,14 @@ interface MutationProbe extends Probe {
   readonly mutation: Mutation;
 }
 
+// The notes the rendered text prints, keyed by the location of the node that states each.
+type NoteIndex = ReadonlyMap<string, readonly string[]>;
+
 interface ContractRun {
   readonly contract: Contract;
   readonly file: string;
   readonly source: string;
+  readonly notes: NoteIndex;
   readonly samples: readonly Probe[];
   readonly mutations: readonly MutationProbe[];
 }
@@ -161,12 +176,15 @@ interface FuzzRun {
 const COMMAND_ATTEMPTS = 5;
 const MBQL_ATTEMPTS = 100;
 
-const MARK = "ZZMARK";
-const NOTE_START = "//";
-const NOTE_BOUNDARY = /; |, /;
-// A member's own notes print just before its description; earlier ones on the line are a parent's.
-const MEMBER_NOTE_WINDOW = 5;
 const PREVIEW_CHARS = 200;
+// Each numeric bound, the step past it that breaks it, and the note stating it. Both inclusive
+// bounds, when non-negative, print together as one `min-max` note.
+const BOUNDS = [
+  { keyword: "minimum", offset: -1, note: ">=", spans: true },
+  { keyword: "exclusiveMinimum", offset: 0, note: ">", spans: false },
+  { keyword: "maximum", offset: 1, note: "<=", spans: true },
+  { keyword: "exclusiveMaximum", offset: 0, note: "<", spans: false },
+] as const;
 const CONDITIONAL_KEYWORDS = ["if", "then", "else"] as const;
 
 const WRONG_SCALARS: readonly Json[] = [12345, "zz", true, null];
@@ -273,8 +291,65 @@ function replaced(root: Json, path: Path, next: Json): Json {
   throw new Error(`no ${String(head)} in ${JSON.stringify(root)}`);
 }
 
-function lengthToken(node: SchemaNode): string {
-  return node.minLength === 1 && node.maxLength === undefined ? "non-empty" : "chars";
+function locationKey({ document, pointer }: SchemaLocation): string {
+  return `${document}#${pointer}`;
+}
+
+function stating(location: SchemaLocation, token: string | null): MemberRule {
+  return { kind: "member", location, token };
+}
+
+function countToken(
+  minimum: number | undefined,
+  maximum: number | undefined,
+  unit: string,
+): string | null {
+  const lower = minimum === 0 ? undefined : minimum;
+  if (lower === undefined) {
+    return maximum === undefined ? null : `<=${maximum} ${unit}`;
+  }
+  if (maximum === undefined) {
+    return `>=${lower} ${unit}`;
+  }
+  return lower === maximum ? `${lower} ${unit}` : `${lower}-${maximum} ${unit}`;
+}
+
+function lengthToken(node: SchemaNode): string | null {
+  if (node.minLength === 1 && node.maxLength === undefined) {
+    return "non-empty";
+  }
+  return countToken(node.minLength, node.maxLength, "chars");
+}
+
+function patternToken(pattern: string): string {
+  return `/${pattern}/`;
+}
+
+function spannedToken(node: SchemaNode): string | null {
+  const { minimum, maximum, exclusiveMinimum, exclusiveMaximum } = node;
+  const exclusive = exclusiveMinimum !== undefined || exclusiveMaximum !== undefined;
+  if (!isStatedBound(minimum) || !isStatedBound(maximum) || minimum < 0 || exclusive) {
+    return null;
+  }
+  return `${minimum}-${maximum}`;
+}
+
+interface BoundBreak {
+  readonly detail: string;
+  readonly breach: number;
+  readonly token: string;
+}
+
+function boundBreaks(node: SchemaNode): BoundBreak[] {
+  const spanned = spannedToken(node);
+  return BOUNDS.flatMap(({ keyword, offset, note, spans }) => {
+    const bound = node[keyword];
+    if (!isStatedBound(bound)) {
+      return [];
+    }
+    const token = spans && spanned !== null ? spanned : `${note}${bound}`;
+    return [{ detail: `${keyword} ${bound}`, breach: bound + offset, token }];
+  });
 }
 
 function edit(kind: MutationKind, detail: string, replacement: Json, rule: Rule): Edit {
@@ -323,30 +398,22 @@ function numberBreaks(site: Site, here: Json): Edit[] {
   if (typeof here !== "number") {
     return [];
   }
-  const { node } = site;
-  const stating = (token: string): MemberRule => ({ kind: "member", node, tokens: [token] });
-  const bounds = [
-    { keyword: "minimum", bound: node.minimum, breach: (bound: number) => bound - 1 },
-    { keyword: "exclusiveMinimum", bound: node.exclusiveMinimum, breach: (bound: number) => bound },
-    { keyword: "maximum", bound: node.maximum, breach: (bound: number) => bound + 1 },
-    { keyword: "exclusiveMaximum", bound: node.exclusiveMaximum, breach: (bound: number) => bound },
-  ];
-  const ranges = bounds.flatMap(({ keyword, bound, breach }) =>
-    !isStatedBound(bound)
-      ? []
-      : [edit("out-of-range", `${keyword} ${bound}`, breach(bound), stating(String(bound)))],
+  const { node, location } = site;
+  const ranges = boundBreaks(node).map(({ detail, breach, token }) =>
+    edit("out-of-range", detail, breach, stating(location, token)),
   );
   const integral = site.types.includes("integer") && !site.types.includes("number");
   const fraction = here + NON_INTEGER_OFFSET;
-  return integral ? [...ranges, edit("non-integer", "integer", fraction, stating("int"))] : ranges;
+  const fractional = edit("non-integer", "integer", fraction, stating(location, "int"));
+  return integral ? [...ranges, fractional] : ranges;
 }
 
 function stringBreaks(site: Site, here: Json): Edit[] {
   if (typeof here !== "string") {
     return [];
   }
-  const { node } = site;
-  const length: MemberRule = { kind: "member", node, tokens: [lengthToken(node)] };
+  const { node, location } = site;
+  const length = stating(location, lengthToken(node));
   const edits: Edit[] = [];
   if (node.minLength !== undefined && node.minLength > 0) {
     const short = "a".repeat(node.minLength - 1);
@@ -363,7 +430,7 @@ function stringBreaks(site: Site, here: Json): Edit[] {
   const minLength = node.minLength ?? 0;
   const bad = BAD_STRINGS.find((text) => !pattern.test(text) && text.length >= minLength);
   if (bad !== undefined) {
-    const rule: MemberRule = { kind: "member", node, tokens: [node.pattern] };
+    const rule = stating(location, patternToken(node.pattern));
     edits.push(edit("pattern", `pattern /${node.pattern}/`, bad, rule));
   }
   return edits;
@@ -373,15 +440,15 @@ function arrayBreaks(site: Site, here: Json): Edit[] {
   if (!Array.isArray(here)) {
     return [];
   }
-  const { node } = site;
+  const { node, location } = site;
   if (node.prefixItems !== undefined) {
-    return tupleBreaks(node, node.prefixItems, here);
+    return tupleBreaks(stating(location, null), node.prefixItems, here);
   }
   const [head] = here;
   if (head === undefined) {
     return [];
   }
-  const count: MemberRule = { kind: "member", node, tokens: ["items"] };
+  const count = stating(location, countToken(node.minItems, node.maxItems, "items"));
   const edits: Edit[] = [];
   if (node.minItems !== undefined && node.minItems > 0) {
     const fewer = here.slice(0, node.minItems - 1);
@@ -394,8 +461,11 @@ function arrayBreaks(site: Site, here: Json): Edit[] {
   return edits;
 }
 
-function tupleBreaks(node: SchemaNode, prefix: readonly Schema[], here: readonly Json[]): Edit[] {
-  const unstated: MemberRule = { kind: "member", node, tokens: [] };
+function tupleBreaks(
+  unstated: MemberRule,
+  prefix: readonly Schema[],
+  here: readonly Json[],
+): Edit[] {
   const [head] = prefix;
   const tag =
     head === undefined || typeof head === "boolean" ? undefined : (head.const ?? head.enum);
@@ -416,8 +486,8 @@ function objectBreaks(site: Site, here: Json): Edit[] {
   if (!isJsonObject(here)) {
     return [];
   }
-  const { node } = site;
-  const unstated: MemberRule = { kind: "member", node, tokens: [] };
+  const { node, location } = site;
+  const unstated = stating(location, null);
   const entries = Object.entries(here);
   const extended = { ...here, [EXTRA_KEY]: 1 };
   const edits = (node.required ?? [])
@@ -434,8 +504,10 @@ function objectBreaks(site: Site, here: Json): Edit[] {
     const renamed = Object.fromEntries(
       entries.map(([name, item], index) => [index === 0 ? BAD_RECORD_KEY : name, item]),
     );
-    const tokens = typeof names !== "boolean" && names.pattern !== undefined ? [names.pattern] : [];
-    edits.push(edit("bad-record-key", "propertyNames", renamed, { kind: "member", node, tokens }));
+    const pattern = typeof names === "boolean" ? undefined : names.pattern;
+    const keys = childLocation(location, "propertyNames");
+    const rule = stating(keys, pattern === undefined ? null : patternToken(pattern));
+    edits.push(edit("bad-record-key", "propertyNames", renamed, rule));
   }
   const extra = node.additionalProperties;
   const open =
@@ -460,15 +532,6 @@ function tagOf(here: Json): string {
 }
 
 function mutationsOf(contract: Contract, samples: readonly Sample[]): Mutation[] {
-  const nodeIds = new Map<SchemaNode, number>();
-  const idOf = (node: SchemaNode): number => {
-    const known = nodeIds.get(node);
-    if (known !== undefined) {
-      return known;
-    }
-    nodeIds.set(node, nodeIds.size);
-    return nodeIds.size - 1;
-  };
   const done = new Set<string>();
   const mutations: Mutation[] = [];
   for (const sample of samples) {
@@ -478,7 +541,7 @@ function mutationsOf(contract: Contract, samples: readonly Sample[]): Mutation[]
         continue;
       }
       for (const { kind, detail, replacement, rule } of editsAt(site, here)) {
-        const key = `${idOf(site.node)}|${kind}|${detail}|${tagOf(here)}`;
+        const key = `${locationKey(site.location)}|${kind}|${detail}|${tagOf(here)}`;
         if (done.has(key)) {
           continue;
         }
@@ -508,126 +571,111 @@ function refinementMutations(contract: Contract, samples: readonly Sample[]): Mu
       kind: "refinement",
       detail,
       value: replaced(base.value, path, value),
-      rule: { kind: "refinement", node: holder === undefined ? null : holder.site.node },
+      rule: { kind: "refinement", locations: holder?.locations ?? [] },
     };
   });
 }
 
 interface HeldMember {
   readonly sample: Sample;
-  readonly site: Site;
+  readonly locations: readonly SchemaLocation[];
 }
 
 function memberAt(sample: Sample, path: Path): HeldMember | null {
-  const site = [...sample.knownValueSites, ...sample.sites].find((held) =>
-    samePath(held.path, path),
+  const held = [...sample.knownValueSites, ...sample.sites].filter((site) =>
+    samePath(site.path, path),
   );
-  return site === undefined ? null : { sample, site };
+  return held.length === 0 ? null : { sample, locations: held.map((site) => site.location) };
 }
 
 function samePath(left: Path, right: Path): boolean {
   return left.length === right.length && left.every((segment, index) => segment === right[index]);
 }
 
-function renderMarked(contract: Contract, node: SchemaNode, marked: string): string {
-  const { description } = node;
-  node.description = marked;
-  try {
-    return contract.render();
-  } finally {
-    if (description === undefined) {
-      delete node.description;
-    } else {
-      node.description = description;
-    }
-  }
+// A node the text prints no note for has no entry.
+function ownNotes(notes: NoteIndex, location: SchemaLocation): readonly string[] {
+  const own = notes.get(locationKey(location));
+  return own === undefined ? [] : own;
 }
 
-function noteBeforeMark(line: string): string {
-  const start = line.indexOf(NOTE_START);
-  return start < 0 ? "" : line.slice(start, line.indexOf(MARK));
-}
-
-function memberStates(contract: Contract, node: SchemaNode, tokens: readonly string[]): Verdict {
+function memberStates(
+  notes: NoteIndex,
+  location: SchemaLocation,
+  tokens: readonly string[],
+): Verdict {
   if (tokens.length === 0) {
     return silent("no note states this rule");
   }
-  const lines = renderMarked(contract, node, MARK)
-    .split("\n")
-    .filter((line) => line.includes(MARK));
-  if (lines.length === 0) {
+  const own = ownNotes(notes, location);
+  if (own.length === 0) {
     return silent("the member prints no note");
   }
-  const stated = lines.some((line) => {
-    const own = noteBeforeMark(line).split(NOTE_BOUNDARY).slice(-MEMBER_NOTE_WINDOW).join(" ");
-    return tokens.some((token) => own.includes(token));
-  });
+  const stated = tokens.every((token) => own.includes(token));
   return stated ? CAUGHT_BY_NOTE : silent("the note omits the rule");
 }
 
-// A member's line carries its type's notes, then its own description, so whatever precedes the
-// mark appended to that description is the member's note. A refinement message has its own commas,
-// so the whole note counts, not the last few segments.
-function refinementStates(contract: Contract, node: SchemaNode | null): Verdict {
-  if (node === null) {
+// A refinement's message rides in its node's description, beside whatever else that says, so the
+// node's own description note carries it rather than equalling it.
+function refinementStates(
+  mutation: Mutation,
+  locations: readonly SchemaLocation[],
+  notes: NoteIndex,
+): Verdict {
+  if (locations.length === 0) {
     return silent("no member at this path");
   }
-  const { description } = node;
-  const marked = description === undefined ? MARK : `${description}${NOTE_SEPARATOR}${MARK}`;
-  const lines = renderMarked(contract, node, marked)
-    .split("\n")
-    .filter((line) => line.includes(MARK));
-  if (lines.length === 0) {
+  const messages = mutation.contract.refinedBy(mutation.value);
+  if (messages.length === 0) {
+    return silent("no note states this rule");
+  }
+  const own = locations.flatMap((location) => ownNotes(notes, location));
+  if (own.length === 0) {
     return silent("the member prints no note");
   }
-  const stated = lines.some((line) => noteBeforeMark(line).includes(REFINED_PREFIX));
+  const stated = messages.every((message) =>
+    own.some((note) => note.includes(`${REFINED_PREFIX}${message}`)),
+  );
   return stated ? CAUGHT_BY_NOTE : silent("the note omits the rule");
 }
 
 function branchTokens(branch: SchemaNode, type: string): string[] {
   if (type === "number") {
-    const bounds = [
-      branch.minimum,
-      branch.maximum,
-      branch.exclusiveMinimum,
-      branch.exclusiveMaximum,
-    ];
-    return bounds.filter(isStatedBound).map(String);
+    return boundBreaks(branch).map(({ token }) => token);
   }
-  if (type === "string") {
-    return [branch.pattern, lengthToken(branch), branch.format].filter(
-      (note) => note !== undefined,
-    );
+  if (type !== "string") {
+    return [];
   }
-  return [];
+  const pattern = branch.pattern === undefined ? null : patternToken(branch.pattern);
+  return [lengthToken(branch), branch.format ?? null, pattern].filter((token) => token !== null);
 }
 
-function siblingBranchStates(mutation: Mutation, site: Site): Verdict {
+function siblingBranchStates(mutation: Mutation, site: Site, notes: NoteIndex): Verdict {
   if (site.position.kind !== "alternative") {
     return silent("no note states this rule");
   }
   const type = jsonType(valueAt(mutation.value, site.path));
-  const branch = site.position.siblings.find(
-    (sibling): sibling is SchemaNode =>
-      typeof sibling !== "boolean" && valueTypes(statedTypes(sibling)).includes(type),
-  );
+  const branch = site.position.siblings
+    .flatMap(({ schema, location }) =>
+      typeof schema === "boolean" ? [] : [{ node: schema, location }],
+    )
+    .find(({ node }) => valueTypes(statedTypes(node)).includes(type));
   if (branch === undefined) {
     return silent("no note states this rule");
   }
-  return memberStates(mutation.contract, branch, branchTokens(branch, type));
+  return memberStates(notes, branch.location, branchTokens(branch.node, type));
 }
 
-function noteVerdict(mutation: Mutation): Verdict {
+function noteVerdict(mutation: Mutation, notes: NoteIndex): Verdict {
   const { rule } = mutation;
   switch (rule.kind) {
     case "member": {
-      return memberStates(mutation.contract, rule.node, rule.tokens);
+      return memberStates(notes, rule.location, rule.token === null ? [] : [rule.token]);
     }
     case "branch": {
-      return siblingBranchStates(mutation, rule.site);
+      return siblingBranchStates(mutation, rule.site, notes);
     }
     case "refinement": {
-      return refinementStates(mutation.contract, rule.node);
+      return refinementStates(mutation, rule.locations, notes);
     }
   }
 }
@@ -644,6 +692,14 @@ function commandKnownValue(path: Path): Json | null {
     return VALID_VERSION;
   }
   return null;
+}
+
+function refinementMessages(schema: ZodType): (value: Json) => readonly string[] {
+  return (value) => {
+    const parsed = schema.safeParse(value);
+    const issues = parsed.success ? [] : parsed.error.issues;
+    return issues.filter((issue) => issue.code === "custom").map((issue) => issue.message);
+  };
 }
 
 function acceptsUnchanged(schema: ZodType): (value: Json) => boolean {
@@ -668,7 +724,8 @@ async function commandContract(
     entry: "",
     accepts:
       side === "input" ? (value) => schema.safeParse(value).success : acceptsUnchanged(schema),
-    render: () => renderTypeScript(root, { name: typeName }),
+    refinedBy: refinementMessages(schema),
+    render: () => renderTypeScriptWithNotes(root, { name: typeName }),
     knownValueAt: commandKnownValue,
   };
 }
@@ -699,8 +756,9 @@ function mbqlContract(): Contract {
     documents: new Map([[QUERY_SCHEMA_DOCUMENT, entry], ...parsedDefs]),
     entry: QUERY_SCHEMA_DOCUMENT,
     accepts: (value) => validateQuery(value).ok,
+    refinedBy: () => [],
     render: () =>
-      renderTypeScript(entry, {
+      renderTypeScriptWithNotes(entry, {
         name: SIDES.input,
         documentName: QUERY_SCHEMA_DOCUMENT,
         documents: Object.fromEntries(parsedDefs),
@@ -732,7 +790,8 @@ function contractRun(contract: Contract): ContractRun {
     ...mutationsOf(contract, samples),
     ...refinements.filter((mutation) => !contract.accepts(mutation.value)),
   ];
-  const lines = contract.render().split("\n");
+  const rendered = contract.render();
+  const lines = rendered.text.split("\n");
   const declare = (value: Json): number => {
     const line = lines.length + 1;
     lines.push(`export const v${line}: ${contract.typeName} = ${JSON.stringify(value)};`);
@@ -741,6 +800,7 @@ function contractRun(contract: Contract): ContractRun {
   return {
     contract,
     file: `/lossless/${contract.name.replaceAll(" ", "_")}.ts`,
+    notes: indexNotes(rendered),
     samples: samples.map(({ value }) => ({ line: declare(value), value })),
     mutations: mutations.map((mutation) => ({
       line: declare(mutation.value),
@@ -749,6 +809,20 @@ function contractRun(contract: Contract): ContractRun {
     })),
     source: lines.join("\n"),
   };
+}
+
+function indexNotes({ notes }: RenderedTypeScript): NoteIndex {
+  const index = new Map<string, string[]>();
+  for (const { location, text } of notes) {
+    const key = locationKey(location);
+    const own = index.get(key);
+    if (own === undefined) {
+      index.set(key, [text]);
+    } else {
+      own.push(text);
+    }
+  }
+  return index;
 }
 
 function lineOf(file: string | null, line: number | null): string {
@@ -784,7 +858,9 @@ async function fuzz(): Promise<FuzzRun> {
   const judgements = runs.flatMap((run) =>
     run.mutations.map(({ line, mutation }) => ({
       mutation,
-      verdict: rejected.has(lineOf(run.file, line)) ? CAUGHT_BY_TYPE : noteVerdict(mutation),
+      verdict: rejected.has(lineOf(run.file, line))
+        ? CAUGHT_BY_TYPE
+        : noteVerdict(mutation, run.notes),
     })),
   );
   return {

@@ -1,6 +1,12 @@
 import type { z } from "zod";
 
-import { isStatedBound, Schema, type SchemaNode } from "../output/schema-ts";
+import {
+  childLocation,
+  isStatedBound,
+  Schema,
+  type SchemaLocation,
+  type SchemaNode,
+} from "../output/schema-ts";
 
 export type Json = z.core.util.JSONType;
 
@@ -19,19 +25,26 @@ interface TupleHeadPosition {
   readonly kind: "tuple-head";
 }
 
+interface Alternative {
+  readonly schema: Schema;
+  readonly location: SchemaLocation;
+}
+
 interface AlternativePosition {
   readonly kind: "alternative";
-  readonly siblings: readonly Schema[];
+  readonly siblings: readonly Alternative[];
 }
 
 type Position = PlainPosition | TupleHeadPosition | AlternativePosition;
 
-// Where a generated value sits in the documents. `node` is the document node whose note the
-// rendered member prints; `types` are the JSON types the value was generated against, which a
-// type-test conditional narrows below what `node` declares.
+// Where a generated value sits in the documents. `node` is the document node whose rules the value
+// meets, at `location`, the place the renderer reports that node's notes against; `types` are the
+// JSON types the value was generated against, which a type-test conditional narrows below what
+// `node` declares.
 export interface Site {
   readonly path: Path;
   readonly node: SchemaNode;
+  readonly location: SchemaLocation;
   readonly types: readonly TypeName[];
   readonly position: Position;
 }
@@ -49,13 +62,13 @@ export interface SampleSource {
 }
 
 interface Where {
-  readonly document: string;
+  readonly location: SchemaLocation;
   readonly position: Position;
   readonly forcedType: TypeName | null;
 }
 
 interface ResolvedRef {
-  readonly document: string;
+  readonly location: SchemaLocation;
   readonly schema: Schema;
 }
 
@@ -98,6 +111,7 @@ const UNTYPED_OBJECT: Json = { k: 1 };
 const SCALAR_TYPES: ReadonlySet<unknown> = new Set(["null", "string", "boolean"]);
 const DEFS_FRAGMENT = "/$defs/";
 const DISPATCH_MEMBER_KEYS = "if,then";
+const ENTRY_POINTER = "";
 
 type ConditionalKeyword = "if" | "then" | "else";
 
@@ -185,15 +199,16 @@ function resolveRef(
   if (root === undefined) {
     throw new Error(`$ref "${ref}" names no document`);
   }
+  const location = { document, pointer: fragment };
   if (fragment === "") {
-    return { document, schema: root };
+    return { location, schema: root };
   }
   const schema =
     typeof root === "boolean" ? undefined : root.$defs?.[fragment.slice(DEFS_FRAGMENT.length)];
   if (!fragment.startsWith(DEFS_FRAGMENT) || schema === undefined) {
     throw new Error(`$ref "${ref}" points at no $defs entry`);
   }
-  return { document, schema };
+  return { location, schema };
 }
 
 function isDispatch(members: readonly Schema[]): boolean {
@@ -207,8 +222,8 @@ function isDispatch(members: readonly Schema[]): boolean {
   );
 }
 
-function plain(document: string): Where {
-  return { document, position: { kind: "plain" }, forcedType: null };
+function plain(location: SchemaLocation): Where {
+  return { location, position: { kind: "plain" }, forcedType: null };
 }
 
 function generateFrom(source: SampleSource, seed: number): Sample {
@@ -219,7 +234,8 @@ function generateFrom(source: SampleSource, seed: number): Sample {
   if (entry === undefined) {
     throw new Error(`no entry document ${source.entry}`);
   }
-  return { value: generate(entry, plain(source.entry), 0, []), sites, knownValueSites };
+  const root = plain({ document: source.entry, pointer: ENTRY_POINTER });
+  return { value: generate(entry, root, 0, []), sites, knownValueSites };
 
   function rand(bound: number): number {
     state = (state + STATE_INCREMENT) >>> 0;
@@ -233,29 +249,40 @@ function generateFrom(source: SampleSource, seed: number): Sample {
     return rand(2) === 1;
   }
 
-  function pick<T>(items: readonly T[]): T {
-    if (items.length === 0) {
+  function pickIndex(length: number): number {
+    if (length === 0) {
       throw new UnsatisfiableSchema();
     }
-    return first(items.slice(rand(items.length)));
+    return rand(length);
+  }
+
+  function pick<T>(items: readonly T[]): T {
+    return first(items.slice(pickIndex(items.length)));
+  }
+
+  // A value placed whole meets its node and every node that node's `$ref` chain reaches.
+  function referencedSites(schema: Schema, where: Where, path: Path): Site[] {
+    if (typeof schema === "boolean") {
+      return [];
+    }
+    const { location, position } = where;
+    const site = { path, node: schema, location, types: statedTypes(schema), position };
+    if (schema.$ref === undefined) {
+      return [site];
+    }
+    const target = resolveRef(source.documents, schema.$ref, location.document);
+    return [site, ...referencedSites(target.schema, { ...where, location: target.location }, path)];
   }
 
   function record(path: Path, node: SchemaNode, where: Where): void {
     const types = where.forcedType === null ? statedTypes(node) : [where.forcedType];
-    sites.push({ path, node, types, position: where.position });
+    sites.push({ path, node, location: where.location, types, position: where.position });
   }
 
   function generate(schema: Schema, where: Where, depth: number, path: Path): Json {
     const fixed = source.knownValueAt(path);
     if (fixed !== null) {
-      if (typeof schema !== "boolean") {
-        knownValueSites.push({
-          path,
-          node: schema,
-          types: statedTypes(schema),
-          position: where.position,
-        });
-      }
+      knownValueSites.push(...referencedSites(schema, where, path));
       return structuredClone(fixed);
     }
     if (schema === true) {
@@ -278,7 +305,9 @@ function generateFrom(source: SampleSource, seed: number): Sample {
     }
     const alternatives = node.anyOf ?? node.oneOf;
     if (alternatives !== undefined) {
-      return generateAlternative(alternatives, where, depth, path);
+      const keyword = node.anyOf === undefined ? "oneOf" : "anyOf";
+      const listed = childLocation(where.location, keyword);
+      return generateAlternative(alternatives, listed, depth, path);
     }
     const test = conditionalPart(node, "if");
     if (test !== null && typeof test !== "boolean" && test.type !== undefined) {
@@ -299,19 +328,19 @@ function generateFrom(source: SampleSource, seed: number): Sample {
     depth: number,
     path: Path,
   ): Json {
-    const { document, schema: target } = resolveRef(source.documents, ref, where.document);
+    const { location, schema: target } = resolveRef(source.documents, ref, where.location.document);
     const { $ref: _target, description: _description, default: _default, ...siblings } = node;
     if (Object.keys(siblings).length === 0 || typeof target === "boolean") {
-      return generate(target, plain(document), depth, path);
+      return generate(target, plain(location), depth, path);
     }
     const merged: SchemaNode = { ...target, ...siblings };
     const from = sites.length;
-    const value = generate(merged, plain(document), depth, path);
+    const value = generate(merged, plain(location), depth, path);
     const owned = sites.splice(from).flatMap((site) =>
       site.node === merged
         ? [
             { ...site, node: target },
-            { ...site, node },
+            { ...site, node, location: where.location },
           ]
         : [site],
     );
@@ -321,17 +350,22 @@ function generateFrom(source: SampleSource, seed: number): Sample {
 
   function generateAlternative(
     alternatives: readonly Schema[],
-    where: Where,
+    listed: SchemaLocation,
     depth: number,
     path: Path,
   ): Json {
-    const scalar = alternatives.find(
+    const scalar = alternatives.findIndex(
       (branch) => typeof branch !== "boolean" && SCALAR_TYPES.has(branch.type),
     );
-    const deep = depth > DEPTH.scalarAlternative && scalar !== undefined;
-    const branch = deep ? scalar : pick(alternatives);
-    const position: AlternativePosition = { kind: "alternative", siblings: alternatives };
-    return generate(branch, { ...plain(where.document), position }, depth, path);
+    const deep = depth > DEPTH.scalarAlternative && scalar !== -1;
+    const chosen = deep ? scalar : pickIndex(alternatives.length);
+    const siblings = alternatives.map((schema, index) => ({
+      schema,
+      location: childLocation(listed, index),
+    }));
+    const { schema, location } = first(siblings.slice(chosen));
+    const position: AlternativePosition = { kind: "alternative", siblings };
+    return generate(schema, { ...plain(location), position }, depth, path);
   }
 
   function generateTypeTest(
@@ -344,19 +378,23 @@ function generateFrom(source: SampleSource, seed: number): Sample {
     const declared = statedTypes(node);
     const consequent = conditionalPart(node, "then") ?? true;
     const otherwise = conditionalPart(node, "else");
-    const inner = plain(where.document);
+    const then = plain(childLocation(where.location, "then"));
+    const alternative = plain(childLocation(where.location, "else"));
     if (declared.length === 0) {
-      const alternative = otherwise !== null && coin() ? otherwise : consequent;
-      return generate(alternative, inner, depth, path);
+      return otherwise !== null && coin()
+        ? generate(otherwise, alternative, depth, path)
+        : generate(consequent, then, depth, path);
     }
     const shallow = shallowTypes(declared, depth);
     const type = shallow.length === 0 ? null : pick(shallow);
     if (type !== null && type === tested) {
-      const narrowed = typeof consequent === "boolean" ? node : consequent;
-      return generate(narrowed, { ...inner, forcedType: type }, depth, path);
+      const forced = { forcedType: type };
+      return typeof consequent === "boolean"
+        ? generate(node, { ...plain(where.location), ...forced }, depth, path)
+        : generate(consequent, { ...then, ...forced }, depth, path);
     }
     if (otherwise !== null) {
-      return generate(otherwise, inner, depth, path);
+      return generate(otherwise, alternative, depth, path);
     }
     return generateTyped(node, type, where, depth, path);
   }
@@ -371,8 +409,9 @@ function generateFrom(source: SampleSource, seed: number): Sample {
     if (isDispatch(members)) {
       return generateDispatch(node, members, where, depth, path);
     }
-    const inner = plain(where.document);
-    const parts = members.map((member) => generate(member, inner, depth, path));
+    const parts = members.map((member, index) =>
+      generate(member, plain(childLocation(where.location, "allOf", index)), depth, path),
+    );
     const typed = where.forcedType !== null || node.type !== undefined || node.properties;
     const base = typed
       ? [generateTyped(node, pickType(node, where, depth), where, depth, path)]
@@ -395,11 +434,12 @@ function generateFrom(source: SampleSource, seed: number): Sample {
     depth: number,
     path: Path,
   ): Json {
-    const member = pick(members);
+    const index = pickIndex(members.length);
+    const member = first(members.slice(index));
     if (typeof member === "boolean") {
       throw new UnsatisfiableSchema();
     }
-    const inner = plain(where.document);
+    const inner = plain(childLocation(where.location, "allOf", index, "then"));
     const shape = conditionalPart(member, "then") ?? true;
     const test = conditionalPart(member, "if");
     const tagged = typeof test === "boolean" ? undefined : test?.properties;
@@ -499,13 +539,14 @@ function generateFrom(source: SampleSource, seed: number): Sample {
   }
 
   function generateArray(node: SchemaNode, where: Where, depth: number, path: Path): Json {
-    const inner = plain(where.document);
+    const inner = plain(childLocation(where.location, "items"));
     const maxItems = node.maxItems ?? Infinity;
     if (node.prefixItems !== undefined) {
       const fixed = node.prefixItems.slice(0, maxItems);
       const items = fixed.map((element, index) => {
         const position: Position = index === 0 ? { kind: "tuple-head" } : { kind: "plain" };
-        return generate(element, { ...inner, position }, depth + 1, [...path, index]);
+        const placed = plain(childLocation(where.location, "prefixItems", index));
+        return generate(element, { ...placed, position }, depth + 1, [...path, index]);
       });
       // An absent `items` leaves the tail open to any element.
       const rest = node.items ?? true;
@@ -524,19 +565,22 @@ function generateFrom(source: SampleSource, seed: number): Sample {
   }
 
   function generateObject(node: SchemaNode, where: Where, depth: number, path: Path): JsonObject {
-    const inner = plain(where.document);
     const out: JsonObject = {};
     const required = new Set(node.required ?? []);
     const properties = Object.entries(node.properties ?? {});
-    for (const [key, property] of properties) {
+    const property = (key: string, schema: Schema): Json => {
+      const placed = plain(childLocation(where.location, "properties", key));
+      return generate(schema, placed, depth + 1, [...path, key]);
+    };
+    for (const [key, schema] of properties) {
       if (required.has(key) || (depth < DEPTH.optionalProperty && coin())) {
-        out[key] = generate(property, inner, depth + 1, [...path, key]);
+        out[key] = property(key, schema);
       }
     }
     const [firstProperty] = properties;
     if (firstProperty !== undefined && Object.keys(out).length === 0 && depth === 0) {
-      const [key, property] = firstProperty;
-      out[key] = generate(property, inner, depth + 1, [...path, key]);
+      const [key, schema] = firstProperty;
+      out[key] = property(key, schema);
     }
     const extra = node.additionalProperties;
     if (properties.length > 0 || extra === undefined || extra === false) {
@@ -544,8 +588,9 @@ function generateFrom(source: SampleSource, seed: number): Sample {
     }
     const keys = recordKeys(propertyNamesOf(node, where));
     const missing = [...required].filter((key) => !keys.includes(key));
+    const placed = plain(childLocation(where.location, "additionalProperties"));
     for (const key of [...keys, ...missing]) {
-      out[key] = generate(extra, inner, depth + 1, [...path, key]);
+      out[key] = generate(extra, placed, depth + 1, [...path, key]);
     }
     return out;
   }
@@ -558,7 +603,7 @@ function generateFrom(source: SampleSource, seed: number): Sample {
     if (names.$ref === undefined) {
       return names;
     }
-    const target = resolveRef(source.documents, names.$ref, where.document).schema;
+    const target = resolveRef(source.documents, names.$ref, where.location.document).schema;
     return typeof target === "boolean" ? null : target;
   }
 
