@@ -21,7 +21,6 @@ const METHOD_OPTION = "method";
 const DEFAULT_METHOD: HttpMethod = "GET";
 const PATH_PARAMETER = "{}";
 
-// The argument each `explainer` wrapper takes the method's own function at.
 const WRAPPED_FUNCTION_ARGUMENT: Readonly<Record<string, number>> = {
   explain: 1,
   explainWalk: 1,
@@ -31,14 +30,9 @@ const WRAPPED_FUNCTION_ARGUMENT: Readonly<Record<string, number>> = {
 
 interface BodyRequest {
   readonly method: HttpMethod;
-  /** Every path parameter written `{}`. */
   readonly path: string;
 }
 
-/**
- * A client method taking a `*Input` body schema, and the one request that sends it, `null` for a
- * method that hands its input to another method rather than to the wire.
- */
 export interface InputPairing {
   readonly key: MethodKey;
   readonly input: string;
@@ -51,19 +45,11 @@ interface ResourceNamespace {
   readonly file: string;
 }
 
-// The expressions a path may be spelled through: string constants, and helpers whose whole body
-// returns one path.
 interface PathScope {
   readonly constants: ReadonlyMap<string, ts.Expression>;
   readonly helpers: ReadonlyMap<string, ts.Expression>;
 }
 
-/**
- * Read every client method that takes a `*Input` body from the client's source: the namespace
- * from `client.ts`, the method from its resource factory's returned object, and the HTTP method
- * and path from the one call in its body that carries `body`. An idiom the scan does not know
- * throws, so a new resource shape is a visible failure rather than a silently shorter list.
- */
 export function scanInputPairings(): InputPairing[] {
   return resourceNamespaces().flatMap(pairingsOf);
 }
@@ -211,7 +197,6 @@ function inputTypeOf(implementation: ts.FunctionDeclaration, key: MethodKey): st
   return input === undefined ? null : input;
 }
 
-// The declarations a scope holds directly, never those of the functions nested in it.
 function pathScope(statements: readonly ts.Statement[]): PathScope {
   const constants = new Map<string, ts.Expression>();
   const helpers = new Map<string, ts.Expression>();
@@ -263,7 +248,6 @@ function soleReturn(declaration: ts.FunctionDeclaration): ts.Expression | null {
   return isPathLike(only.expression) ? only.expression : null;
 }
 
-// Inner scopes shadow outer ones, as the compiler resolves them.
 function mergeScopes(...scopes: readonly PathScope[]): PathScope {
   const constants = new Map<string, ts.Expression>();
   const helpers = new Map<string, ts.Expression>();

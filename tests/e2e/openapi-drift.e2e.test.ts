@@ -27,8 +27,7 @@ interface RetiredField extends MissingField {
   readonly source: string;
 }
 
-// Fields older servers require and newer ones no longer declare, stripping them from the body
-// unread. The client sends each to every server, so a newer server's document lacks it by design.
+// The client sends each to every server, so a server that strips it leaves it out of its document.
 const RETIRED_FIELDS: readonly RetiredField[] = [
   {
     key: "measure.create",
@@ -60,8 +59,6 @@ function inputSchema(name: string): BodyRoute["input"] {
   return value;
 }
 
-// A route the server does not serve, an EE route on an OSS stack say, is reported as a skipped lane
-// rather than judged against a document that cannot hold it.
 function gateRoutes(pairings: readonly InputPairing[]): GatedRoutes {
   const served: BodyRoute[] = [];
   const skipped: MethodKey[] = [];

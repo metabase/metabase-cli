@@ -53,7 +53,6 @@ export function isHttpMethod(value: string): value is HttpMethod {
   return Object.hasOwn(OPERATION_KEY, value);
 }
 
-/** The parts of a server's OpenAPI document the drift check reads: the request bodies. */
 export const OpenApiBodies = z.looseObject({
   paths: z.record(z.string(), PathItem),
   components: z.looseObject({ schemas: z.record(z.string(), SchemaNode) }),
@@ -63,7 +62,6 @@ export type OpenApiBodies = z.infer<typeof OpenApiBodies>;
 export interface BodyRoute {
   readonly key: MethodKey;
   readonly method: HttpMethod;
-  /** Every path parameter written `{}`. */
   readonly path: string;
   readonly input: z.ZodObject<z.core.$ZodShape>;
 }
@@ -107,15 +105,10 @@ const COMPONENT_REF_PREFIX = "#/components/schemas/";
 const PATH_PARAMETER = /\{[^}]*\}/g;
 const TRAILING_SLASH = /\/$/;
 
-/**
- * Compare each route's input schema with the request body the server's OpenAPI document declares
- * for it. A field the server does not declare is `missing`, unless its gate says only a server
- * holding a feature takes it and `holds` says this one does not.
- */
 export function openApiDrift(
   spec: OpenApiBodies,
   routes: readonly BodyRoute[],
-  holds: (feature: FeatureName) => boolean,
+  serverHasFeature: (feature: FeatureName) => boolean,
 ): OpenApiDrift {
   const operations = indexOperations(spec.paths);
   const missingRoutes: MethodKey[] = [];
@@ -146,7 +139,7 @@ export function openApiDrift(
       if (declared.has(field)) {
         continue;
       }
-      const feature = excusingFeature(schema, holds);
+      const feature = excusingFeature(schema, serverHasFeature);
       if (feature === null) {
         missing.push({ key, field });
       } else {
@@ -265,14 +258,15 @@ function componentAt(ref: string, schemas: OpenApiBodies["components"]["schemas"
 // its values leaves the field itself on every server.
 function excusingFeature(
   field: z.core.$ZodType,
-  holds: (feature: FeatureName) => boolean,
+  serverHasFeature: (feature: FeatureName) => boolean,
 ): FeatureName | null {
   const gates = inputGatesOf(field);
   if (gates === null) {
     return null;
   }
   const excuse = gates.find(
-    (gate) => gate.effect === "needs" && gate.when.kind === "present" && !holds(gate.feature),
+    (gate) =>
+      gate.effect === "needs" && gate.when.kind === "present" && !serverHasFeature(gate.feature),
   );
   return excuse === undefined ? null : excuse.feature;
 }

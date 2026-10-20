@@ -34,7 +34,6 @@ function propertiesOf(fields: readonly string[]): Record<string, object> {
   return Object.fromEntries(fields.map((field) => [field, {}]));
 }
 
-// Spelled through a `$ref` and an `allOf`, so every test that reads it walks both.
 function specDeclaring(path: string, fields: readonly string[]): OpenApiBodies {
   const half = Math.ceil(fields.length / 2);
   return OpenApiBodies.parse({

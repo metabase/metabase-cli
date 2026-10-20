@@ -58,9 +58,6 @@ type MutationKind =
   | "bad-record-key"
   | "refinement";
 
-// Where a note would state the rule a mutation breaks: one of `tokens` in the member's own note,
-// a constraint on the union branch the broken value lands in, or the refinement message on the
-// member the refinement guards, `null` when the sample has no member at its path.
 interface MemberRule {
   readonly kind: "member";
   readonly node: SchemaNode;
@@ -244,7 +241,6 @@ function jsonType(value: Json | undefined): string {
   return typeof value;
 }
 
-// A JSON value has no integer type; an integer is a number.
 function valueTypes(types: readonly TypeName[]): readonly string[] {
   return types.map((type) => (type === "integer" ? "number" : type));
 }
@@ -465,7 +461,6 @@ function tagOf(here: Json): string {
   return "";
 }
 
-// One mutation per schema node, kind, and clause tag, however many samples reach it.
 function mutationsOf(contract: Contract, samples: readonly Sample[]): Mutation[] {
   const nodeIds = new Map<SchemaNode, number>();
   const idOf = (node: SchemaNode): number => {
@@ -501,8 +496,6 @@ function mutationsOf(contract: Contract, samples: readonly Sample[]): Mutation[]
   return mutations;
 }
 
-// Each refinement breaks the first sample holding the member it guards, so the verdict can read
-// that member's note.
 function refinementMutations(contract: Contract, samples: readonly Sample[]): Mutation[] {
   const [fallback] = samples;
   if (fallback === undefined) {
@@ -528,7 +521,9 @@ interface HeldMember {
 }
 
 function memberAt(sample: Sample, path: Path): HeldMember | null {
-  const site = [...sample.hinted, ...sample.sites].find((held) => samePath(held.path, path));
+  const site = [...sample.knownValueSites, ...sample.sites].find((held) =>
+    samePath(held.path, path),
+  );
   return site === undefined ? null : { sample, site };
 }
 
@@ -609,9 +604,7 @@ function branchTokens(branch: SchemaNode, type: string): string[] {
   return [];
 }
 
-// A value that leaves one union branch may land in a sibling branch of its own type, whose
-// constraint is then the rule it breaks.
-function branchStates(mutation: Mutation, site: Site): Verdict {
+function siblingBranchStates(mutation: Mutation, site: Site): Verdict {
   if (site.position.kind !== "alternative") {
     return silent("no note states this rule");
   }
@@ -633,7 +626,7 @@ function noteVerdict(mutation: Mutation): Verdict {
       return memberStates(mutation.contract, rule.node, rule.tokens);
     }
     case "branch": {
-      return branchStates(mutation, rule.site);
+      return siblingBranchStates(mutation, rule.site);
     }
     case "refinement": {
       return refinementStates(mutation.contract, rule.node);
@@ -641,7 +634,7 @@ function noteVerdict(mutation: Mutation): Verdict {
   }
 }
 
-function commandHint(path: Path): Json | null {
+function commandKnownValue(path: Path): Json | null {
   const last = path.at(-1);
   if (last === "dataset_query") {
     return VALID_MBQL;
@@ -655,7 +648,6 @@ function commandHint(path: Path): Json | null {
   return null;
 }
 
-// An output value is one the command could print, so the schema must hand it back unchanged.
 function acceptsUnchanged(schema: ZodType): (value: Json) => boolean {
   return (value) => {
     const parsed = schema.safeParse(value);
@@ -679,7 +671,7 @@ async function commandContract(
     accepts:
       side === "input" ? (value) => schema.safeParse(value).success : acceptsUnchanged(schema),
     render: () => renderTypeScript(root, { name: typeName }),
-    hint: commandHint,
+    knownValueAt: commandKnownValue,
   };
 }
 
@@ -715,7 +707,7 @@ function mbqlContract(): Contract {
         documentName: QUERY_SCHEMA_DOCUMENT,
         documents: Object.fromEntries(parsedDefs),
       }),
-    hint: () => null,
+    knownValueAt: () => null,
   };
 }
 

@@ -36,18 +36,16 @@ export interface Site {
   readonly position: Position;
 }
 
-// `hinted` holds the members a hint filled in; the walk shaped nothing beneath them.
 export interface Sample {
   readonly value: Json;
   readonly sites: readonly Site[];
-  readonly hinted: readonly Site[];
+  readonly knownValueSites: readonly Site[];
 }
 
-// `hint` fixes the value at a path, for a member whose own rule the schema does not carry.
 export interface SampleSource {
   readonly documents: ReadonlyMap<string, Schema>;
   readonly entry: string;
-  readonly hint: (path: Path) => Json | null;
+  readonly knownValueAt: (path: Path) => Json | null;
 }
 
 interface Where {
@@ -154,7 +152,6 @@ export function isStatedBound(bound: number | undefined): bound is number {
   return bound !== undefined && Math.abs(bound) < UNSTATED_BOUND;
 }
 
-// Null when the walk reaches a schema no value satisfies.
 export function generateSample(source: SampleSource, seed: number): Sample | null {
   try {
     return generateFrom(source, seed);
@@ -223,12 +220,12 @@ function plain(document: string): Where {
 function generateFrom(source: SampleSource, seed: number): Sample {
   let state = (seed * SEED_MULTIPLIER + 1) >>> 0;
   const sites: Site[] = [];
-  const hinted: Site[] = [];
+  const knownValueSites: Site[] = [];
   const entry = source.documents.get(source.entry);
   if (entry === undefined) {
     throw new Error(`no entry document ${source.entry}`);
   }
-  return { value: generate(entry, plain(source.entry), 0, []), sites, hinted };
+  return { value: generate(entry, plain(source.entry), 0, []), sites, knownValueSites };
 
   function rand(bound: number): number {
     state = (state + STATE_INCREMENT) >>> 0;
@@ -255,10 +252,15 @@ function generateFrom(source: SampleSource, seed: number): Sample {
   }
 
   function generate(schema: Schema, where: Where, depth: number, path: Path): Json {
-    const fixed = source.hint(path);
+    const fixed = source.knownValueAt(path);
     if (fixed !== null) {
       if (typeof schema !== "boolean") {
-        hinted.push({ path, node: schema, types: declaredTypes(schema), position: where.position });
+        knownValueSites.push({
+          path,
+          node: schema,
+          types: declaredTypes(schema),
+          position: where.position,
+        });
       }
       return structuredClone(fixed);
     }
