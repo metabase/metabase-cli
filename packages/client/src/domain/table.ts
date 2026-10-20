@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { gateInput } from "../version/input-gate-registry";
+import type { InputGate } from "../version/input-gates";
+
 import { Field, FieldCompact } from "./field";
 
 const TableEntityType = z.enum([
@@ -81,6 +84,31 @@ export const TableDataLayer = z.enum([
 ]);
 export type TableDataLayer = z.infer<typeof TableDataLayer>;
 
+export const DATA_LAYER_TIER_GATE: InputGate = {
+  feature: "tableDataLayerTiers",
+  effect: "needs",
+  when: { kind: "values", values: TableDataLayerTier.options },
+};
+
+export const DATA_LAYER_MEDALLION_GATE: InputGate = {
+  feature: "tableDataLayerTiers",
+  effect: "supersededBy",
+  when: { kind: "values", values: TableDataLayerMedallion.options },
+};
+
+export const DATA_AUTHORITY_WITHDRAWAL_GATE: InputGate = {
+  feature: "tableUserValueWithdrawal",
+  effect: "needs",
+  when: { kind: "values", values: [null] },
+};
+
+// `null` withdraws a user's value, which only a server that records user edits apart from the
+// table can do: the table's own column is NOT NULL.
+const TableDataAuthorityInput = gateInput(
+  TableDataAuthority.nullable().optional(),
+  DATA_AUTHORITY_WITHDRAWAL_GATE,
+);
+
 export const TableDataSource = z.enum([
   "unknown",
   "ingested",
@@ -103,9 +131,13 @@ export const TableUpdateInput = z
     points_of_interest: z.string().nullable().optional(),
     show_in_getting_started: z.boolean().optional(),
     field_order: TableFieldOrder.optional(),
-    data_authority: TableDataAuthority.nullable().optional(),
+    data_authority: TableDataAuthorityInput,
     data_source: TableDataSource.nullable().optional(),
-    data_layer: TableDataLayer.nullable().optional(),
+    data_layer: gateInput(
+      TableDataLayer.nullable().optional(),
+      DATA_LAYER_TIER_GATE,
+      DATA_LAYER_MEDALLION_GATE,
+    ),
     owner_email: z.string().nullable().optional(),
     owner_user_id: z.number().int().nullable().optional(),
     collection_id: z.number().int().positive().optional(),
@@ -135,10 +167,9 @@ export const TableSelectors = z
   .strict();
 export type TableSelectors = z.infer<typeof TableSelectors>;
 
-// The metadata a bulk edit sets on every selected table. `data_authority` takes `null` only on a
-// server that records user edits apart from the table, whose own column is NOT NULL.
+// The metadata a bulk edit sets on every selected table.
 export const TableBulkEditFields = z.object({
-  data_authority: TableDataAuthority.nullable().optional(),
+  data_authority: TableDataAuthorityInput,
   data_source: TableDataSource.nullable().optional(),
   data_layer: TableDataLayerTier.nullable().optional(),
   entity_type: TableEntityType.nullable().optional(),

@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import type { Features } from "../version/features";
+import { gateInput } from "../version/input-gate-registry";
+import type { InputGate } from "../version/input-gates";
 
 const FieldVisibilityType = z.enum(["details-only", "hidden", "normal", "retired", "sensitive"]);
 
@@ -227,6 +229,12 @@ export type FieldWithDataSensitivityCompact = z.infer<typeof FieldWithDataSensit
 
 const NonBlankNullable = z.string().min(1).nullable();
 
+export const DATA_SENSITIVITY_GATE: InputGate = {
+  feature: "fieldDataSensitivity",
+  effect: "needs",
+  when: { kind: "present" },
+};
+
 export const FieldUpdateInput = z
   .object({
     display_name: NonBlankNullable.optional(),
@@ -235,7 +243,7 @@ export const FieldUpdateInput = z
     points_of_interest: NonBlankNullable.optional(),
     semantic_type: FieldSemanticType.nullable().optional(),
     coercion_strategy: FieldCoercionStrategy.nullable().optional(),
-    data_sensitivity: FieldDataSensitivity.nullable().optional(),
+    data_sensitivity: gateInput(FieldDataSensitivity.nullable().optional(), DATA_SENSITIVITY_GATE),
     fk_target_field_id: z.number().int().positive().nullable().optional(),
     visibility_type: FieldVisibilityType.nullable().optional(),
     has_field_values: FieldValuesType.nullable().optional(),

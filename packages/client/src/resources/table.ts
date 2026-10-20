@@ -1,6 +1,9 @@
 import { z } from "zod";
 
 import {
+  DATA_AUTHORITY_WITHDRAWAL_GATE,
+  DATA_LAYER_MEDALLION_GATE,
+  DATA_LAYER_TIER_GATE,
   Table,
   type TableBulkEditInput,
   type TableBulkEditResult,
@@ -82,7 +85,7 @@ function dataLayerFeatures(
   value: TableDataLayer | null | undefined,
   field: keyof TableListParams | keyof TableUpdateInput,
 ): ParameterRequirement[] {
-  return isTierName(value) ? [{ feature: "tableDataLayerTiers", fields: [field] }] : [];
+  return isTierName(value) ? [{ feature: DATA_LAYER_TIER_GATE.feature, fields: [field] }] : [];
 }
 
 function isTierName(value: TableDataLayer | null | undefined): boolean {
@@ -168,7 +171,7 @@ export function tableResource(transport: Transport) {
     }
     const tiers = TableDataLayerTier.options.join(", ");
     const detail = `data_layer "${value}" is a medallion name; this server names a table's layer ${tiers} and would map it onto one of those without a word`;
-    const failure = supersedingFeature("tableDataLayerTiers", profile, detail);
+    const failure = supersedingFeature(DATA_LAYER_MEDALLION_GATE.feature, profile, detail);
     if (failure !== null) {
       transport.refuseBeforeSending(new CapabilityError(failure));
     }
@@ -274,7 +277,7 @@ export function tableResource(transport: Transport) {
     options: RequestOptions,
   ): Promise<void> {
     if (value === null) {
-      await transport.requireFeatures(["tableUserValueWithdrawal"], options);
+      await transport.requireFeatures([DATA_AUTHORITY_WITHDRAWAL_GATE.feature], options);
     }
   }
 

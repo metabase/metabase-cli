@@ -3,13 +3,14 @@ import { z } from "zod";
 import {
   Revision,
   type RevisionEntity,
+  REVISION_ENTITY_GATES,
   RevisionRevert,
   type RevisionRevertInput,
   RevisionRow,
 } from "../domain/revision";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
-import type { FeatureName } from "../version/features";
+import type { InputGate } from "../version/input-gates";
 import { explainer, type ParameterRequirement } from "../version/refusal";
 
 // `GET /api/revision/{entity}/{id}` answers a bare array, newest first, that the server does not
@@ -23,17 +24,17 @@ const RevisionApiRevert: z.ZodType<RevisionRevert> = z.union([
   RevisionRow.transform((revision) => ({ outcome: "unchanged" as const, revision })),
 ]);
 
-// An older server rejects an entity kind it does not revision: an unrouted 404 for the listing, a
-// 400 naming `entity` for a revert. The rejection is explained by the feature that brought the kind.
-const ENTITY_FEATURES: Partial<Record<RevisionEntity, FeatureName>> = {
-  measure: "measures",
-  transform: "transforms",
-  "transform-test": "transformTests",
-};
-
+// The rejection of an entity kind an older server does not revision is explained by the feature
+// that brought the kind.
 function entityFeatures(entity: RevisionEntity): ParameterRequirement[] {
-  const feature = ENTITY_FEATURES[entity];
-  return feature === undefined ? [] : [{ feature, fields: ["entity"] }];
+  return REVISION_ENTITY_GATES.filter((gate) => namesValue(gate, entity)).map((gate) => ({
+    feature: gate.feature,
+    fields: ["entity"],
+  }));
+}
+
+function namesValue(gate: InputGate, value: string): boolean {
+  return gate.when.kind === "values" && gate.when.values.includes(value);
 }
 
 // Every path parameter here is an enum member or a numeric id, so no fragment needs

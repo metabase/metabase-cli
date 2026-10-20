@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  DATA_SENSITIVITY_GATE,
   type FieldDataSensitivity,
   type FieldDetail,
   fieldDetailSchema,
@@ -71,7 +72,7 @@ export function fieldResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<FieldDetail> {
     await transport.requireFeatures(
-      params.data_sensitivity === undefined ? [] : ["fieldDataSensitivity"],
+      params.data_sensitivity === undefined ? [] : [DATA_SENSITIVITY_GATE.feature],
       options,
     );
     const { features } = await transport.server(options);

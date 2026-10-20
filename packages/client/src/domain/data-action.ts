@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 import type { Features } from "../version/features";
+import { gateInput } from "../version/input-gate-registry";
+import type { InputGate } from "../version/input-gates";
 
 import { DatasetQuery } from "./query";
 
@@ -86,13 +88,22 @@ export const DataActionCreateInput = z
   .strict();
 export type DataActionCreateInput = z.infer<typeof DataActionCreateInput>;
 
+export const DATA_ACTION_COLLECTION_GATE: InputGate = {
+  feature: "dataActionCollections",
+  effect: "needs",
+  when: { kind: "present" },
+};
+
 export const DataActionUpdateInput = z
   .object({
     name: z.string().min(1).optional(),
     database_id: z.number().int().positive().optional(),
     dataset_query: DatasetQuery.optional(),
     parameters: z.array(DataActionParameterInput).optional(),
-    collection_id: z.number().int().positive().nullable().optional(),
+    collection_id: gateInput(
+      z.number().int().positive().nullable().optional(),
+      DATA_ACTION_COLLECTION_GATE,
+    ),
     description: z.string().nullable().optional(),
     visualization_settings: z.unknown().optional(),
     archived: z.boolean().optional(),

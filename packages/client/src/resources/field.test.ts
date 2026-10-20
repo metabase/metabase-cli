@@ -1,6 +1,7 @@
 import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
+import { FieldUpdateInput } from "../domain/field";
 import type { ClientCredentials } from "../http/transport";
 import {
   captureFetch,
@@ -10,6 +11,7 @@ import {
   thrownBy,
 } from "../testing/fetch-capture";
 import { CapabilityError } from "../version/capability-error";
+import { inputGatesOf } from "../version/input-gates";
 import { PROBE_PATH } from "../version/probe";
 import { createServerProfile } from "../version/profile";
 
@@ -168,6 +170,18 @@ describe("field resource wire requests", () => {
     expect(capture.calls.map((call) => call.url)).toEqual([
       `https://mb.example.com/metabase${PROBE_PATH}`,
     ]);
+  });
+
+  it("records on the update's data_sensitivity the gate it is refused by, and none on an ungated field", () => {
+    expect({
+      data_sensitivity: inputGatesOf(FieldUpdateInput.shape.data_sensitivity),
+      display_name: inputGatesOf(FieldUpdateInput.shape.display_name),
+    }).toEqual({
+      data_sensitivity: [
+        { feature: "fieldDataSensitivity", effect: "needs", when: { kind: "present" } },
+      ],
+      display_name: null,
+    });
   });
 
   it("sends the search request with the value and limit as the query string", async () => {

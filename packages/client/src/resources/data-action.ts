@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  DATA_ACTION_COLLECTION_GATE,
   type DataAction,
   type DataActionCreateInput,
   type DataActionExecuteInput,
@@ -16,7 +17,7 @@ import { explainer, type ParameterRequirement } from "../version/refusal";
 function collectionFeatures(params: DataActionUpdateInput): ParameterRequirement[] {
   return params.collection_id === undefined
     ? []
-    : [{ feature: "dataActionCollections", fields: ["collection_id"] }];
+    : [{ feature: DATA_ACTION_COLLECTION_GATE.feature, fields: ["collection_id"] }];
 }
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.

@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { gateInput } from "../version/input-gate-registry";
+import type { InputGate } from "../version/input-gates";
+
 export const RevisionEntity = z.enum([
   "card",
   "dashboard",
@@ -65,9 +68,22 @@ export const RevisionRow = z
   .loose();
 export type RevisionRow = z.infer<typeof RevisionRow>;
 
+// An older server rejects an entity kind it does not revision: an unrouted 404 for the listing, a
+// 400 naming `entity` for a revert.
+export const REVISION_ENTITY_GATES: readonly InputGate[] = [
+  { feature: "measures", effect: "needs", when: { kind: "values", values: ["measure"] } },
+  { feature: "transforms", effect: "needs", when: { kind: "values", values: ["transform"] } },
+  {
+    feature: "transformTests",
+    effect: "needs",
+    when: { kind: "values", values: ["transform-test"] },
+  },
+];
+
 export const RevisionRevertInput = z
   .object({
-    entity: RevisionEntity,
+    // A node of its own, so the gates stay off every other use of `RevisionEntity`.
+    entity: gateInput(z.enum(RevisionEntity.options), ...REVISION_ENTITY_GATES),
     id: z.number().int().positive(),
     revision_id: z.number().int().positive(),
   })

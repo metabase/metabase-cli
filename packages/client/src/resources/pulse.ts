@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { Pulse, type PulseCreateInput, type PulseUpdateInput } from "../domain/pulse";
+import {
+  Pulse,
+  type PulseCreateInput,
+  type PulseUpdateInput,
+  SUBSCRIPTION_FILTERS_GATE,
+} from "../domain/pulse";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 
@@ -93,7 +98,7 @@ export function pulseResource(transport: Transport) {
     options: RequestOptions,
   ): Promise<void> {
     if (parameters !== undefined && parameters.length > 0) {
-      await transport.requireFeatures(["dashboardSubscriptionFilters"], options);
+      await transport.requireFeatures([SUBSCRIPTION_FILTERS_GATE.feature], options);
     }
   }
 

@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { gateInput } from "../version/input-gate-registry";
+import type { InputGate } from "../version/input-gates";
+
 import { Parameter } from "./parameter";
 
 export const PulseChannelType = z.enum(["email", "slack", "http"]);
@@ -142,6 +145,14 @@ const PulseChannelInput = z
   })
   .loose();
 
+export const SUBSCRIPTION_FILTERS_GATE: InputGate = {
+  feature: "dashboardSubscriptionFilters",
+  effect: "needs",
+  when: { kind: "nonEmpty" },
+};
+
+const PulseParametersInput = gateInput(z.array(Parameter).optional(), SUBSCRIPTION_FILTERS_GATE);
+
 export const PulseCreateInput = z
   .object({
     name: z.string().min(1),
@@ -149,7 +160,7 @@ export const PulseCreateInput = z
     cards: z.array(PulseCardInput).min(1),
     channels: z.array(PulseChannelInput).min(1),
     skip_if_empty: z.boolean().optional(),
-    parameters: z.array(Parameter).optional(),
+    parameters: PulseParametersInput,
   })
   .loose();
 export type PulseCreateInput = z.infer<typeof PulseCreateInput>;
@@ -161,7 +172,7 @@ export const PulseUpdateInput = z
     channels: z.array(PulseChannelInput).min(1).optional(),
     skip_if_empty: z.boolean().optional(),
     archived: z.boolean().optional(),
-    parameters: z.array(Parameter).optional(),
+    parameters: PulseParametersInput,
   })
   .loose();
 export type PulseUpdateInput = z.infer<typeof PulseUpdateInput>;
