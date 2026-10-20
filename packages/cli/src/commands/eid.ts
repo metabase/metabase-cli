@@ -8,7 +8,6 @@ import { ConfigError } from "@metabase/client/errors";
 
 import { renderSummary } from "../output/render";
 import { eidTranslateView } from "../output/views/eid-translation";
-import { readBody } from "../runtime/body";
 import { parseCsv } from "../runtime/csv";
 import { bodyInputFlags } from "./body-flags";
 import { requireBothOrNeither } from "./flag-pair";
@@ -46,7 +45,7 @@ export default defineMetabaseCommand({
     "mb eid --file translate.json",
     'mb eid --body \'{"entity_ids":{"card":["Ss3mHTaWs8T-VLPYEeraG"]}}\'',
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const pair = requireBothOrNeither(
       { name: "--model", value: args.model },
       { name: "<eids>", value: args.eids },
@@ -55,7 +54,7 @@ export default defineMetabaseCommand({
       ? EidTranslateInput.parse({
           entity_ids: { [parseModel(pair.first)]: parseEids(pair.second) },
         })
-      : await readBody({ flag: args.body, file: args.file }, EidTranslateInput);
+      : await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const result = await client.eidTranslation.translate(body);
     const lines = Object.entries(result.entity_ids).map(([eid, entry]) => {

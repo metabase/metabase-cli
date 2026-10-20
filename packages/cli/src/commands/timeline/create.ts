@@ -1,7 +1,6 @@
 import { Timeline, TimelineCreateInput } from "@metabase/client/domain/timeline";
 import { timelineView } from "../../output/views/timeline";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -24,8 +23,8 @@ export default defineMetabaseCommand({
     "cat timeline.json | mb timeline create",
     "mb timeline create --file timeline.json",
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, TimelineCreateInput);
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const created = await client.timeline.create(body);
     renderSummary(created, timelineView, `Created timeline ${created.id} "${created.name}".`, ctx);

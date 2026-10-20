@@ -1,7 +1,6 @@
 import { Pulse, PulseCreateInput } from "@metabase/client/domain/pulse";
 import { pulseView } from "../../output/views/pulse";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -29,8 +28,8 @@ export default defineMetabaseCommand({
     "cat subscription.json | mb subscription create",
     "mb subscription create --file subscription.json",
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, PulseCreateInput);
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const created = await client.pulse.create(body);
     renderSummary(

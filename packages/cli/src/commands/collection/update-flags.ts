@@ -1,12 +1,12 @@
 import { z } from "zod";
 
 import type { FlagValues } from "../flag-values";
+import type { BodyReader } from "../runtime";
 
 import { CollectionUpdateInput } from "@metabase/client/domain/collection";
 import { ConfigError } from "@metabase/client/errors";
 import { isBlank } from "@metabase/client/predicates";
 
-import { readBody } from "../../runtime/body";
 import { givenValue } from "../../runtime/input";
 import { bodyInputFlags } from "../body-flags";
 import { parseEnumFlag } from "../parse-enum";
@@ -38,10 +38,11 @@ interface FlagPatch {
 /** A body beside a patch flag would be dropped or half-applied, so the two are alternatives. */
 export async function readUpdateInput(
   args: FlagValues<typeof updateFlags>,
+  readBody: BodyReader<CollectionUpdateInput>,
 ): Promise<CollectionUpdateInput> {
   const { given, patch } = patchFromFlags(args);
   if (given.length === 0) {
-    return readBody({ flag: args.body, file: args.file }, CollectionUpdateInput);
+    return readBody({ flag: args.body, file: args.file });
   }
   if (givenValue(args.body) !== null || givenValue(args.file) !== null) {
     throw new ConfigError(`${given.join(", ")} cannot be combined with --body or --file`);

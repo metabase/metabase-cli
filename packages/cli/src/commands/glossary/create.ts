@@ -24,8 +24,8 @@ export default defineMetabaseCommand({
     'mb glossary create --body \'{"term":"Churn","definition":"Customers lost in a period"}\'',
     "mb glossary create --file entry.json",
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readEntryInput(args);
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readEntryInput(args, readBody);
     const client = await getClient();
     const created = await client.glossary.create(body);
     renderSummary(

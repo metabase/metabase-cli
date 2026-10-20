@@ -7,7 +7,6 @@ import {
 import { ConfigError } from "@metabase/client/errors";
 import { renderSummary } from "../../output/render";
 import { tableBulkEditResultView } from "../../output/views/table";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -61,8 +60,8 @@ export default defineMetabaseCommand({
     'mb table bulk-edit --body \'{"schema_ids":["1:public"],"data_layer":"final"}\' --json',
     "cat edit.json | mb table bulk-edit",
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, TableBulkEditInput);
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     const plan = planBulkEdit(body);
     const client = await getClient();
     const result = await client.table.bulkEdit(body);

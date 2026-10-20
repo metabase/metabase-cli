@@ -2,7 +2,6 @@ import { TransformTest, TransformTestCreateInput } from "@metabase/client/domain
 
 import { renderSummary } from "../../output/render";
 import { transformTestView } from "../../output/views/transform-test";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -24,8 +23,8 @@ export default defineMetabaseCommand({
     "cat transform-test.json | mb transform-test create",
     "mb transform-test create --file transform-test.json",
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, TransformTestCreateInput);
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const created = await client.transformTest.create(body);
     renderSummary(

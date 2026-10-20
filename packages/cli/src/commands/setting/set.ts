@@ -3,7 +3,6 @@ import { z } from "zod";
 import { SettingValue } from "@metabase/client/domain/setting";
 import { settingValueView } from "../../output/views/setting";
 import { formatScalar, renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -33,12 +32,13 @@ export default defineMetabaseCommand({
     `mb setting set remote-sync-branch --file value.json`,
     `mb setting set remote-sync-branch null`,
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const key = parseSettingKey(args.key);
-    const value = await readBody(
-      { file: args.file, positional: args.value, source: `setting ${key} value` },
-      SettingValueInput,
-    );
+    const value = await readBody({
+      file: args.file,
+      positional: args.value,
+      source: `setting ${key} value`,
+    });
     const client = await getClient();
     await client.setting.set(key, value);
     const item: SettingValue = { key, value };

@@ -1,7 +1,6 @@
 import { TransformJob, TransformJobCreateInput } from "@metabase/client/domain/transform-job";
 import { transformJobView } from "../../output/views/transform-job";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -17,8 +16,8 @@ export default defineMetabaseCommand({
     "mb transform-job create --file job.json",
     'mb transform-job create --body \'{"name":"daily","schedule":"0 0 0 * * ?"}\'',
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, TransformJobCreateInput);
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const created = await client.transformJob.create(body);
     renderSummary(

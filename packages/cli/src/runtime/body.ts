@@ -9,7 +9,9 @@ export interface BodySources extends InputSources {
   source?: string | undefined;
 }
 
-export async function readBody<T>(sources: BodySources, schema: ZodType<T>): Promise<T> {
+// The parsing under the `readBody` a command's runtime hands it. Only a body held to JSON Schema
+// documents, which declares no Zod schema to parse with, reads through this directly.
+export async function readJsonBody<T>(sources: BodySources, schema: ZodType<T>): Promise<T> {
   assertSingleSource(sources);
   const raw = await readInput(sources);
   return parseJson(raw, schema, { source: sources.source ?? "request body" });

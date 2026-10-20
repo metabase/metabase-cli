@@ -1,7 +1,6 @@
 import { SetupInput, SetupResult } from "@metabase/client/domain/setup";
 import { setupResultView } from "../output/views/setup";
 import { renderSummary } from "../output/render";
-import { readBody } from "../runtime/body";
 
 import { bodyInputFlags } from "./body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "./flags";
@@ -26,8 +25,8 @@ export default defineMetabaseCommand({
     "mb setup --file setup.json",
     'mb setup --body \'{"token":"...","user":{"email":"a@b.c","password":"..."}}\'',
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, SetupInput);
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const result = await client.setup.create(body);
     renderSummary(result, setupResultView, "Metabase setup complete.", ctx);

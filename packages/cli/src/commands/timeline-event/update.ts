@@ -1,7 +1,6 @@
 import { TimelineEvent, TimelineEventUpdateInput } from "@metabase/client/domain/timeline";
 import { timelineEventView } from "../../output/views/timeline";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -26,9 +25,9 @@ export default defineMetabaseCommand({
     "cat patch.json | mb timeline-event update 1",
     "mb timeline-event update 1 --file patch.json",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, TimelineEventUpdateInput);
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const updated = await client.timelineEvent.update(id, body);
     renderSummary(

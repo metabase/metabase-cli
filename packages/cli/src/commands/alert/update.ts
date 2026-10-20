@@ -1,7 +1,6 @@
 import { Notification, NotificationUpdateInput } from "@metabase/client/domain/notification";
 import { notificationView } from "../../output/views/notification";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -32,9 +31,9 @@ export default defineMetabaseCommand({
     'mb alert update 9 --body \'{"subscriptions":[{"cron_schedule":"0 0 9 * * ? *"}]}\'',
     "mb alert update 9 --body '{\"active\":true}'",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, NotificationUpdateInput);
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const updated = await client.notification.update(id, body);
     renderSummary(updated, notificationView, describeAlert("Updated", updated), ctx);

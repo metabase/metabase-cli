@@ -39,9 +39,9 @@ export default defineMetabaseCommand({
     'mb collection update 4 --body \'{"parent_id":null,"authority_level":"official"}\'',
     "mb collection update 4 --file patch.json --json",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const input = await readUpdateInput(args);
+    const input = await readUpdateInput(args, readBody);
     const client = await getClient();
     const trash =
       typeof input.parent_id === "number" ? await client.collection.get(TRASH_REF) : null;

@@ -2,7 +2,6 @@ import { TransformTest, TransformTestUpdateInput } from "@metabase/client/domain
 
 import { renderSummary } from "../../output/render";
 import { transformTestView } from "../../output/views/transform-test";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -26,9 +25,9 @@ export default defineMetabaseCommand({
     "cat patch.json | mb transform-test update 1",
     "mb transform-test update 1 --file patch.json",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, TransformTestUpdateInput);
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const updated = await client.transformTest.update(id, body);
     renderSummary(updated, transformTestView, `Updated transform test ${updated.id}.`, ctx);

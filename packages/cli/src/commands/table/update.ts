@@ -1,7 +1,6 @@
 import { Table, TableUpdateInput } from "@metabase/client/domain/table";
 import { tableView } from "../../output/views/table";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -27,9 +26,9 @@ export default defineMetabaseCommand({
     "mb table update 42 --file patch.json",
     "cat patch.json | mb table update 42",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, TableUpdateInput);
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const updated = await client.table.update(id, body);
     renderSummary(

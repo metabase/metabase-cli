@@ -26,9 +26,9 @@ export default defineMetabaseCommand({
     'mb glossary update 3 --body \'{"term":"Churn","definition":"Customers lost in a calendar month"}\'',
     "mb glossary update 3 --file entry.json",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readEntryInput(args);
+    const body = await readEntryInput(args, readBody);
     const client = await getClient();
     const updated = await client.glossary.update(id, body);
     renderSummary(

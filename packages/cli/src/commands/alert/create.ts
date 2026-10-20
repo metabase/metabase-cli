@@ -1,7 +1,6 @@
 import { Notification, NotificationCreateInput } from "@metabase/client/domain/notification";
 import { notificationView } from "../../output/views/notification";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -31,8 +30,8 @@ export default defineMetabaseCommand({
     "cat alert.json | mb alert create",
     "mb alert create --file alert.json",
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, NotificationCreateInput);
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const created = await client.notification.create(body);
     renderSummary(created, notificationView, describeAlert("Created", created), ctx);

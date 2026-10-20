@@ -1,7 +1,6 @@
 import { Pulse, PulseUpdateInput } from "@metabase/client/domain/pulse";
 import { pulseView } from "../../output/views/pulse";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -30,9 +29,9 @@ export default defineMetabaseCommand({
     'mb subscription update 1 --body \'{"channels":[{"channel_type":"email","schedule_type":"weekly","schedule_hour":8,"schedule_day":"mon","recipients":[{"email":"team@example.com"}]}]}\'',
     "mb subscription update 1 --file patch.json",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, PulseUpdateInput);
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const updated = await client.pulse.update(id, body);
     renderSummary(updated, pulseView, `Updated subscription ${updated.id}.`, ctx);

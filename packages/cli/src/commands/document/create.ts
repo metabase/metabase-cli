@@ -1,7 +1,6 @@
 import { Document, DocumentCreateInput } from "@metabase/client/domain/document";
 import { documentView } from "../../output/views/document";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -17,8 +16,8 @@ export default defineMetabaseCommand({
     "mb document create --file doc.json",
     'mb document create --body \'{"name":"Notes","document":{"type":"doc","content":[]}}\'',
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, DocumentCreateInput);
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const created = await client.document.create(body);
     renderSummary(created, documentView, `Created document ${created.id} "${created.name}".`, ctx);

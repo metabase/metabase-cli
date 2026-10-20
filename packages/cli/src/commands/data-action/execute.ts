@@ -4,7 +4,6 @@ import {
 } from "@metabase/client/domain/data-action";
 import { dataActionExecuteResultView } from "../../output/views/data-action";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -29,9 +28,9 @@ export default defineMetabaseCommand({
     'mb data-action execute 1 --body \'{"parameters":{"id":1,"note":"rush"}}\'',
     "mb data-action execute 1 --file values.json",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, DataActionExecuteInput);
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const result = await client.dataAction.execute(id, body);
     renderSummary(

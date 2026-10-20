@@ -5,7 +5,6 @@ import {
 } from "@metabase/client/domain/collection";
 import { collectionView } from "../../output/views/collection";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseEnumFlag } from "../parse-enum";
@@ -34,8 +33,8 @@ export default defineMetabaseCommand({
     'mb collection create --body \'{"name":"My Collection","parent_id":4}\'',
     'mb collection create --body \'{"name":"ETL"}\' --namespace transforms',
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, CollectionCreateInput);
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     if (typeof args.namespace === "string" && args.namespace !== "") {
       body.namespace = parseEnumFlag(args.namespace, CollectionNamespace, "namespace");
     }

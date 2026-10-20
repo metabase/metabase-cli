@@ -1,7 +1,6 @@
 import { DashboardDetail, DashboardUpdateInput } from "@metabase/client/domain/dashboard";
 import { dashboardView } from "../../output/views/dashboard";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -36,9 +35,9 @@ export default defineMetabaseCommand({
     'mb dashboard update 1 --body \'{"name":"renamed"}\'',
     'mb dashboard update 1 --body \'{"dashcards":[{"id":-1,"card_id":42,"row":0,"col":0,"size_x":12,"size_y":6}]}\'',
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, DashboardUpdateInput);
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     await preflightDashcardCardReferences(client, body.dashcards);
     const updated = await client.dashboard.update(id, body);

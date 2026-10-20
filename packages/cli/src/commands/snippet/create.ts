@@ -1,7 +1,6 @@
 import { Snippet, SnippetCreateInput } from "@metabase/client/domain/snippet";
 import { snippetView } from "../../output/views/snippet";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -22,8 +21,8 @@ export default defineMetabaseCommand({
     "mb snippet create --file snippet.json",
     'mb snippet create --body \'{"name":"active","content":"WHERE active = true"}\'',
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, SnippetCreateInput);
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const created = await client.snippet.create(body);
     renderSummary(created, snippetView, `Created snippet ${created.id} "${created.name}".`, ctx);

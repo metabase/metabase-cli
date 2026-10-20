@@ -1,7 +1,6 @@
 import { Snippet, SnippetUpdateInput } from "@metabase/client/domain/snippet";
 import { snippetView } from "../../output/views/snippet";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -25,9 +24,9 @@ export default defineMetabaseCommand({
     'mb snippet update 1 --body \'{"name":"renamed"}\'',
     "mb snippet update 1 --body '{\"archived\":true}'",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, SnippetUpdateInput);
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const updated = await client.snippet.update(id, body);
     renderSummary(updated, snippetView, `Updated snippet ${updated.id} "${updated.name}".`, ctx);

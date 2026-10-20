@@ -7,7 +7,7 @@ import { afterAll, afterEach, assert, beforeAll, beforeEach, describe, expect, i
 import { z } from "zod";
 
 import { ConfigError, ValidationError } from "@metabase/client/errors";
-import { readBody } from "./body";
+import { readJsonBody } from "./body";
 
 interface MockStdin {
   isTTY: boolean;
@@ -44,7 +44,7 @@ function piped(content: string): MockStdin {
 
 const Card = z.object({ id: z.number(), name: z.string() });
 
-describe("readBody", () => {
+describe("readJsonBody", () => {
   let tempDir: string;
   let filePath: string;
 
@@ -67,28 +67,28 @@ describe("readBody", () => {
   });
 
   it("parses JSON from --body flag", async () => {
-    const result = await readBody({ flag: '{"id":1,"name":"x"}' }, Card);
+    const result = await readJsonBody({ flag: '{"id":1,"name":"x"}' }, Card);
     expect(result).toEqual({ id: 1, name: "x" });
   });
 
   it("parses JSON from --file path", async () => {
-    const result = await readBody({ file: filePath }, Card);
+    const result = await readJsonBody({ file: filePath }, Card);
     expect(result).toEqual({ id: 7, name: "from-file" });
   });
 
   it("parses JSON from stdin when piped", async () => {
     setStdin(piped('{"id":2,"name":"piped"}'));
-    const result = await readBody({}, Card);
+    const result = await readJsonBody({}, Card);
     expect(result).toEqual({ id: 2, name: "piped" });
   });
 
   it("parses JSON from positional argument", async () => {
-    const result = await readBody({ positional: '{"id":3,"name":"pos"}' }, Card);
+    const result = await readJsonBody({ positional: '{"id":3,"name":"pos"}' }, Card);
     expect(result).toEqual({ id: 3, name: "pos" });
   });
 
   it("rejects multiple explicit body sources", async () => {
-    const error = await readBody({ flag: '{"id":1,"name":"a"}', file: filePath }, Card).catch(
+    const error = await readJsonBody({ flag: '{"id":1,"name":"a"}', file: filePath }, Card).catch(
       (caught: unknown) => caught,
     );
     expect(error).toBeInstanceOf(ConfigError);
@@ -97,7 +97,7 @@ describe("readBody", () => {
   });
 
   it("rejects all three explicit sources at once", async () => {
-    const error = await readBody(
+    const error = await readJsonBody(
       {
         flag: '{"id":1,"name":"a"}',
         file: filePath,
@@ -113,28 +113,31 @@ describe("readBody", () => {
   });
 
   it("throws ConfigError when no source provided and stdin is a TTY", async () => {
-    const error = await readBody({}, Card).catch((caught: unknown) => caught);
+    const error = await readJsonBody({}, Card).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ConfigError);
   });
 
   it("throws ValidationError when JSON does not match the schema", async () => {
-    const error = await readBody({ flag: '{"id":"bad","name":"x"}', source: "--body" }, Card).catch(
-      (caught: unknown) => caught,
-    );
+    const error = await readJsonBody(
+      { flag: '{"id":"bad","name":"x"}', source: "--body" },
+      Card,
+    ).catch((caught: unknown) => caught);
     expect(error).toBeInstanceOf(ValidationError);
     assert(error instanceof ValidationError, "expected ValidationError");
     expect(error.message).toContain("--body");
   });
 
   it("throws ConfigError when JSON is malformed", async () => {
-    const error = await readBody({ flag: "{ not json }" }, Card).catch((caught: unknown) => caught);
+    const error = await readJsonBody({ flag: "{ not json }" }, Card).catch(
+      (caught: unknown) => caught,
+    );
     expect(error).toBeInstanceOf(ConfigError);
     assert(error instanceof ConfigError, "expected ConfigError");
     expect(error.message).toContain("invalid JSON: ");
   });
 
   it("uses caller-provided source label in error messages", async () => {
-    const error = await readBody(
+    const error = await readJsonBody(
       { flag: '{"id":"bad","name":"x"}', source: "card create body" },
       Card,
     ).catch((caught: unknown) => caught);

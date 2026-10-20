@@ -1,11 +1,11 @@
 import type { ZodType } from "zod";
 
 import type { FlagValues } from "../flag-values";
+import type { BodyReader } from "../runtime";
 
 import { GlossaryCreateInput } from "@metabase/client/domain/glossary";
 import { ConfigError } from "@metabase/client/errors";
 
-import { readBody } from "../../runtime/body";
 import { givenValue } from "../../runtime/input";
 import { bodyInputFlags } from "../body-flags";
 
@@ -22,9 +22,10 @@ export const entryFlags = {
  */
 export async function readEntryInput(
   args: FlagValues<typeof entryFlags>,
+  readBody: BodyReader<GlossaryCreateInput>,
 ): Promise<GlossaryCreateInput> {
   if (args.term === undefined && args.definition === undefined) {
-    return readBody({ flag: args.body, file: args.file }, GlossaryCreateInput);
+    return readBody({ flag: args.body, file: args.file });
   }
   if (givenValue(args.body) !== null || givenValue(args.file) !== null) {
     throw new ConfigError("--term, --definition cannot be combined with --body or --file");

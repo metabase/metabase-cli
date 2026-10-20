@@ -1,7 +1,6 @@
 import { TransformJob, TransformJobUpdateInput } from "@metabase/client/domain/transform-job";
 import { transformJobView } from "../../output/views/transform-job";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -24,9 +23,9 @@ export default defineMetabaseCommand({
     "mb transform-job update 1 --file patch.json",
     'mb transform-job update 1 --body \'{"schedule":"0 0 6 * * ?"}\'',
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, TransformJobUpdateInput);
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const updated = await client.transformJob.update(id, body);
     renderSummary(

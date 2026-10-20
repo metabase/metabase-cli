@@ -1,7 +1,6 @@
 import { TransformTag, TransformTagUpdateInput } from "@metabase/client/domain/transform-tag";
 import { transformTagView } from "../../output/views/transform-tag";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -24,9 +23,9 @@ export default defineMetabaseCommand({
     "mb transform-tag update 5 --file tag.json",
     'echo \'{"name":"renamed"}\' | mb transform-tag update 5',
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, TransformTagUpdateInput);
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const updated = await client.transformTag.update(id, body);
     renderSummary(

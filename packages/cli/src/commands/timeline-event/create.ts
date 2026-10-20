@@ -1,7 +1,6 @@
 import { TimelineEvent, TimelineEventCreateInput } from "@metabase/client/domain/timeline";
 import { timelineEventView } from "../../output/views/timeline";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
@@ -24,8 +23,8 @@ export default defineMetabaseCommand({
     "cat event.json | mb timeline-event create",
     "mb timeline-event create --file event.json",
   ],
-  async run({ args, ctx, getClient }) {
-    const body = await readBody({ flag: args.body, file: args.file }, TimelineEventCreateInput);
+  async run({ args, ctx, getClient, readBody }) {
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const created = await client.timelineEvent.create(body);
     renderSummary(

@@ -42,7 +42,7 @@ import {
   setMetabaseAugment,
   type SkillPointer,
 } from "../runtime/command-augment";
-import { readBody, type BodySources } from "../runtime/body";
+import { readJsonBody, type BodySources } from "../runtime/body";
 import { interruptSignal } from "../runtime/interrupt";
 import {
   resolveCommonFlags,
@@ -52,40 +52,24 @@ import {
 } from "./context";
 import { assertArgv, givenFlagKeys } from "./argv";
 
-// `readBody` parses the body against the declared `inputSchema` and checks every embedded document
-// the command declares.
-interface MetabaseCommandContext<A extends ArgsDef, I> {
+interface MetabaseCommandContext<A extends ArgsDef> {
   args: ParsedArgs<A>;
   ctx: CommonContext;
   getClient: () => Promise<MetabaseClient>;
   getResolvedConfig: () => Promise<ResolvedConfig>;
-  readBody: (sources: BodySources) => Promise<I>;
 }
 
-interface NoBody {
-  inputSchema?: never;
-  embeddedDocuments?: never;
-  inputDocuments?: never;
+// Only a command that declares a Zod body can read one: `readBody` parses the body against the
+// declared `inputSchema` and checks every embedded document the command declares.
+interface BodyCommandContext<A extends ArgsDef, I> extends MetabaseCommandContext<A> {
+  readBody: BodyReader<I>;
 }
 
-// `embeddedDocuments` names the values inside the body the command checks against documents.
-interface ZodBody<I> {
-  inputSchema: ZodType<I>;
-  embeddedDocuments?: readonly EmbeddedDocument[];
-  inputDocuments?: never;
-}
+export type BodyReader<I> = (sources: BodySources) => Promise<I>;
 
-interface DocumentsBody {
-  inputSchema?: never;
-  embeddedDocuments?: never;
-  inputDocuments: JsonSchemaSource;
-}
+type CommandRun<C> = (context: C) => Promise<void> | void;
 
-type CommandBody<I> = NoBody | ZodBody<I> | DocumentsBody;
-
-type MetabaseCommandDef<A extends ArgsDef, I> = MetabaseCommandFields<A, I> & CommandBody<I>;
-
-interface MetabaseCommandFields<A extends ArgsDef, I> {
+interface MetabaseCommandFields<A extends ArgsDef> {
   meta: CommandMeta;
   args: A;
   examples?: readonly string[];
@@ -94,10 +78,44 @@ interface MetabaseCommandFields<A extends ArgsDef, I> {
   outputSchema?: ZodType;
   // `null` for a command that never reaches a server.
   requires: readonly MethodKey[] | null;
-  run: (context: MetabaseCommandContext<A, I>) => Promise<void> | void;
 }
 
-export function defineMetabaseCommand<const A extends ArgsDef, I = never>(
+interface NoBodyDef<A extends ArgsDef> extends MetabaseCommandFields<A> {
+  inputSchema?: never;
+  embeddedDocuments?: never;
+  inputDocuments?: never;
+  run: CommandRun<MetabaseCommandContext<A>>;
+}
+
+// `embeddedDocuments` names the values inside the body the command checks against documents.
+interface ZodBodyDef<A extends ArgsDef, I> extends MetabaseCommandFields<A> {
+  inputSchema: ZodType<I>;
+  embeddedDocuments?: readonly EmbeddedDocument[];
+  inputDocuments?: never;
+  run: CommandRun<BodyCommandContext<A, I>>;
+}
+
+interface DocumentsBodyDef<A extends ArgsDef> extends MetabaseCommandFields<A> {
+  inputSchema?: never;
+  embeddedDocuments?: never;
+  inputDocuments: JsonSchemaSource;
+  run: CommandRun<MetabaseCommandContext<A>>;
+}
+
+type MetabaseCommandDef<A extends ArgsDef, I> =
+  | NoBodyDef<A>
+  | ZodBodyDef<A, I>
+  | DocumentsBodyDef<A>;
+
+// One signature per body kind, so `run` is typed by the def it sits in: only a command that declares
+// a Zod body is handed `readBody`.
+export function defineMetabaseCommand<const A extends ArgsDef, I>(
+  def: ZodBodyDef<A, I>,
+): CommandDef<A>;
+export function defineMetabaseCommand<const A extends ArgsDef>(
+  def: NoBodyDef<A> | DocumentsBodyDef<A>,
+): CommandDef<A>;
+export function defineMetabaseCommand<const A extends ArgsDef, I>(
   def: MetabaseCommandDef<A, I>,
 ): CommandDef<A> {
   const requirements = def.requires === null ? null : deriveRequirements(def.requires);
@@ -157,13 +175,11 @@ export function defineMetabaseCommand<const A extends ArgsDef, I = never>(
           return client;
         };
         try {
-          await def.run({
-            args,
-            ctx,
-            getClient,
-            getResolvedConfig,
-            readBody: (sources) => readDeclaredBody(def, sources, args["skip-validate"] === true),
-          });
+          await runCommandBody(
+            def,
+            { args, ctx, getClient, getResolvedConfig },
+            args["skip-validate"] === true,
+          );
         } catch (error) {
           throw await diagnoseFailure(error, run);
         } finally {
@@ -186,16 +202,25 @@ export function defineMetabaseCommand<const A extends ArgsDef, I = never>(
   return cmd;
 }
 
-// A command that declares no Zod body has no body to read; calling `readBody` there is a bug.
+function runCommandBody<A extends ArgsDef, I>(
+  def: MetabaseCommandDef<A, I>,
+  context: MetabaseCommandContext<A>,
+  skip: boolean,
+): Promise<void> | void {
+  if (def.inputSchema === undefined) {
+    return def.run(context);
+  }
+  return def.run({ ...context, readBody: (sources) => readDeclaredBody(def, sources, skip) });
+}
+
+type DeclaredBody<I> = Pick<ZodBodyDef<ArgsDef, I>, "inputSchema" | "embeddedDocuments">;
+
 async function readDeclaredBody<I>(
-  body: CommandBody<I>,
+  body: DeclaredBody<I>,
   sources: BodySources,
   skip: boolean,
 ): Promise<I> {
-  if (body.inputSchema === undefined) {
-    throw new Error("readBody called by a command that declares no inputSchema");
-  }
-  const parsed = await readBody(sources, body.inputSchema);
+  const parsed = await readJsonBody(sources, body.inputSchema);
   const embedded = body.embeddedDocuments ?? [];
   // Loaded only here, so the bundled MBQL schema stays off the chunk every command loads.
   if (embedded.length > 0) {
@@ -207,7 +232,9 @@ async function readDeclaredBody<I>(
   return parsed;
 }
 
-function inputContract<I>(body: CommandBody<I>): SchemaContract | null {
+function inputContract<A extends ArgsDef, I>(
+  body: MetabaseCommandDef<A, I>,
+): SchemaContract | null {
   if (body.inputDocuments !== undefined) {
     return { kind: "documents", source: body.inputDocuments };
   }

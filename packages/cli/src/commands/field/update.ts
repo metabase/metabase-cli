@@ -1,7 +1,6 @@
 import { FieldDetail, FieldUpdateInput, hasDataSensitivity } from "@metabase/client/domain/field";
 import { fieldView, fieldWithDataSensitivityView } from "../../output/views/field";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -27,9 +26,9 @@ export default defineMetabaseCommand({
     "mb field update 100 --file patch.json",
     "cat patch.json | mb field update 100",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, FieldUpdateInput);
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const updated = await client.field.update(id, body);
     const summary = `Updated field ${updated.id} "${updated.display_name}".`;

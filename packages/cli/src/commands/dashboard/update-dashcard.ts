@@ -1,7 +1,6 @@
 import { Dashcard, DashcardPatchInput } from "@metabase/client/domain/dashboard";
 import { dashcardView } from "../../output/views/dashboard";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -28,10 +27,10 @@ export default defineMetabaseCommand({
     'mb dashboard update-dashcard 1 5 --body \'{"size_x":12,"size_y":4}\'',
     "cat patch.json | mb dashboard update-dashcard 1 5",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const dashboardId = parseId(args["dashboard-id"], "dashboard-id");
     const dashcardId = parseId(args["dashcard-id"], "dashcard-id");
-    const patch = await readBody({ flag: args.body, file: args.file }, DashcardPatchInput);
+    const patch = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const refreshed = await client.dashboard.updateDashcard(dashboardId, dashcardId, patch);
     renderSummary(

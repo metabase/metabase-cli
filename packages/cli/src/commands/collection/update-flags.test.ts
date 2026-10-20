@@ -1,25 +1,33 @@
 import { describe, expect, it } from "vitest";
 
-import type { CollectionUpdateInput } from "@metabase/client/domain/collection";
+import { CollectionUpdateInput } from "@metabase/client/domain/collection";
 import { ConfigError } from "@metabase/client/errors";
 
+import { readJsonBody, type BodySources } from "../../runtime/body";
 import type { FlagValues } from "../flag-values";
 
 import { readUpdateInput, type updateFlags } from "./update-flags";
 
 type UpdateArgs = Partial<FlagValues<typeof updateFlags>>;
 
+function readCollectionBody(sources: BodySources): Promise<CollectionUpdateInput> {
+  return readJsonBody(sources, CollectionUpdateInput);
+}
+
 function read(overrides: UpdateArgs): Promise<CollectionUpdateInput> {
-  return readUpdateInput({
-    body: undefined,
-    file: undefined,
-    name: undefined,
-    description: undefined,
-    "clear-description": undefined,
-    "parent-id": undefined,
-    archived: undefined,
-    ...overrides,
-  });
+  return readUpdateInput(
+    {
+      body: undefined,
+      file: undefined,
+      name: undefined,
+      description: undefined,
+      "clear-description": undefined,
+      "parent-id": undefined,
+      archived: undefined,
+      ...overrides,
+    },
+    readCollectionBody,
+  );
 }
 
 async function refusal(overrides: UpdateArgs): Promise<string> {

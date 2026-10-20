@@ -1,7 +1,6 @@
 import { Document, DocumentUpdateInput } from "@metabase/client/domain/document";
 import { documentView } from "../../output/views/document";
 import { renderSummary } from "../../output/render";
-import { readBody } from "../../runtime/body";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
@@ -25,9 +24,9 @@ export default defineMetabaseCommand({
     'mb document update 1 --body \'{"name":"Renamed"}\'',
     "mb document update 1 --body '{\"archived\":false}'",
   ],
-  async run({ args, ctx, getClient }) {
+  async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);
-    const body = await readBody({ flag: args.body, file: args.file }, DocumentUpdateInput);
+    const body = await readBody({ flag: args.body, file: args.file });
     const client = await getClient();
     const updated = await client.document.update(id, body);
     renderSummary(updated, documentView, `Updated document ${updated.id} "${updated.name}".`, ctx);
