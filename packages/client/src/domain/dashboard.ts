@@ -129,6 +129,8 @@ const DashboardTabWrite = z
   })
   .loose();
 
+// Closed so a layout fails to compile rather than vanishing: the create never places dashcards or
+// tabs, only an update does.
 export const DashboardCreateInput = z
   .object({
     name: z.string().min(1),
@@ -138,7 +140,7 @@ export const DashboardCreateInput = z
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
   })
-  .loose();
+  .strict();
 export type DashboardCreateInput = z.infer<typeof DashboardCreateInput>;
 
 export const DashboardLayoutInput = z
