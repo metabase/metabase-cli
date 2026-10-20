@@ -6,6 +6,7 @@ export const CurrentUser = z
     email: z.email(),
     common_name: z.string(),
     is_superuser: z.boolean(),
+    personal_collection_id: z.number().int().nullable().optional(),
   })
   .loose();
 export type CurrentUser = z.infer<typeof CurrentUser>;

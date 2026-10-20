@@ -4,6 +4,7 @@ import { collectionResource } from "./resources/collection";
 import { contentTranslationResource } from "./resources/content-translation";
 import { dashboardResource } from "./resources/dashboard";
 import { dataActionResource } from "./resources/data-action";
+import { dataAppResource } from "./resources/data-app";
 import { databaseResource } from "./resources/database";
 import { datasetResource } from "./resources/dataset";
 import { dependencyResource } from "./resources/dependency";
@@ -51,6 +52,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     contentTranslation: contentTranslationResource(transport),
     dashboard: dashboardResource(transport),
     dataAction: dataActionResource(transport),
+    dataApp: dataAppResource(transport),
     database: databaseResource(transport),
     dataset: datasetResource(transport),
     dependency: dependencyResource(transport),

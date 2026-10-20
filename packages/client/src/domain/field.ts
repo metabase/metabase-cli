@@ -177,6 +177,58 @@ export const FieldCoercionStrategy = z.enum([
 ]);
 export type FieldCoercionStrategy = z.infer<typeof FieldCoercionStrategy>;
 
+const FingerprintGlobal = z
+  .object({
+    "distinct-count": z.number().int().nullable().optional(),
+    "nil%": z.number().nullable().optional(),
+  })
+  .loose();
+
+const FingerprintNumber = z
+  .object({
+    min: z.number().nullable().optional(),
+    max: z.number().nullable().optional(),
+    avg: z.number().nullable().optional(),
+    q1: z.number().nullable().optional(),
+    q3: z.number().nullable().optional(),
+    sd: z.number().nullable().optional(),
+  })
+  .loose();
+
+const FingerprintText = z
+  .object({
+    "average-length": z.number().nullable().optional(),
+    "percent-json": z.number().nullable().optional(),
+    "percent-url": z.number().nullable().optional(),
+    "percent-email": z.number().nullable().optional(),
+    "percent-state": z.number().nullable().optional(),
+  })
+  .loose();
+
+const FingerprintDateTime = z
+  .object({
+    earliest: z.string().nullable().optional(),
+    latest: z.string().nullable().optional(),
+  })
+  .loose();
+
+// What Metabase measured of a column when it analysed it, over a sample of the table's first rows,
+// each part only for the kinds of values it applies to. `distinct-count` is an estimate.
+export const FieldFingerprint = z
+  .object({
+    global: FingerprintGlobal.optional(),
+    type: z
+      .object({
+        "type/Number": FingerprintNumber.optional(),
+        "type/Text": FingerprintText.optional(),
+        "type/DateTime": FingerprintDateTime.optional(),
+      })
+      .loose()
+      .optional(),
+  })
+  .loose();
+export type FieldFingerprint = z.infer<typeof FieldFingerprint>;
+
 export const Field = z
   .object({
     id: z.number().int(),
@@ -200,6 +252,9 @@ export const Field = z
     visibility_type: FieldVisibilityType.nullable().optional(),
     active: z.boolean().optional(),
     position: z.number().int().optional(),
+    // `null` until Metabase has analysed the column; left out by reads that do not hydrate it.
+    fingerprint: FieldFingerprint.nullable().optional(),
+    last_analyzed: z.string().nullable().optional(),
   })
   .loose();
 export type Field = z.infer<typeof Field>;

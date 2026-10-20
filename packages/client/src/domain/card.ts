@@ -38,6 +38,7 @@ export const ResultColumn = z
     semantic_type: FieldSemanticType.nullable().optional(),
     database_type: z.string().nullable().optional(),
     id: z.number().int().nullable().optional(),
+    source: z.string().nullable().optional(),
   })
   .loose();
 export type ResultColumn = z.infer<typeof ResultColumn>;
