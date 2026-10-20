@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   evaluateFeatures,
+  featureAvailability,
   FEATURE_NAMES,
   FEATURE_RULES,
   type FeatureName,
@@ -99,5 +100,17 @@ describe("ruleGap", () => {
 
   it("never names a token for a rule that has none", () => {
     expect(ruleGap({ since: 59 }, 61, null)).toBeNull();
+  });
+});
+
+describe("featureAvailability", () => {
+  it.each([
+    ["fieldDataSensitivity", "v64+"],
+    ["dashboardSubscriptionFilters", "token dashboard_subscription_filters"],
+    ["transformTests", "v65+, token transforms-testing"],
+    ["transformTargetTableLinkedOnCreate", "v61 only"],
+    ["fieldRemappingAppendsDisplayColumns", "up to v59"],
+  ] as const)("says where %s holds as %s", (feature, text) => {
+    expect(featureAvailability(feature)).toBe(text);
   });
 });
