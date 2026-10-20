@@ -78,8 +78,11 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
   if (isRoot) {
     sections.push(GETTING_STARTED_HINT);
   }
-  const hasOutputSchema = augment !== null && augment.outputSchema !== null;
-  sections.push(machineHelpHint(breadcrumb ?? cittyName, { hasSubCommands, hasOutputSchema }));
+  const schemas: DeclaredSchemas = {
+    body: augment !== null && (augment.inputSchema !== null || augment.inputJsonSchema !== null),
+    output: augment !== null && augment.outputSchema !== null,
+  };
+  sections.push(machineHelpHint(breadcrumb ?? cittyName, { hasSubCommands, schemas }));
   await writeUsage(sections.join("\n\n") + "\n");
 }
 
@@ -110,25 +113,40 @@ function breadcrumbPath(breadcrumb: string): string[] {
   return segments[0] === CLI_NAME ? segments.slice(1) : segments;
 }
 
-const MACHINE_HELP_LEAF_LABEL = "Machine-readable help (flags, body schema):";
 const MACHINE_HELP_INDEX_LABEL = "Machine-readable command index:";
-const OUTPUT_SCHEMA_LABEL = "Output schema:";
+
+interface DeclaredSchemas {
+  body: boolean;
+  output: boolean;
+}
 
 interface MachineHelpTarget {
   hasSubCommands: boolean;
-  hasOutputSchema: boolean;
+  schemas: DeclaredSchemas;
 }
 
 function machineHelpHint(breadcrumb: string, target: MachineHelpTarget): string {
   if (target.hasSubCommands) {
     return `${MACHINE_HELP_INDEX_LABEL} ${breadcrumb} --help --json`;
   }
-  const helpLine = `${MACHINE_HELP_LEAF_LABEL} ${breadcrumb} --help --json`;
-  if (!target.hasOutputSchema) {
-    return helpLine;
+  const contents = target.schemas.body ? "flags, body schema" : "flags";
+  const helpLine = `Machine-readable help (${contents}): ${breadcrumb} --help --json`;
+  const schemaLine = schemaHint(breadcrumbPath(breadcrumb).join(" "), target.schemas);
+  return schemaLine === null ? helpLine : `${helpLine}\n${schemaLine}`;
+}
+
+function schemaHint(command: string, schemas: DeclaredSchemas): string | null {
+  const schema = `${CLI_NAME} schema ${command}`;
+  if (schemas.body && schemas.output) {
+    return `Body and output types: ${schema} [--output]`;
   }
-  const command = breadcrumbPath(breadcrumb).join(" ");
-  return `${helpLine}\n${OUTPUT_SCHEMA_LABEL} ${CLI_NAME} schema ${command} --output`;
+  if (schemas.body) {
+    return `Body type: ${schema}`;
+  }
+  if (schemas.output) {
+    return `Output type: ${schema} --output`;
+  }
+  return null;
 }
 
 function transformBody(lines: string[], rewrite: UsageRewrite): string[] {

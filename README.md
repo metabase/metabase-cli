@@ -2410,7 +2410,7 @@ mb schema query                       # the MBQL 5 query schema
 
 A member marked `?` may be left out, a defaulted one included. A trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, and the field's description. A schema that recurs across commands, such as a dashboard parameter, is declared once under the client's name for it, and the same name keys the JSON Schema's `$defs`. When a union's branches carry different constraints, the comment labels each with its branch's type, as in `// number: int, >0; string: 21 chars`.
 
-`mb schema query` prints the MBQL 5 query schema that `query`, `card`, `transform`, `segment` and `measure` bodies are checked against. With `--json` it is the bundle `{ schema, defs: { "id.yaml", "parameter.yaml", "ref.yaml", "temporal_bucketing.yaml" } }`. The query schema's `$ref`s point into the `defs` namespace by file path; an agent can feed the bundle to Ajv (`addSchema(defs["id.yaml"], "id.yaml")` etc., then `compile(schema)`) or read it as documentation.
+`mb schema query` prints the MBQL 5 query schema that `query`, `card`, `transform`, `segment`, `measure` and `data-action` bodies are checked against. With `--json` it is the bundle `{ schema, defs: { "id.yaml", "parameter.yaml", "ref.yaml", "temporal_bucketing.yaml" } }`. The query schema's `$ref`s point into the `defs` namespace by file path; an agent can feed the bundle to Ajv (`addSchema(defs["id.yaml"], "id.yaml")` etc., then `compile(schema)`) or read it as documentation.
 
 | Arg / Flag     | Description                                                                 |
 | -------------- | --------------------------------------------------------------------------- |
@@ -2555,7 +2555,7 @@ Every node of the command tree answers `--help --json` with machine-readable hel
 
 ```sh
 mb --help --json | jq -r '.commands[].command'    # every command
-mb schema card query --output --json             # one command's output schema
+mb schema card query --output --json              # one command's output schema
 mb card create --help --json | jq .inputSchema    # the JSON-body contract it validates
 ```
 

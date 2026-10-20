@@ -164,7 +164,26 @@ describe("showUsage", () => {
     expect(shortRow).toMatch(/Short description$/);
   });
 
-  it("appends a machine-readable help hint pointing at --help --json on a leaf page", async () => {
+  it("points a leaf with a body and an output at its help JSON and both TypeScript views", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "bar", description: "demo bar" },
+      requires: [],
+      args: {},
+      inputSchema: z.object({ name: z.string() }),
+      outputSchema: z.object({ ok: z.boolean() }),
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd, undefined, "mb foo bar");
+    expect(trailingLines(chunks.join(""), 2)).toEqual([
+      "Machine-readable help (flags, body schema): mb foo bar --help --json",
+      "Body and output types: mb schema foo bar [--output]",
+    ]);
+  });
+
+  it("labels a leaf without a body as flags only and points at its output type", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "bar", description: "demo bar" },
       requires: [],
@@ -176,13 +195,31 @@ describe("showUsage", () => {
     });
 
     await showUsage(cmd, undefined, "mb foo bar");
-    const out = chunks.join("");
-    expect(out).toContain(
-      "Machine-readable help (flags, body schema): mb foo bar --help --json\nOutput schema: mb schema foo bar --output\n",
-    );
+    expect(trailingLines(chunks.join(""), 2)).toEqual([
+      "Machine-readable help (flags): mb foo bar --help --json",
+      "Output type: mb schema foo bar --output",
+    ]);
   });
 
-  it("leaves the output-schema hint off a leaf that declares no output schema", async () => {
+  it("points a leaf with only a body at its body type", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "bar", description: "demo bar" },
+      requires: [],
+      args: {},
+      inputSchema: z.object({ name: z.string() }),
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd, undefined, "mb foo bar");
+    expect(trailingLines(chunks.join(""), 2)).toEqual([
+      "Machine-readable help (flags, body schema): mb foo bar --help --json",
+      "Body type: mb schema foo bar",
+    ]);
+  });
+
+  it("leaves the schema hint off a leaf that declares neither schema", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "bar", description: "demo bar" },
       requires: [],
@@ -193,11 +230,9 @@ describe("showUsage", () => {
     });
 
     await showUsage(cmd, undefined, "mb foo bar");
-    const out = chunks.join("");
-    expect(out.split("\n").slice(-3)).toEqual([
+    expect(trailingLines(chunks.join(""), 2)).toEqual([
       "",
-      "Machine-readable help (flags, body schema): mb foo bar --help --json",
-      "",
+      "Machine-readable help (flags): mb foo bar --help --json",
     ]);
   });
 
@@ -572,3 +607,8 @@ describe("findUnknownCommand", () => {
     expect(await findUnknownCommand(tree(), ["foo", "frob"])).toBe("frob");
   });
 });
+
+// The page ends in a newline, so its last lines are the ones before the empty tail.
+function trailingLines(page: string, count: number): string[] {
+  return page.split("\n").slice(-count - 1, -1);
+}
