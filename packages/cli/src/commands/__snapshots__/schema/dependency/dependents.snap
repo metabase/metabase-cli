@@ -1,0 +1,86 @@
+// mb schema dependency dependents --output
+type Output = {
+// The items in this window.
+data: {
+id: number // int
+type:
+| "table"
+| "card"
+| "snippet"
+| "transform"
+| "dashboard"
+| "document"
+| "sandbox"
+| "segment"
+| "measure"
+data: {
+name?: string | null
+display_name?: string | null
+description?: string | null
+type?: "question" | "model" | "metric" | null
+database_id?: number | null // int
+db_id?: number | null // int
+schema?: string | null
+table_id?: number | null // int
+collection_id?: number | string | null
+dashboard_id?: number | null // int
+document_id?: number | null // int
+view_count?: number | null // int
+db?:
+| {
+id: number // int
+name: string
+}
+| null
+table?:
+| {
+id: number // int
+name: string
+display_name: string
+}
+| null
+collection?:
+| { id: number | string, name: string, authority_level: "official" | null, is_personal?: boolean }
+| null
+dashboard?:
+| {
+id: number // int
+name: string
+}
+| null
+document?:
+| {
+id: number // int
+name: string
+}
+| null
+}
+// values: int
+dependents_count:
+| Partial<Record<(
+| "table"
+| "snippet"
+| "transform"
+| "dashboard"
+| "document"
+| "sandbox"
+| "segment"
+| "question"
+| "model"
+| "metric"
+| "measure"
+), number>>
+| null
+}[]
+returned: number // int; >=0; Number of items in `data`; a short window is not proof the walk is over.
+offset: number // int; >=0; Index of the first item in `data` within the full result set.
+limit?: number // int; >=0; Echoes `--limit` when you passed one, and is absent otherwise.
+total?: number | null // int; >=0; The server's count on endpoints that report one and `null` on those that don't, so it is a display value rather than a loop bound.
+has_more: boolean // True when more items exist beyond this window; this alone decides whether to keep going, never a comparison of counts. True with a `null` next_offset means the remaining items are reached by widening `--max-bytes` or narrowing the selection, not by paging.
+next_offset?: number | null // int; >=0; Pass back as `--offset` to fetch the next window; it is past the offset you sent, and `null` when there is nowhere to resume from — either the walk is over or `--max-bytes` left no room for a single row, which `truncated` tells apart.
+// Present when the `--max-bytes` cap cut the output, not when the data ran out; its `bytes` is what the untruncated answer would have measured, so narrow rows with `--fields` rather than raising the cap.
+truncated?: {
+reason: "max_bytes"
+bytes: number // int; >=0
+}
+}

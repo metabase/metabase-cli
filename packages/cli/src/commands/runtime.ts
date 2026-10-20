@@ -36,6 +36,7 @@ import { reportError } from "../output/error";
 import { preflightSkippedNotice, preflightUncheckedNotice, warn } from "../output/notice";
 import {
   type CommandRequirements,
+  type JsonSchemaSource,
   setMetabaseAugment,
   type SkillPointer,
 } from "../runtime/command-augment";
@@ -62,6 +63,7 @@ interface MetabaseCommandDef<A extends ArgsDef> {
   details?: string;
   skills?: readonly SkillPointer[];
   inputSchema?: ZodType;
+  inputJsonSchema?: JsonSchemaSource;
   outputSchema?: ZodType;
   // `null` for a command that never reaches a server.
   requires: readonly MethodKey[] | null;
@@ -150,6 +152,7 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
     details: def.details ? def.details : null,
     skills: def.skills ?? [],
     inputSchema: def.inputSchema ?? null,
+    inputJsonSchema: def.inputJsonSchema ?? null,
     outputSchema: def.outputSchema ?? null,
     requires: requirements,
   });

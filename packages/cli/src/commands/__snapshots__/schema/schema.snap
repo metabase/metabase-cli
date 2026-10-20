@@ -1,0 +1,3 @@
+// mb schema schema --output
+// The JSON Schema (draft 2020-12) of the command's body or output
+type Output = Record<string, unknown>

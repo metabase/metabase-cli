@@ -1,0 +1,59 @@
+// mb schema transform-test get --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+entity_id: string
+transform_id: number // int
+creator_id: number // int
+name: string
+description: string | null
+inputs: (
+| {
+table: {
+schema?: string | null // non-empty
+name: string // non-empty
+}
+format: "sql"
+sql: string // non-empty
+}
+| {
+table: {
+schema?: string | null // non-empty
+name: string // non-empty
+}
+format: "rows"
+// >=1 items
+columns: {
+name: string // non-empty
+cast_type: string // non-empty
+}[]
+rows: Record<string, boolean | number | string | null>[]
+}
+)[]
+expectations: (
+| {
+type: "equals"
+name: string // non-empty
+format: "sql"
+sql: string // non-empty
+}
+| {
+type: "equals"
+name: string // non-empty
+format: "rows"
+// >=1 items
+columns: {
+name: string // non-empty
+cast_type: string // non-empty
+}[]
+rows: Record<string, boolean | number | string | null>[]
+}
+| {
+type: "empty"
+name: string // non-empty
+sql: string // non-empty
+}
+)[]
+created_at: string
+updated_at: string
+}

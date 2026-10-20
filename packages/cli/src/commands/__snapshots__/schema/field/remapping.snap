@@ -1,0 +1,2 @@
+// mb schema field remapping --output
+type Output = { found: true, value: unknown, label: unknown } | { found: false }

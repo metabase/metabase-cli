@@ -1,0 +1,275 @@
+// mb schema field update
+// Objects accept keys beyond the ones listed.
+type FieldSemanticType =
+| "type/Quantity"
+| "type/Share"
+| "type/Percentage"
+| "type/Currency"
+| "type/Income"
+| "type/Discount"
+| "type/Price"
+| "type/GrossMargin"
+| "type/Cost"
+| "type/Score"
+| "type/Duration"
+| "type/Location"
+| "type/Coordinate"
+| "type/Latitude"
+| "type/Longitude"
+| "type/Address"
+| "type/City"
+| "type/State"
+| "type/Country"
+| "type/ZipCode"
+| "type/URL"
+| "type/ImageURL"
+| "type/AvatarURL"
+| "type/Email"
+| "type/Description"
+| "type/Comment"
+| "type/IPAddress"
+| "type/Category"
+| "type/Enum"
+| "type/Name"
+| "type/Title"
+| "type/Product"
+| "type/Company"
+| "type/Subscription"
+| "type/Source"
+| "type/CreationTemporal"
+| "type/CreationTimestamp"
+| "type/CreationTime"
+| "type/CreationDate"
+| "type/JoinTemporal"
+| "type/JoinTimestamp"
+| "type/JoinTime"
+| "type/JoinDate"
+| "type/CancelationTemporal"
+| "type/CancelationTimestamp"
+| "type/CancelationTime"
+| "type/CancelationDate"
+| "type/DeletionTemporal"
+| "type/DeletionTimestamp"
+| "type/DeletionTime"
+| "type/DeletionDate"
+| "type/UpdatedTemporal"
+| "type/UpdatedTimestamp"
+| "type/UpdatedTime"
+| "type/UpdatedDate"
+| "type/Birthdate"
+| "type/Structured"
+| "type/SerializedJSON"
+| "type/JSON"
+| "type/DruidJSON"
+| "type/XML"
+| "type/User"
+| "type/Author"
+| "type/Owner"
+| "type/FK"
+| "type/PK"
+type Input = {
+display_name?: string | null // non-empty
+description?: string | null // non-empty
+caveats?: string | null // non-empty
+points_of_interest?: string | null // non-empty
+semantic_type?: FieldSemanticType | null
+coercion_strategy?:
+| "Coercion/String->Temporal"
+| "Coercion/ISO8601->Temporal"
+| "Coercion/ISO8601->DateTime"
+| "Coercion/ISO8601->Time"
+| "Coercion/ISO8601->Date"
+| "Coercion/YYYYMMDDHHMMSSString->Temporal"
+| "Coercion/Bytes->Temporal"
+| "Coercion/YYYYMMDDHHMMSSBytes->Temporal"
+| "Coercion/ISO8601Bytes->Temporal"
+| "Coercion/Number->Temporal"
+| "Coercion/UNIXTime->Temporal"
+| "Coercion/UNIXSeconds->DateTime"
+| "Coercion/UNIXMilliSeconds->DateTime"
+| "Coercion/UNIXMicroSeconds->DateTime"
+| "Coercion/UNIXNanoSeconds->DateTime"
+| "Coercion/Temporal->Temporal"
+| "Coercion/DateTime->Date"
+| "Coercion/String->Number"
+| "Coercion/String->Float"
+| "Coercion/String->Integer"
+| "Coercion/Float->Integer"
+| null
+data_sensitivity?:
+| "SEC_KEY"
+| "SYS_TELEMETRY"
+| "PHI"
+| "BIO_GEN"
+| "PCI_FIN"
+| "SENS_PERS"
+| "PII"
+| "CORP_IP"
+| "BIZ_CONF"
+| "PUBLIC"
+| null
+fk_target_field_id?: number | null // int; >0
+visibility_type?: "details-only" | "hidden" | "normal" | "retired" | "sensitive" | null
+has_field_values?: "list" | "search" | "none" | "auto-list" | null
+settings?: Record<string, unknown> | null
+nfc_path?: string[] | null // items: non-empty
+json_unfolding?: boolean | null
+}
+
+// mb schema field update --output
+// Objects accept keys beyond the ones listed.
+type FieldBaseType =
+| "type/*"
+| "type/field-values-unsupported"
+| "type/fingerprint-unsupported"
+| "type/Large"
+| "type/Number"
+| "type/Integer"
+| "type/BigInteger"
+| "type/Float"
+| "type/Decimal"
+| "type/Text"
+| "type/UUID"
+| "type/OracleCLOB"
+| "type/Temporal"
+| "type/HasDate"
+| "type/HasTime"
+| "type/Date"
+| "type/Time"
+| "type/TimeWithTZ"
+| "type/TimeWithLocalTZ"
+| "type/TimeWithZoneOffset"
+| "type/DateTime"
+| "type/DateTimeWithTZ"
+| "type/DateTimeWithLocalTZ"
+| "type/DateTimeWithZoneOffset"
+| "type/DateTimeWithZoneID"
+| "type/Instant"
+| "type/Interval"
+| "type/Boolean"
+| "type/DruidHyperUnique"
+| "type/SnowflakeVariant"
+| "type/TextLike"
+| "type/MongoBSONID"
+| "type/MongoBinData"
+| "type/MySQLEnum"
+| "type/PostgresEnum"
+| "type/PostgresBitString"
+| "type/IPAddress"
+| "type/Collection"
+| "type/Dictionary"
+| "type/Array"
+| "type/Structured"
+| "type/JSON"
+| "type/DruidJSON"
+| "type/XML"
+type FieldSemanticType =
+| "type/Quantity"
+| "type/Share"
+| "type/Percentage"
+| "type/Currency"
+| "type/Income"
+| "type/Discount"
+| "type/Price"
+| "type/GrossMargin"
+| "type/Cost"
+| "type/Score"
+| "type/Duration"
+| "type/Location"
+| "type/Coordinate"
+| "type/Latitude"
+| "type/Longitude"
+| "type/Address"
+| "type/City"
+| "type/State"
+| "type/Country"
+| "type/ZipCode"
+| "type/URL"
+| "type/ImageURL"
+| "type/AvatarURL"
+| "type/Email"
+| "type/Description"
+| "type/Comment"
+| "type/IPAddress"
+| "type/Category"
+| "type/Enum"
+| "type/Name"
+| "type/Title"
+| "type/Product"
+| "type/Company"
+| "type/Subscription"
+| "type/Source"
+| "type/CreationTemporal"
+| "type/CreationTimestamp"
+| "type/CreationTime"
+| "type/CreationDate"
+| "type/JoinTemporal"
+| "type/JoinTimestamp"
+| "type/JoinTime"
+| "type/JoinDate"
+| "type/CancelationTemporal"
+| "type/CancelationTimestamp"
+| "type/CancelationTime"
+| "type/CancelationDate"
+| "type/DeletionTemporal"
+| "type/DeletionTimestamp"
+| "type/DeletionTime"
+| "type/DeletionDate"
+| "type/UpdatedTemporal"
+| "type/UpdatedTimestamp"
+| "type/UpdatedTime"
+| "type/UpdatedDate"
+| "type/Birthdate"
+| "type/Structured"
+| "type/SerializedJSON"
+| "type/JSON"
+| "type/DruidJSON"
+| "type/XML"
+| "type/User"
+| "type/Author"
+| "type/Owner"
+| "type/FK"
+| "type/PK"
+type Output =
+| {
+id: number // int
+table_id: number // int
+name: string
+display_name: string
+description: string | null
+database_type?: string | null
+base_type: FieldBaseType
+semantic_type: FieldSemanticType | null
+fk_target_field_id: number | null // int
+has_field_values?: "list" | "search" | "none" | "auto-list" | null
+visibility_type?: "details-only" | "hidden" | "normal" | "retired" | "sensitive" | null
+active?: boolean
+position?: number // int
+data_sensitivity:
+| "SEC_KEY"
+| "SYS_TELEMETRY"
+| "PHI"
+| "BIO_GEN"
+| "PCI_FIN"
+| "SENS_PERS"
+| "PII"
+| "CORP_IP"
+| "BIZ_CONF"
+| "PUBLIC"
+| null
+}
+| {
+id: number // int
+table_id: number // int
+name: string
+display_name: string
+description: string | null
+database_type?: string | null
+base_type: FieldBaseType
+semantic_type: FieldSemanticType | null
+fk_target_field_id: number | null // int
+has_field_values?: "list" | "search" | "none" | "auto-list" | null
+visibility_type?: "details-only" | "hidden" | "normal" | "retired" | "sensitive" | null
+active?: boolean
+position?: number // int
+}

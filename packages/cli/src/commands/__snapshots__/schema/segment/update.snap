@@ -1,0 +1,31 @@
+// mb schema segment update
+// Objects accept keys beyond the ones listed.
+type Input = {
+name?: string | null // non-empty
+definition?: Record<string, unknown> | null // MBQL query holding the filter
+revision_message: string // non-empty
+archived?: boolean | null
+description?: string | null
+caveats?: string | null
+points_of_interest?: string | null
+show_in_getting_started?: boolean | null
+}
+
+// mb schema segment update --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+name: string
+description: string | null
+archived: boolean
+table_id: number // int
+definition: unknown
+creator_id: number // int
+entity_id: string | null
+show_in_getting_started: boolean | null
+caveats: string | null
+points_of_interest: string | null
+definition_description?: string | null
+created_at: string
+updated_at: string
+}

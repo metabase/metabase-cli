@@ -1,0 +1,6 @@
+// mb schema db sync-schema --output
+type Output = {
+id: number // int
+status: "ok"
+initial_sync_status?: string | null
+}

@@ -1,0 +1,5 @@
+// mb schema upload csv --output
+type Output = {
+model_id: number // int
+table_id: number // int
+}

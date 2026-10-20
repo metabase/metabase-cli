@@ -1,0 +1,5 @@
+// mb schema transform cancel --output
+type Output = {
+canceled: boolean
+id: number // int
+}

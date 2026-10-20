@@ -1,0 +1,28 @@
+// mb schema measure update
+// Objects accept keys beyond the ones listed.
+type Input = {
+name?: string | null // non-empty
+definition?: Record<string, unknown> | null // MBQL query holding exactly one aggregation
+revision_message: string // non-empty
+archived?: boolean | null
+description?: string | null
+}
+
+// mb schema measure update --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+name: string
+description: string | null
+archived: boolean
+table_id: number // int
+definition: unknown
+creator_id: number // int
+entity_id: string | null
+dimensions?: unknown[] | null
+dimension_mappings?: unknown[] | null
+definition_description?: string | null
+result_column_name?: string | null
+created_at: string
+updated_at: string
+}

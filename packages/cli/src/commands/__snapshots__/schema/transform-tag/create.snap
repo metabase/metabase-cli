@@ -1,0 +1,14 @@
+// mb schema transform-tag create
+// Objects accept keys beyond the ones listed.
+type Input = {
+name: string // non-empty
+}
+
+// mb schema transform-tag create --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+name: string
+entity_id: string | null
+built_in_type: string | null
+}

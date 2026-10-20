@@ -1,0 +1,125 @@
+// mb schema dashboard archive --output
+// Objects accept keys beyond the ones listed.
+type ParameterTarget =
+| ["dimension", ["template-tag", string | { id: string }] | [string, ...unknown[]], ...unknown[]]
+| ["variable", ["template-tag", string | { id: string }] | [string, ...unknown[]]]
+| ["text-tag", string]
+| number
+| [string, ...unknown[]]
+type Parameter = {
+id: string
+type:
+| "number"
+| "text"
+| "date"
+| "boolean"
+| "date/single"
+| "id"
+| "category"
+| "location/city"
+| "location/state"
+| "location/zip_code"
+| "location/country"
+| "date/range"
+| "date/month-year"
+| "date/quarter-year"
+| "date/relative"
+| "date/all-options"
+| "temporal-unit"
+| "number/!="
+| "number/<="
+| "number/="
+| "number/>="
+| "number/between"
+| "string/!="
+| "string/="
+| "string/contains"
+| "string/does-not-contain"
+| "string/ends-with"
+| "string/starts-with"
+| "boolean/="
+name?: string
+slug?: string
+sectionId?: string
+default?: unknown
+required?: boolean
+filteringParameters?: string[] | null
+target?: ParameterTarget
+temporal_units?:
+| (
+| "millisecond"
+| "second"
+| "minute"
+| "hour"
+| "day"
+| "week"
+| "month"
+| "quarter"
+| "year"
+| "second-of-minute"
+| "minute-of-hour"
+| "hour-of-day"
+| "day-of-week"
+| "day-of-month"
+| "day-of-year"
+| "week-of-year"
+| "month-of-year"
+| "quarter-of-year"
+| "year-of-era"
+| "default"
+)[]
+| null
+values_query_type?: "list" | "search" | "none" | null
+values_source_type?: "static-list" | "card" | null
+values_source_config?:
+| {
+values?: unknown[]
+card_id?: number // int
+value_field?: [string, ...unknown[]]
+label_field?: [string, ...unknown[]]
+}
+| null
+}
+type ParameterMapping = {
+parameter_id: string
+target: ParameterTarget
+card_id?: number | null // int
+}
+type Dashcard = {
+id: number // int
+dashboard_id: number // int
+card_id: number | null // int
+dashboard_tab_id: number | null // int
+row: number // int
+col: number // int
+size_x: number // int
+size_y: number // int
+entity_id: string | null
+visualization_settings: unknown
+parameter_mappings: ParameterMapping[] | null
+inline_parameters: string[] | null
+}
+type DashboardTab = {
+id: number // int
+dashboard_id: number // int
+name: string
+position?: number // int
+entity_id?: string | null
+}
+type Output = {
+id: number // int
+name: string
+description: string | null
+archived: boolean
+collection_id: number | null // int
+creator_id: number // int
+entity_id: string | null
+width: "fixed" | "full"
+auto_apply_filters: boolean
+enable_embedding: boolean
+public_uuid: string | null
+cache_ttl: number | null // int
+parameters: Parameter[] | null
+dashcards?: Dashcard[]
+tabs?: DashboardTab[]
+}

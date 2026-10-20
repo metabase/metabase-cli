@@ -1,0 +1,6 @@
+// mb schema transform delete --output
+type Output = {
+deleted: boolean
+aborted: boolean
+id: number // int
+}

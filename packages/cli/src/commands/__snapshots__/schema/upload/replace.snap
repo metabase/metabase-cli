@@ -1,0 +1,5 @@
+// mb schema upload replace --output
+type Output = {
+table_id: number // int
+action: "append" | "replace"
+}

@@ -1,0 +1,2 @@
+// mb schema auth logout --output
+type Output = { profile: string, cleared: boolean, aborted: boolean }

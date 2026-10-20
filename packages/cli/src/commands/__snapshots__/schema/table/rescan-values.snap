@@ -1,0 +1,5 @@
+// mb schema table rescan-values --output
+type Output = {
+id: number // int
+status: "success"
+}

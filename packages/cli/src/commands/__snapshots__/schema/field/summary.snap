@@ -1,0 +1,6 @@
+// mb schema field summary --output
+type Output = {
+field_id: number // int
+count: number // int
+distincts: number // int
+}

@@ -1,0 +1,50 @@
+// mb schema timeline-event update
+// Objects accept keys beyond the ones listed.
+type Input = {
+name?: string | null // non-empty
+description?: string | null
+timestamp?: string | null // non-empty
+timezone?: string | null // non-empty
+time_matters?: boolean | null
+icon?:
+| "star"
+| "cake"
+| "mail"
+| "mail_at"
+| "warning"
+| "bell"
+| "cloud"
+| "info"
+| "note"
+| "event"
+| null
+timeline_id?: number | null // int; >0
+archived?: boolean | null
+}
+
+// mb schema timeline-event update --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+name: string
+description: string | null
+timestamp: string
+timezone: string
+time_matters: boolean
+icon:
+| "star"
+| "cake"
+| "mail"
+| "mail_at"
+| "warning"
+| "bell"
+| "cloud"
+| "info"
+| "note"
+| "event"
+timeline_id: number // int
+archived: boolean
+creator_id: number // int
+created_at: string
+updated_at: string
+}

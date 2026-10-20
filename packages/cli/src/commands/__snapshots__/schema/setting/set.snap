@@ -1,0 +1,6 @@
+// mb schema setting set
+// Any JSON value; the setting's own type constraints are enforced server-side
+type Input = unknown
+
+// mb schema setting set --output
+type Output = { key: string, value: unknown }

@@ -1,0 +1,57 @@
+// mb schema collection tree --output
+// Objects accept keys beyond the ones listed.
+type CollectionTreeNode = {
+id: number | string
+name: string
+description?: string | null
+archived?: boolean
+location?: string | null
+type?:
+| "instance-analytics"
+| "trash"
+| "library"
+| "library-data"
+| "library-metrics"
+| "library-dashboards"
+| "tenant-specific-root-collection"
+| null
+authority_level?: "official" | null
+here?: (
+| "card"
+| "dataset"
+| "metric"
+| "dashboard"
+| "snippet"
+| "collection"
+| "document"
+| "exploration"
+| "table"
+| "transform"
+| "measure"
+| "pulse"
+| "timeline"
+| "no_models"
+| "indexed-entity"
+| "action"
+)[]
+below?: (
+| "card"
+| "dataset"
+| "metric"
+| "dashboard"
+| "snippet"
+| "collection"
+| "document"
+| "exploration"
+| "table"
+| "transform"
+| "measure"
+| "pulse"
+| "timeline"
+| "no_models"
+| "indexed-entity"
+| "action"
+)[]
+children: CollectionTreeNode[]
+}
+type Output = CollectionTreeNode[]

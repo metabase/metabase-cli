@@ -1,0 +1,6 @@
+// mb schema table discard-values --output
+type Output = {
+id: number // int
+discarded: boolean
+aborted: boolean
+}

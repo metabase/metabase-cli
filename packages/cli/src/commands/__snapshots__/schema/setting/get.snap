@@ -1,0 +1,2 @@
+// mb schema setting get --output
+type Output = { key: string, value: unknown }

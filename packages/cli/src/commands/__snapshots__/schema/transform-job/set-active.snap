@@ -1,0 +1,5 @@
+// mb schema transform-job set-active --output
+type Output = {
+updated: number // int
+failed: number // int
+}

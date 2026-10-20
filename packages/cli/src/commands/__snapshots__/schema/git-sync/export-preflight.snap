@@ -1,0 +1,14 @@
+// mb schema git-sync export-preflight --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+has_changes: boolean
+clean: boolean
+conflicts: string[]
+summary: {
+added: number // int
+updated: number // int
+removed: number // int
+}
+force_push_casualties: { deleted: string[], overwritten: string[] }
+reason: "history-rewritten" | null
+}

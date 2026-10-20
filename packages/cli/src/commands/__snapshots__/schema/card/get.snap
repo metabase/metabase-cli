@@ -1,0 +1,19 @@
+// mb schema card get --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+name: string
+type: "question" | "model" | "metric"
+display: string
+description: string | null
+archived: boolean
+query_type: "native" | "query" | null
+database_id: number | null // int
+table_id: number | null // int
+collection_id: number | null // int
+dashboard_id?: number | null // int
+entity_id: string | null
+creator_id: number // int
+dataset_query: unknown
+visualization_settings: unknown
+}

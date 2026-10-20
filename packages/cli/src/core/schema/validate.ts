@@ -90,6 +90,9 @@ const querySchemaForApi = {
   },
 };
 
+// The name the bundled documents' `$ref`s give the query schema itself.
+export const QUERY_SCHEMA_DOCUMENT = "query.yaml";
+
 let validator: ValidateFunction | null = null;
 
 function getValidator(): ValidateFunction {
@@ -106,8 +109,8 @@ function getValidator(): ValidateFunction {
   ajv.addSchema(parameterSchema, "parameter.yaml");
   ajv.addSchema(refSchemaWithIds, "ref.yaml");
   ajv.addSchema(temporalSchema, "temporal_bucketing.yaml");
-  ajv.addSchema(querySchemaForApi, "query.yaml");
-  const compiled = ajv.getSchema("query.yaml");
+  ajv.addSchema(querySchemaForApi, QUERY_SCHEMA_DOCUMENT);
+  const compiled = ajv.getSchema(QUERY_SCHEMA_DOCUMENT);
   if (compiled === undefined) {
     throw new Error("internal: query.yaml validator not registered");
   }

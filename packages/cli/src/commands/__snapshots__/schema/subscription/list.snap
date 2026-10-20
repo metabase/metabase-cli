@@ -1,0 +1,44 @@
+// mb schema subscription list --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+// The items in this window.
+data: {
+id: number // int
+name: string | null
+dashboard_id: number | null // int
+collection_id: number | null // int
+archived: boolean
+skip_if_empty: boolean
+cards: {
+id: number // int
+name: string
+dashboard_card_id: number | null // int
+include_csv: boolean
+include_xls: boolean
+}[]
+channels: {
+channel_type: "email" | "slack" | "http"
+enabled: boolean
+schedule_type: "hourly" | "daily" | "weekly" | "monthly"
+schedule_hour: number | null // int
+schedule_day: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun" | null
+schedule_frame: "first" | "mid" | "last" | null
+details?: { channel?: string }
+recipients: {
+id?: number | null // int
+email: string
+}[]
+}[]
+}[]
+returned: number // int; >=0; Number of items in `data`; a short window is not proof the walk is over.
+offset: number // int; >=0; Index of the first item in `data` within the full result set.
+limit?: number // int; >=0; Echoes `--limit` when you passed one, and is absent otherwise.
+total?: number | null // int; >=0; The server's count on endpoints that report one and `null` on those that don't, so it is a display value rather than a loop bound.
+has_more: boolean // True when more items exist beyond this window; this alone decides whether to keep going, never a comparison of counts. True with a `null` next_offset means the remaining items are reached by widening `--max-bytes` or narrowing the selection, not by paging.
+next_offset?: number | null // int; >=0; Pass back as `--offset` to fetch the next window; it is past the offset you sent, and `null` when there is nowhere to resume from — either the walk is over or `--max-bytes` left no room for a single row, which `truncated` tells apart.
+// Present when the `--max-bytes` cap cut the output, not when the data ran out; its `bytes` is what the untruncated answer would have measured, so narrow rows with `--fields` rather than raising the cap.
+truncated?: {
+reason: "max_bytes"
+bytes: number // int; >=0
+}
+}

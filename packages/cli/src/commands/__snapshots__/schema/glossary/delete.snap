@@ -1,0 +1,6 @@
+// mb schema glossary delete --output
+type Output = {
+deleted: boolean
+aborted: boolean
+id: number // int
+}

@@ -1,0 +1,231 @@
+// mb schema subscription update
+// Objects accept keys beyond the ones listed.
+type ParameterTarget =
+| ["dimension", ["template-tag", string | { id: string }] | [string, ...unknown[]], ...unknown[]]
+| ["variable", ["template-tag", string | { id: string }] | [string, ...unknown[]]]
+| ["text-tag", string]
+| number
+| [string, ...unknown[]]
+type Parameter = {
+id: string
+type:
+| "number"
+| "text"
+| "date"
+| "boolean"
+| "date/single"
+| "id"
+| "category"
+| "location/city"
+| "location/state"
+| "location/zip_code"
+| "location/country"
+| "date/range"
+| "date/month-year"
+| "date/quarter-year"
+| "date/relative"
+| "date/all-options"
+| "temporal-unit"
+| "number/!="
+| "number/<="
+| "number/="
+| "number/>="
+| "number/between"
+| "string/!="
+| "string/="
+| "string/contains"
+| "string/does-not-contain"
+| "string/ends-with"
+| "string/starts-with"
+| "boolean/="
+name?: string
+slug?: string
+sectionId?: string
+default?: unknown
+required?: boolean
+filteringParameters?: string[] | null
+target?: ParameterTarget
+temporal_units?:
+| (
+| "millisecond"
+| "second"
+| "minute"
+| "hour"
+| "day"
+| "week"
+| "month"
+| "quarter"
+| "year"
+| "second-of-minute"
+| "minute-of-hour"
+| "hour-of-day"
+| "day-of-week"
+| "day-of-month"
+| "day-of-year"
+| "week-of-year"
+| "month-of-year"
+| "quarter-of-year"
+| "year-of-era"
+| "default"
+)[]
+| null
+values_query_type?: "list" | "search" | "none" | null
+values_source_type?: "static-list" | "card" | null
+values_source_config?:
+| {
+values?: unknown[]
+card_id?: number // int
+value_field?: [string, ...unknown[]]
+label_field?: [string, ...unknown[]]
+}
+| null
+}
+type Input = {
+name?: string // non-empty
+// >=1 items
+cards?: {
+id: number // int; >0
+include_csv: boolean
+include_xls: boolean
+dashboard_card_id?: number | null // int; >0
+format_rows?: boolean
+pivot_results?: boolean
+}[]
+// >=1 items
+channels?: {
+channel_type: "email" | "slack" | "http"
+enabled?: boolean // default true
+schedule_type: "hourly" | "daily" | "weekly" | "monthly"
+schedule_hour?: number | null // int; 0-23
+schedule_day?: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun" | null
+schedule_frame?: "first" | "mid" | "last" | null
+channel_id?: number | null // int; >0
+details?: { channel?: string }
+recipients?: (
+| {
+id: number // int; >0
+}
+| {
+email: string // non-empty
+}
+)[]
+}[]
+skip_if_empty?: boolean
+archived?: boolean
+parameters?: Parameter[]
+}
+
+// mb schema subscription update --output
+// Objects accept keys beyond the ones listed.
+type ParameterTarget =
+| ["dimension", ["template-tag", string | { id: string }] | [string, ...unknown[]], ...unknown[]]
+| ["variable", ["template-tag", string | { id: string }] | [string, ...unknown[]]]
+| ["text-tag", string]
+| number
+| [string, ...unknown[]]
+type Parameter = {
+id: string
+type:
+| "number"
+| "text"
+| "date"
+| "boolean"
+| "date/single"
+| "id"
+| "category"
+| "location/city"
+| "location/state"
+| "location/zip_code"
+| "location/country"
+| "date/range"
+| "date/month-year"
+| "date/quarter-year"
+| "date/relative"
+| "date/all-options"
+| "temporal-unit"
+| "number/!="
+| "number/<="
+| "number/="
+| "number/>="
+| "number/between"
+| "string/!="
+| "string/="
+| "string/contains"
+| "string/does-not-contain"
+| "string/ends-with"
+| "string/starts-with"
+| "boolean/="
+name?: string
+slug?: string
+sectionId?: string
+default?: unknown
+required?: boolean
+filteringParameters?: string[] | null
+target?: ParameterTarget
+temporal_units?:
+| (
+| "millisecond"
+| "second"
+| "minute"
+| "hour"
+| "day"
+| "week"
+| "month"
+| "quarter"
+| "year"
+| "second-of-minute"
+| "minute-of-hour"
+| "hour-of-day"
+| "day-of-week"
+| "day-of-month"
+| "day-of-year"
+| "week-of-year"
+| "month-of-year"
+| "quarter-of-year"
+| "year-of-era"
+| "default"
+)[]
+| null
+values_query_type?: "list" | "search" | "none" | null
+values_source_type?: "static-list" | "card" | null
+values_source_config?:
+| {
+values?: unknown[]
+card_id?: number // int
+value_field?: [string, ...unknown[]]
+label_field?: [string, ...unknown[]]
+}
+| null
+}
+type Output = {
+id: number // int
+name: string | null
+creator_id: number // int
+dashboard_id: number | null // int
+collection_id: number | null // int
+archived: boolean
+skip_if_empty: boolean
+parameters: Parameter[]
+cards: {
+id: number // int
+name: string
+dashboard_card_id: number | null // int
+include_csv: boolean
+include_xls: boolean
+}[]
+channels: {
+id?: number // int
+channel_type: "email" | "slack" | "http"
+channel_id?: number | null // int
+enabled: boolean
+schedule_type: "hourly" | "daily" | "weekly" | "monthly"
+schedule_hour: number | null // int
+schedule_day: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun" | null
+schedule_frame: "first" | "mid" | "last" | null
+details?: { channel?: string }
+recipients: {
+id?: number | null // int
+email: string
+}[]
+}[]
+}

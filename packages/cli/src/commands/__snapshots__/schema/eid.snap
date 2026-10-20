@@ -1,0 +1,59 @@
+// mb schema eid
+// Objects accept keys beyond the ones listed.
+type Input = {
+// values: items: 21 chars
+entity_ids: Partial<Record<(
+| "action"
+| "card"
+| "collection"
+| "dashboard"
+| "dashboard-card"
+| "dashboard-tab"
+| "dataset"
+| "dimension"
+| "document"
+| "exploration"
+| "measure"
+| "metric"
+| "permissions-group"
+| "pulse"
+| "pulse-card"
+| "pulse-channel"
+| "segment"
+| "snippet"
+| "timeline"
+| "transform"
+| "user"
+), string[]>>
+}
+
+// mb schema eid --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+entity_ids: Record<string, {
+status: string
+type:
+| "action"
+| "card"
+| "collection"
+| "dashboard"
+| "dashboard-card"
+| "dashboard-tab"
+| "dataset"
+| "dimension"
+| "document"
+| "exploration"
+| "measure"
+| "metric"
+| "permissions-group"
+| "pulse"
+| "pulse-card"
+| "pulse-channel"
+| "segment"
+| "snippet"
+| "timeline"
+| "transform"
+| "user"
+id?: number // int
+}>
+}

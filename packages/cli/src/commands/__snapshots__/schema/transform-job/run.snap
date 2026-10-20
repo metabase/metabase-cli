@@ -1,0 +1,6 @@
+// mb schema transform-job run --output
+type Output = {
+message: string
+started: boolean | null
+run_id: number | null // int; >0
+}

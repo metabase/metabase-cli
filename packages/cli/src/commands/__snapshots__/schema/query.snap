@@ -1,0 +1,514 @@
+// mb schema query
+// Objects accept keys beyond the ones listed.
+// int; >=1
+type database_id = number
+// int; >=1
+type table_id = number
+// int; >=1
+type entity_id = number
+// Base options object for pMBQL clauses. Always present as the second element of every clause array. Empty {} when no options apply.
+type options = {
+"base-type"?: string
+"effective-type"?: string
+"lib/uuid"?: string // uuid
+"lib/expression-name"?: string
+}
+// Truncation units — truncate a datetime to a boundary. Also used for intervals and datetime arithmetic.
+type datetime_truncation_unit =
+| "millisecond"
+| "second"
+| "minute"
+| "hour"
+| "day"
+| "week"
+| "month"
+| "quarter"
+| "year"
+// Extraction units — extract a numeric component from a datetime.
+type datetime_extraction_unit =
+| "second-of-minute"
+| "minute-of-hour"
+| "hour-of-day"
+| "day-of-week"
+| "day-of-week-iso"
+| "day-of-month"
+| "day-of-year"
+| "week-of-year"
+| "week-of-year-iso"
+| "week-of-year-us"
+| "week-of-year-instance"
+| "month-of-year"
+| "quarter-of-year"
+| "year-of-era"
+// All datetime units — truncation + extraction + default. Used for field temporal-unit option.
+type datetime_bucketing_unit = "default" | datetime_truncation_unit | datetime_extraction_unit
+// int; >=1
+type field_id = number
+// Options for field refs.
+type field_options = options & {
+"temporal-unit"?: datetime_bucketing_unit
+"join-alias"?: string
+binning?: { strategy: "default" | "num-bins" | "bin-width" } & (
+| {
+strategy: "bin-width"
+"bin-width": number // >0
+}
+| {
+strategy: "num-bins"
+"num-bins": number // int; >=1
+}
+| { strategy: "default" }
+)
+"source-field"?: field_id
+"source-field-name"?: string
+"source-field-join-alias"?: string
+}
+// [field, options, Field-FK-or-name]
+type field_ref = ["field", field_options, unknown]
+// [expression, options, name]
+type expression_ref = ["expression", options, string]
+// [aggregation, options, uuid] — uuid matches the lib/uuid on the aggregation clause
+type aggregation_ref = ["aggregation", options, string]
+// [metric, options, id]
+type metric_ref = ["metric", options, number]
+// [measure, options, id]
+type measure_ref = ["measure", options, number]
+// [segment, options, id]
+type segment_ref = ["segment", options, number]
+// Options for string filter operators.
+type case_sensitive_options = options & { "case-sensitive"?: boolean }
+// Options for the time-interval operator.
+type time_interval_options = options & { "include-current"?: boolean }
+// Options for the datetime parsing operator.
+type datetime_parse_options = options & {
+mode?:
+| "iso"
+| "simple"
+| "unix-seconds"
+| "unix-milliseconds"
+| "unix-microseconds"
+| "unix-nanoseconds"
+| "iso-bytes"
+| "simple-bytes"
+}
+type datetime_diff_unit = "second" | "minute" | "hour" | "day" | "week" | "month" | "quarter" | "year"
+// An MBQL expression clause. Either a literal value or an array [operator, options, ...args] where options is always an object.
+type expression =
+| string
+| number
+| boolean
+| null
+| field_ref
+| expression_ref
+| aggregation_ref
+| metric_ref
+| measure_ref
+| segment_ref
+| ["value", options, string | number | boolean]
+| ["+" | "-" | "*" | "/", options, expression, ...expression[]]
+| ["and" | "or", options, expression, expression, ...expression[]]
+| ["not", options, expression]
+| ["=" | "!=" | "<" | ">" | "<=" | ">=", options, expression, expression, ...expression[]]
+| ["in" | "not-in", options, expression, expression, ...expression[]]
+| ["between", options, expression, expression, expression]
+| ["inside", options, expression, expression, number, number, number, number]
+| ["is-null" | "not-null" | "is-empty" | "not-empty", options, expression]
+| ["contains" | "does-not-contain" | "starts-with" | "ends-with", case_sensitive_options, expression, expression, ...expression[]]
+| ["time-interval", time_interval_options, expression, number | "current" | "last" | "next", datetime_truncation_unit]
+| ["relative-time-interval", options, expression, number, datetime_truncation_unit, number, datetime_truncation_unit]
+| ["now" | "today", options]
+| ["interval", options, number, datetime_truncation_unit]
+| [
+| "abs"
+| "ceil"
+| "floor"
+| "round"
+| "sqrt"
+| "exp"
+| "log"
+| "length"
+| "trim"
+| "ltrim"
+| "rtrim"
+| "upper"
+| "lower"
+| "host"
+| "domain"
+| "subdomain"
+| "path"
+| "get-year"
+| "get-quarter"
+| "get-month"
+| "get-day"
+| "get-hour"
+| "get-minute"
+| "get-second"
+| "text"
+| "integer"
+| "float"
+| "day-name"
+| "month-name"
+| "quarter-name"
+| "date", options, expression]
+| ["datetime", datetime_parse_options, expression]
+| ["get-day-of-week" | "get-week", options, expression, ("iso" | "us" | "instance")?]
+| ["power", options, expression, expression]
+| ["replace" | "split-part", options, expression, expression, expression]
+| ["substring", options, expression, expression, expression?]
+| ["collate", options, expression, string]
+| ["regex-match-first", options, expression, string]
+| ["concat", options, expression, expression, ...expression[]]
+| ["coalesce", options, expression, expression, ...expression[]]
+| ["datetime-add" | "datetime-subtract", options, expression, number, datetime_truncation_unit]
+| ["datetime-diff", options, expression, expression, datetime_diff_unit]
+| ["convert-timezone", options, expression, string, string?]
+| ["temporal-extract", options, expression, datetime_extraction_unit, ("iso" | "us" | "instance")?]
+| ["count" | "cum-count", options, expression?]
+| ["sum" | "avg" | "min" | "max" | "distinct" | "stddev" | "var" | "median" | "cum-sum", options, expression]
+| ["percentile", options, expression, number]
+| ["count-where" | "share", options, expression]
+| ["sum-where" | "distinct-where", options, expression, expression]
+| ["case" | "if", options, [expression, expression][], expression?]
+| ["offset", options, expression, number]
+| ["asc" | "desc", options, expression]
+type join = {
+stages: stage[] // >=1 items
+conditions: expression[] // >=1 items
+alias: string
+strategy?: "left-join" | "right-join" | "inner-join" | "full-join"
+fields?: "all" | "none" | expression[]
+}
+type mbql_stage = {
+"lib/type"?: "mbql.stage/mbql"
+"source-table"?: table_id
+"source-card"?: entity_id
+joins?: join[]
+expressions?: expression[]
+fields?: (field_ref | expression_ref)[]
+filters?: expression[]
+aggregation?: expression[]
+breakout?: expression[]
+"order-by"?: expression[]
+limit?: number | null // int
+}
+type template_tag = {
+type:
+| "text"
+| "number"
+| "date"
+| "boolean"
+| "dimension"
+| "temporal-unit"
+| "card"
+| "snippet"
+| "table"
+name: string
+id: string // non-empty
+"display-name"?: string
+default?: unknown // Default value (type depends on tag type)
+required?: boolean
+} & (
+| {
+type: "dimension"
+dimension: expression
+"widget-type": string
+options?: Record<string, unknown>
+alias?: string
+}
+| { type: "temporal-unit", dimension: expression, alias?: string }
+| { type: "card", "card-id": entity_id }
+| { type: "snippet", "snippet-name": string, "snippet-id": entity_id }
+| { type: "table", "table-id": table_id, "emit-alias"?: boolean }
+| { type: "text" | "number" | "date" | "boolean" }
+)
+type native_stage = {
+"lib/type": "mbql.stage/native"
+native: string
+"template-tags"?: Record<string, template_tag> | template_tag[]
+}
+type stage = mbql_stage | native_stage
+// A query definition in serialized pMBQL format. Contains a flat list of stages (no recursive source-query nesting). Each stage is either an MBQL structured stage or a native SQL stage.
+type Input = {
+"lib/type": "mbql/query"
+database: database_id
+stages: stage[] // >=1 items
+}
+
+// mb schema query --output
+// Objects accept keys beyond the ones listed.
+type FieldBaseType =
+| "type/*"
+| "type/field-values-unsupported"
+| "type/fingerprint-unsupported"
+| "type/Large"
+| "type/Number"
+| "type/Integer"
+| "type/BigInteger"
+| "type/Float"
+| "type/Decimal"
+| "type/Text"
+| "type/UUID"
+| "type/OracleCLOB"
+| "type/Temporal"
+| "type/HasDate"
+| "type/HasTime"
+| "type/Date"
+| "type/Time"
+| "type/TimeWithTZ"
+| "type/TimeWithLocalTZ"
+| "type/TimeWithZoneOffset"
+| "type/DateTime"
+| "type/DateTimeWithTZ"
+| "type/DateTimeWithLocalTZ"
+| "type/DateTimeWithZoneOffset"
+| "type/DateTimeWithZoneID"
+| "type/Instant"
+| "type/Interval"
+| "type/Boolean"
+| "type/DruidHyperUnique"
+| "type/SnowflakeVariant"
+| "type/TextLike"
+| "type/MongoBSONID"
+| "type/MongoBinData"
+| "type/MySQLEnum"
+| "type/PostgresEnum"
+| "type/PostgresBitString"
+| "type/IPAddress"
+| "type/Collection"
+| "type/Dictionary"
+| "type/Array"
+| "type/Structured"
+| "type/JSON"
+| "type/DruidJSON"
+| "type/XML"
+type FieldSemanticType =
+| "type/Quantity"
+| "type/Share"
+| "type/Percentage"
+| "type/Currency"
+| "type/Income"
+| "type/Discount"
+| "type/Price"
+| "type/GrossMargin"
+| "type/Cost"
+| "type/Score"
+| "type/Duration"
+| "type/Location"
+| "type/Coordinate"
+| "type/Latitude"
+| "type/Longitude"
+| "type/Address"
+| "type/City"
+| "type/State"
+| "type/Country"
+| "type/ZipCode"
+| "type/URL"
+| "type/ImageURL"
+| "type/AvatarURL"
+| "type/Email"
+| "type/Description"
+| "type/Comment"
+| "type/IPAddress"
+| "type/Category"
+| "type/Enum"
+| "type/Name"
+| "type/Title"
+| "type/Product"
+| "type/Company"
+| "type/Subscription"
+| "type/Source"
+| "type/CreationTemporal"
+| "type/CreationTimestamp"
+| "type/CreationTime"
+| "type/CreationDate"
+| "type/JoinTemporal"
+| "type/JoinTimestamp"
+| "type/JoinTime"
+| "type/JoinDate"
+| "type/CancelationTemporal"
+| "type/CancelationTimestamp"
+| "type/CancelationTime"
+| "type/CancelationDate"
+| "type/DeletionTemporal"
+| "type/DeletionTimestamp"
+| "type/DeletionTime"
+| "type/DeletionDate"
+| "type/UpdatedTemporal"
+| "type/UpdatedTimestamp"
+| "type/UpdatedTime"
+| "type/UpdatedDate"
+| "type/Birthdate"
+| "type/Structured"
+| "type/SerializedJSON"
+| "type/JSON"
+| "type/DruidJSON"
+| "type/XML"
+| "type/User"
+| "type/Author"
+| "type/Owner"
+| "type/FK"
+| "type/PK"
+type Output =
+| {
+status: string
+row_count?: number // int; >=0
+data?: {
+rows: unknown[]
+cols: {
+name: string
+display_name?: string
+base_type?: FieldBaseType
+semantic_type?: FieldSemanticType | null
+}[]
+}
+error?: string | null
+error_type?: string | null
+}
+| {
+ok: boolean
+errors: { path: string, message: string }[]
+sql: string | null // The compiled native query; null when it did not compile
+}
+| { query: string | unknown[], params?: unknown[] | null, collection?: string | null }
+| {
+databases: {
+id: number // int
+name: string
+engine?: string
+is_saved_questions?: boolean
+initial_sync_status?: string | null
+tables?: (
+| {
+id: number // int
+name: string
+display_name: string
+description: string | null
+db_id: number // int
+schema: string | null
+entity_type:
+| "entity/GenericTable"
+| "entity/UserTable"
+| "entity/CompanyTable"
+| "entity/TransactionTable"
+| "entity/ProductTable"
+| "entity/SubscriptionTable"
+| "entity/EventTable"
+| null
+visibility_type?: "hidden" | "technical" | "cruft" | null
+active: boolean
+is_published?: boolean
+collection_id?: number | null // int
+fields?: {
+id: number // int
+table_id: number // int
+name: string
+display_name: string
+description: string | null
+database_type?: string | null
+base_type: FieldBaseType
+semantic_type: FieldSemanticType | null
+fk_target_field_id: number | null // int
+has_field_values?: "list" | "search" | "none" | "auto-list" | null
+visibility_type?: "details-only" | "hidden" | "normal" | "retired" | "sensitive" | null
+active?: boolean
+position?: number // int
+}[]
+}
+| {
+id: string
+db_id: number // int
+display_name: string
+schema: string
+description: string | null
+type: "question" | "model" | "metric"
+moderated_status: string | null
+entity_id: string | null
+}
+)[]
+}[]
+tables: (
+| {
+id: number // int
+name: string
+display_name: string
+description: string | null
+db_id: number // int
+schema: string | null
+entity_type:
+| "entity/GenericTable"
+| "entity/UserTable"
+| "entity/CompanyTable"
+| "entity/TransactionTable"
+| "entity/ProductTable"
+| "entity/SubscriptionTable"
+| "entity/EventTable"
+| null
+visibility_type?: "hidden" | "technical" | "cruft" | null
+active: boolean
+is_published?: boolean
+collection_id?: number | null // int
+fields: {
+id: number // int
+table_id: number // int
+name: string
+display_name: string
+description: string | null
+database_type?: string | null
+base_type: FieldBaseType
+semantic_type: FieldSemanticType | null
+fk_target_field_id: number | null // int
+has_field_values?: "list" | "search" | "none" | "auto-list" | null
+visibility_type?: "details-only" | "hidden" | "normal" | "retired" | "sensitive" | null
+active?: boolean
+position?: number // int
+}[]
+}
+| {
+id: string
+db_id: number // int
+display_name: string
+schema: string
+description: string | null
+type: "question" | "model" | "metric"
+moderated_status: string | null
+entity_id: string | null
+fields: {
+id: number | ["field", string, { "base-type": FieldBaseType }]
+table_id: string
+name: string
+display_name: string
+base_type: FieldBaseType
+semantic_type: FieldSemanticType | null
+fk_target_field_id?: number | null // int
+}[]
+}
+)[]
+fields: {
+id: number // int
+table_id: number // int
+name: string
+display_name: string
+description: string | null
+database_type?: string | null
+base_type: FieldBaseType
+semantic_type: FieldSemanticType | null
+fk_target_field_id: number | null // int
+has_field_values?: "list" | "search" | "none" | "auto-list" | null
+visibility_type?: "details-only" | "hidden" | "normal" | "retired" | "sensitive" | null
+active?: boolean
+position?: number // int
+}[]
+snippets: {
+id: number // int
+name: string
+description: string | null
+content: string
+archived: boolean
+collection_id: number | null // int
+creator_id: number // int
+entity_id: string | null
+template_tags: Record<string, unknown> | null
+created_at: string
+updated_at: string
+}[]
+}

@@ -491,6 +491,7 @@ const ALL_COMMANDS = [
   "timeline-event delete",
   "eid",
   "query",
+  "schema",
   "uuid",
   "upgrade",
   "skills list",
@@ -714,6 +715,7 @@ describe("command tree contract", () => {
     const local = entries.filter((entry) => entry.requires === null).map((entry) => entry.command);
     expect(local.toSorted()).toEqual([
       "auth status",
+      "schema",
       "skills get",
       "skills list",
       "skills path",

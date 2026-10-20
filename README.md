@@ -2397,6 +2397,32 @@ There is no `--skip-validate` escape hatch here. The pre-flight queries live ser
 
 If the chained `PUT /api/dashboard/:id` fails _after_ the create has already inserted the row (rare with pre-flight in place, but possible on a permission / 5xx / network failure mid-flight), the user-facing error is rewritten to `dashboard <id> created but follow-up PUT /api/dashboard/<id> failed: <reason>; dashcards not applied`, so the caller knows the orphan exists. Recovery: `dashboard update <id> --body '{"dashcards":[...]}'` to retry the dashcards, or `dashboard update <id> --body '{"archived":true}'` to archive the orphan.
 
+## Schemas
+
+### `mb schema <command> [subcommand]`
+
+Print the contract of another command. By default that is the JSON body it accepts, written as TypeScript type declarations. TypeScript is the compact view to read before writing a body or parsing a result, so it is the default down a pipe too (`--format auto` means text here). `--json` prints the JSON Schema instead, for a validator.
+
+```sh
+mb schema card create                 # the body card create accepts, as TypeScript
+mb schema dashboard get --output      # what dashboard get prints
+mb schema card create --json          # the same body as JSON Schema (draft 2020-12)
+mb schema query                       # the MBQL 5 query schema
+```
+
+A member marked `?` may be left out, a defaulted one included. A trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, and the field's description. A schema that recurs across commands is declared once under the client's name for it (`Parameter`, `ParameterMapping`, `ParameterTarget`, `Dashcard`, `DashboardTab`, `CollectionTreeNode`, `TipTapNode`, `FieldBaseType`, `FieldSemanticType`), and the same names key the JSON Schema's `$defs`.
+
+`mb schema query` prints the MBQL 5 query schema that `query`, `card`, `transform`, `segment` and `measure` bodies are checked against. With `--json` it is the bundle `mb query --print-schema` prints.
+
+| Arg / Flag     | Description                                                                 |
+| -------------- | --------------------------------------------------------------------------- |
+| `<command>`    | The command, or the group holding it (`card`, `query`, …). Aliases resolve. |
+| `[subcommand]` | The command within that group (`create`, `get`, …).                         |
+| `--output`     | Print the schema of the command's output instead of its body.               |
+| `--json`       | Print the JSON Schema instead of TypeScript.                                |
+
+Exit codes: `0` success, `2` when the path names no command, names a group (the error lists its commands), or names a command that takes no JSON body without `--output`.
+
 ## UUIDs
 
 ### `mb uuid`

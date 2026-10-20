@@ -1,9 +1,9 @@
 import { renderUsage } from "citty";
-import type { ArgsDef, CommandDef, SubCommandsDef } from "citty";
+import type { ArgsDef, CommandDef } from "citty";
 
-import { flagSpellings, readArgv, resolveCitty, toAliasArray } from "../runtime/citty";
+import { flagSpellings, readArgv, resolveCitty } from "../runtime/citty";
 import { getMetabaseAugment, type SkillPointer } from "../runtime/command-augment";
-import { buildHelpEntry, buildHelpIndex } from "../runtime/command-help";
+import { buildHelpEntry, buildHelpIndex, findSubCommand } from "../runtime/command-help";
 import { jsonLine } from "./render";
 
 export const ANSI_ESC = String.fromCharCode(27);
@@ -218,11 +218,6 @@ function renderExamples(examples: readonly string[]): string {
   return ["EXAMPLES", "", ...examples.map((example) => `${LINE_PREFIX}${example}`)].join("\n");
 }
 
-interface SubCommandMatch {
-  name: string;
-  command: CommandDef;
-}
-
 interface CommandPath {
   segments: string[];
   unknownToken: string | null;
@@ -306,30 +301,4 @@ function skipFlags(rawArgs: readonly string[], start: number, argsDef: ArgsDef):
     }
   }
   return rawArgs.length;
-}
-
-async function findSubCommand(
-  subCommands: SubCommandsDef,
-  token: string,
-): Promise<SubCommandMatch | null> {
-  const direct = subCommands[token];
-  if (direct !== undefined) {
-    const command = await resolveCitty(direct);
-    if (command === undefined) {
-      return null;
-    }
-    const meta = await resolveCitty(command.meta);
-    return { name: meta?.name ?? token, command };
-  }
-  for (const [key, loader] of Object.entries(subCommands)) {
-    const command = await resolveCitty(loader);
-    if (command === undefined) {
-      continue;
-    }
-    const meta = await resolveCitty(command.meta);
-    if (toAliasArray(meta?.alias).includes(token)) {
-      return { name: meta?.name ?? key, command };
-    }
-  }
-  return null;
 }

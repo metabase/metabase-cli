@@ -1,0 +1,15 @@
+// mb schema snippet get --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+name: string
+description: string | null
+content: string
+archived: boolean
+collection_id: number | null // int
+creator_id: number // int
+entity_id: string | null
+template_tags: Record<string, unknown> | null
+created_at: string
+updated_at: string
+}

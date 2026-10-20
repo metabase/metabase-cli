@@ -1,0 +1,3 @@
+// mb schema content-translation download --output
+// The raw content translation dictionary CSV.
+type Output = string

@@ -16,6 +16,7 @@ import {
   assertNotLegacyEnvelopeWrappingMbql5,
   getQuerySchemaBundle,
   isMbql5Query,
+  QUERY_SCHEMA_DOCUMENT,
   validateQuery,
   ValidationOutcome,
 } from "../core/schema/validate";
@@ -81,6 +82,7 @@ export default defineMetabaseCommand({
     ...skipValidateFlag,
   },
   inputSchema: QueryBody,
+  inputJsonSchema: { documentName: QUERY_SCHEMA_DOCUMENT, bundle: getQuerySchemaBundle() },
   outputSchema: QueryOutput,
   examples: [
     "mb query --print-schema",

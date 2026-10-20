@@ -1,0 +1,7 @@
+// mb schema library unpublish --output
+type Output = {
+unpublished: true
+table_ids?: number[] // items: int
+database_ids?: number[] // items: int
+schema_ids?: string[]
+}

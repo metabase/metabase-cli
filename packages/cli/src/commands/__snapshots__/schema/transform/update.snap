@@ -1,0 +1,136 @@
+// mb schema transform update
+// Objects accept keys beyond the ones listed.
+type Input = {
+name?: string // non-empty
+description?: string | null
+source?:
+| {
+type: "query"
+query: unknown // Native SQL or MBQL query
+"source-incremental-strategy"?: {
+type: "checkpoint"
+"checkpoint-filter-field-id"?: number // int; >0
+}
+}
+| {
+type: "python"
+body: string
+"source-tables": {
+alias: string
+database_id: number // int
+schema: string | null
+table?: string
+table_id?: number | null // int
+}[]
+"source-database"?: number // int
+"source-incremental-strategy"?: {
+type: "checkpoint"
+"checkpoint-filter-field-id"?: number // int; >0
+}
+}
+target?:
+| {
+type: "table"
+database?: number // int
+schema?: string | null // non-empty
+name: string
+}
+| {
+type: "table-incremental"
+database?: number // int
+schema?: string | null // non-empty
+name: string
+"target-incremental-strategy":
+| { type: "append" }
+| {
+type: "merge"
+"unique-key": {
+name?: string // non-empty
+"field-id"?: number | null // int; >0
+}[]
+}
+}
+run_trigger?: "none" | "global-schedule"
+tag_ids?: number[] // items: int, >0
+collection_id?: number | null // int; >0
+owner_user_id?: number | null // int; >0
+owner_email?: string | null
+}
+
+// mb schema transform update --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+name: string
+description: string | null
+source:
+| {
+type: "query"
+query: unknown // Native SQL or MBQL query
+"source-incremental-strategy"?: {
+type: "checkpoint"
+"checkpoint-filter-field-id"?: number // int; >0
+}
+}
+| {
+type: "python"
+body: string
+"source-tables": {
+alias: string
+database_id: number // int
+schema: string | null
+table?: string
+table_id?: number | null // int
+}[]
+"source-database"?: number // int
+"source-incremental-strategy"?: {
+type: "checkpoint"
+"checkpoint-filter-field-id"?: number // int; >0
+}
+}
+target:
+| {
+type: "table"
+database?: number // int
+schema?: string | null // non-empty
+name: string
+}
+| {
+type: "table-incremental"
+database?: number // int
+schema?: string | null // non-empty
+name: string
+"target-incremental-strategy":
+| { type: "append" }
+| {
+type: "merge"
+"unique-key": {
+name?: string // non-empty
+"field-id"?: number | null // int; >0
+}[]
+}
+}
+source_type: "native" | "mbql" | "python"
+source_database_id?: number | null // int
+target_db_id?: number | null // int
+entity_id: string | null
+created_at: string
+updated_at: string
+creator_id: number // int
+collection_id: number | null // int
+run_trigger?: "none" | "global-schedule" | null
+last_run?:
+| {
+id: number // int
+transform_id: number // int
+run_method: "manual" | "cron"
+status: "started" | "succeeded" | "failed" | "timeout" | "canceled" | "canceling"
+start_time: string
+end_time?: string | null
+message: string | null
+user_id: number | null // int
+}
+| null
+tag_ids?: number[] // items: int
+target_table_id: number | null // int
+}

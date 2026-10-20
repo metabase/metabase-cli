@@ -16,6 +16,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       details: "see mb skills get mbql",
       skills: [],
       inputSchema: null,
+      inputJsonSchema: null,
       outputSchema: z.object({ id: z.number() }),
       requires: null,
     };
@@ -31,6 +32,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       details: null,
       skills: [],
       inputSchema: null,
+      inputJsonSchema: null,
       outputSchema: null,
       requires: null,
     };
@@ -39,6 +41,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       details: null,
       skills: [],
       inputSchema: null,
+      inputJsonSchema: null,
       outputSchema: null,
       requires: null,
     };
@@ -55,6 +58,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       details: null,
       skills: [],
       inputSchema: null,
+      inputJsonSchema: null,
       outputSchema: null,
       requires: null,
     };
@@ -63,6 +67,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       details: null,
       skills: [],
       inputSchema: null,
+      inputJsonSchema: null,
       outputSchema: null,
       requires: null,
     };
@@ -78,6 +83,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       details: null,
       skills: [],
       inputSchema: null,
+      inputJsonSchema: null,
       outputSchema: null,
       requires: null,
     };
@@ -88,6 +94,7 @@ describe("getMetabaseAugment / setMetabaseAugment", () => {
       details: null,
       skills: [],
       inputSchema: null,
+      inputJsonSchema: null,
       outputSchema: null,
       requires: null,
     });

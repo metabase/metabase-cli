@@ -1,0 +1,42 @@
+// mb schema data-action create
+// Objects accept keys beyond the ones listed.
+type Input = {
+name: string // non-empty
+type: "query"
+database_id: number // int; >0
+dataset_query: Record<string, unknown> // MBQL 5, legacy MBQL, or native query
+parameters?: {
+id: string // non-empty
+type: string // non-empty
+name?: string
+slug?: string
+target: unknown
+required?: boolean
+}[]
+collection_id?: number | null // int; >0
+description?: string | null
+visualization_settings?: unknown
+}
+
+// mb schema data-action create --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+name: string
+description: string | null
+type: string
+model_id: number | null // int
+database_id?: number | null // int
+dataset_query?: unknown
+parameters:
+| { id: string, type: string, name?: string, slug?: string, target?: unknown, required?: boolean }[]
+| null
+visualization_settings: unknown
+archived: boolean
+public_uuid: string | null
+entity_id: string | null
+creator_id: number // int
+created_at: string
+updated_at: string
+collection_id: number | null // int
+}

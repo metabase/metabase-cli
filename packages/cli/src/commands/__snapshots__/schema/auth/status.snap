@@ -1,0 +1,95 @@
+// mb schema auth status --output
+type Output = {
+profile: string
+present: boolean
+url: string | null
+method: "oauth" | "apiKey" | null
+user:
+| {
+id: number // int
+name: string
+isAdmin: boolean
+}
+| null
+version:
+| {
+kind: "release"
+tag: string
+major: number // int; >=0
+patch: number // int; >=0
+}
+| { kind: "development", tag: string }
+| null
+edition: "oss" | "ee" | null
+skew: "supported" | "older-than-known" | "newer-than-known" | "development" | null
+knownRange: {
+min: number // int
+max: number // int
+}
+tokenFeatures: Record<string, boolean> | null
+features:
+| Record<(
+| "dataActionCollections"
+| "dataActionsWithoutModel"
+| "transforms"
+| "transformJobActivation"
+| "measures"
+| "library"
+| "libraryDashboards"
+| "remoteSync"
+| "remoteSyncRemoteChanges"
+| "remoteSyncCollectionsOnlyUpdate"
+| "remoteSyncExportPreflight"
+| "remoteSyncBranchGuard"
+| "remoteSyncMerge"
+| "contentTranslation"
+| "contentVerification"
+| "transformTargetTableId"
+| "transformTargetTableLinkedOnCreate"
+| "transformJobRunIdIsNumeric"
+| "transformCheckpointReset"
+| "fieldDataSensitivity"
+| "fieldRemappingAppendsDisplayColumns"
+| "transformDagRuns"
+| "unifiedTransformRuns"
+| "transformTests"
+| "libraryChildrenCarryType"
+| "collectionItemsTotalOnEmptyPage"
+| "invalidMbqlIsBadRequest"
+| "boxplotDisplay"
+| "nativeTableTemplateTag"
+| "smartLinkMeasureModel"
+| "dashboardSubscriptionFilters"
+| "dependencyGraph"
+| "dependencyItemListings"
+| "dependencyAsyncBackfill"
+| "measureDependencyGraph"
+| "tableListAccessFilters"
+| "tableListTransformTargets"
+| "tableListPublishedFilter"
+| "tableUnusedFilter"
+| "tableDataLayerTiers"
+| "bulkTableEdit"
+| "tableUserValueWithdrawal"
+| "bulkTableSync"
+| "erd"
+| "documentCopy"
+| "transformInspector"
+| "pythonLibrary"
+| "pythonTestRun"
+| "sourceReplacement"
+| "metricDefinitionQuery"
+| "metricDimensionListing"
+| "oauthFullAccessScopeUnadvertised"
+| "exportCsvByteOrderMark"
+), boolean>
+| null
+lastProbedAt: string | null // date-time; /^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$/
+lastFailure:
+| {
+at: string // date-time; /^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z))$/
+kind: "auth" | "network" | "server"
+reason: string
+}
+| null
+}

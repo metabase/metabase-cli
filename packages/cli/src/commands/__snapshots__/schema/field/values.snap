@@ -1,0 +1,8 @@
+// mb schema field values --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+values: unknown[][]
+field_id?: number // int
+has_more_values?: boolean
+has_field_values?: "list" | "search" | "none" | "auto-list"
+}

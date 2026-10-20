@@ -1,0 +1,22 @@
+// mb schema data-action archive --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+name: string
+description: string | null
+type: string
+model_id: number | null // int
+database_id?: number | null // int
+dataset_query?: unknown
+parameters:
+| { id: string, type: string, name?: string, slug?: string, target?: unknown, required?: boolean }[]
+| null
+visualization_settings: unknown
+archived: boolean
+public_uuid: string | null
+entity_id: string | null
+creator_id: number // int
+created_at: string
+updated_at: string
+collection_id: number | null // int
+}

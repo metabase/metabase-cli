@@ -1,0 +1,18 @@
+// mb schema git-sync current-task --output
+// Objects accept keys beyond the ones listed.
+type Output =
+| {
+id: number // int; >0
+sync_task_type: "import" | "export"
+status: "running" | "successful" | "errored" | "cancelled" | "timed-out" | "conflict"
+progress: number | null // 0-1
+started_at: string
+ended_at?: string | null
+last_progress_report_at?: string | null
+version?: string | null
+initiated_by?: number | null // int; >0
+cancelled?: boolean | null
+error_message?: string | null
+conflicts?: string[] | null
+}
+| { status: "idle" }

@@ -1,0 +1,50 @@
+// mb schema library create --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number | string
+name: string
+description?: string | null
+archived?: boolean
+location?: string | null
+parent_id?: number | string | null
+personal_owner_id?: number | null // int
+is_personal?: boolean
+authority_level?: "official" | null
+type?:
+| "instance-analytics"
+| "trash"
+| "library"
+| "library-data"
+| "library-metrics"
+| "library-dashboards"
+| "tenant-specific-root-collection"
+| null
+namespace?:
+| "transforms"
+| "snippets"
+| "analytics"
+| "shared-tenant-collection"
+| "tenant-specific"
+| "data-apps"
+| "data-actions"
+| null
+entity_id?: string | null
+slug?: string
+can_write?: boolean
+is_remote_synced?: boolean | null
+effective_children: {
+id: number | string
+name: string
+description: string | null
+type:
+| "instance-analytics"
+| "trash"
+| "library"
+| "library-data"
+| "library-metrics"
+| "library-dashboards"
+| "tenant-specific-root-collection"
+| null
+is_remote_synced: boolean | null
+}[]
+}

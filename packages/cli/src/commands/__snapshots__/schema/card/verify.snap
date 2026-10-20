@@ -1,0 +1,13 @@
+// mb schema card verify --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+moderated_item_id: number // int
+moderated_item_type: "card" | "dashboard"
+moderator_id: number // int
+status: "verified" | null
+text: string | null
+most_recent: boolean
+created_at: string
+updated_at: string
+}

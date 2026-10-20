@@ -1,0 +1,86 @@
+// mb schema auth login --output
+type Output = {
+profile: string
+url: string
+authenticated: boolean
+user:
+| {
+id: number // int
+name: string
+isAdmin: boolean
+}
+| null
+version:
+| {
+kind: "release"
+tag: string
+major: number // int; >=0
+patch: number // int; >=0
+}
+| { kind: "development", tag: string }
+| null
+edition: "oss" | "ee" | null
+skew: "supported" | "older-than-known" | "newer-than-known" | "development" | null
+knownRange: {
+min: number // int
+max: number // int
+}
+tokenFeatures: Record<string, boolean> | null
+features:
+| Record<(
+| "dataActionCollections"
+| "dataActionsWithoutModel"
+| "transforms"
+| "transformJobActivation"
+| "measures"
+| "library"
+| "libraryDashboards"
+| "remoteSync"
+| "remoteSyncRemoteChanges"
+| "remoteSyncCollectionsOnlyUpdate"
+| "remoteSyncExportPreflight"
+| "remoteSyncBranchGuard"
+| "remoteSyncMerge"
+| "contentTranslation"
+| "contentVerification"
+| "transformTargetTableId"
+| "transformTargetTableLinkedOnCreate"
+| "transformJobRunIdIsNumeric"
+| "transformCheckpointReset"
+| "fieldDataSensitivity"
+| "fieldRemappingAppendsDisplayColumns"
+| "transformDagRuns"
+| "unifiedTransformRuns"
+| "transformTests"
+| "libraryChildrenCarryType"
+| "collectionItemsTotalOnEmptyPage"
+| "invalidMbqlIsBadRequest"
+| "boxplotDisplay"
+| "nativeTableTemplateTag"
+| "smartLinkMeasureModel"
+| "dashboardSubscriptionFilters"
+| "dependencyGraph"
+| "dependencyItemListings"
+| "dependencyAsyncBackfill"
+| "measureDependencyGraph"
+| "tableListAccessFilters"
+| "tableListTransformTargets"
+| "tableListPublishedFilter"
+| "tableUnusedFilter"
+| "tableDataLayerTiers"
+| "bulkTableEdit"
+| "tableUserValueWithdrawal"
+| "bulkTableSync"
+| "erd"
+| "documentCopy"
+| "transformInspector"
+| "pythonLibrary"
+| "pythonTestRun"
+| "sourceReplacement"
+| "metricDefinitionQuery"
+| "metricDimensionListing"
+| "oauthFullAccessScopeUnadvertised"
+| "exportCsvByteOrderMark"
+), boolean>
+| null
+}

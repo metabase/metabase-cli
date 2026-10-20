@@ -1,0 +1,46 @@
+// mb schema alert archive --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+payload_type:
+| "notification/card"
+| "notification/dashboard"
+| "notification/system-event"
+| "notification/testing"
+payload_id: number | null // int
+payload:
+| {
+id?: number // int
+card_id: number // int
+send_condition: "has_result" | "goal_above" | "goal_below"
+send_once: boolean
+}
+| null
+active: boolean
+creator_id: number | null // int
+subscriptions: {
+id?: number // int
+type: "notification-subscription/cron" | "notification-subscription/system-event"
+cron_schedule?: string | null
+event_name?: string | null
+ui_display_type?: "cron/raw" | "cron/builder" | null
+}[]
+handlers: {
+id?: number // int
+channel_type: "channel/email" | "channel/slack" | "channel/http"
+channel_id?: number | null // int
+template_id?: number | null // int
+active?: boolean
+recipients?: {
+id?: number // int
+type:
+| "notification-recipient/user"
+| "notification-recipient/group"
+| "notification-recipient/raw-value"
+| "notification-recipient/template"
+user_id?: number | null // int
+permissions_group_id?: number | null // int
+details?: { value?: string, channel_id?: string | null } | null
+}[]
+}[]
+}

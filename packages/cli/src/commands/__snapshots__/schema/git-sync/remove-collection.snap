@@ -1,0 +1,5 @@
+// mb schema git-sync remove-collection --output
+type Output = {
+success: boolean
+task_id?: number // int; >0
+}

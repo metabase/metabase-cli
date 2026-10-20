@@ -1,0 +1,44 @@
+// mb schema collection update
+type Input = {
+name?: string // /[^\u0009\u000a\u000b\u000c\u000d\u001c\u001d\u001e\u001f\u0020\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2008\u2009\u200a\u2028\u2029\u205f\u3000]/
+description?: string | null // /[^\u0009\u000a\u000b\u000c\u000d\u001c\u001d\u001e\u001f\u0020\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2008\u2009\u200a\u2028\u2029\u205f\u3000]/
+parent_id?: number | null // int; >0
+authority_level?: "official" | null
+archived?: boolean
+}
+
+// mb schema collection update --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number | string
+name: string
+description?: string | null
+archived?: boolean
+location?: string | null
+parent_id?: number | string | null
+personal_owner_id?: number | null // int
+is_personal?: boolean
+authority_level?: "official" | null
+type?:
+| "instance-analytics"
+| "trash"
+| "library"
+| "library-data"
+| "library-metrics"
+| "library-dashboards"
+| "tenant-specific-root-collection"
+| null
+namespace?:
+| "transforms"
+| "snippets"
+| "analytics"
+| "shared-tenant-collection"
+| "tenant-specific"
+| "data-apps"
+| "data-actions"
+| null
+entity_id?: string | null
+slug?: string
+can_write?: boolean
+is_remote_synced?: boolean | null
+}

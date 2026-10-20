@@ -1,0 +1,2 @@
+// mb schema git-sync create-branch --output
+type Output = { status: "success", message: string }

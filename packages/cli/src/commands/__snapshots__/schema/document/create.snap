@@ -1,0 +1,64 @@
+// mb schema document create
+// Objects accept keys beyond the ones listed.
+type TipTapNode = {
+type: string
+text?: string
+attrs?: Record<string, unknown>
+marks?: Record<string, unknown>[]
+content?: TipTapNode[]
+}
+type Input = {
+name: string // 1-254 chars
+document: TipTapNode
+collection_id?: number | null // int; >0
+collection_position?: number | null // int; >0
+// cards to create inline, keyed by the negative placeholder id referenced from cardEmbed nodes
+cards?:
+| Record<string, {
+name: string // non-empty
+dataset_query: Record<string, unknown>
+display: string // non-empty
+visualization_settings: Record<string, unknown>
+entity_id?: string | null // non-empty
+parameters?: Record<string, unknown>[] | null
+parameter_mappings?: Record<string, unknown>[] | null
+description?: string | null // non-empty
+result_metadata?: Record<string, unknown>[] | null
+cache_ttl?: number | null // int; >0
+}>
+| null
+}
+
+// mb schema document create --output
+// Objects accept keys beyond the ones listed.
+type TipTapNode = {
+type: string
+text?: string
+attrs?: Record<string, unknown>
+marks?: Record<string, unknown>[]
+content?: TipTapNode[]
+}
+type Output = {
+id: number // int
+name: string
+document: TipTapNode | null
+entity_id: string | null
+collection_id: number | null // int
+collection_position?: number | null // int
+creator_id: number // int
+creator?:
+| {
+id: number // int
+email: string
+first_name: string | null
+last_name: string | null
+}
+| null
+archived: boolean
+can_write?: boolean
+can_delete?: boolean
+can_restore?: boolean
+is_remote_synced?: boolean
+created_at: string
+updated_at: string
+}

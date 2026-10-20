@@ -1,0 +1,6 @@
+// mb schema timeline-event delete --output
+type Output = {
+deleted: boolean
+aborted: boolean
+id: number // int
+}

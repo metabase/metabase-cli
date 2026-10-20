@@ -1,0 +1,71 @@
+// mb schema timeline update
+// Objects accept keys beyond the ones listed.
+type Input = {
+name?: string | null // non-empty
+description?: string | null
+icon?:
+| "star"
+| "cake"
+| "mail"
+| "mail_at"
+| "warning"
+| "bell"
+| "cloud"
+| "info"
+| "note"
+| "event"
+| null
+collection_id?: number | null // int; >0
+default?: boolean | null
+archived?: boolean | null
+}
+
+// mb schema timeline update --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+name: string
+description: string | null
+icon:
+| "star"
+| "cake"
+| "mail"
+| "mail_at"
+| "warning"
+| "bell"
+| "cloud"
+| "info"
+| "note"
+| "event"
+collection_id: number | null // int
+archived: boolean
+default: boolean
+creator_id: number // int
+entity_id: string
+created_at: string
+updated_at: string
+events?: {
+id: number // int
+name: string
+description: string | null
+timestamp: string
+timezone: string
+time_matters: boolean
+icon:
+| "star"
+| "cake"
+| "mail"
+| "mail_at"
+| "warning"
+| "bell"
+| "cloud"
+| "info"
+| "note"
+| "event"
+timeline_id: number // int
+archived: boolean
+creator_id: number // int
+created_at: string
+updated_at: string
+}[]
+}

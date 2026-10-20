@@ -1,0 +1,13 @@
+// mb schema transform get-run --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+transform_id: number | null // int
+run_method: "manual" | "cron"
+status: "started" | "succeeded" | "failed" | "timeout" | "canceled" | "canceling"
+is_active: boolean | null
+start_time: string
+end_time?: string | null
+message: string | null
+user_id: number | null // int
+}

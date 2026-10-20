@@ -1,0 +1,7 @@
+// mb schema git-sync has-remote-changes --output
+type Output = {
+has_changes: boolean
+remote_version: string | null
+local_version: string | null
+cached: boolean
+}

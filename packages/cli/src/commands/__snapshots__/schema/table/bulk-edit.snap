@@ -1,0 +1,56 @@
+// mb schema table bulk-edit
+type Input = {
+database_ids?: number[] // items: int, >0
+schema_ids?: string[] // items: /^[1-9]\d{0,17}:[^:]*$/
+table_ids?: number[] // items: int, >0
+data_authority?: "unconfigured" | "authoritative" | "computed" | "ingested" | null
+data_source?:
+| "unknown"
+| "ingested"
+| "metabase-transform"
+| "transform"
+| "source-data"
+| "upload"
+| null
+data_layer?: "final" | "internal" | "hidden" | null
+entity_type?:
+| "entity/GenericTable"
+| "entity/UserTable"
+| "entity/CompanyTable"
+| "entity/TransactionTable"
+| "entity/ProductTable"
+| "entity/SubscriptionTable"
+| "entity/EventTable"
+| null
+owner_email?: string | null
+owner_user_id?: number | null // int; >0
+}
+
+// mb schema table bulk-edit --output
+type Output = {
+database_ids?: number[] // items: int, >0
+schema_ids?: string[] // items: /^[1-9]\d{0,17}:[^:]*$/
+table_ids?: number[] // items: int, >0
+data_authority?: "unconfigured" | "authoritative" | "computed" | "ingested" | null
+data_source?:
+| "unknown"
+| "ingested"
+| "metabase-transform"
+| "transform"
+| "source-data"
+| "upload"
+| null
+data_layer?: "final" | "internal" | "hidden" | null
+entity_type?:
+| "entity/GenericTable"
+| "entity/UserTable"
+| "entity/CompanyTable"
+| "entity/TransactionTable"
+| "entity/ProductTable"
+| "entity/SubscriptionTable"
+| "entity/EventTable"
+| null
+owner_email?: string | null
+owner_user_id?: number | null // int; >0
+accepted: true
+}

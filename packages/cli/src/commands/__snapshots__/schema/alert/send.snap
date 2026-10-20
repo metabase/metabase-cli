@@ -1,0 +1,5 @@
+// mb schema alert send --output
+type Output = {
+id: number // int
+sent: boolean
+}

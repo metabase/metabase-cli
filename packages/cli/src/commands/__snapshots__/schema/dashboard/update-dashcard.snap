@@ -1,0 +1,52 @@
+// mb schema dashboard update-dashcard
+// Objects accept keys beyond the ones listed.
+type ParameterTarget =
+| ["dimension", ["template-tag", string | { id: string }] | [string, ...unknown[]], ...unknown[]]
+| ["variable", ["template-tag", string | { id: string }] | [string, ...unknown[]]]
+| ["text-tag", string]
+| number
+| [string, ...unknown[]]
+type ParameterMapping = {
+parameter_id: string
+target: ParameterTarget
+card_id?: number | null // int
+}
+type Input = {
+row?: number // int; >=0
+col?: number // int; >=0
+size_x?: number // int; >0
+size_y?: number // int; >0
+dashboard_tab_id?: number | null // int
+parameter_mappings?: ParameterMapping[] | null
+inline_parameters?: string[] | null // items: non-empty
+visualization_settings?: unknown
+series?: Record<string, unknown>[] | null
+}
+
+// mb schema dashboard update-dashcard --output
+// Objects accept keys beyond the ones listed.
+type ParameterTarget =
+| ["dimension", ["template-tag", string | { id: string }] | [string, ...unknown[]], ...unknown[]]
+| ["variable", ["template-tag", string | { id: string }] | [string, ...unknown[]]]
+| ["text-tag", string]
+| number
+| [string, ...unknown[]]
+type ParameterMapping = {
+parameter_id: string
+target: ParameterTarget
+card_id?: number | null // int
+}
+type Output = {
+id: number // int
+dashboard_id: number // int
+card_id: number | null // int
+dashboard_tab_id: number | null // int
+row: number // int
+col: number // int
+size_x: number // int
+size_y: number // int
+entity_id: string | null
+visualization_settings: unknown
+parameter_mappings: ParameterMapping[] | null
+inline_parameters: string[] | null
+}

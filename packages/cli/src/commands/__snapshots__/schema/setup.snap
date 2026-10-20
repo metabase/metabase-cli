@@ -1,0 +1,19 @@
+// mb schema setup
+// Objects accept keys beyond the ones listed.
+type Input = {
+token: string // non-empty
+user: {
+first_name?: string | null // non-empty
+last_name?: string | null // non-empty
+email: string // email; /^(?!\.)(?!.*\.\.)([A-Za-z0-9_'+\-\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/
+password: string // non-empty; must satisfy the server's password complexity requirements
+}
+prefs: {
+site_name: string // non-empty
+site_locale?: string | null // non-empty
+}
+}
+
+// mb schema setup --output
+// Objects accept keys beyond the ones listed.
+type Output = { id: string }

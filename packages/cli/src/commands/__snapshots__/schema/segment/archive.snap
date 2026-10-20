@@ -1,0 +1,18 @@
+// mb schema segment archive --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+name: string
+description: string | null
+archived: boolean
+table_id: number // int
+definition: unknown
+creator_id: number // int
+entity_id: string | null
+show_in_getting_started: boolean | null
+caveats: string | null
+points_of_interest: string | null
+definition_description?: string | null
+created_at: string
+updated_at: string
+}

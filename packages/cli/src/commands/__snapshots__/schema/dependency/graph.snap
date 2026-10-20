@@ -1,0 +1,100 @@
+// mb schema dependency graph --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+nodes: {
+id: number // int
+type:
+| "table"
+| "card"
+| "snippet"
+| "transform"
+| "dashboard"
+| "document"
+| "sandbox"
+| "segment"
+| "measure"
+data: {
+name?: string | null
+display_name?: string | null
+description?: string | null
+type?: "question" | "model" | "metric" | null
+display?: string | null
+database_id?: number | null // int
+db_id?: number | null // int
+schema?: string | null
+collection_id?: number | string | null
+collection?:
+| { id: number | string, name: string, authority_level: "official" | null, is_personal?: boolean }
+| null
+dashboard_id?: number | null // int
+dashboard?:
+| {
+id: number // int
+name: string
+}
+| null
+document_id?: number | null // int
+document?:
+| {
+id: number // int
+name: string
+}
+| null
+db?:
+| {
+id: number // int
+name: string
+}
+| null
+table_id?: number | null // int
+table?:
+| {
+id: number // int
+name: string
+display_name: string
+}
+| null
+view_count?: number | null // int
+}
+// values: int
+dependents_count:
+| Partial<Record<(
+| "table"
+| "snippet"
+| "transform"
+| "dashboard"
+| "document"
+| "sandbox"
+| "segment"
+| "question"
+| "model"
+| "metric"
+| "measure"
+), number>>
+| null
+}[]
+edges: {
+from_entity_type:
+| "table"
+| "card"
+| "snippet"
+| "transform"
+| "dashboard"
+| "document"
+| "sandbox"
+| "segment"
+| "measure"
+from_entity_id: number // int
+to_entity_type:
+| "table"
+| "card"
+| "snippet"
+| "transform"
+| "dashboard"
+| "document"
+| "sandbox"
+| "segment"
+| "measure"
+to_entity_id: number // int
+}[]
+}

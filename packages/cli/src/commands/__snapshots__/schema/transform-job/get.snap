@@ -1,0 +1,29 @@
+// mb schema transform-job get --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+name: string
+description: string | null
+schedule: string
+ui_display_type: "cron/raw" | "cron/builder"
+entity_id: string | null
+created_at: string
+updated_at: string
+built_in_type?: string | null
+tag_ids?: number[] // items: int
+last_run?:
+| {
+id: number // int
+job_id: number // int
+run_method: "manual" | "cron"
+status: "started" | "succeeded" | "failed" | "timeout" | "canceled"
+start_time: string
+end_time?: string | null
+message: string | null
+created_at: string
+updated_at: string
+}
+| null
+next_run?: { start_time: string } | null
+active: boolean | null
+}

@@ -1,0 +1,5 @@
+// mb schema table sync-schema --output
+type Output = {
+id: number // int
+status: "ok"
+}

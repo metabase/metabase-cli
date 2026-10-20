@@ -1,0 +1,2 @@
+// mb schema content-translation upload --output
+type Output = { success: true }

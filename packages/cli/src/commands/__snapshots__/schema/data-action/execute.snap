@@ -1,0 +1,8 @@
+// mb schema data-action execute
+type Input = { parameters: Record<string, string | number | boolean | null> }
+
+// mb schema data-action execute --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+"rows-affected": number // int
+}

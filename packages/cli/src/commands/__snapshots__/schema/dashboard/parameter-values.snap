@@ -1,0 +1,3 @@
+// mb schema dashboard parameter-values --output
+// Objects accept keys beyond the ones listed.
+type Output = { values: unknown[][], has_more_values: boolean }

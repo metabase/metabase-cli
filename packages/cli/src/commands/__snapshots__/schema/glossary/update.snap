@@ -1,0 +1,22 @@
+// mb schema glossary update
+type Input = {
+term: string // /[^\u0009\u000a\u000b\u000c\u000d\u001c\u001d\u001e\u001f\u0020\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2008\u2009\u200a\u2028\u2029\u205f\u3000]/
+definition: string // /[^\u0009\u000a\u000b\u000c\u000d\u001c\u001d\u001e\u001f\u0020\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2008\u2009\u200a\u2028\u2029\u205f\u3000]/
+}
+
+// mb schema glossary update --output
+// Objects accept keys beyond the ones listed.
+type Output = {
+id: number // int
+term: string
+definition: string
+creator_id: number // int
+creator: {
+id: number // int
+email: string
+first_name: string | null
+last_name: string | null
+}
+created_at: string
+updated_at: string
+}

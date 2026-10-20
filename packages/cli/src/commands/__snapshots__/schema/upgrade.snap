@@ -1,0 +1,19 @@
+// mb schema upgrade --output
+type Output = {
+packageName: string
+currentVersion: string
+latestVersion: string
+targetVersion: string
+updateAvailable: boolean
+changeRequired: boolean
+installMethod: "npm-global" | "npm-local" | "npx" | "dev" | "unknown"
+packageManager: "npm" | "pnpm" | "yarn" | "bun" | "unknown"
+binaryPath: string
+command:
+| {
+argv: string[] // >=1 items
+display: string
+}
+| null
+canAutoInstall: boolean
+}

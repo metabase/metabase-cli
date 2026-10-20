@@ -1,0 +1,2 @@
+// mb schema git-sync is-dirty --output
+type Output = { is_dirty: boolean }

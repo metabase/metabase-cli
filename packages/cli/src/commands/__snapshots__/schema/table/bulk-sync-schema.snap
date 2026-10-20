@@ -1,0 +1,7 @@
+// mb schema table bulk-sync-schema --output
+type Output = {
+database_ids?: number[] // items: int, >0
+schema_ids?: string[] // items: /^[1-9]\d{0,17}:[^:]*$/
+table_ids?: number[] // items: int, >0
+accepted: true
+}
