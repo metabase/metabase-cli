@@ -179,6 +179,7 @@ export {
   DatabaseGetInclude,
   DatabaseListInclude,
   DatabaseSyncResult,
+  DatabaseUpdateInput,
   DatabaseVirtualTable,
   DatabaseVirtualTableCompact,
 } from "./domain/database";
