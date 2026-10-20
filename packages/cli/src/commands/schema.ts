@@ -1,5 +1,5 @@
 import type { CommandDef } from "citty";
-import { z, type ZodType } from "zod";
+import { z } from "zod";
 
 import { CollectionTreeNode } from "@metabase/client/domain/collection";
 import { Dashcard, DashboardTab } from "@metabase/client/domain/dashboard";
@@ -15,8 +15,8 @@ import { renderTypeScript, type RenderOptions } from "../output/schema-ts";
 import { resolveCitty } from "../runtime/citty";
 import {
   getMetabaseAugment,
-  type JsonSchemaSource,
   type MetabaseAugment,
+  type SchemaContract,
 } from "../runtime/command-augment";
 import { resolveCommandPath } from "../runtime/command-help";
 import { toJsonSchema } from "../runtime/json-schema";
@@ -61,19 +61,6 @@ class SchemaNames extends z.core.$ZodRegistry<z.core.GlobalMeta> {
 }
 
 const SCHEMA_NAMES = new SchemaNames(NAMED_SCHEMAS);
-
-interface ZodContract {
-  readonly kind: "zod";
-  readonly schema: ZodType;
-  readonly side: Side;
-}
-
-interface DocumentContract {
-  readonly kind: "documents";
-  readonly source: JsonSchemaSource;
-}
-
-type Contract = ZodContract | DocumentContract;
 
 const PrintedSchema = z
   .union([z.object({ $schema: z.string() }).loose(), QuerySchemaBundle])
@@ -129,14 +116,14 @@ export async function schemaTypeScript(
   side: Side,
   mode: RenderMode = {},
 ): Promise<string> {
-  return contractTypeScript(await resolveContract(path, side), mode);
+  return contractTypeScript(await resolveContract(path, side), side, mode);
 }
 
 export async function schemaJson(path: readonly string[], side: Side): Promise<unknown> {
-  return contractJson(await resolveContract(path, side));
+  return contractJson(await resolveContract(path, side), side);
 }
 
-async function resolveContract(path: readonly string[], side: Side): Promise<Contract> {
+async function resolveContract(path: readonly string[], side: Side): Promise<SchemaContract> {
   const command = await resolveLeaf(path);
   const contract = readContract(getMetabaseAugment(command), side);
   if (contract === null) {
@@ -156,15 +143,14 @@ async function resolveLeaf(path: readonly string[]): Promise<CommandDef> {
   throw new ConfigError(`${named} is a command group; name one of its commands: ${names}`);
 }
 
-function readContract(augment: MetabaseAugment | null, side: Side): Contract | null {
+function readContract(augment: MetabaseAugment | null, side: Side): SchemaContract | null {
   if (augment === null) {
     return null;
   }
-  if (side === "input" && augment.inputJsonSchema !== null) {
-    return { kind: "documents", source: augment.inputJsonSchema };
+  if (side === "input") {
+    return augment.input;
   }
-  const schema = side === "input" ? augment.inputSchema : augment.outputSchema;
-  return schema === null ? null : { kind: "zod", schema, side };
+  return augment.outputSchema === null ? null : { kind: "zod", schema: augment.outputSchema };
 }
 
 function missingSchema(command: string, side: Side): ConfigError {
@@ -176,25 +162,25 @@ function missingSchema(command: string, side: Side): ConfigError {
   );
 }
 
-function contractJson(contract: Contract): unknown {
+function contractJson(contract: SchemaContract, side: Side): unknown {
   if (contract.kind === "documents") {
     return contract.source.bundle;
   }
   return toJsonSchema(contract.schema, {
-    io: contract.side,
+    io: side,
     reused: "ref",
     metadata: SCHEMA_NAMES,
   });
 }
 
-function contractTypeScript(contract: Contract, mode: RenderMode): string {
+function contractTypeScript(contract: SchemaContract, side: Side, mode: RenderMode): string {
   if (contract.kind === "zod") {
-    return renderTypeScript(contractJson(contract), { ...mode, name: TYPE_NAMES[contract.side] });
+    return renderTypeScript(contractJson(contract, side), { ...mode, name: TYPE_NAMES[side] });
   }
   const { documentName, bundle } = contract.source;
   return renderTypeScript(bundle.schema, {
     ...mode,
-    name: TYPE_NAMES.input,
+    name: TYPE_NAMES[side],
     documentName,
     documents: bundle.defs,
   });

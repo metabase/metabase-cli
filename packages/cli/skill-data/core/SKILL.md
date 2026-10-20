@@ -114,7 +114,7 @@ Cheapest source that answers the question wins:
 - What groups/verbs exist? → `mb --help`, then `mb <group> --help`. Add `--json` for a machine-readable `{command, description}` index (`mb --help --json` lists every command).
 - What flags does a command take? → `mb <command> --help` — flags with enums and defaults, examples, ~1 KB.
 - Body shape before authoring, output before parsing? → `mb schema <command>`: TypeScript (`?` optional, `//` bounds, defaults); `--output` for the output, `--json` for JSON Schema.
-- Flags, arg types, needed features? → `mb <command> --help --json`, whose `inputSchema` is the body's validator (`null` when it takes none).
+- Flags, arg types, needed features? → `mb <command> --help --json`, whose `inputSchema` is the body's validator (`null` when it takes none; `{command}` when too large to inline).
 
 ```bash
 mb card query --help                                    # flags, enums, defaults, examples

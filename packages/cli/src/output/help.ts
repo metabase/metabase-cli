@@ -3,7 +3,7 @@ import type { ArgsDef, CommandDef } from "citty";
 
 import { flagSpellings, readArgv, resolveCitty } from "../runtime/citty";
 import { getMetabaseAugment, type SkillPointer } from "../runtime/command-augment";
-import { buildHelpEntry, buildHelpIndex, findSubCommand } from "../runtime/command-help";
+import { buildHelpEntry, buildHelpIndex, CLI_NAME, findSubCommand } from "../runtime/command-help";
 import { jsonLine } from "./render";
 
 export const ANSI_ESC = String.fromCharCode(27);
@@ -24,8 +24,6 @@ const OPTIONS_HEADER = "OPTIONS";
 const LINE_PREFIX = "  ";
 const COLUMN_GAP = "  ";
 const COMMAND_PLACEHOLDER = "<command> [options]";
-
-const CLI_NAME = "mb";
 
 const HELP_FLAG_SPEC = "-h, --help";
 const HELP_FLAG_DESCRIPTION = "Show help for this command";
@@ -79,7 +77,7 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
     sections.push(GETTING_STARTED_HINT);
   }
   const schemas: DeclaredSchemas = {
-    body: augment !== null && (augment.inputSchema !== null || augment.inputJsonSchema !== null),
+    body: augment !== null && augment.input !== null,
     output: augment !== null && augment.outputSchema !== null,
   };
   sections.push(machineHelpHint(breadcrumb ?? cittyName, { hasSubCommands, schemas }));

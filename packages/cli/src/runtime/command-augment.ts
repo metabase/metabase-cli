@@ -26,13 +26,24 @@ interface JsonSchemaBundle {
   defs: Readonly<Record<string, unknown>>;
 }
 
+interface ZodContract {
+  kind: "zod";
+  schema: ZodType;
+}
+
+interface DocumentsContract {
+  kind: "documents";
+  source: JsonSchemaSource;
+}
+
+// What a JSON body or a command's output is held to. Only a body may be held to documents.
+export type SchemaContract = ZodContract | DocumentsContract;
+
 export interface MetabaseAugment {
   examples: readonly string[];
   details: string | null;
   skills: readonly SkillPointer[];
-  inputSchema: ZodType | null;
-  // Where set, the contract the body is held to, which `inputSchema` only points at.
-  inputJsonSchema: JsonSchemaSource | null;
+  input: SchemaContract | null;
   outputSchema: ZodType | null;
   requires: CommandRequirements | null;
 }

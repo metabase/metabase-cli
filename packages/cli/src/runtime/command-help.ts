@@ -10,6 +10,7 @@ import {
   type CommandRequirements,
   getMetabaseAugment,
   type MetabaseAugment,
+  type SchemaContract,
 } from "./command-augment";
 import { toJsonSchema } from "./json-schema";
 
@@ -30,6 +31,24 @@ const CommandHelpSkill = z.object({
 });
 type CommandHelpSkill = z.infer<typeof CommandHelpSkill>;
 
+export const CLI_NAME = "mb";
+
+// A body held to JSON Schema documents, the bundled MBQL schema among them, is too large to inline,
+// so its entry names the command that prints them.
+export const InputSchemaPointer = z
+  .object({ command: z.string() })
+  .describe(
+    "Not a JSON Schema: the command that prints the JSON Schema documents the body is checked against",
+  );
+
+export const BodyJsonSchema = z
+  .object({ $schema: z.string() })
+  .loose()
+  .describe("The JSON Schema (draft 2020-12) of the body");
+
+const CommandHelpInput = z.union([InputSchemaPointer, BodyJsonSchema]);
+type CommandHelpInput = z.infer<typeof CommandHelpInput>;
+
 const CommandHelpRequires: z.ZodType<CommandRequirements> = z.object({
   methods: z.array(z.enum(METHOD_KEYS)),
   features: z.array(z.enum(FEATURE_NAMES)),
@@ -42,7 +61,7 @@ export const CommandHelpEntry = z.object({
   skills: z.array(CommandHelpSkill),
   examples: z.array(z.string()),
   args: z.array(CommandHelpArg),
-  inputSchema: z.unknown().nullable(),
+  inputSchema: CommandHelpInput.nullable(),
   requires: CommandHelpRequires.nullable(),
 });
 export type CommandHelpEntry = z.infer<typeof CommandHelpEntry>;
@@ -64,8 +83,7 @@ const EMPTY_AUGMENT: MetabaseAugment = {
   examples: [],
   details: null,
   skills: [],
-  inputSchema: null,
-  inputJsonSchema: null,
+  input: null,
   outputSchema: null,
   requires: null,
 };
@@ -83,13 +101,23 @@ export async function buildHelpEntry<T extends ArgsDef = ArgsDef>(
     skills: Array.from(augment.skills),
     examples: Array.from(augment.examples),
     args: convertArgs(args),
-    inputSchema: augment.inputSchema ? toJsonSchema(augment.inputSchema, { io: "input" }) : null,
+    inputSchema: helpInput(augment.input, path),
     requires: augment.requires,
   };
   if (augment.details !== null) {
     entry.details = augment.details;
   }
   return entry;
+}
+
+function helpInput(input: SchemaContract | null, path: readonly string[]): CommandHelpInput | null {
+  if (input === null) {
+    return null;
+  }
+  if (input.kind === "documents") {
+    return { command: `${CLI_NAME} schema ${path.join(" ")} --json` };
+  }
+  return BodyJsonSchema.parse(toJsonSchema(input.schema, { io: "input" }));
 }
 
 export async function buildHelpIndex<T extends ArgsDef = ArgsDef>(

@@ -34,11 +34,7 @@ import { queryModeFlags, resolveQueryMode } from "./query-mode";
 import { defineMetabaseCommand } from "./runtime";
 import { skipValidateFlag } from "./validate-query";
 
-const QueryBody = z
-  .unknown()
-  .describe(
-    'The query body: {"lib/type": "mbql/query", database, stages}; full schema: mb schema query',
-  );
+const QueryBody = z.unknown();
 
 const QueryDryRunOutcome = ValidationOutcome.extend({
   sql: z.string().nullable().describe("The compiled native query; null when it did not compile"),
@@ -81,8 +77,7 @@ export default defineMetabaseCommand({
     ...queryModeFlags,
     ...skipValidateFlag,
   },
-  inputSchema: QueryBody,
-  inputJsonSchema: { documentName: QUERY_SCHEMA_DOCUMENT, bundle: getQuerySchemaBundle() },
+  inputDocuments: { documentName: QUERY_SCHEMA_DOCUMENT, bundle: getQuerySchemaBundle() },
   outputSchema: QueryOutput,
   examples: [
     "mb schema query",

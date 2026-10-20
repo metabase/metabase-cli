@@ -393,8 +393,7 @@ describe("showUsage", () => {
       examples: [],
       details: null,
       skills: [{ skill: "core", purpose: "auth and conventions" }],
-      inputSchema: null,
-      inputJsonSchema: null,
+      input: null,
       outputSchema: null,
       requires: null,
     });

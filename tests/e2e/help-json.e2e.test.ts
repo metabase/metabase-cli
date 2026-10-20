@@ -114,4 +114,16 @@ describe("--help --json e2e", () => {
     const cardQuery = await resolveCommandPath(main, ["card", "query"]);
     expect(entry).toEqual(await buildHelpEntry(cardQuery, ["card", "query"]));
   });
+
+  it("names the command that prints query's body schema instead of inlining it", async () => {
+    const result = await runCli({
+      args: ["query", "--help", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+    });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+
+    const entry = parseJson(result.stdout, CommandHelpEntry, { source: "--help --json" });
+    expect(entry.inputSchema).toEqual({ command: "mb schema query --json" });
+  });
 });

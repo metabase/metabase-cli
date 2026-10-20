@@ -37,6 +37,7 @@ import { preflightSkippedNotice, preflightUncheckedNotice, warn } from "../outpu
 import {
   type CommandRequirements,
   type JsonSchemaSource,
+  type SchemaContract,
   setMetabaseAugment,
   type SkillPointer,
 } from "../runtime/command-augment";
@@ -56,14 +57,24 @@ interface MetabaseCommandContext<A extends ArgsDef> {
   getResolvedConfig: () => Promise<ResolvedConfig>;
 }
 
-interface MetabaseCommandDef<A extends ArgsDef> {
+interface ZodBody {
+  inputSchema?: ZodType;
+  inputDocuments?: never;
+}
+
+interface DocumentsBody {
+  inputSchema?: never;
+  inputDocuments: JsonSchemaSource;
+}
+
+type MetabaseCommandDef<A extends ArgsDef> = MetabaseCommandFields<A> & (ZodBody | DocumentsBody);
+
+interface MetabaseCommandFields<A extends ArgsDef> {
   meta: CommandMeta;
   args: A;
   examples?: readonly string[];
   details?: string;
   skills?: readonly SkillPointer[];
-  inputSchema?: ZodType;
-  inputJsonSchema?: JsonSchemaSource;
   outputSchema?: ZodType;
   // `null` for a command that never reaches a server.
   requires: readonly MethodKey[] | null;
@@ -151,12 +162,18 @@ export function defineMetabaseCommand<const A extends ArgsDef>(
     examples: def.examples ?? [],
     details: def.details ? def.details : null,
     skills: def.skills ?? [],
-    inputSchema: def.inputSchema ?? null,
-    inputJsonSchema: def.inputJsonSchema ?? null,
+    input: inputContract(def),
     outputSchema: def.outputSchema ?? null,
     requires: requirements,
   });
   return cmd;
+}
+
+function inputContract(body: ZodBody | DocumentsBody): SchemaContract | null {
+  if (body.inputDocuments !== undefined) {
+    return { kind: "documents", source: body.inputDocuments };
+  }
+  return body.inputSchema === undefined ? null : { kind: "zod", schema: body.inputSchema };
 }
 
 function deriveRequirements(methods: readonly MethodKey[]): CommandRequirements {

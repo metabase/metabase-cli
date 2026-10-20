@@ -187,7 +187,7 @@ async function readAllSchemas(): Promise<ReadonlyMap<string, CommandSchemas>> {
 // of the printed type.
 async function readSchemas(segments: readonly string[]): Promise<CommandSchemas> {
   const augment = getMetabaseAugment(await resolveCommandPath(main, segments));
-  const takesBody = augment !== null && (augment.inputSchema ?? augment.inputJsonSchema) !== null;
+  const takesBody = augment !== null && augment.input !== null;
   const input = takesBody ? await schemaTypeScript(segments, "input", { strict: true }) : null;
   const output = await schemaTypeScript(segments, "output", { strict: true });
   return { segments, input, output };

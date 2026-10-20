@@ -2,13 +2,21 @@ import { defineCommand } from "citty";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { CardCreateInput } from "@metabase/client/domain/card";
 import { type MethodKey, methodRequirements } from "@metabase/client/version/requirements";
 
 import { defineMetabaseCommand } from "../commands/runtime";
 import main from "../main";
 import { getMetabaseAugment } from "./command-augment";
-import { buildHelpEntry, buildHelpIndex, resolveCommandPath } from "./command-help";
+import {
+  BodyJsonSchema,
+  buildHelpEntry,
+  buildHelpIndex,
+  InputSchemaPointer,
+  resolveCommandPath,
+} from "./command-help";
 import type { CommandHelpEntry } from "./command-help";
+import { toJsonSchema } from "./json-schema";
 
 const RequiredKeys = z.object({ required: z.array(z.string()) });
 
@@ -192,6 +200,32 @@ describe("buildHelpEntry", () => {
       },
       required: ["name"],
     });
+  });
+
+  it("emits card create's Zod body as its input-side JSON Schema", async () => {
+    const path = ["card", "create"];
+
+    const entry = await buildHelpEntry(await resolveCommandPath(main, path), path);
+
+    expect(entry.inputSchema).toEqual(toJsonSchema(CardCreateInput, { io: "input" }));
+  });
+
+  it("points query's body at mb schema rather than inlining the MBQL documents", async () => {
+    const path = ["query"];
+
+    const entry = await buildHelpEntry(await resolveCommandPath(main, path), path);
+
+    expect(entry.inputSchema).toEqual({ command: "mb schema query --json" });
+  });
+
+  it("keeps a schema pointer and a body JSON Schema from parsing as each other", () => {
+    const pointer = { command: "mb schema query --json" };
+    const schema = toJsonSchema(CardCreateInput, { io: "input" });
+
+    expect({
+      pointerAsSchema: BodyJsonSchema.safeParse(pointer).success,
+      schemaAsPointer: InputSchemaPointer.safeParse(schema).success,
+    }).toEqual({ pointerAsSchema: false, schemaAsPointer: false });
   });
 
   it("leaves a defaulted body field out of the input schema's required list", async () => {
