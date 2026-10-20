@@ -13,6 +13,7 @@ import { erdResource } from "./resources/erd";
 import { fieldResource } from "./resources/field";
 import { gitSyncResource } from "./resources/git-sync";
 import { glossaryResource } from "./resources/glossary";
+import { groupResource } from "./resources/group";
 import { libraryResource } from "./resources/library";
 import { measureResource } from "./resources/measure";
 import { metricResource } from "./resources/metric";
@@ -60,6 +61,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     field: fieldResource(transport),
     gitSync: gitSyncResource(transport),
     glossary: glossaryResource(transport),
+    group: groupResource(transport),
     library: libraryResource(transport),
     measure: measureResource(transport),
     metric: metricResource(transport),
