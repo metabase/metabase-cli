@@ -95,23 +95,23 @@ class SchemaNames extends z.core.$ZodRegistry<z.core.GlobalMeta> {
 const SCHEMA_NAMES = new SchemaNames(NAMED_SCHEMAS, null);
 
 const GATE_EFFECT_TEXT = {
-  needs: { claim: "needs", refusal: "this server rejects it" },
-  supersededBy: { claim: "read differently under", refusal: "this server reads it differently" },
+  needs: { claim: "needs", verdict: "this server rejects it" },
+  supersededBy: { claim: "read differently under", verdict: "this server reads it differently" },
+  droppedBy: { claim: "dropped by", verdict: "this server ignores it" },
 } as const satisfies Record<GateEffect, GateEffectText>;
 
 interface GateEffectText {
   readonly claim: string;
-  readonly refusal: string;
+  readonly verdict: string;
 }
 
 function gateNote(gate: InputGate, server: ServerProfile | null): string {
   const text = GATE_EFFECT_TEXT[gate.effect];
-  const availability = featureAvailability(gate.feature);
-  const feature = availability === null ? gate.feature : `${gate.feature} (${availability})`;
+  const feature = `${gate.feature} (${featureAvailability(gate.feature)})`;
   const trigger = triggerText(gate.when);
   const claim = `${text.claim} ${feature}`;
   const note = trigger === null ? claim : `${claim} ${trigger}`;
-  return server !== null && serverRefuses(gate, server) ? `${note}; ${text.refusal}` : note;
+  return server !== null && serverActsOnGate(gate, server) ? `${note}; ${text.verdict}` : note;
 }
 
 function triggerText(when: GateTrigger): string | null {
@@ -128,7 +128,7 @@ function triggerText(when: GateTrigger): string | null {
   }
 }
 
-function serverRefuses(gate: InputGate, server: ServerProfile): boolean {
+function serverActsOnGate(gate: InputGate, server: ServerProfile): boolean {
   const holds = server.features[gate.feature];
   return gate.effect === "needs" ? !holds : holds;
 }
@@ -145,7 +145,7 @@ export default defineMetabaseCommand({
     description: "Print the schema of a command's JSON body or output",
   },
   details:
-    "Names another command and prints the JSON body it accepts as TypeScript type declarations, or with --output the JSON it prints. It prints TypeScript unless --json is passed, down a pipe too, since TypeScript is the compact view to read before writing a body or parsing a result. --json prints the JSON Schema instead, for a validator. A member marked `?` may be left out, and a trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, the field's description, and, on a field only some servers take, the feature it needs, as `needs fieldDataSensitivity (v64+)`. Those notes are judged against the server the profile last probed, read from its cache with no request: `this server rejects it` follows a field that server refuses, and `this server reads it differently` a value it would take as another. `mb schema query` prints the MBQL 5 query schema that query, card, transform, segment, measure and data-action bodies are checked against.",
+    "Names another command and prints the JSON body it accepts as TypeScript type declarations, or with --output the JSON it prints. It prints TypeScript unless --json is passed, down a pipe too, since TypeScript is the compact view to read before writing a body or parsing a result. --json prints the JSON Schema instead, for a validator. A member marked `?` may be left out, and a trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, the field's description, and, on a field only some servers take, the feature it needs, as `needs fieldDataSensitivity (v64+)`. Those notes are judged against the server the profile last probed, read from its cache with no request: `this server rejects it` follows a field that server refuses, `this server reads it differently` a value it would take as another, and `this server ignores it` a field it drops unread. `mb schema query` prints the MBQL 5 query schema that query, card, transform, segment, measure and data-action bodies are checked against.",
   requires: null,
   args: {
     ...profileFlag,

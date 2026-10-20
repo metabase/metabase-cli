@@ -3,21 +3,22 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
+import { z } from "zod";
 
+import * as barrel from "@metabase/client";
 import type { HttpMethod } from "@metabase/client/http/transport";
-import { isHttpMethod } from "@metabase/client/version/openapi-drift";
+import { isHttpMethod } from "@metabase/client/testing/openapi-drift";
 import { isMethodKey, type MethodKey } from "@metabase/client/version/requirements";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const CLIENT_SRC = resolve(HERE, "..", "..", "packages", "client", "src");
 const CLIENT_ENTRY = "client.ts";
 const SOURCE_EXTENSION = ".ts";
-
 const API_PREFIX = "/api/";
-const INPUT_SUFFIX = "Input";
 const RESOURCE_SUFFIX = "Resource";
 const BODY_OPTION = "body";
 const METHOD_OPTION = "method";
+const OPTIONS_TYPE = "RequestOptions";
 const DEFAULT_METHOD: HttpMethod = "GET";
 const PATH_PARAMETER = "{}";
 
@@ -33,10 +34,37 @@ interface BodyRequest {
   readonly path: string;
 }
 
-export interface InputPairing {
+/** A method whose body is a client input schema, sent whole or through a function of it. */
+export interface PairedBody {
   readonly key: MethodKey;
-  readonly input: string;
-  readonly request: BodyRequest | null;
+  readonly request: BodyRequest;
+  readonly inputName: string;
+  readonly input: z.ZodObject<z.core.$ZodShape>;
+}
+
+/**
+ * A method that sends a body no input schema describes: `bodyType` is the declared type of the
+ * parameter the body is built from, `null` when the method builds it from something else.
+ */
+export interface UnpairedBody {
+  readonly key: MethodKey;
+  readonly bodyType: string | null;
+}
+
+export interface BodyMethods {
+  readonly paired: readonly PairedBody[];
+  readonly unpaired: readonly UnpairedBody[];
+}
+
+interface ScannedBody {
+  readonly key: MethodKey;
+  readonly request: BodyRequest;
+  readonly bodyType: string | null;
+}
+
+interface SentBody {
+  readonly request: BodyRequest;
+  readonly source: ts.ParameterDeclaration | null;
 }
 
 interface ResourceNamespace {
@@ -50,8 +78,33 @@ interface PathScope {
   readonly helpers: ReadonlyMap<string, ts.Expression>;
 }
 
-export function scanInputPairings(): InputPairing[] {
-  return resourceNamespaces().flatMap(pairingsOf);
+// The functions a method may hand its body to: those declared in the resource module or its
+// factory that are not themselves on the namespace, whose own body a sibling method's check covers.
+interface BodyHelpers {
+  readonly functions: ReadonlyMap<string, ts.FunctionDeclaration>;
+  readonly key: MethodKey;
+  readonly chain: readonly ts.FunctionDeclaration[];
+}
+
+export function scanBodyMethods(): BodyMethods {
+  const paired: PairedBody[] = [];
+  const unpaired: UnpairedBody[] = [];
+  for (const { key, request, bodyType } of resourceNamespaces().flatMap(bodiesOf)) {
+    const input = bodyType === null ? null : barrelObject(bodyType);
+    if (bodyType === null || input === null) {
+      unpaired.push({ key, bodyType });
+    } else {
+      paired.push({ key, request, inputName: bodyType, input });
+    }
+  }
+  return { paired, unpaired };
+}
+
+// An object schema naming no field, as an open query is, has nothing a server's body could lack.
+function barrelObject(name: string): z.ZodObject<z.core.$ZodShape> | null {
+  const value: unknown = Reflect.get(barrel, name);
+  const namesFields = value instanceof z.ZodObject && Object.keys(value.shape).length > 0;
+  return namesFields ? value : null;
 }
 
 function parseSource(file: string): ts.SourceFile {
@@ -97,7 +150,7 @@ function importedModules(source: ts.SourceFile): Map<string, string> {
   return modules;
 }
 
-function pairingsOf({ namespace, factory, file }: ResourceNamespace): InputPairing[] {
+function bodiesOf({ namespace, factory, file }: ResourceNamespace): ScannedBody[] {
   const source = parseSource(file);
   const definition = source.statements.find(
     (statement): statement is ts.FunctionDeclaration =>
@@ -107,12 +160,13 @@ function pairingsOf({ namespace, factory, file }: ResourceNamespace): InputPairi
     throw new Error(`${file}: no function ${factory}`);
   }
   const factoryBody = definition.body;
-  const functions = localFunctions(factoryBody.statements);
+  const functions = new Map([
+    ...localFunctions(source.statements),
+    ...localFunctions(factoryBody.statements),
+  ]);
   const surface = returnedObject(factoryBody, file);
-  const fileScope = pathScope(source.statements);
-  const factoryScope = pathScope(factoryBody.statements);
-
-  return surface.properties.flatMap((property) => {
+  const fileScope = mergeScopes(pathScope(source.statements), pathScope(factoryBody.statements));
+  const methods = surface.properties.map((property) => {
     if (property.name === undefined) {
       throw new Error(`${file}: ${namespace} spreads a property the scan cannot name`);
     }
@@ -120,23 +174,30 @@ function pairingsOf({ namespace, factory, file }: ResourceNamespace): InputPairi
     if (!isMethodKey(key)) {
       throw new Error(`${file}: ${key} is not a method key`);
     }
-    const implementation = functions.get(implementingFunction(property, key));
+    return { key, name: implementingFunction(property, key) };
+  });
+  const surfaceNames = new Set(methods.map(({ name }) => name));
+  const helpers = new Map([...functions].filter(([name]) => !surfaceNames.has(name)));
+
+  return methods.flatMap(({ key, name }) => {
+    const implementation = functions.get(name);
     if (implementation?.body === undefined) {
       throw new Error(`${file}: ${key} names no function declared in ${factory}`);
     }
-    const input = inputTypeOf(implementation, key);
-    if (input === null) {
+    const sent = sentBody(implementation, fileScope, {
+      functions: helpers,
+      key,
+      chain: [implementation],
+    });
+    if (sent === null) {
       return [];
     }
-    const methodScope = pathScope(nestedDeclarations(implementation.body));
-    const scope = mergeScopes(fileScope, factoryScope, methodScope);
-    return [{ key, input, request: bodyRequestOf(implementation.body, scope, key) }];
+    const bodyType = sent.source?.type === undefined ? null : sent.source.type.getText();
+    return [{ key, request: sent.request, bodyType }];
   });
 }
 
-function localFunctions(
-  statements: ts.NodeArray<ts.Statement>,
-): Map<string, ts.FunctionDeclaration> {
+function localFunctions(statements: readonly ts.Statement[]): Map<string, ts.FunctionDeclaration> {
   const functions = new Map<string, ts.FunctionDeclaration>();
   for (const statement of statements) {
     if (ts.isFunctionDeclaration(statement) && statement.name !== undefined) {
@@ -181,20 +242,138 @@ function wrappedFunction(value: ts.Expression): string | null {
   return wrapped !== undefined && ts.isIdentifier(wrapped) ? wrapped.text : null;
 }
 
-function inputTypeOf(implementation: ts.FunctionDeclaration, key: MethodKey): string | null {
-  const inputs = implementation.parameters.flatMap((parameter) => {
-    const type = parameter.type;
-    if (type === undefined || !ts.isTypeReferenceNode(type)) {
-      return [];
-    }
-    const name = type.typeName.getText();
-    return name.endsWith(INPUT_SUFFIX) ? [name] : [];
-  });
-  const [input, ...others] = inputs;
-  if (others.length > 0) {
-    throw new Error(`${key}: takes more than one input (${inputs.join(", ")})`);
+// The one body `fn` sends, by a request of its own or through a helper it calls, with the path
+// read in `scope` and the parameter of `fn` the body is built from.
+function sentBody(
+  fn: ts.FunctionDeclaration,
+  scope: PathScope,
+  helpers: BodyHelpers,
+): SentBody | null {
+  if (fn.body === undefined) {
+    return null;
   }
-  return input === undefined ? null : input;
+  const fnScope = mergeScopes(scope, pathScope(nestedDeclarations(fn.body)));
+  const sent: SentBody[] = [];
+  visit(fn.body, (node) => {
+    if (!ts.isCallExpression(node)) {
+      return;
+    }
+    const options = node.arguments.find((argument) => optionWith(argument, BODY_OPTION) !== null);
+    if (options !== undefined) {
+      sent.push(directBody(node, options, fn, fnScope, helpers.key));
+      return;
+    }
+    const helper = ts.isIdentifier(node.expression)
+      ? helpers.functions.get(node.expression.text)
+      : undefined;
+    if (helper === undefined || helpers.chain.includes(helper)) {
+      return;
+    }
+    const delegated = sentBody(helper, mergeScopes(fnScope, argumentScope(helper, node, fnScope)), {
+      ...helpers,
+      chain: [...helpers.chain, helper],
+    });
+    if (delegated !== null) {
+      sent.push({ request: delegated.request, source: callerSource(delegated, helper, node, fn) });
+    }
+  });
+  const [only, ...others] = sent;
+  if (others.length > 0) {
+    throw new Error(`${helpers.key}: sends more than one body`);
+  }
+  return only === undefined ? null : only;
+}
+
+function directBody(
+  call: ts.CallExpression,
+  options: ts.Expression,
+  fn: ts.FunctionDeclaration,
+  scope: PathScope,
+  key: MethodKey,
+): SentBody {
+  const paths = call.arguments.flatMap((argument) => {
+    const path = argument === options ? null : resolvePath(argument, scope);
+    return path !== null && path.startsWith(API_PREFIX) ? [path] : [];
+  });
+  const [path, ...otherPaths] = paths;
+  if (path === undefined || otherPaths.length > 0) {
+    throw new Error(`${key}: cannot tell which path ${call.getText()} sends its body to`);
+  }
+  const body = optionWith(options, BODY_OPTION);
+  const source = body === null ? null : sourceParameter(body, fn);
+  return { request: { method: methodOf(options, key), path }, source };
+}
+
+// A helper's parameter names stand for the paths the call passes in them, read in the caller's scope.
+function argumentScope(
+  helper: ts.FunctionDeclaration,
+  call: ts.CallExpression,
+  callerScope: PathScope,
+): PathScope {
+  const constants = new Map<string, ts.Expression>();
+  helper.parameters.forEach((parameter, index) => {
+    const argument = call.arguments[index];
+    const path = argument === undefined ? null : resolvePath(argument, callerScope);
+    if (ts.isIdentifier(parameter.name) && path !== null) {
+      constants.set(parameter.name.text, ts.factory.createStringLiteral(path));
+    }
+  });
+  return { constants, helpers: new Map() };
+}
+
+function callerSource(
+  delegated: SentBody,
+  helper: ts.FunctionDeclaration,
+  call: ts.CallExpression,
+  caller: ts.FunctionDeclaration,
+): ts.ParameterDeclaration | null {
+  if (delegated.source === null) {
+    return null;
+  }
+  const argument = call.arguments[helper.parameters.indexOf(delegated.source)];
+  return argument === undefined ? null : sourceParameter(argument, caller);
+}
+
+// The parameter of `fn` a body expression is: the parameter itself, a local bound to one, or the
+// one parameter a call is handed besides the request options, as `parseRequestBody` and a merge are.
+function sourceParameter(
+  expression: ts.Expression,
+  fn: ts.FunctionDeclaration,
+): ts.ParameterDeclaration | null {
+  const unwrapped = ts.isAwaitExpression(expression) ? expression.expression : expression;
+  if (ts.isIdentifier(unwrapped)) {
+    const parameter = parameterNamed(fn, unwrapped.text);
+    if (parameter !== null) {
+      return parameter;
+    }
+    const local = localInitializer(fn, unwrapped.text);
+    return local === null ? null : sourceParameter(local, fn);
+  }
+  if (!ts.isCallExpression(unwrapped)) {
+    return null;
+  }
+  const passed = unwrapped.arguments.flatMap((argument) => {
+    const parameter = ts.isIdentifier(argument) ? parameterNamed(fn, argument.text) : null;
+    return parameter === null || parameter.type?.getText() === OPTIONS_TYPE ? [] : [parameter];
+  });
+  const [only, ...others] = passed;
+  return only === undefined || others.length > 0 ? null : only;
+}
+
+function parameterNamed(fn: ts.FunctionDeclaration, name: string): ts.ParameterDeclaration | null {
+  const parameter = fn.parameters.find(
+    (candidate) => ts.isIdentifier(candidate.name) && candidate.name.text === name,
+  );
+  return parameter === undefined ? null : parameter;
+}
+
+function localInitializer(fn: ts.FunctionDeclaration, name: string): ts.Expression | null {
+  const declarations = fn.body === undefined ? [] : nestedDeclarations(fn.body);
+  const declaration = declarations
+    .filter(ts.isVariableStatement)
+    .flatMap((statement) => statement.declarationList.declarations)
+    .find((candidate) => ts.isIdentifier(candidate.name) && candidate.name.text === name);
+  return declaration?.initializer === undefined ? null : declaration.initializer;
 }
 
 function pathScope(statements: readonly ts.Statement[]): PathScope {
@@ -260,35 +439,6 @@ function mergeScopes(...scopes: readonly PathScope[]): PathScope {
     }
   }
   return { constants, helpers };
-}
-
-function bodyRequestOf(body: ts.Block, scope: PathScope, key: MethodKey): BodyRequest | null {
-  const calls: ts.CallExpression[] = [];
-  visit(body, (node) => {
-    if (
-      ts.isCallExpression(node) &&
-      node.arguments.some((argument) => optionWith(argument, BODY_OPTION))
-    ) {
-      calls.push(node);
-    }
-  });
-  const [call, ...others] = calls;
-  if (call === undefined) {
-    return null;
-  }
-  if (others.length > 0) {
-    throw new Error(`${key}: sends more than one body`);
-  }
-  const options = call.arguments.find((argument) => optionWith(argument, BODY_OPTION));
-  const paths = call.arguments.flatMap((argument) => {
-    const path = argument === options ? null : resolvePath(argument, scope);
-    return path !== null && path.startsWith(API_PREFIX) ? [path] : [];
-  });
-  const [path, ...otherPaths] = paths;
-  if (path === undefined || otherPaths.length > 0) {
-    throw new Error(`${key}: cannot tell which path ${call.getText()} sends its body to`);
-  }
-  return { method: methodOf(options, key), path };
 }
 
 function optionWith(argument: ts.Node | undefined, option: string): ts.Expression | null {

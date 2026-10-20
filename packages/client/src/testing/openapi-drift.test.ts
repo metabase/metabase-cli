@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { FieldUpdateInput } from "../domain/field";
+import { MeasureCreateInput } from "../domain/measure";
 import { TableUpdateInput } from "../domain/table";
-import type { FeatureName } from "./features";
+import type { FeatureName } from "../version/features";
 import { type BodyRoute, OpenApiBodies, openApiDrift } from "./openapi-drift";
 
 const FIELD_UPDATE: BodyRoute = {
@@ -19,7 +20,19 @@ const TABLE_UPDATE: BodyRoute = {
   input: TableUpdateInput,
 };
 
+const MEASURE_CREATE: BodyRoute = {
+  key: "measure.create",
+  method: "POST",
+  path: "/api/measure",
+  input: MeasureCreateInput,
+};
+
+type OperationKey = "put" | "post";
+
 const FIELD_UPDATE_FIELDS = Object.keys(FieldUpdateInput.shape);
+const MEASURE_CREATE_FIELDS_BUT_TABLE = Object.keys(MeasureCreateInput.shape).filter(
+  (field) => field !== "table_id",
+);
 const BODY_COMPONENT = "update-body";
 
 function holdsEvery(): boolean {
@@ -34,12 +47,16 @@ function propertiesOf(fields: readonly string[]): Record<string, object> {
   return Object.fromEntries(fields.map((field) => [field, {}]));
 }
 
-function specDeclaring(path: string, fields: readonly string[]): OpenApiBodies {
+function specDeclaring(
+  path: string,
+  fields: readonly string[],
+  operation: OperationKey = "put",
+): OpenApiBodies {
   const half = Math.ceil(fields.length / 2);
   return OpenApiBodies.parse({
     paths: {
       [path]: {
-        put: {
+        [operation]: {
           requestBody: {
             content: {
               "application/json": { schema: { $ref: `#/components/schemas/${BODY_COMPONENT}` } },
@@ -113,6 +130,32 @@ describe("openApiDrift", () => {
     expect(openApiDrift(spec, [FIELD_UPDATE], holdsEvery)).toEqual({
       missingRoutes: [],
       missing: [{ key: "field.update", field: "data_sensitivity" }],
+      excused: [],
+      extras: [],
+      unchecked: [],
+      checked: 1,
+    });
+  });
+
+  it("excuses a field a server drops when it holds the feature that drops it", () => {
+    const spec = specDeclaring("/api/measure", MEASURE_CREATE_FIELDS_BUT_TABLE, "post");
+
+    expect(openApiDrift(spec, [MEASURE_CREATE], holdsEvery)).toEqual({
+      missingRoutes: [],
+      missing: [],
+      excused: [{ key: "measure.create", field: "table_id", feature: "tableFromDefinition" }],
+      extras: [],
+      unchecked: [],
+      checked: 1,
+    });
+  });
+
+  it("names a field a server drops when it lacks the feature that drops it", () => {
+    const spec = specDeclaring("/api/measure", MEASURE_CREATE_FIELDS_BUT_TABLE, "post");
+
+    expect(openApiDrift(spec, [MEASURE_CREATE], lacks("tableFromDefinition"))).toEqual({
+      missingRoutes: [],
+      missing: [{ key: "measure.create", field: "table_id" }],
       excused: [],
       extras: [],
       unchecked: [],

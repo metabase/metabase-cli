@@ -25,6 +25,7 @@ feature:
 | "transforms"
 | "transformJobActivation"
 | "measures"
+| "tableFromDefinition"
 | "library"
 | "libraryDashboards"
 | "remoteSync"

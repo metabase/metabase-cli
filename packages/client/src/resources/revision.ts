@@ -10,7 +10,7 @@ import {
 } from "../domain/revision";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
-import type { InputGate } from "../version/input-gates";
+import { gateTriggered } from "../version/input-gates";
 import { explainer, type ParameterRequirement } from "../version/refusal";
 
 // `GET /api/revision/{entity}/{id}` answers a bare array, newest first, that the server does not
@@ -25,14 +25,10 @@ const RevisionApiRevert: z.ZodType<RevisionRevert> = z.union([
 ]);
 
 function entityFeatures(entity: RevisionEntity): ParameterRequirement[] {
-  return REVISION_ENTITY_GATES.filter((gate) => namesValue(gate, entity)).map((gate) => ({
+  return REVISION_ENTITY_GATES.filter((gate) => gateTriggered(gate, entity)).map((gate) => ({
     feature: gate.feature,
     fields: ["entity"],
   }));
-}
-
-function namesValue(gate: InputGate, value: string): boolean {
-  return gate.when.kind === "values" && gate.when.values.includes(value);
 }
 
 // Every path parameter here is an enum member or a numeric id, so no fragment needs

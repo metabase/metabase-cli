@@ -2,7 +2,7 @@
 // Objects accept keys beyond the ones listed.
 type Input = {
 name: string // non-empty
-table_id: number // int; >0
+table_id: number // int; >0; dropped by tableFromDefinition (v64+)
 definition: Record<string, unknown> // MBQL query holding the filter; MBQL 5 query checked against `mb schema query`
 description?: string | null
 }

@@ -24,6 +24,7 @@ import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import type { FeatureName } from "../version/features";
 import { CapabilityError } from "../version/capability-error";
+import { gateTriggered } from "../version/input-gates";
 import { explainer, type ParameterRequirement } from "../version/refusal";
 import { supersedingFeature } from "../version/requirement-check";
 
@@ -85,11 +86,9 @@ function dataLayerFeatures(
   value: TableDataLayer | null | undefined,
   field: keyof TableListParams | keyof TableUpdateInput,
 ): ParameterRequirement[] {
-  return isTierName(value) ? [{ feature: DATA_LAYER_TIER_GATE.feature, fields: [field] }] : [];
-}
-
-function isTierName(value: TableDataLayer | null | undefined): boolean {
-  return value !== null && value !== undefined && TableDataLayerTier.safeParse(value).success;
+  return gateTriggered(DATA_LAYER_TIER_GATE, value)
+    ? [{ feature: DATA_LAYER_TIER_GATE.feature, fields: [field] }]
+    : [];
 }
 
 const UPLOAD_UPDATE_PATHS: Record<UploadUpdateAction, string> = {
@@ -162,7 +161,7 @@ export function tableResource(transport: Transport) {
     value: TableDataLayer | null | undefined,
     options: RequestOptions,
   ): Promise<void> {
-    if (value === null || value === undefined || isTierName(value)) {
+    if (!gateTriggered(DATA_LAYER_MEDALLION_GATE, value)) {
       return;
     }
     const profile = await transport.preflightServer(options);
@@ -276,7 +275,7 @@ export function tableResource(transport: Transport) {
     value: TableUpdateInput["data_authority"],
     options: RequestOptions,
   ): Promise<void> {
-    if (value === null) {
+    if (gateTriggered(DATA_AUTHORITY_WITHDRAWAL_GATE, value)) {
       await transport.requireFeatures([DATA_AUTHORITY_WITHDRAWAL_GATE.feature], options);
     }
   }

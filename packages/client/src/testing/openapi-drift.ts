@@ -1,9 +1,10 @@
 import { z } from "zod";
 
 import type { HttpMethod } from "../http/transport";
-import type { FeatureName } from "./features";
-import { inputGatesOf } from "./input-gate-registry";
-import type { MethodKey } from "./requirements";
+import type { FeatureName } from "../version/features";
+import { inputGatesOf } from "../version/input-gate-registry";
+import type { InputGate } from "../version/input-gates";
+import type { MethodKey } from "../version/requirements";
 
 const SchemaNode = z.looseObject({
   $ref: z.string().optional(),
@@ -255,7 +256,8 @@ function componentAt(ref: string, schemas: OpenApiBodies["components"]["schemas"
 }
 
 // Only a gate on the field's presence explains its absence from a server's body: a gate on some of
-// its values leaves the field itself on every server.
+// its values leaves the field itself on every server. A server without a field it `needs` does not
+// declare it, and neither does one that holds the feature a field is `droppedBy`.
 function excusingFeature(
   field: z.core.$ZodType,
   serverHasFeature: (feature: FeatureName) => boolean,
@@ -265,8 +267,21 @@ function excusingFeature(
     return null;
   }
   const excuse = gates.find(
-    (gate) =>
-      gate.effect === "needs" && gate.when.kind === "present" && !serverHasFeature(gate.feature),
+    (gate) => gate.when.kind === "present" && excuses(gate, serverHasFeature),
   );
   return excuse === undefined ? null : excuse.feature;
+}
+
+function excuses(gate: InputGate, serverHasFeature: (feature: FeatureName) => boolean): boolean {
+  switch (gate.effect) {
+    case "needs": {
+      return !serverHasFeature(gate.feature);
+    }
+    case "droppedBy": {
+      return serverHasFeature(gate.feature);
+    }
+    case "supersededBy": {
+      return false;
+    }
+  }
 }

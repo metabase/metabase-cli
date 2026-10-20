@@ -21,6 +21,7 @@ export const FEATURE_RULES = {
   transforms: { since: 59 },
   transformJobActivation: { since: 61 },
   measures: { since: 59 },
+  tableFromDefinition: { since: 64 },
   library: { since: 59, tokenFeature: "library" },
   libraryDashboards: { since: 65 },
   remoteSync: { since: 58, tokenFeature: "remote_sync" },
@@ -85,13 +86,16 @@ export type Features = z.infer<typeof Features>;
 
 /**
  * Which servers hold `feature`, as a reader says it: the majors its rule spans and the token
- * feature it needs, each left out where every supported server meets it, and `null` when both are.
+ * feature it needs, each left out where every supported server meets it.
  */
-export function featureAvailability(feature: FeatureName): string | null {
+export function featureAvailability(feature: FeatureName): string {
   const rule: FeatureRule = FEATURE_RULES[feature];
   const token = rule.tokenFeature === undefined ? null : `token ${rule.tokenFeature}`;
   const parts = [majorSpan(rule), token].filter((part) => part !== null);
-  return parts.length === 0 ? null : parts.join(", ");
+  if (parts.length === 0) {
+    throw new Error(`${feature} holds on every supported server, so it gates nothing`);
+  }
+  return parts.join(", ");
 }
 
 function majorSpan(rule: FeatureRule): string | null {

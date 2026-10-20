@@ -197,6 +197,16 @@ describe("gate notes", () => {
     );
   });
 
+  it("says the cached server ignores a field it drops", async () => {
+    const rendered = await schemaTypeScript(["measure", "create"], "input", {
+      server: serverAt(64),
+    });
+
+    expect(rendered.split("\n")).toContain(
+      "table_id: number // int; >0; dropped by tableFromDefinition (v64+); this server ignores it",
+    );
+  });
+
   it("says the cached server rejects a field its token does not grant", async () => {
     expect(await inputLine(["subscription", "create"], serverAt(64), "parameters")).toBe(
       "parameters?: Parameter[] // needs dashboardSubscriptionFilters (token dashboard_subscription_filters) when non-empty; this server rejects it",

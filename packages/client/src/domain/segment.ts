@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { gateInput } from "../version/input-gate-registry";
+import type { InputGate } from "../version/input-gates";
+
 export const Segment = z
   .object({
     id: z.number().int(),
@@ -33,10 +36,18 @@ const SegmentDefinition = z
   .record(z.string(), z.unknown())
   .describe("MBQL query holding the filter");
 
+// A server holding the feature reads the table off the definition and its closed body drops
+// `table_id`; one without it requires the key, so every server is sent it.
+const TABLE_FROM_DEFINITION_GATE: InputGate = {
+  feature: "tableFromDefinition",
+  effect: "droppedBy",
+  when: { kind: "present" },
+};
+
 export const SegmentCreateInput = z
   .object({
     name: z.string().min(1),
-    table_id: z.number().int().positive(),
+    table_id: gateInput(z.number().int().positive(), TABLE_FROM_DEFINITION_GATE),
     definition: SegmentDefinition,
     description: z.string().nullable().optional(),
   })
