@@ -18,9 +18,12 @@ export function displayUrl(input: string): string {
 }
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+// RFC 6761 reserves every name under .localhost for loopback, and browsers treat them as secure contexts.
+const LOOPBACK_DOMAIN_SUFFIX = ".localhost";
 
 export function isLoopbackHost(hostname: string): boolean {
-  return LOOPBACK_HOSTS.has(hostname.toLowerCase());
+  const host = hostname.toLowerCase();
+  return LOOPBACK_HOSTS.has(host) || host.endsWith(LOOPBACK_DOMAIN_SUFFIX);
 }
 
 // Guard against a tampered or hostile authorization-server metadata document redirecting the
