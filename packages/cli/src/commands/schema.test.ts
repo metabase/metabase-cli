@@ -9,7 +9,7 @@ import { getQuerySchemaBundle } from "../core/schema/validate";
 import main from "../main";
 import { getMetabaseAugment } from "../runtime/command-augment";
 import { buildHelpIndex, resolveCommandPath } from "../runtime/command-help";
-import schemaCommand from "./schema";
+import schemaCommand, { schemaTypeScript } from "./schema";
 
 interface SchemaRun {
   stdout: string;
@@ -175,7 +175,6 @@ function allSchemas(): Promise<ReadonlyMap<string, CommandSchemas>> {
   return cachedSchemas;
 }
 
-// One command at a time: each run captures the process's own stdout.
 async function readAllSchemas(): Promise<ReadonlyMap<string, CommandSchemas>> {
   const schemas = new Map<string, CommandSchemas>();
   for (const command of LEAVES) {
@@ -184,18 +183,20 @@ async function readAllSchemas(): Promise<ReadonlyMap<string, CommandSchemas>> {
   return schemas;
 }
 
+// Strict, so a JSON Schema keyword the renderer does not handle fails here instead of dropping out
+// of the printed type.
 async function readSchemas(segments: readonly string[]): Promise<CommandSchemas> {
   const augment = getMetabaseAugment(await resolveCommandPath(main, segments));
   const takesBody = augment !== null && (augment.inputSchema ?? augment.inputJsonSchema) !== null;
-  const input = takesBody ? (await runSchema(segments)).stdout : null;
-  const output = (await runSchema([...segments, "--output"])).stdout;
+  const input = takesBody ? await schemaTypeScript(segments, "input", { strict: true }) : null;
+  const output = await schemaTypeScript(segments, "output", { strict: true });
   return { segments, input, output };
 }
 
 function snapshotText(schemas: CommandSchemas): string {
   const command = `mb schema ${schemas.segments.join(" ")}`;
-  const input = schemas.input === null ? [] : [`// ${command}`, schemas.input];
-  return [...input, `// ${command} --output`, schemas.output].join("\n");
+  const input = schemas.input === null ? [] : [`// ${command}\n${schemas.input}`];
+  return `${[...input, `// ${command} --output\n${schemas.output}`].join("\n\n")}\n`;
 }
 
 describe("schema snapshots", () => {

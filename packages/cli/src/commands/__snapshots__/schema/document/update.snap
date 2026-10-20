@@ -13,7 +13,7 @@ document?: TipTapNode
 collection_id?: number | null // int; >0
 collection_position?: number | null // int; >0
 archived?: boolean | null
-// cards keyed by card id; negative ids create new cards
+// keys: /^-?\d+$/; cards keyed by card id; negative ids create new cards
 cards?:
 | Record<string, {
 name: string // non-empty

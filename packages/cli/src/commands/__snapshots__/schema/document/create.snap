@@ -12,7 +12,7 @@ name: string // 1-254 chars
 document: TipTapNode
 collection_id?: number | null // int; >0
 collection_position?: number | null // int; >0
-// cards to create inline, keyed by the negative placeholder id referenced from cardEmbed nodes
+// keys: /^-\d+$/; cards to create inline, keyed by the negative placeholder id referenced from cardEmbed nodes
 cards?:
 | Record<string, {
 name: string // non-empty

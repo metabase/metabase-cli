@@ -6,6 +6,7 @@ import { parseJson } from "@metabase/client/json";
 import { renderTypeScript } from "./schema-ts";
 
 const OPEN_OBJECTS_HEADER = "// Objects accept keys beyond the ones listed.";
+const OPEN_DISPATCH_HEADER = "// A tag beyond the ones listed is accepted unchecked.";
 
 function parseFixture(text: string): unknown {
   return parseJson(text, z.unknown());
@@ -62,17 +63,92 @@ describe("renderTypeScript", () => {
     );
   });
 
-  it("keeps the constraints of union branches that print alike off the member", () => {
+  it("labels union branches that print alike by their ordinal among them", () => {
     const schema = z.strictObject({ key: z.union([z.string().min(3), z.string().max(1)]) });
-    expect(renderZodInput(schema)).toBe("type Input = { key: string }");
+    expect(renderZodInput(schema)).toBe(
+      ["type Input = {", "key: string // string #1: >=3 chars; string #2: <=1 chars", "}"].join(
+        "\n",
+      ),
+    );
   });
 
-  it("keeps the constraints of a composite union branch off the member", () => {
+  it("labels a nullable union branch by its non-null member", () => {
+    const schema = z.union([z.number().int().min(5).nullable(), z.string().max(3)]);
+    expect(renderZodInput(schema)).toBe(
+      ["// number: int, >=5; string: <=3 chars", "type Input = number | null | string"].join("\n"),
+    );
+  });
+
+  it("counts a label's ordinal past a null branch and over branches with no one-line label", () => {
+    const schema = parseFixture(`{
+      "anyOf": [
+        { "type": "integer", "minimum": 1 },
+        { "type": "null" },
+        { "type": "object", "properties": { "a": { "type": "string" } }, "additionalProperties": false, "description": "first" },
+        { "type": "object", "properties": { "b": { "type": "string" } }, "additionalProperties": false, "description": "second" }
+      ]
+    }`);
+    expect(renderInput(schema)).toBe(
+      [
+        "// number: int, >=1; object #1: first; object #2: second",
+        "type Input = number | null | { a?: string } | { b?: string }",
+      ].join("\n"),
+    );
+  });
+
+  it("labels tuples sharing a tag inside a nested union by their ordinal", () => {
+    const schema = parseFixture(`{
+      "anyOf": [
+        { "type": "string" },
+        {
+          "anyOf": [
+            { "type": "array", "prefixItems": [{ "const": "a" }, { "type": "integer" }] },
+            { "type": "array", "prefixItems": [{ "const": "a" }, { "type": "string", "minLength": 1 }] }
+          ]
+        }
+      ]
+    }`);
+    expect(renderInput(schema)).toBe(
+      [
+        '// ["a"] #1: [1]: int; ["a"] #2: [1]: non-empty',
+        'type Input = string | ["a", number] | ["a", string]',
+      ].join("\n"),
+    );
+  });
+
+  it("labels an array union branch by its printed type", () => {
     const schema = z.strictObject({
       size: z.union([z.number().int(), z.array(z.string()).min(1)]),
     });
     expect(renderZodInput(schema)).toBe(
-      ["type Input = {", "size: number | string[] // number: int", "}"].join("\n"),
+      ["type Input = {", "size: number | string[] // number: int; string[]: >=1 items", "}"].join(
+        "\n",
+      ),
+    );
+  });
+
+  it("labels a tuple union branch by its leading tag", () => {
+    const schema = z.union([
+      z.tuple([z.literal("metric"), z.number().int().positive()]),
+      z.tuple([z.enum(["+", "-"]), z.string().min(1)]),
+    ]);
+    expect(renderZodInput(schema)).toBe(
+      [
+        '// ["metric"]: [1]: int, >0; ["+" | "-"]: [1]: non-empty',
+        'type Input = ["metric", number] | ["+" | "-", string]',
+      ].join("\n"),
+    );
+  });
+
+  it("keeps the labels a nested union gave its own branches", () => {
+    const schema = {
+      anyOf: [
+        { type: "boolean" },
+        { anyOf: [{ type: "integer" }, { type: "string", minLength: 1 }] },
+      ],
+    };
+    expect(renderInput(schema)).toBe(
+      ["// number: int; string: non-empty", "type Input = boolean | number | string"].join("\n"),
     );
   });
 
@@ -226,13 +302,24 @@ describe("renderTypeScript", () => {
 
   it("makes a trailing tuple element with a default optional", () => {
     expect(renderZodInput(z.tuple([z.string(), z.number().default(1)]))).toBe(
-      "type Input = [string, number?]",
+      ["// [1]: default 1", "type Input = [string, number?]"].join("\n"),
     );
   });
 
   it("keeps a defaulted tuple element required when a required one follows it", () => {
     const schema = { prefixItems: [{ type: "number", default: 1 }, { type: "string" }] };
-    expect(renderInput(schema)).toBe("type Input = [number, string]");
+    expect(renderInput(schema)).toBe(
+      ["// [0]: default 1", "type Input = [number, string]"].join("\n"),
+    );
+  });
+
+  it("notes each tuple element's constraints and the rest's under their positions", () => {
+    const schema = z.tuple([z.literal("metric"), z.number().int().positive()], z.string().min(1));
+    expect(renderZodInput(schema)).toBe(
+      ["// [1]: int, >0; rest: non-empty", 'type Input = ["metric", number, ...string[]]'].join(
+        "\n",
+      ),
+    );
   });
 
   it("spells a bounded rest out as optional elements", () => {
@@ -248,6 +335,13 @@ describe("renderTypeScript", () => {
   it("renders a map as a Record over its key and value types", () => {
     const schema = z.record(z.string(), z.enum(["enabled", "disabled"]));
     expect(renderZodInput(schema)).toBe('type Input = Record<string, "enabled" | "disabled">');
+  });
+
+  it("notes the constraints a record puts on its keys", () => {
+    const schema = z.record(z.string().regex(/^-\d+$/), z.number());
+    expect(renderZodInput(schema)).toBe(
+      ["// keys: /^-\\d+$/", "type Input = Record<string, number>"].join("\n"),
+    );
   });
 
   it("renders a record over an enum that may leave keys out as Partial", () => {
@@ -366,6 +460,7 @@ describe("renderTypeScript", () => {
     }`);
     expect(renderInput(schema)).toBe(
       [
+        OPEN_DISPATCH_HEADER,
         'type expression = string | ["value", number] | ["+" | "-", expression, expression, ...expression[]]',
         "type Input = expression",
       ].join("\n"),
@@ -399,6 +494,54 @@ describe("renderTypeScript", () => {
         '| { strategy: "default" }',
         ")",
       ].join("\n"),
+    );
+  });
+
+  it("keeps the tag required on a property dispatch branch that is a $ref", () => {
+    const schema = parseFixture(`{
+      "$defs": {
+        "mbql": { "type": "object", "properties": { "lib/type": { "const": "mbql" } }, "additionalProperties": false },
+        "native": { "type": "object", "properties": { "lib/type": { "const": "native" } }, "additionalProperties": false }
+      },
+      "type": "object",
+      "required": ["lib/type"],
+      "properties": { "lib/type": { "enum": ["mbql", "native"] } },
+      "additionalProperties": false,
+      "allOf": [
+        { "if": { "properties": { "lib/type": { "const": "mbql" } } }, "then": { "$ref": "#/$defs/mbql" } },
+        { "if": { "properties": { "lib/type": { "const": "native" } } }, "then": { "$ref": "#/$defs/native" } }
+      ]
+    }`);
+    expect(renderInput(schema)).toBe(
+      [
+        'type mbql = { "lib/type"?: "mbql" }',
+        'type native = { "lib/type"?: "native" }',
+        'type Input = { "lib/type": "mbql" | "native" } & (mbql & { "lib/type": "mbql" } | native & { "lib/type": "native" })',
+      ].join("\n"),
+    );
+  });
+
+  it("states once that a dispatch whose base lists no tags accepts any other tag", () => {
+    const schema = parseFixture(`{
+      "type": "object",
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "card" } } },
+          "then": { "properties": { "card_id": { "type": "number" } }, "additionalProperties": false }
+        }
+      ]
+    }`);
+    expect(renderInput(schema)).toBe(
+      [OPEN_DISPATCH_HEADER, 'type Input = { kind: "card", card_id?: number }'].join("\n"),
+    );
+  });
+
+  it("renders an if/then on a type with no type of its own as every other type or the branch", () => {
+    const schema = parseFixture(
+      `{ "if": { "type": "array" }, "then": { "items": { "type": "string" } } }`,
+    );
+    expect(renderInput(schema)).toBe(
+      "type Input = Record<string, unknown> | string | number | boolean | null | string[]",
     );
   });
 

@@ -1,5 +1,6 @@
 // mb schema query
 // Objects accept keys beyond the ones listed.
+// A tag beyond the ones listed is accepted unchecked.
 // int; >=1
 type database_id = number
 // int; >=1
@@ -64,16 +65,16 @@ strategy: "num-bins"
 "source-field-join-alias"?: string
 }
 // [field, options, Field-FK-or-name]
-type field_ref = ["field", field_options, unknown]
+type field_ref = ["field", field_options, Record<string, unknown> | string | number | boolean | null | field_id]
 // [expression, options, name]
 type expression_ref = ["expression", options, string]
-// [aggregation, options, uuid] — uuid matches the lib/uuid on the aggregation clause
+// [2]: uuid; [aggregation, options, uuid] — uuid matches the lib/uuid on the aggregation clause
 type aggregation_ref = ["aggregation", options, string]
-// [metric, options, id]
+// [2]: int, >=1; [metric, options, id]
 type metric_ref = ["metric", options, number]
-// [measure, options, id]
+// [2]: int, >=1; [measure, options, id]
 type measure_ref = ["measure", options, number]
-// [segment, options, id]
+// [2]: int, >=1; [segment, options, id]
 type segment_ref = ["segment", options, number]
 // Options for string filter operators.
 type case_sensitive_options = options & { "case-sensitive"?: boolean }
@@ -92,7 +93,7 @@ mode?:
 | "simple-bytes"
 }
 type datetime_diff_unit = "second" | "minute" | "hour" | "day" | "week" | "month" | "quarter" | "year"
-// An MBQL expression clause. Either a literal value or an array [operator, options, ...args] where options is always an object.
+// ["time-interval"]: [3]: number: int; ["relative-time-interval"]: [3]: int, [5]: int; ["interval"]: [2]: int; ["datetime-add" | "datetime-subtract"]: [3]: int; ["offset"]: [3]: int; An MBQL expression clause. Either a literal value or an array [operator, options, ...args] where options is always an object.
 type expression =
 | string
 | number
@@ -226,7 +227,9 @@ type native_stage = {
 native: string
 "template-tags"?: Record<string, template_tag> | template_tag[]
 }
-type stage = mbql_stage | native_stage
+type stage =
+| mbql_stage & { "lib/type": "mbql.stage/mbql" }
+| native_stage & { "lib/type": "mbql.stage/native" }
 // A query definition in serialized pMBQL format. Contains a flat list of stages (no recursive source-query nesting). Each stage is either an MBQL structured stage or a native SQL stage.
 type Input = {
 "lib/type": "mbql/query"

@@ -3,6 +3,9 @@ import { z } from "zod";
 const TypeName = z.enum(["object", "array", "string", "number", "integer", "boolean", "null"]);
 type TypeName = z.infer<typeof TypeName>;
 
+// Every integer is a number, so a test on "number" leaves no integer for an "integer" branch.
+const JSON_TYPES = TypeName.exclude(["integer"]).options;
+
 const Literal = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 type Literal = z.infer<typeof Literal>;
 
@@ -171,8 +174,9 @@ const PROMOTED_PREFIX = "Schema";
 const ENTRY_DOCUMENT = "";
 const DISPATCH_MEMBER_KEYWORDS = ["if", "then"];
 const OPEN_OBJECTS_HEADER = "// Objects accept keys beyond the ones listed.";
+const OPEN_DISPATCH_HEADER = "// A tag beyond the ones listed is accepted unchecked.";
 
-interface RenderOptions {
+export interface RenderOptions {
   readonly name: string;
   readonly strict?: boolean;
   readonly documentName?: string;
@@ -225,10 +229,14 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
   const inlining = new Set<string>();
   const recursive = new Set<string>();
   let sawOpenObject = false;
+  let sawOpenDispatch = false;
 
   const root = convert(entry.root, entry);
   declarations.push(declaration(options.name, root));
-  const header = sawOpenObject ? [OPEN_OBJECTS_HEADER] : [];
+  const header = [
+    ...(sawOpenObject ? [OPEN_OBJECTS_HEADER] : []),
+    ...(sawOpenDispatch ? [OPEN_DISPATCH_HEADER] : []),
+  ];
   return [...header, ...declarations].join("\n");
 
   function documentFor(name: string, from: Document): Document {
@@ -397,10 +405,7 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     if (conditional.alternative !== null) {
       return unionTyped([consequent, convert(conditional.alternative, document)]);
     }
-    if (node.type === undefined) {
-      return UNTYPED;
-    }
-    const declared = declaredTypes(node);
+    const declared = node.type === undefined ? JSON_TYPES : declaredTypes(node);
     const others = declared.filter((type) => type !== tested);
     const branches = others.map((type) => convertTyped(node, type, document));
     return unionTyped(declared.includes(tested) ? [...branches, consequent] : branches);
@@ -411,6 +416,9 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     if (dispatch === null) {
       return intersectionTyped(members.map((member) => convert(member, document)));
     }
+    if (isOpenDispatch(node, dispatch)) {
+      sawOpenDispatch = true;
+    }
     const branches = dispatch.map((branch) => convertBranch(branch, document));
     const fallback = fallbackBranch(node, dispatch);
     return unionTyped(fallback === null ? branches : [...branches, fallback]);
@@ -418,8 +426,14 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
 
   function convertBranch(branch: DispatchBranch, document: Document): Typed {
     const { slot, shape } = branch;
-    if (slot.kind === "tuple" || typeof shape === "boolean" || shape.$ref !== undefined) {
+    if (slot.kind === "tuple" || typeof shape === "boolean") {
       return convert(shape, document);
+    }
+    if (shape.$ref !== undefined) {
+      const tagType = unionOf(branch.tag.map(literal));
+      const tag: TsMember = { key: slot.key, optional: false, type: tagType, notes: [] };
+      const tagged: TsObject = { kind: "object", members: [tag] };
+      return intersectionTyped([convert(shape, document), { type: tagged, notes: [] }]);
     }
     const tagged: SchemaNode = {
       ...shape,
@@ -474,16 +488,23 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
   // trailing run whose defaults fill it in; an optional element leaves no trace and renders
   // required.
   function convertTuple(node: SchemaNode, prefix: readonly Schema[], document: Document): Typed {
-    const fixed = prefix.map((element) => convert(element, document).type);
+    const elements = prefix.map((element) => convert(element, document));
+    const fixed = elements.map((element) => element.type);
+    const elementNotes = elements.flatMap((element, index) =>
+      nestedNotes(`[${index}]`, element.notes),
+    );
     const required = node.minItems ?? defaultedTailStart(prefix);
-    const rest =
-      node.items === undefined || node.items === false ? null : convert(node.items, document).type;
-    if (rest === null) {
-      return { type: tupleOf(fixed, required, null), notes: [] };
+    if (node.items === undefined || node.items === false) {
+      return { type: tupleOf(fixed, required, null), notes: elementNotes };
     }
+    const rest = convert(node.items, document);
     const spelled = Math.max(fixed.length, node.maxItems ?? required);
-    const types = [...fixed, ...Array.from({ length: spelled - fixed.length }, () => rest)];
-    return { type: tupleOf(types, required, node.maxItems === undefined ? rest : null), notes: [] };
+    const spelledRest = Array.from({ length: spelled - fixed.length }, () => rest.type);
+    const openRest = node.maxItems === undefined ? rest.type : null;
+    return {
+      type: tupleOf([...fixed, ...spelledRest], required, openRest),
+      notes: [...elementNotes, ...nestedNotes("rest", rest.notes)],
+    };
   }
 
   function convertObject(node: SchemaNode, document: Document): Typed {
@@ -498,10 +519,7 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     if (extra.type === NEVER) {
       return { type: record(STRING, NEVER, false), notes: [] };
     }
-    return {
-      type: convertRecord(node, extra.type, document),
-      notes: nestedNotes("values", extra.notes),
-    };
+    return convertRecord(node, extra, document);
   }
 
   function convertMembers(node: SchemaNode, document: Document): TsMember[] {
@@ -537,15 +555,19 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     return keyLiterals(resolved.schema, resolved.document);
   }
 
-  function convertRecord(node: SchemaNode, value: TsType, document: Document): TsRecord {
+  function convertRecord(node: SchemaNode, value: Typed, document: Document): Typed {
+    const valueNotes = nestedNotes("values", value.notes);
     if (node.propertyNames === undefined) {
-      return record(STRING, value, false);
+      return { type: record(STRING, value.type, false), notes: valueNotes };
     }
-    const keys = convert(node.propertyNames, document).type;
+    const keys = convert(node.propertyNames, document);
     const listed = keyLiterals(node.propertyNames, document);
     const required = new Set(node.required);
     const exhaustive = listed === null || listed.every((key) => required.has(String(key)));
-    return record(keys, value, !exhaustive);
+    return {
+      type: record(keys.type, value.type, !exhaustive),
+      notes: [...nestedNotes("keys", keys.notes), ...valueNotes],
+    };
   }
 }
 
@@ -707,6 +729,17 @@ function sameSlot(left: TagSlot, right: TagSlot): boolean {
   return left.key === right.key;
 }
 
+// The validator checks a tag no branch claims only against what the base says of the tag slot, so
+// a dispatch whose base lists no tags accepts any other tag with no shape checked.
+function isOpenDispatch(node: SchemaNode, dispatch: readonly DispatchBranch[]): boolean {
+  const slot = dispatch[0]?.slot;
+  if (slot === undefined) {
+    return false;
+  }
+  const base = slot.kind === "tuple" ? node.prefixItems?.[0] : node.properties?.[slot.key];
+  return base === undefined || literalValues(base) === null;
+}
+
 // A property tag the base enumerates but no branch claims still validates, with only the base shape.
 function fallbackBranch(node: SchemaNode, dispatch: readonly DispatchBranch[]): Typed | null {
   const slot = dispatch[0]?.slot;
@@ -800,22 +833,56 @@ function unionTyped(branches: readonly Typed[]): Typed {
 }
 
 function labelledNotes(branches: readonly Typed[]): string[] {
-  const labelled = branches.map((branch) => ({
-    label: branch.type.kind === "name" ? branch.type.text : null,
-    notes: branch.notes,
-  }));
-  const counts = new Map<string, number>();
-  for (const { label } of labelled) {
-    if (label !== null) {
-      counts.set(label, (counts.get(label) ?? 0) + 1);
+  const totals = new Map<string, number>();
+  const labelled = branches.map((branch) => {
+    const label = branchLabel(branch.type);
+    const ordinal = (totals.get(label) ?? 0) + 1;
+    totals.set(label, ordinal);
+    return { label, ordinal, branch };
+  });
+  return labelled.flatMap(({ label, ordinal, branch }) => {
+    if (branch.notes.length === 0 || labelsOwnNotes(branch.type)) {
+      return branch.notes;
+    }
+    const shown = totals.get(label) === 1 ? label : `${label} #${ordinal}`;
+    return [`${shown}: ${branch.notes.join(NESTED_NOTE_SEPARATOR)}`];
+  });
+}
+
+// A nested union prints flattened into this one, and has labelled its notes itself only when it
+// had more than one non-null member to tell apart.
+function labelsOwnNotes(type: TsType): boolean {
+  return type.kind === "union" && nonNullMembers(type).length > 1;
+}
+
+function branchLabel(type: TsType): string {
+  switch (type.kind) {
+    case "name": {
+      return type.text;
+    }
+    case "array": {
+      return oneLineOr(print(type), type.kind);
+    }
+    case "tuple": {
+      const head = type.elements[0];
+      return head === undefined ? type.kind : oneLineOr(`[${print(head.type)}]`, type.kind);
+    }
+    case "union": {
+      const [only, ...others] = nonNullMembers(type);
+      return only !== undefined && others.length === 0 ? branchLabel(only) : type.kind;
+    }
+    default: {
+      return type.kind;
     }
   }
-  return labelled.flatMap(({ label, notes }) => {
-    if (label === null || counts.get(label) !== 1 || notes.length === 0) {
-      return [];
-    }
-    return [`${label}: ${notes.join(NESTED_NOTE_SEPARATOR)}`];
-  });
+}
+
+function nonNullMembers(union: TsUnion): TsType[] {
+  return union.members.filter((member) => !isNull(member));
+}
+
+function oneLineOr(text: string, fallback: string): string {
+  return text.includes("\n") ? fallback : text;
 }
 
 function isNull(type: TsType): boolean {

@@ -11,7 +11,7 @@ import { ConfigError } from "@metabase/client/errors";
 import { QuerySchemaBundle } from "../core/schema/validate";
 import main from "../main";
 import { writeJson, writeText } from "../output/render";
-import { renderTypeScript } from "../output/schema-ts";
+import { renderTypeScript, type RenderOptions } from "../output/schema-ts";
 import { resolveCitty } from "../runtime/citty";
 import {
   getMetabaseAugment,
@@ -23,6 +23,8 @@ import { defineMetabaseCommand } from "./runtime";
 
 const TYPE_NAMES = { input: "Input", output: "Output" } as const;
 type Side = keyof typeof TYPE_NAMES;
+
+type RenderMode = Pick<RenderOptions, "strict">;
 
 // Each shape here recurs across commands, or reaches itself, and goes by the client's own name for
 // it, so a declaration reads as the type an importer of the client sees.
@@ -121,8 +123,12 @@ export default defineMetabaseCommand({
   },
 });
 
-export async function schemaTypeScript(path: readonly string[], side: Side): Promise<string> {
-  return contractTypeScript(await resolveContract(path, side));
+export async function schemaTypeScript(
+  path: readonly string[],
+  side: Side,
+  mode: RenderMode = {},
+): Promise<string> {
+  return contractTypeScript(await resolveContract(path, side), mode);
 }
 
 export async function schemaJson(path: readonly string[], side: Side): Promise<unknown> {
@@ -180,12 +186,13 @@ function contractJson(contract: Contract): unknown {
   });
 }
 
-function contractTypeScript(contract: Contract): string {
+function contractTypeScript(contract: Contract, mode: RenderMode): string {
   if (contract.kind === "zod") {
-    return renderTypeScript(contractJson(contract), { name: TYPE_NAMES[contract.side] });
+    return renderTypeScript(contractJson(contract), { ...mode, name: TYPE_NAMES[contract.side] });
   }
   const { documentName, bundle } = contract.source;
   return renderTypeScript(bundle.schema, {
+    ...mode,
     name: TYPE_NAMES.input,
     documentName,
     documents: bundle.defs,
