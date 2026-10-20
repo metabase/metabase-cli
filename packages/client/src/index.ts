@@ -154,6 +154,7 @@ export {
   DashboardCopyInput,
   DashboardCreateInput,
   DashboardDetail,
+  DashboardLayoutInput,
   DashboardListFilter,
   DashboardTab,
   DashboardTabCompact,

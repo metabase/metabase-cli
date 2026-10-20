@@ -1,4 +1,8 @@
-import { Dashboard, DashboardCreateInput } from "@metabase/client/domain/dashboard";
+import {
+  Dashboard,
+  DashboardCreateInput,
+  DashboardLayoutInput,
+} from "@metabase/client/domain/dashboard";
 import { dashboardView } from "../../output/views/dashboard";
 import { renderSummary } from "../../output/render";
 import { bodyInputFlags } from "../body-flags";
@@ -6,6 +10,8 @@ import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
 import { preflightDashcardCardReferences, wrapChainedDashboardWriteError } from "./preflight";
+
+const DashboardCreateBody = DashboardCreateInput.extend(DashboardLayoutInput.shape);
 
 export default defineMetabaseCommand({
   meta: {
@@ -25,7 +31,7 @@ export default defineMetabaseCommand({
     ...connectionFlags,
     ...bodyInputFlags,
   },
-  inputSchema: DashboardCreateInput,
+  inputSchema: DashboardCreateBody,
   outputSchema: Dashboard,
   examples: [
     "cat dashboard.json | mb dashboard create",

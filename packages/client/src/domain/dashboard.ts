@@ -129,8 +129,6 @@ const DashboardTabWrite = z
   })
   .loose();
 
-// The server's POST /api/dashboard takes no dashcards/tabs; the create command
-// accepts them anyway and applies them through a follow-up PUT.
 export const DashboardCreateInput = z
   .object({
     name: z.string().min(1),
@@ -139,11 +137,17 @@ export const DashboardCreateInput = z
     cache_ttl: z.number().int().positive().nullable().optional(),
     collection_id: z.number().int().positive().nullable().optional(),
     collection_position: z.number().int().positive().nullable().optional(),
+  })
+  .loose();
+export type DashboardCreateInput = z.infer<typeof DashboardCreateInput>;
+
+export const DashboardLayoutInput = z
+  .object({
     dashcards: z.array(DashcardWrite).optional(),
     tabs: z.array(DashboardTabWrite).optional(),
   })
   .loose();
-export type DashboardCreateInput = z.infer<typeof DashboardCreateInput>;
+export type DashboardLayoutInput = z.infer<typeof DashboardLayoutInput>;
 
 export const DashboardUpdateInput = z
   .object({
