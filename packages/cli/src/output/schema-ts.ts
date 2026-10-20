@@ -9,35 +9,35 @@ type Literal = z.infer<typeof Literal>;
 const SchemaNode = z.looseObject({
   $ref: z.string().optional(),
   get $defs() {
-    return z.record(z.string(), z.union([z.boolean(), SchemaNode])).optional();
+    return z.record(z.string(), Schema).optional();
   },
   type: z.union([TypeName, z.array(TypeName)]).optional(),
   const: Literal.optional(),
   enum: z.array(Literal).optional(),
   get properties() {
-    return z.record(z.string(), z.union([z.boolean(), SchemaNode])).optional();
+    return z.record(z.string(), Schema).optional();
   },
   required: z.array(z.string()).optional(),
   get additionalProperties() {
-    return z.union([z.boolean(), SchemaNode]).optional();
+    return Schema.optional();
   },
   get propertyNames() {
-    return z.union([z.boolean(), SchemaNode]).optional();
+    return Schema.optional();
   },
   get items() {
-    return z.union([z.boolean(), SchemaNode]).optional();
+    return Schema.optional();
   },
   get prefixItems() {
-    return z.array(z.union([z.boolean(), SchemaNode])).optional();
+    return z.array(Schema).optional();
   },
   get anyOf() {
-    return z.array(z.union([z.boolean(), SchemaNode])).optional();
+    return z.array(Schema).optional();
   },
   get oneOf() {
-    return z.array(z.union([z.boolean(), SchemaNode])).optional();
+    return z.array(Schema).optional();
   },
   get allOf() {
-    return z.array(z.union([z.boolean(), SchemaNode])).optional();
+    return z.array(Schema).optional();
   },
   minimum: z.number().optional(),
   exclusiveMinimum: z.number().optional(),
@@ -349,17 +349,7 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     if (node.enum !== undefined) {
       return { type: unionOf(node.enum.map(literal)), notes: [] };
     }
-    const conditional = readConditional(node);
-    const tested = conditional === null ? null : readTypeTest(conditional.test);
-    if (conditional !== null && tested === null && strict) {
-      throw new Error(
-        `unsupported "if" outside an allOf dispatch: ${JSON.stringify(conditional.test)}`,
-      );
-    }
-    const base =
-      conditional === null || tested === null
-        ? convertBase(node, declaredTypes(node), document)
-        : convertTypeTest(node, conditional, tested, document);
+    const base = convertConditionalBase(node, document);
     const composites = [
       ...(node.$ref === undefined ? [] : [convertRef(node.$ref, document)]),
       ...convertAlternatives(node, document),
@@ -373,11 +363,25 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     return alternatives.map((list) => unionTyped(list.map((branch) => convert(branch, document))));
   }
 
-  function convertBase(
-    node: SchemaNode,
-    types: readonly TypeName[],
-    document: Document,
-  ): Typed | null {
+  function convertConditionalBase(node: SchemaNode, document: Document): Typed | null {
+    const conditional = readConditional(node);
+    if (conditional === null) {
+      return convertBase(node, document);
+    }
+    const tested = readTypeTest(conditional.test);
+    if (tested !== null) {
+      return convertTypeTest(node, conditional, tested, document);
+    }
+    if (strict) {
+      throw new Error(
+        `unsupported "if" outside an allOf dispatch: ${JSON.stringify(conditional.test)}`,
+      );
+    }
+    return convertBase(node, document);
+  }
+
+  function convertBase(node: SchemaNode, document: Document): Typed | null {
+    const types = declaredTypes(node);
     if (types.length === 0) {
       return null;
     }
@@ -391,7 +395,7 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     document: Document,
   ): Typed | null {
     if (conditional.consequent === null) {
-      return convertBase(node, declaredTypes(node), document);
+      return convertBase(node, document);
     }
     const consequent = convert(narrow(conditional.consequent, tested), document);
     if (conditional.alternative !== null) {
@@ -652,24 +656,31 @@ function readBranch(member: Schema): DispatchBranch | null {
     return null;
   }
   const conditional = readConditional(member);
-  const test = conditional === null ? null : singleKeyword(conditional.test);
-  if (conditional === null || conditional.consequent === null || test === null) {
+  if (conditional === null || conditional.consequent === null) {
+    return null;
+  }
+  const test = singleKeyword(conditional.test);
+  if (test === null) {
     return null;
   }
   const shape = conditional.consequent;
   if (test.prefixItems !== undefined) {
     const [head, ...others] = test.prefixItems;
-    const tag = head === undefined || others.length > 0 ? null : literalValues(head);
+    if (head === undefined || others.length > 0) {
+      return null;
+    }
+    const tag = literalValues(head);
     return tag === null ? null : { slot: { kind: "tuple" }, tag, shape };
   }
   if (test.properties === undefined) {
     return null;
   }
   const [entry, ...others] = Object.entries(test.properties);
-  const tag = entry === undefined || others.length > 0 ? null : literalValues(entry[1]);
-  return entry === undefined || tag === null
-    ? null
-    : { slot: { kind: "property", key: entry[0] }, tag, shape };
+  if (entry === undefined || others.length > 0) {
+    return null;
+  }
+  const tag = literalValues(entry[1]);
+  return tag === null ? null : { slot: { kind: "property", key: entry[0] }, tag, shape };
 }
 
 function singleKeyword(schema: Schema): SchemaNode | null {

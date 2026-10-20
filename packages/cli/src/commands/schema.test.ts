@@ -1,6 +1,6 @@
 import { runCommand } from "citty";
 import ts from "typescript";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { parseJson } from "@metabase/client/json";
@@ -48,10 +48,6 @@ const DescribedProperties = z.object({
 const RequiredKeys = z.object({ required: z.array(z.string()) });
 
 describe("schema command", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it("prints a command's body as TypeScript by default, down a pipe too", async () => {
     const run = await runSchema(["transform-tag", "create"]);
 
