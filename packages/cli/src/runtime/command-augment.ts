@@ -15,8 +15,7 @@ export interface CommandRequirements {
 
 // A body contract written as JSON Schema documents rather than as Zod. `bundle.schema` is the
 // entry, which the documents' own `$ref`s call `documentName`; `bundle.defs` holds the documents it
-// refers to, keyed by the name those `$ref`s use. `title` names what the documents describe, and
-// `command` is the command whose body they are, so `mb schema <command>` prints them.
+// refers to, keyed by the name those `$ref`s use.
 export interface JsonSchemaSource {
   title: string;
   command: readonly string[];
@@ -29,12 +28,10 @@ interface JsonSchemaBundle {
   defs: Readonly<Record<string, unknown>>;
 }
 
-// Whether a body carries the embedded document at all, for a path only some shapes of the body hold.
 export type BodyPredicate = (body: unknown) => boolean;
 
-// A value a Zod body carries at `path` that the Zod schema leaves open and the command checks against
-// `source` instead, on every body or only on those `when` accepts. `owner` is the resource the body
-// describes, as a failed check names it.
+// A value inside a Zod body that the Zod schema leaves open and the command checks against `source`
+// instead.
 export interface EmbeddedDocument {
   owner: string;
   path: readonly string[];
@@ -53,7 +50,6 @@ interface DocumentsContract {
   source: JsonSchemaSource;
 }
 
-// What a JSON body or a command's output is held to. Only a body may be held to documents.
 export type SchemaContract = ZodContract | DocumentsContract;
 
 export interface MetabaseAugment {

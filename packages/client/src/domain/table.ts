@@ -167,7 +167,6 @@ export const TableSelectors = z
   .strict();
 export type TableSelectors = z.infer<typeof TableSelectors>;
 
-// The metadata a bulk edit sets on every selected table.
 export const TableBulkEditFields = z.object({
   data_authority: TableDataAuthorityInput,
   data_source: TableDataSource.nullable().optional(),

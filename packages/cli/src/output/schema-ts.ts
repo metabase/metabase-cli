@@ -164,7 +164,7 @@ const UNTYPED: Typed = { type: UNKNOWN, notes: [] };
 const SAFE_INTEGER_BOUND = Number.MAX_SAFE_INTEGER;
 const ONE_LINE_OBJECT_MAX = 100;
 const ONE_LINE_UNION_MAX = 90;
-const NOTE_SEPARATOR = "; ";
+export const NOTE_SEPARATOR = "; ";
 const NESTED_NOTE_SEPARATOR = ", ";
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const DEFS_POINTER = "/$defs/";
@@ -178,8 +178,6 @@ const ALTERNATIVE_KEYWORDS = ["anyOf", "oneOf", "allOf"] as const;
 const OPEN_OBJECTS_HEADER = "// Objects accept keys beyond the ones listed.";
 const OPEN_DISPATCH_HEADER = "// A tag beyond the ones listed is accepted unchecked.";
 
-// A note for the member at `path` of the entry, a property key per step, which every object
-// alternative along the way that has that key receives.
 export interface PathNote {
   readonly path: readonly string[];
   readonly note: string;
@@ -592,8 +590,7 @@ function withPathNote(root: Schema, pathNote: PathNote): Schema {
 
 type Defs = Readonly<Record<string, Schema>> | undefined;
 
-// The note joins the member's description, so it prints after every note the member's type earns. A
-// `$ref` met on the way is inlined as a noted copy, since the definition it names serves other
+// A `$ref` on the path is inlined as a noted copy, since the definition it names serves other
 // members too.
 function notePath(
   schema: Schema,
@@ -941,8 +938,6 @@ function labelledNotes(branches: readonly Typed[]): string[] {
   });
 }
 
-// A nested union prints flattened into this one, and has labelled its notes itself only when it
-// had more than one non-null member to tell apart.
 function labelsOwnNotes(type: TsType): boolean {
   return type.kind === "union" && nonNullMembers(type).length > 1;
 }

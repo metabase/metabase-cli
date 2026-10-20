@@ -24,8 +24,6 @@ const RevisionApiRevert: z.ZodType<RevisionRevert> = z.union([
   RevisionRow.transform((revision) => ({ outcome: "unchanged" as const, revision })),
 ]);
 
-// The rejection of an entity kind an older server does not revision is explained by the feature
-// that brought the kind.
 function entityFeatures(entity: RevisionEntity): ParameterRequirement[] {
   return REVISION_ENTITY_GATES.filter((gate) => namesValue(gate, entity)).map((gate) => ({
     feature: gate.feature,

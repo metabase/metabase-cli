@@ -6,16 +6,12 @@ interface FieldGates {
   readonly gates: readonly InputGate[];
 }
 
-// Set while the domain modules load and never after: the module sits outside the exports map, so
-// no embedder can add to it. A registry of the client's own keeps the gates out of the global one,
-// which every embedder's `z.toJSONSchema` reads.
+// A registry of the client's own keeps the gates out of the global one, which every embedder's
+// `z.toJSONSchema` reads.
 const inputGates = z.registry<FieldGates>();
 
-/**
- * Records that the input property `schema` takes a value some servers refuse. Answers `schema`
- * itself rather than a clone, whose parent link would make `z.toJSONSchema` hoist its children
- * into `$defs`.
- */
+// Answers `schema` itself rather than a clone, whose parent link would make `z.toJSONSchema` hoist
+// its children into `$defs`.
 export function gateInput<S extends z.core.$ZodType>(schema: S, ...gates: InputGate[]): S {
   inputGates.add(schema, { gates });
   return schema;

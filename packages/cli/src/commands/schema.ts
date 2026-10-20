@@ -22,7 +22,12 @@ import { resolveProfileName } from "../core/config";
 import { QuerySchemaBundle } from "../core/schema/validate";
 import main from "../main";
 import { writeJson, writeText } from "../output/render";
-import { type PathNote, renderTypeScript, type RenderOptions } from "../output/schema-ts";
+import {
+  NOTE_SEPARATOR,
+  type PathNote,
+  renderTypeScript,
+  type RenderOptions,
+} from "../output/schema-ts";
 import { resolveCitty } from "../runtime/citty";
 import {
   type EmbeddedDocument,
@@ -38,7 +43,6 @@ import { defineMetabaseCommand } from "./runtime";
 const TYPE_NAMES = { input: "Input", output: "Output" } as const;
 type Side = keyof typeof TYPE_NAMES;
 
-// `server` is the cached profile a gated input field is judged against, `null` when there is none.
 interface GateNotes {
   readonly server: ServerProfile | null;
 }
@@ -59,11 +63,8 @@ const NAMED_SCHEMAS = {
   FieldSemanticType,
 };
 
-const NOTE_SEPARATOR = "; ";
-
 // Zod reads every schema's metadata from the one registry it is handed, so the names sit over the
-// global registry, where the client's `.describe()` calls write, rather than hiding it. Gate notes
-// ride on `description` for the TypeScript view alone: a JSON Schema validator has no use for them.
+// global registry, where the client's `.describe()` calls write, rather than hiding it.
 class SchemaNames extends z.core.$ZodRegistry<z.core.GlobalMeta> {
   readonly #ids: ReadonlyMap<z.core.$ZodType, string>;
   readonly #gateNotes: GateNotes | null;

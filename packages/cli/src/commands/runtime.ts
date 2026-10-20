@@ -59,8 +59,6 @@ interface MetabaseCommandContext<A extends ArgsDef> {
   getResolvedConfig: () => Promise<ResolvedConfig>;
 }
 
-// Only a command that declares a Zod body can read one: `readBody` parses the body against the
-// declared `inputSchema` and checks every embedded document the command declares.
 interface BodyCommandContext<A extends ArgsDef, I> extends MetabaseCommandContext<A> {
   readBody: BodyReader<I>;
 }
@@ -87,7 +85,6 @@ interface NoBodyDef<A extends ArgsDef> extends MetabaseCommandFields<A> {
   run: CommandRun<MetabaseCommandContext<A>>;
 }
 
-// `embeddedDocuments` names the values inside the body the command checks against documents.
 interface ZodBodyDef<A extends ArgsDef, I> extends MetabaseCommandFields<A> {
   inputSchema: ZodType<I>;
   embeddedDocuments?: readonly EmbeddedDocument[];
