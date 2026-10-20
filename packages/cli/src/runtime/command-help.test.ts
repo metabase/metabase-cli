@@ -9,6 +9,8 @@ import main from "../main";
 import { buildHelpEntry, buildHelpIndex, resolveCommandPath } from "./command-help";
 import type { CommandHelpEntry } from "./command-help";
 
+const RequiredKeys = z.object({ required: z.array(z.string()) });
+
 describe("buildHelpIndex", () => {
   it("walks lazy subCommands into full-path index entries", async () => {
     const leaf = defineMetabaseCommand({
@@ -178,7 +180,7 @@ describe("buildHelpEntry", () => {
     });
   });
 
-  it("emits the JSON Schema of inputSchema for commands that declare a body contract", async () => {
+  it("emits the input-side JSON Schema of inputSchema, where a stripping object takes extra keys", async () => {
     const leaf = defineMetabaseCommand({
       meta: { name: "create", description: "create" },
       requires: [],
@@ -198,8 +200,19 @@ describe("buildHelpEntry", () => {
         name: { type: "string" },
       },
       required: ["name"],
-      additionalProperties: false,
     });
+  });
+
+  it("leaves a defaulted body field out of the input schema's required list", async () => {
+    const path = ["alert", "create"];
+
+    const entry = await buildHelpEntry(await resolveCommandPath(main, path), path);
+
+    expect(RequiredKeys.parse(entry.inputSchema).required).toEqual([
+      "payload",
+      "subscriptions",
+      "handlers",
+    ]);
   });
 
   it("forwards details for metabase commands that declare it and omits the key otherwise", async () => {

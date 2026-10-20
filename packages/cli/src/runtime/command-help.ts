@@ -81,7 +81,9 @@ export async function buildHelpEntry<T extends ArgsDef = ArgsDef>(
     skills: Array.from(augment.skills),
     examples: Array.from(augment.examples),
     args: convertArgs(args),
-    inputSchema: augment.inputSchema ? z.toJSONSchema(augment.inputSchema) : null,
+    inputSchema: augment.inputSchema
+      ? z.toJSONSchema(augment.inputSchema, { io: "input" })
+      : null,
     outputSchema: augment.outputSchema ? z.toJSONSchema(augment.outputSchema) : null,
     requires: augment.requires,
   };
