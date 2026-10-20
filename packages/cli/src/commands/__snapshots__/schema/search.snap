@@ -2,7 +2,7 @@
 type Output = {
 // The items in this window.
 data: {
-id: number | string
+id: number | string // number: int
 name: string
 model:
 | "card"

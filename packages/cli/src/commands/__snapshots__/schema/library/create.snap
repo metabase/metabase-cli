@@ -1,12 +1,12 @@
 // mb schema library create --output
 // Objects accept keys beyond the ones listed.
 type Output = {
-id: number | string
+id: number | string // number: int
 name: string
 description?: string | null
 archived?: boolean
 location?: string | null
-parent_id?: number | string | null
+parent_id?: number | string | null // number: int
 personal_owner_id?: number | null // int
 is_personal?: boolean
 authority_level?: "official" | null
@@ -33,7 +33,7 @@ slug?: string
 can_write?: boolean
 is_remote_synced?: boolean | null
 effective_children: {
-id: number | string
+id: number | string // number: int
 name: string
 description: string | null
 type:

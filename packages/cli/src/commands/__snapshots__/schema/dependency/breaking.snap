@@ -23,7 +23,7 @@ database_id?: number | null // int
 db_id?: number | null // int
 schema?: string | null
 table_id?: number | null // int
-collection_id?: number | string | null
+collection_id?: number | string | null // number: int
 dashboard_id?: number | null // int
 document_id?: number | null // int
 view_count?: number | null // int
@@ -41,7 +41,12 @@ display_name: string
 }
 | null
 collection?:
-| { id: number | string, name: string, authority_level: "official" | null, is_personal?: boolean }
+| {
+id: number | string // number: int
+name: string
+authority_level: "official" | null
+is_personal?: boolean
+}
 | null
 dashboard?:
 | {

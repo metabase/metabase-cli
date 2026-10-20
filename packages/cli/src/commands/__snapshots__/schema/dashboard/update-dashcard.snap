@@ -1,5 +1,6 @@
 // mb schema dashboard update-dashcard
 // Objects accept keys beyond the ones listed.
+// number: int
 type ParameterTarget =
 | ["dimension", ["template-tag", string | { id: string }] | [string, ...unknown[]], ...unknown[]]
 | ["variable", ["template-tag", string | { id: string }] | [string, ...unknown[]]]
@@ -25,6 +26,7 @@ series?: Record<string, unknown>[] | null
 
 // mb schema dashboard update-dashcard --output
 // Objects accept keys beyond the ones listed.
+// number: int
 type ParameterTarget =
 | ["dimension", ["template-tag", string | { id: string }] | [string, ...unknown[]], ...unknown[]]
 | ["variable", ["template-tag", string | { id: string }] | [string, ...unknown[]]]

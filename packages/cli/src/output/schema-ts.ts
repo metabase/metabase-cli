@@ -785,12 +785,36 @@ function intersectionOf(types: readonly TsType[]): TsType {
   return others.length === 0 ? only : { kind: "intersection", parts };
 }
 
-// Only a lone branch, or one beside null, passes its notes up: on any other union a note could not
-// say which branch it belongs to.
+// A lone branch, or one beside null, passes its notes up as they are. Beside other branches a note
+// has to say which branch it belongs to, so it is labelled with the branch's printed type.
 function unionTyped(branches: readonly Typed[]): Typed {
   const type = unionOf(branches.map((branch) => branch.type));
   const valued = branches.filter((branch) => !isNull(branch.type));
-  return { type, notes: valued.length === 1 ? valued.flatMap((branch) => branch.notes) : [] };
+  if (valued.length === 1) {
+    return { type, notes: valued.flatMap((branch) => branch.notes) };
+  }
+  return { type, notes: labelledNotes(valued) };
+}
+
+// Only a bare name labels a branch unambiguously; a branch printed like another, or as a composite
+// type, keeps its notes to itself.
+function labelledNotes(branches: readonly Typed[]): string[] {
+  const labelled = branches.map((branch) => ({
+    label: branch.type.kind === "name" ? branch.type.text : null,
+    notes: branch.notes,
+  }));
+  const counts = new Map<string, number>();
+  for (const { label } of labelled) {
+    if (label !== null) {
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+  }
+  return labelled.flatMap(({ label, notes }) => {
+    if (label === null || counts.get(label) !== 1 || notes.length === 0) {
+      return [];
+    }
+    return [`${label}: ${notes.join(NESTED_NOTE_SEPARATOR)}`];
+  });
 }
 
 function isNull(type: TsType): boolean {

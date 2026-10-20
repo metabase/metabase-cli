@@ -473,7 +473,7 @@ type: "question" | "model" | "metric"
 moderated_status: string | null
 entity_id: string | null
 fields: {
-id: number | ["field", string, { "base-type": FieldBaseType }]
+id: number | ["field", string, { "base-type": FieldBaseType }] // number: int
 table_id: string
 name: string
 display_name: string

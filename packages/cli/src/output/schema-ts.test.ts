@@ -50,9 +50,31 @@ describe("renderTypeScript", () => {
     );
   });
 
-  it("keeps the constraints of a union that is not nullable off the member", () => {
-    const schema = z.strictObject({ target: z.union([z.number().int(), z.string().min(1)]) });
-    expect(renderZodInput(schema)).toBe("type Input = { target: number | string }");
+  it("labels the constraints of each branch of a union with the branch's type", () => {
+    const schema = z.strictObject({
+      target: z.union([z.number().int().positive(), z.string().length(21)]).nullable(),
+    });
+    expect(renderZodInput(schema)).toBe(
+      [
+        "type Input = {",
+        "target: number | string | null // number: int, >0; string: 21 chars",
+        "}",
+      ].join("\n"),
+    );
+  });
+
+  it("keeps the constraints of union branches that print alike off the member", () => {
+    const schema = z.strictObject({ key: z.union([z.string().min(3), z.string().max(1)]) });
+    expect(renderZodInput(schema)).toBe("type Input = { key: string }");
+  });
+
+  it("keeps the constraints of a composite union branch off the member", () => {
+    const schema = z.strictObject({
+      size: z.union([z.number().int(), z.array(z.string()).min(1)]),
+    });
+    expect(renderZodInput(schema)).toBe(
+      ["type Input = {", "size: number | string[] // number: int", "}"].join("\n"),
+    );
   });
 
   it("renders a discriminated union as a union of object types", () => {
@@ -385,7 +407,7 @@ describe("renderTypeScript", () => {
     const schema = parseFixture(
       `{ "if": { "type": "integer" }, "then": { "type": "integer" }, "else": { "enum": ["current", "last"] } }`,
     );
-    expect(renderInput(schema)).toBe('type Input = number | "current" | "last"');
+    expect(renderInput(schema)).toBe('// number: int\ntype Input = number | "current" | "last"');
   });
 
   it("states once that objects accept extra keys when one does", () => {

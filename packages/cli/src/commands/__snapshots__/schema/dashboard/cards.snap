@@ -1,5 +1,6 @@
 // mb schema dashboard cards --output
 // Objects accept keys beyond the ones listed.
+// number: int
 type ParameterTarget =
 | ["dimension", ["template-tag", string | { id: string }] | [string, ...unknown[]], ...unknown[]]
 | ["variable", ["template-tag", string | { id: string }] | [string, ...unknown[]]]

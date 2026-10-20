@@ -1,5 +1,6 @@
 // mb schema card create
 // Objects accept keys beyond the ones listed.
+// number: int
 type ParameterTarget =
 | ["dimension", ["template-tag", string | { id: string }] | [string, ...unknown[]], ...unknown[]]
 | ["variable", ["template-tag", string | { id: string }] | [string, ...unknown[]]]
@@ -93,7 +94,7 @@ display: string // non-empty
 visualization_settings: Record<string, unknown>
 description?: string | null // non-empty
 entity_id?: string | null // non-empty
-collection_id?: number | string | null
+collection_id?: number | string | null // number: int, >0; string: 21 chars, collection entity_id (21-char NanoID)
 collection_position?: number | null // int; >0
 cache_ttl?: number | null // int; >0
 dashboard_id?: number | null // int; >0

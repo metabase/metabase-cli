@@ -1,7 +1,7 @@
 // mb schema collection tree --output
 // Objects accept keys beyond the ones listed.
 type CollectionTreeNode = {
-id: number | string
+id: number | string // number: int
 name: string
 description?: string | null
 archived?: boolean

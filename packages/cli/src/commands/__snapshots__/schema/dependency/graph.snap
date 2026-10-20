@@ -22,9 +22,14 @@ display?: string | null
 database_id?: number | null // int
 db_id?: number | null // int
 schema?: string | null
-collection_id?: number | string | null
+collection_id?: number | string | null // number: int
 collection?:
-| { id: number | string, name: string, authority_level: "official" | null, is_personal?: boolean }
+| {
+id: number | string // number: int
+name: string
+authority_level: "official" | null
+is_personal?: boolean
+}
 | null
 dashboard_id?: number | null // int
 dashboard?:

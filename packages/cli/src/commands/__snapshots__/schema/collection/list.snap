@@ -2,12 +2,12 @@
 type Output = {
 // The items in this window.
 data: {
-id: number | string
+id: number | string // number: int
 name: string
 description?: string | null
 archived?: boolean
 location?: string | null
-parent_id?: number | string | null
+parent_id?: number | string | null // number: int
 type?:
 | "instance-analytics"
 | "trash"

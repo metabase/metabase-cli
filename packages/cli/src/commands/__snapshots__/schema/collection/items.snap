@@ -23,7 +23,7 @@ model:
 name: string
 description?: string | null
 archived: boolean | null
-collection_id?: number | string | null
+collection_id?: number | string | null // number: int
 }[]
 returned: number // int; >=0; Number of items in `data`; a short window is not proof the walk is over.
 offset: number // int; >=0; Index of the first item in `data` within the full result set.

@@ -19,5 +19,8 @@ error_message?: string | null
 conflicts?: string[] | null
 }
 | null
-synced_collections: { id: number | string, name: string }[]
+synced_collections: {
+id: number | string // number: int
+name: string
+}[]
 }
