@@ -84,7 +84,7 @@ export default defineMetabaseCommand({
     description: "Print the schema of a command's JSON body or output",
   },
   details:
-    "Names another command and prints the JSON body it accepts as TypeScript type declarations, or with --output the JSON it prints. It prints TypeScript unless --json is passed, down a pipe too, since TypeScript is the compact view to read before writing a body or parsing a result. --json prints the JSON Schema instead, for a validator. A member marked `?` may be left out, and a trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, and the field's description. `mb schema query` prints the MBQL 5 query schema that query, card, transform, segment and measure bodies are checked against.",
+    "Names another command and prints the JSON body it accepts as TypeScript type declarations, or with --output the JSON it prints. It prints TypeScript unless --json is passed, down a pipe too, since TypeScript is the compact view to read before writing a body or parsing a result. --json prints the JSON Schema instead, for a validator. A member marked `?` may be left out, and a trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, and the field's description. `mb schema query` prints the MBQL 5 query schema that query, card, transform, segment, measure and data-action bodies are checked against.",
   requires: null,
   args: {
     json: { type: "boolean", description: "Print the JSON Schema instead of TypeScript" },
@@ -113,18 +113,30 @@ export default defineMetabaseCommand({
   async run({ args }) {
     const path = args.subcommand === undefined ? [args.command] : [args.command, args.subcommand];
     const side: Side = args.output === true ? "output" : "input";
-    const command = await resolveLeaf(path);
-    const contract = readContract(getMetabaseAugment(command), side);
-    if (contract === null) {
-      throw missingSchema(path.join(" "), side);
-    }
     if (args.json === true) {
-      writeJson(contractJson(contract));
+      writeJson(await schemaJson(path, side));
       return;
     }
-    writeText(contractTypeScript(contract));
+    writeText(await schemaTypeScript(path, side));
   },
 });
+
+export async function schemaTypeScript(path: readonly string[], side: Side): Promise<string> {
+  return contractTypeScript(await resolveContract(path, side));
+}
+
+export async function schemaJson(path: readonly string[], side: Side): Promise<unknown> {
+  return contractJson(await resolveContract(path, side));
+}
+
+async function resolveContract(path: readonly string[], side: Side): Promise<Contract> {
+  const command = await resolveLeaf(path);
+  const contract = readContract(getMetabaseAugment(command), side);
+  if (contract === null) {
+    throw missingSchema(path.join(" "), side);
+  }
+  return contract;
+}
 
 async function resolveLeaf(path: readonly string[]): Promise<CommandDef> {
   const command = await resolveCommandPath(main, path);

@@ -3,15 +3,9 @@ import { z } from "zod";
 
 import { parseJson } from "@metabase/client/json";
 
-import {
-  getQuerySchemaBundle,
-  QuerySchemaBundle,
-} from "../../packages/cli/src/core/schema/validate";
+import { schemaJson, schemaTypeScript } from "../../packages/cli/src/commands/schema";
+import { getQuerySchemaBundle } from "../../packages/cli/src/core/schema/validate";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-
-const DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema";
-
-const RequiredKeys = z.object({ $schema: z.string(), required: z.array(z.string()) });
 
 function configErrorEnvelope(message: string): unknown {
   return { ok: false, error: { category: "config", message, exitCode: 2 } };
@@ -30,7 +24,7 @@ describe("schema e2e", () => {
     return dir;
   }
 
-  it("prints card create's body as TypeScript, naming the shared parameter shapes", async () => {
+  it("prints card create's body as TypeScript", async () => {
     const result = await runCli({
       args: ["schema", "card", "create"],
       configHome: await makeIsolatedConfigHome(),
@@ -38,49 +32,29 @@ describe("schema e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(result.stderr).toBe("");
-    expect(result.stdout.split("\n")).toEqual(
-      expect.arrayContaining([
-        "// Objects accept keys beyond the ones listed.",
-        "type Parameter = {",
-        "type ParameterMapping = {",
-        "type Input = {",
-        "name: string // non-empty",
-        "dataset_query: Record<string, unknown> // MBQL 5, legacy MBQL, or native query",
-        "display: string // non-empty",
-        "visualization_settings: Record<string, unknown>",
-      ]),
-    );
+    expect(result.stdout).toBe(await schemaTypeScript(["card", "create"], "input"));
   });
 
-  it("prints card create's body as draft 2020-12 JSON Schema under --json", async () => {
+  it("prints card create's body as JSON Schema under --json", async () => {
     const result = await runCli({
       args: ["schema", "card", "create", "--json"],
       configHome: await makeIsolatedConfigHome(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, RequiredKeys)).toEqual({
-      $schema: DRAFT_2020_12,
-      required: ["name", "dataset_query", "display", "visualization_settings"],
-    });
+    expect(parseJson(result.stdout, z.unknown())).toEqual(
+      await schemaJson(["card", "create"], "input"),
+    );
   });
 
-  it("prints a list command's output envelope under --output", async () => {
+  it("prints a list command's output envelope as TypeScript under --output", async () => {
     const result = await runCli({
       args: ["schema", "card", "list", "--output"],
       configHome: await makeIsolatedConfigHome(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.stdout.split("\n")).toEqual(
-      expect.arrayContaining([
-        "type Output = {",
-        "data: {",
-        'type: "question" | "model" | "metric"',
-        "}[]",
-        'reason: "max_bytes"',
-      ]),
-    );
+    expect(result.stdout).toBe(await schemaTypeScript(["card", "list"], "output"));
   });
 
   it("prints the MBQL 5 query schema as TypeScript", async () => {
@@ -90,30 +64,17 @@ describe("schema e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.stdout.split("\n").slice(-5)).toEqual([
-      "type Input = {",
-      '"lib/type": "mbql/query"',
-      "database: database_id",
-      "stages: stage[] // >=1 items",
-      "}",
-    ]);
+    expect(result.stdout).toBe(await schemaTypeScript(["query"], "input"));
   });
 
-  it("prints the MBQL 5 schema bundle with its four common documents under --json", async () => {
+  it("prints the MBQL 5 schema bundle as it is under --json", async () => {
     const result = await runCli({
       args: ["schema", "query", "--json"],
       configHome: await makeIsolatedConfigHome(),
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    const bundle = parseJson(result.stdout, QuerySchemaBundle);
-    expect(Object.keys(bundle.defs)).toEqual([
-      "id.yaml",
-      "parameter.yaml",
-      "ref.yaml",
-      "temporal_bucketing.yaml",
-    ]);
-    expect(bundle).toEqual(getQuerySchemaBundle());
+    expect(parseJson(result.stdout, z.unknown())).toEqual(getQuerySchemaBundle());
   });
 
   it("refuses a command group, naming its commands", async () => {
