@@ -10,7 +10,7 @@ interface JsonSchemaParams extends Pick<z.core.ToJSONSchemaParams, "reused" | "m
 
 const OPTIONALITY = { input: "optin", output: "optout" } as const;
 
-const REFINED_PREFIX = "refined: ";
+export const REFINED_PREFIX = "refined: ";
 const NOTE_SEPARATOR = "; ";
 
 // The refinements here carry static messages, so the issue handed to the error map is never read.

@@ -55,10 +55,10 @@ const SchemaNode = z.looseObject({
   description: z.string().optional(),
   default: z.unknown().optional(),
 });
-type SchemaNode = z.infer<typeof SchemaNode>;
+export type SchemaNode = z.infer<typeof SchemaNode>;
 
-const Schema = z.union([z.boolean(), SchemaNode]);
-type Schema = z.infer<typeof Schema>;
+export const Schema = z.union([z.boolean(), SchemaNode]);
+export type Schema = z.infer<typeof Schema>;
 
 const CONDITIONAL_KEYWORDS = ["if", "then", "else"];
 
