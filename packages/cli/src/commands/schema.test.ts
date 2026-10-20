@@ -1,5 +1,4 @@
 import { runCommand } from "citty";
-import ts from "typescript";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -9,6 +8,7 @@ import { createServerProfile, type ServerProfile } from "@metabase/client/versio
 import { probeAt } from "../core/auth/temp-config-home";
 import { getQuerySchemaBundle } from "../core/schema/validate";
 import main from "../main";
+import { compileTypeScript } from "../output/compile-typescript";
 import { getMetabaseAugment } from "../runtime/command-augment";
 import { resolveCitty } from "../runtime/citty";
 import { buildHelpIndex, resolveCommandPath } from "../runtime/command-help";
@@ -302,34 +302,6 @@ describe("schema snapshots", () => {
       files.set(`${base}.output.ts`, schemas.output);
     }
 
-    expect(compileErrors(files)).toEqual([]);
+    expect(compileTypeScript(files)).toEqual([]);
   });
 });
-
-const COMPILER_OPTIONS: ts.CompilerOptions = {
-  noEmit: true,
-  strict: true,
-  skipLibCheck: true,
-  types: [],
-  lib: ["lib.es2023.d.ts"],
-  moduleDetection: ts.ModuleDetectionKind.Force,
-};
-
-function compileErrors(files: ReadonlyMap<string, string>): string[] {
-  const host = ts.createCompilerHost(COMPILER_OPTIONS);
-  const readFile = host.readFile.bind(host);
-  const getSourceFile = host.getSourceFile.bind(host);
-  host.fileExists = (name) => files.has(name) || ts.sys.fileExists(name);
-  host.readFile = (name) => files.get(name) ?? readFile(name);
-  host.getSourceFile = (name, version, onError) => {
-    const text = files.get(name);
-    return text === undefined
-      ? getSourceFile(name, version, onError)
-      : ts.createSourceFile(name, text, version);
-  };
-  const program = ts.createProgram([...files.keys()], COMPILER_OPTIONS, host);
-  return ts.getPreEmitDiagnostics(program).map((diagnostic) => {
-    const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
-    return `${diagnostic.file?.fileName ?? "<program>"}: ${message}`;
-  });
-}
