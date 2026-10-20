@@ -1619,9 +1619,23 @@
           "type": "string"
         },
         "template-tags": {
-          "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/template_tag"
+          "description": "Template tag definitions. The current format is a list of template tags (order-preserving). The legacy map format (tag name -> tag) is also accepted.\n",
+          "type": [
+            "array",
+            "object"
+          ],
+          "if": {
+            "type": "array"
+          },
+          "then": {
+            "items": {
+              "$ref": "#/$defs/template_tag"
+            }
+          },
+          "else": {
+            "additionalProperties": {
+              "$ref": "#/$defs/template_tag"
+            }
           }
         }
       }

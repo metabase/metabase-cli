@@ -225,7 +225,7 @@ alias?: string
 type native_stage = {
 "lib/type": "mbql.stage/native"
 native: string
-"template-tags"?: Record<string, template_tag> | template_tag[]
+"template-tags"?: template_tag[] | Record<string, template_tag> // Template tag definitions. The current format is a list of template tags (order-preserving). The legacy map format (tag name -> tag) is also accepted.
 }
 type stage =
 | mbql_stage & { "lib/type": "mbql.stage/mbql" }

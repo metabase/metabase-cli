@@ -15,7 +15,7 @@ import { isFileNotFoundError } from "@metabase/client/errors";
 
 const YamlObject = z.record(z.string(), z.unknown());
 
-const REPRESENTATIONS_VERSION = "1.1.7";
+const REPRESENTATIONS_VERSION = "1.5.1";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(SCRIPT_DIR, "..");
