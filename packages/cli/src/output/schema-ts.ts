@@ -471,9 +471,9 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
   }
 
   // A tuple spells its length bounds out: a bounded rest becomes optional elements, a required one
-  // repeats the rest type, so no length constraint is left over for a comment. Zod writes minItems
-  // only for an optional element and none for a defaulted one, so without minItems every prefix
-  // element is required except a trailing run whose defaults fill it in.
+  // repeats the rest type, so no length constraint is left over for a comment. Zod writes no
+  // minItems on a tuple, so without one every prefix element is required except a trailing run
+  // whose defaults fill it in; an optional element leaves no trace and renders required.
   function convertTuple(node: SchemaNode, prefix: readonly Schema[], document: Document): Typed {
     const fixed = prefix.map((element) => convert(element, document).type);
     const required = node.minItems ?? defaultedTailStart(prefix);
@@ -529,12 +529,21 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     return { type: object, notes: [`other keys: ${singleLine(print(extra.type))}`] };
   }
 
+  // Zod moves a key enum it sees twice into $defs, so the literals may sit behind a $ref.
+  function keyLiterals(schema: Schema, document: Document): readonly Literal[] | null {
+    if (typeof schema === "boolean" || schema.$ref === undefined) {
+      return literalValues(schema);
+    }
+    const resolved = resolve(schema.$ref, document);
+    return keyLiterals(resolved.schema, resolved.document);
+  }
+
   function convertRecord(node: SchemaNode, value: TsType, document: Document): TsRecord {
     if (node.propertyNames === undefined) {
       return record(STRING, value, false);
     }
     const keys = convert(node.propertyNames, document).type;
-    const listed = literalValues(node.propertyNames);
+    const listed = keyLiterals(node.propertyNames, document);
     const required = new Set(node.required);
     const exhaustive = listed === null || listed.every((key) => required.has(String(key)));
     return record(keys, value, !exhaustive);

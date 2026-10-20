@@ -236,6 +236,14 @@ describe("renderTypeScript", () => {
     );
   });
 
+  it("renders a record keyed by a reused enum as Partial", () => {
+    const Kind = z.enum(["card", "dashboard"]);
+    const schema = z.strictObject({ counts: z.partialRecord(Kind, z.number()), kind: Kind });
+    expect(renderZodInput(schema)).toBe(
+      'type Input = { counts: Partial<Record<"card" | "dashboard", number>>, kind: "card" | "dashboard" }',
+    );
+  });
+
   it("renders a record over an enum that requires every key as a plain Record", () => {
     const schema = z.record(z.enum(["card", "dashboard"]), z.number());
     expect(renderZodInput(schema)).toBe('type Input = Record<"card" | "dashboard", number>');
