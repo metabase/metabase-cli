@@ -103,8 +103,8 @@ describe("renderTypeScript", () => {
         { "type": "string" },
         {
           "anyOf": [
-            { "type": "array", "prefixItems": [{ "const": "a" }, { "type": "integer" }] },
-            { "type": "array", "prefixItems": [{ "const": "a" }, { "type": "string", "minLength": 1 }] }
+            { "type": "array", "prefixItems": [{ "const": "a" }, { "type": "integer" }], "items": false },
+            { "type": "array", "prefixItems": [{ "const": "a" }, { "type": "string", "minLength": 1 }], "items": false }
           ]
         }
       ]
@@ -261,7 +261,9 @@ describe("renderTypeScript", () => {
 
   it("resolves a $ref into another document", () => {
     const query = { $ref: "ref.yaml#/$defs/field_ref" };
-    const refs = { $defs: { field_ref: { type: "array", prefixItems: [{ const: "field" }] } } };
+    const refs = {
+      $defs: { field_ref: { type: "array", prefixItems: [{ const: "field" }], items: false } },
+    };
     const rendered = renderTypeScript(query, {
       name: "Query",
       strict: true,
@@ -277,7 +279,11 @@ describe("renderTypeScript", () => {
     };
     const refs = {
       $defs: {
-        field_ref: { type: "array", prefixItems: [{ $ref: "query.yaml#/$defs/options" }] },
+        field_ref: {
+          type: "array",
+          prefixItems: [{ $ref: "query.yaml#/$defs/options" }],
+          items: false,
+        },
       },
     };
     const rendered = renderTypeScript(query, {
@@ -330,6 +336,122 @@ describe("renderTypeScript", () => {
       maxItems: 3,
     };
     expect(renderInput(schema)).toBe('type Input = ["count", string?, string?]');
+  });
+
+  it("notes the assertions beside a $ref under the type it points to", () => {
+    const Name = z.string();
+    expect(renderZodInput(z.strictObject({ a: Name, c: Name.min(2) }))).toBe(
+      ["type Input = {", "a: string", "c: string // >=2 chars", "}"].join("\n"),
+    );
+  });
+
+  it("keeps the notes of a bare type beside alternatives that print their own type", () => {
+    const schema = {
+      type: "integer",
+      minimum: 1,
+      anyOf: [{ type: "integer", maximum: 10 }, { const: 100 }],
+    };
+    expect(renderInput(schema)).toBe(
+      ["// int; >=1; number: int, <=10", "type Input = number | 100"].join("\n"),
+    );
+  });
+
+  it("reads a dispatch's base tags through a $ref, keeping the tags no branch claims", () => {
+    const schema = parseFixture(`{
+      "$defs": { "K": { "enum": ["a", "b"] } },
+      "type": "object",
+      "required": ["k"],
+      "properties": { "k": { "$ref": "#/$defs/K" } },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "k": { "const": "b" } } },
+          "then": { "properties": { "x": { "type": "string" } }, "additionalProperties": false }
+        }
+      ]
+    }`);
+    expect(renderInput(schema)).toBe(
+      ['type K = "a" | "b"', 'type Input = { k: K } & ({ k: "b", x?: string } | { k: "a" })'].join(
+        "\n",
+      ),
+    );
+  });
+
+  it("reads a dispatch's base tag from a const", () => {
+    const schema = parseFixture(`{
+      "type": "object",
+      "required": ["k"],
+      "properties": { "k": { "const": "a" } },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "properties": { "k": { "const": "b" } } },
+          "then": { "properties": { "x": { "type": "string" } }, "additionalProperties": false }
+        }
+      ]
+    }`);
+    expect(renderInput(schema)).toBe(
+      'type Input = { k: "a" } & ({ k: "b", x?: string } | { k: "a" })',
+    );
+  });
+
+  it("keys a record by string when propertyNames states no type", () => {
+    const schema = {
+      type: "object",
+      propertyNames: { pattern: "^a" },
+      additionalProperties: { type: "number" },
+    };
+    expect(renderInput(schema)).toBe(
+      ["// keys: /^a/", "type Input = Record<string, number>"].join("\n"),
+    );
+  });
+
+  it("leaves a tuple with no items open to further elements", () => {
+    expect(renderInput({ type: "array", prefixItems: [{ type: "string" }] })).toBe(
+      "type Input = [string, ...unknown[]]",
+    );
+  });
+
+  it("caps the open tail of a tuple with no items at maxItems", () => {
+    const schema = { type: "array", prefixItems: [{ type: "string" }], maxItems: 2 };
+    expect(renderInput(schema)).toBe("type Input = [string, unknown?]");
+  });
+
+  it("states an exclusive bound beside an inclusive range", () => {
+    const schema = { type: "number", minimum: 0, maximum: 10, exclusiveMaximum: 5 };
+    expect(renderInput(schema)).toBe(["// >=0; <=10; <5", "type Input = number"].join("\n"));
+  });
+
+  it("applies a number test's consequent to an integer", () => {
+    const schema = parseFixture(
+      `{ "type": "integer", "if": { "type": "number" }, "then": { "minimum": 3 } }`,
+    );
+    expect(renderInput(schema)).toBe(["// int; >=3", "type Input = number"].join("\n"));
+  });
+
+  it("reads a type test's alternative under the node's own types", () => {
+    const schema = parseFixture(
+      `{ "type": "string", "if": { "type": "array" }, "then": { "minItems": 1 }, "else": {} }`,
+    );
+    expect(renderInput(schema)).toBe("type Input = string");
+  });
+
+  it("keeps the note of a null branch", () => {
+    const schema = {
+      anyOf: [{ type: "null", description: "clears the value" }, { type: "string" }],
+    };
+    expect(renderInput(schema)).toBe(
+      ["// null: clears the value", "type Input = null | string"].join("\n"),
+    );
+  });
+
+  it("keeps a pattern with a line break on its comment line", () => {
+    const schema = {
+      type: "object",
+      properties: { a: { type: "string", pattern: "^a\nb" } },
+      additionalProperties: false,
+    };
+    expect(renderInput(schema)).toBe(["type Input = {", "a?: string // /^a b/", "}"].join("\n"));
   });
 
   it("renders a map as a Record over its key and value types", () => {

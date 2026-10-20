@@ -1,6 +1,6 @@
 import type { z } from "zod";
 
-import { Schema, type SchemaNode } from "./schema-ts";
+import { isStatedBound, Schema, type SchemaNode } from "./schema-ts";
 
 export type Json = z.core.util.JSONType;
 
@@ -66,8 +66,6 @@ const DEPTH = {
   optionalProperty: 7,
   minimalArray: 6,
 } as const;
-// Zod bounds every number by about ±Number.MAX_VALUE or ±MAX_SAFE_INTEGER; neither is a rule.
-const UNSTATED_BOUND = 1e15;
 const NUMBER_SPAN = 50;
 const DEFAULT_LOW = -5;
 const SEED_MULTIPLIER = 2654435761;
@@ -141,15 +139,11 @@ export function isJsonObject(value: Json | undefined): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function declaredTypes(node: SchemaNode): readonly TypeName[] {
+export function statedTypes(node: SchemaNode): readonly TypeName[] {
   if (node.type === undefined) {
     return [];
   }
   return typeof node.type === "string" ? [node.type] : node.type;
-}
-
-export function isStatedBound(bound: number | undefined): bound is number {
-  return bound !== undefined && Math.abs(bound) < UNSTATED_BOUND;
 }
 
 export function generateSample(source: SampleSource, seed: number): Sample | null {
@@ -247,7 +241,7 @@ function generateFrom(source: SampleSource, seed: number): Sample {
   }
 
   function record(path: Path, node: SchemaNode, where: Where): void {
-    const types = where.forcedType === null ? declaredTypes(node) : [where.forcedType];
+    const types = where.forcedType === null ? statedTypes(node) : [where.forcedType];
     sites.push({ path, node, types, position: where.position });
   }
 
@@ -258,7 +252,7 @@ function generateFrom(source: SampleSource, seed: number): Sample {
         knownValueSites.push({
           path,
           node: schema,
-          types: declaredTypes(schema),
+          types: statedTypes(schema),
           position: where.position,
         });
       }
@@ -272,8 +266,7 @@ function generateFrom(source: SampleSource, seed: number): Sample {
     }
     const node = schema;
     if (node.$ref !== undefined) {
-      const target = resolveRef(source.documents, node.$ref, where.document);
-      return generate(target.schema, plain(target.document), depth, path);
+      return generateRef(node, node.$ref, where, depth, path);
     }
     if (node.const !== undefined) {
       record(path, node, where);
@@ -295,6 +288,35 @@ function generateFrom(source: SampleSource, seed: number): Sample {
       return generateAllOf(node, node.allOf, where, depth, path);
     }
     return generateTyped(node, pickType(node, where, depth), where, depth, path);
+  }
+
+  // A `$ref`'s sibling assertions narrow its target, so the value meets both, and each node's rules
+  // are judged against the node that states them.
+  function generateRef(
+    node: SchemaNode,
+    ref: string,
+    where: Where,
+    depth: number,
+    path: Path,
+  ): Json {
+    const { document, schema: target } = resolveRef(source.documents, ref, where.document);
+    const { $ref: _target, description: _description, default: _default, ...siblings } = node;
+    if (Object.keys(siblings).length === 0 || typeof target === "boolean") {
+      return generate(target, plain(document), depth, path);
+    }
+    const merged: SchemaNode = { ...target, ...siblings };
+    const from = sites.length;
+    const value = generate(merged, plain(document), depth, path);
+    const owned = sites.splice(from).flatMap((site) =>
+      site.node === merged
+        ? [
+            { ...site, node: target },
+            { ...site, node },
+          ]
+        : [site],
+    );
+    sites.push(...owned);
+    return value;
   }
 
   function generateAlternative(
@@ -319,7 +341,7 @@ function generateFrom(source: SampleSource, seed: number): Sample {
     depth: number,
     path: Path,
   ): Json {
-    const declared = declaredTypes(node);
+    const declared = statedTypes(node);
     const consequent = conditionalPart(node, "then") ?? true;
     const otherwise = conditionalPart(node, "else");
     const inner = plain(where.document);
@@ -403,7 +425,7 @@ function generateFrom(source: SampleSource, seed: number): Sample {
     if (where.forcedType !== null) {
       return where.forcedType;
     }
-    const declared = declaredTypes(node);
+    const declared = statedTypes(node);
     if (declared.length > 0) {
       const shallow = shallowTypes(declared, depth);
       return pick(shallow.length > 0 ? shallow : declared);
@@ -485,8 +507,9 @@ function generateFrom(source: SampleSource, seed: number): Sample {
         const position: Position = index === 0 ? { kind: "tuple-head" } : { kind: "plain" };
         return generate(element, { ...inner, position }, depth + 1, [...path, index]);
       });
-      const rest = node.items;
-      const open = rest !== undefined && rest !== false && items.length < maxItems;
+      // An absent `items` leaves the tail open to any element.
+      const rest = node.items ?? true;
+      const open = rest !== false && items.length < maxItems;
       if (open && depth < DEPTH.tupleRest && coin()) {
         items.push(generate(rest, inner, depth + 1, [...path, items.length]));
       }

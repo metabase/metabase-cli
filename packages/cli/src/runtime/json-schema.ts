@@ -2,7 +2,6 @@ import { z, type ZodType } from "zod";
 
 type JsonSchema = z.core.JSONSchema.BaseSchema;
 type Io = "input" | "output";
-type Override = NonNullable<z.core.ToJSONSchemaParams["override"]>;
 
 interface JsonSchemaParams extends Pick<z.core.ToJSONSchemaParams, "reused" | "metadata"> {
   readonly io: Io;
@@ -13,22 +12,26 @@ const OPTIONALITY = { input: "optin", output: "optout" } as const;
 export const REFINED_PREFIX = "refined: ";
 const NOTE_SEPARATOR = "; ";
 
-// The refinements here carry static messages, so the issue handed to the error map is never read.
+// `.refine`, `.superRefine` and `.check` all add a check of this kind.
+const CUSTOM_CHECK = "custom";
+
+// A refinement noted here must carry a static message, so the issue handed to its error map is
+// never read.
 const UNREPORTED_ISSUE = { code: "custom", input: undefined } as const;
 
 // Zod writes a tuple with no minItems and an open rest, and drops every refinement, so a validator
 // reading its JSON Schema accepts what the Zod schema refuses.
 export function toJsonSchema(schema: ZodType, params: JsonSchemaParams): JsonSchema {
-  return z.toJSONSchema(schema, { ...params, override: restoreDropped(params.io) });
-}
-
-function restoreDropped(io: Io): Override {
-  return ({ zodSchema, jsonSchema }) => {
-    if (zodSchema instanceof z.core.$ZodTuple) {
-      restoreArity(zodSchema, jsonSchema, io);
-    }
-    noteRefinements(zodSchema, jsonSchema);
-  };
+  const { io } = params;
+  return z.toJSONSchema(schema, {
+    ...params,
+    override: ({ zodSchema, jsonSchema }) => {
+      if (zodSchema instanceof z.core.$ZodTuple) {
+        restoreArity(zodSchema, jsonSchema, io);
+      }
+      noteRefinements(zodSchema, jsonSchema);
+    },
+  });
 }
 
 // A described copy of an extracted tuple is a bare $ref, and the arity belongs on the definition it
@@ -47,7 +50,7 @@ function restoreArity(tuple: z.core.$ZodTuple, json: JsonSchema, io: Io): void {
 }
 
 function noteRefinements(schema: z.core.$ZodType, json: JsonSchema): void {
-  const notes = refinementMessages(schema).map((message) => `${REFINED_PREFIX}${message}`);
+  const notes = refinementMessages(schema, json).map((message) => `${REFINED_PREFIX}${message}`);
   if (notes.length === 0) {
     return;
   }
@@ -55,18 +58,30 @@ function noteRefinements(schema: z.core.$ZodType, json: JsonSchema): void {
   json.description = [...existing, ...notes].join(NOTE_SEPARATOR);
 }
 
-function refinementMessages(schema: z.core.$ZodType): string[] {
+// A derived copy (`.describe`, `.min`, a further `.refine`) carries its parent's checks too, and
+// when it is written as a $ref to the parent's definition, that definition already notes them.
+function refinementMessages(schema: z.core.$ZodType, json: JsonSchema): string[] {
   const { checks } = schema._zod.def;
   if (checks === undefined) {
     return [];
   }
-  return checks.flatMap((check) => {
-    if (!(check instanceof z.core.$ZodCustom)) {
-      return [];
-    }
-    const message = reportedMessage(check._zod.def.error?.(UNREPORTED_ISSUE));
-    return message === null ? [] : [message];
-  });
+  const inherited = json.$ref === undefined ? [] : (schema._zod.parent?._zod.def.checks ?? []);
+  return checks
+    .filter((check) => check._zod.def.check === CUSTOM_CHECK && !inherited.includes(check))
+    .map((check) => refinementMessage(schema, check));
+}
+
+function refinementMessage(schema: z.core.$ZodType, check: z.core.$ZodCheck): string {
+  const message =
+    check instanceof z.core.$ZodCustom
+      ? reportedMessage(check._zod.def.error?.(UNREPORTED_ISSUE))
+      : null;
+  if (message === null) {
+    throw new Error(
+      `a refinement on a ${schema._zod.def.type} schema has no static message to note`,
+    );
+  }
+  return message;
 }
 
 function reportedMessage(reported: ReturnType<z.core.$ZodErrorMap>): string | null {

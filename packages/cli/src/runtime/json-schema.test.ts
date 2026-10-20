@@ -1,8 +1,6 @@
-import Ajv2020 from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { renderTypeScript } from "../output/schema-ts";
 import { toJsonSchema } from "./json-schema";
 
 const DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema";
@@ -11,7 +9,13 @@ describe("toJsonSchema", () => {
   it("lets an optional tuple element be left out", () => {
     const schema = toJsonSchema(z.tuple([z.string(), z.number().optional()]), { io: "input" });
 
-    expect(renderTypeScript(schema, { name: "Input" })).toBe("type Input = [string, number?]");
+    expect(schema).toEqual({
+      $schema: DRAFT_2020_12,
+      type: "array",
+      prefixItems: [{ type: "string" }, { type: "number" }],
+      minItems: 1,
+      items: false,
+    });
   });
 
   it("requires a defaulted tuple element in the output, where the default has filled it in", () => {
@@ -53,17 +57,58 @@ describe("toJsonSchema", () => {
     const Pair = z.tuple([z.string(), z.number().optional()]);
     const schema = toJsonSchema(
       z.strictObject({ plain: Pair, titled: Pair.meta({ title: "Pair" }) }),
-      {
-        io: "input",
-        reused: "ref",
-      },
+      { io: "input", reused: "ref" },
     );
-    // An optional element is what strictTuples warns about.
-    const validate = new Ajv2020({ strictTuples: false }).compile(schema);
 
-    expect(validate({ plain: ["a"], titled: ["a", 1] })).toBe(true);
-    expect(renderTypeScript(schema, { name: "Input", strict: true })).toBe(
-      "type Input = { plain: [string, number?], titled: [string, number?] }",
+    expect(schema).toEqual({
+      $schema: DRAFT_2020_12,
+      type: "object",
+      properties: {
+        plain: { $ref: "#/$defs/__schema0" },
+        titled: { title: "Pair", $ref: "#/$defs/__schema0" },
+      },
+      required: ["plain", "titled"],
+      additionalProperties: false,
+      $defs: {
+        __schema0: {
+          type: "array",
+          prefixItems: [{ $ref: "#/$defs/__schema1" }, { $ref: "#/$defs/__schema2" }],
+          minItems: 1,
+          items: false,
+        },
+        __schema1: { type: "string" },
+        __schema2: { type: "number" },
+      },
+    });
+  });
+
+  it("leaves a derived copy of a reused refinement to the definition that notes it", () => {
+    const Name = z.string().refine((value) => value !== "", "not blank");
+    const schema = toJsonSchema(
+      z.strictObject({ plain: Name, described: Name.describe("x"), longer: Name.min(2) }),
+      { io: "input", reused: "ref" },
+    );
+
+    expect(schema).toEqual({
+      $schema: DRAFT_2020_12,
+      type: "object",
+      properties: {
+        plain: { $ref: "#/$defs/__schema0" },
+        described: { description: "x", $ref: "#/$defs/__schema0" },
+        longer: { minLength: 2, $ref: "#/$defs/__schema0" },
+      },
+      required: ["plain", "described", "longer"],
+      additionalProperties: false,
+      $defs: { __schema0: { type: "string", description: "refined: not blank" } },
+    });
+  });
+
+  it.each([
+    ["refine", z.string().refine((value) => value !== "")],
+    ["superRefine", z.string().superRefine(() => undefined)],
+  ])("refuses a %s with no static message", (_kind, schema) => {
+    expect(() => toJsonSchema(schema, { io: "input" })).toThrow(
+      new Error("a refinement on a string schema has no static message to note"),
     );
   });
 

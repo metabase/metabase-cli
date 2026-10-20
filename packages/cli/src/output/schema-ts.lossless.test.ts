@@ -3,8 +3,6 @@ import { isDeepStrictEqual } from "node:util";
 import { describe, expect, it } from "vitest";
 import type { ZodType } from "zod";
 
-import { isPlainObject } from "@metabase/client/predicates";
-
 import { schemaJson } from "../commands/schema";
 import {
   getQuerySchemaBundle,
@@ -17,18 +15,23 @@ import { buildHelpIndex, resolveCommandPath } from "../runtime/command-help";
 import { REFINED_PREFIX } from "../runtime/json-schema";
 import { compileTypeScript } from "./compile-typescript";
 import {
-  declaredTypes,
   generateSample,
   isJsonObject,
-  isStatedBound,
   type Json,
   type Path,
   type Sample,
   type SampleSource,
   type Site,
+  statedTypes,
   type TypeName,
 } from "./schema-samples";
-import { NOTE_SEPARATOR, renderTypeScript, Schema, type SchemaNode } from "./schema-ts";
+import {
+  isStatedBound,
+  NOTE_SEPARATOR,
+  renderTypeScript,
+  Schema,
+  type SchemaNode,
+} from "./schema-ts";
 
 type Family = "command" | "mbql";
 
@@ -170,6 +173,7 @@ const NOTE_BOUNDARY = /; |, /;
 // A member's own notes print just before its description; earlier ones on the line are a parent's.
 const MEMBER_NOTE_WINDOW = 5;
 const PREVIEW_CHARS = 200;
+const CONDITIONAL_KEYWORDS = ["if", "then", "else"] as const;
 
 const WRONG_SCALARS: readonly Json[] = [12345, "zz", true, null];
 const WRONG_OBJECT: Json = { zz: 1 };
@@ -334,7 +338,7 @@ function numberBreaks(site: Site, here: Json): Edit[] {
     { keyword: "exclusiveMaximum", bound: node.exclusiveMaximum, breach: (bound: number) => bound },
   ];
   const ranges = bounds.flatMap(({ keyword, bound, breach }) =>
-    bound === undefined || Math.abs(bound) >= Number.MAX_SAFE_INTEGER
+    !isStatedBound(bound)
       ? []
       : [edit("out-of-range", `${keyword} ${bound}`, breach(bound), stating(String(bound)))],
   );
@@ -611,7 +615,7 @@ function siblingBranchStates(mutation: Mutation, site: Site): Verdict {
   const type = jsonType(valueAt(mutation.value, site.path));
   const branch = site.position.siblings.find(
     (sibling): sibling is SchemaNode =>
-      typeof sibling !== "boolean" && valueTypes(declaredTypes(sibling)).includes(type),
+      typeof sibling !== "boolean" && valueTypes(statedTypes(sibling)).includes(type),
   );
   if (branch === undefined) {
     return silent("no note states this rule");
@@ -735,8 +739,11 @@ function contractRun(contract: Contract): ContractRun {
     ...refinements.filter((mutation) => !contract.accepts(mutation.value)),
   ];
   const lines = contract.render().split("\n");
-  const declare = (value: Json): number =>
-    lines.push(`export const v${lines.length}: ${contract.typeName} = ${JSON.stringify(value)};`);
+  const declare = (value: Json): number => {
+    const line = lines.length + 1;
+    lines.push(`export const v${line}: ${contract.typeName} = ${JSON.stringify(value)};`);
+    return line;
+  };
   return {
     contract,
     file: `/lossless/${contract.name.replaceAll(" ", "_")}.ts`,
@@ -797,16 +804,25 @@ async function fuzz(): Promise<FuzzRun> {
   };
 }
 
-function carriesRefinement(value: unknown): boolean {
-  if (Array.isArray(value)) {
-    return value.some(carriesRefinement);
-  }
-  if (!isPlainObject(value)) {
+function carriesRefinement(schema: Schema): boolean {
+  if (typeof schema === "boolean") {
     return false;
   }
-  const { description } = value;
-  const refined = typeof description === "string" && description.includes(REFINED_PREFIX);
-  return refined || Object.values(value).some(carriesRefinement);
+  const refined = schema.description?.includes(REFINED_PREFIX) === true;
+  return refined || subschemas(schema).some(carriesRefinement);
+}
+
+// The node schema leaves the conditional keywords unparsed, so each is parsed where it is walked.
+function subschemas(node: SchemaNode): Schema[] {
+  const maps = [node.$defs, node.properties].filter((map) => map !== undefined);
+  const lists = [node.prefixItems, node.anyOf, node.oneOf, node.allOf, ...maps.map(Object.values)];
+  const singles = [node.additionalProperties, node.propertyNames, node.items];
+  const conditionals = CONDITIONAL_KEYWORDS.map((keyword) => node[keyword]);
+  return [
+    ...lists.filter((list) => list !== undefined).flat(),
+    ...singles.filter((single) => single !== undefined),
+    ...conditionals.filter((part) => part !== undefined).map((part) => Schema.parse(part)),
+  ];
 }
 
 function unexercised(runs: readonly ContractRun[]): string[] {
