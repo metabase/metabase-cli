@@ -364,6 +364,26 @@ describe("table resource wire requests", () => {
     ]);
   });
 
+  it("refuses a data_authority withdrawal on bulk edit before the wire on a server that keeps it on the table, as a fresh probe finds it", async () => {
+    const { mb, capture } = clientOver([probeResponse(SERVER_60)], SERVER_64);
+
+    const error = await thrownBy(() =>
+      mb.table.bulkEdit({ table_ids: [11], data_authority: null }),
+    );
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v64+ (this server is v0.60.4). Upgrade Metabase to use it.",
+      feature: "tableUserValueWithdrawal",
+      since: 64,
+      tokenFeature: null,
+      serverVersion: "v0.60.4",
+    });
+    expect(capture.calls.map((call) => call.url)).toEqual([PROBE_URL]);
+  });
+
   it("sends the get request", async () => {
     const { mb, capture } = clientOver([jsonResponse(TABLE)]);
 

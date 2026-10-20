@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
 import type { DataActionCreateInput } from "../domain/data-action";
@@ -8,6 +8,7 @@ import {
   jsonResponse,
   probeResponse,
   TEST_USER_AGENT,
+  thrownBy,
 } from "../testing/fetch-capture";
 import { CapabilityError } from "../version/capability-error";
 import { PROBE_PATH } from "../version/probe";
@@ -177,6 +178,36 @@ describe("data action resource wire requests", () => {
         headers: JSON_REQUEST_HEADERS,
         body: JSON.stringify({ name: "Rename an order" }),
       },
+    ]);
+  });
+
+  it("explains a collection_id rejected by a server whose data actions have no collection", async () => {
+    const { mb, capture } = clientOver(
+      [
+        jsonResponse(
+          { errors: { collection_id: "nullable value must be an integer greater than zero." } },
+          400,
+        ),
+        probeResponse(V64_SERVER),
+      ],
+      V64_SERVER,
+    );
+
+    const error = await thrownBy(() => mb.dataAction.update(7, { collection_id: 3 }));
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v65+ (this server is v0.64.0). Upgrade Metabase to use it.",
+      feature: "dataActionCollections",
+      since: 65,
+      tokenFeature: null,
+      serverVersion: "v0.64.0",
+    });
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/action/7",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
     ]);
   });
 
