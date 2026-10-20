@@ -34,7 +34,6 @@ interface BodyRequest {
   readonly path: string;
 }
 
-/** A method whose body is a client input schema, sent whole or through a function of it. */
 export interface PairedBody {
   readonly key: MethodKey;
   readonly request: BodyRequest;
@@ -43,8 +42,8 @@ export interface PairedBody {
 }
 
 /**
- * A method that sends a body no input schema describes: `bodyType` is the declared type of the
- * parameter the body is built from, `null` when the method builds it from something else.
+ * `bodyType` is the declared type of the parameter the body is built from, `null` when the method
+ * builds it from something else.
  */
 export interface UnpairedBody {
   readonly key: MethodKey;
@@ -78,8 +77,7 @@ interface PathScope {
   readonly helpers: ReadonlyMap<string, ts.Expression>;
 }
 
-// The functions a method may hand its body to: those declared in the resource module or its
-// factory that are not themselves on the namespace, whose own body a sibling method's check covers.
+// A function on the namespace is left out: a sibling method's check covers its own body.
 interface BodyHelpers {
   readonly functions: ReadonlyMap<string, ts.FunctionDeclaration>;
   readonly key: MethodKey;
@@ -242,8 +240,6 @@ function wrappedFunction(value: ts.Expression): string | null {
   return wrapped !== undefined && ts.isIdentifier(wrapped) ? wrapped.text : null;
 }
 
-// The one body `fn` sends, by a request of its own or through a helper it calls, with the path
-// read in `scope` and the parameter of `fn` the body is built from.
 function sentBody(
   fn: ts.FunctionDeclaration,
   scope: PathScope,
@@ -304,7 +300,6 @@ function directBody(
   return { request: { method: methodOf(options, key), path }, source };
 }
 
-// A helper's parameter names stand for the paths the call passes in them, read in the caller's scope.
 function argumentScope(
   helper: ts.FunctionDeclaration,
   call: ts.CallExpression,
@@ -334,8 +329,6 @@ function callerSource(
   return argument === undefined ? null : sourceParameter(argument, caller);
 }
 
-// The parameter of `fn` a body expression is: the parameter itself, a local bound to one, or the
-// one parameter a call is handed besides the request options, as `parseRequestBody` and a merge are.
 function sourceParameter(
   expression: ts.Expression,
   fn: ts.FunctionDeclaration,

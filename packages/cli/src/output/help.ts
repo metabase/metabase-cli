@@ -131,7 +131,6 @@ function machineHelpHint(breadcrumb: string, target: MachineHelpTarget): string 
   if (target.hasSubCommands) {
     return `${MACHINE_HELP_INDEX_LABEL} ${breadcrumb} --help --json`;
   }
-  // The help JSON inlines only a Zod body; for a documents body it holds a pointer.
   const contents = target.schemas.body === "zod" ? "flags, body schema" : "flags";
   const helpLine = `Machine-readable help (${contents}): ${breadcrumb} --help --json`;
   const schemaLine = schemaHint(breadcrumbPath(breadcrumb).join(" "), target.schemas);

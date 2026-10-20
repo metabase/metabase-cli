@@ -64,11 +64,10 @@ type MutationKind =
   | "bad-record-key"
   | "refinement";
 
-// `token` is the note that states the rule, verbatim, or null for a rule no note states.
 interface MemberRule {
   readonly kind: "member";
   readonly location: SchemaLocation;
-  readonly token: string | null;
+  readonly statingNote: string | null;
 }
 
 interface BranchRule {
@@ -76,10 +75,9 @@ interface BranchRule {
   readonly site: Site;
 }
 
-// `locations` are every node the value at the refined path meets.
 interface RefinementRule {
   readonly kind: "refinement";
-  readonly locations: readonly SchemaLocation[];
+  readonly metLocations: readonly SchemaLocation[];
 }
 
 type Rule = MemberRule | BranchRule | RefinementRule;
@@ -154,7 +152,6 @@ interface MutationProbe extends Probe {
   readonly mutation: Mutation;
 }
 
-// The notes the rendered text prints, keyed by the location of the node that states each.
 type NoteIndex = ReadonlyMap<string, readonly string[]>;
 
 interface ContractRun {
@@ -177,8 +174,7 @@ const COMMAND_ATTEMPTS = 5;
 const MBQL_ATTEMPTS = 100;
 
 const PREVIEW_CHARS = 200;
-// Each numeric bound, the step past it that breaks it, and the note stating it. Both inclusive
-// bounds, when non-negative, print together as one `min-max` note.
+// Both inclusive bounds, when non-negative, print together as one `min-max` note.
 const BOUNDS = [
   { keyword: "minimum", offset: -1, note: ">=", spans: true },
   { keyword: "exclusiveMinimum", offset: 0, note: ">", spans: false },
@@ -296,7 +292,7 @@ function locationKey({ document, pointer }: SchemaLocation): string {
 }
 
 function stating(location: SchemaLocation, token: string | null): MemberRule {
-  return { kind: "member", location, token };
+  return { kind: "member", location, statingNote: token };
 }
 
 function countToken(
@@ -571,7 +567,7 @@ function refinementMutations(contract: Contract, samples: readonly Sample[]): Mu
       kind: "refinement",
       detail,
       value: replaced(base.value, path, value),
-      rule: { kind: "refinement", locations: holder?.locations ?? [] },
+      rule: { kind: "refinement", metLocations: holder?.locations ?? [] },
     };
   });
 }
@@ -669,13 +665,17 @@ function noteVerdict(mutation: Mutation, notes: NoteIndex): Verdict {
   const { rule } = mutation;
   switch (rule.kind) {
     case "member": {
-      return memberStates(notes, rule.location, rule.token === null ? [] : [rule.token]);
+      return memberStates(
+        notes,
+        rule.location,
+        rule.statingNote === null ? [] : [rule.statingNote],
+      );
     }
     case "branch": {
       return siblingBranchStates(mutation, rule.site, notes);
     }
     case "refinement": {
-      return refinementStates(mutation, rule.locations, notes);
+      return refinementStates(mutation, rule.metLocations, notes);
     }
   }
 }

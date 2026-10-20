@@ -30,7 +30,6 @@ interface JsonSchemaBundle {
 
 type BodyPredicate = (body: unknown) => boolean;
 
-// A query inside a Zod body that the Zod schema leaves open and the command checks as MBQL 5.
 export interface EmbeddedQuery {
   resource: string;
   path: readonly string[];

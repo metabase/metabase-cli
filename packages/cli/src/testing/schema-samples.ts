@@ -37,10 +37,8 @@ interface AlternativePosition {
 
 type Position = PlainPosition | TupleHeadPosition | AlternativePosition;
 
-// Where a generated value sits in the documents. `node` is the document node whose rules the value
-// meets, at `location`, the place the renderer reports that node's notes against; `types` are the
-// JSON types the value was generated against, which a type-test conditional narrows below what
-// `node` declares.
+// `location` is where the renderer reports `node`'s notes; `types` are the JSON types the value was
+// generated against, which a type-test conditional narrows below what `node` declares.
 export interface Site {
   readonly path: Path;
   readonly node: SchemaNode;

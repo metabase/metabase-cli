@@ -148,14 +148,13 @@ interface TsIntersection {
 
 type TsType = TsName | TsArray | TsTuple | TsObject | TsRecord | TsUnion | TsIntersection;
 
-// Where a schema node sits: its document's key and a JSON Pointer into that document.
 export interface SchemaLocation {
   readonly document: string;
   readonly pointer: string;
 }
 
-// A note and the node whose rule it states. A node built while converting another (a narrowed
-// branch, a tagged dispatch shape) states its rules at its source's location.
+// A node built while converting another (a narrowed branch, a tagged dispatch shape) states its
+// rules at its source's location.
 interface StatedNote {
   readonly kind: "stated";
   readonly text: string;
@@ -265,7 +264,6 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
   return renderTypeScriptWithNotes(input, options).text;
 }
 
-// The notes are the ones the text prints, each with the location of the node that states it.
 export function renderTypeScriptWithNotes(
   input: unknown,
   options: RenderOptions,
