@@ -63,11 +63,14 @@ export async function readCachedProbe(
   return hit.kind === "found" ? hit.probe : null;
 }
 
-// For a command that takes no `--url` and so can only be pointed elsewhere by the environment.
-// Nothing here reaches the network.
-export async function readCachedServerProfile(profileName: string): Promise<CachedServerProfile> {
-  const envUrl = readEnvCredentials().url;
-  const hit = await lookupCachedProbe(profileName, envUrl === null ? null : normalizeUrl(envUrl));
+// The profile's server as its last probe saw it, unless `urlFlag`, or else the environment, points
+// the profile elsewhere. Nothing here reaches the network.
+export async function readCachedServerProfile(
+  profileName: string,
+  urlFlag?: string,
+): Promise<CachedServerProfile> {
+  const url = urlFlag ?? readEnvCredentials().url;
+  const hit = await lookupCachedProbe(profileName, url === null ? null : normalizeUrl(url));
   if (hit.kind !== "found") {
     return hit;
   }

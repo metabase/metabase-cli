@@ -7,6 +7,17 @@ import { TipTapNode } from "@metabase/client/domain/document";
 import { FieldBaseType, FieldSemanticType } from "@metabase/client/domain/field";
 import { Parameter, ParameterMapping, ParameterTarget } from "@metabase/client/domain/parameter";
 import { ConfigError } from "@metabase/client/errors";
+import { featureAvailability } from "@metabase/client/version/features";
+import {
+  type GateEffect,
+  type GateTrigger,
+  type InputGate,
+  inputGatesOf,
+} from "@metabase/client/version/input-gates";
+import type { ServerProfile } from "@metabase/client/version/profile";
+
+import { readCachedServerProfile } from "../core/auth/cached-server";
+import { resolveProfileName } from "../core/config";
 
 import { QuerySchemaBundle } from "../core/schema/validate";
 import main from "../main";
@@ -21,12 +32,18 @@ import {
 } from "../runtime/command-augment";
 import { CLI_NAME, resolveCommandPath } from "../runtime/command-help";
 import { toJsonSchema } from "../runtime/json-schema";
+import { profileFlag, urlFlag } from "./flags";
 import { defineMetabaseCommand } from "./runtime";
 
 const TYPE_NAMES = { input: "Input", output: "Output" } as const;
 type Side = keyof typeof TYPE_NAMES;
 
-type RenderMode = Pick<RenderOptions, "strict">;
+// `server` is the cached profile a gated input field is judged against, `null` when there is none.
+interface GateNotes {
+  readonly server: ServerProfile | null;
+}
+
+interface TypeScriptOptions extends Pick<RenderOptions, "strict">, GateNotes {}
 
 // Each shape here recurs across commands, or reaches itself, and goes by the client's own name for
 // it, so a declaration reads as the type an importer of the client sees.
@@ -42,14 +59,19 @@ const NAMED_SCHEMAS = {
   FieldSemanticType,
 };
 
+const NOTE_SEPARATOR = "; ";
+
 // Zod reads every schema's metadata from the one registry it is handed, so the names sit over the
-// global registry, where the client's `.describe()` calls write, rather than hiding it.
+// global registry, where the client's `.describe()` calls write, rather than hiding it. Gate notes
+// ride on `description` for the TypeScript view alone: a JSON Schema validator has no use for them.
 class SchemaNames extends z.core.$ZodRegistry<z.core.GlobalMeta> {
   readonly #ids: ReadonlyMap<z.core.$ZodType, string>;
+  readonly #gateNotes: GateNotes | null;
 
-  constructor(named: Readonly<Record<string, z.core.$ZodType>>) {
+  constructor(named: Readonly<Record<string, z.core.$ZodType>>, gateNotes: GateNotes | null) {
     super();
     this.#ids = new Map(Object.entries(named).map(([id, schema]) => [schema, id]));
+    this.#gateNotes = gateNotes;
   }
 
   override get<S extends z.core.$ZodType>(
@@ -57,11 +79,58 @@ class SchemaNames extends z.core.$ZodRegistry<z.core.GlobalMeta> {
   ): z.core.$replace<z.core.GlobalMeta, S> | undefined {
     const described = z.globalRegistry.get(schema);
     const id = this.#ids.get(schema);
-    return id === undefined ? described : { ...described, id };
+    const named = id === undefined ? described : { ...described, id };
+    const gates = inputGatesOf(schema);
+    if (this.#gateNotes === null || gates === null) {
+      return named;
+    }
+    const { server } = this.#gateNotes;
+    const prior = described?.description === undefined ? [] : [described.description];
+    const notes = gates.map((gate) => gateNote(gate, server));
+    return { ...named, description: [...prior, ...notes].join(NOTE_SEPARATOR) };
   }
 }
 
-const SCHEMA_NAMES = new SchemaNames(NAMED_SCHEMAS);
+const SCHEMA_NAMES = new SchemaNames(NAMED_SCHEMAS, null);
+
+const GATE_EFFECT_TEXT = {
+  needs: { claim: "needs", refusal: "this server rejects it" },
+  supersededBy: { claim: "read differently under", refusal: "this server reads it differently" },
+} as const satisfies Record<GateEffect, GateEffectText>;
+
+interface GateEffectText {
+  readonly claim: string;
+  readonly refusal: string;
+}
+
+function gateNote(gate: InputGate, server: ServerProfile | null): string {
+  const text = GATE_EFFECT_TEXT[gate.effect];
+  const availability = featureAvailability(gate.feature);
+  const feature = availability === null ? gate.feature : `${gate.feature} (${availability})`;
+  const trigger = triggerText(gate.when);
+  const claim = `${text.claim} ${feature}`;
+  const note = trigger === null ? claim : `${claim} ${trigger}`;
+  return server !== null && serverRefuses(gate, server) ? `${note}; ${text.refusal}` : note;
+}
+
+function triggerText(when: GateTrigger): string | null {
+  switch (when.kind) {
+    case "present": {
+      return null;
+    }
+    case "values": {
+      return `for ${when.values.map((value) => JSON.stringify(value)).join(", ")}`;
+    }
+    case "nonEmpty": {
+      return "when non-empty";
+    }
+  }
+}
+
+function serverRefuses(gate: InputGate, server: ServerProfile): boolean {
+  const holds = server.features[gate.feature];
+  return gate.effect === "needs" ? !holds : holds;
+}
 
 const PrintedSchema = z
   .union([z.object({ $schema: z.string() }).loose(), QuerySchemaBundle])
@@ -75,9 +144,11 @@ export default defineMetabaseCommand({
     description: "Print the schema of a command's JSON body or output",
   },
   details:
-    "Names another command and prints the JSON body it accepts as TypeScript type declarations, or with --output the JSON it prints. It prints TypeScript unless --json is passed, down a pipe too, since TypeScript is the compact view to read before writing a body or parsing a result. --json prints the JSON Schema instead, for a validator. A member marked `?` may be left out, and a trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, and the field's description. `mb schema query` prints the MBQL 5 query schema that query, card, transform, segment, measure and data-action bodies are checked against.",
+    "Names another command and prints the JSON body it accepts as TypeScript type declarations, or with --output the JSON it prints. It prints TypeScript unless --json is passed, down a pipe too, since TypeScript is the compact view to read before writing a body or parsing a result. --json prints the JSON Schema instead, for a validator. A member marked `?` may be left out, and a trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, the field's description, and, on a field only some servers take, the feature it needs, as `needs fieldDataSensitivity (v64+)`. Those notes are judged against the server the profile last probed, read from its cache with no request: `this server rejects it` follows a field that server refuses, and `this server reads it differently` a value it would take as another. `mb schema query` prints the MBQL 5 query schema that query, card, transform, segment, measure and data-action bodies are checked against.",
   requires: null,
   args: {
+    ...profileFlag,
+    ...urlFlag,
     json: { type: "boolean", description: "Print the JSON Schema instead of TypeScript" },
     output: {
       type: "boolean",
@@ -108,16 +179,18 @@ export default defineMetabaseCommand({
       writeJson(await schemaJson(path, side));
       return;
     }
-    writeText(await schemaTypeScript(path, side));
+    const cached = await readCachedServerProfile(resolveProfileName(args.profile), args.url);
+    const server = cached.kind === "found" ? cached.profile : null;
+    writeText(await schemaTypeScript(path, side, { server }));
   },
 });
 
 export async function schemaTypeScript(
   path: readonly string[],
   side: Side,
-  mode: RenderMode = {},
+  options: TypeScriptOptions,
 ): Promise<string> {
-  return contractTypeScript(await resolveContract(path, side), side, mode);
+  return contractTypeScript(await resolveContract(path, side), side, options);
 }
 
 export async function schemaJson(path: readonly string[], side: Side): Promise<unknown> {
@@ -166,20 +239,25 @@ function missingSchema(command: string, side: Side): ConfigError {
   );
 }
 
-function contractJson(contract: SchemaContract, side: Side): unknown {
+function contractJson(
+  contract: SchemaContract,
+  side: Side,
+  names: SchemaNames = SCHEMA_NAMES,
+): unknown {
   if (contract.kind === "documents") {
     return contract.source.bundle;
   }
-  return toJsonSchema(contract.schema, {
-    io: side,
-    reused: "ref",
-    metadata: SCHEMA_NAMES,
-  });
+  return toJsonSchema(contract.schema, { io: side, reused: "ref", metadata: names });
 }
 
-function contractTypeScript(contract: SchemaContract, side: Side, mode: RenderMode): string {
+function contractTypeScript(
+  contract: SchemaContract,
+  side: Side,
+  { server, ...mode }: TypeScriptOptions,
+): string {
   if (contract.kind === "zod") {
-    return renderTypeScript(contractJson(contract, side), {
+    const names = side === "input" ? new SchemaNames(NAMED_SCHEMAS, { server }) : SCHEMA_NAMES;
+    return renderTypeScript(contractJson(contract, side, names), {
       ...mode,
       name: TYPE_NAMES[side],
       notes: contract.embedded.map(embeddedNote),

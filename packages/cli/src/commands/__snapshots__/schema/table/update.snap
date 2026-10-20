@@ -16,7 +16,7 @@ caveats?: string | null
 points_of_interest?: string | null
 show_in_getting_started?: boolean
 field_order?: "alphabetical" | "custom" | "database" | "smart"
-data_authority?: "unconfigured" | "authoritative" | "computed" | "ingested" | null
+data_authority?: "unconfigured" | "authoritative" | "computed" | "ingested" | null // needs tableUserValueWithdrawal (v64+) for null
 data_source?:
 | "unknown"
 | "ingested"
@@ -25,7 +25,7 @@ data_source?:
 | "source-data"
 | "upload"
 | null
-data_layer?: "final" | "internal" | "hidden" | "gold" | "silver" | "bronze" | "copper" | null
+data_layer?: "final" | "internal" | "hidden" | "gold" | "silver" | "bronze" | "copper" | null // needs tableDataLayerTiers (v59+) for "final", "internal", "hidden"; read differently under tableDataLayerTiers (v59+) for "gold", "silver", "bronze", "copper"
 owner_email?: string | null
 owner_user_id?: number | null // int
 collection_id?: number // int; >0

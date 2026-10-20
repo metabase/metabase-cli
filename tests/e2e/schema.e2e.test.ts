@@ -1,18 +1,27 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { parseJson } from "@metabase/client/json";
 
 import { schemaJson, schemaTypeScript } from "../../packages/cli/src/commands/schema";
 import { getQuerySchemaBundle } from "../../packages/cli/src/core/schema/validate";
+import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
+import { serverHas } from "./server-gate";
+
+const SENSITIVITY_NOTE = "// needs fieldDataSensitivity (v64+)";
 
 function configErrorEnvelope(message: string): unknown {
   return { ok: false, error: { category: "config", message, exitCode: 2 } };
 }
 
 describe("schema e2e", () => {
+  let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
+
+  beforeAll(async () => {
+    bootstrap = await readBootstrap();
+  });
 
   afterEach(async () => {
     await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
@@ -32,7 +41,9 @@ describe("schema e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(result.stderr).toBe("");
-    expect(result.stdout).toBe(await schemaTypeScript(["card", "create"], "input"));
+    expect(result.stdout).toBe(
+      await schemaTypeScript(["card", "create"], "input", { server: null }),
+    );
   });
 
   it("prints card create's body as JSON Schema under --json", async () => {
@@ -54,7 +65,9 @@ describe("schema e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.stdout).toBe(await schemaTypeScript(["card", "list"], "output"));
+    expect(result.stdout).toBe(
+      await schemaTypeScript(["card", "list"], "output", { server: null }),
+    );
   });
 
   it("prints the MBQL 5 query schema as TypeScript", async () => {
@@ -64,7 +77,7 @@ describe("schema e2e", () => {
     });
 
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.stdout).toBe(await schemaTypeScript(["query"], "input"));
+    expect(result.stdout).toBe(await schemaTypeScript(["query"], "input", { server: null }));
   });
 
   it("prints the MBQL 5 schema bundle as it is under --json", async () => {
@@ -75,6 +88,23 @@ describe("schema e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, z.unknown())).toEqual(getQuerySchemaBundle());
+  });
+
+  it("judges a gated field against the server the profile's login probed", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const login = await runCli({
+      args: ["auth", "login", "--url", bootstrap.baseUrl, "--api-key", bootstrap.adminApiKey],
+      configHome,
+    });
+    expect(login.exitCode, login.stderr).toBe(0);
+
+    const result = await runCli({ args: ["schema", "field", "update"], configHome });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const note = serverHas("fieldDataSensitivity")
+      ? SENSITIVITY_NOTE
+      : `${SENSITIVITY_NOTE}; this server rejects it`;
+    expect(result.stdout.split("\n")).toContain(note);
   });
 
   it("refuses a command group, naming its commands", async () => {

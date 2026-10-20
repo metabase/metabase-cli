@@ -74,4 +74,14 @@ describe("readCachedServerProfile", () => {
       probedAt,
     });
   });
+
+  it("names the URL a flag points the profile at, over the environment", async () => {
+    await seedProbedProfile("staging", probeAt(61));
+    process.env["MB_URL"] = "http://127.0.0.1:1/";
+
+    expect(await readCachedServerProfile("staging", "https://other.example.com/")).toEqual({
+      kind: "other-url",
+      url: "https://other.example.com",
+    });
+  });
 });

@@ -69,8 +69,12 @@ export const profileFlag = {
   profile: { type: "string", description: "Named profile (default: 'default')", alias: "p" },
 } as const;
 
-export const connectionFlags = {
+export const urlFlag = {
   url: { type: "string", description: "Metabase URL" },
+} as const;
+
+export const connectionFlags = {
+  ...urlFlag,
   apiKey: { type: "string", description: "API key", alias: "api-key" },
   skipPreflight: {
     type: "boolean",

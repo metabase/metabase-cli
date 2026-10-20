@@ -96,6 +96,7 @@ coercion_strategy?:
 | "Coercion/String->Integer"
 | "Coercion/Float->Integer"
 | null
+// needs fieldDataSensitivity (v64+)
 data_sensitivity?:
 | "SEC_KEY"
 | "SYS_TELEMETRY"

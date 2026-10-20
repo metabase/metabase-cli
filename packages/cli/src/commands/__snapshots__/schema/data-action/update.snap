@@ -12,7 +12,7 @@ slug?: string
 target: unknown
 required?: boolean
 }[]
-collection_id?: number | null // int; >0
+collection_id?: number | null // int; >0; needs dataActionCollections (v65+)
 description?: string | null
 visualization_settings?: unknown
 archived?: boolean

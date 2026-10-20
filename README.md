@@ -2410,6 +2410,8 @@ mb schema query                       # the MBQL 5 query schema
 
 A member marked `?` may be left out, a defaulted one included. A trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, and the field's description. A schema that recurs across commands, such as a dashboard parameter, is declared once under the client's name for it, and the same name keys the JSON Schema's `$defs`. When a union's branches carry different constraints, the comment labels each with its branch's type, as in `// number: int, >0; string: 21 chars`.
 
+A body field only some Metabase servers take names the feature it needs and the servers that hold it: `// needs fieldDataSensitivity (v64+)`, `// needs tableUserValueWithdrawal (v64+) for null`, `// needs dashboardSubscriptionFilters (token dashboard_subscription_filters) when non-empty`. A value that a server holding a feature takes as something else reads `read differently under tableDataLayerTiers (v59+) for "gold", …`. The notes are judged against the server the profile last probed, read from its cache with no request: `; this server rejects it` follows a field that server refuses, and `; this server reads it differently` a value it would take as another. With no cached probe, or with `--url` naming a server the profile was not probed against, the notes stand alone. The server still decides what it accepts. `--json` and `--output` carry no such notes.
+
 `mb schema query` prints the MBQL 5 query schema that `query`, `card`, `transform`, `segment`, `measure` and `data-action` bodies are checked against. With `--json` it is the bundle `{ schema, defs: { "id.yaml", "parameter.yaml", "ref.yaml", "temporal_bucketing.yaml" } }`. The query schema's `$ref`s point into the `defs` namespace by file path; an agent can feed the bundle to Ajv (`addSchema(defs["id.yaml"], "id.yaml")` etc., then `compile(schema)`) or read it as documentation.
 
 | Arg / Flag     | Description                                                                 |
@@ -2418,6 +2420,8 @@ A member marked `?` may be left out, a defaulted one included. A trailing `//` c
 | `[subcommand]` | The command within that group (`create`, `get`, …).                         |
 | `--output`     | Print the schema of the command's output instead of its body.               |
 | `--json`       | Print the JSON Schema instead of TypeScript.                                |
+| `--profile`    | The profile whose cached server the gate notes are judged against.          |
+| `--url`        | The Metabase URL the profile's cached probe must match.                     |
 
 Exit codes: `0` success, `2` when the path names no command, names a group (the error lists its commands), or names a command that takes no JSON body without `--output`.
 

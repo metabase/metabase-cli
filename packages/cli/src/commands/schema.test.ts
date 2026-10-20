@@ -4,7 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { parseJson } from "@metabase/client/json";
+import { createServerProfile, type ServerProfile } from "@metabase/client/version/profile";
 
+import { probeAt } from "../core/auth/temp-config-home";
 import { getQuerySchemaBundle } from "../core/schema/validate";
 import main from "../main";
 import { getMetabaseAugment } from "../runtime/command-augment";
@@ -153,6 +155,63 @@ describe("schema command", () => {
   });
 });
 
+const SENSITIVITY_NOTE = "// needs fieldDataSensitivity (v64+)";
+
+function serverAt(
+  major: number,
+  tokenFeatures: Record<string, boolean> | null = null,
+): ServerProfile {
+  return createServerProfile(probeAt(major, tokenFeatures));
+}
+
+async function inputLine(
+  segments: readonly string[],
+  server: ServerProfile | null,
+  member: string,
+): Promise<string | undefined> {
+  const rendered = await schemaTypeScript(segments, "input", { server });
+  return rendered.split("\n").find((line) => line.startsWith(`${member}?:`));
+}
+
+describe("gate notes", () => {
+  it("keeps the plain note on a field the cached server takes", async () => {
+    const plain = await schemaTypeScript(["field", "update"], "input", { server: null });
+
+    expect(plain.split("\n")).toContain(SENSITIVITY_NOTE);
+    expect(await schemaTypeScript(["field", "update"], "input", { server: serverAt(64) })).toBe(
+      plain,
+    );
+  });
+
+  it("says the cached server rejects a field it lacks the feature for", async () => {
+    const plain = await schemaTypeScript(["field", "update"], "input", { server: null });
+
+    expect(await schemaTypeScript(["field", "update"], "input", { server: serverAt(63) })).toBe(
+      plain.replace(`${SENSITIVITY_NOTE}\n`, `${SENSITIVITY_NOTE}; this server rejects it\n`),
+    );
+  });
+
+  it("says the cached server reads a superseded value differently", async () => {
+    expect(await inputLine(["table", "update"], serverAt(59), "data_layer")).toBe(
+      'data_layer?: "final" | "internal" | "hidden" | "gold" | "silver" | "bronze" | "copper" | null // needs tableDataLayerTiers (v59+) for "final", "internal", "hidden"; read differently under tableDataLayerTiers (v59+) for "gold", "silver", "bronze", "copper"; this server reads it differently',
+    );
+  });
+
+  it("says the cached server rejects a field its token does not grant", async () => {
+    expect(await inputLine(["subscription", "create"], serverAt(64), "parameters")).toBe(
+      "parameters?: Parameter[] // needs dashboardSubscriptionFilters (token dashboard_subscription_filters) when non-empty; this server rejects it",
+    );
+  });
+
+  it("keeps the plain note where the cached server's token grants the feature", async () => {
+    const granted = serverAt(64, { dashboard_subscription_filters: true });
+
+    expect(await inputLine(["subscription", "create"], granted, "parameters")).toBe(
+      "parameters?: Parameter[] // needs dashboardSubscriptionFilters (token dashboard_subscription_filters) when non-empty",
+    );
+  });
+});
+
 function errorEnvelopeOf(run: SchemaRun): unknown {
   return parseJson(run.stderr, z.unknown(), { source: "stderr" });
 }
@@ -189,8 +248,10 @@ async function readAllSchemas(): Promise<ReadonlyMap<string, CommandSchemas>> {
 async function readSchemas(segments: readonly string[]): Promise<CommandSchemas> {
   const augment = getMetabaseAugment(await resolveCommandPath(main, segments));
   const takesBody = augment !== null && augment.input !== null;
-  const input = takesBody ? await schemaTypeScript(segments, "input", { strict: true }) : null;
-  const output = await schemaTypeScript(segments, "output", { strict: true });
+  const input = takesBody
+    ? await schemaTypeScript(segments, "input", { strict: true, server: null })
+    : null;
+  const output = await schemaTypeScript(segments, "output", { strict: true, server: null });
   return { segments, input, output };
 }
 

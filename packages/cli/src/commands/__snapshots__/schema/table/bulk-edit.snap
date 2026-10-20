@@ -3,7 +3,7 @@ type Input = {
 database_ids?: number[] // items: int, >0
 schema_ids?: string[] // items: /^[1-9]\d{0,17}:[^:]*$/
 table_ids?: number[] // items: int, >0
-data_authority?: "unconfigured" | "authoritative" | "computed" | "ingested" | null
+data_authority?: "unconfigured" | "authoritative" | "computed" | "ingested" | null // needs tableUserValueWithdrawal (v64+) for null
 data_source?:
 | "unknown"
 | "ingested"

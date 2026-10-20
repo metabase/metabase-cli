@@ -113,7 +113,7 @@ email: string // non-empty
 )[]
 }[]
 skip_if_empty?: boolean
-parameters?: Parameter[]
+parameters?: Parameter[] // needs dashboardSubscriptionFilters (token dashboard_subscription_filters) when non-empty
 }
 
 // mb schema subscription create --output
