@@ -12,8 +12,8 @@ import {
 import main from "../main";
 import { getMetabaseAugment } from "../runtime/command-augment";
 import { buildHelpIndex, resolveCommandPath } from "../runtime/command-help";
-import { REFINED_PREFIX } from "../runtime/json-schema";
-import { compileTypeScript } from "./compile-typescript";
+import { NOTE_SEPARATOR, REFINED_PREFIX } from "../runtime/json-schema";
+import { compileTypeScript } from "../testing/compile-typescript";
 import {
   generateSample,
   isJsonObject,
@@ -24,14 +24,8 @@ import {
   type Site,
   statedTypes,
   type TypeName,
-} from "./schema-samples";
-import {
-  isStatedBound,
-  NOTE_SEPARATOR,
-  renderTypeScript,
-  Schema,
-  type SchemaNode,
-} from "./schema-ts";
+} from "../testing/schema-samples";
+import { isStatedBound, renderTypeScript, Schema, type SchemaNode } from "./schema-ts";
 
 type Family = "command" | "mbql";
 

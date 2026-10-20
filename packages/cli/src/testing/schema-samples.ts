@@ -1,10 +1,10 @@
 import type { z } from "zod";
 
-import { isStatedBound, Schema, type SchemaNode } from "./schema-ts";
+import { isStatedBound, Schema, type SchemaNode } from "../output/schema-ts";
 
 export type Json = z.core.util.JSONType;
 
-export interface JsonObject {
+interface JsonObject {
   [key: string]: Json;
 }
 

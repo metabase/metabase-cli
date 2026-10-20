@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { toJsonSchema } from "./json-schema";
+import { notePaths, toJsonSchema } from "./json-schema";
 
 const DRAFT_2020_12 = "https://json-schema.org/draft/2020-12/schema";
 
@@ -123,6 +123,90 @@ describe("toJsonSchema", () => {
       prefixItems: [{ type: "string" }, { type: "number" }],
       minItems: 2,
       items: false,
+    });
+  });
+});
+
+const QUERY_NOTE = { path: ["source", "query"], note: "checked elsewhere" };
+
+describe("notePaths", () => {
+  it("notes a member at a path in every alternative that has it, after its own description", () => {
+    const schema = z.strictObject({
+      source: z.discriminatedUnion("type", [
+        z.strictObject({ type: z.literal("query"), query: z.unknown().describe("A query") }),
+        z.strictObject({ type: z.literal("python"), body: z.string() }),
+      ]),
+    });
+
+    expect(notePaths(toJsonSchema(schema, { io: "input" }), [QUERY_NOTE])).toEqual({
+      $schema: DRAFT_2020_12,
+      type: "object",
+      properties: {
+        source: {
+          oneOf: [
+            {
+              type: "object",
+              properties: {
+                type: { type: "string", const: "query" },
+                query: { description: "A query; checked elsewhere" },
+              },
+              required: ["type", "query"],
+              additionalProperties: false,
+            },
+            {
+              type: "object",
+              properties: { type: { type: "string", const: "python" }, body: { type: "string" } },
+              required: ["type", "body"],
+              additionalProperties: false,
+            },
+          ],
+        },
+      },
+      required: ["source"],
+      additionalProperties: false,
+    });
+  });
+
+  it("refuses a note at a path no member reaches", () => {
+    const schema = toJsonSchema(z.strictObject({ query: z.unknown() }), { io: "input" });
+
+    expect(() => notePaths(schema, [QUERY_NOTE])).toThrow(
+      new Error('no member at "source.query" to note'),
+    );
+  });
+
+  it("notes a branch reached through a shared $ref on an inlined copy, leaving the definition bare", () => {
+    const shared = {
+      type: "object" as const,
+      properties: { query: { type: "string" as const } },
+    };
+    const schema = {
+      type: "object" as const,
+      properties: {
+        source: { anyOf: [{ $ref: "#/$defs/Shared" }] },
+        other: { $ref: "#/$defs/Shared" },
+      },
+      $defs: { Shared: shared },
+    };
+
+    expect(notePaths(schema, [QUERY_NOTE])).toEqual({
+      type: "object",
+      properties: {
+        source: {
+          anyOf: [
+            {
+              allOf: [
+                {
+                  type: "object",
+                  properties: { query: { type: "string", description: "checked elsewhere" } },
+                },
+              ],
+            },
+          ],
+        },
+        other: { $ref: "#/$defs/Shared" },
+      },
+      $defs: { Shared: shared },
     });
   });
 });

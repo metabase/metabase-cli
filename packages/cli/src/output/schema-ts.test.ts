@@ -14,7 +14,7 @@ function parseFixture(text: string): unknown {
 }
 
 function renderInput(schema: unknown): string {
-  return renderTypeScript(schema, { name: "Input", strict: true });
+  return renderTypeScript(schema, { name: "Input" });
 }
 
 function renderZodInput(schema: z.ZodType): string {
@@ -266,7 +266,6 @@ describe("renderTypeScript", () => {
     };
     const rendered = renderTypeScript(query, {
       name: "Query",
-      strict: true,
       documents: { "ref.yaml": refs },
     });
     expect(rendered).toBe(['type field_ref = ["field"]', "type Query = field_ref"].join("\n"));
@@ -288,7 +287,6 @@ describe("renderTypeScript", () => {
     };
     const rendered = renderTypeScript(query, {
       name: "Query",
-      strict: true,
       documentName: "query.yaml",
       documents: { "ref.yaml": refs },
     });
@@ -681,104 +679,15 @@ describe("renderTypeScript", () => {
     );
   });
 
-  it("refuses an unknown keyword in strict mode", () => {
+  it("refuses an unknown keyword", () => {
     expect(() => renderInput({ type: "string", nullable: true })).toThrow(
       new Error('unsupported JSON Schema keyword "nullable"'),
     );
   });
 
-  it("skips an unknown keyword outside strict mode", () => {
-    const rendered = renderTypeScript({ type: "string", nullable: true }, { name: "Input" });
-    expect(rendered).toBe("type Input = string");
-  });
-
-  it("drops an ignored keyword in strict mode", () => {
+  it("drops an ignored keyword", () => {
     expect(renderInput({ type: "string", title: "Name", uniqueItems: true })).toBe(
       "type Input = string",
-    );
-  });
-
-  it("notes a member at a path in every alternative that has it, after its own notes", () => {
-    const schema = z.strictObject({
-      source: z.discriminatedUnion("type", [
-        z.strictObject({ type: z.literal("query"), query: z.unknown().describe("A query") }),
-        z.strictObject({ type: z.literal("python"), body: z.string() }),
-      ]),
-    });
-    const rendered = renderTypeScript(toJsonSchema(schema, { io: "input" }), {
-      name: "Input",
-      notes: [{ path: ["source", "query"], note: "checked elsewhere" }],
-    });
-    expect(rendered).toBe(
-      [
-        "type Input = {",
-        "source:",
-        "| {",
-        'type: "query"',
-        "query: unknown // A query; checked elsewhere",
-        "}",
-        '| { type: "python", body: string }',
-        "}",
-      ].join("\n"),
-    );
-  });
-
-  it("refuses a note at a path no member reaches", () => {
-    const schema = z.strictObject({ query: z.unknown() });
-    expect(() =>
-      renderTypeScript(toJsonSchema(schema, { io: "input" }), {
-        name: "Input",
-        notes: [{ path: ["source", "query"], note: "checked elsewhere" }],
-      }),
-    ).toThrow(new Error('no member at "source.query" to note'));
-  });
-
-  it("notes a branch reached through a shared $ref on an inlined copy, leaving the definition bare", () => {
-    const shared = {
-      type: "object",
-      properties: { query: { type: "string" } },
-      required: ["query"],
-      additionalProperties: false,
-    };
-    const schema = {
-      type: "object",
-      properties: {
-        source: {
-          anyOf: [
-            {
-              type: "object",
-              properties: { query: { description: "A query" } },
-              required: ["query"],
-              additionalProperties: false,
-            },
-            { $ref: "#/$defs/Shared" },
-          ],
-        },
-        other: { $ref: "#/$defs/Shared" },
-      },
-      required: ["source", "other"],
-      additionalProperties: false,
-      $defs: { Shared: shared },
-    };
-    const rendered = renderTypeScript(schema, {
-      name: "Input",
-      strict: true,
-      notes: [{ path: ["source", "query"], note: "checked elsewhere" }],
-    });
-    expect(rendered).toBe(
-      [
-        "type Shared = { query: string }",
-        "type Input = {",
-        "source:",
-        "| {",
-        "query: unknown // A query; checked elsewhere",
-        "}",
-        "| {",
-        "query: string // checked elsewhere",
-        "}",
-        "other: Shared",
-        "}",
-      ].join("\n"),
     );
   });
 });

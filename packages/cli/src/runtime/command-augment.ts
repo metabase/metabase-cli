@@ -28,21 +28,19 @@ interface JsonSchemaBundle {
   defs: Readonly<Record<string, unknown>>;
 }
 
-export type BodyPredicate = (body: unknown) => boolean;
+type BodyPredicate = (body: unknown) => boolean;
 
-// A value inside a Zod body that the Zod schema leaves open and the command checks against `source`
-// instead.
-export interface EmbeddedDocument {
-  owner: string;
+// A query inside a Zod body that the Zod schema leaves open and the command checks as MBQL 5.
+export interface EmbeddedQuery {
+  resource: string;
   path: readonly string[];
-  source: JsonSchemaSource;
   when: BodyPredicate | null;
 }
 
 interface ZodContract {
   kind: "zod";
   schema: ZodType;
-  embedded: readonly EmbeddedDocument[];
+  embedded: readonly EmbeddedQuery[];
 }
 
 interface DocumentsContract {

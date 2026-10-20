@@ -219,6 +219,29 @@ describe("showUsage", () => {
     ]);
   });
 
+  it("labels a leaf with a documents body as flags only and points at its body type", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "bar", description: "demo bar" },
+      requires: [],
+      args: {},
+      inputDocuments: {
+        title: "Demo query",
+        command: ["foo", "bar"],
+        documentName: "demo.yaml",
+        bundle: { schema: { type: "object" }, defs: {} },
+      },
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd, undefined, "mb foo bar");
+    expect(trailingLines(chunks.join(""), 2)).toEqual([
+      "Machine-readable help (flags): mb foo bar --help --json",
+      "Body type: mb schema foo bar",
+    ]);
+  });
+
   it("leaves the schema hint off a leaf that declares neither schema", async () => {
     const cmd = defineMetabaseCommand({
       meta: { name: "bar", description: "demo bar" },

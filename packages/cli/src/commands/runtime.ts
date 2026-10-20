@@ -36,7 +36,7 @@ import { reportError } from "../output/error";
 import { preflightSkippedNotice, preflightUncheckedNotice, warn } from "../output/notice";
 import {
   type CommandRequirements,
-  type EmbeddedDocument,
+  type EmbeddedQuery,
   type JsonSchemaSource,
   type SchemaContract,
   setMetabaseAugment,
@@ -87,7 +87,7 @@ interface NoBodyDef<A extends ArgsDef> extends MetabaseCommandFields<A> {
 
 interface ZodBodyDef<A extends ArgsDef, I> extends MetabaseCommandFields<A> {
   inputSchema: ZodType<I>;
-  embeddedDocuments?: readonly EmbeddedDocument[];
+  embeddedDocuments?: readonly EmbeddedQuery[];
   inputDocuments?: never;
   run: CommandRun<BodyCommandContext<A, I>>;
 }
@@ -222,8 +222,8 @@ async function readDeclaredBody<I>(
   // Loaded only here, so the bundled MBQL schema stays off the chunk every command loads.
   if (embedded.length > 0) {
     const { preflightEmbeddedQuery } = await import("./validate-query");
-    for (const document of embedded) {
-      preflightEmbeddedQuery(parsed, document, { skip });
+    for (const query of embedded) {
+      preflightEmbeddedQuery(parsed, query, { skip });
     }
   }
   return parsed;

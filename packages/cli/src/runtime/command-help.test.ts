@@ -18,8 +18,6 @@ import {
 import type { CommandHelpEntry } from "./command-help";
 import { toJsonSchema } from "./json-schema";
 
-const RequiredKeys = z.object({ required: z.array(z.string()) });
-
 describe("buildHelpIndex", () => {
   it("walks lazy subCommands into full-path index entries", async () => {
     const leaf = defineMetabaseCommand({
@@ -233,11 +231,9 @@ describe("buildHelpEntry", () => {
 
     const entry = await buildHelpEntry(await resolveCommandPath(main, path), path);
 
-    expect(RequiredKeys.parse(entry.inputSchema).required).toEqual([
-      "payload",
-      "subscriptions",
-      "handlers",
-    ]);
+    const { required } = z.object({ required: z.array(z.string()) }).parse(entry.inputSchema);
+
+    expect(required).toEqual(["payload", "subscriptions", "handlers"]);
   });
 
   it("forwards details for metabase commands that declare it and omits the key otherwise", async () => {

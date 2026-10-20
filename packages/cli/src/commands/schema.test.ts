@@ -1,3 +1,6 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+
 import { runCommand } from "citty";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -5,13 +8,14 @@ import { z } from "zod";
 import { parseJson } from "@metabase/client/json";
 import { createServerProfile, type ServerProfile } from "@metabase/client/version/profile";
 
-import { probeAt } from "../core/auth/temp-config-home";
+import { profilesFilePath } from "../core/auth/storage";
+import { probeAt, setupTempConfigHome } from "../core/auth/temp-config-home";
 import { getQuerySchemaBundle } from "../core/schema/validate";
 import main from "../main";
-import { compileTypeScript } from "../output/compile-typescript";
 import { getMetabaseAugment } from "../runtime/command-augment";
 import { resolveCitty } from "../runtime/citty";
 import { buildHelpIndex, resolveCommandPath } from "../runtime/command-help";
+import { compileTypeScript } from "../testing/compile-typescript";
 import schemaCommand, { schemaTypeScript } from "./schema";
 
 interface SchemaRun {
@@ -49,6 +53,10 @@ const DescribedProperties = z.object({
 });
 
 const RequiredKeys = z.object({ required: z.array(z.string()) });
+
+const GatedProperty = z.object({
+  properties: z.object({ data_sensitivity: z.object({ description: z.string() }) }),
+});
 
 describe("schema command", () => {
   it("prints a command's body as TypeScript by default, down a pipe too", async () => {
@@ -92,12 +100,38 @@ describe("schema command", () => {
     ]);
   });
 
-  it("keeps the descriptions the client's schemas carry beside the names", async () => {
+  it("keeps the client's description beside an embedded query's pointer under --json", async () => {
     const run = await runSchema(["card", "create", "--json"]);
 
     expect(parseJson(run.stdout, DescribedProperties).properties.dataset_query.description).toBe(
-      'MBQL 5, legacy MBQL, or native query; refined: dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected',
+      'MBQL 5, legacy MBQL, or native query; refined: dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected; MBQL 5 query checked against `mb schema query`',
     );
+  });
+
+  it("notes a gated field's feature under --json without judging it", async () => {
+    const run = await runSchema(["field", "update", "--json"]);
+
+    expect(parseJson(run.stdout, GatedProperty).properties.data_sensitivity.description).toBe(
+      "needs fieldDataSensitivity (v64+)",
+    );
+  });
+
+  it("prints an output's type without reading the profile cache", async () => {
+    const home = setupTempConfigHome();
+    try {
+      mkdirSync(dirname(profilesFilePath()), { recursive: true });
+      writeFileSync(profilesFilePath(), "{not json");
+
+      const run = await runSchema(["transform-tag", "create", "--output"]);
+
+      expect(run).toEqual({
+        stdout: `${await schemaTypeScript(["transform-tag", "create"], "output", { server: null })}\n`,
+        stderr: "",
+        exitCode: undefined,
+      });
+    } finally {
+      home.cleanup();
+    }
   });
 
   it("converts the body as input, so a defaulted field is not required", async () => {
@@ -253,15 +287,11 @@ async function readAllSchemas(): Promise<ReadonlyMap<string, CommandSchemas>> {
   return schemas;
 }
 
-// Strict, so a JSON Schema keyword the renderer does not handle fails here instead of dropping out
-// of the printed type.
 async function readSchemas(segments: readonly string[]): Promise<CommandSchemas> {
   const augment = getMetabaseAugment(await resolveCommandPath(main, segments));
   const takesBody = augment !== null && augment.input !== null;
-  const input = takesBody
-    ? await schemaTypeScript(segments, "input", { strict: true, server: null })
-    : null;
-  const output = await schemaTypeScript(segments, "output", { strict: true, server: null });
+  const input = takesBody ? await schemaTypeScript(segments, "input", { server: null }) : null;
+  const output = await schemaTypeScript(segments, "output", { server: null });
   return { segments, input, output };
 }
 

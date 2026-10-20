@@ -22,23 +22,19 @@ import { resolveProfileName } from "../core/config";
 import { QuerySchemaBundle } from "../core/schema/validate";
 import main from "../main";
 import { writeJson, writeText } from "../output/render";
-import {
-  NOTE_SEPARATOR,
-  type PathNote,
-  renderTypeScript,
-  type RenderOptions,
-} from "../output/schema-ts";
+import { renderTypeScript } from "../output/schema-ts";
 import { resolveCitty } from "../runtime/citty";
 import {
-  type EmbeddedDocument,
   getMetabaseAugment,
+  type EmbeddedQuery,
   type MetabaseAugment,
   type SchemaContract,
 } from "../runtime/command-augment";
 import { CLI_NAME, resolveCommandPath } from "../runtime/command-help";
-import { toJsonSchema } from "../runtime/json-schema";
+import { NOTE_SEPARATOR, notePaths, type PathNote, toJsonSchema } from "../runtime/json-schema";
 import { profileFlag, urlFlag } from "./flags";
 import { defineMetabaseCommand } from "./runtime";
+import { QUERY_DOCUMENTS } from "./validate-query";
 
 const TYPE_NAMES = { input: "Input", output: "Output" } as const;
 type Side = keyof typeof TYPE_NAMES;
@@ -46,8 +42,6 @@ type Side = keyof typeof TYPE_NAMES;
 interface GateNotes {
   readonly server: ServerProfile | null;
 }
-
-interface TypeScriptOptions extends Pick<RenderOptions, "strict">, GateNotes {}
 
 // Each shape here recurs across commands, or reaches itself, and goes by the client's own name for
 // it, so a declaration reads as the type an importer of the client sees.
@@ -93,6 +87,8 @@ class SchemaNames extends z.core.$ZodRegistry<z.core.GlobalMeta> {
 }
 
 const SCHEMA_NAMES = new SchemaNames(NAMED_SCHEMAS, null);
+
+const EMBEDDED_QUERY_NOTE = `${QUERY_DOCUMENTS.title} checked against \`${CLI_NAME} schema ${QUERY_DOCUMENTS.command.join(" ")}\``;
 
 const GATE_EFFECT_TEXT = {
   needs: { claim: "needs", verdict: "this server rejects it" },
@@ -145,7 +141,7 @@ export default defineMetabaseCommand({
     description: "Print the schema of a command's JSON body or output",
   },
   details:
-    "Names another command and prints the JSON body it accepts as TypeScript type declarations, or with --output the JSON it prints. It prints TypeScript unless --json is passed, down a pipe too, since TypeScript is the compact view to read before writing a body or parsing a result. --json prints the JSON Schema instead, for a validator. A member marked `?` may be left out, and a trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, the field's description, and, on a field only some servers take, the feature it needs, as `needs fieldDataSensitivity (v64+)`. Those notes are judged against the server the profile last probed, read from its cache with no request: `this server rejects it` follows a field that server refuses, `this server reads it differently` a value it would take as another, and `this server ignores it` a field it drops unread. `mb schema query` prints the MBQL 5 query schema that query, card, transform, segment, measure and data-action bodies are checked against.",
+    "Names another command and prints the JSON body it accepts as TypeScript type declarations, or with --output the JSON it prints. It prints TypeScript unless --json is passed, down a pipe too, since TypeScript is the compact view to read before writing a body or parsing a result. --json prints the JSON Schema instead, for a validator. A member marked `?` may be left out, and a trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, the field's description, and, on a field only some servers take, the feature it needs, as `needs fieldDataSensitivity (v64+)`. Those notes are judged against the server the profile last probed, read from its cache with no request: `this server rejects it` follows a field that server refuses, `this server reads it differently` a value it would take as another, and `this server ignores it` a field it drops unread. --json carries the same notes in each field's description, never judged, and a field holding an MBQL 5 query names `mb schema query` in both views. `mb schema query` prints the MBQL 5 query schema that query, card, transform, segment, measure and data-action bodies are checked against.",
   requires: null,
   args: {
     ...profileFlag,
@@ -180,22 +176,30 @@ export default defineMetabaseCommand({
       writeJson(await schemaJson(path, side));
       return;
     }
-    const cached = await readCachedServerProfile(resolveProfileName(args.profile), args.url);
-    const server = cached.kind === "found" ? cached.profile : null;
+    const server = side === "input" ? await cachedServer(args.profile, args.url) : null;
     writeText(await schemaTypeScript(path, side, { server }));
   },
 });
 
+async function cachedServer(
+  profile: string | undefined,
+  url: string | undefined,
+): Promise<ServerProfile | null> {
+  const cached = await readCachedServerProfile(resolveProfileName(profile), url);
+  return cached.kind === "found" ? cached.profile : null;
+}
+
 export async function schemaTypeScript(
   path: readonly string[],
   side: Side,
-  options: TypeScriptOptions,
+  gateNotes: GateNotes,
 ): Promise<string> {
-  return contractTypeScript(await resolveContract(path, side), side, options);
+  return contractTypeScript(await resolveContract(path, side), side, gateNotes);
 }
 
+// Unjudged, so the JSON Schema reads the same whichever server the profile last probed.
 export async function schemaJson(path: readonly string[], side: Side): Promise<unknown> {
-  return contractJson(await resolveContract(path, side), side);
+  return contractJson(await resolveContract(path, side), side, { server: null });
 }
 
 async function resolveContract(path: readonly string[], side: Side): Promise<SchemaContract> {
@@ -240,43 +244,24 @@ function missingSchema(command: string, side: Side): ConfigError {
   );
 }
 
-function contractJson(
-  contract: SchemaContract,
-  side: Side,
-  names: SchemaNames = SCHEMA_NAMES,
-): unknown {
+function contractJson(contract: SchemaContract, side: Side, gateNotes: GateNotes): unknown {
   if (contract.kind === "documents") {
     return contract.source.bundle;
   }
-  return toJsonSchema(contract.schema, { io: side, reused: "ref", metadata: names });
+  const names = side === "input" ? new SchemaNames(NAMED_SCHEMAS, gateNotes) : SCHEMA_NAMES;
+  const json = toJsonSchema(contract.schema, { io: side, reused: "ref", metadata: names });
+  return notePaths(json, contract.embedded.map(embeddedNote));
 }
 
-function contractTypeScript(
-  contract: SchemaContract,
-  side: Side,
-  { server, ...mode }: TypeScriptOptions,
-): string {
+function contractTypeScript(contract: SchemaContract, side: Side, gateNotes: GateNotes): string {
+  const name = TYPE_NAMES[side];
   if (contract.kind === "zod") {
-    const names = side === "input" ? new SchemaNames(NAMED_SCHEMAS, { server }) : SCHEMA_NAMES;
-    return renderTypeScript(contractJson(contract, side, names), {
-      ...mode,
-      name: TYPE_NAMES[side],
-      notes: contract.embedded.map(embeddedNote),
-    });
+    return renderTypeScript(contractJson(contract, side, gateNotes), { name });
   }
   const { documentName, bundle } = contract.source;
-  return renderTypeScript(bundle.schema, {
-    ...mode,
-    name: TYPE_NAMES[side],
-    documentName,
-    documents: bundle.defs,
-  });
+  return renderTypeScript(bundle.schema, { name, documentName, documents: bundle.defs });
 }
 
-function embeddedNote(embedded: EmbeddedDocument): PathNote {
-  const { title, command } = embedded.source;
-  return {
-    path: embedded.path,
-    note: `${title} checked against \`${CLI_NAME} schema ${command.join(" ")}\``,
-  };
+function embeddedNote({ path }: EmbeddedQuery): PathNote {
+  return { path, note: EMBEDDED_QUERY_NOTE };
 }

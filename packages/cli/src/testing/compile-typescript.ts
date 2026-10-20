@@ -9,7 +9,7 @@ const COMPILER_OPTIONS: ts.CompilerOptions = {
   moduleDetection: ts.ModuleDetectionKind.Force,
 };
 
-export interface CompileDiagnostic {
+interface CompileDiagnostic {
   readonly file: string | null;
   readonly line: number | null;
   readonly message: string;

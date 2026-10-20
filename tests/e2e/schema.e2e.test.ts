@@ -11,6 +11,10 @@ import { serverHas } from "./server-gate";
 
 const SENSITIVITY_NOTE = "// needs fieldDataSensitivity (v64+)";
 
+const GatedProperty = z.object({
+  properties: z.object({ data_sensitivity: z.object({ description: z.string() }) }),
+});
+
 function configErrorEnvelope(message: string): unknown {
   return { ok: false, error: { category: "config", message, exitCode: 2 } };
 }
@@ -105,6 +109,24 @@ describe("schema e2e", () => {
       ? SENSITIVITY_NOTE
       : `${SENSITIVITY_NOTE}; this server rejects it`;
     expect(result.stdout.split("\n")).toContain(note);
+  });
+
+  it("prints the same JSON Schema, gate notes unjudged, whatever server the profile probed", async () => {
+    const configHome = await makeIsolatedConfigHome();
+    const login = await runCli({
+      args: ["auth", "login", "--url", bootstrap.baseUrl, "--api-key", bootstrap.adminApiKey],
+      configHome,
+    });
+    expect(login.exitCode, login.stderr).toBe(0);
+
+    const result = await runCli({ args: ["schema", "field", "update", "--json"], configHome });
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const printed = parseJson(result.stdout, z.unknown());
+    expect(printed).toEqual(await schemaJson(["field", "update"], "input"));
+    expect(GatedProperty.parse(printed).properties.data_sensitivity.description).toBe(
+      "needs fieldDataSensitivity (v64+)",
+    );
   });
 
   it("refuses a command group, naming its commands", async () => {

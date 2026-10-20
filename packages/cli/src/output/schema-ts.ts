@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { decodePointer, NOTE_SEPARATOR } from "../runtime/json-schema";
+
 const TypeName = z.enum(["object", "array", "string", "number", "integer", "boolean", "null"]);
 type TypeName = z.infer<typeof TypeName>;
 
@@ -164,31 +166,21 @@ const UNTYPED: Typed = { type: UNKNOWN, notes: [] };
 const UNSTATED_BOUND = Number.MAX_SAFE_INTEGER;
 const ONE_LINE_OBJECT_MAX = 100;
 const ONE_LINE_UNION_MAX = 90;
-export const NOTE_SEPARATOR = "; ";
 const NESTED_NOTE_SEPARATOR = ", ";
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 const DEFS_POINTER = "/$defs/";
-const LOCAL_DEFS_PREFIX = `#${DEFS_POINTER}`;
 // Zod names a schema it extracts only because it is reused `__schema<N>`; the name means nothing.
 const UNNAMED_DEF = /^__schema(\d+)$/;
 const PROMOTED_PREFIX = "Schema";
 const ENTRY_DOCUMENT = "";
 const DISPATCH_MEMBER_KEYWORDS = ["if", "then"];
-const ALTERNATIVE_KEYWORDS = ["anyOf", "oneOf", "allOf"] as const;
 const OPEN_OBJECTS_HEADER = "// Objects accept keys beyond the ones listed.";
 const OPEN_DISPATCH_HEADER = "// A tag beyond the ones listed is accepted unchecked.";
 
-export interface PathNote {
-  readonly path: readonly string[];
-  readonly note: string;
-}
-
 export interface RenderOptions {
   readonly name: string;
-  readonly strict?: boolean;
   readonly documentName?: string;
   readonly documents?: Readonly<Record<string, unknown>>;
-  readonly notes?: readonly PathNote[];
 }
 
 interface Document {
@@ -231,10 +223,8 @@ interface Dispatch {
 }
 
 export function renderTypeScript(input: unknown, options: RenderOptions): string {
-  const strict = options.strict === true;
   const entryKey = options.documentName ?? ENTRY_DOCUMENT;
-  const notes = options.notes ?? [];
-  const entry: Document = { key: entryKey, root: notes.reduce(withPathNote, Schema.parse(input)) };
+  const entry: Document = { key: entryKey, root: Schema.parse(input) };
   const documents = new Map(
     [...parseDocuments(options.documents), entry].map((document) => [document.key, document]),
   );
@@ -350,9 +340,6 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
   }
 
   function checkKeywords(node: SchemaNode): void {
-    if (!strict) {
-      return;
-    }
     for (const keyword of Object.keys(node)) {
       if (!HANDLED.has(keyword) && !IGNORED.has(keyword)) {
         throw new Error(`unsupported JSON Schema keyword "${keyword}"`);
@@ -419,12 +406,9 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     if (tested !== null) {
       return convertTypeTest(node, conditional, tested, document);
     }
-    if (strict) {
-      throw new Error(
-        `unsupported "if" outside an allOf dispatch: ${JSON.stringify(conditional.test)}`,
-      );
-    }
-    return convertBase(node, document);
+    throw new Error(
+      `unsupported "if" outside an allOf dispatch: ${JSON.stringify(conditional.test)}`,
+    );
   }
 
   function convertBase(node: SchemaNode, document: Document): Typed | null {
@@ -669,95 +653,6 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
       notes: [...nestedNotes("keys", keys.notes), ...valueNotes],
     };
   }
-}
-
-function withPathNote(root: Schema, pathNote: PathNote): Schema {
-  const defs = typeof root === "boolean" ? undefined : root.$defs;
-  const noted = notePath(root, pathNote.path, pathNote.note, defs);
-  if (noted === null) {
-    throw new Error(`no member at "${pathNote.path.join(".")}" to note`);
-  }
-  return noted;
-}
-
-type Defs = Readonly<Record<string, Schema>> | undefined;
-
-// A `$ref` on the path is inlined as a noted copy, since the definition it names serves other
-// members too.
-function notePath(
-  schema: Schema,
-  path: readonly string[],
-  note: string,
-  defs: Defs,
-): Schema | null {
-  if (typeof schema === "boolean") {
-    return null;
-  }
-  const [key, ...rest] = path;
-  if (key === undefined) {
-    const description = schema.description === undefined ? [] : [schema.description];
-    return { ...schema, description: [...description, note].join(NOTE_SEPARATOR) };
-  }
-  if (schema.$ref !== undefined) {
-    return noteThroughRef(schema, schema.$ref, path, note, defs);
-  }
-  const noted: SchemaNode = { ...schema };
-  let reached = false;
-  const property = schema.properties?.[key];
-  const notedProperty = property === undefined ? null : notePath(property, rest, note, defs);
-  if (notedProperty !== null) {
-    noted.properties = { ...schema.properties, [key]: notedProperty };
-    reached = true;
-  }
-  for (const keyword of ALTERNATIVE_KEYWORDS) {
-    const alternatives = schema[keyword];
-    const notedAlternatives =
-      alternatives === undefined ? null : noteAlternatives(alternatives, path, note, defs);
-    if (notedAlternatives !== null) {
-      noted[keyword] = notedAlternatives;
-      reached = true;
-    }
-  }
-  return reached ? noted : null;
-}
-
-function noteAlternatives(
-  alternatives: readonly Schema[],
-  path: readonly string[],
-  note: string,
-  defs: Defs,
-): Schema[] | null {
-  const noted = alternatives.map((alternative) => notePath(alternative, path, note, defs));
-  if (noted.every((alternative) => alternative === null)) {
-    return null;
-  }
-  return alternatives.map((alternative, index) => noted[index] ?? alternative);
-}
-
-function noteThroughRef(
-  schema: SchemaNode,
-  ref: string,
-  path: readonly string[],
-  note: string,
-  defs: Defs,
-): Schema | null {
-  if (!ref.startsWith(LOCAL_DEFS_PREFIX)) {
-    throw new Error(`cannot note "${path.join(".")}" through $ref "${ref}"`);
-  }
-  const target = defs?.[decodePointer(ref.slice(LOCAL_DEFS_PREFIX.length))];
-  if (target === undefined) {
-    throw new Error(`$ref "${ref}" points at no $defs entry`);
-  }
-  const notedTarget = notePath(target, path, note, defs);
-  if (notedTarget === null) {
-    return null;
-  }
-  const { $ref: _inlined, ...siblings } = schema;
-  return { ...siblings, allOf: [...(siblings.allOf ?? []), notedTarget] };
-}
-
-function decodePointer(segment: string): string {
-  return segment.replaceAll("~1", "/").replaceAll("~0", "~");
 }
 
 function parseDocuments(raw: Readonly<Record<string, unknown>> | undefined): Document[] {

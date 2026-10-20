@@ -1,7 +1,13 @@
 import { z, type ZodType } from "zod";
 
 type JsonSchema = z.core.JSONSchema.BaseSchema;
+type SubSchema = z.core.JSONSchema._JSONSchema;
 type Io = "input" | "output";
+
+export interface PathNote {
+  readonly path: readonly string[];
+  readonly note: string;
+}
 
 interface JsonSchemaParams extends Pick<z.core.ToJSONSchemaParams, "reused" | "metadata"> {
   readonly io: Io;
@@ -10,7 +16,9 @@ interface JsonSchemaParams extends Pick<z.core.ToJSONSchemaParams, "reused" | "m
 const OPTIONALITY = { input: "optin", output: "optout" } as const;
 
 export const REFINED_PREFIX = "refined: ";
-const NOTE_SEPARATOR = "; ";
+export const NOTE_SEPARATOR = "; ";
+const LOCAL_DEFS_PREFIX = "#/$defs/";
+const ALTERNATIVE_KEYWORDS = ["anyOf", "oneOf", "allOf"] as const;
 
 // `.refine`, `.superRefine` and `.check` all add a check of this kind.
 const CUSTOM_CHECK = "custom";
@@ -89,4 +97,94 @@ function reportedMessage(reported: ReturnType<z.core.$ZodErrorMap>): string | nu
     return reported;
   }
   return reported?.message ?? null;
+}
+
+export function notePaths(root: JsonSchema, notes: readonly PathNote[]): JsonSchema {
+  return notes.reduce((noted, { path, note }) => {
+    const reached = notePath(noted, path, note, noted.$defs);
+    if (reached === null) {
+      throw new Error(`no member at "${path.join(".")}" to note`);
+    }
+    return reached;
+  }, root);
+}
+
+type Defs = Readonly<Record<string, JsonSchema>> | undefined;
+
+// A `$ref` on the path is inlined as a noted copy, since the definition it names serves other
+// members too.
+function notePath(
+  schema: SubSchema,
+  path: readonly string[],
+  note: string,
+  defs: Defs,
+): JsonSchema | null {
+  if (typeof schema === "boolean") {
+    return null;
+  }
+  const [key, ...rest] = path;
+  if (key === undefined) {
+    const description = schema.description === undefined ? [] : [schema.description];
+    return { ...schema, description: [...description, note].join(NOTE_SEPARATOR) };
+  }
+  if (schema.$ref !== undefined) {
+    return noteThroughRef(schema, schema.$ref, path, note, defs);
+  }
+  const noted: JsonSchema = { ...schema };
+  let reached = false;
+  const property = schema.properties?.[key];
+  const notedProperty = property === undefined ? null : notePath(property, rest, note, defs);
+  if (notedProperty !== null) {
+    noted.properties = { ...schema.properties, [key]: notedProperty };
+    reached = true;
+  }
+  for (const keyword of ALTERNATIVE_KEYWORDS) {
+    const alternatives = schema[keyword];
+    const notedAlternatives =
+      alternatives === undefined ? null : noteAlternatives(alternatives, path, note, defs);
+    if (notedAlternatives !== null) {
+      noted[keyword] = notedAlternatives;
+      reached = true;
+    }
+  }
+  return reached ? noted : null;
+}
+
+function noteAlternatives(
+  alternatives: readonly JsonSchema[],
+  path: readonly string[],
+  note: string,
+  defs: Defs,
+): JsonSchema[] | null {
+  const noted = alternatives.map((alternative) => notePath(alternative, path, note, defs));
+  if (noted.every((alternative) => alternative === null)) {
+    return null;
+  }
+  return alternatives.map((alternative, index) => noted[index] ?? alternative);
+}
+
+function noteThroughRef(
+  schema: JsonSchema,
+  ref: string,
+  path: readonly string[],
+  note: string,
+  defs: Defs,
+): JsonSchema | null {
+  if (!ref.startsWith(LOCAL_DEFS_PREFIX)) {
+    throw new Error(`cannot note "${path.join(".")}" through $ref "${ref}"`);
+  }
+  const target = defs?.[decodePointer(ref.slice(LOCAL_DEFS_PREFIX.length))];
+  if (target === undefined) {
+    throw new Error(`$ref "${ref}" points at no $defs entry`);
+  }
+  const notedTarget = notePath(target, path, note, defs);
+  if (notedTarget === null) {
+    return null;
+  }
+  const { $ref: _inlined, ...siblings } = schema;
+  return { ...siblings, allOf: [...(siblings.allOf ?? []), notedTarget] };
+}
+
+export function decodePointer(segment: string): string {
+  return segment.replaceAll("~1", "/").replaceAll("~0", "~");
 }

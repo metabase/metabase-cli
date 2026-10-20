@@ -2,7 +2,11 @@ import { renderUsage } from "citty";
 import type { ArgsDef, CommandDef } from "citty";
 
 import { flagSpellings, readArgv, resolveCitty } from "../runtime/citty";
-import { getMetabaseAugment, type SkillPointer } from "../runtime/command-augment";
+import {
+  getMetabaseAugment,
+  type SchemaContract,
+  type SkillPointer,
+} from "../runtime/command-augment";
 import { buildHelpEntry, buildHelpIndex, CLI_NAME, findSubCommand } from "../runtime/command-help";
 import { jsonLine } from "./render";
 
@@ -77,7 +81,7 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
     sections.push(GETTING_STARTED_HINT);
   }
   const schemas: DeclaredSchemas = {
-    body: augment !== null && augment.input !== null,
+    body: augment?.input?.kind ?? null,
     output: augment !== null && augment.outputSchema !== null,
   };
   sections.push(machineHelpHint(breadcrumb ?? cittyName, { hasSubCommands, schemas }));
@@ -114,7 +118,7 @@ function breadcrumbPath(breadcrumb: string): string[] {
 const MACHINE_HELP_INDEX_LABEL = "Machine-readable command index:";
 
 interface DeclaredSchemas {
-  body: boolean;
+  body: SchemaContract["kind"] | null;
   output: boolean;
 }
 
@@ -127,7 +131,8 @@ function machineHelpHint(breadcrumb: string, target: MachineHelpTarget): string 
   if (target.hasSubCommands) {
     return `${MACHINE_HELP_INDEX_LABEL} ${breadcrumb} --help --json`;
   }
-  const contents = target.schemas.body ? "flags, body schema" : "flags";
+  // The help JSON inlines only a Zod body; for a documents body it holds a pointer.
+  const contents = target.schemas.body === "zod" ? "flags, body schema" : "flags";
   const helpLine = `Machine-readable help (${contents}): ${breadcrumb} --help --json`;
   const schemaLine = schemaHint(breadcrumbPath(breadcrumb).join(" "), target.schemas);
   return schemaLine === null ? helpLine : `${helpLine}\n${schemaLine}`;
@@ -135,10 +140,11 @@ function machineHelpHint(breadcrumb: string, target: MachineHelpTarget): string 
 
 function schemaHint(command: string, schemas: DeclaredSchemas): string | null {
   const schema = `${CLI_NAME} schema ${command}`;
-  if (schemas.body && schemas.output) {
+  const takesBody = schemas.body !== null;
+  if (takesBody && schemas.output) {
     return `Body and output types: ${schema} [--output]`;
   }
-  if (schemas.body) {
+  if (takesBody) {
     return `Body type: ${schema}`;
   }
   if (schemas.output) {
