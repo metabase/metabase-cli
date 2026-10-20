@@ -89,7 +89,7 @@ card_id?: number | null // int
 type Input = {
 name: string // non-empty
 type?: "question" | "model" | "metric" | null
-dataset_query: Record<string, unknown> // MBQL 5, legacy MBQL, or native query
+dataset_query: Record<string, unknown> // MBQL 5, legacy MBQL, or native query; refined: dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected
 display: string // non-empty
 visualization_settings: Record<string, unknown>
 description?: string | null // non-empty

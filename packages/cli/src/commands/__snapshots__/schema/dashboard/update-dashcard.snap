@@ -12,6 +12,7 @@ parameter_id: string
 target: ParameterTarget
 card_id?: number | null // int
 }
+// refined: patch must contain at least one field
 type Input = {
 row?: number // int; >=0
 col?: number // int; >=0

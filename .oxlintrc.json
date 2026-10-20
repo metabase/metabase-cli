@@ -14,6 +14,7 @@
     "typescript/consistent-type-assertions": ["error", { "assertionStyle": "never" }],
     "typescript/no-non-null-assertion": "error",
     "curly": ["error", "all"],
-    "unicorn/switch-case-braces": ["error", "always"]
+    "unicorn/switch-case-braces": ["error", "always"],
+    "no-underscore-dangle": ["error", { "allow": ["_zod"] }]
   }
 }

@@ -19,6 +19,7 @@ import {
   type MetabaseAugment,
 } from "../runtime/command-augment";
 import { resolveCommandPath } from "../runtime/command-help";
+import { toJsonSchema } from "../runtime/json-schema";
 import { defineMetabaseCommand } from "./runtime";
 
 const TYPE_NAMES = { input: "Input", output: "Output" } as const;
@@ -179,7 +180,7 @@ function contractJson(contract: Contract): unknown {
   if (contract.kind === "documents") {
     return contract.source.bundle;
   }
-  return z.toJSONSchema(contract.schema, {
+  return toJsonSchema(contract.schema, {
     io: contract.side,
     reused: "ref",
     metadata: SCHEMA_NAMES,

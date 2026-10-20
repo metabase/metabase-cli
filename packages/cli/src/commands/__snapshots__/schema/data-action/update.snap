@@ -3,7 +3,7 @@
 type Input = {
 name?: string // non-empty
 database_id?: number // int; >0
-dataset_query?: Record<string, unknown> // MBQL 5, legacy MBQL, or native query
+dataset_query?: Record<string, unknown> // MBQL 5, legacy MBQL, or native query; refined: dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected
 parameters?: {
 id: string // non-empty
 type: string // non-empty

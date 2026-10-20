@@ -484,16 +484,15 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     };
   }
 
-  // Zod writes no minItems on a tuple, so without one every prefix element is required except a
-  // trailing run whose defaults fill it in; an optional element leaves no trace and renders
-  // required.
+  // JSON Schema reads a tuple with no minItems as all optional; this reads it as all required, the
+  // closed-world reading the rest of the renderer takes.
   function convertTuple(node: SchemaNode, prefix: readonly Schema[], document: Document): Typed {
     const elements = prefix.map((element) => convert(element, document));
     const fixed = elements.map((element) => element.type);
     const elementNotes = elements.flatMap((element, index) =>
       nestedNotes(`[${index}]`, element.notes),
     );
-    const required = node.minItems ?? defaultedTailStart(prefix);
+    const required = node.minItems ?? prefix.length;
     if (node.items === undefined || node.items === false) {
       return { type: tupleOf(fixed, required, null), notes: elementNotes };
     }
@@ -779,14 +778,6 @@ function aliasReference(name: string): Typed {
 
 function record(key: TsType, value: TsType, partial: boolean): TsRecord {
   return { kind: "record", key, value, partial };
-}
-
-// TypeScript lets only the trailing elements of a tuple be optional.
-function defaultedTailStart(prefix: readonly Schema[]): number {
-  const lastUndefaulted = prefix.findLastIndex(
-    (element) => typeof element === "boolean" || element.default === undefined,
-  );
-  return lastUndefaulted + 1;
 }
 
 function unionOf(types: readonly TsType[]): TsType {

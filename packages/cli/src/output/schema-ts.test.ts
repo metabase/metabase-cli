@@ -4,6 +4,7 @@ import { z } from "zod";
 import { parseJson } from "@metabase/client/json";
 
 import { renderTypeScript } from "./schema-ts";
+import { toJsonSchema } from "../runtime/json-schema";
 
 const OPEN_OBJECTS_HEADER = "// Objects accept keys beyond the ones listed.";
 const OPEN_DISPATCH_HEADER = "// A tag beyond the ones listed is accepted unchecked.";
@@ -17,7 +18,7 @@ function renderInput(schema: unknown): string {
 }
 
 function renderZodInput(schema: z.ZodType): string {
-  return renderInput(z.toJSONSchema(schema, { io: "input", reused: "ref" }));
+  return renderInput(toJsonSchema(schema, { io: "input", reused: "ref" }));
 }
 
 describe("renderTypeScript", () => {
@@ -307,8 +308,7 @@ describe("renderTypeScript", () => {
   });
 
   it("keeps a defaulted tuple element required when a required one follows it", () => {
-    const schema = { prefixItems: [{ type: "number", default: 1 }, { type: "string" }] };
-    expect(renderInput(schema)).toBe(
+    expect(renderZodInput(z.tuple([z.number().default(1), z.string()]))).toBe(
       ["// [0]: default 1", "type Input = [number, string]"].join("\n"),
     );
   });

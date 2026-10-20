@@ -9,7 +9,7 @@ content?: TipTapNode[]
 }
 type Input = {
 name: string // 1-254 chars
-document: TipTapNode
+document: TipTapNode // refined: every paragraph, heading, codeBlock, orderedList, bulletList, blockquote, cardEmbed, supportingText node needs a non-empty string `_id`
 collection_id?: number | null // int; >0
 collection_position?: number | null // int; >0
 // keys: /^-\d+$/; cards to create inline, keyed by the negative placeholder id referenced from cardEmbed nodes

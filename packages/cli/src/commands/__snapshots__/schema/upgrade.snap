@@ -1,9 +1,9 @@
 // mb schema upgrade --output
 type Output = {
 packageName: string
-currentVersion: string
-latestVersion: string
-targetVersion: string
+currentVersion: string // refined: expected semver MAJOR.MINOR.PATCH[-prerelease][+build]
+latestVersion: string // refined: expected semver MAJOR.MINOR.PATCH[-prerelease][+build]
+targetVersion: string // refined: expected semver MAJOR.MINOR.PATCH[-prerelease][+build]
 updateAvailable: boolean
 changeRequired: boolean
 installMethod: "npm-global" | "npm-local" | "npx" | "dev" | "unknown"

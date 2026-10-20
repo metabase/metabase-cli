@@ -93,7 +93,7 @@ describe("schema command", () => {
     const run = await runSchema(["card", "create", "--json"]);
 
     expect(parseJson(run.stdout, DescribedProperties).properties.dataset_query.description).toBe(
-      "MBQL 5, legacy MBQL, or native query",
+      'MBQL 5, legacy MBQL, or native query; refined: dataset_query must include "lib/type" (MBQL 5) or "type" (legacy MBQL/native); empty `{}` is rejected',
     );
   });
 
