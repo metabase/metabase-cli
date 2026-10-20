@@ -3,12 +3,11 @@ import {
   TransformTestRunResult,
 } from "@metabase/client/domain/transform-test";
 import { ConfigError, FailedResultError } from "@metabase/client/errors";
-import { DEFAULT_TIMEOUT_MS } from "@metabase/client/http/transport";
 
 import { renderSummaryWithinMaxBytes } from "../../output/render";
 import { transformTestRunResultView } from "../../output/views/transform-test";
 import { interruptSignal } from "../../runtime/interrupt";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { connectionFlags, outputFlags, profileFlag, timeoutFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -43,11 +42,7 @@ export default defineMetabaseCommand({
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
-    timeout: {
-      type: "string",
-      description: "Request timeout in ms",
-      default: String(DEFAULT_TIMEOUT_MS),
-    },
+    ...timeoutFlag,
     id: { type: "positional", description: "Transform test id", required: true },
   },
   outputSchema: TransformTestRunResult,
