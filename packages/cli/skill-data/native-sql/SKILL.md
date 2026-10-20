@@ -28,7 +28,7 @@ A native `dataset_query` is a query with one **native stage** — the `lib/type:
 }
 ```
 
-This is the form a card stores and returns — author it. The CLI **pre-flight-validates** it — the envelope, the template-tag shapes, the field refs — through the usual `--print-schema → --dry-run → run` loop (`mbql`), and a saved card **round-trips** in exactly this shape: `mb card get <id> --full --json`, edit the `stages[0].native` string, send it straight back. Only the warehouse parses the SQL string, so a **SQL** syntax error surfaces when you run it, not at `--dry-run`. A parameterless query needs no `template-tags` — just the `native` string.
+This is the form a card stores and returns — author it. The CLI **pre-flight-validates** it — the envelope, the template-tag shapes, the field refs — through the usual `mb schema query` → `--dry-run` → run loop (`mbql`), and a saved card **round-trips** in exactly this shape: `mb card get <id> --full --json`, edit the `stages[0].native` string, send it straight back. Only the warehouse parses the SQL string, so a **SQL** syntax error surfaces when you run it, not at `--dry-run`. A parameterless query needs no `template-tags` — just the `native` string.
 
 You may see an older flat form in cards created long ago — `{database, type:"native", native:{query}}`. The server still accepts it (it normalizes to the above) but it skips pre-flight and doesn't round-trip — **don't author it**.
 

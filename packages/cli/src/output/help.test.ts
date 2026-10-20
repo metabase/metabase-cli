@@ -9,7 +9,7 @@ import { connectionFlags, outputFlags, profileFlag } from "../commands/flags";
 import { defineCommandGroup } from "../commands/group";
 import { defineMetabaseCommand } from "../commands/runtime";
 import { setMetabaseAugment } from "../runtime/command-augment";
-import { CommandHelpEntry, CommandHelpIndex } from "../runtime/command-help";
+import { CommandHelpIndex } from "../runtime/command-help";
 import { findUnknownCommand, resolveBreadcrumb, showUsage, showUsageJson } from "./help";
 
 describe("showUsage", () => {
@@ -177,7 +177,28 @@ describe("showUsage", () => {
 
     await showUsage(cmd, undefined, "mb foo bar");
     const out = chunks.join("");
-    expect(out).toContain("Machine-readable help (flags, output schema): mb foo bar --help --json");
+    expect(out).toContain(
+      "Machine-readable help (flags, body schema): mb foo bar --help --json\nOutput schema: mb schema foo bar --output\n",
+    );
+  });
+
+  it("leaves the output-schema hint off a leaf that declares no output schema", async () => {
+    const cmd = defineMetabaseCommand({
+      meta: { name: "bar", description: "demo bar" },
+      requires: [],
+      args: {},
+      run() {
+        return;
+      },
+    });
+
+    await showUsage(cmd, undefined, "mb foo bar");
+    const out = chunks.join("");
+    expect(out.split("\n").slice(-3)).toEqual([
+      "",
+      "Machine-readable help (flags, body schema): mb foo bar --help --json",
+      "",
+    ]);
   });
 
   it("appends a machine-readable index hint on a command-group page", async () => {
@@ -424,7 +445,7 @@ describe("showUsageJson", () => {
     });
 
     await showUsageJson(leaf, "mb foo bar");
-    const entry = parseJson(chunks.join(""), CommandHelpEntry, { source: "help json" });
+    const entry = parseJson(chunks.join(""), z.unknown(), { source: "help json" });
 
     expect(entry).toEqual({
       command: "foo bar",
@@ -433,13 +454,6 @@ describe("showUsageJson", () => {
       examples: ["mb foo bar --json"],
       args: [],
       inputSchema: null,
-      outputSchema: {
-        $schema: "https://json-schema.org/draft/2020-12/schema",
-        type: "object",
-        properties: { ok: { type: "boolean" } },
-        required: ["ok"],
-        additionalProperties: false,
-      },
       requires: { methods: ["card.list"], features: [] },
     });
   });

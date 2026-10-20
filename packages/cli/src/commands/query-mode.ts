@@ -33,18 +33,10 @@ export const queryModeFlags = {
     description:
       "With --export-format: JSON object of visualization settings; column settings shape --format-rows, pivot_table.column_split the --pivot-results layout",
   },
-  "print-schema": {
-    type: "boolean",
-    description: "Emit the bundled MBQL 5 query JSON Schema and exit; no body required",
-  },
 } as const;
 
 interface RunMode {
   kind: "run";
-}
-
-interface PrintSchemaMode {
-  kind: "print-schema";
 }
 
 interface DryRunMode {
@@ -67,13 +59,7 @@ interface ExportMode {
   params: Omit<DatasetExportParams, "query">;
 }
 
-export type QueryMode =
-  | RunMode
-  | PrintSchemaMode
-  | DryRunMode
-  | CompileMode
-  | MetadataMode
-  | ExportMode;
+export type QueryMode = RunMode | DryRunMode | CompileMode | MetadataMode | ExportMode;
 
 interface SelectedMode {
   flag: string;
@@ -89,9 +75,6 @@ export function resolveQueryMode(args: QueryModeArgs): QueryMode {
   const exportRequest = readExportRequest(args);
   const visualizationSettings = readVisualizationSettings(args, exportRequest);
   const selected: SelectedMode[] = [];
-  if (args["print-schema"] === true) {
-    selected.push({ flag: "--print-schema", mode: { kind: "print-schema" } });
-  }
   if (args["dry-run"] === true) {
     selected.push({ flag: "--dry-run", mode: { kind: "dry-run" } });
   }

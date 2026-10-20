@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { parseJson } from "@metabase/client/json";
 
@@ -101,7 +102,7 @@ describe("--help --json e2e", () => {
     expect(entry.requires).toBeNull();
   });
 
-  it("emits the full entry with output schema and examples for a leaf command", async () => {
+  it("emits the full entry for a leaf command, leaving its output schema to mb schema", async () => {
     const result = await runCli({
       args: ["card", "query", "--help", "--json"],
       configHome: await makeIsolatedConfigHome(),
@@ -109,7 +110,7 @@ describe("--help --json e2e", () => {
 
     expect(result.exitCode, result.stderr).toBe(0);
 
-    const entry = parseJson(result.stdout, CommandHelpEntry, { source: "--help --json" });
+    const entry = parseJson(result.stdout, z.unknown(), { source: "--help --json" });
     const cardQuery = await resolveCommandPath(main, ["card", "query"]);
     expect(entry).toEqual(await buildHelpEntry(cardQuery, ["card", "query"]));
   });

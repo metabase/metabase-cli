@@ -2326,12 +2326,12 @@ Entity ids are NanoIDs that can start with `-`, which the positional `<eids>` fo
 
 ### `mb query`
 
-Run an MBQL 5 query with built-in schema validation, or ask the server what it would do with one. Modes — discover the schema (`--print-schema`), check and compile without running (`--dry-run`), run, compile to native (`--compile`), list what the query touches (`--metadata`), stream the rows as a download (`--export-format`). `--dry-run`, `--compile`, `--metadata` and `--export-format` are mutually exclusive, and `--print-schema` takes none of them.
+Run an MBQL 5 query with built-in schema validation, or ask the server what it would do with one. Modes — check and compile without running (`--dry-run`), run, compile to native (`--compile`), list what the query touches (`--metadata`), stream the rows as a download (`--export-format`). `--dry-run`, `--compile`, `--metadata` and `--export-format` are mutually exclusive. `mb schema query` prints the schema the check runs (see [Schemas](#schemas)).
 
 MBQL 5 bodies use numeric IDs (`database: 1`, `source-table: 7`) and POST to `/api/dataset`. The bundled query schema is synced from `@metabase/representations`; `id.yaml` is overridden to require positive integers for every ID `$def`.
 
 ```sh
-mb query --print-schema                     # JSON Schema bundle
+mb schema query                             # the query schema, as TypeScript
 cat q.json | mb query --dry-run             # check + compile on the server, no run
 mb query --file q.json
 mb query --file q.json --skip-validate      # bypass pre-flight; let server reject
@@ -2347,7 +2347,6 @@ Body sources: `--file`, `--body`, or stdin (exactly one). Body is JSON.
 
 | Flag                              | Description                                                                                                                                                                                                                                                                                                                                          |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--print-schema`                  | Emit the bundled MBQL 5 query JSON Schema and exit; no body required. Refused beside `--dry-run`, `--compile`, `--metadata` or `--export-format`.                                                                                                                                                                                                    |
 | `--dry-run`                       | Check the body and compile it on the server without running it; prints `{ ok, errors, sql }`.                                                                                                                                                                                                                                                        |
 | `--compile`                       | Print the native query the server compiles the body to (`{ query, params }`) instead of running it. Text output is the bare query. Needs native query permission on the body's database.                                                                                                                                                             |
 | `--pretty` / `--no-pretty`        | With `--compile`: format the native query for reading (default: on, as on the server). `--no-pretty` compiles to one line. Either is refused without `--compile`.                                                                                                                                                                                    |
@@ -2371,7 +2370,6 @@ Exit codes:
 
 Output by mode:
 
-- `--print-schema` — `{ schema, defs: { "id.yaml", "parameter.yaml", "ref.yaml", "temporal_bucketing.yaml" } }`. The query schema's `$ref`s point into the `defs` namespace by file path; an agent can either feed the bundle directly into Ajv (`addSchema(defs["id.yaml"], "id.yaml")` etc., then `compile(schema)`) or read it as documentation.
 - `--dry-run` — `{ ok: boolean, errors: { path: string, message: string }[], sql: string | null }`. The local check runs first; when it passes, `POST /api/dataset/native` compiles the query without running it on the warehouse. A local error's `path` is a JSON Pointer into the body and `message` the Ajv error string; a server rejection (HTTP 400, or 500 from a reference it cannot resolve) is one error with `path: ""` and the server's message. `sql` is the compiled native query, `null` when it did not compile.
 - Local check failure (no `--dry-run`) — `{ ok, errors }` on stdout, exit 2, no request made.
 - Run success — the streamed `CardQueryResult`.
@@ -2385,7 +2383,7 @@ When the embedded query (`card.dataset_query`, `transform.source.query` for `sou
 
 Pass `--skip-validate` to bypass the pre-flight on any of `card create`, `card update`, `transform create`, `transform update`, `measure create`, `measure update`, `segment create`, or `segment update` — the body is sent as-is and the server is the authority. Same escape hatch as on `mb query`; use only when the bundled schema disagrees with what the server actually accepts.
 
-Agent discovery path: `mb <command> --help --json` lists a command's args, JSON-body input schema, and output schema; the description for `card create`/`update`, `transform create`/`update`, `measure create`/`update`, and `segment create`/`update` references `mb query --print-schema` so an agent can fetch the validating schema directly.
+Agent discovery path: `mb schema <command>` prints a command's JSON body, and `--output` what it prints; the description for `card create`/`update`, `transform create`/`update`, `measure create`/`update`, `segment create`/`update`, and `data-action create`/`update` references `mb schema query` so an agent can fetch the validating schema directly.
 
 The bundled query schema is synced from a pinned `@metabase/representations` release via `bun run sync:representations`; CI guards against drift.
 
@@ -2412,7 +2410,7 @@ mb schema query                       # the MBQL 5 query schema
 
 A member marked `?` may be left out, a defaulted one included. A trailing `//` comment carries what the type cannot say: integer, length and range bounds, formats, patterns, defaults, and the field's description. A schema that recurs across commands, such as a dashboard parameter, is declared once under the client's name for it, and the same name keys the JSON Schema's `$defs`. When a union's branches carry different constraints, the comment labels each with its branch's type, as in `// number: int, >0; string: 21 chars`.
 
-`mb schema query` prints the MBQL 5 query schema that `query`, `card`, `transform`, `segment` and `measure` bodies are checked against. With `--json` it is the bundle `mb query --print-schema` prints.
+`mb schema query` prints the MBQL 5 query schema that `query`, `card`, `transform`, `segment` and `measure` bodies are checked against. With `--json` it is the bundle `{ schema, defs: { "id.yaml", "parameter.yaml", "ref.yaml", "temporal_bucketing.yaml" } }`. The query schema's `$ref`s point into the `defs` namespace by file path; an agent can feed the bundle to Ajv (`addSchema(defs["id.yaml"], "id.yaml")` etc., then `compile(schema)`) or read it as documentation.
 
 | Arg / Flag     | Description                                                                 |
 | -------------- | --------------------------------------------------------------------------- |
@@ -2552,12 +2550,12 @@ The former `METABASE_`-prefixed names (`METABASE_URL`, `METABASE_API_KEY`, `META
 
 Every node of the command tree answers `--help --json` with machine-readable help, mirroring what text help shows at that level:
 
-- A leaf command emits its full entry — name, description, `details`, examples, citty args with types/defaults/enums, `requires` (the client methods the command calls and the server features they need), and the input and output Zod schemas rendered as JSON Schema (`inputSchema` is the exact validator `readBody` enforces on the JSON body, `null` for commands that take none).
+- A leaf command emits its full entry — name, description, `details`, examples, citty args with types/defaults/enums, `requires` (the client methods the command calls and the server features they need), and the input Zod schema rendered as JSON Schema (`inputSchema` is the exact validator `readBody` enforces on the JSON body, `null` for commands that take none). The output schema is `mb schema <command> --output`.
 - A command group (and the root) emits `{ description, skills, commands }` — its own sentence (`null` when it declares none), its own agent-skill pointers, and a flat `commands: [{ command, description }]` index of every leaf in its subtree, with full-path names.
 
 ```sh
 mb --help --json | jq -r '.commands[].command'    # every command
-mb card query --help --json | jq .outputSchema    # one command's output schema
+mb schema card query --output --json             # one command's output schema
 mb card create --help --json | jq .inputSchema    # the JSON-body contract it validates
 ```
 

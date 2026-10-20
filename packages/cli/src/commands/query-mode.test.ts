@@ -18,7 +18,6 @@ function resolve(overrides: ModeArgs): QueryMode {
     "pivot-results": false,
     "csv-include-bom": false,
     "visualization-settings": undefined,
-    "print-schema": undefined,
     ...overrides,
   });
 }

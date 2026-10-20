@@ -1,6 +1,6 @@
 ---
 name: mbql
-description: Author and debug MBQL query bodies for the `mb` CLI — the query shape, clauses, filters, aggregation and breakout, order and limit, expressions, joins and FK columns, multi-stage pipelines, saved questions and definitions as sources, output column names, and the print-schema → dry-run → run loop. Use when writing or fixing any query body — `mb query`, a card's `dataset_query`, a transform's `source.query`, or a segment/measure `definition` — or when `--dry-run` or a run reports errors. Triggers — "write an MBQL query", "the dataset_query is wrong", "aggregate and group by", "join two tables", "month-over-month".
+description: Author and debug MBQL query bodies for the `mb` CLI — the query shape, clauses, filters, aggregation and breakout, order and limit, expressions, joins and FK columns, multi-stage pipelines, saved questions and definitions as sources, output column names, and the schema → dry-run → run loop. Use when writing or fixing any query body — `mb query`, a card's `dataset_query`, a transform's `source.query`, or a segment/measure `definition` — or when `--dry-run` or a run reports errors. Triggers — "write an MBQL query", "the dataset_query is wrong", "aggregate and group by", "join two tables", "month-over-month".
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
@@ -147,12 +147,13 @@ A measure is an aggregation, `["measure", {}, <measure id>]`, on its table, and 
 
 <!-- /requires -->
 
-## Authoring loop: print-schema → dry-run → run
+## Authoring loop: schema → dry-run → run
 
 ```bash
+mb schema query                                       # every clause as a TypeScript type, no server needed
 mb query --file q.json --dry-run --profile <n>        # check + compile on the server, no run
 mb query --file q.json --profile <n> --json           # check + run
-mb query --print-schema --profile <n> > ./.scratch/mbql-schema.json   # the full JSON Schema
+mb schema query --json > ./.scratch/mbql-schema.json  # the JSON Schema bundle, for a validator
 mb query --file q.json --compile --profile <n>        # the SQL the server generates
 mb query --file q.json --metadata --profile <n> --json   # tables (with FK targets), fields, snippets it touches
 mb query --file q.json --export-format csv --profile <n> > rows.csv   # stream the rows up to the server's download limit, no envelope cap

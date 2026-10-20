@@ -78,7 +78,8 @@ export async function showUsage<T extends ArgsDef = ArgsDef>(
   if (isRoot) {
     sections.push(GETTING_STARTED_HINT);
   }
-  sections.push(machineHelpHint(breadcrumb ?? cittyName, hasSubCommands));
+  const hasOutputSchema = augment !== null && augment.outputSchema !== null;
+  sections.push(machineHelpHint(breadcrumb ?? cittyName, { hasSubCommands, hasOutputSchema }));
   await writeUsage(sections.join("\n\n") + "\n");
 }
 
@@ -109,12 +110,25 @@ function breadcrumbPath(breadcrumb: string): string[] {
   return segments[0] === CLI_NAME ? segments.slice(1) : segments;
 }
 
-const MACHINE_HELP_LEAF_LABEL = "Machine-readable help (flags, output schema):";
+const MACHINE_HELP_LEAF_LABEL = "Machine-readable help (flags, body schema):";
 const MACHINE_HELP_INDEX_LABEL = "Machine-readable command index:";
+const OUTPUT_SCHEMA_LABEL = "Output schema:";
 
-function machineHelpHint(breadcrumb: string, hasSubCommands: boolean): string {
-  const label = hasSubCommands ? MACHINE_HELP_INDEX_LABEL : MACHINE_HELP_LEAF_LABEL;
-  return `${label} ${breadcrumb} --help --json`;
+interface MachineHelpTarget {
+  hasSubCommands: boolean;
+  hasOutputSchema: boolean;
+}
+
+function machineHelpHint(breadcrumb: string, target: MachineHelpTarget): string {
+  if (target.hasSubCommands) {
+    return `${MACHINE_HELP_INDEX_LABEL} ${breadcrumb} --help --json`;
+  }
+  const helpLine = `${MACHINE_HELP_LEAF_LABEL} ${breadcrumb} --help --json`;
+  if (!target.hasOutputSchema) {
+    return helpLine;
+  }
+  const command = breadcrumbPath(breadcrumb).join(" ");
+  return `${helpLine}\n${OUTPUT_SCHEMA_LABEL} ${CLI_NAME} schema ${command} --output`;
 }
 
 function transformBody(lines: string[], rewrite: UsageRewrite): string[] {

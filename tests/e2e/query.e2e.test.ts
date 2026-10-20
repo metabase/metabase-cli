@@ -4,11 +4,7 @@ import { CardQueryResult, CardQueryResultCompact } from "@metabase/client/domain
 import { CompiledQuery, QueryMetadataCompact } from "@metabase/client/domain/dataset";
 import { parseJson } from "@metabase/client/json";
 
-import {
-  getQuerySchemaBundle,
-  QuerySchemaBundle,
-  ValidationOutcome,
-} from "../../packages/cli/src/core/schema/validate";
+import { ValidationOutcome } from "../../packages/cli/src/core/schema/validate";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { assertCompactColumns, assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
@@ -102,17 +98,6 @@ describe("query e2e", () => {
       MB_API_KEY: bootstrap.adminApiKey,
     };
   }
-
-  it("--print-schema emits the schema bundle with all 4 common defs", async () => {
-    const configHome = await makeIsolatedConfigHome();
-    const result = await runCli({
-      args: ["query", "--print-schema"],
-      configHome,
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, QuerySchemaBundle)).toEqual(getQuerySchemaBundle());
-  });
 
   it("--dry-run with a valid numeric-IDs body returns ok and exits 0", async () => {
     const configHome = await makeIsolatedConfigHome();

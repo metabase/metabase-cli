@@ -42,7 +42,6 @@ export const CommandHelpEntry = z.object({
   examples: z.array(z.string()),
   args: z.array(CommandHelpArg),
   inputSchema: z.unknown().nullable(),
-  outputSchema: z.unknown().nullable(),
   requires: CommandHelpRequires.nullable(),
 });
 export type CommandHelpEntry = z.infer<typeof CommandHelpEntry>;
@@ -84,7 +83,6 @@ export async function buildHelpEntry<T extends ArgsDef = ArgsDef>(
     examples: Array.from(augment.examples),
     args: convertArgs(args),
     inputSchema: augment.inputSchema ? z.toJSONSchema(augment.inputSchema, { io: "input" }) : null,
-    outputSchema: augment.outputSchema ? z.toJSONSchema(augment.outputSchema) : null,
     requires: augment.requires,
   };
   if (augment.details !== null) {

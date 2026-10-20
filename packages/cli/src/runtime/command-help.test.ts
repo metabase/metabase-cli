@@ -6,6 +6,7 @@ import { type MethodKey, methodRequirements } from "@metabase/client/version/req
 
 import { defineMetabaseCommand } from "../commands/runtime";
 import main from "../main";
+import { getMetabaseAugment } from "./command-augment";
 import { buildHelpEntry, buildHelpIndex, resolveCommandPath } from "./command-help";
 import type { CommandHelpEntry } from "./command-help";
 
@@ -145,7 +146,7 @@ describe("buildHelpEntry", () => {
     ]);
   });
 
-  it("emits the JSON Schema of outputSchema and forwards examples for metabase commands", async () => {
+  it("forwards examples and leaves the output schema to mb schema for metabase commands", async () => {
     const leaf = defineMetabaseCommand({
       meta: { name: "leaf", description: "leaf" },
       requires: [],
@@ -166,16 +167,6 @@ describe("buildHelpEntry", () => {
       examples: ["root leaf --json"],
       args: [],
       inputSchema: null,
-      outputSchema: {
-        $schema: "https://json-schema.org/draft/2020-12/schema",
-        type: "object",
-        properties: {
-          ok: { type: "boolean" },
-          name: { type: "string" },
-        },
-        required: ["ok", "name"],
-        additionalProperties: false,
-      },
       requires: { methods: [], features: [] },
     });
   });
@@ -285,7 +276,6 @@ describe("buildHelpEntry", () => {
       examples: [],
       args: [],
       inputSchema: null,
-      outputSchema: null,
       requires: null,
     });
   });
@@ -308,7 +298,6 @@ describe("buildHelpEntry", () => {
       examples: [],
       args: [],
       inputSchema: null,
-      outputSchema: null,
       requires: null,
     });
   });
@@ -580,8 +569,14 @@ describe("command tree contract", () => {
     const withoutExamples = entries
       .filter((entry) => entry.examples.length === 0)
       .map((entry) => entry.command);
-    const withoutOutputSchema = entries
-      .filter((entry) => entry.outputSchema === null)
+    const outputSchemas = await Promise.all(
+      ALL_COMMANDS.map(async (command) => {
+        const augment = getMetabaseAugment(await resolveCommandPath(main, command.split(" ")));
+        return { command, declared: augment !== null && augment.outputSchema !== null };
+      }),
+    );
+    const withoutOutputSchema = outputSchemas
+      .filter((entry) => !entry.declared)
       .map((entry) => entry.command);
     expect(entries.length).toBe(ALL_COMMANDS.length);
     expect({ withoutExamples, withoutOutputSchema }).toEqual({

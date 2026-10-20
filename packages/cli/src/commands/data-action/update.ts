@@ -15,7 +15,7 @@ import {
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a data action by id" },
   details:
-    "The JSON body carries only the fields to change. A new MBQL 5 `dataset_query` is checked against a bundled JSON Schema before sending; pass --skip-validate to bypass.",
+    "The JSON body carries only the fields to change. A new MBQL 5 `dataset_query` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass --skip-validate to bypass.",
   skills: [{ skill: "data-action", purpose: "the fields of a data action" }],
   requires: ["dataAction.update"],
   args: {

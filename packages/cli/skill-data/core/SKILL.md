@@ -1,6 +1,6 @@
 ---
 name: core
-description: Foundations for driving Metabase from the terminal with the `mb` CLI — authentication and named profiles, the flag/output/`--json` conventions every command shares, JSON body input, command discovery via `--help` (add `--json` for machine-readable schemas), and the per-resource footguns (db, table, field, upload, content translation, card, dashboard, collection, segment, measure, timeline, alert, subscription, library, setting, search, eid). Load first for any `mb` task; it routes to the specialized skills for deeper work.
+description: Foundations for driving Metabase from the terminal with the `mb` CLI — authentication and named profiles, the flag/output/`--json` conventions every command shares, JSON body input, command discovery via `--help` and `mb schema`, and the per-resource footguns (db, table, field, upload, content translation, card, dashboard, collection, segment, measure, timeline, alert, subscription, library, setting, search, eid). Load first for any `mb` task; it routes to the specialized skills for deeper work.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 
@@ -16,7 +16,7 @@ document | glossary | timeline | timeline-event | transform | transform-job | tr
 search | dependency | git-sync | data-action | setup | eid | uuid | upgrade | skills
 ```
 
-The conventions below — auth, flags, output, body input — hold across **every** group. Per-command flags and examples live in each command's `--help`; add `--json` for the machine-readable form with the output JSON Schema. A few flows have their own skills (see "Specialized skills"). When a card needs a query, prefer MBQL over native SQL (portable, pre-flight-validated — load `mbql`); fall back to native SQL when MBQL can't express it.
+The conventions below — auth, flags, output, body input — hold across **every** group. Per-command flags and examples live in each command's `--help`; add `--json` for the machine-readable form. A few flows have their own skills (see "Specialized skills"). When a card needs a query, prefer MBQL over native SQL (portable, pre-flight-validated — load `mbql`); fall back to native SQL when MBQL can't express it.
 
 ## Auth & profiles
 
@@ -113,12 +113,13 @@ Cheapest source that answers the question wins:
 
 - What groups/verbs exist? → `mb --help`, then `mb <group> --help`. Add `--json` for a machine-readable `{command, description}` index (`mb --help --json` lists every command).
 - What flags does a command take? → `mb <command> --help` — flags with enums and defaults, examples, ~1 KB.
-- Output JSON Schema before parsing, JSON-body input schema before authoring, machine-readable arg types, min server version? → `mb <command> --help --json` — that command's full entry (`inputSchema` is the exact validator the command runs on the body; `null` when it takes none).
+- Body shape before authoring, output before parsing? → `mb schema <command>`: TypeScript (`?` optional, `//` bounds, defaults); `--output` for the output, `--json` for JSON Schema.
+- Flags, arg types, needed features? → `mb <command> --help --json`, whose `inputSchema` is the body's validator (`null` when it takes none).
 
 ```bash
 mb card query --help                                    # flags, enums, defaults, examples
-mb card list --help --json | jq .outputSchema           # output schema before parsing
-mb card create --help --json | jq .inputSchema          # body schema before authoring
+mb schema card create                                   # body type before authoring
+mb schema card list --output                            # output type before parsing
 mb transform --help --json | jq -r '.commands[].command'  # verbs under "transform"
 ```
 
