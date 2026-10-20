@@ -21,18 +21,15 @@ function renderZodInput(schema: z.ZodType): string {
 }
 
 describe("renderTypeScript", () => {
-  it("marks a defaulted property optional and notes its default", () => {
+  it("notes a default without making a required property optional", () => {
     const schema = {
       type: "object",
-      properties: {
-        name: { type: "string" },
-        limit: { type: "integer", exclusiveMinimum: 0, default: 25 },
-      },
-      required: ["name", "limit"],
+      properties: { limit: { type: "integer", exclusiveMinimum: 0, default: 25 } },
+      required: ["limit"],
       additionalProperties: false,
     };
     expect(renderInput(schema)).toBe(
-      ["type Input = {", "name: string", "limit?: number // int; >0; default 25", "}"].join("\n"),
+      ["type Input = {", "limit: number // int; >0; default 25", "}"].join("\n"),
     );
   });
 
@@ -51,6 +48,11 @@ describe("renderTypeScript", () => {
     expect(renderZodInput(schema)).toBe(
       ["type Input = {", "description: string | null // non-empty", "}"].join("\n"),
     );
+  });
+
+  it("keeps the constraints of a union that is not nullable off the member", () => {
+    const schema = z.strictObject({ target: z.union([z.number().int(), z.string().min(1)]) });
+    expect(renderZodInput(schema)).toBe("type Input = { target: number | string }");
   });
 
   it("renders a discriminated union as a union of object types", () => {
@@ -95,24 +97,37 @@ describe("renderTypeScript", () => {
     );
   });
 
-  it("declares a named $defs entry once, ahead of its user, even when it is recursive", () => {
+  it("declares a named $defs entry once however often it is referenced", () => {
     const schema = {
-      $defs: {
-        node: {
-          type: "object",
-          properties: { children: { type: "array", items: { $ref: "#/$defs/node" } } },
-          additionalProperties: false,
-        },
-      },
+      $defs: { id: { type: "string" } },
       type: "object",
-      properties: { root: { $ref: "#/$defs/node" }, spare: { $ref: "#/$defs/node" } },
+      properties: { card: { $ref: "#/$defs/id" }, dashboard: { $ref: "#/$defs/id" } },
       additionalProperties: false,
     };
     expect(renderInput(schema)).toBe(
-      ["type node = { children?: node[] }", "type Input = { root?: node, spare?: node }"].join(
-        "\n",
-      ),
+      ["type id = string", "type Input = { card?: id, dashboard?: id }"].join("\n"),
     );
+  });
+
+  it("declares a $defs entry ahead of the one that uses it", () => {
+    const schema = {
+      $defs: {
+        outer: { type: "array", items: { $ref: "#/$defs/inner" } },
+        inner: { type: "string" },
+      },
+      $ref: "#/$defs/outer",
+    };
+    expect(renderInput(schema)).toBe(
+      ["type inner = string", "type outer = inner[]", "type Input = outer"].join("\n"),
+    );
+  });
+
+  it("declares a recursive $defs entry that refers to itself by name", () => {
+    const schema = {
+      $defs: { node: { type: "array", items: { $ref: "#/$defs/node" } } },
+      $ref: "#/$defs/node",
+    };
+    expect(renderInput(schema)).toBe(["type node = node[]", "type Input = node"].join("\n"));
   });
 
   it("inlines a schema Zod extracted only because it is reused", () => {
@@ -146,23 +161,25 @@ describe("renderTypeScript", () => {
     expect(renderInput(schema)).toBe("type Input = Input[]");
   });
 
-  it("resolves a $ref into another document, including one back into the entry", () => {
+  it("resolves a $ref into another document", () => {
+    const query = { $ref: "ref.yaml#/$defs/field_ref" };
+    const refs = { $defs: { field_ref: { type: "array", prefixItems: [{ const: "field" }] } } };
+    const rendered = renderTypeScript(query, {
+      name: "Query",
+      strict: true,
+      documents: { "ref.yaml": refs },
+    });
+    expect(rendered).toBe(['type field_ref = ["field"]', "type Query = field_ref"].join("\n"));
+  });
+
+  it("resolves a $ref from another document back into the entry by its document name", () => {
     const query = {
-      $defs: {
-        options: {
-          type: "object",
-          properties: { uuid: { type: "string" } },
-          additionalProperties: false,
-        },
-      },
+      $defs: { options: { type: "object", additionalProperties: false } },
       $ref: "ref.yaml#/$defs/field_ref",
     };
     const refs = {
       $defs: {
-        field_ref: {
-          type: "array",
-          prefixItems: [{ const: "field" }, { $ref: "query.yaml#/$defs/options" }],
-        },
+        field_ref: { type: "array", prefixItems: [{ $ref: "query.yaml#/$defs/options" }] },
       },
     };
     const rendered = renderTypeScript(query, {
@@ -173,8 +190,8 @@ describe("renderTypeScript", () => {
     });
     expect(rendered).toBe(
       [
-        "type options = { uuid?: string }",
-        'type field_ref = ["field", options]',
+        "type options = Record<string, never>",
+        "type field_ref = [options]",
         "type Query = field_ref",
       ].join("\n"),
     );
@@ -184,6 +201,17 @@ describe("renderTypeScript", () => {
     expect(renderZodInput(z.tuple([z.string(), z.boolean()], z.number()))).toBe(
       "type Input = [string, boolean, ...number[]]",
     );
+  });
+
+  it("makes a trailing tuple element with a default optional", () => {
+    expect(renderZodInput(z.tuple([z.string(), z.number().default(1)]))).toBe(
+      "type Input = [string, number?]",
+    );
+  });
+
+  it("keeps a defaulted tuple element required when a required one follows it", () => {
+    const schema = { prefixItems: [{ type: "number", default: 1 }, { type: "string" }] };
+    expect(renderInput(schema)).toBe("type Input = [number, string]");
   });
 
   it("spells a bounded rest out as optional elements", () => {
@@ -199,6 +227,66 @@ describe("renderTypeScript", () => {
   it("renders a map as a Record over its key and value types", () => {
     const schema = z.record(z.string(), z.enum(["enabled", "disabled"]));
     expect(renderZodInput(schema)).toBe('type Input = Record<string, "enabled" | "disabled">');
+  });
+
+  it("renders a record over an enum that may leave keys out as Partial", () => {
+    const schema = z.partialRecord(z.enum(["card", "dashboard"]), z.number());
+    expect(renderZodInput(schema)).toBe(
+      'type Input = Partial<Record<"card" | "dashboard", number>>',
+    );
+  });
+
+  it("renders a record over an enum that requires every key as a plain Record", () => {
+    const schema = z.record(z.enum(["card", "dashboard"]), z.number());
+    expect(renderZodInput(schema)).toBe('type Input = Record<"card" | "dashboard", number>');
+  });
+
+  it("renders a closed object with no properties as empty whatever its key names", () => {
+    const schema = {
+      type: "object",
+      propertyNames: { enum: ["card", "dashboard"] },
+      additionalProperties: false,
+    };
+    expect(renderInput(schema)).toBe("type Input = Record<string, never>");
+  });
+
+  it("keeps the value type of a record off the last line of a long key union", () => {
+    const keys = ["question", "model", "metric", "dashboard", "collection", "snippet", "transform"];
+    const schema = z.partialRecord(z.enum([...keys, "document"]), z.number());
+    expect(renderZodInput(schema)).toBe(
+      [
+        "type Input = Partial<Record<(",
+        '| "question"',
+        '| "model"',
+        '| "metric"',
+        '| "dashboard"',
+        '| "collection"',
+        '| "snippet"',
+        '| "transform"',
+        '| "document"',
+        "), number>>",
+      ].join("\n"),
+    );
+  });
+
+  it("states a typed catchall in a comment rather than in the type", () => {
+    const schema = z.strictObject({ id: z.number() }).catchall(z.string());
+    expect(renderZodInput(schema)).toBe(
+      ["// other keys: string", "type Input = { id: number }"].join("\n"),
+    );
+  });
+
+  it("treats a catchall Zod extracted as an unconstrained $defs entry as open", () => {
+    const schema = {
+      $defs: { __schema0: {} },
+      type: "object",
+      properties: { id: { type: "number" } },
+      required: ["id"],
+      additionalProperties: { $ref: "#/$defs/__schema0" },
+    };
+    expect(renderInput(schema)).toBe(
+      [OPEN_OBJECTS_HEADER, "type Input = { id: number }"].join("\n"),
+    );
   });
 
   it("renders allOf as an intersection", () => {
@@ -289,9 +377,7 @@ describe("renderTypeScript", () => {
     const schema = parseFixture(
       `{ "if": { "type": "integer" }, "then": { "type": "integer" }, "else": { "enum": ["current", "last"] } }`,
     );
-    expect(renderInput(schema)).toBe(
-      ["// int", 'type Input = number | "current" | "last"'].join("\n"),
-    );
+    expect(renderInput(schema)).toBe('type Input = number | "current" | "last"');
   });
 
   it("states once that objects accept extra keys when one does", () => {

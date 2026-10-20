@@ -130,6 +130,7 @@ interface TsRecord {
   readonly kind: "record";
   readonly key: TsType;
   readonly value: TsType;
+  readonly partial: boolean;
 }
 
 interface TsUnion {
@@ -152,6 +153,9 @@ interface Typed {
 const UNKNOWN: TsName = { kind: "name", text: "unknown" };
 const NEVER: TsName = { kind: "name", text: "never" };
 const STRING: TsName = { kind: "name", text: "string" };
+const NUMBER: TsName = { kind: "name", text: "number" };
+const BOOLEAN: TsName = { kind: "name", text: "boolean" };
+const NULL: TsName = { kind: "name", text: "null" };
 
 const UNTYPED: Typed = { type: UNKNOWN, notes: [] };
 
@@ -167,6 +171,7 @@ const DEFS_POINTER = "/$defs/";
 const UNNAMED_DEF = /^__schema(\d+)$/;
 const PROMOTED_PREFIX = "Schema";
 const ENTRY_DOCUMENT = "";
+const DISPATCH_MEMBER_KEYWORDS = ["if", "then"];
 const OPEN_OBJECTS_HEADER = "// Objects accept keys beyond the ones listed.";
 
 interface RenderOptions {
@@ -205,25 +210,18 @@ interface Conditional {
 }
 
 interface DispatchBranch {
+  readonly slot: TagSlot;
   readonly tag: readonly Literal[];
   readonly shape: Schema;
-}
-
-interface Dispatch {
-  readonly slot: TagSlot;
-  readonly branches: readonly DispatchBranch[];
-}
-
-interface TaggedTest {
-  readonly slot: TagSlot;
-  readonly tag: readonly Literal[];
 }
 
 export function renderTypeScript(input: unknown, options: RenderOptions): string {
   const strict = options.strict === true;
   const entryKey = options.documentName ?? ENTRY_DOCUMENT;
   const entry: Document = { key: entryKey, root: Schema.parse(input) };
-  const documents = new Map<string, Document>([[entryKey, entry]]);
+  const documents = new Map(
+    [...parseDocuments(options.documents), entry].map((document) => [document.key, document]),
+  );
   const aliasOwners = new Map<string, string>([[options.name, `${entryKey}#`]]);
   const declarations: string[] = [];
   const inlining = new Set<string>();
@@ -240,16 +238,10 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
       return from;
     }
     const known = documents.get(name);
-    if (known !== undefined) {
-      return known;
-    }
-    const raw = options.documents?.[name];
-    if (raw === undefined) {
+    if (known === undefined) {
       throw new Error(`$ref names an unknown document "${name}"`);
     }
-    const parsed: Document = { key: name, root: Schema.parse(raw) };
-    documents.set(name, parsed);
-    return parsed;
+    return known;
   }
 
   function resolve(ref: string, from: Document): ResolvedRef {
@@ -385,12 +377,11 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     node: SchemaNode,
     types: readonly TypeName[],
     document: Document,
-  ): Base | null {
+  ): Typed | null {
     if (types.length === 0) {
       return null;
     }
-    const typed = unionTyped(types.map((type) => convertTyped(node, type, document)));
-    return { typed, bare: types.every((type) => isBare(node, type)) };
+    return unionTyped(types.map((type) => convertTyped(node, type, document)));
   }
 
   function convertTypeTest(
@@ -398,23 +389,21 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     conditional: Conditional,
     tested: TypeName,
     document: Document,
-  ): Base | null {
+  ): Typed | null {
     if (conditional.consequent === null) {
       return convertBase(node, declaredTypes(node), document);
     }
     const consequent = convert(narrow(conditional.consequent, tested), document);
     if (conditional.alternative !== null) {
-      const alternative = convert(conditional.alternative, document);
-      return { typed: unionTyped([consequent, alternative]), bare: false };
+      return unionTyped([consequent, convert(conditional.alternative, document)]);
     }
     if (node.type === undefined) {
-      return { typed: UNTYPED, bare: false };
+      return UNTYPED;
     }
     const declared = declaredTypes(node);
     const others = declared.filter((type) => type !== tested);
     const branches = others.map((type) => convertTyped(node, type, document));
-    const all = declared.includes(tested) ? [...branches, consequent] : branches;
-    return { typed: unionTyped(all), bare: false };
+    return unionTyped(declared.includes(tested) ? [...branches, consequent] : branches);
   }
 
   function convertAllOf(node: SchemaNode, members: readonly Schema[], document: Document): Typed {
@@ -422,26 +411,21 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
     if (dispatch === null) {
       return intersectionTyped(members.map((member) => convert(member, document)));
     }
-    const branches = dispatch.branches.map((branch) =>
-      convertBranch(dispatch.slot, branch, document),
-    );
+    const branches = dispatch.map((branch) => convertBranch(branch, document));
     const fallback = fallbackBranch(node, dispatch);
     return unionTyped(fallback === null ? branches : [...branches, fallback]);
   }
 
-  function convertBranch(slot: TagSlot, branch: DispatchBranch, document: Document): Typed {
-    if (
-      slot.kind === "tuple" ||
-      typeof branch.shape === "boolean" ||
-      branch.shape.$ref !== undefined
-    ) {
-      return convert(branch.shape, document);
+  function convertBranch(branch: DispatchBranch, document: Document): Typed {
+    const { slot, shape } = branch;
+    if (slot.kind === "tuple" || typeof shape === "boolean" || shape.$ref !== undefined) {
+      return convert(shape, document);
     }
     const tagged: SchemaNode = {
-      ...branch.shape,
+      ...shape,
       type: "object",
-      properties: { [slot.key]: { enum: [...branch.tag] }, ...branch.shape.properties },
-      required: [slot.key, ...(branch.shape.required ?? [])],
+      properties: { [slot.key]: { enum: [...branch.tag] }, ...shape.properties },
+      required: [slot.key, ...(shape.required ?? [])],
     };
     return convert(tagged, document);
   }
@@ -452,16 +436,16 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
         return { type: STRING, notes: stringNotes(node) };
       }
       case "number": {
-        return { type: { kind: "name", text: "number" }, notes: rangeNotes(node) };
+        return { type: NUMBER, notes: rangeNotes(node) };
       }
       case "integer": {
-        return { type: { kind: "name", text: "number" }, notes: ["int", ...rangeNotes(node)] };
+        return { type: NUMBER, notes: ["int", ...rangeNotes(node)] };
       }
       case "boolean": {
-        return { type: { kind: "name", text: "boolean" }, notes: [] };
+        return { type: BOOLEAN, notes: [] };
       }
       case "null": {
-        return { type: { kind: "name", text: "null" }, notes: [] };
+        return { type: NULL, notes: [] };
       }
       case "array": {
         return convertArray(node, document);
@@ -487,10 +471,12 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
   }
 
   // A tuple spells its length bounds out: a bounded rest becomes optional elements, a required one
-  // repeats the rest type, so no length constraint is left over for a comment.
+  // repeats the rest type, so no length constraint is left over for a comment. Zod writes minItems
+  // only for an optional element and none for a defaulted one, so without minItems every prefix
+  // element is required except a trailing run whose defaults fill it in.
   function convertTuple(node: SchemaNode, prefix: readonly Schema[], document: Document): Typed {
     const fixed = prefix.map((element) => convert(element, document).type);
-    const required = node.minItems ?? fixed.length;
+    const required = node.minItems ?? defaultedTailStart(prefix);
     const rest =
       node.items === undefined || node.items === false ? null : convert(node.items, document).type;
     if (rest === null) {
@@ -502,62 +488,78 @@ export function renderTypeScript(input: unknown, options: RenderOptions): string
   }
 
   function convertObject(node: SchemaNode, document: Document): Typed {
-    const required = new Set(node.required);
-    const members = Object.entries(node.properties ?? {}).map(([key, property]) => {
-      const typed = convert(property, document);
-      const defaulted = typeof property !== "boolean" && property.default !== undefined;
-      return {
-        key,
-        optional: !required.has(key) || defaulted,
-        type: typed.type,
-        notes: typed.notes,
-      };
-    });
-    const extra = node.additionalProperties;
-    const keys =
-      node.propertyNames === undefined ? STRING : convert(node.propertyNames, document).type;
-    if (extra === false) {
-      return {
-        type: members.length === 0 ? record(keys, NEVER) : { kind: "object", members },
-        notes: [],
-      };
+    const members = convertMembers(node, document);
+    const extra =
+      node.additionalProperties === undefined
+        ? UNTYPED
+        : convert(node.additionalProperties, document);
+    if (members.length > 0) {
+      return objectWithExtra({ kind: "object", members }, extra);
     }
-    if (extra === undefined || isUnconstrained(extra)) {
-      if (members.length === 0) {
-        return { type: record(keys, UNKNOWN), notes: [] };
-      }
-      sawOpenObject = true;
-      return { type: { kind: "object", members }, notes: [] };
-    }
-    const values = convert(extra, document);
-    const notes = nestedNotes("values", values.notes);
-    if (members.length === 0) {
-      return { type: record(keys, values.type), notes };
+    if (extra.type === NEVER) {
+      return { type: record(STRING, NEVER, false), notes: [] };
     }
     return {
-      type: intersectionOf([{ kind: "object", members }, record(keys, values.type)]),
-      notes,
+      type: convertRecord(node, extra.type, document),
+      notes: nestedNotes("values", extra.notes),
     };
+  }
+
+  function convertMembers(node: SchemaNode, document: Document): TsMember[] {
+    if (node.properties === undefined) {
+      return [];
+    }
+    const required = new Set(node.required);
+    return Object.entries(node.properties).map(([key, property]) => {
+      const typed = convert(property, document);
+      return { key, optional: !required.has(key), type: typed.type, notes: typed.notes };
+    });
+  }
+
+  // TypeScript cannot say "these members, and any other key of type V" without forcing V to admit
+  // every member's type too, so a typed catchall is stated in the comment instead.
+  function objectWithExtra(object: TsObject, extra: Typed): Typed {
+    if (extra.type === NEVER) {
+      return { type: object, notes: [] };
+    }
+    if (extra.type === UNKNOWN) {
+      sawOpenObject = true;
+      return { type: object, notes: [] };
+    }
+    return { type: object, notes: [`other keys: ${singleLine(print(extra.type))}`] };
+  }
+
+  function convertRecord(node: SchemaNode, value: TsType, document: Document): TsRecord {
+    if (node.propertyNames === undefined) {
+      return record(STRING, value, false);
+    }
+    const keys = convert(node.propertyNames, document).type;
+    const listed = literalValues(node.propertyNames);
+    const required = new Set(node.required);
+    const exhaustive = listed === null || listed.every((key) => required.has(String(key)));
+    return record(keys, value, !exhaustive);
   }
 }
 
-interface Base {
-  readonly typed: Typed;
-  readonly bare: boolean;
+function parseDocuments(raw: Readonly<Record<string, unknown>> | undefined): Document[] {
+  if (raw === undefined) {
+    return [];
+  }
+  return Object.entries(raw).map(([key, schema]) => ({ key, root: Schema.parse(schema) }));
 }
 
-function combine(base: Base | null, composites: readonly Typed[]): Typed {
+function combine(base: Typed | null, composites: readonly Typed[]): Typed {
   if (composites.length === 0) {
-    return base === null ? UNTYPED : base.typed;
+    return base === null ? UNTYPED : base;
   }
   const composite = intersectionTyped(composites);
   if (base === null) {
     return composite;
   }
   if (composite.type === UNKNOWN) {
-    return base.typed;
+    return base;
   }
-  return base.bare ? composite : intersectionTyped([base.typed, composite]);
+  return isBare(base.type) ? composite : intersectionTyped([base, composite]);
 }
 
 function declaredTypes(node: SchemaNode): readonly TypeName[] {
@@ -575,17 +577,24 @@ function declaredTypes(node: SchemaNode): readonly TypeName[] {
 }
 
 // A bare type adds nothing next to an allOf, anyOf, or $ref that already spells the shape out.
-function isBare(node: SchemaNode, type: TypeName): boolean {
-  if (type === "array") {
-    return node.items === undefined && node.prefixItems === undefined;
+function isBare(type: TsType): boolean {
+  switch (type.kind) {
+    case "name": {
+      return [UNKNOWN, STRING, NUMBER, BOOLEAN, NULL].includes(type);
+    }
+    case "array": {
+      return type.element === UNKNOWN;
+    }
+    case "record": {
+      return type.key === STRING && type.value === UNKNOWN;
+    }
+    case "union": {
+      return type.members.every(isBare);
+    }
+    default: {
+      return false;
+    }
   }
-  if (type === "object") {
-    const extra = node.additionalProperties;
-    const shapedExtra =
-      extra !== undefined && typeof extra !== "boolean" && !isUnconstrained(extra);
-    return node.properties === undefined && node.propertyNames === undefined && !shapedExtra;
-  }
-  return true;
 }
 
 function narrow(schema: Schema, type: TypeName): Schema {
@@ -612,55 +621,62 @@ function parseOptionalSchema(value: unknown): Schema | null {
 }
 
 function readTypeTest(test: Schema): TypeName | null {
-  if (typeof test === "boolean" || Object.keys(test).length !== 1) {
-    return null;
-  }
-  const type = test.type;
+  const type = singleKeyword(test)?.type;
   return typeof type === "string" ? type : null;
 }
 
 // MBQL dispatches a clause on its tag: an allOf of `if <tag is X> then <shape of X>`, one per tag.
-function readDispatch(members: readonly Schema[]): Dispatch | null {
-  const branches: DispatchBranch[] = [];
-  const slots: TagSlot[] = [];
-  for (const member of members) {
-    if (typeof member === "boolean" || Object.keys(member).length !== 2) {
-      return null;
-    }
-    const conditional = readConditional(member);
-    const test = conditional === null ? null : readTaggedTest(conditional.test);
-    if (conditional === null || conditional.consequent === null || test === null) {
-      return null;
-    }
-    branches.push({ tag: test.tag, shape: conditional.consequent });
-    slots.push(test.slot);
-  }
-  const first = slots[0];
-  if (first === undefined || !slots.every((slot) => sameSlot(slot, first))) {
+function readDispatch(members: readonly Schema[]): DispatchBranch[] | null {
+  const branches = members.map(readBranch);
+  const [first] = branches;
+  if (first === undefined || first === null) {
     return null;
   }
-  return { slot: first, branches };
+  const uniform = branches.every(
+    (branch): branch is DispatchBranch => branch !== null && sameSlot(branch.slot, first.slot),
+  );
+  return uniform ? branches : null;
 }
 
-function readTaggedTest(test: Schema): TaggedTest | null {
-  if (typeof test === "boolean" || Object.keys(test).length !== 1) {
+function readBranch(member: Schema): DispatchBranch | null {
+  if (typeof member === "boolean" || !hasExactKeywords(member, DISPATCH_MEMBER_KEYWORDS)) {
     return null;
   }
+  const conditional = readConditional(member);
+  const test = conditional === null ? null : singleKeyword(conditional.test);
+  if (conditional === null || conditional.consequent === null || test === null) {
+    return null;
+  }
+  const shape = conditional.consequent;
   if (test.prefixItems !== undefined) {
     const [head, ...others] = test.prefixItems;
-    const tag = head === undefined || others.length > 0 ? null : tagValues(head);
-    return tag === null ? null : { slot: { kind: "tuple" }, tag };
+    const tag = head === undefined || others.length > 0 ? null : literalValues(head);
+    return tag === null ? null : { slot: { kind: "tuple" }, tag, shape };
   }
-  const entries = Object.entries(test.properties ?? {});
-  const [entry, ...others] = entries;
-  if (entry === undefined || others.length > 0) {
+  if (test.properties === undefined) {
     return null;
   }
-  const tag = tagValues(entry[1]);
-  return tag === null ? null : { slot: { kind: "property", key: entry[0] }, tag };
+  const [entry, ...others] = Object.entries(test.properties);
+  const tag = entry === undefined || others.length > 0 ? null : literalValues(entry[1]);
+  return entry === undefined || tag === null
+    ? null
+    : { slot: { kind: "property", key: entry[0] }, tag, shape };
 }
 
-function tagValues(schema: Schema): readonly Literal[] | null {
+function singleKeyword(schema: Schema): SchemaNode | null {
+  if (typeof schema === "boolean") {
+    return null;
+  }
+  const [only, ...others] = Object.keys(schema);
+  return only === undefined || others.length > 0 ? null : schema;
+}
+
+function hasExactKeywords(node: SchemaNode, keywords: readonly string[]): boolean {
+  const present = Object.keys(node);
+  return present.length === keywords.length && keywords.every((keyword) => keyword in node);
+}
+
+function literalValues(schema: Schema): readonly Literal[] | null {
   if (typeof schema === "boolean") {
     return null;
   }
@@ -678,33 +694,27 @@ function sameSlot(left: TagSlot, right: TagSlot): boolean {
 }
 
 // A property tag the base enumerates but no branch claims still validates, with only the base shape.
-function fallbackBranch(node: SchemaNode, dispatch: Dispatch): Typed | null {
-  if (dispatch.slot.kind === "tuple") {
+function fallbackBranch(node: SchemaNode, dispatch: readonly DispatchBranch[]): Typed | null {
+  const slot = dispatch[0]?.slot;
+  if (slot === undefined || slot.kind === "tuple") {
     return null;
   }
-  const property = node.properties?.[dispatch.slot.key];
+  const property = node.properties?.[slot.key];
   if (property === undefined || typeof property === "boolean" || property.enum === undefined) {
     return null;
   }
-  const claimed = new Set(dispatch.branches.flatMap((branch) => branch.tag));
+  const claimed = new Set(dispatch.flatMap((branch) => branch.tag));
   const unclaimed = property.enum.filter((value) => !claimed.has(value));
   if (unclaimed.length === 0) {
     return null;
   }
   const member: TsMember = {
-    key: dispatch.slot.key,
+    key: slot.key,
     optional: false,
     type: unionOf(unclaimed.map(literal)),
     notes: [],
   };
   return { type: { kind: "object", members: [member] }, notes: [] };
-}
-
-function isUnconstrained(schema: Schema): boolean {
-  if (typeof schema === "boolean") {
-    return schema;
-  }
-  return Object.keys(schema).every((keyword) => keyword === "description" || IGNORED.has(keyword));
 }
 
 function literal(value: Literal): TsName {
@@ -720,8 +730,16 @@ function aliasReference(name: string): Typed {
   return { type: { kind: "name", text: name }, notes: [] };
 }
 
-function record(key: TsType, value: TsType): TsRecord {
-  return { kind: "record", key, value };
+function record(key: TsType, value: TsType, partial: boolean): TsRecord {
+  return { kind: "record", key, value, partial };
+}
+
+// TypeScript lets only the trailing elements of a tuple be optional.
+function defaultedTailStart(prefix: readonly Schema[]): number {
+  const lastUndefaulted = prefix.findLastIndex(
+    (element) => typeof element === "boolean" || element.default === undefined,
+  );
+  return lastUndefaulted + 1;
 }
 
 function unionOf(types: readonly TsType[]): TsType {
@@ -758,11 +776,16 @@ function intersectionOf(types: readonly TsType[]): TsType {
   return others.length === 0 ? only : { kind: "intersection", parts };
 }
 
+// Only a lone branch, or one beside null, passes its notes up: on any other union a note could not
+// say which branch it belongs to.
 function unionTyped(branches: readonly Typed[]): Typed {
-  return {
-    type: unionOf(branches.map((branch) => branch.type)),
-    notes: [...new Set(branches.flatMap((branch) => branch.notes))],
-  };
+  const type = unionOf(branches.map((branch) => branch.type));
+  const valued = branches.filter((branch) => !isNull(branch.type));
+  return { type, notes: valued.length === 1 ? valued.flatMap((branch) => branch.notes) : [] };
+}
+
+function isNull(type: TsType): boolean {
+  return type.kind === "name" && type.text === NULL.text;
 }
 
 function intersectionTyped(parts: readonly Typed[]): Typed {
@@ -862,7 +885,7 @@ function print(type: TsType): string {
       return printObject(type);
     }
     case "record": {
-      return `Record<${print(type.key)}, ${print(type.value)}>`;
+      return printRecord(type);
     }
     case "union": {
       return printUnion(type);
@@ -881,6 +904,16 @@ function grouped(type: TsType): string {
     return text;
   }
   return text.startsWith("\n") ? `(${text}\n)` : `(${text})`;
+}
+
+function printRecord(type: TsRecord): string {
+  const keys = print(type.key);
+  const text = `Record<${keys.includes("\n") ? grouped(type.key) : keys}, ${print(type.value)}>`;
+  return type.partial ? `Partial<${text}>` : text;
+}
+
+function singleLine(text: string): string {
+  return text.replace(/\s*\n\s*/g, " ").trim();
 }
 
 function printTuple(tuple: TsTuple): string {
