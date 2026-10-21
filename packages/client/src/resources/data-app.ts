@@ -56,8 +56,9 @@ export function dataAppResource(transport: Transport) {
   }
 
   /**
-   * A new data app's `data_app.yaml` and its collection's file, each at its path from the
-   * repository's top, with new entity ids. Writes nothing on the instance. Administrators only.
+   * A data app's `data_app.yaml` and its collection's file, each at its path from the repository's
+   * top. An existing app passes its `entity_id` and `collection_id` to keep them; a new app gets new
+   * entity ids. Writes nothing on the instance. Administrators only.
    */
   async function generateApp(
     params: DataAppGenerateInput,

@@ -181,6 +181,25 @@ export {
   DataActionUpdateInput,
 } from "./domain/data-action";
 export {
+  DataApp,
+  DataAppCompact,
+  DataAppEntry,
+  DataAppFile,
+  DataAppFiles,
+  DataAppGenerateInput,
+  DataAppGroup,
+  DataAppGroupWarning,
+  DataAppListing,
+  DataAppMissingTable,
+  DataAppResourceActionInput,
+  DataAppResourceFile,
+  DataAppResourceQueryInput,
+  DataAppResourceRefused,
+  DataAppResources,
+  DataAppResourcesInput,
+  DataAppResourceWritten,
+} from "./domain/data-app";
+export {
   Database,
   DatabaseCompact,
   DatabaseGetInclude,
@@ -245,6 +264,7 @@ export {
   FieldCompact,
   FieldDataSensitivity,
   FieldDetail,
+  FieldFingerprint,
   FieldRemappedValue,
   FieldSearchMatches,
   FieldSemanticType,

@@ -15,7 +15,6 @@ export const DataApp = z
     enabled: z.boolean(),
     allowed_hosts: z.array(z.string()),
     resource_collection_id: z.number().int(),
-    table_ids: z.array(z.number().int()),
     bundle_hash: z.string().nullable(),
     created_at: z.string(),
     updated_at: z.string(),
@@ -34,11 +33,19 @@ export const DataAppCompact = DataApp.pick({
 }).strip();
 export type DataAppCompact = z.infer<typeof DataAppCompact>;
 
-// What the same endpoints answer anyone but an administrator: only what navigation needs.
-export const DataAppEntry = z.object({ name: z.string(), display_name: z.string() }).loose();
+// What the same endpoints answer anyone but an administrator: only what navigation needs. Strict
+// so an administrator's app that fails `DataApp` is an error rather than an entry.
+export const DataAppEntry = z.object({ name: z.string(), display_name: z.string() }).strict();
 export type DataAppEntry = z.infer<typeof DataAppEntry>;
 
-export const DataAppListing = z.union([DataApp, DataAppEntry]);
+// Some 65 point releases also answer the app's collection id, which the entry drops.
+const DataAppEntryWire = DataAppEntry.extend({
+  resource_collection_id: z.number().int().optional(),
+})
+  .strict()
+  .transform(({ name, display_name }): DataAppEntry => ({ name, display_name }));
+
+export const DataAppListing = z.union([DataApp, DataAppEntryWire]);
 export type DataAppListing = z.infer<typeof DataAppListing>;
 
 export const DataAppGenerateInput = z
@@ -46,7 +53,9 @@ export const DataAppGenerateInput = z
     // The display name; the slug is made from it when `slug` is absent.
     name: z.string().min(1),
     slug: z.string().min(1).nullable().optional(),
-    description: z.string().max(255).optional(),
+    description: z.string().max(255).nullable().optional(),
+    entity_id: z.string().min(1).nullable().optional(),
+    collection_id: z.string().min(1).nullable().optional(),
   })
   .strict();
 export type DataAppGenerateInput = z.infer<typeof DataAppGenerateInput>;
