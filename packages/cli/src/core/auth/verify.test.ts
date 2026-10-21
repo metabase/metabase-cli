@@ -16,6 +16,7 @@ const CURRENT_USER = {
   email: "admin@example.com",
   common_name: "Admin",
   is_superuser: true,
+  personal_collection_id: 1,
 };
 const SESSION_PROPERTIES = { version: { tag: "v0.58.0" }, "token-features": { transforms: true } };
 

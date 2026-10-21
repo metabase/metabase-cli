@@ -15,6 +15,7 @@ describe("CurrentUser", () => {
       email: "alice@example.com",
       common_name: "Alice Example",
       is_superuser: true,
+      personal_collection_id: 12,
     });
   });
 
@@ -24,6 +25,7 @@ describe("CurrentUser", () => {
       email: "alice@example.com",
       common_name: "Alice Example",
       is_superuser: false,
+      personal_collection_id: null,
       first_name: "Alice",
       experimental_flag: true,
     });
@@ -32,6 +34,7 @@ describe("CurrentUser", () => {
       email: "alice@example.com",
       common_name: "Alice Example",
       is_superuser: false,
+      personal_collection_id: null,
       first_name: "Alice",
       experimental_flag: true,
     });

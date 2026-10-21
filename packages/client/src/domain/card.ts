@@ -11,6 +11,8 @@ export type CardType = z.infer<typeof CardType>;
 
 const CardQueryType = z.enum(["native", "query"]);
 
+const ResultColumnSource = z.enum(["aggregation", "fields", "breakout", "native"]);
+
 // The server-side presets `GET /api/card`'s `f` parameter accepts. `database`, `table`,
 // `using_model` and `using_segment` each need the matching id in `model_id`.
 export const CardListFilter = z.enum([
@@ -38,6 +40,7 @@ export const ResultColumn = z
     semantic_type: FieldSemanticType.nullable().optional(),
     database_type: z.string().nullable().optional(),
     id: z.number().int().nullable().optional(),
+    source: ResultColumnSource.nullable().optional(),
   })
   .loose();
 export type ResultColumn = z.infer<typeof ResultColumn>;

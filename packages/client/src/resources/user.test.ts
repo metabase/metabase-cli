@@ -14,6 +14,7 @@ const CURRENT_USER = {
   email: "admin@example.com",
   common_name: "Ada Lovelace",
   is_superuser: true,
+  personal_collection_id: 1,
 };
 
 const JSON_READ_HEADERS = {

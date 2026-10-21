@@ -2,5 +2,6 @@
   "id": 7,
   "email": "alice@example.com",
   "common_name": "Alice Example",
-  "is_superuser": true
+  "is_superuser": true,
+  "personal_collection_id": 12
 }

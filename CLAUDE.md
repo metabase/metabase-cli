@@ -60,7 +60,7 @@ Every resource lives in `packages/client/src/domain/<resource-singular>.ts` and 
 1. **`<Resource>`** — `z.object({...}).loose()`, type aliased via `z.infer`. Loose so API additions don't break us.
 2. **`<Resource>Compact`** — `<Resource>.pick({...}).strip()`. The trailing `.strip()` is mandatory: Zod 4's `.pick()` inherits a `.loose()` parent's catchall and silently passes every field through without it.
 
-- Trim to what an agent needs: ids, names, FK targets, base/semantic types, descriptions. Drop sync flags, fingerprints, timestamps, internal plumbing.
+- Trim to what an agent needs: ids, names, FK targets, base/semantic types, descriptions. Drop sync flags, fingerprints, timestamps, internal plumbing. `Field` keeps `fingerprint` and `last_analyzed`, because an agent profiling a column reads them.
 - Pin closed enums with `z.enum([...])` where the backend enumerates the values, so a new server value fails loudly instead of passing as an untyped string.
 - `.optional()` on a domain field means every supported server may omit it. Absence or a different shape on some majors is never an optional: it is a module-private `<Resource>WireV<N>` schema for that generation plus a converter to the canonical shape, selected by a feature and handed to the transport as a reader (`<resource><Endpoint>Schema(features): z.ZodType<Resource>`), and the canonical field is `nullable`, where `null` means "this server cannot say".
 - Canonical is the newest supported server's shape. A converter may add fields but never collapses two distinguishable wire states into one canonical state, and it strips the wire fields it owns so the canonical JSON is identical on every server.
