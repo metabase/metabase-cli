@@ -25,9 +25,12 @@ const DataActionBase = z
     description: z.string().nullable(),
     type: z.string(),
     model_id: z.number().int().nullable(),
-    // A query-type data action carries its query and database; an implicit one has neither key.
+    // A query-type data action carries its query and database; an implicit one has neither key, but
+    // its `kind` and, when it has no model, the `table_id` it writes to.
     database_id: z.number().int().nullable().optional(),
     dataset_query: z.unknown().optional(),
+    kind: z.string().optional(),
+    table_id: z.number().int().nullable().optional(),
     parameters: z.array(DataActionParameter).nullable(),
     visualization_settings: z.unknown(),
     archived: z.boolean(),
@@ -59,6 +62,7 @@ export const DataActionCompact = DataAction.pick({
   type: true,
   collection_id: true,
   database_id: true,
+  table_id: true,
   archived: true,
 }).strip();
 export type DataActionCompact = z.infer<typeof DataActionCompact>;
@@ -74,18 +78,37 @@ const DataActionParameterInput = z
   })
   .loose();
 
-export const DataActionCreateInput = z
+export const ImplicitActionKind = z.enum(["row/create", "row/update", "row/delete"]);
+export type ImplicitActionKind = z.infer<typeof ImplicitActionKind>;
+
+const DataActionCreateCommon = {
+  name: z.string().min(1),
+  parameters: z.array(DataActionParameterInput).optional(),
+  collection_id: z.number().int().positive().nullable().optional(),
+  description: z.string().nullable().optional(),
+  visualization_settings: z.unknown().optional(),
+};
+
+// The server derives a query action's database from its query.
+const DataActionQueryCreateInput = z
+  .object({ ...DataActionCreateCommon, type: z.literal("query"), dataset_query: DatasetQuery })
+  .strict();
+
+// An implicit action inserts, updates, or deletes one row of `table_id`, with the table's columns as
+// its parameters.
+const DataActionImplicitCreateInput = z
   .object({
-    name: z.string().min(1),
-    type: z.literal("query"),
-    database_id: z.number().int().positive(),
-    dataset_query: DatasetQuery,
-    parameters: z.array(DataActionParameterInput).optional(),
-    collection_id: z.number().int().positive().nullable().optional(),
-    description: z.string().nullable().optional(),
-    visualization_settings: z.unknown().optional(),
+    ...DataActionCreateCommon,
+    type: z.literal("implicit"),
+    kind: ImplicitActionKind,
+    table_id: z.number().int().positive(),
   })
   .strict();
+
+export const DataActionCreateInput = z.discriminatedUnion("type", [
+  DataActionQueryCreateInput,
+  DataActionImplicitCreateInput,
+]);
 export type DataActionCreateInput = z.infer<typeof DataActionCreateInput>;
 
 export const DATA_ACTION_COLLECTION_GATE: InputGate = {
@@ -94,21 +117,30 @@ export const DATA_ACTION_COLLECTION_GATE: InputGate = {
   when: { kind: "present" },
 };
 
-export const DataActionUpdateInput = z
-  .object({
-    name: z.string().min(1).optional(),
-    database_id: z.number().int().positive().optional(),
-    dataset_query: DatasetQuery.optional(),
-    parameters: z.array(DataActionParameterInput).optional(),
-    collection_id: gateInput(
-      z.number().int().positive().nullable().optional(),
-      DATA_ACTION_COLLECTION_GATE,
-    ),
-    description: z.string().nullable().optional(),
-    visualization_settings: z.unknown().optional(),
-    archived: z.boolean().optional(),
-  })
-  .strict();
+const DataActionUpdateCommon = {
+  name: z.string().min(1).optional(),
+  parameters: z.array(DataActionParameterInput).optional(),
+  collection_id: gateInput(
+    z.number().int().positive().nullable().optional(),
+    DATA_ACTION_COLLECTION_GATE,
+  ),
+  description: z.string().nullable().optional(),
+  visualization_settings: z.unknown().optional(),
+  archived: z.boolean().optional(),
+};
+
+// A patch changes a query action's query or an implicit action's kind and table, never both; one
+// with neither fits either action.
+export const DataActionUpdateInput = z.union([
+  z.object({ ...DataActionUpdateCommon, dataset_query: DatasetQuery.optional() }).strict(),
+  z
+    .object({
+      ...DataActionUpdateCommon,
+      kind: ImplicitActionKind.optional(),
+      table_id: z.number().int().positive().optional(),
+    })
+    .strict(),
+]);
 export type DataActionUpdateInput = z.infer<typeof DataActionUpdateInput>;
 
 const DataActionParameterValue = z.union([z.string(), z.number(), z.boolean(), z.null()]);
@@ -118,5 +150,14 @@ export const DataActionExecuteInput = z
   .strict();
 export type DataActionExecuteInput = z.infer<typeof DataActionExecuteInput>;
 
-export const DataActionExecuteResult = z.object({ "rows-affected": z.number().int() }).loose();
+// A query action answers the rows it affected; an implicit one the rows it updated or deleted, or
+// the row it created.
+export const DataActionExecuteResult = z
+  .object({
+    "rows-affected": z.number().int().optional(),
+    "rows-updated": z.number().int().optional(),
+    "rows-deleted": z.number().int().optional(),
+    "created-row": z.record(z.string(), z.unknown()).optional(),
+  })
+  .loose();
 export type DataActionExecuteResult = z.infer<typeof DataActionExecuteResult>;

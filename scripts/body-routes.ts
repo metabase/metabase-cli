@@ -108,11 +108,21 @@ export function scanBodyMethods(): BodyMethods {
   return { paired, unpaired };
 }
 
-// An object schema naming no field, as an open query is, has nothing a server's body could lack.
+// An object schema naming no field, as an open query is, has nothing a server's body could lack. A
+// union of object schemas, one per kind of body, is read as one object with every option's fields.
 function barrelObject(name: string): z.ZodObject<z.core.$ZodShape> | null {
   const value: unknown = Reflect.get(barrel, name);
-  const namesFields = value instanceof z.ZodObject && Object.keys(value.shape).length > 0;
-  return namesFields ? value : null;
+  const object = value instanceof z.ZodUnion ? unionObject(value) : value;
+  const namesFields = object instanceof z.ZodObject && Object.keys(object.shape).length > 0;
+  return namesFields ? object : null;
+}
+
+function unionObject(union: z.ZodUnion): z.ZodObject<z.core.$ZodShape> | null {
+  const options: readonly unknown[] = union.options;
+  if (!options.every((option) => option instanceof z.ZodObject)) {
+    return null;
+  }
+  return z.object(Object.assign({}, ...options.map((option) => option.shape)));
 }
 
 function parseSource(file: string): ts.SourceFile {
