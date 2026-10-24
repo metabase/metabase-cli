@@ -7,9 +7,9 @@ requires: [dataApps]
 
 # Writes in a data app
 
-An **action** is a saved, parameterized SQL write — `INSERT`, `UPDATE` or `DELETE`. A data app runs only the actions in **the app's collection** (`data-app`, _Create the app_).
+An **action** is a saved, parameterized SQL write — `INSERT`, `UPDATE` or `DELETE` — or an implicit action that inserts, updates or deletes one row of a table. A data app runs only the actions in **the app's collection** (`data-app`, _Create the app_).
 
-1. Draft the action as `data-action` describes — the database must allow actions — with `collection_id` the app's collection. Show the user its SQL and parameters, and create it once they agree.
+1. Draft the action as `data-action` describes — the database must allow actions — with `collection_id` the app's collection. Prefer an implicit action (`data-action`, _Table actions_) for a plain one-row insert, update or delete; its table must be published to the Library. Show the user its SQL or table and parameters, and create it once they agree.
 2. Regenerate `src/metabase.ts` (`data-app-data`).
 3. Pass `actions.<name>` from it to `useAction`.
 
@@ -29,7 +29,7 @@ const { execute, isExecuting, result, error, reset } = useAction(actions.setOrde
 - **Import it from `/data-app`.** The main `@metabase/embedding-sdk-react` entry exports the general SDK `useAction`, which takes raw ids and isn't typed from the definition. Write no generics: the definition types `execute`'s keys and values.
 - `execute(params)` resolves to the response body; on failure it both throws and sets `error`. It resolves to `null` without sending anything while the SDK is still starting, so guard a call that can happen at mount. It never runs on its own and has no `enabled`: return early in the handler to skip it.
 - `isExecuting` is true until it settles: disable the trigger and show progress, so a double click can't send twice.
-- `result` is the last response, `null` before the first call; `result?.["rows-affected"]` is a quick confirmation. `reset()` clears `result` and `error`, for example when the user dismisses a message.
+- `result` is the last response, `null` before the first call; `result?.["rows-affected"]` is a quick confirmation (an implicit action answers `rows-updated`, `rows-deleted` or `created-row` instead). `reset()` clears `result` and `error`, for example when the user dismisses a message.
 
 ## A form
 

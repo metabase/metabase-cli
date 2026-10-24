@@ -36,7 +36,10 @@ export function dataActionResource(transport: Transport) {
     return transport.requestParsed(schema, `/api/action/${id}`, { ...options });
   }
 
-  /** Create a data action — a parameterized native query that writes to a database — in a collection. */
+  /**
+   * Create a data action in a collection: a parameterized native query that writes to a database, or
+   * an implicit action that inserts, updates, or deletes one row of a table.
+   */
   async function create(
     params: DataActionCreateInput,
     options: RequestOptions = {},
