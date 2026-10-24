@@ -181,7 +181,7 @@ This file is enough for any single-command task. For anything deeper, load the r
 <!-- /requires -->
 - **`document`** — Metabase documents (TipTap body, embedding cards).
 <!-- requires: dataActionsWithoutModel -->
-- **`data-action`** — saved SQL writes: enabling, body, parameters, running.
+- **`data-action`** — writes, as table actions or SQL query actions: enabling, body, parameters, running.
   <!-- /requires -->
   <!-- requires: remoteSync -->
 - **`git-sync`** — round-tripping content to/from a git remote.

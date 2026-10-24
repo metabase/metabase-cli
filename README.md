@@ -1153,7 +1153,7 @@ mb snippet archive 1 --json
 
 ## Data actions
 
-CRUD on `/api/action` plus `execute`. A data action is a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`), or an implicit action that inserts, updates, or deletes one row of a table, filed in a collection. Data actions are off by default: an admin must enable them on the target database first (`mb db set-data-actions <id> true`). `mb data-action create` authors data actions without a model — no `model_id` — and needs a server whose data actions do not require a model.
+CRUD on `/api/action` plus `execute`. A data action is a table action, which inserts, updates, or deletes one row of a table, or a query action, a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`), filed in a collection. Data actions are off by default: an admin must enable them on the target database first (`mb db set-data-actions <id> true`). `mb data-action create` authors data actions without a model — no `model_id` — and needs a server whose data actions do not require a model.
 
 ### `mb data-action list`
 
@@ -1184,7 +1184,7 @@ mb data-action create --body '{"name":"Add customer","type":"implicit","kind":"r
 | `--file <path>`   | Path to JSON body file.                                                                                                                                |
 | `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-Body fields: `name` (required), `type` (required, `"query"` or `"implicit"`), `dataset_query` (required for a query action: a native query whose `{{tag}}` placeholders are its inputs, and whose `database` Metabase stores as the action's database), `parameters` (a query action's, one per template tag), `kind` (required for an implicit action: `row/create`, `row/update`, or `row/delete`), `table_id` (required for an implicit action: a table with exactly one primary key, whose columns become the parameters), `collection_id` (optional; a collection in the `data-actions` or `data-apps` namespace, such as one made by `mb collection create --namespace data-actions`, or the data actions root when omitted — a regular collection is refused), `description`, `visualization_settings`.
+Body fields: `name` (required), `type` (required, `"implicit"` for a table action or `"query"`), `kind` (required for a table action: `row/create`, `row/update`, or `row/delete`), `table_id` (required for a table action: a table with exactly one primary key, whose columns become the parameters), `dataset_query` (required for a query action: a native query whose `{{tag}}` placeholders are its inputs and whose `database` the action writes to), `parameters` (a query action's, one per template tag), `collection_id` (optional; a collection in the `data-actions` or `data-apps` namespace, such as one made by `mb collection create --namespace data-actions`, or the data actions root when omitted — a regular collection is refused), `description`, `visualization_settings`.
 
 ### `mb data-action update <id>`
 
@@ -1211,7 +1211,7 @@ mb data-action delete 1 --yes
 
 ### `mb data-action execute <id>`
 
-Run a data action. The body is `{"parameters": {...}}` keyed by parameter id; the result reports `rows-affected` for a query action, and `rows-updated`, `rows-deleted`, or the `created-row` for an implicit action.
+Run a data action. The body is `{"parameters": {...}}` keyed by parameter id; the result reports `rows-affected` for a query action, and `rows-updated`, `rows-deleted`, or the `created-row` for a table action.
 
 ```sh
 mb data-action execute 1 --body '{"parameters":{"id":1,"note":"rush"}}'
