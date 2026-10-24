@@ -81,54 +81,34 @@ const DataActionParameterInput = z
 export const ImplicitActionKind = z.enum(["row/create", "row/update", "row/delete"]);
 export type ImplicitActionKind = z.infer<typeof ImplicitActionKind>;
 
-// A query action is a parameterized native query; an implicit action inserts, updates, or deletes one
-// row of `table_id`, with the table's columns as its parameters. One object with every field, so the
-// OpenAPI drift lane checks them all, and `type` picks the fields a body must and must not carry.
-const DataActionCreateFields = z
+const DataActionCreateCommon = {
+  name: z.string().min(1),
+  parameters: z.array(DataActionParameterInput).optional(),
+  collection_id: z.number().int().positive().nullable().optional(),
+  description: z.string().nullable().optional(),
+  visualization_settings: z.unknown().optional(),
+};
+
+// The server derives a query action's database from its query.
+const DataActionQueryCreateInput = z
+  .object({ ...DataActionCreateCommon, type: z.literal("query"), dataset_query: DatasetQuery })
+  .strict();
+
+// An implicit action inserts, updates, or deletes one row of `table_id`, with the table's columns as
+// its parameters.
+const DataActionImplicitCreateInput = z
   .object({
-    name: z.string().min(1),
-    type: z.enum(["query", "implicit"]),
-    database_id: z.number().int().positive().optional(),
-    dataset_query: DatasetQuery.optional(),
-    parameters: z.array(DataActionParameterInput).optional(),
-    kind: ImplicitActionKind.optional(),
-    table_id: z.number().int().positive().optional(),
-    collection_id: z.number().int().positive().nullable().optional(),
-    description: z.string().nullable().optional(),
-    visualization_settings: z.unknown().optional(),
+    ...DataActionCreateCommon,
+    type: z.literal("implicit"),
+    kind: ImplicitActionKind,
+    table_id: z.number().int().positive(),
   })
   .strict();
 
-const FIELDS_OF_TYPE = {
-  query: ["database_id", "dataset_query"],
-  implicit: ["kind", "table_id"],
-} as const;
-
-const FIELDS_NOT_OF_TYPE = {
-  query: ["kind", "table_id"],
-  implicit: ["database_id", "dataset_query", "parameters"],
-} as const;
-
-export const DataActionCreateInput = DataActionCreateFields.superRefine((body, ctx) => {
-  for (const field of FIELDS_OF_TYPE[body.type]) {
-    if (body[field] === undefined) {
-      ctx.addIssue({
-        code: "custom",
-        path: [field],
-        message: `required when type is "${body.type}"`,
-      });
-    }
-  }
-  for (const field of FIELDS_NOT_OF_TYPE[body.type]) {
-    if (body[field] !== undefined) {
-      ctx.addIssue({
-        code: "custom",
-        path: [field],
-        message: `not allowed when type is "${body.type}"`,
-      });
-    }
-  }
-});
+export const DataActionCreateInput = z.discriminatedUnion("type", [
+  DataActionQueryCreateInput,
+  DataActionImplicitCreateInput,
+]);
 export type DataActionCreateInput = z.infer<typeof DataActionCreateInput>;
 
 export const DATA_ACTION_COLLECTION_GATE: InputGate = {
@@ -137,23 +117,30 @@ export const DATA_ACTION_COLLECTION_GATE: InputGate = {
   when: { kind: "present" },
 };
 
-export const DataActionUpdateInput = z
-  .object({
-    name: z.string().min(1).optional(),
-    database_id: z.number().int().positive().optional(),
-    dataset_query: DatasetQuery.optional(),
-    kind: ImplicitActionKind.optional(),
-    table_id: z.number().int().positive().optional(),
-    parameters: z.array(DataActionParameterInput).optional(),
-    collection_id: gateInput(
-      z.number().int().positive().nullable().optional(),
-      DATA_ACTION_COLLECTION_GATE,
-    ),
-    description: z.string().nullable().optional(),
-    visualization_settings: z.unknown().optional(),
-    archived: z.boolean().optional(),
-  })
-  .strict();
+const DataActionUpdateCommon = {
+  name: z.string().min(1).optional(),
+  parameters: z.array(DataActionParameterInput).optional(),
+  collection_id: gateInput(
+    z.number().int().positive().nullable().optional(),
+    DATA_ACTION_COLLECTION_GATE,
+  ),
+  description: z.string().nullable().optional(),
+  visualization_settings: z.unknown().optional(),
+  archived: z.boolean().optional(),
+};
+
+// A patch changes a query action's query or an implicit action's kind and table, never both; one
+// with neither fits either action.
+export const DataActionUpdateInput = z.union([
+  z.object({ ...DataActionUpdateCommon, dataset_query: DatasetQuery.optional() }).strict(),
+  z
+    .object({
+      ...DataActionUpdateCommon,
+      kind: ImplicitActionKind.optional(),
+      table_id: z.number().int().positive().optional(),
+    })
+    .strict(),
+]);
 export type DataActionUpdateInput = z.infer<typeof DataActionUpdateInput>;
 
 const DataActionParameterValue = z.union([z.string(), z.number(), z.boolean(), z.null()]);

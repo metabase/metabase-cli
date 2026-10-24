@@ -38,7 +38,6 @@ Mint one template-tag `id` per tag with `mb uuid --count <n> --format text`.
 {
   "name": "Set order note",
   "type": "query",
-  "database_id": 1,
   "collection_id": 12,
   "dataset_query": {
     "lib/type": "mbql/query",
@@ -88,7 +87,7 @@ Mint one template-tag `id` per tag with `mb uuid --count <n> --format text`.
 ```
 
 - `type` is `"query"` here; `"implicit"` is _Table actions_. Never set `model_id`; `mb data-action create` refuses it.
-- `database_id` and `dataset_query.database` are the same id (`mb db list`). `collection_id` is the data actions collection (here `12`); omit it for the data actions root.
+- `dataset_query.database` is the database the action writes to (`mb db list`); Metabase takes the action's `database_id` from it. `collection_id` is the data actions collection (here `12`); omit it for the data actions root.
 - A template tag's `id` is a UUID, unique among the tags: the representation schema requires one.
 - One statement, no `;`. `create` and `update` validate `dataset_query` as `native-sql` does.
 
@@ -125,7 +124,7 @@ For a plain insert, update or delete of one row, make an implicit action on the 
 - `kind` is `row/create`, `row/update` or `row/delete`. `table_id` comes from `mb table list --db-id <id>`.
 - The table needs exactly one primary key; otherwise create is refused.
 - Its parameters are the table's columns, without sensitive and retired ones, under the column names; read them with `mb data-action get <id> --full --json`. Update and delete pick the row by the primary key parameter; update changes only the columns given.
-- No `database_id`, `dataset_query` or `parameters` in the body. Hide an input with `visualization_settings.fields.<column>.hidden`.
+- No `dataset_query` or `parameters` in the body. Hide an input with `visualization_settings.fields.<column>.hidden`.
 - Change `kind` or `table_id` later with `mb data-action update`.
 
 ## Run it

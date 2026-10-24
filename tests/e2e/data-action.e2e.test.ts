@@ -29,7 +29,6 @@ function createBody(): DataActionCreateInput {
   return {
     name: ACTION_NAME,
     type: "query",
-    database_id: SEEDED.warehouseDbId,
     collection_id: null,
     dataset_query: {
       "lib/type": "mbql/query",

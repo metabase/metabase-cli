@@ -1,7 +1,7 @@
 import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
-import { DataActionCreateInput } from "../domain/data-action";
+import { DataActionCreateInput, DataActionUpdateInput } from "../domain/data-action";
 import type { ClientCredentials } from "../http/transport";
 import {
   captureFetch,
@@ -46,7 +46,6 @@ const ACTION = { ...ACTION_V64, collection_id: 3 };
 const CREATE_BODY: DataActionCreateInput = {
   name: "Rename order",
   type: "query",
-  database_id: 2,
   collection_id: 3,
   dataset_query: {
     database: 2,
@@ -304,17 +303,39 @@ describe("data action create input", () => {
     expect(DataActionCreateInput.safeParse(TABLE_ACTION_CREATE_BODY).success).toBe(true);
   });
 
-  it("refuses an implicit body without its table or with a query", () => {
-    const result = DataActionCreateInput.safeParse({
+  it("refuses an implicit body without its table or with a query, and a query body with a database", () => {
+    const implicit = {
       name: "Rename customer",
       type: "implicit",
       kind: "row/update",
-      dataset_query: CREATE_BODY.dataset_query,
-    });
+      table_id: 4,
+    };
 
-    expect(result.error?.issues.map(({ path, message }) => [path, message])).toEqual([
-      [["table_id"], 'required when type is "implicit"'],
-      [["dataset_query"], 'not allowed when type is "implicit"'],
-    ]);
+    expect(DataActionCreateInput.safeParse({ ...implicit, table_id: undefined }).success).toBe(
+      false,
+    );
+    expect(
+      DataActionCreateInput.safeParse({ ...implicit, dataset_query: CREATE_BODY.dataset_query })
+        .success,
+    ).toBe(false);
+    expect(DataActionCreateInput.safeParse({ ...CREATE_BODY, database_id: 2 }).success).toBe(false);
+  });
+});
+
+describe("data action update input", () => {
+  it("takes a query patch, an implicit patch, and a patch of neither", () => {
+    expect(
+      DataActionUpdateInput.safeParse({ dataset_query: CREATE_BODY.dataset_query }).success,
+    ).toBe(true);
+    expect(DataActionUpdateInput.safeParse({ kind: "row/delete", table_id: 4 }).success).toBe(true);
+    expect(DataActionUpdateInput.safeParse({ name: "Renamed" }).success).toBe(true);
+  });
+
+  it("refuses a patch of both a query and a table, and one with a database", () => {
+    expect(
+      DataActionUpdateInput.safeParse({ dataset_query: CREATE_BODY.dataset_query, table_id: 4 })
+        .success,
+    ).toBe(false);
+    expect(DataActionUpdateInput.safeParse({ database_id: 2 }).success).toBe(false);
   });
 });

@@ -1184,11 +1184,11 @@ mb data-action create --body '{"name":"Add customer","type":"implicit","kind":"r
 | `--file <path>`   | Path to JSON body file.                                                                                                                                |
 | `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-Body fields: `name` (required), `type` (required, `"query"` or `"implicit"`), `database_id` (required for a query action), `dataset_query` (required for a query action: a native query whose `{{tag}}` placeholders are its inputs), `parameters` (a query action's, one per template tag), `kind` (required for an implicit action: `row/create`, `row/update`, or `row/delete`), `table_id` (required for an implicit action: a table with exactly one primary key, whose columns become the parameters), `collection_id` (optional; a collection in the `data-actions` or `data-apps` namespace, such as one made by `mb collection create --namespace data-actions`, or the data actions root when omitted — a regular collection is refused), `description`, `visualization_settings`.
+Body fields: `name` (required), `type` (required, `"query"` or `"implicit"`), `dataset_query` (required for a query action: a native query whose `{{tag}}` placeholders are its inputs, and whose `database` Metabase stores as the action's database), `parameters` (a query action's, one per template tag), `kind` (required for an implicit action: `row/create`, `row/update`, or `row/delete`), `table_id` (required for an implicit action: a table with exactly one primary key, whose columns become the parameters), `collection_id` (optional; a collection in the `data-actions` or `data-apps` namespace, such as one made by `mb collection create --namespace data-actions`, or the data actions root when omitted — a regular collection is refused), `description`, `visualization_settings`.
 
 ### `mb data-action update <id>`
 
-Patch a data action; the body carries only the fields to change (`name`, `database_id`, `dataset_query`, `parameters`, `kind`, `table_id`, `collection_id`, `description`, `visualization_settings`, `archived`).
+Patch a data action; the body carries only the fields to change (`name`, `dataset_query` or `kind` and `table_id`, `parameters`, `collection_id`, `description`, `visualization_settings`, `archived`).
 
 ```sh
 cat patch.json | mb data-action update 1
