@@ -12,7 +12,7 @@ type StageName = z.infer<typeof StageName>;
 // outranks both, because an earlier failure can make later queries break (a Postgres transaction
 // aborts after one failed statement), so the change is fixed first and the job re-run.
 const Verdict = z.enum(["passed", "failed", "error", "refused"]);
-type Verdict = z.infer<typeof Verdict>;
+export type Verdict = z.infer<typeof Verdict>;
 
 const StageStatus = z.enum(["passed", "failed", "errored", "skipped"]);
 type StageStatus = z.infer<typeof StageStatus>;

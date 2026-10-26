@@ -9,13 +9,13 @@ import {
   runStages,
 } from "../../core/ci-events";
 import { serializeJson } from "../../output/render";
-import { planJob } from "./job-plan";
+import { type JobPlan, planJob } from "./job-plan";
 
 interface JobOptions {
   repo: string;
   base: string;
   head: string;
-  stages: readonly CiStage[];
+  stages: (plan: JobPlan) => Promise<readonly CiStage[]>;
   job: string;
   now: () => Date;
   write: (event: CiEvent) => void;
@@ -37,7 +37,7 @@ export async function runJob(options: JobOptions): Promise<JobState> {
 
   const plan = await planJob(options.repo, options.base, options.head);
   emit({ type: "job.start", v: CI_EVENT_VERSION, ...plan });
-  const outcome = await runStages(options.stages, emit);
+  const outcome = await runStages(await options.stages(plan), emit);
   emit({
     type: "job.end",
     state: outcome.state,

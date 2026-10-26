@@ -27,7 +27,7 @@ import { parseYaml } from "../../runtime/yaml";
 
 const CONTENT_PATHSPECS = CONTENT_FILE_EXTENSIONS.map((extension) => `*${extension}`);
 
-interface JobPlan {
+export interface JobPlan {
   snapshot: Snapshot;
   checked: CheckedTransform[];
   warnings: CiWarning[];
