@@ -3,6 +3,8 @@ import { z } from "zod";
 import { InternalError, ValidationError } from "@metabase/client/errors";
 import { isPlainObject } from "@metabase/client/predicates";
 
+import type { CiWarning } from "./ci-events";
+
 interface PathEntry {
   status: "added" | "modified" | "deleted";
   path: string;
@@ -14,11 +16,12 @@ interface RenamedEntry {
   oldPath: string;
 }
 
-type DiffEntry = PathEntry | RenamedEntry;
+export type DiffEntry = PathEntry | RenamedEntry;
 
 interface TransformFile {
   kind: "transform";
   entityId: string;
+  name: string;
 }
 
 interface TransformTestFile {
@@ -100,9 +103,47 @@ export function parseNameStatus(output: string): DiffEntry[] {
   return entries;
 }
 
+const PORCELAIN_STATUS_WIDTH = 2;
+const PORCELAIN_SOURCE_STATUSES = new Set(["R", "C"]);
+
+// `git status --porcelain -z` writes `XY path` per entry; a rename or copy is followed by its
+// source path as a separate token, which is not itself a change.
+export function parseStatusPorcelain(output: string): string[] {
+  if (output === "") {
+    return [];
+  }
+  if (!output.endsWith("\0")) {
+    throw new InternalError(
+      "git status --porcelain -z: truncated: the output does not end in a NUL",
+    );
+  }
+  const paths: string[] = [];
+  let sourceFollows = false;
+  for (const record of output.slice(0, -1).split("\0")) {
+    if (sourceFollows) {
+      sourceFollows = false;
+      continue;
+    }
+    const status = record.slice(0, PORCELAIN_STATUS_WIDTH);
+    const path = record.slice(PORCELAIN_STATUS_WIDTH + 1);
+    if (
+      status.length !== PORCELAIN_STATUS_WIDTH ||
+      record.charAt(PORCELAIN_STATUS_WIDTH) !== " " ||
+      path === ""
+    ) {
+      throw new InternalError(`git status --porcelain -z: malformed entry "${record}"`);
+    }
+    paths.push(path);
+    sourceFollows = [...status].some((letter) => PORCELAIN_SOURCE_STATUSES.has(letter));
+  }
+  return paths;
+}
+
 const SERDES_META_KEY = "serdes/meta";
 
-const TransformDocument = z.object({ entity_id: z.string().min(1) }).loose();
+const TransformDocument = z
+  .object({ entity_id: z.string().min(1), name: z.string().min(1) })
+  .loose();
 const TransformTestDocument = z.object({ transform_id: z.string().min(1) }).loose();
 
 const SerdesMeta = z.array(z.object({ model: z.string() }).loose()).min(1);
@@ -132,12 +173,12 @@ export function classifyContentFile(path: string, document: unknown): ContentFil
   if (model === "Transform") {
     const transform = TransformDocument.safeParse(document);
     if (!transform.success) {
-      throw new ValidationError(`${path}: a Transform must name its entity_id`, {
+      throw new ValidationError(`${path}: a Transform must have an entity_id and a name`, {
         source: path,
         zodIssues: transform.error.issues,
       });
     }
-    return { kind: "transform", entityId: transform.data.entity_id };
+    return { kind: "transform", entityId: transform.data.entity_id, name: transform.data.name };
   }
   if (model === "TransformTest") {
     const test = TransformTestDocument.safeParse(document);
@@ -179,4 +220,23 @@ export function affectedTransforms(changes: readonly ClassifiedChange[]): string
   }
 
   return [...touched].filter((entityId) => atHead.has(entityId) || !atBase.has(entityId));
+}
+
+export const CONTENT_FILE_EXTENSIONS = [".yaml", ".yml"] as const;
+
+export function isContentPath(path: string): boolean {
+  return CONTENT_FILE_EXTENSIONS.some((extension) => path.endsWith(extension));
+}
+
+export function uncommittedContentWarning(paths: readonly string[]): CiWarning | null {
+  const content = paths.filter(isContentPath);
+  if (content.length === 0) {
+    return null;
+  }
+  const summary =
+    content.length === 1 ? "1 content file is" : `${content.length} content files are`;
+  return {
+    code: "uncommitted-content",
+    message: `${summary} not committed, so CI did not check: ${content.join(", ")}`,
+  };
 }

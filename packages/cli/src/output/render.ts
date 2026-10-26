@@ -27,6 +27,11 @@ export function writeJson(value: unknown): void {
   process.stdout.write(jsonLine(value));
 }
 
+// One compact JSON value per line, whatever the terminal, so a stream stays line-parseable.
+export function writeJsonLine(value: unknown): void {
+  process.stdout.write(serializeJson(value, false) + "\n");
+}
+
 export function writeText(text: string): void {
   process.stdout.write(text + "\n");
 }

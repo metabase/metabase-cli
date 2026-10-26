@@ -12,6 +12,7 @@ import {
   renderSummary,
   writeJson,
   writeText,
+  writeJsonLine,
 } from "./render";
 import { renderTable } from "./table";
 import {
@@ -583,5 +584,18 @@ describe("writeText", () => {
   it("appends a single trailing newline to the input", () => {
     writeText("hello\nworld");
     expect(streams.stdout).toBe("hello\nworld\n");
+  });
+});
+
+describe("writeJsonLine", () => {
+  it("writes one compact line even to a terminal", () => {
+    process.stdout.isTTY = true;
+    try {
+      writeJsonLine({ type: "job.end", counts: { checks: 1 } });
+    } finally {
+      process.stdout.isTTY = false;
+    }
+
+    expect(streams.stdout).toBe('{"type":"job.end","counts":{"checks":1}}\n');
   });
 });

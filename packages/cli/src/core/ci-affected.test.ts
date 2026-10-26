@@ -9,13 +9,24 @@ import {
   affectedTransforms,
   classifyContentFile,
   parseNameStatus,
+  isContentPath,
+  parseStatusPorcelain,
+  uncommittedContentWarning,
 } from "./ci-affected";
 
 const TRANSFORM_ID = "7JwIkkAG-06-nsl4jzsaq";
 const OTHER_TRANSFORM_ID = "7XqqzlsonSq4KFyOvtrAm";
 
-const TRANSFORM: ContentFile = { kind: "transform", entityId: TRANSFORM_ID };
-const OTHER_TRANSFORM: ContentFile = { kind: "transform", entityId: OTHER_TRANSFORM_ID };
+const TRANSFORM: ContentFile = {
+  kind: "transform",
+  entityId: TRANSFORM_ID,
+  name: "Daily Order Summary",
+};
+const OTHER_TRANSFORM: ContentFile = {
+  kind: "transform",
+  entityId: OTHER_TRANSFORM_ID,
+  name: "Hourly Stats",
+};
 const TEST: ContentFile = { kind: "transform-test", transformId: TRANSFORM_ID };
 const OTHER: ContentFile = { kind: "other" };
 
@@ -129,6 +140,7 @@ describe("classifyContentFile", () => {
     expect(
       classifyContentFile("transforms/a.yaml", {
         entity_id: TRANSFORM_ID,
+        name: "Daily Order Summary",
         "serdes/meta": [{ model: "Transform" }],
       }),
     ).toEqual(TRANSFORM);
@@ -175,7 +187,7 @@ describe("classifyContentFile", () => {
       classifyContentFile("transforms/a.yaml", { "serdes/meta": [{ model: "Transform" }] });
 
     expect(classify).toThrow(ValidationError);
-    expect(classify).toThrow("transforms/a.yaml: a Transform must name its entity_id");
+    expect(classify).toThrow("transforms/a.yaml: a Transform must have an entity_id and a name");
   });
 });
 
@@ -226,5 +238,65 @@ describe("affectedTransforms", () => {
 
   it("ignores files that are neither transforms nor transform tests", () => {
     expect(affectedTransforms([change(OTHER, OTHER)])).toEqual([]);
+  });
+});
+
+describe("parseStatusPorcelain", () => {
+  it("lists modified, renamed and untracked paths, skipping a rename's source", () => {
+    expect(parseStatusPorcelain(" M a.yaml\0R  c.yaml\0b.yaml\0?? new.yaml\0")).toEqual([
+      "a.yaml",
+      "c.yaml",
+      "new.yaml",
+    ]);
+  });
+
+  it("reads a clean tree as no paths", () => {
+    expect(parseStatusPorcelain("")).toEqual([]);
+  });
+
+  it("refuses an entry without the status and space prefix", () => {
+    const parse = () => parseStatusPorcelain("M\0");
+
+    expect(parse).toThrow(InternalError);
+    expect(parse).toThrow('git status --porcelain -z: malformed entry "M"');
+  });
+
+  it("refuses output cut off before its final NUL", () => {
+    const parse = () => parseStatusPorcelain(" M a.yaml");
+
+    expect(parse).toThrow(InternalError);
+    expect(parse).toThrow("git status --porcelain -z: truncated: the output does not end in a NUL");
+  });
+});
+
+describe("isContentPath", () => {
+  it("accepts .yaml and .yml files and nothing else", () => {
+    expect(["a.yaml", "b.yml", "c.json", "yaml", "d.yaml.bak"].map(isContentPath)).toEqual([
+      true,
+      true,
+      false,
+      false,
+      false,
+    ]);
+  });
+});
+
+describe("uncommittedContentWarning", () => {
+  it("names one uncommitted content file", () => {
+    expect(uncommittedContentWarning(["t/a.yaml", "notes.txt"])).toEqual({
+      code: "uncommitted-content",
+      message: "1 content file is not committed, so CI did not check: t/a.yaml",
+    });
+  });
+
+  it("counts several uncommitted content files", () => {
+    expect(uncommittedContentWarning(["t/a.yaml", "t/b.yml"])).toEqual({
+      code: "uncommitted-content",
+      message: "2 content files are not committed, so CI did not check: t/a.yaml, t/b.yml",
+    });
+  });
+
+  it("says nothing when no content file is uncommitted", () => {
+    expect(uncommittedContentWarning(["notes.txt"])).toBeNull();
   });
 });
