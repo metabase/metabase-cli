@@ -36,7 +36,13 @@ export async function runJob(options: JobOptions): Promise<JobState> {
   });
 
   const plan = await planJob(options.repo, options.base, options.head);
-  emit({ type: "job.start", v: CI_EVENT_VERSION, ...plan });
+  emit({
+    type: "job.start",
+    v: CI_EVENT_VERSION,
+    snapshot: plan.snapshot,
+    checked: plan.checked,
+    warnings: plan.warnings,
+  });
   const outcome = await runStages(await options.stages(plan), emit);
   emit({
     type: "job.end",

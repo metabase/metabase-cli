@@ -13,15 +13,29 @@ import { planJob } from "./job-plan";
 const TRANSFORM_ID = "7JwIkkAG-06-nsl4jzsaq";
 const OTHER_TRANSFORM_ID = "7XqqzlsonSq4KFyOvtrAm";
 const TRANSFORM_PATH = "collections/transforms/daily.yaml";
+const DAILY_PATH = TRANSFORM_PATH;
+
+function dailyYaml(source: string): string {
+  return `name: Daily Order Summary\nentity_id: ${TRANSFORM_ID}\n${source}target:\n  name: t\nserdes/meta:\n- model: Transform\n`;
+}
 const TEST_PATH = "collections/transforms/daily/totals.yaml";
 
 function transformYaml(entityId: string, name: string): string {
-  return `name: ${name}\nentity_id: ${entityId}\nserdes/meta:\n- model: Transform\n`;
+  return `name: ${name}\nentity_id: ${entityId}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`;
 }
 
 const TRANSFORM_YAML = transformYaml(TRANSFORM_ID, "Daily Order Summary");
 const TEST_YAML = `entity_id: aRvM7DLesF1fOV4kRHidq\ntransform_id: ${TRANSFORM_ID}\nserdes/meta:\n- model: TransformTest\n`;
 const DAILY = { entity_id: TRANSFORM_ID, name: "Daily Order Summary" };
+const NO_GAPS = { untestedChanges: [], untouchedUntested: [] };
+const DAILY_UNTESTED_NEW = {
+  untestedChanges: [{ entityId: TRANSFORM_ID, name: "Daily Order Summary", change: "new" }],
+  untouchedUntested: [],
+};
+const DAILY_UNTESTED_UNTOUCHED = {
+  untestedChanges: [],
+  untouchedUntested: [{ entityId: TRANSFORM_ID, name: "Daily Order Summary" }],
+};
 
 let repo: TempGitRepo;
 
@@ -40,6 +54,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD")).toEqual({
       snapshot: { base, head: base },
+      coverage: NO_GAPS,
       checked: [],
       warnings: [
         {
@@ -58,6 +73,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD")).toEqual({
       snapshot: { base, head },
+      coverage: DAILY_UNTESTED_NEW,
       checked: [DAILY],
       warnings: [],
     });
@@ -72,6 +88,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD")).toEqual({
       snapshot: { base, head },
+      coverage: NO_GAPS,
       checked: [DAILY],
       warnings: [],
     });
@@ -91,6 +108,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD")).toEqual({
       snapshot: { base, head },
+      coverage: DAILY_UNTESTED_NEW,
       checked: [DAILY],
       warnings: [],
     });
@@ -105,6 +123,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD")).toEqual({
       snapshot: { base, head },
+      coverage: DAILY_UNTESTED_UNTOUCHED,
       checked: [DAILY],
       warnings: [],
     });
@@ -121,6 +140,7 @@ describe("planJob", () => {
 
     expect(await planJob(`${repo.path}/other`, "main", head)).toEqual({
       snapshot: { base, head },
+      coverage: NO_GAPS,
       checked: [DAILY],
       warnings: [],
     });
@@ -134,6 +154,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD")).toEqual({
       snapshot: { base, head },
+      coverage: NO_GAPS,
       checked: [],
       warnings: [
         {
@@ -154,6 +175,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "feature")).toEqual({
       snapshot: { base, head },
+      coverage: DAILY_UNTESTED_NEW,
       checked: [DAILY],
       warnings: [],
     });
@@ -187,5 +209,82 @@ describe("planJob", () => {
     } finally {
       await rm(outside, { recursive: true, force: true });
     }
+  });
+
+  it("does not count a reformat of a transform's logic as an edit", async () => {
+    await repo.put(
+      DAILY_PATH,
+      dailyYaml("source:\n  type: query\n  query:\n    native: SELECT 1\n    database: 1\n"),
+    );
+    const base = await repo.commitAll("add transform");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(
+      DAILY_PATH,
+      dailyYaml("source: {query: {database: 1, native: 'SELECT 1'}, type: query}\n"),
+    );
+    const head = await repo.commitAll("reformat");
+
+    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+      snapshot: { base, head },
+      checked: [DAILY],
+      warnings: [],
+      coverage: DAILY_UNTESTED_UNTOUCHED,
+    });
+  });
+
+  it("counts a change to a transform's query as an edit that needs a test", async () => {
+    await repo.put(DAILY_PATH, dailyYaml("source:\n  type: query\n  query: SELECT 1\n"));
+    const base = await repo.commitAll("add transform");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(DAILY_PATH, dailyYaml("source:\n  type: query\n  query: SELECT 2\n"));
+    const head = await repo.commitAll("edit query");
+
+    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+      snapshot: { base, head },
+      checked: [DAILY],
+      warnings: [],
+      coverage: {
+        untestedChanges: [
+          { entityId: TRANSFORM_ID, name: "Daily Order Summary", change: "edited" },
+        ],
+        untouchedUntested: [],
+      },
+    });
+  });
+
+  it("finds a test the change left alone even when its key and model are quoted", async () => {
+    await repo.put(DAILY_PATH, dailyYaml("source:\n  type: query\n  query: SELECT 1\n"));
+    await repo.put(
+      TEST_PATH,
+      `{"entity_id": "aRvM7DLesF1fOV4kRHidq", "transform_id": "${TRANSFORM_ID}", "serdes/meta": [{"model": "TransformTest"}]}\n`,
+    );
+    const base = await repo.commitAll("add transform and quoted test");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(DAILY_PATH, dailyYaml("source:\n  type: query\n  query: SELECT 2\n"));
+    const head = await repo.commitAll("edit query");
+
+    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+      snapshot: { base, head },
+      checked: [DAILY],
+      warnings: [],
+      coverage: NO_GAPS,
+    });
+  });
+
+  it("classifies a changed transform from its parsed YAML, whatever text the scan's pattern misses", async () => {
+    const base = await repo.git("rev-parse", "HEAD");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(
+      DAILY_PATH,
+      `name: Daily Order Summary\nentity_id: ${TRANSFORM_ID}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: !!str Transform\n`,
+    );
+    const head = await repo.commitAll("add transform with a tagged model");
+
+    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+      snapshot: { base, head },
+      checked: [DAILY],
+      warnings: [],
+      coverage: DAILY_UNTESTED_NEW,
+    });
   });
 });

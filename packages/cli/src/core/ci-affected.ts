@@ -18,10 +18,18 @@ interface RenamedEntry {
 
 export type DiffEntry = PathEntry | RenamedEntry;
 
+// What a transform computes. An edit to anything else (name, description, collection, tags) leaves
+// its logic unchanged.
+export interface TransformLogic {
+  source: unknown;
+  target: unknown;
+}
+
 interface TransformFile {
   kind: "transform";
   entityId: string;
   name: string;
+  logic: TransformLogic;
 }
 
 interface TransformTestFile {
@@ -142,7 +150,12 @@ export function parseStatusPorcelain(output: string): string[] {
 const SERDES_META_KEY = "serdes/meta";
 
 const TransformDocument = z
-  .object({ entity_id: z.string().min(1), name: z.string().min(1) })
+  .object({
+    entity_id: z.string().min(1),
+    name: z.string().min(1),
+    source: z.unknown(),
+    target: z.unknown(),
+  })
   .loose();
 const TransformTestDocument = z.object({ transform_id: z.string().min(1) }).loose();
 
@@ -173,12 +186,20 @@ export function classifyContentFile(path: string, document: unknown): ContentFil
   if (model === "Transform") {
     const transform = TransformDocument.safeParse(document);
     if (!transform.success) {
-      throw new ValidationError(`${path}: a Transform must have an entity_id and a name`, {
-        source: path,
-        zodIssues: transform.error.issues,
-      });
+      throw new ValidationError(
+        `${path}: a Transform must have an entity_id, a name, a source and a target`,
+        {
+          source: path,
+          zodIssues: transform.error.issues,
+        },
+      );
     }
-    return { kind: "transform", entityId: transform.data.entity_id, name: transform.data.name };
+    return {
+      kind: "transform",
+      entityId: transform.data.entity_id,
+      name: transform.data.name,
+      logic: { source: transform.data.source, target: transform.data.target },
+    };
   }
   if (model === "TransformTest") {
     const test = TransformTestDocument.safeParse(document);

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { FailedResultError } from "@metabase/client/errors";
 
+import { coverageStage } from "../../core/ci-coverage";
 import { CiEvent } from "../../core/ci-events";
 import { writeJsonLine } from "../../output/render";
 import { connectionFlags, profileFlag } from "../flags";
@@ -32,13 +33,13 @@ export default defineMetabaseCommand({
       repo: args.repo,
       base: args.base,
       head: args.head,
-      // Planning needs no server, so a bad ref or a job with nothing to check never asks for one.
+      // Planning and coverage need no server, so a bad ref or a job with nothing to test never asks for one.
       stages: async (plan) => {
+        const lint = coverageStage(plan.coverage);
         if (plan.checked.length === 0) {
-          return [];
+          return [lint];
         }
-        const client = await getClient();
-        return [unitStage(plan.checked, clientPort(client))];
+        return [lint, unitStage(plan.checked, async () => clientPort(await getClient()))];
       },
       job: randomUUID(),
       now: () => new Date(),

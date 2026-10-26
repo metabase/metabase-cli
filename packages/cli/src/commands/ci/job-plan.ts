@@ -12,13 +12,15 @@ import {
   parseStatusPorcelain,
   uncommittedContentWarning,
 } from "../../core/ci-affected";
+import { type CoverageAssessment, assessCoverage } from "../../core/ci-coverage";
 import type { CheckedTransform, CiWarning, Snapshot } from "../../core/ci-events";
 import {
   checkedOutCommit,
   diffNameStatus,
-  filesContaining,
+  filesMatching,
   mergeBase,
   readFileAt,
+  readFilesAt,
   repositoryRoot,
   resolveCommit,
   statusPorcelain,
@@ -31,6 +33,7 @@ export interface JobPlan {
   snapshot: Snapshot;
   checked: CheckedTransform[];
   warnings: CiWarning[];
+  coverage: CoverageAssessment;
 }
 
 async function classifyAt(
@@ -69,23 +72,45 @@ async function classifyChange(
   return { base: baseSide, head: headSide };
 }
 
-async function findTransform(
+// Every Transform and TransformTest file names its model in `serdes/meta`, as `model: Transform…`,
+// with the key or value possibly quoted and spaced; matching more only costs a read the classifier
+// discards.
+const TRANSFORM_MODEL_PATTERN = `model["']?:[[:space:]]*["']?Transform`;
+
+interface HeadTransforms {
+  names: Map<string, string>;
+  tested: Set<string>;
+}
+
+function record(atHead: HeadTransforms, file: ContentFile | null): void {
+  if (file?.kind === "transform") {
+    atHead.names.set(file.entityId, file.name);
+  } else if (file?.kind === "transform-test") {
+    atHead.tested.add(file.transformId);
+  }
+}
+
+// The changed files are already classified exactly; the scan adds every other file at head whose
+// text names a Transform model.
+async function scanHead(
   repo: string,
   head: string,
-  entityId: string,
-): Promise<CheckedTransform | null> {
-  for (const path of await filesContaining(
-    repo,
-    head,
-    `entity_id: ${entityId}`,
-    CONTENT_PATHSPECS,
-  )) {
-    const file = await classifyAt(repo, head, path);
-    if (file?.kind === "transform" && file.entityId === entityId) {
-      return { entity_id: entityId, name: file.name };
-    }
+  changes: readonly ClassifiedChange[],
+  changedPaths: ReadonlySet<string>,
+): Promise<HeadTransforms> {
+  const atHead: HeadTransforms = { names: new Map(), tested: new Set() };
+  for (const change of changes) {
+    record(atHead, change.head);
   }
-  return null;
+  const matched = await filesMatching(repo, head, TRANSFORM_MODEL_PATTERN, CONTENT_PATHSPECS);
+  const unchanged = matched.filter((path) => !changedPaths.has(path));
+  for (const [path, text] of await readFilesAt(repo, head, unchanged)) {
+    record(
+      atHead,
+      classifyContentFile(path, parseYaml(text, z.unknown(), { source: `${head}:${path}` })),
+    );
+  }
+  return atHead;
 }
 
 // Every git call runs at the repository root, where paths from diff, status, grep and cat-file agree.
@@ -106,31 +131,25 @@ export async function planJob(
     entries.map((entry) => classifyChange(repo, forkPoint, head, entry)),
   );
 
-  const namesAtHead = new Map<string, string>();
-  for (const { head: headSide } of changes) {
-    if (headSide?.kind === "transform") {
-      namesAtHead.set(headSide.entityId, headSide.name);
-    }
-  }
-
+  const atHead = await scanHead(repo, head, changes, new Set(entries.map((entry) => entry.path)));
   const checked: CheckedTransform[] = [];
   const warnings: CiWarning[] = [];
   for (const entityId of affectedTransforms(changes)) {
-    const name = namesAtHead.get(entityId);
-    if (name !== undefined) {
-      checked.push({ entity_id: entityId, name });
-      continue;
-    }
-    const transform = await findTransform(repo, head, entityId);
-    if (transform === null) {
+    const name = atHead.names.get(entityId);
+    if (name === undefined) {
       warnings.push({
         code: "missing-transform",
         message: `a changed transform test covers transform ${entityId}, which is not in the repo at ${head}`,
       });
       continue;
     }
-    checked.push(transform);
+    checked.push({ entity_id: entityId, name });
   }
+  const coverage = assessCoverage({
+    changes,
+    transformsAtHead: atHead.names,
+    testedAtHead: atHead.tested,
+  });
 
   // Uncommitted files only matter when the checked commit is the one checked out.
   if (head === checkout) {
@@ -141,5 +160,5 @@ export async function planJob(
       warnings.push(uncommitted);
     }
   }
-  return { snapshot: { base, head }, checked, warnings };
+  return { snapshot: { base, head }, checked, warnings, coverage };
 }

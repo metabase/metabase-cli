@@ -21,11 +21,13 @@ const TRANSFORM: ContentFile = {
   kind: "transform",
   entityId: TRANSFORM_ID,
   name: "Daily Order Summary",
+  logic: { source: { type: "query" }, target: { name: "t" } },
 };
 const OTHER_TRANSFORM: ContentFile = {
   kind: "transform",
   entityId: OTHER_TRANSFORM_ID,
   name: "Hourly Stats",
+  logic: { source: { type: "query" }, target: { name: "t" } },
 };
 const TEST: ContentFile = { kind: "transform-test", transformId: TRANSFORM_ID };
 const OTHER: ContentFile = { kind: "other" };
@@ -141,6 +143,8 @@ describe("classifyContentFile", () => {
       classifyContentFile("transforms/a.yaml", {
         entity_id: TRANSFORM_ID,
         name: "Daily Order Summary",
+        source: { type: "query" },
+        target: { name: "t" },
         "serdes/meta": [{ model: "Transform" }],
       }),
     ).toEqual(TRANSFORM);
@@ -187,7 +191,9 @@ describe("classifyContentFile", () => {
       classifyContentFile("transforms/a.yaml", { "serdes/meta": [{ model: "Transform" }] });
 
     expect(classify).toThrow(ValidationError);
-    expect(classify).toThrow("transforms/a.yaml: a Transform must have an entity_id and a name");
+    expect(classify).toThrow(
+      "transforms/a.yaml: a Transform must have an entity_id, a name, a source and a target",
+    );
   });
 });
 
