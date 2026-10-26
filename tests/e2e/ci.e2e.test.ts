@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { TransformTestRunResult } from "@metabase/client/domain/transform-test";
 import { parseJson } from "@metabase/client/json";
 
 import { CiEvent } from "../../packages/cli/src/core/ci-events";
@@ -91,6 +92,12 @@ const unitSkipReason = requireServer("ci › unit stage", ["transforms", "transf
 
 const Created = z.object({ id: z.number().int() });
 const WithEntityId = z.object({ entity_id: z.string() });
+
+interface ExpectedRows {
+  "extra-rows": unknown[];
+  "missing-rows": unknown[];
+  "cell-mismatches": unknown[];
+}
 
 function totalsBody(operator: "+" | "-"): unknown {
   return {
@@ -226,29 +233,96 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
       }),
     );
     expect(test.exitCode, test.stderr).toBe(0);
+    const testId = String(parseJson(test.stdout, Created).id);
+    const base = await repo.git("rev-parse", "HEAD");
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
       "t/order_totals.yaml",
       `name: Order totals\nentity_id: ${entityId}\nserdes/meta:\n- model: Transform\n`,
     );
-    await repo.commitAll("add transform");
+    const head = await repo.commitAll("add transform");
+
+    function expectedEvents(verdict: "passed" | "failed", rows: ExpectedRows): unknown[] {
+      const envelope = { job: expect.any(String), at: expect.any(String) };
+      return [
+        {
+          ...envelope,
+          seq: 0,
+          type: "job.start",
+          v: 1,
+          snapshot: { base, head },
+          checked: [{ entity_id: entityId, name: "Order totals" }],
+          warnings: [],
+        },
+        { ...envelope, seq: 1, type: "stage.start", stage: "unit" },
+        {
+          ...envelope,
+          seq: 2,
+          type: "check.result",
+          stage: "unit",
+          check: { kind: "transform-test", id: testId, label: "Order totals: total adds tax" },
+          verdict,
+          warnings: [],
+          ms: expect.any(Number),
+          detail: {
+            status: verdict,
+            expectations: [
+              {
+                name: "total is subtotal plus tax",
+                type: "equals",
+                status: verdict,
+                columns: [
+                  { name: "id", database_type: "int4" },
+                  { name: "total_cents", database_type: "int8" },
+                ],
+                "row-counts": { actual: 1, expected: 1 },
+                ...rows,
+                truncated: 0,
+              },
+            ],
+            tables: expect.any(Object),
+          },
+        },
+        { ...envelope, seq: 3, type: "stage.end", stage: "unit", status: verdict },
+        {
+          ...envelope,
+          seq: 4,
+          type: "job.end",
+          state: verdict,
+          counts: { checks: 1, warnings: 0 },
+        },
+      ];
+    }
+
+    function eventsOf(stdout: string): CiEvent[] {
+      return stdout
+        .trimEnd()
+        .split("\n")
+        .map((line) => parseJson(line, CiEvent));
+    }
+
+    function stoodInFor(events: CiEvent[]): string[] {
+      const check = events.find((event) => event.type === "check.result");
+      if (check === undefined) {
+        throw new Error("no check.result event");
+      }
+      return Object.values(TransformTestRunResult.parse(check.detail).tables).toSorted();
+    }
 
     const broken = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
 
     expect(broken.exitCode).toBe(1);
-    const brokenEvents = broken.stdout
-      .trimEnd()
-      .split("\n")
-      .map((line) => parseJson(line, CiEvent));
-    const check = brokenEvents.find((event) => event.type === "check.result");
-    expect(check).toMatchObject({
-      verdict: "failed",
-      check: { kind: "transform-test", label: "Order totals: total adds tax" },
-    });
-    expect(JSON.stringify(check)).toContain(
-      '"cell-mismatches":[{"column":"total_cents","expected":110,"actual":90}]',
+    expect(eventsOf(broken.stdout)).toEqual(
+      expectedEvents("failed", {
+        "extra-rows": [{ id: 1, total_cents: 90 }],
+        "missing-rows": [{ id: 1, total_cents: 110 }],
+        "cell-mismatches": [{ column: "total_cents", expected: 110, actual: 90 }],
+      }),
     );
-    expect(brokenEvents.at(-1)).toMatchObject({ type: "job.end", state: "failed" });
+    expect(stoodInFor(eventsOf(broken.stdout))).toEqual([
+      "public.ci_order_totals",
+      "public.orders",
+    ]);
 
     const fixed = await mb(
       ["transform", "update", String(transformId), "--json"],
@@ -258,14 +332,8 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     const passing = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
 
     expect(passing.exitCode, passing.stderr).toBe(0);
-    const passingEvents = passing.stdout
-      .trimEnd()
-      .split("\n")
-      .map((line) => parseJson(line, CiEvent));
-    expect(passingEvents.at(-1)).toMatchObject({
-      type: "job.end",
-      state: "passed",
-      counts: { checks: 1, warnings: 0 },
-    });
+    expect(eventsOf(passing.stdout)).toEqual(
+      expectedEvents("passed", { "extra-rows": [], "missing-rows": [], "cell-mismatches": [] }),
+    );
   });
 });
