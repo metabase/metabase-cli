@@ -29,7 +29,6 @@ function createBody(): DataActionCreateInput {
   return {
     name: ACTION_NAME,
     type: "query",
-    database_id: SEEDED.warehouseDbId,
     collection_id: null,
     dataset_query: {
       "lib/type": "mbql/query",
@@ -60,6 +59,17 @@ function createBody(): DataActionCreateInput {
         required: true,
       },
     ],
+  };
+}
+
+const TABLE_ACTION_NAME = "Rename customer";
+
+function tableActionBody(): DataActionCreateInput {
+  return {
+    name: TABLE_ACTION_NAME,
+    type: "implicit",
+    kind: "row/update",
+    table_id: SEEDED.tables.customers,
   };
 }
 
@@ -174,6 +184,62 @@ describe.skipIf(skipReason !== null)("data-action e2e", () => {
     );
 
     expect(result.exitCode).not.toBe(0);
+    expect(result.stdout).toBe("");
+  });
+
+  it("create files an implicit action on a table, with the table's columns as its parameters", async () => {
+    await enableActionsOnWarehouse();
+
+    const result = await cli(
+      ["data-action", "create", "--json", "--full"],
+      JSON.stringify(tableActionBody()),
+    );
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const created = parseJson(result.stdout, DataAction);
+    expect(created).toMatchObject({
+      name: TABLE_ACTION_NAME,
+      type: "implicit",
+      kind: "row/update",
+      model_id: null,
+      table_id: SEEDED.tables.customers,
+      collection_id: null,
+    });
+    expect(created.parameters?.map((parameter) => parameter.id)).toEqual(
+      expect.arrayContaining(["id", "full_name", "email"]),
+    );
+  });
+
+  it("execute runs an implicit update on the row its primary key picks", async () => {
+    await enableActionsOnWarehouse();
+    const created = await cli(
+      ["data-action", "create", "--json", "--full"],
+      JSON.stringify(tableActionBody()),
+    );
+    expect(created.exitCode, created.stderr).toBe(0);
+    const action = parseJson(created.stdout, DataAction);
+
+    const result = await cli(
+      ["data-action", "execute", String(action.id), "--json"],
+      JSON.stringify({ parameters: { id: 1, full_name: "Ada King" } }),
+    );
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(parseJson(result.stdout, DataActionExecuteResult)).toEqual({ "rows-updated": 1 });
+  });
+
+  it("create refuses an implicit action on a table with a composite primary key", async () => {
+    await enableActionsOnWarehouse();
+
+    const result = await cli(
+      ["data-action", "create", "--json"],
+      JSON.stringify({ ...tableActionBody(), table_id: SEEDED.tables.orderItems }),
+    );
+
+    expect(result.exitCode).not.toBe(0);
+    expect(cliErrorMessage(result.stderr)).toContain(
+      "An implicit action needs a table with exactly one primary key.",
+    );
     expect(result.stdout).toBe("");
   });
 

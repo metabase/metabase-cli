@@ -9,7 +9,7 @@ import { DATA_ACTION_DATASET_QUERY, skipValidateFlag } from "../validate-query";
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a data action from JSON" },
   details:
-    'A data action is a parameterized native query that writes to a database, filed in a collection. The JSON body needs `name`, `type: "query"`, `database_id`, a native `dataset_query` whose `{{tag}}` placeholders are its inputs, and `parameters` targeting those tags; `collection_id` picks a collection in the `data-actions` or `data-apps` namespace (omit for the data actions root; a regular collection is refused). Data actions must be enabled on the database (`mb db set-data-actions <id> true`). An MBQL 5 `dataset_query` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass --skip-validate to bypass.',
+    'A data action writes to a database, filed in a collection. A table action inserts, updates, or deletes one row of a table: the JSON body needs `name`, `type: "implicit"`, `kind` (`row/create`, `row/update`, or `row/delete`), and `table_id`, a table with exactly one primary key, and Metabase derives its parameters from the table\'s columns. A query action is a parameterized native query: the body needs `name`, `type: "query"`, a native `dataset_query` whose `{{tag}}` placeholders are its inputs and whose `database` the action writes to, and `parameters` targeting those tags. `collection_id` picks a collection in the `data-actions` or `data-apps` namespace (omit for the data actions root; a regular collection is refused, and a data app\'s collection takes a table action only on a table published to the Library). Data actions must be enabled on the database (`mb db set-data-actions <id> true`). An MBQL 5 `dataset_query` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass --skip-validate to bypass.',
   skills: [
     { skill: "data-action", purpose: "author a data action and its parameters" },
     { skill: "native-sql", purpose: "the native query and its template tags" },
@@ -29,6 +29,7 @@ export default defineMetabaseCommand({
     "cat data-action.json | mb data-action create",
     "mb data-action create --file data-action.json",
     "mb data-action create --file data-action.json --skip-validate",
+    'mb data-action create --body \'{"name":"Add customer","type":"implicit","kind":"row/create","table_id":12}\'',
   ],
   async run({ args, ctx, getClient, readBody }) {
     const body = await readBody({ flag: args.body, file: args.file });

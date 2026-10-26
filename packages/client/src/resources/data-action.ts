@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   DATA_ACTION_COLLECTION_GATE,
+  DATA_ACTION_TABLE_GATE,
   type DataAction,
   type DataActionCreateInput,
   type DataActionExecuteInput,
@@ -36,7 +37,10 @@ export function dataActionResource(transport: Transport) {
     return transport.requestParsed(schema, `/api/action/${id}`, { ...options });
   }
 
-  /** Create a data action — a parameterized native query that writes to a database — in a collection. */
+  /**
+   * Create a data action in a collection: a parameterized native query that writes to a database, or
+   * an implicit action that inserts, updates, or deletes one row of a table.
+   */
   async function create(
     params: DataActionCreateInput,
     options: RequestOptions = {},
@@ -51,18 +55,23 @@ export function dataActionResource(transport: Transport) {
 
   /**
    * Update a data action by id, patching only the fields the body carries. A server whose data
-   * actions have no collection never moves the action, and from 58.31 it strips the undeclared key and
-   * answers as if it had. So the field is refused there before the wire.
+   * actions have no collection never moves the action, and one whose data actions need a model never
+   * moves an implicit action to another table; from 58.31 it strips the undeclared key and answers as
+   * if it had. So each field is refused there before the wire.
    */
   async function update(
     id: number,
     params: DataActionUpdateInput,
     options: RequestOptions = {},
   ): Promise<DataAction> {
+    const tableId = "table_id" in params ? params.table_id : undefined;
     await transport.requireFeatures(
-      gateTriggered(DATA_ACTION_COLLECTION_GATE, params.collection_id)
-        ? [DATA_ACTION_COLLECTION_GATE.feature]
-        : [],
+      [
+        ...(gateTriggered(DATA_ACTION_COLLECTION_GATE, params.collection_id)
+          ? [DATA_ACTION_COLLECTION_GATE.feature]
+          : []),
+        ...(gateTriggered(DATA_ACTION_TABLE_GATE, tableId) ? [DATA_ACTION_TABLE_GATE.feature] : []),
+      ],
       options,
     );
     const schema = await readSchema(options);

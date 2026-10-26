@@ -1153,7 +1153,7 @@ mb snippet archive 1 --json
 
 ## Data actions
 
-CRUD on `/api/action` plus `execute`. A data action is a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`) filed in a collection. Data actions are off by default: an admin must enable them on the target database first (`mb db set-data-actions <id> true`). `mb data-action create` authors data actions only — no `model_id`, no implicit data actions — and needs a server whose data actions do not require a model.
+CRUD on `/api/action` plus `execute`. A data action is a table action, which inserts, updates, or deletes one row of a table, or a query action, a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`), filed in a collection. Data actions are off by default: an admin must enable them on the target database first (`mb db set-data-actions <id> true`). `mb data-action create` authors data actions without a model — no `model_id` — and needs a server whose data actions do not require a model.
 
 ### `mb data-action list`
 
@@ -1175,6 +1175,7 @@ mb data-action get 1 --json --full
 cat data-action.json | mb data-action create
 mb data-action create --file data-action.json
 mb data-action create --file data-action.json --skip-validate
+mb data-action create --body '{"name":"Add customer","type":"implicit","kind":"row/create","table_id":12}'
 ```
 
 | Flag              | Description                                                                                                                                            |
@@ -1183,11 +1184,11 @@ mb data-action create --file data-action.json --skip-validate
 | `--file <path>`   | Path to JSON body file.                                                                                                                                |
 | `--skip-validate` | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
-Body fields: `name` (required), `type` (required, `"query"`), `database_id` (required), `dataset_query` (required native query whose `{{tag}}` placeholders are its inputs), `parameters` (one per template tag), `collection_id` (optional; a collection in the `data-actions` or `data-apps` namespace, such as one made by `mb collection create --namespace data-actions`, or the data actions root when omitted — a regular collection is refused), `description`, `visualization_settings`.
+Body fields: `name` (required), `type` (required, `"implicit"` for a table action or `"query"`), `kind` (required for a table action: `row/create`, `row/update`, or `row/delete`), `table_id` (required for a table action: a table with exactly one primary key, whose columns become the parameters), `dataset_query` (required for a query action: a native query whose `{{tag}}` placeholders are its inputs and whose `database` the action writes to), `parameters` (a query action's, one per template tag), `collection_id` (optional; a collection in the `data-actions` or `data-apps` namespace, such as one made by `mb collection create --namespace data-actions`, or the data actions root when omitted — a regular collection is refused), `description`, `visualization_settings`.
 
 ### `mb data-action update <id>`
 
-Patch a data action; the body carries only the fields to change (`name`, `database_id`, `dataset_query`, `parameters`, `collection_id`, `description`, `visualization_settings`, `archived`).
+Patch a data action; the body carries only the fields to change (`name`, `dataset_query` or `kind` and `table_id`, `parameters`, `collection_id`, `description`, `visualization_settings`, `archived`).
 
 ```sh
 cat patch.json | mb data-action update 1
@@ -1210,7 +1211,7 @@ mb data-action delete 1 --yes
 
 ### `mb data-action execute <id>`
 
-Run a data action. The body is `{"parameters": {...}}` keyed by parameter id; the result reports `rows-affected`.
+Run a data action. The body is `{"parameters": {...}}` keyed by parameter id; the result reports `rows-affected` for a query action, and `rows-updated`, `rows-deleted`, or the `created-row` for a table action.
 
 ```sh
 mb data-action execute 1 --body '{"parameters":{"id":1,"note":"rush"}}'

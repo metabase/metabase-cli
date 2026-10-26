@@ -187,6 +187,7 @@ export {
   DataActionParameter,
   dataActionSchema,
   DataActionUpdateInput,
+  ImplicitActionKind,
 } from "./domain/data-action";
 export {
   DataApp,
