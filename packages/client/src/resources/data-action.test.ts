@@ -238,6 +238,26 @@ describe("data action resource wire requests", () => {
     ]);
   });
 
+  it("refuses a table_id before the wire on a server whose data actions need a model", async () => {
+    const { mb, capture } = clientOver([probeResponse(V64_SERVER)], V64_SERVER);
+
+    const error = await thrownBy(() => mb.dataAction.update(7, { table_id: 12 }));
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v65+ (this server is v0.64.0). Upgrade Metabase to use it.",
+      feature: "dataActionsWithoutModel",
+      since: 65,
+      tokenFeature: null,
+      serverVersion: "v0.64.0",
+    });
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
+  });
+
   it("sends archive as an update that sets archived", async () => {
     const { mb, capture } = clientOver([jsonResponse({ ...ACTION, archived: true })]);
 

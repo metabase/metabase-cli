@@ -117,6 +117,12 @@ export const DATA_ACTION_COLLECTION_GATE: InputGate = {
   when: { kind: "present" },
 };
 
+export const DATA_ACTION_TABLE_GATE: InputGate = {
+  feature: "dataActionsWithoutModel",
+  effect: "needs",
+  when: { kind: "present" },
+};
+
 const DataActionUpdateCommon = {
   name: z.string().min(1).optional(),
   parameters: z.array(DataActionParameterInput).optional(),
@@ -137,7 +143,7 @@ export const DataActionUpdateInput = z.union([
     .object({
       ...DataActionUpdateCommon,
       kind: ImplicitActionKind.optional(),
-      table_id: z.number().int().positive().optional(),
+      table_id: gateInput(z.number().int().positive().optional(), DATA_ACTION_TABLE_GATE),
     })
     .strict(),
 ]);
