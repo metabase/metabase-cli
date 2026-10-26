@@ -2,6 +2,13 @@
 
 Notable changes to `@metabase/client`.
 
+## 0.1.3
+
+- `dataAction.create` creates an implicit action on a table as well as a query action. `DataActionCreateInput` is a union on `type`: a `"query"` body takes `dataset_query`, an `"implicit"` one takes `kind` (`ImplicitActionKind`, on the barrel) and `table_id`. Neither takes `database_id`, which the server derives from the query.
+- `DataActionUpdateInput` patches a query action's `dataset_query` or an implicit action's `kind` and `table_id`, never both, and takes no `database_id`. `dataAction.update` refuses a `table_id` before the request on a server without `dataActionsWithoutModel`, which would drop it unread; `DATA_ACTION_TABLE_GATE` records the gate.
+- `DataAction` and `DataActionCompact` read an implicit action's `kind` and `table_id`.
+- `DataActionExecuteResult` reads an implicit action's `rows-updated`, `rows-deleted` or `created-row`, and `rows-affected` is optional.
+
 ## 0.1.2
 
 - `oauthLogin` takes an optional `signal`. Aborting it, before or during the flow, rejects with the signal's reason when that is a `MetabaseError`, else with an `AbortError` carrying its message, frees the loopback callback port at once, and cancels discovery, client registration or the token exchange in flight. `tryDiscoverMetadata`, `discoverLoginMetadata`, `registerClient` and `exchangeCode` on `@metabase/client/http/oauth` take a signal too, and `@metabase/client/signal` exports `whenAborted`.
