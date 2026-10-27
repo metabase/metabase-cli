@@ -1,4 +1,6 @@
-import { writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { rename, rm, writeFile } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 
 import {
   type CiEvent,
@@ -22,8 +24,22 @@ interface JobOptions {
   resultsPath: string | null;
 }
 
+// Written beside the path and renamed over it, so the path never holds half a file, and a symlink
+// at the path is replaced rather than written through.
+async function writeResults(path: string, events: readonly CiEvent[]): Promise<void> {
+  const temporary = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
+  await writeFile(temporary, serializeJson(events, false) + "\n", { encoding: "utf8", flag: "wx" });
+  try {
+    await rename(temporary, path);
+  } catch (error) {
+    await rm(temporary, { force: true });
+    throw error;
+  }
+}
+
 // A crash ends the stream without `job.end` and writes no results file: the CLI's error on stderr
-// is the report, and a consumer reads a stream that stops before `job.end` as a crash.
+// is the report, and a consumer reads a stream that stops before `job.end` as a crash. So `job.end`
+// reaches the stream only once the results file is written.
 export async function runJob(options: JobOptions): Promise<JobState> {
   const events: CiEvent[] = [];
   const emit = createEmitter({
@@ -31,21 +47,24 @@ export async function runJob(options: JobOptions): Promise<JobState> {
     now: options.now,
     write: (event) => {
       events.push(event);
-      options.write(event);
+      if (event.type !== "job.end") {
+        options.write(event);
+      }
     },
   });
 
   const plan = await planJob(options.repo, options.base, options.head);
   emit({ type: "job.start", v: CI_EVENT_VERSION, ...plan });
   const outcome = await runStages(await options.stages(plan), emit);
-  emit({
+  const end = emit({
     type: "job.end",
     state: outcome.state,
     counts: { checks: outcome.checks, warnings: outcome.warnings + plan.warnings.length },
   });
 
   if (options.resultsPath !== null) {
-    await writeFile(options.resultsPath, serializeJson(events, false) + "\n", "utf8");
+    await writeResults(options.resultsPath, events);
   }
+  options.write(end);
   return outcome.state;
 }

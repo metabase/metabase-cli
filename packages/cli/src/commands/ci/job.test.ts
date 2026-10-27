@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -46,11 +47,11 @@ describe("runJob", () => {
     const base = await repo.git("rev-parse", "HEAD");
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
-      "t/daily.yaml",
+      "transforms/daily.yaml",
       `name: Daily\nentity_id: ${TRANSFORM_ID}\nserdes/meta:\n- model: Transform\n`,
     );
     const head = await repo.commitAll("add transform");
-    await repo.put("t/draft.yaml", "draft\n");
+    await repo.put("transforms/draft.yaml", "draft\n");
     const events: CiEvent[] = [];
 
     const state = await runJob({
@@ -77,7 +78,8 @@ describe("runJob", () => {
         warnings: [
           {
             code: "uncommitted-content",
-            message: "1 content file is not committed, so CI did not check: t/draft.yaml",
+            message:
+              "1 content file has uncommitted changes, which CI does not see; it checks the committed version: transforms/draft.yaml",
           },
         ],
       },
@@ -106,15 +108,67 @@ describe("runJob", () => {
       repo: repo.path,
       base: "main",
       head: "HEAD",
-      stages: async () => [],
+      stages: async () => [failingStage()],
       job: "job-1",
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath,
     });
 
-    expect(events.map((event) => event.type)).toEqual(["job.start", "job.end"]);
+    expect(events.map((event) => event.type)).toEqual([
+      "job.start",
+      "stage.start",
+      "check.result",
+      "stage.end",
+      "job.end",
+    ]);
     expect(parseJson(await readFile(resultsPath, "utf8"), z.array(CiEventSchema))).toEqual(events);
+  });
+
+  it("leaves job.end off the stream when the results file cannot be written", async () => {
+    const events: CiEvent[] = [];
+    const job = runJob({
+      repo: repo.path,
+      base: "main",
+      head: "HEAD",
+      stages: async () => [],
+      job: "job-1",
+      now: () => NOW,
+      write: (event) => events.push(event),
+      resultsPath: join(repo.path, "no-such-dir", "results.json"),
+    });
+
+    await expect(job).rejects.toThrow("ENOENT");
+    expect(events.map((event) => event.type)).toEqual(["job.start"]);
+  });
+
+  it("replaces a symlink at the results path rather than writing through it", async () => {
+    const outside = await mkdtemp(join(tmpdir(), "mb-ci-outside-"));
+    try {
+      const target = join(outside, "target.txt");
+      await writeFile(target, "untouched\n", "utf8");
+      const resultsPath = join(repo.path, "results.json");
+      await symlink(target, resultsPath);
+      const events: CiEvent[] = [];
+
+      await runJob({
+        repo: repo.path,
+        base: "main",
+        head: "HEAD",
+        stages: async () => [],
+        job: "job-1",
+        now: () => NOW,
+        write: (event) => events.push(event),
+        resultsPath,
+      });
+
+      expect(await readFile(target, "utf8")).toBe("untouched\n");
+      expect(parseJson(await readFile(resultsPath, "utf8"), z.array(CiEventSchema))).toEqual(
+        events,
+      );
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
   });
 
   it("writes no results file and no job.end when planning fails", async () => {
