@@ -4,9 +4,12 @@ import {
   type ClassifiedChange,
   type ContentFile,
   type DiffEntry,
+  type HeadTransforms,
   CONTENT_TOP_LEVEL_FOLDERS,
+  TRANSFORM_MODEL_PATTERN,
   affectedTransforms,
   classifyContentFile,
+  headTransforms,
   isContentPath,
   noContentChangesWarning,
   parseNameStatus,
@@ -117,24 +120,6 @@ async function classifyChanges(
   }));
 }
 
-// Every Transform and TransformTest file names its model in `serdes/meta`, as `model: Transform…`,
-// with the key or value possibly quoted and spaced; matching more only costs a read the classifier
-// discards.
-const TRANSFORM_MODEL_PATTERN = `model["']?:[[:space:]]*["']?Transform`;
-
-interface HeadTransforms {
-  names: Map<string, string>;
-  tested: Set<string>;
-}
-
-function record(atHead: HeadTransforms, file: ContentFile | null): void {
-  if (file?.kind === "transform") {
-    atHead.names.set(file.entityId, file.name);
-  } else if (file?.kind === "transform-test") {
-    atHead.tested.add(file.transformId);
-  }
-}
-
 // The changed files are already classified exactly; the scan adds every other file at head whose
 // text names a Transform model.
 async function scanHead(
@@ -144,10 +129,6 @@ async function scanHead(
   changedPaths: ReadonlySet<string>,
   signal: AbortSignal,
 ): Promise<HeadTransforms> {
-  const atHead: HeadTransforms = { names: new Map(), tested: new Set() };
-  for (const change of changes) {
-    record(atHead, change.head);
-  }
   const matched = await filesMatching(
     repo,
     head,
@@ -156,10 +137,8 @@ async function scanHead(
     signal,
   );
   const unchanged = matched.filter((path) => !changedPaths.has(path));
-  for (const file of (await classifyAt(repo, head, unchanged, signal)).values()) {
-    record(atHead, file);
-  }
-  return atHead;
+  const unchangedFiles = (await classifyAt(repo, head, unchanged, signal)).values();
+  return headTransforms([...changes.map((change) => change.head), ...unchangedFiles]);
 }
 
 // Every git call runs at the repository root, where paths from diff, status, grep and cat-file agree.

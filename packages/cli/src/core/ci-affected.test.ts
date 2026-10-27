@@ -10,6 +10,7 @@ import {
   type ContentFile,
   affectedTransforms,
   classifyContentFile,
+  headTransforms,
   parseNameStatus,
   isContentPath,
   noContentChangesWarning,
@@ -444,6 +445,25 @@ describe("isContentPath", () => {
         "Transforms/h.yaml",
       ].map(isContentPath),
     ).toEqual([false, false, false, false, false, false, false, false, false]);
+  });
+});
+
+describe("headTransforms", () => {
+  it("names each transform at head by its entity id", () => {
+    expect(headTransforms([TRANSFORM, OTHER_TRANSFORM]).names).toEqual(
+      new Map([
+        [TRANSFORM_ID, "Daily Order Summary"],
+        [OTHER_TRANSFORM_ID, "Hourly Stats"],
+      ]),
+    );
+  });
+
+  it("collects the transforms a test at head covers", () => {
+    expect(headTransforms([TEST]).tested).toEqual(new Set([TRANSFORM_ID]));
+  });
+
+  it("ignores files that are not transforms or tests, and absent sides", () => {
+    expect(headTransforms([OTHER, null])).toEqual({ names: new Map(), tested: new Set() });
   });
 });
 
