@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   browserOpener,
+  ProcessInterruptedError,
   ProcessNotFoundError,
+  ProcessTimeoutError,
   runProcess,
   runProcessBinary,
   streamProcess,
@@ -81,6 +83,9 @@ function decodeCmdEscapes(escaped: string): string {
   return decoded;
 }
 
+const HANG = "setTimeout(() => {}, 30_000)";
+const ABORT_AFTER_MS = 200;
+
 describe("runProcess", () => {
   it("captures stdout and exit code 0", async () => {
     const result = await runProcess("node", ["-e", "process.stdout.write('hello')"]);
@@ -108,6 +113,22 @@ describe("runProcess", () => {
     await expect(runProcess("metabase-no-such-binary-xyz", [])).rejects.toBeInstanceOf(
       ProcessNotFoundError,
     );
+  });
+
+  it("kills the child and throws ProcessInterruptedError when the signal aborts", async () => {
+    const controller = new AbortController();
+    const run = runProcess("node", ["-e", HANG], { signal: controller.signal });
+    setTimeout(() => controller.abort(), ABORT_AFTER_MS);
+
+    await expect(run).rejects.toThrow(ProcessInterruptedError);
+    await expect(run).rejects.toThrow("command interrupted: node");
+  });
+
+  it("kills the child and throws ProcessTimeoutError when it outlives timeoutMs", async () => {
+    const run = runProcess("node", ["-e", HANG], { timeoutMs: ABORT_AFTER_MS });
+
+    await expect(run).rejects.toThrow(ProcessTimeoutError);
+    await expect(run).rejects.toThrow(`command timed out after ${ABORT_AFTER_MS}ms: node`);
   });
 });
 

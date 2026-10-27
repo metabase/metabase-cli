@@ -1,3 +1,5 @@
+import type { Writable } from "node:stream";
+
 import { ConfigError } from "@metabase/client/errors";
 import type { ColumnDef, ResourceView } from "./view";
 
@@ -27,9 +29,26 @@ export function writeJson(value: unknown): void {
   process.stdout.write(jsonLine(value));
 }
 
-// One compact JSON value per line, whatever the terminal, so a stream stays line-parseable.
-export function writeJsonLine(value: unknown): void {
-  process.stdout.write(serializeJson(value, false) + "\n");
+function isBrokenPipe(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "EPIPE";
+}
+
+// One compact JSON value per line, whatever the terminal, so a stream stays line-parseable. A
+// reader that stops early (`| head -1`) closes the pipe: the lines after that have no reader and
+// are dropped, so the caller still finishes its work instead of crashing on EPIPE.
+export function jsonLineWriter(stream: Writable): (value: unknown) => void {
+  let readerGone = false;
+  stream.on("error", (error) => {
+    if (!isBrokenPipe(error)) {
+      throw error;
+    }
+    readerGone = true;
+  });
+  return (value) => {
+    if (!readerGone) {
+      stream.write(serializeJson(value, false) + "\n");
+    }
+  };
 }
 
 export function writeText(text: string): void {

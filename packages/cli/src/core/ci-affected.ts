@@ -296,6 +296,21 @@ export function isContentPath(path: string): boolean {
   return entityFileName === undefined || entityFileName === fileName;
 }
 
+// Without it, a diff with no content file passes with an empty `checked`, as if CI had verified it.
+export function noContentChangesWarning(entries: readonly DiffEntry[]): CiWarning | null {
+  const touchesContent = entries.some(
+    (entry) =>
+      isContentPath(entry.path) || (entry.status === "renamed" && isContentPath(entry.oldPath)),
+  );
+  if (touchesContent) {
+    return null;
+  }
+  return {
+    code: "no-content-changes",
+    message: "the change touches no Metabase content files, so CI checked nothing",
+  };
+}
+
 export function uncommittedContentWarning(paths: readonly string[]): CiWarning | null {
   const content = paths.filter(isContentPath);
   if (content.length === 0) {

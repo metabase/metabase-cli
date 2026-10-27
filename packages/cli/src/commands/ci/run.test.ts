@@ -134,6 +134,10 @@ describe("ci run: committed content only", () => {
       checked: [],
       warnings: [
         {
+          code: "no-content-changes",
+          message: "the change touches no Metabase content files, so CI checked nothing",
+        },
+        {
           code: "uncommitted-content",
           message:
             "1 content file has uncommitted changes, which CI does not see; it checks the committed version: transforms/a.yaml",
