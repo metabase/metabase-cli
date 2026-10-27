@@ -15,7 +15,6 @@ const Verdict = z.enum(["passed", "failed", "error", "refused"]);
 type Verdict = z.infer<typeof Verdict>;
 
 const StageStatus = z.enum(["passed", "failed", "errored", "skipped"]);
-type StageStatus = z.infer<typeof StageStatus>;
 
 const JobState = StageStatus.exclude(["skipped"]);
 export type JobState = z.infer<typeof JobState>;
@@ -99,7 +98,7 @@ interface CiEmitterOptions {
 }
 
 // A malformed event is a bug in the runner, never something a user caused.
-export function createEmitter(options: CiEmitterOptions): (body: CiEventBody) => void {
+export function createEmitter(options: CiEmitterOptions): (body: CiEventBody) => CiEvent {
   let seq = 0;
   return (body) => {
     const parsed = CiEvent.safeParse({
@@ -115,6 +114,7 @@ export function createEmitter(options: CiEmitterOptions): (body: CiEventBody) =>
     }
     seq += 1;
     options.write(parsed.data);
+    return parsed.data;
   };
 }
 

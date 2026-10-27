@@ -53,6 +53,29 @@ export function parseYamlResult<T>(
   return { ok: true, value: parsed.data };
 }
 
+// SnakeYAML, which Metabase reads serialized content with, ends a line at these characters; this
+// parser does not, so a comment they end would hide the rest of its line from this parser alone.
+const YAML_1_1_LINE_BREAKS = /[\u0085\u2028\u2029]/;
+
+// Parses a serialized Metabase file as Metabase reads it, `<<` merge keys included. A file the two
+// parsers would read differently is refused rather than guessed at.
+export function parseMetabaseYaml(input: string, source: string): unknown {
+  if (YAML_1_1_LINE_BREAKS.test(input)) {
+    throw new ValidationError(
+      `${source}: holds U+0085, U+2028 or U+2029, which Metabase reads as a line break and this check does not; remove the character`,
+      { source, zodIssues: [] },
+    );
+  }
+  try {
+    return parse(input, { merge: true });
+  } catch (error) {
+    throw new ValidationError(`${source}: invalid YAML: ${errorMessage(error)}`, {
+      source,
+      zodIssues: [],
+    });
+  }
+}
+
 export function stringifyYaml(value: unknown): string {
   return stringify(value, { lineWidth: 0 });
 }

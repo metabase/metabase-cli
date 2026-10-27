@@ -1,8 +1,11 @@
+import { symlink } from "node:fs/promises";
+import { join } from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { ConfigError } from "@metabase/client/errors";
+import { ConfigError, InternalError } from "@metabase/client/errors";
 
-import { filesContaining, mergeBase, readFileAt, resolveCommit } from "./git";
+import { fileModesAt, filesContaining, mergeBase, readFilesAt, resolveCommit } from "./git";
 import { type TempGitRepo, createTempGitRepo } from "./temp-git-repo";
 
 let repo: TempGitRepo;
@@ -32,7 +35,7 @@ describe("filesContaining", () => {
     expect(await filesContaining(repo.path, commit, "entity_id: none", ["*.yaml"])).toEqual([]);
   });
 
-  it("is not confused by a colour setting that forces escape codes into piped output", async () => {
+  it("is not confused by a color setting that forces escape codes into piped output", async () => {
     await repo.put("t/a.yaml", "entity_id: abc\n");
     const commit = await repo.commitAll("add");
     await repo.git("config", "color.ui", "always");
@@ -65,14 +68,51 @@ describe("mergeBase", () => {
   });
 });
 
-describe("readFileAt", () => {
-  it("refuses a path that is not in the commit", async () => {
-    const commit = await repo.git("rev-parse", "HEAD");
-    const read = readFileAt(repo.path, commit, "missing.yaml");
+describe("fileModesAt", () => {
+  it("names the git mode of every file at a commit, symlinks included", async () => {
+    await repo.put("t/a.yaml", "name: a\n");
+    await symlink("a.yaml", join(repo.path, "t/link.yaml"));
+    const commit = await repo.commitAll("add");
 
-    await expect(read).rejects.toThrow(ConfigError);
+    expect(await fileModesAt(repo.path, commit)).toEqual(
+      new Map([
+        ["README.md", "100644"],
+        ["t/a.yaml", "100644"],
+        ["t/link.yaml", "120000"],
+      ]),
+    );
+  });
+});
+
+describe("readFilesAt", () => {
+  it("reads many files in one batch, framing each by its byte size", async () => {
+    await repo.put("t/a.yaml", "name: Café ☕ résumé\n");
+    await repo.put("t/b.yaml", "name: plain\n");
+    await repo.put("t/c.yaml", "");
+    const commit = await repo.commitAll("add");
+
+    expect(await readFilesAt(repo.path, commit, ["t/a.yaml", "t/b.yaml", "t/c.yaml"])).toEqual(
+      new Map([
+        ["t/a.yaml", "name: Café ☕ résumé\n"],
+        ["t/b.yaml", "name: plain\n"],
+        ["t/c.yaml", ""],
+      ]),
+    );
+  });
+
+  it("reads nothing when asked for nothing", async () => {
+    const commit = await repo.git("rev-parse", "HEAD");
+
+    expect(await readFilesAt(repo.path, commit, [])).toEqual(new Map());
+  });
+
+  it("refuses a path that is not a file at the commit", async () => {
+    const commit = await repo.git("rev-parse", "HEAD");
+    const read = readFilesAt(repo.path, commit, ["README.md", "missing.yaml"]);
+
+    await expect(read).rejects.toThrow(InternalError);
     await expect(read).rejects.toThrow(
-      `git cat-file blob ${commit}:missing.yaml failed in ${repo.path}`,
+      `missing.yaml is not a file at ${commit}, though git listed it there`,
     );
   });
 });

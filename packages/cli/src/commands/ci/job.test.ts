@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -106,15 +107,67 @@ describe("runJob", () => {
       repo: repo.path,
       base: "main",
       head: "HEAD",
-      stages: [],
+      stages: [failingStage()],
       job: "job-1",
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath,
     });
 
-    expect(events.map((event) => event.type)).toEqual(["job.start", "job.end"]);
+    expect(events.map((event) => event.type)).toEqual([
+      "job.start",
+      "stage.start",
+      "check.result",
+      "stage.end",
+      "job.end",
+    ]);
     expect(parseJson(await readFile(resultsPath, "utf8"), z.array(CiEventSchema))).toEqual(events);
+  });
+
+  it("leaves job.end off the stream when the results file cannot be written", async () => {
+    const events: CiEvent[] = [];
+    const job = runJob({
+      repo: repo.path,
+      base: "main",
+      head: "HEAD",
+      stages: [],
+      job: "job-1",
+      now: () => NOW,
+      write: (event) => events.push(event),
+      resultsPath: join(repo.path, "no-such-dir", "results.json"),
+    });
+
+    await expect(job).rejects.toThrow("ENOENT");
+    expect(events.map((event) => event.type)).toEqual(["job.start"]);
+  });
+
+  it("replaces a symlink at the results path rather than writing through it", async () => {
+    const outside = await mkdtemp(join(tmpdir(), "mb-ci-outside-"));
+    try {
+      const target = join(outside, "target.txt");
+      await writeFile(target, "untouched\n", "utf8");
+      const resultsPath = join(repo.path, "results.json");
+      await symlink(target, resultsPath);
+      const events: CiEvent[] = [];
+
+      await runJob({
+        repo: repo.path,
+        base: "main",
+        head: "HEAD",
+        stages: [],
+        job: "job-1",
+        now: () => NOW,
+        write: (event) => events.push(event),
+        resultsPath,
+      });
+
+      expect(await readFile(target, "utf8")).toBe("untouched\n");
+      expect(parseJson(await readFile(resultsPath, "utf8"), z.array(CiEventSchema))).toEqual(
+        events,
+      );
+    } finally {
+      await rm(outside, { recursive: true, force: true });
+    }
   });
 
   it("writes no results file and no job.end when planning fails", async () => {

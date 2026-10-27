@@ -254,6 +254,20 @@ describe("parseStatusPorcelain", () => {
     expect(parseStatusPorcelain("")).toEqual([]);
   });
 
+  it("skips a copy's source path", () => {
+    expect(parseStatusPorcelain("C  copy.yaml\0orig.yaml\0?? new.yaml\0")).toEqual([
+      "copy.yaml",
+      "new.yaml",
+    ]);
+  });
+
+  it("refuses an entry whose status is not followed by a space", () => {
+    const parse = () => parseStatusPorcelain("MMa.yaml\0");
+
+    expect(parse).toThrow(InternalError);
+    expect(parse).toThrow('git status --porcelain -z: malformed entry "MMa.yaml"');
+  });
+
   it("refuses an entry without the status and space prefix", () => {
     const parse = () => parseStatusPorcelain("M\0");
 

@@ -1,6 +1,6 @@
 import { ConfigError, InternalError } from "@metabase/client/errors";
 
-import { ProcessNotFoundError, runProcess } from "./process";
+import { ProcessNotFoundError, runProcess, runProcessBinary } from "./process";
 
 const GIT = "git";
 const NO_MATCH_EXIT_CODE = 1;
@@ -13,15 +13,19 @@ interface GitResult {
   exitCode: number | null;
 }
 
-async function runGit(repo: string, args: readonly string[]): Promise<GitResult> {
+async function withGit<T>(spawn: () => Promise<T>): Promise<T> {
   try {
-    return await runProcess(GIT, ["-C", repo, ...args]);
+    return await spawn();
   } catch (error) {
     if (error instanceof ProcessNotFoundError) {
       throw new ConfigError("git is not installed or not on PATH");
     }
     throw error;
   }
+}
+
+function runGit(repo: string, args: readonly string[]): Promise<GitResult> {
+  return withGit(() => runProcess(GIT, ["-C", repo, ...args]));
 }
 
 async function git(repo: string, args: readonly string[]): Promise<string> {
@@ -90,8 +94,22 @@ export function statusPorcelain(repo: string): Promise<string> {
   return git(repo, ["status", "--porcelain", "-z", "--untracked-files=all"]);
 }
 
-export function readFileAt(repo: string, commit: string, path: string): Promise<string> {
-  return git(repo, ["cat-file", "blob", `${commit}:${path}`]);
+// `git ls-tree -z` writes `<mode> <type> <object>\t<path>` per entry.
+export async function fileModesAt(repo: string, commit: string): Promise<Map<string, string>> {
+  const output = await git(repo, ["ls-tree", "-r", "-z", "--full-tree", commit]);
+  const modes = new Map<string, string>();
+  for (const record of output.split("\0")) {
+    if (record === "") {
+      continue;
+    }
+    const space = record.indexOf(" ");
+    const tab = record.indexOf("\t");
+    if (space === -1 || tab < space) {
+      throw new InternalError(`git ls-tree -z: malformed entry "${record}"`);
+    }
+    modes.set(record.slice(tab + 1), record.slice(0, space));
+  }
+  return modes;
 }
 
 export async function filesContaining(
@@ -129,4 +147,60 @@ export async function filesContaining(
       }
       return entry.slice(prefix.length);
     });
+}
+
+const NEWLINE = 0x0a;
+const utf8 = new TextDecoder("utf-8");
+
+// Reads every path at a commit in one `git cat-file --batch`, which frames each object as
+// `<sha> blob <size>\n<bytes>\n`. A path that is not a blob at the commit is an error: callers ask
+// only for paths git itself just listed.
+export async function readFilesAt(
+  repo: string,
+  commit: string,
+  paths: readonly string[],
+): Promise<Map<string, string>> {
+  const files = new Map<string, string>();
+  if (paths.length === 0) {
+    return files;
+  }
+  const multiline = paths.find((path) => path.includes("\n"));
+  if (multiline !== undefined) {
+    throw new ConfigError(
+      `cannot read ${JSON.stringify(multiline)}: a path with a newline cannot be batched`,
+    );
+  }
+  const result = await withGit(() =>
+    runProcessBinary(GIT, ["-C", repo, "cat-file", "--batch"], {
+      stdin: paths.map((path) => `${commit}:${path}\n`).join(""),
+    }),
+  );
+  if (result.exitCode !== 0) {
+    throw new ConfigError(`git cat-file --batch failed in ${repo}: ${result.stderr.trim()}`);
+  }
+  const output = result.stdout;
+  let offset = 0;
+  for (const path of paths) {
+    const headerEnd = output.indexOf(NEWLINE, offset);
+    if (headerEnd === -1) {
+      throw new InternalError(`git cat-file --batch stopped before ${path}`);
+    }
+    const header = utf8.decode(output.subarray(offset, headerEnd)).split(" ");
+    const size = Number(header[2]);
+    if (header[1] !== "blob" || !Number.isInteger(size)) {
+      throw new InternalError(`${path} is not a file at ${commit}, though git listed it there`);
+    }
+    const start = headerEnd + 1;
+    if (output[start + size] !== NEWLINE) {
+      throw new InternalError(
+        `git cat-file --batch framed ${path} with ${size} bytes, but no newline follows them`,
+      );
+    }
+    files.set(path, utf8.decode(output.subarray(start, start + size)));
+    offset = start + size + 1;
+  }
+  if (offset !== output.length) {
+    throw new InternalError("git cat-file --batch printed more than the paths it was asked for");
+  }
+  return files;
 }
