@@ -189,7 +189,7 @@ async function checkTransform(
   return null;
 }
 
-// The stage connects only when it runs, so a job that a failed lint stage cuts short never needs a server.
+// The stage connects only when it runs, so the lint stage reports before a server is asked for.
 export function unitStage(
   checked: readonly CheckedTransform[],
   untestedInBranch: ReadonlySet<string>,
