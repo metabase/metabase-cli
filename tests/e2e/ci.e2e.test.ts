@@ -65,13 +65,17 @@ describe("ci e2e", () => {
         checked: [],
         warnings: [
           {
+            code: "no-content-changes",
+            message: "the change touches no Metabase content files, so CI checked nothing",
+          },
+          {
             code: "uncommitted-content",
             message:
               "1 content file has uncommitted changes, which CI does not see; it checks the committed version: transforms/draft.yaml",
           },
         ],
       },
-      { ...envelope, seq: 1, type: "job.end", state: "passed", counts: { checks: 0, warnings: 1 } },
+      { ...envelope, seq: 1, type: "job.end", state: "passed", counts: { checks: 0, warnings: 2 } },
     ]);
     expect(parseJson(await readFile(resultsPath, "utf8"), z.array(CiEvent))).toEqual(events);
   });
