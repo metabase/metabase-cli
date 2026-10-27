@@ -515,11 +515,8 @@ describe("planJob, reading the base side at the merge base", () => {
       checked: [{ entity_id: TRANSFORM_ID, name: "Alpha" }],
       warnings: [],
       coverage: {
-        untestedChanges: [],
-        untouchedUntested: [
-          { entityId: TRANSFORM_ID, name: "Alpha" },
-          { entityId: OTHER_TRANSFORM_ID, name: "Beta" },
-        ],
+        untestedChanges: [{ entityId: TRANSFORM_ID, name: "Alpha", change: "lost-test" }],
+        untouchedUntested: [{ entityId: OTHER_TRANSFORM_ID, name: "Beta" }],
       },
     });
   });
@@ -636,8 +633,8 @@ describe("planJob, finding the transform of a changed test", () => {
       ],
       warnings: [],
       coverage: {
-        untestedChanges: [],
-        untouchedUntested: [{ entityId: TRANSFORM_ID, name: "Alpha" }],
+        untestedChanges: [{ entityId: TRANSFORM_ID, name: "Alpha", change: "lost-test" }],
+        untouchedUntested: [],
       },
     });
   });
@@ -897,6 +894,89 @@ describe("planJob, what counts as an edit", () => {
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(DAILY_PATH, withTarget("daily_totals_v2"));
     await repo.commitAll("retarget");
+
+    expect((await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).coverage).toEqual({
+      untestedChanges: [{ entityId: TRANSFORM_ID, name: "Daily Order Summary", change: "edited" }],
+      untouchedUntested: [],
+    });
+  });
+});
+
+describe("planJob, a change that removes a transform's tests", () => {
+  const SECOND_TEST_PATH = "collections/transforms/daily/second.yaml";
+
+  async function onMainWithTests(...testPaths: string[]): Promise<void> {
+    await repo.put(DAILY_PATH, dailyYaml("source:\n  type: query\n  query: SELECT 1\n"));
+    for (const path of testPaths) {
+      await repo.put(path, TEST_YAML);
+    }
+    await repo.commitAll("a tested transform on main");
+    await repo.git("checkout", "-q", "-b", "feature");
+  }
+
+  async function coverage() {
+    return (await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).coverage;
+  }
+
+  it("fails a transform whose last test the change deletes", async () => {
+    await onMainWithTests(TEST_PATH);
+    await repo.git("rm", "-q", TEST_PATH);
+    await repo.commitAll("delete the test");
+
+    expect(await coverage()).toEqual({
+      untestedChanges: [
+        { entityId: TRANSFORM_ID, name: "Daily Order Summary", change: "lost-test" },
+      ],
+      untouchedUntested: [],
+    });
+  });
+
+  it("reports a transform that is edited and loses its last test once, as losing its test", async () => {
+    await onMainWithTests(TEST_PATH);
+    await repo.git("rm", "-q", TEST_PATH);
+    await repo.put(DAILY_PATH, dailyYaml("source:\n  type: query\n  query: SELECT 2\n"));
+    await repo.commitAll("edit the query and delete the test");
+
+    expect(await coverage()).toEqual({
+      untestedChanges: [
+        { entityId: TRANSFORM_ID, name: "Daily Order Summary", change: "lost-test" },
+      ],
+      untouchedUntested: [],
+    });
+  });
+
+  it("passes a transform that keeps one of its two tests", async () => {
+    await onMainWithTests(TEST_PATH, SECOND_TEST_PATH);
+    await repo.git("rm", "-q", TEST_PATH);
+    await repo.commitAll("delete one test");
+
+    expect(await coverage()).toEqual(NO_GAPS);
+  });
+
+  it("passes a change that deletes a transform together with its tests", async () => {
+    await onMainWithTests(TEST_PATH);
+    await repo.git("rm", "-q", DAILY_PATH, TEST_PATH);
+    await repo.commitAll("delete the transform and its test");
+
+    expect(await coverage()).toEqual(NO_GAPS);
+  });
+
+  it("passes a change that moves a transform's test to another file", async () => {
+    await onMainWithTests(TEST_PATH);
+    await repo.git("mv", TEST_PATH, SECOND_TEST_PATH);
+    await repo.commitAll("move the test");
+
+    expect(await coverage()).toEqual(NO_GAPS);
+  });
+});
+
+describe("planJob, whitespace in a transform's query", () => {
+  it("counts a whitespace-only change inside the query text as an edit that needs a test", async () => {
+    await repo.put(DAILY_PATH, dailyYaml("source:\n  type: query\n  query: SELECT 1\n"));
+    await repo.commitAll("an untested transform on main");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(DAILY_PATH, dailyYaml("source:\n  type: query\n  query: SELECT  1\n"));
+    await repo.commitAll("add a space inside the query");
 
     expect((await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).coverage).toEqual({
       untestedChanges: [{ entityId: TRANSFORM_ID, name: "Daily Order Summary", change: "edited" }],

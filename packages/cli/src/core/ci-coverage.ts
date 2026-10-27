@@ -9,7 +9,7 @@ interface NamedTransform {
 }
 
 interface UntestedChange extends NamedTransform {
-  change: "new" | "edited";
+  change: "new" | "edited" | "lost-test";
 }
 
 interface CoverageInputs {
@@ -27,8 +27,9 @@ function byName(a: NamedTransform, b: NamedTransform): number {
   return a.name.localeCompare(b.name);
 }
 
-// A transform the change adds, or whose logic it edits, must have a test; one it leaves alone, or
-// changes only cosmetically, is only listed when it has none.
+// A transform the change adds, or whose logic it edits, must have a test, and one that keeps existing
+// must keep a test the change found it with; one it leaves alone, or changes only cosmetically, is
+// only listed when it has none.
 // A transform is new when no changed file held it at base, so a copy of an unchanged transform in a
 // new file counts as new.
 export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
@@ -49,6 +50,18 @@ export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
       changed.set(head.entityId, { entityId: head.entityId, name: head.name, change: "new" });
     } else if (!isDeepStrictEqual(before, head.logic)) {
       changed.set(head.entityId, { entityId: head.entityId, name: head.name, change: "edited" });
+    }
+  }
+
+  // Every test file the transform had at base is in the diff, since none is left at head. Losing its
+  // tests explains the gap better than an edit does, so it replaces one.
+  for (const { base } of inputs.changes) {
+    if (base?.kind !== "transform-test" || inputs.testedAtHead.has(base.transformId)) {
+      continue;
+    }
+    const name = inputs.transformsAtHead.get(base.transformId);
+    if (name !== undefined) {
+      changed.set(base.transformId, { entityId: base.transformId, name, change: "lost-test" });
     }
   }
 
@@ -87,6 +100,13 @@ function untouchedWarnings(untouched: readonly NamedTransform[]): CiWarning[] {
   return [{ code: "no-tests-untouched", message: `${summary} no tests: ${names}` }];
 }
 
+function untestedMessage(transform: UntestedChange): string {
+  if (transform.change === "lost-test") {
+    return `${transform.name} lost its last transform test in this change`;
+  }
+  return `${transform.name} is ${transform.change} in this change and has no transform tests`;
+}
+
 export function coverageStage(assessment: CoverageAssessment): CiStage {
   return {
     name: "lint",
@@ -99,7 +119,7 @@ export function coverageStage(assessment: CoverageAssessment): CiStage {
           ms: 0,
           detail: {
             change: transform.change,
-            message: `${transform.name} is ${transform.change} in this change and has no transform tests`,
+            message: untestedMessage(transform),
           },
         });
       }

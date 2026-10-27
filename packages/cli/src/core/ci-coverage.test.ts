@@ -223,6 +223,23 @@ describe("coverageStage", () => {
     ]);
   });
 
+  it("says a transform lost its last test when the change removed it", async () => {
+    const bodies = await reports({
+      untestedChanges: [{ entityId: DAILY_ID, name: "Daily", change: "lost-test" }],
+      untouchedUntested: [],
+    });
+
+    expect(bodies[0]).toEqual({
+      type: "check.result",
+      stage: "lint",
+      check: { kind: "coverage", id: DAILY_ID, label: "Daily" },
+      verdict: "failed",
+      warnings: [],
+      ms: 0,
+      detail: { change: "lost-test", message: "Daily lost its last transform test in this change" },
+    });
+  });
+
   it("names a single untouched transform without tests", async () => {
     const bodies = await reports({
       untestedChanges: [],
