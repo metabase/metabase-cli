@@ -22,6 +22,7 @@ interface JobOptions {
   now: () => Date;
   write: (event: CiEvent) => void;
   resultsPath: string | null;
+  signal: AbortSignal;
 }
 
 // Written beside the path and renamed over it, so the path never holds half a file, and a symlink
@@ -37,10 +38,14 @@ async function writeResults(path: string, events: readonly CiEvent[]): Promise<v
   }
 }
 
-// A crash ends the stream without `job.end` and writes no results file: the CLI's error on stderr
-// is the report, and a consumer reads a stream that stops before `job.end` as a crash. So `job.end`
-// reaches the stream only once the results file is written.
+// A crash ends the stream without `job.end` and leaves no results file: the CLI's error on stderr
+// is the report, and a consumer reads a stream that stops before `job.end` as a crash. So an
+// earlier run's file is deleted first, and `job.end` reaches the stream only once the results file
+// is written.
 export async function runJob(options: JobOptions): Promise<JobState> {
+  if (options.resultsPath !== null) {
+    await rm(options.resultsPath, { force: true });
+  }
   const events: CiEvent[] = [];
   const emit = createEmitter({
     job: options.job,
@@ -53,7 +58,7 @@ export async function runJob(options: JobOptions): Promise<JobState> {
     },
   });
 
-  const plan = await planJob(options.repo, options.base, options.head);
+  const plan = await planJob(options.repo, options.base, options.head, options.signal);
   emit({ type: "job.start", v: CI_EVENT_VERSION, ...plan });
   const outcome = await runStages(await options.stages(plan), emit);
   const end = emit({

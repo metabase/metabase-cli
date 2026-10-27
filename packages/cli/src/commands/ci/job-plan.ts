@@ -8,6 +8,7 @@ import {
   affectedTransforms,
   classifyContentFile,
   isContentPath,
+  noContentChangesWarning,
   parseNameStatus,
   parseStatusPorcelain,
   uncommittedContentWarning,
@@ -44,12 +45,13 @@ async function classifyAt(
   repo: string,
   commit: string,
   paths: readonly string[],
+  signal: AbortSignal,
 ): Promise<Map<string, ContentFile>> {
   const content = paths.filter(isContentPath);
   if (content.length === 0) {
     return new Map();
   }
-  const modes = await fileModesAt(repo, commit);
+  const modes = await fileModesAt(repo, commit, signal);
   for (const path of content) {
     const mode = modes.get(path);
     if (mode === undefined) {
@@ -63,7 +65,7 @@ async function classifyAt(
     }
   }
   const classified = new Map<string, ContentFile>();
-  for (const [path, text] of await readFilesAt(repo, commit, content)) {
+  for (const [path, text] of await readFilesAt(repo, commit, content, signal)) {
     classified.set(path, classifyContentFile(path, parseMetabaseYaml(text, `${commit}:${path}`)));
   }
   return classified;
@@ -100,10 +102,11 @@ async function classifyChanges(
   forkPoint: string,
   head: string,
   entries: readonly DiffEntry[],
+  signal: AbortSignal,
 ): Promise<ClassifiedChange[]> {
   const [baseFiles, headFiles] = await Promise.all([
-    classifyAt(repo, forkPoint, present(entries.map(basePath))),
-    classifyAt(repo, head, present(entries.map(headPath))),
+    classifyAt(repo, forkPoint, present(entries.map(basePath)), signal),
+    classifyAt(repo, head, present(entries.map(headPath)), signal),
   ]);
   return entries.map((entry) => ({
     path: entry.path,
@@ -116,9 +119,16 @@ async function findTransform(
   repo: string,
   head: string,
   entityId: string,
+  signal: AbortSignal,
 ): Promise<CheckedTransform | null> {
-  const hits = await filesContaining(repo, head, `entity_id: ${entityId}`, CONTENT_PATHSPECS);
-  for (const file of (await classifyAt(repo, head, hits)).values()) {
+  const hits = await filesContaining(
+    repo,
+    head,
+    `entity_id: ${entityId}`,
+    CONTENT_PATHSPECS,
+    signal,
+  );
+  for (const file of (await classifyAt(repo, head, hits, signal)).values()) {
     if (file.kind === "transform" && file.entityId === entityId) {
       return { entity_id: entityId, name: file.name };
     }
@@ -131,16 +141,17 @@ export async function planJob(
   repoPath: string,
   baseRef: string,
   headRef: string,
+  signal: AbortSignal,
 ): Promise<JobPlan> {
-  const repo = await repositoryRoot(repoPath);
+  const repo = await repositoryRoot(repoPath, signal);
   const [base, head, checkout] = await Promise.all([
-    resolveCommit(repo, baseRef, "--base"),
-    resolveCommit(repo, headRef, "--head"),
-    checkedOutCommit(repo),
+    resolveCommit(repo, baseRef, "--base", signal),
+    resolveCommit(repo, headRef, "--head", signal),
+    checkedOutCommit(repo, signal),
   ]);
-  const forkPoint = await mergeBase(repo, base, head);
-  const entries = parseNameStatus(await diffNameStatus(repo, forkPoint, head));
-  const changes = await classifyChanges(repo, forkPoint, head, entries);
+  const forkPoint = await mergeBase(repo, base, head, signal);
+  const entries = parseNameStatus(await diffNameStatus(repo, forkPoint, head, signal));
+  const changes = await classifyChanges(repo, forkPoint, head, entries, signal);
 
   const namesAtHead = new Map<string, string>();
   for (const { head: headSide } of changes) {
@@ -151,13 +162,17 @@ export async function planJob(
 
   const checked: CheckedTransform[] = [];
   const warnings: CiWarning[] = [];
+  const noContent = noContentChangesWarning(entries);
+  if (noContent !== null) {
+    warnings.push(noContent);
+  }
   for (const entityId of affectedTransforms(changes)) {
     const name = namesAtHead.get(entityId);
     if (name !== undefined) {
       checked.push({ entity_id: entityId, name });
       continue;
     }
-    const transform = await findTransform(repo, head, entityId);
+    const transform = await findTransform(repo, head, entityId, signal);
     if (transform === null) {
       warnings.push({
         code: "missing-transform",
@@ -171,7 +186,7 @@ export async function planJob(
   // Uncommitted files only matter when the checked commit is the one checked out.
   if (head === checkout) {
     const uncommitted = uncommittedContentWarning(
-      parseStatusPorcelain(await statusPorcelain(repo)),
+      parseStatusPorcelain(await statusPorcelain(repo, signal)),
     );
     if (uncommitted !== null) {
       warnings.push(uncommitted);
