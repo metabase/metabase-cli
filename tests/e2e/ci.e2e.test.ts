@@ -36,7 +36,7 @@ describe("ci e2e", () => {
     const base = await repo.git("rev-parse", "HEAD");
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
-      "t/daily.yaml",
+      "transforms/daily.yaml",
       `name: Daily\nentity_id: ${TRANSFORM_ID}\nserdes/meta:\n- model: Transform\n`,
     );
     const head = await repo.commitAll("add transform");
