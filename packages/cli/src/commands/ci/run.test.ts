@@ -1,5 +1,9 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { runCommand } from "citty";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { parseJson } from "@metabase/client/json";
 
@@ -151,5 +155,73 @@ describe("ci run: committed content only", () => {
       checked: [{ entity_id: A, name: "Alpha" }],
       warnings: [],
     });
+  });
+});
+
+function textOutput(sha: string): string {
+  const short = sha.slice(0, 7);
+  return `mb ci run  base ${short}  head ${short}  0 transforms checked\nPASSED (exit 0)\n`;
+}
+
+async function withTty<T>(isTty: boolean, body: () => Promise<T>): Promise<T> {
+  const previous = process.stdout.isTTY;
+  process.stdout.isTTY = isTty;
+  try {
+    return await body();
+  } finally {
+    process.stdout.isTTY = previous;
+  }
+}
+
+describe("ci run: output format", () => {
+  it("writes the events as lines for a person under --format text", async () => {
+    stubbed.noStages = true;
+
+    const result = await run(["--repo", repo.path, "--base", "main", "--format", "text"]);
+
+    expect(result.stdout).toBe(textOutput(await repo.git("rev-parse", "HEAD")));
+  });
+
+  it("writes the --results file as JSON under --format text", async () => {
+    stubbed.noStages = true;
+    const resultsPath = join(repo.path, "results.json");
+
+    await run([
+      "--repo",
+      repo.path,
+      "--base",
+      "main",
+      "--format",
+      "text",
+      "--results",
+      resultsPath,
+    ]);
+
+    const written = parseJson(await readFile(resultsPath, "utf8"), z.array(CiEvent));
+    expect(written.map((event) => event.type)).toEqual(["job.start", "job.end"]);
+  });
+
+  it("writes one JSON event per line under --json", async () => {
+    stubbed.noStages = true;
+
+    const result = await run(["--repo", repo.path, "--base", "main", "--json"]);
+
+    expect(events(result.stdout).map((event) => event.type)).toEqual(["job.start", "job.end"]);
+  });
+
+  it("writes text by default on a terminal", async () => {
+    stubbed.noStages = true;
+
+    const result = await withTty(true, () => run(["--repo", repo.path, "--base", "main"]));
+
+    expect(result.stdout).toBe(textOutput(await repo.git("rev-parse", "HEAD")));
+  });
+
+  it("writes JSON by default when stdout is not a terminal", async () => {
+    stubbed.noStages = true;
+
+    const result = await withTty(false, () => run(["--repo", repo.path, "--base", "main"]));
+
+    expect(events(result.stdout).map((event) => event.type)).toEqual(["job.start", "job.end"]);
   });
 });
