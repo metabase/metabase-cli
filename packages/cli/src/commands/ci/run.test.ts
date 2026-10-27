@@ -1,8 +1,13 @@
 import { runCommand } from "citty";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { parseJson } from "@metabase/client/json";
 
+import { type TempConfigHome, setupTempConfigHome } from "../../core/auth/temp-config-home";
 import { CiEvent, type JobState } from "../../core/ci-events";
 import { type TempGitRepo, createTempGitRepo } from "../../runtime/temp-git-repo";
 
@@ -155,5 +160,297 @@ describe("ci run: committed content only", () => {
       checked: [{ entity_id: A, name: "Alpha" }],
       warnings: [],
     });
+  });
+});
+
+const MB_URL = "https://mb.example.com";
+const TRANSFORM_ID = 3;
+const TEST_ID = 4;
+
+const LICENSED = {
+  version: { tag: "v1.65.0" },
+  "token-features": { transforms: true, "transforms-testing": true },
+};
+
+const TRANSFORM = {
+  id: TRANSFORM_ID,
+  name: "Alpha",
+  description: null,
+  source: { type: "query", query: { database: 1, type: "native", native: { query: "select 1" } } },
+  target: { type: "table", database: 1, schema: "public", name: "alpha" },
+  source_type: "native",
+  entity_id: A,
+  created_at: "2026-10-30T12:00:00Z",
+  updated_at: "2026-10-30T12:00:00Z",
+  creator_id: 1,
+  collection_id: null,
+  target_table_id: 42,
+};
+
+const TEST = {
+  id: TEST_ID,
+  entity_id: "test-4xxxxxxxxxxxxxxxx",
+  transform_id: TRANSFORM_ID,
+  creator_id: 1,
+  name: "total adds tax",
+  description: null,
+  inputs: [],
+  expectations: [],
+  created_at: "2026-10-30T12:00:00Z",
+  updated_at: "2026-10-30T12:00:00Z",
+};
+
+const PASSED_RUN = {
+  status: "passed",
+  tables: {},
+  expectations: [{ name: "e", type: "empty", status: "passed" }],
+};
+
+const FAILED_RUN = {
+  status: "failed",
+  tables: {},
+  expectations: [
+    { name: "e", type: "empty", status: "failed", columns: [], sample: [], truncated: 0 },
+  ],
+};
+
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+interface FakeMetabase {
+  properties: unknown;
+  list: () => Response;
+  run: () => Response;
+}
+
+// Answers by route, so a test does not depend on how many probes the client makes.
+function serveMetabase(fake: FakeMetabase): void {
+  vi.stubGlobal("fetch", async (input: string | URL | Request) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const path = new URL(url).pathname;
+    if (path === "/api/session/properties") {
+      return json(fake.properties);
+    }
+    if (path === "/api/eid-translation/translate") {
+      return json({ entity_ids: { [A]: { status: "ok", type: "transform", id: TRANSFORM_ID } } });
+    }
+    if (path === `/api/transform/${TRANSFORM_ID}`) {
+      return json(TRANSFORM);
+    }
+    if (path === "/api/ee/transform-test") {
+      return fake.list();
+    }
+    if (path === `/api/ee/transform-test/${TEST_ID}/run`) {
+      return fake.run();
+    }
+    return json("API endpoint does not exist.", 404);
+  });
+}
+
+function serveRun(answer: () => Response): void {
+  serveMetabase({ properties: LICENSED, list: () => json([TEST]), run: answer });
+}
+
+describe("ci run: a changed transform tested on Metabase", () => {
+  let home: TempConfigHome;
+
+  beforeEach(async () => {
+    home = setupTempConfigHome();
+    process.env["MB_URL"] = MB_URL;
+    process.env["MB_API_KEY"] = "mb_ci_test_key";
+    process.env["MB_CLI_DISABLE_KEYRING"] = "1";
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(
+      "transforms/a.yaml",
+      `name: Alpha\nentity_id: ${A}\nserdes/meta:\n- model: Transform\n`,
+    );
+    await repo.commitAll("add A");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    home.cleanup();
+  });
+
+  function lastTwo(output: string): CiEvent[] {
+    return events(output).slice(-2);
+  }
+
+  const envelope = { job: expect.any(String), at: expect.any(String) };
+
+  it("checks the transform, and a failed expectation ends the job failed with exit code 1", async () => {
+    serveRun(() => json(FAILED_RUN));
+
+    const result = await run(["--repo", repo.path, "--base", "main"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(events(result.stdout).map((event) => event.type)).toEqual([
+      "job.start",
+      "stage.start",
+      "check.result",
+      "stage.end",
+      "job.end",
+    ]);
+    expect(planOf(result.stdout).checked).toEqual([{ entity_id: A, name: "Alpha" }]);
+    expect(lastTwo(result.stdout)).toEqual([
+      { ...envelope, seq: 3, type: "stage.end", stage: "unit", status: "failed", stopped: null },
+      { ...envelope, seq: 4, type: "job.end", state: "failed", counts: { checks: 1, warnings: 0 } },
+    ]);
+  });
+
+  it("ends the job passed with exit code 0 when the test passes", async () => {
+    serveRun(() => json(PASSED_RUN));
+
+    const result = await run(["--repo", repo.path, "--base", "main"]);
+
+    expect([result.exitCode, events(result.stdout).at(-1)]).toEqual([
+      0,
+      { ...envelope, seq: 4, type: "job.end", state: "passed", counts: { checks: 1, warnings: 0 } },
+    ]);
+  });
+
+  it("refuses a test Metabase will not run, ending the job errored with exit code 1", async () => {
+    serveRun(() =>
+      json(
+        {
+          message: "An input is declared for a table the transform never reads.",
+          "error-code": "transform-test.unused-inputs",
+        },
+        400,
+      ),
+    );
+
+    const result = await run(["--repo", repo.path, "--base", "main"]);
+
+    expect(result.exitCode).toBe(1);
+    expect(events(result.stdout).slice(2)).toEqual([
+      {
+        ...envelope,
+        seq: 2,
+        type: "check.result",
+        stage: "unit",
+        check: { kind: "transform-test", id: String(TEST_ID), label: "Alpha: total adds tax" },
+        verdict: "refused",
+        warnings: [],
+        ms: expect.any(Number),
+        detail: {
+          error_code: "transform-test.unused-inputs",
+          message: "An input is declared for a table the transform never reads.",
+          tables: null,
+        },
+      },
+      { ...envelope, seq: 3, type: "stage.end", stage: "unit", status: "errored", stopped: null },
+      {
+        ...envelope,
+        seq: 4,
+        type: "job.end",
+        state: "errored",
+        counts: { checks: 1, warnings: 0 },
+      },
+    ]);
+  });
+
+  it("reports a 500 from a test run as an error check, ending the job errored with a results file", async () => {
+    serveRun(() => json({ message: "boom" }, 500));
+    const resultsPath = join(repo.path, "results.json");
+
+    const result = await run(["--repo", repo.path, "--base", "main", "--results", resultsPath]);
+
+    expect(result.exitCode).toBe(1);
+    expect(events(result.stdout).find((event) => event.type === "check.result")).toEqual({
+      ...envelope,
+      seq: 2,
+      type: "check.result",
+      stage: "unit",
+      check: { kind: "transform-test", id: String(TEST_ID), label: "Alpha: total adds tax" },
+      verdict: "error",
+      warnings: [],
+      ms: expect.any(Number),
+      detail: { error_code: "ci.http-error", status: 500, message: "boom" },
+    });
+    expect(parseJson(await readFile(resultsPath, "utf8"), z.array(CiEvent))).toEqual(
+      events(result.stdout),
+    );
+  });
+
+  it("stops the unit stage on a rejected credential, ending the job errored with a results file", async () => {
+    serveRun(() => json({ message: "Unauthenticated" }, 401));
+    const resultsPath = join(repo.path, "results.json");
+
+    const result = await run(["--repo", repo.path, "--base", "main", "--results", resultsPath]);
+
+    expect(result.exitCode).toBe(1);
+    expect(lastTwo(result.stdout)).toEqual([
+      {
+        ...envelope,
+        seq: 2,
+        type: "stage.end",
+        stage: "unit",
+        status: "errored",
+        stopped: { code: "ci.unauthorized", message: "Unauthenticated" },
+      },
+      {
+        ...envelope,
+        seq: 3,
+        type: "job.end",
+        state: "errored",
+        counts: { checks: 0, warnings: 0 },
+      },
+    ]);
+    expect(parseJson(await readFile(resultsPath, "utf8"), z.array(CiEvent))).toEqual(
+      events(result.stdout),
+    );
+  });
+
+  it("stops the unit stage on a server without transform testing, exiting 1 rather than 2", async () => {
+    serveMetabase({
+      properties: { version: { tag: "v1.65.0" }, "token-features": { transforms: true } },
+      list: () => json("This API endpoint is only enabled if you have a premium token.", 402),
+      run: () => json(PASSED_RUN),
+    });
+
+    const result = await run(["--repo", repo.path, "--base", "main"]);
+
+    expect([result.exitCode, lastTwo(result.stdout)]).toEqual([
+      1,
+      [
+        {
+          ...envelope,
+          seq: 2,
+          type: "stage.end",
+          stage: "unit",
+          status: "errored",
+          stopped: {
+            code: "ci.unsupported-server",
+            message:
+              "This operation requires the 'transforms-testing' premium feature (not enabled on this server).",
+          },
+        },
+        {
+          ...envelope,
+          seq: 3,
+          type: "job.end",
+          state: "errored",
+          counts: { checks: 0, warnings: 0 },
+        },
+      ],
+    ]);
+  });
+
+  it("exits 2 after job.start when no Metabase credential is configured", async () => {
+    delete process.env["MB_URL"];
+    delete process.env["MB_API_KEY"];
+    serveRun(() => json(PASSED_RUN));
+
+    const result = await run(["--repo", repo.path, "--base", "main"]);
+
+    expect([result.exitCode, events(result.stdout).map((event) => event.type)]).toEqual([
+      2,
+      ["job.start"],
+    ]);
   });
 });

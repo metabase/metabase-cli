@@ -39,6 +39,7 @@ function failingStage(): CiStage {
         ms: 2000,
         detail: null,
       });
+      return null;
     },
   };
 }
@@ -97,7 +98,7 @@ describe("runJob", () => {
         ms: 2000,
         detail: null,
       },
-      { ...envelope, seq: 3, type: "stage.end", stage: "unit", status: "failed" },
+      { ...envelope, seq: 3, type: "stage.end", stage: "unit", status: "failed", stopped: null },
       { ...envelope, seq: 4, type: "job.end", state: "failed", counts: { checks: 1, warnings: 2 } },
     ]);
   });

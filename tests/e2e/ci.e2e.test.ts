@@ -288,7 +288,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
             tables: expect.any(Object),
           },
         },
-        { ...envelope, seq: 3, type: "stage.end", stage: "unit", status: verdict },
+        { ...envelope, seq: 3, type: "stage.end", stage: "unit", status: verdict, stopped: null },
         {
           ...envelope,
           seq: 4,

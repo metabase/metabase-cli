@@ -2,6 +2,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
 import {
+  isTransformTestCode,
   isTransformTestRefusalCode,
   type TransformTestCreateInput,
 } from "../domain/transform-test";
@@ -236,6 +237,32 @@ describe("transform-test resource wire requests", () => {
     expect(error.userMessage).toBe(
       "The h2 database of this transform does not support transform testing.",
     );
+  });
+
+  it("keeps the tables a refusal names", async () => {
+    const { mb } = clientOver([
+      jsonResponse(
+        {
+          message: "The transform reads PUBLIC.PEOPLE, which has no test input.",
+          "error-code": "transform-test.missing-inputs",
+          tables: ["PUBLIC.PEOPLE"],
+        },
+        BAD_REQUEST_STATUS,
+      ),
+    ]);
+
+    const error = await thrownBy(() => mb.transformTest.run(12));
+
+    assert(error instanceof HttpError, "expected HttpError");
+    expect(error.tables).toEqual(["PUBLIC.PEOPLE"]);
+  });
+
+  it("recognises a transform-test code newer than the refusal vocabulary by its prefix", () => {
+    expect(
+      ["transform-test.some-new-refusal", "transform-test.unused-inputs", "some-other.code"].map(
+        isTransformTestCode,
+      ),
+    ).toEqual([true, true, false]);
   });
 
   it("surfaces a create rejection without a code as the field errors it carries", async () => {
