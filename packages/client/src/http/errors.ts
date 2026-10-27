@@ -68,8 +68,13 @@ const ErrorEnvelope = z
     "error-code": z.string().optional(),
     "non-remote-synced-models": z.unknown().optional(),
     "remote-synced-models": z.unknown().optional(),
+    tables: z.unknown().optional(),
   })
   .loose();
+
+// The tables a transform-test refusal names: the inputs a test is missing, declares unused, or
+// declares twice.
+const RefusedTables = z.array(z.string()).min(1);
 
 // The server names the content blocking a move into remote sync by bare id, without its model.
 const NonRemoteSyncedDependencies = z.array(z.number().int()).min(1);
@@ -129,6 +134,7 @@ export interface HttpErrorDetail {
   errorCode: string | null;
   nonRemoteSyncedDependencies: number[] | null;
   remoteSyncedDependents: RemoteSyncedDependent[] | null;
+  tables: string[] | null;
 }
 
 export interface HttpErrorInput {
@@ -178,6 +184,7 @@ export class HttpError extends MetabaseError {
       errorCode: fields.errorCode,
       nonRemoteSyncedDependencies: fields.nonRemoteSyncedDependencies,
       remoteSyncedDependents: fields.remoteSyncedDependents,
+      tables: fields.tables,
     };
   }
 
@@ -210,6 +217,11 @@ export class HttpError extends MetabaseError {
   // The synced content that uses what this request tried to archive or move out of remote sync.
   get remoteSyncedDependents(): RemoteSyncedDependent[] | null {
     return this.developerDetail.remoteSyncedDependents;
+  }
+
+  // The tables a transform-test refusal names, such as the inputs a test is missing.
+  get tables(): string[] | null {
+    return this.developerDetail.tables;
   }
 }
 
@@ -383,6 +395,7 @@ interface EnvelopeViews {
   errorCode: string | null;
   nonRemoteSyncedDependencies: number[] | null;
   remoteSyncedDependents: RemoteSyncedDependent[] | null;
+  tables: string[] | null;
 }
 
 const NO_ENVELOPE_VIEWS: EnvelopeViews = {
@@ -391,6 +404,7 @@ const NO_ENVELOPE_VIEWS: EnvelopeViews = {
   errorCode: null,
   nonRemoteSyncedDependencies: null,
   remoteSyncedDependents: null,
+  tables: null,
 };
 
 // Read off the sanitized body rather than the raw one, so a secret quoted back inside a field
@@ -409,6 +423,7 @@ function extractEnvelopeViews(sanitizedBody: string | null): EnvelopeViews {
       envelope["non-remote-synced-models"],
     ),
     remoteSyncedDependents: parseOrNull(RemoteSyncedDependents, envelope["remote-synced-models"]),
+    tables: parseOrNull(RefusedTables, envelope.tables),
   };
 }
 

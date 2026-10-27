@@ -349,6 +349,7 @@ describe("reportError", () => {
             errorCode: null,
             nonRemoteSyncedDependencies: null,
             remoteSyncedDependents: null,
+            tables: null,
           },
         },
       }) + "\n";

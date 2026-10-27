@@ -334,6 +334,7 @@ describe("every command declares exactly the client methods it reaches", () => {
     expect(reached).toEqual({
       "commands/ci/unit-stage.ts": [
         "eidTranslation.translate",
+        "transform.get",
         "transformTest.list",
         "transformTest.run",
       ],

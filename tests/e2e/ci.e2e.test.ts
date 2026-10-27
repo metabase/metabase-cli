@@ -37,7 +37,14 @@ function quietLintEvents(firstSeq: number): unknown[] {
       ms: 0,
       detail: { untested: [] },
     },
-    { ...ANY_ENVELOPE, seq: firstSeq + 2, type: "stage.end", stage: "lint", status: "passed" },
+    {
+      ...ANY_ENVELOPE,
+      seq: firstSeq + 2,
+      type: "stage.end",
+      stage: "lint",
+      status: "passed",
+      stopped: null,
+    },
   ];
 }
 
@@ -163,8 +170,22 @@ describe("ci e2e", () => {
         ms: 0,
         detail: { untested: [] },
       },
-      { ...ANY_ENVELOPE, seq: 4, type: "stage.end", stage: "lint", status: "failed" },
-      { ...ANY_ENVELOPE, seq: 5, type: "stage.end", stage: "unit", status: "skipped" },
+      {
+        ...ANY_ENVELOPE,
+        seq: 4,
+        type: "stage.end",
+        stage: "lint",
+        status: "failed",
+        stopped: null,
+      },
+      {
+        ...ANY_ENVELOPE,
+        seq: 5,
+        type: "stage.end",
+        stage: "unit",
+        status: "skipped",
+        stopped: null,
+      },
       {
         ...ANY_ENVELOPE,
         seq: 6,
@@ -286,7 +307,14 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
             "the transform is in the branch but not on the Metabase instance; load the branch into it first",
         },
       },
-      { ...ANY_ENVELOPE, seq: 6, type: "stage.end", stage: "unit", status: "errored" },
+      {
+        ...ANY_ENVELOPE,
+        seq: 6,
+        type: "stage.end",
+        stage: "unit",
+        status: "errored",
+        stopped: null,
+      },
       {
         ...ANY_ENVELOPE,
         seq: 7,
@@ -386,7 +414,14 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
             tables: expect.any(Object),
           },
         },
-        { ...ANY_ENVELOPE, seq: 6, type: "stage.end", stage: "unit", status: verdict },
+        {
+          ...ANY_ENVELOPE,
+          seq: 6,
+          type: "stage.end",
+          stage: "unit",
+          status: verdict,
+          stopped: null,
+        },
         {
           ...ANY_ENVELOPE,
           seq: 7,

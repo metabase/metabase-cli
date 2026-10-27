@@ -109,6 +109,7 @@ export function coverageStage(assessment: CoverageAssessment): CiStage {
           })),
         },
       });
+      return null;
     },
   };
 }
