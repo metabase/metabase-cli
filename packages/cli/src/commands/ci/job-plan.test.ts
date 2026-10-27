@@ -32,13 +32,15 @@ function testYaml(transformId: string): string {
 const TRANSFORM_YAML = transformYaml(TRANSFORM_ID, "Daily Order Summary");
 const TEST_YAML = testYaml(TRANSFORM_ID);
 const DAILY = { entity_id: TRANSFORM_ID, name: "Daily Order Summary" };
-const NO_GAPS = { untestedChanges: [], untouchedUntested: [] };
+const NO_GAPS = { untestedChanges: [], untestableChanges: [], untouchedUntested: [] };
 const DAILY_UNTESTED_NEW = {
   untestedChanges: [{ entityId: TRANSFORM_ID, name: "Daily Order Summary", change: "new" }],
+  untestableChanges: [],
   untouchedUntested: [],
 };
 const DAILY_UNTESTED_UNTOUCHED = {
   untestedChanges: [],
+  untestableChanges: [],
   untouchedUntested: [{ entityId: TRANSFORM_ID, name: "Daily Order Summary" }],
 };
 const BROKEN_QUERY = "source:\n  query: select broken(\n";
@@ -261,6 +263,7 @@ describe("planJob", () => {
         untestedChanges: [
           { entityId: TRANSFORM_ID, name: "Daily Order Summary", change: "edited" },
         ],
+        untestableChanges: [],
         untouchedUntested: [],
       },
     });
@@ -373,6 +376,7 @@ describe("planJob, reading a transform as Metabase imports it", () => {
         untestedChanges: [
           { entityId: TRANSFORM_ID, name: "Daily Order Summary", change: "edited" },
         ],
+        untestableChanges: [],
         untouchedUntested: [],
       },
     });
@@ -516,6 +520,7 @@ describe("planJob, reading the base side at the merge base", () => {
       warnings: [],
       coverage: {
         untestedChanges: [{ entityId: TRANSFORM_ID, name: "Alpha", change: "lost-test" }],
+        untestableChanges: [],
         untouchedUntested: [{ entityId: OTHER_TRANSFORM_ID, name: "Beta" }],
       },
     });
@@ -538,6 +543,7 @@ describe("planJob, reading the base side at the merge base", () => {
       warnings: [],
       coverage: {
         untestedChanges: [],
+        untestableChanges: [],
         untouchedUntested: [{ entityId: TRANSFORM_ID, name: "Alpha 2" }],
       },
     });
@@ -561,6 +567,7 @@ describe("planJob, reading the base side at the merge base", () => {
       warnings: [],
       coverage: {
         untestedChanges: [],
+        untestableChanges: [],
         untouchedUntested: [
           { entityId: TRANSFORM_ID, name: "Alpha 2" },
           { entityId: OTHER_TRANSFORM_ID, name: "Beta" },
@@ -588,6 +595,7 @@ describe("planJob, finding the transform of a changed test", () => {
       warnings: [],
       coverage: {
         untestedChanges: [],
+        untestableChanges: [],
         untouchedUntested: [{ entityId: OTHER_TRANSFORM_ID, name: "Beta" }],
       },
     });
@@ -634,6 +642,7 @@ describe("planJob, finding the transform of a changed test", () => {
       warnings: [],
       coverage: {
         untestedChanges: [{ entityId: TRANSFORM_ID, name: "Alpha", change: "lost-test" }],
+        untestableChanges: [],
         untouchedUntested: [],
       },
     });
@@ -656,6 +665,7 @@ describe("planJob, run from a subdirectory", () => {
       warnings: [],
       coverage: {
         untestedChanges: [],
+        untestableChanges: [],
         untouchedUntested: [{ entityId: TRANSFORM_ID, name: "Alpha 2" }],
       },
     });
@@ -682,7 +692,7 @@ describe("planJob, an unchanged file at head that does not read", () => {
       snapshot: { base, head },
       checked: [],
       warnings: [NO_CONTENT_CHANGES],
-      coverage: { untestedChanges: [], untouchedUntested: [LEGACY] },
+      coverage: { untestedChanges: [], untestableChanges: [], untouchedUntested: [LEGACY] },
     });
   });
 
@@ -763,7 +773,11 @@ describe("planJob, an unchanged file at head that does not read", () => {
       snapshot: { base, head },
       checked: [{ entity_id: LEGACY_ID, name: "Legacy" }],
       warnings: [],
-      coverage: { untestedChanges: [{ ...LEGACY, change: "new" }], untouchedUntested: [] },
+      coverage: {
+        untestedChanges: [{ ...LEGACY, change: "new" }],
+        untestableChanges: [],
+        untouchedUntested: [],
+      },
     });
   });
 
@@ -897,6 +911,7 @@ describe("planJob, what counts as an edit", () => {
 
     expect((await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).coverage).toEqual({
       untestedChanges: [{ entityId: TRANSFORM_ID, name: "Daily Order Summary", change: "edited" }],
+      untestableChanges: [],
       untouchedUntested: [],
     });
   });
@@ -927,6 +942,7 @@ describe("planJob, a change that removes a transform's tests", () => {
       untestedChanges: [
         { entityId: TRANSFORM_ID, name: "Daily Order Summary", change: "lost-test" },
       ],
+      untestableChanges: [],
       untouchedUntested: [],
     });
   });
@@ -941,6 +957,7 @@ describe("planJob, a change that removes a transform's tests", () => {
       untestedChanges: [
         { entityId: TRANSFORM_ID, name: "Daily Order Summary", change: "lost-test" },
       ],
+      untestableChanges: [],
       untouchedUntested: [],
     });
   });
@@ -980,6 +997,7 @@ describe("planJob, whitespace in a transform's query", () => {
 
     expect((await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).coverage).toEqual({
       untestedChanges: [{ entityId: TRANSFORM_ID, name: "Daily Order Summary", change: "edited" }],
+      untestableChanges: [],
       untouchedUntested: [],
     });
   });

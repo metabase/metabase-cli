@@ -481,6 +481,63 @@ describe("ci run: a changed transform tested on Metabase", () => {
     ]);
   });
 
+  it("passes a new Python transform without a test, warning that it cannot have one", async () => {
+    await repo.git("rm", "-q", "transforms/a/test.yaml");
+    await repo.put(
+      "transforms/a.yaml",
+      `name: Alpha\nentity_id: ${A}\nsource:\n  type: python\n  body: print(1)\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
+    );
+    await repo.commitAll("make A a Python transform without a test");
+    serveMetabase({ properties: LICENSED, list: () => json([]), run: () => json(PASSED_RUN) });
+
+    const result = await run(["--repo", repo.path, "--base", "main"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(events(result.stdout).slice(1)).toEqual([
+      { ...envelope, seq: 1, type: "stage.start", stage: "lint" },
+      {
+        ...envelope,
+        seq: 2,
+        type: "check.result",
+        stage: "lint",
+        check: {
+          kind: "coverage",
+          id: "untestable",
+          label: "Transforms that cannot have transform tests",
+        },
+        verdict: "passed",
+        warnings: [
+          {
+            code: "untestable-transform",
+            message:
+              "Alpha cannot have transform tests (Python transforms), so coverage does not require one",
+          },
+        ],
+        ms: 0,
+        detail: { untestable: [{ entity_id: A, name: "Alpha" }] },
+      },
+      {
+        ...envelope,
+        seq: 3,
+        type: "check.result",
+        stage: "lint",
+        check: {
+          kind: "coverage",
+          id: "untouched",
+          label: "Transforms whose logic this change did not touch",
+        },
+        verdict: "passed",
+        warnings: [],
+        ms: 0,
+        detail: { untested: [] },
+      },
+      { ...envelope, seq: 4, type: "stage.end", stage: "lint", status: "passed", stopped: null },
+      { ...envelope, seq: 5, type: "stage.start", stage: "unit" },
+      { ...envelope, seq: 6, type: "stage.end", stage: "unit", status: "passed", stopped: null },
+      { ...envelope, seq: 7, type: "job.end", state: "passed", counts: { checks: 2, warnings: 1 } },
+    ]);
+  });
+
   it("exits 2 after the unit stage starts when no Metabase credential is configured", async () => {
     delete process.env["MB_URL"];
     delete process.env["MB_API_KEY"];

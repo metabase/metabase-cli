@@ -24,6 +24,8 @@ interface TransformFile {
   entityId: string;
   name: string;
   logic: TransformLogic;
+  // Metabase tests only a query transform, and refuses a test of any other, such as a Python one.
+  testable: boolean;
 }
 
 interface TransformTestFile {
@@ -170,6 +172,17 @@ export interface TransformLogic {
   yaml11: LogicReading;
 }
 
+const QUERY_SOURCE_TYPE = "query";
+
+// A source that names no type is held to the query rule, so a malformed transform still needs a test.
+function isTestableSource(source: unknown): boolean {
+  if (!isPlainObject(source)) {
+    return true;
+  }
+  const type = source["type"];
+  return typeof type !== "string" || type === QUERY_SOURCE_TYPE;
+}
+
 const TRANSFORM_RULE = "a Transform must have an entity_id, a name, a source and a target";
 const TransformTestDocument = z.object({ transform_id: z.string().min(1) }).loose();
 
@@ -212,6 +225,7 @@ export function classifyContentFile(path: string, yaml: MetabaseYaml): ContentFi
         yaml12: { source: transform.source, target: transform.target },
         yaml11: { source: asYaml11.source, target: asYaml11.target },
       },
+      testable: isTestableSource(transform.source),
     };
   }
   if (last.model === "TransformTest") {
@@ -274,14 +288,19 @@ export const TRANSFORM_MODEL_PATTERN = "Transform";
 export interface HeadTransforms {
   names: Map<string, string>;
   tested: Set<string>;
+  untestable: Set<string>;
 }
 
-// The transforms among files at head, each by name, and the transforms a test at head covers.
+// The transforms among files at head, each by name, the transforms a test at head covers, and the
+// transforms Metabase cannot test.
 export function headTransforms(files: readonly (ContentFile | null)[]): HeadTransforms {
-  const atHead: HeadTransforms = { names: new Map(), tested: new Set() };
+  const atHead: HeadTransforms = { names: new Map(), tested: new Set(), untestable: new Set() };
   for (const file of files) {
     if (file?.kind === "transform") {
       atHead.names.set(file.entityId, file.name);
+      if (!file.testable) {
+        atHead.untestable.add(file.entityId);
+      }
     } else if (file?.kind === "transform-test") {
       atHead.tested.add(file.transformId);
     }

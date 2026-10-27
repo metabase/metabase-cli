@@ -16,10 +16,12 @@ interface CoverageInputs {
   changes: readonly ClassifiedChange[];
   transformsAtHead: ReadonlyMap<string, string>;
   testedAtHead: ReadonlySet<string>;
+  untestableAtHead: ReadonlySet<string>;
 }
 
 export interface CoverageAssessment {
   untestedChanges: UntestedChange[];
+  untestableChanges: NamedTransform[];
   untouchedUntested: NamedTransform[];
 }
 
@@ -31,7 +33,8 @@ function byName(a: NamedTransform, b: NamedTransform): number {
 // must keep a test the change found it with; one it leaves alone, or changes only cosmetically, is
 // only listed when it has none.
 // A transform is new when no changed file held it at base, so a copy of an unchanged transform in a
-// new file counts as new.
+// new file counts as new. A transform Metabase cannot test is never required to have one: such a
+// change is only listed.
 export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
   const logicAtBase = new Map<string, TransformLogic>();
   for (const { base } of inputs.changes) {
@@ -65,6 +68,16 @@ export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
     }
   }
 
+  const untestedChanges: UntestedChange[] = [];
+  const untestableChanges: NamedTransform[] = [];
+  for (const transform of changed.values()) {
+    if (inputs.untestableAtHead.has(transform.entityId)) {
+      untestableChanges.push({ entityId: transform.entityId, name: transform.name });
+    } else {
+      untestedChanges.push(transform);
+    }
+  }
+
   const untouchedUntested: NamedTransform[] = [];
   for (const [entityId, name] of inputs.transformsAtHead) {
     if (!inputs.testedAtHead.has(entityId) && !changed.has(entityId)) {
@@ -72,17 +85,20 @@ export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
     }
   }
   return {
-    untestedChanges: [...changed.values()].toSorted(byName),
+    untestedChanges: untestedChanges.toSorted(byName),
+    untestableChanges: untestableChanges.toSorted(byName),
     untouchedUntested: untouchedUntested.toSorted(byName),
   };
 }
 
-// The two lists hold every transform at head that no test file names, each once.
+// The three lists hold every transform at head that no test file names, each once.
 export function untestedTransforms(assessment: CoverageAssessment): Set<string> {
   return new Set(
-    [...assessment.untestedChanges, ...assessment.untouchedUntested].map(
-      (transform) => transform.entityId,
-    ),
+    [
+      ...assessment.untestedChanges,
+      ...assessment.untestableChanges,
+      ...assessment.untouchedUntested,
+    ].map((transform) => transform.entityId),
   );
 }
 
@@ -98,6 +114,16 @@ function untouchedWarnings(untouched: readonly NamedTransform[]): CiWarning[] {
       : `${untouched.length} transforms whose logic this change did not touch have`;
   const names = untouched.map((transform) => transform.name).join(", ");
   return [{ code: "no-tests-untouched", message: `${summary} no tests: ${names}` }];
+}
+
+const UNTESTABLE_CHECK_ID = "untestable";
+
+function untestableWarning(untestable: readonly NamedTransform[]): CiWarning {
+  const names = untestable.map((transform) => transform.name).join(", ");
+  return {
+    code: "untestable-transform",
+    message: `${names} cannot have transform tests (Python transforms), so coverage does not require one`,
+  };
 }
 
 function untestedMessage(transform: UntestedChange): string {
@@ -120,6 +146,25 @@ export function coverageStage(assessment: CoverageAssessment): CiStage {
           detail: {
             change: transform.change,
             message: untestedMessage(transform),
+          },
+        });
+      }
+      const untestable = assessment.untestableChanges;
+      if (untestable.length > 0) {
+        report({
+          check: {
+            kind: "coverage",
+            id: UNTESTABLE_CHECK_ID,
+            label: "Transforms that cannot have transform tests",
+          },
+          verdict: "passed",
+          warnings: [untestableWarning(untestable)],
+          ms: 0,
+          detail: {
+            untestable: untestable.map((transform) => ({
+              entity_id: transform.entityId,
+              name: transform.name,
+            })),
           },
         });
       }
