@@ -178,6 +178,7 @@ This file is enough for any single-command task. For anything deeper, load the r
   <!-- /requires -->
   <!-- requires: transformTests -->
 - **`transform-test-plan`** — planning transform tests.
+- **`ci`**: running `mb ci run`, reading its results, and fixing what failed.
 <!-- /requires -->
 - **`document`** — Metabase documents (TipTap body, embedding cards).
 <!-- requires: dataActionsWithoutModel -->

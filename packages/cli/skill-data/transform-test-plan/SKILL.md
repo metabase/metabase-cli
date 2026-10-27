@@ -7,7 +7,7 @@ requires: [transformTests]
 
 # Planning transform tests
 
-Turn a transform into a fixture cast that proves the logic on small known rows, expectations that state the model's invariants, and a coverage matrix showing what's checked and what's deliberately not. Mechanics — the `inputs`/`expectations` body shape and every `mb transform-test` verb — live in the `transform` skill (`mb skills get transform`); load it before authoring, and never restate it here. The two references this skill routes through, `references/checklist.md` and `references/checks.md`, come with `mb skills get transform-test-plan --full`, or read them from `mb skills path transform-test-plan`.
+Turn a transform into a fixture cast that proves the logic on small known rows, expectations that state the model's invariants, and a coverage matrix showing what's checked and what's deliberately not. Mechanics — the `inputs`/`expectations` body shape and every `mb transform-test` verb — live in the `transform` skill (`mb skills get transform`); load it before authoring, and never restate it here. Running the tests in CI with `mb ci run` and acting on its results is the `ci` skill (`mb skills get ci`). The two references this skill routes through, `references/checklist.md` and `references/checks.md`, come with `mb skills get transform-test-plan --full`, or read them from `mb skills path transform-test-plan`.
 
 Every check derives from what the model **declares** — detected from its SQL, confirmed with its owner — never from conformance to a modeling doctrine. One plan serves two moments: while the model is **built**, checks pin each design decision; once **deployed**, the same SQL screens production tables for anomalies.
 

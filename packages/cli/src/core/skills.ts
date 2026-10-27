@@ -183,6 +183,19 @@ function findPackageRoot(): string | null {
   }
 }
 
+// Every agent is told to load `core` first, so it leads every listing and `get --all`'s first
+// window, whatever sorts before it by name.
+const FIRST_SKILL = "core";
+
+function bySkillOrder(a: SkillInfo, b: SkillInfo): number {
+  const aFirst = a.name === FIRST_SKILL;
+  const bFirst = b.name === FIRST_SKILL;
+  if (aFirst !== bFirst) {
+    return aFirst ? -1 : 1;
+  }
+  return a.name.localeCompare(b.name);
+}
+
 export function discoverSkills(dirs: readonly string[]): SkillInfo[] {
   const skills: SkillInfo[] = [];
   for (const dir of dirs) {
@@ -210,7 +223,7 @@ export function discoverSkills(dirs: readonly string[]): SkillInfo[] {
       });
     }
   }
-  skills.sort((a, b) => a.name.localeCompare(b.name));
+  skills.sort(bySkillOrder);
   return skills;
 }
 

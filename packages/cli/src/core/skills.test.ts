@@ -679,6 +679,7 @@ describe("the shipped skills", () => {
     );
 
     expect(bound).toEqual({
+      ci: ["transformTests"],
       "data-action": ["dataActionsWithoutModel"],
       "data-app": ["dataApps"],
       "data-app-actions": ["dataApps"],
@@ -697,6 +698,7 @@ describe("the shipped skills", () => {
       .map((skill) => skill.name);
     expect(all.map((skill) => skill.name)).toEqual([
       "core",
+      "ci",
       "dashboard",
       "data-action",
       "data-app",
