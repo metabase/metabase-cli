@@ -100,7 +100,7 @@ describe("ci e2e", () => {
         warnings: [
           {
             code: "no-content-changes",
-            message: "the change touches no Metabase content files, so CI checked nothing",
+            message: "the change touches no Metabase content files, so no transform test ran",
           },
           {
             code: "uncommitted-content",

@@ -75,6 +75,12 @@ export const INVALID_ENTITY_ID: CiRefusal = {
   message: "the transform's entity_id in the branch is not a valid entity id",
 };
 
+export const NO_TESTS_ON_INSTANCE: CiRefusal = {
+  error_code: "ci.no-tests-on-instance",
+  message:
+    "the branch has a test for this transform, but the Metabase instance lists none, so no test ran; load the branch into it first",
+};
+
 const TRANSFORM_UNREADABLE: CiRefusal = {
   error_code: "ci.transform-unreadable",
   message:

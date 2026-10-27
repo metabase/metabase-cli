@@ -9,10 +9,10 @@ interface NamedTransform {
 }
 
 interface UntestedChange extends NamedTransform {
-  change: "new" | "edited";
+  change: "new" | "edited" | "lost-test";
 }
 
-export interface CoverageInputs {
+interface CoverageInputs {
   changes: readonly ClassifiedChange[];
   transformsAtHead: ReadonlyMap<string, string>;
   testedAtHead: ReadonlySet<string>;
@@ -27,8 +27,11 @@ function byName(a: NamedTransform, b: NamedTransform): number {
   return a.name.localeCompare(b.name);
 }
 
-// A transform the change adds, or whose logic it edits, must have a test; one it leaves alone, or
-// changes only cosmetically, is only listed when it has none.
+// A transform the change adds, or whose logic it edits, must have a test, and one that keeps existing
+// must keep a test the change found it with; one it leaves alone, or changes only cosmetically, is
+// only listed when it has none.
+// A transform is new when no changed file held it at base, so a copy of an unchanged transform in a
+// new file counts as new.
 export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
   const logicAtBase = new Map<string, TransformLogic>();
   for (const { base } of inputs.changes) {
@@ -50,6 +53,18 @@ export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
     }
   }
 
+  // Every test file the transform had at base is in the diff, since none is left at head. Losing its
+  // tests explains the gap better than an edit does, so it replaces one.
+  for (const { base } of inputs.changes) {
+    if (base?.kind !== "transform-test" || inputs.testedAtHead.has(base.transformId)) {
+      continue;
+    }
+    const name = inputs.transformsAtHead.get(base.transformId);
+    if (name !== undefined) {
+      changed.set(base.transformId, { entityId: base.transformId, name, change: "lost-test" });
+    }
+  }
+
   const untouchedUntested: NamedTransform[] = [];
   for (const [entityId, name] of inputs.transformsAtHead) {
     if (!inputs.testedAtHead.has(entityId) && !changed.has(entityId)) {
@@ -60,6 +75,15 @@ export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
     untestedChanges: [...changed.values()].toSorted(byName),
     untouchedUntested: untouchedUntested.toSorted(byName),
   };
+}
+
+// The two lists hold every transform at head that no test file names, each once.
+export function untestedTransforms(assessment: CoverageAssessment): Set<string> {
+  return new Set(
+    [...assessment.untestedChanges, ...assessment.untouchedUntested].map(
+      (transform) => transform.entityId,
+    ),
+  );
 }
 
 const UNTOUCHED_CHECK_ID = "untouched";
@@ -76,6 +100,13 @@ function untouchedWarnings(untouched: readonly NamedTransform[]): CiWarning[] {
   return [{ code: "no-tests-untouched", message: `${summary} no tests: ${names}` }];
 }
 
+function untestedMessage(transform: UntestedChange): string {
+  if (transform.change === "lost-test") {
+    return `${transform.name} lost its last transform test in this change`;
+  }
+  return `${transform.name} is ${transform.change} in this change and has no transform tests`;
+}
+
 export function coverageStage(assessment: CoverageAssessment): CiStage {
   return {
     name: "lint",
@@ -88,7 +119,7 @@ export function coverageStage(assessment: CoverageAssessment): CiStage {
           ms: 0,
           detail: {
             change: transform.change,
-            message: `${transform.name} is ${transform.change} in this change and has no transform tests`,
+            message: untestedMessage(transform),
           },
         });
       }

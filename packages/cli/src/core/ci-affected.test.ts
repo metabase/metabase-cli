@@ -21,17 +21,20 @@ import {
 const TRANSFORM_ID = "7JwIkkAG-06-nsl4jzsaq";
 const OTHER_TRANSFORM_ID = "7XqqzlsonSq4KFyOvtrAm";
 
+const LOGIC = { source: { type: "query" }, target: { name: "t" } };
+const SAME_LOGIC = { yaml12: LOGIC, yaml11: LOGIC };
+
 const TRANSFORM: ContentFile = {
   kind: "transform",
   entityId: TRANSFORM_ID,
   name: "Daily Order Summary",
-  logic: { source: { type: "query" }, target: { name: "t" } },
+  logic: SAME_LOGIC,
 };
 const OTHER_TRANSFORM: ContentFile = {
   kind: "transform",
   entityId: OTHER_TRANSFORM_ID,
   name: "Hourly Stats",
-  logic: { source: { type: "query" }, target: { name: "t" } },
+  logic: SAME_LOGIC,
 };
 const TEST: ContentFile = { kind: "transform-test", transformId: TRANSFORM_ID };
 const OTHER: ContentFile = { kind: "other" };
@@ -170,10 +173,15 @@ describe("parseNameStatus", () => {
   });
 });
 
+// A document every parser reads the same.
+function classifyDocument(path: string, document: unknown): ContentFile {
+  return classifyContentFile(path, { yaml12: document, yaml11: document });
+}
+
 describe("classifyContentFile", () => {
   it("classifies a transform by the last serdes/meta model", () => {
     expect(
-      classifyContentFile("transforms/a.yaml", {
+      classifyDocument("transforms/a.yaml", {
         entity_id: TRANSFORM_ID,
         name: "Daily Order Summary",
         source: { type: "query" },
@@ -185,7 +193,7 @@ describe("classifyContentFile", () => {
 
   it("classifies a transform test by the transform it covers", () => {
     expect(
-      classifyContentFile("transforms/a/t.yaml", {
+      classifyDocument("transforms/a/t.yaml", {
         transform_id: TRANSFORM_ID,
         "serdes/meta": [{ model: "Transform" }, { model: "TransformTest" }],
       }),
@@ -194,7 +202,7 @@ describe("classifyContentFile", () => {
 
   it("classifies a transform test in the exported one-entry serdes/meta shape", () => {
     expect(
-      classifyContentFile("transforms/t1/t.yaml", {
+      classifyDocument("transforms/t1/t.yaml", {
         transform_id: TRANSFORM_ID,
         "serdes/meta": [{ model: "TransformTest" }],
       }),
@@ -203,16 +211,16 @@ describe("classifyContentFile", () => {
 
   it("classifies any other serialized model as other", () => {
     expect(
-      classifyContentFile("collections/c.yaml", { "serdes/meta": [{ model: "Collection" }] }),
+      classifyDocument("collections/c.yaml", { "serdes/meta": [{ model: "Collection" }] }),
     ).toEqual(OTHER);
   });
 
   it("classifies a document without serdes/meta as other", () => {
-    expect(classifyContentFile("settings.yaml", { "report-timezone": "UTC" })).toEqual(OTHER);
+    expect(classifyDocument("settings.yaml", { "report-timezone": "UTC" })).toEqual(OTHER);
   });
 
   it("refuses a malformed serdes/meta rather than ignoring the file", () => {
-    const classify = () => classifyContentFile("transforms/a.yaml", { "serdes/meta": [] });
+    const classify = () => classifyDocument("transforms/a.yaml", { "serdes/meta": [] });
 
     expect(classify).toThrow(ValidationError);
     expect(classify).toThrow(
@@ -222,7 +230,7 @@ describe("classifyContentFile", () => {
 
   it("refuses a serdes/meta entry without a model", () => {
     const classify = () =>
-      classifyContentFile("transforms/a.yaml", { "serdes/meta": [{ id: TRANSFORM_ID }] });
+      classifyDocument("transforms/a.yaml", { "serdes/meta": [{ id: TRANSFORM_ID }] });
 
     expect(classify).toThrow(ValidationError);
     expect(classify).toThrow(
@@ -232,7 +240,7 @@ describe("classifyContentFile", () => {
 
   it("refuses a serdes/meta entry whose model is not a string", () => {
     const classify = () =>
-      classifyContentFile("transforms/a.yaml", { "serdes/meta": [{ model: null }] });
+      classifyDocument("transforms/a.yaml", { "serdes/meta": [{ model: null }] });
 
     expect(classify).toThrow(ValidationError);
     expect(classify).toThrow(
@@ -241,8 +249,7 @@ describe("classifyContentFile", () => {
   });
 
   it("refuses a serdes/meta entry that is not a map", () => {
-    const classify = () =>
-      classifyContentFile("transforms/a.yaml", { "serdes/meta": ["Transform"] });
+    const classify = () => classifyDocument("transforms/a.yaml", { "serdes/meta": ["Transform"] });
 
     expect(classify).toThrow(ValidationError);
     expect(classify).toThrow(
@@ -252,7 +259,7 @@ describe("classifyContentFile", () => {
 
   it("refuses a transform test without the transform it covers", () => {
     const classify = () =>
-      classifyContentFile("transforms/a/t.yaml", { "serdes/meta": [{ model: "TransformTest" }] });
+      classifyDocument("transforms/a/t.yaml", { "serdes/meta": [{ model: "TransformTest" }] });
 
     expect(classify).toThrow(ValidationError);
     expect(classify).toThrow("transforms/a/t.yaml: a TransformTest must name its transform_id");
@@ -260,7 +267,7 @@ describe("classifyContentFile", () => {
 
   it("refuses a transform test whose transform_id is empty", () => {
     const classify = () =>
-      classifyContentFile("transforms/a/t.yaml", {
+      classifyDocument("transforms/a/t.yaml", {
         transform_id: "",
         "serdes/meta": [{ model: "TransformTest" }],
       });
@@ -271,7 +278,7 @@ describe("classifyContentFile", () => {
 
   it("refuses a transform without an entity_id", () => {
     const classify = () =>
-      classifyContentFile("transforms/a.yaml", { "serdes/meta": [{ model: "Transform" }] });
+      classifyDocument("transforms/a.yaml", { "serdes/meta": [{ model: "Transform" }] });
 
     expect(classify).toThrow(ValidationError);
     expect(classify).toThrow(
@@ -281,7 +288,7 @@ describe("classifyContentFile", () => {
 
   it("refuses a transform whose entity_id is empty", () => {
     const classify = () =>
-      classifyContentFile("transforms/a.yaml", {
+      classifyDocument("transforms/a.yaml", {
         entity_id: "",
         "serdes/meta": [{ model: "Transform" }],
       });
@@ -368,7 +375,9 @@ describe("affectedTransforms", () => {
       z.unknown(),
     );
     const affected = () =>
-      affectedTransforms([change(TRANSFORM, classifyContentFile(CHANGED_PATH, merged))]);
+      affectedTransforms([
+        change(TRANSFORM, classifyContentFile(CHANGED_PATH, { yaml12: merged, yaml11: merged })),
+      ]);
 
     expect(affected).toThrow(ValidationError);
     expect(affected).toThrow(
@@ -476,14 +485,14 @@ describe("noContentChangesWarning", () => {
       ]),
     ).toEqual({
       code: "no-content-changes",
-      message: "the change touches no Metabase content files, so CI checked nothing",
+      message: "the change touches no Metabase content files, so no transform test ran",
     });
   });
 
   it("warns on an empty diff", () => {
     expect(noContentChangesWarning([])).toEqual({
       code: "no-content-changes",
-      message: "the change touches no Metabase content files, so CI checked nothing",
+      message: "the change touches no Metabase content files, so no transform test ran",
     });
   });
 
