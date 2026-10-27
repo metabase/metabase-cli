@@ -7,6 +7,7 @@ interface ProcessRunOptions {
   cwd?: string;
   stdin?: string | Uint8Array;
   timeoutMs?: number;
+  signal?: AbortSignal;
   shell?: boolean;
 }
 
@@ -35,7 +36,7 @@ export class ProcessNotFoundError extends Error {
   }
 }
 
-class ProcessTimeoutError extends Error {
+export class ProcessTimeoutError extends Error {
   readonly command: string;
   readonly timeoutMs: number;
   constructor(command: string, timeoutMs: number) {
@@ -43,6 +44,16 @@ class ProcessTimeoutError extends Error {
     this.name = "ProcessTimeoutError";
     this.command = command;
     this.timeoutMs = timeoutMs;
+  }
+}
+
+// The caller's signal aborted, so the child was killed before it finished.
+export class ProcessInterruptedError extends Error {
+  readonly command: string;
+  constructor(command: string) {
+    super(`command interrupted: ${command}`);
+    this.name = "ProcessInterruptedError";
+    this.command = command;
   }
 }
 
@@ -55,13 +66,25 @@ function spawnAndCollect(
     options.timeoutMs !== undefined && options.timeoutMs > 0
       ? AbortSignal.timeout(options.timeoutMs)
       : undefined;
+  const signals = [timeoutSignal, options.signal].filter((signal) => signal !== undefined);
+  const signal = signals.length === 0 ? undefined : AbortSignal.any(signals);
+  // An interrupt outranks a timeout that fired in the same tick: the user asked to stop.
+  const abortError = (): Error | null => {
+    if (options.signal?.aborted === true) {
+      return new ProcessInterruptedError(command);
+    }
+    if (timeoutSignal?.aborted === true) {
+      return new ProcessTimeoutError(command, options.timeoutMs ?? 0);
+    }
+    return null;
+  };
 
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: ["pipe", "pipe", "pipe"],
       env: options.env ?? process.env,
       ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
-      ...(timeoutSignal !== undefined ? { signal: timeoutSignal, killSignal: "SIGKILL" } : {}),
+      ...(signal !== undefined ? { signal, killSignal: "SIGKILL" } : {}),
       ...(options.shell === true ? { shell: true } : {}),
     });
 
@@ -79,15 +102,13 @@ function spawnAndCollect(
         reject(new ProcessNotFoundError(command));
         return;
       }
-      if (timeoutSignal?.aborted) {
-        reject(new ProcessTimeoutError(command, options.timeoutMs ?? 0));
-        return;
-      }
-      reject(error);
+      const aborted = abortError();
+      reject(aborted ?? error);
     });
     child.on("close", (code) => {
-      if (timeoutSignal?.aborted) {
-        reject(new ProcessTimeoutError(command, options.timeoutMs ?? 0));
+      const aborted = abortError();
+      if (aborted !== null) {
+        reject(aborted);
         return;
       }
       const stdoutBuffer = Buffer.concat(stdoutChunks);

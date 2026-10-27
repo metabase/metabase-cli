@@ -1,15 +1,16 @@
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { ConfigError, ValidationError } from "@metabase/client/errors";
+import { AbortError, ConfigError, ValidationError } from "@metabase/client/errors";
 
 import { type TempGitRepo, createTempGitRepo } from "../../runtime/temp-git-repo";
 
 import { planJob } from "./job-plan";
 
+const NOT_INTERRUPTED = new AbortController().signal;
 const TRANSFORM_ID = "7JwIkkAG-06-nsl4jzsaq";
 const OTHER_TRANSFORM_ID = "7XqqzlsonSq4KFyOvtrAm";
 const TRANSFORM_PATH = "collections/transforms/daily.yaml";
@@ -27,6 +28,11 @@ const TRANSFORM_YAML = transformYaml(TRANSFORM_ID, "Daily Order Summary");
 const TEST_YAML = testYaml(TRANSFORM_ID);
 const DAILY = { entity_id: TRANSFORM_ID, name: "Daily Order Summary" };
 const BROKEN_QUERY = "source:\n  query: select broken(\n";
+const NO_CONTENT_CHANGES = {
+  code: "no-content-changes",
+  message: "the change touches no Metabase content files, so CI checked nothing",
+};
+const INTERRUPT_AFTER_MS = 300;
 const LARGE_DIFF_FILES = 1800;
 const LARGE_DIFF_TIMEOUT_MS = 60_000;
 
@@ -45,10 +51,11 @@ describe("planJob", () => {
     const base = await repo.git("rev-parse", "HEAD");
     await repo.put(TRANSFORM_PATH, TRANSFORM_YAML);
 
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head: base },
       checked: [],
       warnings: [
+        NO_CONTENT_CHANGES,
         {
           code: "uncommitted-content",
           message: `1 content file has uncommitted changes, which CI does not see; it checks the committed version: ${TRANSFORM_PATH}`,
@@ -63,7 +70,7 @@ describe("planJob", () => {
     await repo.put(TRANSFORM_PATH, TRANSFORM_YAML);
     const head = await repo.commitAll("add transform");
 
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [DAILY],
       warnings: [],
@@ -77,7 +84,7 @@ describe("planJob", () => {
     await repo.put(TEST_PATH, TEST_YAML);
     const head = await repo.commitAll("add test");
 
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [DAILY],
       warnings: [],
@@ -96,7 +103,7 @@ describe("planJob", () => {
     const base = await repo.commitAll("add another transform on main");
     await repo.git("checkout", "-q", "feature");
 
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [DAILY],
       warnings: [],
@@ -110,7 +117,7 @@ describe("planJob", () => {
     await repo.git("mv", TRANSFORM_PATH, "collections/transforms/renamed.yaml");
     const head = await repo.commitAll("rename transform");
 
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [DAILY],
       warnings: [],
@@ -126,7 +133,7 @@ describe("planJob", () => {
     await repo.put("other/README.md", "elsewhere\n");
     await repo.commitAll("add other dir");
 
-    expect(await planJob(`${repo.path}/other`, "main", head)).toEqual({
+    expect(await planJob(`${repo.path}/other`, "main", head, NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [DAILY],
       warnings: [],
@@ -139,7 +146,7 @@ describe("planJob", () => {
     await repo.put(TEST_PATH, TEST_YAML);
     const head = await repo.commitAll("add orphan test");
 
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [],
       warnings: [
@@ -159,7 +166,7 @@ describe("planJob", () => {
     const base = await repo.git("rev-parse", "HEAD");
     await repo.put("collections/transforms/draft.yaml", "draft\n");
 
-    expect(await planJob(repo.path, "main", "feature")).toEqual({
+    expect(await planJob(repo.path, "main", "feature", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [DAILY],
       warnings: [],
@@ -168,7 +175,7 @@ describe("planJob", () => {
 
   it("refuses a --base that does not name a commit", async () => {
     const root = await repo.git("rev-parse", "--show-toplevel");
-    const plan = planJob(repo.path, "no-such-branch", "HEAD");
+    const plan = planJob(repo.path, "no-such-branch", "HEAD", NOT_INTERRUPTED);
 
     await expect(plan).rejects.toThrow(ConfigError);
     await expect(plan).rejects.toThrow(`--base no-such-branch is not a commit in ${root}`);
@@ -178,7 +185,7 @@ describe("planJob", () => {
     await repo.git("checkout", "-q", "--orphan", "unrelated");
     await repo.commitAll("unrelated root");
     const root = await repo.git("rev-parse", "--show-toplevel");
-    const plan = planJob(repo.path, "main", "HEAD");
+    const plan = planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED);
 
     await expect(plan).rejects.toThrow(ConfigError);
     await expect(plan).rejects.toThrow(`--base and --head share no history in ${root}`);
@@ -187,13 +194,57 @@ describe("planJob", () => {
   it("refuses a --repo that is not inside a git work tree", async () => {
     const outside = await mkdtemp(join(tmpdir(), "mb-ci-not-a-repo-"));
     try {
-      const plan = planJob(outside, "main", "HEAD");
+      const plan = planJob(outside, "main", "HEAD", NOT_INTERRUPTED);
 
       await expect(plan).rejects.toThrow(ConfigError);
       await expect(plan).rejects.toThrow(`--repo ${outside} is not inside a git work tree`);
     } finally {
       await rm(outside, { recursive: true, force: true });
     }
+  });
+});
+
+describe("planJob, on a change that touches no content file", () => {
+  it("warns that it checked nothing when --head is on the base branch itself", async () => {
+    await repo.put("notes.md", "a note\n");
+    const head = await repo.commitAll("commit on main");
+
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
+      snapshot: { base: head, head },
+      checked: [],
+      warnings: [NO_CONTENT_CHANGES],
+    });
+  });
+
+  it("warns that it checked nothing when the branch reverted its own content change", async () => {
+    const base = await repo.git("rev-parse", "HEAD");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(TRANSFORM_PATH, TRANSFORM_YAML);
+    await repo.commitAll("add transform");
+    await repo.git("revert", "--no-edit", "HEAD");
+    const head = await repo.git("rev-parse", "HEAD");
+
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
+      snapshot: { base, head },
+      checked: [],
+      warnings: [NO_CONTENT_CHANGES],
+    });
+  });
+});
+
+describe("planJob, interrupted", () => {
+  it("stops a git call that is still running and names it", async () => {
+    await repo.put("hang.sh", "#!/bin/sh\nsleep 30\n");
+    await chmod(join(repo.path, "hang.sh"), 0o755);
+    await repo.git("config", "core.fsmonitor", join(repo.path, "hang.sh"));
+    const controller = new AbortController();
+    const plan = planJob(repo.path, "main", "HEAD", controller.signal);
+    setTimeout(() => controller.abort(), INTERRUPT_AFTER_MS);
+
+    await expect(plan).rejects.toThrow(AbortError);
+    await expect(plan).rejects.toThrow(
+      "interrupted while git status --porcelain -z --untracked-files=all ran in",
+    );
   });
 });
 
@@ -213,7 +264,7 @@ describe("planJob, reading a transform as Metabase imports it", () => {
     );
     const head = await repo.commitAll("move the identity under a merge key");
 
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [DAILY],
       warnings: [],
@@ -227,7 +278,7 @@ describe("planJob, reading a transform as Metabase imports it", () => {
     await mkdir(join(repo.path, dirname(TRANSFORM_PATH)), { recursive: true });
     await symlink("../../notes/real.txt", join(repo.path, TRANSFORM_PATH));
     const head = await repo.commitAll("replace the transform with a symlink");
-    const plan = planJob(repo.path, "main", "HEAD");
+    const plan = planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED);
 
     await expect(plan).rejects.toThrow(ValidationError);
     await expect(plan).rejects.toThrow(
@@ -242,7 +293,7 @@ describe("planJob, reading a transform as Metabase imports it", () => {
       `name: Daily Order Summary\nentity_id: ${TRANSFORM_ID}\n#x\u2028serdes/meta: [{model: Transform}]\n`,
     );
     const head = await repo.commitAll("hide serdes/meta behind U+2028");
-    const plan = planJob(repo.path, "main", "HEAD");
+    const plan = planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED);
 
     await expect(plan).rejects.toThrow(ValidationError);
     await expect(plan).rejects.toThrow(
@@ -254,7 +305,7 @@ describe("planJob, reading a transform as Metabase imports it", () => {
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put("transforms/broken.yaml", "name: [unclosed\n");
     const head = await repo.commitAll("add a file that does not parse");
-    const plan = planJob(repo.path, "main", "HEAD");
+    const plan = planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED);
 
     await expect(plan).rejects.toThrow(ValidationError);
     await expect(plan).rejects.toThrow(`${head}:transforms/broken.yaml: invalid YAML: `);
@@ -281,7 +332,7 @@ describe("planJob, reading a transform as Metabase imports it", () => {
       await write(" v2");
       await repo.commitAll("rename every transform");
 
-      const plan = await planJob(repo.path, "main", "HEAD");
+      const plan = await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED);
 
       expect(plan.checked.length).toBe(LARGE_DIFF_FILES);
     },
@@ -296,10 +347,10 @@ describe("planJob, reading only Metabase's content folders", () => {
     await repo.put(".github/workflows/ci.yml", "on: push\non: pull_request\n");
     const head = await repo.commitAll("add a workflow with a duplicate key");
 
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [],
-      warnings: [],
+      warnings: [NO_CONTENT_CHANGES],
     });
   });
 
@@ -309,10 +360,10 @@ describe("planJob, reading only Metabase's content folders", () => {
     await repo.put("docs/examples/daily.yaml", transformYaml(TRANSFORM_ID, "Example"));
     const head = await repo.commitAll("add an example file");
 
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [],
-      warnings: [],
+      warnings: [NO_CONTENT_CHANGES],
     });
   });
 });
@@ -331,7 +382,7 @@ describe("planJob, reading the base side at the merge base", () => {
     const base = await repo.commitAll("main points the test at B");
     await repo.git("checkout", "-q", "feature");
 
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [{ entity_id: TRANSFORM_ID, name: "Alpha" }],
       warnings: [],
@@ -349,7 +400,7 @@ describe("planJob, reading the base side at the merge base", () => {
     const base = await repo.commitAll("main deletes A");
     await repo.git("checkout", "-q", "feature");
 
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [{ entity_id: TRANSFORM_ID, name: "Alpha 2" }],
       warnings: [],
@@ -368,7 +419,7 @@ describe("planJob, reading the base side at the merge base", () => {
     const base = await repo.commitAll("main adds a test of B");
     await repo.git("checkout", "-q", "feature");
 
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [{ entity_id: TRANSFORM_ID, name: "Alpha 2" }],
       warnings: [],
@@ -388,7 +439,7 @@ describe("planJob, finding the transform of a changed test", () => {
     await repo.put("transforms/b/test.yaml", testYaml(TRANSFORM_ID));
     const head = await repo.commitAll("add test of A");
 
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [{ entity_id: TRANSFORM_ID, name: "Alpha" }],
       warnings: [],
@@ -406,7 +457,7 @@ describe("planJob, finding the transform of a changed test", () => {
     await repo.put("transforms/a/test.yaml", testYaml(TRANSFORM_ID));
     const head = await repo.commitAll("add test of A");
 
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [{ entity_id: TRANSFORM_ID, name: "Alpha" }],
       warnings: [],
@@ -426,7 +477,7 @@ describe("planJob, finding the transform of a changed test", () => {
     const head = await repo.commitAll("rename the test and point it at B");
 
     expect(await repo.git("diff", "--name-status", "-M", "main", "HEAD")).toMatch(/^R\d+\t/);
-    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [
         { entity_id: TRANSFORM_ID, name: "Alpha" },
@@ -447,7 +498,7 @@ describe("planJob, run from a subdirectory", () => {
     const head = await repo.commitAll("change A");
     await repo.git("config", "diff.relative", "true");
 
-    expect(await planJob(`${repo.path}/other`, "main", "HEAD")).toEqual({
+    expect(await planJob(`${repo.path}/other`, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [{ entity_id: TRANSFORM_ID, name: "Alpha 2" }],
       warnings: [],

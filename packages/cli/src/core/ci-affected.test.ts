@@ -12,6 +12,7 @@ import {
   classifyContentFile,
   parseNameStatus,
   isContentPath,
+  noContentChangesWarning,
   parseStatusPorcelain,
   uncommittedContentWarning,
 } from "./ci-affected";
@@ -435,6 +436,39 @@ describe("isContentPath", () => {
         "Transforms/h.yaml",
       ].map(isContentPath),
     ).toEqual([false, false, false, false, false, false, false, false, false]);
+  });
+});
+
+describe("noContentChangesWarning", () => {
+  it("warns when no changed path is a content file", () => {
+    expect(
+      noContentChangesWarning([
+        { status: "modified", path: "README.md" },
+        { status: "added", path: "docs/daily.yaml" },
+      ]),
+    ).toEqual({
+      code: "no-content-changes",
+      message: "the change touches no Metabase content files, so CI checked nothing",
+    });
+  });
+
+  it("warns on an empty diff", () => {
+    expect(noContentChangesWarning([])).toEqual({
+      code: "no-content-changes",
+      message: "the change touches no Metabase content files, so CI checked nothing",
+    });
+  });
+
+  it("does not warn when a content file changed", () => {
+    expect(noContentChangesWarning([{ status: "deleted", path: CHANGED_PATH }])).toBeNull();
+  });
+
+  it("does not warn when a content file was renamed out of the content folders", () => {
+    expect(
+      noContentChangesWarning([
+        { status: "renamed", path: "archive/t1.yaml", oldPath: CHANGED_PATH },
+      ]),
+    ).toBeNull();
   });
 });
 
