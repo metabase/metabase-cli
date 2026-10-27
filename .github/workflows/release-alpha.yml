@@ -17,6 +17,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
 
       - name: Setup Node.js with npm registry
         uses: actions/setup-node@v4
@@ -32,59 +33,82 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      # The branch name is attacker-shaped text: git refs may contain `$`, `(`, `;` and backticks.
+      # Pass it through env so the shell sees it as data, never as script.
       - name: Compute alpha version and dist-tag
         id: version
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           BASE=$(node -p "require('./packages/cli/package.json').version")
-          BRANCH="${{ github.event.pull_request.head.ref }}"
-          SLUG=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g; s/--*/-/g; s/^-//; s/-$//')
+          SLUG=$(printf '%s' "$HEAD_REF" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g; s/--*/-/g; s/^-//; s/-$//')
           SHORT_SHA=$(git rev-parse --short HEAD)
           VERSION="${BASE}-alpha.${SLUG}.${SHORT_SHA}"
           TAG="alpha-${SLUG}"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Will publish @metabase/cli@$VERSION with dist-tag $TAG"
 
       - name: Set package version
         working-directory: packages/cli
-        run: npm pkg set version="${{ steps.version.outputs.version }}"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: npm pkg set version="$VERSION"
 
       - name: Build
         run: bun run build
 
+      # `npm publish` would run this script itself, with NODE_AUTH_TOKEN in the environment. Run it
+      # here without the token instead, so the publish step below can pass --ignore-scripts. It
+      # rebuilds dist/ with tsdown and checks it, exactly as the publish-time hook did.
+      - name: Run prepublish checks
+        working-directory: packages/cli
+        run: npm run prepublishOnly
+
+      # The only step that sees the npm token. --ignore-scripts keeps package lifecycle scripts from
+      # the PR branch from running with it; the tarball is packed from the dist/ built above.
       - name: Publish to NPM
         working-directory: packages/cli
-        run: npm publish --tag "${{ steps.version.outputs.tag }}" --access public
+        run: npm publish --ignore-scripts --tag "$TAG" --access public
         env:
+          TAG: ${{ steps.version.outputs.tag }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_RELEASE_TOKEN }}
 
       - name: Remove label
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           gh api \
             -X DELETE \
-            "/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/labels/publish-alpha" \
+            "/repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels/publish-alpha" \
             || true
 
       - name: Comment on PR
         if: success()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          gh pr comment "${{ github.event.pull_request.number }}" --body "Published \`@metabase/cli@${{ steps.version.outputs.version }}\` with dist-tag \`${{ steps.version.outputs.tag }}\`.
-
-          Install: \`npm install -g @metabase/cli@${{ steps.version.outputs.tag }}\`"
+          # shellcheck disable=SC2016 # the backticks are Markdown, not command substitution
+          BODY=$(printf 'Published `@metabase/cli@%s` with dist-tag `%s`.\n\nInstall: `npm install -g @metabase/cli@%s`' "$VERSION" "$TAG" "$TAG")
+          gh pr comment "$PR_NUMBER" -R "$GITHUB_REPOSITORY" --body "$BODY"
 
       - name: Generate workflow summary
         if: always()
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          tee -a $GITHUB_STEP_SUMMARY << EOF
-          ## @metabase/cli alpha publish
-
-          - **Branch**: ${{ github.event.pull_request.head.ref }}
-          - **Version**: ${{ steps.version.outputs.version }}
-          - **Dist-tag**: ${{ steps.version.outputs.tag }}
-          - **Install**: \`npm install @metabase/cli@${{ steps.version.outputs.tag }}\`
-          EOF
+          # shellcheck disable=SC2016 # the backticks are Markdown, not command substitution
+          {
+            printf '## @metabase/cli alpha publish\n\n'
+            printf -- '- **Branch**: %s\n' "$HEAD_REF"
+            printf -- '- **Version**: %s\n' "$VERSION"
+            printf -- '- **Dist-tag**: %s\n' "$TAG"
+            printf -- '- **Install**: `npm install @metabase/cli@%s`\n' "$TAG"
+          } >> "$GITHUB_STEP_SUMMARY"
