@@ -4,10 +4,14 @@ import {
   type ClassifiedChange,
   type ContentFile,
   type DiffEntry,
+  type HeadTransforms,
   CONTENT_TOP_LEVEL_FOLDERS,
+  TRANSFORM_MODEL_PATTERN,
   affectedTransforms,
   classifyContentFile,
+  headTransforms,
   isContentPath,
+  noContentChangesWarning,
   parseNameStatus,
   parseStatusPorcelain,
   uncommittedContentWarning,
@@ -46,12 +50,13 @@ async function classifyAt(
   repo: string,
   commit: string,
   paths: readonly string[],
+  signal: AbortSignal,
 ): Promise<Map<string, ContentFile>> {
   const content = paths.filter(isContentPath);
   if (content.length === 0) {
     return new Map();
   }
-  const modes = await fileModesAt(repo, commit);
+  const modes = await fileModesAt(repo, commit, signal);
   for (const path of content) {
     const mode = modes.get(path);
     if (mode === undefined) {
@@ -65,7 +70,7 @@ async function classifyAt(
     }
   }
   const classified = new Map<string, ContentFile>();
-  for (const [path, text] of await readFilesAt(repo, commit, content)) {
+  for (const [path, text] of await readFilesAt(repo, commit, content, signal)) {
     classified.set(path, classifyContentFile(path, parseMetabaseYaml(text, `${commit}:${path}`)));
   }
   return classified;
@@ -102,34 +107,17 @@ async function classifyChanges(
   forkPoint: string,
   head: string,
   entries: readonly DiffEntry[],
+  signal: AbortSignal,
 ): Promise<ClassifiedChange[]> {
   const [baseFiles, headFiles] = await Promise.all([
-    classifyAt(repo, forkPoint, present(entries.map(basePath))),
-    classifyAt(repo, head, present(entries.map(headPath))),
+    classifyAt(repo, forkPoint, present(entries.map(basePath)), signal),
+    classifyAt(repo, head, present(entries.map(headPath)), signal),
   ]);
   return entries.map((entry) => ({
     path: entry.path,
     base: sideOf(baseFiles, basePath(entry)),
     head: sideOf(headFiles, headPath(entry)),
   }));
-}
-
-// Every Transform and TransformTest file names its model in `serdes/meta`, as `model: Transform…`,
-// with the key or value possibly quoted and spaced; matching more only costs a read the classifier
-// discards.
-const TRANSFORM_MODEL_PATTERN = `model["']?:[[:space:]]*["']?Transform`;
-
-interface HeadTransforms {
-  names: Map<string, string>;
-  tested: Set<string>;
-}
-
-function record(atHead: HeadTransforms, file: ContentFile | null): void {
-  if (file?.kind === "transform") {
-    atHead.names.set(file.entityId, file.name);
-  } else if (file?.kind === "transform-test") {
-    atHead.tested.add(file.transformId);
-  }
 }
 
 // The changed files are already classified exactly; the scan adds every other file at head whose
@@ -139,17 +127,18 @@ async function scanHead(
   head: string,
   changes: readonly ClassifiedChange[],
   changedPaths: ReadonlySet<string>,
+  signal: AbortSignal,
 ): Promise<HeadTransforms> {
-  const atHead: HeadTransforms = { names: new Map(), tested: new Set() };
-  for (const change of changes) {
-    record(atHead, change.head);
-  }
-  const matched = await filesMatching(repo, head, TRANSFORM_MODEL_PATTERN, CONTENT_PATHSPECS);
+  const matched = await filesMatching(
+    repo,
+    head,
+    TRANSFORM_MODEL_PATTERN,
+    CONTENT_PATHSPECS,
+    signal,
+  );
   const unchanged = matched.filter((path) => !changedPaths.has(path));
-  for (const file of (await classifyAt(repo, head, unchanged)).values()) {
-    record(atHead, file);
-  }
-  return atHead;
+  const unchangedFiles = (await classifyAt(repo, head, unchanged, signal)).values();
+  return headTransforms([...changes.map((change) => change.head), ...unchangedFiles]);
 }
 
 // Every git call runs at the repository root, where paths from diff, status, grep and cat-file agree.
@@ -157,20 +146,31 @@ export async function planJob(
   repoPath: string,
   baseRef: string,
   headRef: string,
+  signal: AbortSignal,
 ): Promise<JobPlan> {
-  const repo = await repositoryRoot(repoPath);
+  const repo = await repositoryRoot(repoPath, signal);
   const [base, head, checkout] = await Promise.all([
-    resolveCommit(repo, baseRef, "--base"),
-    resolveCommit(repo, headRef, "--head"),
-    checkedOutCommit(repo),
+    resolveCommit(repo, baseRef, "--base", signal),
+    resolveCommit(repo, headRef, "--head", signal),
+    checkedOutCommit(repo, signal),
   ]);
-  const forkPoint = await mergeBase(repo, base, head);
-  const entries = parseNameStatus(await diffNameStatus(repo, forkPoint, head));
-  const changes = await classifyChanges(repo, forkPoint, head, entries);
+  const forkPoint = await mergeBase(repo, base, head, signal);
+  const entries = parseNameStatus(await diffNameStatus(repo, forkPoint, head, signal));
+  const changes = await classifyChanges(repo, forkPoint, head, entries, signal);
 
-  const atHead = await scanHead(repo, head, changes, new Set(entries.map((entry) => entry.path)));
+  const atHead = await scanHead(
+    repo,
+    head,
+    changes,
+    new Set(entries.map((entry) => entry.path)),
+    signal,
+  );
   const checked: CheckedTransform[] = [];
   const warnings: CiWarning[] = [];
+  const noContent = noContentChangesWarning(entries);
+  if (noContent !== null) {
+    warnings.push(noContent);
+  }
   for (const entityId of affectedTransforms(changes)) {
     const name = atHead.names.get(entityId);
     if (name === undefined) {
@@ -191,7 +191,7 @@ export async function planJob(
   // Uncommitted files only matter when the checked commit is the one checked out.
   if (head === checkout) {
     const uncommitted = uncommittedContentWarning(
-      parseStatusPorcelain(await statusPorcelain(repo)),
+      parseStatusPorcelain(await statusPorcelain(repo, signal)),
     );
     if (uncommitted !== null) {
       warnings.push(uncommitted);

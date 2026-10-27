@@ -10,8 +10,10 @@ import {
   type ContentFile,
   affectedTransforms,
   classifyContentFile,
+  headTransforms,
   parseNameStatus,
   isContentPath,
+  noContentChangesWarning,
   parseStatusPorcelain,
   uncommittedContentWarning,
 } from "./ci-affected";
@@ -443,6 +445,58 @@ describe("isContentPath", () => {
         "Transforms/h.yaml",
       ].map(isContentPath),
     ).toEqual([false, false, false, false, false, false, false, false, false]);
+  });
+});
+
+describe("headTransforms", () => {
+  it("names each transform at head by its entity id", () => {
+    expect(headTransforms([TRANSFORM, OTHER_TRANSFORM]).names).toEqual(
+      new Map([
+        [TRANSFORM_ID, "Daily Order Summary"],
+        [OTHER_TRANSFORM_ID, "Hourly Stats"],
+      ]),
+    );
+  });
+
+  it("collects the transforms a test at head covers", () => {
+    expect(headTransforms([TEST]).tested).toEqual(new Set([TRANSFORM_ID]));
+  });
+
+  it("ignores files that are not transforms or tests, and absent sides", () => {
+    expect(headTransforms([OTHER, null])).toEqual({ names: new Map(), tested: new Set() });
+  });
+});
+
+describe("noContentChangesWarning", () => {
+  it("warns when no changed path is a content file", () => {
+    expect(
+      noContentChangesWarning([
+        { status: "modified", path: "README.md" },
+        { status: "added", path: "docs/daily.yaml" },
+      ]),
+    ).toEqual({
+      code: "no-content-changes",
+      message: "the change touches no Metabase content files, so CI checked nothing",
+    });
+  });
+
+  it("warns on an empty diff", () => {
+    expect(noContentChangesWarning([])).toEqual({
+      code: "no-content-changes",
+      message: "the change touches no Metabase content files, so CI checked nothing",
+    });
+  });
+
+  it("does not warn when a content file changed", () => {
+    expect(noContentChangesWarning([{ status: "deleted", path: CHANGED_PATH }])).toBeNull();
+  });
+
+  it("does not warn when a content file was renamed out of the content folders", () => {
+    expect(
+      noContentChangesWarning([
+        { status: "renamed", path: "archive/t1.yaml", oldPath: CHANGED_PATH },
+      ]),
+    ).toBeNull();
   });
 });
 

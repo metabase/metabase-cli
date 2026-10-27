@@ -138,6 +138,10 @@ describe("ci run: committed content only", () => {
       checked: [],
       warnings: [
         {
+          code: "no-content-changes",
+          message: "the change touches no Metabase content files, so CI checked nothing",
+        },
+        {
           code: "uncommitted-content",
           message:
             "1 content file has uncommitted changes, which CI does not see; it checks the committed version: transforms/a.yaml",
@@ -160,7 +164,7 @@ describe("ci run: committed content only", () => {
 
 function textOutput(sha: string): string {
   const short = sha.slice(0, 7);
-  return `mb ci run  base ${short}  head ${short}  0 transforms checked\nPASSED (exit 0)\n`;
+  return `mb ci run  base ${short}  head ${short}  0 transforms checked\n⚠ the change touches no Metabase content files, so CI checked nothing\nPASSED (exit 0)\n`;
 }
 
 async function withTty<T>(isTty: boolean, body: () => Promise<T>): Promise<T> {

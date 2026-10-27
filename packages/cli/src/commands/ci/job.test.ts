@@ -16,6 +16,7 @@ import { runJob } from "./job";
 const NOW = new Date("2026-10-30T12:00:00.000Z");
 const AT = "2026-10-30T12:00:00.000Z";
 const TRANSFORM_ID = "7JwIkkAG-06-nsl4jzsaq";
+const NOT_INTERRUPTED = new AbortController().signal;
 
 let repo: TempGitRepo;
 
@@ -63,6 +64,7 @@ describe("runJob", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath: null,
+      signal: NOT_INTERRUPTED,
     });
 
     const envelope = { job: "job-1", at: AT };
@@ -113,6 +115,7 @@ describe("runJob", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath,
+      signal: NOT_INTERRUPTED,
     });
 
     expect(events.map((event) => event.type)).toEqual([
@@ -136,6 +139,7 @@ describe("runJob", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath: join(repo.path, "no-such-dir", "results.json"),
+      signal: NOT_INTERRUPTED,
     });
 
     await expect(job).rejects.toThrow("ENOENT");
@@ -160,6 +164,7 @@ describe("runJob", () => {
         now: () => NOW,
         write: (event) => events.push(event),
         resultsPath,
+        signal: NOT_INTERRUPTED,
       });
 
       expect(await readFile(target, "utf8")).toBe("untouched\n");
@@ -183,11 +188,36 @@ describe("runJob", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath,
+      signal: NOT_INTERRUPTED,
     });
 
     await expect(job).rejects.toThrow(ConfigError);
     await expect(job).rejects.toThrow("--base no-such-branch is not a commit");
     expect(events).toEqual([]);
+    const missing = await readFile(resultsPath, "utf8").then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(isFileNotFoundError(missing)).toBe(true);
+  });
+
+  it("deletes an earlier run's results file when the job starts, so a crash leaves none", async () => {
+    const resultsPath = join(repo.path, "results.json");
+    await writeFile(resultsPath, "[]\n", "utf8");
+    const job = runJob({
+      repo: repo.path,
+      base: "no-such-branch",
+      head: "HEAD",
+      stages: async () => [],
+      job: "job-1",
+      now: () => NOW,
+      write: () => {},
+      resultsPath,
+      signal: NOT_INTERRUPTED,
+    });
+
+    await expect(job).rejects.toThrow(ConfigError);
+    await expect(job).rejects.toThrow("--base no-such-branch is not a commit");
     const missing = await readFile(resultsPath, "utf8").then(
       () => null,
       (error: unknown) => error,
