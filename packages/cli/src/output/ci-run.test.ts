@@ -11,6 +11,7 @@ import type {
 import { parseJson } from "@metabase/client/json";
 
 import { type CiEventBody, CiEvent, createEmitter } from "../core/ci-events";
+import { DEFAULT_MAX_ROWS } from "../core/ci-row-cap";
 import { ciEventLines } from "./ci-run";
 
 // The events of a real failing `mb ci run` in GitHub Actions: a transform's change broke one
@@ -20,12 +21,12 @@ const RED_RUN_PATH = join(dirname(fileURLToPath(import.meta.url)), "ci-run.red-r
 const BASE = "0c9c8393f4f88f11d1e035fe05c90e3a70c21cfd";
 const HEAD = "eff94588cbd7431f1f751ce92ed2c9c70bd3957b";
 
-function render(bodies: readonly CiEventBody[]): string[] {
+function render(bodies: readonly CiEventBody[], maxRows: number): string[] {
   const lines: string[] = [];
   const emit = createEmitter({
     job: "job-1",
     now: () => new Date("2026-10-27T12:00:00.000Z"),
-    write: (event) => lines.push(...ciEventLines(event)),
+    write: (event) => lines.push(...ciEventLines(event, maxRows)),
   });
   for (const body of bodies) {
     emit(body);
@@ -106,7 +107,7 @@ describe("ciEventLines", () => {
       .split("\n")
       .map((line) => parseJson(line, CiEvent));
 
-    expect(events.flatMap(ciEventLines)).toEqual([
+    expect(events.flatMap((event) => ciEventLines(event, DEFAULT_MAX_ROWS))).toEqual([
       "mb ci run  base 0c9c839  head eff9458  1 transform checked",
       "lint",
       "  ✓ Transforms whose logic this change did not touch",
@@ -133,16 +134,19 @@ describe("ciEventLines", () => {
     };
 
     expect(
-      render([
-        jobStart(2),
-        { type: "stage.start", stage: "lint" },
-        UNTOUCHED_PASSED,
-        { type: "stage.end", stage: "lint", status: "passed", stopped: null },
-        { type: "stage.start", stage: "unit" },
-        unitCheck("passed", passed),
-        { type: "stage.end", stage: "unit", status: "passed", stopped: null },
-        { type: "job.end", state: "passed", counts: { checks: 2, warnings: 0 } },
-      ]),
+      render(
+        [
+          jobStart(2),
+          { type: "stage.start", stage: "lint" },
+          UNTOUCHED_PASSED,
+          { type: "stage.end", stage: "lint", status: "passed", stopped: null },
+          { type: "stage.start", stage: "unit" },
+          unitCheck("passed", passed),
+          { type: "stage.end", stage: "unit", status: "passed", stopped: null },
+          { type: "job.end", state: "passed", counts: { checks: 2, warnings: 0 } },
+        ],
+        DEFAULT_MAX_ROWS,
+      ),
     ).toEqual([
       "mb ci run  base 0c9c839  head eff9458  2 transforms checked",
       "lint",
@@ -155,23 +159,26 @@ describe("ciEventLines", () => {
 
   it("renders a refused test with Metabase's message and ends ERRORED", () => {
     expect(
-      render([
-        { type: "stage.start", stage: "unit" },
-        {
-          type: "check.result",
-          stage: "unit",
-          check: { kind: "transform-test", id: "4", label: "orders: order rules" },
-          verdict: "refused",
-          warnings: [],
-          ms: 1250,
-          detail: {
-            error_code: "transform-test.unknown-column",
-            message: "input orders has no column named total",
+      render(
+        [
+          { type: "stage.start", stage: "unit" },
+          {
+            type: "check.result",
+            stage: "unit",
+            check: { kind: "transform-test", id: "4", label: "orders: order rules" },
+            verdict: "refused",
+            warnings: [],
+            ms: 1250,
+            detail: {
+              error_code: "transform-test.unknown-column",
+              message: "input orders has no column named total",
+            },
           },
-        },
-        { type: "stage.end", stage: "unit", status: "errored", stopped: null },
-        { type: "job.end", state: "errored", counts: { checks: 1, warnings: 0 } },
-      ]),
+          { type: "stage.end", stage: "unit", status: "errored", stopped: null },
+          { type: "job.end", state: "errored", counts: { checks: 1, warnings: 0 } },
+        ],
+        DEFAULT_MAX_ROWS,
+      ),
     ).toEqual([
       "unit",
       "  ! orders: order rules  refused  1.3s",
@@ -182,32 +189,38 @@ describe("ciEventLines", () => {
 
   it("renders a test run's HTTP failure as an error with the status", () => {
     expect(
-      render([
-        {
-          type: "check.result",
-          stage: "unit",
-          check: { kind: "transform-test", id: "4", label: "orders: order rules" },
-          verdict: "error",
-          warnings: [],
-          ms: 1250,
-          detail: { error_code: "ci.http-error", status: 503, message: "Service Unavailable" },
-        },
-      ]),
+      render(
+        [
+          {
+            type: "check.result",
+            stage: "unit",
+            check: { kind: "transform-test", id: "4", label: "orders: order rules" },
+            verdict: "error",
+            warnings: [],
+            ms: 1250,
+            detail: { error_code: "ci.http-error", status: 503, message: "Service Unavailable" },
+          },
+        ],
+        DEFAULT_MAX_ROWS,
+      ),
     ).toEqual(["  ! orders: order rules  error  1.3s", "      Service Unavailable (HTTP 503)"]);
   });
 
   it("renders a stage that stopped early with its reason, and ends ERRORED", () => {
     expect(
-      render([
-        { type: "stage.start", stage: "unit" },
-        {
-          type: "stage.end",
-          stage: "unit",
-          status: "errored",
-          stopped: { code: "ci.unauthorized", message: "Unauthenticated" },
-        },
-        { type: "job.end", state: "errored", counts: { checks: 0, warnings: 0 } },
-      ]),
+      render(
+        [
+          { type: "stage.start", stage: "unit" },
+          {
+            type: "stage.end",
+            stage: "unit",
+            status: "errored",
+            stopped: { code: "ci.unauthorized", message: "Unauthenticated" },
+          },
+          { type: "job.end", state: "errored", counts: { checks: 0, warnings: 0 } },
+        ],
+        DEFAULT_MAX_ROWS,
+      ),
     ).toEqual([
       "unit",
       "unit  stopped: Unauthenticated (ci.unauthorized)",
@@ -217,26 +230,29 @@ describe("ciEventLines", () => {
 
   it("renders an untested change as a failed coverage check, and the unit stage as skipped", () => {
     expect(
-      render([
-        jobStart(1),
-        { type: "stage.start", stage: "lint" },
-        {
-          type: "check.result",
-          stage: "lint",
-          check: { kind: "coverage", id: "eid-0", label: "transform_0" },
-          verdict: "failed",
-          warnings: [],
-          ms: 0,
-          detail: {
-            change: "new",
-            message: "transform_0 is new in this change and has no transform tests",
+      render(
+        [
+          jobStart(1),
+          { type: "stage.start", stage: "lint" },
+          {
+            type: "check.result",
+            stage: "lint",
+            check: { kind: "coverage", id: "eid-0", label: "transform_0" },
+            verdict: "failed",
+            warnings: [],
+            ms: 0,
+            detail: {
+              change: "new",
+              message: "transform_0 is new in this change and has no transform tests",
+            },
           },
-        },
-        UNTOUCHED_PASSED,
-        { type: "stage.end", stage: "lint", status: "failed", stopped: null },
-        { type: "stage.end", stage: "unit", status: "skipped", stopped: null },
-        { type: "job.end", state: "failed", counts: { checks: 2, warnings: 0 } },
-      ]),
+          UNTOUCHED_PASSED,
+          { type: "stage.end", stage: "lint", status: "failed", stopped: null },
+          { type: "stage.end", stage: "unit", status: "skipped", stopped: null },
+          { type: "job.end", state: "failed", counts: { checks: 2, warnings: 0 } },
+        ],
+        DEFAULT_MAX_ROWS,
+      ),
     ).toEqual([
       "mb ci run  base 0c9c839  head eff9458  1 transform checked",
       "lint",
@@ -248,14 +264,24 @@ describe("ciEventLines", () => {
     ]);
   });
 
-  it("shows ten row lines and counts the rest, including the rows Metabase left out", () => {
+  it("shows --max-rows row lines and counts the rest, including the rows Metabase left out", () => {
     const extra = Array.from({ length: 12 }, (_, index) => ({ id: index, status: "paid" }));
 
-    expect(render([unitCheck("failed", equalsFailure([], extra, 5))])).toEqual([
+    expect(render([unitCheck("failed", equalsFailure([], extra, 5))], 3)).toEqual([
       "  ✗ orders: order rules  250ms",
       "      ✗ one row per order  12 rows, expected 0",
-      ...Array.from({ length: 10 }, (_, index) => `          extra    id=${index}  status=paid`),
-      "          +7 more",
+      ...Array.from({ length: 3 }, (_, index) => `          extra    id=${index}  status=paid`),
+      "          +14 more",
+    ]);
+  });
+
+  it("shows only the counts when --max-rows is 0", () => {
+    const extra = [{ id: 1, status: "paid" }];
+
+    expect(render([unitCheck("failed", equalsFailure([], extra, 0))], 0)).toEqual([
+      "  ✗ orders: order rules  250ms",
+      "      ✗ one row per order  1 row, expected 0",
+      "          +1 more",
     ]);
   });
 
@@ -278,7 +304,7 @@ describe("ciEventLines", () => {
       ],
     };
 
-    expect(render([unitCheck("failed", result)])).toEqual([
+    expect(render([unitCheck("failed", result)], DEFAULT_MAX_ROWS)).toEqual([
       "  ✗ orders: order rules  250ms",
       "      ✗ revenue per order  1 row, expected 1",
       "          net_revenue: expected 0.00, got null",

@@ -319,6 +319,15 @@ function serveMetabase(fake: FakeMetabase): void {
   });
 }
 
+// The detail of the unit stage's one check, the sixth event of a job that checks one transform.
+function unitDetail(all: readonly CiEvent[]): unknown {
+  const check = all[5];
+  if (check?.type !== "check.result") {
+    throw new Error(`expected a check.result sixth, got ${JSON.stringify(all)}`);
+  }
+  return check.detail;
+}
+
 function serveRun(answer: () => Response): void {
   serveMetabase({ properties: LICENSED, list: () => json([TEST]), run: answer });
 }
@@ -449,6 +458,36 @@ describe("ci run: a changed transform tested on Metabase", () => {
     });
     expect(parseJson(await readFile(resultsPath, "utf8"), z.array(CiEvent))).toEqual(
       events(result.stdout),
+    );
+  });
+
+  it("caps the rows on stdout at --max-rows and keeps every row in the --results file", async () => {
+    const sample = Array.from({ length: 4 }, (_, index) => ({ id: index }));
+    const expectation = { name: "e", type: "empty", status: "failed", columns: [], truncated: 0 };
+    serveRun(() => json({ ...FAILED_RUN, expectations: [{ ...expectation, sample }] }));
+    const resultsPath = join(repo.path, "results.json");
+
+    const result = await run([
+      "--repo",
+      repo.path,
+      "--base",
+      "main",
+      "--max-rows",
+      "1",
+      "--results",
+      resultsPath,
+    ]);
+
+    const written = parseJson(await readFile(resultsPath, "utf8"), z.array(CiEvent));
+    expect([unitDetail(events(result.stdout)), unitDetail(written)]).toEqual([
+      { ...FAILED_RUN, expectations: [{ ...expectation, sample: [{ id: 0 }], truncated: 3 }] },
+      { ...FAILED_RUN, expectations: [{ ...expectation, sample }] },
+    ]);
+  });
+
+  it("exits 2 for a negative --max-rows", async () => {
+    expect((await run(["--repo", repo.path, "--base", "main", "--max-rows", "-1"])).exitCode).toBe(
+      2,
     );
   });
 

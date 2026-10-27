@@ -15,8 +15,6 @@ type CheckResult = Extract<CiEvent, { type: "check.result" }>;
 type StageEnd = Extract<CiEvent, { type: "stage.end" }>;
 type Cell = TransformTestRow[string];
 
-// Each row line costs a reader a line of the job log; the rest are in the --results file.
-const MAX_ROW_LINES = 10;
 const SHORT_SHA_LENGTH = 7;
 const MS_PER_SECOND = 1000;
 const PASSED_EXIT_CODE = 0;
@@ -44,7 +42,8 @@ const CheckMessage = z.object({ message: z.string() });
 const HttpFailureMessage = CheckMessage.extend({ status: z.number().int() });
 
 // The text form of one CI event: a line or more, or none for an event the next one makes plain.
-export function ciEventLines(event: CiEvent): string[] {
+// A failed expectation shows at most `maxRows` row lines; the rest are in the --results file.
+export function ciEventLines(event: CiEvent, maxRows: number): string[] {
   switch (event.type) {
     case "job.start": {
       const count = event.checked.length;
@@ -56,7 +55,7 @@ export function ciEventLines(event: CiEvent): string[] {
       return [event.stage];
     }
     case "check.result": {
-      return checkLines(event);
+      return checkLines(event, maxRows);
     }
     case "stage.end": {
       return stageEndLines(event);
@@ -82,7 +81,7 @@ function jobExitCode(state: JobState): number {
   return state === "passed" ? PASSED_EXIT_CODE : exitCodeFor("failed");
 }
 
-function checkLines(event: CheckResult): string[] {
+function checkLines(event: CheckResult, maxRows: number): string[] {
   const parts = [`${CHECK_INDENT}${VERDICT_MARK[event.verdict]} ${event.check.label}`];
   if (event.verdict === "error" || event.verdict === "refused") {
     parts.push(event.verdict);
@@ -91,7 +90,7 @@ function checkLines(event: CheckResult): string[] {
     parts.push(duration(event.ms));
   }
   const warnings = event.warnings.map((warning) => `${DETAIL_INDENT}⚠ ${warning.message}`);
-  const detail = event.verdict === "passed" ? [] : detailLines(event);
+  const detail = event.verdict === "passed" ? [] : detailLines(event, maxRows);
   return [parts.join("  "), ...warnings, ...detail];
 }
 
@@ -104,10 +103,12 @@ function duration(ms: number): string {
 
 // A transform test's result, or else a message. The runner wrote the detail, so one that is
 // neither is a bug in the runner.
-function detailLines(event: CheckResult): string[] {
+function detailLines(event: CheckResult, maxRows: number): string[] {
   const result = TransformTestRunResult.safeParse(event.detail);
   if (result.success) {
-    return result.data.expectations.flatMap(expectationLines);
+    return result.data.expectations.flatMap((expectation) =>
+      expectationLines(expectation, maxRows),
+    );
   }
   const httpFailure = HttpFailureMessage.safeParse(event.detail);
   if (httpFailure.success) {
@@ -122,7 +123,7 @@ function detailLines(event: CheckResult): string[] {
   return [`${DETAIL_INDENT}${message.data.message}`];
 }
 
-function expectationLines(result: TransformTestExpectationResult): string[] {
+function expectationLines(result: TransformTestExpectationResult, maxRows: number): string[] {
   const line = `${DETAIL_INDENT}${VERDICT_MARK[result.status]} ${result.name}`;
   if (result.status === "passed") {
     return [line];
@@ -137,7 +138,7 @@ function expectationLines(result: TransformTestExpectationResult): string[] {
     );
     return [
       `${line}  ${rows} ${rowNoun(rows)}, expected none`,
-      ...capped(sample, result.truncated),
+      ...capped(sample, result.truncated, maxRows),
     ];
   }
   const counts = result["row-counts"];
@@ -152,7 +153,7 @@ function expectationLines(result: TransformTestExpectationResult): string[] {
   );
   return [
     `${line}  ${counts.actual} ${rowNoun(counts.actual)}, expected ${counts.expected}`,
-    ...capped([...rowLines, ...mismatches], result.truncated),
+    ...capped([...rowLines, ...mismatches], result.truncated, maxRows),
   ];
 }
 
@@ -164,9 +165,9 @@ function columnNames(columns: readonly TransformTestResultColumn[]): string[] {
   return columns.map((column) => column.name);
 }
 
-function capped(lines: readonly string[], truncated: number): string[] {
-  const shown = lines.slice(0, MAX_ROW_LINES).map((line) => `${ROW_INDENT}${line}`);
-  const hidden = Math.max(lines.length - MAX_ROW_LINES, 0) + truncated;
+function capped(lines: readonly string[], truncated: number, maxRows: number): string[] {
+  const shown = lines.slice(0, maxRows).map((line) => `${ROW_INDENT}${line}`);
+  const hidden = Math.max(lines.length - maxRows, 0) + truncated;
   if (hidden === 0) {
     return shown;
   }
