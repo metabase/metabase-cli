@@ -562,16 +562,37 @@ describe("ci run: a changed transform tested on Metabase", () => {
     ]);
   });
 
-  it("exits 2 after the unit stage starts when no Metabase credential is configured", async () => {
+  it("ends the job errored, not exit 2, when no Metabase credential is configured", async () => {
     delete process.env["MB_URL"];
     delete process.env["MB_API_KEY"];
     serveRun(() => json(PASSED_RUN));
 
     const result = await run(["--repo", repo.path, "--base", "main"]);
 
-    expect([result.exitCode, events(result.stdout).map((event) => event.type)]).toEqual([
-      2,
-      ["job.start", "stage.start", "check.result", "stage.end", "stage.start"],
+    expect([result.exitCode, events(result.stdout).slice(-2)]).toEqual([
+      1,
+      [
+        {
+          ...envelope,
+          seq: 5,
+          type: "stage.end",
+          stage: "unit",
+          status: "errored",
+          stopped: {
+            code: "ci.no-credential",
+            message: expect.stringContaining(
+              "no Metabase credential, so the transform tests did not run: Not authenticated for profile",
+            ),
+          },
+        },
+        {
+          ...envelope,
+          seq: 6,
+          type: "job.end",
+          state: "errored",
+          counts: { checks: 1, warnings: 0 },
+        },
+      ],
     ]);
   });
 });
@@ -597,7 +618,7 @@ describe("ci run: the lint stage, with no Metabase credential", () => {
     home.cleanup();
   });
 
-  it("runs the unit stage after lint fails, so with no credential it exits 2 after lint's findings", async () => {
+  it("fails the job on lint's finding, ending the unit stage without a credential rather than exiting 2", async () => {
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
       "transforms/a.yaml",
@@ -607,7 +628,7 @@ describe("ci run: the lint stage, with no Metabase credential", () => {
 
     const result = await run(["--repo", repo.path, "--base", "main"]);
 
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(1);
     expect(events(result.stdout).slice(1)).toEqual([
       { ...envelope, seq: 1, type: "stage.start", stage: "lint" },
       {
@@ -637,6 +658,20 @@ describe("ci run: the lint stage, with no Metabase credential", () => {
       },
       { ...envelope, seq: 4, type: "stage.end", stage: "lint", status: "failed", stopped: null },
       { ...envelope, seq: 5, type: "stage.start", stage: "unit" },
+      {
+        ...envelope,
+        seq: 6,
+        type: "stage.end",
+        stage: "unit",
+        status: "errored",
+        stopped: {
+          code: "ci.no-credential",
+          message: expect.stringContaining(
+            "no Metabase credential, so the transform tests did not run: Not authenticated for profile",
+          ),
+        },
+      },
+      { ...envelope, seq: 7, type: "job.end", state: "failed", counts: { checks: 2, warnings: 0 } },
     ]);
   });
 

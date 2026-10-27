@@ -63,6 +63,10 @@ export function readEnvCredentials(): EnvCredentials {
   };
 }
 
+// No URL or no credential resolves for the profile. Distinct from other config errors so a caller
+// with findings of its own, such as `ci run`, can report them rather than stop.
+export class NotAuthenticatedError extends ConfigError {}
+
 export async function resolveConfig(flags: ConfigFlags): Promise<ResolvedConfig> {
   if (flags.apiKey === STDIN_ARG) {
     throw new ConfigError(
@@ -81,7 +85,7 @@ export async function resolveConfig(flags: ConfigFlags): Promise<ResolvedConfig>
 
   if (url === null || credential === null) {
     const hint = await failureHintForProfile(profile);
-    throw new ConfigError(
+    throw new NotAuthenticatedError(
       `Not authenticated for profile "${profile}". Run \`mb auth login\`, set ${ENV_URL}/${ENV_API_KEY}, or pass --url/--api-key.${hint}`,
     );
   }

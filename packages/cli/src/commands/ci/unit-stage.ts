@@ -10,6 +10,7 @@ import {
   type CiRefusal,
   type TransformRequest,
   type UnitFailure,
+  connectStop,
   INVALID_ENTITY_ID,
   lookupStop,
   NO_TESTS_ON_INSTANCE,
@@ -198,7 +199,16 @@ export function unitStage(
   return {
     name: "unit",
     run: async (report) => {
-      const port = await connect();
+      let port: UnitStagePort;
+      try {
+        port = await connect();
+      } catch (error) {
+        const stop = connectStop(error);
+        if (stop === null) {
+          throw error;
+        }
+        return stop;
+      }
       let lookups: ReadonlyMap<string, TransformLookup>;
       try {
         lookups = await port.lookUpTransforms(checked.map((transform) => transform.entity_id));
