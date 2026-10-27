@@ -313,6 +313,7 @@ describe("@metabase/client barrel as a consumer surface", () => {
       errorCode: null,
       nonRemoteSyncedDependencies: null,
       remoteSyncedDependents: null,
+      tables: null,
     });
   });
 

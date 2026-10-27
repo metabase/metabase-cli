@@ -12,6 +12,7 @@ import type { CiEvent, JobState, Verdict } from "../core/ci-events";
 import { exitCodeFor } from "./error";
 
 type CheckResult = Extract<CiEvent, { type: "check.result" }>;
+type StageEnd = Extract<CiEvent, { type: "stage.end" }>;
 type Cell = TransformTestRow[string];
 
 // Each row line costs a reader a line of the job log; the rest are in the --results file.
@@ -37,8 +38,10 @@ const JOB_END_TEXT: Readonly<Record<JobState, string>> = {
   errored: "ERRORED  fix the test or the setup",
 };
 
-// A refused transform test and a failed coverage check carry a message as their detail.
+// A refused transform test and a failed coverage check carry a message as their detail; a request
+// that failed with an HTTP answer also carries its status.
 const CheckMessage = z.object({ message: z.string() });
+const HttpFailureMessage = CheckMessage.extend({ status: z.number().int() });
 
 // The text form of one CI event: a line or more, or none for an event the next one makes plain.
 export function ciEventLines(event: CiEvent): string[] {
@@ -56,12 +59,19 @@ export function ciEventLines(event: CiEvent): string[] {
       return checkLines(event);
     }
     case "stage.end": {
-      return event.status === "skipped" ? [`${event.stage}  skipped`] : [];
+      return stageEndLines(event);
     }
     case "job.end": {
       return [`${JOB_END_TEXT[event.state]} (exit ${jobExitCode(event.state)})`];
     }
   }
+}
+
+function stageEndLines(event: StageEnd): string[] {
+  if (event.stopped !== null) {
+    return [`${event.stage}  stopped: ${event.stopped.message} (${event.stopped.code})`];
+  }
+  return event.status === "skipped" ? [`${event.stage}  skipped`] : [];
 }
 
 function shortSha(sha: string): string {
@@ -98,6 +108,10 @@ function detailLines(event: CheckResult): string[] {
   const result = TransformTestRunResult.safeParse(event.detail);
   if (result.success) {
     return result.data.expectations.flatMap(expectationLines);
+  }
+  const httpFailure = HttpFailureMessage.safeParse(event.detail);
+  if (httpFailure.success) {
+    return [`${DETAIL_INDENT}${httpFailure.data.message} (HTTP ${httpFailure.data.status})`];
   }
   const message = CheckMessage.safeParse(event.detail);
   if (!message.success) {

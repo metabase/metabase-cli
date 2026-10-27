@@ -137,10 +137,10 @@ describe("ciEventLines", () => {
         jobStart(2),
         { type: "stage.start", stage: "lint" },
         UNTOUCHED_PASSED,
-        { type: "stage.end", stage: "lint", status: "passed" },
+        { type: "stage.end", stage: "lint", status: "passed", stopped: null },
         { type: "stage.start", stage: "unit" },
         unitCheck("passed", passed),
-        { type: "stage.end", stage: "unit", status: "passed" },
+        { type: "stage.end", stage: "unit", status: "passed", stopped: null },
         { type: "job.end", state: "passed", counts: { checks: 2, warnings: 0 } },
       ]),
     ).toEqual([
@@ -169,13 +169,48 @@ describe("ciEventLines", () => {
             message: "input orders has no column named total",
           },
         },
-        { type: "stage.end", stage: "unit", status: "errored" },
+        { type: "stage.end", stage: "unit", status: "errored", stopped: null },
         { type: "job.end", state: "errored", counts: { checks: 1, warnings: 0 } },
       ]),
     ).toEqual([
       "unit",
       "  ! orders: order rules  refused  1.3s",
       "      input orders has no column named total",
+      "ERRORED  fix the test or the setup (exit 1)",
+    ]);
+  });
+
+  it("renders a test run's HTTP failure as an error with the status", () => {
+    expect(
+      render([
+        {
+          type: "check.result",
+          stage: "unit",
+          check: { kind: "transform-test", id: "4", label: "orders: order rules" },
+          verdict: "error",
+          warnings: [],
+          ms: 1250,
+          detail: { error_code: "ci.http-error", status: 503, message: "Service Unavailable" },
+        },
+      ]),
+    ).toEqual(["  ! orders: order rules  error  1.3s", "      Service Unavailable (HTTP 503)"]);
+  });
+
+  it("renders a stage that stopped early with its reason, and ends ERRORED", () => {
+    expect(
+      render([
+        { type: "stage.start", stage: "unit" },
+        {
+          type: "stage.end",
+          stage: "unit",
+          status: "errored",
+          stopped: { code: "ci.unauthorized", message: "Unauthenticated" },
+        },
+        { type: "job.end", state: "errored", counts: { checks: 0, warnings: 0 } },
+      ]),
+    ).toEqual([
+      "unit",
+      "unit  stopped: Unauthenticated (ci.unauthorized)",
       "ERRORED  fix the test or the setup (exit 1)",
     ]);
   });
@@ -198,8 +233,8 @@ describe("ciEventLines", () => {
           },
         },
         UNTOUCHED_PASSED,
-        { type: "stage.end", stage: "lint", status: "failed" },
-        { type: "stage.end", stage: "unit", status: "skipped" },
+        { type: "stage.end", stage: "lint", status: "failed", stopped: null },
+        { type: "stage.end", stage: "unit", status: "skipped", stopped: null },
         { type: "job.end", state: "failed", counts: { checks: 2, warnings: 0 } },
       ]),
     ).toEqual([

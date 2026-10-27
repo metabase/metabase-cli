@@ -534,6 +534,7 @@ export {
   TransformTagUpdateInput,
 } from "./domain/transform-tag";
 export {
+  isTransformTestCode,
   isTransformTestRefusalCode,
   TransformTest,
   TransformTestColumn,
