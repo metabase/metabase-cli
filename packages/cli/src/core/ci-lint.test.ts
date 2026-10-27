@@ -18,12 +18,14 @@ const COVERAGE_SUMMARY: CheckOutcome = {
   detail: { untested: [] },
 };
 
+const LINTED_FILES = 112;
+
 const NO_WARNINGS: CheckOutcome = {
   check: { kind: "lint", id: "lint", label: "Representation lint" },
   verdict: "passed",
   warnings: [],
   ms: 0,
-  detail: { findings: [] },
+  detail: { files: LINTED_FILES, findings: [] },
 };
 
 const DAILY = { model: "Transform", entity_id: "7JwIkkAG-06-nsl4jzsaq", name: "Daily" };
@@ -40,7 +42,7 @@ function finding(spec: FindingSpec) {
 }
 
 function linted(findings: readonly unknown[]): LintTree {
-  return async () => ({ findings });
+  return async () => ({ files: LINTED_FILES, findings });
 }
 
 const throwingLint: LintTree = async () => {
@@ -71,7 +73,7 @@ describe("lintStage, errors", () => {
     expect(await lintReports(linted([schema]))).toEqual([
       COVERAGE_SUMMARY,
       {
-        check: { kind: "yaml", id: "schema:transforms/daily.yaml", label: "Daily: schema" },
+        check: { kind: "yaml", id: "schema:transforms/daily.yaml:1", label: "Daily: schema" },
         verdict: "failed",
         warnings: [],
         ms: 0,
@@ -91,7 +93,7 @@ describe("lintStage, errors", () => {
 
     expect((await lintReports(linted([cycle])))[1]?.check).toEqual({
       kind: "cycles",
-      id: "transform-cycle:transforms/daily.yaml",
+      id: "transform-cycle:transforms/daily.yaml:1",
       label: "Daily: transform-cycle",
     });
   });
@@ -108,9 +110,47 @@ describe("lintStage, errors", () => {
 
     expect((await lintReports(linted([broken])))[1]?.check).toEqual({
       kind: "broken-refs",
-      id: `${rule}:tests/daily.yaml`,
+      id: `${rule}:tests/daily.yaml:1`,
       label: `Daily: ${rule}`,
     });
+  });
+
+  it("labels an error with its file when the linter names no entity", async () => {
+    const unnamed = {
+      rule: "schema",
+      severity: "error",
+      file: "transforms/broken.yaml",
+      entity: { model: null, entity_id: null, name: null },
+      message: "missing required key `name`",
+      related: [],
+    };
+
+    expect((await lintReports(linted([unnamed])))[1]?.check).toEqual({
+      kind: "yaml",
+      id: "schema:transforms/broken.yaml:1",
+      label: "transforms/broken.yaml: schema",
+    });
+  });
+
+  it("numbers repeats of a rule in one file, so each error has its own check id", async () => {
+    const missing = (table: string) =>
+      finding({
+        rule: "missing-input",
+        severity: "error",
+        file: "tests/daily.yaml",
+        message: `no input for ${table}`,
+      });
+
+    const ids = (await lintReports(linted([missing("ORDERS"), missing("PEOPLE")]))).map(
+      (check) => check.check.id,
+    );
+
+    expect(ids).toEqual([
+      "untouched",
+      "missing-input:tests/daily.yaml:1",
+      "missing-input:tests/daily.yaml:2",
+      "lint",
+    ]);
   });
 
   it("reports coverage first, then the errors in the linter's order", async () => {
@@ -130,8 +170,8 @@ describe("lintStage, errors", () => {
     expect(ids).toEqual([
       `coverage/${DAILY.entity_id}`,
       "coverage/untouched",
-      "broken-refs/unused-input:tests/b.yaml",
-      "yaml/schema:transforms/a.yaml",
+      "broken-refs/unused-input:tests/b.yaml:1",
+      "yaml/schema:transforms/a.yaml:1",
       "lint/lint",
     ]);
   });
@@ -168,7 +208,7 @@ describe("lintStage, warnings", () => {
           },
         ],
         ms: 0,
-        detail: { findings: [unknownTable, notChecked] },
+        detail: { files: LINTED_FILES, findings: [unknownTable, notChecked] },
       },
     ]);
   });

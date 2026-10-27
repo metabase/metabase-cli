@@ -20,7 +20,11 @@ const LINT_ERROR_RULES = [
 ] as const;
 const LINT_WARNING_RULES = ["unknown-table", "reads-not-checked"] as const;
 
-const LintEntity = z.object({ model: z.string(), entity_id: z.string(), name: z.string() });
+const LintEntity = z.object({
+  model: z.string().nullable(),
+  entity_id: z.string().nullable(),
+  name: z.string().nullable(),
+});
 
 const LintFindingFields = z.object({
   file: z.string(),
@@ -42,6 +46,7 @@ const LintWarning = LintFindingFields.extend({
 type LintWarning = z.infer<typeof LintWarning>;
 
 const LintResult = z.object({
+  files: z.number().int().nonnegative(),
   findings: z.array(z.discriminatedUnion("severity", [LintError, LintWarning])),
 });
 type LintResult = z.infer<typeof LintResult>;
@@ -65,12 +70,23 @@ const LINT_RUN_CHECK = { kind: "lint", id: "lint", label: "Representation lint" 
 // Lints the committed tree and answers the linter's raw output.
 export type LintTree = () => Promise<unknown>;
 
-function failedCheck(finding: LintError): CheckOutcome {
+// A finding the linter could not tie to a named entity, such as a file that fails the schema, is
+// labelled by its file.
+function failedLabel(finding: LintError): string {
+  if (finding.entity.name === null) {
+    return `${finding.file}: ${finding.rule}`;
+  }
+  return `${finding.entity.name}: ${finding.rule}`;
+}
+
+// `occurrence` counts from 1 among the findings with the same rule and file, since one file can
+// break a rule more than once (a missing input per table).
+function failedCheck(finding: LintError, occurrence: number): CheckOutcome {
   return {
     check: {
       kind: ERROR_CHECK_KIND[finding.rule],
-      id: `${finding.rule}:${finding.file}`,
-      label: `${finding.entity.name}: ${finding.rule}`,
+      id: `${finding.rule}:${finding.file}:${occurrence}`,
+      label: failedLabel(finding),
     },
     verdict: "failed",
     warnings: [],
@@ -83,13 +99,13 @@ function lintWarning(finding: LintWarning): CiWarning {
   return { code: finding.rule, message: `${finding.file}: ${finding.message}` };
 }
 
-function warningsCheck(findings: readonly LintWarning[]): CheckOutcome {
+function warningsCheck(files: number, findings: readonly LintWarning[]): CheckOutcome {
   return {
     check: LINT_RUN_CHECK,
     verdict: "passed",
     warnings: findings.map(lintWarning),
     ms: 0,
-    detail: { findings },
+    detail: { files, findings },
   };
 }
 
@@ -102,14 +118,19 @@ function crashedCheck(message: string): CheckOutcome {
 function lintChecks(result: LintResult): CheckOutcome[] {
   const failed: CheckOutcome[] = [];
   const warnings: LintWarning[] = [];
+  const occurrences = new Map<string, number>();
   for (const finding of result.findings) {
     if (finding.severity === "error") {
-      failed.push(failedCheck(finding));
+      const key = `${finding.rule}:${finding.file}`;
+      const previous = occurrences.get(key);
+      const occurrence = previous === undefined ? 1 : previous + 1;
+      occurrences.set(key, occurrence);
+      failed.push(failedCheck(finding, occurrence));
     } else {
       warnings.push(finding);
     }
   }
-  return [...failed, warningsCheck(warnings)];
+  return [...failed, warningsCheck(result.files, warnings)];
 }
 
 // A linter that throws or answers something unreadable has a bug: the check errors, and the
