@@ -692,7 +692,6 @@ describe("command tree contract", () => {
     const local = entries.filter((entry) => entry.requires === null).map((entry) => entry.command);
     expect(local.toSorted()).toEqual([
       "auth status",
-      "ci run",
       "data-app scaffold",
       "schema",
       "skills get",

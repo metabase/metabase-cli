@@ -35,6 +35,7 @@ function stageWith(
         ms: 5,
         detail: null,
       });
+      return null;
     },
   };
 }
@@ -44,7 +45,7 @@ describe("createEmitter", () => {
     const { events, emit } = collector();
 
     emit({ type: "stage.start", stage: "lint" });
-    emit({ type: "stage.end", stage: "lint", status: "passed" });
+    emit({ type: "stage.end", stage: "lint", status: "passed", stopped: null });
 
     expect(events).toEqual([
       { type: "stage.start", stage: "lint", seq: 0, job: "job-1", at: "2026-10-30T12:00:00.000Z" },
@@ -52,6 +53,7 @@ describe("createEmitter", () => {
         type: "stage.end",
         stage: "lint",
         status: "passed",
+        stopped: null,
         seq: 1,
         job: "job-1",
         at: "2026-10-30T12:00:00.000Z",
@@ -102,8 +104,8 @@ describe("runStages", () => {
         ms: 5,
         detail: null,
       },
-      { ...envelope, seq: 2, type: "stage.end", stage: "lint", status: "failed" },
-      { ...envelope, seq: 3, type: "stage.end", stage: "unit", status: "skipped" },
+      { ...envelope, seq: 2, type: "stage.end", stage: "lint", status: "failed", stopped: null },
+      { ...envelope, seq: 3, type: "stage.end", stage: "unit", status: "skipped", stopped: null },
     ]);
   });
 
@@ -129,7 +131,7 @@ describe("runStages", () => {
     });
   });
 
-  it("lets a failed check outrank errors, which an earlier failure can cause", async () => {
+  it("lets a failed check outrank errors and refusals, since a failure is a finding about the change", async () => {
     const { emit } = collector();
     const mixed: CiStage = {
       name: "unit",
@@ -143,6 +145,7 @@ describe("runStages", () => {
             detail: null,
           });
         }
+        return null;
       },
     };
 
@@ -173,10 +176,46 @@ describe("runStages", () => {
           ms: 1,
           detail: null,
         });
+        return null;
       },
     };
 
     expect(await runStages([warned], emit)).toEqual({ state: "passed", checks: 1, warnings: 1 });
+  });
+
+  it("ends a stage that stopped early errored, saying why on stage.end", async () => {
+    const { events, emit } = collector();
+    const stopped: CiStage = {
+      name: "unit",
+      run: async (report) => {
+        await stageWith("unit", "passed").run(report);
+        return { code: "ci.unauthorized", message: "Metabase did not accept the credential" };
+      },
+    };
+
+    expect(await runStages([stopped], emit)).toEqual({ state: "errored", checks: 1, warnings: 0 });
+    expect(events.at(-1)).toEqual({
+      type: "stage.end",
+      stage: "unit",
+      status: "errored",
+      stopped: { code: "ci.unauthorized", message: "Metabase did not accept the credential" },
+      seq: 2,
+      job: "job-1",
+      at: "2026-10-30T12:00:00.000Z",
+    });
+  });
+
+  it("lets a failed check outrank the stage stopping early", async () => {
+    const { emit } = collector();
+    const stopped: CiStage = {
+      name: "unit",
+      run: async (report) => {
+        await stageWith("unit", "failed").run(report);
+        return { code: "ci.network-error", message: "Metabase could not be reached" };
+      },
+    };
+
+    expect(await runStages([stopped], emit)).toEqual({ state: "failed", checks: 1, warnings: 0 });
   });
 
   it("passes a job with no stages", async () => {
@@ -197,7 +236,7 @@ describe("runStages, gating", () => {
       name,
       run: async (report) => {
         ran.push(name);
-        await stageWith(name, verdict).run(report);
+        return stageWith(name, verdict).run(report);
       },
     };
   }
@@ -217,6 +256,7 @@ describe("runStages, gating", () => {
       type: "stage.end",
       stage: "unit",
       status: "skipped",
+      stopped: null,
       seq: 3,
       job: "job-1",
       at: "2026-10-30T12:00:00.000Z",

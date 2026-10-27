@@ -7,12 +7,12 @@ export const CI_EVENT_VERSION = 1;
 const StageName = z.enum(["lint", "unit"]);
 type StageName = z.infer<typeof StageName>;
 
-// `failed`: the change is wrong. `error` (the check's own query broke) and `refused` (Metabase
-// would not run it): the check itself needs fixing, so the stage and job are `errored`. A failure
-// outranks both, because an earlier failure can make later queries break (a Postgres transaction
-// aborts after one failed statement), so the change is fixed first and the job re-run.
+// `failed`: the change is wrong. `error` (the check could not judge the change) and `refused`
+// (Metabase would not run it): the check or the setup needs fixing, so the stage and job are
+// `errored`. A failure outranks both: a failure is a finding about the change, an error a finding
+// about the test or the setup.
 const Verdict = z.enum(["passed", "failed", "error", "refused"]);
-type Verdict = z.infer<typeof Verdict>;
+export type Verdict = z.infer<typeof Verdict>;
 
 const StageStatus = z.enum(["passed", "failed", "errored", "skipped"]);
 
@@ -21,6 +21,10 @@ export type JobState = z.infer<typeof JobState>;
 
 const CiWarning = z.object({ code: z.string(), message: z.string() });
 export type CiWarning = z.infer<typeof CiWarning>;
+
+// Why a stage stopped before it checked everything, such as a server that refused the credential.
+const StageStop = z.object({ code: z.string(), message: z.string() });
+export type StageStop = z.infer<typeof StageStop>;
 
 const CheckedTransform = z.object({ entity_id: z.string(), name: z.string() });
 export type CheckedTransform = z.infer<typeof CheckedTransform>;
@@ -60,10 +64,12 @@ const CheckResult = EventEnvelope.extend({
   detail: z.unknown(),
 });
 
+// `stopped` is null when the stage ran every check, or was skipped.
 const StageEnd = EventEnvelope.extend({
   type: z.literal("stage.end"),
   stage: StageName,
   status: StageStatus,
+  stopped: StageStop.nullable(),
 });
 
 const JobEnd = EventEnvelope.extend({
@@ -84,11 +90,13 @@ export type CiEvent = z.infer<typeof CiEvent>;
 type EnvelopeKey = keyof z.infer<typeof EventEnvelope>;
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 export type CiEventBody = DistributiveOmit<CiEvent, EnvelopeKey>;
-type CheckOutcome = Omit<Extract<CiEventBody, { type: "check.result" }>, "type" | "stage">;
+export type CheckOutcome = Omit<Extract<CiEventBody, { type: "check.result" }>, "type" | "stage">;
 
+// `run` answers why it stopped early, or null when it ran every check. A stage throws only on a bug
+// or an interrupt, which crash the job.
 export interface CiStage {
   name: StageName;
-  run: (report: (check: CheckOutcome) => void) => Promise<void>;
+  run: (report: (check: CheckOutcome) => void) => Promise<StageStop | null>;
 }
 
 interface CiEmitterOptions {
@@ -118,11 +126,12 @@ export function createEmitter(options: CiEmitterOptions): (body: CiEventBody) =>
   };
 }
 
-function stageStatus(verdicts: readonly Verdict[]): JobState {
+// A stage that stopped early is `errored` unless a check it reported failed.
+function stageStatus(verdicts: readonly Verdict[], stopped: StageStop | null): JobState {
   if (verdicts.includes("failed")) {
     return "failed";
   }
-  if (verdicts.includes("refused") || verdicts.includes("error")) {
+  if (stopped !== null || verdicts.includes("refused") || verdicts.includes("error")) {
     return "errored";
   }
   return "passed";
@@ -145,19 +154,19 @@ export async function runStages(
   let warnings = 0;
   for (const stage of stages) {
     if (state !== "passed") {
-      emit({ type: "stage.end", stage: stage.name, status: "skipped" });
+      emit({ type: "stage.end", stage: stage.name, status: "skipped", stopped: null });
       continue;
     }
     emit({ type: "stage.start", stage: stage.name });
     const verdicts: Verdict[] = [];
-    await stage.run((check) => {
+    const stopped = await stage.run((check) => {
       verdicts.push(check.verdict);
       checks += 1;
       warnings += check.warnings.length;
       emit({ type: "check.result", stage: stage.name, ...check });
     });
-    state = stageStatus(verdicts);
-    emit({ type: "stage.end", stage: stage.name, status: state });
+    state = stageStatus(verdicts, stopped);
+    emit({ type: "stage.end", stage: stage.name, status: state, stopped });
   }
   return { state, checks, warnings };
 }

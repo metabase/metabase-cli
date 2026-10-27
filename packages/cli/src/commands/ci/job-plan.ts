@@ -30,7 +30,7 @@ import { parseMetabaseYaml } from "../../runtime/yaml";
 // A pathspec `*` also matches `/`, so each covers every depth; isContentPath narrows the hits.
 const CONTENT_PATHSPECS = CONTENT_TOP_LEVEL_FOLDERS.map((folder) => `${folder}/*.yaml`);
 
-interface JobPlan {
+export interface JobPlan {
   snapshot: Snapshot;
   checked: CheckedTransform[];
   warnings: CiWarning[];
