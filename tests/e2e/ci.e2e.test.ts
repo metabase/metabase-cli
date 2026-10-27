@@ -39,7 +39,7 @@ describe("ci e2e", () => {
   it("streams one event per line, and writes them to --results, for a job with nothing to check", async () => {
     const base = await repo.git("rev-parse", "HEAD");
     await repo.put(
-      "t/draft.yaml",
+      "transforms/draft.yaml",
       `name: Draft\nentity_id: ${TRANSFORM_ID}\nserdes/meta:\n- model: Transform\n`,
     );
     const resultsPath = join(repo.path, "results.json");
@@ -66,7 +66,8 @@ describe("ci e2e", () => {
         warnings: [
           {
             code: "uncommitted-content",
-            message: "1 content file is not committed, so CI did not check: t/draft.yaml",
+            message:
+              "1 content file has uncommitted changes, which CI does not see; it checks the committed version: transforms/draft.yaml",
           },
         ],
       },
@@ -153,7 +154,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
   it("refuses a changed transform the instance does not have, ending the job errored", async () => {
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
-      "t/absent.yaml",
+      "transforms/absent.yaml",
       `name: Absent\nentity_id: ${TRANSFORM_ID}\nserdes/meta:\n- model: Transform\n`,
     );
     await repo.commitAll("add a transform the instance never saw");
@@ -237,7 +238,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     const base = await repo.git("rev-parse", "HEAD");
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
-      "t/order_totals.yaml",
+      "transforms/order_totals.yaml",
       `name: Order totals\nentity_id: ${entityId}\nserdes/meta:\n- model: Transform\n`,
     );
     const head = await repo.commitAll("add transform");
