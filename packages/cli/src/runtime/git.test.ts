@@ -1,11 +1,18 @@
-import { symlink } from "node:fs/promises";
+import { readFile, readdir, stat, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { ConfigError, InternalError } from "@metabase/client/errors";
 
-import { fileModesAt, filesMatching, mergeBase, readFilesAt, resolveCommit } from "./git";
+import {
+  fileModesAt,
+  filesMatching,
+  mergeBase,
+  readFilesAt,
+  resolveCommit,
+  withCommittedTree,
+} from "./git";
 import { type TempGitRepo, createTempGitRepo } from "./temp-git-repo";
 
 let repo: TempGitRepo;
@@ -114,5 +121,45 @@ describe("readFilesAt", () => {
     await expect(read).rejects.toThrow(
       `missing.yaml is not a file at ${commit}, though git listed it there`,
     );
+  });
+});
+
+describe("withCommittedTree", () => {
+  it("holds the committed files, not the work tree's edits or untracked files", async () => {
+    await repo.put("transforms/daily.yaml", "name: committed\n");
+    const commit = await repo.commitAll("add");
+    await writeFile(join(repo.path, "transforms/daily.yaml"), "name: edited\n", "utf8");
+    await repo.put("transforms/untracked.yaml", "name: untracked\n");
+
+    const seen = await withCommittedTree(join(repo.path, "transforms"), commit, async (folder) => ({
+      files: (await readdir(folder, { recursive: true })).toSorted(),
+      daily: await readFile(join(folder, "transforms/daily.yaml"), "utf8"),
+    }));
+
+    expect(seen).toEqual({
+      files: ["README.md", "transforms", "transforms/daily.yaml"],
+      daily: "name: committed\n",
+    });
+  });
+
+  it("removes the folder once the callback throws", async () => {
+    const commit = await repo.git("rev-parse", "HEAD");
+    const folders: string[] = [];
+
+    const use = withCommittedTree(repo.path, commit, async (folder) => {
+      folders.push(folder);
+      throw new Error("lint crashed");
+    });
+
+    await expect(use).rejects.toThrow("lint crashed");
+    expect(folders).toHaveLength(1);
+    await expect(Promise.all(folders.map((folder) => stat(folder)))).rejects.toThrow("ENOENT");
+  });
+
+  it("names a commit git cannot archive", async () => {
+    const use = withCommittedTree(repo.path, "0".repeat(40), async () => null);
+
+    await expect(use).rejects.toThrow(ConfigError);
+    await expect(use).rejects.toThrow(`git archive ${"0".repeat(40)} failed in`);
   });
 });

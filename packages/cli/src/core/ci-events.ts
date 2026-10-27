@@ -29,7 +29,7 @@ const Snapshot = z.object({ base: z.string(), head: z.string() });
 export type Snapshot = z.infer<typeof Snapshot>;
 
 const Check = z.object({
-  kind: z.enum(["coverage", "yaml", "cycles", "broken-refs", "transform-test"]),
+  kind: z.enum(["coverage", "lint", "yaml", "cycles", "broken-refs", "transform-test"]),
   id: z.string(),
   label: z.string(),
 });
@@ -84,7 +84,7 @@ export type CiEvent = z.infer<typeof CiEvent>;
 type EnvelopeKey = keyof z.infer<typeof EventEnvelope>;
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 export type CiEventBody = DistributiveOmit<CiEvent, EnvelopeKey>;
-type CheckOutcome = Omit<Extract<CiEventBody, { type: "check.result" }>, "type" | "stage">;
+export type CheckOutcome = Omit<Extract<CiEventBody, { type: "check.result" }>, "type" | "stage">;
 
 export interface CiStage {
   name: StageName;
