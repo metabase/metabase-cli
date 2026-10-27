@@ -51,7 +51,7 @@ describe("planJob", () => {
       warnings: [
         {
           code: "uncommitted-content",
-          message: `1 content file is not committed, so CI did not check: ${TRANSFORM_PATH}`,
+          message: `1 content file has uncommitted changes, which CI does not see; it checks the committed version: ${TRANSFORM_PATH}`,
         },
       ],
     });
@@ -287,6 +287,34 @@ describe("planJob, reading a transform as Metabase imports it", () => {
     },
     LARGE_DIFF_TIMEOUT_MS,
   );
+});
+
+describe("planJob, reading only Metabase's content folders", () => {
+  it("skips a changed YAML file outside Metabase's content folders that does not parse", async () => {
+    const base = await repo.git("rev-parse", "HEAD");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(".github/workflows/ci.yml", "on: push\non: pull_request\n");
+    const head = await repo.commitAll("add a workflow with a duplicate key");
+
+    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+      snapshot: { base, head },
+      checked: [],
+      warnings: [],
+    });
+  });
+
+  it("does not list a transform-shaped file outside Metabase's content folders", async () => {
+    const base = await repo.git("rev-parse", "HEAD");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put("docs/examples/daily.yaml", transformYaml(TRANSFORM_ID, "Example"));
+    const head = await repo.commitAll("add an example file");
+
+    expect(await planJob(repo.path, "main", "HEAD")).toEqual({
+      snapshot: { base, head },
+      checked: [],
+      warnings: [],
+    });
+  });
 });
 
 describe("planJob, reading the base side at the merge base", () => {

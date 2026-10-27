@@ -128,7 +128,8 @@ describe("ci run: committed content only", () => {
       warnings: [
         {
           code: "uncommitted-content",
-          message: "1 content file is not committed, so CI did not check: transforms/a.yaml",
+          message:
+            "1 content file has uncommitted changes, which CI does not see; it checks the committed version: transforms/a.yaml",
         },
       ],
     });

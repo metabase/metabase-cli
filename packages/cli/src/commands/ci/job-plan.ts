@@ -4,7 +4,7 @@ import {
   type ClassifiedChange,
   type ContentFile,
   type DiffEntry,
-  CONTENT_FILE_EXTENSIONS,
+  CONTENT_TOP_LEVEL_FOLDERS,
   affectedTransforms,
   classifyContentFile,
   isContentPath,
@@ -26,7 +26,8 @@ import {
 } from "../../runtime/git";
 import { parseMetabaseYaml } from "../../runtime/yaml";
 
-const CONTENT_PATHSPECS = CONTENT_FILE_EXTENSIONS.map((extension) => `*${extension}`);
+// A pathspec `*` also matches `/`, so each covers every depth; isContentPath narrows the hits.
+const CONTENT_PATHSPECS = CONTENT_TOP_LEVEL_FOLDERS.map((folder) => `${folder}/*.yaml`);
 
 interface JobPlan {
   snapshot: Snapshot;
@@ -105,6 +106,7 @@ async function classifyChanges(
     classifyAt(repo, head, present(entries.map(headPath))),
   ]);
   return entries.map((entry) => ({
+    path: entry.path,
     base: sideOf(baseFiles, basePath(entry)),
     head: sideOf(headFiles, headPath(entry)),
   }));

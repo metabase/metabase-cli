@@ -47,11 +47,11 @@ describe("runJob", () => {
     const base = await repo.git("rev-parse", "HEAD");
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
-      "t/daily.yaml",
+      "transforms/daily.yaml",
       `name: Daily\nentity_id: ${TRANSFORM_ID}\nserdes/meta:\n- model: Transform\n`,
     );
     const head = await repo.commitAll("add transform");
-    await repo.put("t/draft.yaml", "draft\n");
+    await repo.put("transforms/draft.yaml", "draft\n");
     const events: CiEvent[] = [];
 
     const state = await runJob({
@@ -78,7 +78,8 @@ describe("runJob", () => {
         warnings: [
           {
             code: "uncommitted-content",
-            message: "1 content file is not committed, so CI did not check: t/draft.yaml",
+            message:
+              "1 content file has uncommitted changes, which CI does not see; it checks the committed version: transforms/draft.yaml",
           },
         ],
       },

@@ -36,6 +36,7 @@ interface OtherFile {
 export type ContentFile = TransformFile | TransformTestFile | OtherFile;
 
 export interface ClassifiedChange {
+  path: string;
   base: ContentFile | null;
   head: ContentFile | null;
 }
@@ -47,6 +48,8 @@ const SINGLE_PATH_STATUSES = new Map<string, PathEntry["status"]>([
   ["T", "modified"],
 ]);
 
+// A score follows R and C always, and M only under -B.
+const STATUS_CODE = /^(?:[AMDT](?:\d{3})?|[RC]\d{3})$/;
 const RENAME_STATUS = "R";
 // A copy leaves its source untouched, so only the new path is a change.
 const COPY_STATUS = "C";
@@ -74,6 +77,9 @@ export function parseNameStatus(output: string): DiffEntry[] {
   let index = 0;
   while (index < tokens.length) {
     const code = requireToken(tokens[index], "a status");
+    if (!STATUS_CODE.test(code)) {
+      throw nameStatusError(`unexpected status "${code}"`);
+    }
     const missingPath = `a path for status "${code}"`;
     const first = tokens[index + 1];
     const second = tokens[index + 2];
@@ -94,6 +100,7 @@ export function parseNameStatus(output: string): DiffEntry[] {
       continue;
     }
     if (letter === COPY_STATUS) {
+      requireToken(first, missingPath);
       entries.push({ status: "added", path: requireToken(second, missingPath) });
       index += 3;
       continue;
@@ -148,47 +155,48 @@ const TransformTestDocument = z.object({ transform_id: z.string().min(1) }).loos
 
 const SerdesMeta = z.array(z.object({ model: z.string() }).loose()).min(1);
 
-function serdesModel(path: string, document: unknown): string | null {
+function parseOrRefuse<T>(path: string, schema: z.ZodType<T>, value: unknown, rule: string): T {
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) {
+    throw new ValidationError(`${path}: ${rule}`, { source: path, zodIssues: parsed.error.issues });
+  }
+  return parsed.data;
+}
+
+export function classifyContentFile(path: string, document: unknown): ContentFile {
   if (!isPlainObject(document) || !(SERDES_META_KEY in document)) {
-    return null;
+    return { kind: "other" };
   }
-  const meta = SerdesMeta.safeParse(document[SERDES_META_KEY]);
-  if (!meta.success) {
-    throw new ValidationError(
-      `${path}: ${SERDES_META_KEY} must be a non-empty list of entries with a model`,
-      { source: path, zodIssues: meta.error.issues },
-    );
-  }
-  const last = meta.data.at(-1);
+  const meta = parseOrRefuse(
+    path,
+    SerdesMeta,
+    document[SERDES_META_KEY],
+    `${SERDES_META_KEY} must be a non-empty list of entries with a model`,
+  );
+  // serdes/meta is the path from the root entity down to this file's own entity, which comes last.
+  const last = meta.at(-1);
   if (last === undefined) {
     throw new InternalError(
       `${path}: ${SERDES_META_KEY} passed a non-empty check but has no entries`,
     );
   }
-  return last.model;
-}
-
-export function classifyContentFile(path: string, document: unknown): ContentFile {
-  const model = serdesModel(path, document);
-  if (model === "Transform") {
-    const transform = TransformDocument.safeParse(document);
-    if (!transform.success) {
-      throw new ValidationError(`${path}: a Transform must have an entity_id and a name`, {
-        source: path,
-        zodIssues: transform.error.issues,
-      });
-    }
-    return { kind: "transform", entityId: transform.data.entity_id, name: transform.data.name };
+  if (last.model === "Transform") {
+    const transform = parseOrRefuse(
+      path,
+      TransformDocument,
+      document,
+      "a Transform must have an entity_id and a name",
+    );
+    return { kind: "transform", entityId: transform.entity_id, name: transform.name };
   }
-  if (model === "TransformTest") {
-    const test = TransformTestDocument.safeParse(document);
-    if (!test.success) {
-      throw new ValidationError(`${path}: a TransformTest must name its transform_id`, {
-        source: path,
-        zodIssues: test.error.issues,
-      });
-    }
-    return { kind: "transform-test", transformId: test.data.transform_id };
+  if (last.model === "TransformTest") {
+    const test = parseOrRefuse(
+      path,
+      TransformTestDocument,
+      document,
+      "a TransformTest must name its transform_id",
+    );
+    return { kind: "transform-test", transformId: test.transform_id };
   }
   return { kind: "other" };
 }
@@ -202,7 +210,15 @@ export function affectedTransforms(changes: readonly ClassifiedChange[]): string
   const atHead = new Set<string>();
   const atBase = new Set<string>();
 
-  for (const { base, head } of changes) {
+  for (const { path, base, head } of changes) {
+    // A parser that reads the file differently from Metabase (a YAML merge key, a symlink blob)
+    // would otherwise turn an edited transform into a deleted one.
+    if (base !== null && base.kind !== "other" && head?.kind === "other") {
+      throw new ValidationError(
+        `${path}: a Transform or TransformTest at base no longer reads as one at head`,
+        { source: path, zodIssues: [] },
+      );
+    }
     const headId = transformEntityId(head);
     const baseId = transformEntityId(base);
     if (headId !== null) {
@@ -219,13 +235,47 @@ export function affectedTransforms(changes: readonly ClassifiedChange[]): string
     }
   }
 
+  // A test-only change names a transform the diff does not show; keep it unless the diff removed it.
   return [...touched].filter((entityId) => atHead.has(entityId) || !atBase.has(entityId));
 }
 
-export const CONTENT_FILE_EXTENSIONS = [".yaml", ".yml"] as const;
+// Mirrors Metabase's `legal-top-level-paths` and `shared-top-level-paths`
+// (serialization/v2/ingest.clj): the top-level folders an import reads entity files from.
+export const CONTENT_TOP_LEVEL_FOLDERS = [
+  "actions",
+  "channels",
+  "collections",
+  "custom_viz_plugins",
+  "data_apps",
+  "databases",
+  "embedding_themes",
+  "glossary",
+  "metabots",
+  "python_libraries",
+  "python-libraries",
+  "osi_ai_context",
+  "snippets",
+  "transforms",
+] as const;
 
+const SHARED_TOP_LEVEL_FILE_NAMES = new Map<string, string>([["data_apps", "data_app.yaml"]]);
+
+const CONTENT_FOLDERS = new Set<string>(CONTENT_TOP_LEVEL_FOLDERS);
+
+// Mirrors Metabase's `entity-file-path?`: a `.yaml` file that is not a dotfile, under a legal
+// top-level folder, named its folder's entity file when that folder is shared.
 export function isContentPath(path: string): boolean {
-  return CONTENT_FILE_EXTENSIONS.some((extension) => path.endsWith(extension));
+  const slash = path.indexOf("/");
+  if (slash === -1) {
+    return false;
+  }
+  const top = path.slice(0, slash);
+  const fileName = path.slice(path.lastIndexOf("/") + 1);
+  if (!fileName.endsWith(".yaml") || fileName.startsWith(".") || !CONTENT_FOLDERS.has(top)) {
+    return false;
+  }
+  const entityFileName = SHARED_TOP_LEVEL_FILE_NAMES.get(top);
+  return entityFileName === undefined || entityFileName === fileName;
 }
 
 export function uncommittedContentWarning(paths: readonly string[]): CiWarning | null {
@@ -234,9 +284,11 @@ export function uncommittedContentWarning(paths: readonly string[]): CiWarning |
     return null;
   }
   const summary =
-    content.length === 1 ? "1 content file is" : `${content.length} content files are`;
+    content.length === 1
+      ? "1 content file has uncommitted changes"
+      : `${content.length} content files have uncommitted changes`;
   return {
     code: "uncommitted-content",
-    message: `${summary} not committed, so CI did not check: ${content.join(", ")}`,
+    message: `${summary}, which CI does not see; it checks the committed version: ${content.join(", ")}`,
   };
 }
