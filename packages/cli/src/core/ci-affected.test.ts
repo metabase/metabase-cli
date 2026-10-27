@@ -1,8 +1,10 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { InternalError, ValidationError } from "@metabase/client/errors";
 
+import { parseYaml } from "../runtime/yaml";
 import {
   type ClassifiedChange,
   type ContentFile,
@@ -19,8 +21,10 @@ const OTHER_TRANSFORM: ContentFile = { kind: "transform", entityId: OTHER_TRANSF
 const TEST: ContentFile = { kind: "transform-test", transformId: TRANSFORM_ID };
 const OTHER: ContentFile = { kind: "other" };
 
+const CHANGED_PATH = "transforms/t1/t1.yaml";
+
 function change(base: ContentFile | null, head: ContentFile | null): ClassifiedChange {
-  return { base, head };
+  return { path: CHANGED_PATH, base, head };
 }
 
 const SINGLE_PATH_CASES = [
@@ -116,6 +120,33 @@ describe("parseNameStatus", () => {
     expect(parse).toThrow("git diff --name-status -z: truncated: the output does not end in a NUL");
   });
 
+  it("accepts the scored modification that git prints with -B", () => {
+    expect(parseNameStatus(nul("M100", "a.yaml"))).toEqual([
+      { status: "modified", path: "a.yaml" },
+    ]);
+  });
+
+  it("refuses a status letter followed by a non-digit", () => {
+    const parse = () => parseNameStatus(nul("MX", "a.yaml"));
+
+    expect(parse).toThrow(InternalError);
+    expect(parse).toThrow('git diff --name-status -z: unexpected status "MX"');
+  });
+
+  it("refuses a rename without a similarity score", () => {
+    const parse = () => parseNameStatus(nul("R", "old.yaml", "new.yaml"));
+
+    expect(parse).toThrow(InternalError);
+    expect(parse).toThrow('git diff --name-status -z: unexpected status "R"');
+  });
+
+  it("refuses a copy whose source path is empty", () => {
+    const parse = () => parseNameStatus(nul("C100", "", "copy.yaml"));
+
+    expect(parse).toThrow(InternalError);
+    expect(parse).toThrow('git diff --name-status -z: missing a path for status "C100"');
+  });
+
   it("refuses an empty path", () => {
     const parse = () => parseNameStatus(nul("A", ""));
 
@@ -143,6 +174,15 @@ describe("classifyContentFile", () => {
     ).toEqual(TEST);
   });
 
+  it("classifies a transform test in the exported one-entry serdes/meta shape", () => {
+    expect(
+      classifyContentFile("transforms/t1/t.yaml", {
+        transform_id: TRANSFORM_ID,
+        "serdes/meta": [{ model: "TransformTest" }],
+      }),
+    ).toEqual(TEST);
+  });
+
   it("classifies any other serialized model as other", () => {
     expect(
       classifyContentFile("collections/c.yaml", { "serdes/meta": [{ model: "Collection" }] }),
@@ -162,6 +202,36 @@ describe("classifyContentFile", () => {
     );
   });
 
+  it("refuses a serdes/meta entry without a model", () => {
+    const classify = () =>
+      classifyContentFile("transforms/a.yaml", { "serdes/meta": [{ id: TRANSFORM_ID }] });
+
+    expect(classify).toThrow(ValidationError);
+    expect(classify).toThrow(
+      "transforms/a.yaml: serdes/meta must be a non-empty list of entries with a model",
+    );
+  });
+
+  it("refuses a serdes/meta entry whose model is not a string", () => {
+    const classify = () =>
+      classifyContentFile("transforms/a.yaml", { "serdes/meta": [{ model: null }] });
+
+    expect(classify).toThrow(ValidationError);
+    expect(classify).toThrow(
+      "transforms/a.yaml: serdes/meta must be a non-empty list of entries with a model",
+    );
+  });
+
+  it("refuses a serdes/meta entry that is not a map", () => {
+    const classify = () =>
+      classifyContentFile("transforms/a.yaml", { "serdes/meta": ["Transform"] });
+
+    expect(classify).toThrow(ValidationError);
+    expect(classify).toThrow(
+      "transforms/a.yaml: serdes/meta must be a non-empty list of entries with a model",
+    );
+  });
+
   it("refuses a transform test without the transform it covers", () => {
     const classify = () =>
       classifyContentFile("transforms/a/t.yaml", { "serdes/meta": [{ model: "TransformTest" }] });
@@ -170,9 +240,31 @@ describe("classifyContentFile", () => {
     expect(classify).toThrow("transforms/a/t.yaml: a TransformTest must name its transform_id");
   });
 
+  it("refuses a transform test whose transform_id is empty", () => {
+    const classify = () =>
+      classifyContentFile("transforms/a/t.yaml", {
+        transform_id: "",
+        "serdes/meta": [{ model: "TransformTest" }],
+      });
+
+    expect(classify).toThrow(ValidationError);
+    expect(classify).toThrow("transforms/a/t.yaml: a TransformTest must name its transform_id");
+  });
+
   it("refuses a transform without an entity_id", () => {
     const classify = () =>
       classifyContentFile("transforms/a.yaml", { "serdes/meta": [{ model: "Transform" }] });
+
+    expect(classify).toThrow(ValidationError);
+    expect(classify).toThrow("transforms/a.yaml: a Transform must name its entity_id");
+  });
+
+  it("refuses a transform whose entity_id is empty", () => {
+    const classify = () =>
+      classifyContentFile("transforms/a.yaml", {
+        entity_id: "",
+        "serdes/meta": [{ model: "Transform" }],
+      });
 
     expect(classify).toThrow(ValidationError);
     expect(classify).toThrow("transforms/a.yaml: a Transform must name its entity_id");
@@ -213,9 +305,11 @@ describe("affectedTransforms", () => {
   });
 
   it("treats a file whose entity_id changed as one transform removed and another added", () => {
-    expect(affectedTransforms([change(TRANSFORM, OTHER_TRANSFORM), change(TEST, TEST)])).toEqual([
-      OTHER_TRANSFORM_ID,
-    ]);
+    expect(affectedTransforms([change(TRANSFORM, OTHER_TRANSFORM)])).toEqual([OTHER_TRANSFORM_ID]);
+  });
+
+  it("drops an edited test whose transform is gone at head", () => {
+    expect(affectedTransforms([change(TRANSFORM, null), change(TEST, TEST)])).toEqual([]);
   });
 
   it("lists a transform once however many of its files changed", () => {
@@ -226,5 +320,37 @@ describe("affectedTransforms", () => {
 
   it("ignores files that are neither transforms nor transform tests", () => {
     expect(affectedTransforms([change(OTHER, OTHER)])).toEqual([]);
+  });
+
+  it("refuses a transform whose file no longer reads as content at head", () => {
+    const affected = () => affectedTransforms([change(TRANSFORM, OTHER)]);
+
+    expect(affected).toThrow(ValidationError);
+    expect(affected).toThrow(
+      `${CHANGED_PATH}: a Transform or TransformTest at base no longer reads as one at head`,
+    );
+  });
+
+  it("refuses a transform test whose file no longer reads as content at head", () => {
+    const affected = () => affectedTransforms([change(TEST, OTHER)]);
+
+    expect(affected).toThrow(ValidationError);
+    expect(affected).toThrow(
+      `${CHANGED_PATH}: a Transform or TransformTest at base no longer reads as one at head`,
+    );
+  });
+
+  it("refuses a transform whose identity moved under a YAML merge key", () => {
+    const merged = parseYaml(
+      `<<: {serdes/meta: [{model: Transform}], entity_id: ${TRANSFORM_ID}}\nname: t1\n`,
+      z.unknown(),
+    );
+    const affected = () =>
+      affectedTransforms([change(TRANSFORM, classifyContentFile(CHANGED_PATH, merged))]);
+
+    expect(affected).toThrow(ValidationError);
+    expect(affected).toThrow(
+      `${CHANGED_PATH}: a Transform or TransformTest at base no longer reads as one at head`,
+    );
   });
 });
