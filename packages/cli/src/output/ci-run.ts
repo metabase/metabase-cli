@@ -63,6 +63,10 @@ export function ciEventLines(event: CiEvent, maxRows: number): string[] {
     case "job.end": {
       return [`${JOB_END_TEXT[event.state]} (exit ${jobExitCode(event.state)})`];
     }
+    default: {
+      const unhandled: never = event;
+      throw new InternalError(`ci event of no known type: ${JSON.stringify(unhandled)}`);
+    }
   }
 }
 
