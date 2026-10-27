@@ -8,14 +8,17 @@ interface NamedTransform {
   name: string;
 }
 
+// `no-expectations`: the transform has tests at head, but none with an expectation.
 interface UntestedChange extends NamedTransform {
   change: "new" | "edited" | "lost-test";
+  tests: "none" | "no-expectations";
 }
 
 interface CoverageInputs {
   changes: readonly ClassifiedChange[];
   transformsAtHead: ReadonlyMap<string, string>;
   testedAtHead: ReadonlySet<string>;
+  testedWithoutExpectationsAtHead: ReadonlySet<string>;
   untestableAtHead: ReadonlySet<string>;
 }
 
@@ -36,6 +39,10 @@ function byName(a: NamedTransform, b: NamedTransform): number {
 // new file counts as new. A transform Metabase cannot test is never required to have one: such a
 // change is only listed.
 export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
+  const untested = (entityId: string, name: string, change: UntestedChange["change"]) => {
+    const tests = inputs.testedWithoutExpectationsAtHead.has(entityId) ? "no-expectations" : "none";
+    return { entityId, name, change, tests } satisfies UntestedChange;
+  };
   const logicAtBase = new Map<string, TransformLogic>();
   for (const { base } of inputs.changes) {
     if (base?.kind === "transform") {
@@ -50,21 +57,25 @@ export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
     }
     const before = logicAtBase.get(head.entityId);
     if (before === undefined) {
-      changed.set(head.entityId, { entityId: head.entityId, name: head.name, change: "new" });
+      changed.set(head.entityId, untested(head.entityId, head.name, "new"));
     } else if (!isDeepStrictEqual(before, head.logic)) {
-      changed.set(head.entityId, { entityId: head.entityId, name: head.name, change: "edited" });
+      changed.set(head.entityId, untested(head.entityId, head.name, "edited"));
     }
   }
 
-  // Every test file the transform had at base is in the diff, since none is left at head. Losing its
-  // tests explains the gap better than an edit does, so it replaces one.
+  // Every test file with expectations the transform had at base is in the diff, since none is left at
+  // head. Losing its tests explains the gap better than an edit does, so it replaces one.
   for (const { base } of inputs.changes) {
-    if (base?.kind !== "transform-test" || inputs.testedAtHead.has(base.transformId)) {
+    if (
+      base?.kind !== "transform-test" ||
+      !base.hasExpectations ||
+      inputs.testedAtHead.has(base.transformId)
+    ) {
       continue;
     }
     const name = inputs.transformsAtHead.get(base.transformId);
     if (name !== undefined) {
-      changed.set(base.transformId, { entityId: base.transformId, name, change: "lost-test" });
+      changed.set(base.transformId, untested(base.transformId, name, "lost-test"));
     }
   }
 
@@ -127,10 +138,15 @@ function untestableWarning(untestable: readonly NamedTransform[]): CiWarning {
 }
 
 function untestedMessage(transform: UntestedChange): string {
+  const withoutExpectations = transform.tests === "no-expectations";
   if (transform.change === "lost-test") {
-    return `${transform.name} lost its last transform test in this change`;
+    const lost = withoutExpectations ? "transform test with expectations" : "transform test";
+    return `${transform.name} lost its last ${lost} in this change`;
   }
-  return `${transform.name} is ${transform.change} in this change and has no transform tests`;
+  const gap = withoutExpectations
+    ? "none of its transform tests has expectations"
+    : "has no transform tests";
+  return `${transform.name} is ${transform.change} in this change and ${gap}`;
 }
 
 export function coverageStage(assessment: CoverageAssessment): CiStage {

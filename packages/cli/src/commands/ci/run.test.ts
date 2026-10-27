@@ -270,7 +270,7 @@ describe("ci run: a changed transform tested on Metabase", () => {
     );
     await repo.put(
       "transforms/a/test.yaml",
-      `entity_id: aRvM7DLesF1fOV4kRHidq\ntransform_id: ${A}\nserdes/meta:\n- model: TransformTest\n`,
+      `entity_id: aRvM7DLesF1fOV4kRHidq\ntransform_id: ${A}\nexpectations:\n- name: e\n  type: empty\nserdes/meta:\n- model: TransformTest\n`,
     );
     await repo.commitAll("add A");
   });

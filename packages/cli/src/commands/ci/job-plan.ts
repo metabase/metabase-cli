@@ -243,6 +243,7 @@ export async function planJob(
     changes,
     transformsAtHead: atHead.names,
     testedAtHead: atHead.tested,
+    testedWithoutExpectationsAtHead: atHead.testedWithoutExpectations,
     untestableAtHead: atHead.untestable,
   });
 

@@ -31,6 +31,8 @@ interface TransformFile {
 interface TransformTestFile {
   kind: "transform-test";
   transformId: string;
+  // A test with no expectations checks nothing, so it does not count as testing its transform.
+  hasExpectations: boolean;
 }
 
 interface OtherFile {
@@ -184,7 +186,11 @@ function isTestableSource(source: unknown): boolean {
 }
 
 const TRANSFORM_RULE = "a Transform must have an entity_id, a name, a source and a target";
-const TransformTestDocument = z.object({ transform_id: z.string().min(1) }).loose();
+const TRANSFORM_TEST_RULE =
+  "a TransformTest must name its transform_id, and its expectations must be a list";
+const TransformTestDocument = z
+  .object({ transform_id: z.string().min(1), expectations: z.array(z.unknown()).nullish() })
+  .loose();
 
 const SerdesMeta = z.array(z.object({ model: z.string() }).loose()).min(1);
 
@@ -229,13 +235,11 @@ export function classifyContentFile(path: string, yaml: MetabaseYaml): ContentFi
     };
   }
   if (last.model === "TransformTest") {
-    const test = parseOrRefuse(
-      path,
-      TransformTestDocument,
-      document,
-      "a TransformTest must name its transform_id",
-    );
-    return { kind: "transform-test", transformId: test.transform_id };
+    const test = parseOrRefuse(path, TransformTestDocument, document, TRANSFORM_TEST_RULE);
+    const expectations = test.expectations;
+    const hasExpectations =
+      expectations !== undefined && expectations !== null && expectations.length > 0;
+    return { kind: "transform-test", transformId: test.transform_id, hasExpectations };
   }
   return { kind: "other" };
 }
@@ -288,13 +292,19 @@ export const TRANSFORM_MODEL_PATTERN = "Transform";
 export interface HeadTransforms {
   names: Map<string, string>;
   tested: Set<string>;
+  testedWithoutExpectations: Set<string>;
   untestable: Set<string>;
 }
 
-// The transforms among files at head, each by name, the transforms a test at head covers, and the
-// transforms Metabase cannot test.
+// The transforms among files at head, each by name, the transforms a test with expectations at head
+// covers, those only tests without expectations name, and the transforms Metabase cannot test.
 export function headTransforms(files: readonly (ContentFile | null)[]): HeadTransforms {
-  const atHead: HeadTransforms = { names: new Map(), tested: new Set(), untestable: new Set() };
+  const atHead: HeadTransforms = {
+    names: new Map(),
+    tested: new Set(),
+    testedWithoutExpectations: new Set(),
+    untestable: new Set(),
+  };
   for (const file of files) {
     if (file?.kind === "transform") {
       atHead.names.set(file.entityId, file.name);
@@ -302,8 +312,12 @@ export function headTransforms(files: readonly (ContentFile | null)[]): HeadTran
         atHead.untestable.add(file.entityId);
       }
     } else if (file?.kind === "transform-test") {
-      atHead.tested.add(file.transformId);
+      const covered = file.hasExpectations ? atHead.tested : atHead.testedWithoutExpectations;
+      covered.add(file.transformId);
     }
+  }
+  for (const entityId of atHead.tested) {
+    atHead.testedWithoutExpectations.delete(entityId);
   }
   return atHead;
 }
