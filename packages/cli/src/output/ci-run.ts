@@ -32,20 +32,40 @@ const VERDICT_MARK: Readonly<Record<Verdict, string>> = {
   refused: "!",
 };
 
-const JOB_END_TEXT: Readonly<Record<JobState, string>> = {
-  passed: "PASSED",
-  failed: "FAILED  fix the transform",
-  errored: "ERRORED  fix the test or the setup",
+// Which kinds of check have failed so far. A failed coverage check asks for a test, any other
+// failed check for a fix to the transform, so the job.end line can name the fix.
+export type FailedChecks = "none" | "tests" | "transform" | "both";
+export const NO_FAILED_CHECKS: FailedChecks = "none";
+
+const FAILED_TEXT: Readonly<Record<FailedChecks, string>> = {
+  none: "FAILED  fix the transform",
+  transform: "FAILED  fix the transform",
+  tests: "FAILED  add or restore transform tests",
+  both: "FAILED  fix the transform and add the missing tests",
 };
+
+const ERRORED_TEXT = "ERRORED  fix the test or the setup";
 
 // A refused transform test and a failed coverage check carry a message as their detail; a request
 // that failed with an HTTP answer also carries its status.
 const CheckMessage = z.object({ message: z.string() });
 const HttpFailureMessage = CheckMessage.extend({ status: z.number().int() });
 
+export function failedChecksAfter(failed: FailedChecks, event: CiEvent): FailedChecks {
+  if (event.type !== "check.result" || event.verdict !== "failed") {
+    return failed;
+  }
+  const kind = event.check.kind === "coverage" ? "tests" : "transform";
+  if (failed === "none" || failed === kind) {
+    return kind;
+  }
+  return "both";
+}
+
 // The text form of one CI event: a line or more, or none for an event the next one makes plain.
 // A failed expectation shows at most `maxRows` row lines; the rest are in the --results file.
-export function ciEventLines(event: CiEvent, maxRows: number): string[] {
+// `failed` is the fold of `failedChecksAfter` over the events before this one.
+export function ciEventLines(event: CiEvent, maxRows: number, failed: FailedChecks): string[] {
   switch (event.type) {
     case "job.start": {
       const count = event.checked.length;
@@ -63,7 +83,7 @@ export function ciEventLines(event: CiEvent, maxRows: number): string[] {
       return stageEndLines(event);
     }
     case "job.end": {
-      return [`${JOB_END_TEXT[event.state]} (exit ${jobExitCode(event.state)})`];
+      return [`${jobEndText(event.state, failed)} (exit ${jobExitCode(event.state)})`];
     }
     default: {
       const unhandled: never = event;
@@ -81,6 +101,13 @@ function stageEndLines(event: StageEnd): string[] {
 
 function shortSha(sha: string): string {
   return sha.slice(0, SHORT_SHA_LENGTH);
+}
+
+function jobEndText(state: JobState, failed: FailedChecks): string {
+  if (state === "passed") {
+    return "PASSED";
+  }
+  return state === "failed" ? FAILED_TEXT[failed] : ERRORED_TEXT;
 }
 
 function jobExitCode(state: JobState): number {

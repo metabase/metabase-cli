@@ -11,7 +11,7 @@ import type {
 import { parseJson } from "@metabase/client/json";
 
 import { type CiEventBody, CiEvent, createEmitter } from "../core/ci-events";
-import { DEFAULT_MAX_ROWS, ciEventLines } from "./ci-run";
+import { DEFAULT_MAX_ROWS, NO_FAILED_CHECKS, ciEventLines, failedChecksAfter } from "./ci-run";
 
 // The events of a real failing `mb ci run` in GitHub Actions: a transform's change broke one
 // expectation of its test.
@@ -20,17 +20,27 @@ const RED_RUN_PATH = join(dirname(fileURLToPath(import.meta.url)), "ci-run.red-r
 const BASE = "0c9c8393f4f88f11d1e035fe05c90e3a70c21cfd";
 const HEAD = "eff94588cbd7431f1f751ce92ed2c9c70bd3957b";
 
-function render(bodies: readonly CiEventBody[], maxRows: number): string[] {
+function textLines(events: readonly CiEvent[], maxRows: number): string[] {
   const lines: string[] = [];
+  let failed = NO_FAILED_CHECKS;
+  for (const event of events) {
+    lines.push(...ciEventLines(event, maxRows, failed));
+    failed = failedChecksAfter(failed, event);
+  }
+  return lines;
+}
+
+function render(bodies: readonly CiEventBody[], maxRows: number): string[] {
+  const events: CiEvent[] = [];
   const emit = createEmitter({
     job: "job-1",
     now: () => new Date("2026-10-27T12:00:00.000Z"),
-    write: (event) => lines.push(...ciEventLines(event, maxRows)),
+    write: (event) => events.push(event),
   });
   for (const body of bodies) {
     emit(body);
   }
-  return lines;
+  return textLines(events, maxRows);
 }
 
 function jobStart(checked: number): CiEventBody {
@@ -106,7 +116,7 @@ describe("ciEventLines", () => {
       .split("\n")
       .map((line) => parseJson(line, CiEvent));
 
-    expect(events.flatMap((event) => ciEventLines(event, DEFAULT_MAX_ROWS))).toEqual([
+    expect(textLines(events, DEFAULT_MAX_ROWS)).toEqual([
       "mb ci run  base 0c9c839  head eff9458  1 transform checked",
       "lint",
       "  ✓ Transforms whose logic this change did not touch",
@@ -259,7 +269,7 @@ describe("ciEventLines", () => {
       "      transform_0 is new in this change and has no transform tests",
       "  ✓ Transforms whose logic this change did not touch",
       "unit  skipped",
-      "FAILED  fix the transform (exit 1)",
+      "FAILED  add or restore transform tests (exit 1)",
     ]);
   });
 
@@ -359,4 +369,46 @@ describe("ciEventLines", () => {
       "          net_revenue: expected 0.00, got null",
     ]);
   });
+
+  it("ends a job whose only failures are coverage checks by asking for tests", () => {
+    expect(render([COVERAGE_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
+      "FAILED  add or restore transform tests (exit 1)",
+    );
+  });
+
+  it("ends a job whose only failures are transform tests by asking for a fix to the transform", () => {
+    expect(render([TEST_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
+      "FAILED  fix the transform (exit 1)",
+    );
+  });
+
+  it("ends a job with both kinds of failure by asking for a fix and the missing tests", () => {
+    expect(render([COVERAGE_FAILED, TEST_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
+      "FAILED  fix the transform and add the missing tests (exit 1)",
+    );
+  });
 });
+
+const COVERAGE_FAILED: CiEventBody = {
+  type: "check.result",
+  stage: "lint",
+  check: { kind: "coverage", id: "eid-0", label: "transform_0" },
+  verdict: "failed",
+  warnings: [],
+  ms: 0,
+  detail: {
+    change: "new",
+    message: "transform_0 is new in this change and has no transform tests",
+  },
+};
+
+const TEST_FAILED: CiEventBody = unitCheck(
+  "failed",
+  equalsFailure([{ id: 1, status: "paid" }], [{ id: 1, status: "refunded" }], 0),
+);
+
+const FAILED_JOB_END: CiEventBody = {
+  type: "job.end",
+  state: "failed",
+  counts: { checks: 2, warnings: 0 },
+};

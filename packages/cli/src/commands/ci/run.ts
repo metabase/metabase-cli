@@ -4,7 +4,12 @@ import { FailedResultError } from "@metabase/client/errors";
 
 import { coverageStage, untestedTransforms } from "../../core/ci-coverage";
 import { CiEvent } from "../../core/ci-events";
-import { DEFAULT_MAX_ROWS, ciEventLines } from "../../output/ci-run";
+import {
+  DEFAULT_MAX_ROWS,
+  NO_FAILED_CHECKS,
+  ciEventLines,
+  failedChecksAfter,
+} from "../../output/ci-run";
 import { jsonLineWriter, lineWriter } from "../../output/render";
 import { interruptSignal } from "../../runtime/interrupt";
 import { connectionFlags, formatFlags, profileFlag } from "../flags";
@@ -83,9 +88,11 @@ export default defineMetabaseCommand({
 
 function textEventWriter(maxRows: number): (event: CiEvent) => void {
   const writeLine = lineWriter(process.stdout);
+  let failed = NO_FAILED_CHECKS;
   return (event) => {
-    for (const line of ciEventLines(event, maxRows)) {
+    for (const line of ciEventLines(event, maxRows, failed)) {
       writeLine(line);
     }
+    failed = failedChecksAfter(failed, event);
   };
 }
