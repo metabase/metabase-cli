@@ -7,6 +7,7 @@ import { type CoverageAssessment, assessCoverage, coverageStage } from "./ci-cov
 const DAILY_ID = "7JwIkkAG-06-nsl4jzsaq";
 const HOURLY_ID = "7XqqzlsonSq4KFyOvtrAm";
 const LEGACY_ID = "LegacyLegacyLegacy001";
+const DAILY_PATH = "transforms/daily.yaml";
 
 function transform(entityId: string, name: string, sql: string): ContentFile {
   return {
@@ -38,7 +39,9 @@ function assess(
 
 describe("assessCoverage", () => {
   it("requires a test for a transform the change adds", () => {
-    expect(assess([{ base: null, head: transform(DAILY_ID, "Daily", "SELECT 1") }])).toEqual({
+    expect(
+      assess([{ path: DAILY_PATH, base: null, head: transform(DAILY_ID, "Daily", "SELECT 1") }]),
+    ).toEqual({
       untestedChanges: [{ entityId: DAILY_ID, name: "Daily", change: "new" }],
       untouchedUntested: [HOURLY, LEGACY],
     });
@@ -46,6 +49,7 @@ describe("assessCoverage", () => {
 
   it("requires a test for a transform whose logic the change edits", () => {
     const change = {
+      path: DAILY_PATH,
       base: transform(DAILY_ID, "Daily", "SELECT 1"),
       head: transform(DAILY_ID, "Daily", "SELECT 2"),
     };
@@ -58,6 +62,7 @@ describe("assessCoverage", () => {
 
   it("only lists a transform whose name changed, since what it computes did not", () => {
     const change = {
+      path: DAILY_PATH,
       base: transform(DAILY_ID, "Daily", "SELECT 1"),
       head: transform(DAILY_ID, "Daily totals", "SELECT 1"),
     };
@@ -70,8 +75,12 @@ describe("assessCoverage", () => {
 
   it("counts a transform a rename split into a deletion and an addition as unchanged", () => {
     const changes = [
-      { base: transform(DAILY_ID, "Daily", "SELECT 1"), head: null },
-      { base: null, head: transform(DAILY_ID, "Daily", "SELECT 1") },
+      {
+        path: "transforms/old-daily.yaml",
+        base: transform(DAILY_ID, "Daily", "SELECT 1"),
+        head: null,
+      },
+      { path: DAILY_PATH, base: null, head: transform(DAILY_ID, "Daily", "SELECT 1") },
     ];
 
     expect(assess(changes)).toEqual({
@@ -82,7 +91,10 @@ describe("assessCoverage", () => {
 
   it("accepts a new transform that has a test", () => {
     expect(
-      assess([{ base: null, head: transform(DAILY_ID, "Daily", "SELECT 1") }], new Set([DAILY_ID])),
+      assess(
+        [{ path: DAILY_PATH, base: null, head: transform(DAILY_ID, "Daily", "SELECT 1") }],
+        new Set([DAILY_ID]),
+      ),
     ).toEqual({
       untestedChanges: [],
       untouchedUntested: [HOURLY, LEGACY],
@@ -91,6 +103,7 @@ describe("assessCoverage", () => {
 
   it("accepts an edited transform that has a test", () => {
     const change = {
+      path: DAILY_PATH,
       base: transform(DAILY_ID, "Daily", "SELECT 1"),
       head: transform(DAILY_ID, "Daily", "SELECT 2"),
     };

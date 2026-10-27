@@ -2,13 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { InternalError } from "@metabase/client/errors";
 
-import {
-  type CiEvent,
-  type CiEventBody,
-  type CiStage,
-  createEmitter,
-  runStages,
-} from "./ci-events";
+import { type CiEventBody, type CiStage, CiEvent, createEmitter, runStages } from "./ci-events";
 
 const FIXED_NOW = new Date("2026-10-30T12:00:00.000Z");
 
@@ -190,5 +184,87 @@ describe("runStages", () => {
 
     expect(await runStages([], emit)).toEqual({ state: "passed", checks: 0, warnings: 0 });
     expect(events).toEqual([]);
+  });
+});
+
+describe("runStages, gating", () => {
+  function recordingStage(
+    name: CiStage["name"],
+    verdict: "passed" | "failed" | "error",
+    ran: string[],
+  ): CiStage {
+    return {
+      name,
+      run: async (report) => {
+        ran.push(name);
+        await stageWith(name, verdict).run(report);
+      },
+    };
+  }
+
+  it("does not run the stage after an errored stage", async () => {
+    const { events, emit } = collector();
+    const ran: string[] = [];
+
+    const outcome = await runStages(
+      [recordingStage("lint", "error", ran), recordingStage("unit", "passed", ran)],
+      emit,
+    );
+
+    expect(outcome).toEqual({ state: "errored", checks: 1, warnings: 0 });
+    expect(ran).toEqual(["lint"]);
+    expect(events.at(-1)).toEqual({
+      type: "stage.end",
+      stage: "unit",
+      status: "skipped",
+      seq: 3,
+      job: "job-1",
+      at: "2026-10-30T12:00:00.000Z",
+    });
+  });
+
+  it("does not run the stage after a failed stage", async () => {
+    const { emit } = collector();
+    const ran: string[] = [];
+
+    await runStages(
+      [recordingStage("lint", "failed", ran), recordingStage("unit", "passed", ran)],
+      emit,
+    );
+
+    expect(ran).toEqual(["lint"]);
+  });
+});
+
+describe("createEmitter, sequence numbers", () => {
+  it("does not spend a sequence number on a refused event", () => {
+    const { events, emit } = collector();
+    const refused = () =>
+      emit({
+        type: "check.result",
+        stage: "unit",
+        check: { kind: "transform-test", id: "7", label: "t" },
+        verdict: "passed",
+        warnings: [],
+        ms: -1,
+        detail: null,
+      });
+
+    expect(refused).toThrow(InternalError);
+    emit({ type: "stage.start", stage: "unit" });
+
+    expect(events.map((event) => event.seq)).toEqual([0]);
+  });
+
+  it("refuses a fractional seq", () => {
+    const event = {
+      type: "stage.start",
+      stage: "unit",
+      seq: 0.5,
+      job: "job-1",
+      at: "2026-10-30T12:00:00.000Z",
+    };
+
+    expect(CiEvent.safeParse(event).success).toBe(false);
   });
 });

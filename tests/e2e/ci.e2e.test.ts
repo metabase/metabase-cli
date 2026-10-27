@@ -67,7 +67,7 @@ describe("ci e2e", () => {
   it("streams one event per line, and writes them to --results, for a job with nothing to check", async () => {
     const base = await repo.git("rev-parse", "HEAD");
     await repo.put(
-      "t/draft.yaml",
+      "transforms/draft.yaml",
       `name: Draft\nentity_id: ${TRANSFORM_ID}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
     );
     const resultsPath = join(repo.path, "results.json");
@@ -93,7 +93,8 @@ describe("ci e2e", () => {
         warnings: [
           {
             code: "uncommitted-content",
-            message: "1 content file is not committed, so CI did not check: t/draft.yaml",
+            message:
+              "1 content file has uncommitted changes, which CI does not see; it checks the committed version: transforms/draft.yaml",
           },
         ],
       },
@@ -112,7 +113,7 @@ describe("ci e2e", () => {
   it("fails a new transform with no test at the lint stage, skipping the unit stage and needing no server", async () => {
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
-      "t/daily.yaml",
+      "transforms/daily.yaml",
       `name: Daily\nentity_id: ${TRANSFORM_ID}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
     );
     await repo.commitAll("add an untested transform");
@@ -250,10 +251,10 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
   it("refuses a changed transform the instance does not have, ending the job errored", async () => {
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
-      "t/absent.yaml",
+      "transforms/absent.yaml",
       `name: Absent\nentity_id: ${TRANSFORM_ID}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
     );
-    await repo.put("t/absent/test.yaml", testYaml(TRANSFORM_ID));
+    await repo.put("transforms/absent/test.yaml", testYaml(TRANSFORM_ID));
     await repo.commitAll("add a transform the instance never saw, with a test");
 
     const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
@@ -334,10 +335,10 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     const base = await repo.git("rev-parse", "HEAD");
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
-      "t/order_totals.yaml",
+      "transforms/order_totals.yaml",
       `name: Order totals\nentity_id: ${entityId}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
     );
-    await repo.put("t/order_totals/total_adds_tax.yaml", testYaml(entityId));
+    await repo.put("transforms/order_totals/total_adds_tax.yaml", testYaml(entityId));
     const head = await repo.commitAll("add transform and its test");
 
     function expectedEvents(verdict: "passed" | "failed", rows: ExpectedRows): unknown[] {

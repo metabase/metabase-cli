@@ -94,8 +94,22 @@ export function statusPorcelain(repo: string): Promise<string> {
   return git(repo, ["status", "--porcelain", "-z", "--untracked-files=all"]);
 }
 
-export function readFileAt(repo: string, commit: string, path: string): Promise<string> {
-  return git(repo, ["cat-file", "blob", `${commit}:${path}`]);
+// `git ls-tree -z` writes `<mode> <type> <object>\t<path>` per entry.
+export async function fileModesAt(repo: string, commit: string): Promise<Map<string, string>> {
+  const output = await git(repo, ["ls-tree", "-r", "-z", "--full-tree", commit]);
+  const modes = new Map<string, string>();
+  for (const record of output.split("\0")) {
+    if (record === "") {
+      continue;
+    }
+    const space = record.indexOf(" ");
+    const tab = record.indexOf("\t");
+    if (space === -1 || tab < space) {
+      throw new InternalError(`git ls-tree -z: malformed entry "${record}"`);
+    }
+    modes.set(record.slice(tab + 1), record.slice(0, space));
+  }
+  return modes;
 }
 
 export async function filesMatching(

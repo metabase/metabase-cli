@@ -4,7 +4,8 @@ import { dirname, join } from "node:path";
 
 import { runProcess } from "./process";
 
-// The developer's global and system git config (signing, hooks, aliases) must not reach the test.
+// The helper's own git calls ignore the developer's global and system config (signing, hooks), so
+// setting up a repository never prompts or fails on a developer machine.
 const ISOLATED_GIT_ENV = {
   ...process.env,
   GIT_CONFIG_GLOBAL: "/dev/null",

@@ -1,8 +1,11 @@
+import { symlink } from "node:fs/promises";
+import { join } from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { ConfigError, InternalError } from "@metabase/client/errors";
 
-import { filesMatching, mergeBase, readFileAt, readFilesAt, resolveCommit } from "./git";
+import { fileModesAt, filesMatching, mergeBase, readFilesAt, resolveCommit } from "./git";
 import { type TempGitRepo, createTempGitRepo } from "./temp-git-repo";
 
 let repo: TempGitRepo;
@@ -32,7 +35,7 @@ describe("filesMatching", () => {
     expect(await filesMatching(repo.path, commit, "entity_id: none", ["*.yaml"])).toEqual([]);
   });
 
-  it("is not confused by a colour setting that forces escape codes into piped output", async () => {
+  it("is not confused by a color setting that forces escape codes into piped output", async () => {
     await repo.put("t/a.yaml", "entity_id: abc\n");
     const commit = await repo.commitAll("add");
     await repo.git("config", "color.ui", "always");
@@ -65,14 +68,18 @@ describe("mergeBase", () => {
   });
 });
 
-describe("readFileAt", () => {
-  it("refuses a path that is not in the commit", async () => {
-    const commit = await repo.git("rev-parse", "HEAD");
-    const read = readFileAt(repo.path, commit, "missing.yaml");
+describe("fileModesAt", () => {
+  it("names the git mode of every file at a commit, symlinks included", async () => {
+    await repo.put("t/a.yaml", "name: a\n");
+    await symlink("a.yaml", join(repo.path, "t/link.yaml"));
+    const commit = await repo.commitAll("add");
 
-    await expect(read).rejects.toThrow(ConfigError);
-    await expect(read).rejects.toThrow(
-      `git cat-file blob ${commit}:missing.yaml failed in ${repo.path}`,
+    expect(await fileModesAt(repo.path, commit)).toEqual(
+      new Map([
+        ["README.md", "100644"],
+        ["t/a.yaml", "100644"],
+        ["t/link.yaml", "120000"],
+      ]),
     );
   });
 });

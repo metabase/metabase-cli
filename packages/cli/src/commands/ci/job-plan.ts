@@ -1,10 +1,10 @@
-import { z } from "zod";
+import { InternalError, ValidationError } from "@metabase/client/errors";
 
 import {
   type ClassifiedChange,
   type ContentFile,
   type DiffEntry,
-  CONTENT_FILE_EXTENSIONS,
+  CONTENT_TOP_LEVEL_FOLDERS,
   affectedTransforms,
   classifyContentFile,
   isContentPath,
@@ -17,17 +17,18 @@ import type { CheckedTransform, CiWarning, Snapshot } from "../../core/ci-events
 import {
   checkedOutCommit,
   diffNameStatus,
+  fileModesAt,
   filesMatching,
   mergeBase,
-  readFileAt,
   readFilesAt,
   repositoryRoot,
   resolveCommit,
   statusPorcelain,
 } from "../../runtime/git";
-import { parseYaml } from "../../runtime/yaml";
+import { parseMetabaseYaml } from "../../runtime/yaml";
 
-const CONTENT_PATHSPECS = CONTENT_FILE_EXTENSIONS.map((extension) => `*${extension}`);
+// A pathspec `*` also matches `/`, so each covers every depth; isContentPath narrows the hits.
+const CONTENT_PATHSPECS = CONTENT_TOP_LEVEL_FOLDERS.map((folder) => `${folder}/*.yaml`);
 
 export interface JobPlan {
   snapshot: Snapshot;
@@ -36,16 +37,38 @@ export interface JobPlan {
   coverage: CoverageAssessment;
 }
 
+// A regular or executable file. Metabase's import follows a symlink and reads a submodule's
+// checkout, neither of which this check can see, so those are refused rather than dropped.
+const FILE_MODES = new Set(["100644", "100755"]);
+
+// Reads and classifies the content files among `paths` at one commit, in one batch.
 async function classifyAt(
   repo: string,
   commit: string,
-  path: string | null,
-): Promise<ContentFile | null> {
-  if (path === null || !isContentPath(path)) {
-    return null;
+  paths: readonly string[],
+): Promise<Map<string, ContentFile>> {
+  const content = paths.filter(isContentPath);
+  if (content.length === 0) {
+    return new Map();
   }
-  const text = await readFileAt(repo, commit, path);
-  return classifyContentFile(path, parseYaml(text, z.unknown(), { source: `${commit}:${path}` }));
+  const modes = await fileModesAt(repo, commit);
+  for (const path of content) {
+    const mode = modes.get(path);
+    if (mode === undefined) {
+      throw new InternalError(`git listed ${path} at ${commit}, but its tree does not hold it`);
+    }
+    if (!FILE_MODES.has(mode)) {
+      throw new ValidationError(
+        `${commit}:${path} is not a regular file (git mode ${mode}): Metabase would import what it points to, which this check cannot read; commit the file itself`,
+        { source: `${commit}:${path}`, zodIssues: [] },
+      );
+    }
+  }
+  const classified = new Map<string, ContentFile>();
+  for (const [path, text] of await readFilesAt(repo, commit, content)) {
+    classified.set(path, classifyContentFile(path, parseMetabaseYaml(text, `${commit}:${path}`)));
+  }
+  return classified;
 }
 
 function basePath(entry: DiffEntry): string | null {
@@ -59,17 +82,36 @@ function headPath(entry: DiffEntry): string | null {
   return entry.status === "deleted" ? null : entry.path;
 }
 
-async function classifyChange(
+function present(paths: readonly (string | null)[]): string[] {
+  return paths.filter((path) => path !== null);
+}
+
+function sideOf(files: ReadonlyMap<string, ContentFile>, path: string | null): ContentFile | null {
+  if (path === null || !isContentPath(path)) {
+    return null;
+  }
+  const file = files.get(path);
+  if (file === undefined) {
+    throw new InternalError(`${path} was not read, though the diff names it`);
+  }
+  return file;
+}
+
+async function classifyChanges(
   repo: string,
   forkPoint: string,
   head: string,
-  entry: DiffEntry,
-): Promise<ClassifiedChange> {
-  const [baseSide, headSide] = await Promise.all([
-    classifyAt(repo, forkPoint, basePath(entry)),
-    classifyAt(repo, head, headPath(entry)),
+  entries: readonly DiffEntry[],
+): Promise<ClassifiedChange[]> {
+  const [baseFiles, headFiles] = await Promise.all([
+    classifyAt(repo, forkPoint, present(entries.map(basePath))),
+    classifyAt(repo, head, present(entries.map(headPath))),
   ]);
-  return { base: baseSide, head: headSide };
+  return entries.map((entry) => ({
+    path: entry.path,
+    base: sideOf(baseFiles, basePath(entry)),
+    head: sideOf(headFiles, headPath(entry)),
+  }));
 }
 
 // Every Transform and TransformTest file names its model in `serdes/meta`, as `model: Transform…`,
@@ -104,11 +146,8 @@ async function scanHead(
   }
   const matched = await filesMatching(repo, head, TRANSFORM_MODEL_PATTERN, CONTENT_PATHSPECS);
   const unchanged = matched.filter((path) => !changedPaths.has(path));
-  for (const [path, text] of await readFilesAt(repo, head, unchanged)) {
-    record(
-      atHead,
-      classifyContentFile(path, parseYaml(text, z.unknown(), { source: `${head}:${path}` })),
-    );
+  for (const file of (await classifyAt(repo, head, unchanged)).values()) {
+    record(atHead, file);
   }
   return atHead;
 }
@@ -127,9 +166,7 @@ export async function planJob(
   ]);
   const forkPoint = await mergeBase(repo, base, head);
   const entries = parseNameStatus(await diffNameStatus(repo, forkPoint, head));
-  const changes = await Promise.all(
-    entries.map((entry) => classifyChange(repo, forkPoint, head, entry)),
-  );
+  const changes = await classifyChanges(repo, forkPoint, head, entries);
 
   const atHead = await scanHead(repo, head, changes, new Set(entries.map((entry) => entry.path)));
   const checked: CheckedTransform[] = [];
