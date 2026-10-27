@@ -1,3 +1,5 @@
+import { Writable } from "node:stream";
+
 import { afterEach, assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -12,6 +14,7 @@ import {
   renderSummary,
   writeJson,
   writeText,
+  jsonLineWriter,
 } from "./render";
 import { renderTable } from "./table";
 import {
@@ -583,5 +586,38 @@ describe("writeText", () => {
   it("appends a single trailing newline to the input", () => {
     writeText("hello\nworld");
     expect(streams.stdout).toBe("hello\nworld\n");
+  });
+});
+
+describe("jsonLineWriter", () => {
+  it("writes one compact line per value", () => {
+    const lines: string[] = [];
+    const stream = new Writable({
+      write(chunk: Buffer, _encoding, done) {
+        lines.push(chunk.toString("utf8"));
+        done();
+      },
+    });
+
+    jsonLineWriter(stream)({ type: "job.end", counts: { checks: 1 } });
+
+    expect(lines).toEqual(['{"type":"job.end","counts":{"checks":1}}\n']);
+  });
+
+  it("drops the lines after the reader closes the pipe, rather than crashing", async () => {
+    const lines: string[] = [];
+    const stream = new Writable({
+      write(chunk: Buffer, _encoding, done) {
+        lines.push(chunk.toString("utf8"));
+        done(Object.assign(new Error("write EPIPE"), { code: "EPIPE" }));
+      },
+    });
+    const write = jsonLineWriter(stream);
+
+    write({ seq: 0 });
+    await new Promise((resolve) => setImmediate(resolve));
+    write({ seq: 1 });
+
+    expect(lines).toEqual(['{"seq":0}\n']);
   });
 });

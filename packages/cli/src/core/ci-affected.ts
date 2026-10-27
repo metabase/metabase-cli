@@ -3,6 +3,8 @@ import { z } from "zod";
 import { InternalError, ValidationError } from "@metabase/client/errors";
 import { isPlainObject } from "@metabase/client/predicates";
 
+import type { CiWarning } from "./ci-events";
+
 interface PathEntry {
   status: "added" | "modified" | "deleted";
   path: string;
@@ -14,11 +16,12 @@ interface RenamedEntry {
   oldPath: string;
 }
 
-type DiffEntry = PathEntry | RenamedEntry;
+export type DiffEntry = PathEntry | RenamedEntry;
 
 interface TransformFile {
   kind: "transform";
   entityId: string;
+  name: string;
 }
 
 interface TransformTestFile {
@@ -107,9 +110,47 @@ export function parseNameStatus(output: string): DiffEntry[] {
   return entries;
 }
 
+const PORCELAIN_STATUS_WIDTH = 2;
+const PORCELAIN_SOURCE_STATUSES = new Set(["R", "C"]);
+
+// `git status --porcelain -z` writes `XY path` per entry; a rename or copy is followed by its
+// source path as a separate token, which is not itself a change.
+export function parseStatusPorcelain(output: string): string[] {
+  if (output === "") {
+    return [];
+  }
+  if (!output.endsWith("\0")) {
+    throw new InternalError(
+      "git status --porcelain -z: truncated: the output does not end in a NUL",
+    );
+  }
+  const paths: string[] = [];
+  let sourceFollows = false;
+  for (const record of output.slice(0, -1).split("\0")) {
+    if (sourceFollows) {
+      sourceFollows = false;
+      continue;
+    }
+    const status = record.slice(0, PORCELAIN_STATUS_WIDTH);
+    const path = record.slice(PORCELAIN_STATUS_WIDTH + 1);
+    if (
+      status.length !== PORCELAIN_STATUS_WIDTH ||
+      record.charAt(PORCELAIN_STATUS_WIDTH) !== " " ||
+      path === ""
+    ) {
+      throw new InternalError(`git status --porcelain -z: malformed entry "${record}"`);
+    }
+    paths.push(path);
+    sourceFollows = [...status].some((letter) => PORCELAIN_SOURCE_STATUSES.has(letter));
+  }
+  return paths;
+}
+
 const SERDES_META_KEY = "serdes/meta";
 
-const TransformDocument = z.object({ entity_id: z.string().min(1) }).loose();
+const TransformDocument = z
+  .object({ entity_id: z.string().min(1), name: z.string().min(1) })
+  .loose();
 const TransformTestDocument = z.object({ transform_id: z.string().min(1) }).loose();
 
 const SerdesMeta = z.array(z.object({ model: z.string() }).loose()).min(1);
@@ -144,9 +185,9 @@ export function classifyContentFile(path: string, document: unknown): ContentFil
       path,
       TransformDocument,
       document,
-      "a Transform must name its entity_id",
+      "a Transform must have an entity_id and a name",
     );
-    return { kind: "transform", entityId: transform.entity_id };
+    return { kind: "transform", entityId: transform.entity_id, name: transform.name };
   }
   if (last.model === "TransformTest") {
     const test = parseOrRefuse(
@@ -196,4 +237,73 @@ export function affectedTransforms(changes: readonly ClassifiedChange[]): string
 
   // A test-only change names a transform the diff does not show; keep it unless the diff removed it.
   return [...touched].filter((entityId) => atHead.has(entityId) || !atBase.has(entityId));
+}
+
+// Mirrors Metabase's `legal-top-level-paths` and `shared-top-level-paths`
+// (serialization/v2/ingest.clj): the top-level folders an import reads entity files from.
+export const CONTENT_TOP_LEVEL_FOLDERS = [
+  "actions",
+  "channels",
+  "collections",
+  "custom_viz_plugins",
+  "data_apps",
+  "databases",
+  "embedding_themes",
+  "glossary",
+  "metabots",
+  "python_libraries",
+  "python-libraries",
+  "osi_ai_context",
+  "snippets",
+  "transforms",
+] as const;
+
+const SHARED_TOP_LEVEL_FILE_NAMES = new Map<string, string>([["data_apps", "data_app.yaml"]]);
+
+const CONTENT_FOLDERS = new Set<string>(CONTENT_TOP_LEVEL_FOLDERS);
+
+// Mirrors Metabase's `entity-file-path?`: a `.yaml` file that is not a dotfile, under a legal
+// top-level folder, named its folder's entity file when that folder is shared.
+export function isContentPath(path: string): boolean {
+  const slash = path.indexOf("/");
+  if (slash === -1) {
+    return false;
+  }
+  const top = path.slice(0, slash);
+  const fileName = path.slice(path.lastIndexOf("/") + 1);
+  if (!fileName.endsWith(".yaml") || fileName.startsWith(".") || !CONTENT_FOLDERS.has(top)) {
+    return false;
+  }
+  const entityFileName = SHARED_TOP_LEVEL_FILE_NAMES.get(top);
+  return entityFileName === undefined || entityFileName === fileName;
+}
+
+// Without it, a diff with no content file passes with an empty `checked`, as if CI had verified it.
+export function noContentChangesWarning(entries: readonly DiffEntry[]): CiWarning | null {
+  const touchesContent = entries.some(
+    (entry) =>
+      isContentPath(entry.path) || (entry.status === "renamed" && isContentPath(entry.oldPath)),
+  );
+  if (touchesContent) {
+    return null;
+  }
+  return {
+    code: "no-content-changes",
+    message: "the change touches no Metabase content files, so CI checked nothing",
+  };
+}
+
+export function uncommittedContentWarning(paths: readonly string[]): CiWarning | null {
+  const content = paths.filter(isContentPath);
+  if (content.length === 0) {
+    return null;
+  }
+  const summary =
+    content.length === 1
+      ? "1 content file has uncommitted changes"
+      : `${content.length} content files have uncommitted changes`;
+  return {
+    code: "uncommitted-content",
+    message: `${summary}, which CI does not see; it checks the committed version: ${content.join(", ")}`,
+  };
 }

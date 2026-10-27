@@ -11,13 +11,25 @@ import {
   affectedTransforms,
   classifyContentFile,
   parseNameStatus,
+  isContentPath,
+  noContentChangesWarning,
+  parseStatusPorcelain,
+  uncommittedContentWarning,
 } from "./ci-affected";
 
 const TRANSFORM_ID = "7JwIkkAG-06-nsl4jzsaq";
 const OTHER_TRANSFORM_ID = "7XqqzlsonSq4KFyOvtrAm";
 
-const TRANSFORM: ContentFile = { kind: "transform", entityId: TRANSFORM_ID };
-const OTHER_TRANSFORM: ContentFile = { kind: "transform", entityId: OTHER_TRANSFORM_ID };
+const TRANSFORM: ContentFile = {
+  kind: "transform",
+  entityId: TRANSFORM_ID,
+  name: "Daily Order Summary",
+};
+const OTHER_TRANSFORM: ContentFile = {
+  kind: "transform",
+  entityId: OTHER_TRANSFORM_ID,
+  name: "Hourly Stats",
+};
 const TEST: ContentFile = { kind: "transform-test", transformId: TRANSFORM_ID };
 const OTHER: ContentFile = { kind: "other" };
 
@@ -160,6 +172,7 @@ describe("classifyContentFile", () => {
     expect(
       classifyContentFile("transforms/a.yaml", {
         entity_id: TRANSFORM_ID,
+        name: "Daily Order Summary",
         "serdes/meta": [{ model: "Transform" }],
       }),
     ).toEqual(TRANSFORM);
@@ -256,7 +269,7 @@ describe("classifyContentFile", () => {
       classifyContentFile("transforms/a.yaml", { "serdes/meta": [{ model: "Transform" }] });
 
     expect(classify).toThrow(ValidationError);
-    expect(classify).toThrow("transforms/a.yaml: a Transform must name its entity_id");
+    expect(classify).toThrow("transforms/a.yaml: a Transform must have an entity_id and a name");
   });
 
   it("refuses a transform whose entity_id is empty", () => {
@@ -267,7 +280,7 @@ describe("classifyContentFile", () => {
       });
 
     expect(classify).toThrow(ValidationError);
-    expect(classify).toThrow("transforms/a.yaml: a Transform must name its entity_id");
+    expect(classify).toThrow("transforms/a.yaml: a Transform must have an entity_id and a name");
   });
 });
 
@@ -352,5 +365,133 @@ describe("affectedTransforms", () => {
     expect(affected).toThrow(
       `${CHANGED_PATH}: a Transform or TransformTest at base no longer reads as one at head`,
     );
+  });
+});
+
+describe("parseStatusPorcelain", () => {
+  it("lists modified, renamed and untracked paths, skipping a rename's source", () => {
+    expect(parseStatusPorcelain(" M a.yaml\0R  c.yaml\0b.yaml\0?? new.yaml\0")).toEqual([
+      "a.yaml",
+      "c.yaml",
+      "new.yaml",
+    ]);
+  });
+
+  it("reads a clean tree as no paths", () => {
+    expect(parseStatusPorcelain("")).toEqual([]);
+  });
+
+  it("skips a copy's source path", () => {
+    expect(parseStatusPorcelain("C  copy.yaml\0orig.yaml\0?? new.yaml\0")).toEqual([
+      "copy.yaml",
+      "new.yaml",
+    ]);
+  });
+
+  it("refuses an entry whose status is not followed by a space", () => {
+    const parse = () => parseStatusPorcelain("MMa.yaml\0");
+
+    expect(parse).toThrow(InternalError);
+    expect(parse).toThrow('git status --porcelain -z: malformed entry "MMa.yaml"');
+  });
+
+  it("refuses an entry without the status and space prefix", () => {
+    const parse = () => parseStatusPorcelain("M\0");
+
+    expect(parse).toThrow(InternalError);
+    expect(parse).toThrow('git status --porcelain -z: malformed entry "M"');
+  });
+
+  it("refuses output cut off before its final NUL", () => {
+    const parse = () => parseStatusPorcelain(" M a.yaml");
+
+    expect(parse).toThrow(InternalError);
+    expect(parse).toThrow("git status --porcelain -z: truncated: the output does not end in a NUL");
+  });
+});
+
+describe("isContentPath", () => {
+  it("accepts a .yaml file under a Metabase content folder", () => {
+    expect(
+      [
+        "transforms/a.yaml",
+        "collections/x/cards/b.yaml",
+        "python-libraries/c.yaml",
+        "data_apps/app/data_app.yaml",
+      ].map(isContentPath),
+    ).toEqual([true, true, true, true]);
+  });
+
+  it("refuses what Metabase's import does not read as an entity file", () => {
+    expect(
+      [
+        "a.yaml",
+        "transforms/b.yml",
+        "transforms/c.json",
+        "transforms/d.yaml.bak",
+        "transforms/.e.yaml",
+        ".github/workflows/ci.yaml",
+        "docs/examples/f.yaml",
+        "data_apps/app/src/g.yaml",
+        "Transforms/h.yaml",
+      ].map(isContentPath),
+    ).toEqual([false, false, false, false, false, false, false, false, false]);
+  });
+});
+
+describe("noContentChangesWarning", () => {
+  it("warns when no changed path is a content file", () => {
+    expect(
+      noContentChangesWarning([
+        { status: "modified", path: "README.md" },
+        { status: "added", path: "docs/daily.yaml" },
+      ]),
+    ).toEqual({
+      code: "no-content-changes",
+      message: "the change touches no Metabase content files, so CI checked nothing",
+    });
+  });
+
+  it("warns on an empty diff", () => {
+    expect(noContentChangesWarning([])).toEqual({
+      code: "no-content-changes",
+      message: "the change touches no Metabase content files, so CI checked nothing",
+    });
+  });
+
+  it("does not warn when a content file changed", () => {
+    expect(noContentChangesWarning([{ status: "deleted", path: CHANGED_PATH }])).toBeNull();
+  });
+
+  it("does not warn when a content file was renamed out of the content folders", () => {
+    expect(
+      noContentChangesWarning([
+        { status: "renamed", path: "archive/t1.yaml", oldPath: CHANGED_PATH },
+      ]),
+    ).toBeNull();
+  });
+});
+
+describe("uncommittedContentWarning", () => {
+  it("names one uncommitted content file", () => {
+    expect(
+      uncommittedContentWarning(["transforms/a.yaml", "notes.txt", ".github/ci.yaml"]),
+    ).toEqual({
+      code: "uncommitted-content",
+      message:
+        "1 content file has uncommitted changes, which CI does not see; it checks the committed version: transforms/a.yaml",
+    });
+  });
+
+  it("counts several uncommitted content files", () => {
+    expect(uncommittedContentWarning(["transforms/a.yaml", "collections/b.yaml"])).toEqual({
+      code: "uncommitted-content",
+      message:
+        "2 content files have uncommitted changes, which CI does not see; it checks the committed version: transforms/a.yaml, collections/b.yaml",
+    });
+  });
+
+  it("says nothing when no content file is uncommitted", () => {
+    expect(uncommittedContentWarning(["notes.txt"])).toBeNull();
   });
 });
