@@ -263,6 +263,7 @@ describe("lintStage, gating", () => {
       name: "unit",
       run: async () => {
         ran.push("unit");
+        return null;
       },
     };
     const cycle = finding({
@@ -285,8 +286,8 @@ describe("lintStage, gating", () => {
     expect(outcome).toEqual({ state: "failed", checks: 3, warnings: 0 });
     expect(ran).toEqual([]);
     expect(ends).toEqual([
-      { type: "stage.end", stage: "lint", status: "failed" },
-      { type: "stage.end", stage: "unit", status: "skipped" },
+      { type: "stage.end", stage: "lint", status: "failed", stopped: null },
+      { type: "stage.end", stage: "unit", status: "skipped", stopped: null },
     ]);
   });
 });

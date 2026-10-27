@@ -156,10 +156,14 @@ export function lintStage(coverage: CoverageAssessment, lintTree: LintTree): CiS
   return {
     name: "lint",
     run: async (report) => {
-      await coverageChecks.run(report);
+      const stopped = await coverageChecks.run(report);
+      if (stopped !== null) {
+        return stopped;
+      }
       for (const check of await runLint(lintTree)) {
         report(check);
       }
+      return null;
     },
   };
 }
