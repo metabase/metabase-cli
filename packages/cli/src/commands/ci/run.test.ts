@@ -282,6 +282,21 @@ const FAILED_RUN = {
   ],
 };
 
+const MANY_ROWS_RUN = {
+  status: "failed",
+  tables: {},
+  expectations: [
+    {
+      name: "e",
+      type: "empty",
+      status: "failed",
+      columns: [{ name: "id", database_type: "int8" }],
+      sample: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }],
+      truncated: 0,
+    },
+  ],
+};
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -461,27 +476,31 @@ describe("ci run: a changed transform tested on Metabase", () => {
     );
   });
 
-  it("caps the rows on stdout at --max-rows and keeps every row in the --results file", async () => {
-    const sample = Array.from({ length: 4 }, (_, index) => ({ id: index }));
-    const expectation = { name: "e", type: "empty", status: "failed", columns: [], truncated: 0 };
-    serveRun(() => json({ ...FAILED_RUN, expectations: [{ ...expectation, sample }] }));
-    const resultsPath = join(repo.path, "results.json");
+  it("writes every row to JSON stdout whatever --max-rows says", async () => {
+    serveRun(() => json(MANY_ROWS_RUN));
+
+    const result = await run(["--repo", repo.path, "--base", "main", "--json", "--max-rows", "1"]);
+
+    expect(unitDetail(events(result.stdout))).toEqual(MANY_ROWS_RUN);
+  });
+
+  it("shows --max-rows rows of a failed expectation under --format text", async () => {
+    serveRun(() => json(MANY_ROWS_RUN));
 
     const result = await run([
       "--repo",
       repo.path,
       "--base",
       "main",
+      "--format",
+      "text",
       "--max-rows",
       "1",
-      "--results",
-      resultsPath,
     ]);
 
-    const written = parseJson(await readFile(resultsPath, "utf8"), z.array(CiEvent));
-    expect([unitDetail(events(result.stdout)), unitDetail(written)]).toEqual([
-      { ...FAILED_RUN, expectations: [{ ...expectation, sample: [{ id: 0 }], truncated: 3 }] },
-      { ...FAILED_RUN, expectations: [{ ...expectation, sample }] },
+    expect(result.stdout.split("\n").filter((line) => line.startsWith("          "))).toEqual([
+      "          row  id=0",
+      "          +3 more",
     ]);
   });
 

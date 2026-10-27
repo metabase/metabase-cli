@@ -11,8 +11,7 @@ import type {
 import { parseJson } from "@metabase/client/json";
 
 import { type CiEventBody, CiEvent, createEmitter } from "../core/ci-events";
-import { DEFAULT_MAX_ROWS } from "../core/ci-row-cap";
-import { ciEventLines } from "./ci-run";
+import { DEFAULT_MAX_ROWS, ciEventLines } from "./ci-run";
 
 // The events of a real failing `mb ci run` in GitHub Actions: a transform's change broke one
 // expectation of its test.
@@ -282,6 +281,34 @@ describe("ciEventLines", () => {
       "  ✗ orders: order rules  250ms",
       "      ✗ one row per order  1 row, expected 0",
       "          +1 more",
+    ]);
+  });
+
+  it("counts the cell mismatches past --max-rows in the +N more line", () => {
+    const mismatch = { column: "net_revenue", expected: "0.00", actual: null };
+    const result: TransformTestRunResult = {
+      status: "failed",
+      tables: {},
+      expectations: [
+        {
+          name: "revenue per order",
+          type: "equals",
+          status: "failed",
+          columns: [{ name: "net_revenue", database_type: "numeric" }],
+          "row-counts": { actual: 3, expected: 3 },
+          "missing-rows": [],
+          "extra-rows": [],
+          "cell-mismatches": [mismatch, mismatch, mismatch],
+          truncated: 0,
+        },
+      ],
+    };
+
+    expect(render([unitCheck("failed", result)], 1)).toEqual([
+      "  ✗ orders: order rules  250ms",
+      "      ✗ revenue per order  3 rows, expected 3",
+      "          net_revenue: expected 0.00, got null",
+      "          +2 more",
     ]);
   });
 

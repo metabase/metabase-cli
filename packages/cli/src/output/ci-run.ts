@@ -15,6 +15,8 @@ type CheckResult = Extract<CiEvent, { type: "check.result" }>;
 type StageEnd = Extract<CiEvent, { type: "stage.end" }>;
 type Cell = TransformTestRow[string];
 
+// A public repo's CI log is public, and a transform test's rows can come from warehouse tables.
+export const DEFAULT_MAX_ROWS = 5;
 const SHORT_SHA_LENGTH = 7;
 const MS_PER_SECOND = 1000;
 const PASSED_EXIT_CODE = 0;
