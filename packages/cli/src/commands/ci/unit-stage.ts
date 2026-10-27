@@ -12,6 +12,7 @@ import {
   type UnitFailure,
   INVALID_ENTITY_ID,
   lookupStop,
+  NO_TESTS_ON_INSTANCE,
   testVerdict,
   TRANSFORM_NOT_ON_INSTANCE,
   transformFailure,
@@ -136,6 +137,7 @@ function reportFailure(
 async function checkTransform(
   transform: CheckedTransform,
   transformId: number,
+  untestedInBranch: boolean,
   port: UnitStagePort,
   report: Report,
 ): Promise<StageStop | null> {
@@ -154,6 +156,17 @@ async function checkTransform(
   const tests = await attempt("list", () => port.listTests(transformId));
   if (tests.kind !== "settled") {
     return reportFailure(tests, transformCheck, port.nowMs() - started, report);
+  }
+  // A transform the branch has no test for is the coverage check's to report.
+  if (tests.value.length === 0 && !untestedInBranch) {
+    report({
+      check: transformCheck,
+      verdict: "refused",
+      warnings: [],
+      ms: port.nowMs() - started,
+      detail: NO_TESTS_ON_INSTANCE,
+    });
+    return null;
   }
   for (const test of tests.value.toSorted((a, b) => a.id - b.id)) {
     const check = {
@@ -179,6 +192,7 @@ async function checkTransform(
 // The stage connects only when it runs, so a job that a failed lint stage cuts short never needs a server.
 export function unitStage(
   checked: readonly CheckedTransform[],
+  untestedInBranch: ReadonlySet<string>,
   connect: () => Promise<UnitStagePort>,
 ): CiStage {
   return {
@@ -210,7 +224,8 @@ export function unitStage(
           });
           continue;
         }
-        const stop = await checkTransform(transform, lookup.id, port, report);
+        const untested = untestedInBranch.has(transform.entity_id);
+        const stop = await checkTransform(transform, lookup.id, untested, port, report);
         if (stop !== null) {
           return stop;
         }
