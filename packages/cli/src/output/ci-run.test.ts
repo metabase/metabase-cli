@@ -263,6 +263,28 @@ describe("ciEventLines", () => {
     ]);
   });
 
+  it("renders a transform that lost its last test as a failed coverage check", () => {
+    expect(
+      render(
+        [
+          {
+            type: "check.result",
+            stage: "lint",
+            check: { kind: "coverage", id: "eid-0", label: "transform_0" },
+            verdict: "failed",
+            warnings: [],
+            ms: 0,
+            detail: {
+              change: "lost-test",
+              message: "transform_0 lost its last transform test in this change",
+            },
+          },
+        ],
+        DEFAULT_MAX_ROWS,
+      ),
+    ).toEqual(["  ✗ transform_0", "      transform_0 lost its last transform test in this change"]);
+  });
+
   it("shows --max-rows row lines and counts the rest, including the rows Metabase left out", () => {
     const extra = Array.from({ length: 12 }, (_, index) => ({ id: index, status: "paid" }));
 
