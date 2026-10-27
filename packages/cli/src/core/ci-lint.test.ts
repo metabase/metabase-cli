@@ -105,6 +105,9 @@ describe("lintStage, errors", () => {
     "duplicate-target",
     "missing-input",
     "unused-input",
+    "untestable-transform",
+    "duplicate-input",
+    "expectation-reads-other-table",
   ])("fails a broken-refs check for %s", async (rule) => {
     const broken = finding({ rule, severity: "error", file: "tests/daily.yaml", message: "m" });
 
@@ -213,6 +216,29 @@ describe("lintStage, warnings", () => {
     ]);
   });
 
+  it("collects an undecided input match into the warnings check", async () => {
+    const undecided = finding({
+      rule: "input-match-undecided",
+      severity: "warning",
+      file: "tests/daily.yaml",
+      message: "input ORDERS stands in for PUBLIC.ORDERS only if PUBLIC is the default schema",
+    });
+
+    expect((await lintReports(linted([undecided])))[1]).toEqual({
+      check: { kind: "lint", id: "lint", label: "Representation lint" },
+      verdict: "passed",
+      warnings: [
+        {
+          code: "input-match-undecided",
+          message:
+            "tests/daily.yaml: input ORDERS stands in for PUBLIC.ORDERS only if PUBLIC is the default schema",
+        },
+      ],
+      ms: 0,
+      detail: { files: LINTED_FILES, findings: [undecided] },
+    });
+  });
+
   it("still reports the lint check when there are no findings", async () => {
     expect(await lintReports(linted([]))).toEqual([COVERAGE_SUMMARY, NO_WARNINGS]);
   });
@@ -249,7 +275,7 @@ describe("lintStage, a broken linter", () => {
         ms: 0,
         detail: {
           message:
-            'the linter answered an unreadable result: ✖ Invalid option: expected one of "unknown-table"|"reads-not-checked"\n  → at findings[0].rule',
+            'the linter answered an unreadable result: ✖ Invalid option: expected one of "unknown-table"|"input-match-undecided"|"reads-not-checked"\n  → at findings[0].rule',
         },
       },
     ]);

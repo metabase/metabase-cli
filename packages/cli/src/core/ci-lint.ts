@@ -17,8 +17,11 @@ const LINT_ERROR_RULES = [
   "transform-cycle",
   "missing-input",
   "unused-input",
+  "untestable-transform",
+  "duplicate-input",
+  "expectation-reads-other-table",
 ] as const;
-const LINT_WARNING_RULES = ["unknown-table", "reads-not-checked"] as const;
+const LINT_WARNING_RULES = ["unknown-table", "input-match-undecided", "reads-not-checked"] as const;
 
 const LintEntity = z.object({
   model: z.string().nullable(),
@@ -62,6 +65,9 @@ const ERROR_CHECK_KIND: Record<LintError["rule"], CheckKind> = {
   "duplicate-target": "broken-refs",
   "missing-input": "broken-refs",
   "unused-input": "broken-refs",
+  "untestable-transform": "broken-refs",
+  "duplicate-input": "broken-refs",
+  "expectation-reads-other-table": "broken-refs",
 };
 
 // The check for the lint run as a whole: its warnings when it ran, its crash when it did not.
