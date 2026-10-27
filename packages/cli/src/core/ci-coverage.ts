@@ -12,7 +12,7 @@ interface UntestedChange extends NamedTransform {
   change: "new" | "edited";
 }
 
-export interface CoverageInputs {
+interface CoverageInputs {
   changes: readonly ClassifiedChange[];
   transformsAtHead: ReadonlyMap<string, string>;
   testedAtHead: ReadonlySet<string>;
@@ -29,6 +29,8 @@ function byName(a: NamedTransform, b: NamedTransform): number {
 
 // A transform the change adds, or whose logic it edits, must have a test; one it leaves alone, or
 // changes only cosmetically, is only listed when it has none.
+// A transform is new when no changed file held it at base, so a copy of an unchanged transform in a
+// new file counts as new.
 export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
   const logicAtBase = new Map<string, TransformLogic>();
   for (const { base } of inputs.changes) {
@@ -60,6 +62,15 @@ export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
     untestedChanges: [...changed.values()].toSorted(byName),
     untouchedUntested: untouchedUntested.toSorted(byName),
   };
+}
+
+// The two lists hold every transform at head that no test file names, each once.
+export function untestedTransforms(assessment: CoverageAssessment): Set<string> {
+  return new Set(
+    [...assessment.untestedChanges, ...assessment.untouchedUntested].map(
+      (transform) => transform.entityId,
+    ),
+  );
 }
 
 const UNTOUCHED_CHECK_ID = "untouched";

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { InternalError, ValidationError } from "@metabase/client/errors";
 import { isPlainObject } from "@metabase/client/predicates";
 
+import type { MetabaseYaml } from "../runtime/yaml";
 import type { CiWarning } from "./ci-events";
 
 interface PathEntry {
@@ -17,13 +18,6 @@ interface RenamedEntry {
 }
 
 export type DiffEntry = PathEntry | RenamedEntry;
-
-// What a transform computes. An edit to anything else (name, description, collection, tags) leaves
-// its logic unchanged.
-export interface TransformLogic {
-  source: unknown;
-  target: unknown;
-}
 
 interface TransformFile {
   kind: "transform";
@@ -164,6 +158,19 @@ const TransformDocument = z
     target: z.unknown(),
   })
   .loose();
+const TransformLogicDocument = TransformDocument.pick({ source: true, target: true });
+
+type LogicReading = z.infer<typeof TransformLogicDocument>;
+
+// What a transform computes. An edit to anything else (name, description, collection, tags) leaves
+// its logic unchanged. Metabase reads YAML 1.1, where an unquoted `on` is true and `017` is 15, and
+// this check reads YAML 1.2, so the logic holds both readings: an edit either parser sees changes it.
+export interface TransformLogic {
+  yaml12: LogicReading;
+  yaml11: LogicReading;
+}
+
+const TRANSFORM_RULE = "a Transform must have an entity_id, a name, a source and a target";
 const TransformTestDocument = z.object({ transform_id: z.string().min(1) }).loose();
 
 const SerdesMeta = z.array(z.object({ model: z.string() }).loose()).min(1);
@@ -176,7 +183,8 @@ function parseOrRefuse<T>(path: string, schema: z.ZodType<T>, value: unknown, ru
   return parsed.data;
 }
 
-export function classifyContentFile(path: string, document: unknown): ContentFile {
+export function classifyContentFile(path: string, yaml: MetabaseYaml): ContentFile {
+  const document = yaml.yaml12;
   if (!isPlainObject(document) || !(SERDES_META_KEY in document)) {
     return { kind: "other" };
   }
@@ -194,17 +202,16 @@ export function classifyContentFile(path: string, document: unknown): ContentFil
     );
   }
   if (last.model === "Transform") {
-    const transform = parseOrRefuse(
-      path,
-      TransformDocument,
-      document,
-      "a Transform must have an entity_id, a name, a source and a target",
-    );
+    const transform = parseOrRefuse(path, TransformDocument, document, TRANSFORM_RULE);
+    const asYaml11 = parseOrRefuse(path, TransformLogicDocument, yaml.yaml11, TRANSFORM_RULE);
     return {
       kind: "transform",
       entityId: transform.entity_id,
       name: transform.name,
-      logic: { source: transform.source, target: transform.target },
+      logic: {
+        yaml12: { source: transform.source, target: transform.target },
+        yaml11: { source: asYaml11.source, target: asYaml11.target },
+      },
     };
   }
   if (last.model === "TransformTest") {
@@ -257,10 +264,12 @@ export function affectedTransforms(changes: readonly ClassifiedChange[]): string
   return [...touched].filter((entityId) => atHead.has(entityId) || !atBase.has(entityId));
 }
 
-// Every Transform and TransformTest file names its model in `serdes/meta`, as `model: Transform…`,
-// with the key or value possibly quoted and spaced; matching more only costs a read the classifier
-// discards. A POSIX extended pattern, for `git grep -E`.
-export const TRANSFORM_MODEL_PATTERN = `model["']?:[[:space:]]*["']?Transform`;
+// Every Transform and TransformTest file names its model in `serdes/meta`, however the YAML spells
+// the entry (quoted, tagged, folded, on the next line), so the word alone finds them; only a model
+// written with an escape (`\x54ransform`), which no export writes, is missed. Every match is read, so
+// the scan also reads the other content files that mention the word. A POSIX extended pattern, for
+// `git grep -E`.
+export const TRANSFORM_MODEL_PATTERN = "Transform";
 
 export interface HeadTransforms {
   names: Map<string, string>;
@@ -330,7 +339,7 @@ export function noContentChangesWarning(entries: readonly DiffEntry[]): CiWarnin
   }
   return {
     code: "no-content-changes",
-    message: "the change touches no Metabase content files, so CI checked nothing",
+    message: "the change touches no Metabase content files, so no transform test ran",
   };
 }
 
@@ -347,4 +356,17 @@ export function uncommittedContentWarning(paths: readonly string[]): CiWarning |
     code: "uncommitted-content",
     message: `${summary}, which CI does not see; it checks the committed version: ${content.join(", ")}`,
   };
+}
+
+// A file at head that the change did not touch cannot be the change's fault, so it does not stop the
+// job; Metabase may still read it, and a transform or test in it goes uncounted.
+export function unreadContentWarning(reasons: readonly string[]): CiWarning | null {
+  if (reasons.length === 0) {
+    return null;
+  }
+  const summary =
+    reasons.length === 1
+      ? "1 content file this change did not touch could not be read, so the coverage check skipped it"
+      : `${reasons.length} content files this change did not touch could not be read, so the coverage check skipped them`;
+  return { code: "unread-content", message: `${summary}: ${reasons.join("; ")}` };
 }
