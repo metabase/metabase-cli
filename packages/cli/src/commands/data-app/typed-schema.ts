@@ -18,8 +18,8 @@ export default defineMetabaseCommand({
   details:
     "Metabase generates a `defineQuery` call for every question and a `defineAction` call for every action in the app's collection, each typed by its result columns or parameters and addressed by entity ID, exported as `queries` and `actions`. Fetch it again after any change to the collection. --out writes it to a file (the app's `src/metabase.ts`) instead of stdout.",
   skills: [
-    { skill: "data-app-data", purpose: "the questions the module defines" },
     { skill: "data-app-actions", purpose: "the actions the module defines" },
+    { skill: "data-app-data", purpose: "the questions the module defines" },
   ],
   requires: ["dataApp.typedSchema"],
   args: {

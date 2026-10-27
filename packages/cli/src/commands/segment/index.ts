@@ -4,8 +4,8 @@ export default defineCommandGroup({
   name: "segment",
   description: "Manage Metabase segments",
   skills: [
-    { skill: "mbql", purpose: "the definition filter clause" },
     { skill: "data-workflow", purpose: "define reusable segments" },
+    { skill: "mbql", purpose: "the definition filter clause" },
   ],
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),

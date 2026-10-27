@@ -127,23 +127,15 @@ export function selectSkillsByNames(
   if (requested.length === 0) {
     throw new ConfigError("no skill names provided");
   }
-  const byName = new Map<string, SkillInfo>(all.map((s) => [s.name, s]));
-  const missing: string[] = [];
-  const found: SkillInfo[] = [];
-  for (const name of requested) {
-    const hit = byName.get(name);
-    if (hit === undefined) {
-      missing.push(name);
-      continue;
-    }
-    found.push(hit);
-  }
+  const known = new Set(all.map((s) => s.name));
+  const missing = requested.filter((name) => !known.has(name));
   if (missing.length > 0) {
     throw new ConfigError(
       `unknown skill name(s): ${missing.join(", ")} (${availableSkillNames(all)})`,
     );
   }
-  return found;
+  const wanted = new Set(requested);
+  return all.filter((s) => wanted.has(s.name));
 }
 
 export function availableSkillNames(all: readonly SkillInfo[]): string {
@@ -183,17 +175,17 @@ function findPackageRoot(): string | null {
   }
 }
 
-// Every agent is told to load `core` first, so it leads every listing and `get --all`'s first
-// window, whatever sorts before it by name.
+// Every agent is told to load `core` first, so it leads every list of skills — `skills list`,
+// `get --all`'s first window, a command's help — whatever sorts before it by name.
 const FIRST_SKILL = "core";
 
-function bySkillOrder(a: SkillInfo, b: SkillInfo): number {
-  const aFirst = a.name === FIRST_SKILL;
-  const bFirst = b.name === FIRST_SKILL;
+export function compareSkillNames(a: string, b: string): number {
+  const aFirst = a === FIRST_SKILL;
+  const bFirst = b === FIRST_SKILL;
   if (aFirst !== bFirst) {
     return aFirst ? -1 : 1;
   }
-  return a.name.localeCompare(b.name);
+  return a.localeCompare(b);
 }
 
 export function discoverSkills(dirs: readonly string[]): SkillInfo[] {
@@ -223,7 +215,7 @@ export function discoverSkills(dirs: readonly string[]): SkillInfo[] {
       });
     }
   }
-  skills.sort(bySkillOrder);
+  skills.sort((a, b) => compareSkillNames(a.name, b.name));
   return skills;
 }
 

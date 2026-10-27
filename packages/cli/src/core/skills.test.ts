@@ -1,6 +1,7 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import * as fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -12,6 +13,7 @@ import { createServerProfile, type ServerProfile } from "@metabase/client/versio
 import { ENV_SKILLS_DIR } from "./env";
 import {
   availableSkillNames,
+  compareSkillNames,
   discoverSkills,
   findSkillByName,
   loadAllSkills,
@@ -21,6 +23,7 @@ import {
   resolveSkillDirs,
   selectForProfile,
   selectSkillsByNames,
+  SKILL_MD_FILENAME,
   type SkillInfo,
 } from "./skills";
 
@@ -672,6 +675,30 @@ describe("readSkillContent against a profile", () => {
 // The shipped skills are read here in full so a typo in a `requires` list or an unbalanced marker
 // fails the gate instead of hiding a skill or a section from every user.
 describe("the shipped skills", () => {
+  it("are listed by hand in the shared skill order", () => {
+    const core = readFileSync(
+      join(findSkillByName(loadAllSkills(), "core").dir, SKILL_MD_FILENAME),
+      "utf8",
+    );
+    const readme = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../../../../README.md"),
+      "utf8",
+    );
+    const coreList = namesIn(
+      between(core, "## Specialized skills", "\n## "),
+      /^- \*\*`([^`]+)`\*\*/gm,
+    );
+    const readmeTable = namesIn(
+      between(readme, "Bundled skills:", "Discovery surfaces:"),
+      /^\| `([^`]+)`/gm,
+    );
+    expect([coreList.length, readmeTable.length]).toEqual([14, 12]);
+    expect({ coreList, readmeTable }).toEqual({
+      coreList: coreList.toSorted(compareSkillNames),
+      readmeTable: readmeTable.toSorted(compareSkillNames),
+    });
+  });
+
   it("declare exactly these skill-level requirements and carry only well-formed section markers", () => {
     const all = loadAllSkills();
     const bound = Object.fromEntries(
@@ -719,6 +746,18 @@ describe("the shipped skills", () => {
       "visualization",
     ]);
     expect(withMarkersLeft).toEqual([]);
+  });
+});
+
+describe("compareSkillNames", () => {
+  it("puts core first and every other skill in name order", () => {
+    expect(["transform", "ci", "core", "a-skill", "data-app"].toSorted(compareSkillNames)).toEqual([
+      "core",
+      "a-skill",
+      "ci",
+      "data-app",
+      "transform",
+    ]);
   });
 });
 
@@ -772,8 +811,11 @@ describe("selectSkillsByNames", () => {
     { name: "transform", description: "", hidden: false, requires: [], dir: "/x/transform" },
   ];
 
-  it("returns selected skills in the requested order", () => {
-    expect(selectSkillsByNames(skills, ["git-sync", "core"])).toEqual([skills[1], skills[0]]);
+  it("returns selected skills in the order of the list it selects from, once each", () => {
+    expect(selectSkillsByNames(skills, ["git-sync", "core", "git-sync"])).toEqual([
+      skills[0],
+      skills[1],
+    ]);
   });
 
   it("throws ConfigError listing missing names and the available set", () => {
@@ -822,3 +864,22 @@ describe("resolveSkillDirs", () => {
     );
   });
 });
+
+function between(text: string, start: string, end: string): string {
+  const from = text.indexOf(start);
+  const to = text.indexOf(end, from);
+  if (from < 0 || to < 0) {
+    throw new Error(`no "${start}" … "${end}" in the text`);
+  }
+  return text.slice(from, to);
+}
+
+function namesIn(section: string, pattern: RegExp): string[] {
+  return [...section.matchAll(pattern)].map((match) => {
+    const name = match[1];
+    if (name === undefined) {
+      throw new Error(`${pattern} has no capture group`);
+    }
+    return name;
+  });
+}

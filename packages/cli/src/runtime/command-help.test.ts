@@ -5,6 +5,7 @@ import { z } from "zod";
 import { type MethodKey, methodRequirements } from "@metabase/client/version/requirements";
 
 import { defineMetabaseCommand } from "../commands/runtime";
+import { compareSkillNames } from "../core/skills";
 import main from "../main";
 import { getMetabaseAugment } from "./command-augment";
 import { buildHelpEntry, buildHelpIndex, resolveCommandPath } from "./command-help";
@@ -529,6 +530,27 @@ describe("command tree contract", () => {
   it("indexes every leaf command", async () => {
     const index = await buildHelpIndex(main, []);
     expect(index.commands.map((entry) => entry.command)).toEqual(ALL_COMMANDS);
+  });
+
+  it("lists every command's skills in the shared skill order", async () => {
+    const paths = new Set([""]);
+    for (const command of ALL_COMMANDS) {
+      const segments = command.split(" ");
+      for (let end = 1; end <= segments.length; end++) {
+        paths.add(segments.slice(0, end).join(" "));
+      }
+    }
+    const declared = await Promise.all(
+      [...paths].map(async (path) => {
+        const segments = path === "" ? [] : path.split(" ");
+        const augment = getMetabaseAugment(await resolveCommandPath(main, segments));
+        return { path, skills: augment === null ? [] : augment.skills.map((p) => p.skill) };
+      }),
+    );
+    const misordered = declared.filter(
+      ({ skills }) => skills.join() !== skills.toSorted(compareSkillNames).join(),
+    );
+    expect(misordered).toEqual([]);
   });
 
   it("every leaf declares a description", async () => {

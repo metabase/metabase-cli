@@ -4,12 +4,12 @@ export default defineCommandGroup({
   name: "dashboard",
   description: "Manage Metabase dashboards",
   skills: [
+    { skill: "core", purpose: "the 24-column dashcard grid layout" },
     {
       skill: "dashboard",
       purpose: "wiring filters, linked filters, cross-filtering, click behavior, tabs",
     },
     { skill: "visualization", purpose: "dashcard display and visualization_settings" },
-    { skill: "core", purpose: "the 24-column dashcard grid layout" },
   ],
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),

@@ -4,8 +4,8 @@ export default defineCommandGroup({
   name: "measure",
   description: "Manage Metabase measures",
   skills: [
-    { skill: "mbql", purpose: "the definition aggregation" },
     { skill: "data-workflow", purpose: "define reusable measures" },
+    { skill: "mbql", purpose: "the definition aggregation" },
   ],
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),
