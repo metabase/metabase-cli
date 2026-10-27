@@ -257,6 +257,29 @@ export function affectedTransforms(changes: readonly ClassifiedChange[]): string
   return [...touched].filter((entityId) => atHead.has(entityId) || !atBase.has(entityId));
 }
 
+// Every Transform and TransformTest file names its model in `serdes/meta`, as `model: Transform…`,
+// with the key or value possibly quoted and spaced; matching more only costs a read the classifier
+// discards. A POSIX extended pattern, for `git grep -E`.
+export const TRANSFORM_MODEL_PATTERN = `model["']?:[[:space:]]*["']?Transform`;
+
+export interface HeadTransforms {
+  names: Map<string, string>;
+  tested: Set<string>;
+}
+
+// The transforms among files at head, each by name, and the transforms a test at head covers.
+export function headTransforms(files: readonly (ContentFile | null)[]): HeadTransforms {
+  const atHead: HeadTransforms = { names: new Map(), tested: new Set() };
+  for (const file of files) {
+    if (file?.kind === "transform") {
+      atHead.names.set(file.entityId, file.name);
+    } else if (file?.kind === "transform-test") {
+      atHead.tested.add(file.transformId);
+    }
+  }
+  return atHead;
+}
+
 // Mirrors Metabase's `legal-top-level-paths` and `shared-top-level-paths`
 // (serialization/v2/ingest.clj): the top-level folders an import reads entity files from.
 export const CONTENT_TOP_LEVEL_FOLDERS = [
@@ -294,6 +317,21 @@ export function isContentPath(path: string): boolean {
   }
   const entityFileName = SHARED_TOP_LEVEL_FILE_NAMES.get(top);
   return entityFileName === undefined || entityFileName === fileName;
+}
+
+// Without it, a diff with no content file passes with an empty `checked`, as if CI had verified it.
+export function noContentChangesWarning(entries: readonly DiffEntry[]): CiWarning | null {
+  const touchesContent = entries.some(
+    (entry) =>
+      isContentPath(entry.path) || (entry.status === "renamed" && isContentPath(entry.oldPath)),
+  );
+  if (touchesContent) {
+    return null;
+  }
+  return {
+    code: "no-content-changes",
+    message: "the change touches no Metabase content files, so CI checked nothing",
+  };
 }
 
 export function uncommittedContentWarning(paths: readonly string[]): CiWarning | null {
