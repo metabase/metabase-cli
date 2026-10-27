@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { ConfigError, InternalError } from "@metabase/client/errors";
 
-import { fileModesAt, filesContaining, mergeBase, readFilesAt, resolveCommit } from "./git";
+import { fileModesAt, filesMatching, mergeBase, readFilesAt, resolveCommit } from "./git";
 import { type TempGitRepo, createTempGitRepo } from "./temp-git-repo";
 
 const NOT_INTERRUPTED = new AbortController().signal;
@@ -20,14 +20,14 @@ afterEach(async () => {
   await repo.remove();
 });
 
-describe("filesContaining", () => {
+describe("filesMatching", () => {
   it("lists the matching paths at a commit", async () => {
     await repo.put("t/a.yaml", "entity_id: abc\n");
     await repo.put("t/b.yml", "entity_id: xyz\n");
     const commit = await repo.commitAll("add");
 
     expect(
-      await filesContaining(
+      await filesMatching(
         repo.path,
         commit,
         "entity_id: abc",
@@ -41,7 +41,7 @@ describe("filesContaining", () => {
     const commit = await repo.git("rev-parse", "HEAD");
 
     expect(
-      await filesContaining(repo.path, commit, "entity_id: none", ["*.yaml"], NOT_INTERRUPTED),
+      await filesMatching(repo.path, commit, "entity_id: none", ["*.yaml"], NOT_INTERRUPTED),
     ).toEqual([]);
   });
 
@@ -52,7 +52,7 @@ describe("filesContaining", () => {
     await repo.git("config", "color.grep", "always");
 
     expect(
-      await filesContaining(repo.path, commit, "entity_id: abc", ["*.yaml"], NOT_INTERRUPTED),
+      await filesMatching(repo.path, commit, "entity_id: abc", ["*.yaml"], NOT_INTERRUPTED),
     ).toEqual(["t/a.yaml"]);
   });
 });

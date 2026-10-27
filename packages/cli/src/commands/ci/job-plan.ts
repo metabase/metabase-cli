@@ -4,21 +4,25 @@ import {
   type ClassifiedChange,
   type ContentFile,
   type DiffEntry,
+  type HeadTransforms,
   CONTENT_TOP_LEVEL_FOLDERS,
+  TRANSFORM_MODEL_PATTERN,
   affectedTransforms,
   classifyContentFile,
+  headTransforms,
   isContentPath,
   noContentChangesWarning,
   parseNameStatus,
   parseStatusPorcelain,
   uncommittedContentWarning,
 } from "../../core/ci-affected";
+import { type CoverageAssessment, assessCoverage } from "../../core/ci-coverage";
 import type { CheckedTransform, CiWarning, Snapshot } from "../../core/ci-events";
 import {
   checkedOutCommit,
   diffNameStatus,
   fileModesAt,
-  filesContaining,
+  filesMatching,
   mergeBase,
   readFilesAt,
   repositoryRoot,
@@ -34,6 +38,7 @@ export interface JobPlan {
   snapshot: Snapshot;
   checked: CheckedTransform[];
   warnings: CiWarning[];
+  coverage: CoverageAssessment;
 }
 
 // A regular or executable file. Metabase's import follows a symlink and reads a submodule's
@@ -115,25 +120,25 @@ async function classifyChanges(
   }));
 }
 
-async function findTransform(
+// The changed files are already classified exactly; the scan adds every other file at head whose
+// text names a Transform model.
+async function scanHead(
   repo: string,
   head: string,
-  entityId: string,
+  changes: readonly ClassifiedChange[],
+  changedPaths: ReadonlySet<string>,
   signal: AbortSignal,
-): Promise<CheckedTransform | null> {
-  const hits = await filesContaining(
+): Promise<HeadTransforms> {
+  const matched = await filesMatching(
     repo,
     head,
-    `entity_id: ${entityId}`,
+    TRANSFORM_MODEL_PATTERN,
     CONTENT_PATHSPECS,
     signal,
   );
-  for (const file of (await classifyAt(repo, head, hits, signal)).values()) {
-    if (file.kind === "transform" && file.entityId === entityId) {
-      return { entity_id: entityId, name: file.name };
-    }
-  }
-  return null;
+  const unchanged = matched.filter((path) => !changedPaths.has(path));
+  const unchangedFiles = (await classifyAt(repo, head, unchanged, signal)).values();
+  return headTransforms([...changes.map((change) => change.head), ...unchangedFiles]);
 }
 
 // Every git call runs at the repository root, where paths from diff, status, grep and cat-file agree.
@@ -153,13 +158,13 @@ export async function planJob(
   const entries = parseNameStatus(await diffNameStatus(repo, forkPoint, head, signal));
   const changes = await classifyChanges(repo, forkPoint, head, entries, signal);
 
-  const namesAtHead = new Map<string, string>();
-  for (const { head: headSide } of changes) {
-    if (headSide?.kind === "transform") {
-      namesAtHead.set(headSide.entityId, headSide.name);
-    }
-  }
-
+  const atHead = await scanHead(
+    repo,
+    head,
+    changes,
+    new Set(entries.map((entry) => entry.path)),
+    signal,
+  );
   const checked: CheckedTransform[] = [];
   const warnings: CiWarning[] = [];
   const noContent = noContentChangesWarning(entries);
@@ -167,21 +172,21 @@ export async function planJob(
     warnings.push(noContent);
   }
   for (const entityId of affectedTransforms(changes)) {
-    const name = namesAtHead.get(entityId);
-    if (name !== undefined) {
-      checked.push({ entity_id: entityId, name });
-      continue;
-    }
-    const transform = await findTransform(repo, head, entityId, signal);
-    if (transform === null) {
+    const name = atHead.names.get(entityId);
+    if (name === undefined) {
       warnings.push({
         code: "missing-transform",
         message: `a changed transform test covers transform ${entityId}, which is not in the repo at ${head}`,
       });
       continue;
     }
-    checked.push(transform);
+    checked.push({ entity_id: entityId, name });
   }
+  const coverage = assessCoverage({
+    changes,
+    transformsAtHead: atHead.names,
+    testedAtHead: atHead.tested,
+  });
 
   // Uncommitted files only matter when the checked commit is the one checked out.
   if (head === checkout) {
@@ -192,5 +197,5 @@ export async function planJob(
       warnings.push(uncommitted);
     }
   }
-  return { snapshot: { base, head }, checked, warnings };
+  return { snapshot: { base, head }, checked, warnings, coverage };
 }

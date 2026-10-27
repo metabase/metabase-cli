@@ -50,7 +50,7 @@ describe("runJob", () => {
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
       "transforms/daily.yaml",
-      `name: Daily\nentity_id: ${TRANSFORM_ID}\nserdes/meta:\n- model: Transform\n`,
+      `name: Daily\nentity_id: ${TRANSFORM_ID}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
     );
     const head = await repo.commitAll("add transform");
     await repo.put("transforms/draft.yaml", "draft\n");

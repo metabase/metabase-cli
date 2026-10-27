@@ -88,7 +88,7 @@ async function reports(
   stagePort: UnitStagePort,
 ): Promise<CiEventBody[]> {
   const bodies: CiEventBody[] = [];
-  await unitStage(checked, stagePort).run((check) =>
+  await unitStage(checked, async () => stagePort).run((check) =>
     bodies.push({ type: "check.result", stage: "unit", ...check }),
   );
   return bodies;
@@ -162,22 +162,8 @@ describe("unitStage", () => {
     ]);
   });
 
-  it("warns about a checked transform with no tests instead of passing it silently", async () => {
-    const bodies = await reports([DAILY], port({ listTests: async () => [] }));
-
-    expect(bodies).toEqual([
-      {
-        type: "check.result",
-        stage: "unit",
-        check: { kind: "coverage", id: DAILY.entity_id, label: "Daily" },
-        verdict: "passed",
-        warnings: [
-          { code: "no-tests", message: "Daily has no transform tests, so nothing checked it" },
-        ],
-        ms: 0,
-        detail: null,
-      },
-    ]);
+  it("reports nothing for a transform with no tests, which the coverage check owns", async () => {
+    expect(await reports([DAILY], port({ listTests: async () => [] }))).toEqual([]);
   });
 
   it("reports a test Metabase refuses to run, and keeps running the others", async () => {
@@ -278,8 +264,7 @@ describe("unitStage", () => {
 
   it("stops at a rejected credential, keeping the checks already reported", async () => {
     const ran: number[] = [];
-    const stage = unitStage(
-      [DAILY],
+    const stage = unitStage([DAILY], async () =>
       port({
         runTest: async (testId) => {
           ran.push(testId);
@@ -311,8 +296,7 @@ describe("unitStage", () => {
   });
 
   it("stops before any check when the entity-id lookup fails", async () => {
-    const stopped = await unitStage(
-      [DAILY],
+    const stopped = await unitStage([DAILY], async () =>
       port({ lookUpTransforms: async () => Promise.reject(SERVER_ERROR) }),
     ).run(() => {
       throw new Error("no check expected");

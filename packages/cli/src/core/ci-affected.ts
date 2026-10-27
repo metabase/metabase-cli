@@ -18,10 +18,18 @@ interface RenamedEntry {
 
 export type DiffEntry = PathEntry | RenamedEntry;
 
+// What a transform computes. An edit to anything else (name, description, collection, tags) leaves
+// its logic unchanged.
+export interface TransformLogic {
+  source: unknown;
+  target: unknown;
+}
+
 interface TransformFile {
   kind: "transform";
   entityId: string;
   name: string;
+  logic: TransformLogic;
 }
 
 interface TransformTestFile {
@@ -149,7 +157,12 @@ export function parseStatusPorcelain(output: string): string[] {
 const SERDES_META_KEY = "serdes/meta";
 
 const TransformDocument = z
-  .object({ entity_id: z.string().min(1), name: z.string().min(1) })
+  .object({
+    entity_id: z.string().min(1),
+    name: z.string().min(1),
+    source: z.unknown(),
+    target: z.unknown(),
+  })
   .loose();
 const TransformTestDocument = z.object({ transform_id: z.string().min(1) }).loose();
 
@@ -185,9 +198,14 @@ export function classifyContentFile(path: string, document: unknown): ContentFil
       path,
       TransformDocument,
       document,
-      "a Transform must have an entity_id and a name",
+      "a Transform must have an entity_id, a name, a source and a target",
     );
-    return { kind: "transform", entityId: transform.entity_id, name: transform.name };
+    return {
+      kind: "transform",
+      entityId: transform.entity_id,
+      name: transform.name,
+      logic: { source: transform.source, target: transform.target },
+    };
   }
   if (last.model === "TransformTest") {
     const test = parseOrRefuse(
@@ -237,6 +255,29 @@ export function affectedTransforms(changes: readonly ClassifiedChange[]): string
 
   // A test-only change names a transform the diff does not show; keep it unless the diff removed it.
   return [...touched].filter((entityId) => atHead.has(entityId) || !atBase.has(entityId));
+}
+
+// Every Transform and TransformTest file names its model in `serdes/meta`, as `model: Transform…`,
+// with the key or value possibly quoted and spaced; matching more only costs a read the classifier
+// discards. A POSIX extended pattern, for `git grep -E`.
+export const TRANSFORM_MODEL_PATTERN = `model["']?:[[:space:]]*["']?Transform`;
+
+export interface HeadTransforms {
+  names: Map<string, string>;
+  tested: Set<string>;
+}
+
+// The transforms among files at head, each by name, and the transforms a test at head covers.
+export function headTransforms(files: readonly (ContentFile | null)[]): HeadTransforms {
+  const atHead: HeadTransforms = { names: new Map(), tested: new Set() };
+  for (const file of files) {
+    if (file?.kind === "transform") {
+      atHead.names.set(file.entityId, file.name);
+    } else if (file?.kind === "transform-test") {
+      atHead.tested.add(file.transformId);
+    }
+  }
+  return atHead;
 }
 
 // Mirrors Metabase's `legal-top-level-paths` and `shared-top-level-paths`

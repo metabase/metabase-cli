@@ -10,6 +10,7 @@ import {
   type ContentFile,
   affectedTransforms,
   classifyContentFile,
+  headTransforms,
   parseNameStatus,
   isContentPath,
   noContentChangesWarning,
@@ -24,11 +25,13 @@ const TRANSFORM: ContentFile = {
   kind: "transform",
   entityId: TRANSFORM_ID,
   name: "Daily Order Summary",
+  logic: { source: { type: "query" }, target: { name: "t" } },
 };
 const OTHER_TRANSFORM: ContentFile = {
   kind: "transform",
   entityId: OTHER_TRANSFORM_ID,
   name: "Hourly Stats",
+  logic: { source: { type: "query" }, target: { name: "t" } },
 };
 const TEST: ContentFile = { kind: "transform-test", transformId: TRANSFORM_ID };
 const OTHER: ContentFile = { kind: "other" };
@@ -173,6 +176,8 @@ describe("classifyContentFile", () => {
       classifyContentFile("transforms/a.yaml", {
         entity_id: TRANSFORM_ID,
         name: "Daily Order Summary",
+        source: { type: "query" },
+        target: { name: "t" },
         "serdes/meta": [{ model: "Transform" }],
       }),
     ).toEqual(TRANSFORM);
@@ -269,7 +274,9 @@ describe("classifyContentFile", () => {
       classifyContentFile("transforms/a.yaml", { "serdes/meta": [{ model: "Transform" }] });
 
     expect(classify).toThrow(ValidationError);
-    expect(classify).toThrow("transforms/a.yaml: a Transform must have an entity_id and a name");
+    expect(classify).toThrow(
+      "transforms/a.yaml: a Transform must have an entity_id, a name, a source and a target",
+    );
   });
 
   it("refuses a transform whose entity_id is empty", () => {
@@ -280,7 +287,9 @@ describe("classifyContentFile", () => {
       });
 
     expect(classify).toThrow(ValidationError);
-    expect(classify).toThrow("transforms/a.yaml: a Transform must have an entity_id and a name");
+    expect(classify).toThrow(
+      "transforms/a.yaml: a Transform must have an entity_id, a name, a source and a target",
+    );
   });
 });
 
@@ -436,6 +445,25 @@ describe("isContentPath", () => {
         "Transforms/h.yaml",
       ].map(isContentPath),
     ).toEqual([false, false, false, false, false, false, false, false, false]);
+  });
+});
+
+describe("headTransforms", () => {
+  it("names each transform at head by its entity id", () => {
+    expect(headTransforms([TRANSFORM, OTHER_TRANSFORM]).names).toEqual(
+      new Map([
+        [TRANSFORM_ID, "Daily Order Summary"],
+        [OTHER_TRANSFORM_ID, "Hourly Stats"],
+      ]),
+    );
+  });
+
+  it("collects the transforms a test at head covers", () => {
+    expect(headTransforms([TEST]).tested).toEqual(new Set([TRANSFORM_ID]));
+  });
+
+  it("ignores files that are not transforms or tests, and absent sides", () => {
+    expect(headTransforms([OTHER, null])).toEqual({ names: new Map(), tested: new Set() });
   });
 });
 

@@ -146,7 +146,7 @@ async function checkTransform(
   };
   const started = port.nowMs();
   // The test list leaves out the tests the CI identity cannot read, so the transform is read first:
-  // once that succeeds, an empty list means the transform has no tests.
+  // once that succeeds, an empty list means the transform has no tests, rather than hidden ones.
   const read = await attempt("read", () => port.readTransform(transformId));
   if (read.kind !== "settled") {
     return reportFailure(read, transformCheck, port.nowMs() - started, report);
@@ -154,21 +154,6 @@ async function checkTransform(
   const tests = await attempt("list", () => port.listTests(transformId));
   if (tests.kind !== "settled") {
     return reportFailure(tests, transformCheck, port.nowMs() - started, report);
-  }
-  if (tests.value.length === 0) {
-    report({
-      check: { kind: "coverage", id: transform.entity_id, label: transform.name },
-      verdict: "passed",
-      warnings: [
-        {
-          code: "no-tests",
-          message: `${transform.name} has no transform tests, so nothing checked it`,
-        },
-      ],
-      ms: 0,
-      detail: null,
-    });
-    return null;
   }
   for (const test of tests.value.toSorted((a, b) => a.id - b.id)) {
     const check = {
@@ -191,10 +176,15 @@ async function checkTransform(
   return null;
 }
 
-export function unitStage(checked: readonly CheckedTransform[], port: UnitStagePort): CiStage {
+// The stage connects only when it runs, so a job that a failed lint stage cuts short never needs a server.
+export function unitStage(
+  checked: readonly CheckedTransform[],
+  connect: () => Promise<UnitStagePort>,
+): CiStage {
   return {
     name: "unit",
     run: async (report) => {
+      const port = await connect();
       let lookups: ReadonlyMap<string, TransformLookup>;
       try {
         lookups = await port.lookUpTransforms(checked.map((transform) => transform.entity_id));

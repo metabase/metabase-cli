@@ -129,7 +129,7 @@ describe("ci run: committed content only", () => {
   it("lists no untracked transform, warns about it and exits 0, then checks it once committed", async () => {
     await repo.put(
       "transforms/a.yaml",
-      `name: Alpha\nentity_id: ${A}\nserdes/meta:\n- model: Transform\n`,
+      `name: Alpha\nentity_id: ${A}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
     );
 
     const before = await run(["--repo", repo.path, "--base", "main"]);
@@ -266,7 +266,11 @@ describe("ci run: a changed transform tested on Metabase", () => {
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
       "transforms/a.yaml",
-      `name: Alpha\nentity_id: ${A}\nserdes/meta:\n- model: Transform\n`,
+      `name: Alpha\nentity_id: ${A}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
+    );
+    await repo.put(
+      "transforms/a/test.yaml",
+      `entity_id: aRvM7DLesF1fOV4kRHidq\ntransform_id: ${A}\nserdes/meta:\n- model: TransformTest\n`,
     );
     await repo.commitAll("add A");
   });
@@ -293,12 +297,15 @@ describe("ci run: a changed transform tested on Metabase", () => {
       "stage.start",
       "check.result",
       "stage.end",
+      "stage.start",
+      "check.result",
+      "stage.end",
       "job.end",
     ]);
     expect(planOf(result.stdout).checked).toEqual([{ entity_id: A, name: "Alpha" }]);
     expect(lastTwo(result.stdout)).toEqual([
-      { ...envelope, seq: 3, type: "stage.end", stage: "unit", status: "failed", stopped: null },
-      { ...envelope, seq: 4, type: "job.end", state: "failed", counts: { checks: 1, warnings: 0 } },
+      { ...envelope, seq: 6, type: "stage.end", stage: "unit", status: "failed", stopped: null },
+      { ...envelope, seq: 7, type: "job.end", state: "failed", counts: { checks: 2, warnings: 0 } },
     ]);
   });
 
@@ -309,7 +316,7 @@ describe("ci run: a changed transform tested on Metabase", () => {
 
     expect([result.exitCode, events(result.stdout).at(-1)]).toEqual([
       0,
-      { ...envelope, seq: 4, type: "job.end", state: "passed", counts: { checks: 1, warnings: 0 } },
+      { ...envelope, seq: 7, type: "job.end", state: "passed", counts: { checks: 2, warnings: 0 } },
     ]);
   });
 
@@ -327,10 +334,10 @@ describe("ci run: a changed transform tested on Metabase", () => {
     const result = await run(["--repo", repo.path, "--base", "main"]);
 
     expect(result.exitCode).toBe(1);
-    expect(events(result.stdout).slice(2)).toEqual([
+    expect(events(result.stdout).slice(5)).toEqual([
       {
         ...envelope,
-        seq: 2,
+        seq: 5,
         type: "check.result",
         stage: "unit",
         check: { kind: "transform-test", id: String(TEST_ID), label: "Alpha: total adds tax" },
@@ -343,13 +350,13 @@ describe("ci run: a changed transform tested on Metabase", () => {
           tables: null,
         },
       },
-      { ...envelope, seq: 3, type: "stage.end", stage: "unit", status: "errored", stopped: null },
+      { ...envelope, seq: 6, type: "stage.end", stage: "unit", status: "errored", stopped: null },
       {
         ...envelope,
-        seq: 4,
+        seq: 7,
         type: "job.end",
         state: "errored",
-        counts: { checks: 1, warnings: 0 },
+        counts: { checks: 2, warnings: 0 },
       },
     ]);
   });
@@ -361,9 +368,9 @@ describe("ci run: a changed transform tested on Metabase", () => {
     const result = await run(["--repo", repo.path, "--base", "main", "--results", resultsPath]);
 
     expect(result.exitCode).toBe(1);
-    expect(events(result.stdout).find((event) => event.type === "check.result")).toEqual({
+    expect(events(result.stdout).at(5)).toEqual({
       ...envelope,
-      seq: 2,
+      seq: 5,
       type: "check.result",
       stage: "unit",
       check: { kind: "transform-test", id: String(TEST_ID), label: "Alpha: total adds tax" },
@@ -387,7 +394,7 @@ describe("ci run: a changed transform tested on Metabase", () => {
     expect(lastTwo(result.stdout)).toEqual([
       {
         ...envelope,
-        seq: 2,
+        seq: 5,
         type: "stage.end",
         stage: "unit",
         status: "errored",
@@ -395,10 +402,10 @@ describe("ci run: a changed transform tested on Metabase", () => {
       },
       {
         ...envelope,
-        seq: 3,
+        seq: 6,
         type: "job.end",
         state: "errored",
-        counts: { checks: 0, warnings: 0 },
+        counts: { checks: 1, warnings: 0 },
       },
     ]);
     expect(parseJson(await readFile(resultsPath, "utf8"), z.array(CiEvent))).toEqual(
@@ -420,7 +427,7 @@ describe("ci run: a changed transform tested on Metabase", () => {
       [
         {
           ...envelope,
-          seq: 2,
+          seq: 5,
           type: "stage.end",
           stage: "unit",
           status: "errored",
@@ -432,16 +439,16 @@ describe("ci run: a changed transform tested on Metabase", () => {
         },
         {
           ...envelope,
-          seq: 3,
+          seq: 6,
           type: "job.end",
           state: "errored",
-          counts: { checks: 0, warnings: 0 },
+          counts: { checks: 1, warnings: 0 },
         },
       ],
     ]);
   });
 
-  it("exits 2 after job.start when no Metabase credential is configured", async () => {
+  it("exits 2 after the unit stage starts when no Metabase credential is configured", async () => {
     delete process.env["MB_URL"];
     delete process.env["MB_API_KEY"];
     serveRun(() => json(PASSED_RUN));
@@ -450,7 +457,7 @@ describe("ci run: a changed transform tested on Metabase", () => {
 
     expect([result.exitCode, events(result.stdout).map((event) => event.type)]).toEqual([
       2,
-      ["job.start"],
+      ["job.start", "stage.start", "check.result", "stage.end", "stage.start"],
     ]);
   });
 });

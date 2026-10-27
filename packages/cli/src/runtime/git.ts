@@ -151,17 +151,17 @@ export async function fileModesAt(
   return modes;
 }
 
-export async function filesContaining(
+export async function filesMatching(
   repo: string,
   commit: string,
-  text: string,
+  pattern: string,
   pathspecs: readonly string[],
   signal: AbortSignal,
 ): Promise<string[]> {
   // --no-color: a user's color.grep=always would wrap paths in escape codes, even through a pipe.
   const result = await runGit(
     repo,
-    ["grep", "--no-color", "-z", "-l", "-F", "-e", text, commit, "--", ...pathspecs],
+    ["grep", "--no-color", "-z", "-l", "-E", "-e", pattern, commit, "--", ...pathspecs],
     signal,
   );
   if (result.exitCode === NO_MATCH_EXIT_CODE) {
