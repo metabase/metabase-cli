@@ -261,3 +261,11 @@ export type TransformTestRefusalCode = z.infer<typeof TransformTestRefusalCode>;
 export function isTransformTestRefusalCode(value: string): value is TransformTestRefusalCode {
   return TransformTestRefusalCode.safeParse(value).success;
 }
+
+const TRANSFORM_TEST_CODE_PREFIX = "transform-test.";
+
+// Every code the server publishes for transform testing, including ones newer than
+// `TransformTestRefusalCode`.
+export function isTransformTestCode(value: string): boolean {
+  return value.startsWith(TRANSFORM_TEST_CODE_PREFIX);
+}
