@@ -33,10 +33,9 @@ function isBrokenPipe(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "EPIPE";
 }
 
-// One compact JSON value per line, whatever the terminal, so a stream stays line-parseable. A
-// reader that stops early (`| head -1`) closes the pipe: the lines after that have no reader and
+// A reader that stops early (`| head -1`) closes the pipe: the lines after that have no reader and
 // are dropped, so the caller still finishes its work instead of crashing on EPIPE.
-export function jsonLineWriter(stream: Writable): (value: unknown) => void {
+export function lineWriter(stream: Writable): (line: string) => void {
   let readerGone = false;
   stream.on("error", (error) => {
     if (!isBrokenPipe(error)) {
@@ -44,11 +43,17 @@ export function jsonLineWriter(stream: Writable): (value: unknown) => void {
     }
     readerGone = true;
   });
-  return (value) => {
+  return (line) => {
     if (!readerGone) {
-      stream.write(serializeJson(value, false) + "\n");
+      stream.write(line + "\n");
     }
   };
+}
+
+// One compact JSON value per line, whatever the terminal, so a stream stays line-parseable.
+export function jsonLineWriter(stream: Writable): (value: unknown) => void {
+  const writeLine = lineWriter(stream);
+  return (value) => writeLine(serializeJson(value, false));
 }
 
 export function writeText(text: string): void {

@@ -163,6 +163,74 @@ describe("ci run: committed content only", () => {
   });
 });
 
+function textOutput(sha: string): string {
+  const short = sha.slice(0, 7);
+  return `mb ci run  base ${short}  head ${short}  0 transforms checked\n⚠ the change touches no Metabase content files, so no transform test ran\nPASSED (exit 0)\n`;
+}
+
+async function withTty<T>(isTty: boolean, body: () => Promise<T>): Promise<T> {
+  const previous = process.stdout.isTTY;
+  process.stdout.isTTY = isTty;
+  try {
+    return await body();
+  } finally {
+    process.stdout.isTTY = previous;
+  }
+}
+
+describe("ci run: output format", () => {
+  it("writes the events as lines for a person under --format text", async () => {
+    stubbed.noStages = true;
+
+    const result = await run(["--repo", repo.path, "--base", "main", "--format", "text"]);
+
+    expect(result.stdout).toBe(textOutput(await repo.git("rev-parse", "HEAD")));
+  });
+
+  it("writes the --results file as JSON under --format text", async () => {
+    stubbed.noStages = true;
+    const resultsPath = join(repo.path, "results.json");
+
+    await run([
+      "--repo",
+      repo.path,
+      "--base",
+      "main",
+      "--format",
+      "text",
+      "--results",
+      resultsPath,
+    ]);
+
+    const written = parseJson(await readFile(resultsPath, "utf8"), z.array(CiEvent));
+    expect(written.map((event) => event.type)).toEqual(["job.start", "job.end"]);
+  });
+
+  it("writes one JSON event per line under --json", async () => {
+    stubbed.noStages = true;
+
+    const result = await run(["--repo", repo.path, "--base", "main", "--json"]);
+
+    expect(events(result.stdout).map((event) => event.type)).toEqual(["job.start", "job.end"]);
+  });
+
+  it("writes text by default on a terminal", async () => {
+    stubbed.noStages = true;
+
+    const result = await withTty(true, () => run(["--repo", repo.path, "--base", "main"]));
+
+    expect(result.stdout).toBe(textOutput(await repo.git("rev-parse", "HEAD")));
+  });
+
+  it("writes JSON by default when stdout is not a terminal", async () => {
+    stubbed.noStages = true;
+
+    const result = await withTty(false, () => run(["--repo", repo.path, "--base", "main"]));
+
+    expect(events(result.stdout).map((event) => event.type)).toEqual(["job.start", "job.end"]);
+  });
+});
+
 const MB_URL = "https://mb.example.com";
 const TRANSFORM_ID = 3;
 const TEST_ID = 4;
@@ -214,6 +282,21 @@ const FAILED_RUN = {
   ],
 };
 
+const MANY_ROWS_RUN = {
+  status: "failed",
+  tables: {},
+  expectations: [
+    {
+      name: "e",
+      type: "empty",
+      status: "failed",
+      columns: [{ name: "id", database_type: "int8" }],
+      sample: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }],
+      truncated: 0,
+    },
+  ],
+};
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -249,6 +332,15 @@ function serveMetabase(fake: FakeMetabase): void {
     }
     return json("API endpoint does not exist.", 404);
   });
+}
+
+// The detail of the unit stage's one check, the sixth event of a job that checks one transform.
+function unitDetail(all: readonly CiEvent[]): unknown {
+  const check = all[5];
+  if (check?.type !== "check.result") {
+    throw new Error(`expected a check.result sixth, got ${JSON.stringify(all)}`);
+  }
+  return check.detail;
 }
 
 function serveRun(answer: () => Response): void {
@@ -381,6 +473,40 @@ describe("ci run: a changed transform tested on Metabase", () => {
     });
     expect(parseJson(await readFile(resultsPath, "utf8"), z.array(CiEvent))).toEqual(
       events(result.stdout),
+    );
+  });
+
+  it("writes every row to JSON stdout whatever --max-rows says", async () => {
+    serveRun(() => json(MANY_ROWS_RUN));
+
+    const result = await run(["--repo", repo.path, "--base", "main", "--json", "--max-rows", "1"]);
+
+    expect(unitDetail(events(result.stdout))).toEqual(MANY_ROWS_RUN);
+  });
+
+  it("shows --max-rows rows of a failed expectation under --format text", async () => {
+    serveRun(() => json(MANY_ROWS_RUN));
+
+    const result = await run([
+      "--repo",
+      repo.path,
+      "--base",
+      "main",
+      "--format",
+      "text",
+      "--max-rows",
+      "1",
+    ]);
+
+    expect(result.stdout.split("\n").filter((line) => line.startsWith("          "))).toEqual([
+      "          row  id=0",
+      "          +3 more",
+    ]);
+  });
+
+  it("exits 2 for a negative --max-rows", async () => {
+    expect((await run(["--repo", repo.path, "--base", "main", "--max-rows", "-1"])).exitCode).toBe(
+      2,
     );
   });
 
