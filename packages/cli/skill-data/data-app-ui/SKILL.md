@@ -7,6 +7,8 @@ requires: [dataApps]
 
 # A data app's UI
 
+Before changing an existing app, pass its checks, React 19 among them (`data-app`, _An existing project_).
+
 Everything here runs inside the sandbox, the same in the dev preview as in Metabase; check each change in the preview and its diagnostics feed (`data-app`).
 
 ## Source
