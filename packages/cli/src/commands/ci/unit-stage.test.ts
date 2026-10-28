@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createClient } from "@metabase/client/client";
 import type { TransformTest, TransformTestRunResult } from "@metabase/client/domain/transform-test";
-import { InternalError } from "@metabase/client/errors";
+import { ConfigError, InternalError } from "@metabase/client/errors";
 import { HttpError } from "@metabase/client/http/errors";
 import type { ClientCredentials } from "@metabase/client/http/transport";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@metabase/client/testing/fetch-capture";
 
 import { type CheckedTransform, type CiEventBody, runStages } from "../../core/ci-events";
+import { NotAuthenticatedError } from "../../core/config";
 import { interruptSignal } from "../../runtime/interrupt";
 
 import { type UnitStagePort, clientPort, unitStage } from "./unit-stage";
@@ -197,6 +198,28 @@ describe("unitStage", () => {
     expect(connections).toBe(0);
     await stage.run(() => undefined);
     expect(connections).toBe(1);
+  });
+
+  it("ends without a test run, saying why, when no Metabase credential is configured", async () => {
+    const stage = unitStage([DAILY], new Set(), async () => {
+      throw new NotAuthenticatedError('Not authenticated for profile "default".');
+    });
+
+    expect(await stage.run(() => undefined)).toEqual({
+      code: "ci.no-credential",
+      message:
+        'no Metabase credential, so the transform tests did not run: Not authenticated for profile "default".',
+    });
+  });
+
+  it("rethrows any other config error from connecting", async () => {
+    const stage = unitStage([DAILY], new Set(), async () => {
+      throw new ConfigError("a profile bound to another URL");
+    });
+
+    await expect(stage.run(() => undefined)).rejects.toThrow(
+      new ConfigError("a profile bound to another URL"),
+    );
   });
 
   it("reports a test Metabase refuses to run, and keeps running the others", async () => {

@@ -10,6 +10,7 @@ import {
   type CiRefusal,
   type TransformRequest,
   type UnitFailure,
+  connectStop,
   INVALID_ENTITY_ID,
   lookupStop,
   NO_TESTS_ON_INSTANCE,
@@ -189,7 +190,7 @@ async function checkTransform(
   return null;
 }
 
-// The stage connects only when it runs, so a job that a failed lint stage cuts short never needs a server.
+// The stage connects only when it runs, so the lint stage reports before a server is asked for.
 export function unitStage(
   checked: readonly CheckedTransform[],
   untestedInBranch: ReadonlySet<string>,
@@ -198,7 +199,16 @@ export function unitStage(
   return {
     name: "unit",
     run: async (report) => {
-      const port = await connect();
+      let port: UnitStagePort;
+      try {
+        port = await connect();
+      } catch (error) {
+        const stop = connectStop(error);
+        if (stop === null) {
+          throw error;
+        }
+        return stop;
+      }
       let lookups: ReadonlyMap<string, TransformLookup>;
       try {
         lookups = await port.lookUpTransforms(checked.map((transform) => transform.entity_id));

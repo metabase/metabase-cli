@@ -29,14 +29,20 @@ const TRANSFORM: ContentFile = {
   entityId: TRANSFORM_ID,
   name: "Daily Order Summary",
   logic: SAME_LOGIC,
+  testable: true,
 };
 const OTHER_TRANSFORM: ContentFile = {
   kind: "transform",
   entityId: OTHER_TRANSFORM_ID,
   name: "Hourly Stats",
   logic: SAME_LOGIC,
+  testable: true,
 };
-const TEST: ContentFile = { kind: "transform-test", transformId: TRANSFORM_ID };
+const TEST: ContentFile = {
+  kind: "transform-test",
+  transformId: TRANSFORM_ID,
+  hasExpectations: true,
+};
 const OTHER: ContentFile = { kind: "other" };
 
 const CHANGED_PATH = "transforms/t1/t1.yaml";
@@ -191,10 +197,46 @@ describe("classifyContentFile", () => {
     ).toEqual(TRANSFORM);
   });
 
+  it("marks a transform whose source is not a query as one Metabase cannot test", () => {
+    const python = { type: "python", body: "print(1)" };
+
+    expect(
+      classifyDocument("transforms/a.yaml", {
+        entity_id: TRANSFORM_ID,
+        name: "Daily Order Summary",
+        source: python,
+        target: { name: "t" },
+        "serdes/meta": [{ model: "Transform" }],
+      }),
+    ).toEqual({
+      kind: "transform",
+      entityId: TRANSFORM_ID,
+      name: "Daily Order Summary",
+      logic: {
+        yaml12: { source: python, target: { name: "t" } },
+        yaml11: { source: python, target: { name: "t" } },
+      },
+      testable: false,
+    });
+  });
+
+  it("holds a transform whose source names no type to the query rule", () => {
+    const file = classifyDocument("transforms/a.yaml", {
+      entity_id: TRANSFORM_ID,
+      name: "Daily Order Summary",
+      source: { query: "SELECT 1" },
+      target: { name: "t" },
+      "serdes/meta": [{ model: "Transform" }],
+    });
+
+    expect(file.kind === "transform" && file.testable).toBe(true);
+  });
+
   it("classifies a transform test by the transform it covers", () => {
     expect(
       classifyDocument("transforms/a/t.yaml", {
         transform_id: TRANSFORM_ID,
+        expectations: [{ name: "e", type: "empty" }],
         "serdes/meta": [{ model: "Transform" }, { model: "TransformTest" }],
       }),
     ).toEqual(TEST);
@@ -204,9 +246,43 @@ describe("classifyContentFile", () => {
     expect(
       classifyDocument("transforms/t1/t.yaml", {
         transform_id: TRANSFORM_ID,
+        expectations: [{ name: "e", type: "empty" }],
         "serdes/meta": [{ model: "TransformTest" }],
       }),
     ).toEqual(TEST);
+  });
+
+  it("marks a transform test whose expectations are missing, null or empty as having none", () => {
+    const documents = [
+      { transform_id: TRANSFORM_ID, "serdes/meta": [{ model: "TransformTest" }] },
+      {
+        transform_id: TRANSFORM_ID,
+        expectations: null,
+        "serdes/meta": [{ model: "TransformTest" }],
+      },
+      { transform_id: TRANSFORM_ID, expectations: [], "serdes/meta": [{ model: "TransformTest" }] },
+    ];
+
+    expect(documents.map((document) => classifyDocument("transforms/t1/t.yaml", document))).toEqual(
+      [
+        { ...TEST, hasExpectations: false },
+        { ...TEST, hasExpectations: false },
+        { ...TEST, hasExpectations: false },
+      ],
+    );
+  });
+
+  it("refuses a transform test whose expectations are not a list", () => {
+    const classify = () =>
+      classifyDocument("transforms/t1/t.yaml", {
+        transform_id: TRANSFORM_ID,
+        expectations: "none",
+        "serdes/meta": [{ model: "TransformTest" }],
+      });
+
+    expect(classify).toThrow(
+      "transforms/t1/t.yaml: a TransformTest must name its transform_id, and its expectations must be a list",
+    );
   });
 
   it("classifies any other serialized model as other", () => {
@@ -318,7 +394,7 @@ describe("affectedTransforms", () => {
   });
 
   it("includes both transforms when a test moves from one transform to another", () => {
-    const moved: ContentFile = { kind: "transform-test", transformId: OTHER_TRANSFORM_ID };
+    const moved: ContentFile = { ...TEST, transformId: OTHER_TRANSFORM_ID };
 
     expect(affectedTransforms([change(TEST, moved)])).toEqual([TRANSFORM_ID, OTHER_TRANSFORM_ID]);
   });
@@ -471,8 +547,41 @@ describe("headTransforms", () => {
     expect(headTransforms([TEST]).tested).toEqual(new Set([TRANSFORM_ID]));
   });
 
+  it("does not count a transform as tested when its only test has no expectations", () => {
+    const empty: ContentFile = { ...TEST, hasExpectations: false };
+
+    expect(headTransforms([TRANSFORM, empty])).toEqual({
+      names: new Map([[TRANSFORM_ID, "Daily Order Summary"]]),
+      tested: new Set(),
+      testedWithoutExpectations: new Set([TRANSFORM_ID]),
+      untestable: new Set(),
+    });
+  });
+
+  it("counts a transform as tested when one of its tests has expectations", () => {
+    const empty: ContentFile = { ...TEST, hasExpectations: false };
+
+    expect(headTransforms([empty, TEST, empty])).toEqual({
+      names: new Map(),
+      tested: new Set([TRANSFORM_ID]),
+      testedWithoutExpectations: new Set(),
+      untestable: new Set(),
+    });
+  });
+
+  it("collects the transforms Metabase cannot test", () => {
+    const python: ContentFile = { ...OTHER_TRANSFORM, testable: false };
+
+    expect(headTransforms([TRANSFORM, python]).untestable).toEqual(new Set([OTHER_TRANSFORM_ID]));
+  });
+
   it("ignores files that are not transforms or tests, and absent sides", () => {
-    expect(headTransforms([OTHER, null])).toEqual({ names: new Map(), tested: new Set() });
+    expect(headTransforms([OTHER, null])).toEqual({
+      names: new Map(),
+      tested: new Set(),
+      testedWithoutExpectations: new Set(),
+      untestable: new Set(),
+    });
   });
 });
 

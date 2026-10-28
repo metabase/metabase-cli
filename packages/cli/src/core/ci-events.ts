@@ -14,9 +14,8 @@ type StageName = z.infer<typeof StageName>;
 const Verdict = z.enum(["passed", "failed", "error", "refused"]);
 export type Verdict = z.infer<typeof Verdict>;
 
-const StageStatus = z.enum(["passed", "failed", "errored", "skipped"]);
-
-const JobState = StageStatus.exclude(["skipped"]);
+// A stage's status and the job's state: the job takes the worst status among its stages.
+const JobState = z.enum(["passed", "failed", "errored"]);
 export type JobState = z.infer<typeof JobState>;
 
 const CiWarning = z.object({ code: z.string(), message: z.string() });
@@ -64,11 +63,11 @@ const CheckResult = EventEnvelope.extend({
   detail: z.unknown(),
 });
 
-// `stopped` is null when the stage ran every check, or was skipped.
+// `stopped` is null when the stage ran every check.
 const StageEnd = EventEnvelope.extend({
   type: z.literal("stage.end"),
   stage: StageName,
-  status: StageStatus,
+  status: JobState,
   stopped: StageStop.nullable(),
 });
 
@@ -137,26 +136,28 @@ function stageStatus(verdicts: readonly Verdict[], stopped: StageStop | null): J
   return "passed";
 }
 
+function jobState(statuses: readonly JobState[]): JobState {
+  if (statuses.includes("failed")) {
+    return "failed";
+  }
+  return statuses.includes("errored") ? "errored" : "passed";
+}
+
 interface StagesOutcome {
   state: JobState;
   checks: number;
   warnings: number;
 }
 
-// Stages gate each other: once one has not passed, the rest are reported as skipped rather than
-// run, so a reader never mistakes a missing stage for a passing one.
+// Every stage runs whatever the stages before it found, so one job reports every finding.
 export async function runStages(
   stages: readonly CiStage[],
   emit: (body: CiEventBody) => void,
 ): Promise<StagesOutcome> {
-  let state: JobState = "passed";
+  const statuses: JobState[] = [];
   let checks = 0;
   let warnings = 0;
   for (const stage of stages) {
-    if (state !== "passed") {
-      emit({ type: "stage.end", stage: stage.name, status: "skipped", stopped: null });
-      continue;
-    }
     emit({ type: "stage.start", stage: stage.name });
     const verdicts: Verdict[] = [];
     const stopped = await stage.run((check) => {
@@ -165,8 +166,9 @@ export async function runStages(
       warnings += check.warnings.length;
       emit({ type: "check.result", stage: stage.name, ...check });
     });
-    state = stageStatus(verdicts, stopped);
-    emit({ type: "stage.end", stage: stage.name, status: state, stopped });
+    const status = stageStatus(verdicts, stopped);
+    statuses.push(status);
+    emit({ type: "stage.end", stage: stage.name, status, stopped });
   }
-  return { state, checks, warnings };
+  return { state: jobState(statuses), checks, warnings };
 }
