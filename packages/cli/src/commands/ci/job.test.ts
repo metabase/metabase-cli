@@ -11,7 +11,10 @@ import { z } from "zod";
 import { type CiEvent, type CiStage, CiEvent as CiEventSchema } from "../../core/ci-events";
 import { type TempGitRepo, createTempGitRepo } from "../../runtime/temp-git-repo";
 
+import { coverageStage, untestedTransforms } from "../../core/ci-coverage";
+
 import { runJob } from "./job";
+import { type UnitStagePort, unitStage } from "./unit-stage";
 
 const NOW = new Date("2026-10-30T12:00:00.000Z");
 const AT = "2026-10-30T12:00:00.000Z";
@@ -224,5 +227,75 @@ describe("runJob", () => {
       (error: unknown) => error,
     );
     expect(isFileNotFoundError(missing)).toBe(true);
+  });
+});
+
+// An instance that holds every transform and lists no transform test for any of them.
+const INSTANCE_WITH_NO_TESTS: UnitStagePort = {
+  lookUpTransforms: async (entityIds) =>
+    new Map(entityIds.map((entityId) => [entityId, { kind: "found", id: 1 }])),
+  readTransform: async () => {},
+  listTests: async () => [],
+  runTest: async () => {
+    throw new Error("there is no test to run");
+  },
+  nowMs: () => 0,
+};
+
+describe("runJob, with the stages ci run builds", () => {
+  it("does not pass an edited transform whose test the instance does not list", async () => {
+    const transform = (query: string) =>
+      `name: Daily\nentity_id: ${TRANSFORM_ID}\nsource:\n  type: query\n  query: ${query}\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`;
+    await repo.put("transforms/daily.yaml", transform("SELECT 1"));
+    await repo.put(
+      "transforms/daily/totals.yaml",
+      `name: totals\nentity_id: aRvM7DLesF1fOV4kRHidq\ntransform_id: ${TRANSFORM_ID}\ninputs: []\nexpectations:\n- name: e\n  type: empty\nserdes/meta:\n- model: TransformTest\n`,
+    );
+    await repo.commitAll("a tested transform on main");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put("transforms/daily.yaml", transform("SELECT 2"));
+    await repo.commitAll("edit the query");
+    const events: CiEvent[] = [];
+
+    const state = await runJob({
+      repo: repo.path,
+      base: "main",
+      head: "HEAD",
+      stages: async (plan) => [
+        coverageStage(plan.coverage),
+        unitStage(
+          plan.checked,
+          untestedTransforms(plan.coverage),
+          async () => INSTANCE_WITH_NO_TESTS,
+        ),
+      ],
+      job: "job-1",
+      now: () => NOW,
+      write: (event) => events.push(event),
+      resultsPath: null,
+      signal: NOT_INTERRUPTED,
+    });
+
+    expect(state).toBe("errored");
+    expect(
+      events.filter((event) => event.type === "check.result" && event.stage === "unit"),
+    ).toEqual([
+      {
+        job: "job-1",
+        at: AT,
+        seq: 5,
+        type: "check.result",
+        stage: "unit",
+        check: { kind: "transform-test", id: TRANSFORM_ID, label: "Daily" },
+        verdict: "refused",
+        warnings: [],
+        ms: 0,
+        detail: {
+          error_code: "ci.no-tests-on-instance",
+          message:
+            "the branch has a test for this transform, but the Metabase instance lists none, so no test ran; load the branch into it first",
+        },
+      },
+    ]);
   });
 });

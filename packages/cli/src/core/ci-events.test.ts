@@ -81,7 +81,7 @@ describe("createEmitter", () => {
 });
 
 describe("runStages", () => {
-  it("skips every stage after one that failed", async () => {
+  it("runs the stage after one that failed, and the job fails", async () => {
     const { events, emit } = collector();
 
     const outcome = await runStages(
@@ -90,7 +90,7 @@ describe("runStages", () => {
     );
 
     const envelope = { job: "job-1", at: "2026-10-30T12:00:00.000Z" };
-    expect(outcome).toEqual({ state: "failed", checks: 1, warnings: 0 });
+    expect(outcome).toEqual({ state: "failed", checks: 2, warnings: 0 });
     expect(events).toEqual([
       { ...envelope, seq: 0, type: "stage.start", stage: "lint" },
       {
@@ -105,7 +105,19 @@ describe("runStages", () => {
         detail: null,
       },
       { ...envelope, seq: 2, type: "stage.end", stage: "lint", status: "failed", stopped: null },
-      { ...envelope, seq: 3, type: "stage.end", stage: "unit", status: "skipped", stopped: null },
+      { ...envelope, seq: 3, type: "stage.start", stage: "unit" },
+      {
+        ...envelope,
+        seq: 4,
+        type: "check.result",
+        stage: "unit",
+        check: { kind: "transform-test", id: "7", label: "unit check" },
+        verdict: "passed",
+        warnings: [],
+        ms: 5,
+        detail: null,
+      },
+      { ...envelope, seq: 5, type: "stage.end", stage: "unit", status: "passed", stopped: null },
     ]);
   });
 
@@ -226,7 +238,7 @@ describe("runStages", () => {
   });
 });
 
-describe("runStages, gating", () => {
+describe("runStages, combining stages", () => {
   function recordingStage(
     name: CiStage["name"],
     verdict: "passed" | "failed" | "error",
@@ -241,38 +253,58 @@ describe("runStages, gating", () => {
     };
   }
 
-  it("does not run the stage after an errored stage", async () => {
-    const { events, emit } = collector();
+  it("runs the stage after an errored stage, and the job errors", async () => {
     const ran: string[] = [];
 
     const outcome = await runStages(
       [recordingStage("lint", "error", ran), recordingStage("unit", "passed", ran)],
-      emit,
+      collector().emit,
     );
 
-    expect(outcome).toEqual({ state: "errored", checks: 1, warnings: 0 });
-    expect(ran).toEqual(["lint"]);
-    expect(events.at(-1)).toEqual({
-      type: "stage.end",
-      stage: "unit",
-      status: "skipped",
-      stopped: null,
-      seq: 3,
-      job: "job-1",
-      at: "2026-10-30T12:00:00.000Z",
-    });
+    expect([outcome, ran]).toEqual([
+      { state: "errored", checks: 2, warnings: 0 },
+      ["lint", "unit"],
+    ]);
   });
 
-  it("does not run the stage after a failed stage", async () => {
-    const { emit } = collector();
-    const ran: string[] = [];
-
-    await runStages(
-      [recordingStage("lint", "failed", ran), recordingStage("unit", "passed", ran)],
-      emit,
+  it("fails the job when a later stage fails after an errored one", async () => {
+    const outcome = await runStages(
+      [stageWith("lint", "error"), stageWith("unit", "failed")],
+      collector().emit,
     );
 
-    expect(ran).toEqual(["lint"]);
+    expect(outcome).toEqual({ state: "failed", checks: 2, warnings: 0 });
+  });
+
+  it("fails the job when an earlier stage fails before an errored one", async () => {
+    const outcome = await runStages(
+      [stageWith("lint", "failed"), stageWith("unit", "error")],
+      collector().emit,
+    );
+
+    expect(outcome).toEqual({ state: "failed", checks: 2, warnings: 0 });
+  });
+
+  it("errors the job when only a later stage errors", async () => {
+    const outcome = await runStages(
+      [stageWith("lint", "passed"), stageWith("unit", "error")],
+      collector().emit,
+    );
+
+    expect(outcome).toEqual({ state: "errored", checks: 2, warnings: 0 });
+  });
+
+  it("ends a stage that stopped early errored, and still runs the next", async () => {
+    const { events, emit } = collector();
+    const stop = { code: "unreachable", message: "Metabase could not be reached" };
+    const stopped: CiStage = { name: "lint", run: async () => stop };
+
+    const outcome = await runStages([stopped, stageWith("unit", "passed")], emit);
+
+    expect([outcome, events.map((event) => event.type === "stage.end" && event.status)]).toEqual([
+      { state: "errored", checks: 1, warnings: 0 },
+      [false, "errored", false, false, "passed"],
+    ]);
   });
 });
 

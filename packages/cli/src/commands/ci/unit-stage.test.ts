@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createClient } from "@metabase/client/client";
 import type { TransformTest, TransformTestRunResult } from "@metabase/client/domain/transform-test";
-import { InternalError } from "@metabase/client/errors";
+import { ConfigError, InternalError } from "@metabase/client/errors";
 import { HttpError } from "@metabase/client/http/errors";
 import type { ClientCredentials } from "@metabase/client/http/transport";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@metabase/client/testing/fetch-capture";
 
 import { type CheckedTransform, type CiEventBody, runStages } from "../../core/ci-events";
+import { NotAuthenticatedError } from "../../core/config";
 import { interruptSignal } from "../../runtime/interrupt";
 
 import { type UnitStagePort, clientPort, unitStage } from "./unit-stage";
@@ -83,15 +84,24 @@ function port(overrides: Partial<UnitStagePort>): UnitStagePort {
   };
 }
 
-async function reports(
+async function reportsGiven(
   checked: readonly CheckedTransform[],
+  untestedInBranch: ReadonlySet<string>,
   stagePort: UnitStagePort,
 ): Promise<CiEventBody[]> {
   const bodies: CiEventBody[] = [];
-  await unitStage(checked, async () => stagePort).run((check) =>
+  await unitStage(checked, untestedInBranch, async () => stagePort).run((check) =>
     bodies.push({ type: "check.result", stage: "unit", ...check }),
   );
   return bodies;
+}
+
+// Every checked transform has a test file in the branch, as when the coverage check passes.
+function reports(
+  checked: readonly CheckedTransform[],
+  stagePort: UnitStagePort,
+): Promise<CiEventBody[]> {
+  return reportsGiven(checked, new Set(), stagePort);
 }
 
 function testCheck(
@@ -162,8 +172,54 @@ describe("unitStage", () => {
     ]);
   });
 
-  it("reports nothing for a transform with no tests, which the coverage check owns", async () => {
-    expect(await reports([DAILY], port({ listTests: async () => [] }))).toEqual([]);
+  it("reports nothing for a transform with no test in the branch, which the coverage check owns", async () => {
+    const untested = new Set([DAILY.entity_id]);
+
+    expect(await reportsGiven([DAILY], untested, port({ listTests: async () => [] }))).toEqual([]);
+  });
+
+  it("refuses a transform whose test the branch holds and the instance does not list", async () => {
+    expect(await reports([DAILY], port({ listTests: async () => [] }))).toEqual([
+      testCheck(DAILY.entity_id, "Daily", "refused", {
+        error_code: "ci.no-tests-on-instance",
+        message:
+          "the branch has a test for this transform, but the Metabase instance lists none, so no test ran; load the branch into it first",
+      }),
+    ]);
+  });
+
+  it("does not connect when built, only when it runs", async () => {
+    let connections = 0;
+    const stage = unitStage([], new Set(), async () => {
+      connections += 1;
+      return port({});
+    });
+
+    expect(connections).toBe(0);
+    await stage.run(() => undefined);
+    expect(connections).toBe(1);
+  });
+
+  it("ends without a test run, saying why, when no Metabase credential is configured", async () => {
+    const stage = unitStage([DAILY], new Set(), async () => {
+      throw new NotAuthenticatedError('Not authenticated for profile "default".');
+    });
+
+    expect(await stage.run(() => undefined)).toEqual({
+      code: "ci.no-credential",
+      message:
+        'no Metabase credential, so the transform tests did not run: Not authenticated for profile "default".',
+    });
+  });
+
+  it("rethrows any other config error from connecting", async () => {
+    const stage = unitStage([DAILY], new Set(), async () => {
+      throw new ConfigError("a profile bound to another URL");
+    });
+
+    await expect(stage.run(() => undefined)).rejects.toThrow(
+      new ConfigError("a profile bound to another URL"),
+    );
   });
 
   it("reports a test Metabase refuses to run, and keeps running the others", async () => {
@@ -264,7 +320,7 @@ describe("unitStage", () => {
 
   it("stops at a rejected credential, keeping the checks already reported", async () => {
     const ran: number[] = [];
-    const stage = unitStage([DAILY], async () =>
+    const stage = unitStage([DAILY], new Set(), async () =>
       port({
         runTest: async (testId) => {
           ran.push(testId);
@@ -296,7 +352,7 @@ describe("unitStage", () => {
   });
 
   it("stops before any check when the entity-id lookup fails", async () => {
-    const stopped = await unitStage([DAILY], async () =>
+    const stopped = await unitStage([DAILY], new Set(), async () =>
       port({ lookUpTransforms: async () => Promise.reject(SERVER_ERROR) }),
     ).run(() => {
       throw new Error("no check expected");
