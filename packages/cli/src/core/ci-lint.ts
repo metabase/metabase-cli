@@ -20,8 +20,23 @@ const LINT_ERROR_RULES = [
   "untestable-transform",
   "duplicate-input",
   "expectation-reads-other-table",
+  "row-columns-mismatch",
+  "duplicate-expectation-name",
+  "transform-collection",
+  "missing-incremental-table-tag",
+  "missing-target-schema",
 ] as const;
-const LINT_WARNING_RULES = ["unknown-table", "input-match-undecided", "reads-not-checked"] as const;
+const LINT_WARNING_RULES = [
+  "unknown-table",
+  "reads-not-checked",
+  "no-expectations",
+  "unsupported-transform-engine",
+  "untestable-engine",
+  "upstream-column-mismatch",
+  "input-missing-read-column",
+  "table-qualified-column",
+  "live-sql-input",
+] as const;
 
 const LintEntity = z.object({
   model: z.string().nullable(),
@@ -68,6 +83,11 @@ const ERROR_CHECK_KIND: Record<LintError["rule"], CheckKind> = {
   "untestable-transform": "broken-refs",
   "duplicate-input": "broken-refs",
   "expectation-reads-other-table": "broken-refs",
+  "row-columns-mismatch": "broken-refs",
+  "duplicate-expectation-name": "broken-refs",
+  "transform-collection": "broken-refs",
+  "missing-incremental-table-tag": "broken-refs",
+  "missing-target-schema": "broken-refs",
 };
 
 // The check for the lint run as a whole: its warnings when it ran, its crash when it did not.
@@ -139,8 +159,9 @@ function lintChecks(result: LintResult): CheckOutcome[] {
   return [...failed, warningsCheck(result.files, warnings)];
 }
 
-// A linter that throws or answers something unreadable has a bug: the check errors, and the
-// change is not blamed.
+// A linter that throws or answers something unreadable cannot judge the change: the check errors,
+// and the change is not blamed. That covers a setup error, such as a table name without a schema
+// in a database whose default schema the repo does not declare; the linter's message names it.
 async function runLint(lintTree: LintTree): Promise<CheckOutcome[]> {
   let output: unknown;
   try {

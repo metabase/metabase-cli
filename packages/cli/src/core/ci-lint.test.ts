@@ -4,7 +4,11 @@ import type { CoverageAssessment } from "./ci-coverage";
 import { type CheckOutcome, type CiEventBody, type CiStage, runStages } from "./ci-events";
 import { type LintTree, lintStage } from "./ci-lint";
 
-const NOTHING_UNTESTED: CoverageAssessment = { untestedChanges: [], untouchedUntested: [] };
+const NOTHING_UNTESTED: CoverageAssessment = {
+  untestedChanges: [],
+  untestableChanges: [],
+  untouchedUntested: [],
+};
 
 const COVERAGE_SUMMARY: CheckOutcome = {
   check: {
@@ -108,6 +112,11 @@ describe("lintStage, errors", () => {
     "untestable-transform",
     "duplicate-input",
     "expectation-reads-other-table",
+    "row-columns-mismatch",
+    "duplicate-expectation-name",
+    "transform-collection",
+    "missing-incremental-table-tag",
+    "missing-target-schema",
   ])("fails a broken-refs check for %s", async (rule) => {
     const broken = finding({ rule, severity: "error", file: "tests/daily.yaml", message: "m" });
 
@@ -158,7 +167,8 @@ describe("lintStage, errors", () => {
 
   it("reports coverage first, then the errors in the linter's order", async () => {
     const coverage: CoverageAssessment = {
-      untestedChanges: [{ entityId: DAILY.entity_id, name: "Daily", change: "new" }],
+      untestedChanges: [{ entityId: DAILY.entity_id, name: "Daily", change: "new", tests: "none" }],
+      untestableChanges: [],
       untouchedUntested: [],
     };
     const findings = [
@@ -216,9 +226,9 @@ describe("lintStage, warnings", () => {
     ]);
   });
 
-  it("collects an undecided input match into the warnings check", async () => {
+  it("collects a table-qualified column into the warnings check", async () => {
     const undecided = finding({
-      rule: "input-match-undecided",
+      rule: "table-qualified-column",
       severity: "warning",
       file: "tests/daily.yaml",
       message: "input ORDERS stands in for PUBLIC.ORDERS only if PUBLIC is the default schema",
@@ -229,7 +239,7 @@ describe("lintStage, warnings", () => {
       verdict: "passed",
       warnings: [
         {
-          code: "input-match-undecided",
+          code: "table-qualified-column",
           message:
             "tests/daily.yaml: input ORDERS stands in for PUBLIC.ORDERS only if PUBLIC is the default schema",
         },
@@ -275,7 +285,7 @@ describe("lintStage, a broken linter", () => {
         ms: 0,
         detail: {
           message:
-            'the linter answered an unreadable result: ✖ Invalid option: expected one of "unknown-table"|"input-match-undecided"|"reads-not-checked"\n  → at findings[0].rule',
+            'the linter answered an unreadable result: ✖ Invalid option: expected one of "unknown-table"|"reads-not-checked"|"no-expectations"|"unsupported-transform-engine"|"untestable-engine"|"upstream-column-mismatch"|"input-missing-read-column"|"table-qualified-column"|"live-sql-input"\n  → at findings[0].rule',
         },
       },
     ]);
@@ -283,7 +293,7 @@ describe("lintStage, a broken linter", () => {
 });
 
 describe("lintStage, gating", () => {
-  it("skips the unit stage after a lint error", async () => {
+  it("still runs the unit stage after a lint error", async () => {
     const ran: string[] = [];
     const unit: CiStage = {
       name: "unit",
@@ -310,10 +320,10 @@ describe("lintStage, gating", () => {
     );
 
     expect(outcome).toEqual({ state: "failed", checks: 3, warnings: 0 });
-    expect(ran).toEqual([]);
+    expect(ran).toEqual(["unit"]);
     expect(ends).toEqual([
       { type: "stage.end", stage: "lint", status: "failed", stopped: null },
-      { type: "stage.end", stage: "unit", status: "skipped", stopped: null },
+      { type: "stage.end", stage: "unit", status: "passed", stopped: null },
     ]);
   });
 });
