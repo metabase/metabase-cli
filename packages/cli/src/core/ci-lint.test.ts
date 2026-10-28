@@ -106,7 +106,6 @@ describe("lintStage, errors", () => {
     "duplicate-entity-id",
     "dangling-transform-id",
     "wrong-type-transform-id",
-    "duplicate-target",
     "missing-input",
     "unused-input",
     "untestable-transform",
@@ -285,7 +284,7 @@ describe("lintStage, a broken linter", () => {
         ms: 0,
         detail: {
           message:
-            'the linter answered an unreadable result: ✖ Invalid option: expected one of "unknown-table"|"reads-not-checked"|"no-expectations"|"unsupported-transform-engine"|"untestable-engine"|"upstream-column-mismatch"|"input-missing-read-column"|"table-qualified-column"|"live-sql-input"\n  → at findings[0].rule',
+            'the linter answered an unreadable result: ✖ Invalid option: expected one of "unknown-table"|"duplicate-target"|"reads-not-checked"|"no-expectations"|"unsupported-transform-engine"|"untestable-engine"|"upstream-column-mismatch"|"input-missing-read-column"|"table-qualified-column"|"live-sql-input"\n  → at findings[0].rule',
         },
       },
     ]);

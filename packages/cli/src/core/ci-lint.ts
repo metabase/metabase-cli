@@ -13,7 +13,6 @@ const LINT_ERROR_RULES = [
   "duplicate-entity-id",
   "dangling-transform-id",
   "wrong-type-transform-id",
-  "duplicate-target",
   "transform-cycle",
   "missing-input",
   "unused-input",
@@ -28,6 +27,7 @@ const LINT_ERROR_RULES = [
 ] as const;
 const LINT_WARNING_RULES = [
   "unknown-table",
+  "duplicate-target",
   "reads-not-checked",
   "no-expectations",
   "unsupported-transform-engine",
@@ -77,7 +77,6 @@ const ERROR_CHECK_KIND: Record<LintError["rule"], CheckKind> = {
   "duplicate-entity-id": "broken-refs",
   "dangling-transform-id": "broken-refs",
   "wrong-type-transform-id": "broken-refs",
-  "duplicate-target": "broken-refs",
   "missing-input": "broken-refs",
   "unused-input": "broken-refs",
   "untestable-transform": "broken-refs",
