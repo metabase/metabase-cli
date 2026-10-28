@@ -15,6 +15,7 @@ Everything here runs inside the sandbox, the same in the dev preview as in Metab
 
 - Plain ESM and TSX. SDK components come from `@metabase/embedding-sdk-react`; the data hooks, routing, `copy`, `DateRangePopover`, `DateRangeCalendar` and `useDateFormatter` from `@metabase/embedding-sdk-react/data-app`. JSX needs no `import React`; import hooks and React types by name.
 - React, React DOM and both SDK entries come from the host. Never read SDK values off `globalThis`: the sandbox globals there are private.
+- On Metabase 65 or earlier (`mb auth status --json | jq -r .version.tag`), the host runs React 18: write code that runs on both 18 and 19, without React 19 APIs such as `use`, `useOptimistic`, `useActionState` or async transitions. The project itself stays on React 19 (`data-app`, _An existing project_).
 - The build is one self-contained file: CSS is inlined, `import logo from "./logo.png"` is a data URI, `import Icon from "./icon.svg?react"` a component (add `declare module "*.svg?react";` in a `.d.ts` under `src/` if the editor doesn't know it). Keep large binaries out. There's no `index.html` and no Vite plugin to add: solve it in `src/`.
 - Once the app grows: `src/App.tsx` for routing and composition, `pages/` one file per screen, `components/`, `hooks/`, `lib/` for pure helpers.
 
