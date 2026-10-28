@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import { AbortError } from "@metabase/client/errors";
+import { LINT_RULE_SEVERITY, LINT_RULES } from "@metabase/representations";
+
 import type { CoverageAssessment } from "./ci-coverage";
 import { type CheckOutcome, type CiEventBody, type CiStage, runStages } from "./ci-events";
 import { type LintTree, lintStage } from "./ci-lint";
@@ -253,7 +256,30 @@ describe("lintStage, warnings", () => {
   });
 });
 
+describe("lintStage, the published linter's rules", () => {
+  // Fails when @metabase/representations adds a rule or moves one between severities, so the
+  // boundary schema in ci-lint.ts is updated with the dependency rather than erroring each finding.
+  it.each(LINT_RULES)("reads a finding of %s at the linter's severity", async (rule) => {
+    const severity = LINT_RULE_SEVERITY[rule];
+    const verdicts = (
+      await lintReports(linted([finding({ rule, severity, file: "f.yaml", message: "m" })]))
+    )
+      .slice(1)
+      .map((outcome) => outcome.verdict);
+
+    expect(verdicts).toEqual(severity === "error" ? ["failed", "passed"] : ["passed"]);
+  });
+});
+
 describe("lintStage, a broken linter", () => {
+  it("lets an interrupt end the job instead of erroring the check", async () => {
+    const interrupted: LintTree = async () => {
+      throw new AbortError("interrupted while tar extracted abc");
+    };
+
+    await expect(lintReports(interrupted)).rejects.toBeInstanceOf(AbortError);
+  });
+
   it("errors the lint check when the linter throws", async () => {
     expect(await lintReports(throwingLint)).toEqual([
       COVERAGE_SUMMARY,

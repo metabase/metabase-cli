@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { errorMessage } from "@metabase/client/errors";
+import { AbortError, errorMessage } from "@metabase/client/errors";
 
 import { type CoverageAssessment, coverageStage } from "./ci-coverage";
 import type { CheckOutcome, CiStage, CiWarning } from "./ci-events";
@@ -166,6 +166,10 @@ async function runLint(lintTree: LintTree): Promise<CheckOutcome[]> {
   try {
     output = await lintTree();
   } catch (error) {
+    // An interrupt ends the job, not the check.
+    if (error instanceof AbortError) {
+      throw error;
+    }
     return [crashedCheck(`the linter threw: ${errorMessage(error)}`)];
   }
   const parsed = LintResult.safeParse(output);

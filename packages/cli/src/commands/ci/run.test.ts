@@ -31,6 +31,14 @@ vi.mock("./job", async (importOriginal) => {
   };
 });
 
+// These tests cover the job and the unit stage; `ci-lint.test.ts` and the e2e suite cover the
+// representation lint. The lint stage keeps its coverage checks here and skips the linter, whose
+// findings on these minimal fixtures would change every event count.
+vi.mock("../../core/ci-lint", async () => {
+  const { coverageStage } = await import("../../core/ci-coverage");
+  return { lintStage: (coverage: Parameters<typeof coverageStage>[0]) => coverageStage(coverage) };
+});
+
 const { default: runCmd } = await import("./run");
 
 const A = "7JwIkkAG-06-nsl4jzsaq";
