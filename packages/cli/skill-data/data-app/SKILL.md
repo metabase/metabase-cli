@@ -17,7 +17,7 @@ The work, in order:
 4. Start the dev preview (_Dev preview_), then write the UI under `src/` (`data-app-ui`; filter controls in `data-app-filters`).
 5. Build and publish (_Build and publish_).
 
-For every later change: regenerate `src/metabase.ts` if the app's collection changed, then build and set the bundle; in a synced repository, then export and commit the source as in _Move to another instance_. Metabase receives only the built bundle; the source stays in the project directory, which is the app's folder in the synced git repository when there is one (_Scaffold and install_).
+For every later change: first pass the checks in _An existing project_ (_Scaffold and install_), then regenerate `src/metabase.ts` if the app's collection changed, then build and set the bundle; in a synced repository, then export and commit the source as in _Move to another instance_. Metabase receives only the built bundle; the source stays in the project directory, which is the app's folder in the synced git repository when there is one (_Scaffold and install_).
 
 ## Before you start
 
@@ -50,7 +50,13 @@ Skip the SDK line when `package.json` already points it at a local build (`file:
 
 The template is the bundle contract. Don't edit `package.json` by hand, and never rewrite `vite.config.ts`, `tsconfig.json` or `src/index.tsx`: `vite.config.ts` stays `export default dataAppConfig()` (its only option is `port`), and `src/index.tsx` default-exports the `DataAppFactory` — change it only to add a `providerProps` key. Metabase and the dev preview each wrap the app in a `<MetabaseProvider>`, so the app never renders one.
 
-**An existing project.** Before changing an app you didn't scaffold in this session, check both: `vite.config.ts` is `export default dataAppConfig()` from `@metabase/embedding-sdk-react/data-app-dev/config`, with no local `config/` directory; and `src/index.tsx` default-exports a `DataAppFactory` that takes no arguments and returns `{ component, providerProps? }`. If either fails, stop: tell the user the project differs from the template, and ask whether to scaffold a fresh project and port the code over, or go on at their own risk.
+**An existing project.** Before changing an app you didn't scaffold in this session, pass three checks:
+
+- `vite.config.ts` is `export default dataAppConfig()` from `@metabase/embedding-sdk-react/data-app-dev/config`, with no local `config/` directory.
+- `src/index.tsx` default-exports a `DataAppFactory` that takes no arguments and returns `{ component, providerProps? }`.
+- `npm ls react react-dom` exits 0 and reports 19.x. A 19.x it marks `invalid` fails. This check applies whatever the instance or SDK version; to skip it, ask the user first.
+
+Fix a failed React check yourself, before any other change: upgrade `react`, `react-dom`, `@types/react` and `@types/react-dom` to 19 until `npm run typecheck && npm run build` passes and the diagnostics feed is clean (_Dev preview_); then publish (_Build and publish_). If either other check fails, stop: tell the user the project differs from the template, and ask whether to scaffold a fresh project and port the code over, or go on at their own risk.
 
 ## Dev preview
 
