@@ -96,7 +96,7 @@ function stageEndLines(event: StageEnd): string[] {
   if (event.stopped !== null) {
     return [`${event.stage}  stopped: ${event.stopped.message} (${event.stopped.code})`];
   }
-  return event.status === "skipped" ? [`${event.stage}  skipped`] : [];
+  return [];
 }
 
 function shortSha(sha: string): string {

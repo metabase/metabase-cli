@@ -243,6 +243,8 @@ export async function planJob(
     changes,
     transformsAtHead: atHead.names,
     testedAtHead: atHead.tested,
+    testedWithoutExpectationsAtHead: atHead.testedWithoutExpectations,
+    untestableAtHead: atHead.untestable,
   });
 
   // Uncommitted files only matter when the checked commit is the one checked out.

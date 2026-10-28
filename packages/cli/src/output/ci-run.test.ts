@@ -237,7 +237,7 @@ describe("ciEventLines", () => {
     ]);
   });
 
-  it("renders an untested change as a failed coverage check, and the unit stage as skipped", () => {
+  it("renders an untested change as a failed coverage check", () => {
     expect(
       render(
         [
@@ -257,7 +257,6 @@ describe("ciEventLines", () => {
           },
           UNTOUCHED_PASSED,
           { type: "stage.end", stage: "lint", status: "failed", stopped: null },
-          { type: "stage.end", stage: "unit", status: "skipped", stopped: null },
           { type: "job.end", state: "failed", counts: { checks: 2, warnings: 0 } },
         ],
         DEFAULT_MAX_ROWS,
@@ -268,7 +267,6 @@ describe("ciEventLines", () => {
       "  ✗ transform_0",
       "      transform_0 is new in this change and has no transform tests",
       "  ✓ Transforms whose logic this change did not touch",
-      "unit  skipped",
       "FAILED  add or restore transform tests (exit 1)",
     ]);
   });

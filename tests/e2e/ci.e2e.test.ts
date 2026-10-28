@@ -49,7 +49,7 @@ function quietLintEvents(firstSeq: number): unknown[] {
 }
 
 function testYaml(transformEntityId: string): string {
-  return `entity_id: aRvM7DLesF1fOV4kRHidq\ntransform_id: ${transformEntityId}\nserdes/meta:\n- model: TransformTest\n`;
+  return `entity_id: aRvM7DLesF1fOV4kRHidq\ntransform_id: ${transformEntityId}\nexpectations:\n- name: e\n  type: empty\nserdes/meta:\n- model: TransformTest\n`;
 }
 
 describe("ci e2e", () => {
@@ -119,81 +119,6 @@ describe("ci e2e", () => {
       },
     ]);
     expect(parseJson(await readFile(resultsPath, "utf8"), z.array(CiEvent))).toEqual(events);
-  });
-
-  it("fails a new transform with no test at the lint stage, skipping the unit stage and needing no server", async () => {
-    await repo.git("checkout", "-q", "-b", "feature");
-    await repo.put(
-      "transforms/daily.yaml",
-      `name: Daily\nentity_id: ${TRANSFORM_ID}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
-    );
-    await repo.commitAll("add an untested transform");
-
-    const result = await runCli({
-      args: ["ci", "run", "--repo", repo.path, "--base", "main"],
-      configHome: await configHome(),
-    });
-
-    expect(result.exitCode).toBe(1);
-    const events = result.stdout
-      .trimEnd()
-      .split("\n")
-      .map((line) => parseJson(line, CiEvent));
-    expect(events.slice(1)).toEqual([
-      { ...ANY_ENVELOPE, seq: 1, type: "stage.start", stage: "lint" },
-      {
-        ...ANY_ENVELOPE,
-        seq: 2,
-        type: "check.result",
-        stage: "lint",
-        check: { kind: "coverage", id: TRANSFORM_ID, label: "Daily" },
-        verdict: "failed",
-        warnings: [],
-        ms: 0,
-        detail: {
-          change: "new",
-          message: "Daily is new in this change and has no transform tests",
-        },
-      },
-      {
-        ...ANY_ENVELOPE,
-        seq: 3,
-        type: "check.result",
-        stage: "lint",
-        check: {
-          kind: "coverage",
-          id: "untouched",
-          label: "Transforms whose logic this change did not touch",
-        },
-        verdict: "passed",
-        warnings: [],
-        ms: 0,
-        detail: { untested: [] },
-      },
-      {
-        ...ANY_ENVELOPE,
-        seq: 4,
-        type: "stage.end",
-        stage: "lint",
-        status: "failed",
-        stopped: null,
-      },
-      {
-        ...ANY_ENVELOPE,
-        seq: 5,
-        type: "stage.end",
-        stage: "unit",
-        status: "skipped",
-        stopped: null,
-      },
-      {
-        ...ANY_ENVELOPE,
-        seq: 6,
-        type: "job.end",
-        state: "failed",
-        counts: { checks: 2, warnings: 0 },
-      },
-    ]);
   });
 
   it("exits 2 with a config error when --base is not a commit", async () => {
@@ -272,6 +197,94 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
       ...(stdin === undefined ? {} : { stdin }),
     });
   }
+
+  it("fails a new transform with no test at the lint stage, and still runs the unit stage", async () => {
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(
+      "transforms/daily.yaml",
+      `name: Daily\nentity_id: ${TRANSFORM_ID}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
+    );
+    await repo.commitAll("add an untested transform");
+
+    const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
+
+    expect(result.exitCode).toBe(1);
+    const events = result.stdout
+      .trimEnd()
+      .split("\n")
+      .map((line) => parseJson(line, CiEvent));
+    expect(events.slice(1)).toEqual([
+      { ...ANY_ENVELOPE, seq: 1, type: "stage.start", stage: "lint" },
+      {
+        ...ANY_ENVELOPE,
+        seq: 2,
+        type: "check.result",
+        stage: "lint",
+        check: { kind: "coverage", id: TRANSFORM_ID, label: "Daily" },
+        verdict: "failed",
+        warnings: [],
+        ms: 0,
+        detail: {
+          change: "new",
+          message: "Daily is new in this change and has no transform tests",
+        },
+      },
+      {
+        ...ANY_ENVELOPE,
+        seq: 3,
+        type: "check.result",
+        stage: "lint",
+        check: {
+          kind: "coverage",
+          id: "untouched",
+          label: "Transforms whose logic this change did not touch",
+        },
+        verdict: "passed",
+        warnings: [],
+        ms: 0,
+        detail: { untested: [] },
+      },
+      {
+        ...ANY_ENVELOPE,
+        seq: 4,
+        type: "stage.end",
+        stage: "lint",
+        status: "failed",
+        stopped: null,
+      },
+      { ...ANY_ENVELOPE, seq: 5, type: "stage.start", stage: "unit" },
+      {
+        ...ANY_ENVELOPE,
+        seq: 6,
+        type: "check.result",
+        stage: "unit",
+        check: { kind: "transform-test", id: TRANSFORM_ID, label: "Daily" },
+        verdict: "refused",
+        warnings: [],
+        ms: 0,
+        detail: {
+          error_code: "ci.transform-not-on-instance",
+          message:
+            "the transform is in the branch but not on the Metabase instance; load the branch into it first",
+        },
+      },
+      {
+        ...ANY_ENVELOPE,
+        seq: 7,
+        type: "stage.end",
+        stage: "unit",
+        status: "errored",
+        stopped: null,
+      },
+      {
+        ...ANY_ENVELOPE,
+        seq: 8,
+        type: "job.end",
+        state: "failed",
+        counts: { checks: 3, warnings: 0 },
+      },
+    ]);
+  });
 
   it("refuses a changed transform the instance does not have, ending the job errored", async () => {
     await repo.git("checkout", "-q", "-b", "feature");

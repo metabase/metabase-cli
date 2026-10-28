@@ -7,6 +7,8 @@ requires: [dataApps]
 
 # Data in a data app
 
+Before changing an existing app, pass the checks in `data-app`, _An existing project_: the template's config and factory, and React 19.
+
 A data app runs only the questions and actions in **the app's collection** (`data-app`, _Create the app_); its viewers can read nothing else. So every piece of data starts there:
 
 1. Create a question (below) or an action (`data-app-actions`) in the app's collection.

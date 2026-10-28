@@ -249,7 +249,7 @@ describe("runJob, with the stages ci run builds", () => {
     await repo.put("transforms/daily.yaml", transform("SELECT 1"));
     await repo.put(
       "transforms/daily/totals.yaml",
-      `name: totals\nentity_id: aRvM7DLesF1fOV4kRHidq\ntransform_id: ${TRANSFORM_ID}\ninputs: []\nexpectations: []\nserdes/meta:\n- model: TransformTest\n`,
+      `name: totals\nentity_id: aRvM7DLesF1fOV4kRHidq\ntransform_id: ${TRANSFORM_ID}\ninputs: []\nexpectations:\n- name: e\n  type: empty\nserdes/meta:\n- model: TransformTest\n`,
     );
     await repo.commitAll("a tested transform on main");
     await repo.git("checkout", "-q", "-b", "feature");

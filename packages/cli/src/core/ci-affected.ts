@@ -24,11 +24,15 @@ interface TransformFile {
   entityId: string;
   name: string;
   logic: TransformLogic;
+  // Metabase tests only a query transform, and refuses a test of any other, such as a Python one.
+  testable: boolean;
 }
 
 interface TransformTestFile {
   kind: "transform-test";
   transformId: string;
+  // A test with no expectations checks nothing, so it does not count as testing its transform.
+  hasExpectations: boolean;
 }
 
 interface OtherFile {
@@ -170,8 +174,23 @@ export interface TransformLogic {
   yaml11: LogicReading;
 }
 
+const QUERY_SOURCE_TYPE = "query";
+
+// A source that names no type is held to the query rule, so a malformed transform still needs a test.
+function isTestableSource(source: unknown): boolean {
+  if (!isPlainObject(source)) {
+    return true;
+  }
+  const type = source["type"];
+  return typeof type !== "string" || type === QUERY_SOURCE_TYPE;
+}
+
 const TRANSFORM_RULE = "a Transform must have an entity_id, a name, a source and a target";
-const TransformTestDocument = z.object({ transform_id: z.string().min(1) }).loose();
+const TRANSFORM_TEST_RULE =
+  "a TransformTest must name its transform_id, and its expectations must be a list";
+const TransformTestDocument = z
+  .object({ transform_id: z.string().min(1), expectations: z.array(z.unknown()).nullish() })
+  .loose();
 
 const SerdesMeta = z.array(z.object({ model: z.string() }).loose()).min(1);
 
@@ -212,16 +231,15 @@ export function classifyContentFile(path: string, yaml: MetabaseYaml): ContentFi
         yaml12: { source: transform.source, target: transform.target },
         yaml11: { source: asYaml11.source, target: asYaml11.target },
       },
+      testable: isTestableSource(transform.source),
     };
   }
   if (last.model === "TransformTest") {
-    const test = parseOrRefuse(
-      path,
-      TransformTestDocument,
-      document,
-      "a TransformTest must name its transform_id",
-    );
-    return { kind: "transform-test", transformId: test.transform_id };
+    const test = parseOrRefuse(path, TransformTestDocument, document, TRANSFORM_TEST_RULE);
+    const expectations = test.expectations;
+    const hasExpectations =
+      expectations !== undefined && expectations !== null && expectations.length > 0;
+    return { kind: "transform-test", transformId: test.transform_id, hasExpectations };
   }
   return { kind: "other" };
 }
@@ -274,17 +292,32 @@ export const TRANSFORM_MODEL_PATTERN = "Transform";
 export interface HeadTransforms {
   names: Map<string, string>;
   tested: Set<string>;
+  testedWithoutExpectations: Set<string>;
+  untestable: Set<string>;
 }
 
-// The transforms among files at head, each by name, and the transforms a test at head covers.
+// The transforms among files at head, each by name, the transforms a test with expectations at head
+// covers, those only tests without expectations name, and the transforms Metabase cannot test.
 export function headTransforms(files: readonly (ContentFile | null)[]): HeadTransforms {
-  const atHead: HeadTransforms = { names: new Map(), tested: new Set() };
+  const atHead: HeadTransforms = {
+    names: new Map(),
+    tested: new Set(),
+    testedWithoutExpectations: new Set(),
+    untestable: new Set(),
+  };
   for (const file of files) {
     if (file?.kind === "transform") {
       atHead.names.set(file.entityId, file.name);
+      if (!file.testable) {
+        atHead.untestable.add(file.entityId);
+      }
     } else if (file?.kind === "transform-test") {
-      atHead.tested.add(file.transformId);
+      const covered = file.hasExpectations ? atHead.tested : atHead.testedWithoutExpectations;
+      covered.add(file.transformId);
     }
+  }
+  for (const entityId of atHead.tested) {
+    atHead.testedWithoutExpectations.delete(entityId);
   }
   return atHead;
 }
