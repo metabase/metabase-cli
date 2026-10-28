@@ -2,19 +2,38 @@ import { describe, expect, it } from "vitest";
 
 import type { ClassifiedChange, ContentFile } from "./ci-affected";
 import type { CiEventBody } from "./ci-events";
-import { type CoverageAssessment, assessCoverage, coverageStage } from "./ci-coverage";
+import {
+  type CoverageAssessment,
+  assessCoverage,
+  coverageStage,
+  untestedTransforms,
+} from "./ci-coverage";
 
 const DAILY_ID = "7JwIkkAG-06-nsl4jzsaq";
 const HOURLY_ID = "7XqqzlsonSq4KFyOvtrAm";
 const LEGACY_ID = "LegacyLegacyLegacy001";
+const ZETA_ID = "ZetaZetaZetaZetaZet01";
 const DAILY_PATH = "transforms/daily.yaml";
 
 function transform(entityId: string, name: string, sql: string): ContentFile {
+  const logic = { source: { query: sql }, target: { name: "t" } };
   return {
     kind: "transform",
     entityId,
     name,
-    logic: { source: { query: sql }, target: { name: "t" } },
+    logic: { yaml12: logic, yaml11: logic },
+    testable: true,
+  };
+}
+
+function pythonTransform(entityId: string, name: string, body: string): ContentFile {
+  const logic = { source: { type: "python", body }, target: { name: "t" } };
+  return {
+    kind: "transform",
+    entityId,
+    name,
+    logic: { yaml12: logic, yaml11: logic },
+    testable: false,
   };
 }
 
@@ -34,7 +53,27 @@ function assess(
     [HOURLY_ID, "Hourly"],
     [LEGACY_ID, "Legacy"],
   ]);
-  return assessCoverage({ changes, transformsAtHead, testedAtHead: tested });
+  return assessCoverage({
+    changes,
+    transformsAtHead,
+    testedAtHead: tested,
+    testedWithoutExpectationsAtHead: NOTHING_TESTED,
+    untestableAtHead: NOTHING_TESTED,
+  });
+}
+
+function assessPython(changes: ClassifiedChange[]): CoverageAssessment {
+  const transformsAtHead = new Map<string, string>([
+    [DAILY_ID, "Daily"],
+    [HOURLY_ID, "Hourly"],
+  ]);
+  return assessCoverage({
+    changes,
+    transformsAtHead,
+    testedAtHead: new Set([HOURLY_ID]),
+    testedWithoutExpectationsAtHead: NOTHING_TESTED,
+    untestableAtHead: new Set([DAILY_ID]),
+  });
 }
 
 describe("assessCoverage", () => {
@@ -42,7 +81,8 @@ describe("assessCoverage", () => {
     expect(
       assess([{ path: DAILY_PATH, base: null, head: transform(DAILY_ID, "Daily", "SELECT 1") }]),
     ).toEqual({
-      untestedChanges: [{ entityId: DAILY_ID, name: "Daily", change: "new" }],
+      untestedChanges: [{ entityId: DAILY_ID, name: "Daily", change: "new", tests: "none" }],
+      untestableChanges: [],
       untouchedUntested: [HOURLY, LEGACY],
     });
   });
@@ -55,7 +95,8 @@ describe("assessCoverage", () => {
     };
 
     expect(assess([change])).toEqual({
-      untestedChanges: [{ entityId: DAILY_ID, name: "Daily", change: "edited" }],
+      untestedChanges: [{ entityId: DAILY_ID, name: "Daily", change: "edited", tests: "none" }],
+      untestableChanges: [],
       untouchedUntested: [HOURLY, LEGACY],
     });
   });
@@ -69,6 +110,7 @@ describe("assessCoverage", () => {
 
     expect(assess([change], NOTHING_TESTED, "Daily totals")).toEqual({
       untestedChanges: [],
+      untestableChanges: [],
       untouchedUntested: [{ entityId: DAILY_ID, name: "Daily totals" }, HOURLY, LEGACY],
     });
   });
@@ -85,6 +127,7 @@ describe("assessCoverage", () => {
 
     expect(assess(changes)).toEqual({
       untestedChanges: [],
+      untestableChanges: [],
       untouchedUntested: [DAILY, HOURLY, LEGACY],
     });
   });
@@ -97,6 +140,7 @@ describe("assessCoverage", () => {
       ),
     ).toEqual({
       untestedChanges: [],
+      untestableChanges: [],
       untouchedUntested: [HOURLY, LEGACY],
     });
   });
@@ -110,15 +154,209 @@ describe("assessCoverage", () => {
 
     expect(assess([change], new Set([DAILY_ID]))).toEqual({
       untestedChanges: [],
+      untestableChanges: [],
       untouchedUntested: [HOURLY, LEGACY],
+    });
+  });
+
+  it("lists untested transforms by name, whatever order they were found in", () => {
+    const changes = [
+      {
+        path: "transforms/legacy.yaml",
+        base: null,
+        head: transform(LEGACY_ID, "Legacy", "SELECT 1"),
+      },
+      { path: DAILY_PATH, base: null, head: transform(DAILY_ID, "Daily", "SELECT 1") },
+    ];
+    const transformsAtHead = new Map([
+      [LEGACY_ID, "Legacy"],
+      [DAILY_ID, "Daily"],
+      [ZETA_ID, "Zeta"],
+      [HOURLY_ID, "Hourly"],
+    ]);
+
+    expect(
+      assessCoverage({
+        changes,
+        transformsAtHead,
+        testedAtHead: NOTHING_TESTED,
+        testedWithoutExpectationsAtHead: NOTHING_TESTED,
+        untestableAtHead: NOTHING_TESTED,
+      }),
+    ).toEqual({
+      untestedChanges: [
+        { ...DAILY, change: "new", tests: "none" },
+        { ...LEGACY, change: "new", tests: "none" },
+      ],
+      untestableChanges: [],
+      untouchedUntested: [HOURLY, { entityId: ZETA_ID, name: "Zeta" }],
     });
   });
 
   it("does not list a tested transform as untouched and untested", () => {
     expect(assess([], new Set([HOURLY_ID, LEGACY_ID]))).toEqual({
       untestedChanges: [],
+      untestableChanges: [],
       untouchedUntested: [DAILY],
     });
+  });
+});
+
+describe("assessCoverage on a transform Metabase cannot test", () => {
+  it("lists a new Python transform without a test instead of requiring one", () => {
+    expect(
+      assessPython([
+        { path: DAILY_PATH, base: null, head: pythonTransform(DAILY_ID, "Daily", "print(1)") },
+      ]),
+    ).toEqual({ untestedChanges: [], untestableChanges: [DAILY], untouchedUntested: [] });
+  });
+
+  it("lists a Python transform whose logic the change edits instead of requiring a test", () => {
+    const change = {
+      path: DAILY_PATH,
+      base: pythonTransform(DAILY_ID, "Daily", "print(1)"),
+      head: pythonTransform(DAILY_ID, "Daily", "print(2)"),
+    };
+
+    expect(assessPython([change])).toEqual({
+      untestedChanges: [],
+      untestableChanges: [DAILY],
+      untouchedUntested: [],
+    });
+  });
+
+  it("does not fail a Python transform whose last test the change removes", () => {
+    const changes = [
+      {
+        path: "transforms/daily/test.yaml",
+        base: { kind: "transform-test" as const, transformId: DAILY_ID, hasExpectations: true },
+        head: null,
+      },
+    ];
+
+    expect(assessPython(changes)).toEqual({
+      untestedChanges: [],
+      untestableChanges: [DAILY],
+      untouchedUntested: [],
+    });
+  });
+
+  it("still requires a test for a new query transform beside it", () => {
+    const changes = [
+      { path: DAILY_PATH, base: null, head: pythonTransform(DAILY_ID, "Daily", "print(1)") },
+      {
+        path: "transforms/legacy.yaml",
+        base: null,
+        head: transform(LEGACY_ID, "Legacy", "SELECT 1"),
+      },
+    ];
+    const transformsAtHead = new Map([
+      [DAILY_ID, "Daily"],
+      [LEGACY_ID, "Legacy"],
+    ]);
+
+    expect(
+      assessCoverage({
+        changes,
+        transformsAtHead,
+        testedAtHead: NOTHING_TESTED,
+        testedWithoutExpectationsAtHead: NOTHING_TESTED,
+        untestableAtHead: new Set([DAILY_ID]),
+      }),
+    ).toEqual({
+      untestedChanges: [{ ...LEGACY, change: "new", tests: "none" }],
+      untestableChanges: [DAILY],
+      untouchedUntested: [],
+    });
+  });
+});
+
+describe("assessCoverage on a transform whose tests have no expectations", () => {
+  const TEST_PATH = "transforms/daily/test.yaml";
+
+  function assessDaily(
+    changes: ClassifiedChange[],
+    tested: ReadonlySet<string>,
+    testedWithoutExpectations: ReadonlySet<string>,
+  ): CoverageAssessment {
+    return assessCoverage({
+      changes,
+      transformsAtHead: new Map([[DAILY_ID, "Daily"]]),
+      testedAtHead: tested,
+      testedWithoutExpectationsAtHead: testedWithoutExpectations,
+      untestableAtHead: NOTHING_TESTED,
+    });
+  }
+
+  it("requires a test with expectations for a transform the change adds", () => {
+    const changes = [
+      { path: DAILY_PATH, base: null, head: transform(DAILY_ID, "Daily", "SELECT 1") },
+      {
+        path: TEST_PATH,
+        base: null,
+        head: { kind: "transform-test" as const, transformId: DAILY_ID, hasExpectations: false },
+      },
+    ];
+
+    expect(assessDaily(changes, NOTHING_TESTED, new Set([DAILY_ID]))).toEqual({
+      untestedChanges: [{ ...DAILY, change: "new", tests: "no-expectations" }],
+      untestableChanges: [],
+      untouchedUntested: [],
+    });
+  });
+
+  it("fails a transform whose last test the change strips of its expectations", () => {
+    const changes = [
+      {
+        path: TEST_PATH,
+        base: { kind: "transform-test" as const, transformId: DAILY_ID, hasExpectations: true },
+        head: { kind: "transform-test" as const, transformId: DAILY_ID, hasExpectations: false },
+      },
+    ];
+
+    expect(assessDaily(changes, NOTHING_TESTED, new Set([DAILY_ID]))).toEqual({
+      untestedChanges: [{ ...DAILY, change: "lost-test", tests: "no-expectations" }],
+      untestableChanges: [],
+      untouchedUntested: [],
+    });
+  });
+
+  it("does not count removing a test that had no expectations as losing a test", () => {
+    const changes = [
+      {
+        path: TEST_PATH,
+        base: { kind: "transform-test" as const, transformId: DAILY_ID, hasExpectations: false },
+        head: null,
+      },
+    ];
+
+    expect(assessDaily(changes, NOTHING_TESTED, NOTHING_TESTED)).toEqual({
+      untestedChanges: [],
+      untestableChanges: [],
+      untouchedUntested: [DAILY],
+    });
+  });
+});
+
+describe("untestedTransforms", () => {
+  it("names every untested transform, changed or not", () => {
+    expect(
+      untestedTransforms({
+        untestedChanges: [{ entityId: DAILY_ID, name: "Daily", change: "edited", tests: "none" }],
+        untestableChanges: [],
+        untouchedUntested: [{ entityId: LEGACY_ID, name: "Legacy" }],
+      }),
+    ).toEqual(new Set([DAILY_ID, LEGACY_ID]));
+  });
+
+  it("names a changed transform Metabase cannot test", () => {
+    expect(
+      untestedTransforms({
+        untestedChanges: [],
+        untestableChanges: [{ entityId: HOURLY_ID, name: "Hourly" }],
+        untouchedUntested: [],
+      }),
+    ).toEqual(new Set([HOURLY_ID]));
   });
 });
 
@@ -131,10 +369,11 @@ async function reports(assessment: CoverageAssessment): Promise<CiEventBody[]> {
 }
 
 describe("coverageStage", () => {
-  it("fails each untested new or edited transform, then summarizes the untouched ones", async () => {
+  it("fails an untested new transform, then summarizes the untouched ones", async () => {
     expect(
       await reports({
-        untestedChanges: [{ entityId: DAILY_ID, name: "Daily", change: "new" }],
+        untestedChanges: [{ entityId: DAILY_ID, name: "Daily", change: "new", tests: "none" }],
+        untestableChanges: [],
         untouchedUntested: [
           { entityId: HOURLY_ID, name: "Hourly" },
           { entityId: LEGACY_ID, name: "Legacy" },
@@ -180,9 +419,110 @@ describe("coverageStage", () => {
     ]);
   });
 
+  it("says a transform lost its last test when the change removed it", async () => {
+    const bodies = await reports({
+      untestedChanges: [{ entityId: DAILY_ID, name: "Daily", change: "lost-test", tests: "none" }],
+      untestableChanges: [],
+      untouchedUntested: [],
+    });
+
+    expect(bodies[0]).toEqual({
+      type: "check.result",
+      stage: "lint",
+      check: { kind: "coverage", id: DAILY_ID, label: "Daily" },
+      verdict: "failed",
+      warnings: [],
+      ms: 0,
+      detail: { change: "lost-test", message: "Daily lost its last transform test in this change" },
+    });
+  });
+
+  it("warns about changed transforms Metabase cannot test, without failing them", async () => {
+    const bodies = await reports({
+      untestedChanges: [],
+      untestableChanges: [
+        { entityId: DAILY_ID, name: "Daily" },
+        { entityId: HOURLY_ID, name: "Hourly" },
+      ],
+      untouchedUntested: [],
+    });
+
+    expect(bodies[0]).toEqual({
+      type: "check.result",
+      stage: "lint",
+      check: {
+        kind: "coverage",
+        id: "untestable",
+        label: "Transforms that cannot have transform tests",
+      },
+      verdict: "passed",
+      warnings: [
+        {
+          code: "untestable-transform",
+          message:
+            "Daily, Hourly cannot have transform tests (Python transforms), so coverage does not require one",
+        },
+      ],
+      ms: 0,
+      detail: {
+        untestable: [
+          { entity_id: DAILY_ID, name: "Daily" },
+          { entity_id: HOURLY_ID, name: "Hourly" },
+        ],
+      },
+    });
+  });
+
+  it("says a new transform's tests have no expectations", async () => {
+    const bodies = await reports({
+      untestedChanges: [
+        { entityId: DAILY_ID, name: "Daily", change: "new", tests: "no-expectations" },
+      ],
+      untestableChanges: [],
+      untouchedUntested: [],
+    });
+
+    expect(bodies[0]).toEqual({
+      type: "check.result",
+      stage: "lint",
+      check: { kind: "coverage", id: DAILY_ID, label: "Daily" },
+      verdict: "failed",
+      warnings: [],
+      ms: 0,
+      detail: {
+        change: "new",
+        message: "Daily is new in this change and none of its transform tests has expectations",
+      },
+    });
+  });
+
+  it("says a transform lost its last test with expectations", async () => {
+    const bodies = await reports({
+      untestedChanges: [
+        { entityId: DAILY_ID, name: "Daily", change: "lost-test", tests: "no-expectations" },
+      ],
+      untestableChanges: [],
+      untouchedUntested: [],
+    });
+
+    expect(bodies[0]).toEqual({
+      type: "check.result",
+      stage: "lint",
+      check: { kind: "coverage", id: DAILY_ID, label: "Daily" },
+      verdict: "failed",
+      warnings: [],
+      ms: 0,
+      detail: {
+        change: "lost-test",
+        message: "Daily lost its last transform test with expectations in this change",
+      },
+    });
+  });
+
   it("names a single untouched transform without tests", async () => {
     const bodies = await reports({
       untestedChanges: [],
+      untestableChanges: [],
       untouchedUntested: [{ entityId: LEGACY_ID, name: "Legacy" }],
     });
 
@@ -197,7 +537,9 @@ describe("coverageStage", () => {
   });
 
   it("passes with no warning when every transform is tested", async () => {
-    expect(await reports({ untestedChanges: [], untouchedUntested: [] })).toEqual([
+    expect(
+      await reports({ untestedChanges: [], untestableChanges: [], untouchedUntested: [] }),
+    ).toEqual([
       {
         type: "check.result",
         stage: "lint",

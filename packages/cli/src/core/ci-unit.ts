@@ -8,6 +8,7 @@ import { HttpError, isHttpNotFound } from "@metabase/client/http/errors";
 import { CapabilityError } from "@metabase/client/version/capability-error";
 
 import type { StageStop, Verdict } from "./ci-events";
+import { NotAuthenticatedError } from "./config";
 
 type TestVerdict = TransformTestRunResult["status"];
 
@@ -75,6 +76,12 @@ export const INVALID_ENTITY_ID: CiRefusal = {
   message: "the transform's entity_id in the branch is not a valid entity id",
 };
 
+export const NO_TESTS_ON_INSTANCE: CiRefusal = {
+  error_code: "ci.no-tests-on-instance",
+  message:
+    "the branch has a test for this transform, but the Metabase instance lists none, so no test ran; load the branch into it first",
+};
+
 const TRANSFORM_UNREADABLE: CiRefusal = {
   error_code: "ci.transform-unreadable",
   message:
@@ -132,6 +139,18 @@ export function lookupStop(error: unknown): StageStop | null {
   }
   const failure = requestFailure(error);
   return failure === null ? null : { code: failure.error_code, message: failure.message };
+}
+
+// With no credential, the stage ends without a test run rather than ending the job, so the lint
+// stage's findings still decide its state. Null for any other error, which the caller rethrows.
+export function connectStop(error: unknown): StageStop | null {
+  if (!(error instanceof NotAuthenticatedError)) {
+    return null;
+  }
+  return {
+    code: "ci.no-credential",
+    message: `no Metabase credential, so the transform tests did not run: ${error.message}`,
+  };
 }
 
 // The requests the stage makes for one transform, in order.
