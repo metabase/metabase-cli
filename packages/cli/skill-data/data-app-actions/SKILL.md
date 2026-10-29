@@ -79,7 +79,7 @@ export function NoteForm({ orderId, onSaved }: { orderId: number; onSaved: () =>
 **Table actions.** The parameter slugs are the table's column names, slugified.
 
 - **Insert** (`row/create`): every column but an auto-increment key. `result["created-row"]` holds the new row's parameter columns, its key among them.
-- **Update** (`row/update`): the key and every other column, `required` on each `NOT NULL` one without a default. Start the form from the row's current values, read by the query on screen, and send them all. A `null` is dropped, so an update can't clear a column.
+- **Update** (`row/update`): the key and every other column, `required` on each `NOT NULL` one without a default. Start the form from the row's current values, read by the query on screen, and send them all: the server writes only the columns given a value, but a required parameter must have one. A button that changes one column sends the same, so the question on screen returns every required column. A `null` is dropped, so an update can't clear a column.
 - **Delete** (`row/delete`): the key only. Ask the viewer to confirm first.
 
 **Validation** is `required` on each required parameter and nothing else — no length, range or format checks of your own. Disable submit from the browser's verdict, `form.checkValidity()`, never from hand-rolled checks. Anything stricter comes back from the server.

@@ -21,7 +21,7 @@ For every later change: first pass the checks in _An existing project_ (_Scaffol
 
 ## Before you start
 
-- Use an **admin** profile — only admins create apps and write the app's collection. `mb auth status --profile <name> --json | jq .user.isAdmin` prints `true` for one, and every command below takes that `--profile`; otherwise ask the user for an admin profile (`mb auth list`).
+- Use an **admin** profile — only admins create apps and write the app's collection. `mb auth status --profile <name> --json | jq .user.isAdmin` prints `true` for one, and every command below that reaches the server takes that `--profile` (`scaffold` doesn't); otherwise ask the user for an admin profile (`mb auth list`).
 - Run `mb data-app list`. A failure means the instance has no data apps: stop and tell the user.
 - The app ships through the instance's synced git repository. Check both ends first; if either fails, stop and tell the user which, changing nothing:
   - `mb git-sync status --profile <name> --json` reports `remote_configured: true` and `sync_type: "read-write"`.
@@ -131,16 +131,17 @@ A viewer needs one of their groups assigned to the app (otherwise "You don't hav
 
 ## Pitfalls
 
-| Symptom                                                             | Fix                                                                                                                    |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| The app still runs the old bundle                                   | `dist/index.js` was built before the export's pull, or isn't in the pushed commit: build, commit, push, import.        |
-| Blank app, `Bundle did not assign a function to __dataAppFactory__` | `src/index.tsx` must `export default` the factory and nothing else; otherwise the diagnostics feed has the real error. |
-| "Failed to fetch the user, the session might be invalid."           | A bad key in `.env.local`, or CORS (_Dev preview_).                                                                    |
-| A bundle of several MB                                              | `vite.config.ts` no longer uses `dataAppConfig()`, or the SDK isn't the `<major>-beta` tag.                            |
-| "Invalid hook call"                                                 | A second React got bundled: nothing may add another `react` or `react-dom`.                                            |
-| Drill-through popups don't open                                     | The app renders its own `<MetabaseProvider>`: remove it.                                                               |
-| A rebuilt or reinstalled SDK still behaves like the old one         | Vite caches it: stop `npm run dev`, delete `node_modules/.vite`, start again.                                          |
-| A viewer's query or action fails with 403                           | It reads something outside the app's collection, or the viewer lacks data access to its tables.                        |
+| Symptom                                                                           | Fix                                                                                                                    |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| The app still runs the old bundle                                                 | `dist/index.js` was built before the export's pull, or isn't in the pushed commit: build, commit, push, import.        |
+| Blank app, `Bundle did not assign a function to __dataAppFactory__`               | `src/index.tsx` must `export default` the factory and nothing else; otherwise the diagnostics feed has the real error. |
+| "Failed to fetch the user, the session might be invalid."                         | A bad key in `.env.local`, or CORS (_Dev preview_).                                                                    |
+| The app stays on loading; the terminal says "Failed to load Embedding SDK bundle" | No `.env.local`, or a wrong `DATA_APP_MB_URL` in it (_Dev preview_).                                                   |
+| A bundle of several MB                                                            | `vite.config.ts` no longer uses `dataAppConfig()`, or the SDK isn't the `<major>-beta` tag.                            |
+| "Invalid hook call"                                                               | A second React got bundled: nothing may add another `react` or `react-dom`.                                            |
+| Drill-through popups don't open                                                   | The app renders its own `<MetabaseProvider>`: remove it.                                                               |
+| A rebuilt or reinstalled SDK still behaves like the old one                       | Vite caches it: stop `npm run dev`, delete `node_modules/.vite`, start again.                                          |
+| A viewer's query or action fails with 403                                         | It reads something outside the app's collection, or the viewer lacks data access to its tables.                        |
 
 ## Change, move, delete
 

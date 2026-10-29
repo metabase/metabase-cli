@@ -50,7 +50,7 @@ Plan the questions from what the app shows and picks from — each chart, KPI, t
 
 Also:
 
-- A question filtered at runtime has no `limit` of its own: it would apply before the filters. Put the limit in the hook. A question nothing filters, such as "the 20 latest reviews", keeps its sort and limit.
+- A question filtered at runtime has no `limit` of its own: it would apply before the filters. Put the limit in the hook, as `limit: 50` beside the clauses. A question nothing filters, such as "the 20 latest reviews", keeps its sort and limit.
 - The name becomes the key in `queries`, camelCased: `Revenue by month` → `queries.revenueByMonth`.
 - `display` and `visualization_settings` show only in Metabase; the app picks its own chart type.
 - Nothing in the app's collection is archived, public or embedded. To drop a question, move it out (`mb card update <id> --body '{"collection_id":<other>}'`), then archive it.
@@ -84,7 +84,7 @@ A column's `name` keys the rows and names the column in runtime clauses. Take it
 
 - A column reached through a foreign key keeps its own name (`CATEGORY`, not `PRODUCTS__via__PRODUCT_ID__CATEGORY`), and a named aggregation keeps its name.
 - A foreign key that Metabase displays as a name returns that name as an extra column: `USER_ID` comes with a `NAME` column whose `displayName` is "User ID". Show `NAME`; filter by `USER_ID`.
-- A `Date` column's values arrive as ISO strings.
+- A `Date` column's values arrive as ISO strings, though the row type is `string | Date`: format them through `new Date(value)`.
 
 ## Rows: `useMetabaseQuery`
 
