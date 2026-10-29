@@ -32,7 +32,7 @@ it("shows orders", async () => {
 
 - Rows are typed from `src/metabase.ts`, and partial: give the columns the test asserts on; the rest get a default for their type.
 - Assert what the user sees, found by role or text, and wait for data with `findBy…`. Drive interactions with `@testing-library/user-event`.
-- `mockDataAppQueryError` and `mockDataAppActionError` answer with an error, for the component's error state.
+- `mockDataAppQueryError` and `mockDataAppActionError` answer with an error, for the component's error state. A query with runtime clauses takes them as the second argument, as `mockDataAppQuery` does: `mockDataAppQueryError(queries.ordersList, ordersByStatus, { status: 500, message: "Query failed" })`.
 - An SDK component such as `StaticQuestion` renders only its children unless the test passes one: `StaticQuestion: () => <p>Revenue chart</p>`.
 
 ### Runtime clauses: `<Component>.query.ts`
@@ -78,7 +78,12 @@ const updateOrder = mockDataAppAction(actions.updateOrder, { "rows-updated": 1 }
 renderWithProviders(<OrderPage />, { dataAppActions: [updateOrder] });
 
 await userEvent.click(screen.getByRole("button", { name: "Mark as refunded" }));
-expect(updateOrder.lastCall()?.parameters).toEqual({ id: 1, status: "refunded" });
+expect(updateOrder.lastCall()?.parameters).toEqual({
+  id: 1,
+  customer_id: 3,
+  total: 42.5,
+  status: "refunded",
+});
 ```
 
 The response is what the action's kind answers (`data-app-actions`): `created-row` for an insert, `rows-updated` for an update, `rows-deleted` for a delete. `calls()` lists every call, `lastCall()` the latest.
