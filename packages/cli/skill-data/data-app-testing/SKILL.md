@@ -9,7 +9,7 @@ requires: [dataApps]
 
 ## Unit tests
 
-Every component that renders data or runs an action gets a test next to it, `<Component>.test.tsx`. `npm test` runs them with Vitest, jsdom and Testing Library, with no Metabase instance: `renderWithProviders` in `src/test/render-with-providers.tsx` wraps the component in `MetabaseTestProvider` from `@metabase/embedding-sdk-react/testing`, and the test passes the answer to every query and action the component runs. Add the app's own providers (theme, router) to `renderWithProviders`; leave the rest of the file as it is.
+Every component that renders data or runs an action gets a test next to it, `<Component>.test.tsx`. `npm run test:unit` runs them with Vitest, jsdom and Testing Library, with no Metabase instance: `renderWithProviders` in `src/test/render.tsx` wraps the component in `MetabaseTestProvider` from `@metabase/embedding-sdk-react/testing`, and the test passes the answer to every query and action the component runs. Add the app's own providers (theme, router) to `renderWithProviders`; leave the rest of the file as it is.
 
 ```tsx
 import { mockDataAppQuery } from "@metabase/embedding-sdk-react/testing";
@@ -17,7 +17,7 @@ import { screen } from "@testing-library/react";
 import { expect, it } from "vitest";
 
 import { queries } from "../metabase";
-import { renderWithProviders } from "../test/render-with-providers";
+import { renderWithProviders } from "../test/render";
 
 import { OrdersTable } from "./OrdersTable";
 
@@ -73,16 +73,16 @@ Clauses built from state are a function of that state, as `ordersWithStatus` is:
 import { mockDataAppAction } from "@metabase/embedding-sdk-react/testing";
 import userEvent from "@testing-library/user-event";
 
-const refund = mockDataAppAction(actions.refundOrder, { "rows-affected": 1 });
+const updateOrder = mockDataAppAction(actions.updateOrder, { "rows-updated": 1 });
 
-renderWithProviders(<OrderPage />, { dataAppActions: [refund] });
+renderWithProviders(<OrderPage />, { dataAppActions: [updateOrder] });
 
-await userEvent.click(screen.getByRole("button", { name: "Refund" }));
-expect(refund.lastCall()?.parameters).toEqual({ id: 1 });
+await userEvent.click(screen.getByRole("button", { name: "Mark as refunded" }));
+expect(updateOrder.lastCall()?.parameters).toEqual({ id: 1, status: "refunded" });
 ```
 
-`calls()` lists every call, `lastCall()` the latest.
+The response is what the action's kind answers (`data-app-actions`): `created-row` for an insert, `rows-updated` for an update, `rows-deleted` for a delete. `calls()` lists every call, `lastCall()` the latest.
 
 ## Before handoff
 
-Run `npm test` and `npm run typecheck` after every round of edits; both pass before the app is built and published (`data-app`, _Build and publish_).
+Run `npm run test:unit` and `npm run typecheck` after every round of edits; both pass before the app is built and published (`data-app`, _Build and publish_).
