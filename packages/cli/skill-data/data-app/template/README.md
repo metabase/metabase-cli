@@ -21,6 +21,7 @@ npm install
 npm run dev         # preview at http://localhost:5174, in the sandbox Metabase runs apps in
 npm run typecheck   # type-checks src/ and the configs
 npm run test:unit   # runs the unit tests next to the components
+npm run test:e2e    # runs the Playwright specs in e2e/ against the preview
 npm run build       # builds dist/index.js, the app's bundle
 mb data-app typed-schema <slug> --out src/metabase.ts   # the app's queries and actions
 ```
@@ -31,3 +32,8 @@ loads it.
 
 `npm run dev` reads `DATA_APP_MB_URL` and `DATA_APP_MB_API_KEY` from
 `.env.local`; `.env.local.example` lists them.
+
+`npm run test:e2e` starts the preview, or reuses one already running; the first
+run on a machine needs `npx playwright install chromium`. In CI, set
+`DATA_APP_MB_URL` and `DATA_APP_MB_API_KEY` in the job's environment, against an
+instance that has imported this repository.
