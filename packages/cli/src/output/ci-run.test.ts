@@ -380,12 +380,32 @@ describe("ciEventLines", () => {
     );
   });
 
+  it("ends a job whose only failure is a lint finding by asking for a fix to what the linter flagged", () => {
+    expect(render([LINT_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
+      "FAILED  fix what the linter flagged (exit 1)",
+    );
+  });
+
   it("ends a job with both kinds of failure by asking for a fix and the missing tests", () => {
     expect(render([COVERAGE_FAILED, TEST_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
-      "FAILED  fix the transform and add the missing tests (exit 1)",
+      "FAILED  fix the transform and add or restore transform tests (exit 1)",
     );
   });
 });
+
+const LINT_FAILED: CiEventBody = {
+  type: "check.result",
+  stage: "lint",
+  check: {
+    kind: "broken-refs",
+    id: "duplicate-expectation-name:t.yaml:1",
+    label: "T: duplicate-expectation-name",
+  },
+  verdict: "failed",
+  warnings: [],
+  ms: 0,
+  detail: { message: 'expectation name "e" is held by 2 expectations' },
+};
 
 const COVERAGE_FAILED: CiEventBody = {
   type: "check.result",

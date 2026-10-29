@@ -1,3 +1,7 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { AbortError, ConfigError, InternalError } from "@metabase/client/errors";
 
 import {
@@ -9,6 +13,7 @@ import {
 } from "./process";
 
 const GIT = "git";
+const TAR = "tar";
 const NO_MATCH_EXIT_CODE = 1;
 const NO_MERGE_BASE_EXIT_CODE = 1;
 const UNKNOWN_REF_EXIT_CODE = 1;
@@ -240,4 +245,40 @@ export async function readFilesAt(
     throw new InternalError("git cat-file --batch printed more than the paths it was asked for");
   }
   return files;
+}
+
+// Hands `use` a temporary folder holding exactly the files committed at `commit`, never the work
+// tree's edits, and removes the folder once `use` settles.
+export async function withCommittedTree<T>(
+  repo: string,
+  commit: string,
+  signal: AbortSignal,
+  use: (folder: string) => Promise<T>,
+): Promise<T> {
+  const root = await repositoryRoot(repo, signal);
+  const args = ["archive", "--format=tar", commit];
+  const archive = await withGit(root, args, () =>
+    runProcessBinary(GIT, ["-C", root, ...args], { signal, timeoutMs: GIT_TIMEOUT_MS }),
+  );
+  if (archive.exitCode !== 0) {
+    throw new ConfigError(`git archive ${commit} failed in ${root}: ${archive.stderr.trim()}`);
+  }
+  const folder = await mkdtemp(join(tmpdir(), "mb-ci-tree-"));
+  try {
+    const extract = await runProcess(TAR, ["-x", "-f", "-", "-C", folder], {
+      stdin: archive.stdout,
+      signal,
+    }).catch((error: unknown) => {
+      if (error instanceof ProcessInterruptedError) {
+        throw new AbortError(`interrupted while tar extracted ${commit}`);
+      }
+      throw error;
+    });
+    if (extract.exitCode !== 0) {
+      throw new ConfigError(`tar could not extract ${commit}: ${extract.stderr.trim()}`);
+    }
+    return await use(folder);
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
 }

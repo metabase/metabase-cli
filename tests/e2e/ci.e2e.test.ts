@@ -19,6 +19,21 @@ const TRANSFORM_ID = "7JwIkkAG-06-nsl4jzsaq";
 const ANY_ENVELOPE = { job: expect.any(String), at: expect.any(String) };
 
 // Coverage always runs first, as the lint stage; with every transform at head tested it passes quietly.
+// The linter's own check: it ran on the committed tree and found nothing.
+function lintRunCheck(seq: number): unknown {
+  return {
+    ...ANY_ENVELOPE,
+    seq,
+    type: "check.result",
+    stage: "lint",
+    check: { kind: "lint", id: "lint", label: "Representation lint" },
+    verdict: "passed",
+    warnings: [],
+    ms: 0,
+    detail: { files: expect.any(Number), findings: [] },
+  };
+}
+
 function quietLintEvents(firstSeq: number): unknown[] {
   return [
     { ...ANY_ENVELOPE, seq: firstSeq, type: "stage.start", stage: "lint" },
@@ -37,9 +52,10 @@ function quietLintEvents(firstSeq: number): unknown[] {
       ms: 0,
       detail: { untested: [] },
     },
+    lintRunCheck(firstSeq + 2),
     {
       ...ANY_ENVELOPE,
-      seq: firstSeq + 2,
+      seq: firstSeq + 3,
       type: "stage.end",
       stage: "lint",
       status: "passed",
@@ -48,8 +64,47 @@ function quietLintEvents(firstSeq: number): unknown[] {
   ];
 }
 
+// Content the representation linter accepts, so these tests see its check pass.
+function transformYaml(name: string, entityId: string): string {
+  return [
+    `name: ${name}`,
+    `entity_id: ${entityId}`,
+    "creator_id: admin@example.com",
+    "source_database_id: Sample Database",
+    "source:",
+    "  type: query",
+    "  query:",
+    '    "lib/type": mbql/query',
+    "    database: Sample Database",
+    "    stages:",
+    '    - "lib/type": mbql.stage/native',
+    "      native: SELECT 1 AS id",
+    "target:",
+    "  database: Sample Database",
+    "  type: table",
+    "  schema: PUBLIC",
+    "  name: t",
+    "serdes/meta:",
+    "- model: Transform",
+    "",
+  ].join("\n");
+}
+
 function testYaml(transformEntityId: string): string {
-  return `entity_id: aRvM7DLesF1fOV4kRHidq\ntransform_id: ${transformEntityId}\nexpectations:\n- name: e\n  type: empty\nserdes/meta:\n- model: TransformTest\n`;
+  return [
+    "name: one row",
+    "entity_id: aRvM7DLesF1fOV4kRHidq",
+    `transform_id: ${transformEntityId}`,
+    "creator_id: admin@example.com",
+    "inputs: []",
+    "expectations:",
+    "- type: empty",
+    "  name: e",
+    "  sql: SELECT id FROM PUBLIC.t WHERE id IS NULL",
+    "serdes/meta:",
+    "- model: TransformTest",
+    "",
+  ].join("\n");
 }
 
 describe("ci e2e", () => {
@@ -73,10 +128,7 @@ describe("ci e2e", () => {
 
   it("streams one event per line, and writes them to --results, for a job with nothing to check", async () => {
     const base = await repo.git("rev-parse", "HEAD");
-    await repo.put(
-      "transforms/draft.yaml",
-      `name: Draft\nentity_id: ${TRANSFORM_ID}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
-    );
+    await repo.put("transforms/draft.yaml", transformYaml("Draft", TRANSFORM_ID));
     const resultsPath = join(repo.path, "results.json");
 
     const result = await runCli({
@@ -112,10 +164,10 @@ describe("ci e2e", () => {
       ...quietLintEvents(1),
       {
         ...ANY_ENVELOPE,
-        seq: 4,
+        seq: 5,
         type: "job.end",
         state: "passed",
-        counts: { checks: 1, warnings: 2 },
+        counts: { checks: 2, warnings: 2 },
       },
     ]);
     expect(parseJson(await readFile(resultsPath, "utf8"), z.array(CiEvent))).toEqual(events);
@@ -131,6 +183,32 @@ describe("ci e2e", () => {
     expect(cliErrorCategory(result.stderr)).toBe("config");
     const root = await repo.git("rev-parse", "--show-toplevel");
     expect(cliErrorMessage(result.stderr)).toBe(`--base no-such-branch is not a commit in ${root}`);
+  });
+
+  it("fails the job on a dashboard that does not match its schema, naming the file", async () => {
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(
+      "collections/main/dashboards/weekly.yaml",
+      [
+        "entity_id: Ab3dEfGhIjKlMnOpQrStu",
+        "creator_id: admin@example.com",
+        "serdes/meta:",
+        "- model: Dashboard",
+        "",
+      ].join("\n"),
+    );
+    await repo.commitAll("add a dashboard without a name");
+
+    const result = await runCli({
+      args: ["ci", "run", "--repo", repo.path, "--base", "main", "--format", "text"],
+      configHome: await configHome(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    const lines = result.stdout.trimEnd().split("\n");
+    expect(lines).toContain("  ✗ collections/main/dashboards/weekly.yaml (Dashboard): schema");
+    expect(lines).toContain("      /: must have required property 'name'");
+    expect(lines.at(-1)).toBe("FAILED  fix what the linter flagged (exit 1)");
   });
 });
 
@@ -200,10 +278,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
 
   it("fails a new transform with no test at the lint stage, and still runs the unit stage", async () => {
     await repo.git("checkout", "-q", "-b", "feature");
-    await repo.put(
-      "transforms/daily.yaml",
-      `name: Daily\nentity_id: ${TRANSFORM_ID}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
-    );
+    await repo.put("transforms/daily.yaml", transformYaml("Daily", TRANSFORM_ID));
     await repo.commitAll("add an untested transform");
 
     const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
@@ -244,21 +319,110 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
         ms: 0,
         detail: { untested: [] },
       },
+      lintRunCheck(4),
       {
         ...ANY_ENVELOPE,
-        seq: 4,
+        seq: 5,
         type: "stage.end",
         stage: "lint",
         status: "failed",
         stopped: null,
       },
+      { ...ANY_ENVELOPE, seq: 6, type: "stage.start", stage: "unit" },
+      {
+        ...ANY_ENVELOPE,
+        seq: 7,
+        type: "check.result",
+        stage: "unit",
+        check: { kind: "transform-test", id: TRANSFORM_ID, label: "Daily" },
+        verdict: "refused",
+        warnings: [],
+        ms: 0,
+        detail: {
+          error_code: "ci.transform-not-on-instance",
+          message:
+            "the transform is in the branch but not on the Metabase instance; load the branch into it first",
+        },
+      },
+      {
+        ...ANY_ENVELOPE,
+        seq: 8,
+        type: "stage.end",
+        stage: "unit",
+        status: "errored",
+        stopped: null,
+      },
+      {
+        ...ANY_ENVELOPE,
+        seq: 9,
+        type: "job.end",
+        state: "failed",
+        counts: { checks: 4, warnings: 0 },
+      },
+    ]);
+  });
+
+  it("fails a lint check on a planted defect, ending the job failed", async () => {
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put("transforms/planted.yaml", transformYaml("Planted", TRANSFORM_ID));
+    await repo.put(
+      "transforms/planted/test.yaml",
+      testYaml(TRANSFORM_ID).replace(
+        "expectations:\n",
+        "expectations:\n- type: empty\n  name: e\n  sql: SELECT id FROM PUBLIC.t WHERE id < 0\n",
+      ),
+    );
+    await repo.commitAll("add a test with two expectations named e");
+
+    const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
+
+    expect(result.exitCode).toBe(1);
+    const events = result.stdout
+      .trimEnd()
+      .split("\n")
+      .map((line) => parseJson(line, CiEvent));
+    const failedLint = events.filter(
+      (event) => event.type === "check.result" && event.check.kind === "broken-refs",
+    );
+    expect(failedLint).toEqual([
+      expect.objectContaining({
+        check: {
+          kind: "broken-refs",
+          id: "duplicate-expectation-name:transforms/planted/test.yaml:1",
+          label: "one row: duplicate-expectation-name",
+        },
+        verdict: "failed",
+        detail: expect.objectContaining({
+          rule: "duplicate-expectation-name",
+          file: "transforms/planted/test.yaml",
+        }),
+      }),
+    ]);
+    expect(events.at(-1)).toMatchObject({ type: "job.end", state: "failed" });
+  });
+
+  it("refuses a changed transform the instance does not have, ending the job errored", async () => {
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put("transforms/absent.yaml", transformYaml("Absent", TRANSFORM_ID));
+    await repo.put("transforms/absent/test.yaml", testYaml(TRANSFORM_ID));
+    await repo.commitAll("add a transform the instance never saw, with a test");
+
+    const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
+
+    expect(result.exitCode).toBe(1);
+    const events = result.stdout
+      .trimEnd()
+      .split("\n")
+      .map((line) => parseJson(line, CiEvent));
+    expect(events.slice(1)).toEqual([
+      ...quietLintEvents(1),
       { ...ANY_ENVELOPE, seq: 5, type: "stage.start", stage: "unit" },
       {
         ...ANY_ENVELOPE,
         seq: 6,
         type: "check.result",
         stage: "unit",
-        check: { kind: "transform-test", id: TRANSFORM_ID, label: "Daily" },
+        check: { kind: "transform-test", id: TRANSFORM_ID, label: "Absent" },
         verdict: "refused",
         warnings: [],
         ms: 0,
@@ -280,60 +444,8 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
         ...ANY_ENVELOPE,
         seq: 8,
         type: "job.end",
-        state: "failed",
-        counts: { checks: 3, warnings: 0 },
-      },
-    ]);
-  });
-
-  it("refuses a changed transform the instance does not have, ending the job errored", async () => {
-    await repo.git("checkout", "-q", "-b", "feature");
-    await repo.put(
-      "transforms/absent.yaml",
-      `name: Absent\nentity_id: ${TRANSFORM_ID}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
-    );
-    await repo.put("transforms/absent/test.yaml", testYaml(TRANSFORM_ID));
-    await repo.commitAll("add a transform the instance never saw, with a test");
-
-    const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
-
-    expect(result.exitCode).toBe(1);
-    const events = result.stdout
-      .trimEnd()
-      .split("\n")
-      .map((line) => parseJson(line, CiEvent));
-    expect(events.slice(1)).toEqual([
-      ...quietLintEvents(1),
-      { ...ANY_ENVELOPE, seq: 4, type: "stage.start", stage: "unit" },
-      {
-        ...ANY_ENVELOPE,
-        seq: 5,
-        type: "check.result",
-        stage: "unit",
-        check: { kind: "transform-test", id: TRANSFORM_ID, label: "Absent" },
-        verdict: "refused",
-        warnings: [],
-        ms: 0,
-        detail: {
-          error_code: "ci.transform-not-on-instance",
-          message:
-            "the transform is in the branch but not on the Metabase instance; load the branch into it first",
-        },
-      },
-      {
-        ...ANY_ENVELOPE,
-        seq: 6,
-        type: "stage.end",
-        stage: "unit",
-        status: "errored",
-        stopped: null,
-      },
-      {
-        ...ANY_ENVELOPE,
-        seq: 7,
-        type: "job.end",
         state: "errored",
-        counts: { checks: 2, warnings: 0 },
+        counts: { checks: 3, warnings: 0 },
       },
     ]);
   });
@@ -379,10 +491,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     const testId = String(parseJson(test.stdout, Created).id);
     const base = await repo.git("rev-parse", "HEAD");
     await repo.git("checkout", "-q", "-b", "feature");
-    await repo.put(
-      "transforms/order_totals.yaml",
-      `name: Order totals\nentity_id: ${entityId}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
-    );
+    await repo.put("transforms/order_totals.yaml", transformYaml("Order totals", entityId));
     await repo.put("transforms/order_totals/total_adds_tax.yaml", testYaml(entityId));
     const head = await repo.commitAll("add transform and its test");
 
@@ -398,10 +507,10 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
           warnings: [],
         },
         ...quietLintEvents(1),
-        { ...ANY_ENVELOPE, seq: 4, type: "stage.start", stage: "unit" },
+        { ...ANY_ENVELOPE, seq: 5, type: "stage.start", stage: "unit" },
         {
           ...ANY_ENVELOPE,
-          seq: 5,
+          seq: 6,
           type: "check.result",
           stage: "unit",
           check: { kind: "transform-test", id: testId, label: "Order totals: total adds tax" },
@@ -429,7 +538,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
         },
         {
           ...ANY_ENVELOPE,
-          seq: 6,
+          seq: 7,
           type: "stage.end",
           stage: "unit",
           status: verdict,
@@ -437,10 +546,10 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
         },
         {
           ...ANY_ENVELOPE,
-          seq: 7,
+          seq: 8,
           type: "job.end",
           state: verdict,
-          counts: { checks: 2, warnings: 0 },
+          counts: { checks: 3, warnings: 0 },
         },
       ];
     }
