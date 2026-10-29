@@ -92,7 +92,7 @@ The response is what the action's kind answers (`data-app-actions`): `created-ro
 
 The specs in `e2e/` are Playwright tests against the dev preview (`data-app`, _Dev preview_) and the instance's real data: they check that the pieces fit — every page opens, its questions return rows, its actions exist — not that the numbers are right. `npm run test:e2e` starts the preview, or reuses one already running, so it needs `.env.local` like `npm run dev`; the first run on a machine needs `npx playwright install chromium`.
 
-Write one spec per page, next to the template's `e2e/app.spec.ts`, and change that spec when the starter page goes:
+Write one spec per page in `e2e/`. The template's `e2e/app.spec.ts` checks the starter heading: once the starter page goes, make it the first page's spec:
 
 ```ts
 import { expect, test } from "@playwright/test";
