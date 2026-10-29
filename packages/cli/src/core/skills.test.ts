@@ -726,6 +726,7 @@ describe("the shipped skills", () => {
     expect(all.map((skill) => skill.name)).toEqual([
       "core",
       "ci",
+      "ci-setup",
       "dashboard",
       "data-action",
       "data-app",
