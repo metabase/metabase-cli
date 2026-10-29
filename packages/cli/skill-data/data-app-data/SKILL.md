@@ -50,7 +50,7 @@ Plan the questions from what the app shows and picks from — each chart, KPI, t
 
 Also:
 
-- A question filtered at runtime has no `limit` of its own: it would apply before the filters. Put the limit in the hook. A question nothing filters, such as "the 20 latest reviews", keeps its sort and limit.
+- A question filtered at runtime has no `limit` of its own: it would apply before the filters. Put the limit in the hook, as `limit: 50` beside the clauses. A question nothing filters, such as "the 20 latest reviews", keeps its sort and limit.
 - The name becomes the key in `queries`, camelCased: `Revenue by month` → `queries.revenueByMonth`.
 - `display` and `visualization_settings` show only in Metabase; the app picks its own chart type.
 - Nothing in the app's collection is archived, public or embedded. To drop a question, move it out (`mb card update <id> --body '{"collection_id":<other>}'`), then archive it.
@@ -84,7 +84,7 @@ A column's `name` keys the rows and names the column in runtime clauses. Take it
 
 - A column reached through a foreign key keeps its own name (`CATEGORY`, not `PRODUCTS__via__PRODUCT_ID__CATEGORY`), and a named aggregation keeps its name.
 - A foreign key that Metabase displays as a name returns that name as an extra column: `USER_ID` comes with a `NAME` column whose `displayName` is "User ID". Show `NAME`; filter by `USER_ID`.
-- A `Date` column's values arrive as ISO strings.
+- A `Date` column's values arrive as ISO strings, though the row type is `string | Date`: format them through `new Date(value)`.
 
 ## Rows: `useMetabaseQuery`
 
@@ -98,7 +98,20 @@ const rows = data?.rows ?? []; // row.CREATED_AT, row.sum, typed from jsType
 
 - Rows are objects keyed by column `name`. Never index them by position or cast them, and guard `null` values.
 - `data` is `null` until the first answer, and stays `null` while the query is held back with `enabled: false` — show the before-a-choice state then. Otherwise `data === null && !error` is loading, and `data.rows.length === 0` is empty.
-- `error` is `unknown`: render `error instanceof Error ? error.message : String(error)` in the panel.
+- `error` is `unknown`: a failed request is `{ status, data: { message } }`, not an `Error`, so `String(error)` prints `[object Object]`. Render its message through one helper the panels share:
+
+  ```ts
+  export function errorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === "object" && error !== null && "data" in error) {
+      const { data } = error;
+      if (typeof data === "object" && data !== null && "message" in data)
+        return String(data.message);
+    }
+    return String(error);
+  }
+  ```
+
 - Call each hook once, in the highest component that needs the data, and pass the result down. Never call a hook in a loop or a condition.
 
 ## Charts: `useMetabaseQueryObject`
@@ -125,7 +138,7 @@ return <StaticQuestion card={card} height={360} />;
 
 ## Runtime clauses
 
-Both hooks take a second argument: one object with the clauses the UI changes, and `enabled`. They run on top of the question and name its columns:
+Both hooks take a second argument: one object with the clauses the UI changes, and `enabled`. They run on top of the question and name its columns. Keep them in a `<Component>.query.ts` file next to the component, so its test mocks the same clauses (`data-app-testing`):
 
 ```tsx
 import { aggregations, filter, orderBy } from "@metabase/embedding-sdk-react/data-app";

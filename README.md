@@ -1220,7 +1220,7 @@ mb data-action execute 1 --file values.json
 
 ## Data apps
 
-CRUD on `/api/ee/apps` plus the typed schema. A data app is a React app built into one JavaScript bundle, which Metabase serves in a sandbox at `/apps/<slug>`; its questions and actions live in its own collection. Data apps need the `data-apps` premium feature. Admins see every app, but a disabled one opens only in Data Studio and an outdated one not at all; other users see only the apps they can open, with just `name` and `display_name`. The `data-app` skill covers building one, with `data-app-ui`, `data-app-data`, `data-app-filters` and `data-app-actions` for its parts.
+CRUD on `/api/ee/apps` plus the typed schema. A data app is a React app built into one JavaScript bundle, which Metabase serves in a sandbox at `/apps/<slug>`; its questions and actions live in its own collection. Data apps need the `data-apps` premium feature. Admins see every app, but a disabled one opens only in Data Studio and an outdated one not at all; other users see only the apps they can open, with just `name` and `display_name`. The `data-app` skill covers building one, with `data-app-ui`, `data-app-data`, `data-app-filters`, `data-app-actions` and `data-app-testing` for its parts.
 
 ### `mb data-app scaffold [dir]`
 
