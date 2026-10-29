@@ -1,11 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
 
 import { AbortError } from "@metabase/client/errors";
-import { LINT_RULE_SEVERITY, LINT_RULES } from "@metabase/representations";
+import { LINT_RULE_SEVERITY, LINT_RULES, validateSchema } from "@metabase/representations";
 
 import type { CoverageAssessment } from "./ci-coverage";
 import { type CheckOutcome, type CiEventBody, type CiStage, runStages } from "./ci-events";
-import { type LintTree, lintStage } from "./ci-lint";
+import { type LintTree, type ValidateTree, lintStage } from "./ci-lint";
 
 const NOTHING_UNTESTED: CoverageAssessment = {
   untestedChanges: [],
@@ -56,6 +60,12 @@ const throwingLint: LintTree = async () => {
   throw new Error("cannot read property 'source' of undefined");
 };
 
+const ALL_VALID: ValidateTree = async () => ({ results: [] });
+
+const throwingValidator: ValidateTree = async () => {
+  throw new Error("ENOENT: no such file or directory, open 'card.yaml'");
+};
+
 async function reports(stage: CiStage): Promise<CheckOutcome[]> {
   const reported: CheckOutcome[] = [];
   await stage.run((check) => {
@@ -65,7 +75,7 @@ async function reports(stage: CiStage): Promise<CheckOutcome[]> {
 }
 
 async function lintReports(lintTree: LintTree): Promise<CheckOutcome[]> {
-  return reports(lintStage(NOTHING_UNTESTED, lintTree));
+  return reports(lintStage(NOTHING_UNTESTED, lintTree, ALL_VALID));
 }
 
 describe("lintStage, errors", () => {
@@ -178,7 +188,7 @@ describe("lintStage, errors", () => {
       finding({ rule: "schema", severity: "error", file: "transforms/a.yaml", message: "m" }),
     ];
 
-    const ids = (await reports(lintStage(coverage, linted(findings)))).map(
+    const ids = (await reports(lintStage(coverage, linted(findings), ALL_VALID))).map(
       (check) => `${check.check.kind}/${check.check.id}`,
     );
 
@@ -336,7 +346,7 @@ describe("lintStage, gating", () => {
     const ends: CiEventBody[] = [];
 
     const outcome = await runStages(
-      [lintStage(NOTHING_UNTESTED, linted([cycle])), unit],
+      [lintStage(NOTHING_UNTESTED, linted([cycle]), ALL_VALID), unit],
       (body) => {
         if (body.type === "stage.end") {
           ends.push(body);
@@ -350,5 +360,164 @@ describe("lintStage, gating", () => {
       { type: "stage.end", stage: "lint", status: "failed", stopped: null },
       { type: "stage.end", stage: "unit", status: "passed", stopped: null },
     ]);
+  });
+});
+
+const CARD_FILE = "collections/main/cards/orders.yaml";
+
+// A Card with every key its schema requires.
+const CARD_YAML = [
+  "name: Orders",
+  "entity_id: Bb3dEfGhIjKlMnOpQrStu",
+  "creator_id: admin@example.com",
+  "display: table",
+  "visualization_settings: {}",
+  "dataset_query:",
+  "  lib/type: mbql/query",
+  "  database: Sample Database",
+  "  stages:",
+  "  - lib/type: mbql.stage/native",
+  "    native: SELECT 1",
+  "serdes/meta:",
+  "- model: Card",
+  "",
+].join("\n");
+
+const CARD_WITHOUT_DISPLAY = CARD_YAML.replace("display: table\n", "");
+
+const MISSING_DISPLAY = {
+  file: CARD_FILE,
+  model: "Card",
+  status: "fail",
+  errors: [{ path: "/", message: "must have required property 'display'" }],
+  message: "/: must have required property 'display'",
+};
+
+function cardSchemaCheck(detail: unknown): CheckOutcome {
+  return {
+    check: { kind: "yaml", id: `schema:${CARD_FILE}`, label: `${CARD_FILE} (Card): schema` },
+    verdict: "failed",
+    warnings: [],
+    ms: 0,
+    detail,
+  };
+}
+
+describe("lintStage, the schema of every file", () => {
+  const folders: string[] = [];
+
+  afterEach(() => {
+    for (const folder of folders.splice(0)) {
+      rmSync(folder, { recursive: true, force: true });
+    }
+  });
+
+  function validatedTree(files: Readonly<Record<string, string>>): ValidateTree {
+    const folder = mkdtempSync(join(tmpdir(), "mb-ci-schema-"));
+    folders.push(folder);
+    for (const [file, text] of Object.entries(files)) {
+      mkdirSync(dirname(join(folder, file)), { recursive: true });
+      writeFileSync(join(folder, file), text);
+    }
+    return async () => validateSchema({ folder });
+  }
+
+  async function schemaReports(lintTree: LintTree, validateTree: ValidateTree) {
+    return reports(lintStage(NOTHING_UNTESTED, lintTree, validateTree));
+  }
+
+  it("fails a yaml check for a Card missing a required key, naming the file and model", async () => {
+    const tree = validatedTree({ [CARD_FILE]: CARD_WITHOUT_DISPLAY });
+
+    expect(await schemaReports(linted([]), tree)).toEqual([
+      COVERAGE_SUMMARY,
+      NO_WARNINGS,
+      cardSchemaCheck(MISSING_DISPLAY),
+    ]);
+  });
+
+  it("adds no check for a tree whose every file matches its schema", async () => {
+    const tree = validatedTree({ [CARD_FILE]: CARD_YAML });
+
+    expect(await schemaReports(linted([]), tree)).toEqual([COVERAGE_SUMMARY, NO_WARNINGS]);
+  });
+
+  it("shows the first three errors of a file and counts the rest", async () => {
+    const tree = validatedTree({
+      [CARD_FILE]: "name: Orders\nentity_id: Bb3dEfGhIjKlMnOpQrStu\nserdes/meta:\n- model: Card\n",
+    });
+
+    const checks = await schemaReports(linted([]), tree);
+
+    expect(checks[2]?.detail).toEqual({
+      file: CARD_FILE,
+      model: "Card",
+      status: "fail",
+      errors: [
+        { path: "/", message: "must have required property 'display'" },
+        { path: "/", message: "must have required property 'creator_id'" },
+        { path: "/", message: "must have required property 'dataset_query'" },
+        { path: "/", message: "must have required property 'visualization_settings'" },
+      ],
+      message:
+        "/: must have required property 'display'; /: must have required property 'creator_id'; /: must have required property 'dataset_query'; and 1 more",
+    });
+  });
+
+  it("reports a file the linter already flagged for its schema once, as the linter's finding", async () => {
+    const tree = validatedTree({ [CARD_FILE]: CARD_WITHOUT_DISPLAY });
+    const unparsed = {
+      rule: "schema",
+      severity: "error",
+      file: CARD_FILE,
+      entity: { model: null, entity_id: null, name: null },
+      message: "the file does not parse as YAML",
+      related: [],
+    };
+
+    const ids = (await schemaReports(linted([unparsed]), tree)).map((check) => check.check.id);
+
+    expect(ids).toEqual(["untouched", `schema:${CARD_FILE}:1`, "lint"]);
+  });
+
+  it("still validates the tree when the linter cannot run", async () => {
+    const tree = validatedTree({ [CARD_FILE]: CARD_WITHOUT_DISPLAY });
+
+    expect(await schemaReports(throwingLint, tree)).toEqual([
+      COVERAGE_SUMMARY,
+      {
+        check: { kind: "lint", id: "lint", label: "Representation lint" },
+        verdict: "error",
+        warnings: [],
+        ms: 0,
+        detail: { message: "the linter threw: cannot read property 'source' of undefined" },
+      },
+      cardSchemaCheck(MISSING_DISPLAY),
+    ]);
+  });
+
+  it("errors a schema check of its own when the validator throws, and still lints", async () => {
+    expect(await schemaReports(linted([]), throwingValidator)).toEqual([
+      COVERAGE_SUMMARY,
+      NO_WARNINGS,
+      {
+        check: { kind: "yaml", id: "schema", label: "Schema validation" },
+        verdict: "error",
+        warnings: [],
+        ms: 0,
+        detail: {
+          message:
+            "the schema validator threw: ENOENT: no such file or directory, open 'card.yaml'",
+        },
+      },
+    ]);
+  });
+
+  it("lets an interrupt during validation end the job", async () => {
+    const interrupted: ValidateTree = async () => {
+      throw new AbortError("interrupted while tar extracted abc");
+    };
+
+    await expect(schemaReports(linted([]), interrupted)).rejects.toBeInstanceOf(AbortError);
   });
 });

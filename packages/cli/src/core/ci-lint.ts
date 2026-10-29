@@ -69,6 +69,25 @@ const LintResult = z.object({
 });
 type LintResult = z.infer<typeof LintResult>;
 
+// The answer of `validateSchema({ folder })` from `@metabase/representations`, which checks every
+// file Metabase imports against its model's schema, where the linter checks only a few models.
+const SchemaError = z.object({ path: z.string(), message: z.string() });
+
+const SchemaPass = z.object({ file: z.string(), model: z.string(), status: z.literal("ok") });
+
+const SchemaFailure = z.object({
+  file: z.string(),
+  model: z.string().optional(),
+  status: z.literal("fail"),
+  errors: z.array(SchemaError),
+});
+type SchemaFailure = z.infer<typeof SchemaFailure>;
+
+const SchemaResult = z.object({
+  results: z.array(z.discriminatedUnion("status", [SchemaPass, SchemaFailure])),
+});
+type SchemaResult = z.infer<typeof SchemaResult>;
+
 type CheckKind = CheckOutcome["check"]["kind"];
 
 const ERROR_CHECK_KIND: Record<LintError["rule"], CheckKind> = {
@@ -92,8 +111,17 @@ const ERROR_CHECK_KIND: Record<LintError["rule"], CheckKind> = {
 // The check for the lint run as a whole: its warnings when it ran, its crash when it did not.
 const LINT_RUN_CHECK = { kind: "lint", id: "lint", label: "Representation lint" } as const;
 
+// The check for the schema validation as a whole, reported only when it crashed.
+const SCHEMA_RUN_CHECK = { kind: "yaml", id: "schema", label: "Schema validation" } as const;
+
+// A failed schema check shows this many of its file's errors; its detail keeps them all.
+const SHOWN_SCHEMA_ERRORS = 3;
+
 // Lints the committed tree and answers the linter's raw output.
 export type LintTree = () => Promise<unknown>;
+
+// Validates the committed tree against the schemas and answers the validator's raw output.
+export type ValidateTree = () => Promise<unknown>;
 
 // A finding the linter could not tie to a named entity, such as a file that fails the schema, is
 // labelled by its file.
@@ -134,8 +162,8 @@ function warningsCheck(files: number, findings: readonly LintWarning[]): CheckOu
   };
 }
 
-function crashedCheck(message: string): CheckOutcome {
-  return { check: LINT_RUN_CHECK, verdict: "error", warnings: [], ms: 0, detail: { message } };
+function crashedCheck(check: CheckOutcome["check"], message: string): CheckOutcome {
+  return { check, verdict: "error", warnings: [], ms: 0, detail: { message } };
 }
 
 // Each error fails a check of its own, in the linter's order; the warnings share one passing
@@ -158,30 +186,100 @@ function lintChecks(result: LintResult): CheckOutcome[] {
   return [...failed, warningsCheck(result.files, warnings)];
 }
 
-// A linter that throws or answers something unreadable cannot judge the change: the check errors,
-// and the change is not blamed. That covers a setup error, such as a table name without a schema
-// in a database whose default schema the repo does not declare; the linter's message names it.
-async function runLint(lintTree: LintTree): Promise<CheckOutcome[]> {
+function schemaErrorsMessage(errors: readonly z.infer<typeof SchemaError>[]): string {
+  const shown = errors
+    .slice(0, SHOWN_SCHEMA_ERRORS)
+    .map((error) => `${error.path}: ${error.message}`);
+  const rest = errors.length - shown.length;
+  return rest === 0 ? shown.join("; ") : `${shown.join("; ")}; and ${rest} more`;
+}
+
+function schemaFailedCheck(failure: SchemaFailure): CheckOutcome {
+  const label = failure.model === undefined ? failure.file : `${failure.file} (${failure.model})`;
+  return {
+    check: { kind: "yaml", id: `schema:${failure.file}`, label: `${label}: schema` },
+    verdict: "failed",
+    warnings: [],
+    ms: 0,
+    detail: { ...failure, message: schemaErrorsMessage(failure.errors) },
+  };
+}
+
+// Each file that fails its schema fails a check of its own, whatever the change touched, unless
+// the linter already reported a schema error for that file.
+function schemaChecks(result: SchemaResult, lintedFiles: ReadonlySet<string>): CheckOutcome[] {
+  return result.results.flatMap((file) =>
+    file.status === "fail" && !lintedFiles.has(file.file) ? [schemaFailedCheck(file)] : [],
+  );
+}
+
+function lintSchemaFiles(result: LintResult): Set<string> {
+  return new Set(
+    result.findings.filter((finding) => finding.rule === "schema").map((finding) => finding.file),
+  );
+}
+
+interface Answered<T> {
+  kind: "answered";
+  value: T;
+}
+
+interface Crashed {
+  kind: "crashed";
+  message: string;
+}
+
+// A tool that throws or answers something unreadable cannot judge the change: its check errors,
+// and the change is not blamed. That covers a linter setup error, such as a table name without a
+// schema in a database whose default schema the repo does not declare; the linter's message names it.
+async function answerOf<T>(
+  tool: string,
+  run: () => Promise<unknown>,
+  schema: z.ZodType<T>,
+): Promise<Answered<T> | Crashed> {
   let output: unknown;
   try {
-    output = await lintTree();
+    output = await run();
   } catch (error) {
     // An interrupt ends the job, not the check.
     if (error instanceof AbortError) {
       throw error;
     }
-    return [crashedCheck(`the linter threw: ${errorMessage(error)}`)];
+    return { kind: "crashed", message: `${tool} threw: ${errorMessage(error)}` };
   }
-  const parsed = LintResult.safeParse(output);
+  const parsed = schema.safeParse(output);
   if (!parsed.success) {
-    return [
-      crashedCheck(`the linter answered an unreadable result: ${z.prettifyError(parsed.error)}`),
-    ];
+    return {
+      kind: "crashed",
+      message: `${tool} answered an unreadable result: ${z.prettifyError(parsed.error)}`,
+    };
   }
-  return lintChecks(parsed.data);
+  return { kind: "answered", value: parsed.data };
 }
 
-export function lintStage(coverage: CoverageAssessment, lintTree: LintTree): CiStage {
+// The schema validation runs first and apart from the linter, so a linter setup error does not
+// stop it.
+async function treeChecks(lintTree: LintTree, validateTree: ValidateTree): Promise<CheckOutcome[]> {
+  const validated = await answerOf("the schema validator", validateTree, SchemaResult);
+  const linted = await answerOf("the linter", lintTree, LintResult);
+  const lintOutcomes =
+    linted.kind === "answered"
+      ? lintChecks(linted.value)
+      : [crashedCheck(LINT_RUN_CHECK, linted.message)];
+  const lintedFiles =
+    linted.kind === "answered" ? lintSchemaFiles(linted.value) : new Set<string>();
+  const schemaOutcomes =
+    validated.kind === "answered"
+      ? schemaChecks(validated.value, lintedFiles)
+      : [crashedCheck(SCHEMA_RUN_CHECK, validated.message)];
+  return [...lintOutcomes, ...schemaOutcomes];
+}
+
+export function lintStage(
+  coverage: CoverageAssessment,
+  lintTree: LintTree,
+  validateTree: ValidateTree,
+): CiStage {
   const coverageChecks = coverageStage(coverage);
   return {
     name: "lint",
@@ -190,7 +288,7 @@ export function lintStage(coverage: CoverageAssessment, lintTree: LintTree): CiS
       if (stopped !== null) {
         return stopped;
       }
-      for (const check of await runLint(lintTree)) {
+      for (const check of await treeChecks(lintTree, validateTree)) {
         report(check);
       }
       return null;

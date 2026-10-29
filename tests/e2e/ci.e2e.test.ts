@@ -184,6 +184,32 @@ describe("ci e2e", () => {
     const root = await repo.git("rev-parse", "--show-toplevel");
     expect(cliErrorMessage(result.stderr)).toBe(`--base no-such-branch is not a commit in ${root}`);
   });
+
+  it("fails the job on a dashboard that does not match its schema, naming the file", async () => {
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(
+      "collections/main/dashboards/weekly.yaml",
+      [
+        "entity_id: Ab3dEfGhIjKlMnOpQrStu",
+        "creator_id: admin@example.com",
+        "serdes/meta:",
+        "- model: Dashboard",
+        "",
+      ].join("\n"),
+    );
+    await repo.commitAll("add a dashboard without a name");
+
+    const result = await runCli({
+      args: ["ci", "run", "--repo", repo.path, "--base", "main", "--format", "text"],
+      configHome: await configHome(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    const lines = result.stdout.trimEnd().split("\n");
+    expect(lines).toContain("  ✗ collections/main/dashboards/weekly.yaml (Dashboard): schema");
+    expect(lines).toContain("      /: must have required property 'name'");
+    expect(lines.at(-1)).toBe("FAILED  fix what the linter flagged (exit 1)");
+  });
 });
 
 const unitSkipReason = requireServer("ci › unit stage", ["transforms", "transformTests"]);
