@@ -271,6 +271,6 @@ mb transform-job set-active false --profile <name> --json  # disable every job a
 
 <!-- /requires -->
 
-Every job row carries `active`; it is `null` on a server that cannot switch jobs off, where every job runs on schedule.
+Every job row carries `active`; it is `null` on a server that cannot switch jobs off, where every job runs on schedule. A job with `active: false` never runs on schedule, and a fresh install of a newer server starts the built-in jobs that no transform uses that way: before relying on one, check `active`, and turn it on only with the user's yes (`transform-job update <id> --body '{"active":true}'`, admin only).
 
 `transform-job run` is fire-and-forget — it returns `{message, started, run_id}` immediately (both `null` when the server does not number job runs: the request was accepted and whether a run started is unsaid), with no per-job-run polling (no `--wait`). Most ad-hoc agent work is one-off `transform run`, not job authoring.

@@ -105,11 +105,16 @@ const JOB_TRANSFORM_COMPACT = {
   target_table_id: serverHas("transformTargetTableLinkedOnCreate") ? expect.any(Number) : null,
 } as const;
 
-const ACTIVE = { active: serverHas("transformJobActivation") ? true : null };
+const hasActivation = serverHas("transformJobActivation");
+const ACTIVE = { active: hasActivation ? true : null };
+
+// One generation starts the built-in jobs that no transform uses inactive.
+const builtInsStartInactive = serverHas("builtInTransformJobsStartInactive");
+const BUILT_IN_ACTIVE = { active: hasActivation ? !builtInsStartInactive : null };
 
 const BUILT_IN_JOBS = [
   {
-    ...ACTIVE,
+    ...BUILT_IN_ACTIVE,
     id: 1,
     name: "Hourly job",
     description: "Executes transforms tagged with 'hourly' every hour",
@@ -118,7 +123,7 @@ const BUILT_IN_JOBS = [
     built_in_type: "hourly",
   },
   {
-    ...ACTIVE,
+    ...BUILT_IN_ACTIVE,
     id: 2,
     name: "Daily job",
     description: "Executes transforms tagged with 'daily' once per day",
@@ -127,7 +132,7 @@ const BUILT_IN_JOBS = [
     built_in_type: "daily",
   },
   {
-    ...ACTIVE,
+    ...BUILT_IN_ACTIVE,
     id: 3,
     name: "Weekly job",
     description: "Executes transforms tagged with 'weekly' once per week",
@@ -136,7 +141,7 @@ const BUILT_IN_JOBS = [
     built_in_type: "weekly",
   },
   {
-    ...ACTIVE,
+    ...BUILT_IN_ACTIVE,
     id: 4,
     name: "Monthly job",
     description: "Executes transforms tagged with 'monthly' once per month",
@@ -495,6 +500,13 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
 
   describe.skipIf(setActiveSkipReason !== null)("set-active", () => {
     it("set-active false deactivates every job", async () => {
+      const activated = await runCli({
+        args: ["transform-job", "set-active", "true", "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+      expect(activated.exitCode, activated.stderr).toBe(0);
+
       const result = await runCli({
         args: ["transform-job", "set-active", "false", "--json"],
         configHome: await makeIsolatedConfigHome(),
@@ -520,14 +532,25 @@ describe.skipIf(skipReason !== null)("transform-job e2e", () => {
       );
     });
 
-    it("set-active true is a no-op when every job is already active", async () => {
-      const result = await runCli({
+    it("set-active true activates every inactive job, then is a no-op", async () => {
+      const first = await runCli({
         args: ["transform-job", "set-active", "true", "--json"],
         configHome: await makeIsolatedConfigHome(),
         env: authEnv(),
       });
-      expect(result.exitCode, result.stderr).toBe(0);
-      expect(parseJson(result.stdout, TransformJobActiveResult)).toEqual({
+      expect(first.exitCode, first.stderr).toBe(0);
+      expect(parseJson(first.stdout, TransformJobActiveResult)).toEqual({
+        updated: builtInsStartInactive ? BUILT_IN_JOBS.length : 0,
+        failed: 0,
+      });
+
+      const second = await runCli({
+        args: ["transform-job", "set-active", "true", "--json"],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
+      expect(second.exitCode, second.stderr).toBe(0);
+      expect(parseJson(second.stdout, TransformJobActiveResult)).toEqual({
         updated: 0,
         failed: 0,
       });

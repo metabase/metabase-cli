@@ -8,7 +8,8 @@ import { KNOWN_RANGE } from "./known-range";
 // version it arrived in, so a rule reads the same after the majors around it leave the window.
 // The table is the one place a server behaviour is pinned to a generation, so it also holds rules
 // only the e2e suite branches on (`invalidMbqlIsBadRequest`, `collectionItemsTotalOnEmptyPage`,
-// `transformTargetTableLinkedOnCreate`, `libraryDashboards`); a rule with no reader in `resources/` is not an orphan.
+// `transformTargetTableLinkedOnCreate`, `libraryDashboards`, `builtInTransformJobsStartInactive`); a rule with no reader in
+// `resources/` is not an orphan.
 export interface FeatureRule {
   readonly since: number;
   readonly until?: number;
@@ -21,6 +22,7 @@ export const FEATURE_RULES = {
   dataApps: { since: 65, tokenFeature: "data-apps" },
   transforms: { since: 59 },
   transformJobActivation: { since: 61 },
+  builtInTransformJobsStartInactive: { since: 65 },
   measures: { since: 59 },
   collectionItemMeasures: { since: 61 },
   explorations: { since: 65 },

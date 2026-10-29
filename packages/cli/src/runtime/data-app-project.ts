@@ -7,23 +7,10 @@ import { z } from "zod";
 import { ConfigError, isFileNotFoundError } from "@metabase/client/errors";
 import { parseJson } from "@metabase/client/json";
 
-export const DEFAULT_BUNDLE_PATH = "build/index.js";
-
 const PackageManifest = z.object({}).loose();
 
 // npm drops a `.gitignore` from a published package, so the template ships it under another name.
 const SHIPPED_GITIGNORE = "gitignore";
-
-export async function readBundle(path: string): Promise<string> {
-  try {
-    return await readFile(path, "utf8");
-  } catch (error) {
-    if (isFileNotFoundError(error)) {
-      throw new ConfigError(`bundle not found: ${path} — build the app first (npm run build)`);
-    }
-    throw error;
-  }
-}
 
 export async function writeProjectFile(path: string, text: string): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
