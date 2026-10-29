@@ -1,6 +1,6 @@
 ---
 name: data-app-testing
-description: Test a Metabase data app — a unit test next to each component with Vitest, Testing Library and the SDK's `MetabaseTestProvider`, its queries and actions mocked from `src/metabase.ts`, and runtime clauses in a `<Component>.query.ts` file the component and its test share. Triggers — "test the data app", "add tests", "mock a query", "the test fails with No mock for query". Creating and publishing the app is `data-app`; its hooks are `data-app-data` and `data-app-actions`.
+description: Test a Metabase data app — a unit test next to each component with Vitest, Testing Library and the SDK's `MetabaseTestProvider`, its queries and actions mocked from `src/metabase.ts`, and runtime clauses in a `<Component>.query.ts` file the component and its test share; a Playwright spec per page against the dev preview and real data. Triggers — "test the data app", "add tests", "mock a query", "the test fails with No mock for query", "add an e2e test", "run the Playwright tests". Creating and publishing the app is `data-app`; its hooks are `data-app-data` and `data-app-actions`.
 allowed-tools: Read, Write, Edit, Bash
 requires: [dataApps]
 ---
@@ -88,6 +88,36 @@ expect(updateOrder.lastCall()?.parameters).toEqual({
 
 The response is what the action's kind answers (`data-app-actions`): `created-row` for an insert, `rows-updated` for an update, `rows-deleted` for a delete. `calls()` lists every call, `lastCall()` the latest.
 
+## End-to-end tests
+
+The specs in `e2e/` are Playwright tests against the dev preview (`data-app`, _Dev preview_) and the instance's real data: they check that the pieces fit — every page opens, its questions return rows, its actions exist — not that the numbers are right. `npm run test:e2e` starts the preview, or reuses one already running, so it needs `.env.local` like `npm run dev`; the first run on a machine needs `npx playwright install chromium`.
+
+Write one spec per page in `e2e/`. The template's `e2e/app.spec.ts` checks the starter heading: once the starter page goes, make it the first page's spec:
+
+```ts
+import { expect, test } from "@playwright/test";
+
+test("orders page shows warehouse data", async ({ page }) => {
+  await page.goto("orders");
+  await expect(page.getByRole("row")).not.toHaveCount(0);
+});
+
+test("status filter updates orders table", async ({ page }) => {
+  await page.goto("orders");
+  await page.getByRole("combobox", { name: "Status" }).fill("refunded");
+  await page.getByRole("option", { name: "refunded" }).click();
+  await expect(page.getByRole("cell", { name: "paid" })).toHaveCount(0);
+});
+```
+
+- Assert data, not only headings: rows, values and chart contents are what a failed query takes away. Then each interaction — a filter, sorting, a link to another page — and the view it changes.
+- Locate by role and accessible name (`getByRole`, `getByLabel`), as a user finds things. A name matches as a substring unless `exact: true` is passed: "Ship order 12" also finds "Ship order 120".
+- Navigate with relative paths (`page.goto("orders")`, `page.goto("")` for the first page), never `/orders`.
+- An action spec opens the action's form and checks its fields. Submit it only when the user has said the app's database may be written to: a submitted action changes real data.
+- A failure whose cause isn't on the page is in the diagnostics feed (`data-app`, _Dev preview_).
+
+The same specs run in CI against any instance that has imported the repository, with `DATA_APP_MB_URL` and `DATA_APP_MB_API_KEY` set in the job's environment. CI installs the SDK from `package.json`, so it needs a published version there: a `file:` path to a local build resolves only on the machine that has it.
+
 ## Before handoff
 
-Run `npm run test:unit` and `npm run typecheck` after every round of edits; both pass before the app is built and published (`data-app`, _Build and publish_).
+Run `npm run test:unit` and `npm run typecheck` after every round of edits, and `npm run test:e2e` once the pages render data; all three pass before the app is built and published (`data-app`, _Build and publish_).

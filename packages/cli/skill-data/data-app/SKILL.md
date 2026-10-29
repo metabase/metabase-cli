@@ -51,7 +51,7 @@ npm install && npm run typecheck
 
 Skip the SDK line when `package.json` already points it at a local build (`file:` or `link:`), and never install `latest`. A tag without a version number, such as `vLOCAL_DEV`, is a development build: ask the user which SDK build to install. The starter renders "Hello, data app". Build only in _Build and publish_, after the export: both write `dist/index.js`.
 
-The template is the bundle contract. Don't edit `package.json` by hand, and never rewrite `vite.config.ts`, `vitest.config.ts`, `tsconfig.json` or `src/index.tsx`: `vite.config.ts` stays `export default dataAppConfig()` (its only option is `port`), and `src/index.tsx` default-exports the `DataAppFactory` — change it only to add a `providerProps` key. Metabase and the dev preview each wrap the app in a `<MetabaseProvider>`, so the app never renders one.
+The template is the bundle contract. Don't edit `package.json` by hand, and never rewrite `vite.config.ts`, `vitest.config.ts`, `playwright.config.ts`, `tsconfig.json` or `src/index.tsx`: `vite.config.ts` stays `export default dataAppConfig()` (its only option is `port`), and `src/index.tsx` default-exports the `DataAppFactory` — change it only to add a `providerProps` key. Metabase and the dev preview each wrap the app in a `<MetabaseProvider>`, so the app never renders one.
 
 **An existing project.** Before changing an app you didn't scaffold in this session, pass three checks:
 
@@ -121,7 +121,7 @@ Build the bundle last, test it in the dev preview, then push it with the source 
 
 1. Export the app's `data_app.yaml` and the questions and actions in its collection: `mb git-sync export` (`git-sync`, after its _Branch guard_), then in `<repo>` `git fetch`, `git switch <branch>` to the branch the instance tracks, `git pull --ff-only`.
 2. Pass the tests (`data-app-testing`, _Before handoff_), then `npm run typecheck && npm run build`, which overwrites the exported `dist/index.js`.
-3. With `npm run dev` running and a preview tab open, read the diagnostics feed (_Dev preview_) with every page mounted; fix what it reports and build again.
+3. With `npm run dev` running, run `npm run test:e2e` (`data-app-testing`), which reuses that preview, then read the diagnostics feed (_Dev preview_): the run mounted every page, and the feed keeps what they reported after its tabs close. Fix what it reports and build again.
 4. Commit `data_apps/<slug>/` — the source and `dist/index.js` together — and push.
 5. `mb git-sync import --profile <name>`, whatever a cached `has-remote-changes` says. The new bundle is live at once.
 
