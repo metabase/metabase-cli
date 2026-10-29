@@ -9,7 +9,7 @@ requires: [dataApps]
 
 ## Unit tests
 
-Every component that renders data or runs an action gets a test next to it, `<Component>.test.tsx`. `npm run test:unit` runs them with Vitest, jsdom and Testing Library, with no Metabase instance: `renderWithProviders` in `src/test/render.tsx` wraps the component in `MetabaseTestProvider` from `@metabase/embedding-sdk-react/testing`, and the test passes the answer to every query and action the component runs. Add the app's own providers (theme, router) to `renderWithProviders`; leave the rest of the file as it is.
+Every component that renders data or runs an action gets a test next to it, `<Component>.test.tsx`. `npm run test:unit` runs them with Vitest, jsdom and Testing Library, with no Metabase instance: `renderWithProviders` in `src/test/render.tsx` wraps the component in `MetabaseTestProvider` from `@metabase/embedding-sdk-react/testing`, and the test passes the answer to every query and action the component runs. Add the app's own providers (theme, router) to `renderWithProviders`; leave the rest of the file as it is. The template's `src/App.test.tsx` checks the starter heading: rewrite it for the app's `App` once the starter page goes.
 
 ```tsx
 import { mockDataAppQuery } from "@metabase/embedding-sdk-react/testing";
@@ -33,7 +33,7 @@ it("shows orders", async () => {
 - Rows are typed from `src/metabase.ts`, and partial: give the columns the test asserts on; the rest get a default for their type.
 - Assert what the user sees, found by role or text, and wait for data with `findBy…`. Drive interactions with `@testing-library/user-event`.
 - `mockDataAppQueryError` and `mockDataAppActionError` answer with an error, for the component's error state. A query with runtime clauses takes them as the second argument, as `mockDataAppQuery` does: `mockDataAppQueryError(queries.ordersList, ordersByStatus, { status: 500, message: "Query failed" })`.
-- An SDK component such as `StaticQuestion` renders only its children unless the test passes one: `StaticQuestion: () => <p>Revenue chart</p>`.
+- An SDK component such as `StaticQuestion` renders only its children unless the test passes one: `StaticQuestion: () => <p>Revenue chart</p>`. A panel it draws still needs its query mocked, since `useMetabaseQueryObject` resolves it (the rows don't matter); its query runs inside the component, so that panel's error state is the end-to-end tests' to check.
 
 ### Runtime clauses: `<Component>.query.ts`
 

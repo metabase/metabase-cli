@@ -107,12 +107,13 @@ curl -s "http://localhost:5174/__data-app/diagnostics?startEventId=0"
 - The feed answers for the running bundle: entries from replaced builds are counted in `staleEntries`, and anything still broken reports again under the new `buildId` (`?includeStale=true` shows the withheld ones). A failed build doesn't advance `buildId` and doesn't reach the feed — read the `npm run dev` terminal.
 - Quote `summary` as it is when you report it, and follow `hint` when there is one — except that you never add the Metabase URL to `allowed_hosts`, and you set `allowed_hosts` with `mb data-app update`, then export and pull (_Build and publish_, step 1), instead of editing `data_app.yaml`. A `frame-src` or `form-action` block can't be lifted in the preview (`data-app-ui`). The feed keeps the last 200 entries; `curl -X DELETE …/__data-app/diagnostics` clears it.
 
-| `kind`                             | Fix                                                                                                                 |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `blocked-network`, `csp-violation` | An external API: `data-app-ui`, _External APIs_. A `script-src` or `style-src` violation: bundle the asset instead. |
-| `blocked-api`                      | Blocked in Metabase too: use the replacement in `data-app-ui`.                                                      |
-| `sdk-call` with `alert: true`      | A Metabase request failed; `summary` names it.                                                                      |
-| `error`                            | A bug; `detail` has the stack.                                                                                      |
+| `kind`                                | Fix                                                                                                                 |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `blocked-network`, `csp-violation`    | An external API: `data-app-ui`, _External APIs_. A `script-src` or `style-src` violation: bundle the asset instead. |
+| `blocked-api`                         | Blocked in Metabase too: use the replacement in `data-app-ui`.                                                      |
+| `sdk-call` with `alert: true`         | A Metabase request failed; `summary` names it.                                                                      |
+| `sdk-call` for `/api/analytics-proxy` | Metabase's own usage analytics, not the app's: ignore it.                                                           |
+| `error`                               | A bug; `detail` has the stack.                                                                                      |
 
 ## Build and publish
 

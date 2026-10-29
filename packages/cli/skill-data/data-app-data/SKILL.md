@@ -98,7 +98,20 @@ const rows = data?.rows ?? []; // row.CREATED_AT, row.sum, typed from jsType
 
 - Rows are objects keyed by column `name`. Never index them by position or cast them, and guard `null` values.
 - `data` is `null` until the first answer, and stays `null` while the query is held back with `enabled: false` — show the before-a-choice state then. Otherwise `data === null && !error` is loading, and `data.rows.length === 0` is empty.
-- `error` is `unknown`: render `error instanceof Error ? error.message : String(error)` in the panel.
+- `error` is `unknown`: a failed request is `{ status, data: { message } }`, not an `Error`, so `String(error)` prints `[object Object]`. Render its message through one helper the panels share:
+
+  ```ts
+  export function errorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === "object" && error !== null && "data" in error) {
+      const { data } = error;
+      if (typeof data === "object" && data !== null && "message" in data)
+        return String(data.message);
+    }
+    return String(error);
+  }
+  ```
+
 - Call each hook once, in the highest component that needs the data, and pass the result down. Never call a hook in a loop or a condition.
 
 ## Charts: `useMetabaseQueryObject`
