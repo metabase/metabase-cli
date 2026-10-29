@@ -7,7 +7,7 @@ import { afterEach, assert, beforeEach, describe, expect, it } from "vitest";
 import { ConfigError } from "@metabase/client/errors";
 
 import { findSkillByName, loadAllSkills } from "../core/skills";
-import { readBundle, scaffoldDataAppProject, writeProjectFile } from "./data-app-project";
+import { scaffoldDataAppProject, writeProjectFile } from "./data-app-project";
 
 const TEMPLATE_DIR = join(findSkillByName(loadAllSkills(), "data-app").dir, "template");
 const TEMPLATE_PACKAGE_NAME = '"name": "data-app-template"';
@@ -100,22 +100,6 @@ describe("data app project files", () => {
     expect(error.message).toBe(
       `cannot name the package after ${dir} — scaffold into a directory whose name has a letter or a digit`,
     );
-  });
-
-  it("reads a built bundle", async () => {
-    const path = join(tempDir, "index.js");
-    writeFileSync(path, "export default 1;\n", "utf8");
-
-    expect(await readBundle(path)).toBe("export default 1;\n");
-  });
-
-  it("refuses a missing bundle with the build hint", async () => {
-    const path = join(tempDir, "dist", "index.js");
-
-    const error = await readBundle(path).catch((caught: unknown) => caught);
-
-    assert(error instanceof ConfigError, "expected ConfigError");
-    expect(error.message).toBe(`bundle not found: ${path} — build the app first (npm run build)`);
   });
 
   it("writes a project file, creating its parent directories", async () => {

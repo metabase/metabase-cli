@@ -336,7 +336,6 @@ const ALL_COMMANDS = [
   "data-app create",
   "data-app update",
   "data-app typed-schema",
-  "data-app set-bundle",
   "data-app set-enabled",
   "data-app delete",
   "api-key list",

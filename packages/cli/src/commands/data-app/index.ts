@@ -17,7 +17,6 @@ export default defineCommandGroup({
     create: () => import("./create").then((mod) => mod.default),
     update: () => import("./update").then((mod) => mod.default),
     "typed-schema": () => import("./typed-schema").then((mod) => mod.default),
-    "set-bundle": () => import("./set-bundle").then((mod) => mod.default),
     "set-enabled": () => import("./set-enabled").then((mod) => mod.default),
     delete: () => import("./delete").then((mod) => mod.default),
   },
