@@ -116,7 +116,7 @@ test("status filter updates orders table", async ({ page }) => {
 - An action spec opens the action's form and checks its fields. Submit it only when the user has said the app's database may be written to: a submitted action changes real data.
 - A failure whose cause isn't on the page is in the diagnostics feed (`data-app`, _Dev preview_).
 
-The same specs run in CI against any instance that has imported the repository, with `DATA_APP_MB_URL` and `DATA_APP_MB_API_KEY` set in the job's environment.
+The same specs run in CI against any instance that has imported the repository, with `DATA_APP_MB_URL` and `DATA_APP_MB_API_KEY` set in the job's environment. CI installs the SDK from `package.json`, so it needs a published version there: a `file:` path to a local build resolves only on the machine that has it.
 
 ## Before handoff
 

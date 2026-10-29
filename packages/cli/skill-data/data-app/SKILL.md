@@ -121,7 +121,7 @@ Build the bundle last, test it in the dev preview, then push it with the source 
 
 1. Export the app's `data_app.yaml` and the questions and actions in its collection: `mb git-sync export` (`git-sync`, after its _Branch guard_), then in `<repo>` `git fetch`, `git switch <branch>` to the branch the instance tracks, `git pull --ff-only`.
 2. Pass the tests (`data-app-testing`, _Before handoff_), then `npm run typecheck && npm run build`, which overwrites the exported `dist/index.js`.
-3. With `npm run dev` running and a preview tab open, read the diagnostics feed (_Dev preview_) with every page mounted; fix what it reports and build again.
+3. With `npm run dev` running, run `npm run test:e2e` (`data-app-testing`), which reuses that preview, then read the diagnostics feed (_Dev preview_): the run mounted every page, and the feed keeps what they reported after its tabs close. Fix what it reports and build again.
 4. Commit `data_apps/<slug>/` — the source and `dist/index.js` together — and push.
 5. `mb git-sync import --profile <name>`, whatever a cached `has-remote-changes` says. The new bundle is live at once.
 
