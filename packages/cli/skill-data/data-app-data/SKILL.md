@@ -125,7 +125,7 @@ return <StaticQuestion card={card} height={360} />;
 
 ## Runtime clauses
 
-Both hooks take a second argument: one object with the clauses the UI changes, and `enabled`. They run on top of the question and name its columns:
+Both hooks take a second argument: one object with the clauses the UI changes, and `enabled`. They run on top of the question and name its columns. Keep them in a `<Component>.query.ts` file next to the component, so its test mocks the same clauses (`data-app-testing`):
 
 ```tsx
 import { aggregations, filter, orderBy } from "@metabase/embedding-sdk-react/data-app";

@@ -1,6 +1,6 @@
 ---
 name: data-app
-description: Create, preview, publish and manage a Metabase data app — a React app Metabase serves at /apps/<slug> — create it, scaffold its project, run the dev preview and read its diagnostics feed, build and publish the bundle, turn it off, move it to another instance, delete it. Triggers — "build a data app", "make an internal tool in Metabase", "scaffold a data app", "publish my data app", "update the app", "the app is blank". Start here; the UI is in `data-app-ui`, questions and charts in `data-app-data`, filter controls in `data-app-filters`, writes in `data-app-actions`.
+description: Create, preview, publish and manage a Metabase data app — a React app Metabase serves at /apps/<slug> — create it, scaffold its project, run the dev preview and read its diagnostics feed, build and publish the bundle, turn it off, move it to another instance, delete it. Triggers — "build a data app", "make an internal tool in Metabase", "scaffold a data app", "publish my data app", "update the app", "the app is blank". Start here; the UI is in `data-app-ui`, questions and charts in `data-app-data`, filter controls in `data-app-filters`, writes in `data-app-actions`, tests in `data-app-testing`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 requires: [dataApps]
 ---
@@ -14,7 +14,7 @@ The work, in order:
 1. Create the app on the instance.
 2. Scaffold the project in the synced git repository and install the SDK.
 3. Give it data: questions over the Library's published tables and metrics in the app's collection, then `src/metabase.ts` (`data-app-data`); writes are `data-app-actions`.
-4. Start the dev preview (_Dev preview_), then write the UI under `src/` (`data-app-ui`; filter controls in `data-app-filters`).
+4. Start the dev preview (_Dev preview_), then write the UI under `src/` (`data-app-ui`; filter controls in `data-app-filters`), with a test next to each component (`data-app-testing`).
 5. Build, test, and push the source and the bundle together (_Build and publish_).
 
 For every later change: first pass the checks in _An existing project_ (_Scaffold and install_), then regenerate `src/metabase.ts` if the app's collection changed, then build and publish (_Build and publish_). The bundle reaches Metabase only through git: a git-sync import loads the `dist/index.js` committed in the app's folder.
@@ -51,7 +51,7 @@ npm install && npm run typecheck
 
 Skip the SDK line when `package.json` already points it at a local build (`file:` or `link:`), and never install `latest`. A tag without a version number, such as `vLOCAL_DEV`, is a development build: ask the user which SDK build to install. The starter renders "Hello, data app". Build only in _Build and publish_, after the export: both write `dist/index.js`.
 
-The template is the bundle contract. Don't edit `package.json` by hand, and never rewrite `vite.config.ts`, `tsconfig.json` or `src/index.tsx`: `vite.config.ts` stays `export default dataAppConfig()` (its only option is `port`), and `src/index.tsx` default-exports the `DataAppFactory` — change it only to add a `providerProps` key. Metabase and the dev preview each wrap the app in a `<MetabaseProvider>`, so the app never renders one.
+The template is the bundle contract. Don't edit `package.json` by hand, and never rewrite `vite.config.ts`, `vitest.config.ts`, `tsconfig.json` or `src/index.tsx`: `vite.config.ts` stays `export default dataAppConfig()` (its only option is `port`), and `src/index.tsx` default-exports the `DataAppFactory` — change it only to add a `providerProps` key. Metabase and the dev preview each wrap the app in a `<MetabaseProvider>`, so the app never renders one.
 
 **An existing project.** Before changing an app you didn't scaffold in this session, pass three checks:
 
@@ -119,7 +119,7 @@ curl -s "http://localhost:5174/__data-app/diagnostics?startEventId=0"
 Build the bundle last, test it in the dev preview, then push it with the source in one commit:
 
 1. Export the app's `data_app.yaml` and the questions and actions in its collection: `mb git-sync export` (`git-sync`), then in `<repo>` `git fetch`, `git switch <branch>`, `git pull --ff-only`.
-2. `npm run typecheck && npm run build`, which overwrites the exported `dist/index.js`.
+2. Pass the tests (`data-app-testing`, _Before handoff_), then `npm run typecheck && npm run build`, which overwrites the exported `dist/index.js`.
 3. With `npm run dev` running and a preview tab open, read the diagnostics feed (_Dev preview_) with every page mounted; fix what it reports and build again.
 4. Commit `data_apps/<slug>/` — the source and `dist/index.js` together — and push.
 5. `mb git-sync import --profile <name>`, whatever a cached `has-remote-changes` says. The new bundle is live at once.
