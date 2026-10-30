@@ -4,8 +4,9 @@ name: Metabase CI
 # Checks a pull request's content in a throwaway Metabase: every new or edited
 # transform has a test, the content lints clean, every file matches its entity
 # schema, and the tests of the transforms the PR changed pass on the warehouse.
-# Transform tests read the warehouse through a read-only login and write only
-# temporary tables.
+# Transform tests read only the rows they declare, never a real table, so the
+# databases here are empty containers of the same engines: no warehouse login
+# and no network access to the warehouse.
 
 # Opt-in: runs only on pull requests labelled `run-ci`, and again on each push
 # while the label is on. To run on every PR, drop `labeled` and the job's `if:`.
@@ -45,13 +46,24 @@ jobs:
           METASTORE_DEV_SERVER_URL: https://token-check.staging.metabase.com
           MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }}
         ports: ["3000:3000"]
+      # One empty stand-in per engine the content's transforms use, reached from
+      # Metabase by service name. Delete the ones you don't need.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 20
+      clickhouse:
+        image: clickhouse/clickhouse-server:26.10
+        env:
+          CLICKHOUSE_PASSWORD: ci
+        options: --health-cmd "clickhouse-client --password ci -q 'SELECT 1'" --health-interval 5s --health-retries 20
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: false
-
-      # If the warehouse is reachable only through a VPN or tailnet, join it here.
 
       - uses: actions/setup-node@v4
         with:
@@ -69,10 +81,12 @@ jobs:
         env:
           MB_URL: http://localhost:3000
           CONTENT_DIR: ${{ github.workspace }}
-          # The warehouse's name as the content's YAML spells it, and its folder under databases/.
-          WH_NAME: <Database name>
-          WH_DIR: <database folder>
-          WH_URL: ${{ secrets.WAREHOUSE_URL }}
+          # Each database the content's transforms name, as the YAML spells it, on its stand-in.
+          CI_DATABASES: |
+            [{"name": "<Postgres database name>", "engine": "postgres",
+              "details": {"host": "postgres", "port": 5432, "dbname": "ci", "user": "postgres", "password": "ci"}},
+             {"name": "<ClickHouse database name>", "engine": "clickhouse",
+              "details": {"host": "clickhouse", "port": 8123, "dbname": "default", "user": "default", "password": "ci"}}]
         run: |
           set +e
           ci/prepare.sh > prepare.out
