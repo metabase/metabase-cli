@@ -68,6 +68,7 @@ describe("runJob", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath: null,
+      runLog: true,
       signal: NOT_INTERRUPTED,
     });
 
@@ -119,6 +120,7 @@ describe("runJob", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath,
+      runLog: true,
       signal: NOT_INTERRUPTED,
     });
 
@@ -144,6 +146,7 @@ describe("runJob", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath: null,
+      runLog: true,
       signal: NOT_INTERRUPTED,
     });
 
@@ -158,6 +161,27 @@ describe("runJob", () => {
         .map((line) => parseJson(line, CiEventSchema)),
     ).toEqual(events);
     expect(await repo.git("status", "--porcelain")).toBe("");
+  });
+
+  it("writes no run log under runLog false", async () => {
+    await runJob({
+      repo: repo.path,
+      base: "main",
+      head: "HEAD",
+      stages: async () => [failingStage()],
+      job: "job-1",
+      now: () => NOW,
+      write: () => {},
+      resultsPath: null,
+      runLog: false,
+      signal: NOT_INTERRUPTED,
+    });
+
+    const missing = await readFile(join(repo.path, RUN_LOG_DIR, ".gitignore"), "utf8").then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(isFileNotFoundError(missing)).toBe(true);
   });
 
   it("keeps the run log of a job that crashes, stopping before job.end", async () => {
@@ -176,6 +200,7 @@ describe("runJob", () => {
       now: () => NOW,
       write: () => {},
       resultsPath: null,
+      runLog: true,
       signal: NOT_INTERRUPTED,
     });
 
@@ -203,6 +228,7 @@ describe("runJob", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath: join(repo.path, "no-such-dir", "results.json"),
+      runLog: true,
       signal: NOT_INTERRUPTED,
     });
 
@@ -238,6 +264,7 @@ describe("runJob", () => {
         now: () => NOW,
         write: (event) => events.push(event),
         resultsPath,
+        runLog: true,
         signal: NOT_INTERRUPTED,
       });
 
@@ -262,6 +289,7 @@ describe("runJob", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath,
+      runLog: true,
       signal: NOT_INTERRUPTED,
     });
 
@@ -287,6 +315,7 @@ describe("runJob", () => {
       now: () => NOW,
       write: () => {},
       resultsPath,
+      runLog: true,
       signal: NOT_INTERRUPTED,
     });
 
@@ -343,6 +372,7 @@ describe("runJob, with the stages ci run builds", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath: null,
+      runLog: true,
       signal: NOT_INTERRUPTED,
     });
 

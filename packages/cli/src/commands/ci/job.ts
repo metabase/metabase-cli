@@ -24,6 +24,7 @@ interface JobOptions {
   now: () => Date;
   write: (event: CiEvent) => void;
   resultsPath: string | null;
+  runLog: boolean;
   signal: AbortSignal;
 }
 
@@ -69,11 +70,13 @@ export async function runJob(options: JobOptions): Promise<JobState> {
     await rm(options.resultsPath, { force: true });
   }
   const plan = await planJob(options.repo, options.base, options.head, options.signal);
-  const log = await openRunLog(
-    await repositoryRoot(options.repo, options.signal),
-    options.job,
-    options.now(),
-  );
+  const log = options.runLog
+    ? await openRunLog(
+        await repositoryRoot(options.repo, options.signal),
+        options.job,
+        options.now(),
+      )
+    : () => {};
   const events: CiEvent[] = [];
   const emit = createEmitter({
     job: options.job,
