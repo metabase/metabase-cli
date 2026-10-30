@@ -22,7 +22,7 @@ Everything here runs inside the sandbox, the same in the dev preview as in Metab
 ## What the app shows
 
 - Only what Metabase returned, or deterministic transforms of it: no sample data, invented KPIs, trends, statuses, or claims such as "real-time" or "at risk" the data doesn't support. A section no question supports is left out.
-- Don't read a `rate`, `score`, `margin` or `percent` column as a percentage or threshold — no `%`, `* 100`, colors or stars — unless its `semanticType` in `src/metabase.ts`, or the user, says so.
+- Don't read a `rate`, `score`, `margin` or `percent` column as a percentage or threshold — no `%`, `* 100`, colors or stars — unless its field's `semanticType` in `src/metabase.schema.ts`, or the user, says so.
 - Every panel has a loading state, its error, and an empty state for no rows — never an empty slot or a stale value.
 - Label with names, not ids; currency to two decimals, counts as integers; a `null` breakout is "Unknown". A trend needs several points: never a sparkline from one value. Cap long lists with a limit, pages or a scroll area.
 
@@ -38,7 +38,14 @@ Everything here runs inside the sandbox, the same in the dev preview as in Metab
 | `navigator.geolocation` and other device APIs                                                              | Nothing.                                                                                  |
 | Key, input, composition and clipboard listeners (`keydown`, `paste`, `input`, …) on `window` or `document` | A React handler (`onKeyDown`, `onPaste`, …) on your own element.                          |
 
-**External APIs.** A raw `fetch` reaches only the origins in the app's `allowed_hosts`, exact or with a `*.` subdomain wildcard: `mb data-app update <slug> --body '{"allowed_hosts":["https://api.example.com"]}'`. The preview reads the `allowed_hosts:` list in `data_app.yaml` beside `package.json`, the app's exported manifest: refresh it by exporting and pulling the export branch (`data-app`, _Build and publish_, step 1), never by writing it. Then restart `npm run dev`. Never list the Metabase URL. In Metabase the same list governs `<iframe src>` and native `<form action>` submits, and the target must allow framing; the preview blocks both. Use `<form onSubmit>` with `preventDefault`: a native submit navigates the app away.
+**External APIs.** A raw `fetch` reaches only the origins in the app's `allowed_hosts`, exact or with a `*.` subdomain wildcard, listed in `data_app.yaml` beside `package.json`:
+
+```yaml
+allowed_hosts:
+  - https://api.example.com
+```
+
+The preview reads the list there: restart `npm run dev` after changing it. Metabase applies it once the app is released (`data-app`, _Release_). Never list the Metabase URL. In Metabase the same list governs `<iframe src>` and native `<form action>` submits, and the target must allow framing; the preview blocks both. Use `<form onSubmit>` with `preventDefault`: a native submit navigates the app away.
 
 ## Layout
 
@@ -77,7 +84,7 @@ export function AppError({ message }: SdkErrorComponentProps) {
 | `StaticQuestion`      | A chart, KPI or table without drill-through — the default.                              |
 | `InteractiveQuestion` | One meant to be explored: drill-through, chart switching; pass `isSaveEnabled={false}`. |
 
-Both take a question in the app's collection. Dashboards and the authoring components (`CreateQuestion`, `CreateDashboardModal`, saving from the editor) don't work in an app: its collection can't hold a dashboard, and an app can't save content.
+Both take the `card` built from `useMetabaseQueryObject` (`data-app-data`). Dashboards and the authoring components (`CreateQuestion`, `CreateDashboardModal`, saving from the editor) don't work in an app: an app can't save content.
 
 ## A Metabase chart or your own
 
@@ -85,6 +92,7 @@ Ask "can Metabase draw this at all?", never "which looks closer to the design?" 
 
 - **Yes** — bar, line, area, combo, row, pie, scalar, smartscalar, gauge, progress, funnel, scatter, waterfall, boxplot, sankey, pivot, map, tables: render it with `useMetabaseQueryObject` and `StaticQuestion` (`data-app-data`). It keeps the instance's formatting, tooltips, theming and drill-through. Styling is never a reason to draw it yourself.
 - **No**, or the user asked for a custom one — scorecards, timelines, calendar grids, one visual from several queries: draw it from `useMetabaseQuery` rows, with SVG or a chart library the app already has.
+- A table the user picks a row from, to drive another panel, is drawn from `useMetabaseQuery` rows with a button per row: an SDK question reports no row click.
 - A KPI is `scalar`, `smartscalar`, `gauge` or `progress` — on a question filtered at runtime to one bucket, `scalar` (a `smartscalar` loses its comparison); put what Metabase doesn't draw (a caption, stars) beside it.
 - `InteractiveQuestion`: pass `isSaveEnabled={false}`, and `title={false}` in a panel with its own heading. Children replace its layout: `<InteractiveQuestion card={card}><InteractiveQuestion.QuestionVisualization height={360} /></InteractiveQuestion>` is the chart alone.
 
@@ -120,4 +128,4 @@ Metabase mirrors each route to `/apps/<slug>/<path>`, and a reload there opens t
 
 ## Before handoff
 
-`npm run dev` only transpiles: run `npm run typecheck` after every round of edits and fix what it reports, and report the result, errors grouped by cause. Search the changed files and fix what turns up: `card={{` (every `card` comes from `useMemo`), `row[0]` and `as unknown as` (rows are keyed by column name), `<select` for a list from a question (`data-app-filters`), `type="date"` and `new Date("` (a date string parsed as UTC) in a date filter, `* 100` and `%`. Read the diagnostics feed with every panel mounted, then build and publish (`data-app`, _Build and publish_).
+`npm run dev` only transpiles: run `npm run typecheck` after every round of edits and fix what it reports, and report the result, errors grouped by cause. Search the changed files and fix what turns up: `card={{` (every `card` comes from `useMemo`), `row[0]` and `as unknown as` (rows are keyed by column name), `<select` for a list from a question (`data-app-filters`), `type="date"` and `new Date("` (a date string parsed as UTC) in a date filter, and `* 100` or a number followed by `%` in rendered text (`grep -nE '[0-9}]\s*%'`, then skip CSS sizes such as `"100%"`). Read the diagnostics feed with every panel mounted, then release the app (`data-app`, _Release_).

@@ -18,18 +18,12 @@ export default defineMetabaseCommand({
     ...listFlags,
     ...profileFlag,
     ...connectionFlags,
-    available: {
-      type: "boolean",
-      description: "Only the apps users can open: enabled and not outdated",
-    },
   },
   outputSchema: DataAppListEnvelope,
   examples: ["mb data-app list", "mb data-app list --json"],
-  async run({ args, ctx, getClient }) {
+  async run({ ctx, getClient }) {
     const client = await getClient();
-    const { data, total } = await client.dataApp.list(
-      args.available === true ? { available: true } : {},
-    );
+    const { data, total } = await client.dataApp.list();
     renderList(windowList(data, ctx.range, total), dataAppView, ctx);
   },
 });

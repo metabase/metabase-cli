@@ -1,7 +1,7 @@
 import { assert, describe, expect, it } from "vitest";
 
 import { createClient } from "../client";
-import type { DataAppCreateInput } from "../domain/data-app";
+import type { DataAppGenerateQueriesInput } from "../domain/data-app";
 import { ResponseShapeError } from "../errors";
 import type { ClientCredentials } from "../http/transport";
 import {
@@ -39,14 +39,6 @@ const APP = {
 };
 
 const SUMMARY = { name: "sales-overview", display_name: "Sales overview" };
-
-const CREATE_BODY: DataAppCreateInput = {
-  name: "sales-overview",
-  display_name: "Sales overview",
-  allowed_hosts: ["https://api.example.com"],
-};
-
-const TYPED_SCHEMA = "export const queries = {};\nexport const actions = {};\n";
 
 const SERVER = createServerProfile({
   edition: "ee",
@@ -104,16 +96,6 @@ describe("data app resource wire requests", () => {
     ]);
   });
 
-  it("sends the list request narrowed to available apps", async () => {
-    const { mb, capture } = clientOver([jsonResponse([])]);
-
-    await mb.dataApp.list({ available: true });
-
-    expect(capture.calls.map((call) => call.url)).toEqual([
-      "https://mb.example.com/metabase/api/ee/apps?available=true",
-    ]);
-  });
-
   it("refuses an admin answer that is neither a data app nor a summary", async () => {
     const { mb } = clientOver([jsonResponse({ ...APP, resource_collection_id: null })]);
 
@@ -141,22 +123,6 @@ describe("data app resource wire requests", () => {
     ]);
   });
 
-  it("sends the create request with the full body", async () => {
-    const { mb, capture } = clientOver([jsonResponse(APP)]);
-
-    const result = await mb.dataApp.create(CREATE_BODY);
-
-    expect(result).toEqual(APP);
-    expect(capture.calls).toEqual([
-      {
-        url: "https://mb.example.com/metabase/api/ee/apps",
-        method: "POST",
-        headers: JSON_REQUEST_HEADERS,
-        body: JSON.stringify(CREATE_BODY),
-      },
-    ]);
-  });
-
   it("sends the update request with only the patched fields", async () => {
     const { mb, capture } = clientOver([jsonResponse({ ...APP, enabled: true })]);
 
@@ -172,57 +138,28 @@ describe("data app resource wire requests", () => {
     ]);
   });
 
-  it("sends the bundle replacement to the bundle route", async () => {
-    const { mb, capture } = clientOver([jsonResponse(APP)]);
-
-    await mb.dataApp.replaceBundle("sales-overview", "export default 1;");
-
-    expect(capture.calls).toEqual([
-      {
-        url: "https://mb.example.com/metabase/api/ee/apps/sales-overview/bundle",
-        method: "PUT",
-        headers: JSON_REQUEST_HEADERS,
-        body: JSON.stringify({ bundle: "export default 1;" }),
-      },
-    ]);
-  });
-
-  it("reads the typed schema as text", async () => {
-    const { mb, capture } = clientOver([
-      new Response(TYPED_SCHEMA, {
-        status: 200,
-        headers: { "content-type": "text/typescript; charset=utf-8" },
-      }),
-    ]);
-
-    const result = await mb.dataApp.typedSchema("sales-overview");
-
-    expect(result).toBe(TYPED_SCHEMA);
-    expect(capture.calls).toEqual([
-      {
-        url: "https://mb.example.com/metabase/api/ee/apps/sales-overview/typed-schema",
-        method: "GET",
-        headers: {
-          accept: "text/*",
-          "user-agent": TEST_USER_AGENT,
-          "x-api-key": "mb_wire_test_key",
+  it("sends the definitions to generate the questions' files", async () => {
+    const files = [{ path: "orders_by_month.yaml", contents: "name: ordersByMonth\n" }];
+    const { mb, capture } = clientOver([jsonResponse(files)]);
+    const body = {
+      collection: "AAAAAAAAAAAAAAAAAAAAA",
+      queries: {
+        ordersByMonth: {
+          entityId: "BBBBBBBBBBBBBBBBBBBBB",
+          query: { stages: [{ source: { type: "table", id: 1 } }] },
         },
-        body: null,
       },
-    ]);
-  });
+    } satisfies DataAppGenerateQueriesInput;
 
-  it("sends the delete request", async () => {
-    const { mb, capture } = clientOver([new Response(null, { status: 204 })]);
+    const result = await mb.dataApp.generateQueries(body);
 
-    await mb.dataApp.delete("sales-overview");
-
+    expect(result).toEqual(files);
     expect(capture.calls).toEqual([
       {
-        url: "https://mb.example.com/metabase/api/ee/apps/sales-overview",
-        method: "DELETE",
-        headers: { accept: "*/*", "user-agent": TEST_USER_AGENT, "x-api-key": "mb_wire_test_key" },
-        body: null,
+        url: "https://mb.example.com/metabase/api/ee/apps/generate/queries",
+        method: "POST",
+        headers: JSON_REQUEST_HEADERS,
+        body: JSON.stringify(body),
       },
     ]);
   });

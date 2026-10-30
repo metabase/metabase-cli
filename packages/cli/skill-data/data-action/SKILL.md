@@ -29,7 +29,7 @@ mb db get <id> --full --json
 
 ## Pick the collection
 
-A data action goes in a data actions collection, a data app collection, or the data actions root (omit `collection_id`). A regular collection is refused with `An action without a model can only go in a data actions or data app collection.` Make one with:
+A data action goes in a data actions collection or the data actions root (omit `collection_id`); a data app defines its own (`data-app-actions`). A regular collection is refused with `An action without a model can only go in a data actions or data app collection.` Make one with:
 
 ```bash
 mb collection create --namespace data-actions --body '{"name":"Order actions"}' --json
@@ -125,7 +125,6 @@ Each `{{name}}` needs a `template-tags` entry and a `parameters` entry, all usin
 ```
 
 - `kind` is `row/create`, `row/update` or `row/delete`; `table_id` comes from `mb table list --db-id <id>`. The table needs exactly one primary key, or create answers `An implicit action needs a table with exactly one primary key.`
-- In a data app's collection the table must also be published to the Library (`mb library publish`), or create answers `An implicit action in a data app's collection can write only to a table published to the Library.`
 - The body has no `dataset_query` or `parameters`: Metabase derives the parameters from the table's columns, without sensitive and retired ones. Each parameter `id` is its column name, slugified; `mb data-action get <id> --full --json` lists them.
 
 | `kind`       | Parameters                             | Answers                                                                 |
@@ -136,7 +135,7 @@ Each `{{name}}` needs a `template-tags` entry and a `parameters` entry, all usin
 
 - `required` marks each `NOT NULL` column without a default, and the key of an update or delete. Execution itself checks only that an update or delete has the key; an insert without a `NOT NULL` column fails in the database.
 - An update writes only the columns given a value. A `null` value is dropped, so an update can't clear a column. A key that matches no row is refused: `Sorry, the row you're trying to update doesn't exist` (or `delete`).
-- `visualization_settings.fields.<parameter id>.hidden: true` hides a parameter: execution refuses a value for it, and a data app's `src/metabase.ts` leaves it out. Hide a column an insert needs only when the same field has a `defaultValue`.
+- `visualization_settings.fields.<parameter id>.hidden: true` hides a parameter: execution refuses a value for it. Hide a column an insert needs only when the same field has a `defaultValue`.
 - A patch (_Lifecycle_) changes a query action's `dataset_query` or a table action's `kind` and `table_id`, never both.
 
 ## Run it

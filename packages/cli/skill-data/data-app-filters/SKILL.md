@@ -26,7 +26,7 @@ Before any control, write one row per filter: the question that gives its option
 ## Values and options
 
 - Every filter starts at **All**, except a KPI's own date control (above). Keep it as `"all"` in state and send it as no clause (`[]`), except on an aggregated question whose panel doesn't show the filtered column, where All is its own question (`data-app-data`, _Runtime clauses_); treat `""`, `null` and `undefined` the same way. In a Yes/No/All filter, Yes and No each filter (`true`, `false`), and only All sends nothing.
-- Options come at runtime from their own question in the app's collection, broken out on the filtered column — never hardcoded unless the user gave a closed list. Dedupe them from its rows, and keep the label apart from the value.
+- Options come at runtime from their own question (`data-app-data`), broken out on the filtered column — never hardcoded unless the user gave a closed list. Dedupe them from its rows, and keep the label apart from the value.
 - Filter by a stable raw value (an id) and show its label; never filter by a display label when an id exists, and never feed free text into an exact-id filter.
 - All stays selectable while options load, come back empty or fail; don't disable the control. When fresh options no longer hold the selected value, reset to All:
 
@@ -40,7 +40,7 @@ useEffect(() => {
 
 ## Entities: a searchable combobox
 
-Any list whose options come from a question — an id shown as a name, a category, anything that can grow — is one searchable combobox, even while it's short. A `<select>` is only for a short closed list the user gave. Prefer the app's component library or a small established combobox package; hand-roll only a small one. Either way:
+Any filter control whose options come from a question — an id shown as a name, a category, anything that can grow — is one searchable combobox, even while it's short. Picking a row in a list the page already shows (a customer table driving that customer's details) is not a filter control: the row click is the picker. A `<select>` is only for a short closed list the user gave. Prefer the app's component library or a small established combobox package; hand-roll only a small one. Either way:
 
 - Click or focus opens the list at once, before any typing; search matches labels, not ids.
 - All is always an option, and picking an option stores its raw value.
@@ -92,4 +92,4 @@ const lastCompleteMonths = (n: number): [string, string] => {
 
 ## Check
 
-For every visible filter except a KPI's own date control: All runs the unfiltered question, or its All question; its options come from a question; each option changes every panel the contract says it reaches, and no other; a preset bar ends with Custom unless it filters an aggregated question; and no scope has two date controls. Search the filter controls for `<select` and `type="date"` — an action form keeps its date inputs. Then build and publish (`data-app`, _Build and publish_).
+For every visible filter except a KPI's own date control: All runs the unfiltered question, or its All question; its options come from a question; each option changes every panel the contract says it reaches, and no other; a preset bar ends with Custom unless it filters an aggregated question; and no scope has two date controls. Search the filter controls for `<select` and `type="date"` — an action form keeps its date inputs. Then release the app (`data-app`, _Release_).

@@ -1220,58 +1220,52 @@ mb data-action execute 1 --file values.json
 
 ## Data apps
 
-CRUD on `/api/ee/apps` plus the typed schema. A data app is a React app built into one JavaScript bundle, which Metabase serves in a sandbox at `/apps/<slug>`; its questions and actions live in its own collection. Data apps need the `data-apps` premium feature. Admins see every app, but a disabled one opens only in Data Studio and an outdated one not at all; other users see only the apps they can open, with just `name` and `display_name`. The `data-app` skill covers building one, with `data-app-ui`, `data-app-data`, `data-app-filters` and `data-app-actions` for its parts.
+A data app is a React app built into one JavaScript bundle, which Metabase serves in a sandbox at `/apps/<slug>`. It lives in the synced git repository under `data_apps/<slug>/`, with its questions and actions in its collection's files under `collections/data_apps/`, and changes in Metabase only through an import of the repository. Data apps need the `data-apps` premium feature. Admins see every app, but a disabled one opens only in Data Studio and an outdated one not at all; other users see only the apps they can open, with just `name` and `display_name`. The `data-app` skill covers building one, with `data-app-ui`, `data-app-data`, `data-app-filters` and `data-app-actions` for its parts.
 
-### `mb data-app scaffold [dir]`
+### `mb data-app scaffold <slug>`
 
-Copy the Vite + React + TypeScript project template into a new or empty directory (the current one by default) and name the package after it. Needs no server. Install the SDK tag matching the instance (`npm install @metabase/embedding-sdk-react@<major>-beta`) before `npm install`.
+Run from the root of the synced repository. Copy the Vite + React + TypeScript project template into `data_apps/<slug>/`, which must be missing or empty, and write the app's `data_app.yaml` and its collection's file, with new entity IDs. Needs no server. Install the SDK tag matching the instance (`npm install @metabase/embedding-sdk-react@<major>-beta`) before `npm install`.
 
 ```sh
 mb data-app scaffold sales-overview
+```
+
+### `mb data-app generate-schema <slug>`
+
+Run from the root of the synced repository. Write the app's `src/metabase.schema.ts`: the Library's published tables, with their fields, segments and measures, and the Library's metrics, by this instance's IDs.
+
+```sh
+mb data-app generate-schema sales-overview
+```
+
+### `mb data-app generate-queries <slug>`
+
+Run from the root of the synced repository, after `npm install` in the app. Build the question of each `defineQuery` export in `src/metabase.queries.ts`, named after the export and with its `entityId`, and replace the question files of the app's collection with them. Nothing changes in Metabase until the repository is imported.
+
+```sh
+mb data-app generate-queries sales-overview
+```
+
+### `mb data-app generate-actions <slug>`
+
+The same for the implicit action of each `defineAction` export in `src/metabase.actions.ts`, replacing the action files of the app's collection.
+
+```sh
+mb data-app generate-actions sales-overview
 ```
 
 ### `mb data-app list`
 
 ```sh
 mb data-app list
-mb data-app list --available --json
+mb data-app list --json
 ```
-
-| Flag          | Description                                             |
-| ------------- | ------------------------------------------------------- |
-| `--available` | Only the apps users can open: enabled and not outdated. |
 
 ### `mb data-app get <slug>`
 
 ```sh
 mb data-app get sales-overview
 mb data-app get sales-overview --json --full
-```
-
-### `mb data-app create`
-
-```sh
-mb data-app create --body '{"name":"sales-overview","display_name":"Sales overview"}'
-mb data-app create --file app.json --json
-```
-
-Body fields: `name` (required, the slug: lowercase letters, digits and single dashes, at most 100 characters), `display_name` (the slug by default), `description`, `allowed_hosts`, `enabled` (true by default), `bundle_path`, `version`. The app starts with an empty bundle, which a git-sync import replaces with the `dist/index.js` committed in `data_apps/<slug>/`. The answer's `resource_collection_id` is the app's collection.
-
-### `mb data-app update <slug>`
-
-Patch a data app; the body carries only the fields to change (`display_name`, `description`, `allowed_hosts`, `enabled`, `bundle_path`, `version`). A disabled app opens only in Data Studio (Data apps → the app → Overview), and /apps/<slug> says not found, admins included.
-
-```sh
-mb data-app update sales-overview --body '{"display_name":"Sales overview"}'
-```
-
-### `mb data-app typed-schema <slug>`
-
-Print the TypeScript module Metabase generates for the app: a `defineQuery` per question and a `defineAction` per action in its collection, addressed by entity ID.
-
-```sh
-mb data-app typed-schema sales-overview --out src/metabase.ts
-mb data-app typed-schema sales-overview > src/metabase.ts
 ```
 
 ### `mb data-app set-enabled <slug> <true|false>`
@@ -1282,12 +1276,13 @@ Enable or disable the app; a new app is enabled. A disabled app opens only in Da
 mb data-app set-enabled sales-overview false
 ```
 
-### `mb data-app delete <slug>`
+### `mb nano-id`
 
-Delete the app with its bundle, its collection and the questions and actions in it.
+Mint random NanoIDs, the entity IDs Metabase serializes content by: the `entityId` of a data app's `defineQuery` and `defineAction` definitions. Needs no server.
 
 ```sh
-mb data-app delete sales-overview --yes
+mb nano-id
+mb nano-id --count 5 --json
 ```
 
 ## API keys
