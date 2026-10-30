@@ -4,8 +4,8 @@ export default defineCommandGroup({
   name: "transform",
   description: "Manage Metabase transforms",
   skills: [
-    { skill: "transform", purpose: "body shape, run-with-wait, iterate" },
     { skill: "mbql", purpose: "MBQL source.query bodies" },
+    { skill: "transform", purpose: "body shape, run-with-wait, iterate" },
   ],
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),

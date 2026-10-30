@@ -1,0 +1,128 @@
+# Copy to .github/workflows/metabase-ci.yml. Replace each <...>.
+name: Metabase CI
+
+# Checks a pull request's content in a throwaway Metabase: every new or edited
+# transform has a test, the content lints clean, every file matches its entity
+# schema, and the tests of the transforms the PR changed pass on the warehouse.
+# Transform tests read only the rows they declare, never a real table, so the
+# databases here are empty containers of the same engines: no warehouse login
+# and no network access to the warehouse.
+
+# Opt-in: runs only on pull requests labelled `run-ci`, and again on each push
+# while the label is on. To run on every PR, add `opened`, and drop the job's `if:`.
+on:
+  pull_request:
+    # No `opened`: a PR opened with the label also gets a `labeled` event, and two
+    # events would start two runs.
+    types: [labeled, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  mb-ci:
+    # Adding some other label to a labelled PR must not rerun the check.
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'run-ci') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'run-ci')
+    # In the job, not the workflow, so a skipped run doesn't cancel a running check.
+    concurrency:
+      group: metabase-ci-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        # Explicit bash adds -o pipefail, so the tee keeps mb's exit code.
+        shell: bash
+    services:
+      metabase:
+        image: metabase/metabase-enterprise-head:latest
+        env:
+          MB_DB_TYPE: h2
+          MB_LOAD_SAMPLE_CONTENT: "false"
+          MB_CHECK_FOR_UPDATES: "false"
+          MB_ANON_TRACKING_ENABLED: "false"
+          MB_WAREHOUSE_ALLOWED_NETWORKS: allow-all
+          # For a Metabase dev token, which is checked on the staging token server.
+          # Delete both lines for a production license.
+          MB_RUN_MODE: dev
+          METASTORE_DEV_SERVER_URL: https://token-check.staging.metabase.com
+          MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }}
+        ports: ["3000:3000"]
+      # One empty stand-in per engine the content's transforms use, reached from
+      # Metabase by service name. Delete the ones you don't need.
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 20
+      clickhouse:
+        image: clickhouse/clickhouse-server:26.10
+        env:
+          CLICKHOUSE_PASSWORD: ci
+        options: --health-cmd "clickhouse-client --password ci -q 'SELECT 1'" --health-interval 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install mb
+        # An exact version: dist-tags move.
+        run: npm i -g @metabase/cli@<mb version>
+
+      - name: Load this commit into Metabase
+        id: load
+        # A failed import must not hide what `mb ci run` finds (lint explains most import failures);
+        # the last step fails the job when the import failed.
+        continue-on-error: true
+        env:
+          MB_URL: http://localhost:3000
+          CONTENT_DIR: ${{ github.workspace }}
+          # Each database the content's transforms name, as the YAML spells it, on its stand-in.
+          CI_DATABASES: |
+            [{"name": "<Postgres database name>", "engine": "postgres",
+              "details": {"host": "postgres", "port": 5432, "dbname": "ci", "user": "postgres", "password": "ci"}},
+             {"name": "<ClickHouse database name>", "engine": "clickhouse",
+              "details": {"host": "clickhouse", "port": 8123, "dbname": "default", "user": "default", "password": "ci"}}]
+        run: |
+          set +e
+          ci/prepare.sh > prepare.out
+          status=$?
+          key=$(sed -n 's/^export MB_API_KEY=//p' prepare.out)
+          rm -f prepare.out
+          if [ -n "$key" ]; then
+            echo "::add-mask::$key"
+            echo "MB_API_KEY=$key" >> "$GITHUB_ENV"
+          fi
+          exit $status
+
+      - name: mb ci run
+        env:
+          MB_URL: http://localhost:3000
+          BASE: origin/${{ github.base_ref }}
+        run: mb ci run --repo . --base "$BASE" --format text --results results.json | tee report.txt
+
+      - name: Fail if the import failed
+        if: always() && steps.load.outcome == 'failure'
+        run: |
+          echo "::error::Metabase could not import this commit; see the 'Load this commit into Metabase' step."
+          exit 1
+
+      - name: Job summary
+        if: always()
+        run: |
+          { echo '```'; cat report.txt 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mb-ci-results
+          path: results.json
+          if-no-files-found: ignore

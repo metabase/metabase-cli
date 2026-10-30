@@ -20,8 +20,8 @@ export default defineMetabaseCommand({
   details:
     "For the values that must be a UUID: the `lib/uuid` of an aggregation an MBQL aggregation ref points at, and a document node's `_id`.",
   skills: [
-    { skill: "mbql", purpose: "aggregation refs" },
     { skill: "document", purpose: "document node ids" },
+    { skill: "mbql", purpose: "aggregation refs" },
   ],
   requires: null,
   args: {

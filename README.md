@@ -2622,16 +2622,17 @@ Bundled skills:
 | Name            | Use                                                                                     |
 | --------------- | --------------------------------------------------------------------------------------- |
 | `core`          | Top-level guide: auth, flag conventions, output flags, body input, every command group  |
-| `data-workflow` | Front-door router for the whole journey (raw → clean tables → definitions → dashboards) |
-| `mbql`          | Authoring and fixing MBQL 5 query bodies                                                |
-| `native-sql`    | Native SQL query bodies: template tags, field filters, snippets, card references        |
-| `visualization` | Choosing a card's `display` and authoring `visualization_settings`                      |
+| `ci`            | Running `mb ci run`, reading its results, and fixing what failed                        |
 | `dashboard`     | Interactive dashboards: filter wiring, linked filters, cross-filtering, click behavior  |
-| `metadata`      | Semantic types, FK targets, dropdown behavior, and the features each unlocks            |
-| `transform`     | Authoring and running transforms (native SQL + MBQL 5), iteration, run inspection       |
-| `notification`  | Scheduled delivery: question alerts and dashboard subscriptions                         |
+| `data-workflow` | Front-door router for the whole journey (raw → clean tables → definitions → dashboards) |
 | `document`      | Authoring document bodies: the TipTap JSON tree, embedding cards, entity links          |
 | `git-sync`      | Round-tripping Metabase content to/from a git remote                                    |
+| `mbql`          | Authoring and fixing MBQL 5 query bodies                                                |
+| `metadata`      | Semantic types, FK targets, dropdown behavior, and the features each unlocks            |
+| `native-sql`    | Native SQL query bodies: template tags, field filters, snippets, card references        |
+| `notification`  | Scheduled delivery: question alerts and dashboard subscriptions                         |
+| `transform`     | Authoring and running transforms (native SQL + MBQL 5), iteration, run inspection       |
+| `visualization` | Choosing a card's `display` and authoring `visualization_settings`                      |
 
 Discovery surfaces:
 

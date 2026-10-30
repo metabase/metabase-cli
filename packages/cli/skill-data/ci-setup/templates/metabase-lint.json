@@ -1,0 +1,4 @@
+{
+  "defaultSchemas": { "<Database name>": "<schema>" },
+  "engines": { "<Database name>": "<engine>" }
+}

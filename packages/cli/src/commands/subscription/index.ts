@@ -4,11 +4,11 @@ export default defineCommandGroup({
   name: "subscription",
   description: "Manage Metabase dashboard subscriptions (scheduled dashboard delivery)",
   skills: [
+    { skill: "dashboard", purpose: "the dashboard and dashcards a subscription delivers" },
     {
       skill: "notification",
       purpose: "channel schedules, recipients, skip_if_empty, per-subscription filter values",
     },
-    { skill: "dashboard", purpose: "the dashboard and dashcards a subscription delivers" },
   ],
   subCommands: {
     list: () => import("./list").then((mod) => mod.default),
