@@ -9,19 +9,23 @@ name: Metabase CI
 # and no network access to the warehouse.
 
 # Opt-in: runs only on pull requests labelled `run-ci`, and again on each push
-# while the label is on. To run on every PR, drop `labeled` and the job's `if:`.
+# while the label is on. To run on every PR, add `opened`, and drop the job's `if:`.
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    # No `opened`: a PR opened with the label also gets a `labeled` event, and two
+    # events would start two runs.
+    types: [labeled, synchronize, reopened]
 
 permissions:
   contents: read
 
 jobs:
   mb-ci:
-    if: contains(github.event.pull_request.labels.*.name, 'run-ci')
-    # In the job, not the workflow, so a skipped run (another label added)
-    # doesn't cancel a running check.
+    # Adding some other label to a labelled PR must not rerun the check.
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'run-ci') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'run-ci')
+    # In the job, not the workflow, so a skipped run doesn't cancel a running check.
     concurrency:
       group: metabase-ci-${{ github.event.pull_request.number }}
       cancel-in-progress: true
