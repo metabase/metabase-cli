@@ -16,6 +16,7 @@ import { assertCompactColumns, assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
+import { SHORT_TIMEOUT_MS, slowNativeQuery } from "./slow-query";
 
 const NEW_CARD_NAME = "e2e_card_new";
 const ORDERS_BY_STATUS_NAME = "Orders by status";
@@ -83,6 +84,22 @@ describe("card e2e", () => {
   async function archiveCard(id: number): Promise<CardCompact> {
     const result = await runCli({
       args: ["card", "archive", String(id), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+    expect(result.exitCode, result.stderr).toBe(0);
+    return parseJson(result.stdout, CardCompact);
+  }
+
+  async function createSlowCard(): Promise<CardCompact> {
+    const body: CardCreateInput = {
+      ...NEW_CARD_BODY,
+      name: "e2e_card_slow",
+      dataset_query: slowNativeQuery(),
+    };
+    const result = await runCli({
+      args: ["card", "create", "--json"],
+      stdin: JSON.stringify(body),
       configHome: await makeIsolatedConfigHome(),
       env: authEnv(),
     });
@@ -310,6 +327,53 @@ describe("card e2e", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stderr).toContain("--parameters: invalid JSON");
+    expect(result.stdout).toBe("");
+  });
+
+  it("query --timeout shorter than the card's query fails it with a timeout error", async () => {
+    const card = await createSlowCard();
+    const result = await runCli({
+      args: ["card", "query", String(card.id), "--timeout", String(SHORT_TIMEOUT_MS), "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorCategory(result.stderr)).toBe("timeout");
+    expect(cliErrorMessage(result.stderr)).toBe(`Request timed out after ${SHORT_TIMEOUT_MS}ms`);
+    expect(result.stdout).toBe("");
+  });
+
+  it("query --timeout bounds an --export-format stream", async () => {
+    const card = await createSlowCard();
+    const result = await runCli({
+      args: [
+        "card",
+        "query",
+        String(card.id),
+        "--export-format",
+        "csv",
+        "--timeout",
+        String(SHORT_TIMEOUT_MS),
+      ],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(`Request timed out after ${SHORT_TIMEOUT_MS}ms`);
+    expect(result.stdout).toBe("");
+  });
+
+  it("query --timeout that is not an integer fails with ConfigError", async () => {
+    const result = await runCli({
+      args: ["card", "query", String(SEEDED.ordersCardId), "--timeout", "abc", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe('invalid timeout: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
