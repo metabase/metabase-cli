@@ -7,7 +7,7 @@ requires: [dataApps]
 
 # Data in a data app
 
-Before changing an existing app, pass the checks in `data-app`, _An existing project_: the template's config and factory, and React 19.
+Before changing an existing app, pass the checks in `data-app`, _An existing project_: the template's config and factory, React 19, and the SDK tag.
 
 A data app runs only the questions and actions in **the app's collection** (`data-app`, _Create the app_); its viewers can read nothing else. So every piece of data starts there:
 
