@@ -29,12 +29,13 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.8.2",
-    "@metabase/representations": "1.6.1-alpha.br-galdre-reference-lint.sha-f1106aa",
+    "@metabase/representations": "1.6.1-alpha.br-galdre-reference-lint.sha-d805d3d",
     "@napi-rs/keyring": "^1.3.0",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "citty": "^0.2.2",
     "cli-table3": "^0.6.5",
+    "pyodide": "314.0.7",
     "semver": "^7.8.0",
     "yaml": "^2.8.4",
     "zod": "^4.0.0"

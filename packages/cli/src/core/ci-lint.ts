@@ -1,3 +1,9 @@
+import {
+  LINT_RULE_SEVERITY,
+  LINT_RULES,
+  type LintRule,
+  type LintSeverity,
+} from "@metabase/representations/experimental";
 import { z } from "zod";
 
 import { AbortError, errorMessage } from "@metabase/client/errors";
@@ -5,38 +11,20 @@ import { AbortError, errorMessage } from "@metabase/client/errors";
 import { type CoverageAssessment, coverageStage } from "./ci-coverage";
 import type { CheckOutcome, CiStage, CiWarning } from "./ci-events";
 
-// The findings `lint({ folder })` from `@metabase/representations` returns. Its output is parsed
-// here rather than trusted, and the severity is tied to the rule, so a finding cannot claim an
-// error rule with a warning's severity.
-const LINT_ERROR_RULES = [
-  "schema",
-  "duplicate-entity-id",
-  "dangling-transform-id",
-  "wrong-type-transform-id",
-  "transform-cycle",
-  "missing-input",
-  "unused-input",
-  "untestable-transform",
-  "duplicate-input",
-  "expectation-reads-other-table",
-  "row-columns-mismatch",
-  "duplicate-expectation-name",
-  "transform-collection",
-  "missing-incremental-table-tag",
-  "missing-target-schema",
-] as const;
-const LINT_WARNING_RULES = [
-  "unknown-table",
-  "duplicate-target",
-  "reads-not-checked",
-  "no-expectations",
-  "unsupported-transform-engine",
-  "untestable-engine",
-  "upstream-column-mismatch",
-  "input-missing-read-column",
-  "table-qualified-column",
-  "live-sql-input",
-] as const;
+// The findings `lint({ folder })` from `@metabase/representations/experimental` returns. Its
+// output is parsed here rather than trusted, and the severity is tied to the rule, so a finding
+// cannot claim an error rule with a warning's severity. The rules and their severities come from
+// the package, so a rule it adds needs no change here.
+type RuleOf<S extends LintSeverity> = {
+  [R in LintRule]: (typeof LINT_RULE_SEVERITY)[R] extends S ? R : never;
+}[LintRule];
+
+function rulesOf<S extends LintSeverity>(severity: S): RuleOf<S>[] {
+  return LINT_RULES.filter((rule): rule is RuleOf<S> => LINT_RULE_SEVERITY[rule] === severity);
+}
+
+const LINT_ERROR_RULES = rulesOf("error");
+const LINT_WARNING_RULES = rulesOf("warning");
 
 const LintEntity = z.object({
   model: z.string().nullable(),
@@ -75,6 +63,21 @@ const SchemaError = z.object({ path: z.string(), message: z.string() });
 
 const SchemaPass = z.object({ file: z.string(), model: z.string(), status: z.literal("ok") });
 
+// A model Metabase imports that no schema describes.
+const SchemaUnchecked = z.object({
+  file: z.string(),
+  model: z.string(),
+  status: z.literal("unchecked"),
+});
+
+// A file Metabase skips without an error, such as one with no `serdes/meta`. It fails nothing: the
+// linter warns about it as `skipped-by-metabase`.
+const SchemaSkipped = z.object({
+  file: z.string(),
+  status: z.literal("skipped"),
+  warning: z.string(),
+});
+
 const SchemaFailure = z.object({
   file: z.string(),
   model: z.string().optional(),
@@ -84,29 +87,23 @@ const SchemaFailure = z.object({
 type SchemaFailure = z.infer<typeof SchemaFailure>;
 
 const SchemaResult = z.object({
-  results: z.array(z.discriminatedUnion("status", [SchemaPass, SchemaFailure])),
+  results: z.array(
+    z.discriminatedUnion("status", [SchemaPass, SchemaUnchecked, SchemaSkipped, SchemaFailure]),
+  ),
 });
 type SchemaResult = z.infer<typeof SchemaResult>;
 
 type CheckKind = CheckOutcome["check"]["kind"];
 
-const ERROR_CHECK_KIND: Record<LintError["rule"], CheckKind> = {
-  schema: "yaml",
-  "transform-cycle": "cycles",
-  "duplicate-entity-id": "broken-refs",
-  "dangling-transform-id": "broken-refs",
-  "wrong-type-transform-id": "broken-refs",
-  "missing-input": "broken-refs",
-  "unused-input": "broken-refs",
-  "untestable-transform": "broken-refs",
-  "duplicate-input": "broken-refs",
-  "expectation-reads-other-table": "broken-refs",
-  "row-columns-mismatch": "broken-refs",
-  "duplicate-expectation-name": "broken-refs",
-  "transform-collection": "broken-refs",
-  "missing-incremental-table-tag": "broken-refs",
-  "missing-target-schema": "broken-refs",
-};
+function errorCheckKind(rule: LintError["rule"]): CheckKind {
+  if (rule === "schema") {
+    return "yaml";
+  }
+  if (rule === "transform-cycle") {
+    return "cycles";
+  }
+  return "broken-refs";
+}
 
 // The check for the lint run as a whole: its warnings when it ran, its crash when it did not.
 const LINT_RUN_CHECK = { kind: "lint", id: "lint", label: "Representation lint" } as const;
@@ -137,7 +134,7 @@ function failedLabel(finding: LintError): string {
 function failedCheck(finding: LintError, occurrence: number): CheckOutcome {
   return {
     check: {
-      kind: ERROR_CHECK_KIND[finding.rule],
+      kind: errorCheckKind(finding.rule),
       id: `${finding.rule}:${finding.file}:${occurrence}`,
       label: failedLabel(finding),
     },
