@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { FailedResultError } from "@metabase/client/errors";
 
-import { lint as lintFolder, validateSchema } from "@metabase/representations";
+import { validateSchema } from "@metabase/representations";
+import { lint as lintFolder } from "@metabase/representations/experimental";
 
 import { untestedTransforms } from "../../core/ci-coverage";
 import { lintStage } from "../../core/ci-lint";

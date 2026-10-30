@@ -5,7 +5,8 @@ import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { AbortError } from "@metabase/client/errors";
-import { LINT_RULE_SEVERITY, LINT_RULES, validateSchema } from "@metabase/representations";
+import { validateSchema } from "@metabase/representations";
+import { LINT_RULE_SEVERITY, LINT_RULES } from "@metabase/representations/experimental";
 
 import type { CoverageAssessment } from "./ci-coverage";
 import { type CheckOutcome, type CiEventBody, type CiStage, runStages } from "./ci-events";
@@ -281,6 +282,11 @@ describe("lintStage, the published linter's rules", () => {
   });
 });
 
+// The warning rules as zod lists them when a finding names none of them.
+const WARNING_RULES = LINT_RULES.filter((rule) => LINT_RULE_SEVERITY[rule] === "warning")
+  .map((rule) => `"${rule}"`)
+  .join("|");
+
 describe("lintStage, a broken linter", () => {
   it("lets an interrupt end the job instead of erroring the check", async () => {
     const interrupted: LintTree = async () => {
@@ -319,8 +325,7 @@ describe("lintStage, a broken linter", () => {
         warnings: [],
         ms: 0,
         detail: {
-          message:
-            'the linter answered an unreadable result: ✖ Invalid option: expected one of "unknown-table"|"duplicate-target"|"reads-not-checked"|"no-expectations"|"unsupported-transform-engine"|"untestable-engine"|"upstream-column-mismatch"|"input-missing-read-column"|"table-qualified-column"|"live-sql-input"\n  → at findings[0].rule',
+          message: `the linter answered an unreadable result: ✖ Invalid option: expected one of ${WARNING_RULES}\n  → at findings[0].rule`,
         },
       },
     ]);
@@ -439,6 +444,13 @@ describe("lintStage, the schema of every file", () => {
   it("adds no check for a tree whose every file matches its schema", async () => {
     const tree = validatedTree({ [CARD_FILE]: CARD_YAML });
 
+    expect(await schemaReports(linted([]), tree)).toEqual([COVERAGE_SUMMARY, NO_WARNINGS]);
+  });
+
+  it("adds no check for a file Metabase skips, such as one with no serdes/meta", async () => {
+    const tree = validatedTree({ "collections/main/notes.yaml": "name: notes\n" });
+
+    expect(await tree()).toMatchObject({ results: [{ status: "skipped" }] });
     expect(await schemaReports(linted([]), tree)).toEqual([COVERAGE_SUMMARY, NO_WARNINGS]);
   });
 
