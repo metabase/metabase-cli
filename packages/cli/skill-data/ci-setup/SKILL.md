@@ -55,7 +55,7 @@ PR CI needs no warehouse login and no network path. Check for the two cases that
    - `MB_PREMIUM_EMBEDDING_TOKEN`: the license.
    - Create the label: `gh label create run-ci --description "Run Metabase CI on this pull request"`.
 
-6. **Prove it:** open the PR with the `run-ci` label. Read the job summary, which holds `mb ci run`'s text report. The run must import the commit, and must show `PASSED`, or `FAILED` only for real findings. A PR that touches no transform runs no tests, so its green proves only the setup. Then push a change to one test file, and check that the `unit` stage runs that test.
+6. **Prove it:** open the PR with the `run-ci` label. Read the job summary, which holds `mb ci run`'s text report. The run must import the commit, and must show `PASSED`, or `FAILED` only for real findings. A PR that touches no transform runs no tests, so its green proves only the setup. Then push a change to one test file, and check that the `unit` stage runs that test. A PR opened with the label already on may show one cancelled run next to the real one: GitHub can record the label twice, and the second run cancels the first.
 
 ## What a red first run usually means
 
