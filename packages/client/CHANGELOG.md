@@ -2,6 +2,10 @@
 
 Notable changes to `@metabase/client`.
 
+## 0.1.4
+
+- `session.properties` reads the session properties afresh: the settings the caller may read, the server's version among them, and the premium features its license grants. The read is the client's probe, so its answer becomes the profile in force and reaches `onServerProbed`.
+
 ## 0.1.3
 
 - `dataAction.create` creates an implicit action on a table as well as a query action. `DataActionCreateInput` is a union on `type`: a `"query"` body takes `dataset_query`, an `"implicit"` one takes `kind` (`ImplicitActionKind`, on the barrel) and `table_id`. Neither takes `database_id`, which the server derives from the query.

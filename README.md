@@ -1224,11 +1224,24 @@ CRUD on `/api/ee/apps` plus the typed schema. A data app is a React app built in
 
 ### `mb data-app scaffold [dir]`
 
-Copy the Vite + React + TypeScript project template into a new or empty directory (the current one by default) and name the package after it. Needs no server. Install the SDK tag matching the instance (`npm install @metabase/embedding-sdk-react@<major>-beta`) before `npm install`.
+Copy the Vite + React + TypeScript project template into a new or empty directory (the current one by default) and name the package after it. Needs no server. Install the SDK tag matching the instance (`npm install @metabase/embedding-sdk-react@<tag>`, with the tag `mb data-app sdk-version` answers) before `npm install`.
 
 ```sh
 mb data-app scaffold sales-overview
 ```
+
+### `mb data-app sdk-version`
+
+Name the `@metabase/embedding-sdk-react` tag that matches the instance. Reads the instance's version afresh and the package's npm dist-tags, and answers the most mature tag published for that Metabase major: `<major>-stable`, or while the major has none, `<major>-beta`, then `<major>-alpha`. A development build (`vUNKNOWN`, `vLOCAL_DEV`, a `-SNAPSHOT` tag) matches no published SDK and fails with exit code 2, as does a major npm has no tag for. Text output is the bare tag.
+
+```sh
+mb data-app sdk-version --json   # {"metabaseVersion":"v1.65.1","tag":"65-stable","version":"0.65.1"}
+TAG=$(mb data-app sdk-version --format text) && npm install "@metabase/embedding-sdk-react@$TAG"
+```
+
+| Flag               | Description                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `--registry <url>` | npm registry URL (default `https://registry.npmjs.org`); pass `"$(npm config get registry)"` to read the registry `npm install` uses |
 
 ### `mb data-app list`
 

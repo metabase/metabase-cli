@@ -331,6 +331,7 @@ const ALL_COMMANDS = [
   "data-action delete",
   "data-action execute",
   "data-app scaffold",
+  "data-app sdk-version",
   "data-app list",
   "data-app get",
   "data-app create",
