@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 
 import type { ResourceView } from "../../output/view";
+import { EMBEDDING_SDK_PACKAGE } from "../../core/embedding-sdk";
 import { findSkillByName, loadAllSkills } from "../../core/skills";
 import { renderSummary } from "../../output/render";
 import {
@@ -32,8 +33,7 @@ export default defineMetabaseCommand({
     name: "scaffold",
     description: "Scaffold a data app in the synced repository, from its root",
   },
-  details:
-    "Run from the root of the synced git repository. Copies the Vite + React + TypeScript template into `data_apps/<slug>/`, which must be missing or empty, and writes the app's `data_app.yaml` and its collection's file under `collections/data_apps/`, with new entity IDs, and adds `.env.local`, which holds the dev preview's API key, to the repository's `.gitignore`. It doesn't reach Metabase: the app exists there once the repository is imported. Before `npm install`, install the SDK's beta tag for the instance's version, e.g. `npm install @metabase/embedding-sdk-react@66-beta` for v1.66.x: the template's `*` installs `latest`, which may not build the app.",
+  details: `Run from the root of the synced git repository. Copies the Vite + React + TypeScript template into \`data_apps/<slug>/\`, which must be missing or empty, and writes the app's \`data_app.yaml\` and its collection's file under \`collections/data_apps/\`, with new entity IDs, and adds \`.env.local\`, which holds the dev preview's API key, to the repository's \`.gitignore\`. It doesn't reach Metabase: the app exists there once the repository is imported. Before \`npm install\`, install the SDK tag \`mb data-app sdk-version\` answers for the instance (\`npm install ${EMBEDDING_SDK_PACKAGE}@<tag>\`): the template's \`*\` installs \`latest\`, which may not build the app.`,
   skills: [{ skill: "data-app", purpose: "the steps after scaffolding" }],
   requires: null,
   args: { ...outputFlags, ...slugArg },

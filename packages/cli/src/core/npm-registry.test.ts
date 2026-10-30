@@ -1,9 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { NetworkError, TimeoutError, ValidationError } from "@metabase/client/errors";
-import { HttpError } from "@metabase/client/http/errors";
 
-import { fetchNpmDistTags } from "./npm-registry";
+import { fetchNpmDistTags, NpmRegistryError } from "./npm-registry";
 
 interface FakeCall {
   url: string;
@@ -154,7 +153,7 @@ describe("fetchNpmDistTags", () => {
     }
   });
 
-  it("throws HttpError for a 404 from the registry", async () => {
+  it("throws NpmRegistryError carrying the registry's own answer for a 404", async () => {
     const { fetchImpl } = makeFetch(
       new Response(JSON.stringify({ error: "Not found" }), {
         status: 404,
@@ -162,16 +161,46 @@ describe("fetchNpmDistTags", () => {
         headers: { "content-type": "application/json" },
       }),
     );
-    let captured: unknown;
-    try {
-      await fetchNpmDistTags("@no/such-thing", { fetchImpl, userAgent: CALLER_USER_AGENT });
-    } catch (error) {
-      captured = error;
-    }
-    expect(captured).toBeInstanceOf(HttpError);
-    if (captured instanceof HttpError) {
-      expect(captured.status).toBe(404);
-    }
+    const fetching = fetchNpmDistTags("@no/such-thing", {
+      fetchImpl,
+      userAgent: CALLER_USER_AGENT,
+    });
+    await expect(fetching).rejects.toBeInstanceOf(NpmRegistryError);
+    await expect(fetching).rejects.toThrow(
+      "npm registry answered HTTP 404 for GET https://registry.npmjs.org/-/package/@no%2Fsuch-thing/dist-tags: Not found",
+    );
+  });
+
+  it("names only the status when the registry's answer is not its error envelope", async () => {
+    const { fetchImpl } = makeFetch(
+      new Response("<html>Bad Gateway</html>", {
+        status: 502,
+        headers: { "content-type": "text/html" },
+      }),
+    );
+    const error = await fetchNpmDistTags("@metabase/cli", {
+      fetchImpl,
+      userAgent: CALLER_USER_AGENT,
+    }).then(
+      () => null,
+      (thrown: unknown) => thrown,
+    );
+    assert(error instanceof NpmRegistryError);
+    expect(error.message).toBe(
+      "npm registry answered HTTP 502 for GET https://registry.npmjs.org/-/package/@metabase%2Fcli/dist-tags",
+    );
+  });
+
+  it("throws ValidationError when a dist-tag names no version", async () => {
+    const { fetchImpl } = makeFetch(
+      new Response(JSON.stringify({ latest: "1.2.3", beta: "not-a-version" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    await expect(
+      fetchNpmDistTags("@metabase/cli", { fetchImpl, userAgent: CALLER_USER_AGENT }),
+    ).rejects.toBeInstanceOf(ValidationError);
   });
 
   it("throws ValidationError when the registry omits `latest`", async () => {

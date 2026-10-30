@@ -10,6 +10,11 @@ import type { FeatureName } from "@metabase/client/version/features";
 import { createServerProfile, type ServerProfile } from "@metabase/client/version/profile";
 import type { RequirementFailure } from "@metabase/client/version/capability-error";
 import { checkFeatures } from "@metabase/client/version/requirement-check";
+import {
+  describeVersion,
+  type ReleaseVersion,
+  type ServerVersion,
+} from "@metabase/client/version/tag";
 
 import { readBootstrapSync } from "./bootstrap-data";
 import { resolveStackId } from "./defaults";
@@ -92,6 +97,34 @@ export function requireServerWithout(
   const reason = `this server has ${features.join(", ")}, so it cannot show how one without them answers`;
   recordGateSkip(lane, reason);
   return reason;
+}
+
+// Why a stack running the other kind of build skips a lane that needs `kind`.
+const VERSION_KIND_SKIP_REASONS: Readonly<Record<ServerVersion["kind"], string>> = {
+  release: "this server is a development build, which names no release",
+  development: "this server is a release, so it cannot show how a development build answers",
+};
+
+// Gate for a lane pinning what the CLI derives from the server's release number, which only a
+// release has, or how a development build answers without one.
+export function requireVersionKind(lane: string, kind: ServerVersion["kind"]): string | null {
+  if (readBootstrapSync().server.version.kind === kind) {
+    return null;
+  }
+  const reason = VERSION_KIND_SKIP_REASONS[kind];
+  recordGateSkip(lane, reason);
+  return reason;
+}
+
+// The release this stack runs, for a lane `requireVersionKind(lane, "release")` let through.
+export function stackRelease(): ReleaseVersion {
+  const { version } = readBootstrapSync().server;
+  if (version.kind !== "release") {
+    throw new Error(
+      `this stack runs ${describeVersion(version)}, not a release: gate the lane with requireVersionKind`,
+    );
+  }
+  return version;
 }
 
 const OAUTH_UNSUPPORTED_REASON =

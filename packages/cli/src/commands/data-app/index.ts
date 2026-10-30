@@ -12,6 +12,7 @@ export default defineCommandGroup({
   ],
   subCommands: {
     scaffold: () => import("./scaffold").then((mod) => mod.default),
+    "sdk-version": () => import("./sdk-version").then((mod) => mod.default),
     list: () => import("./list").then((mod) => mod.default),
     get: () => import("./get").then((mod) => mod.default),
     "generate-schema": () => import("./generate-schema").then((mod) => mod.default),

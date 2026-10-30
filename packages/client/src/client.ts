@@ -26,6 +26,7 @@ import { replacementResource } from "./resources/replacement";
 import { revisionResource } from "./resources/revision";
 import { searchResource } from "./resources/search";
 import { segmentResource } from "./resources/segment";
+import { sessionResource } from "./resources/session";
 import { settingResource } from "./resources/setting";
 import { setupResource } from "./resources/setup";
 import { snippetResource } from "./resources/snippet";
@@ -75,6 +76,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     revision: revisionResource(transport),
     search: searchResource(transport),
     segment: segmentResource(transport),
+    session: sessionResource(transport),
     setting: settingResource(transport),
     setup: setupResource(transport),
     snippet: snippetResource(transport),

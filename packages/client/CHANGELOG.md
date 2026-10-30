@@ -2,6 +2,10 @@
 
 Notable changes to `@metabase/client`.
 
+## 0.1.5
+
+- `session.properties` reads the session properties afresh: the settings the caller may read, the server's version among them, and the premium features its license grants. The read is the client's probe, so its answer becomes the profile in force and reaches `onServerProbed`.
+
 ## 0.1.4
 
 - A data app changes in Metabase only through a repository import, so `dataApp.create`, `dataApp.replaceBundle`, `dataApp.typedSchema` and `dataApp.remove` are gone, with `DataAppCreateInput`. `dataApp.update` takes only `enabled` (`DataAppUpdateInput`).

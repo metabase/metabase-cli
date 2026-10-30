@@ -1,20 +1,54 @@
 import { z } from "zod";
 
-import { errorMessage, NetworkError, TimeoutError } from "@metabase/client/errors";
-import { HttpError } from "@metabase/client/http/errors";
-import { parseJson } from "@metabase/client/json";
+import { errorMessage, MetabaseError, NetworkError, TimeoutError } from "@metabase/client/errors";
+import { parseJson, parseJsonResult } from "@metabase/client/json";
 import { combineAborts, throwIfAborted } from "@metabase/client/signal";
 
-const DEFAULT_REGISTRY = "https://registry.npmjs.org";
+import { SemverString } from "./semver";
+
+export const DEFAULT_REGISTRY = "https://registry.npmjs.org";
 const DEFAULT_TIMEOUT_MS = 15_000;
 const ERROR_BODY_BYTE_CAP = 8 * 1024;
 
+// npm accepts only a valid version as a dist-tag's target, so every tag reads as one.
 const NpmDistTags = z
   .object({
-    latest: z.string(),
+    latest: SemverString,
   })
-  .loose();
-type NpmDistTags = z.infer<typeof NpmDistTags>;
+  .catchall(SemverString);
+export type NpmDistTags = z.infer<typeof NpmDistTags>;
+
+// The registry's own refusal, `{ "error": "Not found" }`.
+const NpmErrorBody = z.object({ error: z.string() }).loose();
+
+interface NpmRegistryErrorDetail {
+  status: number;
+  url: string;
+  rawBody: string | null;
+}
+
+// Kept apart from `HttpError`, whose wording and remedies speak of the Metabase the CLI is connected
+// to, so a registry failure never reads as that server's.
+export class NpmRegistryError extends MetabaseError {
+  readonly category = "http";
+  readonly isRetryable = false;
+  readonly developerDetail: NpmRegistryErrorDetail;
+
+  constructor(detail: NpmRegistryErrorDetail) {
+    super(registryErrorMessage(detail));
+    this.name = "NpmRegistryError";
+    this.developerDetail = detail;
+  }
+}
+
+function registryErrorMessage({ status, url, rawBody }: NpmRegistryErrorDetail): string {
+  const answered = `npm registry answered HTTP ${status} for GET ${url}`;
+  if (rawBody === null) {
+    return answered;
+  }
+  const said = parseJsonResult(rawBody, NpmErrorBody);
+  return said.ok ? `${answered}: ${said.value.error}` : answered;
+}
 
 export interface FetchDistTagsOptions {
   userAgent: string;
@@ -61,14 +95,10 @@ export async function fetchNpmDistTags(
   }
 
   if (!response.ok) {
-    const rawBody = await readErrorBody(response);
-    throw new HttpError({
+    throw new NpmRegistryError({
       status: response.status,
-      statusText: response.statusText,
-      method: "GET",
       url,
-      responseHeaders: response.headers,
-      rawBody,
+      rawBody: await readErrorBody(response),
     });
   }
 
