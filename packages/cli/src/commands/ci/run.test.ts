@@ -1,5 +1,5 @@
 import { runCommand } from "citty";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -204,6 +204,17 @@ describe("ci run: output format", () => {
 
     const written = parseJson(await readFile(resultsPath, "utf8"), z.array(CiEvent));
     expect(written.map((event) => event.type)).toEqual(["job.start", "job.end"]);
+  });
+
+  it("logs the run under .scratch/ci-runs, and not under --no-run-log", async () => {
+    stubbed.noStages = true;
+
+    await run(["--repo", repo.path, "--base", "main", "--json", "--no-run-log"]);
+    await expect(readdir(join(repo.path, ".scratch"))).rejects.toThrow("ENOENT");
+
+    await run(["--repo", repo.path, "--base", "main", "--json"]);
+    const logs = await readdir(join(repo.path, ".scratch", "ci-runs"));
+    expect(logs.filter((name) => name.endsWith(".jsonl"))).toHaveLength(1);
   });
 
   it("writes one JSON event per line under --json", async () => {
