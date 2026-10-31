@@ -50,20 +50,39 @@ export const DataAppCompact = DataApp.pick({
   .partial({ enabled: true, resource_collection_id: true, outdated: true });
 export type DataAppCompact = z.infer<typeof DataAppCompact>;
 
-export const DataAppListFilter = z.object({ available: z.boolean().optional() }).strict();
-export type DataAppListFilter = z.infer<typeof DataAppListFilter>;
-
-const DataAppFields = {
-  display_name: z.string().min(1).optional(),
-  description: z.string().nullable().optional(),
-  version: z.number().int().positive().optional(),
-  bundle_path: z.string().min(1).optional(),
-  allowed_hosts: z.array(z.string()).optional(),
-  enabled: z.boolean().optional(),
-};
-
-export const DataAppCreateInput = z.object({ name: DataAppSlug, ...DataAppFields }).strict();
-export type DataAppCreateInput = z.infer<typeof DataAppCreateInput>;
-
-export const DataAppUpdateInput = z.object(DataAppFields).strict();
+export const DataAppUpdateInput = z.object({ enabled: z.boolean() }).strict();
 export type DataAppUpdateInput = z.infer<typeof DataAppUpdateInput>;
+
+export const DataAppGeneratedFile = z.object({ path: z.string(), contents: z.string() }).strict();
+export type DataAppGeneratedFile = z.infer<typeof DataAppGeneratedFile>;
+
+export const DataAppGeneratedFiles = z.array(DataAppGeneratedFile);
+export type DataAppGeneratedFiles = z.infer<typeof DataAppGeneratedFiles>;
+
+// A `defineQuery` definition is Metabase's to read: the request carries it as the one stage of a query.
+export const DataAppQueryDefinition = z
+  .object({
+    entityId: z.string(),
+    query: z.object({ stages: z.tuple([z.object({}).loose()]) }).strict(),
+  })
+  .strict();
+export type DataAppQueryDefinition = z.infer<typeof DataAppQueryDefinition>;
+
+export const DataAppActionDefinition = z
+  .object({
+    entityId: z.string(),
+    kind: z.enum(["row/create", "row/update", "row/delete"]),
+    table: z.object({ id: z.number().int() }).loose(),
+  })
+  .strict();
+export type DataAppActionDefinition = z.infer<typeof DataAppActionDefinition>;
+
+export const DataAppGenerateQueriesInput = z
+  .object({ collection: z.string(), queries: z.record(z.string(), DataAppQueryDefinition) })
+  .strict();
+export type DataAppGenerateQueriesInput = z.infer<typeof DataAppGenerateQueriesInput>;
+
+export const DataAppGenerateActionsInput = z
+  .object({ collection: z.string(), actions: z.record(z.string(), DataAppActionDefinition) })
+  .strict();
+export type DataAppGenerateActionsInput = z.infer<typeof DataAppGenerateActionsInput>;

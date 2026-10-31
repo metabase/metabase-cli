@@ -49,6 +49,7 @@ const main: CommandDef = defineCommand({
     query: () => import("./commands/query").then((mod) => mod.default),
     schema: () => import("./commands/schema").then((mod) => mod.default),
     uuid: () => import("./commands/uuid").then((mod) => mod.default),
+    "nano-id": () => import("./commands/nano-id").then((mod) => mod.default),
     upgrade: () => import("./commands/upgrade").then((mod) => mod.default),
     skills: () => import("./commands/skills").then((mod) => mod.default),
   },

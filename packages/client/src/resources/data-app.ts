@@ -1,10 +1,11 @@
 import { z } from "zod";
 
 import {
-  DataApp,
-  type DataAppCreateInput,
   DataAppEntry,
-  type DataAppListFilter,
+  type DataAppGenerateActionsInput,
+  type DataAppGenerateQueriesInput,
+  DataAppGeneratedFiles,
+  DataApp,
   type DataAppUpdateInput,
 } from "../domain/data-app";
 import type { RequestOptions, Transport } from "../http/transport";
@@ -20,14 +21,10 @@ function appPath(slug: string): string {
 export function dataAppResource(transport: Transport) {
   const { explain } = explainer(transport, "dataApp");
 
-  /** List the data apps; `available` keeps only the enabled ones that aren't outdated. `GET /api/ee/apps` answers a bare array. */
-  async function list(
-    filter: DataAppListFilter = {},
-    options: RequestOptions = {},
-  ): Promise<ListResult<DataAppEntry>> {
+  /** List the data apps. `GET /api/ee/apps` answers a bare array. */
+  async function list(options: RequestOptions = {}): Promise<ListResult<DataAppEntry>> {
     const data = await transport.requestParsed(z.array(DataAppEntry), DATA_APPS_PATH, {
       ...options,
-      query: { available: filter.available },
     });
     return { data, total: null };
   }
@@ -37,19 +34,7 @@ export function dataAppResource(transport: Transport) {
     return transport.requestParsed(DataAppEntry, appPath(slug), { ...options });
   }
 
-  /** Create a data app with its resource collection and an empty bundle; it is disabled unless the body says otherwise. */
-  async function create(
-    params: DataAppCreateInput,
-    options: RequestOptions = {},
-  ): Promise<DataApp> {
-    return transport.requestParsed(DataApp, DATA_APPS_PATH, {
-      ...options,
-      method: "POST",
-      body: params,
-    });
-  }
-
-  /** Update a data app's fields, or enable or disable it. */
+  /** Enable or disable a data app; anything else about an app changes only through a repository import. */
   async function update(
     slug: string,
     params: DataAppUpdateInput,
@@ -62,44 +47,43 @@ export function dataAppResource(transport: Transport) {
     });
   }
 
-  /** Replace a data app's bundle with the text of a built bundle. */
-  async function replaceBundle(
-    slug: string,
-    bundle: string,
+  /** An app's `src/metabase.schema.ts`: the Library's published tables, with their fields, segments and measures, and the Library's metrics. */
+  async function generateSchema(options: RequestOptions = {}): Promise<DataAppGeneratedFiles> {
+    return transport.requestParsed(DataAppGeneratedFiles, `${DATA_APPS_PATH}/generate/schema`, {
+      ...options,
+    });
+  }
+
+  /** The YAML files of the questions an app's `defineQuery` exports define, by file name in its collection's directory. */
+  async function generateQueries(
+    params: DataAppGenerateQueriesInput,
     options: RequestOptions = {},
-  ): Promise<DataApp> {
-    return transport.requestParsed(DataApp, `${appPath(slug)}/bundle`, {
+  ): Promise<DataAppGeneratedFiles> {
+    return transport.requestParsed(DataAppGeneratedFiles, `${DATA_APPS_PATH}/generate/queries`, {
       ...options,
-      method: "PUT",
-      body: { bundle },
+      method: "POST",
+      body: params,
     });
   }
 
-  /** The TypeScript module of the app's queries and actions: a `defineQuery` or `defineAction` call per question and action in its collection. */
-  async function typedSchema(slug: string, options: RequestOptions = {}): Promise<string> {
-    const response = await transport.requestRaw(`${appPath(slug)}/typed-schema`, {
+  /** The YAML files of the implicit actions an app's `defineAction` exports define, by file name in its collection's directory. */
+  async function generateActions(
+    params: DataAppGenerateActionsInput,
+    options: RequestOptions = {},
+  ): Promise<DataAppGeneratedFiles> {
+    return transport.requestParsed(DataAppGeneratedFiles, `${DATA_APPS_PATH}/generate/actions`, {
       ...options,
-      expectContentType: "text",
-    });
-    return response.text();
-  }
-
-  /** Delete a data app with its bundle, its collection and its group assignments. */
-  async function remove(slug: string, options: RequestOptions = {}): Promise<void> {
-    await transport.requestRaw(appPath(slug), {
-      ...options,
-      method: "DELETE",
-      expectContentType: "binary",
+      method: "POST",
+      body: params,
     });
   }
 
   return {
     list: explain("list", list),
     get: explain("get", get),
-    create: explain("create", create),
     update: explain("update", update),
-    replaceBundle: explain("replaceBundle", replaceBundle),
-    typedSchema: explain("typedSchema", typedSchema),
-    delete: explain("delete", remove),
+    generateSchema: explain("generateSchema", generateSchema),
+    generateQueries: explain("generateQueries", generateQueries),
+    generateActions: explain("generateActions", generateActions),
   };
 }

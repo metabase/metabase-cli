@@ -191,10 +191,14 @@ export {
 } from "./domain/data-action";
 export {
   DataApp,
+  DataAppActionDefinition,
   DataAppCompact,
-  DataAppCreateInput,
   DataAppEntry,
-  DataAppListFilter,
+  DataAppGenerateActionsInput,
+  DataAppGenerateQueriesInput,
+  DataAppGeneratedFile,
+  DataAppGeneratedFiles,
+  DataAppQueryDefinition,
   DataAppSlug,
   DataAppSummary,
   DataAppUpdateInput,

@@ -7,7 +7,7 @@ import { afterEach, assert, beforeEach, describe, expect, it } from "vitest";
 import { ConfigError } from "@metabase/client/errors";
 
 import { findSkillByName, loadAllSkills } from "../core/skills";
-import { scaffoldDataAppProject, writeProjectFile } from "./data-app-project";
+import { ignoreLocalEnv, scaffoldDataAppProject, writeProjectFile } from "./data-app-project";
 
 const TEMPLATE_DIR = join(findSkillByName(loadAllSkills(), "data-app").dir, "template");
 const TEMPLATE_PACKAGE_NAME = '"name": "data-app-template"';
@@ -48,6 +48,18 @@ describe("data app project files", () => {
     expect(readFileSync(join(dir, "package.json"), "utf8")).toBe(
       templatePackageNamed("sales-overview"),
     );
+  });
+
+  it("adds .env.local to a missing .gitignore, then to one without it, once", async () => {
+    const gitignore = join(tempDir, ".gitignore");
+
+    await ignoreLocalEnv(gitignore);
+    expect(readFileSync(gitignore, "utf8")).toBe(".env.local\n");
+
+    writeFileSync(gitignore, "node_modules", "utf8");
+    await ignoreLocalEnv(gitignore);
+    await ignoreLocalEnv(gitignore);
+    expect(readFileSync(gitignore, "utf8")).toBe("node_modules\n.env.local\n");
   });
 
   it("scaffolds into an empty directory", async () => {

@@ -2,6 +2,12 @@
 
 Notable changes to `@metabase/client`.
 
+## 0.1.4
+
+- A data app changes in Metabase only through a repository import, so `dataApp.create`, `dataApp.replaceBundle`, `dataApp.typedSchema` and `dataApp.remove` are gone, with `DataAppCreateInput`. `dataApp.update` takes only `enabled` (`DataAppUpdateInput`).
+- `dataApp.list` takes no filter, and `DataAppListFilter` is gone.
+- `dataApp.generateSchema`, `dataApp.generateQueries` and `dataApp.generateActions` return the files of an app's repository as `DataAppGeneratedFiles`: its `src/metabase.schema.ts`, and the YAML of the questions and implicit actions its `defineQuery` and `defineAction` exports define (`DataAppGenerateQueriesInput`, `DataAppGenerateActionsInput`, `DataAppQueryDefinition`, `DataAppActionDefinition`).
+
 ## 0.1.3
 
 - `dataAction.create` creates an implicit action on a table as well as a query action. `DataActionCreateInput` is a union on `type`: a `"query"` body takes `dataset_query`, an `"implicit"` one takes `kind` (`ImplicitActionKind`, on the barrel) and `table_id`. Neither takes `database_id`, which the server derives from the query.

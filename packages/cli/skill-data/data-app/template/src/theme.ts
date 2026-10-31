@@ -4,7 +4,9 @@ export const sdkTheme: MetabaseTheme = {
   colors: {
     brand: "#4D96FF",
     "brand-hover": "#EAF4FF",
-    positive: "#4D96FF",
+    "brand-hover-light": "#F5FAFF",
+    positive: "#2BA672",
+    negative: "#E5484D",
     charts: [
       "#4D96FF",
       "#E8743B",

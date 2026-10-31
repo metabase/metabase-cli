@@ -14,10 +14,9 @@ export default defineCommandGroup({
     scaffold: () => import("./scaffold").then((mod) => mod.default),
     list: () => import("./list").then((mod) => mod.default),
     get: () => import("./get").then((mod) => mod.default),
-    create: () => import("./create").then((mod) => mod.default),
-    update: () => import("./update").then((mod) => mod.default),
-    "typed-schema": () => import("./typed-schema").then((mod) => mod.default),
+    "generate-schema": () => import("./generate-schema").then((mod) => mod.default),
+    "generate-queries": () => import("./generate-queries").then((mod) => mod.default),
+    "generate-actions": () => import("./generate-actions").then((mod) => mod.default),
     "set-enabled": () => import("./set-enabled").then((mod) => mod.default),
-    delete: () => import("./delete").then((mod) => mod.default),
   },
 });
