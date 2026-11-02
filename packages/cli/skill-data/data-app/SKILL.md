@@ -53,7 +53,7 @@ npm install && npm run typecheck
 
 Install the SDK before the first `npm install`, which would otherwise install `latest` for the template's `*`. The starter renders "Hello, data app".
 
-The template is the bundle contract. Don't edit `package.json` by hand, and never rewrite `vite.config.ts`, `vitest.config.ts`, `tsconfig.json` or `src/index.tsx`: `vite.config.ts` stays `export default dataAppConfig()` (its only option is `port`), and `src/index.tsx` default-exports the `DataAppFactory` — change it only to add a `providerProps` key. Metabase and the dev preview each wrap the app in a `<MetabaseProvider>`, so the app never renders one.
+The template is the bundle contract. Don't edit `package.json` by hand, and never rewrite `vite.config.ts`, `vitest.config.ts`, `playwright.config.ts`, `tsconfig.json` or `src/index.tsx`: `vite.config.ts` stays `export default dataAppConfig()` (its only option is `port`), and `src/index.tsx` default-exports the `DataAppFactory` — change it only to add a `providerProps` key. Metabase and the dev preview each wrap the app in a `<MetabaseProvider>`, so the app never renders one.
 
 **An existing project.** Before changing an app you didn't scaffold in this session, pass three checks:
 
@@ -129,7 +129,7 @@ Build the bundle last, test it in the dev preview, then push it with the source 
 1. On a read-write instance, `mb git-sync is-dirty --profile <name> --json`: when it reports unexported changes (a table just published to the Library, say), export them first (`git-sync`, its branch guard included), or the import refuses; then `git pull --ff-only` in `<repo>`.
 2. In `<repo>`, `mb data-app generate-queries <slug> --profile <name>` and `mb data-app generate-actions <slug> --profile <name>`. They load the exports of `src/metabase.queries.ts` and of `src/metabase.actions.ts` with the app's Vite, so `npm install` runs in the app first, and each replaces its kind of file in `collections/data_apps/data_app__<slug>/`: one YAML file per question or action, named after its export in lowercase and carrying its `entityId`. A generated question shows as a table in Metabase whatever the app makes of it. Nothing changes in Metabase.
 3. In the app, pass the tests (`data-app-testing`, _Before handoff_), then `npm run typecheck && npm run build`, which writes `dist/index.js`.
-4. With `npm run dev` running and a preview tab open, read the diagnostics feed (_Dev preview_) with every page mounted; fix what it reports, then generate and build again.
+4. With `npm run dev` running, run `npm run test:e2e` (`data-app-testing`), which reuses that preview, then read the diagnostics feed (_Dev preview_): the run mounted every page, and the feed keeps what they reported after its tabs close. Fix what it reports, then generate and build again.
 5. Commit `data_apps/<slug>/` — the source, `package.json`, `package-lock.json`, `data_app.yaml` and `dist/index.js` — and `collections/data_apps/` together, and push.
 6. `mb git-sync import --profile <name>`, whatever a cached `has-remote-changes` says. The bundle, questions and actions are live at once.
 
