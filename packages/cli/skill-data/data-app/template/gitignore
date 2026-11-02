@@ -3,3 +3,5 @@ node_modules
 .vite
 .idea
 .scratch
+test-results
+playwright-report

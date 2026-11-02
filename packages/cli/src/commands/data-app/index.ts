@@ -9,7 +9,10 @@ export default defineCommandGroup({
     { skill: "data-app-data", purpose: "the questions a data app runs, and its read hooks" },
     { skill: "data-app-filters", purpose: "filter controls and date ranges" },
     { skill: "data-app-actions", purpose: "writes: actions, forms and refresh" },
-    { skill: "data-app-testing", purpose: "unit tests with mocked queries and actions" },
+    {
+      skill: "data-app-testing",
+      purpose: "unit tests with mocked queries and actions, and e2e tests",
+    },
   ],
   subCommands: {
     scaffold: () => import("./scaffold").then((mod) => mod.default),
