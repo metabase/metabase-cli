@@ -1,6 +1,6 @@
 ---
 name: data-app
-description: Create, preview, release and manage a Metabase data app — a React app Metabase serves at /apps/<slug> from the synced git repository — scaffold it in the repository, run the dev preview and read its diagnostics feed, generate its questions and actions, build, push and import it, turn it off, move it to another instance, delete it. Triggers — "build a data app", "make an internal tool in Metabase", "scaffold a data app", "publish my data app", "update the app", "the app is blank". Start here; the UI is in `data-app-ui`, questions and charts in `data-app-data`, filter controls in `data-app-filters`, writes in `data-app-actions`.
+description: Create, preview, release and manage a Metabase data app — a React app Metabase serves at /apps/<slug> from the synced git repository — scaffold it in the repository, run the dev preview and read its diagnostics feed, generate its questions and actions, build, push and import it, turn it off, move it to another instance, delete it. Triggers — "build a data app", "make an internal tool in Metabase", "scaffold a data app", "publish my data app", "update the app", "the app is blank". Start here; the UI is in `data-app-ui`, questions and charts in `data-app-data`, filter controls in `data-app-filters`, writes in `data-app-actions`, tests in `data-app-testing`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 requires: [dataApps]
 ---
@@ -13,8 +13,8 @@ The work, in order:
 
 1. Scaffold the app in the synced repository and install the SDK.
 2. Give it data: fetch `src/metabase.schema.ts`, then define questions over the Library's published tables and metrics (`data-app-data`); writes are `data-app-actions`.
-3. Start the dev preview (_Dev preview_), then write the UI under `src/` (`data-app-ui`; filter controls in `data-app-filters`).
-4. Generate the collection, build, push and import (_Release_).
+3. Start the dev preview (_Dev preview_), then write the UI under `src/` (`data-app-ui`; filter controls in `data-app-filters`), with a test next to each component (`data-app-testing`).
+4. Pass the tests, then generate the collection, build, push and import (_Release_).
 
 For every later change: first pass the checks in _An existing project_ (_Scaffold and install_), then change the source, then release (_Release_). The live app changes only through the import.
 
@@ -54,7 +54,7 @@ cd data_apps/sales-overview &&
 
 `mb data-app sdk-version` reads the instance's version and, from the registry `npm install` uses, answers the SDK tag published for that Metabase major: its stable tag, or while it has none, its beta, then its alpha. Installing the tag writes the version it points at into `package.json` (`^0.65.1`), in place of the template's `*` or any version an existing project named. Run the block as one command: it stops at the first failure, so a refused tag installs nothing, where a plain `npm install` would install `latest` for the template's `*`. Never install a tag you picked yourself. When `package.json` already points the SDK at a local build (`file:` or `link:`), run only `npm install && npm run typecheck`. `sdk-version` fails on a development build (`vUNKNOWN`, `vLOCAL_DEV`, a `-SNAPSHOT` tag), which no published SDK matches: ask the user which SDK build to install. On any other failure, stop and tell the user what it says. The starter renders "Hello, data app".
 
-The template is the bundle contract. Don't edit `package.json` by hand, and never rewrite `vite.config.ts`, `tsconfig.json` or `src/index.tsx`: `vite.config.ts` stays `export default dataAppConfig()` (its only option is `port`), and `src/index.tsx` default-exports the `DataAppFactory` — change it only to add a `providerProps` key. Metabase and the dev preview each wrap the app in a `<MetabaseProvider>`, so the app never renders one.
+The template is the bundle contract. Don't edit `package.json` by hand, and never rewrite `vite.config.ts`, `vitest.config.ts`, `tsconfig.json` or `src/index.tsx`: `vite.config.ts` stays `export default dataAppConfig()` (its only option is `port`), and `src/index.tsx` default-exports the `DataAppFactory` — change it only to add a `providerProps` key. Metabase and the dev preview each wrap the app in a `<MetabaseProvider>`, so the app never renders one.
 
 **An existing project.** Before changing an app you didn't scaffold in this session, pass four checks:
 
@@ -116,12 +116,13 @@ curl -s "http://localhost:5174/__data-app/diagnostics?startEventId=0"
 - The feed answers for the running bundle: entries from replaced builds are counted in `staleEntries`, and anything still broken reports again under the new `buildId` (`?includeStale=true` shows the withheld ones). A failed build doesn't advance `buildId` and doesn't reach the feed — read the `npm run dev` terminal.
 - Quote `summary` as it is when you report it, and follow `hint` when there is one — except that you never add the Metabase URL to `allowed_hosts`. An origin goes in `allowed_hosts` in `data_app.yaml`, then restart `npm run dev`. A `frame-src` or `form-action` block can't be lifted in the preview (`data-app-ui`). The feed keeps the last 200 entries; `curl -X DELETE …/__data-app/diagnostics` clears it.
 
-| `kind`                             | Fix                                                                                                                 |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `blocked-network`, `csp-violation` | An external API: `data-app-ui`, _External APIs_. A `script-src` or `style-src` violation: bundle the asset instead. |
-| `blocked-api`                      | Blocked in Metabase too: use the replacement in `data-app-ui`.                                                      |
-| `sdk-call` with `alert: true`      | A Metabase request failed; `summary` names it.                                                                      |
-| `error`                            | A bug; `detail` has the stack.                                                                                      |
+| `kind`                                | Fix                                                                                                                 |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `blocked-network`, `csp-violation`    | An external API: `data-app-ui`, _External APIs_. A `script-src` or `style-src` violation: bundle the asset instead. |
+| `blocked-api`                         | Blocked in Metabase too: use the replacement in `data-app-ui`.                                                      |
+| `sdk-call` with `alert: true`         | A Metabase request failed; `summary` names it.                                                                      |
+| `sdk-call` for `/api/analytics-proxy` | Metabase's own usage analytics, not the app's: ignore it.                                                           |
+| `error`                               | A bug; `detail` has the stack.                                                                                      |
 
 ## Release
 
@@ -129,7 +130,7 @@ Build the bundle last, test it in the dev preview, then push it with the source 
 
 1. On a read-write instance, `mb git-sync is-dirty --profile <name> --json`: when it reports unexported changes (a table just published to the Library, say), export them first (`git-sync`, its branch guard included), or the import refuses; then `git pull --ff-only` in `<repo>`.
 2. In `<repo>`, `mb data-app generate-queries <slug> --profile <name>` and `mb data-app generate-actions <slug> --profile <name>`. They load the exports of `src/metabase.queries.ts` and of `src/metabase.actions.ts` with the app's Vite, so `npm install` runs in the app first, and each replaces its kind of file in `collections/data_apps/data_app__<slug>/`: one YAML file per question or action, named after its export in lowercase and carrying its `entityId`. A generated question shows as a table in Metabase whatever the app makes of it. Nothing changes in Metabase.
-3. In the app, `npm run typecheck && npm run build`, which writes `dist/index.js`.
+3. In the app, pass the tests (`data-app-testing`, _Before handoff_), then `npm run typecheck && npm run build`, which writes `dist/index.js`.
 4. With `npm run dev` running and a preview tab open, read the diagnostics feed (_Dev preview_) with every page mounted; fix what it reports, then generate and build again.
 5. Commit `data_apps/<slug>/` — the source, `package.json`, `package-lock.json`, `data_app.yaml` and `dist/index.js` — and `collections/data_apps/` together, and push.
 6. `mb git-sync import --profile <name>`, whatever a cached `has-remote-changes` says. The bundle, questions and actions are live at once.
@@ -142,17 +143,18 @@ A viewer needs one of their groups assigned to the app (otherwise "You don't hav
 
 ## Pitfalls
 
-| Symptom                                                             | Fix                                                                                                                                   |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| The app still runs the old bundle                                   | `dist/index.js` isn't in the pushed commit, or the push wasn't imported: build, commit, push, import.                                 |
-| Works in the preview, a question or action fails in Metabase        | `generate-queries` or `generate-actions` didn't run after the last change, or the files weren't committed with the bundle: _Release_. |
-| Blank app, `Bundle did not assign a function to __dataAppFactory__` | `src/index.tsx` must `export default` the factory and nothing else; otherwise the diagnostics feed has the real error.                |
-| "Failed to fetch the user, the session might be invalid."           | A bad key in `<repo>/.env.local`, or CORS (_Dev preview_).                                                                            |
-| A bundle of several MB                                              | `vite.config.ts` doesn't use `dataAppConfig()`, or the SDK isn't the tag `mb data-app sdk-version` answers.                           |
-| "Invalid hook call"                                                 | A second React got bundled: nothing may add another `react` or `react-dom`.                                                           |
-| Drill-through popups don't open                                     | The app renders its own `<MetabaseProvider>`: remove it.                                                                              |
-| An upgraded SDK still behaves like the old one                      | Vite caches it: stop `npm run dev`, delete `node_modules/.vite`, start again.                                                         |
-| A viewer's query or action fails with 403                           | It reads a table not published to the Library on that instance, or the viewer lacks data access to its tables.                        |
+| Symptom                                                                           | Fix                                                                                                                                   |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| The app still runs the old bundle                                                 | `dist/index.js` isn't in the pushed commit, or the push wasn't imported: build, commit, push, import.                                 |
+| Works in the preview, a question or action fails in Metabase                      | `generate-queries` or `generate-actions` didn't run after the last change, or the files weren't committed with the bundle: _Release_. |
+| Blank app, `Bundle did not assign a function to __dataAppFactory__`               | `src/index.tsx` must `export default` the factory and nothing else; otherwise the diagnostics feed has the real error.                |
+| "Failed to fetch the user, the session might be invalid."                         | A bad key in `<repo>/.env.local`, or CORS (_Dev preview_).                                                                            |
+| The app stays on loading; the terminal says "Failed to load Embedding SDK bundle" | No `<repo>/.env.local`, or a wrong `DATA_APP_MB_URL` in it (_Dev preview_).                                                           |
+| A bundle of several MB                                                            | `vite.config.ts` doesn't use `dataAppConfig()`, or the SDK isn't the tag `mb data-app sdk-version` answers.                           |
+| "Invalid hook call"                                                               | A second React got bundled: nothing may add another `react` or `react-dom`.                                                           |
+| Drill-through popups don't open                                                   | The app renders its own `<MetabaseProvider>`: remove it.                                                                              |
+| An upgraded SDK still behaves like the old one                                    | Vite caches it: stop `npm run dev`, delete `node_modules/.vite`, start again.                                                         |
+| A viewer's query or action fails with 403                                         | It reads a table not published to the Library on that instance, or the viewer lacks data access to its tables.                        |
 
 ## Change, move, delete
 

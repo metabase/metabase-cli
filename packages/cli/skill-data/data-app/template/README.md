@@ -25,7 +25,8 @@ In the app:
 
 ```bash
 npm run dev         # preview at http://localhost:5174, in the sandbox Metabase runs apps in
-npm run typecheck   # type-checks src/ and vite.config.ts
+npm run typecheck   # type-checks src/ and the configs
+npm run test:unit   # runs the unit tests next to the components
 npm run build       # builds dist/index.js, the app's bundle
 ```
 

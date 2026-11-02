@@ -95,7 +95,7 @@ A result column's `name` keys the rows and names the column in runtime clauses: 
 
 - A column reached through a foreign key keeps its own name (`CATEGORY`, not `PRODUCTS__via__PRODUCT_ID__CATEGORY`).
 - A foreign key that Metabase displays as a name returns that name as an extra column: `USER_ID` comes with a `NAME` column whose `displayName` is "User ID". Show `NAME`; filter by `USER_ID`.
-- A `Date` column's values arrive as ISO strings.
+- A `Date` column's values arrive as ISO strings, though the row type is `string | Date`: format them through `new Date(value)`.
 
 ## Rows: `useMetabaseQuery`
 
@@ -157,7 +157,7 @@ return <StaticQuestion card={card} height={360} />;
 
 ## Runtime clauses
 
-Both hooks take a second argument: one object with the clauses the UI changes, and `enabled`. They run on top of the question and name its columns:
+Both hooks take a second argument: one object with the clauses the UI changes, and `enabled`. They run on top of the question and name its columns. Keep them in a `<Component>.query.ts` file next to the component, so its test mocks the same clauses (`data-app-testing`):
 
 ```tsx
 import { aggregations, filter, orderBy } from "@metabase/embedding-sdk-react/data-app";
