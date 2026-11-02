@@ -8,11 +8,13 @@ and the `mb` data-app skills.
 
 Install the SDK tag matching the Metabase instance first, then the rest.
 `mb data-app sdk-version` answers that tag from the instance's version;
-`package.json` asks for any version, which would install `latest`.
+`package.json` asks for any version, which would install `latest`, so the
+commands stop when `sdk-version` fails.
 
 ```bash
-TAG=$(mb data-app sdk-version --profile <name> --registry "$(npm config get registry)" --format text) && npm install "@metabase/embedding-sdk-react@$TAG"
-npm install
+TAG=$(mb data-app sdk-version --profile <name> --registry "$(npm config get registry)" --format text) &&
+  npm install "@metabase/embedding-sdk-react@$TAG" &&
+  npm install
 ```
 
 ## Commands

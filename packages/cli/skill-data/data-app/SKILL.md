@@ -47,11 +47,12 @@ From the repository root, `scaffold <slug>` copies the Vite + React + TypeScript
 
 ```bash
 cd data_apps/sales-overview
-TAG=$(mb data-app sdk-version --profile <name> --registry "$(npm config get registry)" --format text) && npm install "@metabase/embedding-sdk-react@$TAG"
-npm install && npm run typecheck
+TAG=$(mb data-app sdk-version --profile <name> --registry "$(npm config get registry)" --format text) &&
+  npm install "@metabase/embedding-sdk-react@$TAG" &&
+  npm install && npm run typecheck
 ```
 
-`mb data-app sdk-version` reads the instance's version and, from the registry `npm install` uses, answers the SDK tag published for that Metabase major: its stable tag, or while it has none, its beta, then its alpha. Install the SDK before the first `npm install`, which would otherwise install `latest` for the template's `*`, and never install a tag you picked yourself. Skip the SDK line when `package.json` already points it at a local build (`file:` or `link:`). `sdk-version` fails on a development build (`vUNKNOWN`, `vLOCAL_DEV`, a `-SNAPSHOT` tag), which no published SDK matches: ask the user which SDK build to install. On any other failure, stop and tell the user what it says. The starter renders "Hello, data app".
+`mb data-app sdk-version` reads the instance's version and, from the registry `npm install` uses, answers the SDK tag published for that Metabase major: its stable tag, or while it has none, its beta, then its alpha. Run the block as one command: it stops at the first failure, so a refused tag installs nothing, where a plain `npm install` would install `latest` for the template's `*`. Never install a tag you picked yourself. When `package.json` already points the SDK at a local build (`file:` or `link:`), run only `npm install && npm run typecheck`. `sdk-version` fails on a development build (`vUNKNOWN`, `vLOCAL_DEV`, a `-SNAPSHOT` tag), which no published SDK matches: ask the user which SDK build to install. On any other failure, stop and tell the user what it says. The starter renders "Hello, data app".
 
 The template is the bundle contract. Don't edit `package.json` by hand, and never rewrite `vite.config.ts`, `tsconfig.json` or `src/index.tsx`: `vite.config.ts` stays `export default dataAppConfig()` (its only option is `port`), and `src/index.tsx` default-exports the `DataAppFactory` — change it only to add a `providerProps` key. Metabase and the dev preview each wrap the app in a `<MetabaseProvider>`, so the app never renders one.
 
@@ -60,9 +61,9 @@ The template is the bundle contract. Don't edit `package.json` by hand, and neve
 - `vite.config.ts` is `export default dataAppConfig()` from `@metabase/embedding-sdk-react/data-app-dev/config`, with no local `config/` directory.
 - `src/index.tsx` default-exports a `DataAppFactory` that takes no arguments and returns `{ component, providerProps? }`.
 - `npm ls react react-dom` exits 0 and reports 19.x. A 19.x it marks `invalid` fails. This check applies whatever the instance or SDK version; to skip it, ask the user first.
-- `npm ls @metabase/embedding-sdk-react` reports a version in the same `0.<major>` line, with the same pre-release label (`-beta`, `-alpha` or none), as the `version` that `mb data-app sdk-version` answers with `--json` and the flags in _Scaffold and install_: for `0.65.1`, any `0.65.x` release passes and `0.65.0-beta.1` fails. Skip it when `package.json` points the SDK at a local build (`file:` or `link:`), or `sdk-version` fails on a development build.
+- `npm ls @metabase/embedding-sdk-react` exits 0 and reports a version on the same `0.<major>` line, with the same pre-release label (`-beta`, `-alpha` or none), as the `version` in `mb data-app sdk-version --profile <name> --registry "$(npm config get registry)" --json`: for `0.65.1`, any `0.65.x` with no label passes and `0.65.0-beta.1` fails. Skip the check when `package.json` points the SDK at a local build (`file:` or `link:`), or `sdk-version` fails on a development build; on any other `sdk-version` failure, stop and tell the user what it says.
 
-Fix a failed React or SDK check yourself, before any other change: for React, upgrade `react`, `react-dom`, `@types/react` and `@types/react-dom` to 19; for the SDK, run the SDK line in _Scaffold and install_. Go on until `npm run typecheck` passes and the diagnostics feed is clean (_Dev preview_); then release (_Release_). If either of the first two checks fails, stop: tell the user the project differs from the template, and ask whether to scaffold a fresh project and port the code over, or go on at their own risk.
+Fix a failed React or SDK check yourself, before any other change: for React, upgrade `react`, `react-dom`, `@types/react` and `@types/react-dom` to 19; for the SDK, run the install block in _Scaffold and install_. Go on until `npm run typecheck` passes and the diagnostics feed is clean (_Dev preview_); then release (_Release_). If either of the first two checks fails, stop: tell the user the project differs from the template, and ask whether to scaffold a fresh project and port the code over, or go on at their own risk.
 
 ## Dev preview
 

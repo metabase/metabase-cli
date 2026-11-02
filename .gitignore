@@ -16,3 +16,4 @@ metabase-*.log
 *.tgz
 .claude/worktrees/
 .idea
+scratch
