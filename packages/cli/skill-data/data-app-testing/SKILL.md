@@ -30,7 +30,7 @@ it("shows orders", async () => {
 });
 ```
 
-- Rows are typed from the question's export, and partial: give the columns the test asserts on; the rest get a default for their type.
+- Rows are typed from the question's export, and partial: give the columns the test asserts on. The mock answers with the query's columns, and the ones a row leaves out come back as `null`.
 - Assert what the user sees, found by role or text, and wait for data with `findBy…`. Drive interactions with `@testing-library/user-event`.
 - `mockDataAppQueryError` and `mockDataAppActionError` answer with an error, for the error state of a component that runs the query with `useMetabaseQuery` or the action with `useAction`. A query with runtime clauses takes them as the second argument, as `mockDataAppQuery` does: `mockDataAppQueryError(ordersList, ordersByStatus, { status: 500, message: "Query failed" })`.
 - An SDK component such as `StaticQuestion` renders only its children unless the test passes one: `StaticQuestion: () => <p>Revenue chart</p>`. A panel it draws still needs its query mocked, since `useMetabaseQueryObject` resolves it (the rows don't matter); its query runs inside the component, so that panel's error state is the end-to-end tests' to check.
