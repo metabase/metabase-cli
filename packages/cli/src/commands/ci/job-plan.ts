@@ -32,7 +32,9 @@ import {
 import { parseMetabaseYaml } from "../../runtime/yaml";
 
 // A pathspec `*` also matches `/`, so each covers every depth; isContentPath narrows the hits.
-const CONTENT_PATHSPECS = CONTENT_TOP_LEVEL_FOLDERS.map((folder) => `${folder}/*.yaml`);
+export const CONTENT_PATHSPECS = CONTENT_TOP_LEVEL_FOLDERS.map((folder) => `${folder}/*.yaml`);
+
+export const TRANSFORM_FILE_PATTERN = "^- model: (Transform|TransformTest)$";
 
 export interface JobPlan {
   snapshot: Snapshot;
@@ -162,16 +164,11 @@ async function classifyChanges(
   forkPoint: string,
   head: string,
   entries: readonly DiffEntry[],
+  unchangedPattern: string,
   signal: AbortSignal,
 ): Promise<ClassifiedHead> {
   const changedPaths = new Set(entries.map((entry) => entry.path));
-  const matched = await filesMatching(
-    repo,
-    head,
-    TRANSFORM_MODEL_PATTERN,
-    CONTENT_PATHSPECS,
-    signal,
-  );
+  const matched = await filesMatching(repo, head, unchangedPattern, CONTENT_PATHSPECS, signal);
   const unchanged = matched.filter((path) => !changedPaths.has(path));
   const [baseReadings, headReadings] = await Promise.all([
     readAt(repo, forkPoint, present(entries.map(basePath)), signal),
@@ -201,6 +198,7 @@ export async function planJob(
   baseRef: string,
   headRef: string,
   signal: AbortSignal,
+  unchangedPattern: string = TRANSFORM_MODEL_PATTERN,
 ): Promise<JobPlan> {
   const repo = await repositoryRoot(repoPath, signal);
   const [base, head, checkout] = await Promise.all([
@@ -215,6 +213,7 @@ export async function planJob(
     forkPoint,
     head,
     entries,
+    unchangedPattern,
     signal,
   );
   const atHead = headTransforms([...changes.map((change) => change.head), ...unchangedAtHead]);

@@ -398,6 +398,7 @@ const ALL_COMMANDS = [
   "transform-test update",
   "transform-test delete",
   "transform-test run",
+  "ci lint",
   "ci run",
   "setting list",
   "setting get",

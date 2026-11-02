@@ -23,6 +23,7 @@ interface JobOptions {
   write: (event: CiEvent) => void;
   resultsPath: string | null;
   signal: AbortSignal;
+  unchangedPattern?: string;
 }
 
 // Written beside the path and renamed over it, so the path never holds half a file, and a symlink
@@ -58,7 +59,13 @@ export async function runJob(options: JobOptions): Promise<JobState> {
     },
   });
 
-  const plan = await planJob(options.repo, options.base, options.head, options.signal);
+  const plan = await planJob(
+    options.repo,
+    options.base,
+    options.head,
+    options.signal,
+    options.unchangedPattern,
+  );
   emit({
     type: "job.start",
     v: CI_EVENT_VERSION,

@@ -4,6 +4,7 @@ export default defineCommandGroup({
   name: "ci",
   description: "Check a branch's transforms the way CI does",
   subCommands: {
+    lint: () => import("./lint").then((mod) => mod.default),
     run: () => import("./run").then((mod) => mod.default),
   },
 });

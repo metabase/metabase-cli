@@ -100,7 +100,7 @@ export default defineMetabaseCommand({
   },
 });
 
-function textEventWriter(maxRows: number): (event: CiEvent) => void {
+export function textEventWriter(maxRows: number): (event: CiEvent) => void {
   const writeLine = lineWriter(process.stdout);
   let failed = NO_FAILED_CHECKS;
   return (event) => {
