@@ -1,5 +1,7 @@
 import type { StringArgDef } from "citty";
 
+import { DEFAULT_TIMEOUT_MS } from "@metabase/client/http/transport";
+
 import { DEFAULT_MAX_BYTES } from "../output/types";
 import type { ListMarker } from "../runtime/citty";
 
@@ -67,6 +69,16 @@ export function listFlagsWithDefaultLimit(defaultLimit: number) {
 
 export const profileFlag = {
   profile: { type: "string", description: "Named profile (default: 'default')", alias: "p" },
+} as const;
+
+// For a command whose one request waits on work the server runs (a query, a test run), which can
+// outlast the transport's default; every other request keeps that default.
+export const timeoutFlag = {
+  timeout: {
+    type: "string",
+    description: "Request timeout in ms",
+    default: String(DEFAULT_TIMEOUT_MS),
+  },
 } as const;
 
 export const urlFlag = {
