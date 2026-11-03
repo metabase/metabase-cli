@@ -259,7 +259,10 @@ async function answerOf<T>(
 
 // The schema validation runs first and apart from the linter, so a linter setup error does not
 // stop it.
-async function treeChecks(lintTree: LintTree, validateTree: ValidateTree): Promise<CheckOutcome[]> {
+export async function treeChecks(
+  lintTree: LintTree,
+  validateTree: ValidateTree,
+): Promise<CheckOutcome[]> {
   const validated = await answerOf("the schema validator", validateTree, SchemaResult);
   const linted = await answerOf("the linter", lintTree, LintResult);
   const lintOutcomes =
