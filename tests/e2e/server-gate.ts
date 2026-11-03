@@ -10,11 +10,7 @@ import type { FeatureName } from "@metabase/client/version/features";
 import { createServerProfile, type ServerProfile } from "@metabase/client/version/profile";
 import type { RequirementFailure } from "@metabase/client/version/capability-error";
 import { checkFeatures } from "@metabase/client/version/requirement-check";
-import {
-  describeVersion,
-  type ReleaseVersion,
-  type ServerVersion,
-} from "@metabase/client/version/tag";
+import { describeVersion, type ReleaseVersion } from "@metabase/client/version/tag";
 
 import { readBootstrapSync } from "./bootstrap-data";
 import { resolveStackId } from "./defaults";
@@ -99,29 +95,24 @@ export function requireServerWithout(
   return reason;
 }
 
-// Why a stack running the other kind of build skips a lane that needs `kind`.
-const VERSION_KIND_SKIP_REASONS: Readonly<Record<ServerVersion["kind"], string>> = {
-  release: "this server is a development build, which names no release",
-  development: "this server is a release, so it cannot show how a development build answers",
-};
+const DEVELOPMENT_BUILD_REASON = "this server is a development build, which names no release";
 
 // Gate for a lane pinning what the CLI derives from the server's release number, which only a
-// release has, or how a development build answers without one.
-export function requireVersionKind(lane: string, kind: ServerVersion["kind"]): string | null {
-  if (readBootstrapSync().server.version.kind === kind) {
+// release has.
+export function requireRelease(lane: string): string | null {
+  if (readBootstrapSync().server.version.kind === "release") {
     return null;
   }
-  const reason = VERSION_KIND_SKIP_REASONS[kind];
-  recordGateSkip(lane, reason);
-  return reason;
+  recordGateSkip(lane, DEVELOPMENT_BUILD_REASON);
+  return DEVELOPMENT_BUILD_REASON;
 }
 
-// The release this stack runs, for a lane `requireVersionKind(lane, "release")` let through.
+// The release this stack runs, for a lane `requireRelease` let through.
 export function stackRelease(): ReleaseVersion {
   const { version } = readBootstrapSync().server;
   if (version.kind !== "release") {
     throw new Error(
-      `this stack runs ${describeVersion(version)}, not a release: gate the lane with requireVersionKind`,
+      `this stack runs ${describeVersion(version)}, not a release: gate the lane with requireRelease`,
     );
   }
   return version;
