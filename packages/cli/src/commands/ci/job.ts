@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { rename, rm, writeFile } from "node:fs/promises";
+import { appendFileSync } from "node:fs";
+import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 
 import {
@@ -11,6 +12,7 @@ import {
   runStages,
 } from "../../core/ci-events";
 import { serializeJson } from "../../output/render";
+import { repositoryRoot } from "../../runtime/git";
 import { type JobPlan, planJob } from "./job-plan";
 
 interface JobOptions {
@@ -22,6 +24,7 @@ interface JobOptions {
   now: () => Date;
   write: (event: CiEvent) => void;
   resultsPath: string | null;
+  runLog: boolean;
   signal: AbortSignal;
 }
 
@@ -38,6 +41,26 @@ async function writeResults(path: string, events: readonly CiEvent[]): Promise<v
   }
 }
 
+// Where every run logs its events, under the repository root, so a UI can show each run, even one
+// whose caller kept no output.
+export const RUN_LOG_DIR = join(".scratch", "ci-runs");
+
+// One JSON event per line, appended as each event happens, so a reader can follow a live run. A run
+// that crashes or is interrupted keeps its log, which stops before `job.end`, like the stream. A run
+// whose planning fails, such as on a bad --base, has no events and leaves no log. The folder ignores
+// itself, so the logs never reach a commit.
+async function openRunLog(
+  root: string,
+  job: string,
+  startedAt: Date,
+): Promise<(event: CiEvent) => void> {
+  const dir = join(root, RUN_LOG_DIR);
+  await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, ".gitignore"), "*\n", "utf8");
+  const path = join(dir, `${startedAt.toISOString().replaceAll(":", "-")}-${job}.jsonl`);
+  return (event) => appendFileSync(path, serializeJson(event, false) + "\n", "utf8");
+}
+
 // A crash ends the stream without `job.end` and leaves no results file: the CLI's error on stderr
 // is the report, and a consumer reads a stream that stops before `job.end` as a crash. So an
 // earlier run's file is deleted first, and `job.end` reaches the stream only once the results file
@@ -46,6 +69,14 @@ export async function runJob(options: JobOptions): Promise<JobState> {
   if (options.resultsPath !== null) {
     await rm(options.resultsPath, { force: true });
   }
+  const plan = await planJob(options.repo, options.base, options.head, options.signal);
+  const log = options.runLog
+    ? await openRunLog(
+        await repositoryRoot(options.repo, options.signal),
+        options.job,
+        options.now(),
+      )
+    : () => {};
   const events: CiEvent[] = [];
   const emit = createEmitter({
     job: options.job,
@@ -53,12 +84,12 @@ export async function runJob(options: JobOptions): Promise<JobState> {
     write: (event) => {
       events.push(event);
       if (event.type !== "job.end") {
+        log(event);
         options.write(event);
       }
     },
   });
 
-  const plan = await planJob(options.repo, options.base, options.head, options.signal);
   emit({
     type: "job.start",
     v: CI_EVENT_VERSION,
@@ -76,6 +107,7 @@ export async function runJob(options: JobOptions): Promise<JobState> {
   if (options.resultsPath !== null) {
     await writeResults(options.resultsPath, events);
   }
+  log(end);
   options.write(end);
   return outcome.state;
 }

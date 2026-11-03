@@ -13,7 +13,7 @@ import { type TempGitRepo, createTempGitRepo } from "../../runtime/temp-git-repo
 
 import { coverageStage, untestedTransforms } from "../../core/ci-coverage";
 
-import { runJob } from "./job";
+import { RUN_LOG_DIR, runJob } from "./job";
 import { type UnitStagePort, unitStage } from "./unit-stage";
 
 const NOW = new Date("2026-10-30T12:00:00.000Z");
@@ -68,6 +68,7 @@ describe("runJob", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath: null,
+      runLog: true,
       signal: NOT_INTERRUPTED,
     });
 
@@ -119,6 +120,7 @@ describe("runJob", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath,
+      runLog: true,
       signal: NOT_INTERRUPTED,
     });
 
@@ -132,6 +134,89 @@ describe("runJob", () => {
     expect(parseJson(await readFile(resultsPath, "utf8"), z.array(CiEventSchema))).toEqual(events);
   });
 
+  it("logs every event to a run log in the repository, which git ignores", async () => {
+    const events: CiEvent[] = [];
+
+    await runJob({
+      repo: repo.path,
+      base: "main",
+      head: "HEAD",
+      stages: async () => [failingStage()],
+      job: "job-1",
+      now: () => NOW,
+      write: (event) => events.push(event),
+      resultsPath: null,
+      runLog: true,
+      signal: NOT_INTERRUPTED,
+    });
+
+    const log = await readFile(
+      join(repo.path, RUN_LOG_DIR, "2026-10-30T12-00-00.000Z-job-1.jsonl"),
+      "utf8",
+    );
+    expect(
+      log
+        .trimEnd()
+        .split("\n")
+        .map((line) => parseJson(line, CiEventSchema)),
+    ).toEqual(events);
+    expect(await repo.git("status", "--porcelain")).toBe("");
+  });
+
+  it("writes no run log under runLog false", async () => {
+    await runJob({
+      repo: repo.path,
+      base: "main",
+      head: "HEAD",
+      stages: async () => [failingStage()],
+      job: "job-1",
+      now: () => NOW,
+      write: () => {},
+      resultsPath: null,
+      runLog: false,
+      signal: NOT_INTERRUPTED,
+    });
+
+    const missing = await readFile(join(repo.path, RUN_LOG_DIR, ".gitignore"), "utf8").then(
+      () => null,
+      (error: unknown) => error,
+    );
+    expect(isFileNotFoundError(missing)).toBe(true);
+  });
+
+  it("keeps the run log of a job that crashes, stopping before job.end", async () => {
+    const crashing: CiStage = {
+      name: "unit",
+      run: async () => {
+        throw new Error("boom");
+      },
+    };
+    const job = runJob({
+      repo: repo.path,
+      base: "main",
+      head: "HEAD",
+      stages: async () => [crashing],
+      job: "job-1",
+      now: () => NOW,
+      write: () => {},
+      resultsPath: null,
+      runLog: true,
+      signal: NOT_INTERRUPTED,
+    });
+
+    await expect(job).rejects.toThrow("boom");
+    const log = await readFile(
+      join(repo.path, RUN_LOG_DIR, "2026-10-30T12-00-00.000Z-job-1.jsonl"),
+      "utf8",
+    );
+    expect(
+      log
+        .trimEnd()
+        .split("\n")
+        .map((line) => parseJson(line, CiEventSchema).type),
+    ).toEqual(["job.start", "stage.start"]);
+  });
+
   it("leaves job.end off the stream when the results file cannot be written", async () => {
     const events: CiEvent[] = [];
     const job = runJob({
@@ -143,11 +228,22 @@ describe("runJob", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath: join(repo.path, "no-such-dir", "results.json"),
+      runLog: true,
       signal: NOT_INTERRUPTED,
     });
 
     await expect(job).rejects.toThrow("ENOENT");
     expect(events.map((event) => event.type)).toEqual(["job.start"]);
+    const log = await readFile(
+      join(repo.path, RUN_LOG_DIR, "2026-10-30T12-00-00.000Z-job-1.jsonl"),
+      "utf8",
+    );
+    expect(
+      log
+        .trimEnd()
+        .split("\n")
+        .map((line) => parseJson(line, CiEventSchema)),
+    ).toEqual(events);
   });
 
   it("replaces a symlink at the results path rather than writing through it", async () => {
@@ -168,6 +264,7 @@ describe("runJob", () => {
         now: () => NOW,
         write: (event) => events.push(event),
         resultsPath,
+        runLog: true,
         signal: NOT_INTERRUPTED,
       });
 
@@ -192,6 +289,7 @@ describe("runJob", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath,
+      runLog: true,
       signal: NOT_INTERRUPTED,
     });
 
@@ -217,6 +315,7 @@ describe("runJob", () => {
       now: () => NOW,
       write: () => {},
       resultsPath,
+      runLog: true,
       signal: NOT_INTERRUPTED,
     });
 
@@ -273,6 +372,7 @@ describe("runJob, with the stages ci run builds", () => {
       now: () => NOW,
       write: (event) => events.push(event),
       resultsPath: null,
+      runLog: true,
       signal: NOT_INTERRUPTED,
     });
 
