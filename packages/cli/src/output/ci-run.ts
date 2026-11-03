@@ -32,17 +32,41 @@ const VERDICT_MARK: Readonly<Record<Verdict, string>> = {
   refused: "!",
 };
 
-// Which kinds of check have failed so far. A failed coverage check asks for a test, any other
-// failed check for a fix to the transform, so the job.end line can name the fix.
-export type FailedChecks = "none" | "tests" | "transform" | "both";
-export const NO_FAILED_CHECKS: FailedChecks = "none";
+// The fixes the failed checks so far ask for, so the job.end line can name them: a failed
+// coverage check asks for a test, a lint finding for a fix to the content it names, and a failed
+// transform test for a fix to the transform.
+type Fix = "transform" | "tests" | "lint";
+export type FailedChecks = ReadonlySet<Fix>;
+export const NO_FAILED_CHECKS: FailedChecks = new Set();
 
-const FAILED_TEXT: Readonly<Record<FailedChecks, string>> = {
-  none: "FAILED  fix the transform",
-  transform: "FAILED  fix the transform",
-  tests: "FAILED  add or restore transform tests",
-  both: "FAILED  fix the transform and add the missing tests",
+const FIX_ORDER: readonly Fix[] = ["transform", "tests", "lint"];
+
+const FIX_TEXT: Readonly<Record<Fix, string>> = {
+  transform: "fix the transform",
+  tests: "add or restore transform tests",
+  lint: "fix what the linter flagged",
 };
+
+function fixFor(kind: Extract<CiEvent, { type: "check.result" }>["check"]["kind"]): Fix {
+  switch (kind) {
+    case "coverage": {
+      return "tests";
+    }
+    case "transform-test": {
+      return "transform";
+    }
+    case "lint":
+    case "yaml":
+    case "cycles":
+    case "broken-refs": {
+      return "lint";
+    }
+    default: {
+      const unhandled: never = kind;
+      throw new InternalError(`check of no known kind: ${JSON.stringify(unhandled)}`);
+    }
+  }
+}
 
 const ERRORED_TEXT = "ERRORED  fix the test or the setup";
 
@@ -55,11 +79,7 @@ export function failedChecksAfter(failed: FailedChecks, event: CiEvent): FailedC
   if (event.type !== "check.result" || event.verdict !== "failed") {
     return failed;
   }
-  const kind = event.check.kind === "coverage" ? "tests" : "transform";
-  if (failed === "none" || failed === kind) {
-    return kind;
-  }
-  return "both";
+  return new Set([...failed, fixFor(event.check.kind)]);
 }
 
 // The text form of one CI event: a line or more, or none for an event the next one makes plain.
@@ -107,7 +127,12 @@ function jobEndText(state: JobState, failed: FailedChecks): string {
   if (state === "passed") {
     return "PASSED";
   }
-  return state === "failed" ? FAILED_TEXT[failed] : ERRORED_TEXT;
+  if (state !== "failed") {
+    return ERRORED_TEXT;
+  }
+  const fixes = FIX_ORDER.filter((fix) => failed.has(fix));
+  const named = fixes.length === 0 ? [FIX_TEXT.transform] : fixes.map((fix) => FIX_TEXT[fix]);
+  return `FAILED  ${named.join(" and ")}`;
 }
 
 function jobExitCode(state: JobState): number {

@@ -32,7 +32,7 @@ const Snapshot = z.object({ base: z.string(), head: z.string() });
 export type Snapshot = z.infer<typeof Snapshot>;
 
 const Check = z.object({
-  kind: z.enum(["coverage", "yaml", "cycles", "broken-refs", "transform-test"]),
+  kind: z.enum(["coverage", "lint", "yaml", "cycles", "broken-refs", "transform-test"]),
   id: z.string(),
   label: z.string(),
 });
