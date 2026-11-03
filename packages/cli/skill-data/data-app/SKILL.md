@@ -46,8 +46,8 @@ From the repository root, `scaffold <slug>` copies the Vite + React + TypeScript
 `data_app.yaml` is the app's manifest. Edit `name` (the title Metabase shows: the one the user gave the app, or a short one that says what it's for), `description` and `allowed_hosts` (a YAML list of origins, `data-app-ui`, _External APIs_) in it directly; never change `entity_id`, `slug`, `path`, `version` or `collection`. Then install the SDK, then the rest:
 
 ```bash
-cd data_apps/sales-overview
-TAG=$(mb data-app sdk-version --profile <name> --registry "$(npm config get registry)" --format text) &&
+cd data_apps/sales-overview &&
+  TAG=$(mb data-app sdk-version --profile <name> --registry "$(npm config get registry)" --format text) &&
   npm install "@metabase/embedding-sdk-react@$TAG" &&
   npm install && npm run typecheck
 ```
