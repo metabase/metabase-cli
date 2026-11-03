@@ -491,6 +491,7 @@ const BODY_COMMANDS = [
   "transform-tag update",
   "transform-test create",
   "transform-test update",
+  "transform-test run",
   "setup",
   "snippet create",
   "snippet update",
@@ -649,7 +650,7 @@ describe("command tree contract", () => {
     });
   });
 
-  it("declares each transform-test command's single client method", async () => {
+  it("declares each transform-test command's client methods", async () => {
     const entries = await allEntries();
     const requires = Object.fromEntries(
       entries
@@ -662,7 +663,10 @@ describe("command tree contract", () => {
       "transform-test create": requiresOf("transformTest.create"),
       "transform-test update": requiresOf("transformTest.update"),
       "transform-test delete": requiresOf("transformTest.delete"),
-      "transform-test run": requiresOf("transformTest.run"),
+      "transform-test run": {
+        methods: ["transformTest.run", "transformTest.runAdhoc"],
+        features: ["transformTests"],
+      },
     });
   });
 

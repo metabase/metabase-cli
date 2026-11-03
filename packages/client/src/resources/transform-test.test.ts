@@ -4,6 +4,7 @@ import { createClient } from "../client";
 import {
   isTransformTestCode,
   isTransformTestRefusalCode,
+  type TransformTestAdhocRunInput,
   type TransformTestCreateInput,
 } from "../domain/transform-test";
 import { HttpError } from "../http/errors";
@@ -40,6 +41,22 @@ const CREATE_BODY: TransformTestCreateInput = {
     },
   ],
   expectations: [{ type: "empty", name: "no nulls", sql: "SELECT * FROM out WHERE id IS NULL" }],
+};
+
+const ADHOC_RUN_BODY: TransformTestAdhocRunInput = {
+  transform: {
+    name: "orders copy",
+    source: {
+      type: "query",
+      query: { database: 1, type: "native", native: { query: "SELECT * FROM orders" } },
+    },
+    target: { type: "table", database: 1, schema: "public", name: "orders_copy" },
+  },
+  test: {
+    name: CREATE_BODY.name,
+    inputs: CREATE_BODY.inputs,
+    expectations: CREATE_BODY.expectations,
+  },
 };
 
 const TEST = {
@@ -237,6 +254,30 @@ describe("transform-test resource wire requests", () => {
     expect(error.userMessage).toBe(
       "The h2 database of this transform does not support transform testing.",
     );
+  });
+
+  it("sends the adhoc run request with the body it was given and answers the run result", async () => {
+    const { mb, capture } = clientOver([jsonResponse(RUN_RESULT)]);
+
+    expect(await mb.transformTest.runAdhoc(ADHOC_RUN_BODY)).toEqual(RUN_RESULT);
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/transform-test/run",
+        method: "POST",
+        headers: JSON_REQUEST_HEADERS,
+        body: JSON.stringify(ADHOC_RUN_BODY),
+      },
+    ]);
+  });
+
+  it("surfaces an adhoc run refusal as an HttpError carrying its refusal code", async () => {
+    const { mb } = clientOver([jsonResponse(REFUSAL, UNSUPPORTED_DRIVER_STATUS)]);
+
+    const error = await thrownBy(() => mb.transformTest.runAdhoc(ADHOC_RUN_BODY));
+
+    assert(error instanceof HttpError, "expected HttpError");
+    expect(error.status).toBe(UNSUPPORTED_DRIVER_STATUS);
+    expect(error.errorCode).toBe("transform-test.unsupported-driver");
   });
 
   it("keeps the tables a refusal names", async () => {

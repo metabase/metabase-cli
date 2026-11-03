@@ -186,6 +186,7 @@ mb transform-test create --file ./.scratch/test.json --profile <n> --json
 mb transform-test update <id> --file ./.scratch/patch.json --profile <n> --json
 mb transform-test delete <id> --yes --profile <n>
 mb transform-test run <id> --profile <n> --json               # exits 1 unless it passes
+mb transform-test run --file ./.scratch/adhoc.json --profile <n> --json  # unsaved transform + test
 ```
 
 **`inputs`** — one per table the transform reads, each naming a `table` plus either `format: "sql"` with `sql`, or `format: "rows"` with `columns` (each a `name` and a `cast_type`) and `rows`.
@@ -232,6 +233,8 @@ mb transform-test run <id> --profile <n> --json               # exits 1 unless i
 ```
 
 Create and update bodies are closed at every level (the top level is checked before sending; a stray nested key is a 400) — strip `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` from a `get --full` body before sending it back.
+
+**Run without saving.** `mb transform-test run` without an id takes `{"transform": …, "test": …}`: `transform` is the `name`, `description`, `source` and `target` of a transform create body, and `test` is a test body like the one above without `transform_id`. Nothing is saved, it answers and exits like a saved run, and it needs transforms permission plus native query access on the transform's source database. Use it to try a transform change against its tests before updating the saved transform.
 
 <!-- /requires -->
 

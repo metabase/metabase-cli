@@ -219,6 +219,7 @@ export const METHOD_REQUIREMENTS = {
   "transformTest.update": ["transformTests"],
   "transformTest.delete": ["transformTests"],
   "transformTest.run": ["transformTests"],
+  "transformTest.runAdhoc": ["transformTests"],
   "upload.createFromCsv": [],
   "user.current": [],
 } satisfies Record<string, readonly FeatureName[]>;

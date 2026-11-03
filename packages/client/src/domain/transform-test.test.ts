@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   TransformTest,
+  TransformTestAdhocRunInput,
   TransformTestCreateInput,
   TransformTestUpdateInput,
 } from "./transform-test";
@@ -76,5 +77,57 @@ describe("TransformTestUpdateInput", () => {
 
   it("patches a single field", () => {
     expect(TransformTestUpdateInput.parse({ name: "renamed" })).toEqual({ name: "renamed" });
+  });
+});
+
+const ADHOC_RUN = {
+  transform: {
+    name: "people summary",
+    source: {
+      type: "query",
+      query: { database: 1, type: "native", native: { query: "SELECT 1" } },
+    },
+    target: { type: "table", database: 1, schema: "public", name: "people_summary" },
+  },
+  test: {
+    name: "people summary holds one row",
+    inputs: STORED.inputs,
+    expectations: STORED.expectations,
+  },
+};
+
+describe("TransformTestAdhocRunInput", () => {
+  it("names a create-only key on the transform", () => {
+    const result = TransformTestAdhocRunInput.safeParse({
+      ...ADHOC_RUN,
+      transform: { ...ADHOC_RUN.transform, run_trigger: "none" },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual([
+      {
+        code: "unrecognized_keys",
+        keys: ["run_trigger"],
+        path: ["transform"],
+        message: 'Unrecognized key: "run_trigger"',
+      },
+    ]);
+  });
+
+  it("names the transform id a saved test carries", () => {
+    const result = TransformTestAdhocRunInput.safeParse({
+      ...ADHOC_RUN,
+      test: { ...ADHOC_RUN.test, transform_id: 7 },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual([
+      {
+        code: "unrecognized_keys",
+        keys: ["transform_id"],
+        path: ["test"],
+        message: 'Unrecognized key: "transform_id"',
+      },
+    ]);
   });
 });

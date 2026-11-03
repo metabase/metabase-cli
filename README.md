@@ -449,19 +449,23 @@ mb transform-test delete 1 --yes
 | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
 
-### `mb transform-test run <id>`
+### `mb transform-test run [id]`
 
-Runs the transform against the fixtures and reports what each expectation found. Exits 1 when the test does not pass, so it drops straight into CI.
+Runs the transform against the fixtures and reports what each expectation found. Exits 1 when the test does not pass, so it drops straight into CI. Without an id it runs the JSON body `{transform, test}` instead — an unsaved transform (`name`, `description`, `source`, `target`) and an unsaved test (a create body without `transform_id`) — and saves neither; that takes transforms permission and native query access on the transform's source database.
 
 ```sh
 mb transform-test run 1
 mb transform-test run 1 --json
 mb transform-test run 1 --timeout 300000
+mb transform-test run --file adhoc-run.json
 ```
 
-| Flag             | Description                                                                |
-| ---------------- | -------------------------------------------------------------------------- |
-| `--timeout <ms>` | Request timeout in ms (default 30000); the run is one synchronous request. |
+| Flag              | Description                                                                |
+| ----------------- | -------------------------------------------------------------------------- |
+| `--timeout <ms>`  | Request timeout in ms (default 30000); the run is one synchronous request. |
+| `--body <json>`   | Inline JSON body, without an id.                                           |
+| `--file <path>`   | Path to JSON body file, without an id.                                     |
+| `--skip-validate` | Skip the local MBQL 5 check of `transform.source.query`.                   |
 
 ## Databases
 

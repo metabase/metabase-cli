@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   TransformTest,
+  type TransformTestAdhocRunInput,
   type TransformTestCreateInput,
   TransformTestRunResult,
   type TransformTestUpdateInput,
@@ -93,6 +94,23 @@ export function transformTestResource(transport: Transport) {
     });
   }
 
+  /**
+   * Run an unsaved transform test against an unsaved transform, answering as `run` does: a result
+   * means the run happened, and an `HttpError` whose `errorCode` is a `TransformTestRefusalCode`
+   * means it was refused. The caller needs transforms permission and native query access on the
+   * transform's source database. Nothing is saved but a record of the run.
+   */
+  async function runAdhoc(
+    params: TransformTestAdhocRunInput,
+    options: RequestOptions = {},
+  ): Promise<TransformTestRunResult> {
+    return transport.requestParsed(TransformTestRunResult, "/api/ee/transform-test/run", {
+      ...options,
+      method: "POST",
+      body: params,
+    });
+  }
+
   return {
     list: explain("list", list),
     get: explain("get", get),
@@ -100,5 +118,6 @@ export function transformTestResource(transport: Transport) {
     update: explain("update", update),
     delete: explain("delete", remove),
     run: explain("run", run),
+    runAdhoc: explain("runAdhoc", runAdhoc),
   };
 }

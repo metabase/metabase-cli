@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { TransformDefinition } from "./transform";
+
 export const TransformTestTable = z
   .object({
     schema: z.string().min(1).nullable().optional(),
@@ -107,22 +109,28 @@ export const TransformTestCompact = TransformTest.pick({
 export type TransformTestCompact = z.infer<typeof TransformTestCompact>;
 
 /**
- * The server closes this map, so an unrecognized key is a 400 there. Refusing it here names the key
- * instead: a body cloned from `get` has to shed `id`, `entity_id`, `creator_id`, `created_at` and
- * `updated_at` before it can be sent back.
+ * A transform test without the transform it belongs to. The server closes this map, so an
+ * unrecognized key is a 400 there. Refusing it here names the key instead: a body cloned from `get`
+ * has to shed `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` before it can be sent
+ * back.
  */
-export const TransformTestCreateInput = z
+export const TransformTestDefinition = z
   .object({
-    transform_id: z.number().int().positive(),
     name: z.string().min(1),
     description: z.string().nullable().optional(),
     inputs: z.array(TransformTestInput),
     expectations: z.array(TransformTestExpectation),
   })
   .strict();
+export type TransformTestDefinition = z.infer<typeof TransformTestDefinition>;
+
+/** A [[TransformTestDefinition]] attached to the saved transform it tests. */
+export const TransformTestCreateInput = TransformTestDefinition.extend({
+  transform_id: z.number().int().positive(),
+}).strict();
 export type TransformTestCreateInput = z.infer<typeof TransformTestCreateInput>;
 
-/** Closed for the same reason as [[TransformTestCreateInput]]; every field is optional. */
+/** Closed for the same reason as [[TransformTestDefinition]]; every field is optional. */
 export const TransformTestUpdateInput = z
   .object({
     transform_id: z.number().int().positive().optional(),
@@ -133,6 +141,15 @@ export const TransformTestUpdateInput = z
   })
   .strict();
 export type TransformTestUpdateInput = z.infer<typeof TransformTestUpdateInput>;
+
+/** An unsaved transform test run against an unsaved transform; both maps are closed. */
+export const TransformTestAdhocRunInput = z
+  .object({
+    transform: TransformDefinition,
+    test: TransformTestDefinition,
+  })
+  .strict();
+export type TransformTestAdhocRunInput = z.infer<typeof TransformTestAdhocRunInput>;
 
 export const TransformTestResultColumn = z
   .object({

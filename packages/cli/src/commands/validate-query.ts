@@ -29,6 +29,10 @@ function hasQuerySource(body: unknown): boolean {
   return valueAt(body, ["source", "type"]) === "query";
 }
 
+function hasAdhocQuerySource(body: unknown): boolean {
+  return hasQuerySource(valueAt(body, ["transform"]));
+}
+
 export const CARD_DATASET_QUERY: EmbeddedQuery = {
   resource: "card",
   path: ["dataset_query"],
@@ -45,6 +49,12 @@ export const TRANSFORM_SOURCE_QUERY: EmbeddedQuery = {
   resource: "transform",
   path: ["source", "query"],
   when: hasQuerySource,
+  documents: QUERY_DOCUMENTS,
+};
+export const TRANSFORM_TEST_ADHOC_SOURCE_QUERY: EmbeddedQuery = {
+  resource: "transformTest",
+  path: ["transform", "source", "query"],
+  when: hasAdhocQuerySource,
   documents: QUERY_DOCUMENTS,
 };
 export const MEASURE_DEFINITION: EmbeddedQuery = {

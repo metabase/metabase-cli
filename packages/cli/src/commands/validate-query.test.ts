@@ -7,6 +7,7 @@ import { ValidationOutcome } from "../core/schema/validate";
 import {
   CARD_DATASET_QUERY,
   TRANSFORM_SOURCE_QUERY,
+  TRANSFORM_TEST_ADHOC_SOURCE_QUERY,
   preflightEmbeddedQuery,
 } from "./validate-query";
 
@@ -102,6 +103,49 @@ describe("preflightEmbeddedQuery", () => {
         },
       },
       TRANSFORM_SOURCE_QUERY,
+      { skip: false },
+    );
+    expect(streams.stdout).toBe("");
+    expect(streams.stderr).toBe("");
+  });
+
+  it("checks the query of the transform an adhoc transform test run carries", () => {
+    expect(() =>
+      preflightEmbeddedQuery(
+        {
+          transform: {
+            source: {
+              type: "query",
+              query: {
+                "lib/type": "mbql/query",
+                database: "oops",
+                stages: [{ "lib/type": "mbql.stage/mbql", "source-table": 7 }],
+              },
+            },
+          },
+        },
+        TRANSFORM_TEST_ADHOC_SOURCE_QUERY,
+        { skip: false },
+      ),
+    ).toThrow(
+      new ConfigError(
+        "transformTest.transform.source.query validation failed: 1 error(s) — fix them, or pass --skip-validate to send anyway",
+      ),
+    );
+  });
+
+  it("leaves a stray query beside the python source of an adhoc run's transform unchecked", () => {
+    preflightEmbeddedQuery(
+      {
+        transform: {
+          source: {
+            type: "python",
+            body: "",
+            query: { "lib/type": "mbql/query", database: "oops", stages: [] },
+          },
+        },
+      },
+      TRANSFORM_TEST_ADHOC_SOURCE_QUERY,
       { skip: false },
     );
     expect(streams.stdout).toBe("");

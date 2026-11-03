@@ -431,19 +431,24 @@ export const TransformCompact = Transform.pick({
   .extend({ target: TransformTargetCompact });
 export type TransformCompact = z.infer<typeof TransformCompact>;
 
-export const TransformCreateInput = z
+/** What a transform computes and where it writes, without where it is filed or when it runs. */
+export const TransformDefinition = z
   .object({
     name: z.string().min(1),
     description: z.string().nullable().optional(),
     source: TransformSourceInput,
     target: TransformTarget,
-    run_trigger: TransformRunTrigger.optional(),
-    tag_ids: z.array(z.number().int().positive()).optional(),
-    collection_id: z.number().int().positive().nullable().optional(),
-    owner_user_id: z.number().int().positive().nullable().optional(),
-    owner_email: z.string().nullable().optional(),
   })
-  .loose();
+  .strict();
+export type TransformDefinition = z.infer<typeof TransformDefinition>;
+
+export const TransformCreateInput = TransformDefinition.extend({
+  run_trigger: TransformRunTrigger.optional(),
+  tag_ids: z.array(z.number().int().positive()).optional(),
+  collection_id: z.number().int().positive().nullable().optional(),
+  owner_user_id: z.number().int().positive().nullable().optional(),
+  owner_email: z.string().nullable().optional(),
+}).loose();
 export type TransformCreateInput = z.infer<typeof TransformCreateInput>;
 
 export const TransformUpdateInput = z

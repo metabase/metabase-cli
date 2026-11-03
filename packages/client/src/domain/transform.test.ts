@@ -5,6 +5,8 @@ import { evaluateFeatures } from "../version/features";
 import {
   isTransformRunFailed,
   isTransformRunTerminal,
+  TransformCreateInput,
+  TransformDefinition,
   transformDetailSchema,
   transformRowSchema,
   type TransformRunStatus,
@@ -75,6 +77,38 @@ describe("transformRowSchema", () => {
     expect(transformRowSchema(HYDRATED_TABLE_SERVER).parse(ROW)).toEqual({
       ...ROW,
       target_table_id: null,
+    });
+  });
+});
+
+const DEFINITION = {
+  name: "Daily orders",
+  source: { type: "query", query: { database: 1, type: "native", native: { query: "select 1" } } },
+  target: { type: "table", database: 1, schema: "public", name: "daily_orders" },
+};
+
+describe("TransformDefinition", () => {
+  it("names a key the definition does not take, such as where the transform is filed", () => {
+    const result = TransformDefinition.safeParse({ ...DEFINITION, collection_id: 3 });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual([
+      {
+        code: "unrecognized_keys",
+        keys: ["collection_id"],
+        path: [],
+        message: 'Unrecognized key: "collection_id"',
+      },
+    ]);
+  });
+});
+
+describe("TransformCreateInput", () => {
+  it("passes a key it does not know through to the server", () => {
+    expect(TransformCreateInput.parse({ ...DEFINITION, collection_id: 3, extra: true })).toEqual({
+      ...DEFINITION,
+      collection_id: 3,
+      extra: true,
     });
   });
 });
