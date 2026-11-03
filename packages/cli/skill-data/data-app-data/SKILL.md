@@ -36,6 +36,18 @@ From the repository root, this writes `data_apps/<slug>/src/metabase.schema.ts`:
 
 The numeric IDs are that instance's, so the dev preview runs against it alone; a production build runs each question by its `entityId` instead, on every instance the app is imported to.
 
+The file runs to thousands of lines. Every table, field, segment, measure and metric opens with a one-line `/* metadata: {...} */` comment holding its description, display name and types; the line after it names its kind. Find what a question needs in two steps:
+
+1. List every table, segment, measure and metric, with its line number, key and metadata, segments and measures under their table:
+
+   ```bash
+   grep -n -B2 -E 'type: "(table|segment|measure|metric)"' src/metabase.schema.ts
+   ```
+
+   Choose the definitions from this list: `schema.tables.<table>.segments.<key>`, `schema.tables.<table>.measures.<key>`, `schema.metrics.<key>`.
+
+2. Read each table or metric the question uses from its line to the next line in the list: a table's fields, each with its metadata line, or a metric's dimensions.
+
 ## Questions
 
 `src/metabase.queries.ts` holds one export per question:
