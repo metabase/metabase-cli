@@ -80,7 +80,17 @@ describe("ci e2e", () => {
     const resultsPath = join(repo.path, "results.json");
 
     const result = await runCli({
-      args: ["ci", "run", "--repo", repo.path, "--base", "main", "--results", resultsPath],
+      args: [
+        "ci",
+        "run",
+        "--experimental",
+        "--repo",
+        repo.path,
+        "--base",
+        "main",
+        "--results",
+        resultsPath,
+      ],
       configHome: await configHome(),
     });
 
@@ -123,7 +133,7 @@ describe("ci e2e", () => {
 
   it("exits 2 with a config error when --base is not a commit", async () => {
     const result = await runCli({
-      args: ["ci", "run", "--repo", repo.path, "--base", "no-such-branch"],
+      args: ["ci", "run", "--experimental", "--repo", repo.path, "--base", "no-such-branch"],
       configHome: await configHome(),
     });
 
@@ -206,7 +216,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     );
     await repo.commitAll("add an untested transform");
 
-    const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
+    const result = await mb(["ci", "run", "--experimental", "--repo", repo.path, "--base", "main"]);
 
     expect(result.exitCode).toBe(1);
     const events = result.stdout
@@ -295,7 +305,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     await repo.put("transforms/absent/test.yaml", testYaml(TRANSFORM_ID));
     await repo.commitAll("add a transform the instance never saw, with a test");
 
-    const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
+    const result = await mb(["ci", "run", "--experimental", "--repo", repo.path, "--base", "main"]);
 
     expect(result.exitCode).toBe(1);
     const events = result.stdout
@@ -463,7 +473,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
       return Object.values(TransformTestRunResult.parse(check.detail).tables).toSorted();
     }
 
-    const broken = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
+    const broken = await mb(["ci", "run", "--experimental", "--repo", repo.path, "--base", "main"]);
 
     expect(broken.exitCode).toBe(1);
     expect(eventsOf(broken.stdout)).toEqual(
@@ -483,7 +493,15 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
       JSON.stringify(totalsBody("+")),
     );
     expect(fixed.exitCode, fixed.stderr).toBe(0);
-    const passing = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
+    const passing = await mb([
+      "ci",
+      "run",
+      "--experimental",
+      "--repo",
+      repo.path,
+      "--base",
+      "main",
+    ]);
 
     expect(passing.exitCode, passing.stderr).toBe(0);
     expect(eventsOf(passing.stdout)).toEqual(

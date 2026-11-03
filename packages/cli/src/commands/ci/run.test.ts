@@ -57,7 +57,11 @@ afterEach(async () => {
   await repo.remove();
 });
 
-async function run(args: string[]): Promise<CliRun> {
+function run(args: string[]): Promise<CliRun> {
+  return runWithoutExperimental(["--experimental", ...args]);
+}
+
+async function runWithoutExperimental(args: string[]): Promise<CliRun> {
   let stdout = "";
   let stderr = "";
   vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
@@ -85,6 +89,19 @@ function events(output: string): CiEvent[] {
 }
 
 describe("ci run: exit codes", () => {
+  it("exits 2 without --experimental, and runs with it", async () => {
+    stubbed.value = "passed";
+
+    const without = await runWithoutExperimental(["--repo", repo.path, "--base", "main"]);
+    expect(without.exitCode).toBe(2);
+    expect(without.stdout).toBe("");
+    expect(without.stderr).toContain(
+      "`mb ci` is experimental; its flags, output and exit codes can change in any release.",
+    );
+    process.exitCode = undefined;
+    expect((await run(["--repo", repo.path, "--base", "main"])).exitCode).toBe(0);
+  });
+
   it("exits 0 for a job that passed", async () => {
     stubbed.value = "passed";
 
