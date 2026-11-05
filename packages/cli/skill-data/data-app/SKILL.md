@@ -78,7 +78,7 @@ The preview reads `DATA_APP_MB_URL` and an admin `DATA_APP_MB_API_KEY` from `<re
   [ -n "$KEY" ] && [ "$KEY" != null ] && printf 'DATA_APP_MB_URL=%s\nDATA_APP_MB_API_KEY=%s\n' "$URL" "$KEY" > <repo>/.env.local && echo written )
 ```
 
-Group `2` is Administrators. Never print `.env.local`. Delete the key at handoff, when you finish and give the app back to the user (`mb api-key list --profile <name>`, then `mb api-key delete <id> --yes --profile <name>`), and stop `npm run dev` with it: the preview can't reach Metabase once the key is gone. The next session writes a new one. Metabase allows any localhost origin unless `MB_DISABLE_CORS_ON_LOCALHOST` is set, so a CORS error from the preview means it is: ask the user to unset it on this instance. Otherwise check `DATA_APP_MB_URL`.
+Group `2` is Administrators. Never print `.env.local`. Delete the key at handoff, when you finish and give the app back to the user (`mb api-key list --profile <name>`, then `mb api-key delete <id> --yes --profile <name>`), and stop `npm run dev` with it: the preview can't reach Metabase once the key is gone. The next session writes a new one. When the preview can't reach Metabase, the diagnostics feed says why: `connection.reachable: false` means nothing answers at `DATA_APP_MB_URL`, and an `sdk-call` answered `401` means the key in `.env.local` is wrong or deleted. A CORS error from the preview means `MB_DISABLE_CORS_ON_LOCALHOST` is set on the instance, since Metabase otherwise allows any localhost origin: ask the user to unset it.
 
 ### The diagnostics feed
 
@@ -106,7 +106,8 @@ curl -s "http://localhost:5174/__data-app/diagnostics?startEventId=0"
   "buildId": 7, // the bundle running now
   "staleEntries": 164, // withheld: reported by a build already replaced
   "nextEventId": 32, // pass back as ?startEventId=
-  // also connection, sessionId, lastReportAt and lastRebuildAt, for diagnosing the feed itself
+  "connection": { "metabaseUrl": "http://localhost:3000", "reachable": true, "error": null }, // whether Metabase answers the preview
+  // also sessionId, lastReportAt and lastRebuildAt, for diagnosing the feed itself
 }
 ```
 
@@ -148,7 +149,7 @@ A viewer needs one of their groups assigned to the app (otherwise "You don't hav
 | The app still runs the old bundle                                                 | `dist/index.js` isn't in the pushed commit, or the push wasn't imported: build, commit, push, import.                                 |
 | Works in the preview, a question or action fails in Metabase                      | `generate-queries` or `generate-actions` didn't run after the last change, or the files weren't committed with the bundle: _Release_. |
 | Blank app, `Bundle did not assign a function to __dataAppFactory__`               | `src/index.tsx` must `export default` the factory and nothing else; otherwise the diagnostics feed has the real error.                |
-| "Failed to fetch the user, the session might be invalid."                         | A bad key in `<repo>/.env.local`, or CORS (_Dev preview_).                                                                            |
+| "Failed to fetch the user, the session might be invalid."                         | A wrong or deleted key in `<repo>/.env.local`, or CORS (_Dev preview_).                                                               |
 | The app stays on loading; the terminal says "Failed to load Embedding SDK bundle" | No `<repo>/.env.local`, or a wrong `DATA_APP_MB_URL` in it (_Dev preview_).                                                           |
 | A bundle of several MB                                                            | `vite.config.ts` doesn't use `dataAppConfig()`, or the SDK isn't the tag `mb data-app sdk-version` answers.                           |
 | "Invalid hook call"                                                               | A second React got bundled: nothing may add another `react` or `react-dom`.                                                           |
