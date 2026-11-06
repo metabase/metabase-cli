@@ -143,6 +143,7 @@ export const METHOD_REQUIREMENTS = {
   "segment.create": [],
   "segment.update": [],
   "segment.archive": [],
+  "session.properties": [],
   "setting.list": [],
   "setting.get": [],
   "setting.set": [],

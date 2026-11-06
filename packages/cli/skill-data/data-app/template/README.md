@@ -7,12 +7,16 @@ and the `mb` data-app skills.
 ## Install
 
 Install the SDK tag matching the Metabase instance first, then the rest.
-`<major>` is 66 for a version tag v1.66.x (`mb auth status --profile <name> --json | jq -r .version.tag`);
-`package.json` asks for any version, which would install `latest`.
+`mb data-app sdk-version` answers that tag from the instance's version, and
+installing it writes the version it points at into `package.json` (`^0.65.1`),
+in place of the `*` the template ships with or any version set before. A plain
+`npm install` would install `latest` for the `*`, so the commands stop when
+`sdk-version` fails.
 
 ```bash
-npm install @metabase/embedding-sdk-react@<major>-beta
-npm install
+TAG=$(mb data-app sdk-version --profile <name> --registry "$(npm config get registry)" --format text) &&
+  npm install "@metabase/embedding-sdk-react@$TAG" &&
+  npm install
 ```
 
 ## Commands

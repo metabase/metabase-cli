@@ -10,6 +10,7 @@ import type { FeatureName } from "@metabase/client/version/features";
 import { createServerProfile, type ServerProfile } from "@metabase/client/version/profile";
 import type { RequirementFailure } from "@metabase/client/version/capability-error";
 import { checkFeatures } from "@metabase/client/version/requirement-check";
+import { describeVersion, type ReleaseVersion } from "@metabase/client/version/tag";
 
 import { readBootstrapSync } from "./bootstrap-data";
 import { resolveStackId } from "./defaults";
@@ -92,6 +93,29 @@ export function requireServerWithout(
   const reason = `this server has ${features.join(", ")}, so it cannot show how one without them answers`;
   recordGateSkip(lane, reason);
   return reason;
+}
+
+const DEVELOPMENT_BUILD_REASON = "this server is a development build, which names no release";
+
+// Gate for a lane pinning what the CLI derives from the server's release number, which only a
+// release has.
+export function requireRelease(lane: string): string | null {
+  if (readBootstrapSync().server.version.kind === "release") {
+    return null;
+  }
+  recordGateSkip(lane, DEVELOPMENT_BUILD_REASON);
+  return DEVELOPMENT_BUILD_REASON;
+}
+
+// The release this stack runs, for a lane `requireRelease` let through.
+export function stackRelease(): ReleaseVersion {
+  const { version } = readBootstrapSync().server;
+  if (version.kind !== "release") {
+    throw new Error(
+      `this stack runs ${describeVersion(version)}, not a release: gate the lane with requireRelease`,
+    );
+  }
+  return version;
 }
 
 const OAUTH_UNSUPPORTED_REASON =
