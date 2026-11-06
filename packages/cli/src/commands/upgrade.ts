@@ -3,7 +3,7 @@ import { z } from "zod";
 import { AbortError, UnknownError } from "@metabase/client/errors";
 
 import packageJson from "../../package.json" with { type: "json" };
-import { fetchNpmDistTags, type FetchDistTagsOptions } from "../core/npm-registry";
+import { fetchNpmDistTags } from "../core/npm-registry";
 import {
   buildInstallCommand,
   detectInstallMethod,
@@ -13,14 +13,13 @@ import {
   type InstallMethod,
 } from "../core/install-method";
 import { compareSemver, SemverString } from "../core/semver";
-import { USER_AGENT } from "../core/user-agent";
 import { renderItem, writeText } from "../output/render";
 import { promptConfirm } from "../output/prompt";
 import type { RenderOptions } from "../output/types";
 import type { ResourceView } from "../output/view";
-import { interruptSignal } from "../runtime/interrupt";
 import { streamProcess } from "../runtime/process";
 import { outputFlags } from "./flags";
+import { distTagsOptions, registryFlag } from "./registry-flag";
 import { defineMetabaseCommand } from "./runtime";
 
 const UpgradeCommandSchema = z.object({
@@ -76,10 +75,7 @@ export default defineMetabaseCommand({
       type: "string",
       description: "Target version (default: latest published)",
     },
-    registry: {
-      type: "string",
-      description: "npm registry URL (default: https://registry.npmjs.org)",
-    },
+    ...registryFlag,
   },
   outputSchema: UpgradeStatus,
   examples: [
@@ -94,7 +90,7 @@ export default defineMetabaseCommand({
     const currentVersion = SemverString.parse(packageJson.version);
     const install = detectInstallMethod(process.argv[1]);
     const distTags = await fetchNpmDistTags(packageName, distTagsOptions(args.registry));
-    const latestVersion = SemverString.parse(distTags.latest);
+    const latestVersion = distTags.latest;
     const targetVersion = resolveTargetVersion(args.to, latestVersion);
     const updateAvailable = compareSemver(currentVersion, latestVersion) < 0;
     const changeRequired = compareSemver(currentVersion, targetVersion) !== 0;
@@ -142,14 +138,6 @@ export default defineMetabaseCommand({
     }
   },
 });
-
-function distTagsOptions(registryArg: string | undefined): FetchDistTagsOptions {
-  const registry = registryArg?.trim();
-  if (registry === undefined || registry === "") {
-    return { userAgent: USER_AGENT, signal: interruptSignal };
-  }
-  return { userAgent: USER_AGENT, registry, signal: interruptSignal };
-}
 
 function resolveTargetVersion(toArg: string | undefined, latestVersion: string): string {
   const trimmed = toArg?.trim();

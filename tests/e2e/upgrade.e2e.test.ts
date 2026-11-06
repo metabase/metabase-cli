@@ -1,88 +1,22 @@
-import { createServer, type Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { parseJson } from "@metabase/client/json";
 
 import packageJson from "../../packages/cli/package.json" with { type: "json" };
 import { UpgradeStatus } from "../../packages/cli/src/commands/upgrade";
+import { type RegistryFixture, startRegistryFixture } from "./registry-fixture";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-
-interface RegistryFixture {
-  url: string;
-  setDistTags: (tags: Record<string, string>) => void;
-  setStatus: (status: number, body?: string) => void;
-  reset: () => void;
-}
-
-function startRegistryFixture(): Promise<{ fixture: RegistryFixture; close: () => Promise<void> }> {
-  let distTags: Record<string, string> = { latest: packageJson.version };
-  let status = 200;
-  let body: string | null = null;
-
-  const server: Server = createServer((_req, res) => {
-    res.statusCode = status;
-    res.setHeader("content-type", "application/json");
-    res.end(body ?? JSON.stringify(distTags));
-  });
-
-  return new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (address === null || typeof address === "string") {
-        reject(new Error("server.address() did not return AddressInfo"));
-        return;
-      }
-      const info: AddressInfo = address;
-      const url = `http://127.0.0.1:${info.port}`;
-      const fixture: RegistryFixture = {
-        url,
-        setDistTags: (tags) => {
-          distTags = tags;
-          body = null;
-          status = 200;
-        },
-        setStatus: (next, nextBody) => {
-          status = next;
-          body = nextBody ?? null;
-        },
-        reset: () => {
-          distTags = { latest: packageJson.version };
-          body = null;
-          status = 200;
-        },
-      };
-      resolve({
-        fixture,
-        close: () =>
-          new Promise<void>((resolveClose, rejectClose) => {
-            server.close((error) => {
-              if (error) {
-                rejectClose(error);
-                return;
-              }
-              resolveClose();
-            });
-          }),
-      });
-    });
-  });
-}
 
 describe("upgrade e2e", () => {
   let fixture: RegistryFixture;
-  let closeFixture: () => Promise<void>;
   const tempDirs: string[] = [];
 
   beforeAll(async () => {
-    const handle = await startRegistryFixture();
-    fixture = handle.fixture;
-    closeFixture = handle.close;
+    fixture = await startRegistryFixture({ latest: packageJson.version });
   });
 
   afterAll(async () => {
-    await closeFixture();
+    await fixture.close();
   });
 
   afterEach(async () => {
@@ -172,7 +106,7 @@ describe("upgrade e2e", () => {
     expect(result.stdout).toBe("");
   });
 
-  it("registry HTTP 500 surfaces as exit 1 with the HttpError message", async () => {
+  it("registry HTTP 500 surfaces as exit 1 with the registry's answer", async () => {
     fixture.setStatus(500, JSON.stringify({ error: "registry exploded" }));
     const result = await runCli({
       args: ["upgrade", "--check", "--json", "--registry", fixture.url],

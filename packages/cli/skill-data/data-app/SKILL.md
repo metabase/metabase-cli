@@ -46,22 +46,24 @@ From the repository root, `scaffold <slug>` copies the Vite + React + TypeScript
 `data_app.yaml` is the app's manifest. Edit `name` (the title Metabase shows: the one the user gave the app, or a short one that says what it's for), `description` and `allowed_hosts` (a YAML list of origins, `data-app-ui`, _External APIs_) in it directly; never change `entity_id`, `slug`, `path`, `version` or `collection`. Then install the SDK, then the rest:
 
 ```bash
-cd data_apps/sales-overview
-npm install @metabase/embedding-sdk-react@<major>-beta   # <major>: 66 for a version tag v1.66.x (`mb auth status --profile <name> --json | jq -r .version.tag`)
-npm install && npm run typecheck
+cd data_apps/sales-overview &&
+  TAG=$(mb data-app sdk-version --profile <name> --registry "$(npm config get registry)" --format text) &&
+  npm install "@metabase/embedding-sdk-react@$TAG" &&
+  npm install && npm run typecheck
 ```
 
-Install the SDK before the first `npm install`, which would otherwise install `latest` for the template's `*`. The starter renders "Hello, data app".
+`mb data-app sdk-version` reads the instance's version and, from the registry `npm install` uses, answers the SDK tag published for that Metabase major: its stable tag, or while it has none, its beta, then its alpha. Installing the tag writes the version it points at into `package.json` (`^0.65.1`), in place of the template's `*` or any version an existing project named. Run the block as one command: it stops at the first failure, so a refused tag installs nothing, where a plain `npm install` would install `latest` for the template's `*`. Never install a tag you picked yourself. When `package.json` already points the SDK at a local build (`file:` or `link:`), run only `npm install && npm run typecheck`. `sdk-version` fails on a development build (`vUNKNOWN`, `vLOCAL_DEV`, a `-SNAPSHOT` tag), which no published SDK matches: ask the user which SDK build to install. On any other failure, stop and tell the user what it says. The starter renders "Hello, data app".
 
 The template is the bundle contract. Don't edit `package.json` by hand, and never rewrite `vite.config.ts`, `tsconfig.json` or `src/index.tsx`: `vite.config.ts` stays `export default dataAppConfig()` (its only option is `port`), and `src/index.tsx` default-exports the `DataAppFactory` — change it only to add a `providerProps` key. Metabase and the dev preview each wrap the app in a `<MetabaseProvider>`, so the app never renders one.
 
-**An existing project.** Before changing an app you didn't scaffold in this session, pass three checks:
+**An existing project.** Before changing an app you didn't scaffold in this session, pass four checks:
 
 - `vite.config.ts` is `export default dataAppConfig()` from `@metabase/embedding-sdk-react/data-app-dev/config`, with no local `config/` directory.
 - `src/index.tsx` default-exports a `DataAppFactory` that takes no arguments and returns `{ component, providerProps? }`.
 - `npm ls react react-dom` exits 0 and reports 19.x. A 19.x it marks `invalid` fails. This check applies whatever the instance or SDK version; to skip it, ask the user first.
+- `npm ls @metabase/embedding-sdk-react` exits 0 and reports a version on the same `0.<major>` line, with the same pre-release label (`-beta`, `-alpha` or none), as the `version` in `mb data-app sdk-version --profile <name> --registry "$(npm config get registry)" --json`: for `0.65.1`, any `0.65.x` with no label passes and `0.65.0-beta.1` fails. Skip the check when `package.json` points the SDK at a local build (`file:` or `link:`), or `sdk-version` fails on a development build; on any other `sdk-version` failure, stop and tell the user what it says.
 
-Fix a failed React check yourself, before any other change: upgrade `react`, `react-dom`, `@types/react` and `@types/react-dom` to 19 until `npm run typecheck` passes and the diagnostics feed is clean (_Dev preview_); then release (_Release_). If either other check fails, stop: tell the user the project differs from the template, and ask whether to scaffold a fresh project and port the code over, or go on at their own risk.
+Fix a failed React or SDK check yourself, before any other change: for React, upgrade `react`, `react-dom`, `@types/react` and `@types/react-dom` to 19; for the SDK, run the install block in _Scaffold and install_. Go on until `npm run typecheck` passes and the diagnostics feed is clean (_Dev preview_); then release (_Release_). If either of the first two checks fails, stop: tell the user the project differs from the template, and ask whether to scaffold a fresh project and port the code over, or go on at their own risk.
 
 ## Dev preview
 
@@ -146,7 +148,7 @@ A viewer needs one of their groups assigned to the app (otherwise "You don't hav
 | Works in the preview, a question or action fails in Metabase        | `generate-queries` or `generate-actions` didn't run after the last change, or the files weren't committed with the bundle: _Release_. |
 | Blank app, `Bundle did not assign a function to __dataAppFactory__` | `src/index.tsx` must `export default` the factory and nothing else; otherwise the diagnostics feed has the real error.                |
 | "Failed to fetch the user, the session might be invalid."           | A bad key in `<repo>/.env.local`, or CORS (_Dev preview_).                                                                            |
-| A bundle of several MB                                              | `vite.config.ts` no longer uses `dataAppConfig()`, or the SDK isn't the `<major>-beta` tag.                                           |
+| A bundle of several MB                                              | `vite.config.ts` doesn't use `dataAppConfig()`, or the SDK isn't the tag `mb data-app sdk-version` answers.                           |
 | "Invalid hook call"                                                 | A second React got bundled: nothing may add another `react` or `react-dom`.                                                           |
 | Drill-through popups don't open                                     | The app renders its own `<MetabaseProvider>`: remove it.                                                                              |
 | An upgraded SDK still behaves like the old one                      | Vite caches it: stop `npm run dev`, delete `node_modules/.vite`, start again.                                                         |
