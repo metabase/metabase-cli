@@ -12,16 +12,16 @@ A data app writes through **table actions**: an insert, update or delete of one 
 ```ts
 import { defineAction } from "@metabase/embedding-sdk-react/data-app";
 
-import { schema } from "./metabase.schema";
+import { orders } from "./metabase.schema";
 
 export const updateOrder = defineAction({
   entityId: "J2mXq8sLb0vT5nYcW4kRd",
   kind: "row/update",
-  table: schema.tables.orders,
+  table: orders,
 });
 ```
 
-- `kind` is `row/create`, `row/update` or `row/delete`; `table` is a table of `schema` (`data-app-data`). The table needs exactly one primary key, and its database needs data actions turned on (_Data actions on the database_): settle both before writing the export. Show the user the table and kind and add it once they agree; a request that already names the write ("let me add a note") is that agreement.
+- `kind` is `row/create`, `row/update` or `row/delete`; `table` is a table of `src/metabase.schema.ts`, imported by its name, or `schema.tables.<table>` when the file exports only `schema`. The table needs exactly one primary key, and its database needs data actions turned on (_Data actions on the database_): settle both before writing the export. Show the user the table and kind and add it once they agree; a request that already names the write ("let me add a note") is that agreement.
 - `entityId` comes from `mb nano-id`, never invented; keep it when editing the export. The export's name is the action's name in Metabase.
 - There are no query actions and no SQL: a write a table action can't do (a computed value, several rows, a row matched by another column) is out of reach for the app — say so. Never copy an action from a data actions collection.
 - To drop an action, delete its export.

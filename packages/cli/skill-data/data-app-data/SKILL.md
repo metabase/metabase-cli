@@ -32,7 +32,7 @@ When the app needs a table or metric the Library lacks, stop: name what's missin
 cd <repo> && mb data-app generate-schema <slug> --profile <name>
 ```
 
-From the repository root, this writes `data_apps/<slug>/src/metabase.schema.ts`: the Library's published tables with their fields, segments and measures, and the Library's metrics, each keyed by its camelCased name, with its numeric ID. It exports `schema` (`import { schema } from "./metabase.schema"`). Fetch it again after the user publishes a table or changes its metadata, then `npm run typecheck`, which catches code still using a renamed or removed field. Never edit the file.
+From the repository root, this writes `data_apps/<slug>/src/metabase.schema.ts`: the Library's published tables with their fields, segments and measures, and the Library's metrics, each keyed by its camelCased name, with its numeric ID. Fetch it again after the user publishes a table or changes its metadata, then `npm run typecheck`, which catches code still using a renamed or removed table, metric or field. Never edit the file.
 
 The numeric IDs are that instance's, so the dev preview runs against it alone; a production build runs each question by its `entityId` instead, on every instance the app is imported to.
 
@@ -44,7 +44,7 @@ The file runs to thousands of lines. Every table, field, segment, measure and me
    grep -n -B2 -E 'type: "(table|segment|measure|metric)"' src/metabase.schema.ts
    ```
 
-   Choose the definitions from this list: `schema.tables.<table>.segments.<key>`, `schema.tables.<table>.measures.<key>`, `schema.metrics.<key>`.
+   Choose the definitions from this list. A table or metric listed as `export const <name> = {` is its own export: import the ones the app uses by that name (`import { orders, revenue } from "./metabase.schema"`), and reach a table's segments and measures as `orders.segments.<key>` and `orders.measures.<key>`. The bundle then holds only what the app imports, while `schema`, which the file also exports, holds every table and metric: never import it. A file whose tables and metrics are listed without `export const` (`orders: {`) exports only `schema`: there, write `schema.tables.<table>` and `schema.metrics.<key>` wherever the examples below import a table or metric by name.
 
 2. Read each table or metric the question uses from its line to the next line in the list: a table's fields, each with its metadata line, or a metric's dimensions.
 
@@ -60,9 +60,7 @@ import {
   orderBy,
 } from "@metabase/embedding-sdk-react/data-app";
 
-import { schema } from "./metabase.schema";
-
-const orders = schema.tables.orders;
+import { orders, reviews } from "./metabase.schema";
 
 export const revenueByMonth = defineQuery({
   entityId: "Vh3kq0wYc8TnS2aJm1LxR",
@@ -73,13 +71,13 @@ export const revenueByMonth = defineQuery({
 
 export const latestReviews = defineQuery({
   entityId: "pW9dE4uNq7Zb1fGhK3sTy",
-  source: schema.tables.reviews,
-  orderBys: [orderBy(schema.tables.reviews.fields.createdAt, "desc")],
+  source: reviews,
+  orderBys: [orderBy(reviews.fields.createdAt, "desc")],
   limit: 20,
 });
 ```
 
-- `source` is a table of `schema`; `aggregations`, `breakouts`, `filters`, `orderBys`, `limit` and `fields` (the columns to keep) take its fields, its segments and measures, and the metrics of `schema.metrics` as aggregations (`aggregations: [schema.metrics.revenue]`). A field that isn't the table's, or an operator its type doesn't take, fails to compile.
+- `source` is a table of `src/metabase.schema.ts`; `aggregations`, `breakouts`, `filters`, `orderBys`, `limit` and `fields` (the columns to keep) take its fields, its segments and measures, and the file's metrics as aggregations (`aggregations: [revenue]`). A field that isn't the table's, or an operator its type doesn't take, fails to compile.
 - The export's name is the question's name in Metabase, as written (`customerList`).
 - Each `entityId` comes from `mb nano-id` (`mb nano-id --count <n>` for several), never invented or copied. Keep an export's `entityId` when you edit it: a new one replaces the question with another.
 
@@ -174,7 +172,7 @@ const { query } = useMetabaseQueryObject(orderRows, {
 });
 ```
 
-- A column is `{ type: "column", name }` with a result column's `name`, or a field of `schema`; a wrong name, or an operator its type doesn't take, fails to compile. A date breakout takes a `unit` (`day`, `week`, `month`, `quarter`, `year`).
+- A column is `{ type: "column", name }` with a result column's `name`, or a table's field (`orders.fields.total`); a wrong name, or an operator its type doesn't take, fails to compile. A date breakout takes a `unit` (`day`, `week`, `month`, `quarter`, `year`).
 
   | Column type | Operators                                                                                                             |
   | ----------- | --------------------------------------------------------------------------------------------------------------------- |
