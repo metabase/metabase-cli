@@ -124,4 +124,4 @@ After a write succeeds, refetch every query on screen it could have changed: `aw
 
 ## Test
 
-Every form and button that runs an action gets a unit test that mocks the action, drives the inputs, and checks the parameters it sends and the refresh that follows, plus one with `mockDataAppActionError` for the error shown as it comes (`data-app-testing`, _Actions_). Then release the app (`data-app`, _Release_).
+Every form and button that runs an action gets a unit test that mocks the action, drives the inputs, and checks the parameters it sends and the refresh that follows, plus one with `mockDataAppActionError` for the error shown as it comes (`data-app-testing`, _Actions_). The page's Playwright spec opens each form and checks its fields, and submits it only when the user has said the app's database may be written to (`data-app-testing`, _End-to-end tests_). Then release the app (`data-app`, _Release_).
