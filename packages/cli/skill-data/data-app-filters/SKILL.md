@@ -1,6 +1,6 @@
 ---
 name: data-app-filters
-description: Build the filter controls of a Metabase data app — the filter contract, which cards a filter reaches, All by default, options from their own question, a searchable combobox for entities, date presets, `DateRangePopover` and `DateRangeCalendar` with labels from `useDateFormatter`, and a single-date picker. Triggers — "add a filter to the app", "filter the chart by date", "a date range picker", "filter by customer", "a dropdown of categories", "the filter doesn't change the chart", "the date shows the previous day". The query side — runtime clauses and their limits — is in `data-app-data`.
+description: Build the filter controls of a Metabase data app — the filter contract, which cards a filter reaches, All by default, options from their own question, a searchable combobox for entities, date presets, `DateRangePopover` and `DateRangeCalendar` with labels from `useDateFormatter`, and a single-date picker. Triggers — "add a filter to the app", "filter the chart by date", "a date range picker", "filter by customer", "a dropdown of categories", "the filter doesn't change the chart", "the date shows the previous day". The query side — runtime clauses and their limits — is in `data-app-data`; tests are `data-app-testing`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 requires: [dataApps]
 ---
@@ -21,7 +21,7 @@ Before any control, write one row per filter: the question that gives its option
 - A filter in the page's global bar changes every panel that can take it. One that can't reach a panel is scoped to its section, visibly, or left out. A KPI and its detail table about the same thing take the same filters, unless the UI says why not.
 - A KPI on an aggregated question shows one complete bucket (`data-app-data`, _Runtime clauses_): it gets its own control of one-bucket presets starting at the last complete bucket, never All time, rather than a shared bar's ranges.
 - One date control per scope. Never a global date range beside a page-specific date where one of the two does nothing; a page whose cards use another date column gets one control for that column.
-- Build each panel's clauses from its own question's columns, inline at its hook call. Never reuse an array built for another question.
+- Build each panel's clauses from its own question's columns, as a function of the filter state in the panel's `<Component>.query.ts` (`data-app-data`, _Runtime clauses_). Never reuse clauses built for another question.
 
 ## Values and options
 
@@ -57,7 +57,7 @@ import { DateRangePopover, filter, useDateFormatter } from "@metabase/embedding-
 const { formatDateRange } = useDateFormatter();
 const [range, setRange] = useState<[string | null, string | null]>([null, null]);
 const [start, end] = range;
-// at the hook: filters: start && end ? [filter({ type: "column", name: "CREATED_AT" }, "between", [start, end])] : []
+// in the panel's .query.ts: filters: start && end ? [filter({ type: "column", name: "CREATED_AT" }, "between", [start, end])] : []
 
 <DateRangePopover value={range} onChange={setRange}>
   <button className="filter-button">{formatDateRange(range) || "Custom"}</button>
@@ -92,4 +92,6 @@ const lastCompleteMonths = (n: number): [string, string] => {
 
 ## Check
 
-For every visible filter except a KPI's own date control: All runs the unfiltered question, or its All question; its options come from a question; each option changes every panel the contract says it reaches, and no other; a preset bar ends with Custom unless it filters an aggregated question; and no scope has two date controls. Search the filter controls for `<select` and `type="date"` — an action form keeps its date inputs. Then release the app (`data-app`, _Release_).
+For every visible filter except a KPI's own date control: All runs the unfiltered question, or its All question; its options come from a question; each option changes every panel the contract says it reaches, and no other; a preset bar ends with Custom unless it filters an aggregated question; and no scope has two date controls. Search the filter controls for `<select` and `type="date"` — an action form keeps its date inputs.
+
+Every filter gets a unit test: its options question mocked, and each panel it reaches mocked with that panel's clauses for All and for one picked value, checking the panel shows that value's rows after the pick (`data-app-testing`, _Runtime clauses_). The page's Playwright spec picks a value in each filter and checks that a panel it reaches changes (`data-app-testing`, _End-to-end tests_). Then release the app (`data-app`, _Release_).

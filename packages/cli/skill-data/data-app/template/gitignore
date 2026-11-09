@@ -2,3 +2,6 @@ node_modules
 .env.local
 .vite
 .idea
+.scratch
+test-results
+playwright-report

@@ -1,6 +1,6 @@
 ---
 name: data-app-actions
-description: Make a Metabase data app write data — a table action that inserts, updates or deletes a row of a published table, defined with `defineAction` in `src/metabase.actions.ts`, and the `useAction` hook from `@metabase/embedding-sdk-react/data-app` behind a form or a button, with inputs typed from each parameter, the server's error shown as it comes, and every affected query refreshed. Triggers — "a form that saves a row", "a button that updates a record", "delete an entry from the app", "submit doesn't refresh the list", "the action fails in the app". Reads are `data-app-data`.
+description: Make a Metabase data app write data — a table action that inserts, updates or deletes a row of a published table, defined with `defineAction` in `src/metabase.actions.ts`, and the `useAction` hook from `@metabase/embedding-sdk-react/data-app` behind a form or a button, with inputs typed from each parameter, the server's error shown as it comes, and every affected query refreshed. Triggers — "a form that saves a row", "a button that updates a record", "delete an entry from the app", "submit doesn't refresh the list", "the action fails in the app". Reads are `data-app-data`; tests are `data-app-testing`.
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 requires: [dataApps]
 ---
@@ -122,4 +122,6 @@ After a write succeeds, refetch every query on screen it could have changed: `aw
 3. The screen doesn't update: see _Refresh_.
 4. It works in the preview but not in Metabase: the app was released without running `mb data-app generate-actions` (`data-app`, _Release_).
 
-Then release the app (`data-app`, _Release_).
+## Test
+
+Every form and button that runs an action gets a unit test that mocks the action, drives the inputs, and checks the parameters it sends and the refresh that follows, plus one with `mockDataAppActionError` for the error shown as it comes (`data-app-testing`, _Actions_). The page's Playwright spec opens each form and checks its fields, and submits it only when the user has said the app's database may be written to (`data-app-testing`, _End-to-end tests_). Then release the app (`data-app`, _Release_).
