@@ -19,16 +19,10 @@ export function lintPort(client: MetabaseClient): LintStagePort {
   };
 }
 
-// The coverage checks, which need no server, then the instance's saved queries. The stage connects
-// only once coverage has reported.
-export function lintStage(coverage: CiStage, connect: () => Promise<LintStagePort>): CiStage {
+export function lintStage(connect: () => Promise<LintStagePort>): CiStage {
   return {
-    name: coverage.name,
+    name: "lint",
     run: async (report) => {
-      const stopped = await coverage.run(report);
-      if (stopped !== null) {
-        return stopped;
-      }
       try {
         const port = await connect();
         const started = port.nowMs();

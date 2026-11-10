@@ -158,7 +158,7 @@ async function checkTransform(
   if (tests.kind !== "settled") {
     return reportFailure(tests, transformCheck, port.nowMs() - started, report);
   }
-  // A transform the branch has no test for is the coverage check's to report.
+  // A transform the branch has no test for has nothing to run, so it reports nothing.
   if (tests.value.length === 0 && !untestedInBranch) {
     report({
       check: transformCheck,

@@ -180,11 +180,9 @@ describe("runStages", () => {
       name: "lint",
       run: async (report) => {
         report({
-          check: { kind: "coverage", id: "untouched", label: "untouched transforms" },
+          check: { kind: "broken-refs", id: "Cd7kW2pLmX7sYb4nC8dE1", label: 'card "Revenue"' },
           verdict: "passed",
-          warnings: [
-            { code: "no-tests-untouched", message: "2 untouched transforms have no tests" },
-          ],
+          warnings: [{ code: "validation-exception-error", message: "The analysis failed" }],
           ms: 1,
           detail: null,
         });
