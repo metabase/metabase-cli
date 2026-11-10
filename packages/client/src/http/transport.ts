@@ -80,11 +80,11 @@ export interface Transport {
   // is the client's and is cancelled only by the client's own signal, so a later call still finds
   // it settled.
   server(options?: WaitOptions): Promise<ServerProfile>;
-  // A profile this client probed itself, never one handed in, for a verdict the server cannot give:
-  // a profile cached before an upgrade or a license change would refuse what the server allows.
-  // Every caller shares the newest probe started, in flight or settled. When it fails short of an
-  // interrupt, the newest answer this client applied stands in for it, or else the failure does;
-  // a call finding no probe and no answer starts one.
+  // A profile this client probed itself, or one handed in as `trustedServer`, never a `server`
+  // handed in, for a verdict the server cannot give: a profile cached before an upgrade or a license
+  // change would refuse what the server allows. Every caller shares the newest probe started, in
+  // flight or settled. When it fails short of an interrupt, the newest answer this client applied
+  // stands in for it, or else the failure does; a call finding no probe and no answer starts one.
   verifiedServer(options?: WaitOptions): Promise<ServerProfile>;
   // The session properties read afresh, as a probe `server` and `verifiedServer` then share, and
   // handed to this caller alone through `reader`, so a resource needing a setting they carry pays
@@ -96,10 +96,10 @@ export interface Transport {
   probe<T extends SessionProperties>(reader: ZodType<T>, options?: ProbeReadOptions): Promise<T>;
   // Refuses with `CapabilityError`, through `refuseBeforeSending`, for features a method needs only
   // because of the parameters it was handed, where a server without them would drop the parameter
-  // and answer as if it had never been sent. Judged against `preflightServer`, never a profile
-  // handed in: a cache that outlived a license would pass a parameter the server now drops, which
-  // is the silent answer this check exists to prevent. An empty list resolves without consulting
-  // the server.
+  // and answer as if it had never been sent. Judged against `preflightServer`, never a cached
+  // profile: a cache that outlived a license would pass a parameter the server now drops, which is
+  // the silent answer this check exists to prevent. An empty list resolves without consulting the
+  // server.
   requireFeatures(features: readonly FeatureName[], options?: WaitOptions): Promise<void>;
   // The profile a refusal before the wire judges by: `verifiedServer`, unless it fails short of an
   // interrupt while the caller skips such refusals (`onPreflightSkipped`). Then the caller is told
@@ -116,9 +116,28 @@ export interface Transport {
   // none, so a caller about to exit has seen every answer `onServerProbed` will be handed. Each
   // probe is bounded by its own timeout and the client's signal, and so is the wait.
   probesSettled(): Promise<void>;
+  // A transport sharing this one's credential, its refresh, and its server profile and probes,
+  // whose requests carry their own user agent, end with its signal as well as this one's, and pass
+  // its guard after this one's. A probe is the shared client's and runs as the transport made by
+  // `createTransport`, so a profile one transport settles is every derived one's.
+  with(options: DerivedClientOptions): Transport;
+  // What ends this client's work: a wait a resource runs on a call's behalf ends with it, as every
+  // request does.
+  readonly signal: AbortSignal | undefined;
 }
 
 export type WaitOptions = Pick<RequestOptions, "signal">;
+
+// A request a guard is shown before it is sent: its method and its path below the server's URL,
+// without the query string.
+export interface GuardedRequest {
+  method: HttpMethod;
+  path: string;
+}
+
+export type RequestGuard = (request: GuardedRequest) => void;
+
+export type ErrorObserver = (error: unknown) => void;
 export type ProbeReadOptions = Pick<RequestOptions, "signal" | "timeoutMs" | "retries">;
 
 // A check before the wire the caller skipped: one that would have refused, with the error it would
@@ -165,6 +184,14 @@ export interface ClientCredentials {
 
 type FetchBody = NonNullable<RequestInit["body"]>;
 
+// One client's identity on the transport it shares: the name its requests carry, what cancels them,
+// and the guards each passes before it is sent, outermost first.
+interface ClientScope {
+  userAgent: string;
+  signal: AbortSignal | undefined;
+  guards: readonly RequestGuard[];
+}
+
 interface PreparedRequest {
   url: string;
   method: HttpMethod;
@@ -184,14 +211,26 @@ interface ExecOutcome {
 
 export type ServerTagResolver = () => Promise<string | null>;
 
+// A profile the caller already holds, so the client never asks the server what the caller can tell
+// it. A `server` may be a cache that outlived an upgrade or a license change, so it chooses how a
+// read is shaped but never decides a refusal: the client probes before judging by it. A
+// `trustedServer` is one the caller probed itself for this client's lifetime and vouches for, so
+// the client takes it as its own probe's answer and judges by it without asking again.
+interface CachedServerOption {
+  server?: ServerProfile;
+  trustedServer?: never;
+}
+
+interface TrustedServerOption {
+  trustedServer: ServerProfile;
+  server?: never;
+}
+
 // `userAgent` is required so every request names the application making it: the wire identity is
 // the caller's to declare, not something this layer invents on their behalf.
-export interface ClientOptions {
+interface ClientSettings {
   userAgent: string;
   fetchImpl?: typeof fetch;
-  // A profile the caller already holds — from its own cache, or from a probe it ran to verify the
-  // credential — so the client never asks the server what the caller can tell it.
-  server?: ServerProfile;
   // Names the server in an HTTP error, and in a shape error read with no profile in force. Defaults
   // to the tag of the profile in force; a caller that resolves the tag some other way passes its
   // own. A shape error read under a profile names that profile, the one its reader was chosen for.
@@ -219,7 +258,22 @@ export interface ClientOptions {
   // Cancels every request this client makes; composed with the per-request `signal` and the
   // timeout. A process-level interrupt is the caller's to own and to hand over here.
   signal?: AbortSignal;
+  // Shown every request this client sends, before it is sent, and may refuse it by throwing: what
+  // it throws reaches the caller as thrown, never wrapped. A request sent again, a retry or the
+  // resend after a credential refresh, is not shown twice.
+  guard?: RequestGuard;
+  // Shown every error a call on this client raises, before the caller sees it. It is not awaited;
+  // one that throws fails the call with its own error.
+  onError?: ErrorObserver;
 }
+
+export type ClientOptions = ClientSettings & (CachedServerOption | TrustedServerOption);
+
+// What a client derived with `with` sets for itself. The user agent replaces its parent's; the
+// signal, the guard and the error observer add to its parent's, its own running first.
+export type DerivedClientOptions = Partial<
+  Pick<ClientSettings, "userAgent" | "signal" | "guard" | "onError">
+>;
 
 export function createTransport(config: ClientCredentials, options: ClientOptions): Transport {
   const baseUrl = normalizeUrl(config.url);
@@ -228,13 +282,20 @@ export function createTransport(config: ClientCredentials, options: ClientOption
   // The profile in force: the newest probe answer this client applied, else the one handed in.
   // Errors name it without awaiting a pending probe, because a shape error inside the probe would
   // wait on itself.
-  let inForce: ServerProfile | null = options.server ?? null;
+  let inForce: ServerProfile | null = options.trustedServer ?? options.server ?? null;
   // This client's newest probe started, in flight or settled, and dropped when it fails.
   let newest: Promise<Probed> | null = null;
   let probesStarted = 0;
-  let applied: AppliedProbe | null = null;
+  // A trusted profile stands as the answer of a probe started before any of this client's own.
+  let applied: AppliedProbe | null =
+    options.trustedServer === undefined ? null : { order: 0, profile: options.trustedServer };
   const inFlight = new Set<Promise<Probed>>();
   const getServerTag = options.getServerTag ?? (async () => tagOf(inForce));
+  const rootScope: ClientScope = {
+    userAgent: options.userAgent,
+    signal: options.signal,
+    guards: options.guard === undefined ? [] : [options.guard],
+  };
   const refreshCredential = options.refreshCredential;
   let credential = config.credential;
   const knownSecrets = new Set(credentialSecrets(credential));
@@ -352,14 +413,19 @@ export function createTransport(config: ClientCredentials, options: ClientOption
   async function executeWithAuthRefresh(
     path: string,
     opts: TransportRequestOptions,
+    scope: ClientScope,
   ): Promise<ExecOutcome> {
-    const prepared = prepare(path, opts);
+    const prepared = prepare(path, opts, scope);
+    const guarded: GuardedRequest = { method: prepared.method, path: absolutePath(path) };
+    for (const guard of scope.guards) {
+      guard(guarded);
+    }
     try {
       return { response: await executeRaw(prepared), prepared };
     } catch (error) {
       if (error instanceof HttpError && error.status === UNAUTHORIZED_STATUS) {
         if (await tryRefreshCredential()) {
-          const retried = prepare(path, opts);
+          const retried = prepare(path, opts, scope);
           return { response: await executeRaw(retried), prepared: retried };
         }
       }
@@ -367,7 +433,11 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     }
   }
 
-  function prepare(path: string, opts: TransportRequestOptions = {}): PreparedRequest {
+  function prepare(
+    path: string,
+    opts: TransportRequestOptions,
+    scope: ClientScope,
+  ): PreparedRequest {
     const method = opts.method ?? DEFAULT_METHOD;
     const expectContentType = opts.expectContentType ?? "json";
     const url = buildUrl(baseUrl, path, opts.query);
@@ -377,7 +447,7 @@ export function createTransport(config: ClientCredentials, options: ClientOption
       headers.set(auth.name, auth.value);
     }
     headers.set("accept", acceptHeader(expectContentType));
-    headers.set("user-agent", options.userAgent);
+    headers.set("user-agent", scope.userAgent);
     let body: FetchBody | null = null;
     if (opts.body !== undefined && opts.body !== null) {
       if (typeof opts.body === "string" || opts.body instanceof URLSearchParams) {
@@ -401,18 +471,23 @@ export function createTransport(config: ClientCredentials, options: ClientOption
       retries: opts.retries ?? DEFAULT_MAX_RETRIES,
       idempotent: opts.idempotent ?? IDEMPOTENT_METHODS.has(method),
       timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-      cancelSignal: combineAborts(opts.signal, options.signal),
+      cancelSignal: combineAborts(opts.signal, scope.signal),
     };
   }
 
-  async function readJson(path: string, opts: TransportRequestOptions = {}): Promise<JsonRead> {
+  async function readJson(
+    path: string,
+    opts: TransportRequestOptions,
+    scope: ClientScope,
+  ): Promise<JsonRead> {
     // A resource chooses its reader by the profile in force just before it calls here, so a shape
     // error names that profile, whatever a probe settles while the request runs.
     const chosenFor = inForce;
-    const { response, prepared } = await executeWithAuthRefresh(path, {
-      ...opts,
-      expectContentType: "json",
-    });
+    const { response, prepared } = await executeWithAuthRefresh(
+      path,
+      { ...opts, expectContentType: "json" },
+      scope,
+    );
     return {
       text: await response.text(),
       context: {
@@ -436,7 +511,7 @@ export function createTransport(config: ClientCredentials, options: ClientOption
   // handed to the hook, unless a later-started probe has been applied already, so neither ever goes
   // back to an older answer, and an answer landing after a later probe failed still counts.
   async function runProbe(order: number, budget: ProbeOptions): Promise<Probed> {
-    const read = await readJson(PROBE_PATH, probeBudget(budget));
+    const read = await readJson(PROBE_PATH, probeBudget(budget), rootScope);
     const properties = await parseJsonResponse(read.text, SessionProperties, read.context);
     const info = serverInfoFromProperties(properties);
     const profile = createServerProfile(info);
@@ -569,37 +644,57 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     hook(skipped);
   }
 
-  const transport: Transport = {
-    server,
-    verifiedServer,
-    probe,
-    requireFeatures,
-    preflightServer,
-    refuseBeforeSending,
-    probesSettled,
-    async requestRaw(path, opts) {
-      return (await executeWithAuthRefresh(path, opts ?? {})).response;
-    },
-    async requestParsed(schema, path, opts) {
-      const read = await readJson(path, opts);
-      return parseJsonResponse(read.text, schema, read.context);
-    },
-    async requestStream(path, opts) {
-      const { response, prepared } = await executeWithAuthRefresh(path, {
-        ...opts,
-        expectContentType: opts?.expectContentType ?? "binary",
-      });
-      if (!response.body) {
-        throw new NetworkError("Response had no body to stream", {
-          method: prepared.method,
-          url: prepared.url,
-          cause: "missing body",
-        });
-      }
-      return response.body;
-    },
+  function scoped(scope: ClientScope): Transport {
+    // A wait on the shared profile also ends with this client's signal.
+    const within = <W extends WaitOptions>(wait: W): W =>
+      scope.signal === undefined
+        ? wait
+        : { ...wait, signal: combineAborts(wait.signal, scope.signal) };
+    return {
+      server: async (wait = {}) => server(within(wait)),
+      verifiedServer: async (wait = {}) => verifiedServer(within(wait)),
+      probe: async (reader, read = {}) => probe(reader, within(read)),
+      requireFeatures: async (features, wait = {}) => requireFeatures(features, within(wait)),
+      preflightServer: async (wait = {}) => preflightServer(within(wait)),
+      refuseBeforeSending,
+      probesSettled,
+      with: (derived) => scoped(derivedScope(scope, derived)),
+      signal: scope.signal,
+      async requestRaw(path, opts) {
+        return (await executeWithAuthRefresh(path, opts ?? {}, scope)).response;
+      },
+      async requestParsed(schema, path, opts) {
+        const read = await readJson(path, opts ?? {}, scope);
+        return parseJsonResponse(read.text, schema, read.context);
+      },
+      async requestStream(path, opts) {
+        const { response, prepared } = await executeWithAuthRefresh(
+          path,
+          { ...opts, expectContentType: opts?.expectContentType ?? "binary" },
+          scope,
+        );
+        if (!response.body) {
+          throw new NetworkError("Response had no body to stream", {
+            method: prepared.method,
+            url: prepared.url,
+            cause: "missing body",
+          });
+        }
+        return response.body;
+      },
+    };
+  }
+
+  return scoped(rootScope);
+}
+
+function derivedScope(parent: ClientScope, derived: DerivedClientOptions): ClientScope {
+  return {
+    userAgent: derived.userAgent ?? parent.userAgent,
+    signal:
+      derived.signal === undefined ? parent.signal : combineAborts(derived.signal, parent.signal),
+    guards: derived.guard === undefined ? parent.guards : [...parent.guards, derived.guard],
   };
-  return transport;
 }
 
 function skippedError(skipped: SkippedPreflight): MetabaseError {
@@ -622,13 +717,16 @@ function tagOf(profile: ServerProfile | null): string | null {
   return profile === null ? null : profile.version.tag;
 }
 
+function absolutePath(path: string): string {
+  return path.startsWith("/") ? path : `/${path}`;
+}
+
 function buildUrl(
   baseUrl: string,
   path: string,
   query: Record<string, QueryValue> | undefined,
 ): string {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const target = new URL(baseUrl + normalizedPath);
+  const target = new URL(baseUrl + absolutePath(path));
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value === undefined) {

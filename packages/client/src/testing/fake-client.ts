@@ -133,6 +133,8 @@ export function createFakeClient(plan: FakeClientPlan = {}): FakeClient {
       throw refusal;
     },
     async probesSettled() {},
+    with: () => client,
+    signal: undefined,
   };
   return { client, calls, requiredFeatures };
 }

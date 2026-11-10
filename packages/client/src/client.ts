@@ -1,4 +1,11 @@
-import { type ClientCredentials, type ClientOptions, createTransport } from "./http/transport";
+import {
+  type ClientCredentials,
+  type ClientOptions,
+  createTransport,
+  type DerivedClientOptions,
+  type ErrorObserver,
+  type Transport,
+} from "./http/transport";
 import { apiKeyResource } from "./resources/api-key";
 import { cardResource } from "./resources/card";
 import { collectionResource } from "./resources/collection";
@@ -47,11 +54,10 @@ import { userResource } from "./resources/user";
 import { workspaceInstanceResource } from "./resources/workspace-instance";
 import { workspaceManagerResource } from "./resources/workspace-manager";
 
-// The return type is left for inference on purpose: `MetabaseClient` is `ReturnType<typeof
-// createClient>`, so any annotation here would freeze the client at what that annotation names and
-// the resource namespaces composed onto it would be invisible to every consumer.
-export function createClient(config: ClientCredentials, options: ClientOptions) {
-  const transport = createTransport(config, options);
+// The return type is left for inference on purpose: `MetabaseClient` extends `ReturnType<typeof
+// surfaceOn>`, so any annotation here would freeze the client at what that annotation names and the
+// resource namespaces composed onto it would be invisible to every consumer.
+function surfaceOn(transport: Transport) {
   return {
     apiKey: apiKeyResource(transport),
     card: cardResource(transport),
@@ -110,4 +116,97 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
   };
 }
 
-export type MetabaseClient = ReturnType<typeof createClient>;
+type ClientSurface = ReturnType<typeof surfaceOn>;
+
+export interface MetabaseClient extends ClientSurface {
+  // A client on this one's transport: the same credential and server profile, so it probes nothing
+  // this one holds, with its own user agent, signal, guard and error observer.
+  with(options: DerivedClientOptions): MetabaseClient;
+}
+
+export function createClient(config: ClientCredentials, options: ClientOptions): MetabaseClient {
+  const observers = options.onError === undefined ? [] : [options.onError];
+  return clientOn(createTransport(config, options), observers);
+}
+
+function clientOn(transport: Transport, observers: readonly ErrorObserver[]): MetabaseClient {
+  const client: MetabaseClient = {
+    ...surfaceOn(transport),
+    with: (derived) => {
+      const inherited = derived.onError === undefined ? observers : [derived.onError, ...observers];
+      return clientOn(transport.with(derived), inherited);
+    },
+  };
+  return observers.length === 0 ? client : observed(client, observers);
+}
+
+// `surface` with every error a call on it raises shown to `observers` before its caller sees it: a
+// throw, a rejection, or a failure while walking an async iterable it answered. A namespace on it is
+// observed the same way, so the surface needs no list of the methods it carries.
+function observed<T extends object>(surface: T, observers: readonly ErrorObserver[]): T {
+  const namespaces = new Map<PropertyKey, object>();
+  return new Proxy(surface, {
+    get(target, property, receiver) {
+      const value: unknown = Reflect.get(target, property, receiver);
+      if (typeof value === "function") {
+        return (...args: unknown[]): unknown =>
+          observedCall(() => Reflect.apply(value, target, args), observers);
+      }
+      if (typeof value !== "object" || value === null) {
+        return value;
+      }
+      const known = namespaces.get(property);
+      if (known !== undefined) {
+        return known;
+      }
+      const namespace = observed(value, observers);
+      namespaces.set(property, namespace);
+      return namespace;
+    },
+  });
+}
+
+function observedCall(call: () => unknown, observers: readonly ErrorObserver[]): unknown {
+  let result: unknown;
+  try {
+    result = call();
+  } catch (error) {
+    throw shown(error, observers);
+  }
+  if (result instanceof Promise) {
+    return result.catch((error: unknown) => {
+      throw shown(error, observers);
+    });
+  }
+  if (isAsyncIterable(result)) {
+    return observedWalk(result, observers);
+  }
+  return result;
+}
+
+async function* observedWalk(
+  walk: AsyncIterable<unknown>,
+  observers: readonly ErrorObserver[],
+): AsyncGenerator<unknown> {
+  try {
+    yield* walk;
+  } catch (error) {
+    throw shown(error, observers);
+  }
+}
+
+function shown(error: unknown, observers: readonly ErrorObserver[]): unknown {
+  for (const observe of observers) {
+    observe(error);
+  }
+  return error;
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Symbol.asyncIterator in value &&
+    typeof value[Symbol.asyncIterator] === "function"
+  );
+}

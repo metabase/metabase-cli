@@ -62,10 +62,10 @@ type MethodName<N extends MethodNamespace> = NameIn<MethodKey, N>;
 // step is explained as it is thrown. The method alone sets the exposed signature, so `parameters`
 // is `NoInfer`: a callback reading fewer arguments must not drop the rest from it. `refuse` wraps
 // the exception, a method a server without its features would answer wrongly without a word: the
-// call is refused before the request, against a profile the client probed itself, and the server
-// never gets to refuse it, unless the caller skips such refusals, which the transport's
-// `refuseBeforeSending` decides. `refuseAfterReading` wraps such a method answering from the
-// session properties alone, which it is handed read afresh.
+// call is refused before the request, against a profile the client probed itself or was handed as
+// trusted, and the server never gets to refuse it, unless the caller skips such refusals, which the
+// transport's `refuseBeforeSending` decides. `refuseAfterReading` wraps such a method answering
+// from the session properties alone, which it is handed read afresh.
 export function explainer<N extends MethodNamespace>(transport: Transport, namespace: N) {
   function explain<A extends unknown[], R>(
     name: MethodName<N>,

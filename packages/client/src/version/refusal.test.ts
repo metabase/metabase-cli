@@ -66,6 +66,8 @@ function probingTransport(): { transport: Transport; reads: () => number } {
     preflightServer: notOnThisPath,
     refuseBeforeSending: notOnThisPath,
     probesSettled: notOnThisPath,
+    with: notOnThisPath,
+    signal: undefined,
   };
   return { transport, reads: () => reads };
 }
