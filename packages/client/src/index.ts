@@ -21,7 +21,7 @@ export type {
 } from "./http/transport";
 export type { ListResult } from "./list";
 
-export { HttpError, isHttpNotFound } from "./http/errors";
+export { HttpError, isHttpNotFound, SyncRefusedError } from "./http/errors";
 export type {
   FieldErrors,
   HttpErrorDetail,
