@@ -7,16 +7,18 @@ import { FEATURE_NAMES } from "./features";
 
 export const RequirementReason = z.enum([
   "version-too-old",
+  "version-too-new",
   "missing-token-feature",
   "superseded-by-feature",
 ]);
 export type RequirementReason = z.infer<typeof RequirementReason>;
 
 // The feature a client method needed and the profile lacked, with the rule that decided it, so a
-// consumer can explain the refusal without re-reading the feature table. `superseded-by-feature`
-// is the converse: the profile has the feature, which takes the value the call carried out of the
-// server's vocabulary. A schema rather than a
-// bare type because a consumer that reports the refusal in its own output wants to describe it.
+// consumer can explain the refusal without re-reading the feature table. `version-too-new` is a
+// server past the last major the feature holds on, which no upgrade answers.
+// `superseded-by-feature` is the converse of a lack: the profile has the feature, which takes the
+// value the call carried out of the server's vocabulary. A schema rather than a bare type because a
+// consumer that reports the refusal in its own output wants to describe it.
 export const RequirementFailure = z.object({
   reason: RequirementReason,
   detail: z.string(),
@@ -29,6 +31,10 @@ export type RequirementFailure = z.infer<typeof RequirementFailure>;
 
 export function versionTooOldMessage(since: number, serverVersion: string): string {
   return `This operation requires Metabase v${since}+ (this server is ${serverVersion}). Upgrade Metabase to use it.`;
+}
+
+export function versionTooNewMessage(until: number, serverVersion: string): string {
+  return `This operation is supported up to Metabase v${until} (this server is ${serverVersion}). This server is too new for it.`;
 }
 
 export function missingTokenFeatureMessage(tokenFeature: string): string {

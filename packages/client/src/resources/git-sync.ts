@@ -478,9 +478,9 @@ export function gitSyncResource(transport: Transport) {
   }
 
   /**
-   * Create a branch on the remote and point git-sync at it. Metabase 58 to 65 route it; the
-   * development line does not, and answers an `HttpError` of kind `route-missing`. There `stash`
-   * makes a branch, holding Metabase's content.
+   * Create a branch on the remote and point git-sync at it. Metabase 58 to 65 route it; a server
+   * from v66 does not, and answers an `HttpError` of kind `route-missing`. There `stash` makes a
+   * branch, holding Metabase's content.
    */
   async function createBranch(
     params: SyncCreateBranchParams,
@@ -581,7 +581,7 @@ export function gitSyncResource(transport: Transport) {
     params: SyncSettingsUpdateParams,
     options: RequestOptions = {},
   ): Promise<SyncSettingsUpdateResult> {
-    // A server without the setting, Metabase 58 and the development line, drops the key unread and
+    // A server without the setting, Metabase 58 and every one from v66, drops the key unread and
     // answers as if it had never been sent.
     if (params["remote-sync-transforms"] !== undefined) {
       await transport.requireFeatures(["remoteSyncTransformsSetting"], options);

@@ -87,7 +87,7 @@ describe("ruleGap", () => {
   });
 
   it("names the version past `until`", () => {
-    expect(ruleGap(gated, 63, { remote_sync: true })).toEqual({ kind: "version" });
+    expect(ruleGap(gated, 63, { remote_sync: true })).toEqual({ kind: "ended", until: 62 });
   });
 
   it("names the token the server does not grant once the major fits", () => {

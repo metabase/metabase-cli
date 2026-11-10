@@ -98,6 +98,7 @@ export {
   ruleGap,
 } from "./version/features";
 export type {
+  EndedGap,
   FeatureGap,
   FeatureName,
   FeatureRule,
