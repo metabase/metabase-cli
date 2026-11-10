@@ -32,6 +32,14 @@ export const FEATURE_RULES = {
   tablePublishTargetCollection: { since: 62 },
   remoteSync: { since: 58, tokenFeature: "remote_sync" },
   remoteSyncRemoteChanges: { since: 59, tokenFeature: "remote_sync" },
+  // The development line compares against the remote on every call and keeps no cache.
+  remoteSyncChangesCache: { since: 59, until: 65, tokenFeature: "remote_sync" },
+  remoteSyncTaskOutcome: { since: 63 },
+  // The development line names a changed item's collection in full instead of by id.
+  remoteSyncDirtyItemsByCollectionId: { since: 58, until: 65, tokenFeature: "remote_sync" },
+  remoteSyncImportNamesDirtyObjects: { since: 64, tokenFeature: "remote_sync" },
+  remoteSyncTestConnection: { since: 62, tokenFeature: "remote_sync" },
+  remoteSyncTaskHeartbeat: { since: 65 },
   remoteSyncCollectionsOnlyUpdate: { since: 60 },
   remoteSyncExportPreflight: { since: 63, tokenFeature: "remote_sync" },
   remoteSyncBranchGuard: { since: 63 },
