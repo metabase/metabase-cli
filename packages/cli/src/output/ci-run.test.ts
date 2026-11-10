@@ -13,8 +13,8 @@ import { parseJson } from "@metabase/client/json";
 import { type CiEventBody, CiEvent, createEmitter } from "../core/ci-events";
 import { DEFAULT_MAX_ROWS, NO_FAILED_CHECKS, ciEventLines, failedChecksAfter } from "./ci-run";
 
-// The events of a real failing `mb ci run` in GitHub Actions: a transform's change broke one
-// expectation of its test.
+// The events of a real failing `mb ci run`, as the run wrote them: a transform's bug broke one
+// expectation of its test, and a saved question reads a missing table.
 const RED_RUN_PATH = join(dirname(fileURLToPath(import.meta.url)), "ci-run.red-run.ndjson");
 
 const BASE = "0c9c8393f4f88f11d1e035fe05c90e3a70c21cfd";
@@ -113,20 +113,19 @@ describe("ciEventLines", () => {
       .map((line) => parseJson(line, CiEvent));
 
     expect(textLines(events, DEFAULT_MAX_ROWS)).toEqual([
-      "mb ci run  base 0c9c839  head eff9458  1 transform checked",
+      "mb ci run  base 309f2a9  head f33ad9b  1 transform checked",
       "lint",
-      "  ✓ Saved queries on the instance  412ms",
+      '  ✗ card "Order totals by day"',
+      "      missing-table-alias  Native SQL reads order_totalz, which no known table matches",
       "unit",
-      "  ✗ mart_shopify_fct_order: mart_shopify_fct_order: order rules  14.9s",
-      "      ✗ one row per real order with the decided rules  20 rows, expected 19",
-      "          missing  order_id=3  financial_status=refunded  is_valid_order=false  net_revenue=0.00",
-      "          extra    order_id=3  financial_status=paid  is_valid_order=true  net_revenue=100.00",
-      "          missing  order_id=2  financial_status=paid",
-      "          extra    order_id=2  financial_status=authorized",
-      "          extra    order_id=11  order_date=2026-03-10  order_month=2026-03-01  is_complete_period=true  sales_channel=online_store  financial_status=paid  is_valid_order=true  net_revenue=100.00  shipping_price=0.00  country_code=US  is_guest_checkout=false  customer_email=a@b.com  has_discount=false",
-      "      ✓ order_id is unique",
-      "      ✓ invalid orders carry zero net revenue",
-      "FAILED  fix the transform (exit 1)",
+      "  ✗ Order totals: total adds tax  224ms",
+      "      ✗ total is subtotal plus tax  2 rows, expected 2",
+      "          missing  id=1  order_total=110",
+      "          extra    id=1  order_total=90",
+      "          missing  id=2  order_total=44",
+      "          extra    id=2  order_total=36",
+      "      ✓ id is unique",
+      "FAILED  fix the transform and fix the broken saved queries (exit 1)",
     ]);
   });
 
