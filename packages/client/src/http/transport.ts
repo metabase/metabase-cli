@@ -2,6 +2,7 @@ import type { ZodType } from "zod";
 
 import { SessionProperties } from "../domain/session-properties";
 import {
+  ConfigError,
   errorMessage,
   isNonInterruptFailure,
   type MetabaseError,
@@ -9,6 +10,7 @@ import {
   TimeoutError,
 } from "../errors";
 import { JSON_CONTENT_TYPE } from "../json";
+import { isThenable } from "../predicates";
 import { combineAborts, throwIfAborted, untilAborted } from "../signal";
 import { normalizeUrl } from "../url";
 import type { FeatureName } from "../version/features";
@@ -108,7 +110,8 @@ export interface Transport {
   // The profile a refusal before the wire judges by: `verifiedServer`, unless it fails short of an
   // interrupt while the caller skips such refusals (`onPreflightSkipped`). Then the caller is told
   // the check could not run and this answers null, so the call goes on unchecked; an interrupt
-  // still ends it, and without the hook the failure does.
+  // still ends it, and without the hook the failure does. A probe the client's guard refused is
+  // no such failure: what the guard threw reaches the caller as thrown.
   preflightServer(options?: WaitOptions): Promise<ServerProfile | null>;
   // Throws `refusal`, made before the wire because the feature rules say the server would answer
   // the call wrongly without a word, unless the caller set `onPreflightSkipped`: then the refusal
@@ -124,7 +127,7 @@ export interface Transport {
   // whose requests carry their own user agent, end with its signal as well as this one's, and pass
   // its guard after this one's. A probe is the shared client's and runs as the transport made by
   // `createTransport`, so a profile one transport settles is every derived one's.
-  with(options: DerivedClientOptions): Transport;
+  with(options: DerivedTransportOptions): Transport;
   // What ends this client's work: a wait a resource runs on a call's behalf ends with it, as every
   // request does.
   readonly signal: AbortSignal | undefined;
@@ -139,9 +142,11 @@ export interface GuardedRequest {
   path: string;
 }
 
-export type RequestGuard = (request: GuardedRequest) => void;
+// Both answer `undefined`, not `void`, so an async function, whose promise nobody awaits, fails to
+// compile: a guard's rejection would refuse nothing, and an observer's would go unhandled.
+export type RequestGuard = (request: GuardedRequest) => undefined;
 
-export type ErrorObserver = (error: unknown) => void;
+export type ErrorObserver = (error: unknown) => undefined;
 export type ProbeReadOptions = Pick<RequestOptions, "signal" | "timeoutMs" | "retries">;
 
 // A check before the wire the caller skipped: one that would have refused, with the error it would
@@ -232,7 +237,7 @@ interface TrustedServerOption {
 
 // `userAgent` is required so every request names the application making it: the wire identity is
 // the caller's to declare, not something this layer invents on their behalf.
-interface ClientSettings {
+interface TransportSettings {
   userAgent: string;
   fetchImpl?: typeof fetch;
   // Names the server in an HTTP error, and in a shape error read with no profile in force. Defaults
@@ -263,23 +268,38 @@ interface ClientSettings {
   // timeout. A process-level interrupt is the caller's to own and to hand over here.
   signal?: AbortSignal;
   // Shown every request this client sends, before it is sent, and may refuse it by throwing: what
-  // it throws reaches the caller as thrown, never wrapped. A request sent again, a retry or the
-  // resend after a credential refresh, is not shown twice.
+  // it throws reaches the caller as thrown, never wrapped, and a probe it refuses before a check
+  // the caller skips (`onPreflightSkipped`) fails that call rather than letting it go on unchecked.
+  // A request sent again, a retry or the resend after a credential refresh, is not shown twice.
   guard?: RequestGuard;
-  // Shown every error a call on this client raises, before the caller sees it. It is not awaited;
-  // one that throws fails the call with its own error.
+}
+
+// The error observer is the client's own: `createClient` shows it the errors its calls raise, and a
+// bare transport carries none, so `createTransport` does not take one.
+interface ClientSettings extends TransportSettings {
+  // Shown every error a call on this client raises, before the caller sees it. It is not awaited.
+  // It sees the original error even when an observer before it threw; the call then fails with the
+  // error the first observer to throw threw.
   onError?: ErrorObserver;
 }
 
+export type TransportOptions = TransportSettings & (CachedServerOption | TrustedServerOption);
+
 export type ClientOptions = ClientSettings & (CachedServerOption | TrustedServerOption);
 
-// What a client derived with `with` sets for itself. The user agent replaces its parent's; the
-// signal, the guard and the error observer add to its parent's, its own running first.
+// What a transport derived with `with` sets for itself. The user agent replaces its parent's; the
+// signal adds to its parent's, and the guard runs after its parent's.
+export type DerivedTransportOptions = Partial<
+  Pick<TransportSettings, "userAgent" | "signal" | "guard">
+>;
+
+// What a client derived with `with` sets for itself: what a derived transport sets, and an error
+// observer that runs before its parent's.
 export type DerivedClientOptions = Partial<
   Pick<ClientSettings, "userAgent" | "signal" | "guard" | "onError">
 >;
 
-export function createTransport(config: ClientCredentials, options: ClientOptions): Transport {
+export function createTransport(config: ClientCredentials, options: TransportOptions): Transport {
   const baseUrl = normalizeUrl(config.url);
   assertCredentialHeaderSafe(config.credential);
   const fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
@@ -300,6 +320,9 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     signal: options.signal,
     guards: options.guard === undefined ? [] : [options.guard],
   };
+  // What a guard threw, which is the caller's refusal and never the server out of reach, so a check
+  // before the wire that would go on unchecked past a failed probe throws it as thrown.
+  const guardRefusals = new WeakSet<object>();
   const refreshCredential = options.refreshCredential;
   let credential = config.credential;
   const knownSecrets = new Set(credentialSecrets(credential));
@@ -422,7 +445,14 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     const prepared = prepare(path, opts, scope);
     const guarded: GuardedRequest = { method: prepared.method, path: absolutePath(path) };
     for (const guard of scope.guards) {
-      guard(guarded);
+      try {
+        passGuard(guard, guarded);
+      } catch (refusal) {
+        if (typeof refusal === "object" && refusal !== null) {
+          guardRefusals.add(refusal);
+        }
+        throw refusal;
+      }
     }
     try {
       return { response: await executeRaw(prepared), prepared };
@@ -626,7 +656,7 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     try {
       return await verifiedServer(wait);
     } catch (error) {
-      if (!isNonInterruptFailure(error)) {
+      if (!isNonInterruptFailure(error) || guardRefusals.has(error)) {
         throw error;
       }
       skipOrThrow({ kind: "unverified", failure: error });
@@ -692,13 +722,27 @@ export function createTransport(config: ClientCredentials, options: ClientOption
   return scoped(rootScope);
 }
 
-function derivedScope(parent: ClientScope, derived: DerivedClientOptions): ClientScope {
+function derivedScope(parent: ClientScope, derived: DerivedTransportOptions): ClientScope {
   return {
     userAgent: derived.userAgent ?? parent.userAgent,
     signal:
       derived.signal === undefined ? parent.signal : combineAborts(derived.signal, parent.signal),
     guards: derived.guard === undefined ? parent.guards : [...parent.guards, derived.guard],
   };
+}
+
+// A guard that answers a promise decides nothing before the request is sent, so it refuses every
+// request rather than let one through unjudged. Its promise is settled here, so a rejection it
+// carries is not left unhandled.
+function passGuard(guard: RequestGuard, request: GuardedRequest): void {
+  const answer: unknown = guard(request);
+  if (!isThenable(answer)) {
+    return;
+  }
+  void Promise.resolve(answer).catch(() => undefined);
+  throw new ConfigError(
+    `A request guard answered a promise for ${request.method} ${request.path}. A guard runs synchronously and refuses a request by throwing.`,
+  );
 }
 
 function skippedError(skipped: SkippedPreflight): MetabaseError {

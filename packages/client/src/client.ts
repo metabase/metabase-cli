@@ -6,6 +6,8 @@ import {
   type ErrorObserver,
   type Transport,
 } from "./http/transport";
+import { ConfigError } from "./errors";
+import { isThenable } from "./predicates";
 import { apiKeyResource } from "./resources/api-key";
 import { cardResource } from "./resources/card";
 import { collectionResource } from "./resources/collection";
@@ -195,11 +197,37 @@ async function* observedWalk(
   }
 }
 
+// What an observer threw, held apart from absence, since an observer may throw `undefined`.
+interface ObserverFailure {
+  thrown: unknown;
+}
+
+// Every observer is shown `error`, whatever one before it threw, so a parent sees what its derived
+// client's call raised. The call then fails with what the first observer to throw threw, else with
+// `error`.
 function shown(error: unknown, observers: readonly ErrorObserver[]): unknown {
-  for (const observe of observers) {
-    observe(error);
+  let first: ObserverFailure | null = null;
+  for (const observer of observers) {
+    try {
+      showTo(observer, error);
+    } catch (thrown) {
+      first ??= { thrown };
+    }
   }
-  return error;
+  return first === null ? error : first.thrown;
+}
+
+// An observer that answers a promise is refused as one that threw, and its promise is settled here,
+// so a rejection it carries is not left unhandled.
+function showTo(observer: ErrorObserver, error: unknown): void {
+  const answer: unknown = observer(error);
+  if (!isThenable(answer)) {
+    return;
+  }
+  void Promise.resolve(answer).catch(() => undefined);
+  throw new ConfigError(
+    "An error observer answered a promise. An observer runs synchronously and is not awaited.",
+  );
 }
 
 function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {

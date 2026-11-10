@@ -24,3 +24,13 @@ export const NOT_BLANK = new RegExp(`[^${JAVA_WHITESPACE_ESCAPED}]`);
 export function isBlank(value: string): boolean {
   return !NOT_BLANK.test(value);
 }
+
+/** Whether `value` is a promise or another object a caller could await. */
+export function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    (typeof value === "object" || typeof value === "function") &&
+    value !== null &&
+    "then" in value &&
+    typeof value.then === "function"
+  );
+}
