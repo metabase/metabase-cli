@@ -34,6 +34,7 @@ const UNCHECKED_BODIES: readonly UncheckedBody[] = [
     reason: "a dashcard patch merged into the dashcards update sends",
   },
   { key: "dataAction.archive", bodyType: null, reason: "a fixed body sent through update" },
+  { key: "dataApp.updateBundle", bodyType: null, reason: "a single field, the bundle's text" },
   { key: "document.archive", bodyType: null, reason: "a fixed body sent through update" },
   { key: "dataset.query", bodyType: "unknown", reason: "a query, checked against the MBQL schema" },
   { key: "dataset.native", bodyType: null, reason: "a query, checked against the MBQL schema" },

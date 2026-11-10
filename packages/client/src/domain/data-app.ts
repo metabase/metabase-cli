@@ -1,9 +1,12 @@
 import { z } from "zod";
 
+import { gateInput } from "../version/input-gate-registry";
+import type { InputGate } from "../version/input-gates";
+
 const DATA_APP_SLUG_MAX_LENGTH = 100;
 
 // Metabase routes these under `/api/ee/apps/`, so an app with one would be unreachable.
-const RESERVED_DATA_APP_SLUGS: ReadonlySet<string> = new Set(["repo-status", "sandbox-host"]);
+const RESERVED_DATA_APP_SLUGS: ReadonlySet<string> = new Set(["repo-status", "generate"]);
 
 export const DataAppSlug = z
   .string()
@@ -32,14 +35,23 @@ export type DataApp = z.infer<typeof DataApp>;
 
 // What a non-admin reads: only the fields that navigate to the app. Strict, so an admin answer
 // `DataApp` rejects fails here too instead of passing as a summary.
-export const DataAppSummary = z.object({ slug: z.string(), name: z.string() }).strict();
+export const DataAppSummary = z
+  .object({
+    id: z.number().int(),
+    slug: z.string(),
+    name: z.string(),
+    enabled: z.boolean(),
+    outdated: z.boolean(),
+  })
+  .strict();
 export type DataAppSummary = z.infer<typeof DataAppSummary>;
 
 export const DataAppEntry = z.union([DataApp, DataAppSummary]);
 export type DataAppEntry = z.infer<typeof DataAppEntry>;
 
-// A summary carries only `slug` and `name`, so the admin-only fields are optional here.
+// A summary carries no collection, so the admin-only field is optional here.
 export const DataAppCompact = DataApp.pick({
+  id: true,
   slug: true,
   name: true,
   enabled: true,
@@ -47,10 +59,38 @@ export const DataAppCompact = DataApp.pick({
   outdated: true,
 })
   .strip()
-  .partial({ enabled: true, resource_collection_id: true, outdated: true });
+  .partial({ resource_collection_id: true });
 export type DataAppCompact = z.infer<typeof DataAppCompact>;
 
-export const DataAppUpdateInput = z.object({ enabled: z.boolean() }).strict();
+const DataAppFields = {
+  name: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
+  version: z.number().int().positive().optional(),
+  bundle_path: z.string().min(1).optional(),
+  allowed_hosts: z.array(z.string()).optional(),
+  enabled: z.boolean().optional(),
+};
+
+export const DataAppCreateInput = z.object({ slug: DataAppSlug, ...DataAppFields }).strict();
+export type DataAppCreateInput = z.infer<typeof DataAppCreateInput>;
+
+export const DATA_APP_EDITING_GATE: InputGate = {
+  feature: "dataAppEditing",
+  effect: "needs",
+  when: { kind: "present" },
+};
+
+// Before `dataAppEditing` an update takes `enabled` alone.
+export const DataAppUpdateInput = z
+  .object({
+    name: gateInput(DataAppFields.name, DATA_APP_EDITING_GATE),
+    description: gateInput(DataAppFields.description, DATA_APP_EDITING_GATE),
+    version: gateInput(DataAppFields.version, DATA_APP_EDITING_GATE),
+    bundle_path: gateInput(DataAppFields.bundle_path, DATA_APP_EDITING_GATE),
+    allowed_hosts: gateInput(DataAppFields.allowed_hosts, DATA_APP_EDITING_GATE),
+    enabled: DataAppFields.enabled,
+  })
+  .strict();
 export type DataAppUpdateInput = z.infer<typeof DataAppUpdateInput>;
 
 export const DataAppGeneratedFile = z.object({ path: z.string(), contents: z.string() }).strict();

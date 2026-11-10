@@ -193,6 +193,7 @@ export {
   DataApp,
   DataAppActionDefinition,
   DataAppCompact,
+  DataAppCreateInput,
   DataAppEntry,
   DataAppGenerateActionsInput,
   DataAppGenerateQueriesInput,

@@ -2,6 +2,12 @@
 
 Notable changes to `@metabase/client`.
 
+## 0.1.7
+
+- `dataApp.create` creates an app with its resource collection and an empty bundle (`DataAppCreateInput`, which takes the slug as `slug`), `dataApp.updateBundle` replaces its bundle with the text of a built bundle, and `dataApp.delete` deletes it with its collection. `dataApp.getBundle` reads an app's bundle as the text of its built JavaScript. `DataAppUpdateInput` takes the app's name, description, version, bundle path and allowed hosts as well as `enabled`.
+- `KNOWN_RANGE` reaches 65, so a newer server reads as 66. `dataApp.create`, `updateBundle` and `delete` need Metabase v66 (the `dataAppEditing` feature), and a refusal from an older server is explained as such. `dataApp.update` refuses a manifest field before the wire on an older server, which takes `enabled` alone (`DATA_APP_EDITING_GATE`).
+- `DataAppSummary`, what a non-admin reads, carries the app's `id`, `enabled` and `outdated`, and `DataAppCompact` its `id`.
+
 ## 0.1.6
 
 - A data app names its slug and its display name as its `data_app.yaml` does: `DataApp`, `DataAppSummary` and `DataAppCompact` read the slug from `slug` and the display name from `name`, which held the slug, and have no `display_name`.
