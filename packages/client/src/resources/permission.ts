@@ -1,5 +1,8 @@
-import { PermissionsGraph } from "../domain/permission";
+import { z } from "zod";
+
+import { PermissionGroup, PermissionsGraph } from "../domain/permission";
 import type { RequestOptions, Transport } from "../http/transport";
+import type { ListResult } from "../list";
 
 // Every path parameter here is a numeric id, so no fragment needs `encodeURIComponent`.
 export function permissionResource(transport: Transport) {
@@ -33,5 +36,17 @@ export function permissionResource(transport: Transport) {
     });
   }
 
-  return { graph, databaseGraph, groupGraph };
+  /**
+   * List the permission groups, each with its member count. Needs an admin, the settings
+   * application permission, or a group manager, who sees only the groups they manage.
+   * `GET /api/permissions/group` answers a bare array.
+   */
+  async function groups(options: RequestOptions = {}): Promise<ListResult<PermissionGroup>> {
+    const data = await transport.requestParsed(z.array(PermissionGroup), "/api/permissions/group", {
+      ...options,
+    });
+    return { data, total: null };
+  }
+
+  return { graph, databaseGraph, groupGraph, groups };
 }

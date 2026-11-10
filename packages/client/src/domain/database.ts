@@ -29,6 +29,18 @@ export const DatabaseVirtualTableCompact = DatabaseVirtualTable.pick({
 }).strip();
 export type DatabaseVirtualTableCompact = z.infer<typeof DatabaseVirtualTableCompact>;
 
+// The server merges a database's settings key by key, so an update names only the ones it changes.
+const DATA_ACTIONS_SETTING = "database-enable-actions";
+const WORKSPACES_SETTING = "database-enable-workspaces";
+
+export const DatabaseSettings = z
+  .object({
+    [DATA_ACTIONS_SETTING]: z.boolean().optional(),
+    [WORKSPACES_SETTING]: z.boolean().optional(),
+  })
+  .loose();
+export type DatabaseSettings = z.infer<typeof DatabaseSettings>;
+
 // A real table's id is a number and a virtual table's a `card__N` string, which is what tells the
 // two members apart; only the Saved Questions database lists virtual ones.
 export const Database = z
@@ -41,6 +53,11 @@ export const Database = z
     is_sample: z.boolean().optional(),
     is_audit: z.boolean().optional(),
     initial_sync_status: z.string().nullable().optional(),
+    // Absent for a caller who cannot write the database, and on a server that records no sync error.
+    initial_sync_error: z.string().nullable().optional(),
+    // The driver's capabilities; absent when the server has no driver loaded for the engine.
+    features: z.array(z.string()).optional(),
+    settings: DatabaseSettings.nullable().optional(),
     tables: z.array(z.union([Table, DatabaseVirtualTable])).optional(),
   })
   .loose();
@@ -65,14 +82,6 @@ export type DatabaseListInclude = z.infer<typeof DatabaseListInclude>;
 
 export const DatabaseGetInclude = z.enum(["tables", "tables.fields"]);
 export type DatabaseGetInclude = z.infer<typeof DatabaseGetInclude>;
-
-// The server merges a database's settings key by key, so an update names only the ones it changes.
-const DATA_ACTIONS_SETTING = "database-enable-actions";
-
-export const DatabaseSettings = z
-  .object({ [DATA_ACTIONS_SETTING]: z.boolean().optional() })
-  .loose();
-export type DatabaseSettings = z.infer<typeof DatabaseSettings>;
 
 export const DatabaseWithSettings = Database.extend({ settings: DatabaseSettings.nullable() });
 export type DatabaseWithSettings = z.infer<typeof DatabaseWithSettings>;

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { TransportCredential } from "../auth/credential";
 import { ChainedRequestError, MetabaseError } from "../errors";
 import { JSON_CONTENT_TYPE, parseJsonResult } from "../json";
 import { isPlainObject } from "../predicates";
@@ -29,6 +30,7 @@ export const NOT_FOUND_STATUS = 404;
 export const CONFLICT_STATUS = 409;
 export const TOO_MANY_REQUESTS_STATUS = 429;
 export const INTERNAL_SERVER_ERROR_STATUS = 500;
+export const SERVICE_UNAVAILABLE_STATUS = 503;
 
 const SERVER_ERROR_STATUSES_START = 500;
 const SERVER_ERROR_STATUSES_END = 600;
@@ -145,6 +147,8 @@ export interface HttpErrorInput {
   responseHeaders: Headers | Record<string, string>;
   rawBody: string | null;
   serverTag?: string | null;
+  // What signed the request, so a rejected credential is named for what it was.
+  credentialKind?: TransportCredential["kind"];
   overrideUserMessage?: string;
   redactionContext?: RedactionContext;
 }
@@ -337,12 +341,22 @@ function buildUserMessage(kind: HttpErrorKind, input: HttpErrorInput, said: Serv
     return said.envelope;
   }
   if (kind === "auth") {
-    return `Invalid or unauthorized API key (host: ${hostFromUrl(input.url)}).`;
+    return `${authFailure(input.credentialKind)} (host: ${hostFromUrl(input.url)}).`;
   }
   if (said.text !== null) {
     return said.text;
   }
   return defaultMessageForStatus(input.status);
+}
+
+function authFailure(credentialKind: TransportCredential["kind"] | undefined): string {
+  if (credentialKind === "session") {
+    return "Invalid or expired session";
+  }
+  if (credentialKind === "anonymous") {
+    return "Authentication required, and the request carried no credential";
+  }
+  return "Invalid or unauthorized API key";
 }
 
 // Metabase answers some rejections — a query that fails normalization, for one — with a text/plain

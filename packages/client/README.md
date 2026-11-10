@@ -90,6 +90,10 @@ const mb = createClient(
 `revokeOAuthCredential(baseUrl, credential, userAgent)` ends the grant server-side, and answers
 whether the server advertised a revocation endpoint at all.
 
+A client also takes two credentials a caller never persists, for bringing up a fresh instance before any API key exists. `{ kind: "anonymous" }` sends no credential at all, which is enough for `mb.health.get()`, `mb.session.settings()` (the public settings only, among them `has-user-setup` and `setup-token`), `mb.setup.create(…)` and `mb.session.create({ username, password })`. `{ kind: "session", sessionId }` sends the id `setup.create` or `session.create` answered as `X-Metabase-Session`, so the admin it belongs to can mint the API key the long-lived client keeps. A session is never refreshed: once it expires, a call fails with an `HttpError` of kind `auth`. `ClientCredentials.credential` is a `TransportCredential`, the union of `Credential` and these two (`SessionCredential`, `AnonymousCredential`); `Credential`, what `refreshCredential` answers, is an API key or an OAuth grant.
+
+`mb.health.get()` answers the server's `Health` without retrying: `status` is `ok` once it has booted, `initializing` with a `progress` between 0 and 1 while it boots, or a sentence naming why it cannot reach its app database. A 503 carrying that body is answered rather than thrown, so a caller polling a booting server reads each step.
+
 ## Usage
 
 `createClient` is the entry point, and what it returns carries one namespace per Metabase resource —
@@ -135,8 +139,8 @@ console.log(cards.data.length, cards.total);
 ```
 
 A resource method whose endpoint pages answers an `AsyncIterable<Page<T>>` — `mb.collection.itemPages`,
-`mb.transform.runPages`, `mb.transform.runSummaryPages`, `mb.dependency.unreferencedPages` and
-`mb.dependency.breakingPages` are the five — requesting `limit`/`offset` pages and yielding a `Page<T>`
+`mb.transform.runPages`, `mb.transform.runSummaryPages`, `mb.dependency.unreferencedPages`,
+`mb.dependency.breakingPages` and `mb.task.runPages` are the six — requesting `limit`/`offset` pages and yielding a `Page<T>`
 (`{ items: T[], total: number | null }`) per request, so the server's count reaches you instead of
 being spent on loop control.
 
@@ -327,8 +331,8 @@ import { z } from "zod";
 
 import { createClient } from "@metabase/client";
 
-const PermissionsGroup = z
-  .object({ id: z.number().int(), name: z.string(), member_count: z.number().int() })
+const Login = z
+  .object({ timestamp: z.string(), device_description: z.string(), ip_address: z.string() })
   .loose();
 
 const mb = createClient(
@@ -336,9 +340,9 @@ const mb = createClient(
   { userAgent: "my-app/1.0.0" },
 );
 
-const groups = await mb.requestParsed(z.array(PermissionsGroup), "/api/permissions/group");
-for (const group of groups) {
-  console.log(group.id, group.name, group.member_count);
+const logins = await mb.requestParsed(z.array(Login), "/api/login-history/current");
+for (const login of logins) {
+  console.log(login.timestamp, login.device_description, login.ip_address);
 }
 ```
 
@@ -421,7 +425,7 @@ message off an unknown throw.
 an `OAuthCredential`. `refreshOAuthCredential` exchanges the rotating refresh token;
 `revokeOAuthCredential` revokes both tokens server-side and reports whether the server advertised a
 revocation endpoint. Types: `Credential` (the `ApiKeyCredential | OAuthCredential` union),
-`OAuthLoginInput`, `OAuthLoginDeps`.
+`TransportCredential` (`Credential | SessionCredential | AnonymousCredential`, what `ClientCredentials.credential` takes), `CredentialRefresher`, `OAuthLoginInput`, `OAuthLoginDeps`.
 
 `OAuthLoginInput.signal` cancels a login at any point: before it starts, during discovery, client registration or the token exchange, or while it waits for the browser's redirect. The request in flight is cancelled, the loopback callback port is freed at once, and the login rejects with the signal's reason when that is a `MetabaseError`, else with an `AbortError` carrying its message.
 
@@ -451,7 +455,7 @@ Every Metabase resource exports a full schema and a compact projection: `Card`/`
 `ParameterValues`, `Pulse`, `SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`,
 `TimelineEvent`, `Transform`, `TransformRun`, `TransformRunSummary`, `TransformMemberRun`, `TransformJob`,
 `TransformTag`, `TransformTest`, `ReplacementRun`, `Revision`, `TableForeignKey`, `MetricDimension`,
-`CurrentUser`, `CardQueryResult` with its `ResultColumn`, `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`,
+`CurrentUser`, `User`, `PermissionGroup`, `TaskRun`, `Workspace`, `WorkspaceDatabase`, `WorkspaceInstance`, `CardQueryResult` with its `ResultColumn`, `EidTranslateResult`, `SetupResult`, `Session`, `Health`, `SyncTask`, `SyncDirtyItem`,
 `DashboardTab`, the dependency graph's `DependencyEntity`, `DependencyNode`, `BreakingSource` and
 `DependencyGraph`, and the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`,
 `NotificationHandler`, …).
@@ -463,7 +467,7 @@ deliberately absent.
 
 A second class of schema describes a single response shape that has no compact pair:
 `DashboardDetail`, a copy's `DashboardUncopiedCard`, `DatabaseSyncResult`, `CollectionTreeNode`, `FieldSummary`, `SettingValue`,
-`TableQueryMetadata`, `QueryMetadata`, `CompiledQuery`, `SessionProperties`, `TokenFeatures`, a revision's
+`TableQueryMetadata`, `QueryMetadata`, `CompiledQuery`, `SessionProperties` (what the shared probe reads), `SessionSettings` (what `session.settings` answers: those plus the setup state and the settings a consumer reads), `TokenFeatures`, a revision's
 `RevisionRow` and `RevisionRevert`, the source replacement's `ReplacementCheck` and `ReplacementRunStarted`,
 a metric's `MetricBreakoutValues` and `MetricDimensionListing`, the data permissions' `PermissionsGraph`
 (a `DatabasePermissions` per group and database, each key left out at its least permissive value), the

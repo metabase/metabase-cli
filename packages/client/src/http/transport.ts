@@ -25,10 +25,10 @@ import { featureFailures } from "../version/requirement-check";
 
 import {
   assertCredentialHeaderSafe,
-  type Credential,
   credentialAuthHeader,
   credentialSecrets,
   type CredentialRefresher,
+  type TransportCredential,
 } from "../auth/credential";
 
 import { HttpError, isRetryableStatus, UNAUTHORIZED_STATUS } from "./errors";
@@ -160,7 +160,7 @@ interface AppliedProbe {
 
 export interface ClientCredentials {
   url: string;
-  credential: Credential;
+  credential: TransportCredential;
 }
 
 type FetchBody = NonNullable<RequestInit["body"]>;
@@ -184,8 +184,8 @@ interface ExecOutcome {
 
 export type ServerTagResolver = () => Promise<string | null>;
 
-// Required so no caller can reach a Metabase anonymously: the wire identity is the caller's to
-// declare, not something this layer invents on their behalf.
+// `userAgent` is required so every request names the application making it: the wire identity is
+// the caller's to declare, not something this layer invents on their behalf.
 export interface ClientOptions {
   userAgent: string;
   fetchImpl?: typeof fetch;
@@ -326,6 +326,7 @@ export function createTransport(config: ClientCredentials, options: ClientOption
         responseHeaders: response.headers,
         rawBody,
         serverTag,
+        credentialKind: credential.kind,
         redactionContext,
       });
     }
@@ -372,7 +373,9 @@ export function createTransport(config: ClientCredentials, options: ClientOption
     const url = buildUrl(baseUrl, path, opts.query);
     const headers = new Headers();
     const auth = credentialAuthHeader(credential);
-    headers.set(auth.name, auth.value);
+    if (auth !== null) {
+      headers.set(auth.name, auth.value);
+    }
     headers.set("accept", acceptHeader(expectContentType));
     headers.set("user-agent", options.userAgent);
     let body: FetchBody | null = null;

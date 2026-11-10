@@ -48,6 +48,7 @@ import {
   RevisionRevertInput,
   SegmentCreateInput,
   SegmentUpdateInput,
+  SessionCreateInput,
   SetupInput,
   SnippetCreateInput,
   SnippetUpdateInput,
@@ -70,6 +71,8 @@ import {
   TransformTestInput,
   TransformTestUpdateInput,
   TransformUpdateInput,
+  UserCreateInput,
+  WorkspaceCreateInput,
 } from "./index";
 import type {
   ClientCredentials,
@@ -141,6 +144,7 @@ const writePath = {
   RevisionRevertInput: pin<RevisionRevertInput>(RevisionRevertInput),
   SegmentCreateInput: pin<SegmentCreateInput>(SegmentCreateInput),
   SegmentUpdateInput: pin<SegmentUpdateInput>(SegmentUpdateInput),
+  SessionCreateInput: pin<SessionCreateInput>(SessionCreateInput),
   SetupInput: pin<SetupInput>(SetupInput),
   SnippetCreateInput: pin<SnippetCreateInput>(SnippetCreateInput),
   SnippetUpdateInput: pin<SnippetUpdateInput>(SnippetUpdateInput),
@@ -164,6 +168,8 @@ const writePath = {
   TransformTestInput: pin<TransformTestInput>(TransformTestInput),
   TransformTestUpdateInput: pin<TransformTestUpdateInput>(TransformTestUpdateInput),
   TransformUpdateInput: pin<TransformUpdateInput>(TransformUpdateInput),
+  UserCreateInput: pin<UserCreateInput>(UserCreateInput),
+  WorkspaceCreateInput: pin<WorkspaceCreateInput>(WorkspaceCreateInput),
 };
 
 const INPUT_SUFFIX = "Input";

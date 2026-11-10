@@ -59,3 +59,22 @@ export const PermissionsGraph = z
   })
   .loose();
 export type PermissionsGraph = z.infer<typeof PermissionsGraph>;
+
+export const PermissionGroup = z
+  .object({
+    id: z.number().int(),
+    name: z.string(),
+    // A string rather than an enum: the set of built-in groups grew across releases (tenant groups,
+    // data analysts). `admin` marks the Administrators group whatever it is named.
+    magic_group_type: z.string().nullable(),
+    member_count: z.number().int().nonnegative(),
+  })
+  .loose();
+export type PermissionGroup = z.infer<typeof PermissionGroup>;
+
+export const PermissionGroupCompact = PermissionGroup.pick({
+  id: true,
+  name: true,
+  magic_group_type: true,
+}).strip();
+export type PermissionGroupCompact = z.infer<typeof PermissionGroupCompact>;
