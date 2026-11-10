@@ -4,7 +4,7 @@ Command-line client for Metabase. Logs in to an instance in your browser (OAuth,
 
 ## Supported Metabase versions
 
-The CLI is built against Metabase majors **58 through 64** (the client's `KNOWN_RANGE`), the latest patch of each; a newer release runs as the major after the newest known one, with one stderr notice per run; a development build (master or a local build, reporting a tag such as `vUNKNOWN`) is treated as newer than every release, with every version-gated command available and no notice; and an older one keeps its real major and gets one stderr notice per run pointing at a Metabase upgrade; a command the server refuses for a feature it lacks names that feature and the version it needs.
+The CLI is built against Metabase majors **58 through 65** (the client's `KNOWN_RANGE`), the latest patch of each; a newer release runs as the major after the newest known one, with one stderr notice per run; a development build (master or a local build, reporting a tag such as `vUNKNOWN`) is treated as newer than every release, with every version-gated command available and no notice; and an older one keeps its real major and gets one stderr notice per run pointing at a Metabase upgrade; a command the server refuses for a feature it lacks names that feature and the version it needs.
 
 Every command declares the client methods it calls, and each method names the server features it needs — a feature is a minimum major version, a premium token feature, or both. The server decides whether a request is allowed: every command sends its requests, and when the server refuses one (an endpoint it does not serve, or a premium feature it does not grant), the CLI probes the server once and reports what is missing with an actionable message (exit code `2`):
 

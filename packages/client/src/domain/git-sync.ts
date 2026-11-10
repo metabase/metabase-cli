@@ -182,7 +182,8 @@ export type SyncItemCollection = z.infer<typeof SyncItemCollection>;
 // `collection_id` is the collection the item sits in, or a collection's own id, `null` when there is
 // none or the caller cannot read it. `collection` is the same collection in full, `null` likewise and
 // on a server with `remoteSyncDirtyItemsByCollectionId`, which names it by id alone. `model_id` is
-// the model an action belongs to, `null` for any other item and on such a server, which does not say.
+// the model an action belongs to, `null` for an action without one, for any other item, and on a
+// server that does not say: every one before Metabase 65.
 export const SyncDirtyItem = z
   .object({
     id: z.number().int(),
@@ -201,10 +202,15 @@ export const SyncDirtyItem = z
   .loose();
 export type SyncDirtyItem = z.infer<typeof SyncDirtyItem>;
 
-const SyncDirtyItemWireV65 = SyncDirtyItem.omit({ collection: true, model_id: true });
+// Metabase 65 names an action's model as `card_id`, and leaves the key out of any other item; the
+// servers before it send no such key.
+const SyncDirtyItemWireV65 = SyncDirtyItem.omit({ collection: true, model_id: true }).extend({
+  card_id: z.number().int().positive().nullable().optional(),
+});
 
 function fromDirtyItemWireV65(wire: z.infer<typeof SyncDirtyItemWireV65>): SyncDirtyItem {
-  return { ...wire, collection: null, model_id: null };
+  const { card_id, ...item } = wire;
+  return { ...item, collection: null, model_id: card_id ?? null };
 }
 
 // An item leaves out `collection` when it has none the caller can read, and `model_id` unless it is
