@@ -25,7 +25,7 @@
     },
     "packages/cli": {
       "name": "@metabase/cli",
-      "version": "0.3.1",
+      "version": "0.5.14",
       "bin": {
         "mb": "./dist/cli.mjs",
       },
@@ -43,7 +43,7 @@
     },
     "packages/client": {
       "name": "@metabase/client",
-      "version": "0.1.0",
+      "version": "0.1.6",
       "peerDependencies": {
         "zod": "^4.0.0",
       },
