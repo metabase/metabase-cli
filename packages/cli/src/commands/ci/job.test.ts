@@ -11,8 +11,6 @@ import { z } from "zod";
 import { type CiEvent, type CiStage, CiEvent as CiEventSchema } from "../../core/ci-events";
 import { type TempGitRepo, createTempGitRepo } from "../../runtime/temp-git-repo";
 
-import { coverageStage, untestedTransforms } from "../../core/ci-coverage";
-
 import { RUN_LOG_DIR, runJob } from "./job";
 import { type UnitStagePort, unitStage } from "./unit-stage";
 
@@ -361,12 +359,7 @@ describe("runJob, with the stages ci run builds", () => {
       base: "main",
       head: "HEAD",
       stages: async (plan) => [
-        coverageStage(plan.coverage),
-        unitStage(
-          plan.checked,
-          untestedTransforms(plan.coverage),
-          async () => INSTANCE_WITH_NO_TESTS,
-        ),
+        unitStage(plan.checked, plan.untested, async () => INSTANCE_WITH_NO_TESTS),
       ],
       job: "job-1",
       now: () => NOW,
@@ -383,7 +376,7 @@ describe("runJob, with the stages ci run builds", () => {
       {
         job: "job-1",
         at: AT,
-        seq: 5,
+        seq: 2,
         type: "check.result",
         stage: "unit",
         check: { kind: "transform-test", id: TRANSFORM_ID, label: "Daily" },
