@@ -31,13 +31,29 @@ export interface Deadline {
   signal: AbortSignal;
 }
 
-// The deadline `timeoutMs` sets from now, or `null` for a wait without one.
-export function startDeadline(timeoutMs: number | null | undefined): Deadline | null {
-  if (timeoutMs === null) {
+const SCHEDULE_DELAYS = ["timeoutMs", "intervalMs", "maxIntervalMs"] as const;
+type ScheduleDelay = (typeof SCHEDULE_DELAYS)[number];
+
+// Refuses a schedule no timer can keep, naming the field, so a call that starts work and then
+// waits on it refuses before it starts anything. `undefined` is a call that runs no wait.
+export function checkSchedule(schedule: PollOptions | undefined): void {
+  if (schedule === undefined) {
+    return;
+  }
+  for (const field of SCHEDULE_DELAYS) {
+    checkDelay(field, schedule[field]);
+  }
+}
+
+// The deadline the schedule's `timeoutMs` sets from now, or `null` for a wait without one. The
+// whole schedule is checked first, so no wait run under the deadline fails on it later.
+export function startDeadline(schedule: PollOptions): Deadline | null {
+  checkSchedule(schedule);
+  if (schedule.timeoutMs === null) {
     return null;
   }
-  const ms = timerDelay(timeoutMs ?? DEFAULT_TIMEOUT_MS, "timeout");
-  return { timeoutMs: ms, signal: AbortSignal.timeout(ms) };
+  const timeoutMs = schedule.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  return { timeoutMs, signal: AbortSignal.timeout(timeoutMs) };
 }
 
 export async function pollUntil<T>(
@@ -45,7 +61,7 @@ export async function pollUntil<T>(
   done: (value: T) => boolean,
   opts: PollOptions = {},
 ): Promise<T> {
-  return pollWithin(startDeadline(opts.timeoutMs), fn, done, opts);
+  return pollWithin(startDeadline(opts), fn, done, opts);
 }
 
 // `pollUntil` under a deadline started before it, so the waits of one run share it.
@@ -55,11 +71,8 @@ export async function pollWithin<T>(
   done: (value: T) => boolean,
   opts: PollSchedule = {},
 ): Promise<T> {
-  const intervalMs = timerDelay(opts.intervalMs ?? DEFAULT_INTERVAL_MS, "interval");
-  const maxIntervalMs = timerDelay(
-    opts.maxIntervalMs ?? DEFAULT_MAX_INTERVAL_MS,
-    "maximum interval",
-  );
+  checkSchedule(opts);
+  const maxIntervalMs = opts.maxIntervalMs ?? DEFAULT_MAX_INTERVAL_MS;
   const backoff = opts.backoff ?? "fixed";
 
   const combined = combineAborts(deadline?.signal, opts.signal);
@@ -70,7 +83,7 @@ export async function pollWithin<T>(
     }
   };
 
-  let interval = intervalMs;
+  let interval = opts.intervalMs ?? DEFAULT_INTERVAL_MS;
   let attempts = 0;
 
   while (true) {
@@ -101,13 +114,20 @@ export async function pollWithin<T>(
   }
 }
 
-function timerDelay(ms: number, name: string): number {
-  if (ms > MAX_TIMER_MS) {
+function checkDelay(field: ScheduleDelay, ms: number | null | undefined): void {
+  if (ms === null || ms === undefined) {
+    return;
+  }
+  if (!Number.isFinite(ms) || ms < 0) {
     throw new ConfigError(
-      `A wait's ${name} of ${ms}ms is longer than a timer can run, ${MAX_TIMER_MS}ms`,
+      `A wait's ${field} of ${ms} is not a non-negative number of milliseconds`,
     );
   }
-  return ms;
+  if (ms > MAX_TIMER_MS) {
+    throw new ConfigError(
+      `A wait's ${field} of ${ms}ms is longer than a timer can run, ${MAX_TIMER_MS}ms`,
+    );
+  }
 }
 
 function pollTimeout(timeoutMs: number, attempts: number): TimeoutError {

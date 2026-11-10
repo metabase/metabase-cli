@@ -34,7 +34,7 @@ import {
 import { parseJsonResult } from "../json";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
-import { type PollOptions, pollUntil } from "../poll";
+import { checkSchedule, type PollOptions, pollUntil } from "../poll";
 import { combineAborts } from "../signal";
 import type { Features } from "../version/features";
 import { profileFromProperties } from "../version/probe";
@@ -322,6 +322,7 @@ export function gitSyncResource(transport: Transport) {
     params: SyncImportParams = {},
     options: RequestOptions = {},
   ): Promise<SyncImportResult> {
+    checkSchedule(params.wait);
     const expectedBranch = await expectedBranchFor(params.expected_branch, options);
     await requireMerge(params.merge, options);
     const request = transport.requestParsed(SyncImportStarted, "/api/ee/remote-sync/import", {
@@ -401,6 +402,7 @@ export function gitSyncResource(transport: Transport) {
     params: SyncExportParams = {},
     options: RequestOptions = {},
   ): Promise<SyncExportResult> {
+    checkSchedule(params.wait);
     const branchName = await exportBranchFor(params.branch, options);
     await requireMerge(params.merge, options);
     const request = transport.requestParsed(SyncExportStarted, "/api/ee/remote-sync/export", {
@@ -451,6 +453,7 @@ export function gitSyncResource(transport: Transport) {
     params: SyncStashParams,
     options: RequestOptions = {},
   ): Promise<SyncStashResult> {
+    checkSchedule(params.wait);
     const started = await transport.requestParsed(SyncStashStarted, "/api/ee/remote-sync/stash", {
       ...options,
       method: "POST",

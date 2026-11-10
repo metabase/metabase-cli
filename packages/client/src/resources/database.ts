@@ -11,7 +11,7 @@ import {
 import { Table } from "../domain/table";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
-import { type PollOptions, pollUntil } from "../poll";
+import { checkSchedule, type PollOptions, pollUntil } from "../poll";
 import { combineAborts } from "../signal";
 
 // `GET /api/database` is the one Metabase list endpoint that wraps its rows in a `{ data, total }`
@@ -120,6 +120,7 @@ export function databaseResource(transport: Transport) {
     params: DatabaseSyncSchemaParams = {},
     options: RequestOptions = {},
   ): Promise<DatabaseSyncResult> {
+    checkSchedule(params.wait);
     const ack = await transport.requestParsed(DatabaseTaskAck, `/api/database/${id}/sync_schema`, {
       ...options,
       method: "POST",
