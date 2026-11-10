@@ -2,6 +2,10 @@
 
 Notable changes to `@metabase/client`.
 
+## 0.1.6
+
+- A data app names its slug and its display name as its `data_app.yaml` does: `DataApp`, `DataAppSummary` and `DataAppCompact` read the slug from `slug` and the display name from `name`, which held the slug, and have no `display_name`.
+
 ## 0.1.5
 
 - `session.properties()` returns the server's session properties (`GET /api/session/properties`): the settings the caller may read, including the server's version and the premium features its license grants. It always sends the request, never answering from a profile the client holds. The client treats the answer as it treats its own probe of the server: the answer becomes the profile `client.server()` and `client.verifiedServer()` return, and is passed to `onServerProbed`.

@@ -14,8 +14,8 @@ export const DataAppSlug = z
 export const DataApp = z
   .object({
     id: z.number().int(),
+    slug: z.string(),
     name: z.string(),
-    display_name: z.string(),
     description: z.string().nullable(),
     version: z.number().int(),
     outdated: z.boolean(),
@@ -32,16 +32,16 @@ export type DataApp = z.infer<typeof DataApp>;
 
 // What a non-admin reads: only the fields that navigate to the app. Strict, so an admin answer
 // `DataApp` rejects fails here too instead of passing as a summary.
-export const DataAppSummary = z.object({ name: z.string(), display_name: z.string() }).strict();
+export const DataAppSummary = z.object({ slug: z.string(), name: z.string() }).strict();
 export type DataAppSummary = z.infer<typeof DataAppSummary>;
 
 export const DataAppEntry = z.union([DataApp, DataAppSummary]);
 export type DataAppEntry = z.infer<typeof DataAppEntry>;
 
-// A summary carries only `name` and `display_name`, so the admin-only fields are optional here.
+// A summary carries only `slug` and `name`, so the admin-only fields are optional here.
 export const DataAppCompact = DataApp.pick({
+  slug: true,
   name: true,
-  display_name: true,
   enabled: true,
   resource_collection_id: true,
   outdated: true,
