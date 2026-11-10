@@ -18,63 +18,21 @@ import { requirementFailure, requireServer } from "./server-gate";
 const TRANSFORM_ID = "7JwIkkAG-06-nsl4jzsaq";
 const ANY_ENVELOPE = { job: expect.any(String), at: expect.any(String) };
 
-// Coverage always runs first, as the lint stage; with every transform at head tested it passes quietly.
-function quietLintEvents(firstSeq: number): unknown[] {
-  return [
-    { ...ANY_ENVELOPE, seq: firstSeq, type: "stage.start", stage: "lint" },
-    {
-      ...ANY_ENVELOPE,
-      seq: firstSeq + 1,
-      type: "check.result",
-      stage: "lint",
-      check: {
-        kind: "coverage",
-        id: "untouched",
-        label: "Transforms whose logic this change did not touch",
-      },
-      verdict: "passed",
-      warnings: [],
-      ms: 0,
-      detail: { untested: [] },
-    },
-    {
-      ...ANY_ENVELOPE,
-      seq: firstSeq + 2,
-      type: "stage.end",
-      stage: "lint",
-      status: "passed",
-      stopped: null,
-    },
-  ];
-}
-
 const lintGap = requirementFailure(["lintReport"]);
 const SAVED_QUERY_CHECKS = lintGap === null ? 1 : 0;
-const UNTOUCHED_PASSED = {
-  type: "check.result",
-  stage: "lint",
-  check: {
-    kind: "coverage",
-    id: "untouched",
-    label: "Transforms whose logic this change did not touch",
-  },
-  verdict: "passed",
-  warnings: [],
-  ms: 0,
-  detail: { untested: [] },
-};
-
 type CheckedState = "passed" | "failed" | "errored";
 
 function sequenced(bodies: readonly object[], firstSeq: number): unknown[] {
   return bodies.map((body, index) => ({ ...ANY_ENVELOPE, ...body, seq: firstSeq + index }));
 }
 
-// How the lint stage ends once coverage is `coverage`: with a clean check of the instance's saved
-// queries, or, on a stack without the lint report, with a stop that leaves a passing stage errored.
-function lintEnd(coverage: "passed" | "failed"): object[] {
+// The lint stage on this stack: a clean check of the instance's saved queries, or, on a stack
+// without the lint report, a stop that leaves the stage errored.
+function lintStage(): object[] {
+  const start = { type: "stage.start", stage: "lint" };
   if (lintGap === null) {
     return [
+      start,
       {
         type: "check.result",
         stage: "lint",
@@ -84,14 +42,15 @@ function lintEnd(coverage: "passed" | "failed"): object[] {
         ms: expect.any(Number),
         detail: { errors: 0, warnings: 0, entities: 0 },
       },
-      { type: "stage.end", stage: "lint", status: coverage, stopped: null },
+      { type: "stage.end", stage: "lint", status: "passed", stopped: null },
     ];
   }
   return [
+    start,
     {
       type: "stage.end",
       stage: "lint",
-      status: coverage === "failed" ? "failed" : "errored",
+      status: "errored",
       stopped: { code: "ci.unsupported-server", message: lintGap.detail },
     },
   ];
@@ -163,13 +122,12 @@ describe("ci e2e", () => {
           },
         ],
       },
-      ...quietLintEvents(1),
       {
         ...ANY_ENVELOPE,
-        seq: 4,
+        seq: 1,
         type: "job.end",
         state: "passed",
-        counts: { checks: 1, warnings: 2 },
+        counts: { checks: 0, warnings: 2 },
       },
     ]);
     expect(parseJson(await readFile(resultsPath, "utf8"), z.array(CiEvent))).toEqual(events);
@@ -252,78 +210,6 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     });
   }
 
-  it("fails a new transform with no test at the lint stage, and still runs the unit stage", async () => {
-    await repo.git("checkout", "-q", "-b", "feature");
-    await repo.put(
-      "transforms/daily.yaml",
-      `name: Daily\nentity_id: ${TRANSFORM_ID}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
-    );
-    await repo.commitAll("add an untested transform");
-
-    const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
-
-    expect(result.exitCode).toBe(1);
-    const events = result.stdout
-      .trimEnd()
-      .split("\n")
-      .map((line) => parseJson(line, CiEvent));
-    const expected = [
-      { type: "stage.start", stage: "lint" },
-      {
-        type: "check.result",
-        stage: "lint",
-        check: { kind: "coverage", id: TRANSFORM_ID, label: "Daily" },
-        verdict: "failed",
-        warnings: [],
-        ms: 0,
-        detail: {
-          change: "new",
-          message: "Daily is new in this change and has no transform tests",
-        },
-      },
-      {
-        type: "check.result",
-        stage: "lint",
-        check: {
-          kind: "coverage",
-          id: "untouched",
-          label: "Transforms whose logic this change did not touch",
-        },
-        verdict: "passed",
-        warnings: [],
-        ms: 0,
-        detail: { untested: [] },
-      },
-      ...lintEnd("failed"),
-      { type: "stage.start", stage: "unit" },
-      {
-        type: "check.result",
-        stage: "unit",
-        check: { kind: "transform-test", id: TRANSFORM_ID, label: "Daily" },
-        verdict: "refused",
-        warnings: [],
-        ms: 0,
-        detail: {
-          error_code: "ci.transform-not-on-instance",
-          message:
-            "the transform is in the branch but not on the Metabase instance; load the branch into it first",
-        },
-      },
-      {
-        type: "stage.end",
-        stage: "unit",
-        status: "errored",
-        stopped: null,
-      },
-      {
-        type: "job.end",
-        state: "failed",
-        counts: { checks: 3 + SAVED_QUERY_CHECKS, warnings: 0 },
-      },
-    ];
-    expect(events.slice(1)).toEqual(sequenced(expected, 1));
-  });
-
   it("refuses a changed transform the instance does not have, ending the job errored", async () => {
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
@@ -341,9 +227,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
       .split("\n")
       .map((line) => parseJson(line, CiEvent));
     const expected = [
-      { type: "stage.start", stage: "lint" },
-      UNTOUCHED_PASSED,
-      ...lintEnd("passed"),
+      ...lintStage(),
       { type: "stage.start", stage: "unit" },
       {
         type: "check.result",
@@ -367,7 +251,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
       {
         type: "job.end",
         state: "errored",
-        counts: { checks: 2 + SAVED_QUERY_CHECKS, warnings: 0 },
+        counts: { checks: 1 + SAVED_QUERY_CHECKS, warnings: 0 },
       },
     ];
     expect(events.slice(1)).toEqual(sequenced(expected, 1));
@@ -430,9 +314,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
           checked: [{ entity_id: entityId, name: "Order totals" }],
           warnings: [],
         },
-        { type: "stage.start", stage: "lint" },
-        UNTOUCHED_PASSED,
-        ...lintEnd("passed"),
+        ...lintStage(),
         { type: "stage.start", stage: "unit" },
         {
           type: "check.result",
@@ -469,7 +351,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
         {
           type: "job.end",
           state: jobState(verdict),
-          counts: { checks: 2 + SAVED_QUERY_CHECKS, warnings: 0 },
+          counts: { checks: 1 + SAVED_QUERY_CHECKS, warnings: 0 },
         },
       ];
       return sequenced(bodies, 0);

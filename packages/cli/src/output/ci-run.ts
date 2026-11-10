@@ -34,35 +34,23 @@ const VERDICT_MARK: Readonly<Record<Verdict, string>> = {
   refused: "!",
 };
 
-// Which kinds of check have failed so far, so the job.end line can name the fix: a failed coverage
-// check asks for a test, a broken saved query for a fix to the query, and any other failed check
-// for a fix to the transform.
-type FailedKind = "tests" | "transform" | "queries";
+// Which kinds of check have failed so far, so the job.end line can name the fix: a broken saved
+// query asks for a fix to the query, and any other failed check for a fix to the transform.
+type FailedKind = "transform" | "queries";
 export type FailedChecks = ReadonlySet<FailedKind>;
 export const NO_FAILED_CHECKS: FailedChecks = new Set();
-
-const FAILED_KIND_BY_CHECK: Readonly<Partial<Record<CheckResult["check"]["kind"], FailedKind>>> = {
-  coverage: "tests",
-  "broken-refs": "queries",
-};
 
 function failedText(failed: FailedChecks): string {
   const fixes = [
     ...(failed.has("transform") || failed.size === 0 ? ["fix the transform"] : []),
     ...(failed.has("queries") ? ["fix the broken saved queries"] : []),
   ];
-  if (!failed.has("tests")) {
-    return `FAILED  ${fixes.join(" and ")}`;
-  }
-  if (fixes.length === 0) {
-    return "FAILED  add or restore transform tests";
-  }
-  return `FAILED  ${fixes.join(", ")} and add the missing tests`;
+  return `FAILED  ${fixes.join(" and ")}`;
 }
 
 const ERRORED_TEXT = "ERRORED  fix the test or the setup";
 
-// A refused transform test and a failed coverage check carry a message as their detail; a request
+// A refused transform test carries a message as its detail; a request
 // that failed with an HTTP answer also carries its status.
 const CheckMessage = z.object({ message: z.string() });
 const HttpFailureMessage = CheckMessage.extend({ status: z.number().int() });
@@ -71,7 +59,8 @@ export function failedChecksAfter(failed: FailedChecks, event: CiEvent): FailedC
   if (event.type !== "check.result" || event.verdict !== "failed") {
     return failed;
   }
-  return new Set([...failed, FAILED_KIND_BY_CHECK[event.check.kind] ?? "transform"]);
+  const kind = event.check.kind === "broken-refs" ? "queries" : "transform";
+  return new Set([...failed, kind]);
 }
 
 // The text form of one CI event: a line or more, or none for an event the next one makes plain.

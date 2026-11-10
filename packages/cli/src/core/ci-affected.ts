@@ -23,9 +23,6 @@ interface TransformFile {
   kind: "transform";
   entityId: string;
   name: string;
-  logic: TransformLogic;
-  // Metabase tests only a query transform, and refuses a test of any other, such as a Python one.
-  testable: boolean;
 }
 
 interface TransformTestFile {
@@ -162,28 +159,6 @@ const TransformDocument = z
     target: z.unknown(),
   })
   .loose();
-const TransformLogicDocument = TransformDocument.pick({ source: true, target: true });
-
-type LogicReading = z.infer<typeof TransformLogicDocument>;
-
-// What a transform computes. An edit to anything else (name, description, collection, tags) leaves
-// its logic unchanged. Metabase reads YAML 1.1, where an unquoted `on` is true and `017` is 15, and
-// this check reads YAML 1.2, so the logic holds both readings: an edit either parser sees changes it.
-export interface TransformLogic {
-  yaml12: LogicReading;
-  yaml11: LogicReading;
-}
-
-const QUERY_SOURCE_TYPE = "query";
-
-// A source that names no type is held to the query rule, so a malformed transform still needs a test.
-function isTestableSource(source: unknown): boolean {
-  if (!isPlainObject(source)) {
-    return true;
-  }
-  const type = source["type"];
-  return typeof type !== "string" || type === QUERY_SOURCE_TYPE;
-}
 
 const TRANSFORM_RULE = "a Transform must have an entity_id, a name, a source and a target";
 const TRANSFORM_TEST_RULE =
@@ -222,17 +197,7 @@ export function classifyContentFile(path: string, yaml: MetabaseYaml): ContentFi
   }
   if (last.model === "Transform") {
     const transform = parseOrRefuse(path, TransformDocument, document, TRANSFORM_RULE);
-    const asYaml11 = parseOrRefuse(path, TransformLogicDocument, yaml.yaml11, TRANSFORM_RULE);
-    return {
-      kind: "transform",
-      entityId: transform.entity_id,
-      name: transform.name,
-      logic: {
-        yaml12: { source: transform.source, target: transform.target },
-        yaml11: { source: asYaml11.source, target: asYaml11.target },
-      },
-      testable: isTestableSource(transform.source),
-    };
+    return { kind: "transform", entityId: transform.entity_id, name: transform.name };
   }
   if (last.model === "TransformTest") {
     const test = parseOrRefuse(path, TransformTestDocument, document, TRANSFORM_TEST_RULE);
@@ -292,32 +257,18 @@ export const TRANSFORM_MODEL_PATTERN = "Transform";
 export interface HeadTransforms {
   names: Map<string, string>;
   tested: Set<string>;
-  testedWithoutExpectations: Set<string>;
-  untestable: Set<string>;
 }
 
-// The transforms among files at head, each by name, the transforms a test with expectations at head
-// covers, those only tests without expectations name, and the transforms Metabase cannot test.
+// The transforms among files at head, each by name, and the transforms a test with expectations at
+// head covers.
 export function headTransforms(files: readonly (ContentFile | null)[]): HeadTransforms {
-  const atHead: HeadTransforms = {
-    names: new Map(),
-    tested: new Set(),
-    testedWithoutExpectations: new Set(),
-    untestable: new Set(),
-  };
+  const atHead: HeadTransforms = { names: new Map(), tested: new Set() };
   for (const file of files) {
     if (file?.kind === "transform") {
       atHead.names.set(file.entityId, file.name);
-      if (!file.testable) {
-        atHead.untestable.add(file.entityId);
-      }
-    } else if (file?.kind === "transform-test") {
-      const covered = file.hasExpectations ? atHead.tested : atHead.testedWithoutExpectations;
-      covered.add(file.transformId);
+    } else if (file?.kind === "transform-test" && file.hasExpectations) {
+      atHead.tested.add(file.transformId);
     }
-  }
-  for (const entityId of atHead.tested) {
-    atHead.testedWithoutExpectations.delete(entityId);
   }
   return atHead;
 }
@@ -399,7 +350,7 @@ export function unreadContentWarning(reasons: readonly string[]): CiWarning | nu
   }
   const summary =
     reasons.length === 1
-      ? "1 content file this change did not touch could not be read, so the coverage check skipped it"
-      : `${reasons.length} content files this change did not touch could not be read, so the coverage check skipped them`;
+      ? "1 content file this change did not touch could not be read, so a transform or test in it went uncounted"
+      : `${reasons.length} content files this change did not touch could not be read, so a transform or test in them went uncounted`;
   return { code: "unread-content", message: `${summary}: ${reasons.join("; ")}` };
 }
