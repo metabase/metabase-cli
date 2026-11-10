@@ -16,6 +16,7 @@ import { fieldResource } from "./resources/field";
 import { gitSyncResource } from "./resources/git-sync";
 import { glossaryResource } from "./resources/glossary";
 import { libraryResource } from "./resources/library";
+import { lintResource } from "./resources/lint";
 import { measureResource } from "./resources/measure";
 import { metricResource } from "./resources/metric";
 import { moderationReviewResource } from "./resources/moderation-review";
@@ -66,6 +67,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     gitSync: gitSyncResource(transport),
     glossary: glossaryResource(transport),
     library: libraryResource(transport),
+    lint: lintResource(transport),
     measure: measureResource(transport),
     metric: metricResource(transport),
     moderationReview: moderationReviewResource(transport),
