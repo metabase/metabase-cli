@@ -271,6 +271,48 @@ describe("ciEventLines", () => {
     ]);
   });
 
+  it("renders a broken saved query as a failed check listing each error under its rule", () => {
+    expect(
+      render(
+        [
+          jobStart(1),
+          { type: "stage.start", stage: "lint" },
+          UNTOUCHED_PASSED,
+          {
+            type: "check.result",
+            stage: "lint",
+            check: { kind: "broken-refs", id: "Cd7kW2pLmX7sYb4nC8dE1", label: 'card "Revenue"' },
+            verdict: "failed",
+            warnings: [],
+            ms: 0,
+            detail: {
+              entity: { id: 310, type: "card", data: { name: "Revenue", collection_id: null } },
+              errors: [
+                {
+                  ruleId: "missing-column",
+                  entity_id: "Cd7kW2pLmX7sYb4nC8dE1",
+                  message: 'Column TOTAL is not on transform "transform_0"',
+                  detail: "TOTAL",
+                  cause: null,
+                },
+              ],
+            },
+          },
+          { type: "stage.end", stage: "lint", status: "failed", stopped: null },
+          { type: "job.end", state: "failed", counts: { checks: 2, warnings: 0 } },
+        ],
+        DEFAULT_MAX_ROWS,
+      ),
+    ).toEqual([
+      "mb ci run  base 0c9c839  head eff9458  1 transform checked",
+      "lint",
+      "  ✓ Transforms whose logic this change did not touch",
+      '  ✗ card "Revenue"',
+      '      missing-column  Column TOTAL is not on transform "transform_0"',
+      "FAILED  fix the broken saved queries (exit 1)",
+    ]);
+  });
+
   it("renders a transform that lost its last test as a failed coverage check", () => {
     expect(
       render(

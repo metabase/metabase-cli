@@ -19,6 +19,7 @@ const CLIENT_TYPE = "MetabaseClient";
 // command declares what reaches the wire on its behalf rather than what its own body spells out.
 const CLIENT_HELPERS: Readonly<Record<string, string>> = {
   clientPort: "commands/ci/unit-stage.ts",
+  lintPort: "commands/ci/lint-stage.ts",
   preflightDashcardCardReferences: "commands/dashboard/preflight.ts",
   warnIfOutsideSyncScope: "commands/git-sync/sync-scope.ts",
   verifyAndProbe: "core/auth/verify.ts",
@@ -332,6 +333,7 @@ describe("every command declares exactly the client methods it reaches", () => {
       Object.values(CLIENT_HELPERS).map((file) => [file, methodsCalledIn(parsedFile(file))]),
     );
     expect(reached).toEqual({
+      "commands/ci/lint-stage.ts": ["lint.report"],
       "commands/ci/unit-stage.ts": [
         "eidTranslation.translate",
         "transform.get",
