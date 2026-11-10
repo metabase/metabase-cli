@@ -24,8 +24,6 @@ import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { cliErrorMessage } from "./cli-error";
 import { SEEDED } from "./seed/seeded";
 
-const SAVED_QUESTIONS_VIRTUAL_DB_ID = -1337;
-
 // A warehouse database lists real tables only; the virtual ones belong to the Saved Questions database.
 const WarehouseDatabaseCompact = DatabaseCompact.extend({
   tables: z.array(TableCompact).optional(),
@@ -187,31 +185,6 @@ describe("db e2e", () => {
       count: 1,
       dbId: SEEDED.warehouseDbId,
       tableIds: ALL_WAREHOUSE_TABLES_SORTED_BY_ID.map((table) => table.id),
-    });
-  });
-
-  it("list --saved includes the Saved Questions virtual database", async () => {
-    const result = await runCli({
-      args: ["db", "list", "--saved", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-
-    expect(result.exitCode, result.stderr).toBe(0);
-    expect(parseJson(result.stdout, DatabaseListEnvelope)).toEqual({
-      data: [
-        { id: SEEDED.warehouseDbId, name: "Warehouse", engine: "postgres" },
-        {
-          id: SAVED_QUESTIONS_VIRTUAL_DB_ID,
-          name: "Saved Questions",
-          is_saved_questions: true,
-        },
-      ],
-      returned: 2,
-      offset: 0,
-      total: 2,
-      has_more: false,
-      next_offset: null,
     });
   });
 

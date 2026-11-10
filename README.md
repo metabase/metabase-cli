@@ -1220,7 +1220,7 @@ mb data-action execute 1 --file values.json
 
 ## Data apps
 
-A data app is a React app built into one JavaScript bundle, which Metabase serves in a sandbox at `/apps/<slug>`. It lives in the synced git repository under `data_apps/<slug>/`, with its questions and actions in its collection's files under `collections/data_apps/`, and changes in Metabase only through an import of the repository. Data apps need the `data-apps` premium feature. Admins see every app, but a disabled one opens only in Data Studio and an outdated one not at all; other users see only the apps they can open, with just `name` and `display_name`. The `data-app` skill covers building one, with `data-app-ui`, `data-app-data`, `data-app-filters`, `data-app-actions` and `data-app-testing` for its parts.
+A data app is a React app built into one JavaScript bundle, which Metabase serves in a sandbox at `/apps/<slug>`. It lives in the synced git repository under `data_apps/<slug>/`, with its questions and actions in its collection's files under `collections/data_apps/`, and changes in Metabase only through an import of the repository. Data apps need the `data-apps` premium feature. Admins see every app, but a disabled one opens only in Data Studio and an outdated one not at all; other users see only the apps they can open, with just `slug` and `name`. The `data-app` skill covers building one, with `data-app-ui`, `data-app-data`, `data-app-filters`, `data-app-actions` and `data-app-testing` for its parts.
 
 ### `mb data-app scaffold <slug>`
 

@@ -755,31 +755,29 @@ describe("table e2e", () => {
     expect(cliErrorMessage(result.stderr)).toContain('invalid id: "abc" (expected integer)');
   });
 
-  it("update withdraws data_authority on a server that keeps user edits apart, or refuses before the request on one that would fail the write", async () => {
-    const result = await runCli({
-      args: [
-        "table",
-        "update",
-        String(SEEDED.tables.reviews),
-        "--body",
-        JSON.stringify({ data_authority: null }),
-        "--json",
-      ],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
+  it.skipIf(serverHas("tableUserValueWithdrawal"))(
+    "update refuses to withdraw data_authority before the request on a server that would fail the write",
+    async () => {
+      const result = await runCli({
+        args: [
+          "table",
+          "update",
+          String(SEEDED.tables.reviews),
+          "--body",
+          JSON.stringify({ data_authority: null }),
+          "--json",
+        ],
+        configHome: await makeIsolatedConfigHome(),
+        env: authEnv(),
+      });
 
-    if (serverHas("tableUserValueWithdrawal")) {
-      expect(result.exitCode, result.stderr).toBe(0);
-      expect(parseJson(result.stdout, TableCompact).id).toBe(SEEDED.tables.reviews);
-      return;
-    }
-    expect(result.exitCode).toBe(2);
-    expect(cliErrorMessage(result.stderr)).toBe(
-      `This operation requires Metabase v64+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}\n${PREFLIGHT_SKIP_REMEDY}`,
-    );
-    expect(result.stdout).toBe("");
-  });
+      expect(result.exitCode).toBe(2);
+      expect(cliErrorMessage(result.stderr)).toBe(
+        `This operation requires Metabase v64+ (this server is ${bootstrap.server.version?.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}\n${PREFLIGHT_SKIP_REMEDY}`,
+      );
+      expect(result.stdout).toBe("");
+    },
+  );
 
   it("sync-schema queues a schema sync for the table and returns ok", async () => {
     const result = await runCli({

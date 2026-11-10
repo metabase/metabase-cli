@@ -10,7 +10,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
-import { requireServer, serverHas } from "./server-gate";
+import { requireServer } from "./server-gate";
 
 const LIBRARY_UNAVAILABLE = requireServer("library › with the library feature", ["library"]);
 const REMOTE_SYNC_UNAVAILABLE = requireServer(
@@ -37,20 +37,14 @@ const NO_SELECTOR_MESSAGE = "provide at least one selector: --table-ids, --db-id
 
 // The Library's children arrive as a set, so they are compared in name order; only the Data
 // collection's id is seeded.
+// Data and Metrics only: which other sections a Library has differs between Metabase versions.
 function childrenByName(library: Library): LibraryChild[] {
-  return library.effective_children.toSorted((a, b) => a.name.localeCompare(b.name));
+  return library.effective_children
+    .filter((child) => child.type === "library-data" || child.type === "library-metrics")
+    .toSorted((a, b) => a.name.localeCompare(b.name));
 }
 
-const LIBRARY_DASHBOARDS_CHILD = {
-  id: expect.any(Number),
-  name: "Dashboards",
-  description: null,
-  type: "library-dashboards",
-  is_remote_synced: false,
-};
-
 const LIBRARY_CHILDREN = [
-  ...(serverHas("libraryDashboards") ? [LIBRARY_DASHBOARDS_CHILD] : []),
   {
     id: SEEDED.libraryDataCollectionId,
     name: "Data",

@@ -24,8 +24,8 @@ const CREDENTIALS: ClientCredentials = {
 
 const APP = {
   id: 4,
-  name: "sales-overview",
-  display_name: "Sales overview",
+  slug: "sales-overview",
+  name: "Sales overview",
   description: null,
   version: 1,
   outdated: false,
@@ -38,7 +38,7 @@ const APP = {
   updated_at: "2026-01-02T03:04:05.678Z",
 };
 
-const SUMMARY = { name: "sales-overview", display_name: "Sales overview" };
+const SUMMARY = { slug: "sales-overview", name: "Sales overview" };
 
 const SERVER = createServerProfile({
   edition: "ee",
