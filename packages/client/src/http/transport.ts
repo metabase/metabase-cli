@@ -31,6 +31,7 @@ import {
   type TransportCredential,
 } from "../auth/credential";
 
+import { ERROR_BODY_BYTE_CAP } from "./error-body";
 import { HttpError, isRetryableStatus, UNAUTHORIZED_STATUS } from "./errors";
 import { buildNetworkError, isConnectionClosed } from "./network-error";
 import { parseJsonResponse, type ResponseContext } from "./response-shape";
@@ -45,7 +46,10 @@ export const DEFAULT_METHOD: HttpMethod = "GET";
 export const DEFAULT_TIMEOUT_MS = 30_000;
 const OCTET_STREAM_CONTENT_TYPE = "application/octet-stream";
 const TEXT_CONTENT_TYPE_PREFIX = "text/";
-const ERROR_BODY_BYTE_CAP = 64 * 1024;
+// A JSON error body is read whole up to this size, because its structured fields (field errors, the
+// items a refusal names) are parsed from all of it and a cut body parses to nothing. Any other body
+// is only ever quoted, so it is read no further than the error keeps.
+const ERROR_JSON_BODY_BYTE_CAP = 8 * 1024 * 1024;
 
 const IDEMPOTENT_METHODS: ReadonlySet<HttpMethod> = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -788,10 +792,32 @@ function throwContentTypeMismatch(
 }
 
 async function readBodyForError(response: Response): Promise<string | null> {
+  const isJson = response.headers.get("content-type")?.includes(JSON_CONTENT_TYPE) === true;
+  const byteCap = isJson ? ERROR_JSON_BODY_BYTE_CAP : ERROR_BODY_BYTE_CAP;
   try {
-    const buffer = Buffer.from(await response.arrayBuffer());
-    return buffer.subarray(0, ERROR_BODY_BYTE_CAP).toString("utf8");
+    return (await readUpTo(response, byteCap)).toString("utf8");
   } catch (error) {
     return `[body read failed: ${errorMessage(error)}]`;
   }
+}
+
+// Stops reading at the cap and drops the rest of the stream, so a body of any size costs no more
+// memory than the cap plus one chunk.
+async function readUpTo(response: Response, byteCap: number): Promise<Buffer> {
+  if (response.body === null) {
+    return Buffer.alloc(0);
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let byteLength = 0;
+  while (byteLength < byteCap) {
+    const chunk = await reader.read();
+    if (chunk.done) {
+      break;
+    }
+    chunks.push(chunk.value);
+    byteLength += chunk.value.byteLength;
+  }
+  await reader.cancel();
+  return Buffer.concat(chunks).subarray(0, byteCap);
 }

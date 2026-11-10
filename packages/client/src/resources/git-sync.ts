@@ -23,6 +23,7 @@ import {
 } from "../domain/git-sync";
 import { SessionProperties } from "../domain/session-properties";
 import { ConfigError, isNonInterruptFailure } from "../errors";
+import { errorBodyJson } from "../http/error-body";
 import {
   BAD_REQUEST_STATUS,
   CONFLICT_STATUS,
@@ -31,7 +32,6 @@ import {
   NOT_FOUND_STATUS,
   SyncRefusedError,
 } from "../http/errors";
-import { parseJsonResult } from "../json";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { checkSchedule, type PollOptions, pollUntil } from "../poll";
@@ -204,33 +204,32 @@ export function gitSyncResource(transport: Transport) {
     }
   }
 
+  // Read off the whole body's JSON, not the text the error keeps: a refusal naming many items runs
+  // past what is kept, and cut there it would parse to nothing.
   async function refusalOf(error: HttpError, options: RequestOptions): Promise<SyncRefusal | null> {
-    const body = error.developerDetail.body;
-    if (body === null) {
-      return null;
-    }
+    const body = errorBodyJson(error);
     if (error.status === CONFLICT_STATUS) {
-      const mismatch = parseJsonResult(body, BranchMismatchBody);
-      return mismatch.ok
-        ? { kind: "branch-mismatch", current_branch: mismatch.value.current_branch }
+      const mismatch = BranchMismatchBody.safeParse(body);
+      return mismatch.success
+        ? { kind: "branch-mismatch", current_branch: mismatch.data.current_branch }
         : null;
     }
     if (error.status !== BAD_REQUEST_STATUS) {
       return null;
     }
-    const unsynced = parseJsonResult(body, UnsyncedDependenciesBody);
-    if (unsynced.ok) {
+    const unsynced = UnsyncedDependenciesBody.safeParse(body);
+    if (unsynced.success) {
       return {
         kind: "unsynced-dependencies",
-        unsynced_dependencies: unsynced.value.unsynced_dependencies,
+        unsynced_dependencies: unsynced.data.unsynced_dependencies,
       };
     }
-    return parseJsonResult(body, DirtyRefusalBody).ok ? dirtyRefusal(body, options) : null;
+    return DirtyRefusalBody.safeParse(body).success ? dirtyRefusal(body, options) : null;
   }
 
   // The changes a dirty import's refusal names, read by the shape of the server that sent them. When
   // that shape cannot be had or does not match, the refusal is left as the server's bare answer.
-  async function dirtyRefusal(body: string, options: RequestOptions): Promise<SyncRefusal | null> {
+  async function dirtyRefusal(body: unknown, options: RequestOptions): Promise<SyncRefusal | null> {
     let features: Features;
     try {
       features = (await transport.server(options)).features;
@@ -244,8 +243,8 @@ export function gitSyncResource(transport: Transport) {
       return { kind: "dirty", dirty_objects: null };
     }
     const named = z.object({ dirty_objects: z.array(syncDirtyItemSchema(features)) });
-    const read = parseJsonResult(body, named);
-    return read.ok ? { kind: "dirty", dirty_objects: read.value.dirty_objects } : null;
+    const read = named.safeParse(body);
+    return read.success ? { kind: "dirty", dirty_objects: read.data.dirty_objects } : null;
   }
 
   /** Get the running or most recently finished sync task, or null when the server has none. */
