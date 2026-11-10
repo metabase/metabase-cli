@@ -1,6 +1,6 @@
 import type { Writable } from "node:stream";
 
-import { ConfigError } from "@metabase/client/errors";
+import { ConfigError, FailedResultError } from "@metabase/client/errors";
 import type { ColumnDef, ResourceView } from "./view";
 
 import { type CapFit, capListEnvelope, fitWithinCap } from "./cap";
@@ -87,20 +87,29 @@ export function renderSummary<T>(
   writeWithinMaxBytes(summaryBody(item, view, summaryText, opts), opts);
 }
 
-// renderSummary for a command whose result outranks the cap: over it, nothing is written and the
-// refusal comes back as a message, so the caller can still report what the result was.
-export function renderSummaryWithinMaxBytes<T>(
+// The message of a verdict that did not pass, given the cap's refusal when the report was not written.
+export type VerdictFailure = (oversize: string | null) => string;
+
+// renderSummary for a command whose result is a verdict, with `failure` null for a pass. The work
+// has already happened, so a report too big to print still owes the caller its verdict.
+export function renderVerdict<T>(
   item: T,
   view: ResourceView<T>,
   summaryText: string | (() => string),
   opts: RenderOptions,
-): string | null {
+  failure: VerdictFailure | null,
+): void {
   const body = summaryBody(item, view, summaryText, opts);
   const oversize = oversizeMessage(body, opts);
   if (oversize === null) {
     process.stdout.write(body);
   }
-  return oversize;
+  if (failure !== null) {
+    throw new FailedResultError(failure(oversize));
+  }
+  if (oversize !== null) {
+    throw new ConfigError(oversize);
+  }
 }
 
 function summaryBody<T>(

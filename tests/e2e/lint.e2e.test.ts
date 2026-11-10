@@ -1,17 +1,15 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { Card, CardCompact, type CardCreateInput } from "@metabase/client/domain/card";
+import { Card, type CardCreateInput } from "@metabase/client/domain/card";
 import { LintReport } from "@metabase/client/domain/lint";
 import { parseJson } from "@metabase/client/json";
 
-import { readBootstrap, type E2EBootstrap, type ServerIdentity } from "./bootstrap-data";
+import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
 import { requirementFailure, requireServer, requireServerWithout } from "./server-gate";
 
-const DEPENDENCIES_REFUSAL =
-  "This operation requires the 'dependencies' premium feature (not enabled on this server).";
 const DOWNGRADE_REMEDY = "Or install an `@metabase/cli` release that targets this server.";
 const FORBIDDEN_MESSAGE = "You don't have permissions to do that.";
 const MODEL_NAME = "Lint model";
@@ -46,15 +44,13 @@ const unsupportedSkipReason = requireServerWithout("lint › server without the 
 ]);
 const lintGap = requirementFailure(["lintReport"]);
 
-// The explained refusal names the version gap before the missing token feature.
-function liveRefusal(server: ServerIdentity): string {
-  if (lintGap?.reason !== "version-too-old") {
-    return DEPENDENCIES_REFUSAL;
+function liveRefusal(): string {
+  if (lintGap === null) {
+    throw new Error("this lane runs only on a server without the lint endpoint");
   }
-  if (server.version === null) {
-    throw new Error("a server with no parsed version is placed past the window, never below it");
-  }
-  return `This operation requires Metabase v66+ (this server is ${server.version.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`;
+  return lintGap.reason === "version-too-old"
+    ? `${lintGap.detail}\n${DOWNGRADE_REMEDY}`
+    : lintGap.detail;
 }
 
 function tableQuery(tableId: number) {
@@ -109,7 +105,7 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
 
   async function createCard(body: LintCardInput): Promise<IdentifiedCard> {
     const created = await runCli({
-      args: ["card", "create", "--json"],
+      args: ["card", "create", "--json", "--full"],
       stdin: JSON.stringify({
         display: "table",
         visualization_settings: {},
@@ -120,14 +116,7 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
       env: authEnv(),
     });
     expect(created.exitCode, created.stderr).toBe(0);
-    const { id } = parseJson(created.stdout, CardCompact);
-    const fetched = await runCli({
-      args: ["card", "get", String(id), "--json", "--full"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-    expect(fetched.exitCode, fetched.stderr).toBe(0);
-    const { entity_id } = parseJson(fetched.stdout, Card);
+    const { id, entity_id } = parseJson(created.stdout, Card);
     if (entity_id === null) {
       throw new Error(`card ${id} has no entity_id`);
     }
@@ -182,7 +171,7 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
 
     expect(result.exitCode).toBe(1);
     expect(cliErrorCategory(result.stderr)).toBe("failed");
-    expect(cliErrorMessage(result.stderr)).toBe("lint failed: 1 error(s)");
+    expect(cliErrorMessage(result.stderr)).toBe("lint failed: 1 error");
     expect(parseJson(result.stdout, LintReport)).toEqual({
       status: "failed",
       summary: { errors: 1, warnings: 0, entities: 1 },
@@ -320,6 +309,6 @@ describe.skipIf(unsupportedSkipReason !== null)("lint e2e on a server without th
 
     expect(result.exitCode).toBe(2);
     expect(cliErrorCategory(result.stderr)).toBe("capability");
-    expect(cliErrorMessage(result.stderr)).toBe(liveRefusal(bootstrap.server));
+    expect(cliErrorMessage(result.stderr)).toBe(liveRefusal());
   });
 });

@@ -5,7 +5,7 @@ import type { LintReport, LintResult } from "@metabase/client/domain/lint";
 
 import { lintReportLines } from "./lint";
 
-const MODEL_ID = "Tf9pQ2wLmX7sYb4nC8dE1";
+const TRANSFORM_ID = "Tf9pQ2wLmX7sYb4nC8dE1";
 const CARD_ID = "Cd7kW2pLmX7sYb4nC8dE1";
 
 const MISSING_COLUMN: LintResult = {
@@ -13,7 +13,7 @@ const MISSING_COLUMN: LintResult = {
   entity_id: CARD_ID,
   message: 'Column TOTAL is not on card "Orders model"',
   detail: "TOTAL",
-  cause: { type: "card", id: 17, entity_id: MODEL_ID, name: "Orders model" },
+  cause: null,
 };
 
 const ANALYSIS_FAILED: LintResult = {
@@ -26,7 +26,7 @@ const ANALYSIS_FAILED: LintResult = {
 
 const MISSING_TABLE_ALIAS: LintResult = {
   ruleId: "missing-table-alias",
-  entity_id: MODEL_ID,
+  entity_id: TRANSFORM_ID,
   message: "Native SQL reads ORDERZ, which no known table matches",
   detail: "ORDERZ",
   cause: null,
@@ -49,7 +49,11 @@ const RULES = {
 
 const ENTITIES = {
   [CARD_ID]: { id: 310, type: "card", data: { name: "Revenue by day", collection_id: 5 } },
-  [MODEL_ID]: { id: 17, type: "transform", data: { name: "Orders daily", collection_id: null } },
+  [TRANSFORM_ID]: {
+    id: 17,
+    type: "transform",
+    data: { name: "Orders daily", collection_id: null },
+  },
 } as const;
 
 const PASSED: LintReport = {
@@ -74,7 +78,7 @@ describe("lintReportLines", () => {
       results: [MISSING_TABLE_ALIAS, MISSING_COLUMN, ANALYSIS_FAILED],
     };
     expect(lintReportLines(report)).toEqual([
-      `✗ transform "Orders daily" ${MODEL_ID}`,
+      `✗ transform "Orders daily" ${TRANSFORM_ID}`,
       "    missing-table-alias  Native SQL reads ORDERZ, which no known table matches",
       `✗ card "Revenue by day" ${CARD_ID}`,
       '    missing-column              Column TOTAL is not on card "Orders model"',
