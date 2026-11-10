@@ -6,6 +6,7 @@ export type {
   ClientCredentials,
   ClientOptions,
   DerivedClientOptions,
+  DerivedTransportOptions,
   ErrorObserver,
   ExpectedContentType,
   GuardedRequest,
@@ -17,6 +18,7 @@ export type {
   RequestOptions,
   ServerTagResolver,
   SkippedPreflight,
+  TransportOptions,
   TransportRequestOptions,
 } from "./http/transport";
 export type { ListResult } from "./list";
