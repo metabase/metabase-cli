@@ -96,7 +96,7 @@ async function reportsGiven(
   return bodies;
 }
 
-// Every checked transform has a test file in the branch, as when the coverage check passes.
+// Every checked transform has a test file in the branch.
 function reports(
   checked: readonly CheckedTransform[],
   stagePort: UnitStagePort,
@@ -172,7 +172,7 @@ describe("unitStage", () => {
     ]);
   });
 
-  it("reports nothing for a transform with no test in the branch, which the coverage check owns", async () => {
+  it("reports nothing for a transform with no test in the branch, which has nothing to run", async () => {
     const untested = new Set([DAILY.entity_id]);
 
     expect(await reportsGiven([DAILY], untested, port({ listTests: async () => [] }))).toEqual([]);

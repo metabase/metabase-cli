@@ -8,6 +8,7 @@ import {
 } from "@metabase/client/domain/transform-test";
 import { InternalError } from "@metabase/client/errors";
 
+import { BrokenRefsDetail } from "../core/ci-broken-refs";
 import type { CiEvent, JobState, Verdict } from "../core/ci-events";
 import { pluralize } from "./pluralize";
 import { exitCodeFor } from "./error";
@@ -33,21 +34,23 @@ const VERDICT_MARK: Readonly<Record<Verdict, string>> = {
   refused: "!",
 };
 
-// Which kinds of check have failed so far. A failed coverage check asks for a test, any other
-// failed check for a fix to the transform, so the job.end line can name the fix.
-export type FailedChecks = "none" | "tests" | "transform" | "both";
-export const NO_FAILED_CHECKS: FailedChecks = "none";
+// Which kinds of check have failed so far, so the job.end line can name the fix: a broken saved
+// query asks for a fix to the query, and any other failed check for a fix to the transform.
+type FailedKind = "transform" | "queries";
+export type FailedChecks = ReadonlySet<FailedKind>;
+export const NO_FAILED_CHECKS: FailedChecks = new Set();
 
-const FAILED_TEXT: Readonly<Record<FailedChecks, string>> = {
-  none: "FAILED  fix the transform",
-  transform: "FAILED  fix the transform",
-  tests: "FAILED  add or restore transform tests",
-  both: "FAILED  fix the transform and add the missing tests",
-};
+function failedText(failed: FailedChecks): string {
+  const fixes = [
+    ...(failed.has("transform") || failed.size === 0 ? ["fix the transform"] : []),
+    ...(failed.has("queries") ? ["fix the broken saved queries"] : []),
+  ];
+  return `FAILED  ${fixes.join(" and ")}`;
+}
 
 const ERRORED_TEXT = "ERRORED  fix the test or the setup";
 
-// A refused transform test and a failed coverage check carry a message as their detail; a request
+// A refused transform test carries a message as its detail; a request
 // that failed with an HTTP answer also carries its status.
 const CheckMessage = z.object({ message: z.string() });
 const HttpFailureMessage = CheckMessage.extend({ status: z.number().int() });
@@ -56,11 +59,8 @@ export function failedChecksAfter(failed: FailedChecks, event: CiEvent): FailedC
   if (event.type !== "check.result" || event.verdict !== "failed") {
     return failed;
   }
-  const kind = event.check.kind === "coverage" ? "tests" : "transform";
-  if (failed === "none" || failed === kind) {
-    return kind;
-  }
-  return "both";
+  const kind = event.check.kind === "broken-refs" ? "queries" : "transform";
+  return new Set([...failed, kind]);
 }
 
 // The text form of one CI event: a line or more, or none for an event the next one makes plain.
@@ -107,7 +107,7 @@ function jobEndText(state: JobState, failed: FailedChecks): string {
   if (state === "passed") {
     return "PASSED";
   }
-  return state === "failed" ? FAILED_TEXT[failed] : ERRORED_TEXT;
+  return state === "failed" ? failedText(failed) : ERRORED_TEXT;
 }
 
 function jobExitCode(state: JobState): number {
@@ -134,7 +134,7 @@ function duration(ms: number): string {
   return `${(ms / MS_PER_SECOND).toFixed(1)}s`;
 }
 
-// A transform test's result, or else a message. The runner wrote the detail, so one that is
+// A transform test's result, an entity's broken queries, or else a message. The runner wrote the detail, so one that is
 // neither is a bug in the runner.
 function detailLines(event: CheckResult, maxRows: number): string[] {
   const result = TransformTestRunResult.safeParse(event.detail);
@@ -146,6 +146,12 @@ function detailLines(event: CheckResult, maxRows: number): string[] {
   const httpFailure = HttpFailureMessage.safeParse(event.detail);
   if (httpFailure.success) {
     return [`${DETAIL_INDENT}${httpFailure.data.message} (HTTP ${httpFailure.data.status})`];
+  }
+  const brokenRefs = BrokenRefsDetail.safeParse(event.detail);
+  if (brokenRefs.success) {
+    return brokenRefs.data.errors.map(
+      (error) => `${DETAIL_INDENT}${error.ruleId}  ${error.message}`,
+    );
   }
   const message = CheckMessage.safeParse(event.detail);
   if (!message.success) {
