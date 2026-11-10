@@ -26,11 +26,14 @@ All column-naming keys (`graph.dimensions`, `pie.dimension`, `table.columns[].na
 
 **Data binding**
 
-| Key                  | Type                 | Notes                                                                               |
-| -------------------- | -------------------- | ----------------------------------------------------------------------------------- |
-| `graph.dimensions`   | string[] (col names) | X-axis. Index 0 = x-axis; a 2nd entry = series breakout.                            |
-| `graph.metrics`      | string[] (col names) | Y-axis metric column(s).                                                            |
-| `graph.series_order` | object[]             | Per-series order/visibility `{ key, name, color, enabled }` (only with a breakout). |
+| Key                            | Type                 | Notes                                                                               |
+| ------------------------------ | -------------------- | ----------------------------------------------------------------------------------- |
+| `graph.dimensions`             | string[] (col names) | X-axis. Index 0 = x-axis; a 2nd entry = series breakout.                            |
+| `graph.metrics`                | string[] (col names) | Y-axis metric column(s).                                                            |
+| `graph.series_order`           | object[]             | Per-series order/visibility `{ key, name, color, enabled }` (only with a breakout). |
+| `graph.series_order_dimension` | string (col name)    | The breakout column `graph.series_order` orders: the 2nd `graph.dimensions` entry.  |
+
+**Series order.** Metabase applies `graph.series_order` only when `graph.series_order_dimension` names the current breakout column and every entry has a `key`, `name` and `color`; otherwise it draws the series in the data's order, with no error. The colour drawn is `series_settings`', not the entry's. On a stacked `bar` or `area` the first entry is the top of the stack; on a `row` chart, the left end.
 
 **Stacking**
 

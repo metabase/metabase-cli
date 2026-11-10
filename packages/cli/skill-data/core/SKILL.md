@@ -188,6 +188,9 @@ This file is enough for any single-command task. For anything deeper, load the r
   <!-- /requires -->
   <!-- requires: dataApps -->
 - **`data-app`** — data apps: create, preview, publish (start here).
+  <!-- /requires -->
+  <!-- requires: dataApps, transforms, library, remoteSync -->
+- **`data-app-migration`** — move an app's own analytics (any stack) into a Metabase data app: probe the code, ask what it can't answer, build the data side, have the data-app skills build the app, prove parity.
 <!-- /requires -->
 - **`data-workflow`** — the guided, end-to-end data workflow: investigate raw data, build clean analysis-ready tables, define reusable segments/measures/metrics, answer questions, build dashboards. **Start here when the user states a goal rather than a single verb** — "make sense of my data", "build a data model", "be my data analyst". It detects where the data is and routes to the right stage.
 
