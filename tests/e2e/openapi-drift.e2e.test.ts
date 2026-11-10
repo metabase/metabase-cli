@@ -25,8 +25,16 @@ const NONE = "(none)";
 // every 58 and on 59.1, declared on 59.31.1 through 63, and checked against the table answered.
 const ANSWER_CHECKED: readonly MissingField[] = [{ key: "table.update", field: "collection_id" }];
 
+// Fields newer servers no longer declare, which the client still sends to the servers that take them.
+const DROPPED_BY_NEWER_SERVERS: readonly MissingField[] = [
+  { key: "card.update", field: "collection_preview" },
+  { key: "field.update", field: "nfc_path" },
+];
+
 function isAnswerChecked({ key, field }: MissingField): boolean {
-  return ANSWER_CHECKED.some((checked) => checked.key === key && checked.field === field);
+  return [...ANSWER_CHECKED, ...DROPPED_BY_NEWER_SERVERS].some(
+    (checked) => checked.key === key && checked.field === field,
+  );
 }
 
 interface GatedRoutes {
