@@ -36,6 +36,9 @@ export const FEATURE_RULES = {
   remoteSyncExportPreflight: { since: 63, tokenFeature: "remote_sync" },
   remoteSyncBranchGuard: { since: 63 },
   remoteSyncMerge: { since: 63, tokenFeature: "remote_sync" },
+  // The development line drops the key, but a release cut from it lands at `KNOWN_RANGE.max + 1`,
+  // where this still holds.
+  remoteSyncTransformsSetting: { since: 59, until: 65 },
   contentTranslation: { since: 58, tokenFeature: "content_translation" },
   contentVerification: { since: 58, tokenFeature: "content_verification" },
   transformTargetTableId: { since: 61 },
@@ -78,6 +81,10 @@ export const FEATURE_RULES = {
   metricDimensionListing: { since: 64 },
   oauthFullAccessScopeUnadvertised: { since: 64 },
   exportCsvByteOrderMark: { since: 63 },
+  // The routes ship in v66, which the window places at 65; no 65 grants the token, so the token holds the floor.
+  workspaces: { since: 65, tokenFeature: "workspaces" },
+  taskRuns: { since: 59 },
+  aiFeatureSwitches: { since: 60 },
 } satisfies Record<string, FeatureRule>;
 
 export type FeatureName = keyof typeof FEATURE_RULES;
