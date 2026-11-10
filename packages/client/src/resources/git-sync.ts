@@ -21,6 +21,7 @@ import { FORBIDDEN_STATUS, HttpError, NOT_FOUND_STATUS } from "../http/errors";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { type PollOptions, pollUntil } from "../poll";
+import { combineAborts } from "../signal";
 import type { Features } from "../version/features";
 import { profileFromProperties } from "../version/probe";
 import { explainer, type ParameterRequirement } from "../version/refusal";
@@ -541,7 +542,7 @@ export function gitSyncResource(transport: Transport) {
     return pollUntil(
       async (signal) => currentTask({ ...options, signal }),
       (task) => task === null || isSyncTaskTerminal(task.status),
-      wait,
+      { ...wait, signal: combineAborts(wait.signal, options.signal, transport.signal) },
     );
   }
 
