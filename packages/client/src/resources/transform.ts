@@ -281,8 +281,8 @@ export function transformResource(transport: Transport) {
     options: RequestOptions = {},
   ): Promise<TransformRunResult> {
     const requested = params.syncTarget === true ? (params.wait ?? {}) : params.wait;
-    // Started before the run, so a timeout no timer can keep is refused before anything runs.
-    const deadline = requested === undefined ? null : startDeadline(requested.timeoutMs);
+    // Started before the run, so a schedule no timer can keep is refused before anything runs.
+    const deadline = requested === undefined ? null : startDeadline(requested);
     const kickoff = await transport.requestParsed(TransformRunKickoff, `/api/transform/${id}/run`, {
       ...options,
       method: "POST",
