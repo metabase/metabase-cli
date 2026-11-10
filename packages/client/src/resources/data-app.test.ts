@@ -103,7 +103,7 @@ describe("data app resource wire requests", () => {
 
     assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
     expect(error.userMessage).toBe(
-      "On Metabase v1.65.0 (newer than this client supports, up to v64) the response shape was unexpected:\n  Invalid input",
+      "On Metabase v1.65.0 the response shape was unexpected:\n  Invalid input",
     );
   });
 
