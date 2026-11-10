@@ -130,8 +130,8 @@ function sessionStop(error: unknown): StageStop | null {
   return null;
 }
 
-// The entity-id lookup serves every checked transform, so any failure of it stops the stage. Null
-// means a bug or an interrupt, which the caller rethrows.
+// A request every later check depends on, such as the entity-id lookup, stops the stage when it
+// fails. Null means a bug or an interrupt, which the caller rethrows.
 export function lookupStop(error: unknown): StageStop | null {
   const stop = sessionStop(error);
   if (stop !== null) {
