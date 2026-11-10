@@ -28,9 +28,12 @@ const RUNNING_TASK = {
   status: "running",
   progress: 0.5,
   started_at: "2026-05-21T00:00:00Z",
+  outcome: null,
 };
 
 const SETTLED_TASK = { ...RUNNING_TASK, status: "successful", progress: 1 };
+
+const SETTLED_TASK_READ = { ...SETTLED_TASK, initiated_by_user: null, last_heartbeat_at: null };
 
 const DIRTY_ITEM = {
   id: 4,
@@ -217,7 +220,10 @@ describe("git-sync resource wire requests", () => {
   it("reports no total for the dirty listing, which the server does not count", async () => {
     const { mb } = clientOver([jsonResponse({ dirty: [DIRTY_ITEM] })]);
 
-    expect(await mb.gitSync.dirty()).toEqual({ data: [DIRTY_ITEM], total: null });
+    expect(await mb.gitSync.dirty()).toEqual({
+      data: [{ ...DIRTY_ITEM, collection: null, model_id: null }],
+      total: null,
+    });
   });
 
   it("sends the force-refresh flag as a has-remote-changes query parameter", async () => {
@@ -495,7 +501,7 @@ describe("git-sync resource wire requests", () => {
     expect(await mb.gitSync.import({ wait: IMMEDIATE_POLL })).toEqual({
       message: "Import queued",
       task_id: 12,
-      final: SETTLED_TASK,
+      final: SETTLED_TASK_READ,
     });
   });
 
@@ -561,7 +567,7 @@ describe("git-sync resource wire requests", () => {
       message: "Export queued",
       task_id: 8,
       branch: "main",
-      final: SETTLED_TASK,
+      final: SETTLED_TASK_READ,
     });
   });
 
@@ -682,7 +688,7 @@ describe("git-sync resource wire requests", () => {
 
     expect(
       await mb.gitSync.stash({ new_branch: "wip", message: "x", wait: IMMEDIATE_POLL }),
-    ).toEqual({ status: "success", message: "Stash queued", task_id: 5, final: SETTLED_TASK });
+    ).toEqual({ status: "success", message: "Stash queued", task_id: 5, final: SETTLED_TASK_READ });
   });
 
   it("sends the branches request", async () => {
@@ -917,7 +923,7 @@ describe("git-sync resource wire requests", () => {
   it("answers the task in the status that ended the wait", async () => {
     const { mb } = clientOver([jsonResponse(RUNNING_TASK), jsonResponse(SETTLED_TASK)]);
 
-    expect(await mb.gitSync.waitForTask(IMMEDIATE_POLL)).toEqual(SETTLED_TASK);
+    expect(await mb.gitSync.waitForTask(IMMEDIATE_POLL)).toEqual(SETTLED_TASK_READ);
   });
 
   it("re-reads the current task until it leaves the running status", async () => {

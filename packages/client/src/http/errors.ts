@@ -4,6 +4,7 @@ import type { TransportCredential } from "../auth/credential";
 import { ChainedRequestError, MetabaseError } from "../errors";
 import { JSON_CONTENT_TYPE, parseJsonResult } from "../json";
 import { isPlainObject } from "../predicates";
+import type { SyncRefusal } from "../domain/git-sync";
 
 import { redactBody, redactHeaders, type RedactionContext } from "./sanitize";
 
@@ -162,34 +163,16 @@ export class HttpError extends MetabaseError {
   readonly serverMessage: string | null;
   readonly developerDetail: HttpErrorDetail;
 
-  constructor(input: HttpErrorInput) {
-    const sanitizedBody = sanitizeBody(input.rawBody, input.redactionContext);
-    const redactedHeaders = redactHeaders(input.responseHeaders);
-    const kind = classifyKind(input.status, sanitizedBody, redactedHeaders);
-    const said: ServerSaid = {
-      envelope: parseEnvelopeMessage(sanitizedBody),
-      text: plainTextMessage(sanitizedBody, redactedHeaders),
-    };
-    super(input.overrideUserMessage ?? buildUserMessage(kind, input, said));
-    const fields = extractEnvelopeViews(sanitizedBody);
+  // An answer read off the wire, or one already read, which a subclass reading more of its body
+  // takes over whole.
+  constructor(input: HttpErrorInput | HttpError) {
+    const parts = input instanceof HttpError ? partsOf(input) : readParts(input);
+    super(parts.message);
     this.name = "HttpError";
-    this.status = input.status;
-    this.kind = kind;
-    this.serverMessage = said.envelope ?? said.text;
-    this.developerDetail = {
-      status: input.status,
-      statusText: input.statusText,
-      method: input.method,
-      url: input.url,
-      responseHeaders: redactedHeaders,
-      body: sanitizedBody,
-      fieldErrors: fields.fieldErrors,
-      specificFieldErrors: fields.specificFieldErrors,
-      errorCode: fields.errorCode,
-      nonRemoteSyncedDependencies: fields.nonRemoteSyncedDependencies,
-      remoteSyncedDependents: fields.remoteSyncedDependents,
-      tables: fields.tables,
-    };
+    this.status = parts.developerDetail.status;
+    this.kind = parts.kind;
+    this.serverMessage = parts.serverMessage;
+    this.developerDetail = parts.developerDetail;
   }
 
   get isRetryable(): boolean {
@@ -226,6 +209,67 @@ export class HttpError extends MetabaseError {
   // The tables a transform-test refusal names, such as the inputs a test is missing.
   get tables(): string[] | null {
     return this.developerDetail.tables;
+  }
+}
+
+// What an `HttpError` is made of, so a subclass can take over an answer already read.
+interface HttpErrorParts {
+  message: string;
+  kind: HttpErrorKind;
+  serverMessage: string | null;
+  developerDetail: HttpErrorDetail;
+}
+
+function partsOf(error: HttpError): HttpErrorParts {
+  return {
+    message: error.message,
+    kind: error.kind,
+    serverMessage: error.serverMessage,
+    developerDetail: error.developerDetail,
+  };
+}
+
+function readParts(input: HttpErrorInput): HttpErrorParts {
+  const sanitizedBody = sanitizeBody(input.rawBody, input.redactionContext);
+  const redactedHeaders = redactHeaders(input.responseHeaders);
+  const kind = classifyKind(input.status, sanitizedBody, redactedHeaders);
+  const said: ServerSaid = {
+    envelope: parseEnvelopeMessage(sanitizedBody),
+    text: plainTextMessage(sanitizedBody, redactedHeaders),
+  };
+  const fields = extractEnvelopeViews(sanitizedBody);
+  return {
+    message: input.overrideUserMessage ?? buildUserMessage(kind, input, said),
+    kind,
+    serverMessage: said.envelope ?? said.text,
+    developerDetail: {
+      status: input.status,
+      statusText: input.statusText,
+      method: input.method,
+      url: input.url,
+      responseHeaders: redactedHeaders,
+      body: sanitizedBody,
+      fieldErrors: fields.fieldErrors,
+      specificFieldErrors: fields.specificFieldErrors,
+      errorCode: fields.errorCode,
+      nonRemoteSyncedDependencies: fields.nonRemoteSyncedDependencies,
+      remoteSyncedDependents: fields.remoteSyncedDependents,
+      tables: fields.tables,
+    },
+  };
+}
+
+// A git-sync refusal the server marked as one, with what it named: an import refused on unpushed
+// changes, a settings update refused on content the synced collections use but which is not synced,
+// or a call naming a branch other than the one tracked. It is the `HttpError` the server answered,
+// so a caller reading `status` or the server's message still finds them.
+export class SyncRefusedError extends HttpError {
+  readonly refusal: SyncRefusal;
+
+  constructor(answer: HttpError, refusal: SyncRefusal) {
+    super(answer);
+    this.name = "SyncRefusedError";
+    this.refusal = refusal;
   }
 }
 

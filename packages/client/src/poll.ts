@@ -40,7 +40,7 @@ export function startDeadline(timeoutMs: number | null | undefined): Deadline | 
   return { timeoutMs: ms, signal: AbortSignal.timeout(ms) };
 }
 
-export function pollUntil<T>(
+export async function pollUntil<T>(
   fn: (signal: AbortSignal) => Promise<T>,
   done: (value: T) => boolean,
   opts: PollOptions = {},

@@ -280,16 +280,17 @@ export function transformResource(transport: Transport) {
     params: TransformRunParams = {},
     options: RequestOptions = {},
   ): Promise<TransformRunResult> {
+    const requested = params.syncTarget === true ? (params.wait ?? {}) : params.wait;
+    // Started before the run, so a timeout no timer can keep is refused before anything runs.
+    const deadline = requested === undefined ? null : startDeadline(requested.timeoutMs);
     const kickoff = await transport.requestParsed(TransformRunKickoff, `/api/transform/${id}/run`, {
       ...options,
       method: "POST",
     });
-    const requested = params.syncTarget === true ? (params.wait ?? {}) : params.wait;
     if (requested === undefined || kickoff.run_id === null) {
       return { message: kickoff.message, run_id: kickoff.run_id, final: null };
     }
     const schedule = callWait(requested, options);
-    const deadline = startDeadline(schedule.timeoutMs);
 
     const runId = kickoff.run_id;
     const final = await pollWithin(
