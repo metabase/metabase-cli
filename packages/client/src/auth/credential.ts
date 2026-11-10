@@ -14,13 +14,29 @@ export interface OAuthCredential {
   clientId: string;
 }
 
+// A session id from a password login or the setup wizard, sent until it expires and never refreshed.
+export interface SessionCredential {
+  kind: "session";
+  sessionId: string;
+}
+
+// No credential at all, for the endpoints Metabase answers before anyone signs in.
+export interface AnonymousCredential {
+  kind: "anonymous";
+}
+
+// What a caller persists and a refresh hands back.
 export type Credential = ApiKeyCredential | OAuthCredential;
+
+// How a transport signs its requests: a persisted credential, or one only a bootstrap holds.
+export type TransportCredential = Credential | SessionCredential | AnonymousCredential;
 
 // Returns a refreshed credential to retry with, or null when refresh is impossible/declined.
 export type CredentialRefresher = () => Promise<Credential | null>;
 
 export const API_KEY_HEADER = "x-api-key";
 export const AUTHORIZATION_HEADER = "authorization";
+export const SESSION_HEADER = "x-metabase-session";
 const BEARER_PREFIX = "Bearer ";
 
 // Refresh slightly before the server-side expiry so a request never races the boundary.
@@ -34,11 +50,21 @@ export interface AuthHeader {
   value: string;
 }
 
-export function credentialAuthHeader(credential: Credential): AuthHeader {
-  if (credential.kind === "apiKey") {
-    return { name: API_KEY_HEADER, value: credential.apiKey };
+export function credentialAuthHeader(credential: TransportCredential): AuthHeader | null {
+  switch (credential.kind) {
+    case "apiKey": {
+      return { name: API_KEY_HEADER, value: credential.apiKey };
+    }
+    case "oauth": {
+      return { name: AUTHORIZATION_HEADER, value: BEARER_PREFIX + credential.accessToken };
+    }
+    case "session": {
+      return { name: SESSION_HEADER, value: credential.sessionId };
+    }
+    case "anonymous": {
+      return null;
+    }
   }
-  return { name: AUTHORIZATION_HEADER, value: BEARER_PREFIX + credential.accessToken };
 }
 
 // Header field values are Latin-1 octets, so a credential carrying anything above U+00FF cannot be
@@ -51,15 +77,29 @@ interface CredentialSecret {
   value: string;
 }
 
-function headerBearingSecret(credential: Credential): CredentialSecret {
-  if (credential.kind === "apiKey") {
-    return { field: "apiKey", value: credential.apiKey };
+function headerBearingSecret(credential: TransportCredential): CredentialSecret | null {
+  switch (credential.kind) {
+    case "apiKey": {
+      return { field: "apiKey", value: credential.apiKey };
+    }
+    case "oauth": {
+      return { field: "accessToken", value: credential.accessToken };
+    }
+    case "session": {
+      return { field: "sessionId", value: credential.sessionId };
+    }
+    case "anonymous": {
+      return null;
+    }
   }
-  return { field: "accessToken", value: credential.accessToken };
 }
 
-export function assertCredentialHeaderSafe(credential: Credential): void {
-  const { field, value } = headerBearingSecret(credential);
+export function assertCredentialHeaderSafe(credential: TransportCredential): void {
+  const secret = headerBearingSecret(credential);
+  if (secret === null) {
+    return;
+  }
+  const { field, value } = secret;
   for (let index = 0; index < value.length; index += 1) {
     const codeUnit = value.charCodeAt(index);
     if (codeUnit > MAX_HEADER_CODE_UNIT) {
@@ -72,11 +112,21 @@ export function assertCredentialHeaderSafe(credential: Credential): void {
   }
 }
 
-export function credentialSecrets(credential: Credential): string[] {
-  if (credential.kind === "apiKey") {
-    return [credential.apiKey];
+export function credentialSecrets(credential: TransportCredential): string[] {
+  switch (credential.kind) {
+    case "apiKey": {
+      return [credential.apiKey];
+    }
+    case "oauth": {
+      return [credential.accessToken, credential.refreshToken];
+    }
+    case "session": {
+      return [credential.sessionId];
+    }
+    case "anonymous": {
+      return [];
+    }
   }
-  return [credential.accessToken, credential.refreshToken];
 }
 
 export function isOAuthExpired(credential: OAuthCredential, nowMs: number): boolean {

@@ -52,7 +52,17 @@ const UNCHECKED_BODIES: readonly UncheckedBody[] = [
   { key: "gitSync.export", bodyType: null, reason: "built from the export params" },
   { key: "gitSync.stash", bodyType: null, reason: "built from the stash params" },
   { key: "gitSync.createBranch", bodyType: null, reason: "built from the branch params" },
+  {
+    key: "gitSync.testConnection",
+    bodyType: "SyncTestConnectionParams",
+    reason: "the connection params",
+  },
   { key: "gitSync.setCollectionSynced", bodyType: null, reason: "a settings update" },
+  {
+    key: "gitSync.updateSettings",
+    bodyType: "SyncSettingsUpdateParams",
+    reason: "a settings update",
+  },
   { key: "measure.archive", bodyType: null, reason: "a fixed body sent through update" },
   { key: "metric.query", bodyType: null, reason: "a metric definition" },
   { key: "metric.breakoutValues", bodyType: null, reason: "a metric definition" },

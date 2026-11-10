@@ -22,7 +22,7 @@ export const FEATURE_RULES = {
   dataApps: { since: 65, tokenFeature: "data-apps" },
   transforms: { since: 59 },
   transformJobActivation: { since: 61 },
-  builtInTransformJobsStartInactive: { since: 65 },
+  builtInTransformJobsStartInactive: { since: 66 },
   measures: { since: 59 },
   collectionItemMeasures: { since: 61 },
   explorations: { since: 65 },
@@ -32,10 +32,20 @@ export const FEATURE_RULES = {
   tablePublishTargetCollection: { since: 62 },
   remoteSync: { since: 58, tokenFeature: "remote_sync" },
   remoteSyncRemoteChanges: { since: 59, tokenFeature: "remote_sync" },
+  // From v66 the server compares against the remote on every call and keeps no cache.
+  remoteSyncChangesCache: { since: 59, until: 65, tokenFeature: "remote_sync" },
+  remoteSyncTaskOutcome: { since: 63 },
+  // From v66 the server names a changed item's collection in full instead of by id.
+  remoteSyncDirtyItemsByCollectionId: { since: 58, until: 65, tokenFeature: "remote_sync" },
+  remoteSyncImportNamesDirtyObjects: { since: 64, tokenFeature: "remote_sync" },
+  remoteSyncTestConnection: { since: 62, tokenFeature: "remote_sync" },
+  remoteSyncTaskHeartbeat: { since: 65 },
   remoteSyncCollectionsOnlyUpdate: { since: 60 },
   remoteSyncExportPreflight: { since: 63, tokenFeature: "remote_sync" },
   remoteSyncBranchGuard: { since: 63 },
   remoteSyncMerge: { since: 63, tokenFeature: "remote_sync" },
+  // From v66 the server has no such setting and drops the key unread.
+  remoteSyncTransformsSetting: { since: 59, until: 65 },
   contentTranslation: { since: 58, tokenFeature: "content_translation" },
   contentVerification: { since: 58, tokenFeature: "content_verification" },
   transformTargetTableId: { since: 61 },
@@ -78,6 +88,9 @@ export const FEATURE_RULES = {
   metricDimensionListing: { since: 64 },
   oauthFullAccessScopeUnadvertised: { since: 64 },
   exportCsvByteOrderMark: { since: 63 },
+  workspaces: { since: 66, tokenFeature: "workspaces" },
+  taskRuns: { since: 59 },
+  aiFeatureSwitches: { since: 60 },
 } satisfies Record<string, FeatureRule>;
 
 export type FeatureName = keyof typeof FEATURE_RULES;
@@ -140,8 +153,15 @@ function ruleHolds(
   return ruleGap(rule, major, tokenFeatures) === null;
 }
 
+// The server is older than the rule's `since`.
 export interface VersionGap {
   readonly kind: "version";
+}
+
+// The server is newer than `until`, the last major the rule holds on.
+export interface EndedGap {
+  readonly kind: "ended";
+  readonly until: number;
 }
 
 export interface TokenGap {
@@ -149,28 +169,24 @@ export interface TokenGap {
   readonly tokenFeature: string;
 }
 
-export type FeatureGap = VersionGap | TokenGap;
+export type FeatureGap = VersionGap | EndedGap | TokenGap;
 
-// The half of the rule the server fails, version first: an upgrade is the first step either way,
-// and whether a token grants a route only matters once the route exists.
+// The half of the rule the server fails, version first: whether a token grants a route only
+// matters on a server that has the route.
 export function ruleGap(
   rule: FeatureRule,
   major: RuleMajor,
   tokenFeatures: Readonly<TokenFeatures> | null,
 ): FeatureGap | null {
-  if (!versionHolds(rule, major)) {
+  if (major !== "development" && major < rule.since) {
     return { kind: "version" };
+  }
+  if (rule.until !== undefined && (major === "development" || major > rule.until)) {
+    return { kind: "ended", until: rule.until };
   }
   if (rule.tokenFeature === undefined) {
     return null;
   }
   const granted = tokenFeatures !== null && tokenFeatures[rule.tokenFeature] === true;
   return granted ? null : { kind: "token", tokenFeature: rule.tokenFeature };
-}
-
-function versionHolds(rule: FeatureRule, major: RuleMajor): boolean {
-  if (major === "development") {
-    return rule.until === undefined;
-  }
-  return major >= rule.since && (rule.until === undefined || major <= rule.until);
 }

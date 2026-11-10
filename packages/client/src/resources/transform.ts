@@ -25,7 +25,8 @@ import { TimeoutError } from "../errors";
 import type { RequestOptions, Transport, TransportRequestOptions } from "../http/transport";
 import type { ListResult } from "../list";
 import { type Page, type PaginateOptions, paginatePages } from "../paginate";
-import { type PollOptions, pollUntil } from "../poll";
+import { type Deadline, type PollOptions, pollWithin, startDeadline } from "../poll";
+import { combineAborts } from "../signal";
 import type { Features } from "../version/features";
 import { explainer } from "../version/refusal";
 
@@ -271,24 +272,29 @@ export function transformResource(transport: Transport) {
   /**
    * Start a run of a transform by id. The server queues the run and answers at once; `wait` polls
    * it to a terminal status, and `syncTarget` follows that with the output table's registration.
-   * A server that answers no run id started nothing, and there is then nothing to poll.
+   * Both waits share the one deadline `wait.timeoutMs` sets, or none when it is `null`. A server
+   * that answers no run id started nothing, and there is then nothing to poll.
    */
   async function run(
     id: number,
     params: TransformRunParams = {},
     options: RequestOptions = {},
   ): Promise<TransformRunResult> {
+    const requested = params.syncTarget === true ? (params.wait ?? {}) : params.wait;
+    // Started before the run, so a schedule no timer can keep is refused before anything runs.
+    const deadline = requested === undefined ? null : startDeadline(requested);
     const kickoff = await transport.requestParsed(TransformRunKickoff, `/api/transform/${id}/run`, {
       ...options,
       method: "POST",
     });
-    const schedule = params.syncTarget === true ? (params.wait ?? {}) : params.wait;
-    if (schedule === undefined || kickoff.run_id === null) {
+    if (requested === undefined || kickoff.run_id === null) {
       return { message: kickoff.message, run_id: kickoff.run_id, final: null };
     }
+    const schedule = callWait(requested, options);
 
     const runId = kickoff.run_id;
-    const final = await pollUntil(
+    const final = await pollWithin(
+      deadline,
       async (signal) => getRun(runId, { ...options, signal }),
       (candidate) => isTransformRunTerminal(candidate.status),
       schedule,
@@ -298,7 +304,7 @@ export function transformResource(transport: Transport) {
     }
 
     const failed = isTransformRunFailed(final.status);
-    const targetTableId = failed ? null : await awaitTargetTableId(id, schedule, options);
+    const targetTableId = failed ? null : await awaitTargetTableId(id, deadline, schedule, options);
     return { message: kickoff.message, run_id: runId, final, target_table_id: targetTableId };
   }
 
@@ -308,11 +314,13 @@ export function transformResource(transport: Transport) {
   // succeeded.
   async function awaitTargetTableId(
     id: number,
+    deadline: Deadline | null,
     wait: PollOptions,
     options: RequestOptions,
   ): Promise<number | null> {
     try {
-      const linked = await pollUntil(
+      const linked = await pollWithin(
+        deadline,
         async (signal) => get(id, { ...options, signal }),
         (transform) => transform.target_table_id !== null,
         wait,
@@ -324,6 +332,12 @@ export function transformResource(transport: Transport) {
       }
       throw error;
     }
+  }
+
+  // A wait run for a call ends with its own signal, the call's or the client's, whichever aborts
+  // first, and each read in it carries the call's options under that signal.
+  function callWait(wait: PollOptions, options: RequestOptions): PollOptions {
+    return { ...wait, signal: combineAborts(wait.signal, options.signal, transport.signal) };
   }
 
   return {

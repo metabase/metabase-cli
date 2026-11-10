@@ -19,6 +19,8 @@ export const STACKS: readonly Stack[] = [
   { id: "ee-63", image: "metabase/metabase-enterprise:v1.63.18", port: 13163 },
   { id: "oss-64", image: "metabase/metabase:v0.64.0.1-beta", port: 13064 },
   { id: "ee-64", image: "metabase/metabase-enterprise:v1.64.0.1-beta", port: 13164 },
-  { id: "oss-head", image: "metabase/metabase-head:latest", port: 13065 },
-  { id: "ee-head", image: "metabase/metabase-enterprise-head:latest", port: 13165 },
+  { id: "oss-65", image: "metabase/metabase:v0.65.4", port: 13065 },
+  { id: "ee-65", image: "metabase/metabase-enterprise:v1.65.4", port: 13165 },
+  { id: "oss-head", image: "metabase/metabase-head:latest", port: 13066 },
+  { id: "ee-head", image: "metabase/metabase-enterprise-head:latest", port: 13166 },
 ];

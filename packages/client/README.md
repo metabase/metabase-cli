@@ -90,6 +90,10 @@ const mb = createClient(
 `revokeOAuthCredential(baseUrl, credential, userAgent)` ends the grant server-side, and answers
 whether the server advertised a revocation endpoint at all.
 
+A client also takes two credentials a caller never persists, for bringing up a fresh instance before any API key exists. `{ kind: "anonymous" }` sends no credential at all, which is enough for `mb.health.get()`, `mb.session.settings()` (the public settings only, among them `has-user-setup` and `setup-token`), `mb.setup.create(…)` and `mb.session.create({ username, password })`. `{ kind: "session", sessionId }` sends the id `setup.create` or `session.create` answered as `X-Metabase-Session`, so the admin it belongs to can mint the API key the long-lived client keeps. A session is never refreshed: once it expires, a call fails with an `HttpError` of kind `auth`. `ClientCredentials.credential` is a `TransportCredential`, the union of `Credential` and these two (`SessionCredential`, `AnonymousCredential`); `Credential`, what `refreshCredential` answers, is an API key or an OAuth grant.
+
+`mb.health.get()` answers the server's `Health` without retrying: `status` is `ok` once it has booted, `initializing` with a `progress` between 0 and 1 while it boots, or a sentence naming why it cannot reach its app database. A 503 carrying that body is answered rather than thrown, so a caller polling a booting server reads each step.
+
 ## Usage
 
 `createClient` is the entry point, and what it returns carries one namespace per Metabase resource —
@@ -135,8 +139,8 @@ console.log(cards.data.length, cards.total);
 ```
 
 A resource method whose endpoint pages answers an `AsyncIterable<Page<T>>` — `mb.collection.itemPages`,
-`mb.transform.runPages`, `mb.transform.runSummaryPages`, `mb.dependency.unreferencedPages` and
-`mb.dependency.breakingPages` are the five — requesting `limit`/`offset` pages and yielding a `Page<T>`
+`mb.transform.runPages`, `mb.transform.runSummaryPages`, `mb.dependency.unreferencedPages`,
+`mb.dependency.breakingPages` and `mb.task.runPages` are the six — requesting `limit`/`offset` pages and yielding a `Page<T>`
 (`{ items: T[], total: number | null }`) per request, so the server's count reaches you instead of
 being spent on loop control.
 
@@ -313,7 +317,7 @@ These refusals before the request are the client's own judgement from its featur
 
 A method's return type is the shape the newest supported server answers. Where an older server answers differently, the method parses that server's exact wire shape and converts it forward, so `mb.transform.get(5)` carries `target_table_id` on every server (a hydrated `table` on the oldest generations, the column on the rest), `mb.transformJob.run(2)` answers `{ message, started, run_id }` whether the server reports an opaque stub or a numeric run id, and each of `mb.library.get()`'s `effective_children` is `{ id, name, description, type, is_remote_synced }`. A field the server cannot report is `null`; the profile's `features` say why. A response that fails its generation's schema is a `ResponseShapeError` naming the server version and the fields that were off — never a silent fallback to another shape.
 
-A release newer than the window is placed one past the newest known major with `skew` `"newer-than-known"`. A development build (any tag that names no release: `vUNKNOWN`, `vLOCAL_DEV`, `-SNAPSHOT`) is `"development"`, ahead of every release, so it holds every version-gated rule that is still current, including one written for an unreleased major. In both cases additions pass through the loose schemas, and only a token feature can refuse a method. A server older than the window is `"older-than-known"`, evaluated at its own major, so each method it lacks refuses by name. The client never takes a version from the caller: a profile comes from a probe, so two consumers of one server cannot disagree about what it is.
+A release newer than the window is placed one past the newest known major with `skew` `"newer-than-known"`. A development build (any tag that names no release: `vUNKNOWN`, `vLOCAL_DEV`, `-SNAPSHOT`) is `"development"`, ahead of every release, so it holds every version-gated rule that is still current, including one written for an unreleased major. In both cases additions pass through the loose schemas, and a method is refused only for a token feature or for a rule that ended at an earlier major (`reason` `"version-too-new"`). A server older than the window is `"older-than-known"`, evaluated at its own major, so each method it lacks refuses by name. The client never takes a version from the caller: a profile comes from a probe, so two consumers of one server cannot disagree about what it is.
 
 ### Endpoints the client does not model
 
@@ -327,8 +331,8 @@ import { z } from "zod";
 
 import { createClient } from "@metabase/client";
 
-const PermissionsGroup = z
-  .object({ id: z.number().int(), name: z.string(), member_count: z.number().int() })
+const Login = z
+  .object({ timestamp: z.string(), device_description: z.string(), ip_address: z.string() })
   .loose();
 
 const mb = createClient(
@@ -336,9 +340,9 @@ const mb = createClient(
   { userAgent: "my-app/1.0.0" },
 );
 
-const groups = await mb.requestParsed(z.array(PermissionsGroup), "/api/permissions/group");
-for (const group of groups) {
-  console.log(group.id, group.name, group.member_count);
+const logins = await mb.requestParsed(z.array(Login), "/api/login-history/current");
+for (const login of logins) {
+  console.log(login.timestamp, login.device_description, login.ip_address);
 }
 ```
 
@@ -421,7 +425,7 @@ message off an unknown throw.
 an `OAuthCredential`. `refreshOAuthCredential` exchanges the rotating refresh token;
 `revokeOAuthCredential` revokes both tokens server-side and reports whether the server advertised a
 revocation endpoint. Types: `Credential` (the `ApiKeyCredential | OAuthCredential` union),
-`OAuthLoginInput`, `OAuthLoginDeps`.
+`TransportCredential` (`Credential | SessionCredential | AnonymousCredential`, what `ClientCredentials.credential` takes), `CredentialRefresher`, `OAuthLoginInput`, `OAuthLoginDeps`.
 
 `OAuthLoginInput.signal` cancels a login at any point: before it starts, during discovery, client registration or the token exchange, or while it waits for the browser's redirect. The request in flight is cancelled, the loopback callback port is freed at once, and the login rejects with the signal's reason when that is a `MetabaseError`, else with an `AbortError` carrying its message.
 
@@ -435,13 +439,13 @@ Unless the caller passes `metadata` from `tryDiscoverMetadata`, which makes the 
 
 `Features` is a record of named booleans over `FEATURE_RULES`, the one table that relates a behaviour to the majors and token feature it needs (`FeatureRule`: `{ since, until?, tokenFeature? }`); `evaluateFeatures(major, tokenFeatures)` evaluates it for a `RuleMajor` (a release major, or `"development"` for a build ahead of every release), `FEATURE_NAMES` lists the keys, and `isFeatureName` narrows a string to one. Names describe behaviour (`transformTargetTableId`, `libraryChildrenCarryType`), never a version. Consumers branch on a feature, never on a major — `features.ts` is the only module that compares one.
 
-`METHOD_REQUIREMENTS` names, per client method (`"transform.get"`, `"gitSync.branches"` — the `MethodKey` as the method is reached on the client), the features it needs, strictest first; `methodRequirements(key)` reads one entry, `METHOD_KEYS` lists the keys, and `isMethodKey` narrows a string to one. When a gated method's request fails the way a server rejects what it lacks (a 402 premium refusal, an unrouted 404, or a 400 on a value outside an older enum or a body an older route reads in another shape), the client probes the server and throws a `CapabilityError` when that profile lacks a feature the method needs — a version gate reads `This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.`, a token gate `This operation requires the 'remote_sync' premium feature (not enabled on this server).` — and the error's `developerDetail` is a `RequirementFailure` carrying `reason`, `detail`, `feature`, `since`, `tokenFeature` and `serverVersion` — a Zod schema as well as a type (with `RequirementReason` for its `reason` enum), so a consumer that reports the refusal in its own output can describe it. A server that turns out to have every feature failed for another reason, and its own error stands. A 400 is also an ordinary validation failure, so it stands as the server's own `HttpError` when its field errors (`fieldErrors`, `specificFieldErrors`) name a field the missing parameter feature does not gate: a `mb.table.update` carrying a tier-named `data_layer` to a server that speaks medallions, alongside another field that server rejects, throws that field's rejection rather than the tier floor. A 400 that names no field, or one from a server lacking a feature the method itself needs, is the refusal. A method that needs nothing never consults the server; a newer release or a development build is placed past the newest known major, so only a token can explain a refusal there. `checkFeatures(features, profile)` is the check itself, over any feature list (`methodRequirements(key)` gives a method's), answering the first feature the profile lacks, and `featureFailures(features, profile)` answers every one, `featureGap(profile, feature)` says which half of a rule the profile fails (`FeatureGap`: `{ kind: "version" }` or `{ kind: "token", tokenFeature }`), and `ruleGap` is the same question asked of a bare rule. `featureAvailability(feature)` says which servers hold a feature, from its rule: `v64+`, or `token dashboard_subscription_filters` when every supported server meets the version floor. A consumer that describes what a server can do — gating a test lane, or filtering prose by the server it targets — reads the same check.
+`METHOD_REQUIREMENTS` names, per client method (`"transform.get"`, `"gitSync.branches"` — the `MethodKey` as the method is reached on the client), the features it needs, strictest first; `methodRequirements(key)` reads one entry, `METHOD_KEYS` lists the keys, and `isMethodKey` narrows a string to one. When a gated method's request fails the way a server rejects what it lacks (a 402 premium refusal, an unrouted 404, or a 400 on a value outside an older enum or a body an older route reads in another shape), the client probes the server and throws a `CapabilityError` when that profile lacks a feature the method needs — a version gate reads `This operation requires Metabase v59+ (this server is v0.58.0). Upgrade Metabase to use it.`, a token gate `This operation requires the 'remote_sync' premium feature (not enabled on this server).` — and the error's `developerDetail` is a `RequirementFailure` carrying `reason`, `detail`, `feature`, `since`, `tokenFeature` and `serverVersion` — a Zod schema as well as a type (with `RequirementReason` for its `reason` enum), so a consumer that reports the refusal in its own output can describe it. A server that turns out to have every feature failed for another reason, and its own error stands. A 400 is also an ordinary validation failure, so it stands as the server's own `HttpError` when its field errors (`fieldErrors`, `specificFieldErrors`) name a field the missing parameter feature does not gate: a `mb.table.update` carrying a tier-named `data_layer` to a server that speaks medallions, alongside another field that server rejects, throws that field's rejection rather than the tier floor. A 400 that names no field, or one from a server lacking a feature the method itself needs, is the refusal. A method that needs nothing never consults the server; a newer release or a development build is placed past the newest known major, so only a token can explain a refusal there. `checkFeatures(features, profile)` is the check itself, over any feature list (`methodRequirements(key)` gives a method's), answering the first feature the profile lacks, and `featureFailures(features, profile)` answers every one, `featureGap(profile, feature)` says which half of a rule the profile fails (`FeatureGap`: `{ kind: "version" }` for a server older than the rule, `{ kind: "ended", until }` for one newer than its last major, or `{ kind: "token", tokenFeature }`), and `ruleGap` is the same question asked of a bare rule. `featureAvailability(feature)` says which servers hold a feature, from its rule: `v64+`, or `token dashboard_subscription_filters` when every supported server meets the version floor. A consumer that describes what a server can do — gating a test lane, or filtering prose by the server it targets — reads the same check.
 
 Some input fields take a value only some servers accept. `@metabase/client/version/input-gates` records each such field on the input schema that holds it, in a registry of the client's own rather than Zod's global one. `inputGatesOf(schema)` answers the `InputGate` entries recorded on a property node, or `null` when every server takes all its values. A gate names a `feature`, an `effect` (`"needs"`: the server must hold the feature; `"supersededBy"`: a server holding it reads the value as something else; `"droppedBy"`: a server holding it drops the value unread), and the `when` that triggers it (`GateTrigger`: the field `present`, one of `values`, or a `nonEmpty` array). `gateTriggered(gate, value)` says whether a value passed for the field triggers the gate. A `droppedBy` gate is a note and nothing enforces it: `TABLE_FROM_DEFINITION_GATE` on `table_id` of `MeasureCreateInput` and `SegmentCreateInput`, which a server holding `tableFromDefinition` drops, and every server is sent because one without the feature requires it. The domain modules export every other gate as a const the resource enforces it by: `DATA_SENSITIVITY_GATE` on `FieldUpdateInput.data_sensitivity`, `DATA_LAYER_TIER_GATE` and `DATA_LAYER_MEDALLION_GATE` on `TableUpdateInput.data_layer`, `DATA_AUTHORITY_WITHDRAWAL_GATE` on `data_authority` of `TableUpdateInput` and `TableBulkEditInput`, `DATA_ACTION_COLLECTION_GATE` on `DataActionUpdateInput.collection_id`, `DATA_ACTION_TABLE_GATE` on `DataActionUpdateInput.table_id`, `SUBSCRIPTION_FILTERS_GATE` on `parameters` of `PulseCreateInput` and `PulseUpdateInput`, and `REVISION_ENTITY_GATES` (`measure`, `transform`, `transform-test`) on `RevisionRevertInput.entity`. A server lacking the feature is refused or explained the way its method's own requirement is.
 
 A resource whose wire shape differs between generations exports from its `@metabase/client/domain/<r>` module, beside the canonical schema, a reader that picks the exact schema for a `Features` and converts forward: `transformDetailSchema(features)` and `transformRowSchema(features)` read a `Transform` (the older generations' hydrated `table` on the detail endpoint, and no link on the rest, become `target_table_id`, and a Python source's `source-tables` keyed by alias becomes the list of `TransformSourceTableEntry`, whose `database_id`, `schema` and `table` are `null` for a table named by id alone; `transform.create`, `transform.update` and `transformPython.testRun` send the list back keyed by alias to such a server, `transformSourceBody(source, features)` and `pythonTestRunBody(params, features)` being the writers), `fieldDetailSchema(features)` reads a `FieldDetail`, which is a `FieldWithDataSensitivity` (its `data_sensitivity` `null` for an unlabelled field) on a generation with the label and a plain `Field` without the key elsewhere, told apart by `hasDataSensitivity`, `fieldRemappedValueSchema(features, sameField)` reads a `FieldRemappedValue` from the first cells of a row a generation pads with display columns, `transformJobSchema(features)` reads a `TransformJob` whose `active` is `null` on a generation that cannot switch jobs off, `transformJobRunResultSchema(features)` reads a `TransformJobRunResult` (`{ message, started, run_id }` — a stub id is `started: null, run_id: null`, the request accepted and the outcome unsaid; a numeric or null id is `started: id !== null, run_id: id`), and `libraryWireSchema(features)` with `toLibrary(wire, listing)` reads a `Library` whose `LibraryChild` entries carry `type` from the wire where the generation sends it and `is_remote_synced` from the collection listing on every generation (`LibraryCollectionInfo`, `LibraryListing`). Each `null` in a canonical field means "this server cannot say". `ResponseShapeError.developerDetail.serverSkew` carries the profile's `skew`, and a `newer-than-known` server is named as such in the message's lead line.
 
-Types: `ServerInfo`, `ServerProfile`, `ServerVersion`, `ReleaseVersion`, `DevelopmentBuild`, `Skew`, `Edition`, `FeatureName`, `FeatureRule`, `RuleMajor`, `Features`, `FeatureGap`, `VersionGap`, `TokenGap`, `MethodKey`, `RequirementFailure`, `RequirementReason`, `InputGate`, `GateEffect`, `GateTrigger`, `PresentTrigger`, `ValuesTrigger`, `NonEmptyTrigger`.
+Types: `ServerInfo`, `ServerProfile`, `ServerVersion`, `ReleaseVersion`, `DevelopmentBuild`, `Skew`, `Edition`, `FeatureName`, `FeatureRule`, `RuleMajor`, `Features`, `FeatureGap`, `VersionGap`, `EndedGap`, `TokenGap`, `MethodKey`, `RequirementFailure`, `RequirementReason`, `InputGate`, `GateEffect`, `GateTrigger`, `PresentTrigger`, `ValuesTrigger`, `NonEmptyTrigger`.
 
 ### Resource schemas
 
@@ -451,7 +455,7 @@ Every Metabase resource exports a full schema and a compact projection: `Card`/`
 `ParameterValues`, `Pulse`, `SearchResult`, `Segment`, `Setting`, `Snippet`, `Table`, `Timeline`,
 `TimelineEvent`, `Transform`, `TransformRun`, `TransformRunSummary`, `TransformMemberRun`, `TransformJob`,
 `TransformTag`, `TransformTest`, `ReplacementRun`, `Revision`, `TableForeignKey`, `MetricDimension`,
-`CurrentUser`, `CardQueryResult` with its `ResultColumn`, `EidTranslateResult`, `SetupResult`, `SyncTask`, `SyncDirtyItem`,
+`CurrentUser`, `User`, `PermissionGroup`, `TaskRun`, `Workspace`, `WorkspaceDatabase`, `WorkspaceInstance`, `CardQueryResult` with its `ResultColumn`, `EidTranslateResult`, `SetupResult`, `Session`, `Health`, `SyncTask`, `SyncDirtyItem`,
 `DashboardTab`, the dependency graph's `DependencyEntity`, `DependencyNode`, `BreakingSource` and
 `DependencyGraph`, and the nested shapes they compose (`Dashcard`, `CollectionItem`, `PulseChannel`,
 `NotificationHandler`, …).
@@ -463,7 +467,7 @@ deliberately absent.
 
 A second class of schema describes a single response shape that has no compact pair:
 `DashboardDetail`, a copy's `DashboardUncopiedCard`, `DatabaseSyncResult`, `CollectionTreeNode`, `FieldSummary`, `SettingValue`,
-`TableQueryMetadata`, `QueryMetadata`, `CompiledQuery`, `SessionProperties`, `TokenFeatures`, a revision's
+`TableQueryMetadata`, `QueryMetadata`, `CompiledQuery`, `SessionProperties` (what the shared probe reads), `SessionSettings` (what `session.settings` answers: those plus the setup state and the settings a consumer reads), `TokenFeatures`, a revision's
 `RevisionRow` and `RevisionRevert`, the source replacement's `ReplacementCheck` and `ReplacementRunStarted`,
 a metric's `MetricBreakoutValues` and `MetricDimensionListing`, the data permissions' `PermissionsGraph`
 (a `DatabasePermissions` per group and database, each key left out at its least permissive value), the

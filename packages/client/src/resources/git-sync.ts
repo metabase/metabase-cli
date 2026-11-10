@@ -4,22 +4,38 @@ import { Collection } from "../domain/collection";
 import {
   isSyncTaskTerminal,
   SyncBranchCreated,
-  SyncDirtyItem,
+  SyncConnectionTested,
+  type SyncDirtyItem,
+  syncDirtyItemSchema,
   SyncExportPreflight,
   type SyncExportResult,
   type SyncImportResult,
-  SyncRemoteChanges,
+  type SyncRefusal,
+  type SyncRemoteChanges,
+  syncRemoteChangesSchema,
   SyncSettingsUpdateResult,
   type SyncStashResult,
   RemoteSyncState,
-  SyncTask,
+  type SyncTask,
+  syncTaskSchema,
+  type SyncType,
+  syncUnsyncedDependencySchema,
 } from "../domain/git-sync";
 import { SessionProperties } from "../domain/session-properties";
-import { ConfigError } from "../errors";
-import { FORBIDDEN_STATUS, HttpError, NOT_FOUND_STATUS } from "../http/errors";
+import { ConfigError, isNonInterruptFailure } from "../errors";
+import { errorBodyJson } from "../http/error-body";
+import {
+  BAD_REQUEST_STATUS,
+  CONFLICT_STATUS,
+  FORBIDDEN_STATUS,
+  HttpError,
+  NOT_FOUND_STATUS,
+  SyncRefusedError,
+} from "../http/errors";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
-import { type PollOptions, pollUntil } from "../poll";
+import { checkSchedule, type PollOptions, pollUntil } from "../poll";
+import { combineAborts } from "../signal";
 import type { Features } from "../version/features";
 import { profileFromProperties } from "../version/probe";
 import { explainer } from "../version/refusal";
@@ -38,8 +54,6 @@ export const SyncScopeCollection = Collection.pick({
 export type SyncScopeCollection = z.infer<typeof SyncScopeCollection>;
 
 const SyncDirtyFlag = z.object({ is_dirty: z.boolean() });
-
-const SyncDirtyList = z.object({ dirty: z.array(SyncDirtyItem) });
 
 const SyncBranchList = z.object({ items: z.array(z.string()) });
 
@@ -62,6 +76,21 @@ const SyncStashStarted = z.object({
 
 const RemoteSyncSetting = z.string().nullable();
 
+// The bodies of the refusals git-sync marks as its own. Each carries the server's stack trace beside
+// these keys, and a server hiding stack traces answers a bare message instead, which reads as no
+// refusal of these.
+const DirtyRefusalBody = z.object({ conflicts: z.literal(true) });
+
+const UnsyncedDependenciesBody = z.object({
+  "error-code": z.literal("unsynced-dependencies"),
+  unsynced_dependencies: z.array(syncUnsyncedDependencySchema),
+});
+
+const BranchMismatchBody = z.object({
+  branch_mismatch: z.literal(true),
+  current_branch: z.string().nullable(),
+});
+
 // `/api/setting/remote-sync-branch` answers nothing for a branch set by environment variable (read
 // from the environment on 60 and later), while
 // the session properties carry every setting's effective value, and carry a setting only when the
@@ -77,14 +106,6 @@ type RemoteSyncBranchProperty = z.infer<typeof RemoteSyncBranchProperty>;
 const RemoteSyncUrlProperty = SessionProperties.extend({
   "remote-sync-url": z.string().nullable().optional(),
 });
-
-// The token is sensitive, so the server shows it masked, and keeps the stored token when an
-// update carries that masked form back.
-interface SyncSettingsUpdateBody {
-  collections: Record<number, boolean>;
-  "remote-sync-url"?: string;
-  "remote-sync-token"?: string;
-}
 
 const BRANCH_UNREADABLE_MESSAGE =
   "the remote-sync-branch setting is not readable: only admins see it, and a server without remote sync has none";
@@ -143,24 +164,112 @@ export interface SyncStashParams extends SyncWaitParams {
   message: string;
 }
 
+// A URL or token left out is the saved one, and so is the masked form of the token the server shows.
+export interface SyncTestConnectionParams {
+  "remote-sync-url"?: string | null | undefined;
+  "remote-sync-token"?: string | null | undefined;
+}
+
 export interface SyncCreateBranchParams {
   name: string;
+}
+
+// The token is sensitive, so the server shows it masked, and keeps the stored token when an
+// update carries that masked form back.
+export interface SyncSettingsUpdateParams {
+  "remote-sync-url"?: string | null | undefined;
+  "remote-sync-token"?: string | null | undefined;
+  "remote-sync-type"?: SyncType | null | undefined;
+  "remote-sync-branch"?: string | null | undefined;
+  "remote-sync-auto-import"?: boolean | null | undefined;
+  "remote-sync-transforms"?: boolean | null | undefined;
+  /** Collection id to whether it is git-synced. */
+  collections?: Record<number, boolean> | null | undefined;
 }
 
 export function gitSyncResource(transport: Transport) {
   const { explain, refuse, refuseAfterReading } = explainer(transport, "gitSync");
 
-  /** Get the running or most recently finished sync task, or null when the server has none. */
-  async function currentTask(options: RequestOptions = {}): Promise<SyncTask | null> {
-    return fetchOptionalParsed(transport, "/api/ee/remote-sync/current-task", SyncTask, options);
+  // The request's failure as `SyncRefusedError` when the server marked it as a git-sync refusal, and
+  // unchanged otherwise.
+  async function readingRefusal<T>(request: Promise<T>, options: RequestOptions): Promise<T> {
+    try {
+      return await request;
+    } catch (error) {
+      if (!(error instanceof HttpError)) {
+        throw error;
+      }
+      const refusal = await refusalOf(error, options);
+      throw refusal === null ? error : new SyncRefusedError(error, refusal);
+    }
   }
 
-  /** Request cancellation of the running sync task, and answer it in the state that left it. */
+  // Read off the whole body's JSON, not the text the error keeps: a refusal naming many items runs
+  // past what is kept, and cut there it would parse to nothing.
+  async function refusalOf(error: HttpError, options: RequestOptions): Promise<SyncRefusal | null> {
+    const body = errorBodyJson(error);
+    if (error.status === CONFLICT_STATUS) {
+      const mismatch = BranchMismatchBody.safeParse(body);
+      return mismatch.success
+        ? { kind: "branch-mismatch", current_branch: mismatch.data.current_branch }
+        : null;
+    }
+    if (error.status !== BAD_REQUEST_STATUS) {
+      return null;
+    }
+    const unsynced = UnsyncedDependenciesBody.safeParse(body);
+    if (unsynced.success) {
+      return {
+        kind: "unsynced-dependencies",
+        unsynced_dependencies: unsynced.data.unsynced_dependencies,
+      };
+    }
+    return DirtyRefusalBody.safeParse(body).success ? dirtyRefusal(body, options) : null;
+  }
+
+  // The changes a dirty import's refusal names, read by the shape of the server that sent them. When
+  // that shape cannot be had or does not match, the refusal is left as the server's bare answer.
+  async function dirtyRefusal(body: unknown, options: RequestOptions): Promise<SyncRefusal | null> {
+    let features: Features;
+    try {
+      features = (await transport.server(options)).features;
+    } catch (failure) {
+      if (isNonInterruptFailure(failure)) {
+        return null;
+      }
+      throw failure;
+    }
+    if (!features.remoteSyncImportNamesDirtyObjects) {
+      return { kind: "dirty", dirty_objects: null };
+    }
+    const named = z.object({ dirty_objects: z.array(syncDirtyItemSchema(features)) });
+    const read = named.safeParse(body);
+    return read.success ? { kind: "dirty", dirty_objects: read.data.dirty_objects } : null;
+  }
+
+  /** Get the running or most recently finished sync task, or null when the server has none. */
+  async function currentTask(options: RequestOptions = {}): Promise<SyncTask | null> {
+    const { features } = await transport.server(options);
+    return fetchOptionalParsed(
+      transport,
+      "/api/ee/remote-sync/current-task",
+      syncTaskSchema(features),
+      options,
+    );
+  }
+
+  /**
+   * Request cancellation of the running sync task, and answer it in the state that left it. Some
+   * servers end the task at once; others mark it `cancelled` and leave it `running` until its
+   * worker next reports, so a caller that needs it ended waits for the task.
+   */
   async function cancelTask(options: RequestOptions = {}): Promise<SyncTask> {
-    return transport.requestParsed(SyncTask, "/api/ee/remote-sync/current-task/cancel", {
-      ...options,
-      method: "POST",
-    });
+    const { features } = await transport.server(options);
+    return transport.requestParsed(
+      syncTaskSchema(features),
+      "/api/ee/remote-sync/current-task/cancel",
+      { ...options, method: "POST" },
+    );
   }
 
   /** Whether Metabase holds content changes the remote has not been told about. */
@@ -173,24 +282,27 @@ export function gitSyncResource(transport: Transport) {
 
   /** List the objects whose local state differs from the remote. */
   async function dirty(options: RequestOptions = {}): Promise<ListResult<SyncDirtyItem>> {
-    const response = await transport.requestParsed(SyncDirtyList, "/api/ee/remote-sync/dirty", {
-      ...options,
-    });
+    const { features } = await transport.server(options);
+    const list = z.object({ dirty: z.array(syncDirtyItemSchema(features)) });
+    const response = await transport.requestParsed(list, "/api/ee/remote-sync/dirty", options);
     return { data: response.dirty, total: null };
   }
 
   /**
-   * Compare the tracked remote branch against what Metabase last imported. The server caches the
-   * comparison; `force-refresh` re-reads the remote instead.
+   * Compare the tracked remote branch against what Metabase last synced. A server with
+   * `remoteSyncChangesCache` caches the comparison, and `force-refresh` re-reads the remote instead;
+   * one without it reads the remote on every call and drops the key, so every answer is fresh.
    */
   async function hasRemoteChanges(
     params: SyncRemoteChangesParams = {},
     options: RequestOptions = {},
   ): Promise<SyncRemoteChanges> {
-    return transport.requestParsed(SyncRemoteChanges, "/api/ee/remote-sync/has-remote-changes", {
-      ...options,
-      query: { "force-refresh": params["force-refresh"] },
-    });
+    const { features } = await transport.server(options);
+    return transport.requestParsed(
+      syncRemoteChangesSchema(features),
+      "/api/ee/remote-sync/has-remote-changes",
+      { ...options, query: { "force-refresh": params["force-refresh"] } },
+    );
   }
 
   /**
@@ -209,9 +321,10 @@ export function gitSyncResource(transport: Transport) {
     params: SyncImportParams = {},
     options: RequestOptions = {},
   ): Promise<SyncImportResult> {
+    checkSchedule(params.wait);
     const expectedBranch = await expectedBranchFor(params.expected_branch, options);
     await requireMerge(params.merge, options);
-    const started = await transport.requestParsed(SyncImportStarted, "/api/ee/remote-sync/import", {
+    const request = transport.requestParsed(SyncImportStarted, "/api/ee/remote-sync/import", {
       ...options,
       method: "POST",
       body: {
@@ -221,6 +334,7 @@ export function gitSyncResource(transport: Transport) {
         expected_branch: expectedBranch,
       },
     });
+    const started = await readingRefusal(request, options);
     const message = started.message ?? null;
     if (params.wait === undefined || started.task_id === null) {
       return { message, task_id: started.task_id };
@@ -287,9 +401,10 @@ export function gitSyncResource(transport: Transport) {
     params: SyncExportParams = {},
     options: RequestOptions = {},
   ): Promise<SyncExportResult> {
+    checkSchedule(params.wait);
     const branchName = await exportBranchFor(params.branch, options);
     await requireMerge(params.merge, options);
-    const started = await transport.requestParsed(SyncExportStarted, "/api/ee/remote-sync/export", {
+    const request = transport.requestParsed(SyncExportStarted, "/api/ee/remote-sync/export", {
       ...options,
       method: "POST",
       body: {
@@ -299,6 +414,7 @@ export function gitSyncResource(transport: Transport) {
         merge: params.merge,
       },
     });
+    const started = await readingRefusal(request, options);
     const accepted = {
       message: started.message,
       task_id: started.task_id,
@@ -320,10 +436,12 @@ export function gitSyncResource(transport: Transport) {
     params: SyncExportPreflightParams,
     options: RequestOptions = {},
   ): Promise<SyncExportPreflight> {
-    return transport.requestParsed(SyncExportPreflight, "/api/ee/remote-sync/export-preflight", {
-      ...options,
-      query: { branch: params.branch },
-    });
+    const request = transport.requestParsed(
+      SyncExportPreflight,
+      "/api/ee/remote-sync/export-preflight",
+      { ...options, query: { branch: params.branch } },
+    );
+    return readingRefusal(request, options);
   }
 
   /**
@@ -334,6 +452,7 @@ export function gitSyncResource(transport: Transport) {
     params: SyncStashParams,
     options: RequestOptions = {},
   ): Promise<SyncStashResult> {
+    checkSchedule(params.wait);
     const started = await transport.requestParsed(SyncStashStarted, "/api/ee/remote-sync/stash", {
       ...options,
       method: "POST",
@@ -358,7 +477,11 @@ export function gitSyncResource(transport: Transport) {
     return { data: response.items, total: null };
   }
 
-  /** Create a branch on the remote and point git-sync at it. */
+  /**
+   * Create a branch on the remote and point git-sync at it. Metabase 58 to 65 route it; a server
+   * from v66 does not, and answers an `HttpError` of kind `route-missing`. There `stash` makes a
+   * branch, holding Metabase's content.
+   */
   async function createBranch(
     params: SyncCreateBranchParams,
     options: RequestOptions = {},
@@ -367,6 +490,22 @@ export function gitSyncResource(transport: Transport) {
       ...options,
       method: "POST",
       body: { name: params.name },
+    });
+  }
+
+  /**
+   * Check that the remote answers to the saved URL and token, or to those given, without saving
+   * them. Admin only. A remote that cannot be reached, a URL the server does not take, or a remote
+   * that is not set up is refused with 400, carrying the server's reason.
+   */
+  async function testConnection(
+    params: SyncTestConnectionParams = {},
+    options: RequestOptions = {},
+  ): Promise<SyncConnectionTested> {
+    return transport.requestParsed(SyncConnectionTested, "/api/ee/remote-sync/test-connection", {
+      ...options,
+      method: "POST",
+      body: params,
     });
   }
 
@@ -384,17 +523,22 @@ export function gitSyncResource(transport: Transport) {
     synced: boolean,
     options: RequestOptions = {},
   ): Promise<SyncSettingsUpdateResult> {
-    return transport.requestParsed(SyncSettingsUpdateResult, "/api/ee/remote-sync/settings", {
-      ...options,
-      method: "PUT",
-      body: await settingsUpdateBody({ [collectionId]: synced }, options),
-    });
+    const request = transport.requestParsed(
+      SyncSettingsUpdateResult,
+      "/api/ee/remote-sync/settings",
+      {
+        ...options,
+        method: "PUT",
+        body: await settingsUpdateBody({ [collectionId]: synced }, options),
+      },
+    );
+    return readingRefusal(request, options);
   }
 
   async function settingsUpdateBody(
-    collections: SyncSettingsUpdateBody["collections"],
+    collections: Record<number, boolean>,
     options: RequestOptions,
-  ): Promise<SyncSettingsUpdateBody> {
+  ): Promise<SyncSettingsUpdateParams> {
     const { features } = await transport.server(options);
     if (features.remoteSyncCollectionsOnlyUpdate) {
       return { collections };
@@ -418,6 +562,36 @@ export function gitSyncResource(transport: Transport) {
       return { collections, "remote-sync-url": url };
     }
     return { collections, "remote-sync-url": url, "remote-sync-token": token };
+  }
+
+  /**
+   * Configure the remote, the sync direction, the tracked branch, whether remote changes are
+   * imported on their own, whether transforms are synced, and which collections are synced; a key
+   * left out keeps its value. Admin only. A blank URL clears the remote. Send `remote-sync-url`
+   * with the token, the direction or the branch: most servers check such an update against the URL
+   * it carries and refuse it with 400 without one, and a server without
+   * `remoteSyncCollectionsOnlyUpdate` checks every update that way. A read-write instance that
+   * tracks a branch may refuse another `remote-sync-branch` with 400, leaving the switch to an
+   * import of that branch. The server refuses with 400 while a sync task runs; one without
+   * `remoteSyncCollectionsOnlyUpdate` saves the settings first and refuses only the import it would
+   * start. On an instance left read-only the update starts an import, whose task id the answer
+   * carries.
+   */
+  async function updateSettings(
+    params: SyncSettingsUpdateParams,
+    options: RequestOptions = {},
+  ): Promise<SyncSettingsUpdateResult> {
+    // A server without the setting, Metabase 58 and every one from v66, drops the key unread and
+    // answers as if it had never been sent.
+    if (params["remote-sync-transforms"] !== undefined) {
+      await transport.requireFeatures(["remoteSyncTransformsSetting"], options);
+    }
+    const request = transport.requestParsed(
+      SyncSettingsUpdateResult,
+      "/api/ee/remote-sync/settings",
+      { ...options, method: "PUT", body: params },
+    );
+    return readingRefusal(request, options);
   }
 
   /** The collections currently in git-sync's scope. */
@@ -503,7 +677,7 @@ export function gitSyncResource(transport: Transport) {
     return pollUntil(
       async (signal) => currentTask({ ...options, signal }),
       (task) => task === null || isSyncTaskTerminal(task.status),
-      wait,
+      { ...wait, signal: combineAborts(wait.signal, options.signal, transport.signal) },
     );
   }
 
@@ -519,7 +693,9 @@ export function gitSyncResource(transport: Transport) {
     stash: explain("stash", stash),
     branches: explain("branches", branches),
     createBranch: explain("createBranch", createBranch),
+    testConnection: explain("testConnection", testConnection),
     setCollectionSynced: explain("setCollectionSynced", setCollectionSynced),
+    updateSettings: explain("updateSettings", updateSettings),
     // A server without remote sync lists its collections with `is_remote_synced` false, which would
     // read as an empty sync scope rather than as a server with no git-sync at all.
     syncedCollections: refuse("syncedCollections", syncedCollections),
