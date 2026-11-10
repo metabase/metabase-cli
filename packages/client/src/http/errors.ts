@@ -6,6 +6,7 @@ import { JSON_CONTENT_TYPE, parseJsonResult } from "../json";
 import { isPlainObject } from "../predicates";
 import type { SyncRefusal } from "../domain/git-sync";
 
+import { ERROR_BODY_BYTE_CAP, errorBodyJson, keepErrorBodyJson } from "./error-body";
 import { redactBody, redactHeaders, type RedactionContext } from "./sanitize";
 
 export type HttpErrorKind =
@@ -173,6 +174,7 @@ export class HttpError extends MetabaseError {
     this.kind = parts.kind;
     this.serverMessage = parts.serverMessage;
     this.developerDetail = parts.developerDetail;
+    keepErrorBodyJson(this, parts.bodyJson);
   }
 
   get isRetryable(): boolean {
@@ -218,6 +220,7 @@ interface HttpErrorParts {
   kind: HttpErrorKind;
   serverMessage: string | null;
   developerDetail: HttpErrorDetail;
+  bodyJson: unknown;
 }
 
 function partsOf(error: HttpError): HttpErrorParts {
@@ -226,18 +229,26 @@ function partsOf(error: HttpError): HttpErrorParts {
     kind: error.kind,
     serverMessage: error.serverMessage,
     developerDetail: error.developerDetail,
+    bodyJson: errorBodyJson(error),
   };
 }
 
+// Everything structured is read off the whole body, and only the text kept for quoting is cut: a
+// body cut first does not parse, and its field errors, error code and refusal go with it. All of
+// it is read off the sanitized body rather than the raw one, so a secret quoted back inside a field
+// message is already redacted by the time it reaches a typed surface.
 function readParts(input: HttpErrorInput): HttpErrorParts {
   const sanitizedBody = sanitizeBody(input.rawBody, input.redactionContext);
   const redactedHeaders = redactHeaders(input.responseHeaders);
-  const kind = classifyKind(input.status, sanitizedBody, redactedHeaders);
+  const bodyJson = parseBodyJson(sanitizedBody);
+  const envelope = parseOrNull(ErrorEnvelope, bodyJson);
+  const answer: SanitizedAnswer = { body: sanitizedBody, headers: redactedHeaders, envelope };
+  const kind = classifyKind(input.status, answer);
   const said: ServerSaid = {
-    envelope: parseEnvelopeMessage(sanitizedBody),
+    envelope: parseEnvelopeMessage(envelope),
     text: plainTextMessage(sanitizedBody, redactedHeaders),
   };
-  const fields = extractEnvelopeViews(sanitizedBody);
+  const fields = extractEnvelopeViews(envelope);
   return {
     message: input.overrideUserMessage ?? buildUserMessage(kind, input, said),
     kind,
@@ -248,7 +259,7 @@ function readParts(input: HttpErrorInput): HttpErrorParts {
       method: input.method,
       url: input.url,
       responseHeaders: redactedHeaders,
-      body: sanitizedBody,
+      body: storedBody(sanitizedBody),
       fieldErrors: fields.fieldErrors,
       specificFieldErrors: fields.specificFieldErrors,
       errorCode: fields.errorCode,
@@ -256,7 +267,27 @@ function readParts(input: HttpErrorInput): HttpErrorParts {
       remoteSyncedDependents: fields.remoteSyncedDependents,
       tables: fields.tables,
     },
+    bodyJson,
   };
+}
+
+function parseBodyJson(sanitizedBody: string | null): unknown {
+  if (sanitizedBody === null) {
+    return null;
+  }
+  const result = parseJsonResult(sanitizedBody, z.unknown());
+  return result.ok ? result.value : null;
+}
+
+function storedBody(sanitizedBody: string | null): string | null {
+  if (sanitizedBody === null) {
+    return null;
+  }
+  const bytes = Buffer.from(sanitizedBody, "utf8");
+  if (bytes.byteLength <= ERROR_BODY_BYTE_CAP) {
+    return sanitizedBody;
+  }
+  return bytes.subarray(0, ERROR_BODY_BYTE_CAP).toString("utf8");
 }
 
 // A git-sync refusal the server marked as one, with what it named: an import refused on unpushed
@@ -313,11 +344,14 @@ function sanitizeBody(rawBody: string | null, ctx: RedactionContext | undefined)
   return redactBody(rawBody, ctx);
 }
 
-function classifyKind(
-  status: number,
-  sanitizedBody: string | null,
-  redactedHeaders: Record<string, string>,
-): HttpErrorKind {
+// A failure's whole answer after redaction, with the envelope its body parsed to, if it was one.
+interface SanitizedAnswer {
+  body: string | null;
+  headers: Record<string, string>;
+  envelope: ErrorEnvelope | null;
+}
+
+function classifyKind(status: number, answer: SanitizedAnswer): HttpErrorKind {
   // 401: Metabase did not accept the credential. 403: it identified the user and refused the
   // request. 409: the request conflicts with existing state. None of the last two is about the key.
   if (status === UNAUTHORIZED_STATUS) {
@@ -330,9 +364,7 @@ function classifyKind(
     return "conflict";
   }
   if (status === NOT_FOUND_STATUS) {
-    return isRouteMissingResponse(sanitizedBody, redactedHeaders)
-      ? "route-missing"
-      : "resource-missing";
+    return isRouteMissingResponse(answer) ? "route-missing" : "resource-missing";
   }
   if (status === TOO_MANY_REQUESTS_STATUS) {
     return "rate-limit";
@@ -343,10 +375,8 @@ function classifyKind(
   return "generic";
 }
 
-function isRouteMissingResponse(
-  sanitizedBody: string | null,
-  redactedHeaders: Record<string, string>,
-): boolean {
+function isRouteMissingResponse(answer: SanitizedAnswer): boolean {
+  const { body: sanitizedBody, headers: redactedHeaders } = answer;
   if (sanitizedBody?.includes(ROUTE_MISSING_LITERAL)) {
     return true;
   }
@@ -363,7 +393,7 @@ function isRouteMissingResponse(
   if (sanitizedBody === null || sanitizedBody.trim() === "") {
     return true;
   }
-  return parseEnvelope(sanitizedBody) === null;
+  return answer.envelope === null;
 }
 
 // The message a failure body carries, read once for the user message and `serverMessage` both.
@@ -439,14 +469,6 @@ function hostFromUrl(url: string): string {
 
 type ErrorEnvelope = z.infer<typeof ErrorEnvelope>;
 
-function parseEnvelope(sanitizedBody: string | null): ErrorEnvelope | null {
-  if (!sanitizedBody) {
-    return null;
-  }
-  const result = parseJsonResult(sanitizedBody, ErrorEnvelope);
-  return result.ok ? result.value : null;
-}
-
 interface EnvelopeViews {
   fieldErrors: FieldErrors | null;
   specificFieldErrors: FieldErrors | null;
@@ -465,10 +487,7 @@ const NO_ENVELOPE_VIEWS: EnvelopeViews = {
   tables: null,
 };
 
-// Read off the sanitized body rather than the raw one, so a secret quoted back inside a field
-// message is already redacted by the time it reaches this typed surface.
-function extractEnvelopeViews(sanitizedBody: string | null): EnvelopeViews {
-  const envelope = parseEnvelope(sanitizedBody);
+function extractEnvelopeViews(envelope: ErrorEnvelope | null): EnvelopeViews {
   if (envelope === null) {
     return NO_ENVELOPE_VIEWS;
   }
@@ -506,8 +525,7 @@ function parseFieldErrors(value: unknown): FieldErrors | null {
   return Object.fromEntries(entries.map((entry) => [entry.path, entry.message]));
 }
 
-function parseEnvelopeMessage(sanitizedBody: string | null): string | null {
-  const envelope = parseEnvelope(sanitizedBody);
+function parseEnvelopeMessage(envelope: ErrorEnvelope | null): string | null {
   if (envelope === null) {
     return null;
   }
