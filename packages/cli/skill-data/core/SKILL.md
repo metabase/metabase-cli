@@ -160,7 +160,7 @@ What `--help` doesn't say: footguns and non-obvious behaviors.
 <!-- /requires -->
 - **query / uuid.** `mb query` runs MBQL (`--dry-run` → run; `mbql`). `mb uuid --count <n>` mints an aggregation's `lib/uuid` (`mbql`) and document node `_id`s (`document`).
 <!-- requires: lintReport -->
-- **lint.** `mb lint` (admin) lists every card, transform and segment whose saved query is broken, one result per error with the entity's `entity_id`, the rule and the cause; exits 1 on any error. Run it after a batch of changes and fix what it names.
+- **lint.** `mb lint` (admin) checks the instance's content against the lint rules: one result per violation, with the rule, the entity's `entity_id` and a message; exits 1 on any error. Run it after a batch of changes and fix what it names.
   <!-- /requires -->
   <!-- requires: library, tableListPublishedFilter -->
 - `table list --published-only` lists only published tables.

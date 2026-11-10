@@ -90,15 +90,18 @@ export function renderSummary<T>(
 // The message of a verdict that did not pass, given the cap's refusal when the report was not written.
 export type VerdictFailure = (oversize: string | null) => string;
 
-// renderSummary for a command whose result is a verdict, with `failure` null for a pass. The work
-// has already happened, so a report too big to print still owes the caller its verdict.
-export function renderVerdict<T>(
-  item: T,
-  view: ResourceView<T>,
-  summaryText: string | (() => string),
-  opts: RenderOptions,
-  failure: VerdictFailure | null,
-): void {
+// `failure` is null for a verdict that passed.
+export interface VerdictReport<T> {
+  item: T;
+  view: ResourceView<T>;
+  summaryText: string | (() => string);
+  failure: VerdictFailure | null;
+}
+
+// renderSummary for a command whose result is a verdict. The work has already happened, so a report
+// too big to print still owes the caller its verdict.
+export function renderVerdict<T>(report: VerdictReport<T>, opts: RenderOptions): void {
+  const { item, view, summaryText, failure } = report;
   const body = summaryBody(item, view, summaryText, opts);
   const oversize = oversizeMessage(body, opts);
   if (oversize === null) {

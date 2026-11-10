@@ -63,7 +63,14 @@ export default defineMetabaseCommand({
     const summary = summaryLine(id, result);
     const failure: VerdictFailure = (oversize) =>
       oversize === null ? `transform test ${id} ${result.status}` : `${summary} Its ${oversize}`;
-    const passed = result.status === "passed";
-    renderVerdict(result, transformTestRunResultView, summary, ctx, passed ? null : failure);
+    renderVerdict(
+      {
+        item: result,
+        view: transformTestRunResultView,
+        summaryText: summary,
+        failure: result.status === "passed" ? null : failure,
+      },
+      ctx,
+    );
   },
 });

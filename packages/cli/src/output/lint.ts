@@ -6,7 +6,7 @@ import type {
 } from "@metabase/client/domain/lint";
 import { InternalError } from "@metabase/client/errors";
 
-import { countNoun } from "./count-noun";
+import { pluralize } from "./pluralize";
 
 const RESULT_INDENT = "    ";
 const SEVERITY_MARK: Readonly<Record<LintSeverity, string>> = { error: "✗", warning: "!" };
@@ -56,13 +56,13 @@ function footer(report: LintReport): string {
   const { errors, warnings, entities } = report.summary;
   const verdict = report.status === "failed" ? "FAILED" : "PASSED";
   if (errors === 0 && warnings === 0) {
-    return `${verdict}  no broken queries`;
+    return `${verdict}  no violations`;
   }
   const counts = [
-    ...(errors > 0 ? [countNoun(errors, "error", "errors")] : []),
-    ...(warnings > 0 ? [countNoun(warnings, "warning", "warnings")] : []),
+    ...(errors > 0 ? [pluralize(errors, "error", "errors")] : []),
+    ...(warnings > 0 ? [pluralize(warnings, "warning", "warnings")] : []),
   ].join(", ");
-  return `${verdict}  ${counts} in ${countNoun(entities, "entity", "entities")}`;
+  return `${verdict}  ${counts} in ${pluralize(entities, "entity", "entities")}`;
 }
 
 export function lintReportLines(report: LintReport): string[] {

@@ -9,7 +9,7 @@ import {
 import { InternalError } from "@metabase/client/errors";
 
 import type { CiEvent, JobState, Verdict } from "../core/ci-events";
-import { countNoun } from "./count-noun";
+import { pluralize } from "./pluralize";
 import { exitCodeFor } from "./error";
 
 type CheckResult = Extract<CiEvent, { type: "check.result" }>;
@@ -69,7 +69,7 @@ export function failedChecksAfter(failed: FailedChecks, event: CiEvent): FailedC
 export function ciEventLines(event: CiEvent, maxRows: number, failed: FailedChecks): string[] {
   switch (event.type) {
     case "job.start": {
-      const checked = countNoun(event.checked.length, "transform", "transforms");
+      const checked = pluralize(event.checked.length, "transform", "transforms");
       const head = `mb ci run  base ${shortSha(event.snapshot.base)}  head ${shortSha(event.snapshot.head)}  ${checked} checked`;
       return [head, ...event.warnings.map((warning) => `⚠ ${warning.message}`)];
     }
@@ -170,7 +170,7 @@ function expectationLines(result: TransformTestExpectationResult, maxRows: numbe
       (row) => `row  ${cellsText(row, columnNames(result.columns))}`,
     );
     return [
-      `${line}  ${countNoun(rows, "row", "rows")}, expected none`,
+      `${line}  ${pluralize(rows, "row", "rows")}, expected none`,
       ...capped(sample, result.truncated, maxRows),
     ];
   }
@@ -185,7 +185,7 @@ function expectationLines(result: TransformTestExpectationResult, maxRows: numbe
       `${mismatch.column}: expected ${cellText(mismatch.expected)}, got ${cellText(mismatch.actual)}`,
   );
   return [
-    `${line}  ${countNoun(counts.actual, "row", "rows")}, expected ${counts.expected}`,
+    `${line}  ${pluralize(counts.actual, "row", "rows")}, expected ${counts.expected}`,
     ...capped([...rowLines, ...mismatches], result.truncated, maxRows),
   ];
 }
