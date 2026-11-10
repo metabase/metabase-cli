@@ -13,7 +13,7 @@ import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { type RunCliResult, cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
-import { requireServer } from "./server-gate";
+import { requirementFailure, requireServer } from "./server-gate";
 
 const TRANSFORM_ID = "7JwIkkAG-06-nsl4jzsaq";
 const ANY_ENVELOPE = { job: expect.any(String), at: expect.any(String) };
@@ -46,6 +46,60 @@ function quietLintEvents(firstSeq: number): unknown[] {
       stopped: null,
     },
   ];
+}
+
+const lintGap = requirementFailure(["lintReport"]);
+const SAVED_QUERY_CHECKS = lintGap === null ? 1 : 0;
+const UNTOUCHED_PASSED = {
+  type: "check.result",
+  stage: "lint",
+  check: {
+    kind: "coverage",
+    id: "untouched",
+    label: "Transforms whose logic this change did not touch",
+  },
+  verdict: "passed",
+  warnings: [],
+  ms: 0,
+  detail: { untested: [] },
+};
+
+type CheckedState = "passed" | "failed" | "errored";
+
+function sequenced(bodies: readonly object[], firstSeq: number): unknown[] {
+  return bodies.map((body, index) => ({ ...ANY_ENVELOPE, ...body, seq: firstSeq + index }));
+}
+
+// How the lint stage ends once coverage is `coverage`: with a clean check of the instance's saved
+// queries, or, on a stack without the lint report, with a stop that leaves a passing stage errored.
+function lintEnd(coverage: "passed" | "failed"): object[] {
+  if (lintGap === null) {
+    return [
+      {
+        type: "check.result",
+        stage: "lint",
+        check: { kind: "broken-refs", id: "instance", label: "Saved queries on the instance" },
+        verdict: "passed",
+        warnings: [],
+        ms: expect.any(Number),
+        detail: { errors: 0, warnings: 0, entities: 0 },
+      },
+      { type: "stage.end", stage: "lint", status: coverage, stopped: null },
+    ];
+  }
+  return [
+    {
+      type: "stage.end",
+      stage: "lint",
+      status: coverage === "failed" ? "failed" : "errored",
+      stopped: { code: "ci.unsupported-server", message: lintGap.detail },
+    },
+  ];
+}
+
+// The state of a job whose other stages end `others`, which a stopped lint stage turns errored.
+function jobState(others: CheckedState): CheckedState {
+  return lintGap !== null && others === "passed" ? "errored" : others;
 }
 
 function testYaml(transformEntityId: string): string {
@@ -213,11 +267,9 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
       .trimEnd()
       .split("\n")
       .map((line) => parseJson(line, CiEvent));
-    expect(events.slice(1)).toEqual([
-      { ...ANY_ENVELOPE, seq: 1, type: "stage.start", stage: "lint" },
+    const expected = [
+      { type: "stage.start", stage: "lint" },
       {
-        ...ANY_ENVELOPE,
-        seq: 2,
         type: "check.result",
         stage: "lint",
         check: { kind: "coverage", id: TRANSFORM_ID, label: "Daily" },
@@ -230,8 +282,6 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
         },
       },
       {
-        ...ANY_ENVELOPE,
-        seq: 3,
         type: "check.result",
         stage: "lint",
         check: {
@@ -244,18 +294,9 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
         ms: 0,
         detail: { untested: [] },
       },
+      ...lintEnd("failed"),
+      { type: "stage.start", stage: "unit" },
       {
-        ...ANY_ENVELOPE,
-        seq: 4,
-        type: "stage.end",
-        stage: "lint",
-        status: "failed",
-        stopped: null,
-      },
-      { ...ANY_ENVELOPE, seq: 5, type: "stage.start", stage: "unit" },
-      {
-        ...ANY_ENVELOPE,
-        seq: 6,
         type: "check.result",
         stage: "unit",
         check: { kind: "transform-test", id: TRANSFORM_ID, label: "Daily" },
@@ -269,21 +310,18 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
         },
       },
       {
-        ...ANY_ENVELOPE,
-        seq: 7,
         type: "stage.end",
         stage: "unit",
         status: "errored",
         stopped: null,
       },
       {
-        ...ANY_ENVELOPE,
-        seq: 8,
         type: "job.end",
         state: "failed",
-        counts: { checks: 3, warnings: 0 },
+        counts: { checks: 3 + SAVED_QUERY_CHECKS, warnings: 0 },
       },
-    ]);
+    ];
+    expect(events.slice(1)).toEqual(sequenced(expected, 1));
   });
 
   it("refuses a changed transform the instance does not have, ending the job errored", async () => {
@@ -302,12 +340,12 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
       .trimEnd()
       .split("\n")
       .map((line) => parseJson(line, CiEvent));
-    expect(events.slice(1)).toEqual([
-      ...quietLintEvents(1),
-      { ...ANY_ENVELOPE, seq: 4, type: "stage.start", stage: "unit" },
+    const expected = [
+      { type: "stage.start", stage: "lint" },
+      UNTOUCHED_PASSED,
+      ...lintEnd("passed"),
+      { type: "stage.start", stage: "unit" },
       {
-        ...ANY_ENVELOPE,
-        seq: 5,
         type: "check.result",
         stage: "unit",
         check: { kind: "transform-test", id: TRANSFORM_ID, label: "Absent" },
@@ -321,21 +359,18 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
         },
       },
       {
-        ...ANY_ENVELOPE,
-        seq: 6,
         type: "stage.end",
         stage: "unit",
         status: "errored",
         stopped: null,
       },
       {
-        ...ANY_ENVELOPE,
-        seq: 7,
         type: "job.end",
         state: "errored",
-        counts: { checks: 2, warnings: 0 },
+        counts: { checks: 2 + SAVED_QUERY_CHECKS, warnings: 0 },
       },
-    ]);
+    ];
+    expect(events.slice(1)).toEqual(sequenced(expected, 1));
   });
 
   it("fails on a transform whose test catches its bug, passing the mismatch through, and passes once it is fixed", async () => {
@@ -387,21 +422,19 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     const head = await repo.commitAll("add transform and its test");
 
     function expectedEvents(verdict: "passed" | "failed", rows: ExpectedRows): unknown[] {
-      return [
+      const bodies = [
         {
-          ...ANY_ENVELOPE,
-          seq: 0,
           type: "job.start",
           v: 1,
           snapshot: { base, head },
           checked: [{ entity_id: entityId, name: "Order totals" }],
           warnings: [],
         },
-        ...quietLintEvents(1),
-        { ...ANY_ENVELOPE, seq: 4, type: "stage.start", stage: "unit" },
+        { type: "stage.start", stage: "lint" },
+        UNTOUCHED_PASSED,
+        ...lintEnd("passed"),
+        { type: "stage.start", stage: "unit" },
         {
-          ...ANY_ENVELOPE,
-          seq: 5,
           type: "check.result",
           stage: "unit",
           check: { kind: "transform-test", id: testId, label: "Order totals: total adds tax" },
@@ -428,21 +461,18 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
           },
         },
         {
-          ...ANY_ENVELOPE,
-          seq: 6,
           type: "stage.end",
           stage: "unit",
           status: verdict,
           stopped: null,
         },
         {
-          ...ANY_ENVELOPE,
-          seq: 7,
           type: "job.end",
-          state: verdict,
-          counts: { checks: 2, warnings: 0 },
+          state: jobState(verdict),
+          counts: { checks: 2 + SAVED_QUERY_CHECKS, warnings: 0 },
         },
       ];
+      return sequenced(bodies, 0);
     }
 
     function eventsOf(stdout: string): CiEvent[] {
@@ -485,7 +515,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     expect(fixed.exitCode, fixed.stderr).toBe(0);
     const passing = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
 
-    expect(passing.exitCode, passing.stderr).toBe(0);
+    expect(passing.exitCode, passing.stderr).toBe(lintGap === null ? 0 : 1);
     expect(eventsOf(passing.stdout)).toEqual(
       expectedEvents("passed", { "extra-rows": [], "missing-rows": [], "cell-mismatches": [] }),
     );
