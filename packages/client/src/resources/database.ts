@@ -12,6 +12,7 @@ import { Table } from "../domain/table";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { type PollOptions, pollUntil } from "../poll";
+import { combineAborts } from "../signal";
 
 // `GET /api/database` is the one Metabase list endpoint that wraps its rows in a `{ data, total }`
 // envelope and reports a real server count, so `ListResult.total` carries the server's number rather
@@ -131,7 +132,7 @@ export function databaseResource(transport: Transport) {
       async (signal) =>
         transport.requestParsed(Database, `/api/database/${id}`, { ...options, signal }),
       (candidate) => candidate.initial_sync_status === SYNC_COMPLETE,
-      wait,
+      { ...wait, signal: combineAborts(wait.signal, options.signal, transport.signal) },
     );
     return { id, status: ack.status, initial_sync_status: database.initial_sync_status ?? null };
   }
