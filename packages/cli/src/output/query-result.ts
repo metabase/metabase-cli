@@ -1,6 +1,6 @@
 import type { CardQueryResult } from "@metabase/client/domain/card";
 
-import { countNoun } from "./count-noun";
+import { pluralize } from "./pluralize";
 import { formatScalar, renderRows } from "./table";
 
 export function formatQueryResult(result: CardQueryResult): string {
@@ -23,7 +23,7 @@ export function formatQueryResult(result: CardQueryResult): string {
 }
 
 function rowCountSummary(rowCount: number, rowLimit: number | undefined): string {
-  const counted = countNoun(rowCount, "row", "rows");
+  const counted = pluralize(rowCount, "row", "rows");
   if (rowLimit === undefined) {
     return `${counted}.`;
   }
