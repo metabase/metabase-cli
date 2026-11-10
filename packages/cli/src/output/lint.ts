@@ -27,31 +27,26 @@ function entityOf(report: LintReport, entityId: string): LintEntity {
   return entity;
 }
 
-interface EntityGroup {
-  entityId: string;
-  results: LintResult[];
-}
-
-function groupByEntity(results: readonly LintResult[]): EntityGroup[] {
-  const groups = new Map<string, EntityGroup>();
+function groupByEntity(results: readonly LintResult[]): Map<string, LintResult[]> {
+  const groups = new Map<string, LintResult[]>();
   for (const result of results) {
     const group = groups.get(result.entity_id);
     if (group === undefined) {
-      groups.set(result.entity_id, { entityId: result.entity_id, results: [result] });
+      groups.set(result.entity_id, [result]);
     } else {
-      group.results.push(result);
+      group.push(result);
     }
   }
-  return [...groups.values()];
+  return groups;
 }
 
-function entityLines(report: LintReport, group: EntityGroup): string[] {
-  const entity = entityOf(report, group.entityId);
-  const severities = group.results.map((result) => severityOf(report, result));
-  const mark = severities.includes("error") ? SEVERITY_MARK.error : SEVERITY_MARK.warning;
-  const ruleWidth = Math.max(...group.results.map((result) => result.ruleId.length));
-  const head = `${mark} ${entity.type} "${entity.data.name}" ${group.entityId}`;
-  const lines = group.results.map(
+function entityLines(report: LintReport, entityId: string, results: LintResult[]): string[] {
+  const entity = entityOf(report, entityId);
+  const hasError = results.some((result) => severityOf(report, result) === "error");
+  const mark = hasError ? SEVERITY_MARK.error : SEVERITY_MARK.warning;
+  const ruleWidth = Math.max(...results.map((result) => result.ruleId.length));
+  const head = `${mark} ${entity.type} "${entity.data.name}" ${entityId}`;
+  const lines = results.map(
     (result) => `${RESULT_INDENT}${result.ruleId.padEnd(ruleWidth)}  ${result.message}`,
   );
   return [head, ...lines];
@@ -70,8 +65,8 @@ function footer(report: LintReport): string {
   return `${verdict}  ${counts} in ${countNoun(entities, "entity", "entities")}`;
 }
 
-// The report for a person: each entity with a finding, its results under it, then the verdict.
 export function lintReportLines(report: LintReport): string[] {
-  const groups = groupByEntity(report.results);
-  return [...groups.flatMap((group) => entityLines(report, group)), footer(report)];
+  const groups = [...groupByEntity(report.results)];
+  const entities = groups.flatMap(([entityId, results]) => entityLines(report, entityId, results));
+  return [...entities, footer(report)];
 }
