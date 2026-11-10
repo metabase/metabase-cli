@@ -66,7 +66,7 @@ const PASSED: LintReport = {
 
 describe("lintReportLines", () => {
   it("renders a clean report as the verdict alone", () => {
-    expect(lintReportLines(PASSED)).toEqual(["PASSED  no broken queries"]);
+    expect(lintReportLines(PASSED)).toEqual(["PASSED  no violations"]);
   });
 
   it("groups results under their entity, rules aligned, and counts the verdict", () => {

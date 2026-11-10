@@ -173,7 +173,7 @@ mb transform run "$ID" --wait --profile <n> --json     # → succeeded
 
 <!-- requires: lintReport -->
 
-After a batch of transform changes, `mb lint --profile <n> --json` (admin) lists every transform, card and segment whose saved query the change broke — a column the upstream no longer produces, a table that is gone, SQL that reads an unknown table — each with its `entity_id` and the cause. Fix each one, re-run until it reports `passed`; it exits 1 while anything is broken.
+After a batch of transform changes, run `mb lint --profile <n> --json` (admin). It checks the instance's content against the lint rules and returns one result per violation, each with the rule, the entity's `entity_id` and a message. Fix each one, re-run until it reports `passed`; it exits 1 while any error remains.
 
 <!-- /requires -->
 
