@@ -6,6 +6,10 @@ import { explainer } from "../version/refusal";
 // instance can take a while; the default request timeout is sized for a lookup.
 const REPORT_TIMEOUT_MS = 10 * 60_000;
 
+// A request that timed out left its analysis running on the server, so a retry would start a
+// second one beside it.
+const REPORT_RETRIES = 0;
+
 export function lintResource(transport: Transport) {
   const { explain } = explainer(transport, "lint");
 
@@ -17,8 +21,9 @@ export function lintResource(transport: Transport) {
    */
   async function report(options: RequestOptions = {}): Promise<LintReport> {
     return transport.requestParsed(LintReport, "/api/ee/lint", {
-      timeoutMs: REPORT_TIMEOUT_MS,
       ...options,
+      timeoutMs: options.timeoutMs ?? REPORT_TIMEOUT_MS,
+      retries: options.retries ?? REPORT_RETRIES,
     });
   }
 

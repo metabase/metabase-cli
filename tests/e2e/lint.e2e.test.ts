@@ -1,6 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
-import { Card, CardCompact } from "@metabase/client/domain/card";
+import { Card, CardCompact, type CardCreateInput } from "@metabase/client/domain/card";
 import { LintReport } from "@metabase/client/domain/lint";
 import { parseJson } from "@metabase/client/json";
 
@@ -54,7 +54,7 @@ function liveRefusal(server: ServerIdentity): string {
   if (server.version === null) {
     throw new Error("a server with no parsed version is placed past the window, never below it");
   }
-  return `This operation requires Metabase v65+ (this server is ${server.version.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`;
+  return `This operation requires Metabase v66+ (this server is ${server.version.tag}). Upgrade Metabase to use it.\n${DOWNGRADE_REMEDY}`;
 }
 
 function tableQuery(tableId: number) {
@@ -69,6 +69,13 @@ interface IdentifiedCard {
   id: number;
   entity_id: string;
 }
+
+interface BrokenDependent {
+  model: IdentifiedCard;
+  dependent: IdentifiedCard;
+}
+
+type LintCardInput = Pick<CardCreateInput, "name" | "type" | "dataset_query">;
 
 describe.skipIf(skipReason !== null)("lint e2e", () => {
   let bootstrap: E2EBootstrap;
@@ -100,7 +107,7 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
     });
   }
 
-  async function createCard(body: Record<string, unknown>): Promise<IdentifiedCard> {
+  async function createCard(body: LintCardInput): Promise<IdentifiedCard> {
     const created = await runCli({
       args: ["card", "create", "--json"],
       stdin: JSON.stringify({
@@ -129,10 +136,7 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
 
   // A model of the orders table and a question that filters on a column only orders has, then the
   // model pointed at products: the question is broken, and the model is the cause.
-  async function breakDependentOfModel(): Promise<{
-    model: IdentifiedCard;
-    dependent: IdentifiedCard;
-  }> {
+  async function breakDependentOfModel(): Promise<BrokenDependent> {
     const model = await createCard({
       name: MODEL_NAME,
       type: "model",
@@ -252,6 +256,31 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
         "FAILED  1 error in 1 entity",
       ].join("\n"),
     );
+  });
+
+  it("withholds a failed report over --max-bytes and still exits 1", async () => {
+    await breakDependentOfModel();
+
+    const result = await runLint("--json", "--max-bytes", "10");
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(cliErrorCategory(result.stderr)).toBe("failed");
+    expect(cliErrorMessage(result.stderr)).toContain(
+      "over the 10-byte --max-bytes cap; narrow with --fields or raise the cap with --max-bytes <n>",
+    );
+  });
+
+  it("narrows the report to the fields asked for", async () => {
+    await breakDependentOfModel();
+
+    const result = await runLint("--json", "--fields", "status,summary");
+
+    expect(result.exitCode).toBe(1);
+    expect(parseJson(result.stdout, LintReport.pick({ status: true, summary: true }))).toEqual({
+      status: "failed",
+      summary: { errors: 1, warnings: 0, entities: 1 },
+    });
   });
 
   it("is refused for a key that is not an admin's", async () => {

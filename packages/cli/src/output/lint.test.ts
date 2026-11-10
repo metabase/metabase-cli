@@ -98,15 +98,15 @@ describe("lintReportLines", () => {
     ]);
   });
 
-  it("treats a rule the report does not describe as an error", () => {
+  it("treats a rule the report does not describe as a warning", () => {
     const report: LintReport = {
-      status: "failed",
-      summary: { errors: 1, warnings: 0, entities: 1 },
+      status: "passed",
+      summary: { errors: 0, warnings: 0, entities: 1 },
       entities: ENTITIES,
       rules: {},
-      results: [{ ...MISSING_COLUMN, ruleId: "transform-cycle" }],
+      results: [MISSING_COLUMN],
     };
-    expect(lintReportLines(report)[0]).toBe(`✗ card "Revenue by day" ${CARD_ID}`);
+    expect(lintReportLines(report)[0]).toBe(`! card "Revenue by day" ${CARD_ID}`);
   });
 
   it("refuses a result naming an entity the report does not carry", () => {

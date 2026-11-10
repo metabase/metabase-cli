@@ -6,12 +6,15 @@ import type {
 } from "@metabase/client/domain/lint";
 import { InternalError } from "@metabase/client/errors";
 
+import { countNoun } from "./count-noun";
+
 const RESULT_INDENT = "    ";
 const SEVERITY_MARK: Readonly<Record<LintSeverity, string>> = { error: "✗", warning: "!" };
 
-// A rule the report does not describe is the server's contract broken, not a warning to wave through.
+// The server's verdict counts only the rules the report describes, so a result under any other
+// rule cannot have failed it.
 function severityOf(report: LintReport, result: LintResult): LintSeverity {
-  return report.rules[result.ruleId]?.severity ?? "error";
+  return report.rules[result.ruleId]?.severity ?? "warning";
 }
 
 function entityOf(report: LintReport, entityId: string): LintEntity {
@@ -42,10 +45,6 @@ function groupByEntity(results: readonly LintResult[]): EntityGroup[] {
   return [...groups.values()];
 }
 
-function count(n: number, singular: string, plural: string): string {
-  return `${n} ${n === 1 ? singular : plural}`;
-}
-
 function entityLines(report: LintReport, group: EntityGroup): string[] {
   const entity = entityOf(report, group.entityId);
   const severities = group.results.map((result) => severityOf(report, result));
@@ -65,10 +64,10 @@ function footer(report: LintReport): string {
     return `${verdict}  no broken queries`;
   }
   const counts = [
-    ...(errors > 0 ? [count(errors, "error", "errors")] : []),
-    ...(warnings > 0 ? [count(warnings, "warning", "warnings")] : []),
+    ...(errors > 0 ? [countNoun(errors, "error", "errors")] : []),
+    ...(warnings > 0 ? [countNoun(warnings, "warning", "warnings")] : []),
   ].join(", ");
-  return `${verdict}  ${counts} in ${count(entities, "entity", "entities")}`;
+  return `${verdict}  ${counts} in ${countNoun(entities, "entity", "entities")}`;
 }
 
 // The report for a person: each entity with a finding, its results under it, then the verdict.
