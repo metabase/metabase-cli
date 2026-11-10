@@ -8,11 +8,6 @@ export type LintStatus = z.infer<typeof LintStatus>;
 export const LintSeverity = z.enum(["error", "warning"]);
 export type LintSeverity = z.infer<typeof LintSeverity>;
 
-// The rule set is the server's to grow: a rule this client does not know must still parse, with its
-// severity read from `rules`, rather than fail a shipped CLI on the first new one.
-export const LintRuleId = z.union([DependencyFindingErrorType, z.string()]);
-export type LintRuleId = z.infer<typeof LintRuleId>;
-
 export const LintEntityType = z.enum(["card", "transform", "segment"]);
 export type LintEntityType = z.infer<typeof LintEntityType>;
 
@@ -29,7 +24,7 @@ export type LintCause = z.infer<typeof LintCause>;
 
 export const LintResult = z
   .object({
-    ruleId: LintRuleId,
+    ruleId: DependencyFindingErrorType,
     entity_id: z.string(),
     message: z.string(),
     detail: z.string().nullable(),
@@ -74,17 +69,8 @@ export const LintReport = z
     status: LintStatus,
     summary: LintSummary,
     entities: z.record(z.string(), LintEntity),
-    rules: z.record(z.string(), LintRule),
+    rules: z.partialRecord(DependencyFindingErrorType, LintRule),
     results: z.array(LintResult),
   })
   .loose();
 export type LintReport = z.infer<typeof LintReport>;
-
-export const LintReportCompact = LintReport.pick({
-  status: true,
-  summary: true,
-  entities: true,
-  rules: true,
-  results: true,
-}).strip();
-export type LintReportCompact = z.infer<typeof LintReportCompact>;
