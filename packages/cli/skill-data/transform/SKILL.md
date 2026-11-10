@@ -171,6 +171,12 @@ mb transform update "$ID" --file ./.scratch/source-patch.json --profile <n> --js
 mb transform run "$ID" --wait --profile <n> --json     # → succeeded
 ```
 
+<!-- requires: lintReport -->
+
+After a batch of transform changes, `mb lint --profile <n> --json` (admin) lists every transform, card and segment whose saved query the change broke — a column the upstream no longer produces, a table that is gone, SQL that reads an unknown table — each with its `entity_id` and the cause. Fix each one, re-run until it reports `passed`; it exits 1 while anything is broken.
+
+<!-- /requires -->
+
 If you really must `create + delete` instead, do the `delete` **before** the first `git-sync export` so the failed entity never lands in git history — an export of a soft-failed state is noise that needs a follow-up cleanup commit. See `git-sync`, "Read state before mutating", for the ordering rule.
 
 <!-- requires: transformTests -->

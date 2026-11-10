@@ -26,6 +26,7 @@ import { gitSyncResource } from "./resources/git-sync";
 import { glossaryResource } from "./resources/glossary";
 import { healthResource } from "./resources/health";
 import { libraryResource } from "./resources/library";
+import { lintResource } from "./resources/lint";
 import { measureResource } from "./resources/measure";
 import { metricResource } from "./resources/metric";
 import { moderationReviewResource } from "./resources/moderation-review";
@@ -79,6 +80,7 @@ function surfaceOn(transport: Transport) {
     glossary: glossaryResource(transport),
     health: healthResource(transport),
     library: libraryResource(transport),
+    lint: lintResource(transport),
     measure: measureResource(transport),
     metric: metricResource(transport),
     moderationReview: moderationReviewResource(transport),
