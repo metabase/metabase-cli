@@ -62,10 +62,13 @@ export { oauthLogin } from "./auth/oauth-login";
 export type { OAuthLoginDeps, OAuthLoginInput } from "./auth/oauth-login";
 export { refreshOAuthCredential, revokeOAuthCredential } from "./auth/oauth-session";
 export type {
+  AnonymousCredential,
   ApiKeyCredential,
   Credential,
   CredentialRefresher,
   OAuthCredential,
+  SessionCredential,
+  TransportCredential,
 } from "./auth/credential";
 
 export { probeServer } from "./version/probe";
@@ -309,6 +312,7 @@ export {
   GlossaryCreateInput,
   GlossaryUpdateInput,
 } from "./domain/glossary";
+export { Health, HealthCompact } from "./domain/health";
 export { Library, LibraryChild, LibraryCompact, LibraryPublishTablesInput } from "./domain/library";
 export { Measure, MeasureCompact, MeasureCreateInput, MeasureUpdateInput } from "./domain/measure";
 export {
@@ -382,6 +386,8 @@ export {
   DataModelPermission,
   DatabasePermissions,
   DownloadPermission,
+  PermissionGroup,
+  PermissionGroupCompact,
   PermissionsGraph,
   ViewDataPermission,
   YesNoPermission,
@@ -427,7 +433,8 @@ export {
 } from "./domain/replacement";
 export { SEARCH_MODELS, SearchModel, SearchResult, SearchResultCompact } from "./domain/search";
 export { Segment, SegmentCompact, SegmentCreateInput, SegmentUpdateInput } from "./domain/segment";
-export { SessionProperties, TokenFeatures } from "./domain/session-properties";
+export { Session, SessionCompact, SessionCreateInput } from "./domain/session";
+export { SessionProperties, SessionSettings, TokenFeatures } from "./domain/session-properties";
 export {
   Revision,
   RevisionCompact,
@@ -463,6 +470,13 @@ export {
   TableUpdateInput,
   TableVisibilityType,
 } from "./domain/table";
+export {
+  TaskRun,
+  TaskRunCompact,
+  TaskRunEntityType,
+  TaskRunStatus,
+  TaskRunType,
+} from "./domain/task";
 export {
   Timeline,
   TimelineCompact,
@@ -555,4 +569,20 @@ export {
   TransformTestUpdateInput,
 } from "./domain/transform-test";
 export { UploadResult, UploadUpdateAction, UploadUpdateResult } from "./domain/upload";
-export { CurrentUser, CurrentUserCompact } from "./domain/user";
+export {
+  CurrentUser,
+  CurrentUserCompact,
+  User,
+  UserCompact,
+  UserCreateInput,
+  UserListStatus,
+} from "./domain/user";
+export {
+  Workspace,
+  WorkspaceCompact,
+  WorkspaceCreateInput,
+  WorkspaceDatabase,
+  WorkspaceDatabaseCompact,
+  WorkspaceDatabaseStatus,
+} from "./domain/workspace";
+export { WorkspaceInstance, WorkspaceInstanceCompact } from "./domain/workspace-instance";

@@ -2,6 +2,19 @@
 
 Notable changes to `@metabase/client`.
 
+## 0.1.7
+
+- `ClientCredentials.credential` is a `TransportCredential`: a `Credential`, a `SessionCredential` or an `AnonymousCredential`. A `SessionCredential` sends its session id as `X-Metabase-Session` and is never refreshed, so a call made after the session expires fails with an `HttpError` of kind `auth`. An `AnonymousCredential` sends no auth header, which is enough for the health check, the public session properties, setup and login. A 401 names what the server refused: an invalid or expired session, or a request that carried no credential. `Credential`, what `refreshCredential` answers, is unchanged.
+- `session.create` logs in with a username and password and answers the new session's id as a `Session`.
+- `health.get` answers the server's `Health` (`GET /api/health`). A 503 carrying the `initializing` or app-database body is returned as the answer rather than thrown, and the call does not retry unless `retries` is set, so a caller polling a booting server reads each step.
+- `session.settings` reads the session properties as `SessionSettings`, the settings a caller bringing up an instance reads: `has-user-setup`, `setup-token`, `mcp-enabled?` and `ai-features-enabled?`, and, where the caller can read them, `site-name` and `remote-sync-enabled`. The answer is parsed by the shape of the server that sends it: the two AI switches are `null` on a server without the `aiFeatureSwitches` feature, which holds from Metabase 60.
+- `permission.groups` lists the permission groups as `PermissionGroup`.
+- `user.list` lists the users as `User`, filtered by `status` (`UserListStatus`: `active`, `deactivated` or `all`), `query` and `group_id`. `user.create` creates a user from a `UserCreateInput`.
+- `gitSync.updateSettings` configures the remote, the sync direction, the tracked branch, auto-import, `remote-sync-transforms` and the synced collections (`SyncSettingsUpdateParams`). Metabase 59 to 65 take `remote-sync-transforms`; a server that rejects it has its refusal explained as the `remoteSyncTransformsSetting` feature.
+- `task.runPages` walks the background-job runs as `TaskRun`, filtered by run type, entity, status and start time. It needs `taskRuns`, which holds from Metabase 59.
+- `workspaceManager.list`, `workspaceManager.get`, `workspaceManager.create`, `workspaceManager.delete` and `workspaceManager.config` manage workspaces (`Workspace`, `WorkspaceDatabase`), and `workspaceInstance.current` answers the `WorkspaceInstance` loaded on the instance, or `null`. All of them need the `workspaces` feature, which the `workspaces` token grants.
+- `Database` reads `features`, `settings` and `initial_sync_error`. A `settings` value of the wrong type, such as a string for `database-enable-actions`, fails the parse, as it already did for `DatabaseWithSettings`.
+
 ## 0.1.6
 
 - A data app names its slug and its display name as its `data_app.yaml` does: `DataApp`, `DataAppSummary` and `DataAppCompact` read the slug from `slug` and the display name from `name`, which held the slug, and have no `display_name`.

@@ -13,6 +13,7 @@ import {
   type SyncStashResult,
   RemoteSyncState,
   SyncTask,
+  type SyncType,
 } from "../domain/git-sync";
 import { SessionProperties } from "../domain/session-properties";
 import { ConfigError } from "../errors";
@@ -22,7 +23,7 @@ import type { ListResult } from "../list";
 import { type PollOptions, pollUntil } from "../poll";
 import type { Features } from "../version/features";
 import { profileFromProperties } from "../version/probe";
-import { explainer } from "../version/refusal";
+import { explainer, type ParameterRequirement } from "../version/refusal";
 
 import { listCollectionsAs } from "./collection";
 import { fetchOptionalParsed } from "./optional-parsed";
@@ -77,14 +78,6 @@ type RemoteSyncBranchProperty = z.infer<typeof RemoteSyncBranchProperty>;
 const RemoteSyncUrlProperty = SessionProperties.extend({
   "remote-sync-url": z.string().nullable().optional(),
 });
-
-// The token is sensitive, so the server shows it masked, and keeps the stored token when an
-// update carries that masked form back.
-interface SyncSettingsUpdateBody {
-  collections: Record<number, boolean>;
-  "remote-sync-url"?: string;
-  "remote-sync-token"?: string;
-}
 
 const BRANCH_UNREADABLE_MESSAGE =
   "the remote-sync-branch setting is not readable: only admins see it, and a server without remote sync has none";
@@ -145,6 +138,27 @@ export interface SyncStashParams extends SyncWaitParams {
 
 export interface SyncCreateBranchParams {
   name: string;
+}
+
+// The token is sensitive, so the server shows it masked, and keeps the stored token when an
+// update carries that masked form back.
+export interface SyncSettingsUpdateParams {
+  "remote-sync-url"?: string | null | undefined;
+  "remote-sync-token"?: string | null | undefined;
+  "remote-sync-type"?: SyncType | null | undefined;
+  "remote-sync-branch"?: string | null | undefined;
+  "remote-sync-auto-import"?: boolean | null | undefined;
+  "remote-sync-transforms"?: boolean | null | undefined;
+  /** Collection id to whether it is git-synced. */
+  collections?: Record<number, boolean> | null | undefined;
+}
+
+// The development line answers 400 for the key, which the feature explains. Metabase 58 takes it and
+// ignores it, having no transforms to sync.
+function settingsUpdateFeatures(params: SyncSettingsUpdateParams): ParameterRequirement[] {
+  return params["remote-sync-transforms"] === undefined
+    ? []
+    : [{ feature: "remoteSyncTransformsSetting", fields: ["remote-sync-transforms"] }];
 }
 
 export function gitSyncResource(transport: Transport) {
@@ -392,9 +406,9 @@ export function gitSyncResource(transport: Transport) {
   }
 
   async function settingsUpdateBody(
-    collections: SyncSettingsUpdateBody["collections"],
+    collections: Record<number, boolean>,
     options: RequestOptions,
-  ): Promise<SyncSettingsUpdateBody> {
+  ): Promise<SyncSettingsUpdateParams> {
     const { features } = await transport.server(options);
     if (features.remoteSyncCollectionsOnlyUpdate) {
       return { collections };
@@ -418,6 +432,30 @@ export function gitSyncResource(transport: Transport) {
       return { collections, "remote-sync-url": url };
     }
     return { collections, "remote-sync-url": url, "remote-sync-token": token };
+  }
+
+  /**
+   * Configure the remote, the sync direction, the tracked branch, whether remote changes are
+   * imported on their own, whether transforms are synced, and which collections are synced; a key
+   * left out keeps its value. Admin only. A blank URL clears the remote. Send `remote-sync-url`
+   * with the token, the direction or the branch: most servers check such an update against the URL
+   * it carries and refuse it with 400 without one, and a server without
+   * `remoteSyncCollectionsOnlyUpdate` checks every update that way. A read-write instance that
+   * tracks a branch may refuse another `remote-sync-branch` with 400, leaving the switch to an
+   * import of that branch. The server refuses with 400 while a sync task runs; one without
+   * `remoteSyncCollectionsOnlyUpdate` saves the settings first and refuses only the import it would
+   * start. On an instance left read-only the update starts an import, whose task id the answer
+   * carries.
+   */
+  async function updateSettings(
+    params: SyncSettingsUpdateParams,
+    options: RequestOptions = {},
+  ): Promise<SyncSettingsUpdateResult> {
+    return transport.requestParsed(SyncSettingsUpdateResult, "/api/ee/remote-sync/settings", {
+      ...options,
+      method: "PUT",
+      body: params,
+    });
   }
 
   /** The collections currently in git-sync's scope. */
@@ -520,6 +558,7 @@ export function gitSyncResource(transport: Transport) {
     branches: explain("branches", branches),
     createBranch: explain("createBranch", createBranch),
     setCollectionSynced: explain("setCollectionSynced", setCollectionSynced),
+    updateSettings: explain("updateSettings", updateSettings, settingsUpdateFeatures),
     // A server without remote sync lists its collections with `is_remote_synced` false, which would
     // read as an empty sync scope rather than as a server with no git-sync at all.
     syncedCollections: refuse("syncedCollections", syncedCollections),

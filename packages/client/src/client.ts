@@ -15,6 +15,7 @@ import { erdResource } from "./resources/erd";
 import { fieldResource } from "./resources/field";
 import { gitSyncResource } from "./resources/git-sync";
 import { glossaryResource } from "./resources/glossary";
+import { healthResource } from "./resources/health";
 import { libraryResource } from "./resources/library";
 import { measureResource } from "./resources/measure";
 import { metricResource } from "./resources/metric";
@@ -31,6 +32,7 @@ import { settingResource } from "./resources/setting";
 import { setupResource } from "./resources/setup";
 import { snippetResource } from "./resources/snippet";
 import { tableResource } from "./resources/table";
+import { taskResource } from "./resources/task";
 import { timelineEventResource } from "./resources/timeline-event";
 import { timelineResource } from "./resources/timeline";
 import { transformDagRunResource } from "./resources/transform-dag-run";
@@ -42,6 +44,8 @@ import { transformTagResource } from "./resources/transform-tag";
 import { transformTestResource } from "./resources/transform-test";
 import { uploadResource } from "./resources/upload";
 import { userResource } from "./resources/user";
+import { workspaceInstanceResource } from "./resources/workspace-instance";
+import { workspaceManagerResource } from "./resources/workspace-manager";
 
 // The return type is left for inference on purpose: `MetabaseClient` is `ReturnType<typeof
 // createClient>`, so any annotation here would freeze the client at what that annotation names and
@@ -65,6 +69,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     field: fieldResource(transport),
     gitSync: gitSyncResource(transport),
     glossary: glossaryResource(transport),
+    health: healthResource(transport),
     library: libraryResource(transport),
     measure: measureResource(transport),
     metric: metricResource(transport),
@@ -81,6 +86,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     setup: setupResource(transport),
     snippet: snippetResource(transport),
     table: tableResource(transport),
+    task: taskResource(transport),
     timeline: timelineResource(transport),
     timelineEvent: timelineEventResource(transport),
     transform: transformResource(transport),
@@ -92,6 +98,8 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     transformTest: transformTestResource(transport),
     upload: uploadResource(transport),
     user: userResource(transport),
+    workspaceInstance: workspaceInstanceResource(transport),
+    workspaceManager: workspaceManagerResource(transport),
     server: transport.server,
     verifiedServer: transport.verifiedServer,
     probesSettled: transport.probesSettled,
