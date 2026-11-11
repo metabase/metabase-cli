@@ -4,7 +4,7 @@ Command-line client for Metabase. Logs in to an instance in your browser (OAuth,
 
 ## Supported Metabase versions
 
-The CLI is built against Metabase majors **58 through 64** (the client's `KNOWN_RANGE`), the latest patch of each; a newer release runs as the major after the newest known one, with one stderr notice per run; a development build (master or a local build, reporting a tag such as `vUNKNOWN`) is treated as newer than every release, with every version-gated command available and no notice; and an older one keeps its real major and gets one stderr notice per run pointing at a Metabase upgrade; a command the server refuses for a feature it lacks names that feature and the version it needs.
+The CLI is built against Metabase majors **58 through 65** (the client's `KNOWN_RANGE`), the latest patch of each; a newer release runs as the major after the newest known one, with one stderr notice per run; a development build (master or a local build, reporting a tag such as `vUNKNOWN`) is treated as newer than every release, with every version-gated command available and no notice; and an older one keeps its real major and gets one stderr notice per run pointing at a Metabase upgrade; a command the server refuses for a feature it lacks names that feature and the version it needs.
 
 Every command declares the client methods it calls, and each method names the server features it needs — a feature is a minimum major version, a premium token feature, or both. The server decides whether a request is allowed: every command sends its requests, and when the server refuses one (an endpoint it does not serve, or a premium feature it does not grant), the CLI probes the server once and reports what is missing with an actionable message (exit code `2`):
 
@@ -1220,7 +1220,7 @@ mb data-action execute 1 --file values.json
 
 ## Data apps
 
-A data app is a React app built into one JavaScript bundle, which Metabase serves in a sandbox at `/apps/<slug>`. It lives in the synced git repository under `data_apps/<slug>/`, with its questions and actions in its collection's files under `collections/data_apps/`, and changes in Metabase only through an import of the repository. Data apps need the `data-apps` premium feature. Admins see every app, but a disabled one opens only in Data Studio and an outdated one not at all; other users see only the apps they can open, with just `slug` and `name`. The `data-app` skill covers building one, with `data-app-ui`, `data-app-data`, `data-app-filters`, `data-app-actions` and `data-app-testing` for its parts.
+A data app is a React app built into one JavaScript bundle, which Metabase serves in a sandbox at `/apps/<slug>`. It lives in the synced git repository under `data_apps/<slug>/`, with its questions and actions in its collection's files under `collections/data_apps/`, and changes in Metabase only through an import of the repository. Data apps need the `data-apps` premium feature. Admins see every app, but a disabled one opens only in Data Studio and an outdated one not at all; other users see only the apps they can open, with just their `id`, `slug`, `name`, `enabled` and `outdated`. The `data-app` skill covers building one, with `data-app-ui`, `data-app-data`, `data-app-filters`, `data-app-actions` and `data-app-testing` for its parts.
 
 ### `mb data-app scaffold <slug>`
 

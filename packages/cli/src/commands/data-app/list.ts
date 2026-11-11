@@ -11,7 +11,7 @@ const DataAppListEnvelope = listEnvelopeSchema(DataAppCompact);
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List data apps" },
   details:
-    "Admins see every app, disabled and outdated ones included, with the id of its collection; other users see only the slug and name of the apps they can open.",
+    "Admins see every app, disabled and outdated ones included, with the id of its collection; other users see only the id, slug, name and state of the apps they can open.",
   requires: ["dataApp.list"],
   args: {
     ...outputFlags,

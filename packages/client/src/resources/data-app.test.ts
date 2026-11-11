@@ -10,6 +10,7 @@ import {
   jsonResponse,
   premiumRefusalResponse,
   probeResponse,
+  routeMissingResponse,
   TEST_USER_AGENT,
   thrownBy,
 } from "../testing/fetch-capture";
@@ -38,11 +39,25 @@ const APP = {
   updated_at: "2026-01-02T03:04:05.678Z",
 };
 
-const SUMMARY = { slug: "sales-overview", name: "Sales overview" };
+const SUMMARY = {
+  id: 4,
+  slug: "sales-overview",
+  name: "Sales overview",
+  enabled: true,
+  outdated: false,
+};
 
 const SERVER = createServerProfile({
   edition: "ee",
   version: { kind: "release", tag: "v1.65.0", major: 65, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: { "data-apps": true },
+});
+
+const EDITING_SERVER = createServerProfile({
+  edition: "ee",
+  version: { kind: "release", tag: "v1.66.0", major: 66, patch: 0 },
   date: null,
   hash: null,
   tokenFeatures: { "data-apps": true },
@@ -103,7 +118,7 @@ describe("data app resource wire requests", () => {
 
     assert(error instanceof ResponseShapeError, "expected ResponseShapeError");
     expect(error.userMessage).toBe(
-      "On Metabase v1.65.0 (newer than this client supports, up to v64) the response shape was unexpected:\n  Invalid input",
+      "On Metabase v1.65.0 the response shape was unexpected:\n  Invalid input",
     );
   });
 
@@ -123,17 +138,115 @@ describe("data app resource wire requests", () => {
     ]);
   });
 
-  it("sends the update request with only the patched fields", async () => {
-    const { mb, capture } = clientOver([jsonResponse({ ...APP, enabled: true })]);
+  it("sends the create request with the given fields", async () => {
+    const { mb, capture } = clientOver([jsonResponse(APP)]);
 
-    await mb.dataApp.update("sales-overview", { enabled: true });
+    const result = await mb.dataApp.create({ slug: "sales-overview", enabled: false });
 
+    expect(result).toEqual(APP);
     expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/apps",
+        method: "POST",
+        headers: JSON_REQUEST_HEADERS,
+        body: JSON.stringify({ slug: "sales-overview", enabled: false }),
+      },
+    ]);
+  });
+
+  it("sends the update request with only the patched fields", async () => {
+    const { mb, capture } = clientOver(
+      [probeResponse(EDITING_SERVER), jsonResponse({ ...APP, enabled: true })],
+      EDITING_SERVER,
+    );
+
+    await mb.dataApp.update("sales-overview", { enabled: true, name: "Sales" });
+
+    expect(capture.calls.slice(1)).toEqual([
       {
         url: "https://mb.example.com/metabase/api/ee/apps/sales-overview",
         method: "PUT",
         headers: JSON_REQUEST_HEADERS,
-        body: JSON.stringify({ enabled: true }),
+        body: JSON.stringify({ enabled: true, name: "Sales" }),
+      },
+    ]);
+  });
+
+  it("reads the bundle as the text the server serves", async () => {
+    const bundle = "export default () => ({ component: () => null });";
+    const { mb, capture } = clientOver([
+      new Response(bundle, { headers: { "content-type": "application/javascript" } }),
+    ]);
+
+    const result = await mb.dataApp.getBundle("sales-overview");
+
+    expect(result).toBe(bundle);
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/apps/sales-overview/bundle",
+        method: "GET",
+        headers: { accept: "*/*", "user-agent": TEST_USER_AGENT, "x-api-key": "mb_wire_test_key" },
+        body: null,
+      },
+    ]);
+  });
+
+  it("sends an update that only enables the app to a server without data app editing", async () => {
+    const { mb, capture } = clientOver([jsonResponse({ ...APP, enabled: true })]);
+
+    await mb.dataApp.update("sales-overview", { enabled: true });
+
+    expect(capture.calls.map((call) => call.body)).toEqual([JSON.stringify({ enabled: true })]);
+  });
+
+  it("refuses a manifest field before the wire on a server without data app editing", async () => {
+    const { mb, capture } = clientOver([probeResponse(SERVER)]);
+
+    const error = await thrownBy(() =>
+      mb.dataApp.update("sales-overview", { enabled: true, name: "Sales" }),
+    );
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v66+ (this server is v1.65.0). Upgrade Metabase to use it.",
+      feature: "dataAppEditing",
+      since: 66,
+      tokenFeature: null,
+      serverVersion: "v1.65.0",
+    });
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
+  });
+
+  it("sends the bundle text to replace the bundle", async () => {
+    const { mb, capture } = clientOver([jsonResponse(APP)]);
+
+    await mb.dataApp.updateBundle("sales-overview", "export default {};");
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/apps/sales-overview/bundle",
+        method: "PUT",
+        headers: JSON_REQUEST_HEADERS,
+        body: JSON.stringify({ bundle: "export default {};" }),
+      },
+    ]);
+  });
+
+  it("sends the delete request", async () => {
+    const { mb, capture } = clientOver([new Response(null, { status: 204 })]);
+
+    await mb.dataApp.delete("sales-overview");
+
+    expect(capture.calls).toEqual([
+      {
+        url: "https://mb.example.com/metabase/api/ee/apps/sales-overview",
+        method: "DELETE",
+        headers: { accept: "*/*", "user-agent": TEST_USER_AGENT, "x-api-key": "mb_wire_test_key" },
+        body: null,
       },
     ]);
   });
@@ -184,6 +297,27 @@ describe("data app resource wire requests", () => {
     });
     expect(capture.calls.map((call) => call.url)).toEqual([
       "https://mb.example.com/metabase/api/ee/apps",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
+  });
+
+  it("explains a missing route as data app editing needing v66", async () => {
+    const { mb, capture } = clientOver([routeMissingResponse(), probeResponse(SERVER)]);
+
+    const error = await thrownBy(() => mb.dataApp.delete("sales-overview"));
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v66+ (this server is v1.65.0). Upgrade Metabase to use it.",
+      feature: "dataAppEditing",
+      since: 66,
+      tokenFeature: null,
+      serverVersion: "v1.65.0",
+    });
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/apps/sales-overview",
       `https://mb.example.com/metabase${PROBE_PATH}`,
     ]);
   });

@@ -28,7 +28,7 @@ describe("parseSlug", () => {
     );
   });
 
-  it.each(["repo-status", "sandbox-host"])("refuses the reserved slug %s", (slug) => {
+  it.each(["repo-status", "generate"])("refuses the reserved slug %s", (slug) => {
     expect(() => parseSlug(slug)).toThrow(
       new ConfigError(`slug "${slug}" is reserved by Metabase`),
     );
