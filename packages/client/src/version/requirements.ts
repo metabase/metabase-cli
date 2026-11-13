@@ -110,6 +110,7 @@ export const METHOD_REQUIREMENTS = {
   "library.ensureDataCollectionId": ["library"],
   "library.publishTables": ["library"],
   "library.unpublishTables": ["library"],
+  "lint.report": ["lintReport"],
   "metric.query": ["metricDefinitionQuery"],
   "metric.breakoutValues": ["metricDefinitionQuery"],
   "metric.dimensions": ["metricDimensionListing"],

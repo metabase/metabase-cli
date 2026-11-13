@@ -159,7 +159,10 @@ What `--help` doesn't say: footguns and non-obvious behaviors.
 - **library.** The Library is a curated subtree (`library-data` "Data" + `library-metrics` "Metrics" under a `library` root): tables in **Data** lead data pickers and rank up in search; metrics in **Metrics** lead nav, search, and the query builder. `library get` shows its Data/Metrics collection ids; `library create` provisions it (idempotent). `library publish --table-ids/--db-ids/--schemas` publishes tables into Data, **resolving the Data collection and creating the Library if absent**; each `--schemas` entry is `<db-id>:<schema>` (`1:public`), not a bare name. `publish` cascades to upstream FK dependencies, `unpublish` to downstream dependents; both need **admin or data-analyst** (Curate alone won't publish) and exit **403** without write **and** query permission on every affected table. `table get`/`table list` carry `is_published` (`collection_id` under `--full`). On a remote-sync instance, `mb git-sync add-collection <library-id>` (the root) makes exports carry published tables' metadata (see `git-sync`).
 <!-- /requires -->
 - **query / uuid.** `mb query` runs MBQL (`--dry-run` → run; `mbql`). `mb uuid --count <n>` mints an aggregation's `lib/uuid` (`mbql`) and document node `_id`s (`document`).
-<!-- requires: library, tableListPublishedFilter -->
+<!-- requires: lintReport -->
+- **lint.** `mb lint` (admin) checks the instance's content against the lint rules: one result per violation, with the rule, the entity's `entity_id` and a message; exits 1 on any error. Run it after a batch of changes and fix what it names.
+  <!-- /requires -->
+  <!-- requires: library, tableListPublishedFilter -->
 - `table list --published-only` lists only published tables.
 <!-- /requires -->
 

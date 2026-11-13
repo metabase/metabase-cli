@@ -2,10 +2,9 @@ import {
   type TransformTestExpectationResult,
   TransformTestRunResult,
 } from "@metabase/client/domain/transform-test";
-import { ConfigError, FailedResultError } from "@metabase/client/errors";
 import { DEFAULT_TIMEOUT_MS } from "@metabase/client/http/transport";
 
-import { renderSummaryWithinMaxBytes } from "../../output/render";
+import { renderVerdict, type VerdictFailure } from "../../output/render";
 import { transformTestRunResultView } from "../../output/views/transform-test";
 import { interruptSignal } from "../../runtime/interrupt";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -62,16 +61,16 @@ export default defineMetabaseCommand({
     const client = await getClient();
     const result = await client.transformTest.run(id, { timeoutMs, signal: interruptSignal });
     const summary = summaryLine(id, result);
-    const oversize = renderSummaryWithinMaxBytes(result, transformTestRunResultView, summary, ctx);
-    if (result.status === "passed") {
-      if (oversize !== null) {
-        throw new ConfigError(oversize);
-      }
-      return;
-    }
-    // The run has already happened, so a report too big to print still owes the caller its outcome.
-    const failure =
+    const failure: VerdictFailure = (oversize) =>
       oversize === null ? `transform test ${id} ${result.status}` : `${summary} Its ${oversize}`;
-    throw new FailedResultError(failure);
+    renderVerdict(
+      {
+        item: result,
+        view: transformTestRunResultView,
+        summaryText: summary,
+        failure: result.status === "passed" ? null : failure,
+      },
+      ctx,
+    );
   },
 });
