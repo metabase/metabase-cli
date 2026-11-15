@@ -72,7 +72,6 @@ export default defineMetabaseCommand({
       repo: args.repo,
       base: args.base,
       head: args.head,
-      // Planning and coverage need no server, so a bad ref or a job with nothing to test never asks for one.
       // Planning needs no server, so a bad ref or a job with nothing to check never asks for one.
       stages: async (plan) => {
         if (plan.checked.length === 0) {

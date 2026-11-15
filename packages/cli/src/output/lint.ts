@@ -13,8 +13,12 @@ function entityLines(report: LintReport, entityId: string, results: LintResult[]
   const hasError = results.some((result) => resultSeverity(report, result) === "error");
   const severity: LintSeverity = hasError ? "error" : "warning";
   const head = `${SEVERITY_MARK[severity]} ${entity.type} "${printable(entity.data.name)}" ${entityId}`;
+  return [head, ...lintResultLines(results, RESULT_INDENT)];
+}
+
+export function lintResultLines(results: readonly LintResult[], indent: string): string[] {
   const pairs = results.map((result) => [result.ruleId, printable(result.message)] as const);
-  return [head, ...keyValueLines(pairs).map((line) => `${RESULT_INDENT}${line}`)];
+  return keyValueLines(pairs).map((line) => `${indent}${line}`);
 }
 
 function footer(report: LintReport): string {

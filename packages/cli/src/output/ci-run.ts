@@ -10,8 +10,9 @@ import { InternalError } from "@metabase/client/errors";
 
 import { BrokenRefsDetail } from "../core/ci-broken-refs";
 import type { CiEvent, JobState, Verdict } from "../core/ci-events";
-import { pluralize } from "./pluralize";
 import { exitCodeFor } from "./error";
+import { lintResultLines } from "./lint";
+import { pluralize } from "./pluralize";
 
 type CheckResult = Extract<CiEvent, { type: "check.result" }>;
 type StageEnd = Extract<CiEvent, { type: "stage.end" }>;
@@ -39,6 +40,12 @@ const VERDICT_MARK: Readonly<Record<Verdict, string>> = {
 type FailedKind = "transform" | "queries";
 export type FailedChecks = ReadonlySet<FailedKind>;
 export const NO_FAILED_CHECKS: FailedChecks = new Set();
+const FAILED_KIND: Readonly<Record<CheckResult["check"]["kind"], FailedKind>> = {
+  yaml: "transform",
+  cycles: "transform",
+  "transform-test": "transform",
+  "broken-refs": "queries",
+};
 
 function failedText(failed: FailedChecks): string {
   const fixes = [
@@ -59,8 +66,8 @@ export function failedChecksAfter(failed: FailedChecks, event: CiEvent): FailedC
   if (event.type !== "check.result" || event.verdict !== "failed") {
     return failed;
   }
-  const kind = event.check.kind === "broken-refs" ? "queries" : "transform";
-  return new Set([...failed, kind]);
+  const kind = FAILED_KIND[event.check.kind];
+  return failed.has(kind) ? failed : new Set([...failed, kind]);
 }
 
 // The text form of one CI event: a line or more, or none for an event the next one makes plain.
@@ -149,9 +156,7 @@ function detailLines(event: CheckResult, maxRows: number): string[] {
   }
   const brokenRefs = BrokenRefsDetail.safeParse(event.detail);
   if (brokenRefs.success) {
-    return brokenRefs.data.errors.map(
-      (error) => `${DETAIL_INDENT}${error.ruleId}  ${error.message}`,
-    );
+    return lintResultLines(brokenRefs.data.errors, DETAIL_INDENT);
   }
   const message = CheckMessage.safeParse(event.detail);
   if (!message.success) {
