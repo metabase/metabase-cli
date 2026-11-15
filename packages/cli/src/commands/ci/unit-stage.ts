@@ -203,7 +203,7 @@ export function unitStage(
       try {
         port = await connect();
       } catch (error) {
-        const stop = connectStop(error);
+        const stop = connectStop(error, "the transform tests did not run");
         if (stop === null) {
           throw error;
         }
