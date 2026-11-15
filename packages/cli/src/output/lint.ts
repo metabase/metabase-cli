@@ -7,6 +7,7 @@ import type {
 import { InternalError } from "@metabase/client/errors";
 
 import { pluralize } from "./pluralize";
+import { keyValueLines } from "./render";
 
 const RESULT_INDENT = "    ";
 const SEVERITY_MARK: Readonly<Record<LintSeverity, string>> = { error: "✗", warning: "!" };
@@ -43,26 +44,23 @@ function groupByEntity(results: readonly LintResult[]): Map<string, LintResult[]
 function entityLines(report: LintReport, entityId: string, results: LintResult[]): string[] {
   const entity = entityOf(report, entityId);
   const hasError = results.some((result) => severityOf(report, result) === "error");
-  const mark = hasError ? SEVERITY_MARK.error : SEVERITY_MARK.warning;
-  const ruleWidth = Math.max(...results.map((result) => result.ruleId.length));
-  const head = `${mark} ${entity.type} "${entity.data.name}" ${entityId}`;
-  const lines = results.map(
-    (result) => `${RESULT_INDENT}${result.ruleId.padEnd(ruleWidth)}  ${result.message}`,
-  );
-  return [head, ...lines];
+  const severity: LintSeverity = hasError ? "error" : "warning";
+  const head = `${SEVERITY_MARK[severity]} ${entity.type} "${entity.data.name}" ${entityId}`;
+  const pairs = results.map((result) => [result.ruleId, result.message] as const);
+  return [head, ...keyValueLines(pairs).map((line) => `${RESULT_INDENT}${line}`)];
 }
 
 function footer(report: LintReport): string {
   const { errors, warnings, entities } = report.summary;
   const verdict = report.status === "failed" ? "FAILED" : "PASSED";
-  if (errors === 0 && warnings === 0) {
+  const counts = [
+    errors > 0 ? pluralize(errors, "error", "errors") : null,
+    warnings > 0 ? pluralize(warnings, "warning", "warnings") : null,
+  ].filter((count) => count !== null);
+  if (counts.length === 0) {
     return `${verdict}  no violations`;
   }
-  const counts = [
-    ...(errors > 0 ? [pluralize(errors, "error", "errors")] : []),
-    ...(warnings > 0 ? [pluralize(warnings, "warning", "warnings")] : []),
-  ].join(", ");
-  return `${verdict}  ${counts} in ${pluralize(entities, "entity", "entities")}`;
+  return `${verdict}  ${counts.join(", ")} in ${pluralize(entities, "entity", "entities")}`;
 }
 
 export function lintReportLines(report: LintReport): string[] {
