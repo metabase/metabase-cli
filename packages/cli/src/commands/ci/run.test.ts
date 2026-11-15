@@ -131,6 +131,7 @@ describe("ci run: committed content only", () => {
       "transforms/a.yaml",
       `name: Alpha\nentity_id: ${A}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
     );
+    stubbed.noStages = true;
 
     const before = await run(["--repo", repo.path, "--base", "main"]);
 
@@ -152,7 +153,6 @@ describe("ci run: committed content only", () => {
 
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.commitAll("add A");
-    stubbed.noStages = true;
     const after = await run(["--repo", repo.path, "--base", "main"]);
 
     expect(after.exitCode).toBe(0);
@@ -351,7 +351,7 @@ const BROKEN_LINT_REPORT = {
 const NO_CREDENTIAL_LINT_STOP = {
   code: "ci.no-credential",
   message: expect.stringContaining(
-    "no Metabase credential, so the saved queries were not checked: Not authenticated for profile",
+    "no Metabase credential, so the lint report was not read: Not authenticated for profile",
   ),
 };
 
@@ -752,6 +752,33 @@ describe("ci run: a changed transform tested on Metabase", () => {
       { ...envelope, seq: 7, type: "job.end", state: "failed", counts: { checks: 2, warnings: 0 } },
     ]);
   });
+
+  it("lints a change that touches content but checks no transform, running no unit stage", async () => {
+    await repo.git("checkout", "-q", "-b", "card-only", "main");
+    await repo.put(
+      "collections/main/cards/revenue.yaml",
+      `name: Revenue by day\nentity_id: ${BROKEN_CARD_ID}\nserdes/meta:\n- model: Card\n`,
+    );
+    await repo.commitAll("change only a card");
+    serveMetabase({
+      properties: LICENSED,
+      lint: () => json(BROKEN_LINT_REPORT),
+      list: () => json([TEST]),
+      run: () => json(PASSED_RUN),
+    });
+
+    const result = await run(["--repo", repo.path, "--base", "main"]);
+
+    expect([
+      result.exitCode,
+      events(result.stdout).map((event) => event.type),
+      events(result.stdout).at(-1),
+    ]).toEqual([
+      1,
+      ["job.start", "stage.start", "check.result", "stage.end", "job.end"],
+      { ...envelope, seq: 4, type: "job.end", state: "failed", counts: { checks: 1, warnings: 0 } },
+    ]);
+  });
 });
 
 describe("ci run: a change that checks no transform, with no Metabase credential", () => {
@@ -770,7 +797,7 @@ describe("ci run: a change that checks no transform, with no Metabase credential
     home.cleanup();
   });
 
-  it("runs no stage and connects to nothing when the change checks no transform", async () => {
+  it("still lints the instance when the change touches no content file, ending errored without a credential", async () => {
     await repo.put(
       "transforms/a.yaml",
       `name: Alpha\nentity_id: ${A}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
@@ -782,9 +809,31 @@ describe("ci run: a change that checks no transform, with no Metabase credential
 
     const result = await run(["--repo", repo.path, "--base", "main"]);
 
-    expect(result.exitCode).toBe(0);
-    expect(events(result.stdout).slice(1)).toEqual([
-      { ...envelope, seq: 1, type: "job.end", state: "passed", counts: { checks: 0, warnings: 1 } },
+    expect([result.exitCode, events(result.stdout).slice(1)]).toEqual([
+      1,
+      [
+        { ...envelope, seq: 1, type: "stage.start", stage: "lint" },
+        {
+          ...envelope,
+          seq: 2,
+          type: "stage.end",
+          stage: "lint",
+          status: "errored",
+          stopped: {
+            code: "ci.no-credential",
+            message: expect.stringContaining(
+              "no Metabase credential, so the lint report was not read: Not authenticated",
+            ),
+          },
+        },
+        {
+          ...envelope,
+          seq: 3,
+          type: "job.end",
+          state: "errored",
+          counts: { checks: 0, warnings: 1 },
+        },
+      ],
     ]);
   });
 });

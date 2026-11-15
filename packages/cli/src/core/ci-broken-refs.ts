@@ -11,7 +11,7 @@ import { reportEntity, resultSeverity, resultsByEntity } from "./lint-report";
 const INSTANCE_CHECK = {
   kind: "broken-refs",
   id: "instance",
-  label: "Saved queries on the instance",
+  label: "Entities on the instance",
 } as const;
 
 export const BrokenRefsDetail = z.object({ entity: LintEntity, errors: z.array(LintResult) });
@@ -52,7 +52,7 @@ export function brokenRefChecks(report: LintReport, ms: number): CheckOutcome[] 
 // Why the report could not be read, which ends the stage, or null for a bug or an interrupt, which
 // the caller rethrows. Only an admin can read the report, so any other identity is a setup to fix.
 export function reportStop(error: unknown): StageStop | null {
-  const connect = connectStop(error, "the saved queries were not checked");
+  const connect = connectStop(error, "the lint report was not read");
   if (connect !== null) {
     return connect;
   }

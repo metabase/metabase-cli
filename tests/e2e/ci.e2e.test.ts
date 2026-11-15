@@ -26,7 +26,7 @@ function sequenced(bodies: readonly object[], firstSeq: number): unknown[] {
   return bodies.map((body, index) => ({ ...ANY_ENVELOPE, ...body, seq: firstSeq + index }));
 }
 
-// The lint stage on this stack: a clean check of the instance's saved queries, or, on a stack
+// The lint stage on this stack: a clean check of the instance's entities, or, on a stack
 // without the lint report, a stop that leaves the stage errored.
 function lintStage(): object[] {
   const start = { type: "stage.start", stage: "lint" };
@@ -36,7 +36,7 @@ function lintStage(): object[] {
       {
         type: "check.result",
         stage: "lint",
-        check: { kind: "broken-refs", id: "instance", label: "Saved queries on the instance" },
+        check: { kind: "broken-refs", id: "instance", label: "Entities on the instance" },
         verdict: "passed",
         warnings: [],
         ms: expect.any(Number),
@@ -84,7 +84,7 @@ describe("ci e2e", () => {
     return dir;
   }
 
-  it("streams one event per line, and writes them to --results, for a job with nothing to check", async () => {
+  it("streams one event per line, and writes them to --results, linting even a job with no transform to check", async () => {
     const base = await repo.git("rev-parse", "HEAD");
     await repo.put(
       "transforms/draft.yaml",
@@ -97,7 +97,7 @@ describe("ci e2e", () => {
       configHome: await configHome(),
     });
 
-    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.exitCode, result.stderr).toBe(1);
     const events = result.stdout
       .trimEnd()
       .split("\n")
@@ -122,11 +122,25 @@ describe("ci e2e", () => {
           },
         ],
       },
+      { ...ANY_ENVELOPE, seq: 1, type: "stage.start", stage: "lint" },
       {
         ...ANY_ENVELOPE,
-        seq: 1,
+        seq: 2,
+        type: "stage.end",
+        stage: "lint",
+        status: "errored",
+        stopped: {
+          code: "ci.no-credential",
+          message: expect.stringContaining(
+            "no Metabase credential, so the lint report was not read",
+          ),
+        },
+      },
+      {
+        ...ANY_ENVELOPE,
+        seq: 3,
         type: "job.end",
-        state: "passed",
+        state: "errored",
         counts: { checks: 0, warnings: 2 },
       },
     ]);
