@@ -13,6 +13,8 @@ export function lintResource(transport: Transport) {
     return transport.requestParsed(LintReport, "/api/ee/lint", {
       ...options,
       method: "POST",
+      // Safe to resend: the POST only finishes analysis the server would run anyway, then reads.
+      idempotent: true,
       timeoutMs: options.timeoutMs ?? REPORT_TIMEOUT_MS,
     });
   }

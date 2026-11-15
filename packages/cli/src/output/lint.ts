@@ -12,18 +12,18 @@ import { keyValueLines } from "./render";
 const RESULT_INDENT = "    ";
 const SEVERITY_MARK: Readonly<Record<LintSeverity, string>> = { error: "✗", warning: "!" };
 
-// The server's verdict counts only the rules the report describes, so a result under any other
-// rule cannot have failed it.
 function severityOf(report: LintReport, result: LintResult): LintSeverity {
-  return report.rules[result.ruleId]?.severity ?? "warning";
+  const rule = report.rules[result.ruleId];
+  if (rule === undefined) {
+    throw new InternalError(`Lint report from Metabase is missing rule ${result.ruleId}.`);
+  }
+  return rule.severity;
 }
 
 function entityOf(report: LintReport, entityId: string): LintEntity {
   const entity = report.entities[entityId];
   if (entity === undefined) {
-    throw new InternalError(
-      `lint result names entity ${entityId}, which the report does not carry`,
-    );
+    throw new InternalError(`Lint report from Metabase is missing entity ${entityId}.`);
   }
   return entity;
 }
