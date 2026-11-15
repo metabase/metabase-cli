@@ -7,7 +7,7 @@ import { brokenRefChecks, reportStop } from "../../core/ci-broken-refs";
 import type { CiStage } from "../../core/ci-events";
 import { interruptSignal } from "../../runtime/interrupt";
 
-export interface LintStagePort {
+interface LintStagePort {
   readReport: () => Promise<LintReport>;
   nowMs: () => number;
 }

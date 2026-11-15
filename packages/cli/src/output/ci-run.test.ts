@@ -11,7 +11,7 @@ import type {
 import { parseJson } from "@metabase/client/json";
 
 import { type CiEventBody, CiEvent, createEmitter } from "../core/ci-events";
-import { DEFAULT_MAX_ROWS, NO_FAILED_CHECKS, ciEventLines, failedChecksAfter } from "./ci-run";
+import { DEFAULT_MAX_ROWS, ciEventLines } from "./ci-run";
 
 // The events of a real failing `mb ci run`, as the run wrote them: a transform's bug broke one
 // expectation of its test, and a saved question reads a missing table.
@@ -21,13 +21,7 @@ const BASE = "0c9c8393f4f88f11d1e035fe05c90e3a70c21cfd";
 const HEAD = "eff94588cbd7431f1f751ce92ed2c9c70bd3957b";
 
 function textLines(events: readonly CiEvent[], maxRows: number): string[] {
-  const lines: string[] = [];
-  let failed = NO_FAILED_CHECKS;
-  for (const event of events) {
-    lines.push(...ciEventLines(event, maxRows, failed));
-    failed = failedChecksAfter(failed, event);
-  }
-  return lines;
+  return events.flatMap((event) => ciEventLines(event, maxRows));
 }
 
 function render(bodies: readonly CiEventBody[], maxRows: number): string[] {
@@ -59,7 +53,7 @@ function jobStart(checked: number): CiEventBody {
 const CLEAN_INSTANCE: CiEventBody = {
   type: "check.result",
   stage: "lint",
-  check: { kind: "broken-refs", id: "instance", label: "Saved queries on the instance" },
+  check: { kind: "broken-refs", id: "instance", label: "Entities on the instance" },
   verdict: "passed",
   warnings: [],
   ms: 0,
@@ -125,7 +119,7 @@ describe("ciEventLines", () => {
       "          missing  id=2  order_total=44",
       "          extra    id=2  order_total=36",
       "      ✓ id is unique",
-      "FAILED  fix the transform and fix the broken saved queries (exit 1)",
+      "FAILED  fix the broken entities (exit 1)",
     ]);
   });
 
@@ -153,7 +147,7 @@ describe("ciEventLines", () => {
     ).toEqual([
       "mb ci run  base 0c9c839  head eff9458  2 transforms checked",
       "lint",
-      "  ✓ Saved queries on the instance",
+      "  ✓ Entities on the instance",
       "unit",
       "  ✓ orders: order rules  250ms",
       "PASSED (exit 0)",
@@ -267,7 +261,7 @@ describe("ciEventLines", () => {
       "lint",
       '  ✗ card "Revenue"',
       '      missing-column  Column TOTAL is not on transform "transform_0"',
-      "FAILED  fix the broken saved queries (exit 1)",
+      "FAILED  fix the broken entities (exit 1)",
     ]);
   });
 
@@ -346,21 +340,9 @@ describe("ciEventLines", () => {
     ]);
   });
 
-  it("ends a job whose only failures are broken saved queries by asking for a fix to them", () => {
-    expect(render([QUERY_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
-      "FAILED  fix the broken saved queries (exit 1)",
-    );
-  });
-
-  it("ends a job whose only failures are transform tests by asking for a fix to the transform", () => {
-    expect(render([TEST_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
-      "FAILED  fix the transform (exit 1)",
-    );
-  });
-
-  it("ends a job with both kinds of failure by asking for both fixes", () => {
+  it("ends a failed job by asking for a fix to the broken entities", () => {
     expect(render([QUERY_FAILED, TEST_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
-      "FAILED  fix the transform and fix the broken saved queries (exit 1)",
+      "FAILED  fix the broken entities (exit 1)",
     );
   });
 });

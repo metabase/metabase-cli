@@ -190,7 +190,7 @@ async function checkTransform(
   return null;
 }
 
-// The stage connects only when it runs, so the lint stage reports before a server is asked for.
+// The stage connects only when it runs, so a missing credential ends the stage, not the job.
 export function unitStage(
   checked: readonly CheckedTransform[],
   untestedInBranch: ReadonlySet<string>,

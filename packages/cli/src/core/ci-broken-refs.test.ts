@@ -12,7 +12,7 @@ const CARD_ID = "Cd7kW2pLmX7sYb4nC8dE1";
 const INSTANCE_CHECK = {
   kind: "broken-refs",
   id: "instance",
-  label: "Saved queries on the instance",
+  label: "Entities on the instance",
 };
 
 const MISSING_COLUMN: LintResult = {
@@ -122,7 +122,7 @@ describe("reportStop", () => {
   it("stops when there is no credential", () => {
     expect(reportStop(new NotAuthenticatedError("Not authenticated"))).toEqual({
       code: "ci.no-credential",
-      message: "no Metabase credential, so the saved queries were not checked: Not authenticated",
+      message: "no Metabase credential, so the lint report was not read: Not authenticated",
     });
   });
 
