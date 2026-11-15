@@ -102,15 +102,18 @@ describe("lintReportLines", () => {
     ]);
   });
 
-  it("treats a rule the report does not describe as a warning", () => {
+  it("refuses a result naming a rule the report does not describe", () => {
     const report: LintReport = {
-      status: "passed",
-      summary: { errors: 0, warnings: 0, entities: 1 },
+      status: "failed",
+      summary: { errors: 1, warnings: 0, entities: 1 },
       entities: ENTITIES,
       rules: {},
       results: [MISSING_COLUMN],
     };
-    expect(lintReportLines(report)[0]).toBe(`! card "Revenue by day" ${CARD_ID}`);
+    expect(() => lintReportLines(report)).toThrow(InternalError);
+    expect(() => lintReportLines(report)).toThrow(
+      "Lint report from Metabase is missing rule missing-column.",
+    );
   });
 
   it("refuses a result naming an entity the report does not carry", () => {
@@ -123,7 +126,7 @@ describe("lintReportLines", () => {
     };
     expect(() => lintReportLines(report)).toThrow(InternalError);
     expect(() => lintReportLines(report)).toThrow(
-      `lint result names entity ${CARD_ID}, which the report does not carry`,
+      `Lint report from Metabase is missing entity ${CARD_ID}.`,
     );
   });
 });
