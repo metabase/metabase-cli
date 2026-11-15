@@ -62,10 +62,10 @@ type MethodName<N extends MethodNamespace> = NameIn<MethodKey, N>;
 // step is explained as it is thrown. The method alone sets the exposed signature, so `parameters`
 // is `NoInfer`: a callback reading fewer arguments must not drop the rest from it. `refuse` wraps
 // the exception, a method a server without its features would answer wrongly without a word: the
-// call is refused before the request, against a profile the client probed itself, and the server
-// never gets to refuse it, unless the caller skips such refusals, which the transport's
-// `refuseBeforeSending` decides. `refuseAfterReading` wraps such a method answering from the
-// session properties alone, which it is handed read afresh.
+// call is refused before the request, against a profile the client probed itself or was handed as
+// trusted, and the server never gets to refuse it, unless the caller skips such refusals, which the
+// transport's `refuseBeforeSending` decides. `refuseAfterReading` wraps such a method answering
+// from the session properties alone, which it is handed read afresh.
 export function explainer<N extends MethodNamespace>(transport: Transport, namespace: N) {
   function explain<A extends unknown[], R>(
     name: MethodName<N>,
@@ -166,11 +166,11 @@ function callRequirement<A extends unknown[]>(
  * The error a call failed with, as a `CapabilityError` carrying the server's answer when the server
  * refused it for lacking one of the features `call` needs, and unchanged otherwise. The server's own
  * refusal is the verdict; the profile only names what was missing. The explaining probe is bounded
- * by its own timeout and the client's signal; the error stands when the probe fails, and an
- * interrupt surfaces as one.
+ * by its own timeout and the client's signal; the error stands when the probe fails or the client's
+ * guard refuses it, and an interrupt surfaces as one.
  */
 export async function explainRefusal(
-  transport: Pick<Transport, "verifiedServer">,
+  transport: Pick<Transport, "verifiedServer" | "refusedByGuard">,
   call: CallRequirement,
   error: unknown,
 ): Promise<unknown> {
@@ -181,7 +181,7 @@ export async function explainRefusal(
   try {
     profile = await transport.verifiedServer();
   } catch (probeError) {
-    if (isNonInterruptFailure(probeError)) {
+    if (isNonInterruptFailure(probeError) || transport.refusedByGuard(probeError)) {
       return error;
     }
     throw probeError;

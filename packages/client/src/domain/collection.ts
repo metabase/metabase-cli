@@ -104,6 +104,20 @@ export const CollectionCompact = Collection.pick({
 }).strip();
 export type CollectionCompact = z.infer<typeof CollectionCompact>;
 
+// A collection as a caller walking every collection reads it to find its own: no field a closed enum
+// pins, so a `type`, `namespace` or `authority_level` this client does not know costs one
+// collection nothing and the list nothing.
+export const CollectionSummary = Collection.pick({
+  id: true,
+  name: true,
+  location: true,
+  personal_owner_id: true,
+  archived: true,
+  is_remote_synced: true,
+  entity_id: true,
+}).strip();
+export type CollectionSummary = z.infer<typeof CollectionSummary>;
+
 // `archived` and `display` arrive as null on the wire for some model types (snippet,
 // pulse, timeline, transform, document, table) — those queries don't select the column,
 // so the union-all pads it with null. Stay permissive.

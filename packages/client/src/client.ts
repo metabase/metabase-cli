@@ -1,4 +1,13 @@
-import { type ClientCredentials, type ClientOptions, createTransport } from "./http/transport";
+import {
+  type ClientCredentials,
+  type ClientOptions,
+  createTransport,
+  type DerivedClientOptions,
+  type ErrorObserver,
+  type Transport,
+} from "./http/transport";
+import { ConfigError } from "./errors";
+import { isThenable } from "./predicates";
 import { apiKeyResource } from "./resources/api-key";
 import { cardResource } from "./resources/card";
 import { collectionResource } from "./resources/collection";
@@ -15,6 +24,7 @@ import { erdResource } from "./resources/erd";
 import { fieldResource } from "./resources/field";
 import { gitSyncResource } from "./resources/git-sync";
 import { glossaryResource } from "./resources/glossary";
+import { healthResource } from "./resources/health";
 import { libraryResource } from "./resources/library";
 import { measureResource } from "./resources/measure";
 import { metricResource } from "./resources/metric";
@@ -31,6 +41,7 @@ import { settingResource } from "./resources/setting";
 import { setupResource } from "./resources/setup";
 import { snippetResource } from "./resources/snippet";
 import { tableResource } from "./resources/table";
+import { taskResource } from "./resources/task";
 import { timelineEventResource } from "./resources/timeline-event";
 import { timelineResource } from "./resources/timeline";
 import { transformDagRunResource } from "./resources/transform-dag-run";
@@ -42,12 +53,13 @@ import { transformTagResource } from "./resources/transform-tag";
 import { transformTestResource } from "./resources/transform-test";
 import { uploadResource } from "./resources/upload";
 import { userResource } from "./resources/user";
+import { workspaceInstanceResource } from "./resources/workspace-instance";
+import { workspaceManagerResource } from "./resources/workspace-manager";
 
-// The return type is left for inference on purpose: `MetabaseClient` is `ReturnType<typeof
-// createClient>`, so any annotation here would freeze the client at what that annotation names and
-// the resource namespaces composed onto it would be invisible to every consumer.
-export function createClient(config: ClientCredentials, options: ClientOptions) {
-  const transport = createTransport(config, options);
+// The return type is left for inference on purpose: `MetabaseClient` extends `ReturnType<typeof
+// surfaceOn>`, so any annotation here would freeze the client at what that annotation names and the
+// resource namespaces composed onto it would be invisible to every consumer.
+function surfaceOn(transport: Transport) {
   return {
     apiKey: apiKeyResource(transport),
     card: cardResource(transport),
@@ -65,6 +77,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     field: fieldResource(transport),
     gitSync: gitSyncResource(transport),
     glossary: glossaryResource(transport),
+    health: healthResource(transport),
     library: libraryResource(transport),
     measure: measureResource(transport),
     metric: metricResource(transport),
@@ -81,6 +94,7 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     setup: setupResource(transport),
     snippet: snippetResource(transport),
     table: tableResource(transport),
+    task: taskResource(transport),
     timeline: timelineResource(transport),
     timelineEvent: timelineEventResource(transport),
     transform: transformResource(transport),
@@ -92,6 +106,8 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
     transformTest: transformTestResource(transport),
     upload: uploadResource(transport),
     user: userResource(transport),
+    workspaceInstance: workspaceInstanceResource(transport),
+    workspaceManager: workspaceManagerResource(transport),
     server: transport.server,
     verifiedServer: transport.verifiedServer,
     probesSettled: transport.probesSettled,
@@ -102,4 +118,123 @@ export function createClient(config: ClientCredentials, options: ClientOptions) 
   };
 }
 
-export type MetabaseClient = ReturnType<typeof createClient>;
+type ClientSurface = ReturnType<typeof surfaceOn>;
+
+export interface MetabaseClient extends ClientSurface {
+  // A client on this one's transport: the same credential and server profile, so it probes nothing
+  // this one holds, with its own user agent, signal, guard and error observer.
+  with(options: DerivedClientOptions): MetabaseClient;
+}
+
+export function createClient(config: ClientCredentials, options: ClientOptions): MetabaseClient {
+  const observers = options.onError === undefined ? [] : [options.onError];
+  return clientOn(createTransport(config, options), observers);
+}
+
+function clientOn(transport: Transport, observers: readonly ErrorObserver[]): MetabaseClient {
+  const client: MetabaseClient = {
+    ...surfaceOn(transport),
+    with: (derived) => {
+      const inherited = derived.onError === undefined ? observers : [derived.onError, ...observers];
+      return clientOn(transport.with(derived), inherited);
+    },
+  };
+  return observers.length === 0 ? client : observed(client, observers);
+}
+
+// `surface` with every error a call on it raises shown to `observers` before its caller sees it: a
+// throw, a rejection, or a failure while walking an async iterable it answered. A namespace on it is
+// observed the same way, so the surface needs no list of the methods it carries.
+function observed<T extends object>(surface: T, observers: readonly ErrorObserver[]): T {
+  const namespaces = new Map<PropertyKey, object>();
+  return new Proxy(surface, {
+    get(target, property, receiver) {
+      const value: unknown = Reflect.get(target, property, receiver);
+      if (typeof value === "function") {
+        return (...args: unknown[]): unknown =>
+          observedCall(() => Reflect.apply(value, target, args), observers);
+      }
+      if (typeof value !== "object" || value === null) {
+        return value;
+      }
+      const known = namespaces.get(property);
+      if (known !== undefined) {
+        return known;
+      }
+      const namespace = observed(value, observers);
+      namespaces.set(property, namespace);
+      return namespace;
+    },
+  });
+}
+
+function observedCall(call: () => unknown, observers: readonly ErrorObserver[]): unknown {
+  let result: unknown;
+  try {
+    result = call();
+  } catch (error) {
+    throw shown(error, observers);
+  }
+  if (result instanceof Promise) {
+    return result.catch((error: unknown) => {
+      throw shown(error, observers);
+    });
+  }
+  if (isAsyncIterable(result)) {
+    return observedWalk(result, observers);
+  }
+  return result;
+}
+
+async function* observedWalk(
+  walk: AsyncIterable<unknown>,
+  observers: readonly ErrorObserver[],
+): AsyncGenerator<unknown> {
+  try {
+    yield* walk;
+  } catch (error) {
+    throw shown(error, observers);
+  }
+}
+
+// What an observer threw, held apart from absence, since an observer may throw `undefined`.
+interface ObserverFailure {
+  thrown: unknown;
+}
+
+// Every observer is shown `error`, whatever one before it threw, so a parent sees what its derived
+// client's call raised. The call then fails with what the first observer to throw threw, else with
+// `error`.
+function shown(error: unknown, observers: readonly ErrorObserver[]): unknown {
+  let first: ObserverFailure | null = null;
+  for (const observer of observers) {
+    try {
+      showTo(observer, error);
+    } catch (thrown) {
+      first ??= { thrown };
+    }
+  }
+  return first === null ? error : first.thrown;
+}
+
+// An observer that answers a promise is refused as one that threw, and its promise is settled here,
+// so a rejection it carries is not left unhandled.
+function showTo(observer: ErrorObserver, error: unknown): void {
+  const answer: unknown = observer(error);
+  if (!isThenable(answer)) {
+    return;
+  }
+  void Promise.resolve(answer).catch(() => undefined);
+  throw new ConfigError(
+    "An error observer answered a promise. An observer runs synchronously and is not awaited.",
+  );
+}
+
+function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Symbol.asyncIterator in value &&
+    typeof value[Symbol.asyncIterator] === "function"
+  );
+}

@@ -6,6 +6,7 @@ import {
   type CollectionId,
   CollectionItem,
   type CollectionItemFilterModel,
+  CollectionSummary,
   type CollectionListFilter,
   type CollectionNamespace,
   type CollectionPinnedState,
@@ -42,6 +43,11 @@ const TRASH_ALIAS = "trash";
 export interface CollectionListParams {
   filter?: CollectionListFilter | undefined;
   namespace?: CollectionNamespace | undefined;
+}
+
+export interface CollectionSummaryParams {
+  /** List the archived collections instead of the live ones. */
+  archived?: boolean | undefined;
 }
 
 export interface CollectionItemListParams {
@@ -123,6 +129,23 @@ export function collectionResource(transport: Transport) {
         ...INCLUDE_LIBRARY,
         namespace: params.namespace,
       },
+    });
+    return { data, total: null };
+  }
+
+  /**
+   * List the collections the caller can read, the Library and its children among them, as
+   * `CollectionSummary`, which reads no enum, so a collection of a type or namespace this client
+   * does not know fails nothing. `archived` lists the archived collections instead of the live
+   * ones, which also leaves out the root collection.
+   */
+  async function summaries(
+    params: CollectionSummaryParams = {},
+    options: RequestOptions = {},
+  ): Promise<ListResult<CollectionSummary>> {
+    const data = await transport.requestParsed(z.array(CollectionSummary), "/api/collection", {
+      ...options,
+      query: { archived: params.archived, ...INCLUDE_LIBRARY },
     });
     return { data, total: null };
   }
@@ -211,6 +234,7 @@ export function collectionResource(transport: Transport) {
 
   return {
     list,
+    summaries,
     get,
     create,
     update,

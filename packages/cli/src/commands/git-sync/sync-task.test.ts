@@ -11,6 +11,9 @@ function task(overrides: Partial<SyncTask>): SyncTask {
     status: "running",
     progress: null,
     started_at: "2026-05-21T00:00:00Z",
+    outcome: null,
+    initiated_by_user: null,
+    last_heartbeat_at: null,
     ...overrides,
   });
 }
