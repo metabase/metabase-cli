@@ -165,9 +165,9 @@ export class HttpError extends MetabaseError {
   readonly developerDetail: HttpErrorDetail;
 
   // An answer read off the wire, or one already read, which a subclass reading more of its body
-  // takes over whole.
-  constructor(input: HttpErrorInput | HttpError) {
-    const parts = input instanceof HttpError ? partsOf(input) : readParts(input);
+  // takes over whole, or which a failure following an earlier success restates under its own message.
+  constructor(input: HttpErrorInput | HttpError, restatedAs?: string) {
+    const parts = input instanceof HttpError ? partsOf(input, restatedAs) : readParts(input);
     super(parts.message);
     this.name = "HttpError";
     this.status = parts.developerDetail.status;
@@ -223,9 +223,9 @@ interface HttpErrorParts {
   bodyJson: unknown;
 }
 
-function partsOf(error: HttpError): HttpErrorParts {
+function partsOf(error: HttpError, restatedAs: string | undefined): HttpErrorParts {
   return {
-    message: error.message,
+    message: restatedAs ?? error.message,
     kind: error.kind,
     serverMessage: error.serverMessage,
     developerDetail: error.developerDetail,
@@ -290,7 +290,8 @@ function storedBody(sanitizedBody: string | null): string | null {
   if (bytes.byteLength <= ERROR_BODY_BYTE_CAP) {
     return sanitizedBody;
   }
-  return bytes.subarray(0, ERROR_BODY_BYTE_CAP).toString("utf8");
+  // Streamed, so a character the cut splits is dropped rather than kept as U+FFFD.
+  return new TextDecoder().decode(bytes.subarray(0, ERROR_BODY_BYTE_CAP), { stream: true });
 }
 
 // A git-sync refusal the server marked as one, with what it named: an import refused on unpushed
@@ -315,20 +316,13 @@ export function isHttpNotFound(error: unknown): boolean {
 }
 
 // Reports a failure that followed an already-successful request under `message`, keeping the wire
-// truth of the failure itself. An `HttpError` is rebuilt rather than wrapped, because a caller that
-// reads `status` or `fieldErrors` off the failure must still find them; every other error keeps its
-// category and retryability through `ChainedRequestError`.
+// truth of the failure itself. An `HttpError` is restated from what was already read off its whole
+// body rather than wrapped, because a caller that reads `status` or `fieldErrors` off the failure
+// must still find them; every other error keeps its category and retryability through
+// `ChainedRequestError`.
 export function chainRequestFailure(cause: MetabaseError, message: string): MetabaseError {
   if (cause instanceof HttpError) {
-    return new HttpError({
-      status: cause.status,
-      statusText: cause.developerDetail.statusText,
-      method: cause.developerDetail.method,
-      url: cause.developerDetail.url,
-      responseHeaders: cause.developerDetail.responseHeaders,
-      rawBody: cause.developerDetail.body,
-      overrideUserMessage: message,
-    });
+    return new HttpError(cause, message);
   }
   return new ChainedRequestError(message, cause);
 }

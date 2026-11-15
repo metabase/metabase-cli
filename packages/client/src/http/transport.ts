@@ -33,7 +33,6 @@ import {
   type TransportCredential,
 } from "../auth/credential";
 
-import { ERROR_BODY_BYTE_CAP } from "./error-body";
 import { HttpError, isRetryableStatus, UNAUTHORIZED_STATUS } from "./errors";
 import { buildNetworkError, isConnectionClosed } from "./network-error";
 import { parseJsonResponse, type ResponseContext } from "./response-shape";
@@ -48,10 +47,11 @@ export const DEFAULT_METHOD: HttpMethod = "GET";
 export const DEFAULT_TIMEOUT_MS = 30_000;
 const OCTET_STREAM_CONTENT_TYPE = "application/octet-stream";
 const TEXT_CONTENT_TYPE_PREFIX = "text/";
-// A JSON error body is read whole up to this size, because its structured fields (field errors, the
-// items a refusal names) are parsed from all of it and a cut body parses to nothing. Any other body
-// is only ever quoted, so it is read no further than the error keeps.
-const ERROR_JSON_BODY_BYTE_CAP = 8 * 1024 * 1024;
+// An error body is read whole up to this size, because a JSON body's structured fields (field
+// errors, the items a refusal names) are parsed from all of it and a cut body parses to nothing, and
+// any body is cut to what the error keeps only after known secrets are redacted, so a secret
+// straddling the cut leaves no prefix behind.
+const ERROR_BODY_READ_BYTE_CAP = 8 * 1024 * 1024;
 
 const IDEMPOTENT_METHODS: ReadonlySet<HttpMethod> = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -119,6 +119,9 @@ export interface Transport {
   // judged by the rules rather than by the server's own state comes through here or through
   // `preflightServer`, which share the one decision whether the caller skips them.
   refuseBeforeSending(refusal: CapabilityError): void;
+  // Whether `error` is what a guard threw to refuse a request, which is the caller's refusal and
+  // never the server out of reach.
+  refusedByGuard(error: unknown): boolean;
   // Resolves once no probe this client started is in flight, whatever each answered, and starts
   // none, so a caller about to exit has seen every answer `onServerProbed` will be handed. Each
   // probe is bounded by its own timeout and the client's signal, and so is the wait.
@@ -135,8 +138,8 @@ export interface Transport {
 
 export type WaitOptions = Pick<RequestOptions, "signal">;
 
-// A request a guard is shown before it is sent: its method and its path below the server's URL,
-// without the query string.
+// A request a guard is shown before it is sent: its method and the path it goes to below the
+// server's URL, with dot segments resolved and without the query string.
 export interface GuardedRequest {
   method: HttpMethod;
   path: string;
@@ -301,6 +304,7 @@ export type DerivedClientOptions = Partial<
 
 export function createTransport(config: ClientCredentials, options: TransportOptions): Transport {
   const baseUrl = normalizeUrl(config.url);
+  const basePath = pathOfBase(baseUrl);
   assertCredentialHeaderSafe(config.credential);
   const fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
   // The profile in force: the newest probe answer this client applied, else the one handed in.
@@ -443,7 +447,10 @@ export function createTransport(config: ClientCredentials, options: TransportOpt
     scope: ClientScope,
   ): Promise<ExecOutcome> {
     const prepared = prepare(path, opts, scope);
-    const guarded: GuardedRequest = { method: prepared.method, path: absolutePath(path) };
+    const guarded: GuardedRequest = {
+      method: prepared.method,
+      path: sentPathBelow(basePath, prepared.url),
+    };
     for (const guard of scope.guards) {
       try {
         passGuard(guard, guarded);
@@ -656,12 +663,16 @@ export function createTransport(config: ClientCredentials, options: TransportOpt
     try {
       return await verifiedServer(wait);
     } catch (error) {
-      if (!isNonInterruptFailure(error) || guardRefusals.has(error)) {
+      if (!isNonInterruptFailure(error) || refusedByGuard(error)) {
         throw error;
       }
       skipOrThrow({ kind: "unverified", failure: error });
       return null;
     }
+  }
+
+  function refusedByGuard(error: unknown): boolean {
+    return typeof error === "object" && error !== null && guardRefusals.has(error);
   }
 
   function refuseBeforeSending(refusal: CapabilityError): void {
@@ -691,6 +702,7 @@ export function createTransport(config: ClientCredentials, options: TransportOpt
       requireFeatures: async (features, wait = {}) => requireFeatures(features, within(wait)),
       preflightServer: async (wait = {}) => preflightServer(within(wait)),
       refuseBeforeSending,
+      refusedByGuard,
       probesSettled,
       with: (derived) => scoped(derivedScope(scope, derived)),
       signal: scope.signal,
@@ -765,6 +777,21 @@ function tagOf(profile: ServerProfile | null): string | null {
   return profile === null ? null : profile.version.tag;
 }
 
+// A Metabase served under a subpath (`https://my.org/metabase`) answers below it; at the host's root
+// there is nothing to strip.
+function pathOfBase(baseUrl: string): string {
+  const pathname = new URL(baseUrl).pathname;
+  return pathname === "/" ? "" : pathname;
+}
+
+// The path a guard judges is the one the request goes to, read back off the URL built for it: URL
+// parsing resolves `..` and `%2e%2e` segments, so the path as the caller wrote it may name a route
+// other than the one sent. A path that climbed above the base is shown whole.
+function sentPathBelow(basePath: string, url: string): string {
+  const pathname = new URL(url).pathname;
+  return pathname.startsWith(`${basePath}/`) ? pathname.slice(basePath.length) : pathname;
+}
+
 function absolutePath(path: string): string {
   return path.startsWith("/") ? path : `/${path}`;
 }
@@ -836,10 +863,8 @@ function throwContentTypeMismatch(
 }
 
 async function readBodyForError(response: Response): Promise<string | null> {
-  const isJson = response.headers.get("content-type")?.includes(JSON_CONTENT_TYPE) === true;
-  const byteCap = isJson ? ERROR_JSON_BODY_BYTE_CAP : ERROR_BODY_BYTE_CAP;
   try {
-    return (await readUpTo(response, byteCap)).toString("utf8");
+    return (await readUpTo(response, ERROR_BODY_READ_BYTE_CAP)).toString("utf8");
   } catch (error) {
     return `[body read failed: ${errorMessage(error)}]`;
   }

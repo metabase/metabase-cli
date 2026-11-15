@@ -169,6 +169,7 @@ const SyncCollectionAncestor = z.object({
   type: z.string().nullable(),
   personal_owner_id: z.number().int().positive().nullable(),
 });
+type SyncCollectionAncestor = z.infer<typeof SyncCollectionAncestor>;
 
 /** A collection a changed item belongs to, with the ancestors the caller can read, root-most first. */
 export const SyncItemCollection = z.object({
@@ -213,23 +214,148 @@ function fromDirtyItemWireV65(wire: z.infer<typeof SyncDirtyItemWireV65>): SyncD
   return { ...item, collection: null, model_id: card_id ?? null };
 }
 
-// An item leaves out `collection` when it has none the caller can read, and `model_id` unless it is
-// an action.
-const SyncDirtyItemWireV66 = SyncDirtyItem.omit({
-  collection_id: true,
-  collection: true,
-  model_id: true,
-}).extend({
-  collection: SyncItemCollection.optional(),
+// From Metabase 66 an item is its `id` and `model` and `data`, the row with what the server hydrates
+// of it: its collection with that collection's ancestors, found where its model holds it (a segment
+// sits in its table's collection). The root collection is hydrated as an object with the id
+// `"root"`, which is no collection the item names, and leads every ancestor list it is shown in.
+const RootCollectionV66 = z.object({ id: z.literal("root") });
+
+const SyncItemCollectionV66 = SyncItemCollection.extend({
+  effective_ancestors: z.array(z.union([RootCollectionV66, SyncCollectionAncestor])),
+});
+
+const CollectionOrRootV66 = z
+  .union([RootCollectionV66, SyncItemCollectionV66])
+  .nullable()
+  .optional();
+
+const InCollectionV66 = z.object({ collection: CollectionOrRootV66 }).nullable().optional();
+
+const NamedInCollectionV66 = z
+  .object({
+    name: z.string().nullable().optional(),
+    display_name: z.string().nullable().optional(),
+    collection: CollectionOrRootV66,
+  })
+  .nullable()
+  .optional();
+
+// The fields of a row that name it or lead to its collection. A model's row carries only those of
+// its own; every other key is left unread.
+const SyncRowV66 = z.object({
+  name: z.string().nullable().optional(),
+  display_name: z.string().nullable().optional(),
+  term: z.string().optional(),
+  path: z.string().optional(),
+  slug: z.string().optional(),
+  type: z.string().nullable().optional(),
+  effective_ancestors: SyncItemCollectionV66.shape.effective_ancestors.optional(),
+  collection: CollectionOrRootV66,
   model_id: z.number().int().positive().nullable().optional(),
+  model: InCollectionV66,
+  card: InCollectionV66,
+  transform: InCollectionV66,
+  table: NamedInCollectionV66,
+  field: z
+    .object({
+      name: z.string().nullable().optional(),
+      display_name: z.string().nullable().optional(),
+      table: NamedInCollectionV66,
+    })
+    .nullable()
+    .optional(),
+});
+type SyncRowV66 = z.infer<typeof SyncRowV66>;
+type CollectionOrRootV66 = z.infer<typeof CollectionOrRootV66>;
+
+function rowCollectionV66(model: string, id: number, row: SyncRowV66): CollectionOrRootV66 {
+  if (model === "collection") {
+    return row.name === undefined || row.name === null || row.type === undefined
+      ? null
+      : { id, name: row.name, type: row.type, effective_ancestors: row.effective_ancestors ?? [] };
+  }
+  if (model === "action") {
+    return row.model?.collection ?? row.collection;
+  }
+  if (model === "cardtest") {
+    return row.card?.collection;
+  }
+  if (model === "transformtest") {
+    return row.transform?.collection;
+  }
+  if (model === "segment" || model === "measure") {
+    return row.table?.collection;
+  }
+  if (model === "fieldusersettings" || model === "dimension") {
+    return row.field?.table?.collection;
+  }
+  return row.collection;
+}
+
+function collectionFromV66(collection: CollectionOrRootV66): SyncItemCollection | null {
+  if (collection === undefined || collection === null || collection.id === "root") {
+    return null;
+  }
+  const ancestors = collection.effective_ancestors.filter(isCollectionAncestor);
+  return { ...collection, effective_ancestors: ancestors };
+}
+
+function isCollectionAncestor(
+  ancestor: z.infer<typeof RootCollectionV66> | SyncCollectionAncestor,
+): ancestor is SyncCollectionAncestor {
+  return typeof ancestor.id === "number";
+}
+
+// The name the server's own client shows a row by.
+function rowNameV66(model: string, row: SyncRowV66): string | null {
+  if (model === "glossary") {
+    return row.term ?? null;
+  }
+  if (model === "pythonlibrary") {
+    return row.path ?? null;
+  }
+  if (model === "dataapp") {
+    return row.name ?? row.slug ?? null;
+  }
+  if (model === "tableusersettings") {
+    return row.display_name ?? row.table?.display_name ?? row.table?.name ?? null;
+  }
+  if (model === "fieldusersettings") {
+    return row.display_name ?? row.field?.display_name ?? row.field?.name ?? null;
+  }
+  return row.name ?? null;
+}
+
+// What a v66 item says of where it sits: `data` is `null` for a row that no longer exists.
+interface ItemPlacement {
+  collection_id: number | null;
+  collection: SyncItemCollection | null;
+  model_id: number | null;
+}
+
+function placementV66(model: string, id: number, row: SyncRowV66 | null): ItemPlacement {
+  if (row === null) {
+    return { collection_id: null, collection: null, model_id: null };
+  }
+  const collection = collectionFromV66(rowCollectionV66(model, id, row));
+  return {
+    collection_id: collection === null ? null : collection.id,
+    collection,
+    model_id: model === "action" ? (row.model_id ?? null) : null,
+  };
+}
+
+const SyncDirtyItemWireV66 = z.object({
+  id: z.number().int(),
+  model: z.string(),
+  name: z.string().nullable(),
+  sync_status: z.string(),
+  data: SyncRowV66.nullable(),
 });
 
 function fromDirtyItemWireV66(wire: z.infer<typeof SyncDirtyItemWireV66>): SyncDirtyItem {
-  const { collection, model_id, ...item } = wire;
-  if (collection === undefined) {
-    return { ...item, collection_id: null, collection: null, model_id: model_id ?? null };
-  }
-  return { ...item, collection_id: collection.id, collection, model_id: model_id ?? null };
+  const { data, ...item } = wire;
+  return { ...item, ...placementV66(item.model, item.id, data) };
 }
 
 /** A changed item as a server with `features` lists it, read as `SyncDirtyItem`. */
@@ -239,15 +365,17 @@ export function syncDirtyItemSchema(features: Features): z.ZodType<SyncDirtyItem
     : SyncDirtyItemWireV66.transform(fromDirtyItemWireV66);
 }
 
+// `name` is what the server's own client shows the row by, `null` when its row names it nothing.
 const SyncEntityRef = z.object({
   id: z.number().int(),
-  name: z.string(),
+  name: z.string().nullable(),
   model: z.string(),
 });
+type SyncEntityRef = z.infer<typeof SyncEntityRef>;
 
 /**
  * Content the synced collections use that is not synced itself, with what uses it. `collection` is
- * where it sits, `null` when that is no collection the caller can read.
+ * where it sits, `null` when that is the root collection or no collection the caller can read.
  */
 export const SyncUnsyncedDependency = SyncEntityRef.extend({
   used_by: z.array(SyncEntityRef),
@@ -255,15 +383,26 @@ export const SyncUnsyncedDependency = SyncEntityRef.extend({
 });
 export type SyncUnsyncedDependency = z.infer<typeof SyncUnsyncedDependency>;
 
-const SyncUnsyncedDependencyWire = SyncUnsyncedDependency.extend({
-  collection: SyncItemCollection.optional(),
+const SyncItemWireV66 = z.object({
+  id: z.number().int(),
+  model: z.string(),
+  data: SyncRowV66,
 });
+
+const SyncUnsyncedDependencyWire = SyncItemWireV66.extend({
+  used_by: z.array(SyncItemWireV66),
+});
+
+function entityRefFromV66(wire: z.infer<typeof SyncItemWireV66>): SyncEntityRef {
+  return { id: wire.id, model: wire.model, name: rowNameV66(wire.model, wire.data) };
+}
 
 /** An unsynced dependency as a settings refusal lists it, read as `SyncUnsyncedDependency`. */
 export const syncUnsyncedDependencySchema: z.ZodType<SyncUnsyncedDependency> =
-  SyncUnsyncedDependencyWire.transform(({ collection, ...dependency }) => ({
-    ...dependency,
-    collection: collection ?? null,
+  SyncUnsyncedDependencyWire.transform((wire) => ({
+    ...entityRefFromV66(wire),
+    used_by: wire.used_by.map(entityRefFromV66),
+    collection: collectionFromV66(rowCollectionV66(wire.model, wire.id, wire.data)),
   }));
 
 // `dirty_objects` is `null` on a server without `remoteSyncImportNamesDirtyObjects`, which names

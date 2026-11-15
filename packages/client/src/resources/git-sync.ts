@@ -187,26 +187,39 @@ export interface SyncSettingsUpdateParams {
   collections?: Record<number, boolean> | null | undefined;
 }
 
+// The call a refusal answered. A 400 marked `conflicts` refuses an import on changes not yet pushed,
+// while an export answers the same mark (through 62) when the remote branch moved since the last
+// sync, which is no dirty refusal.
+type RefusedCall = "import" | "export" | "settings";
+
 export function gitSyncResource(transport: Transport) {
   const { explain, refuse, refuseAfterReading } = explainer(transport, "gitSync");
 
   // The request's failure as `SyncRefusedError` when the server marked it as a git-sync refusal, and
   // unchanged otherwise.
-  async function readingRefusal<T>(request: Promise<T>, options: RequestOptions): Promise<T> {
+  async function readingRefusal<T>(
+    request: Promise<T>,
+    call: RefusedCall,
+    options: RequestOptions,
+  ): Promise<T> {
     try {
       return await request;
     } catch (error) {
       if (!(error instanceof HttpError)) {
         throw error;
       }
-      const refusal = await refusalOf(error, options);
+      const refusal = await refusalOf(error, call, options);
       throw refusal === null ? error : new SyncRefusedError(error, refusal);
     }
   }
 
   // Read off the whole body's JSON, not the text the error keeps: a refusal naming many items runs
   // past what is kept, and cut there it would parse to nothing.
-  async function refusalOf(error: HttpError, options: RequestOptions): Promise<SyncRefusal | null> {
+  async function refusalOf(
+    error: HttpError,
+    call: RefusedCall,
+    options: RequestOptions,
+  ): Promise<SyncRefusal | null> {
     const body = errorBodyJson(error);
     if (error.status === CONFLICT_STATUS) {
       const mismatch = BranchMismatchBody.safeParse(body);
@@ -224,6 +237,9 @@ export function gitSyncResource(transport: Transport) {
         unsynced_dependencies: unsynced.data.unsynced_dependencies,
       };
     }
+    if (call !== "import") {
+      return null;
+    }
     return DirtyRefusalBody.safeParse(body).success ? dirtyRefusal(body, options) : null;
   }
 
@@ -234,7 +250,7 @@ export function gitSyncResource(transport: Transport) {
     try {
       features = (await transport.server(options)).features;
     } catch (failure) {
-      if (isNonInterruptFailure(failure)) {
+      if (isNonInterruptFailure(failure) || transport.refusedByGuard(failure)) {
         return null;
       }
       throw failure;
@@ -334,7 +350,7 @@ export function gitSyncResource(transport: Transport) {
         expected_branch: expectedBranch,
       },
     });
-    const started = await readingRefusal(request, options);
+    const started = await readingRefusal(request, "import", options);
     const message = started.message ?? null;
     if (params.wait === undefined || started.task_id === null) {
       return { message, task_id: started.task_id };
@@ -414,7 +430,7 @@ export function gitSyncResource(transport: Transport) {
         merge: params.merge,
       },
     });
-    const started = await readingRefusal(request, options);
+    const started = await readingRefusal(request, "export", options);
     const accepted = {
       message: started.message,
       task_id: started.task_id,
@@ -441,7 +457,7 @@ export function gitSyncResource(transport: Transport) {
       "/api/ee/remote-sync/export-preflight",
       { ...options, query: { branch: params.branch } },
     );
-    return readingRefusal(request, options);
+    return readingRefusal(request, "export", options);
   }
 
   /**
@@ -532,7 +548,7 @@ export function gitSyncResource(transport: Transport) {
         body: await settingsUpdateBody({ [collectionId]: synced }, options),
       },
     );
-    return readingRefusal(request, options);
+    return readingRefusal(request, "settings", options);
   }
 
   async function settingsUpdateBody(
@@ -591,7 +607,7 @@ export function gitSyncResource(transport: Transport) {
       "/api/ee/remote-sync/settings",
       { ...options, method: "PUT", body: params },
     );
-    return readingRefusal(request, options);
+    return readingRefusal(request, "settings", options);
   }
 
   /** The collections currently in git-sync's scope. */

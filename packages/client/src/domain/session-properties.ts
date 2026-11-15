@@ -29,7 +29,7 @@ export const SessionSettings = SessionProperties.extend({
   "setup-token": z.string().nullable(),
   // Readable by a settings manager only.
   "site-name": z.string().optional(),
-  // `null` on a server without `aiFeatureSwitches`, which has neither switch to report.
+  // `null` where the server has neither switch to report, as on a server before 60.1.
   "mcp-enabled?": z.boolean().nullable(),
   "ai-features-enabled?": z.boolean().nullable(),
   // Absent on OSS and for an anonymous caller; `null` when the license lacks remote sync.
@@ -37,18 +37,24 @@ export const SessionSettings = SessionProperties.extend({
 });
 export type SessionSettings = z.infer<typeof SessionSettings>;
 
-const SessionSettingsWireV59 = SessionSettings.omit({
-  "mcp-enabled?": true,
-  "ai-features-enabled?": true,
+// A 60 server reports the AI switches from 60.1 on, so through 60 either may be absent, which reads
+// as `null`: the server cannot say.
+const SessionSettingsWireV60 = SessionSettings.extend({
+  "mcp-enabled?": z.boolean().nullable().optional(),
+  "ai-features-enabled?": z.boolean().nullable().optional(),
 });
 
-function fromWireV59(wire: z.infer<typeof SessionSettingsWireV59>): SessionSettings {
-  return { ...wire, "mcp-enabled?": null, "ai-features-enabled?": null };
+function fromWireV60(wire: z.infer<typeof SessionSettingsWireV60>): SessionSettings {
+  return {
+    ...wire,
+    "mcp-enabled?": wire["mcp-enabled?"] ?? null,
+    "ai-features-enabled?": wire["ai-features-enabled?"] ?? null,
+  };
 }
 
 /** The shape `GET /api/session/properties` answers on a server with `features`, read as `SessionSettings`. */
 export function sessionSettingsSchema(features: Features): z.ZodType<SessionSettings> {
   return features.aiFeatureSwitches
     ? SessionSettings
-    : SessionSettingsWireV59.transform(fromWireV59);
+    : SessionSettingsWireV60.transform(fromWireV60);
 }

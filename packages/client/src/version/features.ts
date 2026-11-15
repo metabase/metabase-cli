@@ -91,7 +91,8 @@ export const FEATURE_RULES = {
   exportCsvByteOrderMark: { since: 63 },
   workspaces: { since: 66, tokenFeature: "workspaces" },
   taskRuns: { since: 59 },
-  aiFeatureSwitches: { since: 60 },
+  // A 60 server reports both switches from 60.1 on, and a 61 one always does.
+  aiFeatureSwitches: { since: 61 },
 } satisfies Record<string, FeatureRule>;
 
 export type FeatureName = keyof typeof FEATURE_RULES;

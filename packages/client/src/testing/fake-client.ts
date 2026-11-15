@@ -132,6 +132,7 @@ export function createFakeClient(plan: FakeClientPlan = {}): FakeClient {
     refuseBeforeSending(refusal) {
       throw refusal;
     },
+    refusedByGuard: () => false,
     async probesSettled() {},
     with: () => client,
     signal: undefined,
