@@ -73,47 +73,52 @@ interface BrokenDependent {
 
 type LintCardInput = Pick<CardCreateInput, "name" | "type" | "dataset_query">;
 
+interface MbOptions {
+  stdin?: string;
+  apiKey?: string;
+}
+
+let bootstrap: E2EBootstrap;
+const tempDirs: string[] = [];
+
+async function loadBootstrap(): Promise<void> {
+  bootstrap = await readBootstrap();
+}
+
+afterEach(async () => {
+  await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+});
+
+async function mb(args: string[], { apiKey = bootstrap.adminApiKey, ...input }: MbOptions = {}) {
+  const configHome = await mkTempConfigHome();
+  tempDirs.push(configHome);
+  return runCli({
+    args,
+    configHome,
+    env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: apiKey },
+    ...input,
+  });
+}
+
+function cardEntity(card: IdentifiedCard, name: string) {
+  return {
+    id: card.id,
+    type: "card",
+    data: { name, collection_id: SEEDED.defaultCollectionId },
+  };
+}
+
 describe.skipIf(skipReason !== null)("lint e2e", () => {
-  let bootstrap: E2EBootstrap;
-  const tempDirs: string[] = [];
-
-  beforeAll(async () => {
-    bootstrap = await readBootstrap();
-  });
-
-  afterEach(async () => {
-    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
-  });
-
-  async function makeIsolatedConfigHome(): Promise<string> {
-    const dir = await mkTempConfigHome();
-    tempDirs.push(dir);
-    return dir;
-  }
-
-  function authEnv(apiKey = bootstrap.adminApiKey) {
-    return { MB_URL: bootstrap.baseUrl, MB_API_KEY: apiKey };
-  }
-
-  async function runLint(...args: string[]) {
-    return runCli({
-      args: ["lint", ...args],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
-    });
-  }
+  beforeAll(loadBootstrap);
 
   async function createCard(body: LintCardInput): Promise<IdentifiedCard> {
-    const created = await runCli({
-      args: ["card", "create", "--json", "--full"],
+    const created = await mb(["card", "create", "--json", "--full"], {
       stdin: JSON.stringify({
         display: "table",
         visualization_settings: {},
         collection_id: SEEDED.defaultCollectionId,
         ...body,
       }),
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
     });
     expect(created.exitCode, created.stderr).toBe(0);
     const { id, entity_id } = parseJson(created.stdout, Card);
@@ -147,18 +152,15 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
         ],
       },
     });
-    const broken = await runCli({
-      args: ["card", "update", String(model.id), "--json"],
+    const broken = await mb(["card", "update", String(model.id), "--json"], {
       stdin: JSON.stringify({ dataset_query: tableQuery(SEEDED.tables.products) }),
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(),
     });
     expect(broken.exitCode, broken.stderr).toBe(0);
     return { model, dependent };
   }
 
   it("passes with an empty report on the restored snapshot", async () => {
-    const result = await runLint("--json");
+    const result = await mb(["lint", "--json"]);
 
     expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, LintReport)).toEqual(PASSED_REPORT);
@@ -167,7 +169,7 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
   it("fails on a question its model no longer satisfies, naming the model as the cause", async () => {
     const { model, dependent } = await breakDependentOfModel();
 
-    const result = await runLint("--json");
+    const result = await mb(["lint", "--json"]);
 
     expect(result.exitCode).toBe(1);
     expect(cliErrorCategory(result.stderr)).toBe("failed");
@@ -176,11 +178,7 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
       status: "failed",
       summary: { errors: 1, warnings: 0, entities: 1 },
       entities: {
-        [dependent.entity_id]: {
-          id: dependent.id,
-          type: "card",
-          data: { name: DEPENDENT_NAME, collection_id: SEEDED.defaultCollectionId },
-        },
+        [dependent.entity_id]: cardEntity(dependent, DEPENDENT_NAME),
       },
       rules: { "missing-column": MISSING_COLUMN_RULE },
       results: [
@@ -205,18 +203,14 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
       },
     });
 
-    const result = await runLint("--json");
+    const result = await mb(["lint", "--json"]);
 
     expect(result.exitCode).toBe(1);
     expect(parseJson(result.stdout, LintReport)).toEqual({
       status: "failed",
       summary: { errors: 1, warnings: 0, entities: 1 },
       entities: {
-        [native.entity_id]: {
-          id: native.id,
-          type: "card",
-          data: { name: NATIVE_NAME, collection_id: SEEDED.defaultCollectionId },
-        },
+        [native.entity_id]: cardEntity(native, NATIVE_NAME),
       },
       rules: { "missing-table-alias": MISSING_TABLE_ALIAS_RULE },
       results: [
@@ -234,7 +228,7 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
   it("writes the report as text for a terminal, grouped by entity", async () => {
     const { dependent } = await breakDependentOfModel();
 
-    const result = await runLint("--format", "text");
+    const result = await mb(["lint", "--format", "text"]);
 
     expect(result.exitCode).toBe(1);
     // execa strips the final newline from stdout.
@@ -250,7 +244,7 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
   it("withholds a failed report over --max-bytes and still exits 1", async () => {
     await breakDependentOfModel();
 
-    const result = await runLint("--json", "--max-bytes", "10");
+    const result = await mb(["lint", "--json", "--max-bytes", "10"]);
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
@@ -261,23 +255,17 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
   });
 
   it("narrows the report to the fields asked for", async () => {
-    await breakDependentOfModel();
+    const result = await mb(["lint", "--json", "--fields", "status,summary"]);
 
-    const result = await runLint("--json", "--fields", "status,summary");
-
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode, result.stderr).toBe(0);
     expect(parseJson(result.stdout, LintReport.pick({ status: true, summary: true }))).toEqual({
-      status: "failed",
-      summary: { errors: 1, warnings: 0, entities: 1 },
+      status: PASSED_REPORT.status,
+      summary: PASSED_REPORT.summary,
     });
   });
 
   it("is refused for a key that is not an admin's", async () => {
-    const result = await runCli({
-      args: ["lint", "--json"],
-      configHome: await makeIsolatedConfigHome(),
-      env: authEnv(bootstrap.limitedApiKey),
-    });
+    const result = await mb(["lint", "--json"], { apiKey: bootstrap.limitedApiKey });
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toBe("");
@@ -286,26 +274,10 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
 });
 
 describe.skipIf(unsupportedSkipReason !== null)("lint e2e on a server without the endpoint", () => {
-  let bootstrap: E2EBootstrap;
-  const tempDirs: string[] = [];
-
-  beforeAll(async () => {
-    bootstrap = await readBootstrap();
-  });
-
-  afterEach(async () => {
-    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
-  });
+  beforeAll(loadBootstrap);
 
   it("explains the refusal with the server's own answer and exits 2", async () => {
-    const configHome = await mkTempConfigHome();
-    tempDirs.push(configHome);
-
-    const result = await runCli({
-      args: ["lint", "--json"],
-      configHome,
-      env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey },
-    });
+    const result = await mb(["lint", "--json"]);
 
     expect(result.exitCode).toBe(2);
     expect(cliErrorCategory(result.stderr)).toBe("capability");

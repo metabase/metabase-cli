@@ -91,7 +91,7 @@ export function renderSummary<T>(
 export type VerdictFailure = (oversize: string | null) => string;
 
 // `failure` is null for a verdict that passed.
-export interface VerdictReport<T> {
+interface VerdictReport<T> {
   item: T;
   view: ResourceView<T>;
   summaryText: string | (() => string);
@@ -239,9 +239,9 @@ function renderItemBody<T>(
     return serializeJson(projected, stdoutPretty());
   }
   if (opts.fields !== undefined || opts.full) {
-    return renderKeyValueLines(objectPairs(projected));
+    return keyValueLines(objectPairs(projected)).join("\n");
   }
-  return renderKeyValueLines(columnPairs(item, view.tableColumns));
+  return keyValueLines(columnPairs(item, view.tableColumns)).join("\n");
 }
 
 function columnPairs<T>(item: T, columns: ColumnDef<T>[]): KeyValuePair[] {
@@ -256,12 +256,9 @@ function objectPairs(value: unknown): KeyValuePair[] {
   return Object.entries(value).map(([key, raw]) => [key, formatScalar(raw)]);
 }
 
-function renderKeyValueLines(pairs: ReadonlyArray<KeyValuePair>): string {
-  if (pairs.length === 0) {
-    return "";
-  }
+export function keyValueLines(pairs: ReadonlyArray<KeyValuePair>): string[] {
   const padding = Math.max(...pairs.map(([label]) => label.length));
-  return pairs.map(([label, value]) => `${label.padEnd(padding)}  ${value}`).join("\n");
+  return pairs.map(([label, value]) => `${label.padEnd(padding)}  ${value}`);
 }
 
 function writeWithinMaxBytes(body: string, opts: RenderOptions): void {
