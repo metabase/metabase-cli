@@ -18,10 +18,10 @@ export const TaskRun = z
     started_at: z.string(),
     ended_at: z.string().nullable(),
     status: TaskRunStatus,
-    entity_name: z.string().nullable().optional(),
-    task_count: z.number().int().optional(),
-    success_count: z.number().int().optional(),
-    failed_count: z.number().int().optional(),
+    entity_name: z.string().nullable(),
+    task_count: z.number().int(),
+    success_count: z.number().int(),
+    failed_count: z.number().int(),
   })
   .loose();
 export type TaskRun = z.infer<typeof TaskRun>;
@@ -36,3 +36,33 @@ export const TaskRunCompact = TaskRun.pick({
   ended_at: true,
 }).strip();
 export type TaskRunCompact = z.infer<typeof TaskRunCompact>;
+
+export const TaskHistoryStatus = z.enum(["started", "success", "failed", "unknown"]);
+export type TaskHistoryStatus = z.infer<typeof TaskHistoryStatus>;
+
+// Free-form per task; a failed task's details carry the exception's message.
+export const TaskHistoryDetails = z
+  .object({
+    message: z.string().nullable().optional(),
+  })
+  .loose();
+export type TaskHistoryDetails = z.infer<typeof TaskHistoryDetails>;
+
+export const TaskHistory = z
+  .object({
+    id: z.number().int(),
+    task: z.string(),
+    db_id: z.number().int().nullable(),
+    started_at: z.string(),
+    ended_at: z.string().nullable(),
+    duration: z.number().int().nullable(),
+    status: TaskHistoryStatus,
+    task_details: TaskHistoryDetails.nullable(),
+  })
+  .loose();
+export type TaskHistory = z.infer<typeof TaskHistory>;
+
+export const TaskRunWithTasks = TaskRun.extend({
+  tasks: z.array(TaskHistory),
+});
+export type TaskRunWithTasks = z.infer<typeof TaskRunWithTasks>;

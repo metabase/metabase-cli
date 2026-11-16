@@ -1,10 +1,11 @@
 import {
   TaskRun,
   type TaskRunEntityType,
+  TaskRunWithTasks,
   type TaskRunStatus,
   type TaskRunType,
 } from "../domain/task";
-import type { Transport } from "../http/transport";
+import type { RequestOptions, Transport } from "../http/transport";
 import { type Page, type PaginateOptions, paginatePages } from "../paginate";
 import { explainer } from "../version/refusal";
 
@@ -20,7 +21,7 @@ export interface TaskRunPageParams {
 export type TaskRunPageOptions = Omit<PaginateOptions, "query">;
 
 export function taskResource(transport: Transport) {
-  const { explainWalk } = explainer(transport, "task");
+  const { explain, explainWalk } = explainer(transport, "task");
 
   /**
    * Walk the background-job runs, such as database syncs and subscription sends, newest first,
@@ -46,7 +47,16 @@ export function taskResource(transport: Transport) {
     });
   }
 
+  /**
+   * Get a single task run with all its child tasks, oldest first. Needs the monitoring application
+   * permission.
+   */
+  async function run(id: number, options: RequestOptions = {}): Promise<TaskRunWithTasks> {
+    return transport.requestParsed(TaskRunWithTasks, `/api/task/runs/${id}`, options);
+  }
+
   return {
     runPages: explainWalk("runPages", runPages),
+    run: explain("run", run),
   };
 }
