@@ -179,6 +179,7 @@ export const METHOD_REQUIREMENTS = {
   "table.appendCsv": [],
   "table.replaceCsv": [],
   "task.runPages": ["taskRuns"],
+  "task.run": ["taskRuns"],
   "timeline.list": [],
   "timeline.get": [],
   "timeline.events": [],

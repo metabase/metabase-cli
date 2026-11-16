@@ -479,11 +479,15 @@ export {
   TableVisibilityType,
 } from "./domain/table";
 export {
+  TaskHistory,
+  TaskHistoryDetails,
+  TaskHistoryStatus,
   TaskRun,
   TaskRunCompact,
   TaskRunEntityType,
   TaskRunStatus,
   TaskRunType,
+  TaskRunWithTasks,
 } from "./domain/task";
 export {
   Timeline,
