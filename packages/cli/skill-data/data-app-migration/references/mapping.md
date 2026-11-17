@@ -113,9 +113,9 @@ The user may also move single widgets, or name pages of their own. The answer is
 
 ## The app's brief
 
-The end of `plan.md`: what the app must show, as the user's requirements for the data-app skills (`data-app` and the skills it names). It says which values the app shows and its colours, never how it is built or drawn: no questions, hooks, components, controls or visualizations.
+The end of `plan.md`: what the app must show, as the user's requirements for the data-app skills (`data-app` and the skills it names). It says which values the app shows and its colours, never how it is built or drawn: no questions, hooks, components, controls or visualizations. So it never asks for a chart or table of the app's own: how each value is drawn is the data-app skills' call.
 
-- **Pages:** as `decisions.md` groups them (_Pages_): each page's title and its widgets, each by `W<n>` and the source's label, which names it, with the values it shows: a figure, a series and its grain, a table's columns and which rows (a top N by its sort and tiebreaker), and the figures its caption states.
+- **Pages:** as `decisions.md` groups them (_Pages_): each page's title and its widgets, each by `W<n>` and the source's label, which names it, with the values it shows: a figure, a series and its grain, a table's columns and which rows (a top N by its sort and tiebreaker), and the figures its caption states. A table's columns are the values in its cells, each its own column even where the source stacks two in one cell; a row number, an inline bar and a value drawn as a link are how the source draws them, and stay out.
 - **Numbers:** for each widget, the Library objects that carry it, and, only where no table holds the figure (_Data path_), the arithmetic over the values Metabase returns, citing the code.
 - **Filters:** one per `F<n>`: its options and where they come from, the value a page opens on, the widgets it reaches and those it doesn't, and whether it keeps its value across pages. A date filter adds _Date windows_' requirements.
 - **Outside APIs:** each call the source makes, its host, and what the source does with each response, a failure included.

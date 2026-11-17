@@ -57,7 +57,7 @@ One sweep per row. A hit is a lead, not a widget: open it and follow it. In a sm
 
 For every chart, tile and table a view renders, follow the chain to the database, citing file:line at each hop:
 
-1. **The view:** the element, its label as the user sees it, and what it shows: a figure, a series and its grain, a table's columns and which rows. A goal line's value is a constant. The colours it sets go under _Look_.
+1. **The view:** the element, its label as the user sees it, and what it shows: a figure, a series and its grain, a table's columns and which rows. A table's columns are the values in its cells, each its own even where two share a cell; a row number, an inline bar and a link are how it draws them, not columns. A goal line's value is a constant. The colours it sets go under _Look_.
 2. **The data it gets:** a variable passed to the template, a prop, or a fetch to a JSON endpoint. For a fetch, find the route that answers it, and note what the front end does to the response before drawing it: filtering, sorting, `reduce`, defaults for missing values, unit conversion. Those are rules too.
 3. **The handler:** the controller, service or resolver, and every function it calls on the way. A handler in another repository or service: ask the user for its path, noting the widget's rules as not yet read until you have read it.
 4. **The computation:** the SQL, the ORM or builder chain (written out as the query it produces), or the code that computes it from fetched rows. Note what happens to the rows after the query: sorting, slicing, rounding, arithmetic, merges of two queries.
