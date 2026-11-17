@@ -76,7 +76,7 @@ Orientation done, you're about to go heads-down. First, offer two ways to work:
 > - **I dig through it all and bring you a complete plan** to approve before I build anything — quieter; you won't hear much until it's ready.
 > - **We work it out together** — I share what I find and we make the calls as we go.
 
-First path: **enter plan mode** (`EnterPlanMode`). Everything up to the agreed table list — investigate, present, prudential calls, naming (Phases 1–3) — happens inside it, read-only; you exit once, at the approval gate before building (Phase 4). Second path: skip it, shape it conversationally through the same phases. Either way, don't build until the design is settled and approved.
+First path: **enter plan mode** where your agent has one, and without one keep to its rule yourself: read only, until the approval. Everything up to the agreed table list — investigate, present, prudential calls, naming (Phases 1–3) — happens inside it, read-only; you exit once, at the approval gate before building (Phase 4). Second path: skip it, shape it conversationally through the same phases. Either way, don't build until the design is settled and approved.
 
 Plan mode is a long quiet stretch. So whenever you surface — a question now, the plan at the end — **carry your own context**: recap what it rests on right before you ask, never a back-reference to something said while they were away. And whenever you ask a question, **wait for their answer** — they may say "go" and come back later.
 
@@ -114,7 +114,7 @@ If you spotted existing clean data to link to (step 3), raise it here too — **
 
 ### Phase 3 — Iterate
 
-Cheap, because nothing's built. Adjust the set of things, what's kept, and the shape of any multi-valued pieces until the user's happy. **Agree on what each table will be called** — propose a clear name for each (matching any naming pattern you found in their existing data, Phase 0) and let them adjust. Confirm each name is free — not already an existing table or another transform's output (rule 9) — so building can't overwrite anyone's data. The name you agree on is the one you build and keep. Re-confirm the final picture in one short recap. **In plan mode, that recap _is_ your exit:** present it as the plan and call `ExitPlanMode` — approval here is the single go-ahead to build. (Iterating together? The recap is just your check before building.)
+Cheap, because nothing's built. Adjust the set of things, what's kept, and the shape of any multi-valued pieces until the user's happy. **Agree on what each table will be called** — propose a clear name for each (matching any naming pattern you found in their existing data, Phase 0) and let them adjust. Confirm each name is free — not already an existing table or another transform's output (rule 9) — so building can't overwrite anyone's data. The name you agree on is the one you build and keep. Re-confirm the final picture in one short recap. **In plan mode, that recap _is_ your exit:** present it as the plan and leave plan mode — approval here is the single go-ahead to build. (Iterating together? The recap is just your check before building.)
 
 ### Phase 4 — Build, check, hand back
 

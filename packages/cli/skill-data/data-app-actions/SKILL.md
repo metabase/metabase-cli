@@ -30,7 +30,7 @@ The dev preview runs the action without saving it; Metabase runs it once the app
 
 ## Data actions on the database
 
-Before the first action on a database, read its toggle: `mb db get <db-id> --full --json --profile <name> | jq '.settings["database-enable-actions"]'` (`<db-id>` from `mb db list --profile <name> --json`, or `mb table get <table-id> --json --profile <name> | jq .db_id` once `src/metabase.schema.ts` gives the table's `id`). Anything but `true`, an unset `null` included, means it's off, and every action on that database fails with `Actions are not enabled.`, in the preview and in Metabase. Then ask with `AskUserQuestion` ("Data actions are off on <database>. Turning them on lets anyone with access to its actions write to it."), offering:
+Before the first action on a database, read its toggle: `mb db get <db-id> --full --json --profile <name> | jq '.settings["database-enable-actions"]'` (`<db-id>` from `mb db list --profile <name> --json`, or `mb table get <table-id> --json --profile <name> | jq .db_id` once `src/metabase.schema.ts` gives the table's `id`). Anything but `true`, an unset `null` included, means it's off, and every action on that database fails with `Actions are not enabled.`, in the preview and in Metabase. Then ask the user with your agent's question tool ("Data actions are off on <database>. Turning them on lets anyone with access to its actions write to it."), offering:
 
 - **Turn them on now**: run `mb db set-data-actions <db-id> true --profile <name>`, then read the toggle again.
 - **I'll turn them on**: the user does it in Admin → Databases → the database ("Allow data actions that use this database to be run"); wait for them, then read the toggle again before going on.

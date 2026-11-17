@@ -31,7 +31,7 @@ mb auth status --profile <name> --json   # health probe for one profile
 `auth list` returns every profile in one call, with sanitized URL, an `authenticated` flag, and a probe `status` (`ok` / `auth-failed` / `network-error` / `server-error` / `not-probed`). Use it before asking which profile to pick.
 
 - One profile and intent doesn't disambiguate → use it.
-- Several → ask via `AskUserQuestion`, presenting the names from `auth list`.
+- Several → ask the user which one with your agent's question tool, presenting the names from `auth list`.
 - Empty `data: []` → ask the user to run `mb auth login` themselves and tell you the profile name.
 
 Profile names are arbitrary local labels (`prod`, `staging`).

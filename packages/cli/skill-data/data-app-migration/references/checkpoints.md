@@ -1,10 +1,10 @@
 # Checkpoints: what the user is asked, and how
 
-Every question goes through `AskUserQuestion`, which takes up to four questions a call. Lead with a short recap of only what the answers turn on. Mirror the user's words; Metabase's terms (question, segment, measure, metric, transform) are fine, warehouse jargon isn't. Name each widget by its label as the user sees it, with its `W<n>`. Answers go into `decisions.md` at once, each a `D<n>`.
+Ask with your agent's question tool where it has one, otherwise in one message, numbering each question and its choices. Either is a round, holding as many questions as the tool takes. Lead with a short recap of only what the answers turn on. Mirror the user's words; Metabase's terms (question, segment, measure, metric, transform) are fine, warehouse jargon isn't. Name each widget by its label as the user sees it, with its `W<n>`. Answers go into `decisions.md` at once, each a `D<n>`.
 
 ## Before you start
 
-One call, holding only what the user's request hasn't said (`SKILL.md`, _Before you start_). A check that needs the user's yes, such as creating or syncing the Library, is asked once the checks have run.
+One round, holding only what the user's request hasn't said (`SKILL.md`, _Before you start_). A check that needs the user's yes, such as creating or syncing the Library, is asked once the checks have run.
 
 ## Phase 4
 
@@ -16,7 +16,7 @@ Print the memo, then ask. The memo, in this order:
 - **The findings,** one line each, grouped by kind (test data, definitions of one number, statuses, scope), each built as the source does it, and each the user's to change by asking.
 - **Who sees what,** with the permission steps it leaves to the user at handoff, and each published table that holds every scope's figures together, which whoever reads the Library sees.
 
-Then the questions, in this order, a second call taking what the first has no room for:
+Then the questions, in this order, a second round taking what the first has no room for:
 
 1. the pages (`mapping.md`, _Pages_), the default grouping first, unless they move whole (`records.md`), and each app of its own for a role, with what it costs: one more app to build, test and release;
 2. how fresh, `hourly` first, each option naming the job it turns on, if any (`SKILL.md`, phase 4);

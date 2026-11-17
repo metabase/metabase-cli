@@ -7,13 +7,13 @@ requires: [dataApps, transforms, library, remoteSync]
 
 # Data app migration
 
-The user has an application with analytics of its own: pages of KPIs, charts and tables whose numbers its code computes — with raw SQL, an ORM, a query builder, arithmetic in application code, or constants in config. This skill moves them into a data app (`data-app`) whose numbers equal the original's: the same figure for the same window, scope and moment, widget by widget. The source's code is the spec, its inconsistencies and suspected bugs included. A figure may differ in two cases only: Metabase can't reproduce it, as an attempt you made showed, and the user accepted the difference; or the user asked for the change themselves. Never assume the source's stack: SQL, a framework or a chart library.
+The user has an application with analytics of its own: pages of KPIs, charts and tables whose numbers its code computes — with raw SQL, an ORM, a query builder, arithmetic in application code, or constants in config. This skill moves them into a data app (`data-app`) whose numbers equal the original's: the same figure for the same window, scope and moment, widget by widget. The source's code is the spec, its inconsistencies and suspected bugs included. A figure may differ in two cases only: Metabase can't reproduce it, as an attempt you made showed, and the user accepted the difference; or the user asked for the change themselves. Learn the source's stack from its code, never by guessing: it may have no SQL, no framework and no chart library.
 
 A data app reads only the Library (`data-app-data`, _Sources_), so most of the work is the data side: the source's logic becomes transforms, published tables, segments and measures. How the app is built is the data-app skills' (`data-app` and the skills it names). This skill gives them the app's brief, what it must show, and proves that it does. When the analytics share pages with lists of records and the actions on them (an admin panel), the user chooses whether those move too (`references/records.md`).
 
 ## Before you start
 
-Ask in one `AskUserQuestion` what the user's request hasn't already said, and record the answers in `inventory.md` once the checks below pass:
+Ask in one round of questions (`references/checkpoints.md`) what the user's request hasn't already said, and record the answers in `inventory.md` once the checks below pass:
 
 - whether the _build instance_, where the work happens, and the _target instance_, where the app ends up, are one instance, and the profile of each: with one profile in `mb auth list`, it is both;
 - the source application's path. The source is read-only: never write to it, build it, or change its git state;
@@ -68,7 +68,7 @@ The filter follows the profile's last probe, so run `mb auth list` first, which 
 2. **Locate** → `inventory.md`, _Data sources_, for each database there:
    1. List the candidates: `mb db list --json --fields id,name,engine,is_sample`, leaving out the sample database and, when `inventory.md` records the engine, the databases of another engine. For each, `mb table list --db-id <id> --fields id,schema,name --max-bytes 0 --json`. A candidate that lists every table `inventory.md` names for the database, and every column it cites (`mb table get <table-id> --include fields`), is a match; one that lists some of them, a partial match. Compare names as the engine stores them (Postgres folds unquoted names to lowercase); a table recorded without a schema matches by name in any schema.
    2. Sync each partial match's schema (`mb db sync-schema <id>`), since Metabase may not have seen its tables yet, and list them again over a few minutes, as the sync runs in the background.
-   3. Ask which database the analytics read, one question per database in _Data sources_, all in one call. Only the user can say whether a database holds production data or a copy, so a single match is asked too. The options:
+   3. Ask which database the analytics read, one question per database in _Data sources_, all in one round. Only the user can say whether a database holds production data or a copy, so a single match is asked too. The options:
       - each match, by display name;
       - each partial match, by display name with its missing tables and columns, as two options: as it is, the widgets that read them `NONE` for phase 4; or once the user fixes its connection, or grants its login the read, at `<url>/admin/databases/<id>` (`<url>` being `mb auth status --json | jq -r .url`), then synced and matched again;
       - "Connect another" (`references/connect.md`): the user enters the database they choose on Metabase's own page.
