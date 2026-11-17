@@ -1,9 +1,10 @@
 import { z } from "zod";
 
-import { DataTestType } from "@metabase/client/domain/data-test";
 import { InternalError } from "@metabase/client/errors";
 
-export const CI_EVENT_VERSION = 2;
+import { TEST_KINDS } from "./data-test";
+
+export const CI_EVENT_VERSION = 1;
 
 const StageName = z.enum(["lint", "unit"]);
 type StageName = z.infer<typeof StageName>;
@@ -33,10 +34,7 @@ const Snapshot = z.object({ base: z.string(), head: z.string() });
 export type Snapshot = z.infer<typeof Snapshot>;
 
 const Check = z.object({
-  kind: z.union([
-    z.enum(["yaml", "cycles", "broken-refs"]),
-    z.templateLiteral([DataTestType, "-test"]),
-  ]),
+  kind: z.enum(["yaml", "cycles", "broken-refs", ...TEST_KINDS]),
   id: z.string(),
   label: z.string(),
 });
@@ -69,14 +67,12 @@ const CheckResult = EventEnvelope.extend({
   detail: z.unknown(),
 });
 
-// `stopped` is null when the stage ran every check. `skipped` says why a stage ran no check at all,
-// for a server without what it reads, and passes the stage; it is null when the stage ran.
+// `stopped` is null when the stage ran every check.
 const StageEnd = EventEnvelope.extend({
   type: z.literal("stage.end"),
   stage: StageName,
   status: JobState,
   stopped: StageStop.nullable(),
-  skipped: StageStop.nullable(),
 });
 
 const JobEnd = EventEnvelope.extend({
@@ -99,15 +95,11 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 export type CiEventBody = DistributiveOmit<CiEvent, EnvelopeKey>;
 export type CheckOutcome = Omit<Extract<CiEventBody, { type: "check.result" }>, "type" | "stage">;
 
-export interface StageSkip {
-  skipped: StageStop;
-}
-
-// `run` answers why it stopped early, why it was skipped, or null when it ran every check. A stage
-// throws only on a bug or an interrupt, which crash the job.
+// `run` answers why it stopped early, or null when it ran every check. A stage throws only on a bug
+// or an interrupt, which crash the job.
 export interface CiStage {
   name: StageName;
-  run: (report: (check: CheckOutcome) => void) => Promise<StageStop | StageSkip | null>;
+  run: (report: (check: CheckOutcome) => void) => Promise<StageStop | null>;
 }
 
 interface CiEmitterOptions {
@@ -172,17 +164,15 @@ export async function runStages(
   for (const stage of stages) {
     emit({ type: "stage.start", stage: stage.name });
     const verdicts: Verdict[] = [];
-    const ending = await stage.run((check) => {
+    const stopped = await stage.run((check) => {
       verdicts.push(check.verdict);
       checks += 1;
       warnings += check.warnings.length;
       emit({ type: "check.result", stage: stage.name, ...check });
     });
-    const skipped = ending !== null && "skipped" in ending ? ending.skipped : null;
-    const stopped = ending !== null && "code" in ending ? ending : null;
     const status = stageStatus(verdicts, stopped);
     statuses.push(status);
-    emit({ type: "stage.end", stage: stage.name, status, stopped, skipped });
+    emit({ type: "stage.end", stage: stage.name, status, stopped });
   }
   return { state: jobState(statuses), checks, warnings };
 }

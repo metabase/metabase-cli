@@ -1,11 +1,11 @@
 import { DATA_TEST_TYPES, DataTestType } from "@metabase/client/domain/data-test";
 import { ConfigError } from "@metabase/client/errors";
 
+import { TEST_SUFFIX, testKind } from "../core/data-test";
 import { parseId } from "./parse-id";
 
 const ID_FLAG = "--id";
 const REF_SEPARATOR = ":";
-const TEST_SUFFIX = "-test";
 
 const TYPE_LIST = DATA_TEST_TYPES.join(", ");
 
@@ -63,5 +63,5 @@ export function parseTestRef(value: string): DataTestRef {
 }
 
 export function testRefText(ref: DataTestRef): string {
-  return `${ref.type}${TEST_SUFFIX}${REF_SEPARATOR}${ref.id}`;
+  return `${testKind(ref.type)}${REF_SEPARATOR}${ref.id}`;
 }

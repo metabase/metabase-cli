@@ -6,7 +6,7 @@ import type { TransformTestRunResult } from "@metabase/client/domain/transform-t
 
 import type { CheckOutcome, CiStage, StageStop } from "../../core/ci-events";
 import { connectStop, testFailure, testVerdict, type TestRequest } from "../../core/ci-unit";
-import { type AnyTest, isUnsupportedTestType } from "../../core/data-test";
+import { type AnyTest, isUnsupportedTestType, testKind } from "../../core/data-test";
 import { interruptSignal } from "../../runtime/interrupt";
 
 export type InstanceTest = Pick<AnyTest, "id" | "name">;
@@ -117,7 +117,7 @@ async function runListed(
   report: Report,
 ): Promise<StageStop | null> {
   for (const test of tests.toSorted((a, b) => a.id - b.id)) {
-    const check = { kind: `${type}-test` as const, id: String(test.id), label: test.name };
+    const check = { kind: testKind(type), id: String(test.id), label: test.name };
     const started = port.nowMs();
     try {
       const outcome = await port.runTest(type, test.id);
@@ -151,7 +151,7 @@ async function runEveryType(port: UnitStagePort, report: Report): Promise<StageS
       unsupported.push(error);
       continue;
     }
-    const check = { kind: `${type}-test` as const, id: type, label: `${type} tests` };
+    const check = { kind: testKind(type), id: type, label: `${type} tests` };
     const stop = reportFailure(error, "list", check, ms, report);
     if (stop !== null) {
       return stop;
