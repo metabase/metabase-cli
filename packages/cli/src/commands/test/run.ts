@@ -1,6 +1,7 @@
 import { TransformTestRunResult } from "@metabase/client/domain/transform-test";
 
 import { renderVerdict, type VerdictFailure } from "../../output/render";
+import { testRunSummary } from "../../output/test-run";
 import { transformTestRunResultView } from "../../output/views/transform-test";
 import { interruptSignal } from "../../runtime/interrupt";
 import { connectionFlags, outputFlags, profileFlag, requestTimeoutFlag } from "../flags";
@@ -57,7 +58,7 @@ export default defineMetabaseCommand({
       }
     }
     const result = await runTest();
-    const summary = `${text} ${result.status}.`;
+    const summary = testRunSummary(text, result);
     const failure: VerdictFailure = (oversize) =>
       oversize === null ? `${text} ${result.status}` : `${summary} Its ${oversize}`;
     renderVerdict(

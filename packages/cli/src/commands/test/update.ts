@@ -1,5 +1,6 @@
 import { renderSummary } from "../../output/render";
-import { AnyTest, anyTestView } from "../../output/views/data-test";
+import { AnyTest } from "../../core/data-test";
+import { anyTestView } from "../../output/views/data-test";
 import { interruptSignal } from "../../runtime/interrupt";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";

@@ -1,10 +1,10 @@
 import { DATA_TEST_TYPES, DataTestType } from "@metabase/client/domain/data-test";
 import { ConfigError } from "@metabase/client/errors";
 
-import { isUnsupportedTestType } from "../../core/ci-unit";
+import { type AnyTest, isUnsupportedTestType } from "../../core/data-test";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
-import { type AnyTest, TestListItem, testListItemView } from "../../output/views/data-test";
+import { TestListItem, testListItemView } from "../../output/views/data-test";
 import { windowList } from "../../output/window";
 import { interruptSignal } from "../../runtime/interrupt";
 import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";

@@ -5,14 +5,8 @@ import { DATA_TEST_TYPES, type DataTestType } from "@metabase/client/domain/data
 import type { TransformTestRunResult } from "@metabase/client/domain/transform-test";
 
 import type { CheckOutcome, CiStage, StageStop } from "../../core/ci-events";
-import {
-  connectStop,
-  isUnsupportedTestType,
-  testFailure,
-  testVerdict,
-  type TestRequest,
-} from "../../core/ci-unit";
-import type { AnyTest } from "../../output/views/data-test";
+import { connectStop, testFailure, testVerdict, type TestRequest } from "../../core/ci-unit";
+import { type AnyTest, isUnsupportedTestType } from "../../core/data-test";
 import { interruptSignal } from "../../runtime/interrupt";
 
 export type InstanceTest = Pick<AnyTest, "id" | "name">;
