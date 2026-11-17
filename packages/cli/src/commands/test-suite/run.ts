@@ -1,11 +1,10 @@
 import { TestSuiteRun } from "@metabase/client/domain/test-suite";
-import { DEFAULT_TIMEOUT_MS } from "@metabase/client/http/transport";
 
 import { pluralize } from "../../output/pluralize";
 import { renderVerdict, type VerdictFailure } from "../../output/render";
 import { testSuiteRunView } from "../../output/views/test-suite";
 import { interruptSignal } from "../../runtime/interrupt";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { connectionFlags, outputFlags, profileFlag, requestTimeoutFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -18,11 +17,7 @@ export default defineMetabaseCommand({
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
-    timeout: {
-      type: "string",
-      description: "Request timeout in ms",
-      default: String(DEFAULT_TIMEOUT_MS),
-    },
+    ...requestTimeoutFlag,
     id: { type: "string", description: "Test suite id", required: true },
   },
   outputSchema: TestSuiteRun,

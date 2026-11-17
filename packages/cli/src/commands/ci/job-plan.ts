@@ -227,7 +227,7 @@ export async function planJob(
     }
   }
   for (const entityId of affectedTransforms(changes)) {
-    const name = atHead.names.get(entityId);
+    const name = atHead.get(entityId);
     if (name === undefined) {
       warnings.push({
         code: "missing-transform",

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { ActionTest } from "@metabase/client/domain/action-test";
 import { CardTest } from "@metabase/client/domain/card-test";
-import { DataTestType } from "@metabase/client/domain/data-test";
+import { dataTestFields, DataTestType } from "@metabase/client/domain/data-test";
 import { MeasureTest } from "@metabase/client/domain/measure-test";
 import { SegmentTest } from "@metabase/client/domain/segment-test";
 import { TransformTest } from "@metabase/client/domain/transform-test";
@@ -14,7 +14,8 @@ export type AnyTest = z.infer<typeof AnyTest>;
 
 // Only the fields every test type shares, so a compact test reads the same whatever its type.
 const AnyTestCompact = z
-  .object({ id: z.number().int(), name: z.string(), description: z.string().nullable() })
+  .object(dataTestFields)
+  .pick({ id: true, name: true, description: true })
   .strip();
 
 export const anyTestView: ResourceView<AnyTest> = {

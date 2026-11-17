@@ -26,10 +26,5 @@ export const SegmentTestCreateInput = z
   .strict();
 export type SegmentTestCreateInput = z.infer<typeof SegmentTestCreateInput>;
 
-export const SegmentTestUpdateInput = z
-  .object({
-    segment_id: z.number().int().positive().optional(),
-    ...z.object(dataTestBodyFields).partial().shape,
-  })
-  .strict();
+export const SegmentTestUpdateInput = SegmentTestCreateInput.partial().strict();
 export type SegmentTestUpdateInput = z.infer<typeof SegmentTestUpdateInput>;

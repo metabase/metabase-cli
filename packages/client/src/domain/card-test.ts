@@ -26,10 +26,5 @@ export const CardTestCreateInput = z
   .strict();
 export type CardTestCreateInput = z.infer<typeof CardTestCreateInput>;
 
-export const CardTestUpdateInput = z
-  .object({
-    card_id: z.number().int().positive().optional(),
-    ...z.object(dataTestBodyFields).partial().shape,
-  })
-  .strict();
+export const CardTestUpdateInput = CardTestCreateInput.partial().strict();
 export type CardTestUpdateInput = z.infer<typeof CardTestUpdateInput>;

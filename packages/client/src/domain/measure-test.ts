@@ -26,10 +26,5 @@ export const MeasureTestCreateInput = z
   .strict();
 export type MeasureTestCreateInput = z.infer<typeof MeasureTestCreateInput>;
 
-export const MeasureTestUpdateInput = z
-  .object({
-    measure_id: z.number().int().positive().optional(),
-    ...z.object(dataTestBodyFields).partial().shape,
-  })
-  .strict();
+export const MeasureTestUpdateInput = MeasureTestCreateInput.partial().strict();
 export type MeasureTestUpdateInput = z.infer<typeof MeasureTestUpdateInput>;
