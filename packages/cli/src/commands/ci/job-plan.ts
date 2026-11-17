@@ -6,9 +6,10 @@ import {
   type DiffEntry,
   CONTENT_TOP_LEVEL_FOLDERS,
   TRANSFORM_MODEL_PATTERN,
-  affectedTransforms,
+  affectedEntities,
   classifyContentFile,
-  headTransforms,
+  entityKey,
+  headEntities,
   isContentPath,
   noContentChangesWarning,
   parseNameStatus,
@@ -16,7 +17,7 @@ import {
   uncommittedContentWarning,
   unreadContentWarning,
 } from "../../core/ci-affected";
-import type { CheckedTransform, CiWarning, Snapshot } from "../../core/ci-events";
+import type { CheckedEntity, CiWarning, Snapshot } from "../../core/ci-events";
 import {
   checkedOutCommit,
   diffNameStatus,
@@ -35,8 +36,10 @@ const CONTENT_PATHSPECS = CONTENT_TOP_LEVEL_FOLDERS.map((folder) => `${folder}/*
 
 export interface JobPlan {
   snapshot: Snapshot;
-  checked: CheckedTransform[];
+  checked: CheckedEntity[];
   warnings: CiWarning[];
+  // The transforms a test with expectations at head covers, by entity id.
+  tested: ReadonlySet<string>;
 }
 
 // A regular or executable file. Metabase's import follows a symlink and reads a submodule's
@@ -215,8 +218,8 @@ export async function planJob(
     entries,
     signal,
   );
-  const atHead = headTransforms([...changes.map((change) => change.head), ...unchangedAtHead]);
-  const checked: CheckedTransform[] = [];
+  const atHead = headEntities([...changes.map((change) => change.head), ...unchangedAtHead]);
+  const checked: CheckedEntity[] = [];
   const warnings: CiWarning[] = [];
   for (const warning of [
     noContentChangesWarning(entries),
@@ -226,16 +229,16 @@ export async function planJob(
       warnings.push(warning);
     }
   }
-  for (const entityId of affectedTransforms(changes)) {
-    const name = atHead.get(entityId);
-    if (name === undefined) {
+  for (const affected of affectedEntities(changes)) {
+    const entity = atHead.byKey.get(entityKey(affected));
+    if (entity === undefined) {
       warnings.push({
         code: "missing-transform",
-        message: `a changed transform test covers transform ${entityId}, which is not in the repo at ${head}`,
+        message: `a changed transform test covers transform ${affected.entityId}, which is not in the repo at ${head}`,
       });
       continue;
     }
-    checked.push({ entity_id: entityId, name });
+    checked.push({ type: entity.type, entity_id: entity.entityId, name: entity.name });
   }
 
   // Uncommitted files only matter when the checked commit is the one checked out.
@@ -247,5 +250,5 @@ export async function planJob(
       warnings.push(uncommitted);
     }
   }
-  return { snapshot: { base, head }, checked, warnings };
+  return { snapshot: { base, head }, checked, warnings, tested: atHead.tested };
 }

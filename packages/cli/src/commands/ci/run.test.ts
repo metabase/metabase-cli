@@ -157,7 +157,7 @@ describe("ci run: committed content only", () => {
 
     expect(after.exitCode).toBe(0);
     expect(planOf(after.stdout)).toEqual({
-      checked: [{ entity_id: A, name: "Alpha" }],
+      checked: [{ type: "transform", entity_id: A, name: "Alpha" }],
       warnings: [],
     });
   });
@@ -165,7 +165,7 @@ describe("ci run: committed content only", () => {
 
 function textOutput(sha: string): string {
   const short = sha.slice(0, 7);
-  return `mb ci run  base ${short}  head ${short}  0 transforms checked\n⚠ the change touches no Metabase content files\nPASSED (exit 0)\n`;
+  return `mb ci run  base ${short}  head ${short}  0 entities checked\n⚠ the change touches no Metabase content files\nPASSED (exit 0)\n`;
 }
 
 async function withTty<T>(isTty: boolean, body: () => Promise<T>): Promise<T> {
@@ -470,7 +470,9 @@ describe("ci run: a changed transform tested on Metabase", () => {
       "stage.end",
       "job.end",
     ]);
-    expect(planOf(result.stdout).checked).toEqual([{ entity_id: A, name: "Alpha" }]);
+    expect(planOf(result.stdout).checked).toEqual([
+      { type: "transform", entity_id: A, name: "Alpha" },
+    ]);
     expect(lastTwo(result.stdout)).toEqual([
       { ...envelope, seq: 6, type: "stage.end", stage: "unit", status: "failed", stopped: null },
       { ...envelope, seq: 7, type: "job.end", state: "failed", counts: { checks: 2, warnings: 0 } },

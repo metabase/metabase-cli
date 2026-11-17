@@ -45,6 +45,7 @@ function jobStart(checked: number): CiEventBody {
     v: 2,
     snapshot: { base: BASE, head: HEAD },
     checked: Array.from({ length: checked }, (_, index) => ({
+      type: "transform" as const,
       entity_id: `eid-${index}`,
       name: `transform_${index}`,
     })),
@@ -115,7 +116,7 @@ describe("ciEventLines", () => {
       .map((line) => parseJson(line, CiEvent));
 
     expect(textLines(events, DEFAULT_MAX_ROWS)).toEqual([
-      "mb ci run  base 309f2a9  head f33ad9b  1 transform checked",
+      "mb ci run  base 309f2a9  head f33ad9b  1 entity checked",
       "lint",
       '  ✗ card "Order totals by day"',
       "      missing-table-alias  Native SQL reads order_totalz, which no known table matches",
@@ -153,7 +154,7 @@ describe("ciEventLines", () => {
         DEFAULT_MAX_ROWS,
       ),
     ).toEqual([
-      "mb ci run  base 0c9c839  head eff9458  2 transforms checked",
+      "mb ci run  base 0c9c839  head eff9458  2 entities checked",
       "lint",
       "  ✓ Entities on the instance",
       "unit",
@@ -284,7 +285,7 @@ describe("ciEventLines", () => {
         DEFAULT_MAX_ROWS,
       ),
     ).toEqual([
-      "mb ci run  base 0c9c839  head eff9458  1 transform checked",
+      "mb ci run  base 0c9c839  head eff9458  1 entity checked",
       "lint",
       '  ✗ card "Revenue"',
       '      missing-column  Column TOTAL is not on transform "transform_0"',

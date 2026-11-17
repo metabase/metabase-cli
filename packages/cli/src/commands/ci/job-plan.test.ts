@@ -31,7 +31,7 @@ function testYaml(transformId: string): string {
 
 const TRANSFORM_YAML = transformYaml(TRANSFORM_ID, "Daily Order Summary");
 const TEST_YAML = testYaml(TRANSFORM_ID);
-const DAILY = { entity_id: TRANSFORM_ID, name: "Daily Order Summary" };
+const DAILY = { type: "transform", entity_id: TRANSFORM_ID, name: "Daily Order Summary" } as const;
 const BROKEN_QUERY = "source:\n  query: select broken(\n";
 const NO_CONTENT_CHANGES = {
   code: "no-content-changes",
@@ -58,6 +58,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head: base },
+      tested: new Set(),
       checked: [],
       warnings: [
         NO_CONTENT_CHANGES,
@@ -77,6 +78,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set(),
       checked: [DAILY],
       warnings: [],
     });
@@ -91,6 +93,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set([TRANSFORM_ID]),
       checked: [DAILY],
       warnings: [],
     });
@@ -110,6 +113,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set(),
       checked: [DAILY],
       warnings: [],
     });
@@ -124,6 +128,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set(),
       checked: [DAILY],
       warnings: [],
     });
@@ -140,6 +145,7 @@ describe("planJob", () => {
 
     expect(await planJob(`${repo.path}/other`, "main", head, NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set([TRANSFORM_ID]),
       checked: [DAILY],
       warnings: [],
     });
@@ -153,6 +159,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set([TRANSFORM_ID]),
       checked: [],
       warnings: [
         {
@@ -173,6 +180,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "feature", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set(),
       checked: [DAILY],
       warnings: [],
     });
@@ -221,6 +229,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set([TRANSFORM_ID]),
       checked: [DAILY],
       warnings: [],
     });
@@ -237,6 +246,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set(),
       checked: [DAILY],
       warnings: [],
     });
@@ -250,6 +260,7 @@ describe("planJob, on a change that touches no content file", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base: head, head },
+      tested: new Set(),
       checked: [],
       warnings: [NO_CONTENT_CHANGES],
     });
@@ -265,6 +276,7 @@ describe("planJob, on a change that touches no content file", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set(),
       checked: [],
       warnings: [NO_CONTENT_CHANGES],
     });
@@ -305,6 +317,7 @@ describe("planJob, reading a transform as Metabase imports it", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set(),
       checked: [DAILY],
       warnings: [],
     });
@@ -388,6 +401,7 @@ describe("planJob, reading only Metabase's content folders", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set(),
       checked: [],
       warnings: [NO_CONTENT_CHANGES],
     });
@@ -401,6 +415,7 @@ describe("planJob, reading only Metabase's content folders", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set(),
       checked: [],
       warnings: [NO_CONTENT_CHANGES],
     });
@@ -423,7 +438,8 @@ describe("planJob, reading the base side at the merge base", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      checked: [{ entity_id: TRANSFORM_ID, name: "Alpha" }],
+      tested: new Set(),
+      checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Alpha" }],
       warnings: [],
     });
   });
@@ -441,7 +457,8 @@ describe("planJob, reading the base side at the merge base", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      checked: [{ entity_id: TRANSFORM_ID, name: "Alpha 2" }],
+      tested: new Set(),
+      checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Alpha 2" }],
       warnings: [],
     });
   });
@@ -460,7 +477,8 @@ describe("planJob, reading the base side at the merge base", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      checked: [{ entity_id: TRANSFORM_ID, name: "Alpha 2" }],
+      tested: new Set(),
+      checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Alpha 2" }],
       warnings: [],
     });
   });
@@ -480,7 +498,8 @@ describe("planJob, finding the transform of a changed test", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      checked: [{ entity_id: TRANSFORM_ID, name: "Alpha" }],
+      tested: new Set([TRANSFORM_ID]),
+      checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Alpha" }],
       warnings: [],
     });
   });
@@ -498,7 +517,8 @@ describe("planJob, finding the transform of a changed test", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      checked: [{ entity_id: TRANSFORM_ID, name: "Alpha" }],
+      tested: new Set([TRANSFORM_ID]),
+      checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Alpha" }],
       warnings: [],
     });
   });
@@ -518,9 +538,10 @@ describe("planJob, finding the transform of a changed test", () => {
     expect(await repo.git("diff", "--name-status", "-M", "main", "HEAD")).toMatch(/^R\d+\t/);
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set([OTHER_TRANSFORM_ID]),
       checked: [
-        { entity_id: TRANSFORM_ID, name: "Alpha" },
-        { entity_id: OTHER_TRANSFORM_ID, name: "Beta" },
+        { type: "transform", entity_id: TRANSFORM_ID, name: "Alpha" },
+        { type: "transform", entity_id: OTHER_TRANSFORM_ID, name: "Beta" },
       ],
       warnings: [],
     });
@@ -539,7 +560,8 @@ describe("planJob, run from a subdirectory", () => {
 
     expect(await planJob(`${repo.path}/other`, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      checked: [{ entity_id: TRANSFORM_ID, name: "Alpha 2" }],
+      tested: new Set(),
+      checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Alpha 2" }],
       warnings: [],
     });
   });
@@ -562,6 +584,7 @@ describe("planJob, an unchanged file at head that does not read", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set(),
       checked: [],
       warnings: [NO_CONTENT_CHANGES],
     });
@@ -577,6 +600,7 @@ describe("planJob, an unchanged file at head that does not read", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set(),
       checked: [],
       warnings: [
         NO_CONTENT_CHANGES,
@@ -598,6 +622,7 @@ describe("planJob, an unchanged file at head that does not read", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set(),
       checked: [],
       warnings: [
         NO_CONTENT_CHANGES,
@@ -616,6 +641,7 @@ describe("planJob, an unchanged file at head that does not read", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
+      tested: new Set(),
       checked: [],
       warnings: [
         NO_CONTENT_CHANGES,
@@ -639,7 +665,8 @@ describe("planJob, an unchanged file at head that does not read", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      checked: [{ entity_id: LEGACY_ID, name: "Legacy" }],
+      tested: new Set(),
+      checked: [{ type: "transform", entity_id: LEGACY_ID, name: "Legacy" }],
       warnings: [],
     });
   });

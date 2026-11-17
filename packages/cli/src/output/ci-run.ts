@@ -49,7 +49,7 @@ const HttpFailureMessage = CheckMessage.extend({ status: z.number().int() });
 export function ciEventLines(event: CiEvent, maxRows: number): string[] {
   switch (event.type) {
     case "job.start": {
-      const checked = pluralize(event.checked.length, "transform", "transforms");
+      const checked = pluralize(event.checked.length, "entity", "entities");
       const head = `mb ci run  base ${shortSha(event.snapshot.base)}  head ${shortSha(event.snapshot.head)}  ${checked} checked`;
       return [head, ...event.warnings.map((warning) => `⚠ ${warning.message}`)];
     }

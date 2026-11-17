@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { DataTestType } from "@metabase/client/domain/data-test";
 import { InternalError, ValidationError } from "@metabase/client/errors";
 import { isPlainObject } from "@metabase/client/predicates";
 
@@ -18,8 +19,10 @@ interface RenamedEntry {
 
 export type DiffEntry = PathEntry | RenamedEntry;
 
-interface TransformFile {
-  kind: "transform";
+// An entity a test can check.
+interface EntityFile {
+  kind: "entity";
+  type: DataTestType;
   entityId: string;
   name: string;
 }
@@ -27,13 +30,15 @@ interface TransformFile {
 interface TransformTestFile {
   kind: "transform-test";
   transformId: string;
+  // A test with no expectations checks nothing, so it does not count as testing its transform.
+  hasExpectations: boolean;
 }
 
 interface OtherFile {
   kind: "other";
 }
 
-export type ContentFile = TransformFile | TransformTestFile | OtherFile;
+export type ContentFile = EntityFile | TransformTestFile | OtherFile;
 
 export interface ClassifiedChange {
   path: string;
@@ -158,6 +163,16 @@ const TransformDocument = z
   .loose();
 
 const TRANSFORM_RULE = "a Transform must have an entity_id, a name, a source and a target";
+
+const EntityDocument = z.object({ entity_id: z.string().min(1), name: z.string().min(1) }).loose();
+
+// Only transform tests are serialized, so the other types' tests live on the instance alone.
+const TESTED_MODELS: ReadonlyMap<string, Exclude<DataTestType, "transform">> = new Map([
+  ["Card", "card"],
+  ["Segment", "segment"],
+  ["Measure", "measure"],
+  ["Action", "action"],
+]);
 const TRANSFORM_TEST_RULE =
   "a TransformTest must name its transform_id, and its expectations must be a list";
 const TransformTestDocument = z
@@ -193,51 +208,82 @@ export function classifyContentFile(path: string, document: unknown): ContentFil
   }
   if (last.model === "Transform") {
     const transform = parseOrRefuse(path, TransformDocument, document, TRANSFORM_RULE);
-    return { kind: "transform", entityId: transform.entity_id, name: transform.name };
+    return {
+      kind: "entity",
+      type: "transform",
+      entityId: transform.entity_id,
+      name: transform.name,
+    };
   }
   if (last.model === "TransformTest") {
     const test = parseOrRefuse(path, TransformTestDocument, document, TRANSFORM_TEST_RULE);
-    return { kind: "transform-test", transformId: test.transform_id };
+    const { expectations } = test;
+    const hasExpectations =
+      expectations !== undefined && expectations !== null && expectations.length > 0;
+    return { kind: "transform-test", transformId: test.transform_id, hasExpectations };
+  }
+  const type = TESTED_MODELS.get(last.model);
+  if (type !== undefined) {
+    const entity = parseOrRefuse(
+      path,
+      EntityDocument,
+      document,
+      `a ${last.model} must have an entity_id and a name`,
+    );
+    return { kind: "entity", type, entityId: entity.entity_id, name: entity.name };
   }
   return { kind: "other" };
 }
 
-function transformEntityId(file: ContentFile | null): string | null {
-  return file?.kind === "transform" ? file.entityId : null;
+export interface AffectedEntity {
+  type: DataTestType;
+  entityId: string;
 }
 
-export function affectedTransforms(changes: readonly ClassifiedChange[]): string[] {
-  const touched = new Set<string>();
+// Entity ids are unique per model only, so an entity is keyed by both.
+export function entityKey({ type, entityId }: AffectedEntity): string {
+  return `${type}:${entityId}`;
+}
+
+function entityOf(file: ContentFile | null): AffectedEntity | null {
+  return file?.kind === "entity" ? { type: file.type, entityId: file.entityId } : null;
+}
+
+export function affectedEntities(changes: readonly ClassifiedChange[]): AffectedEntity[] {
+  const touched = new Map<string, AffectedEntity>();
   const atHead = new Set<string>();
   const atBase = new Set<string>();
 
   for (const { path, base, head } of changes) {
     // A parser that reads the file differently from Metabase (a YAML merge key, a symlink blob)
-    // would otherwise turn an edited transform into a deleted one.
+    // would otherwise turn an edited entity into a deleted one.
     if (base !== null && base.kind !== "other" && head?.kind === "other") {
       throw new ValidationError(
-        `${path}: a Transform or TransformTest at base no longer reads as one at head`,
+        `${path}: an entity or transform test at base no longer reads as one at head`,
         { source: path, zodIssues: [] },
       );
     }
-    const headId = transformEntityId(head);
-    const baseId = transformEntityId(base);
-    if (headId !== null) {
-      touched.add(headId);
-      atHead.add(headId);
+    const headEntity = entityOf(head);
+    const baseEntity = entityOf(base);
+    if (headEntity !== null) {
+      touched.set(entityKey(headEntity), headEntity);
+      atHead.add(entityKey(headEntity));
     }
-    if (baseId !== null) {
-      atBase.add(baseId);
+    if (baseEntity !== null) {
+      atBase.add(entityKey(baseEntity));
     }
     for (const side of [base, head]) {
       if (side?.kind === "transform-test") {
-        touched.add(side.transformId);
+        const transform: AffectedEntity = { type: "transform", entityId: side.transformId };
+        touched.set(entityKey(transform), transform);
       }
     }
   }
 
   // A test-only change names a transform the diff does not show; keep it unless the diff removed it.
-  return [...touched].filter((entityId) => atHead.has(entityId) || !atBase.has(entityId));
+  return [...touched]
+    .filter(([key]) => atHead.has(key) || !atBase.has(key))
+    .map(([, entity]) => entity);
 }
 
 // Every Transform and TransformTest file names its model in `serdes/meta`, however the YAML spells
@@ -247,15 +293,22 @@ export function affectedTransforms(changes: readonly ClassifiedChange[]): string
 // `git grep -E`.
 export const TRANSFORM_MODEL_PATTERN = "Transform";
 
-// The transforms among files at head, each by name.
-export function headTransforms(files: readonly (ContentFile | null)[]): Map<string, string> {
-  const names = new Map<string, string>();
+export interface HeadEntities {
+  byKey: Map<string, EntityFile>;
+  // The transforms a test with expectations at head covers.
+  tested: Set<string>;
+}
+
+export function headEntities(files: readonly (ContentFile | null)[]): HeadEntities {
+  const atHead: HeadEntities = { byKey: new Map(), tested: new Set() };
   for (const file of files) {
-    if (file?.kind === "transform") {
-      names.set(file.entityId, file.name);
+    if (file?.kind === "entity") {
+      atHead.byKey.set(entityKey(file), file);
+    } else if (file?.kind === "transform-test" && file.hasExpectations) {
+      atHead.tested.add(file.transformId);
     }
   }
-  return names;
+  return atHead;
 }
 
 // Mirrors Metabase's `legal-top-level-paths` and `shared-top-level-paths`
