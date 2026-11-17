@@ -113,7 +113,15 @@ describe("testRefusal", () => {
     });
   });
 
-  it("does not treat an error code outside transform-test.* as a refusal", () => {
+  it("reads the refusal of any test type by its prefix", () => {
+    expect(testRefusal(refusalError("card-test.missing-inputs"))).toEqual({
+      error_code: "card-test.missing-inputs",
+      message: "m",
+      tables: null,
+    });
+  });
+
+  it("does not treat an error code outside a test type's prefix as a refusal", () => {
     expect(testRefusal(refusalError("some-other.code"))).toBeNull();
   });
 
@@ -135,6 +143,16 @@ describe("refusalVerdict", () => {
         refusalVerdict({ error_code: code, message: "m", tables: null }),
       ),
     ).toEqual(["failed", "failed"]);
+  });
+
+  it("fails a test of any type whose query will not run, under the code Metabase 66 names it by", () => {
+    expect(
+      [
+        "transform-test.query-failed",
+        "card-test.query-failed",
+        "segment-test.unparseable-source",
+      ].map((code) => refusalVerdict({ error_code: code, message: "m", tables: null })),
+    ).toEqual(["failed", "failed", "failed"]);
   });
 
   it("refuses the test for every other refusal code, known to the client or not", () => {
@@ -181,7 +199,7 @@ const UNLICENSED = new CapabilityError({
 
 describe("transformFailure, a failure that ends the stage", () => {
   it("stops the stage when Metabase rejects the credential, whichever request it rejected", () => {
-    const requests: TransformRequest[] = ["read", "list", "run"];
+    const requests: TransformRequest[] = ["list", "run"];
 
     expect(requests.map((request) => transformFailure(UNAUTHORIZED, request))).toEqual(
       requests.map(() => ({
@@ -198,13 +216,11 @@ describe("transformFailure, a failure that ends the stage", () => {
     });
   });
 
-  it("stops the stage when Metabase cannot be reached before any test runs", () => {
-    expect([transformFailure(UNREACHABLE, "read"), transformFailure(UNREACHABLE, "list")]).toEqual(
-      [0, 1].map(() => ({
-        kind: "stop",
-        stop: { code: "ci.network-error", message: UNREACHABLE.message },
-      })),
-    );
+  it("stops the stage when Metabase cannot be reached while listing tests", () => {
+    expect(transformFailure(UNREACHABLE, "list")).toEqual({
+      kind: "stop",
+      stop: { code: "ci.network-error", message: UNREACHABLE.message },
+    });
   });
 });
 
@@ -250,18 +266,6 @@ describe("transformFailure, a failure that costs one check", () => {
     });
   });
 
-  it("refuses a transform the CI identity cannot read, naming the permission", () => {
-    expect(transformFailure(FORBIDDEN, "read")).toEqual({
-      kind: "check",
-      verdict: "refused",
-      detail: {
-        error_code: "ci.transform-unreadable",
-        message:
-          "the CI identity cannot read this transform, so Metabase hides its tests: reading it needs query permission on every table it reads",
-      },
-    });
-  });
-
   it("refuses a test the CI identity may not run, naming the permission", () => {
     expect(transformFailure(FORBIDDEN, "run")).toEqual({
       kind: "check",
@@ -270,18 +274,6 @@ describe("transformFailure, a failure that costs one check", () => {
         error_code: "ci.test-run-forbidden",
         message:
           "Metabase did not let the CI identity run this test: running a test needs write access to it, and a read-only remote-synced instance refuses everyone",
-      },
-    });
-  });
-
-  it("refuses a transform that left the instance after its lookup", () => {
-    expect(transformFailure(NOT_FOUND, "read")).toEqual({
-      kind: "check",
-      verdict: "refused",
-      detail: {
-        error_code: "ci.transform-not-on-instance",
-        message:
-          "the transform is in the branch but not on the Metabase instance; load the branch into it first",
       },
     });
   });

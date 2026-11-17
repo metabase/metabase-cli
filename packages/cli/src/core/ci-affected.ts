@@ -27,8 +27,6 @@ interface TransformFile {
 interface TransformTestFile {
   kind: "transform-test";
   transformId: string;
-  // A test with no expectations checks nothing, so it does not count as testing its transform.
-  hasExpectations: boolean;
 }
 
 interface OtherFile {
@@ -199,10 +197,7 @@ export function classifyContentFile(path: string, document: unknown): ContentFil
   }
   if (last.model === "TransformTest") {
     const test = parseOrRefuse(path, TransformTestDocument, document, TRANSFORM_TEST_RULE);
-    const expectations = test.expectations;
-    const hasExpectations =
-      expectations !== undefined && expectations !== null && expectations.length > 0;
-    return { kind: "transform-test", transformId: test.transform_id, hasExpectations };
+    return { kind: "transform-test", transformId: test.transform_id };
   }
   return { kind: "other" };
 }
@@ -254,18 +249,14 @@ export const TRANSFORM_MODEL_PATTERN = "Transform";
 
 export interface HeadTransforms {
   names: Map<string, string>;
-  tested: Set<string>;
 }
 
-// The transforms among files at head, each by name, and the transforms a test with expectations at
-// head covers.
+// The transforms among files at head, each by name.
 export function headTransforms(files: readonly (ContentFile | null)[]): HeadTransforms {
-  const atHead: HeadTransforms = { names: new Map(), tested: new Set() };
+  const atHead: HeadTransforms = { names: new Map() };
   for (const file of files) {
     if (file?.kind === "transform") {
       atHead.names.set(file.entityId, file.name);
-    } else if (file?.kind === "transform-test" && file.hasExpectations) {
-      atHead.tested.add(file.transformId);
     }
   }
   return atHead;
@@ -321,7 +312,7 @@ export function noContentChangesWarning(entries: readonly DiffEntry[]): CiWarnin
   }
   return {
     code: "no-content-changes",
-    message: "the change touches no Metabase content files, so no transform test ran",
+    message: "the change touches no Metabase content files",
   };
 }
 

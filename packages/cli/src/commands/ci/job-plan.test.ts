@@ -32,11 +32,10 @@ function testYaml(transformId: string): string {
 const TRANSFORM_YAML = transformYaml(TRANSFORM_ID, "Daily Order Summary");
 const TEST_YAML = testYaml(TRANSFORM_ID);
 const DAILY = { entity_id: TRANSFORM_ID, name: "Daily Order Summary" };
-const ALL_TESTED: ReadonlySet<string> = new Set();
 const BROKEN_QUERY = "source:\n  query: select broken(\n";
 const NO_CONTENT_CHANGES = {
   code: "no-content-changes",
-  message: "the change touches no Metabase content files, so no transform test ran",
+  message: "the change touches no Metabase content files",
 };
 const INTERRUPT_AFTER_MS = 300;
 const LARGE_DIFF_FILES = 1800;
@@ -59,7 +58,6 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head: base },
-      untested: new Set(),
       checked: [],
       warnings: [
         NO_CONTENT_CHANGES,
@@ -79,7 +77,6 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      untested: new Set([TRANSFORM_ID]),
       checked: [DAILY],
       warnings: [],
     });
@@ -94,7 +91,6 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      untested: new Set(),
       checked: [DAILY],
       warnings: [],
     });
@@ -114,7 +110,6 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      untested: new Set([TRANSFORM_ID]),
       checked: [DAILY],
       warnings: [],
     });
@@ -129,7 +124,6 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      untested: new Set([TRANSFORM_ID]),
       checked: [DAILY],
       warnings: [],
     });
@@ -146,7 +140,6 @@ describe("planJob", () => {
 
     expect(await planJob(`${repo.path}/other`, "main", head, NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      untested: new Set(),
       checked: [DAILY],
       warnings: [],
     });
@@ -160,7 +153,6 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      untested: new Set(),
       checked: [],
       warnings: [
         {
@@ -181,7 +173,6 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "feature", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      untested: new Set([TRANSFORM_ID]),
       checked: [DAILY],
       warnings: [],
     });
@@ -232,7 +223,6 @@ describe("planJob", () => {
       snapshot: { base, head },
       checked: [DAILY],
       warnings: [],
-      untested: new Set(),
     });
   });
 
@@ -249,7 +239,6 @@ describe("planJob", () => {
       snapshot: { base, head },
       checked: [DAILY],
       warnings: [],
-      untested: new Set([TRANSFORM_ID]),
     });
   });
 });
@@ -263,7 +252,6 @@ describe("planJob, on a change that touches no content file", () => {
       snapshot: { base: head, head },
       checked: [],
       warnings: [NO_CONTENT_CHANGES],
-      untested: new Set(),
     });
   });
 
@@ -279,7 +267,6 @@ describe("planJob, on a change that touches no content file", () => {
       snapshot: { base, head },
       checked: [],
       warnings: [NO_CONTENT_CHANGES],
-      untested: new Set(),
     });
   });
 });
@@ -320,26 +307,6 @@ describe("planJob, reading a transform as Metabase imports it", () => {
       snapshot: { base, head },
       checked: [DAILY],
       warnings: [],
-      untested: new Set([TRANSFORM_ID]),
-    });
-  });
-
-  it("finds an unchanged test whose identity sits under a YAML merge key", async () => {
-    await repo.put(DAILY_PATH, dailyYaml("source:\n  type: query\n  query: SELECT 1\n"));
-    await repo.put(
-      TEST_PATH,
-      `<<: {entity_id: aRvM7DLesF1fOV4kRHidq, transform_id: ${TRANSFORM_ID}, expectations: [{name: e, type: empty}], serdes/meta: [{model: TransformTest}]}\n`,
-    );
-    const base = await repo.commitAll("add transform and its test");
-    await repo.git("checkout", "-q", "-b", "feature");
-    await repo.put(DAILY_PATH, dailyYaml("source:\n  type: query\n  query: SELECT 2\n"));
-    const head = await repo.commitAll("edit query");
-
-    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
-      snapshot: { base, head },
-      checked: [DAILY],
-      warnings: [],
-      untested: new Set(),
     });
   });
 
@@ -423,7 +390,6 @@ describe("planJob, reading only Metabase's content folders", () => {
       snapshot: { base, head },
       checked: [],
       warnings: [NO_CONTENT_CHANGES],
-      untested: new Set(),
     });
   });
 
@@ -437,7 +403,6 @@ describe("planJob, reading only Metabase's content folders", () => {
       snapshot: { base, head },
       checked: [],
       warnings: [NO_CONTENT_CHANGES],
-      untested: new Set(),
     });
   });
 });
@@ -460,7 +425,6 @@ describe("planJob, reading the base side at the merge base", () => {
       snapshot: { base, head },
       checked: [{ entity_id: TRANSFORM_ID, name: "Alpha" }],
       warnings: [],
-      untested: new Set([TRANSFORM_ID, OTHER_TRANSFORM_ID]),
     });
   });
 
@@ -479,7 +443,6 @@ describe("planJob, reading the base side at the merge base", () => {
       snapshot: { base, head },
       checked: [{ entity_id: TRANSFORM_ID, name: "Alpha 2" }],
       warnings: [],
-      untested: new Set([TRANSFORM_ID]),
     });
   });
 
@@ -499,7 +462,6 @@ describe("planJob, reading the base side at the merge base", () => {
       snapshot: { base, head },
       checked: [{ entity_id: TRANSFORM_ID, name: "Alpha 2" }],
       warnings: [],
-      untested: new Set([TRANSFORM_ID, OTHER_TRANSFORM_ID]),
     });
   });
 });
@@ -520,7 +482,6 @@ describe("planJob, finding the transform of a changed test", () => {
       snapshot: { base, head },
       checked: [{ entity_id: TRANSFORM_ID, name: "Alpha" }],
       warnings: [],
-      untested: new Set([OTHER_TRANSFORM_ID]),
     });
   });
 
@@ -539,7 +500,6 @@ describe("planJob, finding the transform of a changed test", () => {
       snapshot: { base, head },
       checked: [{ entity_id: TRANSFORM_ID, name: "Alpha" }],
       warnings: [],
-      untested: new Set(),
     });
   });
 
@@ -563,7 +523,6 @@ describe("planJob, finding the transform of a changed test", () => {
         { entity_id: OTHER_TRANSFORM_ID, name: "Beta" },
       ],
       warnings: [],
-      untested: new Set([TRANSFORM_ID]),
     });
   });
 });
@@ -582,7 +541,6 @@ describe("planJob, run from a subdirectory", () => {
       snapshot: { base, head },
       checked: [{ entity_id: TRANSFORM_ID, name: "Alpha 2" }],
       warnings: [],
-      untested: new Set([TRANSFORM_ID]),
     });
   });
 });
@@ -606,7 +564,6 @@ describe("planJob, an unchanged file at head that does not read", () => {
       snapshot: { base, head },
       checked: [],
       warnings: [NO_CONTENT_CHANGES],
-      untested: new Set([LEGACY_ID]),
     });
   });
 
@@ -628,7 +585,6 @@ describe("planJob, an unchanged file at head that does not read", () => {
           message: `1 content file this change did not touch could not be read, so a transform or test in it went uncounted: ${head}:${LEGACY_PATH}: invalid YAML: Map keys must be unique at line 10, column 1:\n\n- model: Transform\ndescription: two\n^\n`,
         },
       ],
-      untested: new Set(),
     });
   });
 
@@ -650,7 +606,6 @@ describe("planJob, an unchanged file at head that does not read", () => {
           message: `1 content file this change did not touch could not be read, so a transform or test in it went uncounted: ${LEGACY_PATH}: a Transform must have an entity_id, a name, a source and a target`,
         },
       ],
-      untested: new Set(),
     });
   });
 
@@ -669,7 +624,6 @@ describe("planJob, an unchanged file at head that does not read", () => {
           message: `1 content file this change did not touch could not be read, so a transform or test in it went uncounted: ${head}:"transforms/a\\nb.yaml": a path with a newline cannot be read; rename the file`,
         },
       ],
-      untested: new Set(),
     });
   });
 
@@ -687,7 +641,6 @@ describe("planJob, an unchanged file at head that does not read", () => {
       snapshot: { base, head },
       checked: [{ entity_id: LEGACY_ID, name: "Legacy" }],
       warnings: [],
-      untested: new Set([LEGACY_ID]),
     });
   });
 
@@ -708,10 +661,6 @@ describe("planJob, an unchanged file at head that does not read", () => {
   });
 });
 
-function testWithModel(model: string): string {
-  return `entity_id: aRvM7DLesF1fOV4kRHidq\ntransform_id: ${TRANSFORM_ID}\nexpectations:\n- name: e\n  type: empty\nserdes/meta:\n- ${model}\n`;
-}
-
 describe("planJob, finding a transform or test however its model entry is written", () => {
   async function checkedForNewTestOf(model: string) {
     await repo.put(
@@ -725,16 +674,6 @@ describe("planJob, finding a transform or test however its model entry is writte
     return (await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).checked;
   }
 
-  async function untestedAfterEditWithUnchangedTest(testText: string) {
-    await repo.put(DAILY_PATH, dailyYaml("source:\n  type: query\n  query: SELECT 1\n"));
-    await repo.put(TEST_PATH, testText);
-    await repo.commitAll("a tested transform on main");
-    await repo.git("checkout", "-q", "-b", "feature");
-    await repo.put(DAILY_PATH, dailyYaml("source:\n  type: query\n  query: SELECT 2\n"));
-    await repo.commitAll("edit the query");
-    return (await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).untested;
-  }
-
   it("checks the transform of a new test when the transform writes its model plainly", async () => {
     expect(await checkedForNewTestOf(": Transform")).toEqual([DAILY]);
   });
@@ -745,60 +684,5 @@ describe("planJob, finding a transform or test however its model entry is writte
 
   it("checks the transform of a new test when the transform puts its model on the next line", async () => {
     expect(await checkedForNewTestOf(":\n    Transform")).toEqual([DAILY]);
-  });
-
-  it("finds an unchanged test whose model has a space before the colon", async () => {
-    expect(
-      await untestedAfterEditWithUnchangedTest(testWithModel("model : TransformTest")),
-    ).toEqual(ALL_TESTED);
-  });
-
-  it("finds an unchanged test that tags its model as a string", async () => {
-    expect(
-      await untestedAfterEditWithUnchangedTest(testWithModel("model: !!str TransformTest")),
-    ).toEqual(ALL_TESTED);
-  });
-
-  it("finds an unchanged test whose model has more than one space after the colon", async () => {
-    expect(
-      await untestedAfterEditWithUnchangedTest(
-        `{"entity_id": "aRvM7DLesF1fOV4kRHidq", "transform_id": "${TRANSFORM_ID}", "expectations": [{"name": "e", "type": "empty"}], "serdes/meta": [{"model":   "TransformTest"}]}\n`,
-      ),
-    ).toEqual(ALL_TESTED);
-  });
-
-  it("finds an unchanged test whose model key and value are single-quoted", async () => {
-    expect(
-      await untestedAfterEditWithUnchangedTest(testWithModel("'model': 'TransformTest'")),
-    ).toEqual(ALL_TESTED);
-  });
-});
-
-describe("planJob, a transform test with no expectations", () => {
-  const EMPTY_TEST_YAML = `entity_id: bRvM7DLesF1fOV4kRHidq\ntransform_id: ${TRANSFORM_ID}\nexpectations: []\nserdes/meta:\n- model: TransformTest\n`;
-
-  async function addOnBranch(files: ReadonlyMap<string, string>) {
-    await repo.git("checkout", "-q", "-b", "feature");
-    await repo.put(DAILY_PATH, TRANSFORM_YAML);
-    for (const [path, text] of files) {
-      await repo.put(path, text);
-    }
-    await repo.commitAll("add a transform and its tests");
-    return (await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).untested;
-  }
-
-  it("counts a new transform whose only test has no expectations as untested", async () => {
-    expect(await addOnBranch(new Map([[TEST_PATH, EMPTY_TEST_YAML]]))).toEqual(
-      new Set([TRANSFORM_ID]),
-    );
-  });
-
-  it("counts a new transform with one test without expectations and one with as tested", async () => {
-    const tests = new Map([
-      [TEST_PATH, EMPTY_TEST_YAML],
-      ["collections/transforms/daily/second.yaml", TEST_YAML],
-    ]);
-
-    expect(await addOnBranch(tests)).toEqual(ALL_TESTED);
   });
 });

@@ -32,10 +32,21 @@ const Snapshot = z.object({ base: z.string(), head: z.string() });
 export type Snapshot = z.infer<typeof Snapshot>;
 
 const Check = z.object({
-  kind: z.enum(["yaml", "cycles", "broken-refs", "transform-test"]),
+  kind: z.enum([
+    "yaml",
+    "cycles",
+    "broken-refs",
+    "transform-test",
+    "card-test",
+    "segment-test",
+    "measure-test",
+    "action-test",
+  ]),
   id: z.string(),
   label: z.string(),
 });
+
+export type CheckKind = z.infer<typeof Check>["kind"];
 
 const EventEnvelope = z.object({
   seq: z.number().int().nonnegative(),
