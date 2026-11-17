@@ -2,24 +2,23 @@
 
 Phase 1. Read the source application and write `inventory.md`. Nothing here calls Metabase, and nothing here judges a rule: record what the code does, with a citation, and leave tagging and checking to `spec.md`.
 
-Settings files hold connection details and secrets inline, and no filter reliably tells a secret from a setting. They are `.env*`, everything under a `config/` or `settings/` folder, `*settings.py`, `*.config` and `*.config.*` (`web.config`, `next.config.js`), `wp-config.php`, `application*.yml`, `application*.yaml`, `application*.properties`, `appsettings*.json`, `*.ini`, `knexfile.*`, `ormconfig.*`, `*compose*.yml`, `*compose*.yaml`, `.npmrc`, `phpunit.xml*`, `*.tfvars`, `*.tfstate`, and keys (`*.pem`, `*.key`). A route file under `config/` (`config/routes.*`) is code: open it by its path. From a settings file, read only the line that holds a value a widget leads into, and only when the user allowed it (`SKILL.md`, _Before you start_): `rg -n -w <key> <file>`, or `jq` / `yq` on the value's path, either one through the mask below. Never the whole file. When the line doesn't settle the value (the key appears twice, or the value runs over several lines), it is an `UNKNOWN`, recorded with its key for phase 4. Never read a `.env*` file, a key or an environment variable, allowed or not: they hold the secrets, and a checkout's `.env` holds a developer's values, not production's.
+Settings files hold connection details and secrets inline, and no filter reliably tells a secret from a setting. They are `.env*`, everything under a `config/` or `settings/` folder, `*settings.py`, `*.config` and `*.config.*` (`web.config`, `next.config.js`), `wp-config.php`, `application*.yml`, `application*.yaml`, `application*.properties`, `appsettings*.json`, `*.ini`, `knexfile.*`, `ormconfig.*`, `*compose*.yml`, `*compose*.yaml`, `.npmrc`, `phpunit.xml*`, `*.tfvars`, `*.tfstate`, and keys (`*.pem`, `*.key`). A route file under `config/` (`config/routes.*`) is code: open it by its path. From a settings file, read only the line that holds a value a widget leads into, and only when the user allowed it (`SKILL.md`, _Before you start_): `grep -nw <key> <file>`, or `jq` / `yq` on the value's path, either one through the mask below. Never the whole file. When the line doesn't settle the value (the key appears twice, or the value runs over several lines), it is an `UNKNOWN`, recorded with its key for phase 4. Never read a `.env*` file, a key or an environment variable, allowed or not: they hold the secrets, and a checkout's `.env` holds a developer's values, not production's.
 
-Search with `rg`, or `grep -rnE` where `rg` is missing. Always exclude dependency and build folders — `node_modules`, `vendor`, `dist`, `build`, `target`, `.git`, `storage`, `public/build`, and any folder the stack's ignore file lists as generated (a dependency's file is still read by its path when a call leads into it) — logs and temp folders (`log`, `logs`, `tmp`, `*.log`), and every settings file. `grep` reads the hidden and git-ignored files that `rg` skips, so the exclusions matter most there:
+Search with this command, which skips dependency and build folders, logs and temp folders, and every settings file. Add an `--exclude-dir` for any other folder the stack's ignore file lists as generated. A dependency's file is still read by its path when a call leads into it:
 
 ```bash
-rg --glob '!.env*' --glob '!**/config/**' --glob '!**/settings/**' --glob '!*settings.py' --glob '!*.config' \
-  --glob '!*.config.*' --glob '!wp-config.php' --glob '!application*.y*ml' --glob '!application*.properties' \
-  --glob '!appsettings*.json' --glob '!*.ini' --glob '!knexfile.*' --glob '!ormconfig.*' --glob '!*compose*.y*ml' \
-  --glob '!.npmrc' --glob '!phpunit.xml*' --glob '!*.tfvars' --glob '!*.tfstate' --glob '!*.pem' --glob '!*.key' \
-  --glob '!**/log/**' --glob '!**/logs/**' --glob '!**/tmp/**' --glob '!*.log' ...
-grep -rnE --exclude-dir=config --exclude-dir=settings --exclude-dir=log --exclude-dir=logs --exclude-dir=tmp \
+grep -rnE \
+  --exclude-dir=node_modules --exclude-dir=vendor --exclude-dir=dist --exclude-dir=build --exclude-dir=target \
+  --exclude-dir=.git --exclude-dir=storage --exclude-dir=config --exclude-dir=settings \
+  --exclude-dir=log --exclude-dir=logs --exclude-dir=tmp \
   --exclude='.env*' --exclude='*settings.py' --exclude='*.config' --exclude='*.config.*' --exclude=wp-config.php \
   --exclude='application*.y*ml' --exclude='application*.properties' --exclude='appsettings*.json' --exclude='*.ini' \
-  --exclude='knexfile.*' --exclude='ormconfig.*' --exclude='*compose*.y*ml' --exclude=.npmrc --exclude='phpunit.xml*' --exclude='*.tfvars' \
-  --exclude='*.tfstate' --exclude='*.pem' --exclude='*.key' --exclude='*.log' ...
+  --exclude='knexfile.*' --exclude='ormconfig.*' --exclude='*compose*.y*ml' --exclude=.npmrc --exclude='phpunit.xml*' \
+  --exclude='*.tfvars' --exclude='*.tfstate' --exclude='*.pem' --exclude='*.key' --exclude='*.log' \
+  '<pattern>' .
 ```
 
-A sweep's hits can hold a secret written into code. Pipe every sweep, and every search or read of a settings file or a doc, through this mask. It hides the credentials before an `@`, the rest of a table row that holds an address, a password quoted in prose, the default an environment variable for a secret is given, and the value after a password, secret, token or key name, without dropping lines:
+A search's hits can hold a secret written into code. Pipe every search, and every read of a settings file or a doc, through this mask. It hides the credentials before an `@`, the rest of a table row that holds an address, a password quoted in prose, the default an environment variable for a secret is given, and the value after a password, secret, token or key name, without dropping lines:
 
 ```bash
 sed -E -e "s#(://)[^[:space:]'\"]*@#\1***@#g" \
@@ -31,7 +30,7 @@ sed -E -e "s#(://)[^[:space:]'\"]*@#\1***@#g" \
   -e "s#([A-Za-z_.-]*([Pp]ass(word|wd)?|PASS(WORD|WD)?|[Pp]wd|PWD|[Ss]ecret|SECRET|[Tt]oken|TOKEN|[Aa]pi_?[Kk]ey|API_?KEY|_KEY|_key)[A-Za-z_]*[\"']?[[:space:]]*(=>|=|:)[[:space:]]*[\"']?)[^[:space:]\"';,=]+#\1***#g"
 ```
 
-A `.sql` file of `INSERT` or `COPY` rows is a dump of the data, not code: never read one. Seeders, factories and test fixtures are code: they show the data's shape, never its rows. Docs (a README, a setup guide) can print a connection URL or a password: read them only through searches for what you need, masked, never whole. A file the probe follows a widget into is read whole, as it is, unless it's a settings file: a value the widget takes from one you may not open is an `UNKNOWN`, recorded with its key and asked at phase 4. So is a value from an environment variable, with the default the code gives it (`env('STORE_TARGET', 40000)`): that default applies only where the variable is unset, so it is shown, never taken as the answer. Two files hold code beside a connection URL: read a `package.json` without its scripts (`jq '{dependencies, devDependencies}' package.json`), and a Prisma schema without its `datasource` block (`sed '/^datasource/,/^}/d' prisma/schema.prisma`), whose `provider` alone is `rg -n '^\s*provider' prisma/schema.prisma`.
+A `.sql` file of `INSERT` or `COPY` rows is a dump of the data, not code: never read one. Seeders, factories and test fixtures are code: they show the data's shape, never its rows. Docs (a README, a setup guide) can print a connection URL or a password: read them only through searches for what you need, masked, never whole. A file the probe follows a widget into is read whole, as it is, unless it's a settings file: a value the widget takes from one you may not open is an `UNKNOWN`, recorded with its key and asked at phase 4. So is a value from an environment variable, with the default the code gives it (`env('STORE_TARGET', 40000)`): that default applies only where the variable is unset, so it is shown, never taken as the answer. Two files hold code beside a connection URL: read a `package.json` without its scripts (`jq '{dependencies, devDependencies}' package.json`), and a Prisma schema without its `datasource` block (`sed '/^datasource/,/^}/d' prisma/schema.prisma`), whose `provider` alone is `grep -nE '^[[:space:]]*provider' prisma/schema.prisma`.
 
 ## Stack
 
@@ -41,17 +40,7 @@ Read the manifests' dependency lists at the root and in each package: `composer.
 
 Analytics are what the app shows to be read: a figure, a chart, or a table that reports on the data (a total, a ranking, a report's rows, a list of recent orders on a dashboard). A screen for managing records is not, even when it lists and counts them (a list with edit or delete, a form, an import), and neither is a scheduled email or an export file. A page that mixes both brings its widgets that report, and records its lists and actions as `records.md` says, for the user's choice in phase 2. Record each screen left out under _Not analytics_ in `inventory.md`, one line each, and name them in one line of the phase 4 memo, so the user sees where the line runs.
 
-One sweep per row. A hit is a lead, not a widget: open it and follow it. In a small app (a few controllers), reading every controller and view in full does the sweeps' work.
-
-| Look for                   | Patterns                                                                                                                                                               |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Routes, controllers, pages | `dashboard`, `analytics`, `report`, `stats`, `metrics`, `insights`, `kpi`, `overview` in route files, controller and page names                                        |
-| Chart libraries            | `Chart.js` / `new Chart(`, `echarts`, `Highcharts`, `ApexCharts`, `d3.`, `recharts`, `@nivo`, `plotly`, `google.visualization`, `vega`; also hand-drawn `<svg>`        |
-| SQL aggregates             | `SUM(`, `COUNT(`, `AVG(`, `GROUP BY`, `date_trunc`, `OVER (`, `WITH `, case-insensitive, in code and `.sql` files                                                      |
-| ORM and builder aggregates | `->sum(`, `->count(`, `->avg(`, `withCount`, `selectRaw`, `.aggregate(`, `annotate(`, `groupBy(`, `Sum(`, `Count(`, `func.sum`, `.groupBy(`                            |
-| Math in application code   | `array_sum`, `reduce(`, `->avg(`, `->sum(` on a collection, `.mapToDouble(`, loops that accumulate totals, percentage arithmetic (`* 100`, `/ total`)                  |
-| Constants                  | `target`, `goal`, `threshold`, `quota`, `budget`, `limit` in code and class constants; a value from a settings file or an environment variable, as the rules above say |
-| Scoping                    | auth middleware, policies, `user()->`, `current_user`, `request.user`, `tenant`, `owner`, `where(...user...)`, a filter applied from the session                       |
+Find each analytics page from the routes and the navigation, then every chart, KPI and table its views render. Then search for what that path misses: an endpoint a separate front end calls, a page whose access a middleware, policy or session filter decides. A hit is a lead, not a widget: open it and follow it. In a small app, reading every controller and view in full does this work.
 
 ## Following the data
 
@@ -62,7 +51,7 @@ For every chart, tile and table a view renders, follow the chain to the database
 3. **The handler:** the controller, service or resolver, and every function it calls on the way. A handler in another repository or service: ask the user for its path, noting the widget's rules as not yet read until you have read it.
 4. **The computation:** the SQL, the ORM or builder chain (written out as the query it produces), or the code that computes it from fetched rows. Note what happens to the rows after the query: sorting, slicing, rounding, arithmetic, merges of two queries.
 5. **Stop at the database:** the tables and columns read. The code that opens the connection is not followed: it can hold the credentials, and the engine comes from _Data sources_.
-6. **What fills them:** for each table and column read, the code that writes it. Search for the table's name and its model's with `rg -l`, which prints file names only, and open the code among the hits (a migration, a job, a model), never a dump of rows: its inserts, updates and upserts, a view's or materialized view's definition and what refreshes it, a trigger, a count kept up to date on each save (Rails' `counter_cache`, a save hook or signal). Where only the app's own screens and APIs write it as people work, stop. Where a scheduled job, a command, a save hook, a trigger or a view's definition computes what the widget reads (a `daily_stats` table, an `orders_count` column), the number's rules are there: follow that code from step 3, citing file:line, and record its schedule and the clock and zone it reads. A schedule in a settings file follows the rules above. Code in another repository or service is asked for as step 3 says; a table no code in the source writes is recorded as filled from outside it.
+6. **What fills them:** for each table and column read, the code that writes it. Search for the table's name and its model's with the search command and `-l`, which prints file names only, and open the code among the hits (a migration, a job, a model), never a dump of rows: its inserts, updates and upserts, a view's or materialized view's definition and what refreshes it, a trigger, a count kept up to date on each save (Rails' `counter_cache`, a save hook or signal). Where only the app's own screens and APIs write it as people work, stop. Where a scheduled job, a command, a save hook, a trigger or a view's definition computes what the widget reads (a `daily_stats` table, an `orders_count` column), the number's rules are there: follow that code from step 3, citing file:line, and record its schedule and the clock and zone it reads. A schedule in a settings file follows the rules above. Code in another repository or service is asked for as step 3 says; a table no code in the source writes is recorded as filled from outside it.
 
 Record along the way:
 
