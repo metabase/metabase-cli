@@ -3,6 +3,8 @@ import type {
   TransformTestRunResult,
 } from "@metabase/client/domain/transform-test";
 
+import { pluralize } from "./pluralize";
+
 type ExpectationStatus = TransformTestExpectationResult["status"];
 
 function namesOf(
@@ -14,7 +16,8 @@ function namesOf(
 
 export function testRunSummary(label: string, result: TransformTestRunResult): string {
   if (result.status === "passed") {
-    return `${label} passed ${result.expectations.length} expectation(s).`;
+    const count = pluralize(result.expectations.length, "expectation", "expectations");
+    return `${label} passed ${count}.`;
   }
   const failed = namesOf(result.expectations, "failed");
   const errored = namesOf(result.expectations, "error");
@@ -22,5 +25,8 @@ export function testRunSummary(label: string, result: TransformTestRunResult): s
     failed.length > 0 ? `failed: ${failed.join(", ")}` : null,
     errored.length > 0 ? `could not run: ${errored.join(", ")}` : null,
   ].filter((part) => part !== null);
+  if (parts.length === 0) {
+    return `${label} ${result.status}.`;
+  }
   return `${label} ${result.status} — ${parts.join("; ")}.`;
 }
