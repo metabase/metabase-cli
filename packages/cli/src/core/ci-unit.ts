@@ -110,7 +110,8 @@ function sessionStop(error: unknown): StageStop | null {
   return null;
 }
 
-// A request every later check depends on stops the stage when it fails. Null means a bug or an interrupt, which the caller rethrows.
+// A request every later check depends on stops the stage when it fails. Null means a bug or an
+// interrupt, which the caller rethrows.
 export function lookupStop(error: unknown): StageStop | null {
   const stop = sessionStop(error);
   if (stop !== null) {
@@ -172,12 +173,4 @@ export function testFailure(error: unknown, request: TestRequest): UnitFailure |
     return { kind: "stop", stop: { code: failure.error_code, message: failure.message } };
   }
   return { kind: "check", verdict: "error", detail: failure };
-}
-
-// A server without a test type, or without its route yet, holds no test of it.
-export function isUnsupportedTestType(error: unknown): error is CapabilityError | HttpError {
-  return (
-    error instanceof CapabilityError ||
-    (error instanceof HttpError && error.kind === "route-missing")
-  );
 }

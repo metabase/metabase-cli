@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { DataTestType } from "@metabase/client/domain/data-test";
 import { InternalError } from "@metabase/client/errors";
 
 export const CI_EVENT_VERSION = 2;
@@ -32,15 +33,9 @@ const Snapshot = z.object({ base: z.string(), head: z.string() });
 export type Snapshot = z.infer<typeof Snapshot>;
 
 const Check = z.object({
-  kind: z.enum([
-    "yaml",
-    "cycles",
-    "broken-refs",
-    "transform-test",
-    "card-test",
-    "segment-test",
-    "measure-test",
-    "action-test",
+  kind: z.union([
+    z.enum(["yaml", "cycles", "broken-refs"]),
+    z.templateLiteral([DataTestType, "-test"]),
   ]),
   id: z.string(),
   label: z.string(),

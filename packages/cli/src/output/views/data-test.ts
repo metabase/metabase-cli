@@ -1,16 +1,9 @@
 import { z } from "zod";
 
-import { ActionTest } from "@metabase/client/domain/action-test";
-import { CardTest } from "@metabase/client/domain/card-test";
 import { dataTestFields, DataTestType } from "@metabase/client/domain/data-test";
-import { MeasureTest } from "@metabase/client/domain/measure-test";
-import { SegmentTest } from "@metabase/client/domain/segment-test";
-import { TransformTest } from "@metabase/client/domain/transform-test";
 
+import type { AnyTest } from "../../core/data-test";
 import type { ResourceView } from "../view";
-
-export const AnyTest = z.union([TransformTest, CardTest, SegmentTest, MeasureTest, ActionTest]);
-export type AnyTest = z.infer<typeof AnyTest>;
 
 // Only the fields every test type shares, so a compact test reads the same whatever its type.
 const AnyTestCompact = z
