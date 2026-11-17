@@ -6,11 +6,12 @@ import { InternalError, ValidationError } from "@metabase/client/errors";
 
 import { parseYaml } from "../runtime/yaml";
 import {
+  type AffectedEntity,
   type ClassifiedChange,
   type ContentFile,
-  affectedTransforms,
+  affectedEntities,
   classifyContentFile,
-  headTransforms,
+  headEntities,
   parseNameStatus,
   isContentPath,
   noContentChangesWarning,
@@ -21,20 +22,40 @@ import {
 const TRANSFORM_ID = "7JwIkkAG-06-nsl4jzsaq";
 const OTHER_TRANSFORM_ID = "7XqqzlsonSq4KFyOvtrAm";
 
+const CARD_ID = "Ss3mHTaWs8T-VLPYEeraG";
+
 const TRANSFORM: ContentFile = {
-  kind: "transform",
+  kind: "entity",
+  type: "transform",
   entityId: TRANSFORM_ID,
   name: "Daily Order Summary",
 };
 const OTHER_TRANSFORM: ContentFile = {
-  kind: "transform",
+  kind: "entity",
+  type: "transform",
   entityId: OTHER_TRANSFORM_ID,
   name: "Hourly Stats",
+};
+const CARD: ContentFile = {
+  kind: "entity",
+  type: "card",
+  entityId: CARD_ID,
+  name: "Revenue by day",
 };
 const TEST: ContentFile = {
   kind: "transform-test",
   transformId: TRANSFORM_ID,
+  hasExpectations: true,
 };
+const EMPTY_TEST: ContentFile = {
+  kind: "transform-test",
+  transformId: TRANSFORM_ID,
+  hasExpectations: false,
+};
+
+function transform(entityId: string): AffectedEntity {
+  return { type: "transform", entityId };
+}
 const OTHER: ContentFile = { kind: "other" };
 
 const CHANGED_PATH = "transforms/t1/t1.yaml";
@@ -173,7 +194,7 @@ describe("parseNameStatus", () => {
 
 // A document every parser reads the same.
 function classifyDocument(path: string, document: unknown): ContentFile {
-  return classifyContentFile(path, document);
+  return classifyContentFile(path, { yaml12: document, yaml11: document });
 }
 
 describe("classifyContentFile", () => {
@@ -221,7 +242,7 @@ describe("classifyContentFile", () => {
     ];
 
     expect(documents.map((document) => classifyDocument("transforms/t1/t.yaml", document))).toEqual(
-      [TEST, TEST, TEST],
+      [EMPTY_TEST, EMPTY_TEST, EMPTY_TEST],
     );
   });
 
@@ -236,6 +257,29 @@ describe("classifyContentFile", () => {
     expect(classify).toThrow(
       "transforms/t1/t.yaml: a TransformTest must name its transform_id, and its expectations must be a list",
     );
+  });
+
+  it.each([
+    ["Card", "card"],
+    ["Segment", "segment"],
+    ["Measure", "measure"],
+    ["Action", "action"],
+  ] as const)("classifies a %s as an entity a test can check", (model, type) => {
+    expect(
+      classifyDocument("collections/c/x.yaml", {
+        entity_id: CARD_ID,
+        name: "Revenue by day",
+        "serdes/meta": [{ model }],
+      }),
+    ).toEqual({ ...CARD, type });
+  });
+
+  it("refuses a card without an entity_id", () => {
+    const classify = () =>
+      classifyDocument("collections/c/x.yaml", { name: "r", "serdes/meta": [{ model: "Card" }] });
+
+    expect(classify).toThrow(ValidationError);
+    expect(classify).toThrow("collections/c/x.yaml: a Card must have an entity_id and a name");
   });
 
   it("classifies any other serialized model as other", () => {
@@ -329,72 +373,94 @@ describe("classifyContentFile", () => {
   });
 });
 
-describe("affectedTransforms", () => {
+describe("affectedEntities", () => {
   it("includes a transform present only at head", () => {
-    expect(affectedTransforms([change(null, TRANSFORM)])).toEqual([TRANSFORM_ID]);
+    expect(affectedEntities([change(null, TRANSFORM)])).toEqual([transform(TRANSFORM_ID)]);
   });
 
   it("includes a transform changed in place", () => {
-    expect(affectedTransforms([change(TRANSFORM, TRANSFORM)])).toEqual([TRANSFORM_ID]);
+    expect(affectedEntities([change(TRANSFORM, TRANSFORM)])).toEqual([transform(TRANSFORM_ID)]);
   });
 
   it("includes the covered transform when only its test changed", () => {
-    expect(affectedTransforms([change(TEST, TEST)])).toEqual([TRANSFORM_ID]);
+    expect(affectedEntities([change(TEST, TEST)])).toEqual([transform(TRANSFORM_ID)]);
   });
 
   it("includes the covered transform when its test was deleted", () => {
-    expect(affectedTransforms([change(TEST, null)])).toEqual([TRANSFORM_ID]);
+    expect(affectedEntities([change(TEST, null)])).toEqual([transform(TRANSFORM_ID)]);
   });
 
   it("includes both transforms when a test moves from one transform to another", () => {
-    const moved: ContentFile = { ...TEST, transformId: OTHER_TRANSFORM_ID };
+    const moved: ContentFile = {
+      kind: "transform-test",
+      transformId: OTHER_TRANSFORM_ID,
+      hasExpectations: true,
+    };
 
-    expect(affectedTransforms([change(TEST, moved)])).toEqual([TRANSFORM_ID, OTHER_TRANSFORM_ID]);
+    expect(affectedEntities([change(TEST, moved)])).toEqual([
+      transform(TRANSFORM_ID),
+      transform(OTHER_TRANSFORM_ID),
+    ]);
   });
 
   it("drops a deleted transform along with the tests deleted with it", () => {
-    expect(affectedTransforms([change(TRANSFORM, null), change(TEST, null)])).toEqual([]);
+    expect(affectedEntities([change(TRANSFORM, null), change(TEST, null)])).toEqual([]);
   });
 
   it("keeps a transform that a rename split into a deletion and an addition", () => {
-    expect(affectedTransforms([change(TRANSFORM, null), change(null, TRANSFORM)])).toEqual([
-      TRANSFORM_ID,
+    expect(affectedEntities([change(TRANSFORM, null), change(null, TRANSFORM)])).toEqual([
+      transform(TRANSFORM_ID),
     ]);
   });
 
   it("treats a file whose entity_id changed as one transform removed and another added", () => {
-    expect(affectedTransforms([change(TRANSFORM, OTHER_TRANSFORM)])).toEqual([OTHER_TRANSFORM_ID]);
+    expect(affectedEntities([change(TRANSFORM, OTHER_TRANSFORM)])).toEqual([
+      transform(OTHER_TRANSFORM_ID),
+    ]);
   });
 
   it("drops an edited test whose transform is gone at head", () => {
-    expect(affectedTransforms([change(TRANSFORM, null), change(TEST, TEST)])).toEqual([]);
+    expect(affectedEntities([change(TRANSFORM, null), change(TEST, TEST)])).toEqual([]);
   });
 
   it("lists a transform once however many of its files changed", () => {
     expect(
-      affectedTransforms([change(TRANSFORM, TRANSFORM), change(TEST, TEST), change(null, TEST)]),
-    ).toEqual([TRANSFORM_ID]);
+      affectedEntities([change(TRANSFORM, TRANSFORM), change(TEST, TEST), change(null, TEST)]),
+    ).toEqual([transform(TRANSFORM_ID)]);
   });
 
-  it("ignores files that are neither transforms nor transform tests", () => {
-    expect(affectedTransforms([change(OTHER, OTHER)])).toEqual([]);
+  it("includes a changed card", () => {
+    expect(affectedEntities([change(CARD, CARD)])).toEqual([{ type: "card", entityId: CARD_ID }]);
+  });
+
+  it("keeps entities of two models that share an entity id apart", () => {
+    const sameIdCard: ContentFile = { ...CARD, entityId: TRANSFORM_ID };
+
+    expect(affectedEntities([change(null, TRANSFORM), change(null, sameIdCard)])).toEqual([
+      transform(TRANSFORM_ID),
+      { type: "card", entityId: TRANSFORM_ID },
+    ]);
+  });
+
+  it("ignores files that are neither entities nor transform tests", () => {
+    expect(affectedEntities([change(OTHER, OTHER)])).toEqual([]);
   });
 
   it("refuses a transform whose file no longer reads as content at head", () => {
-    const affected = () => affectedTransforms([change(TRANSFORM, OTHER)]);
+    const affected = () => affectedEntities([change(TRANSFORM, OTHER)]);
 
     expect(affected).toThrow(ValidationError);
     expect(affected).toThrow(
-      `${CHANGED_PATH}: a Transform or TransformTest at base no longer reads as one at head`,
+      `${CHANGED_PATH}: an entity or transform test at base no longer reads as one at head`,
     );
   });
 
   it("refuses a transform test whose file no longer reads as content at head", () => {
-    const affected = () => affectedTransforms([change(TEST, OTHER)]);
+    const affected = () => affectedEntities([change(TEST, OTHER)]);
 
     expect(affected).toThrow(ValidationError);
     expect(affected).toThrow(
-      `${CHANGED_PATH}: a Transform or TransformTest at base no longer reads as one at head`,
+      `${CHANGED_PATH}: an entity or transform test at base no longer reads as one at head`,
     );
   });
 
@@ -404,11 +470,13 @@ describe("affectedTransforms", () => {
       z.unknown(),
     );
     const affected = () =>
-      affectedTransforms([change(TRANSFORM, classifyContentFile(CHANGED_PATH, merged))]);
+      affectedEntities([
+        change(TRANSFORM, classifyContentFile(CHANGED_PATH, { yaml12: merged, yaml11: merged })),
+      ]);
 
     expect(affected).toThrow(ValidationError);
     expect(affected).toThrow(
-      `${CHANGED_PATH}: a Transform or TransformTest at base no longer reads as one at head`,
+      `${CHANGED_PATH}: an entity or transform test at base no longer reads as one at head`,
     );
   });
 });
@@ -484,18 +552,24 @@ describe("isContentPath", () => {
   });
 });
 
-describe("headTransforms", () => {
-  it("names each transform at head by its entity id", () => {
-    expect(headTransforms([TRANSFORM, OTHER_TRANSFORM])).toEqual(
+describe("headEntities", () => {
+  it("keys each entity at head by its model and entity id", () => {
+    expect(headEntities([TRANSFORM, CARD]).byKey).toEqual(
       new Map([
-        [TRANSFORM_ID, "Daily Order Summary"],
-        [OTHER_TRANSFORM_ID, "Hourly Stats"],
+        [`transform:${TRANSFORM_ID}`, TRANSFORM],
+        [`card:${CARD_ID}`, CARD],
       ]),
     );
   });
 
-  it("ignores files that are not transforms or tests, and absent sides", () => {
-    expect(headTransforms([OTHER, null])).toEqual(new Map());
+  it("counts a transform as tested only by a test with expectations", () => {
+    const moved: ContentFile = { ...EMPTY_TEST, transformId: OTHER_TRANSFORM_ID };
+
+    expect(headEntities([TEST, moved]).tested).toEqual(new Set([TRANSFORM_ID]));
+  });
+
+  it("ignores files that are not entities or tests, and absent sides", () => {
+    expect(headEntities([OTHER, null])).toEqual({ byKey: new Map(), tested: new Set() });
   });
 });
 

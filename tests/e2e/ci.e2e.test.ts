@@ -319,7 +319,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
           type: "job.start",
           v: 1,
           snapshot: { base, head },
-          checked: [{ entity_id: entityId, name: "Order totals" }],
+          checked: [{ type: "transform", entity_id: entityId, name: "Order totals" }],
           warnings: [],
         },
         ...lintStage(),

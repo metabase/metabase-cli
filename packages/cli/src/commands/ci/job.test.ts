@@ -78,7 +78,7 @@ describe("runJob", () => {
         type: "job.start",
         v: 1,
         snapshot: { base, head },
-        checked: [{ entity_id: TRANSFORM_ID, name: "Daily" }],
+        checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Daily" }],
         warnings: [
           {
             code: "uncommitted-content",
