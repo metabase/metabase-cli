@@ -119,7 +119,7 @@ function duration(ms: number): string {
   return `${(ms / MS_PER_SECOND).toFixed(1)}s`;
 }
 
-// A transform test's result, an entity's lint errors, or else a message. The runner wrote the
+// A test's result, an entity's lint errors, or else a message. The runner wrote the
 // detail, so one that is none of these is a bug in the runner.
 function detailLines(event: CheckResult, maxRows: number): string[] {
   const result = TransformTestRunResult.safeParse(event.detail);

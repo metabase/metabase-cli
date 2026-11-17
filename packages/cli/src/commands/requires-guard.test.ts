@@ -335,10 +335,16 @@ describe("every command declares exactly the client methods it reaches", () => {
     expect(reached).toEqual({
       "commands/ci/lint-stage.ts": ["lint.report"],
       "commands/ci/unit-stage.ts": [
-        "eidTranslation.translate",
-        "transform.get",
         "transformTest.list",
+        "cardTest.list",
+        "segmentTest.list",
+        "measureTest.list",
+        "actionTest.list",
         "transformTest.run",
+        "cardTest.run",
+        "segmentTest.run",
+        "measureTest.run",
+        "actionTest.run",
       ],
       "commands/dashboard/preflight.ts": ["dashboard.checkCardReferences"],
       "commands/git-sync/sync-scope.ts": ["gitSync.remoteUrl"],

@@ -34,7 +34,6 @@ const OTHER_TRANSFORM: ContentFile = {
 const TEST: ContentFile = {
   kind: "transform-test",
   transformId: TRANSFORM_ID,
-  hasExpectations: true,
 };
 const OTHER: ContentFile = { kind: "other" };
 
@@ -210,7 +209,7 @@ describe("classifyContentFile", () => {
     ).toEqual(TEST);
   });
 
-  it("marks a transform test whose expectations are missing, null or empty as having none", () => {
+  it("reads a transform test whose expectations are missing, null or empty", () => {
     const documents = [
       { transform_id: TRANSFORM_ID, "serdes/meta": [{ model: "TransformTest" }] },
       {
@@ -222,11 +221,7 @@ describe("classifyContentFile", () => {
     ];
 
     expect(documents.map((document) => classifyDocument("transforms/t1/t.yaml", document))).toEqual(
-      [
-        { ...TEST, hasExpectations: false },
-        { ...TEST, hasExpectations: false },
-        { ...TEST, hasExpectations: false },
-      ],
+      [TEST, TEST, TEST],
     );
   });
 
@@ -499,33 +494,8 @@ describe("headTransforms", () => {
     );
   });
 
-  it("collects the transforms a test at head covers", () => {
-    expect(headTransforms([TEST]).tested).toEqual(new Set([TRANSFORM_ID]));
-  });
-
-  it("does not count a transform as tested when its only test has no expectations", () => {
-    const empty: ContentFile = { ...TEST, hasExpectations: false };
-
-    expect(headTransforms([TRANSFORM, empty])).toEqual({
-      names: new Map([[TRANSFORM_ID, "Daily Order Summary"]]),
-      tested: new Set(),
-    });
-  });
-
-  it("counts a transform as tested when one of its tests has expectations", () => {
-    const empty: ContentFile = { ...TEST, hasExpectations: false };
-
-    expect(headTransforms([empty, TEST, empty])).toEqual({
-      names: new Map(),
-      tested: new Set([TRANSFORM_ID]),
-    });
-  });
-
   it("ignores files that are not transforms or tests, and absent sides", () => {
-    expect(headTransforms([OTHER, null])).toEqual({
-      names: new Map(),
-      tested: new Set(),
-    });
+    expect(headTransforms([OTHER, null])).toEqual({ names: new Map() });
   });
 });
 
@@ -538,14 +508,14 @@ describe("noContentChangesWarning", () => {
       ]),
     ).toEqual({
       code: "no-content-changes",
-      message: "the change touches no Metabase content files, so no transform test ran",
+      message: "the change touches no Metabase content files",
     });
   });
 
   it("warns on an empty diff", () => {
     expect(noContentChangesWarning([])).toEqual({
       code: "no-content-changes",
-      message: "the change touches no Metabase content files, so no transform test ran",
+      message: "the change touches no Metabase content files",
     });
   });
 

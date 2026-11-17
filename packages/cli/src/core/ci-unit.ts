@@ -1,10 +1,7 @@
-import {
-  type TransformTestRefusalCode,
-  type TransformTestRunResult,
-  isTransformTestCode,
-} from "@metabase/client/domain/transform-test";
+import { isDataTestCode } from "@metabase/client/domain/data-test";
+import type { TransformTestRunResult } from "@metabase/client/domain/transform-test";
 import { NetworkError, ResponseShapeError, TimeoutError } from "@metabase/client/errors";
-import { HttpError, isHttpNotFound } from "@metabase/client/http/errors";
+import { HttpError } from "@metabase/client/http/errors";
 import { CapabilityError } from "@metabase/client/version/capability-error";
 
 import type { StageStop, Verdict } from "./ci-events";
@@ -31,13 +28,13 @@ export interface TestRefusal {
   tables: string[] | null;
 }
 
-// Metabase refuses a test it will not run with a `transform-test.*` code. A code newer than this
-// client is still a refusal, unlike a network or server failure.
+// Metabase refuses a test it will not run with a code its type prefixes (`card-test.*`). A code
+// newer than this client is still a refusal, unlike a network or server failure.
 export function testRefusal(error: unknown): TestRefusal | null {
   if (
     !(error instanceof HttpError) ||
     error.errorCode === null ||
-    !isTransformTestCode(error.errorCode)
+    !isDataTestCode(error.errorCode)
   ) {
     return null;
   }
@@ -48,15 +45,21 @@ export function testRefusal(error: unknown): TestRefusal | null {
   };
 }
 
-// Metabase could not run the transform under test, or could not parse its source: the change is
-// the likelier cause. Every other refusal, known to this client or not, refuses the test.
-const CHANGE_FAILURE_CODES: ReadonlySet<string> = new Set([
-  "transform-test.transform-failed",
-  "transform-test.unparseable-source",
-] satisfies TransformTestRefusalCode[]);
+// Metabase could not run the query under test, or could not parse its source: the change is the
+// likelier cause. Every test type prefixes the same names (`card-test.query-failed`), and Metabase 65
+// names a query that would not run `transform-failed`. Every other refusal, known to this client or
+// not, refuses the test.
+const CHANGE_FAILURE_NAMES: ReadonlySet<string> = new Set([
+  "query-failed",
+  "transform-failed",
+  "unparseable-source",
+]);
+
+const CODE_SEPARATOR = ".";
 
 export function refusalVerdict(refusal: TestRefusal): Extract<Verdict, "failed" | "refused"> {
-  return CHANGE_FAILURE_CODES.has(refusal.error_code) ? "failed" : "refused";
+  const name = refusal.error_code.slice(refusal.error_code.indexOf(CODE_SEPARATOR) + 1);
+  return CHANGE_FAILURE_NAMES.has(name) ? "failed" : "refused";
 }
 
 // A check the CLI refuses on its own account.
@@ -64,29 +67,6 @@ export interface CiRefusal {
   error_code: string;
   message: string;
 }
-
-export const TRANSFORM_NOT_ON_INSTANCE: CiRefusal = {
-  error_code: "ci.transform-not-on-instance",
-  message:
-    "the transform is in the branch but not on the Metabase instance; load the branch into it first",
-};
-
-export const INVALID_ENTITY_ID: CiRefusal = {
-  error_code: "ci.invalid-entity-id",
-  message: "the transform's entity_id in the branch is not a valid entity id",
-};
-
-export const NO_TESTS_ON_INSTANCE: CiRefusal = {
-  error_code: "ci.no-tests-on-instance",
-  message:
-    "the branch has a test for this transform, but the Metabase instance lists none, so no test ran; load the branch into it first",
-};
-
-const TRANSFORM_UNREADABLE: CiRefusal = {
-  error_code: "ci.transform-unreadable",
-  message:
-    "the CI identity cannot read this transform, so Metabase hides its tests: reading it needs query permission on every table it reads",
-};
 
 const TEST_RUN_FORBIDDEN: CiRefusal = {
   error_code: "ci.test-run-forbidden",
@@ -154,8 +134,8 @@ export function connectStop(error: unknown, notDone: string): StageStop | null {
   };
 }
 
-// The requests the stage makes for one transform, in order.
-export type TransformRequest = "read" | "list" | "run";
+// The requests the stage makes for each test type, in order.
+export type TransformRequest = "list" | "run";
 
 interface CheckFailure {
   kind: "check";
@@ -171,7 +151,6 @@ interface StopFailure {
 export type UnitFailure = CheckFailure | StopFailure;
 
 const REFUSAL_FOR_FORBIDDEN: Readonly<Record<TransformRequest, CiRefusal | null>> = {
-  read: TRANSFORM_UNREADABLE,
   list: null,
   run: TEST_RUN_FORBIDDEN,
 };
@@ -191,9 +170,6 @@ export function transformFailure(error: unknown, request: TransformRequest): Uni
   const forbiddenRefusal = forbidden ? REFUSAL_FOR_FORBIDDEN[request] : null;
   if (forbiddenRefusal !== null) {
     return { kind: "check", verdict: "refused", detail: forbiddenRefusal };
-  }
-  if (request === "read" && isHttpNotFound(error)) {
-    return { kind: "check", verdict: "refused", detail: TRANSFORM_NOT_ON_INSTANCE };
   }
   const failure = requestFailure(error);
   if (failure === null) {
