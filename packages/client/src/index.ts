@@ -576,6 +576,47 @@ export {
   TransformTestTable,
   TransformTestUpdateInput,
 } from "./domain/transform-test";
+export {
+  DATA_TEST_TYPES,
+  DataTestParameters,
+  DataTestRun,
+  DataTestRunStatus,
+  DataTestType,
+  isDataTestCode,
+} from "./domain/data-test";
+export {
+  ActionTest,
+  ActionTestCompact,
+  ActionTestCreateInput,
+  ActionTestUpdateInput,
+} from "./domain/action-test";
+export {
+  CardTest,
+  CardTestCompact,
+  CardTestCreateInput,
+  CardTestUpdateInput,
+} from "./domain/card-test";
+export {
+  MeasureTest,
+  MeasureTestCompact,
+  MeasureTestCreateInput,
+  MeasureTestUpdateInput,
+} from "./domain/measure-test";
+export {
+  SegmentTest,
+  SegmentTestCompact,
+  SegmentTestCreateInput,
+  SegmentTestUpdateInput,
+} from "./domain/segment-test";
+export {
+  TestSuite,
+  TestSuiteCompact,
+  TestSuiteCreateInput,
+  TestSuiteMember,
+  TestSuiteRun,
+  TestSuiteRunEntry,
+  TestSuiteUpdateInput,
+} from "./domain/test-suite";
 export { UploadResult, UploadUpdateAction, UploadUpdateResult } from "./domain/upload";
 export {
   CurrentUser,
