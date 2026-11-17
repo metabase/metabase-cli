@@ -33,13 +33,13 @@ export function actionTestResource(transport: Transport) {
     return { data, total: null };
   }
 
-  /** Read a action test by id. */
+  /** Read an action test by id. */
   async function get(id: number, options: RequestOptions = {}): Promise<ActionTest> {
     return transport.requestParsed(ActionTest, `/api/ee/action-test/${id}`, { ...options });
   }
 
   /**
-   * Create a action test. The server validates the inputs and expectations against the action before
+   * Create an action test. The server validates the inputs and expectations against the action before
    * saving, and refuses with an `HttpError` whose `errorCode` starts with `action-test.`.
    */
   async function create(
@@ -53,7 +53,7 @@ export function actionTestResource(transport: Transport) {
     });
   }
 
-  /** Update a action test by id, leaving omitted fields unchanged. */
+  /** Update an action test by id, leaving omitted fields unchanged. */
   async function update(
     id: number,
     params: ActionTestUpdateInput,
@@ -66,7 +66,7 @@ export function actionTestResource(transport: Transport) {
     });
   }
 
-  /** Delete a action test by id. */
+  /** Delete an action test by id. */
   async function remove(id: number, options: RequestOptions = {}): Promise<void> {
     await transport.requestRaw(`/api/ee/action-test/${id}`, {
       ...options,

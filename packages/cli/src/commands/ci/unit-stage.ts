@@ -3,17 +3,19 @@ import { performance } from "node:perf_hooks";
 import type { MetabaseClient } from "@metabase/client/client";
 import { DATA_TEST_TYPES, type DataTestType } from "@metabase/client/domain/data-test";
 import type { TransformTestRunResult } from "@metabase/client/domain/transform-test";
-import { HttpError } from "@metabase/client/http/errors";
-import { CapabilityError } from "@metabase/client/version/capability-error";
 
 import type { CheckOutcome, CiStage, StageStop } from "../../core/ci-events";
-import { connectStop, testVerdict, transformFailure } from "../../core/ci-unit";
+import {
+  connectStop,
+  isUnsupportedTestType,
+  testFailure,
+  testVerdict,
+  type TestRequest,
+} from "../../core/ci-unit";
+import type { AnyTest } from "../../output/views/data-test";
 import { interruptSignal } from "../../runtime/interrupt";
 
-export interface InstanceTest {
-  id: number;
-  name: string;
-}
+export type InstanceTest = Pick<AnyTest, "id" | "name">;
 
 export interface UnitStagePort {
   listTests: (type: DataTestType) => Promise<readonly InstanceTest[]>;
@@ -72,11 +74,26 @@ export function clientPort(client: MetabaseClient): UnitStagePort {
 
 type Report = (check: CheckOutcome) => void;
 
-function isUnsupportedType(error: unknown): error is CapabilityError | HttpError {
-  return (
-    error instanceof CapabilityError ||
-    (error instanceof HttpError && error.kind === "route-missing")
-  );
+type TestCheck = CheckOutcome["check"];
+
+// Reports a failed request as its check's verdict, or answers the stop it calls for; rethrows a bug
+// or an interrupt.
+function reportFailure(
+  error: unknown,
+  request: TestRequest,
+  check: TestCheck,
+  ms: number,
+  report: Report,
+): StageStop | null {
+  const failure = testFailure(error, request);
+  if (failure === null) {
+    throw error;
+  }
+  if (failure.kind === "stop") {
+    return failure.stop;
+  }
+  report({ check, verdict: failure.verdict, warnings: [], ms, detail: failure.detail });
+  return null;
 }
 
 interface Listed {
@@ -84,53 +101,19 @@ interface Listed {
   tests: readonly InstanceTest[];
 }
 
-interface TypeListing {
-  listed: Listed[];
-  unsupported: (CapabilityError | HttpError)[];
+interface ListFailure {
+  type: DataTestType;
+  error: unknown;
+  ms: number;
 }
 
-// A type the server does not support holds no test, so it is left out, whether the client explains
-// the refusal or the server has no route for it yet; a server supporting none has nothing to check,
-// which stops the stage.
-async function listEveryType(
-  port: UnitStagePort,
-  report: Report,
-): Promise<TypeListing | StageStop> {
-  const listing: TypeListing = { listed: [], unsupported: [] };
-  for (const type of DATA_TEST_TYPES) {
-    const started = port.nowMs();
-    try {
-      listing.listed.push({ type, tests: await port.listTests(type) });
-    } catch (error) {
-      if (isUnsupportedType(error)) {
-        listing.unsupported.push(error);
-        continue;
-      }
-      const failure = transformFailure(error, "list");
-      if (failure === null) {
-        throw error;
-      }
-      if (failure.kind === "stop") {
-        return failure.stop;
-      }
-      report({
-        check: { kind: `${type}-test`, id: type, label: `${type} tests` },
-        verdict: failure.verdict,
-        warnings: [],
-        ms: port.nowMs() - started,
-        detail: failure.detail,
-      });
-    }
+async function listType(type: DataTestType, port: UnitStagePort): Promise<Listed | ListFailure> {
+  const started = port.nowMs();
+  try {
+    return { type, tests: await port.listTests(type) };
+  } catch (error) {
+    return { type, error, ms: port.nowMs() - started };
   }
-  const [first] = listing.unsupported;
-  if (listing.unsupported.length === DATA_TEST_TYPES.length && first !== undefined) {
-    return { code: "ci.unsupported-server", message: first.message };
-  }
-  return listing;
-}
-
-function isStop(value: TypeListing | StageStop): value is StageStop {
-  return "code" in value;
 }
 
 // A failed run costs that test alone; a failure every later request would repeat stops the stage.
@@ -147,15 +130,47 @@ async function runListed(
       const ms = port.nowMs() - started;
       report({ check, verdict: testVerdict(outcome), warnings: [], ms, detail: outcome });
     } catch (error) {
-      const failure = transformFailure(error, "run");
-      if (failure === null) {
-        throw error;
+      const stop = reportFailure(error, "run", check, port.nowMs() - started, report);
+      if (stop !== null) {
+        return stop;
       }
-      if (failure.kind === "stop") {
-        return failure.stop;
-      }
-      const ms = port.nowMs() - started;
-      report({ check, verdict: failure.verdict, warnings: [], ms, detail: failure.detail });
+    }
+  }
+  return null;
+}
+
+// A type the server does not support holds no test, so it is left out, whether the client explains
+// the refusal or the server has no route for it yet; a server supporting none has nothing to check,
+// which stops the stage. Every type is listed before any test runs, so a stop a listing calls for
+// comes before the runs.
+async function runEveryType(port: UnitStagePort, report: Report): Promise<StageStop | null> {
+  const listings = await Promise.all(DATA_TEST_TYPES.map((type) => listType(type, port)));
+  const listed: Listed[] = [];
+  const unsupported: Error[] = [];
+  for (const listing of listings) {
+    if ("tests" in listing) {
+      listed.push(listing);
+      continue;
+    }
+    const { type, error, ms } = listing;
+    if (isUnsupportedTestType(error)) {
+      unsupported.push(error);
+      continue;
+    }
+    const check = { kind: `${type}-test` as const, id: type, label: `${type} tests` };
+    const stop = reportFailure(error, "list", check, ms, report);
+    if (stop !== null) {
+      return stop;
+    }
+  }
+  const [first] = unsupported;
+  if (unsupported.length === DATA_TEST_TYPES.length && first !== undefined) {
+    return { code: "ci.unsupported-server", message: first.message };
+  }
+  for (const each of listed) {
+    const stop = await runListed(each, port, report);
+    if (stop !== null) {
+      return stop;
     }
   }
   return null;
@@ -178,17 +193,7 @@ export function unitStage(connect: () => Promise<UnitStagePort>): CiStage {
         }
         return stop;
       }
-      const listing = await listEveryType(port, report);
-      if (isStop(listing)) {
-        return listing;
-      }
-      for (const listed of listing.listed) {
-        const stop = await runListed(listed, port, report);
-        if (stop !== null) {
-          return stop;
-        }
-      }
-      return null;
+      return runEveryType(port, report);
     },
   };
 }

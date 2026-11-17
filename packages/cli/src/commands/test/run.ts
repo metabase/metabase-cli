@@ -1,10 +1,9 @@
 import { TransformTestRunResult } from "@metabase/client/domain/transform-test";
-import { DEFAULT_TIMEOUT_MS } from "@metabase/client/http/transport";
 
 import { renderVerdict, type VerdictFailure } from "../../output/render";
 import { transformTestRunResultView } from "../../output/views/transform-test";
 import { interruptSignal } from "../../runtime/interrupt";
-import { connectionFlags, outputFlags, profileFlag } from "../flags";
+import { connectionFlags, outputFlags, profileFlag, requestTimeoutFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { parseTestRef, testRefText } from "../test-ref";
 import { defineMetabaseCommand } from "../runtime";
@@ -24,11 +23,7 @@ export default defineMetabaseCommand({
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
-    timeout: {
-      type: "string",
-      description: "Request timeout in ms",
-      default: String(DEFAULT_TIMEOUT_MS),
-    },
+    ...requestTimeoutFlag,
     id: { type: "string", description: "The test, such as card-test:34", required: true },
   },
   outputSchema: TransformTestRunResult,

@@ -28,11 +28,5 @@ export const ActionTestCreateInput = z
   .strict();
 export type ActionTestCreateInput = z.infer<typeof ActionTestCreateInput>;
 
-export const ActionTestUpdateInput = z
-  .object({
-    action_id: z.number().int().positive().optional(),
-    ...z.object(dataTestBodyFields).partial().shape,
-    parameters: DataTestParameters.optional(),
-  })
-  .strict();
+export const ActionTestUpdateInput = ActionTestCreateInput.partial().strict();
 export type ActionTestUpdateInput = z.infer<typeof ActionTestUpdateInput>;

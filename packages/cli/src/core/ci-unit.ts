@@ -63,7 +63,7 @@ export function refusalVerdict(refusal: TestRefusal): Extract<Verdict, "failed" 
 }
 
 // A check the CLI refuses on its own account.
-export interface CiRefusal {
+interface CiRefusal {
   error_code: string;
   message: string;
 }
@@ -99,7 +99,7 @@ function requestFailure(error: unknown): RequestFailure | null {
 }
 
 // Failures every later request would repeat: a credential Metabase rejects, or a server without
-// transform testing.
+// the feature the request needs.
 function sessionStop(error: unknown): StageStop | null {
   if (error instanceof CapabilityError) {
     return { code: "ci.unsupported-server", message: error.message };
@@ -110,8 +110,7 @@ function sessionStop(error: unknown): StageStop | null {
   return null;
 }
 
-// A request every later check depends on, such as the entity-id lookup, stops the stage when it
-// fails. Null means a bug or an interrupt, which the caller rethrows.
+// A request every later check depends on stops the stage when it fails. Null means a bug or an interrupt, which the caller rethrows.
 export function lookupStop(error: unknown): StageStop | null {
   const stop = sessionStop(error);
   if (stop !== null) {
@@ -135,7 +134,7 @@ export function connectStop(error: unknown, notDone: string): StageStop | null {
 }
 
 // The requests the stage makes for each test type, in order.
-export type TransformRequest = "list" | "run";
+export type TestRequest = "list" | "run";
 
 interface CheckFailure {
   kind: "check";
@@ -148,16 +147,11 @@ interface StopFailure {
   stop: StageStop;
 }
 
-export type UnitFailure = CheckFailure | StopFailure;
-
-const REFUSAL_FOR_FORBIDDEN: Readonly<Record<TransformRequest, CiRefusal | null>> = {
-  list: null,
-  run: TEST_RUN_FORBIDDEN,
-};
+type UnitFailure = CheckFailure | StopFailure;
 
 // Null means a bug or an interrupt, which the caller rethrows. A failed run costs that test alone,
 // since the next run may succeed; a network failure before any run means the server is gone.
-export function transformFailure(error: unknown, request: TransformRequest): UnitFailure | null {
+export function testFailure(error: unknown, request: TestRequest): UnitFailure | null {
   const stop = sessionStop(error);
   if (stop !== null) {
     return { kind: "stop", stop };
@@ -167,16 +161,23 @@ export function transformFailure(error: unknown, request: TransformRequest): Uni
     return { kind: "check", verdict: refusalVerdict(refusal), detail: refusal };
   }
   const forbidden = error instanceof HttpError && error.kind === "forbidden";
-  const forbiddenRefusal = forbidden ? REFUSAL_FOR_FORBIDDEN[request] : null;
-  if (forbiddenRefusal !== null) {
-    return { kind: "check", verdict: "refused", detail: forbiddenRefusal };
+  if (forbidden && request === "run") {
+    return { kind: "check", verdict: "refused", detail: TEST_RUN_FORBIDDEN };
   }
   const failure = requestFailure(error);
   if (failure === null) {
     return null;
   }
-  if (error instanceof NetworkError && request !== "run") {
+  if (error instanceof NetworkError && request === "list") {
     return { kind: "stop", stop: { code: failure.error_code, message: failure.message } };
   }
   return { kind: "check", verdict: "error", detail: failure };
+}
+
+// A server without a test type, or without its route yet, holds no test of it.
+export function isUnsupportedTestType(error: unknown): error is CapabilityError | HttpError {
+  return (
+    error instanceof CapabilityError ||
+    (error instanceof HttpError && error.kind === "route-missing")
+  );
 }

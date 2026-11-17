@@ -247,19 +247,15 @@ export function affectedTransforms(changes: readonly ClassifiedChange[]): string
 // `git grep -E`.
 export const TRANSFORM_MODEL_PATTERN = "Transform";
 
-export interface HeadTransforms {
-  names: Map<string, string>;
-}
-
 // The transforms among files at head, each by name.
-export function headTransforms(files: readonly (ContentFile | null)[]): HeadTransforms {
-  const atHead: HeadTransforms = { names: new Map() };
+export function headTransforms(files: readonly (ContentFile | null)[]): Map<string, string> {
+  const names = new Map<string, string>();
   for (const file of files) {
     if (file?.kind === "transform") {
-      atHead.names.set(file.entityId, file.name);
+      names.set(file.entityId, file.name);
     }
   }
-  return atHead;
+  return names;
 }
 
 // Mirrors Metabase's `legal-top-level-paths` and `shared-top-level-paths`

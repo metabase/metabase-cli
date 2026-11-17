@@ -486,7 +486,7 @@ describe("isContentPath", () => {
 
 describe("headTransforms", () => {
   it("names each transform at head by its entity id", () => {
-    expect(headTransforms([TRANSFORM, OTHER_TRANSFORM]).names).toEqual(
+    expect(headTransforms([TRANSFORM, OTHER_TRANSFORM])).toEqual(
       new Map([
         [TRANSFORM_ID, "Daily Order Summary"],
         [OTHER_TRANSFORM_ID, "Hourly Stats"],
@@ -495,7 +495,7 @@ describe("headTransforms", () => {
   });
 
   it("ignores files that are not transforms or tests, and absent sides", () => {
-    expect(headTransforms([OTHER, null])).toEqual({ names: new Map() });
+    expect(headTransforms([OTHER, null])).toEqual(new Map());
   });
 });
 

@@ -1,11 +1,10 @@
 import { DATA_TEST_TYPES, DataTestType } from "@metabase/client/domain/data-test";
 import { ConfigError } from "@metabase/client/errors";
-import { HttpError } from "@metabase/client/http/errors";
-import { CapabilityError } from "@metabase/client/version/capability-error";
 
+import { isUnsupportedTestType } from "../../core/ci-unit";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
-import { TestListItem, testListItemView } from "../../output/views/data-test";
+import { type AnyTest, TestListItem, testListItemView } from "../../output/views/data-test";
 import { windowList } from "../../output/window";
 import { interruptSignal } from "../../runtime/interrupt";
 import { connectionFlags, listFlags, outputFlags, profileFlag } from "../flags";
@@ -15,11 +14,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export const TestListEnvelope = listEnvelopeSchema(TestListItem);
 
-interface TestRow {
-  id: number;
-  name: string;
-  description: string | null;
-}
+type TestRow = Pick<AnyTest, "id" | "name" | "description">;
 
 function row(type: DataTestType, targetId: number, test: TestRow): TestListItem {
   return {
@@ -92,17 +87,13 @@ export default defineMetabaseCommand({
       }
     }
 
-    // A server without a test type, or without its route yet, holds no test of it.
     async function testsOfEveryType(): Promise<TestListItem[]> {
       const lists = await Promise.all(
         DATA_TEST_TYPES.map(async (type) => {
           try {
             return await testsOf(type, undefined);
           } catch (error) {
-            if (
-              error instanceof CapabilityError ||
-              (error instanceof HttpError && error.kind === "route-missing")
-            ) {
+            if (isUnsupportedTestType(error)) {
               return [];
             }
             throw error;
