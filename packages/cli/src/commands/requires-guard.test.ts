@@ -335,6 +335,12 @@ describe("every command declares exactly the client methods it reaches", () => {
     expect(reached).toEqual({
       "commands/ci/lint-stage.ts": ["lint.report"],
       "commands/ci/unit-stage.ts": [
+        "eidTranslation.translate",
+        "transform.get",
+        "card.get",
+        "segment.get",
+        "measure.get",
+        "dataAction.get",
         "transformTest.list",
         "cardTest.list",
         "segmentTest.list",

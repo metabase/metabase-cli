@@ -1,7 +1,7 @@
 import { isDataTestCode } from "@metabase/client/domain/data-test";
 import type { TransformTestRunResult } from "@metabase/client/domain/transform-test";
 import { NetworkError, ResponseShapeError, TimeoutError } from "@metabase/client/errors";
-import { HttpError } from "@metabase/client/http/errors";
+import { HttpError, isHttpNotFound } from "@metabase/client/http/errors";
 import { CapabilityError } from "@metabase/client/version/capability-error";
 
 import type { StageStop, Verdict } from "./ci-events";
@@ -63,10 +63,33 @@ export function refusalVerdict(refusal: TestRefusal): Extract<Verdict, "failed" 
 }
 
 // A check the CLI refuses on its own account.
-interface CiRefusal {
+export interface CiRefusal {
   error_code: string;
   message: string;
 }
+
+export const ENTITY_NOT_ON_INSTANCE: CiRefusal = {
+  error_code: "ci.entity-not-on-instance",
+  message:
+    "the entity is in the branch but not on the Metabase instance; load the branch into it first",
+};
+
+export const INVALID_ENTITY_ID: CiRefusal = {
+  error_code: "ci.invalid-entity-id",
+  message: "the entity's entity_id in the branch is not a valid entity id",
+};
+
+export const NO_TESTS_ON_INSTANCE: CiRefusal = {
+  error_code: "ci.no-tests-on-instance",
+  message:
+    "the branch has a test for this transform, but the Metabase instance lists none, so no test ran; load the branch into it first",
+};
+
+const ENTITY_UNREADABLE: CiRefusal = {
+  error_code: "ci.entity-unreadable",
+  message:
+    "the CI identity cannot read this entity, so Metabase hides its tests: reading it needs query permission on every table it reads",
+};
 
 const TEST_RUN_FORBIDDEN: CiRefusal = {
   error_code: "ci.test-run-forbidden",
@@ -134,8 +157,8 @@ export function connectStop(error: unknown, skipped: string): StageStop | null {
   };
 }
 
-// The requests the stage makes for each test type, in order.
-export type TestRequest = "list" | "run";
+// The requests the stage makes, in order: reading a changed entity, listing tests, running one.
+export type TestRequest = "read" | "list" | "run";
 
 interface CheckFailure {
   kind: "check";
@@ -150,8 +173,14 @@ interface StopFailure {
 
 type UnitFailure = CheckFailure | StopFailure;
 
+const REFUSAL_FOR_FORBIDDEN: Readonly<Record<TestRequest, CiRefusal | null>> = {
+  read: ENTITY_UNREADABLE,
+  list: null,
+  run: TEST_RUN_FORBIDDEN,
+};
+
 // Null means a bug or an interrupt, which the caller rethrows. A failed run costs that test alone,
-// since the next run may succeed; a network failure before any run means the server is gone.
+// since the next run may succeed; a network failure before a run means the server is gone.
 export function testFailure(error: unknown, request: TestRequest): UnitFailure | null {
   const stop = sessionStop(error);
   if (stop !== null) {
@@ -162,14 +191,18 @@ export function testFailure(error: unknown, request: TestRequest): UnitFailure |
     return { kind: "check", verdict: refusalVerdict(refusal), detail: refusal };
   }
   const forbidden = error instanceof HttpError && error.kind === "forbidden";
-  if (forbidden && request === "run") {
-    return { kind: "check", verdict: "refused", detail: TEST_RUN_FORBIDDEN };
+  const forbiddenRefusal = forbidden ? REFUSAL_FOR_FORBIDDEN[request] : null;
+  if (forbiddenRefusal !== null) {
+    return { kind: "check", verdict: "refused", detail: forbiddenRefusal };
+  }
+  if (request === "read" && isHttpNotFound(error)) {
+    return { kind: "check", verdict: "refused", detail: ENTITY_NOT_ON_INSTANCE };
   }
   const failure = requestFailure(error);
   if (failure === null) {
     return null;
   }
-  if (error instanceof NetworkError && request === "list") {
+  if (error instanceof NetworkError && request !== "run") {
     return { kind: "stop", stop: { code: failure.error_code, message: failure.message } };
   }
   return { kind: "check", verdict: "error", detail: failure };

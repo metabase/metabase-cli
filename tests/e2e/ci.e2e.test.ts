@@ -84,7 +84,7 @@ describe("ci e2e", () => {
     return dir;
   }
 
-  it("streams one event per line, and writes them to --results, running both stages even for a job with no transform to check", async () => {
+  it("streams one event per line, and writes them to --results, running only the lint stage for a job with nothing to check", async () => {
     const base = await repo.git("rev-parse", "HEAD");
     await repo.put(
       "transforms/draft.yaml",
@@ -136,21 +136,9 @@ describe("ci e2e", () => {
           ),
         },
       },
-      { ...ANY_ENVELOPE, seq: 3, type: "stage.start", stage: "unit" },
       {
         ...ANY_ENVELOPE,
-        seq: 4,
-        type: "stage.end",
-        stage: "unit",
-        status: "errored",
-        stopped: {
-          code: "ci.no-credential",
-          message: expect.stringContaining("no Metabase credential, so the tests did not run"),
-        },
-      },
-      {
-        ...ANY_ENVELOPE,
-        seq: 5,
+        seq: 3,
         type: "job.end",
         state: "errored",
         counts: { checks: 0, warnings: 2 },
@@ -236,7 +224,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     });
   }
 
-  it("passes the unit stage with no check when the instance holds no test, whatever the branch adds", async () => {
+  it("refuses a changed transform the instance does not hold", async () => {
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
       "transforms/absent.yaml",
@@ -247,7 +235,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
 
     const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
 
-    expect(result.exitCode).toBe(lintGap === null ? 0 : 1);
+    expect(result.exitCode).toBe(1);
     const events = result.stdout
       .trimEnd()
       .split("\n")
@@ -255,11 +243,24 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     const expected = [
       ...lintStage(),
       { type: "stage.start", stage: "unit" },
-      { type: "stage.end", stage: "unit", status: "passed", stopped: null },
+      {
+        type: "check.result",
+        stage: "unit",
+        check: { kind: "transform-test", id: TRANSFORM_ID, label: "Absent" },
+        verdict: "refused",
+        warnings: [],
+        ms: 0,
+        detail: {
+          error_code: "ci.entity-not-on-instance",
+          message:
+            "the entity is in the branch but not on the Metabase instance; load the branch into it first",
+        },
+      },
+      { type: "stage.end", stage: "unit", status: "errored", stopped: null },
       {
         type: "job.end",
-        state: jobState("passed"),
-        counts: { checks: SAVED_QUERY_CHECKS, warnings: 0 },
+        state: "errored",
+        counts: { checks: SAVED_QUERY_CHECKS + 1, warnings: 0 },
       },
     ];
     expect(events.slice(1)).toEqual(sequenced(expected, 1));
@@ -327,7 +328,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
         {
           type: "check.result",
           stage: "unit",
-          check: { kind: "transform-test", id: testId, label: "total adds tax" },
+          check: { kind: "transform-test", id: testId, label: "Order totals: total adds tax" },
           verdict,
           warnings: [],
           ms: expect.any(Number),
