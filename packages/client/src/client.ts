@@ -9,6 +9,12 @@ import {
 import { ConfigError } from "./errors";
 import { isThenable } from "./predicates";
 import { apiKeyResource } from "./resources/api-key";
+import { testSuiteResource } from "./resources/test-suite";
+import { segmentTestResource } from "./resources/segment-test";
+import { measureTestResource } from "./resources/measure-test";
+import { dataTestRunResource } from "./resources/data-test-run";
+import { cardTestResource } from "./resources/card-test";
+import { actionTestResource } from "./resources/action-test";
 import { cardResource } from "./resources/card";
 import { collectionResource } from "./resources/collection";
 import { contentTranslationResource } from "./resources/content-translation";
@@ -106,6 +112,12 @@ function surfaceOn(transport: Transport) {
     transformPython: transformPythonResource(transport),
     transformTag: transformTagResource(transport),
     transformTest: transformTestResource(transport),
+    cardTest: cardTestResource(transport),
+    segmentTest: segmentTestResource(transport),
+    measureTest: measureTestResource(transport),
+    actionTest: actionTestResource(transport),
+    dataTestRun: dataTestRunResource(transport),
+    testSuite: testSuiteResource(transport),
     upload: uploadResource(transport),
     user: userResource(transport),
     workspaceInstance: workspaceInstanceResource(transport),

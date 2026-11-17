@@ -73,6 +73,16 @@ import {
   TransformUpdateInput,
   UserCreateInput,
   WorkspaceCreateInput,
+  ActionTestCreateInput,
+  ActionTestUpdateInput,
+  CardTestCreateInput,
+  CardTestUpdateInput,
+  MeasureTestCreateInput,
+  MeasureTestUpdateInput,
+  SegmentTestCreateInput,
+  SegmentTestUpdateInput,
+  TestSuiteCreateInput,
+  TestSuiteUpdateInput,
 } from "./index";
 import type {
   ClientCredentials,
@@ -170,6 +180,16 @@ const writePath = {
   TransformUpdateInput: pin<TransformUpdateInput>(TransformUpdateInput),
   UserCreateInput: pin<UserCreateInput>(UserCreateInput),
   WorkspaceCreateInput: pin<WorkspaceCreateInput>(WorkspaceCreateInput),
+  ActionTestCreateInput: pin<ActionTestCreateInput>(ActionTestCreateInput),
+  ActionTestUpdateInput: pin<ActionTestUpdateInput>(ActionTestUpdateInput),
+  CardTestCreateInput: pin<CardTestCreateInput>(CardTestCreateInput),
+  CardTestUpdateInput: pin<CardTestUpdateInput>(CardTestUpdateInput),
+  MeasureTestCreateInput: pin<MeasureTestCreateInput>(MeasureTestCreateInput),
+  MeasureTestUpdateInput: pin<MeasureTestUpdateInput>(MeasureTestUpdateInput),
+  SegmentTestCreateInput: pin<SegmentTestCreateInput>(SegmentTestCreateInput),
+  SegmentTestUpdateInput: pin<SegmentTestUpdateInput>(SegmentTestUpdateInput),
+  TestSuiteCreateInput: pin<TestSuiteCreateInput>(TestSuiteCreateInput),
+  TestSuiteUpdateInput: pin<TestSuiteUpdateInput>(TestSuiteUpdateInput),
 };
 
 const INPUT_SUFFIX = "Input";
