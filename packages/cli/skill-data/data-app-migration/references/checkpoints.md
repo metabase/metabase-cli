@@ -33,7 +33,7 @@ Lead with what the yes allows, then the rest:
 - when actions move (`records.md`), the tables they write, and turning data actions on for their database, which lets anyone with access to the actions write to them: this yes covers `data-app-actions`' question;
 - the branch the work goes to, the `git switch` in the repository, the exports, the release's push and import, the admin API key the dev preview needs and, where an existing `<repo>/.env.local` holds a refused key, moving it aside unread until handoff (`data-app`, _Dev preview_): one yes covers each of them for this plan, where `data-app` or `git-sync` would ask for it too;
 - where transform tests are unavailable, the rules that stay `unverified`, and whether a read-only replica exists to compare on (`parity.md`, _The comparison on a copy_), no by default;
-- the counts of objects (transforms, published tables, segments, measures), the app's slug, and the path to `plan.md` for the full list;
+- the counts of objects (transforms and the tests kept beside them, published tables, segments, measures), the app's slug, and the path to `plan.md` for the full list;
 - "Build this plan?".
 
 ## After phase 5

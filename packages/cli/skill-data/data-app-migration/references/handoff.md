@@ -3,19 +3,19 @@
 However the migration ends, released or stopped. First, without asking:
 
 - what `data-app` asks at handoff (_Dev preview_);
-- delete the fixture folder (`plan.md`), and, where transform tests are available, check that `mb transform-test list --json` lists none of this migration's tests;
+- delete the fixture folder (`plan.md`), and run each test `plan.md` lists as kept once more (`mb transform-test run <id>`): each passes;
 - when build and target are one instance, check that the job for the tag `decisions.md` chose is active (`mb transform-job list`), and report it.
 
 Then the handoff, in this order:
 
 1. **Where the app is:** each app's URL on the build instance, `<build-url>/apps/<slug>`, and, when the target is another instance, `<target-url>/apps/<slug>`, which works after the import. Then the one thing that must happen before anyone but admins opens it, when there is one: the data access of step 2, or the row-level security of step 6.
 2. **The steps left to the user:** only those that apply, in this order and renumbered from 1, each named exactly (_The steps_).
-3. **The proof:** `parity.md`'s closing counts, with its path; the `unverified` rules; how many rules have expected values that rest on your reading of the code alone, with no worked example from the source's own tests; each widget and scope pending a scoped user's check; the `D<n>` behind each accepted difference; the findings, each built as the source does it; the widgets left out, with why; and, when actions moved, each action and how it moved, and each left in the source, with why (`records.md`).
+3. **The proof:** `parity.md`'s closing counts, with its path; the `unverified` rules; how many rules have expected values that rest on your reading of the code alone, with no worked example from the source's own tests; each widget and scope pending a scoped user's check; the `D<n>` behind each accepted difference; the findings, each built as the source does it; the transform tests kept, each with its transform, which the export carries and anyone can run again (`mb transform-test run <id>`, writing temporary tables in the transform's database), and each deleted, with why, which `mb ci run` fails as untested; the widgets left out, with why; and, when actions moved, each action and how it moved, and each left in the source, with why (`records.md`).
 4. **What was synced,** to which branch, at which commit.
 5. **Official numbers:** none was made; any number the app shows can become an official Library metric, which the whole instance and Metabot see, when the user asks (`data-workflow`).
 6. **The gaps:** anything a skill or command couldn't do, with the command and its output, and anything the app needs that only this machine has (an SDK installed from a local file), and the change to the source's backend each `BACKEND` action waits on.
 
-Last, one question when there is anything to remove. Released: each transform you created that no kept widget reads, with its table; on a yes, delete both (`transform`). Stopped before release: everything the migration created (transforms and their tables, published tables, segments, measures, a Library created or synced) and each branch it switched to; on a yes, delete and unpublish them, and track again the branch `plan.md` recorded.
+Last, one question when there is anything to remove. Released: each transform you created that no kept widget reads, with its table and its test; on a yes, delete them (`transform`). Stopped before release: everything the migration created (transforms with their tables and tests, published tables, segments, measures, a Library created or synced) and each branch it switched to; on a yes, delete and unpublish them, and track again the branch `plan.md` recorded.
 
 ## The steps
 

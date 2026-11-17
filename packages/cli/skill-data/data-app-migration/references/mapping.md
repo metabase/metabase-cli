@@ -56,7 +56,7 @@ Publish a raw source table only when it holds no credential and no personal data
   2. a Python transform, where a runner is configured
   3. a small hand-kept copy, recorded with how stale it may get
 
-- Where transform tests are available, each transform is pinned by a fixture test before it runs on real tables (`parity.md`, _Transform fixture tests_).
+- Where transform tests are available, each transform is pinned by a fixture test before it runs on real tables, and the test stays with it (`parity.md`, _Transform fixture tests_).
 
 ## Date windows
 
