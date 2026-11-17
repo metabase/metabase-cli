@@ -42,6 +42,16 @@ What the migration learns goes in `.scratch/data-app-migration/` at the root of 
 
 Write each file the moment its contents are known; a later phase reads the file, never your memory of it. A resumed migration starts by reading them. Transform test bodies go elsewhere: in a temp folder outside every repository (`references/parity.md`, _The fixture folder_).
 
+The working files never leave this checkout, so what a later change needs is committed with each app: `data_apps/<slug>/MIGRATION.md`, written before its release commit (phase 9) and brought up to date by each change (`references/change.md`). It holds only what touches that app, in this order:
+
+1. the source: its repository as its remote names it, the commit migrated, and the pages the app came from;
+2. each widget, list and action that moved, by its `W<n>`, `L<n>` or `A<n>` and its label: its rules as `spec.md` states them, each with the source's file:line; its data path (`plan.md`); and what pins each rule: a transform test and the expectation's name, an app unit test, the compiled-SQL check of a named segment, measure or question, or `unverified`;
+3. the decisions, each `D<n>` with its question, its answer, whether the user or a default gave it, and the widgets it touches;
+4. the findings, each built as the source does it, with what pins it;
+5. what stayed behind: each widget left out and each action left in the source, and each transform test deleted, each with why.
+
+It holds no connection's details, no login, key or token, and no row of the application's data.
+
 ## The flow
 
 The references this flow names are in this skill's `references/` folder. Print one with the passages the build instance can't use left out:
@@ -92,7 +102,7 @@ The filter follows the profile's last probe, so run `mb auth list` first, which 
 
 7. **App.** Build each app `plan.md` briefs, with `data-app` and the skills it names (`references/mapping.md`, _The app's brief_). Its tests include the ones `references/parity.md`, _App unit tests_, asks for. A data-side change the app needs goes back through phase 6 for the objects it touches, `plan.md` updated, and is asked before it is built when it adds a transform or publishes a table (`references/checkpoints.md`, _After phase 5_).
 8. **Parity** → `parity.md`. Read `references/parity.md`. Every rule of every kept widget is pinned by a check that passed, or is `unverified` or pending a scoped user's check. An open rule stops the release: fix the transform, segment, measure or app until its check passes, or, where no construct can reproduce it, raise it as an `APPROX` with the attempt that failed.
-9. **Release.** `data-app`, _Release_, for each app, on the build instance, pushing to the branch the work goes to (`plan.md`). When the target is another instance, look for the source database there by its tables, as phase 2, step 1 does, with `--profile <target>`. A match under the display name `inventory.md` recorded needs nothing. No match: offer to connect it (`references/connect.md`, with `--profile <target>`). Anything else, such as another name or a partial match, goes into the handoff. On the target you write nothing yourself. After the import, `mb git-sync dirty` lists nothing: an app it lists is exported to the branch the work goes to once more, so the merge carries it.
+9. **Release.** Write each app's `MIGRATION.md` (_Working files_), then `data-app`, _Release_, for each app, on the build instance, pushing to the branch the work goes to (`plan.md`); the release commit carries the file. When the target is another instance, look for the source database there by its tables, as phase 2, step 1 does, with `--profile <target>`. A match under the display name `inventory.md` recorded needs nothing. No match: offer to connect it (`references/connect.md`, with `--profile <target>`). Anything else, such as another name or a partial match, goes into the handoff. On the target you write nothing yourself. After the import, `mb git-sync dirty` lists nothing: an app it lists is exported to the branch the work goes to once more, so the merge carries it.
 
 ## Changing a migrated app
 
