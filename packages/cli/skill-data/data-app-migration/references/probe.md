@@ -62,6 +62,7 @@ For every chart, tile and table a view renders, follow the chain to the database
 3. **The handler:** the controller, service or resolver, and every function it calls on the way. A handler in another repository or service: ask the user for its path, noting the widget's rules as not yet read until you have read it.
 4. **The computation:** the SQL, the ORM or builder chain (written out as the query it produces), or the code that computes it from fetched rows. Note what happens to the rows after the query: sorting, slicing, rounding, arithmetic, merges of two queries.
 5. **Stop at the database:** the tables and columns read. The code that opens the connection is not followed: it can hold the credentials, and the engine comes from _Data sources_.
+6. **What fills them:** for each table and column read, the code that writes it. Search for the table's name and its model's with `rg -l`, which prints file names only, and open the code among the hits (a migration, a job, a model), never a dump of rows: its inserts, updates and upserts, a view's or materialized view's definition and what refreshes it, a trigger, a count kept up to date on each save (Rails' `counter_cache`, a save hook or signal). Where only the app's own screens and APIs write it as people work, stop. Where a scheduled job, a command, a save hook, a trigger or a view's definition computes what the widget reads (a `daily_stats` table, an `orders_count` column), the number's rules are there: follow that code from step 3, citing file:line, and record its schedule and the clock and zone it reads. A schedule in a settings file follows the rules above. Code in another repository or service is asked for as step 3 says; a table no code in the source writes is recorded as filled from outside it.
 
 Record along the way:
 
@@ -97,7 +98,7 @@ From migrations, model or entity classes, or a schema file: each table the analy
   - page `P<n>`, or every page that shows it; label as shown, kind (KPI / chart / table)
   - shows: the values it displays (a figure, a series and its grain, a table's columns and which rows)
   - data chain: one line per hop, each with file:line
-  - tables and columns read
+  - tables and columns read, and for each one the source's own code computes, what fills it (_Following the data_, step 6)
   - rules, raw and untagged: every filter, exclusion, join, date column, clock, rounding and constant the chain applies
   - parameters: the filters and inputs it takes
   - scoping: whose rows it shows to whom, and which roles see the widget at all

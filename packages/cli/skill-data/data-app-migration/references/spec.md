@@ -26,10 +26,11 @@ Go through each `W<n>` with this list. Each rule found is a line under the widge
 - **Scoping:** the condition that limits rows for a viewer, and whether it changes what a figure means (a customer's "first order" counted per shop rather than overall). Say what a viewer whose scoping value is null sees: a check that skips the filter on null shows that viewer everything, which the handoff reproduces with a group of unrestricted access (`mapping.md`, _Scoping_). Say which pages and widgets only some roles see.
 - **Late facts:** a number counting something that happens after the event it is dated by (a refund, a cancellation, a repeat order) undercounts the newest windows until those facts arrive. Say so, with how long the code lets them take (a refund window), or that it doesn't say.
 - **Static data:** a value the app shows as current but nothing updates (stock that sales never decrement) is stated as such.
+- **Data the source fills itself** (`probe.md`, _Following the data_, step 6): the rules of the code that fills it, through this same list, its schedule, and what the schedule does to the figure (a day appears the morning after; a refund recorded after its day's run never reaches that day's row).
 - **Consequences:** a projection that treats a partial day as whole, a partial current period always shown below target — the effect a rule has on what the viewer reads, beside the rule.
 - **The business's timezone:** where the business works (`app.timezone`, the locale, an address in the code or seed) against the timezone the code cuts periods in. A mismatch is a finding.
 
-Late facts, static data, consequences and the business's timezone are notes beside the rules: parity pins the rules they follow from, not them.
+Late facts, static data, consequences and the business's timezone are notes beside the rules: parity pins the rules they follow from, not them. So are the rules of the code that fills a table while the app reads that table as it is (`mapping.md`, _Data path_): read for findings, and pinned by nothing, since the source runs them. Rebuilt in a transform, they are the widget's rules.
 
 ## What the data holds, without reading it
 
