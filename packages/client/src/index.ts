@@ -563,51 +563,33 @@ export {
   isTransformTestCode,
   isTransformTestRefusalCode,
   TransformTest,
-  TransformTestColumn,
   TransformTestCompact,
   TransformTestCreateInput,
-  TransformTestExpectation,
-  TransformTestExpectationResult,
-  TransformTestInput,
   TransformTestRefusalCode,
-  TransformTestResultColumn,
-  TransformTestRow,
-  TransformTestRunResult,
-  TransformTestTable,
   TransformTestUpdateInput,
 } from "./domain/transform-test";
 export {
+  DATA_TEST_SCHEMAS,
   DATA_TEST_TYPES,
+  type DataTest,
+  DataTestColumn,
+  DataTestCompact,
+  DataTestDefinition,
+  DataTestExpectation,
+  DataTestExpectationResult,
+  DataTestInput,
   DataTestParameters,
+  type DataTestPatch,
+  DataTestResultColumn,
+  DataTestRow,
   DataTestRun,
+  DataTestRunResult,
   DataTestRunStatus,
+  DataTestTable,
   DataTestType,
   isDataTestCode,
+  testedEntityId,
 } from "./domain/data-test";
-export {
-  ActionTest,
-  ActionTestCompact,
-  ActionTestCreateInput,
-  ActionTestUpdateInput,
-} from "./domain/action-test";
-export {
-  CardTest,
-  CardTestCompact,
-  CardTestCreateInput,
-  CardTestUpdateInput,
-} from "./domain/card-test";
-export {
-  MeasureTest,
-  MeasureTestCompact,
-  MeasureTestCreateInput,
-  MeasureTestUpdateInput,
-} from "./domain/measure-test";
-export {
-  SegmentTest,
-  SegmentTestCompact,
-  SegmentTestCreateInput,
-  SegmentTestUpdateInput,
-} from "./domain/segment-test";
 export {
   TestSuite,
   TestSuiteCompact,

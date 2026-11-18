@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { createClient } from "@metabase/client/client";
-import type { DataTestType } from "@metabase/client/domain/data-test";
-import type { TransformTestRunResult } from "@metabase/client/domain/transform-test";
+import type { DataTestRunResult, DataTestType } from "@metabase/client/domain/data-test";
 import { ConfigError } from "@metabase/client/errors";
 import { HttpError } from "@metabase/client/http/errors";
 import type { ClientCredentials } from "@metabase/client/http/transport";
@@ -25,7 +24,7 @@ import {
   unitStage,
 } from "./unit-stage";
 
-const FAILED_RUN: TransformTestRunResult = {
+const FAILED_RUN: DataTestRunResult = {
   status: "failed",
   tables: {},
   expectations: [
@@ -40,7 +39,7 @@ const FAILED_RUN: TransformTestRunResult = {
   ],
 };
 
-const PASSED_RUN: TransformTestRunResult = {
+const PASSED_RUN: DataTestRunResult = {
   status: "passed",
   tables: {},
   expectations: [{ name: "no negatives", type: "empty", status: "passed" }],
@@ -59,6 +58,8 @@ function httpError(status: number, statusText: string, body: string): HttpError 
 
 const SERVER_ERROR = httpError(500, "Internal Server Error", JSON.stringify({ message: "boom" }));
 const UNAUTHORIZED = httpError(401, "Unauthorized", JSON.stringify({ message: "Unauthenticated" }));
+const FORBIDDEN = httpError(403, "Forbidden", JSON.stringify({ message: "no" }));
+const ROUTE_MISSING = httpError(404, "Not Found", JSON.stringify("API endpoint does not exist."));
 const REFUSED = httpError(
   400,
   "Bad Request",
@@ -87,11 +88,31 @@ const TESTS: Readonly<Record<DataTestType, readonly InstanceTest[]>> = {
   action: [],
 };
 
-const EVERY: UnitScope = { kind: "every" };
+const ORDERS_TRANSFORM: CheckedEntity = {
+  type: "transform",
+  entity_id: "AbCdEfGhIjKlMnOpQrStU",
+  name: "orders",
+};
+const REVENUE_CARD: CheckedEntity = {
+  type: "card",
+  entity_id: "VwXyZaBcDeFgHiJkLmNoP",
+  name: "revenue",
+};
+
+function changed(checked: CheckedEntity[], tested: string[] = []): UnitScope {
+  return { checked, tested: new Set(tested) };
+}
+
+const BOTH = changed([ORDERS_TRANSFORM, REVENUE_CARD]);
+
+const FOUND = new Map([
+  ["transform:AbCdEfGhIjKlMnOpQrStU", { kind: "found", id: 7 } as const],
+  ["card:VwXyZaBcDeFgHiJkLmNoP", { kind: "found", id: 12 } as const],
+]);
 
 function port(overrides: Partial<UnitStagePort>): UnitStagePort {
   return {
-    lookUpEntities: async () => new Map(),
+    lookUpEntities: async () => FOUND,
     readEntity: async () => {},
     listTests: async (type) => TESTS[type],
     runTest: async () => PASSED_RUN,
@@ -105,7 +126,7 @@ interface StageRun {
   stopped: StageStop | null;
 }
 
-async function runStage(stagePort: UnitStagePort, scope: UnitScope = EVERY): Promise<StageRun> {
+async function runStage(stagePort: UnitStagePort, scope: UnitScope = BOTH): Promise<StageRun> {
   const checks: CiEventBody[] = [];
   const stopped = await unitStage(scope, async () => stagePort).run((check) =>
     checks.push({ type: "check.result", stage: "unit", ...check }),
@@ -132,245 +153,9 @@ function testCheck(
 }
 
 describe("unitStage", () => {
-  it("runs every test of every type, each type's tests in id order, passing the result through", async () => {
-    expect(await runStage(port({}))).toEqual({
-      checks: [
-        testCheck("transform-test", "4", "first", "passed", PASSED_RUN),
-        testCheck("transform-test", "9", "second", "passed", PASSED_RUN),
-        testCheck("card-test", "34", "revenue ignores refunds", "passed", PASSED_RUN),
-      ],
-      stopped: null,
-    });
-  });
-
-  it("leaves out a type the server does not support", async () => {
-    const stagePort = port({
-      listTests: async (type) => {
-        if (type !== "transform") {
-          throw unsupported(type);
-        }
-        return [{ id: 4, name: "first" }];
-      },
-    });
-
-    expect(await runStage(stagePort)).toEqual({
-      checks: [testCheck("transform-test", "4", "first", "passed", PASSED_RUN)],
-      stopped: null,
-    });
-  });
-
-  it("leaves out a type the server has no route for yet", async () => {
-    const routeMissing = httpError(
-      404,
-      "Not Found",
-      JSON.stringify("API endpoint does not exist."),
-    );
-    const stagePort = port({
-      listTests: async (type) => {
-        if (type !== "transform") {
-          throw routeMissing;
-        }
-        return [{ id: 4, name: "first" }];
-      },
-    });
-
-    expect(await runStage(stagePort)).toEqual({
-      checks: [testCheck("transform-test", "4", "first", "passed", PASSED_RUN)],
-      stopped: null,
-    });
-  });
-
-  it("stops when the server supports no test type", async () => {
-    const error = unsupported("transform");
-
-    expect(
-      await runStage(
-        port({
-          listTests: async () => {
-            throw error;
-          },
-        }),
-      ),
-    ).toEqual({ checks: [], stopped: { code: "ci.unsupported-server", message: error.message } });
-  });
-
-  it("fails a test with a failed expectation", async () => {
-    const stagePort = port({
-      listTests: async (type) => (type === "transform" ? [{ id: 4, name: "first" }] : []),
-      runTest: async () => FAILED_RUN,
-    });
-
-    expect((await runStage(stagePort)).checks).toEqual([
-      testCheck("transform-test", "4", "first", "failed", FAILED_RUN),
-    ]);
-  });
-
-  it("reports a test Metabase refuses to run, and keeps running the others", async () => {
-    const stagePort = port({
-      runTest: async (type) => {
-        if (type === "card") {
-          throw REFUSED;
-        }
-        return PASSED_RUN;
-      },
-    });
-
-    expect((await runStage(stagePort)).checks).toEqual([
-      testCheck("transform-test", "4", "first", "passed", PASSED_RUN),
-      testCheck("transform-test", "9", "second", "passed", PASSED_RUN),
-      testCheck("card-test", "34", "revenue ignores refunds", "refused", {
-        error_code: "card-test.missing-inputs",
-        message: "no input for orders",
-        tables: null,
-      }),
-    ]);
-  });
-
-  it("reports a run that failed with a 500 as an error check, and runs the next test", async () => {
-    const stagePort = port({
-      runTest: async (type, testId) => {
-        if (testId === 4) {
-          throw SERVER_ERROR;
-        }
-        return PASSED_RUN;
-      },
-    });
-
-    expect((await runStage(stagePort)).checks).toEqual([
-      testCheck("transform-test", "4", "first", "error", {
-        error_code: "ci.http-error",
-        status: 500,
-        message: SERVER_ERROR.message,
-      }),
-      testCheck("transform-test", "9", "second", "passed", PASSED_RUN),
-      testCheck("card-test", "34", "revenue ignores refunds", "passed", PASSED_RUN),
-    ]);
-  });
-
-  it("reports a type whose list failed with a 500 as an error check, and runs the other types", async () => {
-    const stagePort = port({
-      listTests: async (type) => {
-        if (type === "transform") {
-          throw SERVER_ERROR;
-        }
-        return TESTS[type];
-      },
-    });
-
-    expect((await runStage(stagePort)).checks).toEqual([
-      testCheck("transform-test", "transform", "transform tests", "error", {
-        error_code: "ci.http-error",
-        status: 500,
-        message: SERVER_ERROR.message,
-      }),
-      testCheck("card-test", "34", "revenue ignores refunds", "passed", PASSED_RUN),
-    ]);
-  });
-
-  it("stops at a rejected credential, keeping the checks already reported", async () => {
-    const stagePort = port({
-      runTest: async (_type, testId) => {
-        if (testId === 9) {
-          throw UNAUTHORIZED;
-        }
-        return PASSED_RUN;
-      },
-    });
-
-    expect(await runStage(stagePort)).toEqual({
-      checks: [testCheck("transform-test", "4", "first", "passed", PASSED_RUN)],
-      stopped: { code: "ci.unauthorized", message: UNAUTHORIZED.message },
-    });
-  });
-
-  it("rethrows an error outside the client's failures, since it is a bug", async () => {
-    const bug = new TypeError("undefined is not a function");
-    const stagePort = port({
-      runTest: async () => {
-        throw bug;
-      },
-    });
-
-    await expect(runStage(stagePort)).rejects.toBe(bug);
-  });
-
-  it("measures each test's duration on the port's clock", async () => {
-    let clock = 0;
-    const stagePort = port({
-      listTests: async (type) => (type === "transform" ? [{ id: 4, name: "first" }] : []),
-      runTest: async () => {
-        clock += 250;
-        return PASSED_RUN;
-      },
-      nowMs: () => clock,
-    });
-
-    expect((await runStage(stagePort)).checks).toEqual([
-      { ...testCheck("transform-test", "4", "first", "passed", PASSED_RUN), ms: 250 },
-    ]);
-  });
-
-  it("does not connect when built, only when it runs", async () => {
-    const connect = vi.fn(async () => port({}));
-    const stage = unitStage(EVERY, connect);
-
-    expect(connect).not.toHaveBeenCalled();
-    await stage.run(() => {});
-    expect(connect).toHaveBeenCalledTimes(1);
-  });
-
-  it("ends without a test run, saying why, when no Metabase credential is configured", async () => {
-    const missing = new NotAuthenticatedError("no credential for https://mb.example.com");
-    const stopped = await unitStage(EVERY, async () => {
-      throw missing;
-    }).run(() => {});
-
-    expect(stopped).toEqual({
-      code: "ci.no-credential",
-      message: `no Metabase credential, so the tests did not run: ${missing.message}`,
-    });
-  });
-
-  it("rethrows any other config error from connecting", async () => {
-    const config = new ConfigError("profile is bound to another URL");
-
-    await expect(
-      unitStage(EVERY, async () => {
-        throw config;
-      }).run(() => {}),
-    ).rejects.toBe(config);
-  });
-});
-
-const ORDERS_TRANSFORM: CheckedEntity = {
-  type: "transform",
-  entity_id: "AbCdEfGhIjKlMnOpQrStU",
-  name: "orders",
-};
-const REVENUE_CARD: CheckedEntity = {
-  type: "card",
-  entity_id: "VwXyZaBcDeFgHiJkLmNoP",
-  name: "revenue",
-};
-
-function changed(checked: CheckedEntity[], tested: string[] = []): UnitScope {
-  return { kind: "changed", checked, tested: new Set(tested) };
-}
-
-const FOUND = new Map([
-  ["transform:AbCdEfGhIjKlMnOpQrStU", { kind: "found", id: 7 } as const],
-  ["card:VwXyZaBcDeFgHiJkLmNoP", { kind: "found", id: 12 } as const],
-]);
-
-const FORBIDDEN = httpError(403, "Forbidden", JSON.stringify({ message: "no" }));
-
-describe("unitStage over the entities a change touched", () => {
   it("runs each entity's tests, listed by its id on the instance, labelled with its name", async () => {
     const listTests = vi.fn(async (type: DataTestType) => TESTS[type]);
-    const result = await runStage(
-      port({ lookUpEntities: async () => FOUND, listTests }),
-      changed([ORDERS_TRANSFORM, REVENUE_CARD]),
-    );
+    const result = await runStage(port({ listTests }));
 
     expect(listTests.mock.calls).toEqual([
       ["transform", 7],
@@ -391,10 +176,7 @@ describe("unitStage over the entities a change touched", () => {
       ["transform:AbCdEfGhIjKlMnOpQrStU", { kind: "not-found" } as const],
       ["card:VwXyZaBcDeFgHiJkLmNoP", { kind: "invalid-entity-id" } as const],
     ]);
-    const result = await runStage(
-      port({ lookUpEntities: async () => lookups }),
-      changed([ORDERS_TRANSFORM, REVENUE_CARD]),
-    );
+    const result = await runStage(port({ lookUpEntities: async () => lookups }));
 
     expect(result.checks).toEqual([
       testCheck("transform-test", ORDERS_TRANSFORM.entity_id, "orders", "refused", {
@@ -409,26 +191,23 @@ describe("unitStage over the entities a change touched", () => {
     ]);
   });
 
-  it("refuses a transform the branch tests when the instance lists no test for it", async () => {
+  it("refuses an entity the branch tests when the instance lists no test for it", async () => {
     const result = await runStage(
-      port({ lookUpEntities: async () => FOUND, listTests: async () => [] }),
-      changed([ORDERS_TRANSFORM], [ORDERS_TRANSFORM.entity_id]),
+      port({ listTests: async () => [] }),
+      changed([REVENUE_CARD], [`card:${REVENUE_CARD.entity_id}`]),
     );
 
     expect(result.checks).toEqual([
-      testCheck("transform-test", ORDERS_TRANSFORM.entity_id, "orders", "refused", {
+      testCheck("card-test", REVENUE_CARD.entity_id, "revenue", "refused", {
         error_code: "ci.no-tests-on-instance",
         message:
-          "the branch has a test for this transform, but the Metabase instance lists none, so no test ran; load the branch into it first",
+          "the branch has a test for this entity, but the Metabase instance lists none, so no test ran; load the branch into it first",
       }),
     ]);
   });
 
   it("reports nothing for an entity with no tests that the branch does not test", async () => {
-    const result = await runStage(
-      port({ lookUpEntities: async () => FOUND, listTests: async () => [] }),
-      changed([ORDERS_TRANSFORM, REVENUE_CARD]),
-    );
+    const result = await runStage(port({ listTests: async () => [] }));
 
     expect(result).toEqual({ checks: [], stopped: null });
   });
@@ -436,7 +215,6 @@ describe("unitStage over the entities a change touched", () => {
   it("refuses an entity the CI identity cannot read, since Metabase would hide its tests", async () => {
     const result = await runStage(
       port({
-        lookUpEntities: async () => FOUND,
         readEntity: async () => {
           throw FORBIDDEN;
         },
@@ -453,18 +231,19 @@ describe("unitStage over the entities a change touched", () => {
     ]);
   });
 
-  it("reports nothing for an entity whose type the server cannot test", async () => {
+  it.each([
+    ["the client explains as unsupported", unsupported("card")],
+    ["the server has no route for yet", ROUTE_MISSING],
+  ])("reports nothing for an entity whose type %s", async (_case, error) => {
     const result = await runStage(
       port({
-        lookUpEntities: async () => FOUND,
         listTests: async (type) => {
           if (type === "card") {
-            throw unsupported(type);
+            throw error;
           }
           return TESTS[type];
         },
       }),
-      changed([REVENUE_CARD, ORDERS_TRANSFORM]),
     );
 
     expect(result.checks).toEqual([
@@ -473,15 +252,14 @@ describe("unitStage over the entities a change touched", () => {
     ]);
   });
 
-  it("stops when the server cannot test a transform the branch tests", async () => {
+  it("stops when the server cannot test an entity the branch tests", async () => {
     const result = await runStage(
       port({
-        lookUpEntities: async () => FOUND,
         listTests: async (type) => {
           throw unsupported(type);
         },
       }),
-      changed([ORDERS_TRANSFORM], [ORDERS_TRANSFORM.entity_id]),
+      changed([ORDERS_TRANSFORM], [`transform:${ORDERS_TRANSFORM.entity_id}`]),
     );
 
     expect(result).toEqual({
@@ -497,13 +275,158 @@ describe("unitStage over the entities a change touched", () => {
           throw UNAUTHORIZED;
         },
       }),
-      changed([ORDERS_TRANSFORM]),
     );
 
     expect(result).toEqual({
       checks: [],
       stopped: { code: "ci.unauthorized", message: UNAUTHORIZED.message },
     });
+  });
+
+  it("fails a test with a failed expectation", async () => {
+    const stagePort = port({ runTest: async () => FAILED_RUN });
+
+    expect((await runStage(stagePort, changed([REVENUE_CARD]))).checks).toEqual([
+      testCheck("card-test", "34", "revenue: revenue ignores refunds", "failed", FAILED_RUN),
+    ]);
+  });
+
+  it("reports a test Metabase refuses to run, and keeps running the others", async () => {
+    const stagePort = port({
+      runTest: async (type) => {
+        if (type === "card") {
+          throw REFUSED;
+        }
+        return PASSED_RUN;
+      },
+    });
+
+    expect((await runStage(stagePort, changed([REVENUE_CARD, ORDERS_TRANSFORM]))).checks).toEqual([
+      testCheck("card-test", "34", "revenue: revenue ignores refunds", "refused", {
+        error_code: "card-test.missing-inputs",
+        message: "no input for orders",
+        tables: null,
+      }),
+      testCheck("transform-test", "4", "orders: first", "passed", PASSED_RUN),
+      testCheck("transform-test", "9", "orders: second", "passed", PASSED_RUN),
+    ]);
+  });
+
+  it("reports a run that failed with a 500 as an error check, and runs the next test", async () => {
+    const stagePort = port({
+      runTest: async (_type, testId) => {
+        if (testId === 4) {
+          throw SERVER_ERROR;
+        }
+        return PASSED_RUN;
+      },
+    });
+
+    expect((await runStage(stagePort)).checks).toEqual([
+      testCheck("transform-test", "4", "orders: first", "error", {
+        error_code: "ci.http-error",
+        status: 500,
+        message: SERVER_ERROR.message,
+      }),
+      testCheck("transform-test", "9", "orders: second", "passed", PASSED_RUN),
+      testCheck("card-test", "34", "revenue: revenue ignores refunds", "passed", PASSED_RUN),
+    ]);
+  });
+
+  it("reports an entity whose test list failed with a 500 as an error check, and checks the next one", async () => {
+    const stagePort = port({
+      listTests: async (type) => {
+        if (type === "transform") {
+          throw SERVER_ERROR;
+        }
+        return TESTS[type];
+      },
+    });
+
+    expect((await runStage(stagePort)).checks).toEqual([
+      testCheck("transform-test", ORDERS_TRANSFORM.entity_id, "orders", "error", {
+        error_code: "ci.http-error",
+        status: 500,
+        message: SERVER_ERROR.message,
+      }),
+      testCheck("card-test", "34", "revenue: revenue ignores refunds", "passed", PASSED_RUN),
+    ]);
+  });
+
+  it("stops at a rejected credential, keeping the checks already reported", async () => {
+    const stagePort = port({
+      runTest: async (_type, testId) => {
+        if (testId === 9) {
+          throw UNAUTHORIZED;
+        }
+        return PASSED_RUN;
+      },
+    });
+
+    expect(await runStage(stagePort)).toEqual({
+      checks: [testCheck("transform-test", "4", "orders: first", "passed", PASSED_RUN)],
+      stopped: { code: "ci.unauthorized", message: UNAUTHORIZED.message },
+    });
+  });
+
+  it("rethrows an error outside the client's failures, since it is a bug", async () => {
+    const bug = new TypeError("undefined is not a function");
+    const stagePort = port({
+      runTest: async () => {
+        throw bug;
+      },
+    });
+
+    await expect(runStage(stagePort)).rejects.toBe(bug);
+  });
+
+  it("measures each test's duration on the port's clock", async () => {
+    let clock = 0;
+    const stagePort = port({
+      runTest: async () => {
+        clock += 250;
+        return PASSED_RUN;
+      },
+      nowMs: () => clock,
+    });
+
+    expect((await runStage(stagePort, changed([REVENUE_CARD]))).checks).toEqual([
+      {
+        ...testCheck("card-test", "34", "revenue: revenue ignores refunds", "passed", PASSED_RUN),
+        ms: 250,
+      },
+    ]);
+  });
+
+  it("does not connect when built, only when it runs", async () => {
+    const connect = vi.fn(async () => port({}));
+    const stage = unitStage(BOTH, connect);
+
+    expect(connect).not.toHaveBeenCalled();
+    await stage.run(() => {});
+    expect(connect).toHaveBeenCalledTimes(1);
+  });
+
+  it("ends without a test run, saying why, when no Metabase credential is configured", async () => {
+    const missing = new NotAuthenticatedError("no credential for https://mb.example.com");
+    const stopped = await unitStage(BOTH, async () => {
+      throw missing;
+    }).run(() => {});
+
+    expect(stopped).toEqual({
+      code: "ci.no-credential",
+      message: `no Metabase credential, so the tests did not run: ${missing.message}`,
+    });
+  });
+
+  it("rethrows any other config error from connecting", async () => {
+    const config = new ConfigError("profile is bound to another URL");
+
+    await expect(
+      unitStage(BOTH, async () => {
+        throw config;
+      }).run(() => {}),
+    ).rejects.toBe(config);
   });
 });
 
@@ -522,26 +445,6 @@ function clientOver(responses: Response[]) {
 }
 
 describe("clientPort", () => {
-  it("lists every transform test on the instance, of every transform", async () => {
-    const { client, capture } = clientOver([jsonResponse([])]);
-
-    await clientPort(client).listTests("transform", null);
-
-    expect(capture.calls.map((call) => [call.method, call.url])).toEqual([
-      ["GET", "https://mb.example.com/api/ee/transform-test"],
-    ]);
-  });
-
-  it("lists the tests of one entity by its id", async () => {
-    const { client, capture } = clientOver([jsonResponse([])]);
-
-    await clientPort(client).listTests("card", 12);
-
-    expect(capture.calls.map((call) => [call.method, call.url])).toEqual([
-      ["GET", "https://mb.example.com/api/ee/card-test?card-id=12"],
-    ]);
-  });
-
   it("looks up every entity's id in one request, grouped by model", async () => {
     const { client } = clientOver([
       jsonResponse({
@@ -574,21 +477,12 @@ describe("clientPort", () => {
     );
   });
 
-  it("runs a transform test with the 120 s per-test timeout and the interrupt signal", async () => {
+  it("runs a test with the 120 s per-test timeout and the interrupt signal", async () => {
     const { client } = clientOver([jsonResponse(PASSED_RUN)]);
-    const run = vi.spyOn(client.transformTest, "run");
-
-    await clientPort(client).runTest("transform", 4);
-
-    expect(run.mock.calls).toEqual([[4, { timeoutMs: 120_000, signal: interruptSignal }]]);
-  });
-
-  it("runs a test of any other type the same way", async () => {
-    const { client } = clientOver([jsonResponse(PASSED_RUN)]);
-    const run = vi.spyOn(client.cardTest, "run");
+    const run = vi.spyOn(client.dataTest, "run");
 
     await clientPort(client).runTest("card", 34);
 
-    expect(run.mock.calls).toEqual([[34, { timeoutMs: 120_000, signal: interruptSignal }]]);
+    expect(run.mock.calls).toEqual([["card", 34, { timeoutMs: 120_000, signal: interruptSignal }]]);
   });
 });

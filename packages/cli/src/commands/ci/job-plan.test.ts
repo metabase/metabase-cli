@@ -93,7 +93,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      tested: new Set([TRANSFORM_ID]),
+      tested: new Set([`transform:${TRANSFORM_ID}`]),
       checked: [DAILY],
       warnings: [],
     });
@@ -145,7 +145,7 @@ describe("planJob", () => {
 
     expect(await planJob(`${repo.path}/other`, "main", head, NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      tested: new Set([TRANSFORM_ID]),
+      tested: new Set([`transform:${TRANSFORM_ID}`]),
       checked: [DAILY],
       warnings: [],
     });
@@ -159,7 +159,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      tested: new Set([TRANSFORM_ID]),
+      tested: new Set([`transform:${TRANSFORM_ID}`]),
       checked: [],
       warnings: [
         {
@@ -229,7 +229,7 @@ describe("planJob", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      tested: new Set([TRANSFORM_ID]),
+      tested: new Set([`transform:${TRANSFORM_ID}`]),
       checked: [DAILY],
       warnings: [],
     });
@@ -498,7 +498,7 @@ describe("planJob, finding the transform of a changed test", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      tested: new Set([TRANSFORM_ID]),
+      tested: new Set([`transform:${TRANSFORM_ID}`]),
       checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Alpha" }],
       warnings: [],
     });
@@ -507,7 +507,7 @@ describe("planJob, finding the transform of a changed test", () => {
   it("skips a file that names the transform but is not one", async () => {
     await repo.put(
       "collections/card.yaml",
-      `name: Card\nsource_entity_id: ${TRANSFORM_ID}\nserdes/meta:\n- model: Card\n`,
+      `entity_id: CardCardCardCardCard01\nname: Card\nsource_entity_id: ${TRANSFORM_ID}\nserdes/meta:\n- model: Card\n`,
     );
     await repo.put("transforms/a.yaml", transformYaml(TRANSFORM_ID, "Alpha"));
     const base = await repo.commitAll("fork point");
@@ -517,7 +517,7 @@ describe("planJob, finding the transform of a changed test", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      tested: new Set([TRANSFORM_ID]),
+      tested: new Set([`transform:${TRANSFORM_ID}`]),
       checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Alpha" }],
       warnings: [],
     });
@@ -538,7 +538,7 @@ describe("planJob, finding the transform of a changed test", () => {
     expect(await repo.git("diff", "--name-status", "-M", "main", "HEAD")).toMatch(/^R\d+\t/);
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      tested: new Set([OTHER_TRANSFORM_ID]),
+      tested: new Set([`transform:${OTHER_TRANSFORM_ID}`]),
       checked: [
         { type: "transform", entity_id: TRANSFORM_ID, name: "Alpha" },
         { type: "transform", entity_id: OTHER_TRANSFORM_ID, name: "Beta" },
@@ -606,7 +606,7 @@ describe("planJob, an unchanged file at head that does not read", () => {
         NO_CONTENT_CHANGES,
         {
           code: "unread-content",
-          message: `1 content file this change did not touch could not be read, so a transform or test in it went uncounted: ${head}:${LEGACY_PATH}: invalid YAML: Map keys must be unique at line 10, column 1:\n\n- model: Transform\ndescription: two\n^\n`,
+          message: `1 content file this change did not touch could not be read, so an entity or test in it went uncounted: ${head}:${LEGACY_PATH}: invalid YAML: Map keys must be unique at line 10, column 1:\n\n- model: Transform\ndescription: two\n^\n`,
         },
       ],
     });
@@ -628,7 +628,7 @@ describe("planJob, an unchanged file at head that does not read", () => {
         NO_CONTENT_CHANGES,
         {
           code: "unread-content",
-          message: `1 content file this change did not touch could not be read, so a transform or test in it went uncounted: ${LEGACY_PATH}: a Transform must have an entity_id, a name, a source and a target`,
+          message: `1 content file this change did not touch could not be read, so an entity or test in it went uncounted: ${LEGACY_PATH}: a Transform must have an entity_id, a name, a source and a target`,
         },
       ],
     });
@@ -647,7 +647,7 @@ describe("planJob, an unchanged file at head that does not read", () => {
         NO_CONTENT_CHANGES,
         {
           code: "unread-content",
-          message: `1 content file this change did not touch could not be read, so a transform or test in it went uncounted: ${head}:"transforms/a\\nb.yaml": a path with a newline cannot be read; rename the file`,
+          message: `1 content file this change did not touch could not be read, so an entity or test in it went uncounted: ${head}:"transforms/a\\nb.yaml": a path with a newline cannot be read; rename the file`,
         },
       ],
     });

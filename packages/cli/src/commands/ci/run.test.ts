@@ -637,7 +637,7 @@ describe("ci run: a changed transform tested on Metabase", () => {
     ]);
   });
 
-  it("refuses a transform the branch tests when the instance lists no test for it", async () => {
+  it("refuses the transform when the instance lists none of the tests the branch holds, ending the job errored", async () => {
     serveMetabase({
       properties: LICENSED,
       lint: () => json(CLEAN_LINT_REPORT),
@@ -647,33 +647,31 @@ describe("ci run: a changed transform tested on Metabase", () => {
 
     const result = await run(["--repo", repo.path, "--base", "main"]);
 
-    expect([result.exitCode, events(result.stdout).slice(5)]).toEqual([
-      1,
-      [
-        {
-          ...envelope,
-          seq: 5,
-          type: "check.result",
-          stage: "unit",
-          check: { kind: "transform-test", id: A, label: "Alpha" },
-          verdict: "refused",
-          warnings: [],
-          ms: expect.any(Number),
-          detail: {
-            error_code: "ci.no-tests-on-instance",
-            message:
-              "the branch has a test for this transform, but the Metabase instance lists none, so no test ran; load the branch into it first",
-          },
+    expect(result.exitCode).toBe(1);
+    expect(events(result.stdout).slice(5)).toEqual([
+      {
+        ...envelope,
+        seq: 5,
+        type: "check.result",
+        stage: "unit",
+        check: { kind: "transform-test", id: A, label: "Alpha" },
+        verdict: "refused",
+        warnings: [],
+        ms: expect.any(Number),
+        detail: {
+          error_code: "ci.no-tests-on-instance",
+          message:
+            "the branch has a test for this entity, but the Metabase instance lists none, so no test ran; load the branch into it first",
         },
-        { ...envelope, seq: 6, type: "stage.end", stage: "unit", status: "errored", stopped: null },
-        {
-          ...envelope,
-          seq: 7,
-          type: "job.end",
-          state: "errored",
-          counts: { checks: 2, warnings: 0 },
-        },
-      ],
+      },
+      { ...envelope, seq: 6, type: "stage.end", stage: "unit", status: "errored", stopped: null },
+      {
+        ...envelope,
+        seq: 7,
+        type: "job.end",
+        state: "errored",
+        counts: { checks: 2, warnings: 0 },
+      },
     ]);
   });
 
@@ -754,34 +752,6 @@ describe("ci run: a changed transform tested on Metabase", () => {
         { ...envelope, seq: 3, type: "stage.end", stage: "lint", status: "failed", stopped: null },
       ],
       { ...envelope, seq: 7, type: "job.end", state: "failed", counts: { checks: 2, warnings: 0 } },
-    ]);
-  });
-
-  it("runs every test on the instance under --all-tests, though the change checks no entity", async () => {
-    await repo.git("checkout", "-q", "-b", "readme-only", "main");
-    await repo.put("README.md", "changed\n");
-    await repo.commitAll("touch no content file");
-    serveRun(() => json(PASSED_RUN));
-
-    const result = await run(["--repo", repo.path, "--base", "main", "--all-tests"]);
-
-    expect([
-      result.exitCode,
-      planOf(result.stdout).checked,
-      events(result.stdout).map((event) => event.type),
-    ]).toEqual([
-      0,
-      [],
-      [
-        "job.start",
-        "stage.start",
-        "check.result",
-        "stage.end",
-        "stage.start",
-        "check.result",
-        "stage.end",
-        "job.end",
-      ],
     ]);
   });
 });

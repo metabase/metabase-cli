@@ -6,13 +6,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "delete", description: "Delete a data test" },
-  requires: [
-    "transformTest.delete",
-    "cardTest.delete",
-    "segmentTest.delete",
-    "measureTest.delete",
-    "actionTest.delete",
-  ],
+  requires: ["dataTest.delete"],
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -26,33 +20,13 @@ export default defineMetabaseCommand({
     const ref = parseTestRef(args.id);
     const text = testRefText(ref);
     const client = await getClient();
-    function deleteTest(): Promise<void> {
-      const options = { signal: interruptSignal };
-      switch (ref.type) {
-        case "transform": {
-          return client.transformTest.delete(ref.id, options);
-        }
-        case "card": {
-          return client.cardTest.delete(ref.id, options);
-        }
-        case "segment": {
-          return client.segmentTest.delete(ref.id, options);
-        }
-        case "measure": {
-          return client.measureTest.delete(ref.id, options);
-        }
-        case "action": {
-          return client.actionTest.delete(ref.id, options);
-        }
-      }
-    }
     await confirmAndDelete({
       id: ref.id,
       yes: args.yes,
       promptMessage: `Delete ${text}?`,
       successMessage: `Deleted ${text}.`,
       abortMessage: `Aborted; ${text} was not deleted.`,
-      deleteResource: () => deleteTest(),
+      deleteResource: () => client.dataTest.delete(ref.type, ref.id, { signal: interruptSignal }),
       ctx,
     });
   },
