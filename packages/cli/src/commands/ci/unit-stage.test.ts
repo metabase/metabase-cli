@@ -12,7 +12,13 @@ import {
 } from "@metabase/client/testing/fetch-capture";
 import { CapabilityError } from "@metabase/client/version/capability-error";
 
-import type { CheckedEntity, CheckKind, CiEventBody, StageStop } from "../../core/ci-events";
+import type {
+  CheckedEntity,
+  CheckKind,
+  CiEventBody,
+  StageSkip,
+  StageStop,
+} from "../../core/ci-events";
 import { NotAuthenticatedError } from "../../core/config";
 import { interruptSignal } from "../../runtime/interrupt";
 
@@ -123,7 +129,7 @@ function port(overrides: Partial<UnitStagePort>): UnitStagePort {
 
 interface StageRun {
   checks: CiEventBody[];
-  stopped: StageStop | null;
+  stopped: StageStop | StageSkip | null;
 }
 
 async function runStage(stagePort: UnitStagePort, scope: UnitScope = BOTH): Promise<StageRun> {

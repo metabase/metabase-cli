@@ -42,7 +42,7 @@ function lintStage(): object[] {
         ms: expect.any(Number),
         detail: { errors: 0, warnings: 0, entities: 0 },
       },
-      { type: "stage.end", stage: "lint", status: "passed", stopped: null },
+      { type: "stage.end", stage: "lint", status: "passed", stopped: null, skipped: null },
     ];
   }
   return [
@@ -52,6 +52,7 @@ function lintStage(): object[] {
       stage: "lint",
       status: "errored",
       stopped: { code: "ci.unsupported-server", message: lintGap.detail },
+      skipped: null,
     },
   ];
 }
@@ -107,7 +108,7 @@ describe("ci e2e", () => {
         ...ANY_ENVELOPE,
         seq: 0,
         type: "job.start",
-        v: 1,
+        v: 2,
         snapshot: { base, head: base },
         checked: [],
         warnings: [
@@ -135,6 +136,7 @@ describe("ci e2e", () => {
             "no Metabase credential, so the lint report was not read",
           ),
         },
+        skipped: null,
       },
       {
         ...ANY_ENVELOPE,
@@ -256,7 +258,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
             "the entity is in the branch but not on the Metabase instance; load the branch into it first",
         },
       },
-      { type: "stage.end", stage: "unit", status: "errored", stopped: null },
+      { type: "stage.end", stage: "unit", status: "errored", stopped: null, skipped: null },
       {
         type: "job.end",
         state: "errored",
@@ -318,7 +320,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
       const bodies = [
         {
           type: "job.start",
-          v: 1,
+          v: 2,
           snapshot: { base, head },
           checked: [{ type: "transform", entity_id: entityId, name: "Order totals" }],
           warnings: [],
@@ -356,6 +358,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
           stage: "unit",
           status: verdict,
           stopped: null,
+          skipped: null,
         },
         {
           type: "job.end",

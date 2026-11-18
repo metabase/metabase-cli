@@ -458,7 +458,15 @@ describe("ci run: a changed transform tested on Metabase", () => {
       { type: "transform", entity_id: A, name: "Alpha" },
     ]);
     expect(lastTwo(result.stdout)).toEqual([
-      { ...envelope, seq: 6, type: "stage.end", stage: "unit", status: "failed", stopped: null },
+      {
+        ...envelope,
+        seq: 6,
+        type: "stage.end",
+        stage: "unit",
+        status: "failed",
+        stopped: null,
+        skipped: null,
+      },
       { ...envelope, seq: 7, type: "job.end", state: "failed", counts: { checks: 2, warnings: 0 } },
     ]);
   });
@@ -504,7 +512,15 @@ describe("ci run: a changed transform tested on Metabase", () => {
           tables: null,
         },
       },
-      { ...envelope, seq: 6, type: "stage.end", stage: "unit", status: "errored", stopped: null },
+      {
+        ...envelope,
+        seq: 6,
+        type: "stage.end",
+        stage: "unit",
+        status: "errored",
+        stopped: null,
+        skipped: null,
+      },
       {
         ...envelope,
         seq: 7,
@@ -587,6 +603,7 @@ describe("ci run: a changed transform tested on Metabase", () => {
         stage: "unit",
         status: "errored",
         stopped: { code: "ci.unauthorized", message: "Unauthenticated" },
+        skipped: null,
       },
       {
         ...envelope,
@@ -625,6 +642,7 @@ describe("ci run: a changed transform tested on Metabase", () => {
             message:
               "This operation requires the 'transforms-testing' premium feature (not enabled on this server).",
           },
+          skipped: null,
         },
         {
           ...envelope,
@@ -664,7 +682,15 @@ describe("ci run: a changed transform tested on Metabase", () => {
             "the branch has a test for this entity, but the Metabase instance lists none, so no test ran; load the branch into it first",
         },
       },
-      { ...envelope, seq: 6, type: "stage.end", stage: "unit", status: "errored", stopped: null },
+      {
+        ...envelope,
+        seq: 6,
+        type: "stage.end",
+        stage: "unit",
+        status: "errored",
+        stopped: null,
+        skipped: null,
+      },
       {
         ...envelope,
         seq: 7,
@@ -692,6 +718,7 @@ describe("ci run: a changed transform tested on Metabase", () => {
           stage: "lint",
           status: "errored",
           stopped: NO_CREDENTIAL_LINT_STOP,
+          skipped: null,
         },
         { ...envelope, seq: 3, type: "stage.start", stage: "unit" },
         {
@@ -706,6 +733,7 @@ describe("ci run: a changed transform tested on Metabase", () => {
               "no Metabase credential, so the tests did not run: Not authenticated for profile",
             ),
           },
+          skipped: null,
         },
         {
           ...envelope,
@@ -713,6 +741,36 @@ describe("ci run: a changed transform tested on Metabase", () => {
           type: "job.end",
           state: "errored",
           counts: { checks: 0, warnings: 0 },
+        },
+      ],
+    ]);
+  });
+
+  it("skips lint on a server without the lint report, passing the job on its tests", async () => {
+    serveMetabase({
+      properties: LICENSED,
+      lint: () => json("API endpoint does not exist.", 404),
+      list: () => json([TEST]),
+      run: () => json(PASSED_RUN),
+    });
+
+    const result = await run(["--repo", repo.path, "--base", "main"]);
+
+    expect([result.exitCode, events(result.stdout).slice(1, 3)]).toEqual([
+      0,
+      [
+        { ...envelope, seq: 1, type: "stage.start", stage: "lint" },
+        {
+          ...envelope,
+          seq: 2,
+          type: "stage.end",
+          stage: "lint",
+          status: "passed",
+          stopped: null,
+          skipped: {
+            code: "ci.lint-unsupported",
+            message: expect.stringContaining("v66"),
+          },
         },
       ],
     ]);
@@ -749,7 +807,15 @@ describe("ci run: a changed transform tested on Metabase", () => {
             errors: BROKEN_LINT_REPORT.results,
           },
         },
-        { ...envelope, seq: 3, type: "stage.end", stage: "lint", status: "failed", stopped: null },
+        {
+          ...envelope,
+          seq: 3,
+          type: "stage.end",
+          stage: "lint",
+          status: "failed",
+          stopped: null,
+          skipped: null,
+        },
       ],
       { ...envelope, seq: 7, type: "job.end", state: "failed", counts: { checks: 2, warnings: 0 } },
     ]);
@@ -800,6 +866,7 @@ describe("ci run: a change that touches no content, with no Metabase credential"
               "no Metabase credential, so the lint report was not read: Not authenticated",
             ),
           },
+          skipped: null,
         },
         {
           ...envelope,

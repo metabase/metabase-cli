@@ -76,7 +76,7 @@ describe("runJob", () => {
         ...envelope,
         seq: 0,
         type: "job.start",
-        v: 1,
+        v: 2,
         snapshot: { base, head },
         checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Daily" }],
         warnings: [
@@ -99,7 +99,15 @@ describe("runJob", () => {
         ms: 2000,
         detail: null,
       },
-      { ...envelope, seq: 3, type: "stage.end", stage: "unit", status: "failed", stopped: null },
+      {
+        ...envelope,
+        seq: 3,
+        type: "stage.end",
+        stage: "unit",
+        status: "failed",
+        stopped: null,
+        skipped: null,
+      },
       { ...envelope, seq: 4, type: "job.end", state: "failed", counts: { checks: 1, warnings: 2 } },
     ]);
   });
