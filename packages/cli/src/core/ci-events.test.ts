@@ -182,7 +182,9 @@ describe("runStages", () => {
         report({
           check: { kind: "broken-refs", id: "Cd7kW2pLmX7sYb4nC8dE1", label: 'card "Revenue"' },
           verdict: "passed",
-          warnings: [{ code: "validation-exception-error", message: "The analysis failed" }],
+          warnings: [
+            { code: "validation-exception-error", message: "Metabase could not check this entity" },
+          ],
           ms: 1,
           detail: null,
         });
