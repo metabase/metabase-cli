@@ -386,7 +386,7 @@ mb transform-tag delete 5 --yes
 
 ## Data tests
 
-CRUD and run on `/api/ee/<type>-test`, with the `transforms-testing` premium feature. A data test pins an entity's behaviour: every table the entity reads is replaced by an `input` fixture, the entity runs against those fixtures, and each `expectation` checks its output. The test types are `transform` (Metabase v65 or newer), `card` and `segment` (v66 or newer), and `measure` and `action`, which no released server serves yet. `--id` names the entity under test as `<type>:<id>` (`transform:12`) for `list` and `create`, and the test itself as `<type>-test:<id>` (`transform-test:34`) for `get`, `update`, `delete` and `run`. A `format: "sql"` input runs verbatim against the entity's source database, so it may read real tables. Only query transforms (native SQL or MBQL) can be tested, on Postgres, MySQL, H2, ClickHouse, Redshift or SQL Server.
+CRUD and run on `/api/ee/<type>-test`, with the `transforms-testing` premium feature. A data test pins an entity's behaviour: every table the entity reads is replaced by an `input` fixture, the entity runs against those fixtures, and each `expectation` checks its output. The test types are `transform` (Metabase v65 or newer), `card` and `segment` (v66 or newer), and `measure` and `action`, which no released server serves yet. `--id` names the entity under test as `<type>:<id>` (`transform:12`) for `list` and `create`, and the test itself as `<type>-test:<id>` (`transform-test:34`) for `get`, `update`, `delete`, `run` and `runs`. A `format: "sql"` input runs verbatim against the entity's source database, so it may read real tables. Only query transforms (native SQL or MBQL) can be tested, on Postgres, MySQL, H2, ClickHouse, Redshift or SQL Server.
 
 An input names its `table` and carries either `format: "sql"` with a `sql` query or `format: "rows"` with `columns` (each a `name` and a `cast_type` the warehouse accepts as a `CAST` target) and `rows`; every row carries exactly the declared columns.
 
@@ -459,6 +459,23 @@ mb test run --id transform-test:34 --timeout 300000
 | Flag             | Description                                                                |
 | ---------------- | -------------------------------------------------------------------------- |
 | `--timeout <ms>` | Request timeout in ms (default 30000); the run is one synchronous request. |
+
+### `mb test runs`
+
+Lists runs, newest first, from `/api/ee/data-test-run`: those of one test with `--id`, or of every test of one type with `--type`. A run's `status` is `started` while it is in flight, then `passed`, `failed`, `error` or `timeout`.
+
+```sh
+mb test runs --id card-test:34
+mb test runs --type card --json
+mb test runs --type transform --statuses failed,error --limit 50
+```
+
+| Flag                | Description                                    |
+| ------------------- | ---------------------------------------------- |
+| `--id <ref>`        | Only the runs of this test, as `card-test:34`. |
+| `--type <type>`     | The runs of every test of this type.           |
+| `--statuses <list>` | Only runs in these states, comma separated.    |
+| `--limit <n>`       | Max runs to return (default 20).               |
 
 ### `mb test-suite`
 
