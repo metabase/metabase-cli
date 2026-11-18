@@ -3,7 +3,6 @@ import { z } from "zod";
 import { InternalError, ValidationError } from "@metabase/client/errors";
 import { isPlainObject } from "@metabase/client/predicates";
 
-import type { MetabaseYaml } from "../runtime/yaml";
 import type { CiWarning } from "./ci-events";
 
 interface PathEntry {
@@ -177,8 +176,7 @@ function parseOrRefuse<T>(path: string, schema: z.ZodType<T>, value: unknown, ru
   return parsed.data;
 }
 
-export function classifyContentFile(path: string, yaml: MetabaseYaml): ContentFile {
-  const document = yaml.yaml12;
+export function classifyContentFile(path: string, document: unknown): ContentFile {
   if (!isPlainObject(document) || !(SERDES_META_KEY in document)) {
     return { kind: "other" };
   }
