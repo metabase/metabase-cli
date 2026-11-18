@@ -174,7 +174,7 @@ describe("parseNameStatus", () => {
 
 // A document every parser reads the same.
 function classifyDocument(path: string, document: unknown): ContentFile {
-  return classifyContentFile(path, { yaml12: document, yaml11: document });
+  return classifyContentFile(path, document);
 }
 
 describe("classifyContentFile", () => {
@@ -409,9 +409,7 @@ describe("affectedTransforms", () => {
       z.unknown(),
     );
     const affected = () =>
-      affectedTransforms([
-        change(TRANSFORM, classifyContentFile(CHANGED_PATH, { yaml12: merged, yaml11: merged })),
-      ]);
+      affectedTransforms([change(TRANSFORM, classifyContentFile(CHANGED_PATH, merged))]);
 
     expect(affected).toThrow(ValidationError);
     expect(affected).toThrow(
