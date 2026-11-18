@@ -87,7 +87,8 @@ export function renderSummary<T>(
   writeWithinMaxBytes(summaryBody(item, view, summaryText, opts), opts);
 }
 
-// The message of a verdict that did not pass, given the cap's refusal when the report was not written.
+// The message of a verdict that did not pass, given `oversize`: the cap message, or null when the
+// report was written.
 export type VerdictFailure = (oversize: string | null) => string;
 
 // `failure` is null for a verdict that passed.
@@ -98,8 +99,8 @@ interface VerdictReport<T> {
   failure: VerdictFailure | null;
 }
 
-// renderSummary for a command whose result is a verdict. The work has already happened, so a report
-// too big to print still owes the caller its verdict.
+// renderSummary for a command whose result is a verdict. The work has already happened, so a failed
+// verdict too big to print is still reported as a failure; a passed one over the cap is a ConfigError.
 export function renderVerdict<T>(report: VerdictReport<T>, opts: RenderOptions): void {
   const { item, view, summaryText, failure } = report;
   const body = summaryBody(item, view, summaryText, opts);

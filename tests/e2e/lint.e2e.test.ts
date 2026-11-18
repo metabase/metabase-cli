@@ -225,7 +225,7 @@ describe.skipIf(skipReason !== null)("lint e2e", () => {
     });
   });
 
-  it("writes the report as text for a terminal, grouped by entity", async () => {
+  it("writes the report as text under --format text", async () => {
     const { dependent } = await breakDependentOfModel();
 
     const result = await mb(["lint", "--format", "text"]);
