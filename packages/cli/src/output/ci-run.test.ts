@@ -40,7 +40,7 @@ function render(bodies: readonly CiEventBody[], maxRows: number): string[] {
 function jobStart(checked: number): CiEventBody {
   return {
     type: "job.start",
-    v: 1,
+    v: 2,
     snapshot: { base: BASE, head: HEAD },
     checked: Array.from({ length: checked }, (_, index) => ({
       entity_id: `eid-${index}`,
@@ -119,7 +119,7 @@ describe("ciEventLines", () => {
       "          missing  id=2  order_total=44",
       "          extra    id=2  order_total=36",
       "      ✓ id is unique",
-      "FAILED  fix the broken entities (exit 1)",
+      "FAILED  fix what the failed checks name (exit 1)",
     ]);
   });
 
@@ -136,10 +136,10 @@ describe("ciEventLines", () => {
           jobStart(2),
           { type: "stage.start", stage: "lint" },
           CLEAN_INSTANCE,
-          { type: "stage.end", stage: "lint", status: "passed", stopped: null },
+          { type: "stage.end", stage: "lint", status: "passed", stopped: null, skipped: null },
           { type: "stage.start", stage: "unit" },
           unitCheck("passed", passed),
-          { type: "stage.end", stage: "unit", status: "passed", stopped: null },
+          { type: "stage.end", stage: "unit", status: "passed", stopped: null, skipped: null },
           { type: "job.end", state: "passed", counts: { checks: 2, warnings: 0 } },
         ],
         DEFAULT_MAX_ROWS,
@@ -171,7 +171,7 @@ describe("ciEventLines", () => {
               message: "input orders has no column named total",
             },
           },
-          { type: "stage.end", stage: "unit", status: "errored", stopped: null },
+          { type: "stage.end", stage: "unit", status: "errored", stopped: null, skipped: null },
           { type: "job.end", state: "errored", counts: { checks: 1, warnings: 0 } },
         ],
         DEFAULT_MAX_ROWS,
@@ -203,6 +203,24 @@ describe("ciEventLines", () => {
     ).toEqual(["  ! orders: order rules  error  1.3s", "      Service Unavailable (HTTP 503)"]);
   });
 
+  it("renders a skipped stage with its reason", () => {
+    expect(
+      render(
+        [
+          { type: "stage.start", stage: "lint" },
+          {
+            type: "stage.end",
+            stage: "lint",
+            status: "passed",
+            stopped: null,
+            skipped: { code: "ci.lint-unsupported", message: "no lint report" },
+          },
+        ],
+        DEFAULT_MAX_ROWS,
+      ),
+    ).toEqual(["lint", "lint  skipped: no lint report (ci.lint-unsupported)"]);
+  });
+
   it("renders a stage that stopped early with its reason, and ends ERRORED", () => {
     expect(
       render(
@@ -213,6 +231,7 @@ describe("ciEventLines", () => {
             stage: "unit",
             status: "errored",
             stopped: { code: "ci.unauthorized", message: "Unauthenticated" },
+            skipped: null,
           },
           { type: "job.end", state: "errored", counts: { checks: 0, warnings: 0 } },
         ],
@@ -251,7 +270,7 @@ describe("ciEventLines", () => {
               ],
             },
           },
-          { type: "stage.end", stage: "lint", status: "failed", stopped: null },
+          { type: "stage.end", stage: "lint", status: "failed", stopped: null, skipped: null },
           { type: "job.end", state: "failed", counts: { checks: 1, warnings: 0 } },
         ],
         DEFAULT_MAX_ROWS,
@@ -261,7 +280,7 @@ describe("ciEventLines", () => {
       "lint",
       '  ✗ card "Revenue"',
       '      missing-column  Column TOTAL is not on transform "transform_0"',
-      "FAILED  fix the broken entities (exit 1)",
+      "FAILED  fix what the failed checks name (exit 1)",
     ]);
   });
 
@@ -340,25 +359,12 @@ describe("ciEventLines", () => {
     ]);
   });
 
-  it("ends a failed job by asking for a fix to the broken entities", () => {
-    expect(render([QUERY_FAILED, TEST_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
-      "FAILED  fix the broken entities (exit 1)",
+  it("ends a job whose only failure is a test without naming the entities as broken", () => {
+    expect(render([TEST_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
+      "FAILED  fix what the failed checks name (exit 1)",
     );
   });
 });
-
-const QUERY_FAILED: CiEventBody = {
-  type: "check.result",
-  stage: "lint",
-  check: { kind: "broken-refs", id: "Cd7kW2pLmX7sYb4nC8dE1", label: 'card "Revenue"' },
-  verdict: "failed",
-  warnings: [],
-  ms: 0,
-  detail: {
-    entity: { id: 310, type: "card", data: { name: "Revenue", collection_id: null } },
-    errors: [],
-  },
-};
 
 const TEST_FAILED: CiEventBody = unitCheck(
   "failed",

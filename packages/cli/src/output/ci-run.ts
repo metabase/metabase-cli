@@ -35,7 +35,7 @@ const VERDICT_MARK: Readonly<Record<Verdict, string>> = {
   refused: "!",
 };
 
-const FAILED_TEXT = "FAILED  fix the broken entities";
+const FAILED_TEXT = "FAILED  fix what the failed checks name";
 const ERRORED_TEXT = "ERRORED  fix the test or the setup";
 
 // A refused transform test carries a message as its detail; a request that failed with an HTTP
@@ -74,6 +74,9 @@ export function ciEventLines(event: CiEvent, maxRows: number): string[] {
 function stageEndLines(event: StageEnd): string[] {
   if (event.stopped !== null) {
     return [`${event.stage}  stopped: ${event.stopped.message} (${event.stopped.code})`];
+  }
+  if (event.skipped !== null) {
+    return [`${event.stage}  skipped: ${event.skipped.message} (${event.skipped.code})`];
   }
   return [];
 }
