@@ -1,7 +1,7 @@
-import { DATA_TEST_TYPES, DataTestType } from "@metabase/client/domain/data-test";
+import { DATA_TEST_TYPES, DataTestType, testedEntityId } from "@metabase/client/domain/data-test";
 import { ConfigError } from "@metabase/client/errors";
 
-import { type AnyTest, isUnsupportedTestType } from "../../core/data-test";
+import { isUnsupportedTestType } from "../../core/data-test";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
 import { TestListItem, testListItemView } from "../../output/views/data-test";
@@ -14,29 +14,11 @@ import { defineMetabaseCommand } from "../runtime";
 
 export const TestListEnvelope = listEnvelopeSchema(TestListItem);
 
-type TestRow = Pick<AnyTest, "id" | "name" | "description">;
-
-function row(type: DataTestType, targetId: number, test: TestRow): TestListItem {
-  return {
-    test_type: type,
-    id: test.id,
-    target_id: targetId,
-    name: test.name,
-    description: test.description,
-  };
-}
-
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List data tests of every type" },
   details:
-    "Lists every test the caller can read, one row per test with its `test_type` and the id of the entity it tests as `target_id`. --id narrows to the tests of one entity, written `<type>:<id>` (`card:12`); --type narrows to one type. Without either, a type the server does not support is left out.",
-  requires: [
-    "transformTest.list",
-    "cardTest.list",
-    "segmentTest.list",
-    "measureTest.list",
-    "actionTest.list",
-  ],
+    "One row per test, with its `test_type` and the id of the entity it tests as `target_id`. Without --id or --type, a type the server does not support is left out.",
+  requires: ["dataTest.list"],
   args: {
     ...outputFlags,
     ...listFlags,
@@ -58,40 +40,25 @@ export default defineMetabaseCommand({
       throw new ConfigError(`--id ${args.id} is not a ${onlyType}; drop --type or --id`);
     }
     const client = await getClient();
-    async function testsOf(
-      type: DataTestType,
-      entityId: number | undefined,
+    async function testsOf<T extends DataTestType>(
+      type: T,
+      entityId: number | null,
     ): Promise<TestListItem[]> {
-      const options = { signal: interruptSignal };
-      switch (type) {
-        case "transform": {
-          const { data } = await client.transformTest.list({ "transform-id": entityId }, options);
-          return data.map((test) => row(type, test.transform_id, test));
-        }
-        case "card": {
-          const { data } = await client.cardTest.list({ "card-id": entityId }, options);
-          return data.map((test) => row(type, test.card_id, test));
-        }
-        case "segment": {
-          const { data } = await client.segmentTest.list({ "segment-id": entityId }, options);
-          return data.map((test) => row(type, test.segment_id, test));
-        }
-        case "measure": {
-          const { data } = await client.measureTest.list({ "measure-id": entityId }, options);
-          return data.map((test) => row(type, test.measure_id, test));
-        }
-        case "action": {
-          const { data } = await client.actionTest.list({ "action-id": entityId }, options);
-          return data.map((test) => row(type, test.action_id, test));
-        }
-      }
+      const { data } = await client.dataTest.list(type, entityId, { signal: interruptSignal });
+      return data.map((test) => ({
+        test_type: type,
+        id: test.id,
+        target_id: testedEntityId(type, test),
+        name: test.name,
+        description: test.description,
+      }));
     }
 
     async function testsOfEveryType(): Promise<TestListItem[]> {
       const lists = await Promise.all(
         DATA_TEST_TYPES.map(async (type) => {
           try {
-            return await testsOf(type, undefined);
+            return await testsOf(type, null);
           } catch (error) {
             if (isUnsupportedTestType(error)) {
               return [];
@@ -102,9 +69,13 @@ export default defineMetabaseCommand({
       );
       return lists.flat();
     }
-    const narrowed = entity?.type ?? onlyType;
-    const items =
-      narrowed === null ? await testsOfEveryType() : await testsOf(narrowed, entity?.id);
+    function listed(): Promise<TestListItem[]> {
+      if (entity !== null) {
+        return testsOf(entity.type, entity.id);
+      }
+      return onlyType === null ? testsOfEveryType() : testsOf(onlyType, null);
+    }
+    const items = await listed();
     renderList(windowList(items, ctx.range), testListItemView, ctx);
   },
 });

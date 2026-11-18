@@ -14,7 +14,9 @@ const UNSENT_INPUTS: Readonly<Record<string, string>> = {
     "dashboard.updateDashcard merges it into one of the dashcards dashboard.update sends, unchecked",
   TipTapNodeInput: "nested in the document inputs, unchecked",
   TransformSourceTableEntryInput: "nested in the transform and Python test-run inputs, unchecked",
-  TransformTestInput: "nested in the transform test inputs, unchecked",
+  DataTestInput: "nested in the data test inputs, unchecked",
+  TransformTestCreateInput: "the CLI's transform-test create sends it through dataTest.create",
+  TransformTestUpdateInput: "the CLI's transform-test update sends it through dataTest.update",
 };
 
 interface UncheckedBody extends UnpairedBody {
@@ -35,6 +37,8 @@ const UNCHECKED_BODIES: readonly UncheckedBody[] = [
   },
   { key: "dataAction.archive", bodyType: null, reason: "a fixed body sent through update" },
   { key: "dataApp.updateBundle", bodyType: null, reason: "a single field, the bundle's text" },
+  { key: "dataTest.create", bodyType: null, reason: "the path and the entity's key vary by type" },
+  { key: "dataTest.update", bodyType: "DataTestPatch<T>", reason: "the path varies by type" },
   { key: "document.archive", bodyType: null, reason: "a fixed body sent through update" },
   { key: "dataset.query", bodyType: "unknown", reason: "a query, checked against the MBQL schema" },
   { key: "dataset.native", bodyType: null, reason: "a query, checked against the MBQL schema" },

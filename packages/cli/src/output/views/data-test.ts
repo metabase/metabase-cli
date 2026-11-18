@@ -1,18 +1,12 @@
 import { z } from "zod";
 
-import { dataTestFields, DataTestType } from "@metabase/client/domain/data-test";
+import { DataTestCompact, DataTestType } from "@metabase/client/domain/data-test";
 
 import type { AnyTest } from "../../core/data-test";
 import type { ResourceView } from "../view";
 
-// Only the fields every test type shares, so a compact test reads the same whatever its type.
-const AnyTestCompact = z
-  .object(dataTestFields)
-  .pick({ id: true, name: true, description: true })
-  .strip();
-
 export const anyTestView: ResourceView<AnyTest> = {
-  compactPick: AnyTestCompact,
+  compactPick: DataTestCompact,
   tableColumns: [
     { key: "id", label: "ID" },
     { key: "name", label: "Name" },

@@ -675,12 +675,12 @@ describe("command tree contract", () => {
         .map((entry) => [entry.command, entry.requires]),
     );
     expect(requires).toEqual({
-      "transform-test list": requiresOf("transformTest.list"),
-      "transform-test get": requiresOf("transformTest.get"),
-      "transform-test create": requiresOf("transformTest.create"),
-      "transform-test update": requiresOf("transformTest.update"),
-      "transform-test delete": requiresOf("transformTest.delete"),
-      "transform-test run": requiresOf("transformTest.run"),
+      "transform-test list": requiresOf("dataTest.list"),
+      "transform-test get": requiresOf("dataTest.get"),
+      "transform-test create": requiresOf("dataTest.create"),
+      "transform-test update": requiresOf("dataTest.update"),
+      "transform-test delete": requiresOf("dataTest.delete"),
+      "transform-test run": requiresOf("dataTest.run"),
     });
   });
 

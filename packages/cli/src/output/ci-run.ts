@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 import {
-  type TransformTestExpectationResult,
-  type TransformTestResultColumn,
-  type TransformTestRow,
-  TransformTestRunResult,
-} from "@metabase/client/domain/transform-test";
+  type DataTestExpectationResult,
+  type DataTestResultColumn,
+  type DataTestRow,
+  DataTestRunResult,
+} from "@metabase/client/domain/data-test";
 import { InternalError } from "@metabase/client/errors";
 
 import { BrokenRefsDetail } from "../core/ci-broken-refs";
@@ -17,7 +17,7 @@ import { printable } from "./table";
 
 type CheckResult = Extract<CiEvent, { type: "check.result" }>;
 type StageEnd = Extract<CiEvent, { type: "stage.end" }>;
-type Cell = TransformTestRow[string];
+type Cell = DataTestRow[string];
 
 // A public repo's CI log is public, and a transform test's rows can come from warehouse tables.
 export const DEFAULT_MAX_ROWS = 5;
@@ -122,7 +122,7 @@ function duration(ms: number): string {
 // A test's result, an entity's lint errors, or else a message. The runner wrote the
 // detail, so one that is none of these is a bug in the runner.
 function detailLines(event: CheckResult, maxRows: number): string[] {
-  const result = TransformTestRunResult.safeParse(event.detail);
+  const result = DataTestRunResult.safeParse(event.detail);
   if (result.success) {
     return result.data.expectations.flatMap((expectation) =>
       expectationLines(expectation, maxRows),
@@ -145,7 +145,7 @@ function detailLines(event: CheckResult, maxRows: number): string[] {
   return [`${DETAIL_INDENT}${message.data.message}`];
 }
 
-function expectationLines(result: TransformTestExpectationResult, maxRows: number): string[] {
+function expectationLines(result: DataTestExpectationResult, maxRows: number): string[] {
   const line = `${DETAIL_INDENT}${VERDICT_MARK[result.status]} ${result.name}`;
   if (result.status === "passed") {
     return [line];
@@ -179,7 +179,7 @@ function expectationLines(result: TransformTestExpectationResult, maxRows: numbe
   ];
 }
 
-function columnNames(columns: readonly TransformTestResultColumn[]): string[] {
+function columnNames(columns: readonly DataTestResultColumn[]): string[] {
   return columns.map((column) => column.name);
 }
 
@@ -195,8 +195,8 @@ function capped(lines: readonly string[], truncated: number, maxRows: number): s
 // Rows are keyed by the first column. A missing row and an extra row with the same key are the
 // same row, wrong; for those only the columns that differ are shown, so the wrong value stands out.
 function rowDiffLines(
-  missing: readonly TransformTestRow[],
-  extra: readonly TransformTestRow[],
+  missing: readonly DataTestRow[],
+  extra: readonly DataTestRow[],
   columns: readonly string[],
 ): string[] {
   const [key, ...rest] = columns;
@@ -226,7 +226,7 @@ function rowDiffLines(
   return lines;
 }
 
-function cellsText(row: TransformTestRow, columns: readonly string[]): string {
+function cellsText(row: DataTestRow, columns: readonly string[]): string {
   return columns.map((column) => `${column}=${cellText(row[column])}`).join("  ");
 }
 

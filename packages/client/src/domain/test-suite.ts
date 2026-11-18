@@ -1,7 +1,6 @@
 import { z } from "zod";
 
-import { DataTestType } from "./data-test";
-import { TransformTestRunResult } from "./transform-test";
+import { DataTestRunResult, DataTestType } from "./data-test";
 
 export const TestSuiteMember = z
   .object({
@@ -54,7 +53,7 @@ export const TestSuiteRunEntry = z
   .object({
     test_type: DataTestType,
     test_id: z.number().int(),
-    result: TransformTestRunResult,
+    result: DataTestRunResult,
   })
   .loose();
 export type TestSuiteRunEntry = z.infer<typeof TestSuiteRunEntry>;

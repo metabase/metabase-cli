@@ -11,14 +11,8 @@ import { refuseForeignFields, TestPatch } from "./body";
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a data test from JSON" },
   details:
-    "--id names the test as `<type>-test:<id>` (`card-test:34`). Only the fields the body carries are patched; `inputs` and `expectations` replace what is stored rather than merging into it. The body takes the fields `create` does, is closed at every level, and cannot move the test to another entity.",
-  requires: [
-    "transformTest.update",
-    "cardTest.update",
-    "segmentTest.update",
-    "measureTest.update",
-    "actionTest.update",
-  ],
+    "Only the fields the body carries are patched; `inputs` and `expectations` replace what is stored.",
+  requires: ["dataTest.update"],
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -37,28 +31,9 @@ export default defineMetabaseCommand({
     const patch = await readBody({ flag: args.body, file: args.file });
     refuseForeignFields(ref, patch);
     const client = await getClient();
-    function updateTest(): Promise<AnyTest> {
-      const { parameters, now, ...fields } = patch;
-      const options = { signal: interruptSignal };
-      switch (ref.type) {
-        case "transform": {
-          return client.transformTest.update(ref.id, fields, options);
-        }
-        case "card": {
-          return client.cardTest.update(ref.id, { ...fields, now }, options);
-        }
-        case "segment": {
-          return client.segmentTest.update(ref.id, { ...fields, now }, options);
-        }
-        case "measure": {
-          return client.measureTest.update(ref.id, { ...fields, now }, options);
-        }
-        case "action": {
-          return client.actionTest.update(ref.id, { ...fields, now, parameters }, options);
-        }
-      }
-    }
-    const updated = await updateTest();
+    const updated = await client.dataTest.update(ref.type, ref.id, patch, {
+      signal: interruptSignal,
+    });
     renderSummary(updated, anyTestView, `Updated ${testRefText(ref)}.`, ctx);
   },
 });

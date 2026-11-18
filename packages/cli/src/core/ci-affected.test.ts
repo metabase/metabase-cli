@@ -43,13 +43,15 @@ const CARD: ContentFile = {
   name: "Revenue by day",
 };
 const TEST: ContentFile = {
-  kind: "transform-test",
-  transformId: TRANSFORM_ID,
+  kind: "test",
+  type: "transform",
+  entityId: TRANSFORM_ID,
   hasExpectations: true,
 };
 const EMPTY_TEST: ContentFile = {
-  kind: "transform-test",
-  transformId: TRANSFORM_ID,
+  kind: "test",
+  type: "transform",
+  entityId: TRANSFORM_ID,
   hasExpectations: false,
 };
 
@@ -230,6 +232,16 @@ describe("classifyContentFile", () => {
     ).toEqual(TEST);
   });
 
+  it("classifies a card test by the card it names in card_id", () => {
+    expect(
+      classifyDocument("collections/c/cards/t.yaml", {
+        card_id: CARD_ID,
+        expectations: [{ name: "e", type: "empty" }],
+        "serdes/meta": [{ model: "CardTest" }],
+      }),
+    ).toEqual({ kind: "test", type: "card", entityId: CARD_ID, hasExpectations: true });
+  });
+
   it("reads a transform test whose expectations are missing, null or empty", () => {
     const documents = [
       { transform_id: TRANSFORM_ID, "serdes/meta": [{ model: "TransformTest" }] },
@@ -392,8 +404,9 @@ describe("affectedEntities", () => {
 
   it("includes both transforms when a test moves from one transform to another", () => {
     const moved: ContentFile = {
-      kind: "transform-test",
-      transformId: OTHER_TRANSFORM_ID,
+      kind: "test",
+      type: "transform",
+      entityId: OTHER_TRANSFORM_ID,
       hasExpectations: true,
     };
 
@@ -451,7 +464,7 @@ describe("affectedEntities", () => {
 
     expect(affected).toThrow(ValidationError);
     expect(affected).toThrow(
-      `${CHANGED_PATH}: an entity or transform test at base no longer reads as one at head`,
+      `${CHANGED_PATH}: an entity or test at base no longer reads as one at head`,
     );
   });
 
@@ -460,7 +473,7 @@ describe("affectedEntities", () => {
 
     expect(affected).toThrow(ValidationError);
     expect(affected).toThrow(
-      `${CHANGED_PATH}: an entity or transform test at base no longer reads as one at head`,
+      `${CHANGED_PATH}: an entity or test at base no longer reads as one at head`,
     );
   });
 
@@ -476,7 +489,7 @@ describe("affectedEntities", () => {
 
     expect(affected).toThrow(ValidationError);
     expect(affected).toThrow(
-      `${CHANGED_PATH}: an entity or transform test at base no longer reads as one at head`,
+      `${CHANGED_PATH}: an entity or test at base no longer reads as one at head`,
     );
   });
 });
@@ -563,9 +576,9 @@ describe("headEntities", () => {
   });
 
   it("counts a transform as tested only by a test with expectations", () => {
-    const moved: ContentFile = { ...EMPTY_TEST, transformId: OTHER_TRANSFORM_ID };
+    const moved: ContentFile = { ...EMPTY_TEST, entityId: OTHER_TRANSFORM_ID };
 
-    expect(headEntities([TEST, moved]).tested).toEqual(new Set([TRANSFORM_ID]));
+    expect(headEntities([TEST, moved]).tested).toEqual(new Set([`transform:${TRANSFORM_ID}`]));
   });
 
   it("ignores files that are not entities or tests, and absent sides", () => {

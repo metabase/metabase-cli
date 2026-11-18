@@ -17,32 +17,24 @@ export default defineMetabaseCommand({
   meta: {
     name: "run",
     description:
-      "Lint the Metabase instance and run the tests of what a branch changed, reporting each check as it finishes",
+      "Lint the Metabase instance and test the entities a branch changed, reporting each check as it finishes",
   },
   details: [
-    "Compares --head with its merge base with --base and lists in `job.start.checked` the transforms, cards, segments, measures and actions whose files changed, and the transforms whose tests changed. Two stages run, both on the Metabase instance that --url, MB_URL or --profile names, in that order, which must already hold the branch's content. `lint` reads the instance's lint report, which covers every entity on it whatever the change touched, since its content can break outside the branch, and fails each entity with an error, as one `broken-refs` check per entity that lists its errors; an instance with no finding gets one passed check. The report needs an admin credential and a server that has it: without either, or without a credential at all, `lint` ends early, `errored`, with the reason in `stage.end.stopped`. `unit` runs the instance's tests of the entities in `job.start.checked`, one check per test whose `kind` names its type, and runs even when `lint` fails, so one job reports both stages' findings; it runs only when `checked` is not empty. A checked entity the instance does not hold is `refused` (`ci.entity-not-on-instance`), and so is a checked transform the branch tests but the instance lists no test for (`ci.no-tests-on-instance`); the branch tests a transform when a TransformTest file at --head names it in `transform_id` and has a non-empty `expectations` list. With --all-tests, `unit` instead runs every test of every type on the instance, whatever the change touched: a test type the server does not support is left out, and a server supporting none ends `unit` early. A `warn` result passes. Content files are the `.yaml` files Metabase's import reads: not dotfiles, under a top-level serialization folder such as `transforms/` or `collections/`. Only committed content is checked: when --head is the checked-out commit, a content file with uncommitted changes is listed in an `uncommitted-content` warning, and its committed version is checked.",
-    "With --format json, the default when stdout is not a terminal, writes one JSON event per line (`job.start`, then each stage and check, then `job.end`); `job.start.checked` lists the transforms the job covered, and a `no-content-changes` warning says when the change touches no content file; an `unread-content` warning lists the content files at --head that the change did not touch and this check cannot read, whose transforms and tests go uncounted; each test's result is passed through as the check's `detail`, with every row the server sent. With --format text, the default on a terminal, writes the same events as lines for a person: each failed expectation with up to --max-rows lines of its missing and extra rows, keyed by the first column, then a count of the rest. The --results file is JSON whatever the format, and holds every row the server sent. Unless --no-run-log is set, every run also appends each event, as one JSON line, to `.scratch/ci-runs/<started-at>-<job>.jsonl` under the repository root as it happens, whatever the format and whether or not --results is set, so a UI can show every run; the folder holds a `.gitignore` that ignores it, and a run that crashes or is interrupted keeps its log, which stops before `job.end`. A usage or config error found before `job.start`, such as a --base git cannot resolve, leaves no log.",
+    "Compares --head with its merge base with --base and finds the transforms, cards, segments, measures and actions whose files or tests changed. Two stages run, both on the Metabase instance that --url, MB_URL or --profile names, in that order, which must already hold the branch's content. `lint` reads the instance's lint report, which covers every entity on it whatever the change touched, and fails each entity with an error, as one `broken-refs` check per entity that lists its errors; an instance with no finding gets one passed check. The report needs an admin credential and a server that has it: without either, or without a credential at all, `lint` ends early, `errored`, with the reason in `stage.end.stopped`. `unit` runs the instance's tests of the entities in `job.start.checked`, one check per test whose `kind` names its type, and runs even when `lint` fails, so one job reports both stages' findings. A checked entity the instance does not hold is `refused` (`ci.entity-not-on-instance`), and so is one the branch tests but the instance lists no test for (`ci.no-tests-on-instance`); the branch tests an entity when a test file at --head, such as a TransformTest, names it in its `<type>_id` and has a non-empty `expectations` list. `lint` runs on every job, whatever the change touched, since the instance's content can break outside the branch; `unit` runs only when `checked` is not empty. Content files are the `.yaml` files Metabase's import reads: not dotfiles, under a top-level serialization folder such as `transforms/` or `collections/`. Only committed content is checked: when --head is the checked-out commit, a content file with uncommitted changes is listed in an `uncommitted-content` warning, and its committed version is checked.",
+    "With --format json, the default when stdout is not a terminal, writes one JSON event per line (`job.start`, then each stage and check, then `job.end`); `job.start.checked` lists the entities the job covered, and a `no-content-changes` warning says when the change touches no content file, so no test ran; an `unread-content` warning lists the content files at --head that the change did not touch and this check cannot read, whose entities and tests go uncounted; each test's result is passed through as the check's `detail`, with every row the server sent. With --format text, the default on a terminal, writes the same events as lines for a person: each failed expectation with up to --max-rows lines of its missing and extra rows, keyed by the first column, then a count of the rest. The --results file is JSON whatever the format, and holds every row the server sent. Unless --no-run-log is set, every run also appends each event, as one JSON line, to `.scratch/ci-runs/<started-at>-<job>.jsonl` under the repository root as it happens, whatever the format and whether or not --results is set, so a UI can show every run; the folder holds a `.gitignore` that ignores it, and a run that crashes or is interrupted keeps its log, which stops before `job.end`. A usage or config error found before `job.start`, such as a --base git cannot resolve, leaves no log.",
     "Exits 0 when the job passes. Exits 1 after `job.end` when it does not: `state` is `failed` when a check failed (fix the broken entities), and `errored` when no check failed but one could not judge the change (fix the test or the setup); a failure outranks errors, since it is a finding about the change. Exits 2 on a usage or config error: a bad flag, a --repo, --base or --head that git cannot resolve or relate, or, found after `job.start` when a stage connects, a configuration it cannot use, such as a browser-login profile bound to another URL; a missing credential is not one, since it ends each stage instead.",
-    "A test run that times out, loses its connection or gets an HTTP error is an `error` check whose `detail.error_code` starts with `ci.`, and the next test runs. A failure every later request would repeat ends the unit stage early, `errored` unless a check failed, with the reason in `stage.end.stopped`: no Metabase credential is configured (`ci.no-credential`, before any request), Metabase rejects the credential, the server has no test type at all, or Metabase cannot be reached while listing tests. Exits 1 on a crash, such as a content file the change touched that does not parse at --head, and 130 on an interrupt: the stream stops before `job.end`, the error is on stderr, and no --results file is left, not even an earlier run's. When the reader closes stdout early, the job still runs to the end, writes --results and exits by its state.",
+    "A test run that times out, loses its connection or gets an HTTP error is an `error` check whose `detail.error_code` starts with `ci.`, and the next test runs. A failure every later request would repeat ends the unit stage early, `errored` unless a check failed, with the reason in `stage.end.stopped`: no Metabase credential is configured (`ci.no-credential`, before any request), Metabase rejects the credential, the server has no testing for a type the branch tests, the entity-id lookup fails, or Metabase cannot be reached before a test runs. Exits 1 on a crash, such as a content file the change touched that does not parse at --head, and 130 on an interrupt: the stream stops before `job.end`, the error is on stderr, and no --results file is left, not even an earlier run's. When the reader closes stdout early, the job still runs to the end, writes --results and exits by its state.",
   ].join("\n\n"),
   requires: [
-    "lint.report",
     "eidTranslation.translate",
+    "lint.report",
     "transform.get",
     "card.get",
     "segment.get",
     "measure.get",
     "dataAction.get",
-    "transformTest.list",
-    "transformTest.run",
-    "cardTest.list",
-    "cardTest.run",
-    "segmentTest.list",
-    "segmentTest.run",
-    "measureTest.list",
-    "measureTest.run",
-    "actionTest.list",
-    "actionTest.run",
+    "dataTest.list",
+    "dataTest.run",
   ],
   args: {
     ...formatFlags,
@@ -51,11 +43,6 @@ export default defineMetabaseCommand({
     base: { type: "string", description: "Ref the branch is compared against", required: true },
     head: { type: "string", description: "Ref to check", default: "HEAD" },
     repo: { type: "string", description: "Path inside the git work tree to check", default: "." },
-    "all-tests": {
-      type: "boolean",
-      description: "Run every test on the instance, not only the tests of what the branch changed",
-      default: false,
-    },
     results: {
       type: "string",
       description:
@@ -78,7 +65,6 @@ export default defineMetabaseCommand({
   examples: [
     "mb ci run --base origin/main",
     "mb ci run --base origin/main --format text --results results.json",
-    "mb ci run --base origin/main --all-tests",
   ],
   async run({ args, ctx, getClient }) {
     const maxRows = parseInteger(args["max-rows"], { name: "--max-rows", min: 0 });
@@ -89,15 +75,11 @@ export default defineMetabaseCommand({
       // Planning needs no server, so a bad ref never asks for one.
       stages: async (plan) => {
         const lint = lintStage(async () => lintPort(await getClient()));
-        const connect = async () => clientPort(await getClient());
-        if (args["all-tests"]) {
-          return [lint, unitStage({ kind: "every" }, connect)];
-        }
         if (plan.checked.length === 0) {
           return [lint];
         }
-        const scope = { kind: "changed", checked: plan.checked, tested: plan.tested } as const;
-        return [lint, unitStage(scope, connect)];
+        const scope = { checked: plan.checked, tested: plan.tested };
+        return [lint, unitStage(scope, async () => clientPort(await getClient()))];
       },
       job: randomUUID(),
       now: () => new Date(),

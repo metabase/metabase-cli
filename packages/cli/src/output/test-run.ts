@@ -1,20 +1,17 @@
 import type {
-  TransformTestExpectationResult,
-  TransformTestRunResult,
-} from "@metabase/client/domain/transform-test";
+  DataTestExpectationResult,
+  DataTestRunResult,
+} from "@metabase/client/domain/data-test";
 
 import { pluralize } from "./pluralize";
 
-type ExpectationStatus = TransformTestExpectationResult["status"];
+type ExpectationStatus = DataTestExpectationResult["status"];
 
-function namesOf(
-  expectations: TransformTestExpectationResult[],
-  status: ExpectationStatus,
-): string[] {
+function namesOf(expectations: DataTestExpectationResult[], status: ExpectationStatus): string[] {
   return expectations.filter((expectation) => expectation.status === status).map((e) => e.name);
 }
 
-export function testRunSummary(label: string, result: TransformTestRunResult): string {
+export function testRunSummary(label: string, result: DataTestRunResult): string {
   if (result.status === "passed") {
     const count = pluralize(result.expectations.length, "expectation", "expectations");
     return `${label} passed ${count}.`;

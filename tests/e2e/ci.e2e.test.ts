@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { TransformTestRunResult } from "@metabase/client/domain/transform-test";
+import { DataTestRunResult } from "@metabase/client/domain/data-test";
 import { parseJson } from "@metabase/client/json";
 
 import { CiEvent } from "../../packages/cli/src/core/ci-events";
@@ -375,7 +375,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
       if (check === undefined) {
         throw new Error("no unit check.result event");
       }
-      return Object.values(TransformTestRunResult.parse(check.detail).tables).toSorted();
+      return Object.values(DataTestRunResult.parse(check.detail).tables).toSorted();
     }
 
     const broken = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);

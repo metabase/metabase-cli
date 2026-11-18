@@ -1,9 +1,8 @@
 import { performance } from "node:perf_hooks";
 
 import type { MetabaseClient } from "@metabase/client/client";
-import { DATA_TEST_TYPES, type DataTestType } from "@metabase/client/domain/data-test";
 import type { EidTranslateEntry } from "@metabase/client/domain/eid-translation";
-import type { TransformTestRunResult } from "@metabase/client/domain/transform-test";
+import type { DataTest, DataTestRunResult, DataTestType } from "@metabase/client/domain/data-test";
 import { InternalError } from "@metabase/client/errors";
 
 import { entityKey } from "../../core/ci-affected";
@@ -19,10 +18,10 @@ import {
   testFailure,
   testVerdict,
 } from "../../core/ci-unit";
-import { type AnyTest, isUnsupportedTestType, testKind } from "../../core/data-test";
+import { isUnsupportedTestType, testKind } from "../../core/data-test";
 import { interruptSignal } from "../../runtime/interrupt";
 
-export type InstanceTest = Pick<AnyTest, "id" | "name">;
+export type InstanceTest = Pick<DataTest, "id" | "name">;
 
 interface FoundEntity {
   kind: "found";
@@ -41,9 +40,8 @@ export interface UnitStagePort {
     entities: readonly CheckedEntity[],
   ) => Promise<ReadonlyMap<string, EntityLookup>>;
   readEntity: (type: DataTestType, id: number) => Promise<void>;
-  // `entityId` null lists every test of the type.
-  listTests: (type: DataTestType, entityId: number | null) => Promise<readonly InstanceTest[]>;
-  runTest: (type: DataTestType, testId: number) => Promise<TransformTestRunResult>;
+  listTests: (type: DataTestType, entityId: number) => Promise<readonly InstanceTest[]>;
+  runTest: (type: DataTestType, testId: number) => Promise<DataTestRunResult>;
   nowMs: () => number;
 }
 
@@ -122,46 +120,8 @@ export function clientPort(client: MetabaseClient): UnitStagePort {
         }
       }
     },
-    listTests: async (type, entityId) => {
-      // The list's query omits an undefined filter.
-      const of = entityId === null ? undefined : entityId;
-      switch (type) {
-        case "transform": {
-          return (await client.transformTest.list({ "transform-id": of }, options)).data;
-        }
-        case "card": {
-          return (await client.cardTest.list({ "card-id": of }, options)).data;
-        }
-        case "segment": {
-          return (await client.segmentTest.list({ "segment-id": of }, options)).data;
-        }
-        case "measure": {
-          return (await client.measureTest.list({ "measure-id": of }, options)).data;
-        }
-        case "action": {
-          return (await client.actionTest.list({ "action-id": of }, options)).data;
-        }
-      }
-    },
-    runTest: (type, testId) => {
-      switch (type) {
-        case "transform": {
-          return client.transformTest.run(testId, runOptions);
-        }
-        case "card": {
-          return client.cardTest.run(testId, runOptions);
-        }
-        case "segment": {
-          return client.segmentTest.run(testId, runOptions);
-        }
-        case "measure": {
-          return client.measureTest.run(testId, runOptions);
-        }
-        case "action": {
-          return client.actionTest.run(testId, runOptions);
-        }
-      }
-    },
+    listTests: async (type, entityId) => (await client.dataTest.list(type, entityId, options)).data,
+    runTest: (type, testId) => client.dataTest.run(type, testId, runOptions),
     nowMs: () => performance.now(),
   };
 }
@@ -190,29 +150,10 @@ function reportFailure(
   return null;
 }
 
-interface Listed {
-  type: DataTestType;
-  tests: readonly InstanceTest[];
-}
-
-interface ListFailure {
-  type: DataTestType;
-  error: unknown;
-  ms: number;
-}
-
-async function listType(type: DataTestType, port: UnitStagePort): Promise<Listed | ListFailure> {
-  const started = port.nowMs();
-  try {
-    return { type, tests: await port.listTests(type, null) };
-  } catch (error) {
-    return { type, error, ms: port.nowMs() - started };
-  }
-}
-
 // A failed run costs that test alone; a failure every later request would repeat stops the stage.
-async function runListed(
-  { type, tests }: Listed,
+async function runTests(
+  type: DataTestType,
+  tests: readonly InstanceTest[],
   labelPrefix: string,
   port: UnitStagePort,
   report: Report,
@@ -234,43 +175,6 @@ async function runListed(
   return null;
 }
 
-// A type the server does not support holds no test, so it is left out, whether the client explains
-// the refusal or the server has no route for it yet; a server supporting none has nothing to check,
-// which stops the stage. Every type is listed before any test runs, so a stop a listing calls for
-// comes before the runs.
-async function runEveryType(port: UnitStagePort, report: Report): Promise<StageStop | null> {
-  const listings = await Promise.all(DATA_TEST_TYPES.map((type) => listType(type, port)));
-  const listed: Listed[] = [];
-  const unsupported: Error[] = [];
-  for (const listing of listings) {
-    if ("tests" in listing) {
-      listed.push(listing);
-      continue;
-    }
-    const { type, error, ms } = listing;
-    if (isUnsupportedTestType(error)) {
-      unsupported.push(error);
-      continue;
-    }
-    const check = { kind: testKind(type), id: type, label: `${type} tests` };
-    const stop = reportFailure(error, "list", check, ms, report);
-    if (stop !== null) {
-      return stop;
-    }
-  }
-  const [first] = unsupported;
-  if (unsupported.length === DATA_TEST_TYPES.length && first !== undefined) {
-    return { code: "ci.unsupported-server", message: first.message };
-  }
-  for (const each of listed) {
-    const stop = await runListed(each, "", port, report);
-    if (stop !== null) {
-      return stop;
-    }
-  }
-  return null;
-}
-
 const MISSING_ENTITY_DETAIL: Record<MissingEntity["kind"], CiRefusal> = {
   "not-found": ENTITY_NOT_ON_INSTANCE,
   "invalid-entity-id": INVALID_ENTITY_ID,
@@ -278,7 +182,7 @@ const MISSING_ENTITY_DETAIL: Record<MissingEntity["kind"], CiRefusal> = {
 
 // The test list leaves out the tests the CI identity cannot read, so the entity is read first: once
 // that succeeds, an empty list means the entity has no tests, rather than hidden ones. A type the
-// server cannot test holds none, which only a transform the branch tests cannot accept.
+// server cannot test holds none, which an entity the branch tests cannot accept.
 async function checkEntity(
   entity: CheckedEntity,
   id: number,
@@ -307,11 +211,11 @@ async function checkEntity(
     report({ check, verdict: "refused", warnings: [], ms, detail: NO_TESTS_ON_INSTANCE });
     return null;
   }
-  return runListed({ type: entity.type, tests }, `${entity.name}: `, port, report);
+  return runTests(entity.type, tests, `${entity.name}: `, port, report);
 }
 
 async function runChanged(
-  { checked, tested }: ChangedScope,
+  { checked, tested }: UnitScope,
   port: UnitStagePort,
   report: Report,
 ): Promise<StageStop | null> {
@@ -340,7 +244,7 @@ async function runChanged(
       });
       continue;
     }
-    const testedInBranch = entity.type === "transform" && tested.has(entity.entity_id);
+    const testedInBranch = tested.has(checkedKey(entity));
     const stop = await checkEntity(entity, lookup.id, testedInBranch, port, report);
     if (stop !== null) {
       return stop;
@@ -349,18 +253,11 @@ async function runChanged(
   return null;
 }
 
-interface EveryScope {
-  kind: "every";
-}
-
-// The entities the change touched, and the transforms a test in the branch covers.
-interface ChangedScope {
-  kind: "changed";
+// The entities the change touched, and those a test in the branch covers, by `entityKey`.
+export interface UnitScope {
   checked: readonly CheckedEntity[];
   tested: ReadonlySet<string>;
 }
-
-export type UnitScope = EveryScope | ChangedScope;
 
 // The stage connects only when it runs, so a missing credential ends the stage, not the job.
 export function unitStage(scope: UnitScope, connect: () => Promise<UnitStagePort>): CiStage {
@@ -377,7 +274,7 @@ export function unitStage(scope: UnitScope, connect: () => Promise<UnitStagePort
         }
         return stop;
       }
-      return scope.kind === "every" ? runEveryType(port, report) : runChanged(scope, port, report);
+      return runChanged(scope, port, report);
     },
   };
 }

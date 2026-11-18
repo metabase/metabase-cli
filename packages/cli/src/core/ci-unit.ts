@@ -1,5 +1,5 @@
 import { isDataTestCode } from "@metabase/client/domain/data-test";
-import type { TransformTestRunResult } from "@metabase/client/domain/transform-test";
+import type { DataTestRunResult } from "@metabase/client/domain/data-test";
 import { NetworkError, ResponseShapeError, TimeoutError } from "@metabase/client/errors";
 import { HttpError, isHttpNotFound } from "@metabase/client/http/errors";
 import { CapabilityError } from "@metabase/client/version/capability-error";
@@ -7,11 +7,11 @@ import { CapabilityError } from "@metabase/client/version/capability-error";
 import type { StageStop, Verdict } from "./ci-events";
 import { NotAuthenticatedError } from "./config";
 
-type TestVerdict = TransformTestRunResult["status"];
+type TestVerdict = DataTestRunResult["status"];
 
 // A failed expectation outranks one that errored: a failure is a finding about the change, an error
 // a finding about the test. With neither, the run's own status decides.
-export function testVerdict(result: TransformTestRunResult): TestVerdict {
+export function testVerdict(result: DataTestRunResult): TestVerdict {
   const statuses = new Set(result.expectations.map((expectation) => expectation.status));
   if (statuses.has("failed")) {
     return "failed";
@@ -82,7 +82,7 @@ export const INVALID_ENTITY_ID: CiRefusal = {
 export const NO_TESTS_ON_INSTANCE: CiRefusal = {
   error_code: "ci.no-tests-on-instance",
   message:
-    "the branch has a test for this transform, but the Metabase instance lists none, so no test ran; load the branch into it first",
+    "the branch has a test for this entity, but the Metabase instance lists none, so no test ran; load the branch into it first",
 };
 
 const ENTITY_UNREADABLE: CiRefusal = {

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  type TransformTestExpectationResult,
-  type TransformTestRunResult,
-  TransformTestRefusalCode,
-} from "@metabase/client/domain/transform-test";
+  type DataTestExpectationResult,
+  type DataTestRunResult,
+} from "@metabase/client/domain/data-test";
+import { TransformTestRefusalCode } from "@metabase/client/domain/transform-test";
 import {
   AbortError,
   InternalError,
@@ -24,9 +24,9 @@ import {
   testFailure,
 } from "./ci-unit";
 
-type ExpectationStatus = TransformTestExpectationResult["status"];
+type ExpectationStatus = DataTestExpectationResult["status"];
 
-const EXPECTATION_BY_STATUS: Record<ExpectationStatus, TransformTestExpectationResult> = {
+const EXPECTATION_BY_STATUS: Record<ExpectationStatus, DataTestExpectationResult> = {
   passed: { name: "e", type: "empty", status: "passed" },
   failed: { name: "e", type: "empty", status: "failed", columns: [], sample: [], truncated: 0 },
   error: {
@@ -38,7 +38,7 @@ const EXPECTATION_BY_STATUS: Record<ExpectationStatus, TransformTestExpectationR
 };
 
 // Server-shaped: Metabase answers `passed` exactly when every expectation passed.
-function runResult(statuses: readonly ExpectationStatus[]): TransformTestRunResult {
+function runResult(statuses: readonly ExpectationStatus[]): DataTestRunResult {
   return {
     status: statuses.every((status) => status === "passed") ? "passed" : "failed",
     tables: {},

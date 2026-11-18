@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import type {
-  TransformTestExpectationResult,
-  TransformTestRunResult,
-} from "@metabase/client/domain/transform-test";
+  DataTestExpectationResult,
+  DataTestRunResult,
+} from "@metabase/client/domain/data-test";
 
 import { testRunSummary } from "./test-run";
 
-const PASSED: TransformTestExpectationResult = {
+const PASSED: DataTestExpectationResult = {
   name: "no negatives",
   type: "empty",
   status: "passed",
 };
-const FAILED: TransformTestExpectationResult = {
+const FAILED: DataTestExpectationResult = {
   name: "totals add up",
   type: "empty",
   status: "failed",
@@ -20,7 +20,7 @@ const FAILED: TransformTestExpectationResult = {
   sample: [],
   truncated: 0,
 };
-const ERRORED: TransformTestExpectationResult = {
+const ERRORED: DataTestExpectationResult = {
   name: "unique ids",
   type: "empty",
   status: "error",
@@ -28,9 +28,9 @@ const ERRORED: TransformTestExpectationResult = {
 };
 
 function run(
-  status: TransformTestRunResult["status"],
-  expectations: TransformTestRunResult["expectations"],
-): TransformTestRunResult {
+  status: DataTestRunResult["status"],
+  expectations: DataTestRunResult["expectations"],
+): DataTestRunResult {
   return { status, expectations, tables: {} };
 }
 

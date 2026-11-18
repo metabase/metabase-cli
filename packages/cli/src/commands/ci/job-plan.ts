@@ -5,7 +5,7 @@ import {
   type ContentFile,
   type DiffEntry,
   CONTENT_TOP_LEVEL_FOLDERS,
-  TRANSFORM_MODEL_PATTERN,
+  TESTED_MODEL_PATTERN,
   affectedEntities,
   classifyContentFile,
   entityKey,
@@ -38,7 +38,7 @@ export interface JobPlan {
   snapshot: Snapshot;
   checked: CheckedEntity[];
   warnings: CiWarning[];
-  // The transforms a test with expectations at head covers, by entity id.
+  // The entities a test with expectations at head covers, by `entityKey`.
   tested: ReadonlySet<string>;
 }
 
@@ -157,7 +157,7 @@ function baseSide(reading: FileReading | null): ContentFile | null {
 }
 
 // One read at each side: the changed files, and at head also every unchanged file whose text names a
-// Transform model, which names the checked transforms and says which of them the branch tests.
+// tested model, which names the checked entities and says which of them the branch tests.
 async function classifyChanges(
   repo: string,
   forkPoint: string,
@@ -166,13 +166,7 @@ async function classifyChanges(
   signal: AbortSignal,
 ): Promise<ClassifiedHead> {
   const changedPaths = new Set(entries.map((entry) => entry.path));
-  const matched = await filesMatching(
-    repo,
-    head,
-    TRANSFORM_MODEL_PATTERN,
-    CONTENT_PATHSPECS,
-    signal,
-  );
+  const matched = await filesMatching(repo, head, TESTED_MODEL_PATTERN, CONTENT_PATHSPECS, signal);
   const unchanged = matched.filter((path) => !changedPaths.has(path));
   const [baseReadings, headReadings] = await Promise.all([
     readAt(repo, forkPoint, present(entries.map(basePath)), signal),
@@ -232,9 +226,10 @@ export async function planJob(
   for (const affected of affectedEntities(changes)) {
     const entity = atHead.byKey.get(entityKey(affected));
     if (entity === undefined) {
+      const { type, entityId } = affected;
       warnings.push({
-        code: "missing-transform",
-        message: `a changed transform test covers transform ${affected.entityId}, which is not in the repo at ${head}`,
+        code: `missing-${type}`,
+        message: `a changed ${type} test covers ${type} ${entityId}, which is not in the repo at ${head}`,
       });
       continue;
     }
