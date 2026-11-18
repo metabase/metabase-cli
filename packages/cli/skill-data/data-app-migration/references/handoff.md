@@ -6,7 +6,7 @@ However the migration ends, released or stopped. First, without asking:
 - delete the fixture folder (`plan.md`), and run each test `plan.md` lists as kept once more (`mb transform-test run <id>`): each passes;
 - when build and target are one instance, check that the job for the tag `decisions.md` chose is active (`mb transform-job list`), and report it.
 
-Then the handoff, in this order:
+Then the handoff: every section below, in this order and under its name, with "none" under a section that holds nothing, so a missing one shows.
 
 1. **Where the app is:** each app's URL on the build instance, `<build-url>/apps/<slug>`, and, when the target is another instance, `<target-url>/apps/<slug>`, which works after the import. Then the one thing that must happen before anyone but admins opens it, when there is one: the data access of step 2, or the row-level security of step 6.
 2. **The steps left to the user:** only those that apply, in this order and renumbered from 1, each named exactly (_The steps_).

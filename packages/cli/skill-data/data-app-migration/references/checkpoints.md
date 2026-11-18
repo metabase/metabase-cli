@@ -1,6 +1,6 @@
 # Checkpoints: what the user is asked, and how
 
-Ask with your agent's question tool where it has one, otherwise in one message, numbering each question and its choices. Either is a round, holding as many questions as the tool takes. Lead with a short recap of only what the answers turn on. Mirror the user's words; Metabase's terms (question, segment, measure, metric, transform) are fine, warehouse jargon isn't. Name each widget by its label as the user sees it, with its `W<n>`. Answers go into `decisions.md` at once, each a `D<n>`.
+Ask with your agent's question tool where it has one, otherwise in one message, numbering each question and its choices. Either is a round, holding as many questions as the tool takes. Lead with a short recap of only what the answers turn on. A memo or summary that comes before a round (phase 4's memo, phase 5's plan) is a message of its own, and your turn ends with it: a question tool can hide what was printed before it, and the user decides from what it says. Ask the round in your next turn, once the user has replied. Mirror the user's words; Metabase's terms (question, segment, measure, metric, transform) are fine, warehouse jargon isn't. Name each widget by its label as the user sees it, with its `W<n>`. Answers go into `decisions.md` at once, each a `D<n>`.
 
 ## Before you start
 
@@ -8,7 +8,7 @@ One round, holding only what the user's request hasn't said (`SKILL.md`, _Before
 
 ## Phase 4
 
-Print the memo, then ask. The memo, in this order:
+The memo first, as a message of its own, in this order:
 
 - **The pages:** each source page with its widgets and what else the page is for; each app of its own for pages or widgets only some roles see (`mapping.md`, _Scoping_); and one line naming the screens left out as not analytics (`probe.md`, _Where analytics live_).
 - **Left out:** each `NONE` widget, with what is missing and what would unblock it (`spec.md`, _Verdicts_).
@@ -16,7 +16,7 @@ Print the memo, then ask. The memo, in this order:
 - **The findings,** one line each, grouped by kind (test data, definitions of one number, statuses, scope), each built as the source does it, and each the user's to change by asking.
 - **Who sees what,** with the permission steps it leaves to the user at handoff, and each published table that holds every scope's figures together, which whoever reads the Library sees.
 
-Then the questions, in this order, a second round taking what the first has no room for:
+Then, in your next turn, the questions, in this order, a second round taking what the first has no room for:
 
 1. the pages (`mapping.md`, _Pages_), the default grouping first, unless they move whole (`records.md`), and each app of its own for a role, with what it costs: one more app to build, test and release;
 2. how fresh, `hourly` first, each option naming the job it turns on, if any (`SKILL.md`, phase 4);
@@ -26,15 +26,16 @@ Then the questions, in this order, a second round taking what the first has no r
 
 ## Phase 5
 
-Lead with what the yes allows, then the rest:
+The plan first, as a message of its own, leading with what the yes allows, then the rest:
 
-- where the transforms write: the database by its display name, the schema, and the tables they create;
+- where the transforms write: the database by its display name, the schema, the tables they create, and the database user they write as (`inventory.md`), which must be able to create tables in that schema;
 - what publishing opens (`mapping.md`, _What gets published_): every group that can read the Library can query each published table, and one with unrestricted view data on the database reads all its rows from phase 6 on; Admin → Permissions shows which groups those are;
 - when actions move (`records.md`), the tables they write, and turning data actions on for their database, which lets anyone with access to the actions write to them: this yes covers `data-app-actions`' question;
 - the branch the work goes to, the `git switch` in the repository, the exports, the release's push and import, the admin API key the dev preview needs and, where an existing `<repo>/.env.local` holds a refused key, moving it aside unread until handoff (`data-app`, _Dev preview_): one yes covers each of them for this plan, where `data-app` or `git-sync` would ask for it too;
 - where transform tests are unavailable, the rules that stay `unverified`, and whether a read-only replica exists to compare on (`parity.md`, _The comparison on a copy_), no by default;
 - the counts of objects (transforms and the tests kept beside them, published tables, segments, measures), the app's slug, and the path to `plan.md` for the full list;
-- "Build this plan?".
+
+Then, in your next turn, ask "Build this plan?".
 
 ## After phase 5
 
