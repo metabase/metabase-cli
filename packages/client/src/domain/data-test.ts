@@ -293,6 +293,17 @@ export const DataTestRun = z
   .loose();
 export type DataTestRun = z.infer<typeof DataTestRun>;
 
+export const DataTestRunCompact = DataTestRun.pick({
+  id: true,
+  test_type: true,
+  test_id: true,
+  initiated_by: true,
+  start_time: true,
+  end_time: true,
+  status: true,
+}).strip();
+export type DataTestRunCompact = z.infer<typeof DataTestRunCompact>;
+
 // Every code the server publishes for a test's refusal or failed run is prefixed by its type
 // (`card-test.missing-inputs`), including codes newer than this client.
 export function isDataTestCode(value: string): boolean {
