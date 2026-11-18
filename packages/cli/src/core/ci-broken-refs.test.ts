@@ -26,7 +26,7 @@ const MISSING_COLUMN: LintResult = {
 const ANALYSIS_FAILED: LintResult = {
   ruleId: "validation-exception-error",
   entity_id: CARD_ID,
-  message: "The analysis failed: timed out",
+  message: "Metabase could not check this entity: timed out",
   detail: "timed out",
   cause: null,
 };
@@ -40,7 +40,7 @@ const RULES = {
   },
   "validation-exception-error": {
     severity: "warning",
-    description: "The analysis of the query failed.",
+    description: "Metabase could not check the entity.",
   },
 } as const;
 
@@ -70,7 +70,10 @@ describe("brokenRefChecks", () => {
         check: { kind: "broken-refs", id: CARD_ID, label: 'card "Revenue by day"' },
         verdict: "failed",
         warnings: [
-          { code: "validation-exception-error", message: "The analysis failed: timed out" },
+          {
+            code: "validation-exception-error",
+            message: "Metabase could not check this entity: timed out",
+          },
         ],
         ms: 0,
         detail: { entity: CARD, errors: [MISSING_COLUMN] },
@@ -84,7 +87,10 @@ describe("brokenRefChecks", () => {
         check: { kind: "broken-refs", id: CARD_ID, label: 'card "Revenue by day"' },
         verdict: "passed",
         warnings: [
-          { code: "validation-exception-error", message: "The analysis failed: timed out" },
+          {
+            code: "validation-exception-error",
+            message: "Metabase could not check this entity: timed out",
+          },
         ],
         ms: 0,
         detail: { entity: CARD, errors: [] },
