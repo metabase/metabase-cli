@@ -269,9 +269,10 @@ describe("isDataTestCode", () => {
         "card-test.some-new-refusal",
         "card-test.missing-inputs",
         "transform-test.unused-inputs",
+        "segment-test.query-failed",
         "card-test",
         "some-other.code",
       ].map(isDataTestCode),
-    ).toEqual([true, true, true, false, false]);
+    ).toEqual([true, true, true, true, false, false]);
   });
 });

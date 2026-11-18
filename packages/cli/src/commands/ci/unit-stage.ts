@@ -115,6 +115,10 @@ export function clientPort(client: MetabaseClient): UnitStagePort {
           await client.card.get(id, options);
           return;
         }
+        case "segment": {
+          await client.segment.get(id, options);
+          return;
+        }
       }
     },
     listTests: async (type, id) => {
@@ -125,6 +129,9 @@ export function clientPort(client: MetabaseClient): UnitStagePort {
         case "card": {
           return (await client.cardTest.list({ "card-id": id }, options)).data;
         }
+        case "segment": {
+          return (await client.segmentTest.list({ "segment-id": id }, options)).data;
+        }
       }
     },
     runTest: (type, testId) => {
@@ -134,6 +141,9 @@ export function clientPort(client: MetabaseClient): UnitStagePort {
         }
         case "card": {
           return client.cardTest.run(testId, runOptions);
+        }
+        case "segment": {
+          return client.segmentTest.run(testId, runOptions);
         }
       }
     },

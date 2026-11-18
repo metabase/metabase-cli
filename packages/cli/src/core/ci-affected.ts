@@ -212,6 +212,7 @@ interface TestedModel {
 const TESTED_MODELS: Readonly<Record<DataTestType, TestedModel>> = {
   transform: { entity: "Transform", test: "TransformTest", reference: "transform_id" },
   card: { entity: "Card", test: "CardTest", reference: "card_id" },
+  segment: { entity: "Segment", test: "SegmentTest", reference: "segment_id" },
 };
 
 function testedTypeOf(model: string, role: "entity" | "test"): DataTestType | null {
@@ -365,7 +366,11 @@ function noHeadEntities(): HeadEntities {
 // expectations at head covers, those only tests without expectations name, and the transforms
 // Metabase cannot test.
 export function headEntities(files: readonly (ContentFile | null)[]): HeadEntitiesByType {
-  const byType: HeadEntitiesByType = { transform: noHeadEntities(), card: noHeadEntities() };
+  const byType: HeadEntitiesByType = {
+    transform: noHeadEntities(),
+    card: noHeadEntities(),
+    segment: noHeadEntities(),
+  };
   for (const file of files) {
     if (file?.kind === "entity") {
       const atHead = byType[file.type];

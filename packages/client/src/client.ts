@@ -37,6 +37,7 @@ import { pulseResource } from "./resources/pulse";
 import { replacementResource } from "./resources/replacement";
 import { revisionResource } from "./resources/revision";
 import { searchResource } from "./resources/search";
+import { segmentTestResource } from "./resources/segment-test";
 import { segmentResource } from "./resources/segment";
 import { sessionResource } from "./resources/session";
 import { settingResource } from "./resources/setting";
@@ -93,6 +94,7 @@ function surfaceOn(transport: Transport) {
     revision: revisionResource(transport),
     search: searchResource(transport),
     segment: segmentResource(transport),
+    segmentTest: segmentTestResource(transport),
     session: sessionResource(transport),
     setting: settingResource(transport),
     setup: setupResource(transport),

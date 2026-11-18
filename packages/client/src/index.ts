@@ -455,6 +455,12 @@ export {
 } from "./domain/replacement";
 export { SEARCH_MODELS, SearchModel, SearchResult, SearchResultCompact } from "./domain/search";
 export { Segment, SegmentCompact, SegmentCreateInput, SegmentUpdateInput } from "./domain/segment";
+export {
+  SegmentTest,
+  SegmentTestCompact,
+  SegmentTestCreateInput,
+  SegmentTestUpdateInput,
+} from "./domain/segment-test";
 export { Session, SessionCompact, SessionCreateInput } from "./domain/session";
 export { SessionProperties, SessionSettings, TokenFeatures } from "./domain/session-properties";
 export {

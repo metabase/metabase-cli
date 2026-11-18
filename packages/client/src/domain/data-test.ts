@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const DATA_TEST_TYPES = ["transform", "card"] as const;
+export const DATA_TEST_TYPES = ["transform", "card", "segment"] as const;
 export const DataTestType = z.enum(DATA_TEST_TYPES);
 export type DataTestType = z.infer<typeof DataTestType>;
 

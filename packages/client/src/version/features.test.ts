@@ -109,6 +109,7 @@ describe("featureAvailability", () => {
     ["dashboardSubscriptionFilters", "token dashboard_subscription_filters"],
     ["transformTests", "v65+, token transforms-testing"],
     ["cardTests", "v66+, token transforms-testing"],
+    ["segmentTests", "v66+, token transforms-testing"],
     ["transformTargetTableLinkedOnCreate", "v61 only"],
     ["fieldRemappingAppendsDisplayColumns", "up to v59"],
   ] as const)("says where %s holds as %s", (feature, text) => {

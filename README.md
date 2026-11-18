@@ -551,6 +551,94 @@ mb card-test runs --statuses failed,error --limit 50
 | `--statuses <list>` | Only runs in these states, comma separated. |
 | `--limit <n>`       | Max runs to return (default 20).            |
 
+## Segment tests
+
+CRUD, run and run history on `/api/ee/segment-test`. Requires Metabase v66 or newer with the `transforms-testing` premium feature. A segment test pins what a segment's filter keeps: the segment's table, and each table the filter reads through a foreign key, is replaced by an `input` fixture, and each `expectation` checks the rows of the segment's table that match the filter. The bodies are those of a [transform test](#transform-tests), with `segment_id` in place of `transform_id`.
+
+Expectation SQL names the matching rows `{{output}}`; any other `{{...}}` is refused. The output has the columns of the segment's table that its `rows` input declares, and every column of the table when that input is SQL. An input that gives rows must declare every column the filter reads from its table.
+
+Create and update bodies are closed at every level, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at`, `updated_at` and `last_run` before it can be sent back:
+
+```sh
+mb segment-test get 1 --full --json \
+  | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at, .last_run)' \
+  | mb segment-test update 1
+```
+
+### `mb segment-test list`
+
+```sh
+mb segment-test list --json
+mb segment-test list --segment-id 1
+```
+
+| Flag                | Description                        |
+| ------------------- | ---------------------------------- |
+| `--segment-id <id>` | Only the tests of this segment id. |
+
+### `mb segment-test get <id>`
+
+The compact form carries the id, segment, name and description; `--full` adds the `inputs`, the `expectations` and the test's newest run as `last_run`.
+
+```sh
+mb segment-test get 1
+mb segment-test get 1 --full --json
+```
+
+### `mb segment-test create`
+
+```sh
+mb segment-test create --file segment-test.json
+```
+
+### `mb segment-test update <id>`
+
+Only the fields the body carries are patched; `inputs` and `expectations` replace what is stored.
+
+```sh
+mb segment-test update 1 --body '{"name":"renamed"}'
+```
+
+### `mb segment-test delete <id>`
+
+```sh
+mb segment-test delete 1 --yes
+```
+
+| Flag    | Description                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
+
+### `mb segment-test run <id>`
+
+Selects the rows that match the segment's filter from the fixtures and reports what each expectation found. Exits 1 when the test does not pass. A run the server refuses fails with an `error_code` that starts with `segment-test.`.
+
+```sh
+mb segment-test run 1
+mb segment-test run 1 --json
+mb segment-test run 1 --timeout 300000
+```
+
+| Flag             | Description                                                                |
+| ---------------- | -------------------------------------------------------------------------- |
+| `--timeout <ms>` | Request timeout in ms (default 30000); the run is one synchronous request. |
+
+### `mb segment-test runs`
+
+Lists the runs of segment tests, newest first, from `/api/ee/data-test-run`. A run's `status` is `started` while it is in flight, then `passed`, `failed`, `error` or `timeout`.
+
+```sh
+mb segment-test runs
+mb segment-test runs --test-id 1 --json
+mb segment-test runs --statuses failed,error --limit 50
+```
+
+| Flag                | Description                                 |
+| ------------------- | ------------------------------------------- |
+| `--test-id <id>`    | Only the runs of this segment test id.      |
+| `--statuses <list>` | Only runs in these states, comma separated. |
+| `--limit <n>`       | Max runs to return (default 20).            |
+
 ## Databases
 
 Read warehouse metadata from `/api/database`. The `db` group exposes the full database list, the per-database record with optional table/field hydration, schema and table inspection, and the two manual-sync triggers.

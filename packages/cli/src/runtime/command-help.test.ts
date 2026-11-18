@@ -404,6 +404,13 @@ const ALL_COMMANDS = [
   "card-test delete",
   "card-test run",
   "card-test runs",
+  "segment-test list",
+  "segment-test get",
+  "segment-test create",
+  "segment-test update",
+  "segment-test delete",
+  "segment-test run",
+  "segment-test runs",
   "ci run",
   "setting list",
   "setting get",
@@ -501,6 +508,8 @@ const BODY_COMMANDS = [
   "transform-test update",
   "card-test create",
   "card-test update",
+  "segment-test create",
+  "segment-test update",
   "setup",
   "snippet create",
   "snippet update",
@@ -694,6 +703,24 @@ describe("command tree contract", () => {
     });
   });
 
+  it("declares each segment-test command's single client method", async () => {
+    const entries = await allEntries();
+    const requires = Object.fromEntries(
+      entries
+        .filter((entry) => entry.command.startsWith("segment-test "))
+        .map((entry) => [entry.command, entry.requires]),
+    );
+    expect(requires).toEqual({
+      "segment-test list": requiresOf("segmentTest.list"),
+      "segment-test get": requiresOf("segmentTest.get"),
+      "segment-test create": requiresOf("segmentTest.create"),
+      "segment-test update": requiresOf("segmentTest.update"),
+      "segment-test delete": requiresOf("segmentTest.delete"),
+      "segment-test run": requiresOf("segmentTest.run"),
+      "segment-test runs": requiresOf("dataTestRun.list"),
+    });
+  });
+
   it("advertises a --limit default only where the endpoint caps itself, so the shared flag description stays true", async () => {
     const entries = await allEntries();
     const withDefault = Object.fromEntries(
@@ -708,7 +735,11 @@ describe("command tree contract", () => {
       description: "Max items to return",
       default: "20",
     };
-    expect(withDefault).toEqual({ search: cappedLimit, "card-test runs": cappedLimit });
+    expect(withDefault).toEqual({
+      search: cappedLimit,
+      "card-test runs": cappedLimit,
+      "segment-test runs": cappedLimit,
+    });
   });
 
   it("reports null requires for exactly the commands that never touch a Metabase server", async () => {

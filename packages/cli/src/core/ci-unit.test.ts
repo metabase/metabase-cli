@@ -392,6 +392,40 @@ describe("testFailure on a card", () => {
   });
 });
 
+describe("testFailure on a segment", () => {
+  it("refuses a segment the CI identity cannot read, naming the permission", () => {
+    expect(testFailure(FORBIDDEN, "read", "segment")).toEqual({
+      kind: "check",
+      verdict: "refused",
+      detail: {
+        error_code: "ci.segment-unreadable",
+        message:
+          "the CI identity cannot read this segment, so Metabase hides its tests: reading it needs access to its table",
+      },
+    });
+  });
+
+  it("refuses a segment test the CI identity may not run, naming the permission", () => {
+    expect(testFailure(FORBIDDEN, "run", "segment")).toEqual({
+      kind: "check",
+      verdict: "refused",
+      detail: {
+        error_code: "ci.test-run-forbidden",
+        message:
+          "Metabase did not let the CI identity run this test: running a segment test needs permission to run the segment's definition and native query access to its database",
+      },
+    });
+  });
+
+  it("gives a refused segment test run its verdict", () => {
+    expect(testFailure(refusalError("segment-test.query-failed"), "run", "segment")).toEqual({
+      kind: "check",
+      verdict: "failed",
+      detail: { error_code: "segment-test.query-failed", message: "m", tables: null },
+    });
+  });
+});
+
 describe("transformFailure and lookupStop leave a bug or an interrupt to the caller", () => {
   it("answers null for an interrupt or a bug", () => {
     const interrupt = new AbortError();

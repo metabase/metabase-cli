@@ -34,6 +34,12 @@ const CARD_PATH = "collections/main/cards/big_orders.yaml";
 const CARD_TEST_PATH = "collections/main/cards/big_orders/keeps_big.yaml";
 const CARD_TEST_YAML = `entity_id: cRvM7DLesF1fOV4kRHidq\ncard_id: ${CARD_ID}\nexpectations:\n- name: e\n  type: empty\nserdes/meta:\n- model: CardTest\n`;
 
+const SEGMENT_ID = "Hx2kkAG-06-nsl4jzs9cQ";
+const SEGMENT_PATH = "databases/Sample/tables/ORDERS/segments/paid_orders.yaml";
+const SEGMENT_TEST_PATH = "databases/Sample/tables/ORDERS/segments/paid_orders/keeps_paid.yaml";
+const SEGMENT_YAML = `name: Paid orders\nentity_id: ${SEGMENT_ID}\ndefinition:\n  database: Sample\nserdes/meta:\n- model: Database\n- model: Table\n- model: Segment\n`;
+const SEGMENT_TEST_YAML = `entity_id: sRvM7DLesF1fOV4kRHidq\nsegment_id: ${SEGMENT_ID}\nexpectations:\n- name: e\n  type: empty\nserdes/meta:\n- model: SegmentTest\n`;
+
 function cardYaml(name: string): string {
   return `name: ${name}\nentity_id: ${CARD_ID}\ndataset_query:\n  database: Sample\nserdes/meta:\n- model: Card\n`;
 }
@@ -152,6 +158,22 @@ describe("planJob", () => {
       coverage: NO_GAPS,
       checked: [{ type: "card", entity_id: CARD_ID, name: "Big orders" }],
       testedInBranch: new Set([`card:${CARD_ID}`]),
+      warnings: [],
+    });
+  });
+
+  it("names a segment whose own file is unchanged when only its segment test changed", async () => {
+    await repo.put(SEGMENT_PATH, SEGMENT_YAML);
+    const base = await repo.commitAll("add segment");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(SEGMENT_TEST_PATH, SEGMENT_TEST_YAML);
+    const head = await repo.commitAll("add segment test");
+
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
+      snapshot: { base, head },
+      coverage: NO_GAPS,
+      checked: [{ type: "segment", entity_id: SEGMENT_ID, name: "Paid orders" }],
+      testedInBranch: new Set([`segment:${SEGMENT_ID}`]),
       warnings: [],
     });
   });

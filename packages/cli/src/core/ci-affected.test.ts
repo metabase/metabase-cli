@@ -58,6 +58,20 @@ const CARD_TEST: ContentFile = {
   hasExpectations: true,
 };
 
+const SEGMENT_ID = "Hx2kkAG-06-nsl4jzs9cQ";
+const SEGMENT: ContentFile = {
+  kind: "entity",
+  type: "segment",
+  entityId: SEGMENT_ID,
+  name: "Paid orders",
+};
+const SEGMENT_TEST: ContentFile = {
+  kind: "test",
+  type: "segment",
+  entityId: SEGMENT_ID,
+  hasExpectations: true,
+};
+
 const CHANGED_PATH = "transforms/t1/t1.yaml";
 
 function transform(entityId: string): AffectedEntity {
@@ -281,6 +295,35 @@ describe("classifyContentFile", () => {
     ).toEqual(CARD_TEST);
   });
 
+  it("classifies a segment by the last serdes/meta model", () => {
+    expect(
+      classifyDocument("databases/Sample/tables/ORDERS/segments/paid_orders.yaml", {
+        entity_id: SEGMENT_ID,
+        name: "Paid orders",
+        definition: { database: "Sample" },
+        "serdes/meta": [{ model: "Database" }, { model: "Table" }, { model: "Segment" }],
+      }),
+    ).toEqual(SEGMENT);
+  });
+
+  it("classifies a segment test by the segment it covers", () => {
+    expect(
+      classifyDocument("databases/Sample/tables/ORDERS/segments/paid_orders/keeps_paid.yaml", {
+        segment_id: SEGMENT_ID,
+        expectations: [{ name: "e", type: "empty" }],
+        "serdes/meta": [{ model: "SegmentTest" }],
+      }),
+    ).toEqual(SEGMENT_TEST);
+  });
+
+  it("refuses a segment test without the segment it covers", () => {
+    const classify = () =>
+      classifyDocument("databases/d/t.yaml", { "serdes/meta": [{ model: "SegmentTest" }] });
+
+    expect(classify).toThrow(ValidationError);
+    expect(classify).toThrow("databases/d/t.yaml: a SegmentTest must name its segment_id");
+  });
+
   it("refuses a card test without the card it covers", () => {
     const classify = () =>
       classifyDocument("collections/c/t.yaml", { "serdes/meta": [{ model: "CardTest" }] });
@@ -501,6 +544,12 @@ describe("affectedEntities", () => {
     ]);
   });
 
+  it("includes a segment whose test changed, by its own type", () => {
+    expect(affectedEntities([change(SEGMENT_TEST, SEGMENT_TEST)])).toEqual([
+      { type: "segment", entityId: SEGMENT_ID },
+    ]);
+  });
+
   it("keeps a card and a transform of one entity id apart", () => {
     const sameId: ContentFile = { kind: "entity", type: "card", entityId: TRANSFORM_ID, name: "c" };
 
@@ -663,8 +712,8 @@ describe("headEntities", () => {
     );
   });
 
-  it("counts cards and their tests apart from transforms", () => {
-    expect(headEntities([TRANSFORM, CARD, CARD_TEST])).toEqual({
+  it("counts the entities and tests of each type apart", () => {
+    expect(headEntities([TRANSFORM, CARD, CARD_TEST, SEGMENT, SEGMENT_TEST])).toEqual({
       transform: {
         names: new Map([[TRANSFORM_ID, "Daily Order Summary"]]),
         tested: new Set(),
@@ -674,6 +723,12 @@ describe("headEntities", () => {
       card: {
         names: new Map([[CARD_ID, "Big orders"]]),
         tested: new Set([CARD_ID]),
+        testedWithoutExpectations: new Set(),
+        untestable: new Set(),
+      },
+      segment: {
+        names: new Map([[SEGMENT_ID, "Paid orders"]]),
+        tested: new Set([SEGMENT_ID]),
         testedWithoutExpectations: new Set(),
         untestable: new Set(),
       },

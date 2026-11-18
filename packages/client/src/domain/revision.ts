@@ -10,6 +10,7 @@ export const RevisionEntity = z.enum([
   "document",
   "measure",
   "segment",
+  "segment-test",
   "transform",
   "transform-test",
 ]);
@@ -75,6 +76,7 @@ export const REVISION_ENTITY_GATES: readonly InputGate[] = [
   { feature: "measures", effect: "needs", when: { kind: "values", values: ["measure"] } },
   { feature: "transforms", effect: "needs", when: { kind: "values", values: ["transform"] } },
   { feature: "cardTests", effect: "needs", when: { kind: "values", values: ["card-test"] } },
+  { feature: "segmentTests", effect: "needs", when: { kind: "values", values: ["segment-test"] } },
   {
     feature: "transformTests",
     effect: "needs",

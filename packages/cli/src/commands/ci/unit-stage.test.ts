@@ -587,6 +587,35 @@ const CARD_TEST = {
   updated_at: "2026-10-30T12:00:00Z",
 };
 
+const SEGMENT = {
+  id: 9,
+  name: "Paid orders",
+  description: null,
+  archived: false,
+  table_id: 2,
+  definition: {},
+  creator_id: 1,
+  entity_id: "segment9xxxxxxxxxxxxx",
+  show_in_getting_started: null,
+  caveats: null,
+  points_of_interest: null,
+  created_at: "2026-10-30T12:00:00Z",
+  updated_at: "2026-10-30T12:00:00Z",
+};
+
+const SEGMENT_TEST = {
+  id: 5,
+  entity_id: "segmenttest5xxxxxxxxx",
+  segment_id: 9,
+  creator_id: 1,
+  name: "keeps paid orders",
+  description: null,
+  inputs: [],
+  expectations: [],
+  created_at: "2026-10-30T12:00:00Z",
+  updated_at: "2026-10-30T12:00:00Z",
+};
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -798,6 +827,30 @@ describe("clientPort", () => {
       ["GET", "https://mb.example.com/api/card/7"],
       ["GET", "https://mb.example.com/api/ee/card-test?card-id=7"],
       ["POST", "https://mb.example.com/api/ee/card-test/4/run"],
+    ]);
+  });
+
+  it("reads a segment, lists its tests and runs one on the segment routes", async () => {
+    const capture = captureFetch([
+      jsonResponse(SEGMENT),
+      jsonResponse([SEGMENT_TEST]),
+      jsonResponse(PASSED_RUN),
+    ]);
+    const client = createClient(CREDENTIALS, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: capture.fetch,
+    });
+    const stagePort = clientPort(client);
+
+    await stagePort.readEntity("segment", 9);
+    const tests = await stagePort.listTests("segment", 9);
+    const run = await stagePort.runTest("segment", 5);
+
+    expect([tests, run]).toEqual([[SEGMENT_TEST], PASSED_RUN]);
+    expect(capture.calls.map((call) => [call.method, call.url])).toEqual([
+      ["GET", "https://mb.example.com/api/segment/9"],
+      ["GET", "https://mb.example.com/api/ee/segment-test?segment-id=9"],
+      ["POST", "https://mb.example.com/api/ee/segment-test/5/run"],
     ]);
   });
 });

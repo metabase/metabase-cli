@@ -402,12 +402,13 @@ describe("ciEventLines", () => {
         { type: "card", entity_id: "c1", name: "Big orders" },
         { type: "transform", entity_id: "t1", name: "Daily" },
         { type: "card", entity_id: "c2", name: "Small orders" },
+        { type: "segment", entity_id: "s1", name: "Paid orders" },
       ],
       warnings: [],
     };
 
     expect(render([start], DEFAULT_MAX_ROWS)).toEqual([
-      "mb ci run  base 0c9c839  head eff9458  1 transform, 2 cards checked",
+      "mb ci run  base 0c9c839  head eff9458  1 transform, 2 cards, 1 segment checked",
     ]);
   });
 

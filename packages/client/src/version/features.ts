@@ -60,6 +60,7 @@ export const FEATURE_RULES = {
   unifiedTransformRuns: { since: 64 },
   transformTests: { since: 65, tokenFeature: "transforms-testing" },
   cardTests: { since: 66, tokenFeature: "transforms-testing" },
+  segmentTests: { since: 66, tokenFeature: "transforms-testing" },
   dataTestRuns: { since: 66, tokenFeature: "transforms-testing" },
   libraryChildrenCarryType: { since: 62 },
   collectionItemsTotalOnEmptyPage: { since: 64 },

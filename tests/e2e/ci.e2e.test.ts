@@ -638,3 +638,149 @@ describe.skipIf(cardUnitSkipReason !== null)("ci e2e › unit stage › card tes
     ]);
   });
 });
+
+const segmentUnitSkipReason = requireServer("ci › unit stage › segment tests", ["segmentTests"]);
+
+describe.skipIf(segmentUnitSkipReason !== null)("ci e2e › unit stage › segment tests", () => {
+  const tempDirs: string[] = [];
+  let repo: TempGitRepo;
+  let bootstrap: E2EBootstrap;
+
+  beforeAll(async () => {
+    bootstrap = await readBootstrap();
+  });
+
+  beforeEach(async () => {
+    repo = await createTempGitRepo();
+  });
+
+  afterEach(async () => {
+    await repo.remove();
+    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+  });
+
+  async function mb(args: string[], stdin?: string): Promise<RunCliResult> {
+    const dir = await mkTempConfigHome();
+    tempDirs.push(dir);
+    return runCli({
+      args,
+      configHome: dir,
+      env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey },
+      ...(stdin === undefined ? {} : { stdin }),
+    });
+  }
+
+  it("runs the segment test of a segment the branch changed, as a segment-test check", async () => {
+    const segment = await mb(
+      ["segment", "create", "--json"],
+      JSON.stringify({
+        name: "Positive id orders",
+        table_id: SEEDED.tables.orders,
+        definition: {
+          database: SEEDED.warehouseDbId,
+          type: "query",
+          query: {
+            "source-table": SEEDED.tables.orders,
+            filter: [">", ["field", SEEDED.fields.ordersId, null], 0],
+          },
+        },
+      }),
+    );
+    expect(segment.exitCode, segment.stderr).toBe(0);
+    const segmentId = parseJson(segment.stdout, Created).id;
+    const full = await mb(["segment", "get", String(segmentId), "--full", "--json"]);
+    const entityId = parseJson(full.stdout, WithEntityId).entity_id;
+    const test = await mb(
+      ["segment-test", "create", "--json"],
+      JSON.stringify({
+        segment_id: segmentId,
+        name: "keeps only positive ids",
+        inputs: [
+          {
+            table: { schema: "public", name: "orders" },
+            format: "rows",
+            columns: [{ name: "id", cast_type: "INTEGER" }],
+            rows: [{ id: 1 }, { id: 0 }],
+          },
+        ],
+        expectations: [
+          {
+            type: "empty",
+            name: "no order without a positive id",
+            sql: "SELECT * FROM {{output}} WHERE id <= 0",
+          },
+        ],
+      }),
+    );
+    expect(test.exitCode, test.stderr).toBe(0);
+    const testId = String(parseJson(test.stdout, Created).id);
+    const base = await repo.git("rev-parse", "HEAD");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(
+      "databases/warehouse/tables/orders/segments/positive_id_orders.yaml",
+      `name: Positive id orders\nentity_id: ${entityId}\nserdes/meta:\n- model: Database\n- model: Table\n- model: Segment\n`,
+    );
+    await repo.put(
+      "databases/warehouse/tables/orders/segments/positive_id_orders/keeps_only_positive_ids.yaml",
+      `entity_id: dRvM7DLesF1fOV4kRHidq\nsegment_id: ${entityId}\nexpectations:\n- name: no order without a positive id\n  type: empty\nserdes/meta:\n- model: SegmentTest\n`,
+    );
+    const head = await repo.commitAll("add segment and its test");
+
+    const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const events = result.stdout
+      .trimEnd()
+      .split("\n")
+      .map((line) => parseJson(line, CiEvent));
+    expect(events).toEqual([
+      {
+        ...ANY_ENVELOPE,
+        seq: 0,
+        type: "job.start",
+        v: 1,
+        snapshot: { base, head },
+        checked: [{ type: "segment", entity_id: entityId, name: "Positive id orders" }],
+        warnings: [],
+      },
+      ...quietLintEvents(1),
+      { ...ANY_ENVELOPE, seq: 4, type: "stage.start", stage: "unit" },
+      {
+        ...ANY_ENVELOPE,
+        seq: 5,
+        type: "check.result",
+        stage: "unit",
+        check: {
+          kind: "segment-test",
+          id: testId,
+          label: "Positive id orders: keeps only positive ids",
+        },
+        verdict: "passed",
+        warnings: [],
+        ms: expect.any(Number),
+        detail: {
+          status: "passed",
+          expectations: [
+            { name: "no order without a positive id", type: "empty", status: "passed" },
+          ],
+          tables: expect.any(Object),
+        },
+      },
+      {
+        ...ANY_ENVELOPE,
+        seq: 6,
+        type: "stage.end",
+        stage: "unit",
+        status: "passed",
+        stopped: null,
+      },
+      {
+        ...ANY_ENVELOPE,
+        seq: 7,
+        type: "job.end",
+        state: "passed",
+        counts: { checks: 2, warnings: 0 },
+      },
+    ]);
+  });
+});

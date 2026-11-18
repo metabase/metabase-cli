@@ -30,7 +30,7 @@ export interface TestRefusal {
 }
 
 // Metabase refuses a test it will not run with a code that starts with the test's type, such as
-// `transform-test.` or `card-test.`. A code newer than this client is still a refusal, unlike a
+// `transform-test.`, `card-test.` or `segment-test.`. A code newer than this client is still a refusal, unlike a
 // network or server failure.
 export function testRefusal(error: unknown): TestRefusal | null {
   if (
@@ -93,6 +93,7 @@ export function noTestsOnInstance(type: DataTestType): CiRefusal {
 const READING_NEEDS: Readonly<Record<DataTestType, string>> = {
   transform: "reading it needs query permission on every table it reads",
   card: "reading it needs access to its collection",
+  segment: "reading it needs access to its table",
 };
 
 function unreadable(type: DataTestType): CiRefusal {
@@ -106,6 +107,8 @@ const RUNNING_NEEDS: Readonly<Record<DataTestType, string>> = {
   transform:
     "running a test needs write access to it, and a read-only remote-synced instance refuses everyone",
   card: "running a card test needs permission to run the card's query and native query access to its database",
+  segment:
+    "running a segment test needs permission to run the segment's definition and native query access to its database",
 };
 
 function testRunForbidden(type: DataTestType): CiRefusal {

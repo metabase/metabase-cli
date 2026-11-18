@@ -35,6 +35,7 @@ const main: CommandDef = defineCommand({
     "transform-tag": () => import("./commands/transform-tag").then((mod) => mod.default),
     "transform-test": () => import("./commands/transform-test").then((mod) => mod.default),
     "card-test": () => import("./commands/card-test").then((mod) => mod.default),
+    "segment-test": () => import("./commands/segment-test").then((mod) => mod.default),
     ci: () => import("./commands/ci").then((mod) => mod.default),
     setting: () => import("./commands/setting").then((mod) => mod.default),
     search: () => import("./commands/search").then((mod) => mod.default),
