@@ -145,6 +145,12 @@ export {
   ResultColumn,
 } from "./domain/card";
 export {
+  CardTest,
+  CardTestCompact,
+  CardTestCreateInput,
+  CardTestUpdateInput,
+} from "./domain/card-test";
+export {
   COLLECTION_ITEM_FILTER_MODELS,
   COLLECTION_ITEM_MODELS,
   COLLECTION_PINNED_STATES,
@@ -214,6 +220,14 @@ export {
   DataAppSummary,
   DataAppUpdateInput,
 } from "./domain/data-app";
+export {
+  DATA_TEST_TYPES,
+  DataTestRun,
+  DataTestRunCompact,
+  DataTestRunStatus,
+  DataTestType,
+  isDataTestCode,
+} from "./domain/data-test";
 export {
   Database,
   DatabaseCompact,

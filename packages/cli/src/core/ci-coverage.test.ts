@@ -2,12 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ClassifiedChange, ContentFile } from "./ci-affected";
 import type { CiEventBody } from "./ci-events";
-import {
-  type CoverageAssessment,
-  assessCoverage,
-  coverageStage,
-  untestedTransforms,
-} from "./ci-coverage";
+import { type CoverageAssessment, assessCoverage, coverageStage } from "./ci-coverage";
 
 const DAILY_ID = "7JwIkkAG-06-nsl4jzsaq";
 const HOURLY_ID = "7XqqzlsonSq4KFyOvtrAm";
@@ -18,7 +13,8 @@ const DAILY_PATH = "transforms/daily.yaml";
 function transform(entityId: string, name: string, sql: string): ContentFile {
   const logic = { source: { query: sql }, target: { name: "t" } };
   return {
-    kind: "transform",
+    kind: "entity",
+    type: "transform",
     entityId,
     name,
     logic: { yaml12: logic, yaml11: logic },
@@ -29,7 +25,8 @@ function transform(entityId: string, name: string, sql: string): ContentFile {
 function pythonTransform(entityId: string, name: string, body: string): ContentFile {
   const logic = { source: { type: "python", body }, target: { name: "t" } };
   return {
-    kind: "transform",
+    kind: "entity",
+    type: "transform",
     entityId,
     name,
     logic: { yaml12: logic, yaml11: logic },
@@ -202,6 +199,25 @@ describe("assessCoverage", () => {
   });
 });
 
+describe("assessCoverage on cards", () => {
+  it("requires no test of a card the change adds, and lists none as untested", () => {
+    const card: ContentFile = { kind: "entity", type: "card", entityId: ZETA_ID, name: "Zeta" };
+    const assessment = assessCoverage({
+      changes: [{ path: "collections/zeta.yaml", base: null, head: card }],
+      transformsAtHead: new Map(),
+      testedAtHead: NOTHING_TESTED,
+      testedWithoutExpectationsAtHead: NOTHING_TESTED,
+      untestableAtHead: NOTHING_TESTED,
+    });
+
+    expect(assessment).toEqual({
+      untestedChanges: [],
+      untestableChanges: [],
+      untouchedUntested: [],
+    });
+  });
+});
+
 describe("assessCoverage on a transform Metabase cannot test", () => {
   it("lists a new Python transform without a test instead of requiring one", () => {
     expect(
@@ -229,7 +245,12 @@ describe("assessCoverage on a transform Metabase cannot test", () => {
     const changes = [
       {
         path: "transforms/daily/test.yaml",
-        base: { kind: "transform-test" as const, transformId: DAILY_ID, hasExpectations: true },
+        base: {
+          kind: "test" as const,
+          type: "transform" as const,
+          entityId: DAILY_ID,
+          hasExpectations: true,
+        },
         head: null,
       },
     ];
@@ -294,7 +315,12 @@ describe("assessCoverage on a transform whose tests have no expectations", () =>
       {
         path: TEST_PATH,
         base: null,
-        head: { kind: "transform-test" as const, transformId: DAILY_ID, hasExpectations: false },
+        head: {
+          kind: "test" as const,
+          type: "transform" as const,
+          entityId: DAILY_ID,
+          hasExpectations: false,
+        },
       },
     ];
 
@@ -309,8 +335,18 @@ describe("assessCoverage on a transform whose tests have no expectations", () =>
     const changes = [
       {
         path: TEST_PATH,
-        base: { kind: "transform-test" as const, transformId: DAILY_ID, hasExpectations: true },
-        head: { kind: "transform-test" as const, transformId: DAILY_ID, hasExpectations: false },
+        base: {
+          kind: "test" as const,
+          type: "transform" as const,
+          entityId: DAILY_ID,
+          hasExpectations: true,
+        },
+        head: {
+          kind: "test" as const,
+          type: "transform" as const,
+          entityId: DAILY_ID,
+          hasExpectations: false,
+        },
       },
     ];
 
@@ -325,7 +361,12 @@ describe("assessCoverage on a transform whose tests have no expectations", () =>
     const changes = [
       {
         path: TEST_PATH,
-        base: { kind: "transform-test" as const, transformId: DAILY_ID, hasExpectations: false },
+        base: {
+          kind: "test" as const,
+          type: "transform" as const,
+          entityId: DAILY_ID,
+          hasExpectations: false,
+        },
         head: null,
       },
     ];
@@ -335,28 +376,6 @@ describe("assessCoverage on a transform whose tests have no expectations", () =>
       untestableChanges: [],
       untouchedUntested: [DAILY],
     });
-  });
-});
-
-describe("untestedTransforms", () => {
-  it("names every untested transform, changed or not", () => {
-    expect(
-      untestedTransforms({
-        untestedChanges: [{ entityId: DAILY_ID, name: "Daily", change: "edited", tests: "none" }],
-        untestableChanges: [],
-        untouchedUntested: [{ entityId: LEGACY_ID, name: "Legacy" }],
-      }),
-    ).toEqual(new Set([DAILY_ID, LEGACY_ID]));
-  });
-
-  it("names a changed transform Metabase cannot test", () => {
-    expect(
-      untestedTransforms({
-        untestedChanges: [],
-        untestableChanges: [{ entityId: HOURLY_ID, name: "Hourly" }],
-        untouchedUntested: [],
-      }),
-    ).toEqual(new Set([HOURLY_ID]));
   });
 });
 

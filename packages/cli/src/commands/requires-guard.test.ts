@@ -335,8 +335,11 @@ describe("every command declares exactly the client methods it reaches", () => {
       "commands/ci/unit-stage.ts": [
         "eidTranslation.translate",
         "transform.get",
+        "card.get",
         "transformTest.list",
+        "cardTest.list",
         "transformTest.run",
+        "cardTest.run",
       ],
       "commands/dashboard/preflight.ts": ["dashboard.checkCardReferences"],
       "commands/git-sync/sync-scope.ts": ["gitSync.remoteUrl"],

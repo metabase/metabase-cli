@@ -11,7 +11,8 @@ import { z } from "zod";
 import { type CiEvent, type CiStage, CiEvent as CiEventSchema } from "../../core/ci-events";
 import { type TempGitRepo, createTempGitRepo } from "../../runtime/temp-git-repo";
 
-import { coverageStage, untestedTransforms } from "../../core/ci-coverage";
+import { entityKey } from "../../core/ci-affected";
+import { coverageStage } from "../../core/ci-coverage";
 
 import { RUN_LOG_DIR, runJob } from "./job";
 import { type UnitStagePort, unitStage } from "./unit-stage";
@@ -81,7 +82,7 @@ describe("runJob", () => {
         type: "job.start",
         v: 1,
         snapshot: { base, head },
-        checked: [{ entity_id: TRANSFORM_ID, name: "Daily" }],
+        checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Daily" }],
         warnings: [
           {
             code: "uncommitted-content",
@@ -331,9 +332,14 @@ describe("runJob", () => {
 
 // An instance that holds every transform and lists no transform test for any of them.
 const INSTANCE_WITH_NO_TESTS: UnitStagePort = {
-  lookUpTransforms: async (entityIds) =>
-    new Map(entityIds.map((entityId) => [entityId, { kind: "found", id: 1 }])),
-  readTransform: async () => {},
+  lookUpEntities: async (entities) =>
+    new Map(
+      entities.map((entity) => [
+        entityKey({ type: entity.type, entityId: entity.entity_id }),
+        { kind: "found", id: 1 },
+      ]),
+    ),
+  readEntity: async () => {},
   listTests: async () => [],
   runTest: async () => {
     throw new Error("there is no test to run");
@@ -362,11 +368,7 @@ describe("runJob, with the stages ci run builds", () => {
       head: "HEAD",
       stages: async (plan) => [
         coverageStage(plan.coverage),
-        unitStage(
-          plan.checked,
-          untestedTransforms(plan.coverage),
-          async () => INSTANCE_WITH_NO_TESTS,
-        ),
+        unitStage(plan.checked, plan.testedInBranch, async () => INSTANCE_WITH_NO_TESTS),
       ],
       job: "job-1",
       now: () => NOW,

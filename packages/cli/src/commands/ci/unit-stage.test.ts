@@ -4,6 +4,7 @@ import { createClient } from "@metabase/client/client";
 import type { TransformTest, TransformTestRunResult } from "@metabase/client/domain/transform-test";
 import { ConfigError, InternalError } from "@metabase/client/errors";
 import { HttpError } from "@metabase/client/http/errors";
+import { CapabilityError } from "@metabase/client/version/capability-error";
 import type { ClientCredentials } from "@metabase/client/http/transport";
 import {
   captureFetch,
@@ -11,13 +12,37 @@ import {
   TEST_USER_AGENT,
 } from "@metabase/client/testing/fetch-capture";
 
-import { type CheckedTransform, type CiEventBody, runStages } from "../../core/ci-events";
+import { entityKey } from "../../core/ci-affected";
+import { type CheckedEntity, type CiEventBody, runStages } from "../../core/ci-events";
 import { NotAuthenticatedError } from "../../core/config";
 import { interruptSignal } from "../../runtime/interrupt";
 
 import { type UnitStagePort, clientPort, unitStage } from "./unit-stage";
 
-const DAILY: CheckedTransform = { entity_id: "7JwIkkAG-06-nsl4jzsaq", name: "Daily" };
+const DAILY: CheckedEntity = {
+  type: "transform",
+  entity_id: "7JwIkkAG-06-nsl4jzsaq",
+  name: "Daily",
+};
+
+const BIG_ORDERS: CheckedEntity = {
+  type: "card",
+  entity_id: "Zq3kkAG-06-nsl4jzs1bV",
+  name: "Big orders",
+};
+
+const NO_CARD_TESTS = new CapabilityError({
+  reason: "version-too-old",
+  detail: "card testing",
+  feature: "cardTests",
+  since: 66,
+  tokenFeature: null,
+  serverVersion: "v1.65.0",
+});
+
+function key(entity: CheckedEntity): string {
+  return entityKey({ type: entity.type, entityId: entity.entity_id });
+}
 
 function transformTest(id: number, name: string): TransformTest {
   return {
@@ -75,8 +100,8 @@ const UNAUTHORIZED = httpError(401, "Unauthorized", JSON.stringify({ message: "U
 
 function port(overrides: Partial<UnitStagePort>): UnitStagePort {
   return {
-    lookUpTransforms: async () => new Map([[DAILY.entity_id, { kind: "found", id: 3 }]]),
-    readTransform: async () => {},
+    lookUpEntities: async () => new Map([[key(DAILY), { kind: "found", id: 3 }]]),
+    readEntity: async () => {},
     listTests: async () => [transformTest(9, "second"), transformTest(4, "first")],
     runTest: async () => PASSED_RUN,
     nowMs: () => 0,
@@ -85,12 +110,12 @@ function port(overrides: Partial<UnitStagePort>): UnitStagePort {
 }
 
 async function reportsGiven(
-  checked: readonly CheckedTransform[],
-  untestedInBranch: ReadonlySet<string>,
+  checked: readonly CheckedEntity[],
+  testedInBranch: ReadonlySet<string>,
   stagePort: UnitStagePort,
 ): Promise<CiEventBody[]> {
   const bodies: CiEventBody[] = [];
-  await unitStage(checked, untestedInBranch, async () => stagePort).run((check) =>
+  await unitStage(checked, testedInBranch, async () => stagePort).run((check) =>
     bodies.push({ type: "check.result", stage: "unit", ...check }),
   );
   return bodies;
@@ -98,10 +123,10 @@ async function reportsGiven(
 
 // Every checked transform has a test file in the branch, as when the coverage check passes.
 function reports(
-  checked: readonly CheckedTransform[],
+  checked: readonly CheckedEntity[],
   stagePort: UnitStagePort,
 ): Promise<CiEventBody[]> {
-  return reportsGiven(checked, new Set(), stagePort);
+  return reportsGiven(checked, new Set(checked.map(key)), stagePort);
 }
 
 function testCheck(
@@ -127,7 +152,7 @@ describe("unitStage", () => {
     const bodies = await reports(
       [DAILY],
       port({
-        runTest: async (testId) => {
+        runTest: async (_type, testId) => {
           ran.push(testId);
           return testId === 9 ? FAILED_RUN : PASSED_RUN;
         },
@@ -144,7 +169,7 @@ describe("unitStage", () => {
   it("refuses a checked transform the instance does not have", async () => {
     const bodies = await reports(
       [DAILY],
-      port({ lookUpTransforms: async () => new Map([[DAILY.entity_id, { kind: "not-found" }]]) }),
+      port({ lookUpEntities: async () => new Map([[key(DAILY), { kind: "not-found" }]]) }),
     );
 
     expect(bodies).toEqual([
@@ -160,7 +185,7 @@ describe("unitStage", () => {
     const bodies = await reports(
       [DAILY],
       port({
-        lookUpTransforms: async () => new Map([[DAILY.entity_id, { kind: "invalid-entity-id" }]]),
+        lookUpEntities: async () => new Map([[key(DAILY), { kind: "invalid-entity-id" }]]),
       }),
     );
 
@@ -173,9 +198,7 @@ describe("unitStage", () => {
   });
 
   it("reports nothing for a transform with no test in the branch, which the coverage check owns", async () => {
-    const untested = new Set([DAILY.entity_id]);
-
-    expect(await reportsGiven([DAILY], untested, port({ listTests: async () => [] }))).toEqual([]);
+    expect(await reportsGiven([DAILY], new Set(), port({ listTests: async () => [] }))).toEqual([]);
   });
 
   it("refuses a transform whose test the branch holds and the instance does not list", async () => {
@@ -185,6 +208,97 @@ describe("unitStage", () => {
         message:
           "the branch has a test for this transform, but the Metabase instance lists none, so no test ran; load the branch into it first",
       }),
+    ]);
+  });
+
+  it("runs a card's tests as card-test checks, asking the port for the card's type", async () => {
+    const asked: string[] = [];
+    const bodies = await reports(
+      [BIG_ORDERS],
+      port({
+        lookUpEntities: async () => new Map([[key(BIG_ORDERS), { kind: "found", id: 7 }]]),
+        readEntity: async (type, id) => {
+          asked.push(`read ${type} ${id}`);
+        },
+        listTests: async (type, id) => {
+          asked.push(`list ${type} ${id}`);
+          return [transformTest(4, "keeps big orders")];
+        },
+        runTest: async (type, testId) => {
+          asked.push(`run ${type} ${testId}`);
+          return PASSED_RUN;
+        },
+      }),
+    );
+
+    expect(asked).toEqual(["read card 7", "list card 7", "run card 4"]);
+    expect(bodies).toEqual([
+      {
+        type: "check.result",
+        stage: "unit",
+        check: { kind: "card-test", id: "4", label: "Big orders: keeps big orders" },
+        verdict: "passed",
+        warnings: [],
+        ms: 0,
+        detail: PASSED_RUN,
+      },
+    ]);
+  });
+
+  it("on a server without card tests, refuses the cards the branch tests, passes over the rest, and still tests transforms", async () => {
+    const untested: CheckedEntity = {
+      type: "card",
+      entity_id: "CCCCCCCCCCCCCCCCCCCCC",
+      name: "Untested",
+    };
+    const other: CheckedEntity = {
+      type: "card",
+      entity_id: "DDDDDDDDDDDDDDDDDDDDD",
+      name: "Other",
+    };
+    const listed: string[] = [];
+    const bodies: CiEventBody[] = [];
+    const stage = unitStage(
+      [untested, BIG_ORDERS, other, DAILY],
+      new Set([key(BIG_ORDERS), key(other), key(DAILY)]),
+      async () =>
+        port({
+          lookUpEntities: async (entities) =>
+            new Map(entities.map((entity) => [key(entity), { kind: "found", id: 3 }])),
+          listTests: async (type) => {
+            listed.push(type);
+            return type === "card" ? Promise.reject(NO_CARD_TESTS) : [transformTest(4, "first")];
+          },
+        }),
+    );
+
+    const stopped = await stage.run((check) =>
+      bodies.push({ type: "check.result", stage: "unit", ...check }),
+    );
+
+    const unsupported = { error_code: "ci.unsupported-server", message: NO_CARD_TESTS.message };
+    expect(stopped).toBeNull();
+    expect(listed).toEqual(["card", "transform"]);
+    expect(bodies).toEqual([
+      {
+        type: "check.result",
+        stage: "unit",
+        check: { kind: "card-test", id: BIG_ORDERS.entity_id, label: "Big orders" },
+        verdict: "refused",
+        warnings: [],
+        ms: 0,
+        detail: unsupported,
+      },
+      {
+        type: "check.result",
+        stage: "unit",
+        check: { kind: "card-test", id: other.entity_id, label: "Other" },
+        verdict: "refused",
+        warnings: [],
+        ms: 0,
+        detail: unsupported,
+      },
+      testCheck("4", "Daily: first", "passed", PASSED_RUN),
     ]);
   });
 
@@ -208,7 +322,7 @@ describe("unitStage", () => {
     expect(await stage.run(() => undefined)).toEqual({
       code: "ci.no-credential",
       message:
-        'no Metabase credential, so the transform tests did not run: Not authenticated for profile "default".',
+        'no Metabase credential, so the tests did not run: Not authenticated for profile "default".',
     });
   });
 
@@ -227,7 +341,7 @@ describe("unitStage", () => {
     const bodies = await reports(
       [DAILY],
       port({
-        runTest: async (testId) => {
+        runTest: async (_type, testId) => {
           if (testId === 4) {
             throw refused;
           }
@@ -281,9 +395,9 @@ describe("unitStage", () => {
     const bodies = await reports(
       [DAILY],
       port({
-        readTransform: async () =>
+        readEntity: async () =>
           Promise.reject(httpError(403, "Forbidden", "You don't have permissions to do that.")),
-        listTests: async (transformId) => {
+        listTests: async (_type, transformId) => {
           listed.push(transformId);
           return [];
         },
@@ -304,7 +418,8 @@ describe("unitStage", () => {
     const bodies = await reports(
       [DAILY],
       port({
-        runTest: async (testId) => (testId === 4 ? Promise.reject(SERVER_ERROR) : PASSED_RUN),
+        runTest: async (_type, testId) =>
+          testId === 4 ? Promise.reject(SERVER_ERROR) : PASSED_RUN,
       }),
     );
 
@@ -322,7 +437,7 @@ describe("unitStage", () => {
     const ran: number[] = [];
     const stage = unitStage([DAILY], new Set(), async () =>
       port({
-        runTest: async (testId) => {
+        runTest: async (_type, testId) => {
           ran.push(testId);
           return testId === 9 ? Promise.reject(UNAUTHORIZED) : PASSED_RUN;
         },
@@ -353,7 +468,7 @@ describe("unitStage", () => {
 
   it("stops before any check when the entity-id lookup fails", async () => {
     const stopped = await unitStage([DAILY], new Set(), async () =>
-      port({ lookUpTransforms: async () => Promise.reject(SERVER_ERROR) }),
+      port({ lookUpEntities: async () => Promise.reject(SERVER_ERROR) }),
     ).run(() => {
       throw new Error("no check expected");
     });
@@ -363,14 +478,18 @@ describe("unitStage", () => {
 
   it("looks every checked transform up in one request", async () => {
     const asked: string[][] = [];
-    const other: CheckedTransform = { entity_id: "BBBBBBBBBBBBBBBBBBBBB", name: "Other" };
+    const other: CheckedEntity = {
+      type: "transform",
+      entity_id: "BBBBBBBBBBBBBBBBBBBBB",
+      name: "Other",
+    };
 
     await reports(
       [DAILY, other],
       port({
-        lookUpTransforms: async (entityIds) => {
-          asked.push([...entityIds]);
-          return new Map(entityIds.map((entityId) => [entityId, { kind: "not-found" }]));
+        lookUpEntities: async (entities) => {
+          asked.push(entities.map((entity) => entity.entity_id));
+          return new Map(entities.map((entity) => [key(entity), { kind: "not-found" }]));
         },
       }),
     );
@@ -379,17 +498,25 @@ describe("unitStage", () => {
   });
 
   it("checks transforms in checked order, and each transform's tests in id order", async () => {
-    const early: CheckedTransform = { entity_id: "AAAAAAAAAAAAAAAAAAAAA", name: "Early" };
-    const late: CheckedTransform = { entity_id: "BBBBBBBBBBBBBBBBBBBBB", name: "Late" };
+    const early: CheckedEntity = {
+      type: "transform",
+      entity_id: "AAAAAAAAAAAAAAAAAAAAA",
+      name: "Early",
+    };
+    const late: CheckedEntity = {
+      type: "transform",
+      entity_id: "BBBBBBBBBBBBBBBBBBBBB",
+      name: "Late",
+    };
     const bodies = await reports(
       [late, early],
       port({
-        lookUpTransforms: async () =>
+        lookUpEntities: async () =>
           new Map([
-            [early.entity_id, { kind: "found", id: 1 }],
-            [late.entity_id, { kind: "found", id: 2 }],
+            [key(early), { kind: "found", id: 1 }],
+            [key(late), { kind: "found", id: 2 }],
           ]),
-        listTests: async (transformId) =>
+        listTests: async (_type, transformId) =>
           transformId === 1
             ? [transformTest(6, "b"), transformTest(5, "a")]
             : [transformTest(8, "d"), transformTest(7, "c")],
@@ -427,6 +554,39 @@ const CREDENTIALS: ClientCredentials = {
   credential: { kind: "apiKey", apiKey: "mb_ci_test_key" },
 };
 
+const CARD = {
+  id: 7,
+  name: "Big orders",
+  type: "question",
+  display: "table",
+  description: null,
+  archived: false,
+  query_type: "query",
+  database_id: 1,
+  table_id: 2,
+  collection_id: 3,
+  entity_id: BIG_ORDERS.entity_id,
+  creator_id: 1,
+  dataset_query: { type: "query" },
+  visualization_settings: {},
+  collection_position: null,
+  parameters: [],
+  result_metadata: null,
+};
+
+const CARD_TEST = {
+  id: 4,
+  entity_id: "cardtest4xxxxxxxxxxxx",
+  card_id: 7,
+  creator_id: 1,
+  name: "keeps big orders",
+  description: null,
+  inputs: [],
+  expectations: [],
+  created_at: "2026-10-30T12:00:00Z",
+  updated_at: "2026-10-30T12:00:00Z",
+};
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -447,16 +607,16 @@ describe("clientPort", () => {
       fetchImpl: capture.fetch,
     });
 
-    const lookups = await clientPort(client).lookUpTransforms([
-      "7JwIkkAG-06-nsl4jzsaq",
-      "bad",
-      "XXXXXXXXXXXXXXXXXXXXX",
+    const lookups = await clientPort(client).lookUpEntities([
+      DAILY,
+      { type: "transform", entity_id: "bad", name: "Bad" },
+      { type: "transform", entity_id: "XXXXXXXXXXXXXXXXXXXXX", name: "Gone" },
     ]);
 
     expect([...lookups]).toEqual([
-      ["7JwIkkAG-06-nsl4jzsaq", { kind: "found", id: 3 }],
-      ["bad", { kind: "invalid-entity-id" }],
-      ["XXXXXXXXXXXXXXXXXXXXX", { kind: "not-found" }],
+      ["transform:7JwIkkAG-06-nsl4jzsaq", { kind: "found", id: 3 }],
+      ["transform:bad", { kind: "invalid-entity-id" }],
+      ["transform:XXXXXXXXXXXXXXXXXXXXX", { kind: "not-found" }],
     ]);
     expect(capture.calls.map((call) => [call.method, call.url, call.body])).toEqual([
       [
@@ -493,7 +653,7 @@ describe("clientPort", () => {
       fetchImpl: capture.fetch,
     });
 
-    await clientPort(client).readTransform(3);
+    await clientPort(client).readEntity("transform", 3);
 
     expect(capture.calls.map((call) => [call.method, call.url])).toEqual([
       ["GET", "https://mb.example.com/api/session/properties"],
@@ -508,7 +668,7 @@ describe("clientPort", () => {
       fetchImpl: capture.fetch,
     });
 
-    expect(await clientPort(client).listTests(3)).toEqual([transformTest(4, "first")]);
+    expect(await clientPort(client).listTests("transform", 3)).toEqual([transformTest(4, "first")]);
     expect(capture.calls.map((call) => [call.method, call.url])).toEqual([
       ["GET", "https://mb.example.com/api/ee/transform-test?transform-id=3"],
     ]);
@@ -524,7 +684,7 @@ describe("clientPort", () => {
       userAgent: TEST_USER_AGENT,
       fetchImpl: capture.fetch,
     });
-    const lookUp = clientPort(client).lookUpTransforms(["7JwIkkAG-06-nsl4jzsaq"]);
+    const lookUp = clientPort(client).lookUpEntities([DAILY]);
 
     await expect(lookUp).rejects.toThrow(InternalError);
     await expect(lookUp).rejects.toThrow(
@@ -539,7 +699,7 @@ describe("clientPort", () => {
     });
     const run = vi.spyOn(client.transformTest, "run");
 
-    await clientPort(client).runTest(4);
+    await clientPort(client).runTest("transform", 4);
 
     expect(run.mock.calls).toEqual([[4, { timeoutMs: 120_000, signal: interruptSignal }]]);
   });
@@ -551,7 +711,7 @@ describe("clientPort", () => {
     });
     const timeout = vi.spyOn(AbortSignal, "timeout");
 
-    await clientPort(client).runTest(4);
+    await clientPort(client).runTest("transform", 4);
 
     expect(timeout.mock.calls).toEqual([[120_000]]);
   });
@@ -570,8 +730,8 @@ describe("clientPort", () => {
     const list = vi.spyOn(client.transformTest, "list");
     const stagePort = clientPort(client);
 
-    await stagePort.lookUpTransforms([DAILY.entity_id]);
-    await stagePort.listTests(3);
+    await stagePort.lookUpEntities([DAILY]);
+    await stagePort.listTests("transform", 3);
 
     expect([translate.mock.calls[0]?.[1], list.mock.calls[0]?.[1]]).toEqual([
       { signal: interruptSignal },
@@ -586,9 +746,58 @@ describe("clientPort", () => {
       fetchImpl: capture.fetch,
     });
 
-    expect(await clientPort(client).runTest(4)).toEqual(PASSED_RUN);
+    expect(await clientPort(client).runTest("transform", 4)).toEqual(PASSED_RUN);
     expect(capture.calls.map((call) => [call.method, call.url])).toEqual([
       ["POST", "https://mb.example.com/api/ee/transform-test/4/run"],
+    ]);
+  });
+
+  it("looks transforms and cards up in one request, each under its own model", async () => {
+    const capture = captureFetch([
+      jsonResponse({
+        entity_ids: {
+          [DAILY.entity_id]: { status: "ok", type: "transform", id: 3 },
+          [BIG_ORDERS.entity_id]: { status: "ok", type: "card", id: 7 },
+        },
+      }),
+    ]);
+    const client = createClient(CREDENTIALS, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: capture.fetch,
+    });
+
+    const lookups = await clientPort(client).lookUpEntities([DAILY, BIG_ORDERS]);
+
+    expect([...lookups]).toEqual([
+      [`transform:${DAILY.entity_id}`, { kind: "found", id: 3 }],
+      [`card:${BIG_ORDERS.entity_id}`, { kind: "found", id: 7 }],
+    ]);
+    expect(capture.calls.map((call) => call.body)).toEqual([
+      `{"entity_ids":{"transform":["${DAILY.entity_id}"],"card":["${BIG_ORDERS.entity_id}"]}}`,
+    ]);
+  });
+
+  it("reads a card, lists its tests and runs one on the card routes", async () => {
+    const capture = captureFetch([
+      jsonResponse(CARD),
+      jsonResponse([CARD_TEST]),
+      jsonResponse(PASSED_RUN),
+    ]);
+    const client = createClient(CREDENTIALS, {
+      userAgent: TEST_USER_AGENT,
+      fetchImpl: capture.fetch,
+    });
+    const stagePort = clientPort(client);
+
+    await stagePort.readEntity("card", 7);
+    const tests = await stagePort.listTests("card", 7);
+    const run = await stagePort.runTest("card", 4);
+
+    expect([tests, run]).toEqual([[CARD_TEST], PASSED_RUN]);
+    expect(capture.calls.map((call) => [call.method, call.url])).toEqual([
+      ["GET", "https://mb.example.com/api/card/7"],
+      ["GET", "https://mb.example.com/api/ee/card-test?card-id=7"],
+      ["POST", "https://mb.example.com/api/ee/card-test/4/run"],
     ]);
   });
 });

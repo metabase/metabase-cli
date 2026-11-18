@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { DATA_TEST_TYPES } from "@metabase/client/domain/data-test";
 import {
   type TransformTestExpectationResult,
   type TransformTestResultColumn,
@@ -8,7 +9,8 @@ import {
 } from "@metabase/client/domain/transform-test";
 import { InternalError } from "@metabase/client/errors";
 
-import type { CiEvent, JobState, Verdict } from "../core/ci-events";
+import type { CheckedEntity, CheckKind, CiEvent, JobState, Verdict } from "../core/ci-events";
+import { testKind } from "../core/data-test";
 import { exitCodeFor } from "./error";
 
 type CheckResult = Extract<CiEvent, { type: "check.result" }>;
@@ -32,17 +34,24 @@ const VERDICT_MARK: Readonly<Record<Verdict, string>> = {
   refused: "!",
 };
 
-// Which kinds of check have failed so far. A failed coverage check asks for a test, any other
-// failed check for a fix to the transform, so the job.end line can name the fix.
-export type FailedChecks = "none" | "tests" | "transform" | "both";
-export const NO_FAILED_CHECKS: FailedChecks = "none";
+// Which kinds of check have failed so far. A failed coverage check asks for a test, a failed test
+// for a fix to the entity it tests, so the job.end line can name the fix.
+export type FailedChecks = readonly CheckKind[];
+export const NO_FAILED_CHECKS: FailedChecks = [];
 
-const FAILED_TEXT: Readonly<Record<FailedChecks, string>> = {
-  none: "FAILED  fix the transform",
-  transform: "FAILED  fix the transform",
-  tests: "FAILED  add or restore transform tests",
-  both: "FAILED  fix the transform and add the missing tests",
-};
+const COVERAGE_KIND: CheckKind = "coverage";
+
+function failedText(failed: FailedChecks): string {
+  const types = DATA_TEST_TYPES.filter((type) => failed.includes(testKind(type)));
+  const lacksTests = failed.includes(COVERAGE_KIND);
+  if (types.length === 0) {
+    return lacksTests
+      ? "FAILED  add or restore transform tests"
+      : "FAILED  fix what the failed checks name";
+  }
+  const fix = `FAILED  fix the ${types.join(" and the ")}`;
+  return lacksTests ? `${fix} and add the missing tests` : fix;
+}
 
 const ERRORED_TEXT = "ERRORED  fix the test or the setup";
 
@@ -55,11 +64,19 @@ export function failedChecksAfter(failed: FailedChecks, event: CiEvent): FailedC
   if (event.type !== "check.result" || event.verdict !== "failed") {
     return failed;
   }
-  const kind = event.check.kind === "coverage" ? "tests" : "transform";
-  if (failed === "none" || failed === kind) {
-    return kind;
+  return failed.includes(event.check.kind) ? failed : [...failed, event.check.kind];
+}
+
+function checkedSummary(checked: readonly CheckedEntity[]): string {
+  const counts = DATA_TEST_TYPES.map((type) => ({
+    type,
+    count: checked.filter((entity) => entity.type === type).length,
+  })).filter(({ count }) => count > 0);
+  if (counts.length === 0) {
+    return "nothing to test";
   }
-  return "both";
+  const parts = counts.map(({ type, count }) => `${count} ${count === 1 ? type : `${type}s`}`);
+  return `${parts.join(", ")} checked`;
 }
 
 // The text form of one CI event: a line or more, or none for an event the next one makes plain.
@@ -68,9 +85,7 @@ export function failedChecksAfter(failed: FailedChecks, event: CiEvent): FailedC
 export function ciEventLines(event: CiEvent, maxRows: number, failed: FailedChecks): string[] {
   switch (event.type) {
     case "job.start": {
-      const count = event.checked.length;
-      const noun = count === 1 ? "transform" : "transforms";
-      const head = `mb ci run  base ${shortSha(event.snapshot.base)}  head ${shortSha(event.snapshot.head)}  ${count} ${noun} checked`;
+      const head = `mb ci run  base ${shortSha(event.snapshot.base)}  head ${shortSha(event.snapshot.head)}  ${checkedSummary(event.checked)}`;
       return [head, ...event.warnings.map((warning) => `⚠ ${warning.message}`)];
     }
     case "stage.start": {
@@ -107,7 +122,7 @@ function jobEndText(state: JobState, failed: FailedChecks): string {
   if (state === "passed") {
     return "PASSED";
   }
-  return state === "failed" ? FAILED_TEXT[failed] : ERRORED_TEXT;
+  return state === "failed" ? failedText(failed) : ERRORED_TEXT;
 }
 
 function jobExitCode(state: JobState): number {

@@ -16,13 +16,18 @@ import { HttpError } from "@metabase/client/http/errors";
 import { CapabilityError } from "@metabase/client/version/capability-error";
 
 import {
-  type TransformRequest,
+  type TestRequest,
+  type UnitFailure,
   lookupStop,
   refusalVerdict,
+  testFailure,
   testRefusal,
   testVerdict,
-  transformFailure,
 } from "./ci-unit";
+
+function transformFailure(error: unknown, request: TestRequest): UnitFailure | null {
+  return testFailure(error, request, "transform");
+}
 
 type ExpectationStatus = TransformTestExpectationResult["status"];
 
@@ -113,6 +118,14 @@ describe("testRefusal", () => {
     });
   });
 
+  it("reads a typed card-test refusal", () => {
+    expect(testRefusal(refusalError("card-test.duplicate-output-columns"))).toEqual({
+      error_code: "card-test.duplicate-output-columns",
+      message: "m",
+      tables: null,
+    });
+  });
+
   it("does not treat an error code outside transform-test.* as a refusal", () => {
     expect(testRefusal(refusalError("some-other.code"))).toBeNull();
   });
@@ -135,6 +148,20 @@ describe("refusalVerdict", () => {
         refusalVerdict({ error_code: code, message: "m", tables: null }),
       ),
     ).toEqual(["failed", "failed"]);
+  });
+
+  it("fails a test whose query will not run, whatever the type of the test", () => {
+    expect(
+      ["transform-test.query-failed", "card-test.query-failed", "card-test.unparseable-source"].map(
+        (code) => refusalVerdict({ error_code: code, message: "m", tables: null }),
+      ),
+    ).toEqual(["failed", "failed", "failed"]);
+  });
+
+  it("refuses a card test for a refusal that is not about its query", () => {
+    expect(
+      refusalVerdict({ error_code: "card-test.missing-inputs", message: "m", tables: null }),
+    ).toBe("refused");
   });
 
   it("refuses the test for every other refusal code, known to the client or not", () => {
@@ -181,7 +208,7 @@ const UNLICENSED = new CapabilityError({
 
 describe("transformFailure, a failure that ends the stage", () => {
   it("stops the stage when Metabase rejects the credential, whichever request it rejected", () => {
-    const requests: TransformRequest[] = ["read", "list", "run"];
+    const requests: TestRequest[] = ["read", "list", "run"];
 
     expect(requests.map((request) => transformFailure(UNAUTHORIZED, request))).toEqual(
       requests.map(() => ({
@@ -299,6 +326,68 @@ describe("transformFailure, a failure that costs one check", () => {
       kind: "check",
       verdict: "error",
       detail: { error_code: "ci.http-error", status: 400, message: "m" },
+    });
+  });
+});
+
+const NO_CARD_TESTS = new CapabilityError({
+  reason: "version-too-old",
+  detail: "card testing",
+  feature: "cardTests",
+  since: 66,
+  tokenFeature: null,
+  serverVersion: "v1.65.0",
+});
+
+describe("testFailure on a card", () => {
+  it("sets card tests aside, without stopping the stage, on a server that lists none", () => {
+    expect(testFailure(NO_CARD_TESTS, "list", "card")).toEqual({
+      kind: "unsupported-type",
+      detail: { error_code: "ci.unsupported-server", message: NO_CARD_TESTS.message },
+    });
+  });
+
+  it("refuses a card the CI identity cannot read, naming the permission", () => {
+    expect(testFailure(FORBIDDEN, "read", "card")).toEqual({
+      kind: "check",
+      verdict: "refused",
+      detail: {
+        error_code: "ci.card-unreadable",
+        message:
+          "the CI identity cannot read this card, so Metabase hides its tests: reading it needs access to its collection",
+      },
+    });
+  });
+
+  it("refuses a card test the CI identity may not run, naming the permission", () => {
+    expect(testFailure(FORBIDDEN, "run", "card")).toEqual({
+      kind: "check",
+      verdict: "refused",
+      detail: {
+        error_code: "ci.test-run-forbidden",
+        message:
+          "Metabase did not let the CI identity run this test: running a card test needs permission to run the card's query and native query access to its database",
+      },
+    });
+  });
+
+  it("refuses a card that left the instance after its lookup", () => {
+    expect(testFailure(NOT_FOUND, "read", "card")).toEqual({
+      kind: "check",
+      verdict: "refused",
+      detail: {
+        error_code: "ci.card-not-on-instance",
+        message:
+          "the card is in the branch but not on the Metabase instance; load the branch into it first",
+      },
+    });
+  });
+
+  it("gives a refused card test run its verdict", () => {
+    expect(testFailure(refusalError("card-test.query-failed"), "run", "card")).toEqual({
+      kind: "check",
+      verdict: "failed",
+      detail: { error_code: "card-test.query-failed", message: "m", tables: null },
     });
   });
 });

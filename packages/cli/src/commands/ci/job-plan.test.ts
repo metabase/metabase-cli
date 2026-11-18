@@ -29,9 +29,18 @@ function testYaml(transformId: string): string {
   return `entity_id: aRvM7DLesF1fOV4kRHidq\ntransform_id: ${transformId}\nexpectations:\n- name: e\n  type: empty\nserdes/meta:\n- model: TransformTest\n`;
 }
 
+const CARD_ID = "Zq3kkAG-06-nsl4jzs1bV";
+const CARD_PATH = "collections/main/cards/big_orders.yaml";
+const CARD_TEST_PATH = "collections/main/cards/big_orders/keeps_big.yaml";
+const CARD_TEST_YAML = `entity_id: cRvM7DLesF1fOV4kRHidq\ncard_id: ${CARD_ID}\nexpectations:\n- name: e\n  type: empty\nserdes/meta:\n- model: CardTest\n`;
+
+function cardYaml(name: string): string {
+  return `name: ${name}\nentity_id: ${CARD_ID}\ndataset_query:\n  database: Sample\nserdes/meta:\n- model: Card\n`;
+}
+
 const TRANSFORM_YAML = transformYaml(TRANSFORM_ID, "Daily Order Summary");
 const TEST_YAML = testYaml(TRANSFORM_ID);
-const DAILY = { entity_id: TRANSFORM_ID, name: "Daily Order Summary" };
+const DAILY = { type: "transform", entity_id: TRANSFORM_ID, name: "Daily Order Summary" };
 const NO_GAPS = { untestedChanges: [], untestableChanges: [], untouchedUntested: [] };
 const DAILY_UNTESTED_NEW = {
   untestedChanges: [
@@ -48,7 +57,7 @@ const DAILY_UNTESTED_UNTOUCHED = {
 const BROKEN_QUERY = "source:\n  query: select broken(\n";
 const NO_CONTENT_CHANGES = {
   code: "no-content-changes",
-  message: "the change touches no Metabase content files, so no transform test ran",
+  message: "the change touches no Metabase content files, so no test ran",
 };
 const INTERRUPT_AFTER_MS = 300;
 const LARGE_DIFF_FILES = 1800;
@@ -73,6 +82,7 @@ describe("planJob", () => {
       snapshot: { base, head: base },
       coverage: NO_GAPS,
       checked: [],
+      testedInBranch: new Set(),
       warnings: [
         NO_CONTENT_CHANGES,
         {
@@ -93,6 +103,7 @@ describe("planJob", () => {
       snapshot: { base, head },
       coverage: DAILY_UNTESTED_NEW,
       checked: [DAILY],
+      testedInBranch: new Set(),
       warnings: [],
     });
   });
@@ -108,7 +119,60 @@ describe("planJob", () => {
       snapshot: { base, head },
       coverage: NO_GAPS,
       checked: [DAILY],
+      testedInBranch: new Set([`transform:${TRANSFORM_ID}`]),
       warnings: [],
+    });
+  });
+
+  it("checks a card the branch changed, without asking coverage for a card test", async () => {
+    await repo.put(CARD_PATH, cardYaml("Big orders"));
+    const base = await repo.commitAll("add card");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(CARD_PATH, cardYaml("Bigger orders"));
+    const head = await repo.commitAll("rename card");
+
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
+      snapshot: { base, head },
+      coverage: NO_GAPS,
+      checked: [{ type: "card", entity_id: CARD_ID, name: "Bigger orders" }],
+      testedInBranch: new Set(),
+      warnings: [],
+    });
+  });
+
+  it("names a card whose own file is unchanged when only its card test changed", async () => {
+    await repo.put(CARD_PATH, cardYaml("Big orders"));
+    const base = await repo.commitAll("add card");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(CARD_TEST_PATH, CARD_TEST_YAML);
+    const head = await repo.commitAll("add card test");
+
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
+      snapshot: { base, head },
+      coverage: NO_GAPS,
+      checked: [{ type: "card", entity_id: CARD_ID, name: "Big orders" }],
+      testedInBranch: new Set([`card:${CARD_ID}`]),
+      warnings: [],
+    });
+  });
+
+  it("warns about a changed card test whose card is not in the repo", async () => {
+    const base = await repo.git("rev-parse", "HEAD");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(CARD_TEST_PATH, CARD_TEST_YAML);
+    const head = await repo.commitAll("add card test");
+
+    expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
+      snapshot: { base, head },
+      coverage: NO_GAPS,
+      checked: [],
+      testedInBranch: new Set(),
+      warnings: [
+        {
+          code: "missing-card",
+          message: `a changed card test covers card ${CARD_ID}, which is not in the repo at ${head}`,
+        },
+      ],
     });
   });
 
@@ -128,6 +192,7 @@ describe("planJob", () => {
       snapshot: { base, head },
       coverage: DAILY_UNTESTED_NEW,
       checked: [DAILY],
+      testedInBranch: new Set(),
       warnings: [],
     });
   });
@@ -143,6 +208,7 @@ describe("planJob", () => {
       snapshot: { base, head },
       coverage: DAILY_UNTESTED_UNTOUCHED,
       checked: [DAILY],
+      testedInBranch: new Set(),
       warnings: [],
     });
   });
@@ -160,6 +226,7 @@ describe("planJob", () => {
       snapshot: { base, head },
       coverage: NO_GAPS,
       checked: [DAILY],
+      testedInBranch: new Set([`transform:${TRANSFORM_ID}`]),
       warnings: [],
     });
   });
@@ -174,6 +241,7 @@ describe("planJob", () => {
       snapshot: { base, head },
       coverage: NO_GAPS,
       checked: [],
+      testedInBranch: new Set(),
       warnings: [
         {
           code: "missing-transform",
@@ -195,6 +263,7 @@ describe("planJob", () => {
       snapshot: { base, head },
       coverage: DAILY_UNTESTED_NEW,
       checked: [DAILY],
+      testedInBranch: new Set(),
       warnings: [],
     });
   });
@@ -245,6 +314,7 @@ describe("planJob", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [DAILY],
+      testedInBranch: new Set(),
       warnings: [],
       coverage: DAILY_UNTESTED_UNTOUCHED,
     });
@@ -260,6 +330,7 @@ describe("planJob", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [DAILY],
+      testedInBranch: new Set(),
       warnings: [],
       coverage: {
         untestedChanges: [
@@ -285,6 +356,7 @@ describe("planJob", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [DAILY],
+      testedInBranch: new Set([`transform:${TRANSFORM_ID}`]),
       warnings: [],
       coverage: NO_GAPS,
     });
@@ -302,6 +374,7 @@ describe("planJob", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [DAILY],
+      testedInBranch: new Set(),
       warnings: [],
       coverage: DAILY_UNTESTED_NEW,
     });
@@ -316,6 +389,7 @@ describe("planJob, on a change that touches no content file", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base: head, head },
       checked: [],
+      testedInBranch: new Set(),
       warnings: [NO_CONTENT_CHANGES],
       coverage: NO_GAPS,
     });
@@ -332,6 +406,7 @@ describe("planJob, on a change that touches no content file", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [],
+      testedInBranch: new Set(),
       warnings: [NO_CONTENT_CHANGES],
       coverage: NO_GAPS,
     });
@@ -373,6 +448,7 @@ describe("planJob, reading a transform as Metabase imports it", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [DAILY],
+      testedInBranch: new Set(),
       warnings: [],
       coverage: {
         untestedChanges: [
@@ -398,6 +474,7 @@ describe("planJob, reading a transform as Metabase imports it", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [DAILY],
+      testedInBranch: new Set([`transform:${TRANSFORM_ID}`]),
       warnings: [],
       coverage: NO_GAPS,
     });
@@ -482,6 +559,7 @@ describe("planJob, reading only Metabase's content folders", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [],
+      testedInBranch: new Set(),
       warnings: [NO_CONTENT_CHANGES],
       coverage: NO_GAPS,
     });
@@ -496,6 +574,7 @@ describe("planJob, reading only Metabase's content folders", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [],
+      testedInBranch: new Set(),
       warnings: [NO_CONTENT_CHANGES],
       coverage: NO_GAPS,
     });
@@ -518,7 +597,8 @@ describe("planJob, reading the base side at the merge base", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      checked: [{ entity_id: TRANSFORM_ID, name: "Alpha" }],
+      checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Alpha" }],
+      testedInBranch: new Set(),
       warnings: [],
       coverage: {
         untestedChanges: [
@@ -543,7 +623,8 @@ describe("planJob, reading the base side at the merge base", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      checked: [{ entity_id: TRANSFORM_ID, name: "Alpha 2" }],
+      checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Alpha 2" }],
+      testedInBranch: new Set(),
       warnings: [],
       coverage: {
         untestedChanges: [],
@@ -567,7 +648,8 @@ describe("planJob, reading the base side at the merge base", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      checked: [{ entity_id: TRANSFORM_ID, name: "Alpha 2" }],
+      checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Alpha 2" }],
+      testedInBranch: new Set(),
       warnings: [],
       coverage: {
         untestedChanges: [],
@@ -595,7 +677,8 @@ describe("planJob, finding the transform of a changed test", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      checked: [{ entity_id: TRANSFORM_ID, name: "Alpha" }],
+      checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Alpha" }],
+      testedInBranch: new Set([`transform:${TRANSFORM_ID}`]),
       warnings: [],
       coverage: {
         untestedChanges: [],
@@ -608,7 +691,7 @@ describe("planJob, finding the transform of a changed test", () => {
   it("skips a file that names the transform but is not one", async () => {
     await repo.put(
       "collections/card.yaml",
-      `name: Card\nsource_entity_id: ${TRANSFORM_ID}\nserdes/meta:\n- model: Card\n`,
+      `name: Card\nsource_entity_id: ${TRANSFORM_ID}\nserdes/meta:\n- model: Dashboard\n`,
     );
     await repo.put("transforms/a.yaml", transformYaml(TRANSFORM_ID, "Alpha"));
     const base = await repo.commitAll("fork point");
@@ -618,7 +701,8 @@ describe("planJob, finding the transform of a changed test", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      checked: [{ entity_id: TRANSFORM_ID, name: "Alpha" }],
+      checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Alpha" }],
+      testedInBranch: new Set([`transform:${TRANSFORM_ID}`]),
       warnings: [],
       coverage: NO_GAPS,
     });
@@ -640,9 +724,10 @@ describe("planJob, finding the transform of a changed test", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [
-        { entity_id: TRANSFORM_ID, name: "Alpha" },
-        { entity_id: OTHER_TRANSFORM_ID, name: "Beta" },
+        { type: "transform", entity_id: TRANSFORM_ID, name: "Alpha" },
+        { type: "transform", entity_id: OTHER_TRANSFORM_ID, name: "Beta" },
       ],
+      testedInBranch: new Set([`transform:${OTHER_TRANSFORM_ID}`]),
       warnings: [],
       coverage: {
         untestedChanges: [
@@ -667,7 +752,8 @@ describe("planJob, run from a subdirectory", () => {
 
     expect(await planJob(`${repo.path}/other`, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      checked: [{ entity_id: TRANSFORM_ID, name: "Alpha 2" }],
+      checked: [{ type: "transform", entity_id: TRANSFORM_ID, name: "Alpha 2" }],
+      testedInBranch: new Set(),
       warnings: [],
       coverage: {
         untestedChanges: [],
@@ -697,6 +783,7 @@ describe("planJob, an unchanged file at head that does not read", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [],
+      testedInBranch: new Set(),
       warnings: [NO_CONTENT_CHANGES],
       coverage: { untestedChanges: [], untestableChanges: [], untouchedUntested: [LEGACY] },
     });
@@ -713,6 +800,7 @@ describe("planJob, an unchanged file at head that does not read", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [],
+      testedInBranch: new Set(),
       warnings: [
         NO_CONTENT_CHANGES,
         {
@@ -735,6 +823,7 @@ describe("planJob, an unchanged file at head that does not read", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [],
+      testedInBranch: new Set(),
       warnings: [
         NO_CONTENT_CHANGES,
         {
@@ -754,6 +843,7 @@ describe("planJob, an unchanged file at head that does not read", () => {
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
       checked: [],
+      testedInBranch: new Set(),
       warnings: [
         NO_CONTENT_CHANGES,
         {
@@ -777,7 +867,8 @@ describe("planJob, an unchanged file at head that does not read", () => {
 
     expect(await planJob(repo.path, "main", "HEAD", NOT_INTERRUPTED)).toEqual({
       snapshot: { base, head },
-      checked: [{ entity_id: LEGACY_ID, name: "Legacy" }],
+      checked: [{ type: "transform", entity_id: LEGACY_ID, name: "Legacy" }],
+      testedInBranch: new Set(),
       warnings: [],
       coverage: {
         untestedChanges: [{ ...LEGACY, change: "new", tests: "none" }],

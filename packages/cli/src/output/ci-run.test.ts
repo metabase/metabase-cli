@@ -49,6 +49,7 @@ function jobStart(checked: number): CiEventBody {
     v: 1,
     snapshot: { base: BASE, head: HEAD },
     checked: Array.from({ length: checked }, (_, index) => ({
+      type: "transform" as const,
       entity_id: `eid-${index}`,
       name: `transform_${index}`,
     })),
@@ -380,6 +381,42 @@ describe("ciEventLines", () => {
     );
   });
 
+  it("ends a job whose failures are card tests by asking for a fix to the card", () => {
+    expect(render([CARD_TEST_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
+      "FAILED  fix the card (exit 1)",
+    );
+  });
+
+  it("ends a job in which a transform test and a card test failed by naming both", () => {
+    expect(render([CARD_TEST_FAILED, TEST_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
+      "FAILED  fix the transform and the card (exit 1)",
+    );
+  });
+
+  it("counts the checked entities of each type in the job's first line", () => {
+    const start: CiEventBody = {
+      type: "job.start",
+      v: 1,
+      snapshot: { base: BASE, head: HEAD },
+      checked: [
+        { type: "card", entity_id: "c1", name: "Big orders" },
+        { type: "transform", entity_id: "t1", name: "Daily" },
+        { type: "card", entity_id: "c2", name: "Small orders" },
+      ],
+      warnings: [],
+    };
+
+    expect(render([start], DEFAULT_MAX_ROWS)).toEqual([
+      "mb ci run  base 0c9c839  head eff9458  1 transform, 2 cards checked",
+    ]);
+  });
+
+  it("says a job that checked no entity has nothing to test", () => {
+    expect(render([jobStart(0)], DEFAULT_MAX_ROWS)).toEqual([
+      "mb ci run  base 0c9c839  head eff9458  nothing to test",
+    ]);
+  });
+
   it("ends a job with both kinds of failure by asking for a fix and the missing tests", () => {
     expect(render([COVERAGE_FAILED, TEST_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
       "FAILED  fix the transform and add the missing tests (exit 1)",
@@ -404,6 +441,16 @@ const TEST_FAILED: CiEventBody = unitCheck(
   "failed",
   equalsFailure([{ id: 1, status: "paid" }], [{ id: 1, status: "refunded" }], 0),
 );
+
+const CARD_TEST_FAILED: CiEventBody = {
+  type: "check.result",
+  stage: "unit",
+  check: { kind: "card-test", id: "4", label: "Big orders: keeps big orders" },
+  verdict: "failed",
+  warnings: [],
+  ms: 0,
+  detail: equalsFailure([{ id: 1, status: "paid" }], [{ id: 1, status: "refunded" }], 0),
+};
 
 const FAILED_JOB_END: CiEventBody = {
   type: "job.end",

@@ -397,6 +397,13 @@ const ALL_COMMANDS = [
   "transform-test update",
   "transform-test delete",
   "transform-test run",
+  "card-test list",
+  "card-test get",
+  "card-test create",
+  "card-test update",
+  "card-test delete",
+  "card-test run",
+  "card-test runs",
   "ci run",
   "setting list",
   "setting get",
@@ -492,6 +499,8 @@ const BODY_COMMANDS = [
   "transform-tag update",
   "transform-test create",
   "transform-test update",
+  "card-test create",
+  "card-test update",
   "setup",
   "snippet create",
   "snippet update",
@@ -667,22 +676,39 @@ describe("command tree contract", () => {
     });
   });
 
-  it("advertises a --limit default on search alone, so the shared flag description stays true", async () => {
+  it("declares each card-test command's single client method", async () => {
+    const entries = await allEntries();
+    const requires = Object.fromEntries(
+      entries
+        .filter((entry) => entry.command.startsWith("card-test "))
+        .map((entry) => [entry.command, entry.requires]),
+    );
+    expect(requires).toEqual({
+      "card-test list": requiresOf("cardTest.list"),
+      "card-test get": requiresOf("cardTest.get"),
+      "card-test create": requiresOf("cardTest.create"),
+      "card-test update": requiresOf("cardTest.update"),
+      "card-test delete": requiresOf("cardTest.delete"),
+      "card-test run": requiresOf("cardTest.run"),
+      "card-test runs": requiresOf("dataTestRun.list"),
+    });
+  });
+
+  it("advertises a --limit default only where the endpoint caps itself, so the shared flag description stays true", async () => {
     const entries = await allEntries();
     const withDefault = Object.fromEntries(
       entries
         .map((entry) => [entry.command, entry.args.find((arg) => arg.name === "limit")] as const)
         .filter(([, limit]) => limit?.default !== undefined),
     );
-    expect(withDefault).toEqual({
-      search: {
-        name: "limit",
-        type: "string",
-        required: false,
-        description: "Max items to return",
-        default: "20",
-      },
-    });
+    const cappedLimit = {
+      name: "limit",
+      type: "string",
+      required: false,
+      description: "Max items to return",
+      default: "20",
+    };
+    expect(withDefault).toEqual({ search: cappedLimit, "card-test runs": cappedLimit });
   });
 
   it("reports null requires for exactly the commands that never touch a Metabase server", async () => {

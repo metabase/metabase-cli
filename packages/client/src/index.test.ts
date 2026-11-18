@@ -8,6 +8,8 @@ import {
   isHttpNotFound,
   ApiKeyCreateInput,
   CardCreateInput,
+  CardTestCreateInput,
+  CardTestUpdateInput,
   CardUpdateInput,
   CollectionCreateInput,
   CollectionUpdateInput,
@@ -104,6 +106,8 @@ function pin<T>(schema: z.ZodType<T>): z.ZodType<T> {
 const writePath = {
   ApiKeyCreateInput: pin<ApiKeyCreateInput>(ApiKeyCreateInput),
   CardCreateInput: pin<CardCreateInput>(CardCreateInput),
+  CardTestCreateInput: pin<CardTestCreateInput>(CardTestCreateInput),
+  CardTestUpdateInput: pin<CardTestUpdateInput>(CardTestUpdateInput),
   CardUpdateInput: pin<CardUpdateInput>(CardUpdateInput),
   CollectionCreateInput: pin<CollectionCreateInput>(CollectionCreateInput),
   CollectionUpdateInput: pin<CollectionUpdateInput>(CollectionUpdateInput),

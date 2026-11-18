@@ -45,14 +45,18 @@ export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
   };
   const logicAtBase = new Map<string, TransformLogic>();
   for (const { base } of inputs.changes) {
-    if (base?.kind === "transform") {
+    if (base?.kind === "entity" && base.type === "transform") {
       logicAtBase.set(base.entityId, base.logic);
     }
   }
 
   const changed = new Map<string, UntestedChange>();
   for (const { head } of inputs.changes) {
-    if (head?.kind !== "transform" || inputs.testedAtHead.has(head.entityId)) {
+    if (
+      head?.kind !== "entity" ||
+      head.type !== "transform" ||
+      inputs.testedAtHead.has(head.entityId)
+    ) {
       continue;
     }
     const before = logicAtBase.get(head.entityId);
@@ -67,15 +71,16 @@ export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
   // head. Losing its tests explains the gap better than an edit does, so it replaces one.
   for (const { base } of inputs.changes) {
     if (
-      base?.kind !== "transform-test" ||
+      base?.kind !== "test" ||
+      base.type !== "transform" ||
       !base.hasExpectations ||
-      inputs.testedAtHead.has(base.transformId)
+      inputs.testedAtHead.has(base.entityId)
     ) {
       continue;
     }
-    const name = inputs.transformsAtHead.get(base.transformId);
+    const name = inputs.transformsAtHead.get(base.entityId);
     if (name !== undefined) {
-      changed.set(base.transformId, untested(base.transformId, name, "lost-test"));
+      changed.set(base.entityId, untested(base.entityId, name, "lost-test"));
     }
   }
 
@@ -100,17 +105,6 @@ export function assessCoverage(inputs: CoverageInputs): CoverageAssessment {
     untestableChanges: untestableChanges.toSorted(byName),
     untouchedUntested: untouchedUntested.toSorted(byName),
   };
-}
-
-// The three lists hold every transform at head that no test file names, each once.
-export function untestedTransforms(assessment: CoverageAssessment): Set<string> {
-  return new Set(
-    [
-      ...assessment.untestedChanges,
-      ...assessment.untestableChanges,
-      ...assessment.untouchedUntested,
-    ].map((transform) => transform.entityId),
-  );
 }
 
 const UNTOUCHED_CHECK_ID = "untouched";

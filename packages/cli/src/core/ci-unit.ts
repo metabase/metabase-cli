@@ -1,14 +1,12 @@
-import {
-  type TransformTestRefusalCode,
-  type TransformTestRunResult,
-  isTransformTestCode,
-} from "@metabase/client/domain/transform-test";
+import { type DataTestType, isDataTestCode } from "@metabase/client/domain/data-test";
+import type { TransformTestRunResult } from "@metabase/client/domain/transform-test";
 import { NetworkError, ResponseShapeError, TimeoutError } from "@metabase/client/errors";
 import { HttpError, isHttpNotFound } from "@metabase/client/http/errors";
 import { CapabilityError } from "@metabase/client/version/capability-error";
 
 import type { StageStop, Verdict } from "./ci-events";
 import { NotAuthenticatedError } from "./config";
+import { isUnsupportedTestType } from "./data-test";
 
 type TestVerdict = TransformTestRunResult["status"];
 
@@ -31,13 +29,14 @@ export interface TestRefusal {
   tables: string[] | null;
 }
 
-// Metabase refuses a test it will not run with a `transform-test.*` code. A code newer than this
-// client is still a refusal, unlike a network or server failure.
+// Metabase refuses a test it will not run with a code that starts with the test's type, such as
+// `transform-test.` or `card-test.`. A code newer than this client is still a refusal, unlike a
+// network or server failure.
 export function testRefusal(error: unknown): TestRefusal | null {
   if (
     !(error instanceof HttpError) ||
     error.errorCode === null ||
-    !isTransformTestCode(error.errorCode)
+    !isDataTestCode(error.errorCode)
   ) {
     return null;
   }
@@ -48,15 +47,20 @@ export function testRefusal(error: unknown): TestRefusal | null {
   };
 }
 
-// Metabase could not run the transform under test, or could not parse its source: the change is
+// Metabase could not run the query under test, or could not parse its source: the change is
 // the likelier cause. Every other refusal, known to this client or not, refuses the test.
-const CHANGE_FAILURE_CODES: ReadonlySet<string> = new Set([
-  "transform-test.transform-failed",
-  "transform-test.unparseable-source",
-] satisfies TransformTestRefusalCode[]);
+const CHANGE_FAILURE_NAMES: ReadonlySet<string> = new Set([
+  "transform-failed",
+  "query-failed",
+  "unparseable-source",
+]);
+
+const CODE_SEPARATOR = ".";
 
 export function refusalVerdict(refusal: TestRefusal): Extract<Verdict, "failed" | "refused"> {
-  return CHANGE_FAILURE_CODES.has(refusal.error_code) ? "failed" : "refused";
+  const code = refusal.error_code;
+  const name = code.slice(code.indexOf(CODE_SEPARATOR) + CODE_SEPARATOR.length);
+  return CHANGE_FAILURE_NAMES.has(name) ? "failed" : "refused";
 }
 
 // A check the CLI refuses on its own account.
@@ -65,34 +69,51 @@ export interface CiRefusal {
   message: string;
 }
 
-export const TRANSFORM_NOT_ON_INSTANCE: CiRefusal = {
-  error_code: "ci.transform-not-on-instance",
-  message:
-    "the transform is in the branch but not on the Metabase instance; load the branch into it first",
+export function notOnInstance(type: DataTestType): CiRefusal {
+  return {
+    error_code: `ci.${type}-not-on-instance`,
+    message: `the ${type} is in the branch but not on the Metabase instance; load the branch into it first`,
+  };
+}
+
+export function invalidEntityId(type: DataTestType): CiRefusal {
+  return {
+    error_code: "ci.invalid-entity-id",
+    message: `the ${type}'s entity_id in the branch is not a valid entity id`,
+  };
+}
+
+export function noTestsOnInstance(type: DataTestType): CiRefusal {
+  return {
+    error_code: "ci.no-tests-on-instance",
+    message: `the branch has a test for this ${type}, but the Metabase instance lists none, so no test ran; load the branch into it first`,
+  };
+}
+
+const READING_NEEDS: Readonly<Record<DataTestType, string>> = {
+  transform: "reading it needs query permission on every table it reads",
+  card: "reading it needs access to its collection",
 };
 
-export const INVALID_ENTITY_ID: CiRefusal = {
-  error_code: "ci.invalid-entity-id",
-  message: "the transform's entity_id in the branch is not a valid entity id",
+function unreadable(type: DataTestType): CiRefusal {
+  return {
+    error_code: `ci.${type}-unreadable`,
+    message: `the CI identity cannot read this ${type}, so Metabase hides its tests: ${READING_NEEDS[type]}`,
+  };
+}
+
+const RUNNING_NEEDS: Readonly<Record<DataTestType, string>> = {
+  transform:
+    "running a test needs write access to it, and a read-only remote-synced instance refuses everyone",
+  card: "running a card test needs permission to run the card's query and native query access to its database",
 };
 
-export const NO_TESTS_ON_INSTANCE: CiRefusal = {
-  error_code: "ci.no-tests-on-instance",
-  message:
-    "the branch has a test for this transform, but the Metabase instance lists none, so no test ran; load the branch into it first",
-};
-
-const TRANSFORM_UNREADABLE: CiRefusal = {
-  error_code: "ci.transform-unreadable",
-  message:
-    "the CI identity cannot read this transform, so Metabase hides its tests: reading it needs query permission on every table it reads",
-};
-
-const TEST_RUN_FORBIDDEN: CiRefusal = {
-  error_code: "ci.test-run-forbidden",
-  message:
-    "Metabase did not let the CI identity run this test: running a test needs write access to it, and a read-only remote-synced instance refuses everyone",
-};
+function testRunForbidden(type: DataTestType): CiRefusal {
+  return {
+    error_code: "ci.test-run-forbidden",
+    message: `Metabase did not let the CI identity run this test: ${RUNNING_NEEDS[type]}`,
+  };
+}
 
 // A request that failed without a refusal. `status` is the HTTP status, or null when no answer came.
 export interface RequestFailure {
@@ -122,7 +143,7 @@ function requestFailure(error: unknown): RequestFailure | null {
 // transform testing.
 function sessionStop(error: unknown): StageStop | null {
   if (error instanceof CapabilityError) {
-    return { code: "ci.unsupported-server", message: error.message };
+    return { code: UNSUPPORTED_SERVER_CODE, message: error.message };
   }
   if (error instanceof HttpError && error.kind === "auth") {
     return { code: "ci.unauthorized", message: error.message };
@@ -149,12 +170,12 @@ export function connectStop(error: unknown): StageStop | null {
   }
   return {
     code: "ci.no-credential",
-    message: `no Metabase credential, so the transform tests did not run: ${error.message}`,
+    message: `no Metabase credential, so the tests did not run: ${error.message}`,
   };
 }
 
-// The requests the stage makes for one transform, in order.
-export type TransformRequest = "read" | "list" | "run";
+// The requests the stage makes for one entity, in order.
+export type TestRequest = "read" | "list" | "run";
 
 interface CheckFailure {
   kind: "check";
@@ -167,17 +188,52 @@ interface StopFailure {
   stop: StageStop;
 }
 
-export type UnitFailure = CheckFailure | StopFailure;
+interface UnsupportedTypeFailure {
+  kind: "unsupported-type";
+  detail: CiRefusal;
+}
 
-const REFUSAL_FOR_FORBIDDEN: Readonly<Record<TransformRequest, CiRefusal | null>> = {
-  read: TRANSFORM_UNREADABLE,
-  list: null,
-  run: TEST_RUN_FORBIDDEN,
-};
+export type UnitFailure = CheckFailure | StopFailure | UnsupportedTypeFailure;
+
+function refusalForForbidden(request: TestRequest, type: DataTestType): CiRefusal | null {
+  if (request === "read") {
+    return unreadable(type);
+  }
+  return request === "run" ? testRunForbidden(type) : null;
+}
+
+const TYPE_EVERY_TESTING_SERVER_HAS: DataTestType = "transform";
+const UNSUPPORTED_SERVER_CODE = "ci.unsupported-server";
+
+function unsupportedType(
+  error: unknown,
+  request: TestRequest,
+  type: DataTestType,
+): UnsupportedTypeFailure | null {
+  if (
+    type === TYPE_EVERY_TESTING_SERVER_HAS ||
+    request !== "list" ||
+    !isUnsupportedTestType(error)
+  ) {
+    return null;
+  }
+  return {
+    kind: "unsupported-type",
+    detail: { error_code: UNSUPPORTED_SERVER_CODE, message: error.message },
+  };
+}
 
 // Null means a bug or an interrupt, which the caller rethrows. A failed run costs that test alone,
 // since the next run may succeed; a network failure before any run means the server is gone.
-export function transformFailure(error: unknown, request: TransformRequest): UnitFailure | null {
+export function testFailure(
+  error: unknown,
+  request: TestRequest,
+  type: DataTestType,
+): UnitFailure | null {
+  const unsupported = unsupportedType(error, request, type);
+  if (unsupported !== null) {
+    return unsupported;
+  }
   const stop = sessionStop(error);
   if (stop !== null) {
     return { kind: "stop", stop };
@@ -187,12 +243,12 @@ export function transformFailure(error: unknown, request: TransformRequest): Uni
     return { kind: "check", verdict: refusalVerdict(refusal), detail: refusal };
   }
   const forbidden = error instanceof HttpError && error.kind === "forbidden";
-  const forbiddenRefusal = forbidden ? REFUSAL_FOR_FORBIDDEN[request] : null;
+  const forbiddenRefusal = forbidden ? refusalForForbidden(request, type) : null;
   if (forbiddenRefusal !== null) {
     return { kind: "check", verdict: "refused", detail: forbiddenRefusal };
   }
   if (request === "read" && isHttpNotFound(error)) {
-    return { kind: "check", verdict: "refused", detail: TRANSFORM_NOT_ON_INSTANCE };
+    return { kind: "check", verdict: "refused", detail: notOnInstance(type) };
   }
   const failure = requestFailure(error);
   if (failure === null) {
