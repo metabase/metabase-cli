@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import type { DataTestRow, DataTestRunResult } from "@metabase/client/domain/data-test";
+import type { LintReport } from "@metabase/client/domain/lint";
 import { parseJson } from "@metabase/client/json";
 
 import { brokenRefChecks } from "../core/ci-broken-refs";

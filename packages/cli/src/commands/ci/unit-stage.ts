@@ -206,6 +206,8 @@ async function checkEntity(
     }
     return reportFailure(error, "list", check, port.nowMs() - started, report);
   }
+  // A test the branch holds but the instance does not list cannot run; an entity neither tests
+  // reports nothing.
   if (tests.length === 0 && testedInBranch) {
     const ms = port.nowMs() - started;
     report({ check, verdict: "refused", warnings: [], ms, detail: NO_TESTS_ON_INSTANCE });
