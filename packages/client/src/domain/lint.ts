@@ -11,7 +11,7 @@ export type LintSeverity = z.infer<typeof LintSeverity>;
 export const LintEntityType = z.enum(["card", "transform", "segment"]);
 export type LintEntityType = z.infer<typeof LintEntityType>;
 
-// `entity_id` is null for a table, which has none; `name` is null when the cause no longer exists.
+// `entity_id` is null for a table, which has none, and for a cause that no longer exists; `name` is null for the latter.
 export const LintCause = z
   .object({
     type: DependencyErrorSourceType,

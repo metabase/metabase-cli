@@ -19,7 +19,7 @@ const MISSING_COLUMN: LintResult = {
 const ANALYSIS_FAILED: LintResult = {
   ruleId: "validation-exception-error",
   entity_id: CARD_ID,
-  message: "The analysis failed: timed out",
+  message: "Metabase could not check this entity: timed out",
   detail: "timed out",
   cause: null,
 };
@@ -39,11 +39,11 @@ const RULES = {
   },
   "missing-table-alias": {
     severity: "error",
-    description: "Native SQL reads a table no known table matches.",
+    description: "Native SQL names a table that matches no table Metabase knows.",
   },
   "validation-exception-error": {
     severity: "warning",
-    description: "The analysis of the query failed.",
+    description: "Metabase could not check the entity.",
   },
 } as const;
 
@@ -82,7 +82,7 @@ describe("lintReportLines", () => {
       "    missing-table-alias  Native SQL reads ORDERZ, which no known table matches",
       `✗ card "Revenue by day" ${CARD_ID}`,
       '    missing-column              Column TOTAL is not on card "Orders model"',
-      "    validation-exception-error  The analysis failed: timed out",
+      "    validation-exception-error  Metabase could not check this entity: timed out",
       "FAILED  2 errors, 1 warning in 2 entities",
     ]);
   });
@@ -97,7 +97,7 @@ describe("lintReportLines", () => {
     };
     expect(lintReportLines(report)).toEqual([
       `! card "Revenue by day" ${CARD_ID}`,
-      "    validation-exception-error  The analysis failed: timed out",
+      "    validation-exception-error  Metabase could not check this entity: timed out",
       "PASSED  1 warning in 1 entity",
     ]);
   });
