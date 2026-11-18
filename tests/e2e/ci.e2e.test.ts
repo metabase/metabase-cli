@@ -100,7 +100,7 @@ describe("ci e2e", () => {
         warnings: [
           {
             code: "no-content-changes",
-            message: "the change touches no Metabase content files, so no transform test ran",
+            message: "the change touches no Metabase content files, so no test ran",
           },
           {
             code: "uncommitted-content",
@@ -394,7 +394,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
           type: "job.start",
           v: 1,
           snapshot: { base, head },
-          checked: [{ entity_id: entityId, name: "Order totals" }],
+          checked: [{ type: "transform", entity_id: entityId, name: "Order totals" }],
           warnings: [],
         },
         ...quietLintEvents(1),
@@ -489,5 +489,152 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     expect(eventsOf(passing.stdout)).toEqual(
       expectedEvents("passed", { "extra-rows": [], "missing-rows": [], "cell-mismatches": [] }),
     );
+  });
+});
+
+const cardUnitSkipReason = requireServer("ci › unit stage › card tests", ["cardTests"]);
+
+describe.skipIf(cardUnitSkipReason !== null)("ci e2e › unit stage › card tests", () => {
+  const tempDirs: string[] = [];
+  let repo: TempGitRepo;
+  let bootstrap: E2EBootstrap;
+
+  beforeAll(async () => {
+    bootstrap = await readBootstrap();
+  });
+
+  beforeEach(async () => {
+    repo = await createTempGitRepo();
+  });
+
+  afterEach(async () => {
+    await repo.remove();
+    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+  });
+
+  async function mb(args: string[], stdin?: string): Promise<RunCliResult> {
+    const dir = await mkTempConfigHome();
+    tempDirs.push(dir);
+    return runCli({
+      args,
+      configHome: dir,
+      env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey },
+      ...(stdin === undefined ? {} : { stdin }),
+    });
+  }
+
+  it("runs the card test of a card the branch changed, as a card-test check", async () => {
+    const card = await mb(
+      ["card", "create", "--json"],
+      JSON.stringify({
+        name: "Order totals",
+        display: "table",
+        visualization_settings: {},
+        collection_id: SEEDED.defaultCollectionId,
+        dataset_query: {
+          type: "native",
+          database: SEEDED.warehouseDbId,
+          native: { query: "SELECT id, subtotal_cents + tax_cents AS total_cents FROM orders" },
+        },
+      }),
+    );
+    expect(card.exitCode, card.stderr).toBe(0);
+    const cardId = parseJson(card.stdout, Created).id;
+    const full = await mb(["card", "get", String(cardId), "--full", "--json"]);
+    const entityId = parseJson(full.stdout, WithEntityId).entity_id;
+    const test = await mb(
+      ["card-test", "create", "--json"],
+      JSON.stringify({
+        card_id: cardId,
+        name: "totals are never negative",
+        inputs: [
+          {
+            table: { schema: "public", name: "orders" },
+            format: "rows",
+            columns: [
+              { name: "id", cast_type: "INTEGER" },
+              { name: "subtotal_cents", cast_type: "BIGINT" },
+              { name: "tax_cents", cast_type: "BIGINT" },
+            ],
+            rows: [{ id: 1, subtotal_cents: 100, tax_cents: 10 }],
+          },
+        ],
+        expectations: [
+          {
+            type: "empty",
+            name: "no negative totals",
+            sql: "SELECT * FROM {{output}} WHERE total_cents < 0",
+          },
+        ],
+      }),
+    );
+    expect(test.exitCode, test.stderr).toBe(0);
+    const testId = String(parseJson(test.stdout, Created).id);
+    const base = await repo.git("rev-parse", "HEAD");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(
+      "collections/main/cards/order_totals.yaml",
+      `name: Order totals\nentity_id: ${entityId}\nserdes/meta:\n- model: Card\n`,
+    );
+    await repo.put(
+      "collections/main/cards/order_totals/totals_are_never_negative.yaml",
+      `entity_id: bRvM7DLesF1fOV4kRHidq\ncard_id: ${entityId}\nexpectations:\n- name: no negative totals\n  type: empty\nserdes/meta:\n- model: CardTest\n`,
+    );
+    const head = await repo.commitAll("add card and its test");
+
+    const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const events = result.stdout
+      .trimEnd()
+      .split("\n")
+      .map((line) => parseJson(line, CiEvent));
+    expect(events).toEqual([
+      {
+        ...ANY_ENVELOPE,
+        seq: 0,
+        type: "job.start",
+        v: 1,
+        snapshot: { base, head },
+        checked: [{ type: "card", entity_id: entityId, name: "Order totals" }],
+        warnings: [],
+      },
+      ...quietLintEvents(1),
+      { ...ANY_ENVELOPE, seq: 4, type: "stage.start", stage: "unit" },
+      {
+        ...ANY_ENVELOPE,
+        seq: 5,
+        type: "check.result",
+        stage: "unit",
+        check: {
+          kind: "card-test",
+          id: testId,
+          label: "Order totals: totals are never negative",
+        },
+        verdict: "passed",
+        warnings: [],
+        ms: expect.any(Number),
+        detail: {
+          status: "passed",
+          expectations: [{ name: "no negative totals", type: "empty", status: "passed" }],
+          tables: expect.any(Object),
+        },
+      },
+      {
+        ...ANY_ENVELOPE,
+        seq: 6,
+        type: "stage.end",
+        stage: "unit",
+        status: "passed",
+        stopped: null,
+      },
+      {
+        ...ANY_ENVELOPE,
+        seq: 7,
+        type: "job.end",
+        state: "passed",
+        counts: { checks: 2, warnings: 0 },
+      },
+    ]);
   });
 });
