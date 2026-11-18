@@ -175,7 +175,7 @@ If you really must `create + delete` instead, do the `delete` **before** the fir
 
 <!-- requires: lintReport -->
 
-After a batch of transform changes, run `mb lint --profile <n> --json` (admin). It checks the instance's content against the lint rules and returns one result per violation, each with the rule, the entity's `entity_id` and a message. Fix each one, re-run until it reports `passed`; it exits 1 while any error remains.
+After a batch of transform changes, run `mb lint --profile <n> --json` (admin). It checks the instance's cards, transforms and segments and returns a report: `status` (`passed` or `failed`) and one entry of `results` per violation, each with its `ruleId`, the entity's `entity_id` (looked up in `entities`) and a message. Fix each one and re-run until `status` is `passed`. A refused key, a timeout or a server error also exits 1 with no report, so read `status` rather than the exit code. It can take minutes after a large import, and gives up after 30.
 
 <!-- /requires -->
 

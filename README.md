@@ -463,6 +463,18 @@ mb transform-test run 1 --timeout 300000
 | ---------------- | -------------------------------------------------------------------------- |
 | `--timeout <ms>` | Request timeout in ms (default 30000); the run is one synchronous request. |
 
+## Lint
+
+### `mb lint`
+
+Checks the instance's cards, transforms and segments against the server's lint rules (`POST /api/ee/lint`, admin only) and prints the findings grouped by entity. Exits 1 when the report's `status` is `failed`. It can take minutes right after a large import, and gives up after 30.
+
+```sh
+mb lint
+mb lint --json
+mb lint --json --fields status,summary
+```
+
 ## Databases
 
 Read warehouse metadata from `/api/database`. The `db` group exposes the full database list, the per-database record with optional table/field hydration, schema and table inspection, and the two manual-sync triggers.
