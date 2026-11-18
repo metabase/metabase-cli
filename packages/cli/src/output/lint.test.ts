@@ -32,6 +32,7 @@ const MISSING_TABLE_ALIAS: LintResult = {
   cause: null,
 };
 
+// The server marks every rule an error; a warning rule pins how the text marks one.
 const RULES = {
   "missing-column": {
     severity: "error",
@@ -56,6 +57,16 @@ const ENTITIES = {
   },
 } as const;
 
+// The server's severities: every rule is an error.
+const SERVER_RULES = {
+  "missing-column": RULES["missing-column"],
+  "missing-table-alias": RULES["missing-table-alias"],
+  "validation-exception-error": {
+    severity: "error",
+    description: "The analysis of the query failed.",
+  },
+} as const;
+
 const PASSED: LintReport = {
   status: "passed",
   summary: { errors: 0, warnings: 0, entities: 0 },
@@ -69,7 +80,7 @@ describe("lintReportLines", () => {
     expect(lintReportLines(PASSED)).toEqual(["PASSED  no violations"]);
   });
 
-  it("groups results under their entity, rules aligned, and counts the verdict", () => {
+  it("aligns the rules of each entity, with the verdict and counts", () => {
     const report: LintReport = {
       status: "failed",
       summary: { errors: 2, warnings: 1, entities: 2 },
@@ -87,7 +98,7 @@ describe("lintReportLines", () => {
     ]);
   });
 
-  it("marks an entity with only warnings and passes it", () => {
+  it("marks an entity whose results are all warnings with `!`", () => {
     const report: LintReport = {
       status: "passed",
       summary: { errors: 0, warnings: 1, entities: 1 },
@@ -128,5 +139,61 @@ describe("lintReportLines", () => {
     expect(() => lintReportLines(report)).toThrow(
       `Lint report from Metabase is missing entity ${CARD_ID}.`,
     );
+  });
+
+  it("groups interleaved results under one heading per entity, in first-seen order", () => {
+    const report: LintReport = {
+      status: "failed",
+      summary: { errors: 3, warnings: 0, entities: 2 },
+      entities: ENTITIES,
+      rules: SERVER_RULES,
+      results: [MISSING_COLUMN, MISSING_TABLE_ALIAS, ANALYSIS_FAILED],
+    };
+    expect(lintReportLines(report)).toEqual([
+      `✗ card "Revenue by day" ${CARD_ID}`,
+      '    missing-column              Column TOTAL is not on card "Orders model"',
+      "    validation-exception-error  Metabase could not check this entity: timed out",
+      `✗ transform "Orders daily" ${TRANSFORM_ID}`,
+      "    missing-table-alias  Native SQL reads ORDERZ, which no known table matches",
+      "FAILED  3 errors in 2 entities",
+    ]);
+  });
+
+  it("marks every entity of an errors-only report with ✗ and counts only errors", () => {
+    const report: LintReport = {
+      status: "failed",
+      summary: { errors: 2, warnings: 0, entities: 2 },
+      entities: ENTITIES,
+      rules: SERVER_RULES,
+      results: [MISSING_TABLE_ALIAS, ANALYSIS_FAILED],
+    };
+    expect(lintReportLines(report)).toEqual([
+      `✗ transform "Orders daily" ${TRANSFORM_ID}`,
+      "    missing-table-alias  Native SQL reads ORDERZ, which no known table matches",
+      `✗ card "Revenue by day" ${CARD_ID}`,
+      "    validation-exception-error  Metabase could not check this entity: timed out",
+      "FAILED  2 errors in 2 entities",
+    ]);
+  });
+
+  it("prints control characters in a name or a message escaped", () => {
+    const report: LintReport = {
+      status: "failed",
+      summary: { errors: 1, warnings: 0, entities: 1 },
+      entities: {
+        [CARD_ID]: {
+          id: 7,
+          type: "card",
+          data: { name: "Revenue\n\u001b[2K\rPASSED  no violations", collection_id: 3 },
+        },
+      },
+      rules: SERVER_RULES,
+      results: [{ ...MISSING_COLUMN, message: "Column TOTAL is missing\u001b[8m" }],
+    };
+    expect(lintReportLines(report)).toEqual([
+      `✗ card "Revenue\\u000a\\u001b[2K\\u000dPASSED  no violations" ${CARD_ID}`,
+      "    missing-column  Column TOTAL is missing\\u001b[8m",
+      "FAILED  1 error in 1 entity",
+    ]);
   });
 });

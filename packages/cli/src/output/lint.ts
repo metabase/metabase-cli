@@ -8,6 +8,7 @@ import { InternalError } from "@metabase/client/errors";
 
 import { pluralize } from "./pluralize";
 import { keyValueLines } from "./render";
+import { printable } from "./table";
 
 const RESULT_INDENT = "    ";
 const SEVERITY_MARK: Readonly<Record<LintSeverity, string>> = { error: "✗", warning: "!" };
@@ -45,8 +46,8 @@ function entityLines(report: LintReport, entityId: string, results: LintResult[]
   const entity = entityOf(report, entityId);
   const hasError = results.some((result) => severityOf(report, result) === "error");
   const severity: LintSeverity = hasError ? "error" : "warning";
-  const head = `${SEVERITY_MARK[severity]} ${entity.type} "${entity.data.name}" ${entityId}`;
-  const pairs = results.map((result) => [result.ruleId, result.message] as const);
+  const head = `${SEVERITY_MARK[severity]} ${entity.type} "${printable(entity.data.name)}" ${entityId}`;
+  const pairs = results.map((result) => [result.ruleId, printable(result.message)] as const);
   return [head, ...keyValueLines(pairs).map((line) => `${RESULT_INDENT}${line}`)];
 }
 
