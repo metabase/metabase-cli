@@ -20,7 +20,7 @@ Then the questions, in this order, a second round taking what the first has no r
 
 1. the pages (`mapping.md`, _Pages_), the default grouping first, unless they move whole (`records.md`), and each app of its own for a role, with what it costs: one more app to build, test and release;
 2. how fresh, `hourly` first, each option naming the job it turns on, if any (`SKILL.md`, phase 4);
-3. how the app looks, like the source first (`mapping.md`, _The app's brief_);
+3. the app's colours, the source's first (`mapping.md`, _The app's brief_);
 4. each decision with no default, as a question of its own: each `UNKNOWN`, an environment variable's code default shown but never taken as the answer;
 5. "Accept the rest as listed?", naming their numbers, when any are left.
 

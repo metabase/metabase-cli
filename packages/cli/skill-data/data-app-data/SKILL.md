@@ -22,7 +22,7 @@ An app reads only what the user curated in the Library, and `src/metabase.schema
 - **Tables published to the Library**, and nothing else: the source table, every table reached through a foreign key column, and the tables behind its segments and measures.
 - **Metrics in the Library**, as aggregations, and the segments and measures of published tables. Prefer one that matches the concept over rebuilding it with filters and thresholds of your own.
 - **No other question as a source** — not one of the app's own, a model or a metric. Every question starts from a published table.
-- **One stage of MBQL**, never native SQL, with no explicit joins and no custom columns: reach another table through a foreign key column, and compute in the app.
+- **One stage of MBQL**, never native SQL, with no explicit joins and no custom columns: reach another table through a foreign key column, and compute in the app, though Metabase can't draw a value computed there (`data-app-ui`).
 
 When the app needs a table or metric the Library lacks, stop: name what's missing and ask the user to publish the table or move the metric into the Library. Don't publish it yourself unless the user says to, and never work around the gap with an unpublished table, a copy of the data, or SQL.
 
