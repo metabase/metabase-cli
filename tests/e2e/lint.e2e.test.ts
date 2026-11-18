@@ -35,7 +35,7 @@ const MISSING_COLUMN_RULE = {
 };
 const MISSING_TABLE_ALIAS_RULE = {
   severity: "error",
-  description: "Native SQL reads a table no known table matches.",
+  description: "Native SQL names a table that matches no table Metabase knows.",
 };
 
 const skipReason = requireServer("lint › lint e2e against the EE lint endpoint", ["lintReport"]);
