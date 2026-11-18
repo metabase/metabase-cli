@@ -106,6 +106,7 @@ test("status filter updates orders table", async ({ page }) => {
 ```
 
 - Assert data, not only headings: rows, values and chart contents are what a failed query takes away. Then each interaction — a filter, sorting, a link to another page — and the view it changes.
+- Check each visualization setting the app passes on the chart as drawn: the series' order, a goal line, a column's title. Metabase draws without a setting it can't apply, with no error, and a unit test stubs the chart, so it sees only what was passed.
 - Locate by role and accessible name (`getByRole`, `getByLabel`), as a user finds things. A name matches as a substring unless `exact: true` is passed: "Ship order 12" also finds "Ship order 120".
 - Navigate with relative paths (`page.goto("orders")`, `page.goto("")` for the first page), never `/orders`.
 - An action spec opens the action's form and checks its fields. Submit it only when the user has said the app's database may be written to: a submitted action changes real data.

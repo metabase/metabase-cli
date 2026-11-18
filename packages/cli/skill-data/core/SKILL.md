@@ -31,7 +31,7 @@ mb auth status --profile <name> --json   # health probe for one profile
 `auth list` returns every profile in one call, with sanitized URL, an `authenticated` flag, and a probe `status` (`ok` / `auth-failed` / `network-error` / `server-error` / `not-probed`). Use it before asking which profile to pick.
 
 - One profile and intent doesn't disambiguate → use it.
-- Several → ask via `AskUserQuestion`, presenting the names from `auth list`.
+- Several → ask the user which one with your agent's question tool, presenting the names from `auth list`.
 - Empty `data: []` → ask the user to run `mb auth login` themselves and tell you the profile name.
 
 Profile names are arbitrary local labels (`prod`, `staging`).
@@ -188,6 +188,9 @@ This file is enough for any single-command task. For anything deeper, load the r
   <!-- /requires -->
   <!-- requires: dataApps -->
 - **`data-app`** — data apps: create, preview, publish (start here).
+  <!-- /requires -->
+  <!-- requires: dataApps, transforms, library, remoteSync -->
+- **`data-app-migration`** — move an app's own analytics (any stack) into a Metabase data app: probe the code, ask what it can't answer, build the data side, have the data-app skills build the app, prove parity.
 <!-- /requires -->
 - **`data-workflow`** — the guided, end-to-end data workflow: investigate raw data, build clean analysis-ready tables, define reusable segments/measures/metrics, answer questions, build dashboards. **Start here when the user states a goal rather than a single verb** — "make sense of my data", "build a data model", "be my data analyst". It detects where the data is and routes to the right stage.
 

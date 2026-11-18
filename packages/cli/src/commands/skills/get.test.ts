@@ -1,3 +1,6 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { runCommand } from "citty";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ZodType } from "zod";
@@ -21,7 +24,7 @@ import {
   type TempConfigHome,
 } from "../../core/auth/temp-config-home";
 import { ENV_SKILLS_DIR } from "../../core/env";
-import { loadVisibleSkills, readSkillContent } from "../../core/skills";
+import { loadVisibleSkills, readSkillContent, SKILL_MD_FILENAME } from "../../core/skills";
 import {
   createTempSkillsDir,
   GAMMA_SKILL_MD,
@@ -289,6 +292,64 @@ describe("skills get command", () => {
         },
         gammaContent(GAMMA_SKILL_MD),
       ],
+    });
+  });
+
+  describe("the output cap", () => {
+    const DELTA_LINE = "Delta instructions.\n";
+    const DELTA_SKILL_MD = `---\nname: delta\ndescription: The long skill.\n---\n\n${DELTA_LINE.repeat(
+      Math.ceil(DEFAULT_MAX_BYTES / DELTA_LINE.length),
+    )}`;
+    const deltaContent = {
+      name: "delta",
+      description: "The long skill.",
+      body: DELTA_SKILL_MD,
+      references: [],
+      templates: [],
+    };
+
+    beforeEach(() => {
+      mkdirSync(join(skills.path, "delta"));
+      writeFileSync(join(skills.path, "delta", SKILL_MD_FILENAME), DELTA_SKILL_MD, "utf8");
+    });
+
+    it("prints a skill named on the command line whole, though it is over the default cap", async () => {
+      const stdout = capture(process.stdout);
+
+      await runCommand(skillsGetCommand, { rawArgs: ["delta", "--json"] });
+
+      expect(stdout.parse(SkillGetEnvelope)).toEqual({
+        returned: 1,
+        offset: 0,
+        total: 1,
+        has_more: false,
+        next_offset: null,
+        unavailable: null,
+        data: [deltaContent],
+      });
+    });
+
+    it("caps a named skill at a --max-bytes the caller types", async () => {
+      const stdout = capture(process.stdout);
+
+      await runCommand(skillsGetCommand, {
+        rawArgs: ["delta", "--json", "--max-bytes", String(DEFAULT_MAX_BYTES)],
+      });
+
+      const whole = { ...windowList([deltaContent], FULL_RANGE), unavailable: null };
+      expect(stdout.parse(SkillGetEnvelope)).toEqual(capListEnvelope(whole, DEFAULT_MAX_BYTES));
+    });
+
+    it("keeps the default cap for --all", async () => {
+      const stdout = capture(process.stdout);
+
+      await runCommand(skillsGetCommand, { rawArgs: ["--all", "--json"] });
+
+      const payloads = loadVisibleSkills().map((info) =>
+        readSkillContent(info, { includeExtras: false, profile: null }),
+      );
+      const whole = { ...windowList(payloads, FULL_RANGE), unavailable: null };
+      expect(stdout.parse(SkillGetEnvelope)).toEqual(capListEnvelope(whole, DEFAULT_MAX_BYTES));
     });
   });
 });

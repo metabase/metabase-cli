@@ -88,10 +88,12 @@ Both take the `card` built from `useMetabaseQueryObject` (`data-app-data`). Dash
 
 ## A Metabase chart or your own
 
-Ask "can Metabase draw this at all?", never "which looks closer to the design?" — and decide per element, not per page.
+Draw every chart, KPI and table as a Metabase question with `StaticQuestion` or `InteractiveQuestion` first, even where it then looks different from the design or the app it replaces, as long as a reader understands the data the same way. Ask "would a reader understand the data differently?", never "which looks closer to the design?", and decide per element, not per page.
 
-- **Yes** — bar, line, area, combo, row, pie, scalar, smartscalar, gauge, progress, funnel, scatter, waterfall, boxplot, sankey, pivot, map, tables: render it with `useMetabaseQueryObject` and `StaticQuestion` (`data-app-data`). It keeps the instance's formatting, tooltips, theming and drill-through. Styling is never a reason to draw it yourself.
-- **No**, or the user asked for a custom one — scorecards, timelines, calendar grids, one visual from several queries: draw it from `useMetabaseQuery` rows, with SVG or a chart library the app already has.
+- **Yes:** bar, line, area, combo, row, pie, scalar, smartscalar, gauge, progress, funnel, scatter, waterfall, boxplot, sankey, pivot, map, tables. Render it with `useMetabaseQueryObject` and `StaticQuestion` (`data-app-data`). It keeps the instance's formatting, tooltips, theming and drill-through.
+- **Still yes when only the look differs** from the design or the app it replaces: another chart style, legend or tooltip, a table without its inline bars, badges or row numbers. Put what Metabase doesn't draw beside the question (a caption, a note), or leave it out.
+- **Still yes when the app would compute the values** from a query's rows (a rate, a share, a net amount): a question draws only what it returns, so get them as a column or a metric in the Library (`data-app-data`) and draw that question.
+- **No:** Metabase can't draw it, or its version would change how a reader understands the data: scorecards, timelines, calendar grids, one visual no single question returns, values only the app can compute (they depend on the viewer's choices in a way no column carries), or a widget the user asked to have drawn without Metabase. A request that the app look like a design, a brand or another app is not that request. Draw it from `useMetabaseQuery` rows, with SVG or a chart library the app already has.
 - A table the user picks a row from, to drive another panel, is drawn from `useMetabaseQuery` rows with a button per row: an SDK question reports no row click.
 - A KPI is `scalar`, `smartscalar`, `gauge` or `progress` — on a question filtered at runtime to one bucket, `scalar` (a `smartscalar` loses its comparison); put what Metabase doesn't draw (a caption, stars) beside it.
 - `InteractiveQuestion`: pass `isSaveEnabled={false}`, and `title={false}` in a panel with its own heading. Children replace its layout: `<InteractiveQuestion card={card}><InteractiveQuestion.QuestionVisualization height={360} /></InteractiveQuestion>` is the chart alone.

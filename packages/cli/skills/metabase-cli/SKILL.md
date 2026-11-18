@@ -1,6 +1,6 @@
 ---
 name: metabase-cli
-description: Drive a Metabase instance from the terminal via the `mb` CLI — auth, databases, cards, dashboards, transforms, queries, search, git-sync. Discovery entry; load the full guide with `mb skills get core`.
+description: Drive a Metabase instance from the terminal via the `mb` CLI — auth, databases, cards, dashboards, transforms, queries, search, git-sync, data apps — including moving an application's own dashboards, KPI tiles and charts into a Metabase data app. Discovery entry; load the full guide with `mb skills get core`.
 allowed-tools: Bash, Read, Write, Edit, AskUserQuestion
 hidden: true
 ---
@@ -24,4 +24,10 @@ mb skills list        # every bundled skill the profile's server can use (--unfi
 
 ```bash
 mb skills get data-workflow
+```
+
+**Moving an existing app's own dashboards to Metabase?** If the user's application computes and draws its own analytics and they want them in a Metabase data app, load the migration skill:
+
+```bash
+mb skills get data-app-migration
 ```

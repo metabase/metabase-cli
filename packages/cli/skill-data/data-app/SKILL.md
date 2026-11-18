@@ -69,16 +69,26 @@ Fix a failed React or SDK check yourself, before any other change: for React, up
 
 `npm run dev` serves the app at `http://localhost:5174` — or the next free port, in Vite's `Local:` line — under the restrictions Metabase puts on a data app (its CSP and blocked APIs), in the page itself rather than in an iframe. An edit under `src/` rebuilds the bundle and remounts the app, resetting component state. The preview runs each question from its definition and each action without saving it, against the instance whose IDs `src/metabase.schema.ts` holds, so that instance needs nothing of the app.
 
-The preview reads `DATA_APP_MB_URL` and an admin `DATA_APP_MB_API_KEY` from `<repo>/.env.local`, which `<repo>/.gitignore` lists once the app is scaffolded: check the line is there before writing the file, and add it when it isn't. Create that key only on the user's yes: ask with `AskUserQuestion` ("Create an admin API key `data-app <slug> dev` for the preview? It goes in `.env.local` and is deleted at handoff."). On a no, the user fills in `<repo>/.env.local` from the app's `.env.local.example`. Write a new key straight into that file, never into the chat or the terminal:
+The preview reads `DATA_APP_MB_URL` and an admin `DATA_APP_MB_API_KEY` from `<repo>/.env.local`, which `<repo>/.gitignore` lists once the app is scaffolded: check the line is there before writing the file, and add it when it isn't. Create that key only on the user's yes: ask with your agent's question tool ("Create an admin API key `data-app <slug> dev` for the preview? It goes in `.env.local` and is deleted at handoff."). On a no, the user fills in `<repo>/.env.local` from the app's `.env.local.example`. A `<repo>/.env.local` that already exists is never overwritten or printed. It usually holds an earlier preview's key, which that preview's handoff deleted, so test it first, printing only the verdict:
 
 ```bash
-( umask 077
+( URL=$(sed -n 's/^DATA_APP_MB_URL=//p' <repo>/.env.local)
+  KEY=$(sed -n 's/^DATA_APP_MB_API_KEY=//p' <repo>/.env.local)
+  [ "$URL" = "$(mb auth status --profile <name> --json | jq -r .url)" ] \
+    && [ "$(curl -s -o /dev/null -w '%{http_code}' -H "X-API-Key: $KEY" "$URL/api/user/current")" = 200 ] \
+    && echo usable || echo refused )
+```
+
+`usable`: the preview uses it as it is. `refused`: move it aside, put it back at handoff, and create the key as above. Write a new key straight into that file, never into the chat or the terminal:
+
+```bash
+( umask 077; set -C
   URL=$(mb auth status --profile <name> --json | jq -r .url)
   KEY=$(mb api-key create --profile <name> --body '{"name":"data-app <slug> dev","group_id":2}' --json | jq -r .unmasked_key)
   [ -n "$KEY" ] && [ "$KEY" != null ] && printf 'DATA_APP_MB_URL=%s\nDATA_APP_MB_API_KEY=%s\n' "$URL" "$KEY" > <repo>/.env.local && echo written )
 ```
 
-Group `2` is Administrators. Never print `.env.local`. Delete the key at handoff, when you finish and give the app back to the user (`mb api-key list --profile <name>`, then `mb api-key delete <id> --yes --profile <name>`), and stop `npm run dev` with it: the preview can't reach Metabase once the key is gone. The next session writes a new one. When the preview can't reach Metabase, the diagnostics feed says why: `connection.reachable: false` means nothing answers at `DATA_APP_MB_URL`, and an `sdk-call` answered `401` means the key in `.env.local` is wrong or deleted. An `sdk-call` with `failed` in place of a status while `connection.reachable` is `true` is a CORS error: Metabase allows any localhost origin unless `MB_DISABLE_CORS_ON_LOCALHOST` is set on the instance, so ask the user to unset it.
+Group `2` is Administrators. Never print `.env.local`. Delete the key at handoff, when you finish and give the app back to the user (`mb api-key list --profile <name>`, then `mb api-key delete <id> --yes --profile <name>`), and stop `npm run dev` with it, by its process id or port, never by name: the preview can't reach Metabase once the key is gone. The next session writes a new one. When the preview can't reach Metabase, the diagnostics feed says why: `connection.reachable: false` means nothing answers at `DATA_APP_MB_URL`, and an `sdk-call` answered `401` means the key in `.env.local` is wrong or deleted. An `sdk-call` with `failed` in place of a status while `connection.reachable` is `true` is a CORS error: Metabase allows any localhost origin unless `MB_DISABLE_CORS_ON_LOCALHOST` is set on the instance, so ask the user to unset it.
 
 ### The diagnostics feed
 

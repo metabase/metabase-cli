@@ -22,7 +22,7 @@ An app reads only what the user curated in the Library, and `src/metabase.schema
 - **Tables published to the Library**, and nothing else: the source table, every table reached through a foreign key column, and the tables behind its segments and measures.
 - **Metrics in the Library**, as aggregations, and the segments and measures of published tables. Prefer one that matches the concept over rebuilding it with filters and thresholds of your own.
 - **No other question as a source** — not one of the app's own, a model or a metric. Every question starts from a published table.
-- **One stage of MBQL**, never native SQL, with no explicit joins and no custom columns: reach another table through a foreign key column, and compute in the app.
+- **One stage of MBQL**, never native SQL, with no explicit joins and no custom columns: reach another table through a foreign key column, and compute in the app, though Metabase can't draw a value computed there (`data-app-ui`).
 
 When the app needs a table or metric the Library lacks, stop: name what's missing and ask the user to publish the table or move the metric into the Library. Don't publish it yourself unless the user says to, and never work around the gap with an unpublished table, a copy of the data, or SQL.
 
@@ -93,7 +93,7 @@ Also:
 
 A result column's `name` keys the rows and names the column in runtime clauses: a field's `name` in `src/metabase.schema.ts`, in the database's own case (`CREATED_AT` here, `created_at` on Postgres), or an aggregation's — `count`, `sum`, or the `name` you gave it. Never take one from SQL:
 
-- A column reached through a foreign key keeps its own name (`CATEGORY`, not `PRODUCTS__via__PRODUCT_ID__CATEGORY`).
+- A column reached through a foreign key keeps its own name (`CATEGORY`, not `PRODUCTS__via__PRODUCT_ID__CATEGORY`). Where the result already has a column of that name, it comes back with `_2` added: the product's `NAME` and its category's are `NAME` and `NAME_2`. Only the rows' keys change: a question labels the column itself ("Category → Name").
 - A foreign key that Metabase displays as a name returns that name as an extra column: `USER_ID` comes with a `NAME` column whose `displayName` is "User ID". Show `NAME`; filter by `USER_ID`.
 - A `Date` column's values arrive as ISO strings, though the row type is `string | Date`: format them through `new Date(value)`.
 

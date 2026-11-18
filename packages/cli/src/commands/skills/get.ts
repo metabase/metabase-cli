@@ -18,6 +18,7 @@ import { listEnvelopeSchemaWithExtras } from "../../output/types";
 import type { ResourceView } from "../../output/view";
 import { windowList } from "../../output/window";
 import { parseCsv } from "../../runtime/csv";
+import type { CommonContext } from "../context";
 import { listFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
 
@@ -29,6 +30,8 @@ export const SkillGetEnvelope = listEnvelopeSchemaWithExtras(SkillContent, {
 // list buys nothing: the whole body is what was asked for.
 const SKILL_OVERSIZE_HINT =
   "a skill body is indivisible — pass --max-bytes 0 to print it whole, or `mb skills path <name>` to read it from disk";
+
+const UNCAPPED = 0;
 
 const skillContentView: ResourceView<SkillContent> = {
   compactPick: SkillContent,
@@ -42,7 +45,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "get",
     description:
-      "Print one or more skills' SKILL.md content, as the profile's server can use it: a skill it lacks the features for is reported under `unavailable`, and a section it cannot use is left out. Pass comma-separated names, or --all for every non-hidden skill. --unfiltered prints the selection as written, regardless of the server. --full includes references and templates.",
+      "Print one or more skills' SKILL.md content, as the profile's server can use it: a skill it lacks the features for is reported under `unavailable`, and a section it cannot use is left out. Pass comma-separated names, or --all for every non-hidden skill. A named skill prints whole unless --max-bytes is given; --all keeps the default cap. --unfiltered prints the selection as written, regardless of the server. --full includes references and templates.",
   },
   requires: null,
   args: {
@@ -85,6 +88,7 @@ export default defineMetabaseCommand({
     if (ctx.format === "json") {
       renderListWithExtras(envelope, { unavailable: selection.unavailable }, skillContentView, {
         ...ctx,
+        maxBytes: skillOutputCap(ctx, args.names !== undefined),
         oversizeHint: SKILL_OVERSIZE_HINT,
       });
       return;
@@ -97,6 +101,14 @@ export default defineMetabaseCommand({
     }
   },
 });
+
+// A skill named on the command line is the document the caller asked for, and it is never split:
+// the default cap could only empty the window and send the caller back for the same skill. A
+// typed --max-bytes still applies, and --all keeps the default, since every skill at once is what
+// the cap bounds.
+function skillOutputCap(ctx: CommonContext, named: boolean): number {
+  return named && !ctx.maxBytesGiven ? UNCAPPED : ctx.maxBytes;
+}
 
 interface PickSkillsArgs {
   names: string | undefined;

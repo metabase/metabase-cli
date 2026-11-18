@@ -152,7 +152,7 @@ Sync work is conventionally done on a feature branch — exporting to `main` (or
 
 Read the current branch with `mb git-sync status --profile <n> --json | jq -r '.branch'`.
 
-If the branch is `main` or `master`, prompt with `AskUserQuestion`:
+If the branch is `main` or `master`, ask the user with your agent's question tool:
 
 > "The instance is tracking `<branch>` — exporting commits straight to it. Switch to a feature branch first?"
 >
