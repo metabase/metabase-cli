@@ -176,6 +176,36 @@ describe("lintReportLines", () => {
     ]);
   });
 
+  it("marks a result of a rule this client does not know by the severity the report gives it", () => {
+    const report: LintReport = {
+      status: "passed",
+      summary: { errors: 0, warnings: 1, entities: 1 },
+      entities: ENTITIES,
+      rules: { "unused-column": { severity: "warning", description: "A column nothing reads." } },
+      results: [{ ...MISSING_COLUMN, ruleId: "unused-column", message: "Column NOTE is unused" }],
+    };
+    expect(lintReportLines(report)).toEqual([
+      `! card "Revenue by day" ${CARD_ID}`,
+      "    unused-column  Column NOTE is unused",
+      "PASSED  1 warning in 1 entity",
+    ]);
+  });
+
+  it("marks a result of a rule this client does not know by the severity the report gives it", () => {
+    const report: LintReport = {
+      status: "passed",
+      summary: { errors: 0, warnings: 1, entities: 1 },
+      entities: ENTITIES,
+      rules: { "unused-column": { severity: "warning", description: "A column nothing reads." } },
+      results: [{ ...MISSING_COLUMN, ruleId: "unused-column", message: "Column NOTE is unused" }],
+    };
+    expect(lintReportLines(report)).toEqual([
+      `! card "Revenue by day" ${CARD_ID}`,
+      "    unused-column  Column NOTE is unused",
+      "PASSED  1 warning in 1 entity",
+    ]);
+  });
+
   it("prints control characters in a name or a message escaped", () => {
     const report: LintReport = {
       status: "failed",
