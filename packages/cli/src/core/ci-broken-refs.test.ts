@@ -118,10 +118,9 @@ const FORBIDDEN = new HttpError({
 });
 
 describe("reportStop", () => {
-  it("stops on a server that has no lint report, with the client's explanation", () => {
+  it("skips the stage on a server that has no lint report, with the client's explanation", () => {
     expect(reportStop(TOO_OLD)).toEqual({
-      code: "ci.unsupported-server",
-      message: TOO_OLD.message,
+      skipped: { code: "ci.lint-unsupported", message: TOO_OLD.message },
     });
   });
 

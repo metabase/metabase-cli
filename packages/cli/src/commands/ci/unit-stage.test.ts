@@ -347,6 +347,7 @@ describe("unitStage", () => {
         stage: "unit",
         status: "errored",
         stopped: { code: "ci.unauthorized", message: UNAUTHORIZED.message },
+        skipped: null,
       },
     ]);
   });

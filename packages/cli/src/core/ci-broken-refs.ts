@@ -1,9 +1,10 @@
 import { z } from "zod";
 
 import { LintEntity, type LintReport, LintResult } from "@metabase/client/domain/lint";
+import { CapabilityError } from "@metabase/client/version/capability-error";
 import { HttpError } from "@metabase/client/http/errors";
 
-import type { CheckOutcome, CiWarning, StageStop } from "./ci-events";
+import type { CheckOutcome, CiWarning, StageSkip, StageStop } from "./ci-events";
 import { connectStop, lookupStop } from "./ci-unit";
 import { reportEntity, resultSeverity, resultsByEntity } from "./lint-report";
 
@@ -51,7 +52,11 @@ export function brokenRefChecks(report: LintReport, ms: number): CheckOutcome[] 
 
 // Why the report could not be read, which ends the stage, or null for a bug or an interrupt, which
 // the caller rethrows. Only an admin can read the report, so any other identity is a setup to fix.
-export function reportStop(error: unknown): StageStop | null {
+// A server without the report skips the stage: the server, not the CI setup, lacks it.
+export function reportStop(error: unknown): StageStop | StageSkip | null {
+  if (error instanceof CapabilityError) {
+    return { skipped: { code: "ci.lint-unsupported", message: error.message } };
+  }
   const connect = connectStop(error, "the lint report was not read");
   if (connect !== null) {
     return connect;
