@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { DependencyErrorSourceType, DependencyFindingErrorType } from "./dependency";
+import { DependencyErrorSourceType } from "./dependency";
 
 export const LintStatus = z.enum(["passed", "failed"]);
 export type LintStatus = z.infer<typeof LintStatus>;
@@ -11,7 +11,7 @@ export type LintSeverity = z.infer<typeof LintSeverity>;
 export const LintEntityType = z.enum(["card", "transform", "segment"]);
 export type LintEntityType = z.infer<typeof LintEntityType>;
 
-// `entity_id` is null for a table, which has none, and for a cause that no longer exists; `name` is null for the latter.
+// `entity_id` and `name` are null when the cause no longer exists; `entity_id` is always null for a table.
 export const LintCause = z
   .object({
     type: DependencyErrorSourceType,
@@ -22,9 +22,14 @@ export const LintCause = z
   .loose();
 export type LintCause = z.infer<typeof LintCause>;
 
+// A rule id is an open string, not a pinned enum: the server's rule set is meant to grow, and the
+// report describes each rule it names in `rules`, so a rule this client has not seen still reads.
+export const LintRuleId = z.string();
+export type LintRuleId = z.infer<typeof LintRuleId>;
+
 export const LintResult = z
   .object({
-    ruleId: DependencyFindingErrorType,
+    ruleId: LintRuleId,
     entity_id: z.string(),
     message: z.string(),
     detail: z.string().nullable(),
@@ -69,7 +74,7 @@ export const LintReport = z
     status: LintStatus,
     summary: LintSummary,
     entities: z.record(z.string(), LintEntity),
-    rules: z.partialRecord(DependencyFindingErrorType, LintRule),
+    rules: z.record(LintRuleId, LintRule),
     results: z.array(LintResult),
   })
   .loose();
