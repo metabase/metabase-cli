@@ -98,6 +98,20 @@ describe("data-test-run resource wire requests", () => {
     ]);
   });
 
+  it("gets one run with the result it stored", async () => {
+    const detail = {
+      ...RUN,
+      result: { message: "The card has no inputs.", "error-code": "card-test.missing-inputs" },
+      can_read_result: true,
+    };
+    const { mb, capture } = clientOver([jsonResponse(detail)]);
+
+    expect(await mb.dataTestRun.get(31)).toEqual(detail);
+    expect(capture.calls.map((call) => [call.method, call.url])).toEqual([
+      ["GET", "https://mb.example.com/metabase/api/ee/data-test-run/31"],
+    ]);
+  });
+
   it("explains an unrouted call on a server older than the run history", async () => {
     const { mb } = clientOver([routeMissingResponse(), probeResponse(LICENSED_65)], LICENSED_65);
 

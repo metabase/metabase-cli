@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import { DataTestRun, type DataTestRunStatus, type DataTestType } from "../domain/data-test";
+import {
+  DataTestRun,
+  DataTestRunDetail,
+  type DataTestRunStatus,
+  type DataTestType,
+} from "../domain/data-test";
 import type { RequestOptions, Transport } from "../http/transport";
 import { explainer } from "../version/refusal";
 
@@ -46,7 +51,18 @@ export function dataTestRunResource(transport: Transport) {
     return { data: page.data, total: page.total };
   }
 
+  /**
+   * Get one run with the result it stored: what each expectation found, or the refusal that ended
+   * the run. Only a caller who may run the test receives the result.
+   */
+  async function get(id: number, options: RequestOptions = {}): Promise<DataTestRunDetail> {
+    return transport.requestParsed(DataTestRunDetail, `${DATA_TEST_RUN_PATH}/${id}`, {
+      ...options,
+    });
+  }
+
   return {
     list: explain("list", list),
+    get: explain("get", get),
   };
 }

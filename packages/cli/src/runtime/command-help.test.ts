@@ -404,6 +404,7 @@ const ALL_COMMANDS = [
   "test delete",
   "test run",
   "test runs",
+  "test get-run",
   "test-suite list",
   "test-suite get",
   "test-suite create",

@@ -1,9 +1,10 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import {
   DATA_TEST_SCHEMAS,
   DataTestCompact,
+  DataTestRunDetailCompact,
   DataTestRunResult,
 } from "@metabase/client/domain/data-test";
 import { parseJson } from "@metabase/client/json";
@@ -215,6 +216,71 @@ describe.skipIf(skipReason !== null)("test e2e, card tests", () => {
 
     expect(run.exitCode).toBe(1);
     expect(cliErrorMessage(run.stderr)).toBe(`card-test:${testId} failed`);
+  });
+
+  it("gets a failed run by its run id, with the result it stored", async () => {
+    const cardId = await createCard();
+    const test = await mb(
+      ["test", "create", "--id", `card:${cardId}`, "--json"],
+      JSON.stringify({
+        name: "no order at all",
+        inputs: INPUTS,
+        expectations: [{ type: "empty", name: "no rows", sql: "SELECT * FROM {{output}}" }],
+      }),
+    );
+    expect(test.exitCode, test.stderr).toBe(0);
+    const testId = parseJson(test.stdout, Created).id;
+    const run = await mb(["test", "run", "--id", `card-test:${testId}`]);
+    expect(run.exitCode).toBe(1);
+    const runs = await mb(["test", "runs", "--id", `card-test:${testId}`, "--json"]);
+    expect(runs.exitCode, runs.stderr).toBe(0);
+    const [listed] = parseJson(runs.stdout, TestRunListEnvelope).data;
+    assert(listed !== undefined, "expected the run in the test's history");
+
+    const got = await mb(["test", "get-run", String(listed.id), "--json"]);
+
+    expect(got.exitCode, got.stderr).toBe(0);
+    const detail = parseJson(got.stdout, DataTestRunDetailCompact);
+    expect(detail).toEqual({
+      ...listed,
+      result: {
+        status: "failed",
+        expectations: [
+          {
+            name: "no rows",
+            type: "empty",
+            status: "failed",
+            columns: [
+              { name: "id", database_type: "int4" },
+              { name: "total_cents", database_type: "int8" },
+            ],
+            sample: [{ id: 1, total_cents: 110 }],
+            truncated: 0,
+          },
+        ],
+        tables: expect.any(Object),
+      },
+      can_read_result: true,
+    });
+    expect(Object.values(DataTestRunResult.parse(detail.result).tables).toSorted()).toEqual([
+      "Order totals",
+      "public.orders",
+    ]);
+  });
+
+  it("exits 2 on a run id that is not an integer", async () => {
+    const got = await mb(["test", "get-run", "abc"]);
+
+    expect(got.exitCode).toBe(2);
+    expect(cliErrorMessage(got.stderr)).toBe('invalid run id: "abc" (expected integer)');
+    expect(got.stdout).toBe("");
+  });
+
+  it("exits 1 on a run id the server does not hold", async () => {
+    const got = await mb(["test", "get-run", "9999999"]);
+
+    expect(got.exitCode).toBe(1);
+    expect(cliErrorMessage(got.stderr)).toBe("Not found: GET /api/ee/data-test-run/9999999.");
   });
 
   it("deletes a card test, after which it is not found", async () => {

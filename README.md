@@ -539,6 +539,15 @@ mb test runs --type transform --statuses failed,error --limit 50
 | `--statuses <list>` | Only runs in these states, comma separated.    |
 | `--limit <n>`       | Max runs to return (default 20).               |
 
+### `mb test get-run <run-id>`
+
+Gets one run by its run id, with the `result` it stored: what each expectation found, or the `message` and `error-code` of the refusal that ended the run. `result` is null when the run stored none, and for a caller who may not run the test; `can_read_result` tells the two apart.
+
+```sh
+mb test get-run 31
+mb test get-run 31 --json
+```
+
 ## Lint
 
 ### `mb lint`
