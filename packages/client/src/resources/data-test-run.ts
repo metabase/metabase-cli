@@ -4,7 +4,9 @@ import { DataTestRun, type DataTestRunStatus, type DataTestType } from "../domai
 import type { RequestOptions, Transport } from "../http/transport";
 import { explainer } from "../version/refusal";
 
-const DataTestRunApiPage = z
+const DATA_TEST_RUN_PATH = "/api/ee/data-test-run";
+
+const DataTestRunPageWire = z
   .object({
     data: z.array(DataTestRun),
     total: z.number().int(),
@@ -29,11 +31,15 @@ export interface DataTestRunListParams {
 export function dataTestRunResource(transport: Transport) {
   const { explain } = explainer(transport, "dataTestRun");
 
+  /**
+   * List the runs of one test type, newest first, optionally of one test. Without `test-id` the
+   * server needs the caller to have Data Studio access.
+   */
   async function list(
     params: DataTestRunListParams,
     options: RequestOptions = {},
   ): Promise<DataTestRunPage> {
-    const page = await transport.requestParsed(DataTestRunApiPage, "/api/ee/data-test-run", {
+    const page = await transport.requestParsed(DataTestRunPageWire, DATA_TEST_RUN_PATH, {
       ...options,
       query: { ...params },
     });

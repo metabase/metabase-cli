@@ -9,14 +9,14 @@ import {
 import { ConfigError } from "./errors";
 import { isThenable } from "./predicates";
 import { apiKeyResource } from "./resources/api-key";
+import { testSuiteResource } from "./resources/test-suite";
+import { dataTestRunResource } from "./resources/data-test-run";
 import { cardResource } from "./resources/card";
-import { cardTestResource } from "./resources/card-test";
 import { collectionResource } from "./resources/collection";
 import { contentTranslationResource } from "./resources/content-translation";
 import { dashboardResource } from "./resources/dashboard";
 import { dataActionResource } from "./resources/data-action";
 import { dataAppResource } from "./resources/data-app";
-import { dataTestRunResource } from "./resources/data-test-run";
 import { databaseResource } from "./resources/database";
 import { datasetResource } from "./resources/dataset";
 import { dependencyResource } from "./resources/dependency";
@@ -28,6 +28,7 @@ import { gitSyncResource } from "./resources/git-sync";
 import { glossaryResource } from "./resources/glossary";
 import { healthResource } from "./resources/health";
 import { libraryResource } from "./resources/library";
+import { lintResource } from "./resources/lint";
 import { measureResource } from "./resources/measure";
 import { metricResource } from "./resources/metric";
 import { moderationReviewResource } from "./resources/moderation-review";
@@ -37,7 +38,6 @@ import { pulseResource } from "./resources/pulse";
 import { replacementResource } from "./resources/replacement";
 import { revisionResource } from "./resources/revision";
 import { searchResource } from "./resources/search";
-import { segmentTestResource } from "./resources/segment-test";
 import { segmentResource } from "./resources/segment";
 import { sessionResource } from "./resources/session";
 import { settingResource } from "./resources/setting";
@@ -53,7 +53,7 @@ import { transformJobResource } from "./resources/transform-job";
 import { transformPythonResource } from "./resources/transform-python";
 import { transformResource } from "./resources/transform";
 import { transformTagResource } from "./resources/transform-tag";
-import { transformTestResource } from "./resources/transform-test";
+import { dataTestResource } from "./resources/data-test";
 import { uploadResource } from "./resources/upload";
 import { userResource } from "./resources/user";
 import { workspaceInstanceResource } from "./resources/workspace-instance";
@@ -66,13 +66,11 @@ function surfaceOn(transport: Transport) {
   return {
     apiKey: apiKeyResource(transport),
     card: cardResource(transport),
-    cardTest: cardTestResource(transport),
     collection: collectionResource(transport),
     contentTranslation: contentTranslationResource(transport),
     dashboard: dashboardResource(transport),
     dataAction: dataActionResource(transport),
     dataApp: dataAppResource(transport),
-    dataTestRun: dataTestRunResource(transport),
     database: databaseResource(transport),
     dataset: datasetResource(transport),
     dependency: dependencyResource(transport),
@@ -84,6 +82,7 @@ function surfaceOn(transport: Transport) {
     glossary: glossaryResource(transport),
     health: healthResource(transport),
     library: libraryResource(transport),
+    lint: lintResource(transport),
     measure: measureResource(transport),
     metric: metricResource(transport),
     moderationReview: moderationReviewResource(transport),
@@ -94,7 +93,6 @@ function surfaceOn(transport: Transport) {
     revision: revisionResource(transport),
     search: searchResource(transport),
     segment: segmentResource(transport),
-    segmentTest: segmentTestResource(transport),
     session: sessionResource(transport),
     setting: settingResource(transport),
     setup: setupResource(transport),
@@ -109,7 +107,9 @@ function surfaceOn(transport: Transport) {
     transformJob: transformJobResource(transport),
     transformPython: transformPythonResource(transport),
     transformTag: transformTagResource(transport),
-    transformTest: transformTestResource(transport),
+    dataTest: dataTestResource(transport),
+    dataTestRun: dataTestRunResource(transport),
+    testSuite: testSuiteResource(transport),
     upload: uploadResource(transport),
     user: userResource(transport),
     workspaceInstance: workspaceInstanceResource(transport),

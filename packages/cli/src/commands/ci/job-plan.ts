@@ -17,7 +17,6 @@ import {
   uncommittedContentWarning,
   unreadContentWarning,
 } from "../../core/ci-affected";
-import { type CoverageAssessment, assessCoverage } from "../../core/ci-coverage";
 import type { CheckedEntity, CiWarning, Snapshot } from "../../core/ci-events";
 import {
   checkedOutCommit,
@@ -38,9 +37,9 @@ const CONTENT_PATHSPECS = CONTENT_TOP_LEVEL_FOLDERS.map((folder) => `${folder}/*
 export interface JobPlan {
   snapshot: Snapshot;
   checked: CheckedEntity[];
-  testedInBranch: Set<string>;
   warnings: CiWarning[];
-  coverage: CoverageAssessment;
+  // The entities a test with expectations at head covers, by `entityKey`.
+  tested: ReadonlySet<string>;
 }
 
 // A regular or executable file. Metabase's import follows a symlink and reads a submodule's
@@ -157,8 +156,8 @@ function baseSide(reading: FileReading | null): ContentFile | null {
   return reading?.kind === "read" ? reading.file : null;
 }
 
-// One read at each side: the changed files, and at head also every unchanged file whose text names
-// the model of a tested entity, which names the checked entities and counts their tests.
+// One read at each side: the changed files, and at head also every unchanged file whose text names a
+// tested model, which names the checked entities and says which of them the branch tests.
 async function classifyChanges(
   repo: string,
   forkPoint: string,
@@ -215,7 +214,6 @@ export async function planJob(
   );
   const atHead = headEntities([...changes.map((change) => change.head), ...unchangedAtHead]);
   const checked: CheckedEntity[] = [];
-  const testedInBranch = new Set<string>();
   const warnings: CiWarning[] = [];
   for (const warning of [
     noContentChangesWarning(entries),
@@ -225,28 +223,18 @@ export async function planJob(
       warnings.push(warning);
     }
   }
-  for (const entity of affectedEntities(changes)) {
-    const { type, entityId } = entity;
-    const name = atHead[type].names.get(entityId);
-    if (name === undefined) {
+  for (const affected of affectedEntities(changes)) {
+    const entity = atHead.byKey.get(entityKey(affected));
+    if (entity === undefined) {
+      const { type, entityId } = affected;
       warnings.push({
         code: `missing-${type}`,
         message: `a changed ${type} test covers ${type} ${entityId}, which is not in the repo at ${head}`,
       });
       continue;
     }
-    checked.push({ type, entity_id: entityId, name });
-    if (atHead[type].tested.has(entityId)) {
-      testedInBranch.add(entityKey(entity));
-    }
+    checked.push({ type: entity.type, entity_id: entity.entityId, name: entity.name });
   }
-  const coverage = assessCoverage({
-    changes,
-    transformsAtHead: atHead.transform.names,
-    testedAtHead: atHead.transform.tested,
-    testedWithoutExpectationsAtHead: atHead.transform.testedWithoutExpectations,
-    untestableAtHead: atHead.transform.untestable,
-  });
 
   // Uncommitted files only matter when the checked commit is the one checked out.
   if (head === checkout) {
@@ -257,5 +245,5 @@ export async function planJob(
       warnings.push(uncommitted);
     }
   }
-  return { snapshot: { base, head }, checked, testedInBranch, warnings, coverage };
+  return { snapshot: { base, head }, checked, warnings, tested: atHead.tested };
 }

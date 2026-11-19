@@ -2,11 +2,6 @@
 
 Notable changes to `@metabase/client`.
 
-## 0.1.9
-
-- `task.run` reads one background-job run with its tasks as `TaskRunWithTasks`: the `TaskRun` and its `tasks`, oldest first, each a `TaskHistory` (`id`, `task`, `db_id`, `started_at`, `ended_at`, `duration`, `status` and `task_details`). `status` is a `TaskHistoryStatus`: `started`, `success`, `failed` or `unknown`. `task_details` is the task's own record, `TaskHistoryDetails`, whose `message`, when the task failed, holds the first 250 characters of the exception's message, or null when the exception had none. It needs `taskRuns`, which holds from Metabase 59, and the monitoring application permission.
-- `TaskRun` always carries `entity_name`, `task_count`, `success_count` and `failed_count`, from `task.runPages` and `task.run` alike: every server that lists runs sends them. `entity_name` is null when the entity no longer exists.
-
 ## 0.1.8
 
 - `ClientCredentials.credential` is a `TransportCredential`: a `Credential`, a `SessionCredential` or an `AnonymousCredential`. A `SessionCredential` sends its session id as `X-Metabase-Session` and is never refreshed, so a call made after the session expires fails with an `HttpError` of kind `auth`. An `AnonymousCredential` sends no auth header, which is enough for the health check, the public session properties, setup and login. A 401 names what the server refused: an invalid or expired session, or a request that carried no credential. `Credential`, what `refreshCredential` answers, is unchanged.

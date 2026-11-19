@@ -145,12 +145,6 @@ export {
   ResultColumn,
 } from "./domain/card";
 export {
-  CardTest,
-  CardTestCompact,
-  CardTestCreateInput,
-  CardTestUpdateInput,
-} from "./domain/card-test";
-export {
   COLLECTION_ITEM_FILTER_MODELS,
   COLLECTION_ITEM_MODELS,
   COLLECTION_PINNED_STATES,
@@ -220,14 +214,6 @@ export {
   DataAppSummary,
   DataAppUpdateInput,
 } from "./domain/data-app";
-export {
-  DATA_TEST_TYPES,
-  DataTestRun,
-  DataTestRunCompact,
-  DataTestRunStatus,
-  DataTestType,
-  isDataTestCode,
-} from "./domain/data-test";
 export {
   Database,
   DatabaseCompact,
@@ -455,12 +441,6 @@ export {
 } from "./domain/replacement";
 export { SEARCH_MODELS, SearchModel, SearchResult, SearchResultCompact } from "./domain/search";
 export { Segment, SegmentCompact, SegmentCreateInput, SegmentUpdateInput } from "./domain/segment";
-export {
-  SegmentTest,
-  SegmentTestCompact,
-  SegmentTestCreateInput,
-  SegmentTestUpdateInput,
-} from "./domain/segment-test";
 export { Session, SessionCompact, SessionCreateInput } from "./domain/session";
 export { SessionProperties, SessionSettings, TokenFeatures } from "./domain/session-properties";
 export {
@@ -499,15 +479,11 @@ export {
   TableVisibilityType,
 } from "./domain/table";
 export {
-  TaskHistory,
-  TaskHistoryDetails,
-  TaskHistoryStatus,
   TaskRun,
   TaskRunCompact,
   TaskRunEntityType,
   TaskRunStatus,
   TaskRunType,
-  TaskRunWithTasks,
 } from "./domain/task";
 export {
   Timeline,
@@ -587,19 +563,43 @@ export {
   isTransformTestCode,
   isTransformTestRefusalCode,
   TransformTest,
-  TransformTestColumn,
   TransformTestCompact,
   TransformTestCreateInput,
-  TransformTestExpectation,
-  TransformTestExpectationResult,
-  TransformTestInput,
   TransformTestRefusalCode,
-  TransformTestResultColumn,
-  TransformTestRow,
-  TransformTestRunResult,
-  TransformTestTable,
   TransformTestUpdateInput,
 } from "./domain/transform-test";
+export {
+  DATA_TEST_SCHEMAS,
+  DATA_TEST_TYPES,
+  type DataTest,
+  DataTestColumn,
+  DataTestCompact,
+  DataTestDefinition,
+  DataTestExpectation,
+  DataTestExpectationResult,
+  DataTestInput,
+  DataTestParameters,
+  type DataTestPatch,
+  DataTestResultColumn,
+  DataTestRow,
+  DataTestRun,
+  DataTestRunCompact,
+  DataTestRunResult,
+  DataTestRunStatus,
+  DataTestTable,
+  DataTestType,
+  isDataTestCode,
+  testedEntityId,
+} from "./domain/data-test";
+export {
+  TestSuite,
+  TestSuiteCompact,
+  TestSuiteCreateInput,
+  TestSuiteMember,
+  TestSuiteRun,
+  TestSuiteRunEntry,
+  TestSuiteUpdateInput,
+} from "./domain/test-suite";
 export { UploadResult, UploadUpdateAction, UploadUpdateResult } from "./domain/upload";
 export {
   CurrentUser,

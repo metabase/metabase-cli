@@ -1,20 +1,23 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { CardTest, CardTestCompact } from "@metabase/client/domain/card-test";
-import { TransformTestRunResult } from "@metabase/client/domain/transform-test";
+import {
+  DATA_TEST_SCHEMAS,
+  DataTestCompact,
+  DataTestRunResult,
+} from "@metabase/client/domain/data-test";
 import { parseJson } from "@metabase/client/json";
 
 import { DeleteResult } from "../../packages/cli/src/commands/delete-runtime";
-import { CardTestListEnvelope } from "../../packages/cli/src/commands/card-test/list";
-import { CardTestRunListEnvelope } from "../../packages/cli/src/commands/card-test/runs";
+import { TestListEnvelope } from "../../packages/cli/src/commands/test/list";
+import { TestRunListEnvelope } from "../../packages/cli/src/commands/test/runs";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorMessage } from "./cli-error";
 import { type RunCliResult, cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
 import { requireServer } from "./server-gate";
 
-const skipReason = requireServer("card-test › card test e2e", ["cardTests", "dataTestRuns"]);
+const skipReason = requireServer("test › card tests", ["cardTests", "dataTestRuns"]);
 
 const Created = z.object({ id: z.number().int() });
 
@@ -51,7 +54,7 @@ const EXPECTATIONS = [
   },
 ];
 
-describe.skipIf(skipReason !== null)("card test e2e", () => {
+describe.skipIf(skipReason !== null)("test e2e, card tests", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
 
@@ -82,9 +85,8 @@ describe.skipIf(skipReason !== null)("card test e2e", () => {
 
   async function createCardTest(cardId: number): Promise<number> {
     const test = await mb(
-      ["card-test", "create", "--json"],
+      ["test", "create", "--id", `card:${cardId}`, "--json"],
       JSON.stringify({
-        card_id: cardId,
         name: "totals are never negative",
         inputs: INPUTS,
         expectations: EXPECTATIONS,
@@ -98,11 +100,19 @@ describe.skipIf(skipReason !== null)("card test e2e", () => {
     const cardId = await createCard();
     const testId = await createCardTest(cardId);
 
-    const list = await mb(["card-test", "list", "--card-id", String(cardId), "--json"]);
+    const list = await mb(["test", "list", "--id", `card:${cardId}`, "--json"]);
 
     expect(list.exitCode, list.stderr).toBe(0);
-    expect(parseJson(list.stdout, CardTestListEnvelope)).toEqual({
-      data: [{ id: testId, card_id: cardId, name: "totals are never negative", description: null }],
+    expect(parseJson(list.stdout, TestListEnvelope)).toEqual({
+      data: [
+        {
+          test_type: "card",
+          id: testId,
+          target_id: cardId,
+          name: "totals are never negative",
+          description: null,
+        },
+      ],
       returned: 1,
       offset: 0,
       total: 1,
@@ -115,10 +125,10 @@ describe.skipIf(skipReason !== null)("card test e2e", () => {
     const cardId = await createCard();
     const testId = await createCardTest(cardId);
 
-    const get = await mb(["card-test", "get", String(testId), "--full", "--json"]);
+    const get = await mb(["test", "get", "--id", `card-test:${testId}`, "--full", "--json"]);
 
     expect(get.exitCode, get.stderr).toBe(0);
-    expect(parseJson(get.stdout, CardTest)).toEqual({
+    expect(parseJson(get.stdout, DATA_TEST_SCHEMAS.card)).toEqual({
       id: testId,
       entity_id: expect.any(String),
       card_id: cardId,
@@ -138,14 +148,13 @@ describe.skipIf(skipReason !== null)("card test e2e", () => {
     const testId = await createCardTest(cardId);
 
     const update = await mb(
-      ["card-test", "update", String(testId), "--json"],
+      ["test", "update", "--id", `card-test:${testId}`, "--json"],
       JSON.stringify({ name: "renamed", description: "pins the sign of the total" }),
     );
 
     expect(update.exitCode, update.stderr).toBe(0);
-    expect(parseJson(update.stdout, CardTestCompact)).toEqual({
+    expect(parseJson(update.stdout, DataTestCompact)).toEqual({
       id: testId,
-      card_id: cardId,
       name: "renamed",
       description: "pins the sign of the total",
     });
@@ -155,19 +164,19 @@ describe.skipIf(skipReason !== null)("card test e2e", () => {
     const cardId = await createCard();
     const testId = await createCardTest(cardId);
 
-    const run = await mb(["card-test", "run", String(testId), "--json"]);
+    const run = await mb(["test", "run", "--id", `card-test:${testId}`, "--json"]);
 
     expect(run.exitCode, run.stderr).toBe(0);
-    expect(parseJson(run.stdout, TransformTestRunResult)).toEqual({
+    expect(parseJson(run.stdout, DataTestRunResult)).toEqual({
       status: "passed",
       expectations: [{ name: "no negative totals", type: "empty", status: "passed" }],
       tables: expect.any(Object),
     });
 
-    const runs = await mb(["card-test", "runs", "--test-id", String(testId), "--json"]);
+    const runs = await mb(["test", "runs", "--id", `card-test:${testId}`, "--json"]);
 
     expect(runs.exitCode, runs.stderr).toBe(0);
-    expect(parseJson(runs.stdout, CardTestRunListEnvelope)).toEqual({
+    expect(parseJson(runs.stdout, TestRunListEnvelope)).toEqual({
       data: [
         {
           id: expect.any(Number),
@@ -188,12 +197,11 @@ describe.skipIf(skipReason !== null)("card test e2e", () => {
     });
   });
 
-  it("exits 1 when an expectation fails, naming it", async () => {
+  it("exits 1 when an expectation fails, naming the test", async () => {
     const cardId = await createCard();
     const test = await mb(
-      ["card-test", "create", "--json"],
+      ["test", "create", "--id", `card:${cardId}`, "--json"],
       JSON.stringify({
-        card_id: cardId,
         name: "no order at all",
         inputs: INPUTS,
         expectations: [{ type: "empty", name: "no rows", sql: "SELECT * FROM {{output}}" }],
@@ -202,17 +210,17 @@ describe.skipIf(skipReason !== null)("card test e2e", () => {
     expect(test.exitCode, test.stderr).toBe(0);
     const testId = parseJson(test.stdout, Created).id;
 
-    const run = await mb(["card-test", "run", String(testId)]);
+    const run = await mb(["test", "run", "--id", `card-test:${testId}`]);
 
     expect(run.exitCode).toBe(1);
-    expect(cliErrorMessage(run.stderr)).toBe(`card test ${testId} failed`);
+    expect(cliErrorMessage(run.stderr)).toBe(`card-test:${testId} failed`);
   });
 
   it("deletes a card test, after which it is not found", async () => {
     const cardId = await createCard();
     const testId = await createCardTest(cardId);
 
-    const deleted = await mb(["card-test", "delete", String(testId), "--yes", "--json"]);
+    const deleted = await mb(["test", "delete", "--id", `card-test:${testId}`, "--yes", "--json"]);
 
     expect(deleted.exitCode, deleted.stderr).toBe(0);
     expect(parseJson(deleted.stdout, DeleteResult)).toEqual({
@@ -221,7 +229,7 @@ describe.skipIf(skipReason !== null)("card test e2e", () => {
       id: testId,
     });
 
-    const get = await mb(["card-test", "get", String(testId), "--json"]);
+    const get = await mb(["test", "get", "--id", `card-test:${testId}`, "--json"]);
 
     expect(get.exitCode).toBe(1);
     expect(cliErrorMessage(get.stderr)).toBe(`Not found: GET /api/ee/card-test/${testId}.`);

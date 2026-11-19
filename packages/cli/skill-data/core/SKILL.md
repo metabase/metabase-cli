@@ -12,7 +12,7 @@ Top-level command groups (run `mb <group> --help` to discover verbs):
 
 ```
 auth | db | table | field | upload | content-translation | query | card | dashboard | snippet | segment | measure | collection | library
-document | glossary | timeline | timeline-event | transform | transform-job | transform-tag | transform-test | card-test | segment-test | alert | subscription | setting
+document | glossary | timeline | timeline-event | transform | transform-job | transform-tag | transform-test | test | alert | subscription | setting
 search | dependency | git-sync | data-action | data-app | api-key | nano-id | setup | eid | uuid | upgrade | skills | schema
 ```
 
@@ -159,7 +159,10 @@ What `--help` doesn't say: footguns and non-obvious behaviors.
 - **library.** The Library is a curated subtree (`library-data` "Data" + `library-metrics` "Metrics" under a `library` root): tables in **Data** lead data pickers and rank up in search; metrics in **Metrics** lead nav, search, and the query builder. `library get` shows its Data/Metrics collection ids; `library create` provisions it (idempotent). `library publish --table-ids/--db-ids/--schemas` publishes tables into Data, **resolving the Data collection and creating the Library if absent**; each `--schemas` entry is `<db-id>:<schema>` (`1:public`), not a bare name. `publish` cascades to upstream FK dependencies, `unpublish` to downstream dependents; both need **admin or data-analyst** (Curate alone won't publish) and exit **403** without write **and** query permission on every affected table. `table get`/`table list` carry `is_published` (`collection_id` under `--full`). On a remote-sync instance, `mb git-sync add-collection <library-id>` (the root) makes exports carry published tables' metadata (see `git-sync`).
 <!-- /requires -->
 - **query / uuid.** `mb query` runs MBQL (`--dry-run` → run; `mbql`). `mb uuid --count <n>` mints an aggregation's `lib/uuid` (`mbql`) and document node `_id`s (`document`).
-<!-- requires: library, tableListPublishedFilter -->
+<!-- requires: lintReport -->
+- **lint.** `mb lint --json` (admin) checks cards, transforms and segments: one entry of `results` per violation, with its `ruleId`, `entity_id` (see `entities`) and message. Read `status`, not the exit code: a refused key or a timeout (after 30 min) also exits 1. Fix what it names.
+  <!-- /requires -->
+  <!-- requires: library, tableListPublishedFilter -->
 - `table list --published-only` lists only published tables.
 <!-- /requires -->
 

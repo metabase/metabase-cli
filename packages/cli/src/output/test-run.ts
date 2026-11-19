@@ -1,22 +1,20 @@
 import type {
-  TransformTestExpectationResult,
-  TransformTestRunResult,
-} from "@metabase/client/domain/transform-test";
+  DataTestExpectationResult,
+  DataTestRunResult,
+} from "@metabase/client/domain/data-test";
 
-type ExpectationStatus = TransformTestExpectationResult["status"];
+import { pluralize } from "./pluralize";
 
-function namesOf(
-  expectations: readonly TransformTestExpectationResult[],
-  status: ExpectationStatus,
-): string[] {
-  return expectations
-    .filter((expectation) => expectation.status === status)
-    .map((expectation) => expectation.name);
+type ExpectationStatus = DataTestExpectationResult["status"];
+
+function namesOf(expectations: DataTestExpectationResult[], status: ExpectationStatus): string[] {
+  return expectations.filter((expectation) => expectation.status === status).map((e) => e.name);
 }
 
-export function testRunSummary(subject: string, result: TransformTestRunResult): string {
+export function testRunSummary(label: string, result: DataTestRunResult): string {
   if (result.status === "passed") {
-    return `${subject} passed ${result.expectations.length} expectation(s).`;
+    const count = pluralize(result.expectations.length, "expectation", "expectations");
+    return `${label} passed ${count}.`;
   }
   const failed = namesOf(result.expectations, "failed");
   const errored = namesOf(result.expectations, "error");
@@ -24,5 +22,8 @@ export function testRunSummary(subject: string, result: TransformTestRunResult):
     failed.length > 0 ? `failed: ${failed.join(", ")}` : null,
     errored.length > 0 ? `could not run: ${errored.join(", ")}` : null,
   ].filter((part) => part !== null);
-  return `${subject} ${result.status} — ${parts.join("; ")}.`;
+  if (parts.length === 0) {
+    return `${label} ${result.status}.`;
+  }
+  return `${label} ${result.status} — ${parts.join("; ")}.`;
 }

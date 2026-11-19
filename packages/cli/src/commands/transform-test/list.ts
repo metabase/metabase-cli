@@ -12,7 +12,7 @@ export const TransformTestListEnvelope = listEnvelopeSchema(TransformTestCompact
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List transform tests" },
-  requires: ["transformTest.list"],
+  requires: ["dataTest.list"],
   args: {
     ...outputFlags,
     ...listFlags,
@@ -25,10 +25,8 @@ export default defineMetabaseCommand({
   async run({ args, ctx, getClient }) {
     const client = await getClient();
     const transformId =
-      args["transform-id"] === undefined
-        ? undefined
-        : parseId(args["transform-id"], "--transform-id");
-    const { data } = await client.transformTest.list({ "transform-id": transformId });
+      args["transform-id"] === undefined ? null : parseId(args["transform-id"], "--transform-id");
+    const { data } = await client.dataTest.list("transform", transformId);
     renderList(windowList(data, ctx.range), transformTestView, ctx);
   },
 });

@@ -6,9 +6,9 @@ import { InternalError, ValidationError } from "@metabase/client/errors";
 
 import { parseYaml } from "../runtime/yaml";
 import {
+  type AffectedEntity,
   type ClassifiedChange,
   type ContentFile,
-  type AffectedEntity,
   affectedEntities,
   classifyContentFile,
   headEntities,
@@ -22,24 +22,25 @@ import {
 const TRANSFORM_ID = "7JwIkkAG-06-nsl4jzsaq";
 const OTHER_TRANSFORM_ID = "7XqqzlsonSq4KFyOvtrAm";
 
-const LOGIC = { source: { type: "query" }, target: { name: "t" } };
-const SAME_LOGIC = { yaml12: LOGIC, yaml11: LOGIC };
+const CARD_ID = "Ss3mHTaWs8T-VLPYEeraG";
 
 const TRANSFORM: ContentFile = {
   kind: "entity",
   type: "transform",
   entityId: TRANSFORM_ID,
   name: "Daily Order Summary",
-  logic: SAME_LOGIC,
-  testable: true,
 };
 const OTHER_TRANSFORM: ContentFile = {
   kind: "entity",
   type: "transform",
   entityId: OTHER_TRANSFORM_ID,
   name: "Hourly Stats",
-  logic: SAME_LOGIC,
-  testable: true,
+};
+const CARD: ContentFile = {
+  kind: "entity",
+  type: "card",
+  entityId: CARD_ID,
+  name: "Revenue by day",
 };
 const TEST: ContentFile = {
   kind: "test",
@@ -47,36 +48,19 @@ const TEST: ContentFile = {
   entityId: TRANSFORM_ID,
   hasExpectations: true,
 };
-const OTHER: ContentFile = { kind: "other" };
-
-const CARD_ID = "Zq3kkAG-06-nsl4jzs1bV";
-const CARD: ContentFile = { kind: "entity", type: "card", entityId: CARD_ID, name: "Big orders" };
-const CARD_TEST: ContentFile = {
+const EMPTY_TEST: ContentFile = {
   kind: "test",
-  type: "card",
-  entityId: CARD_ID,
-  hasExpectations: true,
+  type: "transform",
+  entityId: TRANSFORM_ID,
+  hasExpectations: false,
 };
-
-const SEGMENT_ID = "Hx2kkAG-06-nsl4jzs9cQ";
-const SEGMENT: ContentFile = {
-  kind: "entity",
-  type: "segment",
-  entityId: SEGMENT_ID,
-  name: "Paid orders",
-};
-const SEGMENT_TEST: ContentFile = {
-  kind: "test",
-  type: "segment",
-  entityId: SEGMENT_ID,
-  hasExpectations: true,
-};
-
-const CHANGED_PATH = "transforms/t1/t1.yaml";
 
 function transform(entityId: string): AffectedEntity {
   return { type: "transform", entityId };
 }
+const OTHER: ContentFile = { kind: "other" };
+
+const CHANGED_PATH = "transforms/t1/t1.yaml";
 
 function change(base: ContentFile | null, head: ContentFile | null): ClassifiedChange {
   return { path: CHANGED_PATH, base, head };
@@ -212,7 +196,7 @@ describe("parseNameStatus", () => {
 
 // A document every parser reads the same.
 function classifyDocument(path: string, document: unknown): ContentFile {
-  return classifyContentFile(path, { yaml12: document, yaml11: document });
+  return classifyContentFile(path, document);
 }
 
 describe("classifyContentFile", () => {
@@ -228,42 +212,6 @@ describe("classifyContentFile", () => {
     ).toEqual(TRANSFORM);
   });
 
-  it("marks a transform whose source is not a query as one Metabase cannot test", () => {
-    const python = { type: "python", body: "print(1)" };
-
-    expect(
-      classifyDocument("transforms/a.yaml", {
-        entity_id: TRANSFORM_ID,
-        name: "Daily Order Summary",
-        source: python,
-        target: { name: "t" },
-        "serdes/meta": [{ model: "Transform" }],
-      }),
-    ).toEqual({
-      kind: "entity",
-      type: "transform",
-      entityId: TRANSFORM_ID,
-      name: "Daily Order Summary",
-      logic: {
-        yaml12: { source: python, target: { name: "t" } },
-        yaml11: { source: python, target: { name: "t" } },
-      },
-      testable: false,
-    });
-  });
-
-  it("holds a transform whose source names no type to the query rule", () => {
-    const file = classifyDocument("transforms/a.yaml", {
-      entity_id: TRANSFORM_ID,
-      name: "Daily Order Summary",
-      source: { query: "SELECT 1" },
-      target: { name: "t" },
-      "serdes/meta": [{ model: "Transform" }],
-    });
-
-    expect(file.kind === "entity" && file.type === "transform" && file.testable).toBe(true);
-  });
-
   it("classifies a transform test by the transform it covers", () => {
     expect(
       classifyDocument("transforms/a/t.yaml", {
@@ -272,84 +220,6 @@ describe("classifyContentFile", () => {
         "serdes/meta": [{ model: "Transform" }, { model: "TransformTest" }],
       }),
     ).toEqual(TEST);
-  });
-
-  it("classifies a card by the last serdes/meta model", () => {
-    expect(
-      classifyDocument("collections/main/cards/big_orders.yaml", {
-        entity_id: CARD_ID,
-        name: "Big orders",
-        dataset_query: { database: "Sample" },
-        "serdes/meta": [{ model: "Card" }],
-      }),
-    ).toEqual(CARD);
-  });
-
-  it("classifies a card test by the card it covers", () => {
-    expect(
-      classifyDocument("collections/main/cards/big_orders/keeps_big.yaml", {
-        card_id: CARD_ID,
-        expectations: [{ name: "e", type: "empty" }],
-        "serdes/meta": [{ model: "CardTest" }],
-      }),
-    ).toEqual(CARD_TEST);
-  });
-
-  it("classifies a segment by the last serdes/meta model", () => {
-    expect(
-      classifyDocument("databases/Sample/tables/ORDERS/segments/paid_orders.yaml", {
-        entity_id: SEGMENT_ID,
-        name: "Paid orders",
-        definition: { database: "Sample" },
-        "serdes/meta": [{ model: "Database" }, { model: "Table" }, { model: "Segment" }],
-      }),
-    ).toEqual(SEGMENT);
-  });
-
-  it("classifies a segment test by the segment it covers", () => {
-    expect(
-      classifyDocument("databases/Sample/tables/ORDERS/segments/paid_orders/keeps_paid.yaml", {
-        segment_id: SEGMENT_ID,
-        expectations: [{ name: "e", type: "empty" }],
-        "serdes/meta": [{ model: "SegmentTest" }],
-      }),
-    ).toEqual(SEGMENT_TEST);
-  });
-
-  it("refuses a segment test without the segment it covers", () => {
-    const classify = () =>
-      classifyDocument("databases/d/t.yaml", { "serdes/meta": [{ model: "SegmentTest" }] });
-
-    expect(classify).toThrow(ValidationError);
-    expect(classify).toThrow("databases/d/t.yaml: a SegmentTest must name its segment_id");
-  });
-
-  it("refuses a card test without the card it covers", () => {
-    const classify = () =>
-      classifyDocument("collections/c/t.yaml", { "serdes/meta": [{ model: "CardTest" }] });
-
-    expect(classify).toThrow(ValidationError);
-    expect(classify).toThrow("collections/c/t.yaml: a CardTest must name its card_id");
-  });
-
-  it("refuses a card without a name", () => {
-    const classify = () =>
-      classifyDocument("collections/c.yaml", {
-        entity_id: CARD_ID,
-        "serdes/meta": [{ model: "Card" }],
-      });
-
-    expect(classify).toThrow(ValidationError);
-    expect(classify).toThrow("collections/c.yaml: a Card must have an entity_id and a name");
-  });
-
-  it("leaves a dashboard card, whose model only contains the word, unclassified", () => {
-    expect(
-      classifyDocument("collections/main/dashboards/d.yaml", {
-        entity_id: CARD_ID,
-        "serdes/meta": [{ model: "Dashboard" }, { model: "DashboardCard" }],
-      }),
-    ).toEqual(OTHER);
   });
 
   it("classifies a transform test in the exported one-entry serdes/meta shape", () => {
@@ -362,7 +232,17 @@ describe("classifyContentFile", () => {
     ).toEqual(TEST);
   });
 
-  it("marks a transform test whose expectations are missing, null or empty as having none", () => {
+  it("classifies a card test by the card it names in card_id", () => {
+    expect(
+      classifyDocument("collections/c/cards/t.yaml", {
+        card_id: CARD_ID,
+        expectations: [{ name: "e", type: "empty" }],
+        "serdes/meta": [{ model: "CardTest" }],
+      }),
+    ).toEqual({ kind: "test", type: "card", entityId: CARD_ID, hasExpectations: true });
+  });
+
+  it("reads a transform test whose expectations are missing, null or empty", () => {
     const documents = [
       { transform_id: TRANSFORM_ID, "serdes/meta": [{ model: "TransformTest" }] },
       {
@@ -374,11 +254,7 @@ describe("classifyContentFile", () => {
     ];
 
     expect(documents.map((document) => classifyDocument("transforms/t1/t.yaml", document))).toEqual(
-      [
-        { ...TEST, hasExpectations: false },
-        { ...TEST, hasExpectations: false },
-        { ...TEST, hasExpectations: false },
-      ],
+      [EMPTY_TEST, EMPTY_TEST, EMPTY_TEST],
     );
   });
 
@@ -393,6 +269,29 @@ describe("classifyContentFile", () => {
     expect(classify).toThrow(
       "transforms/t1/t.yaml: a TransformTest must name its transform_id, and its expectations must be a list",
     );
+  });
+
+  it.each([
+    ["Card", "card"],
+    ["Segment", "segment"],
+    ["Measure", "measure"],
+    ["Action", "action"],
+  ] as const)("classifies a %s as an entity a test can check", (model, type) => {
+    expect(
+      classifyDocument("collections/c/x.yaml", {
+        entity_id: CARD_ID,
+        name: "Revenue by day",
+        "serdes/meta": [{ model }],
+      }),
+    ).toEqual({ ...CARD, type });
+  });
+
+  it("refuses a card without an entity_id", () => {
+    const classify = () =>
+      classifyDocument("collections/c/x.yaml", { name: "r", "serdes/meta": [{ model: "Card" }] });
+
+    expect(classify).toThrow(ValidationError);
+    expect(classify).toThrow("collections/c/x.yaml: a Card must have an entity_id and a name");
   });
 
   it("classifies any other serialized model as other", () => {
@@ -504,7 +403,12 @@ describe("affectedEntities", () => {
   });
 
   it("includes both transforms when a test moves from one transform to another", () => {
-    const moved: ContentFile = { ...TEST, entityId: OTHER_TRANSFORM_ID };
+    const moved: ContentFile = {
+      kind: "test",
+      type: "transform",
+      entityId: OTHER_TRANSFORM_ID,
+      hasExpectations: true,
+    };
 
     expect(affectedEntities([change(TEST, moved)])).toEqual([
       transform(TRANSFORM_ID),
@@ -538,27 +442,20 @@ describe("affectedEntities", () => {
     ).toEqual([transform(TRANSFORM_ID)]);
   });
 
-  it("includes a card whose test changed, by its own type", () => {
-    expect(affectedEntities([change(CARD_TEST, CARD_TEST)])).toEqual([
-      { type: "card", entityId: CARD_ID },
-    ]);
+  it("includes a changed card", () => {
+    expect(affectedEntities([change(CARD, CARD)])).toEqual([{ type: "card", entityId: CARD_ID }]);
   });
 
-  it("includes a segment whose test changed, by its own type", () => {
-    expect(affectedEntities([change(SEGMENT_TEST, SEGMENT_TEST)])).toEqual([
-      { type: "segment", entityId: SEGMENT_ID },
-    ]);
-  });
+  it("keeps entities of two models that share an entity id apart", () => {
+    const sameIdCard: ContentFile = { ...CARD, entityId: TRANSFORM_ID };
 
-  it("keeps a card and a transform of one entity id apart", () => {
-    const sameId: ContentFile = { kind: "entity", type: "card", entityId: TRANSFORM_ID, name: "c" };
-
-    expect(affectedEntities([change(TRANSFORM, null), change(null, sameId)])).toEqual([
+    expect(affectedEntities([change(null, TRANSFORM), change(null, sameIdCard)])).toEqual([
+      transform(TRANSFORM_ID),
       { type: "card", entityId: TRANSFORM_ID },
     ]);
   });
 
-  it("ignores files that are neither transforms nor transform tests", () => {
+  it("ignores files that are neither entities nor transform tests", () => {
     expect(affectedEntities([change(OTHER, OTHER)])).toEqual([]);
   });
 
@@ -586,9 +483,7 @@ describe("affectedEntities", () => {
       z.unknown(),
     );
     const affected = () =>
-      affectedEntities([
-        change(TRANSFORM, classifyContentFile(CHANGED_PATH, { yaml12: merged, yaml11: merged })),
-      ]);
+      affectedEntities([change(TRANSFORM, classifyContentFile(CHANGED_PATH, merged))]);
 
     expect(affected).toThrow(ValidationError);
     expect(affected).toThrow(
@@ -669,79 +564,23 @@ describe("isContentPath", () => {
 });
 
 describe("headEntities", () => {
-  it("names each transform at head by its entity id", () => {
-    expect(headEntities([TRANSFORM, OTHER_TRANSFORM]).transform.names).toEqual(
+  it("keys each entity at head by its model and entity id", () => {
+    expect(headEntities([TRANSFORM, CARD]).byKey).toEqual(
       new Map([
-        [TRANSFORM_ID, "Daily Order Summary"],
-        [OTHER_TRANSFORM_ID, "Hourly Stats"],
+        [`transform:${TRANSFORM_ID}`, TRANSFORM],
+        [`card:${CARD_ID}`, CARD],
       ]),
     );
   });
 
-  it("collects the transforms a test at head covers", () => {
-    expect(headEntities([TEST]).transform.tested).toEqual(new Set([TRANSFORM_ID]));
+  it("counts a transform as tested only by a test with expectations", () => {
+    const moved: ContentFile = { ...EMPTY_TEST, entityId: OTHER_TRANSFORM_ID };
+
+    expect(headEntities([TEST, moved]).tested).toEqual(new Set([`transform:${TRANSFORM_ID}`]));
   });
 
-  it("does not count a transform as tested when its only test has no expectations", () => {
-    const empty: ContentFile = { ...TEST, hasExpectations: false };
-
-    expect(headEntities([TRANSFORM, empty]).transform).toEqual({
-      names: new Map([[TRANSFORM_ID, "Daily Order Summary"]]),
-      tested: new Set(),
-      testedWithoutExpectations: new Set([TRANSFORM_ID]),
-      untestable: new Set(),
-    });
-  });
-
-  it("counts a transform as tested when one of its tests has expectations", () => {
-    const empty: ContentFile = { ...TEST, hasExpectations: false };
-
-    expect(headEntities([empty, TEST, empty]).transform).toEqual({
-      names: new Map(),
-      tested: new Set([TRANSFORM_ID]),
-      testedWithoutExpectations: new Set(),
-      untestable: new Set(),
-    });
-  });
-
-  it("collects the transforms Metabase cannot test", () => {
-    const python: ContentFile = { ...OTHER_TRANSFORM, testable: false };
-
-    expect(headEntities([TRANSFORM, python]).transform.untestable).toEqual(
-      new Set([OTHER_TRANSFORM_ID]),
-    );
-  });
-
-  it("counts the entities and tests of each type apart", () => {
-    expect(headEntities([TRANSFORM, CARD, CARD_TEST, SEGMENT, SEGMENT_TEST])).toEqual({
-      transform: {
-        names: new Map([[TRANSFORM_ID, "Daily Order Summary"]]),
-        tested: new Set(),
-        testedWithoutExpectations: new Set(),
-        untestable: new Set(),
-      },
-      card: {
-        names: new Map([[CARD_ID, "Big orders"]]),
-        tested: new Set([CARD_ID]),
-        testedWithoutExpectations: new Set(),
-        untestable: new Set(),
-      },
-      segment: {
-        names: new Map([[SEGMENT_ID, "Paid orders"]]),
-        tested: new Set([SEGMENT_ID]),
-        testedWithoutExpectations: new Set(),
-        untestable: new Set(),
-      },
-    });
-  });
-
-  it("ignores files that are not transforms or tests, and absent sides", () => {
-    expect(headEntities([OTHER, null]).transform).toEqual({
-      names: new Map(),
-      tested: new Set(),
-      testedWithoutExpectations: new Set(),
-      untestable: new Set(),
-    });
+  it("ignores files that are not entities or tests, and absent sides", () => {
+    expect(headEntities([OTHER, null])).toEqual({ byKey: new Map(), tested: new Set() });
   });
 });
 
@@ -754,14 +593,14 @@ describe("noContentChangesWarning", () => {
       ]),
     ).toEqual({
       code: "no-content-changes",
-      message: "the change touches no Metabase content files, so no test ran",
+      message: "the change touches no Metabase content files",
     });
   });
 
   it("warns on an empty diff", () => {
     expect(noContentChangesWarning([])).toEqual({
       code: "no-content-changes",
-      message: "the change touches no Metabase content files, so no test ran",
+      message: "the change touches no Metabase content files",
     });
   });
 

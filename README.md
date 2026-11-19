@@ -463,181 +463,93 @@ mb transform-test run 1 --timeout 300000
 | ---------------- | -------------------------------------------------------------------------- |
 | `--timeout <ms>` | Request timeout in ms (default 30000); the run is one synchronous request. |
 
-## Card tests
+## Data tests
 
-CRUD, run and run history on `/api/ee/card-test`. Requires Metabase v66 or newer with the `transforms-testing` premium feature. A card test pins the result of a saved question, model or metric: every table the card's query reads is replaced by an `input` fixture, the query runs into a temp table, and each `expectation` checks that result. The bodies are those of a [transform test](#transform-tests), with `card_id` in place of `transform_id`.
+One command for the tests of every entity type: `transform`, `card`, `segment`, `measure` and `action`. A test replaces every table the entity reads with an `input` fixture, runs the entity against those fixtures, and checks each `expectation` against the result. Requires the `transforms-testing` premium feature; transform tests need Metabase v65 or newer and every other type v66 or newer. A server without a type refuses with exit code 2, naming the missing feature.
 
-Expectation SQL names the card's result `{{output}}`; any other `{{...}}` is refused. The expectations read the result without remapped columns and without the default row limit. A card with a parameter that needs a value and has no default cannot be tested, and neither can one whose result has two columns of one name.
+`--id` names either the entity under test (`card:12`) or one of its tests (`card-test:34`). `list` and `create` take the entity; `get`, `update`, `delete`, `run` and `runs` take the test.
 
-Create and update bodies are closed at every level, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at`, `updated_at` and `last_run` before it can be sent back:
+The create body is a [transform test](#transform-tests) body without the entity's id, which `--id` carries. Expectation SQL names the entity's result `{{output}}`. `now` fixes the time the entity reads as the current time, and `parameters` are the values an action test calls its action with.
 
-```sh
-mb card-test get 1 --full --json \
-  | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at, .last_run)' \
-  | mb card-test update 1
-```
-
-### `mb card-test list`
+### `mb test list`
 
 ```sh
-mb card-test list --json
-mb card-test list --card-id 1
+mb test list
+mb test list --id card:12
+mb test list --type segment --json
 ```
 
-| Flag             | Description                     |
-| ---------------- | ------------------------------- |
-| `--card-id <id>` | Only the tests of this card id. |
+| Flag            | Description                                  |
+| --------------- | -------------------------------------------- |
+| `--id <ref>`    | Only the tests of this entity, as `card:12`. |
+| `--type <type>` | Only tests of this type.                     |
 
-### `mb card-test get <id>`
+Without `--id` or `--type`, a type the server does not support is left out.
 
-The compact form carries the id, card, name and description; `--full` adds the `inputs`, the `expectations` and the test's newest run as `last_run`.
+### `mb test get`
 
 ```sh
-mb card-test get 1
-mb card-test get 1 --full --json
+mb test get --id card-test:34
+mb test get --id card-test:34 --full --json
 ```
 
-### `mb card-test create`
+### `mb test create`
 
 ```sh
-mb card-test create --file card-test.json
+mb test create --id card:12 --file test.json
 ```
 
-### `mb card-test update <id>`
+### `mb test update`
 
 Only the fields the body carries are patched; `inputs` and `expectations` replace what is stored.
 
 ```sh
-mb card-test update 1 --body '{"name":"renamed"}'
+mb test update --id card-test:34 --body '{"name":"renamed"}'
 ```
 
-### `mb card-test delete <id>`
+### `mb test delete`
 
 ```sh
-mb card-test delete 1 --yes
+mb test delete --id card-test:34 --yes
 ```
 
-| Flag    | Description                                                                                                                       |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
+### `mb test run`
 
-### `mb card-test run <id>`
-
-Runs the card's query against the fixtures and reports what each expectation found. Exits 1 when the test does not pass. A run the server refuses fails with an `error_code` that starts with `card-test.`.
+Runs one test and reports what each expectation found. Exits 1 when the test does not pass. A run the server refuses fails with an `error_code` that starts with the test's kind, such as `card-test.`.
 
 ```sh
-mb card-test run 1
-mb card-test run 1 --json
-mb card-test run 1 --timeout 300000
+mb test run --id card-test:34
+mb test run --id card-test:34 --timeout 300000
 ```
 
-| Flag             | Description                                                                |
-| ---------------- | -------------------------------------------------------------------------- |
-| `--timeout <ms>` | Request timeout in ms (default 30000); the run is one synchronous request. |
+### `mb test runs`
 
-### `mb card-test runs`
-
-Lists the runs of card tests, newest first, from `/api/ee/data-test-run`. A run's `status` is `started` while it is in flight, then `passed`, `failed`, `error` or `timeout`.
+Lists runs, newest first, from `/api/ee/data-test-run`: those of one test with `--id`, or of every test of one type with `--type`. A run's `status` is `started` while it is in flight, then `passed`, `failed`, `error` or `timeout`.
 
 ```sh
-mb card-test runs
-mb card-test runs --test-id 1 --json
-mb card-test runs --statuses failed,error --limit 50
+mb test runs --id card-test:34
+mb test runs --type card --json
+mb test runs --type transform --statuses failed,error --limit 50
 ```
 
-| Flag                | Description                                 |
-| ------------------- | ------------------------------------------- |
-| `--test-id <id>`    | Only the runs of this card test id.         |
-| `--statuses <list>` | Only runs in these states, comma separated. |
-| `--limit <n>`       | Max runs to return (default 20).            |
+| Flag                | Description                                    |
+| ------------------- | ---------------------------------------------- |
+| `--id <ref>`        | Only the runs of this test, as `card-test:34`. |
+| `--type <type>`     | The runs of every test of this type.           |
+| `--statuses <list>` | Only runs in these states, comma separated.    |
+| `--limit <n>`       | Max runs to return (default 20).               |
 
-## Segment tests
+## Lint
 
-CRUD, run and run history on `/api/ee/segment-test`. Requires Metabase v66 or newer with the `transforms-testing` premium feature. A segment test pins what a segment's filter keeps: the segment's table, and each table the filter reads through a foreign key, is replaced by an `input` fixture, and each `expectation` checks the rows of the segment's table that match the filter. The bodies are those of a [transform test](#transform-tests), with `segment_id` in place of `transform_id`.
+### `mb lint`
 
-Expectation SQL names the matching rows `{{output}}`; any other `{{...}}` is refused. The output has the columns of the segment's table that its `rows` input declares, and every column of the table when that input is SQL. An input that gives rows must declare every column the filter reads from its table.
-
-Create and update bodies are closed at every level, so a test read back with `get --full` has to shed `id`, `entity_id`, `creator_id`, `created_at`, `updated_at` and `last_run` before it can be sent back:
+Checks the instance's cards, transforms and segments against the server's lint rules (`POST /api/ee/lint`, admin only) and prints the findings grouped by entity. Exits 1 when the report's `status` is `failed`. It can take minutes right after a large import, and gives up after 30.
 
 ```sh
-mb segment-test get 1 --full --json \
-  | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at, .last_run)' \
-  | mb segment-test update 1
+mb lint
+mb lint --json
+mb lint --json --fields status,summary
 ```
-
-### `mb segment-test list`
-
-```sh
-mb segment-test list --json
-mb segment-test list --segment-id 1
-```
-
-| Flag                | Description                        |
-| ------------------- | ---------------------------------- |
-| `--segment-id <id>` | Only the tests of this segment id. |
-
-### `mb segment-test get <id>`
-
-The compact form carries the id, segment, name and description; `--full` adds the `inputs`, the `expectations` and the test's newest run as `last_run`.
-
-```sh
-mb segment-test get 1
-mb segment-test get 1 --full --json
-```
-
-### `mb segment-test create`
-
-```sh
-mb segment-test create --file segment-test.json
-```
-
-### `mb segment-test update <id>`
-
-Only the fields the body carries are patched; `inputs` and `expectations` replace what is stored.
-
-```sh
-mb segment-test update 1 --body '{"name":"renamed"}'
-```
-
-### `mb segment-test delete <id>`
-
-```sh
-mb segment-test delete 1 --yes
-```
-
-| Flag    | Description                                                                                                                       |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `--yes` | Skip the interactive confirmation prompt. In non-TTY contexts the prompt is skipped automatically (kubectl/gh/docker convention). |
-
-### `mb segment-test run <id>`
-
-Selects the rows that match the segment's filter from the fixtures and reports what each expectation found. Exits 1 when the test does not pass. A run the server refuses fails with an `error_code` that starts with `segment-test.`.
-
-```sh
-mb segment-test run 1
-mb segment-test run 1 --json
-mb segment-test run 1 --timeout 300000
-```
-
-| Flag             | Description                                                                |
-| ---------------- | -------------------------------------------------------------------------- |
-| `--timeout <ms>` | Request timeout in ms (default 30000); the run is one synchronous request. |
-
-### `mb segment-test runs`
-
-Lists the runs of segment tests, newest first, from `/api/ee/data-test-run`. A run's `status` is `started` while it is in flight, then `passed`, `failed`, `error` or `timeout`.
-
-```sh
-mb segment-test runs
-mb segment-test runs --test-id 1 --json
-mb segment-test runs --statuses failed,error --limit 50
-```
-
-| Flag                | Description                                 |
-| ------------------- | ------------------------------------------- |
-| `--test-id <id>`    | Only the runs of this segment test id.      |
-| `--statuses <list>` | Only runs in these states, comma separated. |
-| `--limit <n>`       | Max runs to return (default 20).            |
 
 ## Databases
 

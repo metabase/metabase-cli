@@ -1,10 +1,9 @@
 import { z } from "zod";
 
-import { DATA_TEST_TYPES, type DataTestType } from "@metabase/client/domain/data-test";
+import type { DataTestType } from "@metabase/client/domain/data-test";
 import { InternalError, ValidationError } from "@metabase/client/errors";
 import { isPlainObject } from "@metabase/client/predicates";
 
-import type { MetabaseYaml } from "../runtime/yaml";
 import type { CiWarning } from "./ci-events";
 
 interface PathEntry {
@@ -20,30 +19,20 @@ interface RenamedEntry {
 
 export type DiffEntry = PathEntry | RenamedEntry;
 
-interface TransformFile {
+// An entity a test can check.
+interface EntityFile {
   kind: "entity";
-  type: "transform";
-  entityId: string;
-  name: string;
-  logic: TransformLogic;
-  // Metabase tests only a query transform, and refuses a test of any other, such as a Python one.
-  testable: boolean;
-}
-
-interface PlainEntityFile {
-  kind: "entity";
-  type: Exclude<DataTestType, "transform">;
+  type: DataTestType;
   entityId: string;
   name: string;
 }
 
-type EntityFile = TransformFile | PlainEntityFile;
-
+// A serialized test of the entity of its type that it names by entity id.
 interface TestFile {
   kind: "test";
   type: DataTestType;
   entityId: string;
-  // A test with no expectations checks nothing, so it does not count as testing its transform.
+  // A test with no expectations checks nothing, so it does not count as testing its entity.
   hasExpectations: boolean;
 }
 
@@ -174,50 +163,26 @@ const TransformDocument = z
     target: z.unknown(),
   })
   .loose();
-const TransformLogicDocument = TransformDocument.pick({ source: true, target: true });
-
-type LogicReading = z.infer<typeof TransformLogicDocument>;
-
-// What a transform computes. An edit to anything else (name, description, collection, tags) leaves
-// its logic unchanged. Metabase reads YAML 1.1, where an unquoted `on` is true and `017` is 15, and
-// this check reads YAML 1.2, so the logic holds both readings: an edit either parser sees changes it.
-export interface TransformLogic {
-  yaml12: LogicReading;
-  yaml11: LogicReading;
-}
-
-const QUERY_SOURCE_TYPE = "query";
-
-// A source that names no type is held to the query rule, so a malformed transform still needs a test.
-function isTestableSource(source: unknown): boolean {
-  if (!isPlainObject(source)) {
-    return true;
-  }
-  const type = source["type"];
-  return typeof type !== "string" || type === QUERY_SOURCE_TYPE;
-}
 
 const TRANSFORM_RULE = "a Transform must have an entity_id, a name, a source and a target";
 
-const EntityDocument = TransformDocument.pick({ entity_id: true, name: true });
-const EntityReference = z.string().min(1);
+const EntityDocument = z.object({ entity_id: z.string().min(1), name: z.string().min(1) }).loose();
+
+const ENTITY_MODELS: ReadonlyMap<string, Exclude<DataTestType, "transform">> = new Map([
+  ["Card", "card"],
+  ["Segment", "segment"],
+  ["Measure", "measure"],
+  ["Action", "action"],
+]);
+
+// The types whose tests are serialized; the others' tests live on the instance alone.
+const TEST_MODELS: ReadonlyMap<string, DataTestType> = new Map([
+  ["TransformTest", "transform"],
+  ["CardTest", "card"],
+  ["SegmentTest", "segment"],
+]);
 const TestDocument = z.object({ expectations: z.array(z.unknown()).nullish() }).loose();
-
-interface TestedModel {
-  entity: string;
-  test: string;
-  reference: string;
-}
-
-const TESTED_MODELS: Readonly<Record<DataTestType, TestedModel>> = {
-  transform: { entity: "Transform", test: "TransformTest", reference: "transform_id" },
-  card: { entity: "Card", test: "CardTest", reference: "card_id" },
-  segment: { entity: "Segment", test: "SegmentTest", reference: "segment_id" },
-};
-
-function testedTypeOf(model: string, role: "entity" | "test"): DataTestType | null {
-  return DATA_TEST_TYPES.find((type) => TESTED_MODELS[type][role] === model) ?? null;
-}
+const EntityReference = z.string().min(1);
 
 const SerdesMeta = z.array(z.object({ model: z.string() }).loose()).min(1);
 
@@ -229,8 +194,7 @@ function parseOrRefuse<T>(path: string, schema: z.ZodType<T>, value: unknown, ru
   return parsed.data;
 }
 
-export function classifyContentFile(path: string, yaml: MetabaseYaml): ContentFile {
-  const document = yaml.yaml12;
+export function classifyContentFile(path: string, document: unknown): ContentFile {
   if (!isPlainObject(document) || !(SERDES_META_KEY in document)) {
     return { kind: "other" };
   }
@@ -249,34 +213,32 @@ export function classifyContentFile(path: string, yaml: MetabaseYaml): ContentFi
   }
   if (last.model === "Transform") {
     const transform = parseOrRefuse(path, TransformDocument, document, TRANSFORM_RULE);
-    const asYaml11 = parseOrRefuse(path, TransformLogicDocument, yaml.yaml11, TRANSFORM_RULE);
     return {
       kind: "entity",
       type: "transform",
       entityId: transform.entity_id,
       name: transform.name,
-      logic: {
-        yaml12: { source: transform.source, target: transform.target },
-        yaml11: { source: asYaml11.source, target: asYaml11.target },
-      },
-      testable: isTestableSource(transform.source),
     };
   }
-  const testType = testedTypeOf(last.model, "test");
-  if (testType !== null) {
-    const { test, reference } = TESTED_MODELS[testType];
-    const rule = `a ${test} must name its ${reference}, and its expectations must be a list`;
-    const entityId = parseOrRefuse(path, EntityReference, document[reference], rule);
+  const testType = TEST_MODELS.get(last.model);
+  if (testType !== undefined) {
+    const key = `${testType}_id`;
+    const rule = `a ${last.model} must name its ${key}, and its expectations must be a list`;
+    const entityId = parseOrRefuse(path, EntityReference, document[key], rule);
     const { expectations } = parseOrRefuse(path, TestDocument, document, rule);
     const hasExpectations =
       expectations !== undefined && expectations !== null && expectations.length > 0;
     return { kind: "test", type: testType, entityId, hasExpectations };
   }
-  const entityType = testedTypeOf(last.model, "entity");
-  if (entityType !== null && entityType !== "transform") {
-    const rule = `a ${last.model} must have an entity_id and a name`;
-    const entity = parseOrRefuse(path, EntityDocument, document, rule);
-    return { kind: "entity", type: entityType, entityId: entity.entity_id, name: entity.name };
+  const type = ENTITY_MODELS.get(last.model);
+  if (type !== undefined) {
+    const entity = parseOrRefuse(
+      path,
+      EntityDocument,
+      document,
+      `a ${last.model} must have an entity_id and a name`,
+    );
+    return { kind: "entity", type, entityId: entity.entity_id, name: entity.name };
   }
   return { kind: "other" };
 }
@@ -286,6 +248,7 @@ export interface AffectedEntity {
   entityId: string;
 }
 
+// Entity ids are unique per model only, so an entity is keyed by both.
 export function entityKey({ type, entityId }: AffectedEntity): string {
   return `${type}:${entityId}`;
 }
@@ -305,7 +268,7 @@ export function affectedEntities(changes: readonly ClassifiedChange[]): Affected
 
   for (const { path, base, head } of changes) {
     // A parser that reads the file differently from Metabase (a YAML merge key, a symlink blob)
-    // would otherwise turn an edited transform into a deleted one.
+    // would otherwise turn an edited entity into a deleted one.
     if (base !== null && base.kind !== "other" && head?.kind === "other") {
       throw new ValidationError(
         `${path}: an entity or test at base no longer reads as one at head`,
@@ -328,68 +291,39 @@ export function affectedEntities(changes: readonly ClassifiedChange[]): Affected
     }
   }
 
-  // A test-only change names a transform the diff does not show; keep it unless the diff removed it.
+  // A test-only change names an entity the diff does not show; keep it unless the diff removed it.
   return [...touched]
     .filter(([key]) => atHead.has(key) || !atBase.has(key))
     .map(([, entity]) => entity);
 }
 
-// Every file of a tested entity, and every test file, names its model in `serdes/meta`, however the
-// YAML spells the entry (quoted, tagged, folded, on the next line), so the entity's model alone finds
-// them; only a model
-// written with an escape (`\x54ransform`), which no export writes, is missed. Every match is read, so
-// the scan also reads the other content files that mention the word. A POSIX extended pattern, for
-// `git grep -E`.
-export const TESTED_MODEL_PATTERN = DATA_TEST_TYPES.map((type) => TESTED_MODELS[type].entity).join(
-  "|",
-);
+// Every file of an entity a serialized test can cover, and every such test, names its model in
+// `serdes/meta`, however the YAML spells the entry (quoted, tagged, folded, on the next line), so the
+// entity's model alone finds them; only a model written with an escape (`\x54ransform`), which no
+// export writes, is missed. Every match is read, so the scan also reads the other content files that
+// mention the word. A POSIX extended pattern, for `git grep -E`.
+const TEST_MODEL_SUFFIX = "Test";
+
+export const TESTED_MODEL_PATTERN = [...TEST_MODELS.keys()]
+  .map((model) => model.slice(0, -TEST_MODEL_SUFFIX.length))
+  .join("|");
 
 export interface HeadEntities {
-  names: Map<string, string>;
+  byKey: Map<string, EntityFile>;
+  // The entities a test with expectations at head covers, by `entityKey`.
   tested: Set<string>;
-  testedWithoutExpectations: Set<string>;
-  untestable: Set<string>;
 }
 
-export type HeadEntitiesByType = Readonly<Record<DataTestType, HeadEntities>>;
-
-function noHeadEntities(): HeadEntities {
-  return {
-    names: new Map(),
-    tested: new Set(),
-    testedWithoutExpectations: new Set(),
-    untestable: new Set(),
-  };
-}
-
-// Per test type, the entities among files at head, each by name, the entities a test with
-// expectations at head covers, those only tests without expectations name, and the transforms
-// Metabase cannot test.
-export function headEntities(files: readonly (ContentFile | null)[]): HeadEntitiesByType {
-  const byType: HeadEntitiesByType = {
-    transform: noHeadEntities(),
-    card: noHeadEntities(),
-    segment: noHeadEntities(),
-  };
+export function headEntities(files: readonly (ContentFile | null)[]): HeadEntities {
+  const atHead: HeadEntities = { byKey: new Map(), tested: new Set() };
   for (const file of files) {
     if (file?.kind === "entity") {
-      const atHead = byType[file.type];
-      atHead.names.set(file.entityId, file.name);
-      if (file.type === "transform" && !file.testable) {
-        atHead.untestable.add(file.entityId);
-      }
-    } else if (file?.kind === "test") {
-      const atHead = byType[file.type];
-      const covered = file.hasExpectations ? atHead.tested : atHead.testedWithoutExpectations;
-      covered.add(file.entityId);
+      atHead.byKey.set(entityKey(file), file);
+    } else if (file?.kind === "test" && file.hasExpectations) {
+      atHead.tested.add(entityKey(file));
     }
   }
-  for (const atHead of Object.values(byType)) {
-    for (const entityId of atHead.tested) {
-      atHead.testedWithoutExpectations.delete(entityId);
-    }
-  }
-  return byType;
+  return atHead;
 }
 
 // Mirrors Metabase's `legal-top-level-paths` and `shared-top-level-paths`
@@ -442,7 +376,7 @@ export function noContentChangesWarning(entries: readonly DiffEntry[]): CiWarnin
   }
   return {
     code: "no-content-changes",
-    message: "the change touches no Metabase content files, so no test ran",
+    message: "the change touches no Metabase content files",
   };
 }
 
@@ -469,7 +403,7 @@ export function unreadContentWarning(reasons: readonly string[]): CiWarning | nu
   }
   const summary =
     reasons.length === 1
-      ? "1 content file this change did not touch could not be read, so the coverage check skipped it"
-      : `${reasons.length} content files this change did not touch could not be read, so the coverage check skipped them`;
+      ? "1 content file this change did not touch could not be read, so an entity or test in it went uncounted"
+      : `${reasons.length} content files this change did not touch could not be read, so an entity or test in them went uncounted`;
   return { code: "unread-content", message: `${summary}: ${reasons.join("; ")}` };
 }

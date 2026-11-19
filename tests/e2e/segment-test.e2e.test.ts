@@ -1,28 +1,28 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { SegmentTest, SegmentTestCompact } from "@metabase/client/domain/segment-test";
-import { TransformTestRunResult } from "@metabase/client/domain/transform-test";
+import {
+  DATA_TEST_SCHEMAS,
+  DataTestCompact,
+  DataTestRunResult,
+} from "@metabase/client/domain/data-test";
 import { parseJson } from "@metabase/client/json";
 
 import { DeleteResult } from "../../packages/cli/src/commands/delete-runtime";
-import { SegmentTestListEnvelope } from "../../packages/cli/src/commands/segment-test/list";
-import { SegmentTestRunListEnvelope } from "../../packages/cli/src/commands/segment-test/runs";
+import { TestListEnvelope } from "../../packages/cli/src/commands/test/list";
+import { TestRunListEnvelope } from "../../packages/cli/src/commands/test/runs";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { cliErrorMessage } from "./cli-error";
 import { type RunCliResult, cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
 import { SEEDED } from "./seed/seeded";
 import { requireServer } from "./server-gate";
 
-const skipReason = requireServer("segment-test › segment test e2e", [
-  "segmentTests",
-  "dataTestRuns",
-]);
+const skipReason = requireServer("test › segment tests", ["segmentTests", "dataTestRuns"]);
 
 const Created = z.object({ id: z.number().int() });
 
 const SEGMENT_BODY = {
-  name: "PositiveIdOrders",
+  name: "Positive id orders",
   table_id: SEEDED.tables.orders,
   definition: {
     database: SEEDED.warehouseDbId,
@@ -51,7 +51,7 @@ const EXPECTATIONS = [
   },
 ];
 
-describe.skipIf(skipReason !== null)("segment test e2e", () => {
+describe.skipIf(skipReason !== null)("test e2e, segment tests", () => {
   let bootstrap: E2EBootstrap;
   const tempDirs: string[] = [];
 
@@ -82,9 +82,8 @@ describe.skipIf(skipReason !== null)("segment test e2e", () => {
 
   async function createSegmentTest(segmentId: number): Promise<number> {
     const test = await mb(
-      ["segment-test", "create", "--json"],
+      ["test", "create", "--id", `segment:${segmentId}`, "--json"],
       JSON.stringify({
-        segment_id: segmentId,
         name: "keeps only positive ids",
         inputs: INPUTS,
         expectations: EXPECTATIONS,
@@ -98,12 +97,18 @@ describe.skipIf(skipReason !== null)("segment test e2e", () => {
     const segmentId = await createSegment();
     const testId = await createSegmentTest(segmentId);
 
-    const list = await mb(["segment-test", "list", "--segment-id", String(segmentId), "--json"]);
+    const list = await mb(["test", "list", "--id", `segment:${segmentId}`, "--json"]);
 
     expect(list.exitCode, list.stderr).toBe(0);
-    expect(parseJson(list.stdout, SegmentTestListEnvelope)).toEqual({
+    expect(parseJson(list.stdout, TestListEnvelope)).toEqual({
       data: [
-        { id: testId, segment_id: segmentId, name: "keeps only positive ids", description: null },
+        {
+          test_type: "segment",
+          id: testId,
+          target_id: segmentId,
+          name: "keeps only positive ids",
+          description: null,
+        },
       ],
       returned: 1,
       offset: 0,
@@ -117,10 +122,10 @@ describe.skipIf(skipReason !== null)("segment test e2e", () => {
     const segmentId = await createSegment();
     const testId = await createSegmentTest(segmentId);
 
-    const get = await mb(["segment-test", "get", String(testId), "--full", "--json"]);
+    const get = await mb(["test", "get", "--id", `segment-test:${testId}`, "--full", "--json"]);
 
     expect(get.exitCode, get.stderr).toBe(0);
-    expect(parseJson(get.stdout, SegmentTest)).toEqual({
+    expect(parseJson(get.stdout, DATA_TEST_SCHEMAS.segment)).toEqual({
       id: testId,
       entity_id: expect.any(String),
       segment_id: segmentId,
@@ -140,14 +145,13 @@ describe.skipIf(skipReason !== null)("segment test e2e", () => {
     const testId = await createSegmentTest(segmentId);
 
     const update = await mb(
-      ["segment-test", "update", String(testId), "--json"],
+      ["test", "update", "--id", `segment-test:${testId}`, "--json"],
       JSON.stringify({ name: "renamed", description: "pins the sign of the id" }),
     );
 
     expect(update.exitCode, update.stderr).toBe(0);
-    expect(parseJson(update.stdout, SegmentTestCompact)).toEqual({
+    expect(parseJson(update.stdout, DataTestCompact)).toEqual({
       id: testId,
-      segment_id: segmentId,
       name: "renamed",
       description: "pins the sign of the id",
     });
@@ -157,19 +161,19 @@ describe.skipIf(skipReason !== null)("segment test e2e", () => {
     const segmentId = await createSegment();
     const testId = await createSegmentTest(segmentId);
 
-    const run = await mb(["segment-test", "run", String(testId), "--json"]);
+    const run = await mb(["test", "run", "--id", `segment-test:${testId}`, "--json"]);
 
     expect(run.exitCode, run.stderr).toBe(0);
-    expect(parseJson(run.stdout, TransformTestRunResult)).toEqual({
+    expect(parseJson(run.stdout, DataTestRunResult)).toEqual({
       status: "passed",
       expectations: [{ name: "no order without a positive id", type: "empty", status: "passed" }],
       tables: expect.any(Object),
     });
 
-    const runs = await mb(["segment-test", "runs", "--test-id", String(testId), "--json"]);
+    const runs = await mb(["test", "runs", "--id", `segment-test:${testId}`, "--json"]);
 
     expect(runs.exitCode, runs.stderr).toBe(0);
-    expect(parseJson(runs.stdout, SegmentTestRunListEnvelope)).toEqual({
+    expect(parseJson(runs.stdout, TestRunListEnvelope)).toEqual({
       data: [
         {
           id: expect.any(Number),
@@ -190,13 +194,12 @@ describe.skipIf(skipReason !== null)("segment test e2e", () => {
     });
   });
 
-  it("exits 1 when an expectation fails, naming it", async () => {
+  it("exits 1 when an expectation fails, naming the test", async () => {
     const segmentId = await createSegment();
     const test = await mb(
-      ["segment-test", "create", "--json"],
+      ["test", "create", "--id", `segment:${segmentId}`, "--json"],
       JSON.stringify({
-        segment_id: segmentId,
-        name: "no order at all",
+        name: "keeps no order",
         inputs: INPUTS,
         expectations: [{ type: "empty", name: "no rows", sql: "SELECT * FROM {{output}}" }],
       }),
@@ -204,17 +207,24 @@ describe.skipIf(skipReason !== null)("segment test e2e", () => {
     expect(test.exitCode, test.stderr).toBe(0);
     const testId = parseJson(test.stdout, Created).id;
 
-    const run = await mb(["segment-test", "run", String(testId)]);
+    const run = await mb(["test", "run", "--id", `segment-test:${testId}`]);
 
     expect(run.exitCode).toBe(1);
-    expect(cliErrorMessage(run.stderr)).toBe(`segment test ${testId} failed`);
+    expect(cliErrorMessage(run.stderr)).toBe(`segment-test:${testId} failed`);
   });
 
   it("deletes a segment test, after which it is not found", async () => {
     const segmentId = await createSegment();
     const testId = await createSegmentTest(segmentId);
 
-    const deleted = await mb(["segment-test", "delete", String(testId), "--yes", "--json"]);
+    const deleted = await mb([
+      "test",
+      "delete",
+      "--id",
+      `segment-test:${testId}`,
+      "--yes",
+      "--json",
+    ]);
 
     expect(deleted.exitCode, deleted.stderr).toBe(0);
     expect(parseJson(deleted.stdout, DeleteResult)).toEqual({
@@ -223,7 +233,7 @@ describe.skipIf(skipReason !== null)("segment test e2e", () => {
       id: testId,
     });
 
-    const get = await mb(["segment-test", "get", String(testId), "--json"]);
+    const get = await mb(["test", "get", "--id", `segment-test:${testId}`, "--json"]);
 
     expect(get.exitCode).toBe(1);
     expect(cliErrorMessage(get.stderr)).toBe(`Not found: GET /api/ee/segment-test/${testId}.`);

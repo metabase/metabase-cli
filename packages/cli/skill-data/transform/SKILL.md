@@ -173,6 +173,12 @@ mb transform run "$ID" --wait --profile <n> --json     # → succeeded
 
 If you really must `create + delete` instead, do the `delete` **before** the first `git-sync export` so the failed entity never lands in git history — an export of a soft-failed state is noise that needs a follow-up cleanup commit. See `git-sync`, "Read state before mutating", for the ordering rule.
 
+<!-- requires: lintReport -->
+
+After a batch of transform changes, run `mb lint --profile <n> --json` (admin). It checks the instance's cards, transforms and segments and returns a report: `status` (`passed` or `failed`) and one entry of `results` per violation, each with its `ruleId`, the entity's `entity_id` (looked up in `entities`) and a message. Fix each one and re-run until `status` is `passed`. A refused key, a timeout or a server error also exits 1 with no report, so read `status` rather than the exit code. It can take minutes after a large import, and gives up after 30.
+
+<!-- /requires -->
+
 <!-- requires: transformTests -->
 
 ## Transform tests

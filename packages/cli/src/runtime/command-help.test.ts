@@ -397,21 +397,21 @@ const ALL_COMMANDS = [
   "transform-test update",
   "transform-test delete",
   "transform-test run",
-  "card-test list",
-  "card-test get",
-  "card-test create",
-  "card-test update",
-  "card-test delete",
-  "card-test run",
-  "card-test runs",
-  "segment-test list",
-  "segment-test get",
-  "segment-test create",
-  "segment-test update",
-  "segment-test delete",
-  "segment-test run",
-  "segment-test runs",
+  "test list",
+  "test get",
+  "test create",
+  "test update",
+  "test delete",
+  "test run",
+  "test runs",
+  "test-suite list",
+  "test-suite get",
+  "test-suite create",
+  "test-suite update",
+  "test-suite delete",
+  "test-suite run",
   "ci run",
+  "lint",
   "setting list",
   "setting get",
   "setting set",
@@ -506,10 +506,10 @@ const BODY_COMMANDS = [
   "transform-tag update",
   "transform-test create",
   "transform-test update",
-  "card-test create",
-  "card-test update",
-  "segment-test create",
-  "segment-test update",
+  "test create",
+  "test update",
+  "test-suite create",
+  "test-suite update",
   "setup",
   "snippet create",
   "snippet update",
@@ -676,69 +676,37 @@ describe("command tree contract", () => {
         .map((entry) => [entry.command, entry.requires]),
     );
     expect(requires).toEqual({
-      "transform-test list": requiresOf("transformTest.list"),
-      "transform-test get": requiresOf("transformTest.get"),
-      "transform-test create": requiresOf("transformTest.create"),
-      "transform-test update": requiresOf("transformTest.update"),
-      "transform-test delete": requiresOf("transformTest.delete"),
-      "transform-test run": requiresOf("transformTest.run"),
+      "transform-test list": requiresOf("dataTest.list"),
+      "transform-test get": requiresOf("dataTest.get"),
+      "transform-test create": requiresOf("dataTest.create"),
+      "transform-test update": requiresOf("dataTest.update"),
+      "transform-test delete": requiresOf("dataTest.delete"),
+      "transform-test run": requiresOf("dataTest.run"),
     });
   });
 
-  it("declares each card-test command's single client method", async () => {
-    const entries = await allEntries();
-    const requires = Object.fromEntries(
-      entries
-        .filter((entry) => entry.command.startsWith("card-test "))
-        .map((entry) => [entry.command, entry.requires]),
-    );
-    expect(requires).toEqual({
-      "card-test list": requiresOf("cardTest.list"),
-      "card-test get": requiresOf("cardTest.get"),
-      "card-test create": requiresOf("cardTest.create"),
-      "card-test update": requiresOf("cardTest.update"),
-      "card-test delete": requiresOf("cardTest.delete"),
-      "card-test run": requiresOf("cardTest.run"),
-      "card-test runs": requiresOf("dataTestRun.list"),
-    });
-  });
-
-  it("declares each segment-test command's single client method", async () => {
-    const entries = await allEntries();
-    const requires = Object.fromEntries(
-      entries
-        .filter((entry) => entry.command.startsWith("segment-test "))
-        .map((entry) => [entry.command, entry.requires]),
-    );
-    expect(requires).toEqual({
-      "segment-test list": requiresOf("segmentTest.list"),
-      "segment-test get": requiresOf("segmentTest.get"),
-      "segment-test create": requiresOf("segmentTest.create"),
-      "segment-test update": requiresOf("segmentTest.update"),
-      "segment-test delete": requiresOf("segmentTest.delete"),
-      "segment-test run": requiresOf("segmentTest.run"),
-      "segment-test runs": requiresOf("dataTestRun.list"),
-    });
-  });
-
-  it("advertises a --limit default only where the endpoint caps itself, so the shared flag description stays true", async () => {
+  it("advertises a --limit default on search and test runs alone, so the shared flag description stays true", async () => {
     const entries = await allEntries();
     const withDefault = Object.fromEntries(
       entries
         .map((entry) => [entry.command, entry.args.find((arg) => arg.name === "limit")] as const)
         .filter(([, limit]) => limit?.default !== undefined),
     );
-    const cappedLimit = {
-      name: "limit",
-      type: "string",
-      required: false,
-      description: "Max items to return",
-      default: "20",
-    };
     expect(withDefault).toEqual({
-      search: cappedLimit,
-      "card-test runs": cappedLimit,
-      "segment-test runs": cappedLimit,
+      search: {
+        name: "limit",
+        type: "string",
+        required: false,
+        description: "Max items to return",
+        default: "20",
+      },
+      "test runs": {
+        name: "limit",
+        type: "string",
+        required: false,
+        description: "Max items to return",
+        default: "20",
+      },
     });
   });
 
