@@ -306,6 +306,36 @@ export const DataTestRunCompact = DataTestRun.pick({
 }).strip();
 export type DataTestRunCompact = z.infer<typeof DataTestRunCompact>;
 
+// What the server tells the caller of a run it refused after it started.
+export const DataTestRunRefusal = z
+  .object({
+    message: z.string(),
+    "error-code": z.string(),
+  })
+  .loose();
+export type DataTestRunRefusal = z.infer<typeof DataTestRunRefusal>;
+
+// One run with the result it stored. `result` is null for a caller who may not run the test, and for
+// a run that stored none: one in flight, one that timed out, or one whose result the server cleared.
+export const DataTestRunDetail = DataTestRun.extend({
+  result: z.union([DataTestRunResult, DataTestRunRefusal]).nullable(),
+  can_read_result: z.boolean(),
+});
+export type DataTestRunDetail = z.infer<typeof DataTestRunDetail>;
+
+export const DataTestRunDetailCompact = DataTestRunDetail.pick({
+  id: true,
+  test_type: true,
+  test_id: true,
+  initiated_by: true,
+  start_time: true,
+  end_time: true,
+  status: true,
+  result: true,
+  can_read_result: true,
+}).strip();
+export type DataTestRunDetailCompact = z.infer<typeof DataTestRunDetailCompact>;
+
 // Every code the server publishes for a test's refusal or failed run is prefixed by its type
 // (`card-test.missing-inputs`), including codes newer than this client.
 export function isDataTestCode(value: string): boolean {
