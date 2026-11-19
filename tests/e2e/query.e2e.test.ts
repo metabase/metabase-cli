@@ -8,9 +8,10 @@ import { ValidationOutcome } from "../../packages/cli/src/core/schema/validate";
 import { readBootstrap, type E2EBootstrap } from "./bootstrap-data";
 import { assertCompactColumns, assertCompletedQuery } from "./card-query";
 import { cleanupConfigHome, mkTempConfigHome, runCli } from "./run-cli";
-import { cliErrorMessage } from "./cli-error";
+import { cliErrorCategory, cliErrorMessage } from "./cli-error";
 import { QUERY_NORMALIZATION_MESSAGE } from "./server-gate";
 import { SEEDED } from "./seed/seeded";
+import { SHORT_TIMEOUT_MS, slowNativeQuery } from "./slow-query";
 
 const VALID_QUERY = {
   "lib/type": "mbql/query",
@@ -544,6 +545,44 @@ describe("query e2e", () => {
     expect(cliErrorMessage(result.stderr)).toBe(
       'invalid --export-format: "html" (expected one of: csv, json, xlsx)',
     );
+    expect(result.stdout).toBe("");
+  });
+
+  it("--timeout shorter than the query fails it with a timeout error", async () => {
+    const result = await runCli({
+      args: ["query", "--timeout", String(SHORT_TIMEOUT_MS), "--json"],
+      stdin: JSON.stringify(slowNativeQuery()),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(cliErrorCategory(result.stderr)).toBe("timeout");
+    expect(cliErrorMessage(result.stderr)).toBe(`Request timed out after ${SHORT_TIMEOUT_MS}ms`);
+    expect(result.stdout).toBe("");
+  });
+
+  it("--timeout bounds an --export-format stream", async () => {
+    const result = await runCli({
+      args: ["query", "--export-format", "csv", "--timeout", String(SHORT_TIMEOUT_MS)],
+      stdin: JSON.stringify(slowNativeQuery()),
+      configHome: await makeIsolatedConfigHome(),
+      env: authEnv(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(`Request timed out after ${SHORT_TIMEOUT_MS}ms`);
+    expect(result.stdout).toBe("");
+  });
+
+  it("--timeout that is not an integer fails with ConfigError before reading the body", async () => {
+    const result = await runCli({
+      args: ["query", "--timeout", "abc", "--json"],
+      configHome: await makeIsolatedConfigHome(),
+    });
+
+    expect(result.exitCode).toBe(2);
+    expect(cliErrorMessage(result.stderr)).toBe('invalid timeout: "abc" (expected integer)');
     expect(result.stdout).toBe("");
   });
 
