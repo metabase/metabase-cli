@@ -500,7 +500,7 @@ describe.skipIf(cardUnitSkipReason !== null)("ci e2e › unit stage › card tes
 
     const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
 
-    expect(result.exitCode, result.stderr).toBe(lintGap === null ? 0 : 1);
+    expect(result.exitCode, result.stderr).toBe(0);
     const events = result.stdout
       .trimEnd()
       .split("\n")
@@ -537,8 +537,8 @@ describe.skipIf(cardUnitSkipReason !== null)("ci e2e › unit stage › card tes
           { type: "stage.end", stage: "unit", status: "passed", stopped: null, skipped: null },
           {
             type: "job.end",
-            state: jobState("passed"),
-            counts: { checks: 1 + SAVED_QUERY_CHECKS, warnings: 0 },
+            state: "passed",
+            counts: { checks: 1 + LINT_CHECKS, warnings: 0 },
           },
         ],
         0,
