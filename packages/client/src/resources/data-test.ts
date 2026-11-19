@@ -12,8 +12,6 @@ import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { explainer, type ParameterRequirement } from "../version/refusal";
 
-const FIXED_CLOCK: ParameterRequirement = { feature: "dataTestFixedClock", fields: ["now"] };
-
 // The feature each type needs beyond the transform tests every server with data tests serves. A
 // server without it has no route for the type, so the request names no field.
 const TYPE_REQUIREMENTS: Record<DataTestType, readonly ParameterRequirement[]> = {
@@ -28,13 +26,8 @@ function typeRequirements(type: DataTestType): readonly ParameterRequirement[] {
   return TYPE_REQUIREMENTS[type];
 }
 
-function carriesNow(body: object): boolean {
-  return "now" in body && body.now !== undefined;
-}
-
-// A server without the fixed clock closes its test bodies without `now`, and answers one a 400.
-function writeRequirements(type: DataTestType, body: object): readonly ParameterRequirement[] {
-  return carriesNow(body) ? [...typeRequirements(type), FIXED_CLOCK] : typeRequirements(type);
+function fixesClock(body: object): boolean {
+  return "now" in body && body.now !== undefined && body.now !== null;
 }
 
 function testsPath(type: DataTestType): string {
@@ -45,6 +38,13 @@ function testsPath(type: DataTestType): string {
 // `encodeURIComponent`.
 export function dataTestResource(transport: Transport) {
   const { explain } = explainer(transport, "dataTest");
+
+  // A server that fixes no clock drops `now` unread and saves the test on the real clock.
+  async function requireFixedClock(body: object, options: RequestOptions): Promise<void> {
+    if (fixesClock(body)) {
+      await transport.requireFeatures(["dataTestFixedClock"], options);
+    }
+  }
 
   /**
    * List the tests of one type the caller can read, optionally only those of one entity. The server
@@ -87,6 +87,7 @@ export function dataTestResource(transport: Transport) {
     definition: DataTestDefinition<T>,
     options: RequestOptions = {},
   ): Promise<DataTest<T>> {
+    await requireFixedClock(definition, options);
     const { features } = await transport.server(options);
     return transport.requestParsed(dataTestSchema(type, features), testsPath(type), {
       ...options,
@@ -105,6 +106,7 @@ export function dataTestResource(transport: Transport) {
     patch: DataTestPatch<T>,
     options: RequestOptions = {},
   ): Promise<DataTest<T>> {
+    await requireFixedClock(patch, options);
     const { features } = await transport.server(options);
     return transport.requestParsed(dataTestSchema(type, features), `${testsPath(type)}/${id}`, {
       ...options,
@@ -148,10 +150,8 @@ export function dataTestResource(transport: Transport) {
   return {
     list: explain("list", list, (type) => typeRequirements(type)),
     get: explain("get", get, (type) => typeRequirements(type)),
-    create: explain("create", create, (type, _entityId, definition) =>
-      writeRequirements(type, definition),
-    ),
-    update: explain("update", update, (type, _id, patch) => writeRequirements(type, patch)),
+    create: explain("create", create, (type) => typeRequirements(type)),
+    update: explain("update", update, (type) => typeRequirements(type)),
     delete: explain("delete", remove, (type) => typeRequirements(type)),
     run: explain("run", run, (type) => typeRequirements(type)),
   };

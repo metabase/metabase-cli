@@ -143,7 +143,7 @@ const noFixedClockSkipReason =
 describe.skipIf(noFixedClockSkipReason !== null)(
   "transform-test e2e, now on a server that fixes no clock",
   () => {
-    it("explains the refused `now` as the feature the server lacks", async () => {
+    it("refuses `now` before sending, naming the feature the server lacks", async () => {
       const transformId = await createTransform();
 
       const created = await mb(

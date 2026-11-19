@@ -63,11 +63,6 @@ const REFUSAL = {
   "transform-id": 7,
 };
 
-const UNKNOWN_NOW_ENVELOPE = {
-  errors: { now: "disallowed key" },
-  "specific-errors": { now: ["disallowed key"] },
-};
-
 const MALLI_ENVELOPE = {
   errors: { name: "value must be a non-blank string." },
   "specific-errors": { name: ["should be at least 1 character"] },
@@ -178,22 +173,23 @@ describe("data-test resource wire requests for a transform test", () => {
   it("sends the fixed clock a definition carries", async () => {
     const definition = { ...DEFINITION, now: "2026-10-13T00:00:00Z" };
     const { mb, capture } = clientOver(
-      [jsonResponse({ ...TEST, now: "2026-10-13T00:00:00Z" })],
+      [probeResponse(LICENSED_66), jsonResponse({ ...TEST, now: "2026-10-13T00:00:00Z" })],
       LICENSED_66,
     );
 
     await mb.dataTest.create("transform", 7, definition);
 
-    expect(capture.calls.map((call) => call.body)).toEqual([
-      JSON.stringify({ ...definition, transform_id: 7 }),
+    expect(capture.calls.map(({ url, body }) => ({ url, body }))).toEqual([
+      { url: `https://mb.example.com/metabase${PROBE_PATH}`, body: null },
+      {
+        url: "https://mb.example.com/metabase/api/ee/transform-test",
+        body: JSON.stringify({ ...definition, transform_id: 7 }),
+      },
     ]);
   });
 
-  it("explains a refused `now` on a server that fixes no clock", async () => {
-    const { mb, capture } = clientOver(
-      [jsonResponse(UNKNOWN_NOW_ENVELOPE, BAD_REQUEST_STATUS), probeResponse(SERVER)],
-      SERVER,
-    );
+  it("refuses `now` before sending to a server that fixes no clock, which would drop it", async () => {
+    const { mb, capture } = clientOver([probeResponse(SERVER)]);
 
     const error = await thrownBy(() =>
       mb.dataTest.update("transform", 12, { now: "2026-10-13T00:00:00Z" }),
@@ -210,9 +206,16 @@ describe("data-test resource wire requests for a transform test", () => {
       serverVersion: "v1.65.0",
     });
     expect(capture.calls.map((call) => call.url)).toEqual([
-      "https://mb.example.com/metabase/api/ee/transform-test/12",
       `https://mb.example.com/metabase${PROBE_PATH}`,
     ]);
+  });
+
+  it("sends a null `now` to a server that fixes no clock, where the test is on the real clock already", async () => {
+    const { mb, capture } = clientOver([jsonResponse(TEST)]);
+
+    await mb.dataTest.update("transform", 12, { now: null });
+
+    expect(capture.calls.map((call) => call.body)).toEqual(['{"now":null}']);
   });
 
   it("sends the get request", async () => {
