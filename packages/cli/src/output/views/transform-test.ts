@@ -1,8 +1,5 @@
-import {
-  type TransformTest,
-  TransformTestCompact,
-  TransformTestRunResult,
-} from "@metabase/client/domain/transform-test";
+import { DataTestRunResult } from "@metabase/client/domain/data-test";
+import { type TransformTest, TransformTestCompact } from "@metabase/client/domain/transform-test";
 
 import type { ResourceView } from "../view";
 
@@ -16,7 +13,7 @@ export const transformTestView: ResourceView<TransformTest> = {
   ],
 };
 
-export const transformTestRunResultView: ResourceView<TransformTestRunResult> = {
-  compactPick: TransformTestRunResult,
+export const transformTestRunResultView: ResourceView<DataTestRunResult> = {
+  compactPick: DataTestRunResult,
   tableColumns: [{ key: "status", label: "Status" }],
 };

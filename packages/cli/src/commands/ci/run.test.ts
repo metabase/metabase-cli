@@ -141,7 +141,7 @@ describe("ci run: committed content only", () => {
       warnings: [
         {
           code: "no-content-changes",
-          message: "the change touches no Metabase content files, so no transform test ran",
+          message: "the change touches no Metabase content files",
         },
         {
           code: "uncommitted-content",
@@ -157,7 +157,7 @@ describe("ci run: committed content only", () => {
 
     expect(after.exitCode).toBe(0);
     expect(planOf(after.stdout)).toEqual({
-      checked: [{ entity_id: A, name: "Alpha" }],
+      checked: [{ type: "transform", entity_id: A, name: "Alpha" }],
       warnings: [],
     });
   });
@@ -165,7 +165,7 @@ describe("ci run: committed content only", () => {
 
 function textOutput(sha: string): string {
   const short = sha.slice(0, 7);
-  return `mb ci run  base ${short}  head ${short}  0 transforms checked\n⚠ the change touches no Metabase content files, so no transform test ran\nPASSED (exit 0)\n`;
+  return `mb ci run  base ${short}  head ${short}  0 entities checked\n⚠ the change touches no Metabase content files\nPASSED (exit 0)\n`;
 }
 
 async function withTty<T>(isTty: boolean, body: () => Promise<T>): Promise<T> {
@@ -454,7 +454,9 @@ describe("ci run: a changed transform tested on Metabase", () => {
       "stage.end",
       "job.end",
     ]);
-    expect(planOf(result.stdout).checked).toEqual([{ entity_id: A, name: "Alpha" }]);
+    expect(planOf(result.stdout).checked).toEqual([
+      { type: "transform", entity_id: A, name: "Alpha" },
+    ]);
     expect(lastTwo(result.stdout)).toEqual([
       {
         ...envelope,
@@ -677,7 +679,7 @@ describe("ci run: a changed transform tested on Metabase", () => {
         detail: {
           error_code: "ci.no-tests-on-instance",
           message:
-            "the branch has a test for this transform, but the Metabase instance lists none, so no test ran; load the branch into it first",
+            "the branch has a test for this entity, but the Metabase instance lists none, so no test ran; load the branch into it first",
         },
       },
       {
@@ -728,7 +730,7 @@ describe("ci run: a changed transform tested on Metabase", () => {
           stopped: {
             code: "ci.no-credential",
             message: expect.stringContaining(
-              "no Metabase credential, so the transform tests did not run: Not authenticated for profile",
+              "no Metabase credential, so the tests did not run: Not authenticated for profile",
             ),
           },
           skipped: null,
@@ -818,36 +820,9 @@ describe("ci run: a changed transform tested on Metabase", () => {
       { ...envelope, seq: 7, type: "job.end", state: "failed", counts: { checks: 2, warnings: 0 } },
     ]);
   });
-
-  it("lints a change that touches content but checks no transform, running no unit stage", async () => {
-    await repo.git("checkout", "-q", "-b", "card-only", "main");
-    await repo.put(
-      "collections/main/cards/revenue.yaml",
-      `name: Revenue by day\nentity_id: ${BROKEN_CARD_ID}\nserdes/meta:\n- model: Card\n`,
-    );
-    await repo.commitAll("change only a card");
-    serveMetabase({
-      properties: LICENSED,
-      lint: () => json(BROKEN_LINT_REPORT),
-      list: () => json([TEST]),
-      run: () => json(PASSED_RUN),
-    });
-
-    const result = await run(["--repo", repo.path, "--base", "main"]);
-
-    expect([
-      result.exitCode,
-      events(result.stdout).map((event) => event.type),
-      events(result.stdout).at(-1),
-    ]).toEqual([
-      1,
-      ["job.start", "stage.start", "check.result", "stage.end", "job.end"],
-      { ...envelope, seq: 4, type: "job.end", state: "failed", counts: { checks: 1, warnings: 0 } },
-    ]);
-  });
 });
 
-describe("ci run: a change that checks no transform, with no Metabase credential", () => {
+describe("ci run: a change that touches no content, with no Metabase credential", () => {
   let home: TempConfigHome;
   const envelope = { job: expect.any(String), at: expect.any(String) };
 
@@ -863,7 +838,7 @@ describe("ci run: a change that checks no transform, with no Metabase credential
     home.cleanup();
   });
 
-  it("still lints the instance when the change touches no content file, ending errored without a credential", async () => {
+  it("runs only the lint stage when the change touches no content file, ending errored without a credential", async () => {
     await repo.put(
       "transforms/a.yaml",
       `name: Alpha\nentity_id: ${A}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,

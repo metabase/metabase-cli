@@ -10,7 +10,7 @@ export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a transform test by id" },
   details:
     "The compact form carries the id, transform, name and description. Pass --full for the `inputs` and `expectations` themselves, which is also the body to edit and send back to `update` once `id`, `entity_id`, `creator_id`, `created_at` and `updated_at` are shed.",
-  requires: ["transformTest.get"],
+  requires: ["dataTest.get"],
   args: {
     ...outputFlags,
     ...profileFlag,
@@ -22,7 +22,7 @@ export default defineMetabaseCommand({
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const client = await getClient();
-    const transformTest = await client.transformTest.get(id);
+    const transformTest = await client.dataTest.get("transform", id);
     renderItem(transformTest, transformTestView, ctx);
   },
 });

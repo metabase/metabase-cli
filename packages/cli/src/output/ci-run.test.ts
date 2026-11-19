@@ -4,10 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import type {
-  TransformTestRow,
-  TransformTestRunResult,
-} from "@metabase/client/domain/transform-test";
+import type { DataTestRow, DataTestRunResult } from "@metabase/client/domain/data-test";
 import { parseJson } from "@metabase/client/json";
 
 import { type CiEventBody, CiEvent, createEmitter } from "../core/ci-events";
@@ -43,6 +40,7 @@ function jobStart(checked: number): CiEventBody {
     v: 2,
     snapshot: { base: BASE, head: HEAD },
     checked: Array.from({ length: checked }, (_, index) => ({
+      type: "transform" as const,
       entity_id: `eid-${index}`,
       name: `transform_${index}`,
     })),
@@ -60,7 +58,7 @@ const CLEAN_INSTANCE: CiEventBody = {
   detail: { errors: 0, warnings: 0, entities: 0 },
 };
 
-function unitCheck(verdict: "passed" | "failed", detail: TransformTestRunResult): CiEventBody {
+function unitCheck(verdict: "passed" | "failed", detail: DataTestRunResult): CiEventBody {
   return {
     type: "check.result",
     stage: "unit",
@@ -73,10 +71,10 @@ function unitCheck(verdict: "passed" | "failed", detail: TransformTestRunResult)
 }
 
 function equalsFailure(
-  missing: TransformTestRow[],
-  extra: TransformTestRow[],
+  missing: DataTestRow[],
+  extra: DataTestRow[],
   truncated: number,
-): TransformTestRunResult {
+): DataTestRunResult {
   return {
     status: "failed",
     tables: {},
@@ -107,7 +105,7 @@ describe("ciEventLines", () => {
       .map((line) => parseJson(line, CiEvent));
 
     expect(textLines(events, DEFAULT_MAX_ROWS)).toEqual([
-      "mb ci run  base 309f2a9  head f33ad9b  1 transform checked",
+      "mb ci run  base 309f2a9  head f33ad9b  1 entity checked",
       "lint",
       '  ✗ card "Order totals by day"',
       "      missing-table-alias  Native SQL reads order_totalz, which no known table matches",
@@ -124,7 +122,7 @@ describe("ciEventLines", () => {
   });
 
   it("renders a passing job as one line per check, without the passed test's expectations", () => {
-    const passed: TransformTestRunResult = {
+    const passed: DataTestRunResult = {
       status: "passed",
       tables: {},
       expectations: [{ name: "order_id is unique", type: "empty", status: "passed" }],
@@ -145,7 +143,7 @@ describe("ciEventLines", () => {
         DEFAULT_MAX_ROWS,
       ),
     ).toEqual([
-      "mb ci run  base 0c9c839  head eff9458  2 transforms checked",
+      "mb ci run  base 0c9c839  head eff9458  2 entities checked",
       "lint",
       "  ✓ Entities on the instance",
       "unit",
@@ -276,7 +274,7 @@ describe("ciEventLines", () => {
         DEFAULT_MAX_ROWS,
       ),
     ).toEqual([
-      "mb ci run  base 0c9c839  head eff9458  1 transform checked",
+      "mb ci run  base 0c9c839  head eff9458  1 entity checked",
       "lint",
       '  ✗ card "Revenue"',
       '      missing-column  Column TOTAL is not on transform "transform_0"',
@@ -307,7 +305,7 @@ describe("ciEventLines", () => {
 
   it("counts the cell mismatches past --max-rows in the +N more line", () => {
     const mismatch = { column: "net_revenue", expected: "0.00", actual: null };
-    const result: TransformTestRunResult = {
+    const result: DataTestRunResult = {
       status: "failed",
       tables: {},
       expectations: [
@@ -334,7 +332,7 @@ describe("ciEventLines", () => {
   });
 
   it("renders a cell mismatch as the column with its expected and actual values", () => {
-    const result: TransformTestRunResult = {
+    const result: DataTestRunResult = {
       status: "failed",
       tables: {},
       expectations: [

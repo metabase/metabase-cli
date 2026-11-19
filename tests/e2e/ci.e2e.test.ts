@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { TransformTestRunResult } from "@metabase/client/domain/transform-test";
+import { DataTestRunResult } from "@metabase/client/domain/data-test";
 import { parseJson } from "@metabase/client/json";
 
 import { CiEvent } from "../../packages/cli/src/core/ci-events";
@@ -85,7 +85,7 @@ describe("ci e2e", () => {
     return dir;
   }
 
-  it("streams one event per line, and writes them to --results, linting even a job with no transform to check", async () => {
+  it("streams one event per line, and writes them to --results, running only the lint stage for a job with nothing to check", async () => {
     const base = await repo.git("rev-parse", "HEAD");
     await repo.put(
       "transforms/draft.yaml",
@@ -114,7 +114,7 @@ describe("ci e2e", () => {
         warnings: [
           {
             code: "no-content-changes",
-            message: "the change touches no Metabase content files, so no transform test ran",
+            message: "the change touches no Metabase content files",
           },
           {
             code: "uncommitted-content",
@@ -226,7 +226,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     });
   }
 
-  it("refuses a changed transform the instance does not have, ending the job errored", async () => {
+  it("refuses a changed transform the instance does not hold", async () => {
     await repo.git("checkout", "-q", "-b", "feature");
     await repo.put(
       "transforms/absent.yaml",
@@ -253,22 +253,16 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
         warnings: [],
         ms: 0,
         detail: {
-          error_code: "ci.transform-not-on-instance",
+          error_code: "ci.entity-not-on-instance",
           message:
-            "the transform is in the branch but not on the Metabase instance; load the branch into it first",
+            "the entity is in the branch but not on the Metabase instance; load the branch into it first",
         },
       },
-      {
-        type: "stage.end",
-        stage: "unit",
-        status: "errored",
-        stopped: null,
-        skipped: null,
-      },
+      { type: "stage.end", stage: "unit", status: "errored", stopped: null, skipped: null },
       {
         type: "job.end",
         state: "errored",
-        counts: { checks: 1 + SAVED_QUERY_CHECKS, warnings: 0 },
+        counts: { checks: SAVED_QUERY_CHECKS + 1, warnings: 0 },
       },
     ];
     expect(events.slice(1)).toEqual(sequenced(expected, 1));
@@ -328,7 +322,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
           type: "job.start",
           v: 2,
           snapshot: { base, head },
-          checked: [{ entity_id: entityId, name: "Order totals" }],
+          checked: [{ type: "transform", entity_id: entityId, name: "Order totals" }],
           warnings: [],
         },
         ...lintStage(),
@@ -390,7 +384,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
       if (check === undefined) {
         throw new Error("no unit check.result event");
       }
-      return Object.values(TransformTestRunResult.parse(check.detail).tables).toSorted();
+      return Object.values(DataTestRunResult.parse(check.detail).tables).toSorted();
     }
 
     const broken = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
