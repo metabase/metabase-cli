@@ -1,6 +1,6 @@
 import { renderItem } from "../../output/render";
 import { AnyTest } from "../../core/data-test";
-import { anyTestView } from "../../output/views/data-test";
+import { testView } from "../../output/views/data-test";
 import { interruptSignal } from "../../runtime/interrupt";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseTestRef } from "../test-ref";
@@ -8,7 +8,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a data test" },
-  details: "Pass --full for the `inputs` and `expectations`, the fields `update` takes.",
+  details:
+    "A transform or card test shows `now`, the moment it reads as the current time, or null on the real clock. Pass --full for the `inputs` and `expectations`, the fields `update` takes.",
   requires: ["dataTest.get"],
   args: {
     ...outputFlags,
@@ -22,6 +23,6 @@ export default defineMetabaseCommand({
     const ref = parseTestRef(args.id);
     const client = await getClient();
     const test = await client.dataTest.get(ref.type, ref.id, { signal: interruptSignal });
-    renderItem(test, anyTestView, ctx);
+    renderItem(test, testView(ref.type), ctx);
   },
 });

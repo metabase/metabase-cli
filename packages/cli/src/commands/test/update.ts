@@ -1,6 +1,6 @@
 import { renderSummary } from "../../output/render";
 import { AnyTest } from "../../core/data-test";
-import { anyTestView } from "../../output/views/data-test";
+import { testView } from "../../output/views/data-test";
 import { interruptSignal } from "../../runtime/interrupt";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
@@ -11,7 +11,7 @@ import { refuseForeignFields, TestPatch } from "./body";
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a data test from JSON" },
   details:
-    "Only the fields the body carries are patched; `inputs` and `expectations` replace what is stored.",
+    "Only the fields the body carries are patched; `inputs` and `expectations` replace what is stored, and a null `now` puts a transform or card test back on the real clock.",
   requires: ["dataTest.update"],
   args: {
     ...outputFlags,
@@ -34,6 +34,6 @@ export default defineMetabaseCommand({
     const updated = await client.dataTest.update(ref.type, ref.id, patch, {
       signal: interruptSignal,
     });
-    renderSummary(updated, anyTestView, `Updated ${testRefText(ref)}.`, ctx);
+    renderSummary(updated, testView(ref.type), `Updated ${testRefText(ref)}.`, ctx);
   },
 });

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { DATA_TEST_SCHEMAS, DataTestDefinition } from "./data-test";
+import { DATA_TEST_SCHEMAS, DataTestDefinitionWithNow } from "./data-test";
 
 export const TransformTest = DATA_TEST_SCHEMAS.transform;
 export type TransformTest = z.infer<typeof TransformTest>;
@@ -10,6 +10,7 @@ export const TransformTestCompact = TransformTest.pick({
   transform_id: true,
   name: true,
   description: true,
+  now: true,
 }).strip();
 export type TransformTestCompact = z.infer<typeof TransformTestCompact>;
 
@@ -18,7 +19,7 @@ export type TransformTestCompact = z.infer<typeof TransformTestCompact>;
  * instead: a body cloned from `get` has to shed `id`, `entity_id`, `creator_id`, `created_at` and
  * `updated_at` before it can be sent back.
  */
-export const TransformTestCreateInput = DataTestDefinition.extend({
+export const TransformTestCreateInput = DataTestDefinitionWithNow.extend({
   transform_id: z.number().int().positive(),
 }).strict();
 export type TransformTestCreateInput = z.infer<typeof TransformTestCreateInput>;
@@ -41,6 +42,7 @@ export const TransformTestRefusalCode = z.enum([
   "transform-test.setup-failed",
   "transform-test.expectation-failed",
   "transform-test.unsupported-format",
+  "transform-test.now-on-native-sql",
 ]);
 export type TransformTestRefusalCode = z.infer<typeof TransformTestRefusalCode>;
 

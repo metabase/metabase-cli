@@ -1,18 +1,18 @@
 import { z } from "zod";
 
 import {
-  DATA_TEST_SCHEMAS,
   type DataTest,
   type DataTestDefinition,
   type DataTestPatch,
   DataTestRunResult,
+  dataTestSchema,
   type DataTestType,
 } from "../domain/data-test";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { explainer, type ParameterRequirement } from "../version/refusal";
 
-const SCHEMAS: { [T in DataTestType]: z.ZodType<DataTest<T>> } = DATA_TEST_SCHEMAS;
+const FIXED_CLOCK: ParameterRequirement = { feature: "dataTestFixedClock", fields: ["now"] };
 
 // The feature each type needs beyond the transform tests every server with data tests serves. A
 // server without it has no route for the type, so the request names no field.
@@ -26,6 +26,15 @@ const TYPE_REQUIREMENTS: Record<DataTestType, readonly ParameterRequirement[]> =
 
 function typeRequirements(type: DataTestType): readonly ParameterRequirement[] {
   return TYPE_REQUIREMENTS[type];
+}
+
+function carriesNow(body: object): boolean {
+  return "now" in body && body.now !== undefined;
+}
+
+// A server without the fixed clock closes its test bodies without `now`, and answers one a 400.
+function writeRequirements(type: DataTestType, body: object): readonly ParameterRequirement[] {
+  return carriesNow(body) ? [...typeRequirements(type), FIXED_CLOCK] : typeRequirements(type);
 }
 
 function testsPath(type: DataTestType): string {
@@ -46,7 +55,9 @@ export function dataTestResource(transport: Transport) {
     entityId: number | null = null,
     options: RequestOptions = {},
   ): Promise<ListResult<DataTest<T>>> {
-    const data = await transport.requestParsed(z.array(SCHEMAS[type]), testsPath(type), {
+    const { features } = await transport.server(options);
+    const reader = z.array(dataTestSchema(type, features));
+    const data = await transport.requestParsed(reader, testsPath(type), {
       ...options,
       query: { [`${type}-id`]: entityId === null ? undefined : entityId },
     });
@@ -59,7 +70,10 @@ export function dataTestResource(transport: Transport) {
     id: number,
     options: RequestOptions = {},
   ): Promise<DataTest<T>> {
-    return transport.requestParsed(SCHEMAS[type], `${testsPath(type)}/${id}`, { ...options });
+    const { features } = await transport.server(options);
+    return transport.requestParsed(dataTestSchema(type, features), `${testsPath(type)}/${id}`, {
+      ...options,
+    });
   }
 
   /**
@@ -73,7 +87,8 @@ export function dataTestResource(transport: Transport) {
     definition: DataTestDefinition<T>,
     options: RequestOptions = {},
   ): Promise<DataTest<T>> {
-    return transport.requestParsed(SCHEMAS[type], testsPath(type), {
+    const { features } = await transport.server(options);
+    return transport.requestParsed(dataTestSchema(type, features), testsPath(type), {
       ...options,
       method: "POST",
       body: { ...definition, [`${type}_id`]: entityId },
@@ -90,7 +105,8 @@ export function dataTestResource(transport: Transport) {
     patch: DataTestPatch<T>,
     options: RequestOptions = {},
   ): Promise<DataTest<T>> {
-    return transport.requestParsed(SCHEMAS[type], `${testsPath(type)}/${id}`, {
+    const { features } = await transport.server(options);
+    return transport.requestParsed(dataTestSchema(type, features), `${testsPath(type)}/${id}`, {
       ...options,
       method: "PUT",
       body: patch,
@@ -132,8 +148,10 @@ export function dataTestResource(transport: Transport) {
   return {
     list: explain("list", list, (type) => typeRequirements(type)),
     get: explain("get", get, (type) => typeRequirements(type)),
-    create: explain("create", create, (type) => typeRequirements(type)),
-    update: explain("update", update, (type) => typeRequirements(type)),
+    create: explain("create", create, (type, _entityId, definition) =>
+      writeRequirements(type, definition),
+    ),
+    update: explain("update", update, (type, _id, patch) => writeRequirements(type, patch)),
     delete: explain("delete", remove, (type) => typeRequirements(type)),
     run: explain("run", run, (type) => typeRequirements(type)),
   };

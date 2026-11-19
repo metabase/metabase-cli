@@ -13,6 +13,7 @@ const STORED = {
   creator_id: 1,
   name: "people summary holds one row",
   description: null,
+  now: "2026-10-13T00:00:00Z",
   inputs: [{ table: { schema: "public", name: "people" }, format: "sql", sql: "SELECT 1 AS id" }],
   expectations: [{ type: "empty", name: "no null ids", sql: "SELECT * FROM out" }],
   created_at: "2026-09-15T12:00:00Z",
@@ -51,6 +52,7 @@ describe("TransformTestCreateInput", () => {
       transform_id: 7,
       name: "people summary holds one row",
       description: null,
+      now: "2026-10-13T00:00:00Z",
       inputs: [
         { table: { schema: "public", name: "people" }, format: "sql", sql: "SELECT 1 AS id" },
       ],
@@ -72,6 +74,10 @@ describe("TransformTestUpdateInput", () => {
         message: 'Unrecognized key: "id"',
       },
     ]);
+  });
+
+  it("clears the fixed clock with a null", () => {
+    expect(TransformTestUpdateInput.parse({ now: null })).toEqual({ now: null });
   });
 
   it("patches a single field", () => {

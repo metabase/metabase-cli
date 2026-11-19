@@ -63,6 +63,11 @@ const REFUSAL = {
   "transform-id": 7,
 };
 
+const UNKNOWN_NOW_ENVELOPE = {
+  errors: { now: "disallowed key" },
+  "specific-errors": { now: ["disallowed key"] },
+};
+
 const MALLI_ENVELOPE = {
   errors: { name: "value must be a non-blank string." },
   "specific-errors": { name: ["should be at least 1 character"] },
@@ -114,6 +119,14 @@ const LICENSED_64 = createServerProfile({
   tokenFeatures: { "transforms-testing": true },
 });
 
+const LICENSED_66 = createServerProfile({
+  edition: "ee",
+  version: { kind: "release", tag: "v1.66.0", major: 66, patch: 0 },
+  date: null,
+  hash: null,
+  tokenFeatures: { "transforms-testing": true },
+});
+
 function clientOver(responses: FetchScript, server: ServerProfile = SERVER) {
   const capture = captureFetch(responses);
   const mb = createClient(CREDENTIALS, {
@@ -143,7 +156,63 @@ describe("data-test resource wire requests for a transform test", () => {
   it("reports no total for the listing, which the server does not count", async () => {
     const { mb } = clientOver([jsonResponse([TEST])]);
 
-    expect(await mb.dataTest.list("transform")).toEqual({ data: [TEST], total: null });
+    expect(await mb.dataTest.list("transform")).toEqual({
+      data: [{ ...TEST, now: null }],
+      total: null,
+    });
+  });
+
+  it("reads the fixed clock a test carries", async () => {
+    const stored = { ...TEST, now: "2026-10-13T00:00:00Z" };
+    const { mb } = clientOver([jsonResponse(stored)], LICENSED_66);
+
+    expect(await mb.dataTest.get("transform", 12)).toEqual(stored);
+  });
+
+  it("reads a test as on the real clock from a server that fixes none", async () => {
+    const { mb } = clientOver([jsonResponse(TEST)]);
+
+    expect(await mb.dataTest.get("transform", 12)).toEqual({ ...TEST, now: null });
+  });
+
+  it("sends the fixed clock a definition carries", async () => {
+    const definition = { ...DEFINITION, now: "2026-10-13T00:00:00Z" };
+    const { mb, capture } = clientOver(
+      [jsonResponse({ ...TEST, now: "2026-10-13T00:00:00Z" })],
+      LICENSED_66,
+    );
+
+    await mb.dataTest.create("transform", 7, definition);
+
+    expect(capture.calls.map((call) => call.body)).toEqual([
+      JSON.stringify({ ...definition, transform_id: 7 }),
+    ]);
+  });
+
+  it("explains a refused `now` on a server that fixes no clock", async () => {
+    const { mb, capture } = clientOver(
+      [jsonResponse(UNKNOWN_NOW_ENVELOPE, BAD_REQUEST_STATUS), probeResponse(SERVER)],
+      SERVER,
+    );
+
+    const error = await thrownBy(() =>
+      mb.dataTest.update("transform", 12, { now: "2026-10-13T00:00:00Z" }),
+    );
+
+    assert(error instanceof CapabilityError, "expected CapabilityError");
+    expect(error.developerDetail).toEqual({
+      reason: "version-too-old",
+      detail:
+        "This operation requires Metabase v66+ (this server is v1.65.0). Upgrade Metabase to use it.",
+      feature: "dataTestFixedClock",
+      since: 66,
+      tokenFeature: "transforms-testing",
+      serverVersion: "v1.65.0",
+    });
+    expect(capture.calls.map((call) => call.url)).toEqual([
+      "https://mb.example.com/metabase/api/ee/transform-test/12",
+      `https://mb.example.com/metabase${PROBE_PATH}`,
+    ]);
   });
 
   it("sends the get request", async () => {
@@ -329,7 +398,7 @@ const LICENSED_65 = SERVER;
 
 describe.each(DATA_TEST_TYPES)("data-test resource wire requests for a %s test", (type) => {
   const { transform_id: _transformId, ...shared } = TEST;
-  const stored = { ...shared, [`${type}_id`]: 7, parameters: {} };
+  const stored = { ...shared, [`${type}_id`]: 7, parameters: {}, now: null };
   const base = `https://mb.example.com/metabase/api/ee/${type}-test`;
 
   it("lists the tests of one entity under the type's own filter", async () => {

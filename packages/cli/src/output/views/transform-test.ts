@@ -10,6 +10,7 @@ export const transformTestView: ResourceView<TransformTest> = {
     { key: "transform_id", label: "Transform" },
     { key: "name", label: "Name" },
     { key: "description", label: "Description" },
+    { key: "now", label: "Now" },
   ],
 };
 
