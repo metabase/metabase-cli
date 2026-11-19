@@ -8,9 +8,11 @@ import {
 } from "@metabase/client/domain/transform-test";
 import { InternalError } from "@metabase/client/errors";
 
+import { BrokenRefsDetail } from "../core/ci-broken-refs";
 import type { CiEvent, JobState, Verdict } from "../core/ci-events";
-import { pluralize } from "./pluralize";
 import { exitCodeFor } from "./error";
+import { lintResultLines } from "./lint";
+import { pluralize } from "./pluralize";
 
 type CheckResult = Extract<CiEvent, { type: "check.result" }>;
 type StageEnd = Extract<CiEvent, { type: "stage.end" }>;
@@ -33,40 +35,17 @@ const VERDICT_MARK: Readonly<Record<Verdict, string>> = {
   refused: "!",
 };
 
-// Which kinds of check have failed so far. A failed coverage check asks for a test, any other
-// failed check for a fix to the transform, so the job.end line can name the fix.
-export type FailedChecks = "none" | "tests" | "transform" | "both";
-export const NO_FAILED_CHECKS: FailedChecks = "none";
-
-const FAILED_TEXT: Readonly<Record<FailedChecks, string>> = {
-  none: "FAILED  fix the transform",
-  transform: "FAILED  fix the transform",
-  tests: "FAILED  add or restore transform tests",
-  both: "FAILED  fix the transform and add the missing tests",
-};
-
+const FAILED_TEXT = "FAILED  fix what the failed checks name";
 const ERRORED_TEXT = "ERRORED  fix the test or the setup";
 
-// A refused transform test and a failed coverage check carry a message as their detail; a request
-// that failed with an HTTP answer also carries its status.
+// A refused transform test carries a message as its detail; a request that failed with an HTTP
+// answer also carries its status.
 const CheckMessage = z.object({ message: z.string() });
 const HttpFailureMessage = CheckMessage.extend({ status: z.number().int() });
 
-export function failedChecksAfter(failed: FailedChecks, event: CiEvent): FailedChecks {
-  if (event.type !== "check.result" || event.verdict !== "failed") {
-    return failed;
-  }
-  const kind = event.check.kind === "coverage" ? "tests" : "transform";
-  if (failed === "none" || failed === kind) {
-    return kind;
-  }
-  return "both";
-}
-
 // The text form of one CI event: a line or more, or none for an event the next one makes plain.
 // A failed expectation shows at most `maxRows` row lines; the rest are in the --results file.
-// `failed` is the fold of `failedChecksAfter` over the events before this one.
-export function ciEventLines(event: CiEvent, maxRows: number, failed: FailedChecks): string[] {
+export function ciEventLines(event: CiEvent, maxRows: number): string[] {
   switch (event.type) {
     case "job.start": {
       const checked = pluralize(event.checked.length, "transform", "transforms");
@@ -83,7 +62,7 @@ export function ciEventLines(event: CiEvent, maxRows: number, failed: FailedChec
       return stageEndLines(event);
     }
     case "job.end": {
-      return [`${jobEndText(event.state, failed)} (exit ${jobExitCode(event.state)})`];
+      return [`${jobEndText(event.state)} (exit ${jobExitCode(event.state)})`];
     }
     default: {
       const unhandled: never = event;
@@ -96,6 +75,9 @@ function stageEndLines(event: StageEnd): string[] {
   if (event.stopped !== null) {
     return [`${event.stage}  stopped: ${event.stopped.message} (${event.stopped.code})`];
   }
+  if (event.skipped !== null) {
+    return [`${event.stage}  skipped: ${event.skipped.message} (${event.skipped.code})`];
+  }
   return [];
 }
 
@@ -103,11 +85,11 @@ function shortSha(sha: string): string {
   return sha.slice(0, SHORT_SHA_LENGTH);
 }
 
-function jobEndText(state: JobState, failed: FailedChecks): string {
+function jobEndText(state: JobState): string {
   if (state === "passed") {
     return "PASSED";
   }
-  return state === "failed" ? FAILED_TEXT[failed] : ERRORED_TEXT;
+  return state === "failed" ? FAILED_TEXT : ERRORED_TEXT;
 }
 
 function jobExitCode(state: JobState): number {
@@ -134,8 +116,8 @@ function duration(ms: number): string {
   return `${(ms / MS_PER_SECOND).toFixed(1)}s`;
 }
 
-// A transform test's result, or else a message. The runner wrote the detail, so one that is
-// neither is a bug in the runner.
+// A transform test's result, an entity's lint errors, or else a message. The runner wrote the
+// detail, so one that is none of these is a bug in the runner.
 function detailLines(event: CheckResult, maxRows: number): string[] {
   const result = TransformTestRunResult.safeParse(event.detail);
   if (result.success) {
@@ -146,6 +128,10 @@ function detailLines(event: CheckResult, maxRows: number): string[] {
   const httpFailure = HttpFailureMessage.safeParse(event.detail);
   if (httpFailure.success) {
     return [`${DETAIL_INDENT}${httpFailure.data.message} (HTTP ${httpFailure.data.status})`];
+  }
+  const brokenRefs = BrokenRefsDetail.safeParse(event.detail);
+  if (brokenRefs.success) {
+    return lintResultLines(brokenRefs.data.errors, DETAIL_INDENT);
   }
   const message = CheckMessage.safeParse(event.detail);
   if (!message.success) {

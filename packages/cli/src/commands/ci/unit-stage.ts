@@ -158,7 +158,7 @@ async function checkTransform(
   if (tests.kind !== "settled") {
     return reportFailure(tests, transformCheck, port.nowMs() - started, report);
   }
-  // A transform the branch has no test for is the coverage check's to report.
+  // A transform the branch has no test for has nothing to run, so it reports nothing.
   if (tests.value.length === 0 && !untestedInBranch) {
     report({
       check: transformCheck,
@@ -190,7 +190,7 @@ async function checkTransform(
   return null;
 }
 
-// The stage connects only when it runs, so the lint stage reports before a server is asked for.
+// The stage connects only when it runs, so a missing credential ends the stage, not the job.
 export function unitStage(
   checked: readonly CheckedTransform[],
   untestedInBranch: ReadonlySet<string>,
@@ -203,7 +203,7 @@ export function unitStage(
       try {
         port = await connect();
       } catch (error) {
-        const stop = connectStop(error);
+        const stop = connectStop(error, "the transform tests did not run");
         if (stop === null) {
           throw error;
         }

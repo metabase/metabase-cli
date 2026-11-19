@@ -130,8 +130,8 @@ function sessionStop(error: unknown): StageStop | null {
   return null;
 }
 
-// The entity-id lookup serves every checked transform, so any failure of it stops the stage. Null
-// means a bug or an interrupt, which the caller rethrows.
+// A request every later check depends on, such as the entity-id lookup, stops the stage when it
+// fails. Null means a bug or an interrupt, which the caller rethrows.
 export function lookupStop(error: unknown): StageStop | null {
   const stop = sessionStop(error);
   if (stop !== null) {
@@ -141,15 +141,16 @@ export function lookupStop(error: unknown): StageStop | null {
   return failure === null ? null : { code: failure.error_code, message: failure.message };
 }
 
-// With no credential, the stage ends without a test run rather than ending the job, so the lint
-// stage's findings still decide its state. Null for any other error, which the caller rethrows.
-export function connectStop(error: unknown): StageStop | null {
+// With no credential, the stage ends without its requests rather than ending the job, so the other
+// stages' findings still decide its state. `skipped` names what the stage did not do. Null for any
+// other error, which the caller rethrows.
+export function connectStop(error: unknown, skipped: string): StageStop | null {
   if (!(error instanceof NotAuthenticatedError)) {
     return null;
   }
   return {
     code: "ci.no-credential",
-    message: `no Metabase credential, so the transform tests did not run: ${error.message}`,
+    message: `no Metabase credential, so ${skipped}: ${error.message}`,
   };
 }
 
