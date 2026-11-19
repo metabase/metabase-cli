@@ -463,6 +463,82 @@ mb transform-test run 1 --timeout 300000
 | ---------------- | -------------------------------------------------------------------------- |
 | `--timeout <ms>` | Request timeout in ms (default 30000); the run is one synchronous request. |
 
+## Data tests
+
+One command for the tests of every entity type: `transform`, `card`, `segment`, `measure` and `action`. A test replaces every table the entity reads with an `input` fixture, runs the entity against those fixtures, and checks each `expectation` against the result. Requires the `transforms-testing` premium feature; transform tests need Metabase v65 or newer and every other type v66 or newer. A server without a type refuses with exit code 2, naming the missing feature.
+
+`--id` names either the entity under test (`card:12`) or one of its tests (`card-test:34`). `list` and `create` take the entity; `get`, `update`, `delete`, `run` and `runs` take the test.
+
+The create body is a [transform test](#transform-tests) body without the entity's id, which `--id` carries. Expectation SQL names the entity's result `{{output}}`. `now` fixes the time the entity reads as the current time, and `parameters` are the values an action test calls its action with.
+
+### `mb test list`
+
+```sh
+mb test list
+mb test list --id card:12
+mb test list --type segment --json
+```
+
+| Flag            | Description                                  |
+| --------------- | -------------------------------------------- |
+| `--id <ref>`    | Only the tests of this entity, as `card:12`. |
+| `--type <type>` | Only tests of this type.                     |
+
+Without `--id` or `--type`, a type the server does not support is left out.
+
+### `mb test get`
+
+```sh
+mb test get --id card-test:34
+mb test get --id card-test:34 --full --json
+```
+
+### `mb test create`
+
+```sh
+mb test create --id card:12 --file test.json
+```
+
+### `mb test update`
+
+Only the fields the body carries are patched; `inputs` and `expectations` replace what is stored.
+
+```sh
+mb test update --id card-test:34 --body '{"name":"renamed"}'
+```
+
+### `mb test delete`
+
+```sh
+mb test delete --id card-test:34 --yes
+```
+
+### `mb test run`
+
+Runs one test and reports what each expectation found. Exits 1 when the test does not pass. A run the server refuses fails with an `error_code` that starts with the test's kind, such as `card-test.`.
+
+```sh
+mb test run --id card-test:34
+mb test run --id card-test:34 --timeout 300000
+```
+
+### `mb test runs`
+
+Lists runs, newest first, from `/api/ee/data-test-run`: those of one test with `--id`, or of every test of one type with `--type`. A run's `status` is `started` while it is in flight, then `passed`, `failed`, `error` or `timeout`.
+
+```sh
+mb test runs --id card-test:34
+mb test runs --type card --json
+mb test runs --type transform --statuses failed,error --limit 50
+```
+
+| Flag                | Description                                    |
+| ------------------- | ---------------------------------------------- |
+| `--id <ref>`        | Only the runs of this test, as `card-test:34`. |
+| `--type <type>`     | The runs of every test of this type.           |
+| `--statuses <list>` | Only runs in these states, comma separated.    |
+| `--limit <n>`       | Max runs to return (default 20).               |
+
 ## Lint
 
 ### `mb lint`

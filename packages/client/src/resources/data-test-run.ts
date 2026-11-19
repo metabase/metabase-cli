@@ -2,17 +2,21 @@ import { z } from "zod";
 
 import { DataTestRun, type DataTestRunStatus, type DataTestType } from "../domain/data-test";
 import type { RequestOptions, Transport } from "../http/transport";
-import type { ListResult } from "../list";
 import { explainer } from "../version/refusal";
 
 const DATA_TEST_RUN_PATH = "/api/ee/data-test-run";
 
-const DataTestRunPage = z
+const DataTestRunPageWire = z
   .object({
     data: z.array(DataTestRun),
     total: z.number().int(),
   })
   .loose();
+
+export interface DataTestRunPage {
+  data: DataTestRun[];
+  total: number;
+}
 
 export interface DataTestRunListParams {
   "test-type": DataTestType;
@@ -34,8 +38,8 @@ export function dataTestRunResource(transport: Transport) {
   async function list(
     params: DataTestRunListParams,
     options: RequestOptions = {},
-  ): Promise<ListResult<DataTestRun>> {
-    const page = await transport.requestParsed(DataTestRunPage, DATA_TEST_RUN_PATH, {
+  ): Promise<DataTestRunPage> {
+    const page = await transport.requestParsed(DataTestRunPageWire, DATA_TEST_RUN_PATH, {
       ...options,
       query: { ...params },
     });

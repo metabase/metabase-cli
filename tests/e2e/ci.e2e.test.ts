@@ -20,14 +20,13 @@ const ANY_ENVELOPE = { job: expect.any(String), at: expect.any(String) };
 
 const lintGap = requirementFailure(["lintReport"]);
 const SAVED_QUERY_CHECKS = lintGap === null ? 1 : 0;
-type CheckedState = "passed" | "failed" | "errored";
 
 function sequenced(bodies: readonly object[], firstSeq: number): unknown[] {
   return bodies.map((body, index) => ({ ...ANY_ENVELOPE, ...body, seq: firstSeq + index }));
 }
 
 // The lint stage on this stack: a clean check of the instance's entities, or, on a stack
-// without the lint report, a stop that leaves the stage errored.
+// without the lint report, a skip that leaves the stage passed.
 function lintStage(): object[] {
   const start = { type: "stage.start", stage: "lint" };
   if (lintGap === null) {
@@ -50,16 +49,11 @@ function lintStage(): object[] {
     {
       type: "stage.end",
       stage: "lint",
-      status: "errored",
-      stopped: { code: "ci.unsupported-server", message: lintGap.detail },
-      skipped: null,
+      status: "passed",
+      stopped: null,
+      skipped: { code: "ci.lint-unsupported", message: lintGap.detail },
     },
   ];
-}
-
-// The state of a job whose other stages end `others`, which a stopped lint stage turns errored.
-function jobState(others: CheckedState): CheckedState {
-  return lintGap !== null && others === "passed" ? "errored" : others;
 }
 
 function testYaml(transformEntityId: string): string {
@@ -362,7 +356,7 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
         },
         {
           type: "job.end",
-          state: jobState(verdict),
+          state: verdict,
           counts: { checks: 1 + SAVED_QUERY_CHECKS, warnings: 0 },
         },
       ];
@@ -409,9 +403,147 @@ describe.skipIf(unitSkipReason !== null)("ci e2e › unit stage", () => {
     expect(fixed.exitCode, fixed.stderr).toBe(0);
     const passing = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
 
-    expect(passing.exitCode, passing.stderr).toBe(lintGap === null ? 0 : 1);
+    expect(passing.exitCode, passing.stderr).toBe(0);
     expect(eventsOf(passing.stdout)).toEqual(
       expectedEvents("passed", { "extra-rows": [], "missing-rows": [], "cell-mismatches": [] }),
+    );
+  });
+});
+
+const cardUnitSkipReason = requireServer("ci › unit stage › card tests", ["cardTests"]);
+
+describe.skipIf(cardUnitSkipReason !== null)("ci e2e › unit stage › card tests", () => {
+  const tempDirs: string[] = [];
+  let repo: TempGitRepo;
+  let bootstrap: E2EBootstrap;
+
+  beforeAll(async () => {
+    bootstrap = await readBootstrap();
+  });
+
+  beforeEach(async () => {
+    repo = await createTempGitRepo();
+  });
+
+  afterEach(async () => {
+    await repo.remove();
+    await Promise.all(tempDirs.splice(0).map(cleanupConfigHome));
+  });
+
+  async function mb(args: string[], stdin?: string): Promise<RunCliResult> {
+    const dir = await mkTempConfigHome();
+    tempDirs.push(dir);
+    return runCli({
+      args,
+      configHome: dir,
+      env: { MB_URL: bootstrap.baseUrl, MB_API_KEY: bootstrap.adminApiKey },
+      ...(stdin === undefined ? {} : { stdin }),
+    });
+  }
+
+  it("runs the card test of a card the branch changed, as a card-test check", async () => {
+    const card = await mb(
+      ["card", "create", "--json"],
+      JSON.stringify({
+        name: "Order totals",
+        display: "table",
+        visualization_settings: {},
+        collection_id: SEEDED.defaultCollectionId,
+        dataset_query: {
+          type: "native",
+          database: SEEDED.warehouseDbId,
+          native: { query: "SELECT id, subtotal_cents + tax_cents AS total_cents FROM orders" },
+        },
+      }),
+    );
+    expect(card.exitCode, card.stderr).toBe(0);
+    const cardId = parseJson(card.stdout, Created).id;
+    const full = await mb(["card", "get", String(cardId), "--full", "--json"]);
+    const entityId = parseJson(full.stdout, WithEntityId).entity_id;
+    const test = await mb(
+      ["test", "create", "--id", `card:${cardId}`, "--json"],
+      JSON.stringify({
+        name: "totals are never negative",
+        inputs: [
+          {
+            table: { schema: "public", name: "orders" },
+            format: "rows",
+            columns: [
+              { name: "id", cast_type: "INTEGER" },
+              { name: "subtotal_cents", cast_type: "BIGINT" },
+              { name: "tax_cents", cast_type: "BIGINT" },
+            ],
+            rows: [{ id: 1, subtotal_cents: 100, tax_cents: 10 }],
+          },
+        ],
+        expectations: [
+          {
+            type: "empty",
+            name: "no negative totals",
+            sql: "SELECT * FROM {{output}} WHERE total_cents < 0",
+          },
+        ],
+      }),
+    );
+    expect(test.exitCode, test.stderr).toBe(0);
+    const testId = String(parseJson(test.stdout, Created).id);
+    const base = await repo.git("rev-parse", "HEAD");
+    await repo.git("checkout", "-q", "-b", "feature");
+    await repo.put(
+      "collections/main/cards/order_totals.yaml",
+      `name: Order totals\nentity_id: ${entityId}\nserdes/meta:\n- model: Card\n`,
+    );
+    await repo.put(
+      "collections/main/cards/order_totals/totals_are_never_negative.yaml",
+      `entity_id: bRvM7DLesF1fOV4kRHidq\ncard_id: ${entityId}\nexpectations:\n- name: no negative totals\n  type: empty\nserdes/meta:\n- model: CardTest\n`,
+    );
+    const head = await repo.commitAll("add card and its test");
+
+    const result = await mb(["ci", "run", "--repo", repo.path, "--base", "main"]);
+
+    expect(result.exitCode, result.stderr).toBe(0);
+    const events = result.stdout
+      .trimEnd()
+      .split("\n")
+      .map((line) => parseJson(line, CiEvent));
+    expect(events).toEqual(
+      sequenced(
+        [
+          {
+            type: "job.start",
+            v: 2,
+            snapshot: { base, head },
+            checked: [{ type: "card", entity_id: entityId, name: "Order totals" }],
+            warnings: [],
+          },
+          ...lintStage(),
+          { type: "stage.start", stage: "unit" },
+          {
+            type: "check.result",
+            stage: "unit",
+            check: {
+              kind: "card-test",
+              id: testId,
+              label: "Order totals: totals are never negative",
+            },
+            verdict: "passed",
+            warnings: [],
+            ms: expect.any(Number),
+            detail: {
+              status: "passed",
+              expectations: [{ name: "no negative totals", type: "empty", status: "passed" }],
+              tables: expect.any(Object),
+            },
+          },
+          { type: "stage.end", stage: "unit", status: "passed", stopped: null, skipped: null },
+          {
+            type: "job.end",
+            state: "passed",
+            counts: { checks: 1 + SAVED_QUERY_CHECKS, warnings: 0 },
+          },
+        ],
+        0,
+      ),
     );
   });
 });

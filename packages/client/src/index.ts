@@ -587,6 +587,7 @@ export {
   DataTestResultColumn,
   DataTestRow,
   DataTestRun,
+  DataTestRunCompact,
   DataTestRunResult,
   DataTestRunStatus,
   DataTestTable,

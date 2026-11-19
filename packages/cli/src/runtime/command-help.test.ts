@@ -403,6 +403,7 @@ const ALL_COMMANDS = [
   "test update",
   "test delete",
   "test run",
+  "test runs",
   "test-suite list",
   "test-suite get",
   "test-suite create",
@@ -684,7 +685,7 @@ describe("command tree contract", () => {
     });
   });
 
-  it("advertises a --limit default on search alone, so the shared flag description stays true", async () => {
+  it("advertises a --limit default on search and test runs alone, so the shared flag description stays true", async () => {
     const entries = await allEntries();
     const withDefault = Object.fromEntries(
       entries
@@ -693,6 +694,13 @@ describe("command tree contract", () => {
     );
     expect(withDefault).toEqual({
       search: {
+        name: "limit",
+        type: "string",
+        required: false,
+        description: "Max items to return",
+        default: "20",
+      },
+      "test runs": {
         name: "limit",
         type: "string",
         required: false,
