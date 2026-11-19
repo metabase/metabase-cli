@@ -13,6 +13,7 @@ import type { CiEvent, JobState, Verdict } from "../core/ci-events";
 import { exitCodeFor } from "./error";
 import { lintResultLines } from "./lint";
 import { pluralize } from "./pluralize";
+import { printable } from "./table";
 
 type CheckResult = Extract<CiEvent, { type: "check.result" }>;
 type StageEnd = Extract<CiEvent, { type: "stage.end" }>;
@@ -97,14 +98,16 @@ function jobExitCode(state: JobState): number {
 }
 
 function checkLines(event: CheckResult, maxRows: number): string[] {
-  const parts = [`${CHECK_INDENT}${VERDICT_MARK[event.verdict]} ${event.check.label}`];
+  const parts = [`${CHECK_INDENT}${VERDICT_MARK[event.verdict]} ${printable(event.check.label)}`];
   if (event.verdict === "error" || event.verdict === "refused") {
     parts.push(event.verdict);
   }
   if (event.ms > 0) {
     parts.push(duration(event.ms));
   }
-  const warnings = event.warnings.map((warning) => `${DETAIL_INDENT}⚠ ${warning.message}`);
+  const warnings = event.warnings.map(
+    (warning) => `${DETAIL_INDENT}⚠ ${printable(warning.message)}`,
+  );
   const detail = event.verdict === "passed" ? [] : detailLines(event, maxRows);
   return [parts.join("  "), ...warnings, ...detail];
 }

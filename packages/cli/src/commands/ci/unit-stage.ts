@@ -158,7 +158,8 @@ async function checkTransform(
   if (tests.kind !== "settled") {
     return reportFailure(tests, transformCheck, port.nowMs() - started, report);
   }
-  // A transform the branch has no test for has nothing to run, so it reports nothing.
+  // A test the branch holds but the instance does not list cannot run; a transform neither tests
+  // reports nothing.
   if (tests.value.length === 0 && !untestedInBranch) {
     report({
       check: transformCheck,

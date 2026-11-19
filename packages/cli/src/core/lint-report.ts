@@ -4,12 +4,16 @@ import type {
   LintResult,
   LintSeverity,
 } from "@metabase/client/domain/lint";
-import { InternalError } from "@metabase/client/errors";
+import { ResponseShapeError } from "@metabase/client/errors";
 
 export function resultSeverity(report: LintReport, result: LintResult): LintSeverity {
   const rule = report.rules[result.ruleId];
   if (rule === undefined) {
-    throw new InternalError(`Lint report from Metabase is missing rule ${result.ruleId}.`);
+    throw new ResponseShapeError(`Lint report from Metabase is missing rule ${result.ruleId}.`, {
+      kind: "decoded",
+      source: "lint report rules",
+      value: result.ruleId,
+    });
   }
   return rule.severity;
 }
@@ -17,7 +21,11 @@ export function resultSeverity(report: LintReport, result: LintResult): LintSeve
 export function reportEntity(report: LintReport, entityId: string): LintEntity {
   const entity = report.entities[entityId];
   if (entity === undefined) {
-    throw new InternalError(`Lint report from Metabase is missing entity ${entityId}.`);
+    throw new ResponseShapeError(`Lint report from Metabase is missing entity ${entityId}.`, {
+      kind: "decoded",
+      source: "lint report entities",
+      value: entityId,
+    });
   }
   return entity;
 }

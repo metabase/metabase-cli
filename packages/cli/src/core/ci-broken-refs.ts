@@ -50,11 +50,19 @@ export function brokenRefChecks(report: LintReport, ms: number): CheckOutcome[] 
   );
 }
 
-// Why the report could not be read, which ends the stage, or null for a bug or an interrupt, which
-// the caller rethrows. Only an admin can read the report, so any other identity is a setup to fix.
-// A server without the report skips the stage: the server, not the CI setup, lacks it.
-export function reportStop(error: unknown): StageStop | StageSkip | null {
+function serverLacksReport(error: unknown): error is CapabilityError | HttpError {
   if (error instanceof CapabilityError) {
+    return true;
+  }
+  return error instanceof HttpError && error.kind === "route-missing";
+}
+
+// Why the report could not be read, which ends the stage, or null for a config error, a bug or an
+// interrupt, which the caller rethrows. Only an admin can read the report, so any other identity is
+// a setup to fix. A server without the report skips the stage: the server, not the CI setup, lacks
+// it, whether its version says so or it answers that the route does not exist.
+export function reportStop(error: unknown): StageStop | StageSkip | null {
+  if (serverLacksReport(error)) {
     return { skipped: { code: "ci.lint-unsupported", message: error.message } };
   }
   const connect = connectStop(error, "the lint report was not read");

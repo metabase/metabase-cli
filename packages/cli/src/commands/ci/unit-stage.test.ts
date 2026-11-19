@@ -172,7 +172,7 @@ describe("unitStage", () => {
     ]);
   });
 
-  it("reports nothing for a transform with no test in the branch, which has nothing to run", async () => {
+  it("reports nothing for a transform that neither the branch nor the instance tests", async () => {
     const untested = new Set([DAILY.entity_id]);
 
     expect(await reportsGiven([DAILY], untested, port({ listTests: async () => [] }))).toEqual([]);

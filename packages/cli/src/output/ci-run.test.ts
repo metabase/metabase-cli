@@ -4,17 +4,19 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import type { LintReport } from "@metabase/client/domain/lint";
 import type {
   TransformTestRow,
   TransformTestRunResult,
 } from "@metabase/client/domain/transform-test";
 import { parseJson } from "@metabase/client/json";
 
+import { brokenRefChecks } from "../core/ci-broken-refs";
 import { type CiEventBody, CiEvent, createEmitter } from "../core/ci-events";
 import { DEFAULT_MAX_ROWS, ciEventLines } from "./ci-run";
 
-// The events of a real failing `mb ci run`, as the run wrote them: a transform's bug broke one
-// expectation of its test, and a saved question reads a missing table.
+// The events of a real failing `mb ci run`, with `v` and `skipped` written by hand: a transform's
+// bug broke one expectation of its test, and a saved question reads a missing table.
 const RED_RUN_PATH = join(dirname(fileURLToPath(import.meta.url)), "ci-run.red-run.ndjson");
 
 const BASE = "0c9c8393f4f88f11d1e035fe05c90e3a70c21cfd";
@@ -49,6 +51,12 @@ function jobStart(checked: number): CiEventBody {
     warnings: [],
   };
 }
+
+const CARD_ID = "Cd7kW2pLmX7sYb4nC8dE1";
+const ESC = "\u001b";
+// Erases the line, returns to its start, writes a verdict, hides what follows, and adds a line.
+const FORGED_LINE = `${ESC}[2K\rPASSED (exit 0)${ESC}[8m\n  ✓ card "fine"`;
+const ESCAPED_FORGED_LINE = String.raw`\u001b[2K\u000dPASSED (exit 0)\u001b[8m\u000a  ✓ card "fine"`;
 
 const CLEAN_INSTANCE: CiEventBody = {
   type: "check.result",
@@ -244,7 +252,7 @@ describe("ciEventLines", () => {
     ]);
   });
 
-  it("renders a broken saved query as a failed check listing each error under its rule", () => {
+  it("renders a broken saved query as a failed check listing each error beside its rule", () => {
     expect(
       render(
         [
@@ -281,6 +289,57 @@ describe("ciEventLines", () => {
       '  ✗ card "Revenue"',
       '      missing-column  Column TOTAL is not on transform "transform_0"',
       "FAILED  fix what the failed checks name (exit 1)",
+    ]);
+  });
+
+  it("prints an entity's name and a warning's message escaped, so server text cannot forge a line", () => {
+    const report: LintReport = {
+      status: "failed",
+      summary: { errors: 1, warnings: 1, entities: 1 },
+      entities: {
+        [CARD_ID]: {
+          id: 7,
+          type: "card",
+          data: { name: `Orders${FORGED_LINE}`, collection_id: 3 },
+        },
+      },
+      rules: {
+        "missing-column": { severity: "error", description: "A query reads a missing column." },
+        "unused-filter": { severity: "warning", description: "A filter matches no column." },
+      },
+      results: [
+        {
+          ruleId: "unused-filter",
+          entity_id: CARD_ID,
+          message: `Filter ${FORGED_LINE}`,
+          detail: null,
+          cause: null,
+        },
+        {
+          ruleId: "missing-column",
+          entity_id: CARD_ID,
+          message: "Column TOTAL is missing",
+          detail: "TOTAL",
+          cause: null,
+        },
+      ],
+    };
+    const bodies = brokenRefChecks(report, 0).map(
+      ({ check, verdict, warnings, ms, detail }): CiEventBody => ({
+        type: "check.result",
+        stage: "lint",
+        check,
+        verdict,
+        warnings,
+        ms,
+        detail,
+      }),
+    );
+
+    expect(render(bodies, DEFAULT_MAX_ROWS)).toEqual([
+      `  ✗ card "Orders${ESCAPED_FORGED_LINE}"`,
+      `      ⚠ Filter ${ESCAPED_FORGED_LINE}`,
+      "      missing-column  Column TOTAL is missing",
     ]);
   });
 
@@ -359,7 +418,7 @@ describe("ciEventLines", () => {
     ]);
   });
 
-  it("ends a job whose only failure is a test without naming the entities as broken", () => {
+  it("ends a failed job by asking for a fix to what the failed checks name", () => {
     expect(render([TEST_FAILED, FAILED_JOB_END], DEFAULT_MAX_ROWS).at(-1)).toBe(
       "FAILED  fix what the failed checks name (exit 1)",
     );

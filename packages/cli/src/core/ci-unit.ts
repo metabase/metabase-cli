@@ -141,16 +141,16 @@ export function lookupStop(error: unknown): StageStop | null {
   return failure === null ? null : { code: failure.error_code, message: failure.message };
 }
 
-// With no credential, the stage ends without its requests rather than ending the job, so the other
-// stages' findings still decide its state. `skipped` names what the stage did not do. Null for any
+// With no credential, the stage stops before its first request, so the job still ends with
+// `job.end` rather than a config error. `notDone` says what the stage did not do. Null for any
 // other error, which the caller rethrows.
-export function connectStop(error: unknown, skipped: string): StageStop | null {
+export function connectStop(error: unknown, notDone: string): StageStop | null {
   if (!(error instanceof NotAuthenticatedError)) {
     return null;
   }
   return {
     code: "ci.no-credential",
-    message: `no Metabase credential, so ${skipped}: ${error.message}`,
+    message: `no Metabase credential, so ${notDone}: ${error.message}`,
   };
 }
 

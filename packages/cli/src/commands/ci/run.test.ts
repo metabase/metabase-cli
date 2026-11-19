@@ -251,6 +251,12 @@ const LICENSED = {
   "token-features": { transforms: true, "transforms-testing": true },
 };
 
+// A release whose version and token claim the lint report.
+const LICENSED_WITH_LINT = {
+  version: { tag: "v1.66.0" },
+  "token-features": { transforms: true, "transforms-testing": true, dependencies: true },
+};
+
 const TRANSFORM = {
   id: TRANSFORM_ID,
   name: "Alpha",
@@ -347,6 +353,16 @@ const BROKEN_LINT_REPORT = {
     },
   ],
 };
+
+const MISSING_CARD_ID = "Mx9kW2pLmX7sYb4nC8dE2";
+
+// A report with a result whose entity, or whose rule, the report does not describe.
+const REPORT_MISSING_ENTITY = {
+  ...BROKEN_LINT_REPORT,
+  results: [{ ...BROKEN_LINT_REPORT.results[0], entity_id: MISSING_CARD_ID }],
+};
+
+const REPORT_MISSING_RULE = { ...BROKEN_LINT_REPORT, rules: {} };
 
 const NO_CREDENTIAL_LINT_STOP = {
   code: "ci.no-credential",
@@ -774,6 +790,143 @@ describe("ci run: a changed transform tested on Metabase", () => {
     ]);
   });
 
+  it("skips lint on a server whose version claims the lint report but does not route it, passing the job", async () => {
+    serveMetabase({
+      properties: LICENSED_WITH_LINT,
+      lint: () => json("API endpoint does not exist.", 404),
+      list: () => json([TEST]),
+      run: () => json(PASSED_RUN),
+    });
+
+    const result = await run(["--repo", repo.path, "--base", "main"]);
+    const stream = events(result.stdout);
+
+    expect([result.exitCode, stream.slice(1, 3), stream.at(-1)]).toEqual([
+      0,
+      [
+        { ...envelope, seq: 1, type: "stage.start", stage: "lint" },
+        {
+          ...envelope,
+          seq: 2,
+          type: "stage.end",
+          stage: "lint",
+          status: "passed",
+          stopped: null,
+          skipped: { code: "ci.lint-unsupported", message: expect.any(String) },
+        },
+      ],
+      { ...envelope, seq: 6, type: "job.end", state: "passed", counts: { checks: 1, warnings: 0 } },
+    ]);
+  });
+
+  it.each([
+    ["an entity", REPORT_MISSING_ENTITY],
+    ["a rule", REPORT_MISSING_RULE],
+  ])(
+    "stops lint on a report whose result names %s the report does not describe, and still runs the tests",
+    async (_missing, report) => {
+      serveMetabase({
+        properties: LICENSED,
+        lint: () => json(report),
+        list: () => json([TEST]),
+        run: () => json(PASSED_RUN),
+      });
+
+      const result = await run(["--repo", repo.path, "--base", "main"]);
+
+      expect([result.exitCode, result.stderr, events(result.stdout).slice(2)]).toEqual([
+        1,
+        expect.stringContaining('"message":"ci job errored"'),
+        [
+          {
+            ...envelope,
+            seq: 2,
+            type: "stage.end",
+            stage: "lint",
+            status: "errored",
+            stopped: { code: "ci.unreadable-answer", message: expect.any(String) },
+            skipped: null,
+          },
+          { ...envelope, seq: 3, type: "stage.start", stage: "unit" },
+          {
+            ...envelope,
+            seq: 4,
+            type: "check.result",
+            stage: "unit",
+            check: { kind: "transform-test", id: String(TEST_ID), label: "Alpha: total adds tax" },
+            verdict: "passed",
+            warnings: [],
+            ms: expect.any(Number),
+            detail: PASSED_RUN,
+          },
+          {
+            ...envelope,
+            seq: 5,
+            type: "stage.end",
+            stage: "unit",
+            status: "passed",
+            stopped: null,
+            skipped: null,
+          },
+          {
+            ...envelope,
+            seq: 6,
+            type: "job.end",
+            state: "errored",
+            counts: { checks: 1, warnings: 0 },
+          },
+        ],
+      ]);
+    },
+  );
+
+  it("passes a branch that adds a transform without a test, reporting no check for it", async () => {
+    await repo.git("checkout", "-q", "-b", "untested", "main");
+    await repo.put(
+      "transforms/a.yaml",
+      `name: Alpha\nentity_id: ${A}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,
+    );
+    await repo.commitAll("add A without a test");
+    serveMetabase({
+      properties: LICENSED,
+      lint: () => json(CLEAN_LINT_REPORT),
+      list: () => json([]),
+      run: () => {
+        throw new Error("the instance lists no test, so none may run");
+      },
+    });
+
+    const result = await run(["--repo", repo.path, "--base", "main"]);
+
+    expect([
+      result.exitCode,
+      planOf(result.stdout).checked,
+      events(result.stdout).slice(4),
+    ]).toEqual([
+      0,
+      [{ entity_id: A, name: "Alpha" }],
+      [
+        { ...envelope, seq: 4, type: "stage.start", stage: "unit" },
+        {
+          ...envelope,
+          seq: 5,
+          type: "stage.end",
+          stage: "unit",
+          status: "passed",
+          stopped: null,
+          skipped: null,
+        },
+        {
+          ...envelope,
+          seq: 6,
+          type: "job.end",
+          state: "passed",
+          counts: { checks: 1, warnings: 0 },
+        },
+      ],
+    ]);
+  });
+
   it("fails the job on a saved query the instance reports broken, naming the entity and its error", async () => {
     serveMetabase({
       properties: LICENSED,
@@ -863,7 +1016,7 @@ describe("ci run: a change that checks no transform, with no Metabase credential
     home.cleanup();
   });
 
-  it("still lints the instance when the change touches no content file, ending errored without a credential", async () => {
+  it("still starts the lint stage when the change touches no content file, which stops errored without a credential", async () => {
     await repo.put(
       "transforms/a.yaml",
       `name: Alpha\nentity_id: ${A}\nsource:\n  type: query\ntarget:\n  name: t\nserdes/meta:\n- model: Transform\n`,

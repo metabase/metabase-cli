@@ -63,8 +63,8 @@ const CheckResult = EventEnvelope.extend({
   detail: z.unknown(),
 });
 
-// `stopped` is null when the stage ran every check. `skipped` says why a stage ran no check at all,
-// for a server without what it reads, and passes the stage; it is null when the stage ran.
+// `stopped` says why a stage ended before it checked everything; `skipped` says why it checked
+// nothing because the server lacks what it reads, which passes the stage. At most one is set.
 const StageEnd = EventEnvelope.extend({
   type: z.literal("stage.end"),
   stage: StageName,
@@ -98,7 +98,7 @@ export interface StageSkip {
 }
 
 // `run` answers why it stopped early, why it was skipped, or null when it ran every check. A stage
-// throws only on a bug or an interrupt, which crash the job.
+// throws only on a config error, which exits 2, or on a bug or an interrupt, which crash the job.
 export interface CiStage {
   name: StageName;
   run: (report: (check: CheckOutcome) => void) => Promise<StageStop | StageSkip | null>;
