@@ -12,7 +12,7 @@ export default defineMetabaseCommand({
     description: "Trigger a manual schema sync for one table",
   },
   details:
-    "Queues an async sync of this one table and returns immediately; the server reports no completion to wait on. The sync re-reads the table's columns, fingerprints them, and refreshes its cached field values; it never discovers new tables, so use `mb db sync-schema <db-id>` for a table the warehouse just gained. A warehouse the server cannot connect to is refused with a 422. To sync a set of tables use `mb table bulk-sync-schema`.",
+    'Queues an async sync of this one table and returns immediately, answering `{ id, status: "ok" }`; the server reports no completion to wait on. The sync re-reads the table\'s columns, fingerprints them, and refreshes its cached field values; it never discovers new tables, so use `mb db sync-schema <db-id>` for a table the warehouse just gained. A warehouse the server cannot connect to is refused with a 422. To sync a set of tables use `mb table bulk-sync-schema`.',
   requires: ["table.syncSchema"],
   args: {
     ...outputFlags,

@@ -16,7 +16,7 @@ export default defineMetabaseCommand({
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
-    file: { type: "string", description: "Path to the CSV/TSV file to upload" },
+    file: { type: "string", description: "Path to the CSV/TSV file to upload (required)" },
     id: { type: "positional", description: "Target table id", required: true },
   },
   outputSchema: UploadUpdateResult,

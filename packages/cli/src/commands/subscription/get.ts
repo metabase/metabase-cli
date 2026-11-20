@@ -7,6 +7,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a dashboard subscription by id" },
+  details:
+    "The compact view holds `id`, `name`, `dashboard_id`, `collection_id`, `archived`, `skip_if_empty`, the pinned `cards`, and the `channels` with their schedules and recipients. `--full` adds the rest, such as the hydrated `creator` and the entity ids.",
   requires: ["pulse.get"],
   args: {
     ...outputFlags,

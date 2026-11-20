@@ -7,6 +7,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a document" },
+  details:
+    'Body keys: `name` (required), `document` (required, the TipTap `doc` tree), `collection_id` (`null` files it under "Our analytics") and `collection_position`. A `cardEmbed` node can create a card with the document: give it a negative id, and put the card\'s definition in a top-level `cards` map under that id.',
   requires: ["document.create"],
   args: { ...outputFlags, ...profileFlag, ...connectionFlags, ...bodyInputFlags },
   inputSchema: DocumentCreateInput,

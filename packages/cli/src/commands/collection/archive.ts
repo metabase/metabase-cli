@@ -7,6 +7,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "archive", description: "Archive (soft-delete) a collection by id" },
+  details:
+    "Moves the collection to the Trash, where `collection list --filter archived` lists it; `mb collection update <id> --archived false` restores it. Takes the integer id only.",
   requires: ["collection.archive"],
   args: {
     ...outputFlags,

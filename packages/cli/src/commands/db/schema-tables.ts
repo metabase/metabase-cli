@@ -14,6 +14,8 @@ export default defineMetabaseCommand({
     name: "schema-tables",
     description: "List tables in a database schema",
   },
+  details:
+    "Answers the schema's tables sorted by display name, as compact rows without fields. For the columns of a table you need, use `mb table get <id> --include fields` or `mb table fields <id>`.",
   requires: ["database.schemaTables"],
   args: {
     ...outputFlags,

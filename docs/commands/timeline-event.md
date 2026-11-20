@@ -38,7 +38,7 @@ mb timeline-event get 1 --json
 
 Create a timeline event from JSON.
 
-The JSON body needs `name`, `timestamp` (ISO 8601), `timezone` (IANA name like UTC or America/New_York), `time_matters` (true when the time of day is significant, false when only the date is), and `timeline_id`; optional fields: `description`, `icon` (star|cake|mail|warning|bell|cloud, default: the timeline's icon).
+The JSON body needs `name`, `timestamp` (ISO 8601), `timezone` (IANA name like UTC or America/New_York), `time_matters` (true when the time of day is significant, false when only the date is), and `timeline_id`; optional fields: `description`, `icon` (star|cake|mail|warning|bell|cloud, and from Metabase v64 mail_at|info|note|event; default: the timeline's icon).
 
 ```sh
 mb timeline-event create [flags]
@@ -47,7 +47,7 @@ mb timeline-event create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -78,7 +78,7 @@ mb timeline-event update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -95,6 +95,8 @@ mb timeline-event update 1 --file patch.json
 ## mb timeline-event archive
 
 Archive (soft-delete) a timeline event by id.
+
+To restore the event, run `mb timeline-event update <id> --body '{"archived":false}'`.
 
 ```sh
 mb timeline-event archive <id> [flags]

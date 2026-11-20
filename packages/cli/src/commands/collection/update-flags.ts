@@ -17,9 +17,12 @@ const ArchivedWord = z.enum(["true", "false"]);
 
 export const updateFlags = {
   ...bodyInputFlags,
-  name: { type: "string", description: "New name" },
-  description: { type: "string", description: "New description" },
-  "clear-description": { type: "boolean", description: "Remove the description" },
+  name: { type: "string", description: "New name; a blank one is refused" },
+  description: { type: "string", description: "New description; a blank one is refused" },
+  "clear-description": {
+    type: "boolean",
+    description: "Remove the description; refused beside --description",
+  },
   "parent-id": {
     type: "string",
     description: `Collection to move it under, or '${ROOT_PARENT}' for the top level`,

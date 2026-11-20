@@ -4,7 +4,12 @@ import type { Credential } from "@metabase/client/auth/credential";
 import { oauthLogin } from "@metabase/client/auth/oauth-login";
 import { revokeOAuthCredential } from "@metabase/client/auth/oauth-session";
 import { ConfigError, errorMessage, NetworkError, TimeoutError } from "@metabase/client/errors";
-import { tryDiscoverMetadata, type OAuthServerMetadata } from "@metabase/client/http/oauth";
+import {
+  OAUTH_MINIMUM_RELEASE,
+  OAUTH_UNSUPPORTED_MESSAGE,
+  tryDiscoverMetadata,
+  type OAuthServerMetadata,
+} from "@metabase/client/http/oauth";
 import { normalizeUrl } from "@metabase/client/url";
 
 import {
@@ -70,8 +75,7 @@ const loginView: ResourceView<LoginResultJson> = {
 
 export default defineMetabaseCommand({
   meta: { name: "login", description: "Log in to a Metabase instance for a profile" },
-  details:
-    "Interactive login offers browser OAuth (recommended; Metabase v63+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a refreshing access token. For CI/non-interactive use, supply an API key via --api-key (`--api-key -` reads it from stdin), piped stdin, or $MB_API_KEY (first non-empty wins); any of these skips the browser flow, even on a TTY. The URL comes from --url or $MB_URL, prompted when stdin is a TTY.",
+  details: `Interactive login offers browser OAuth (recommended; Metabase ${OAUTH_MINIMUM_RELEASE}+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a short-lived access token and a rotating refresh token, which it refreshes on its own; the API key choice prompts for a key from Admin settings → Authentication → API keys. For CI/non-interactive use, supply an API key via --api-key (\`--api-key -\` reads it from stdin), piped stdin, or $MB_API_KEY (first non-empty wins); any of these skips the browser flow, even on a TTY, and without one a non-TTY login fails rather than prompting. A key given as the --api-key value shows in shell history, so login warns about it. The URL comes from --url or $MB_URL, prompted when stdin is a TTY. Unless --skip-verify is given, login then probes the server and caches the result in the profile. If the probe fails, nothing is saved: an existing profile keeps its last good credential and records a \`lastFailure\`, and new browser tokens are revoked.`,
   requires: ["user.current"],
   args: {
     ...outputFlags,
@@ -90,6 +94,7 @@ export default defineMetabaseCommand({
   },
   outputSchema: LoginResult,
   examples: [
+    "mb auth login",
     "mb auth login --url https://metabase.example.com",
     "echo $MB_API_KEY | mb auth login --url https://metabase.example.com",
     "pass show metabase | mb auth login --url https://metabase.example.com --api-key -",
@@ -160,7 +165,7 @@ export default defineMetabaseCommand({
 
 type LoginMethod = "oauth" | "apiKey";
 
-// Reaching the server but finding no CLI-capable OAuth server (pre-v63) degrades to the API key
+// Reaching the server but finding no CLI-capable OAuth server (before v62.3.3) degrades to the API key
 // prompt; not reaching it at all is an error worth stopping on before any credential is collected.
 // A server that answered, however badly, keeps the error that says how.
 async function probeOAuthSupport(url: string): Promise<OAuthServerMetadata | null> {
@@ -180,12 +185,10 @@ async function chooseLoginMethod(
 ): Promise<LoginMethod> {
   if (metadata === null) {
     if (clientId !== undefined) {
-      throw new ConfigError(
-        "--client-id was given but this Metabase does not support OAuth login (requires Metabase v63 or newer)",
-      );
+      throw new ConfigError(`--client-id was given but ${OAUTH_UNSUPPORTED_MESSAGE}`);
     }
     warn(
-      "This Metabase does not support browser login (requires Metabase v63 or newer); using an API key instead.",
+      `This Metabase does not support browser login (requires Metabase ${OAUTH_MINIMUM_RELEASE} or newer); using an API key instead.`,
     );
     return "apiKey";
   }

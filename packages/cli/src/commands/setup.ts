@@ -11,6 +11,8 @@ export default defineMetabaseCommand({
     name: "setup",
     description: "Complete the initial Metabase setup wizard with a default user",
   },
+  details:
+    "Bootstraps a fresh Metabase instance that is not set up yet. The body carries the setup token, the default user, and a `prefs` block with `site_name`.",
   requires: ["setup.create"],
   args: {
     ...outputFlags,
@@ -23,7 +25,7 @@ export default defineMetabaseCommand({
   examples: [
     "cat setup.json | mb setup",
     "mb setup --file setup.json",
-    'mb setup --body \'{"token":"...","user":{"email":"a@b.c","password":"..."}}\'',
+    'mb setup --body \'{"token":"<setup-token>","user":{"email":"a@b.c","password":"..."},"prefs":{"site_name":"Acme"}}\'',
   ],
   async run({ args, ctx, getClient, readBody }) {
     const body = await readBody({ flag: args.body, file: args.file });

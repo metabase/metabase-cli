@@ -7,7 +7,7 @@ summary: "Translate Metabase entity ids (string EIDs) to numeric ids."
 
 Translate Metabase entity ids (string EIDs) to numeric ids.
 
-Entity ids are NanoIDs that can start with `-`; pass those via `--body` so the positional parser doesn't read them as a flag.
+Entity ids are NanoIDs that can start with `-`, which the positional form reads as a flag; shell quoting does not help, because the leading `-` survives into argv. Pass such an id via `--body`, where it is a JSON string: `mb eid --body '{"entity_ids":{"card":["-s3mHTaWs8T-VLPYEeraG"]}}'`.
 
 ```sh
 mb eid [eids] [flags]
@@ -20,7 +20,7 @@ mb eid [eids] [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 | `--model <value>` |  | Entity model for the positional EIDs: action \| card \| collection \| dashboard \| dashboard-card \| dashboard-tab \| dataset \| dimension \| document \| exploration \| measure \| metric \| permissions-group \| pulse \| pulse-card \| pulse-channel \| segment \| snippet \| timeline \| transform \| user. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).

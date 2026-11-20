@@ -13,6 +13,8 @@ export default defineMetabaseCommand({
     name: "tree",
     description: "Fetch the collection hierarchy as a nested tree (JSON only)",
   },
+  details:
+    "The tree is the server's JSON as is, so it takes no `--full`, `--fields` or `--max-bytes`. It leaves out the Library collections that `collection list` includes, unless `--include-library` is given.",
   requires: ["collection.tree"],
   args: {
     ...formatFlags,

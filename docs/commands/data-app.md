@@ -16,6 +16,10 @@ Agent skills:
 - `mb skills get data-app-actions`: writes: actions, forms and refresh
 - `mb skills get data-app-testing`: unit tests with mocked queries and actions, and e2e tests
 
+## Data apps
+
+A data app is a React app built into one JavaScript bundle, which Metabase serves in a sandbox at `/apps/<slug>`. It lives in the synced git repository under `data_apps/<slug>/`, and its questions and actions live in its collection's files under `collections/data_apps/`. Its content changes in Metabase only through an import of the repository ([mb git-sync import](git-sync.md#mb-git-sync-import)).
+
 ## mb data-app scaffold
 
 Scaffold a data app in the synced repository, from its root.
@@ -48,7 +52,7 @@ mb data-app scaffold sales-overview
 
 Name the Embedding SDK tag that matches the instance's Metabase version.
 
-Reads the instance's version afresh and the npm dist-tags of @metabase/embedding-sdk-react, and answers the most mature tag published for that Metabase major: its stable tag (`65-stable` for v1.65.x), or while the major has none, its beta, then its alpha tag. Fails on a development build, which no published SDK matches, and on a major npm has no tag for. Text output is the bare tag, so the install composes in a shell.
+Reads the instance's version afresh and the npm dist-tags of @metabase/embedding-sdk-react, and answers the most mature tag published for that Metabase major: its stable tag (`65-stable` for v1.65.x), or while the major has none, its beta, then its alpha tag. Exits 2 on a development build (`vUNKNOWN`, `vLOCAL_DEV`, a `-SNAPSHOT` tag), which no published SDK matches, and on a major npm has no tag for. `--registry "$(npm config get registry)"` reads the registry `npm install` uses. JSON output carries `metabaseVersion`, `tag`, and the SDK `version` the tag points at; text output is the bare tag, so the install composes in a shell.
 
 ```sh
 mb data-app sdk-version [flags]

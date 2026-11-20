@@ -33,7 +33,11 @@ export default defineMetabaseCommand({
     value: { type: "positional", description: "Value of <id> to look up", required: true },
   },
   outputSchema: FieldRemappingResult,
-  examples: ["mb field remapping 100 101 20", "mb field remapping 100 101 20 --json"],
+  examples: [
+    "mb field remapping 100 101 20",
+    "mb field remapping 100 101 20 --json",
+    "NAME=$(mb field remapping 100 101 20 --format text)",
+  ],
   async run({ args, ctx, getClient }) {
     const id = parseId(args.id);
     const remappedId = parseId(args["remapped-id"], "remapped-id");

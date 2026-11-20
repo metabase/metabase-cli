@@ -12,13 +12,13 @@ const ROOT_COLLECTION = "root";
 export default defineMetabaseCommand({
   meta: { name: "csv", description: "Upload a CSV file as a new table and model" },
   details:
-    "Uploads the CSV to the server's configured uploads database, creating a new table plus a model over it, and prints the new model id and table id. Requires an uploads database to be configured on the server. Pass --collection to place the model in a specific collection (defaults to root).",
+    "Uploads the CSV to the server's configured uploads database, creating a new table plus a model over it, and prints the new model id and table id. Requires an uploads database to be configured on the server (Admin → Settings → Uploads); the destination database and schema are set there, not per command. Pass --collection to place the model in a specific collection (defaults to root).",
   requires: ["upload.createFromCsv"],
   args: {
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
-    file: { type: "string", description: "Path to the CSV/TSV file to upload" },
+    file: { type: "string", description: "Path to the CSV/TSV file to upload (required)" },
     collection: { type: "string", description: "Target collection id, or 'root' (default: root)" },
   },
   outputSchema: UploadResult,

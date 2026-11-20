@@ -5,6 +5,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "delete", description: "Delete a data action by id" },
+  details: "Deletes the data action and the dashboard buttons that run it.",
   requires: ["dataAction.delete"],
   args: {
     ...outputFlags,

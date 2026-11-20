@@ -38,7 +38,7 @@ export default defineMetabaseCommand({
     description: "Label a field's data sensitivity by hand, or withdraw the label with `none`",
   },
   details:
-    "A label set here is a person's call that the server's classifier never overwrites; `none` withdraws it, and the field then shows the label the classifier wrote, if it wrote one, else none. Answers the field with its `data_sensitivity`.",
+    "A label set here is a person's call that the server's classifier never overwrites; `none` withdraws it, and the field then shows the label the classifier wrote, if it wrote one, else none. The classifier is off unless the server enables it, and a label it wrote stays after it is switched off. Answers the field with its `data_sensitivity`, which `mb field get <id>` reads back. On a server without `fieldDataSensitivity` the call is refused before the request (exit 2), because such a server drops the label and answers the field as if it had never been sent.",
   requires: ["field.setDataSensitivity"],
   args: {
     ...outputFlags,
@@ -47,7 +47,7 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Field id", required: true },
     label: {
       type: "positional",
-      description: `Sensitivity label (${SensitivityArg.options.join(" | ")})`,
+      description: `Sensitivity label, most severe first (${FieldDataSensitivity.options.join(" | ")}), or ${NONE} to withdraw it`,
       required: true,
     },
   },

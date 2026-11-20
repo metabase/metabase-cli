@@ -98,7 +98,7 @@ mb transform create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 | `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
@@ -136,7 +136,7 @@ mb transform update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 | `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
@@ -220,7 +220,7 @@ mb transform delete-table 1
 
 Trigger a transform run by id.
 
-Starts a run and returns immediately. --wait polls the run to a terminal status. --sync additionally waits until the run's output table is registered and returns its `target_table_id`, so you can build MBQL cards against it — the run registers the table itself, so no separate `db sync-schema` is needed; --sync implies waiting for the run. While waiting, a run that does not succeed exits 1.
+Starts a run and returns `{message, run_id}` at once. --wait polls the run to a terminal status (`succeeded`, `failed`, `timeout` or `canceled`) and adds the polled run as `final`. --sync additionally waits until the run's output table is registered and returns its `target_table_id`, so you can build MBQL cards against it — the run registers the table itself, so no separate `db sync-schema` is needed; --sync implies waiting for the run. While waiting, a run that does not succeed exits 1.
 
 ```sh
 mb transform run <id> [flags]
@@ -254,6 +254,8 @@ mb transform run 1 --sync --json
 ## mb transform cancel
 
 Cancel the current run for a transform.
+
+Exits 0 with `{canceled: true, id}` once the server takes the cancel. A transform with no active run answers 404, and the command exits 1.
 
 ```sh
 mb transform cancel <id> [flags]
@@ -306,6 +308,8 @@ mb transform get-run 1 --json
 ## mb transform runs
 
 List recent transform runs.
+
+Lists runs across all transforms, or one transform's with --transform-id. The server pages the runs, so the CLI reads only as many pages as the output cap can show, then reports `has_more` / `next_offset` to continue.
 
 ```sh
 mb transform runs [flags]

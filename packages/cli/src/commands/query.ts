@@ -82,8 +82,10 @@ export default defineMetabaseCommand({
     "cat q.json | mb query --dry-run",
     "mb query --file q.json",
     "mb query --file q.json --compile",
+    "mb query --file q.json --compile --no-pretty --format text",
     "mb query --file q.json --metadata --json",
     "mb query --file q.json --export-format csv > rows.csv",
+    'mb query --file pivot.json --export-format xlsx --pivot-results --visualization-settings \'{"pivot_table.column_split":{"rows":["category"],"columns":["status"],"values":["count"]}}\' > pivot.xlsx',
     "mb query --file q.json --skip-validate",
   ],
   async run({ args, ctx, getClient }) {

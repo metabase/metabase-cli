@@ -19,6 +19,8 @@ export const CollectionItemListEnvelope = listEnvelopeSchema(CollectionItemCompa
 
 export default defineMetabaseCommand({
   meta: { name: "items", description: "List items inside a collection" },
+  details:
+    "Takes the same references as `collection get`; the items under `root` carry `collection_id: null`. The server pages the items, so the CLI reads only as many pages as the output cap can show, then reports `has_more` / `next_offset` to continue.",
   requires: ["collection.itemPages"],
   args: {
     ...outputFlags,

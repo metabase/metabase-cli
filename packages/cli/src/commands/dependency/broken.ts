@@ -19,7 +19,7 @@ export default defineMetabaseCommand({
     description: "List the dependents whose queries an entity has broken",
   },
   details:
-    "An entity is listed when Metabase's query analysis traced a validation error in it (a missing column, a syntax error) back to this entity, whether it reads the entity directly or through others. Only a table, a card or a transform is ever traced as the cause, so any other `<type>` lists nothing. Rows carry no `dependents_count`. `mb dependency dependents <type> <id> --broken` answers a different set: the direct dependents whose analysis failed for any cause.",
+    "An entity is listed when Metabase's query analysis traced a validation error in it (a missing column, a syntax error) back to this entity, whether it reads the entity directly or through others. Only a table, a card or (from Metabase v60) a transform is ever traced as the cause, so any other `<type>` lists nothing. Rows carry no `dependents_count`. `mb dependency dependents <type> <id> --broken` answers a different set: the direct dependents whose analysis failed for any cause.",
   requires: ["dependency.broken"],
   args: {
     ...outputFlags,

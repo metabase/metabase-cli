@@ -17,7 +17,7 @@ export default defineMetabaseCommand({
     description: "Import content from the configured git remote into Metabase",
   },
   details:
-    "A plain import refuses while Metabase holds un-pushed changes; --force discards them, --merge (Metabase 63+) keeps them and folds the remote's changes in by a three-way merge. A merge ends the task in `conflict`, leaving local content untouched, when entities changed on both sides or when there is no merge base: the remote history was rewritten, or the instance has never synced. A task that ends in `conflict` may make the server count the remote commit it saw as synced, so a retry, --merge included, may no longer see the remote's changes. Never answer a conflict with a retry: keep the remote's side with `import --force`, Metabase's with `export --force`, or both through a reviewed PR from a new branch (`mb skills get git-sync`, \"After a conflict task\").",
+    "A plain import refuses while Metabase holds un-pushed changes; --force discards them, and --merge keeps them and folds the remote's changes in by a three-way merge. A merge ends the task in `conflict`, leaving local content untouched, when entities changed on both sides or when there is no merge base: the remote history was rewritten, or the instance has never synced. `--merge` needs Metabase 63 or newer, and is refused before the request on an older server (exit 2), judged against a probe of the server taken in the same run, because an older server ignores it and runs a plain import.",
   requires: ["gitSync.import"],
   args: {
     ...outputFlags,
@@ -25,7 +25,8 @@ export default defineMetabaseCommand({
     ...connectionFlags,
     branch: {
       type: "string",
-      description: "Branch to import from (defaults to remote-sync-branch setting)",
+      description:
+        "Branch to import from (defaults to remote-sync-branch setting); a blank name is refused",
       alias: "b",
     },
     force: {
@@ -35,7 +36,8 @@ export default defineMetabaseCommand({
     },
     merge: {
       type: "boolean",
-      description: "Keep un-pushed local changes and fold the remote's in by a three-way merge",
+      description:
+        "Keep un-pushed local changes and fold the remote's in by a three-way merge; not with --force",
       default: false,
     },
     ...gitSyncWaitFlags,

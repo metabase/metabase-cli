@@ -9,7 +9,7 @@ import { entryFlags, readEntryInput } from "./entry-flags";
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a glossary entry, a term and its definition" },
   details:
-    "Pass `--term` and `--definition` together, or a JSON body with exactly those two keys. A body piped on stdin is not read while the flags are given. Neither field may be blank. Terms are unique.",
+    "Pass `--term` and `--definition` together, or a JSON body with exactly those two keys. The flags are refused beside `--body` or `--file`, and a body piped on stdin is not read while they are given. Neither field may be blank. Terms are unique.",
   requires: ["glossary.create"],
   args: {
     ...outputFlags,

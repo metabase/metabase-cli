@@ -7,6 +7,10 @@ summary: "Download or replace the content translation dictionary."
 
 Download or replace the content translation dictionary.
 
+## Access and Remote Sync
+
+Both commands need an admin credential. The dictionary is independent of Remote Sync: importing or exporting a Git repository with [`mb git-sync import`](git-sync.md#mb-git-sync-import) or [`mb git-sync export`](git-sync.md#mb-git-sync-export) does not deploy it.
+
 ## mb content-translation download
 
 Stream the complete content translation dictionary as CSV.
@@ -42,7 +46,7 @@ mb content-translation upload [flags]
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--file <value>` |  | Path to the complete translation dictionary CSV. |
+| `--file <value>` |  | Path to the complete translation dictionary CSV (required). |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 

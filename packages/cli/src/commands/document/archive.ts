@@ -7,6 +7,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "archive", description: "Archive (soft-delete) a document by id" },
+  details: "To restore it, run `mb document update <id> --body '{\"archived\":false}'`.",
   requires: ["document.archive"],
   args: {
     ...outputFlags,

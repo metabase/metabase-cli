@@ -11,7 +11,7 @@ export default defineMetabaseCommand({
     description: "Archive a dashboard subscription by id, stopping all deliveries",
   },
   details:
-    "Archiving also disables every channel on the subscription. Restore it with `mb subscription update <id> --body '{\"archived\":false}'`, then re-enable its channels.",
+    "Archiving also disables every channel on the subscription. Metabase has no way to delete a subscription, so archiving is as far as removal goes. Restore it with `mb subscription update <id> --body '{\"archived\":false}'`, then re-enable its channels.",
   requires: ["pulse.archive"],
   args: {
     ...outputFlags,

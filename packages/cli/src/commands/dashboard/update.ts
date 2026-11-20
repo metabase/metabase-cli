@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
     description: "Update a dashboard (and optionally its dashcards/tabs) by id",
   },
   details:
-    "Every dashcard must include card_id (a card id, or null for a virtual card). Any positive card_id is pre-flight-validated (exists and readable, not archived) before the PUT. dashcards and tabs each replace the whole list. A body with dashcards and no tabs keeps the current tabs, and on a dashboard with several tabs every dashcard then needs its dashboard_tab_id. Send tabs to change them, or [] with every dashboard_tab_id null to remove them all.",
+    "Every dashcard must include card_id (a card id, or null for a virtual card), existing dashcards included. Any positive card_id is pre-flight-validated (exists and readable, not archived) before the update is sent. dashcards and tabs each replace the whole list: a dashcard or tab the list leaves out is deleted, and a negative id creates a new one. A body with dashcards and no tabs keeps the current tabs, and on a dashboard with several tabs every dashcard then needs its dashboard_tab_id. Send tabs to change them, or [] with every dashboard_tab_id null to remove them all.",
   skills: [
     { skill: "dashboard", purpose: "wiring filters, cross-filtering, click behavior, tabs" },
     { skill: "visualization", purpose: "dashcard visualization_settings and the 24-column grid" },

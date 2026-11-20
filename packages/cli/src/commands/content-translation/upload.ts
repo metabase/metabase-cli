@@ -18,7 +18,10 @@ export default defineMetabaseCommand({
     ...outputFlags,
     ...profileFlag,
     ...connectionFlags,
-    file: { type: "string", description: "Path to the complete translation dictionary CSV" },
+    file: {
+      type: "string",
+      description: "Path to the complete translation dictionary CSV (required)",
+    },
   },
   outputSchema: ContentTranslationUploadResult,
   examples: [

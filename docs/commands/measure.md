@@ -62,7 +62,7 @@ mb measure get 1 --json
 
 Create a measure (saved aggregation) from JSON.
 
-A measure is a reusable, saved aggregation tied to a table. The JSON body needs `name`, `table_id`, and a `definition` (an MBQL query holding exactly one aggregation). An MBQL 5 `definition` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass --skip-validate to bypass.
+A measure is a reusable, saved aggregation tied to a table, which cards and metrics reference to share the computation. The JSON body needs `name`, `table_id`, and a `definition` (an MBQL query holding exactly one aggregation). An MBQL 5 `definition` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass --skip-validate to bypass.
 
 ```sh
 mb measure create [flags]
@@ -71,7 +71,7 @@ mb measure create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 | `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
@@ -109,7 +109,7 @@ mb measure update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 | `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).

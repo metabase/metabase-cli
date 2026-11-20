@@ -19,7 +19,7 @@ export default defineMetabaseCommand({
     description: "Export Metabase changes back to the configured git remote",
   },
   details:
-    "The export targets the branch git-sync tracks. On Metabase 63+ `--branch` defaults to it and must name it (the server answers 409 for any other branch); older servers export to the branch `--branch` names and switch git-sync to it, refusing with 400 when that branch's tip is not the last synced commit unless --force is given. To push to a new branch, use `git-sync stash` or `git-sync create-branch` first; a `--branch` missing from the remote is refused before the export with a pointer to `create-branch`. When the remote has moved past the last sync, a plain export ends in a `conflict` task on 63+ and is refused with 400 on older servers. --merge (63+) folds the remote's changes in by a three-way merge (entities changed on both sides still end in `conflict`), --force overwrites them. `git-sync export-preflight` previews which applies. A task that ends in `conflict` may make the server count the remote commit it saw as synced, so a retry, --merge included, may no longer see the remote's changes. Never answer a conflict with a retry: keep the remote's side with `import --force`, Metabase's with `export --force`, or both through a reviewed PR from a new branch (`mb skills get git-sync`, \"After a conflict task\").",
+    "The export targets the branch git-sync tracks. On Metabase 63+ `--branch` defaults to it and must name it (the server answers 409 for any other branch); older servers export to the branch `--branch` names and switch git-sync to it, refusing with 400 when that branch's tip is not the last synced commit unless --force is given. To push to a new branch, use `git-sync stash` or `git-sync create-branch` first: a `--branch` other than the tracked one is looked up on the remote, and one missing there is refused before the export (exit 2) with a pointer to `create-branch`. The result's `branch` names the target, and the text output ends with it; it is `null` only when no `--branch` was given and a server older than 63 exported to the branch it tracks. When the remote has moved past the last sync, a plain export ends in a `conflict` task on 63+ and is refused with 400 on older servers; --merge folds the remote's changes in by a three-way merge, --force overwrites them, and `git-sync export-preflight` previews which applies. `--merge` needs Metabase 63 or newer, and is refused before the request on an older server (exit 2), judged against a probe of the server taken in the same run, because an older server ignores it and runs a plain export.",
   requires: ["gitSync.branch", "gitSync.branches", "gitSync.export"],
   args: {
     ...outputFlags,
@@ -28,7 +28,7 @@ export default defineMetabaseCommand({
     branch: {
       type: "string",
       description:
-        "Branch to export to (defaults to the remote-sync-branch setting; on 63+ it must be that branch)",
+        "Branch to export to (defaults to the remote-sync-branch setting; on 63+ it must be that branch); a blank name is refused",
       alias: "b",
     },
     message: {
@@ -44,7 +44,7 @@ export default defineMetabaseCommand({
     merge: {
       type: "boolean",
       description:
-        "When the remote moved on, fold its changes in by a three-way merge instead of ending in conflict",
+        "When the remote moved on, fold its changes in by a three-way merge instead of ending in conflict; entities changed on both sides still end in conflict, writing nothing. Not with --force",
       default: false,
     },
     ...gitSyncWaitFlags,

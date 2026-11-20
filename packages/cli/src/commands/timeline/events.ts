@@ -17,7 +17,7 @@ export default defineMetabaseCommand({
     ...listFlags,
     ...profileFlag,
     ...connectionFlags,
-    archived: { type: "boolean", description: "Include archived events" },
+    archived: { type: "boolean", description: "Include archived events alongside active ones" },
     id: { type: "positional", description: "Timeline id", required: true },
   },
   outputSchema: TimelineEventListEnvelope,

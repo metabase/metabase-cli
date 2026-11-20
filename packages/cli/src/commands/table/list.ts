@@ -1,9 +1,13 @@
 import {
+  DATA_LAYER_TIER_GATE,
   TableCompact,
   TableDataLayer,
+  TableDataLayerMedallion,
+  TableDataLayerTier,
   TableDataSource,
   TableVisibilityType,
 } from "@metabase/client/domain/table";
+import { featureAvailability, type FeatureName } from "@metabase/client/version/features";
 import { tableView } from "../../output/views/table";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
@@ -15,8 +19,16 @@ import { defineMetabaseCommand } from "../runtime";
 
 export const TableListEnvelope = listEnvelopeSchema(TableCompact);
 
+function needs(feature: FeatureName): string {
+  return `needs ${feature} (${featureAvailability(feature)})`;
+}
+
+const ACCESS_FILTER_NEEDS = needs("tableListAccessFilters");
+
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List tables, optionally filtered" },
+  details:
+    "Answers a flat compact list without fields; when you know the schema, `mb db schema-tables <db-id> <schema>` is the better starting point. `--db-id` narrows the list on the client; every other filter is applied by the server. `--unused-only`, `--published-only`, `--can-query`, `--can-write` and `--include-transform-targets` are refused before the request (exit 2) on a server without the feature the flag needs, because such a server drops a filter it does not know without a word.",
   requires: ["table.list"],
   args: {
     ...outputFlags,
@@ -26,7 +38,8 @@ export default defineMetabaseCommand({
     "db-id": { type: "string", description: "Filter by database id" },
     term: {
       type: "string",
-      description: "Match table names and display names by prefix (`*` is a wildcard)",
+      description:
+        "Match table names and display names by prefix, and display names by the start of any word too (`ite` matches Order Items); `*` is a wildcard",
     },
     "visibility-type": {
       type: "string",
@@ -34,7 +47,7 @@ export default defineMetabaseCommand({
     },
     "data-layer": {
       type: "string",
-      description: `Only tables in this data layer: ${TableDataLayer.options.join("|")}`,
+      description: `Only tables in this data layer: ${TableDataLayerTier.options.join("|")}; a server without ${DATA_LAYER_TIER_GATE.feature} (${featureAvailability(DATA_LAYER_TIER_GATE.feature)}) names them ${TableDataLayerMedallion.options.join("|")}`,
     },
     "data-source": {
       type: "string",
@@ -45,14 +58,23 @@ export default defineMetabaseCommand({
     "orphan-only": { type: "boolean", description: "Only tables with no owner" },
     "unused-only": {
       type: "boolean",
-      description: "Only tables nothing depends on (needs the dependencies feature)",
+      description: `Only tables nothing depends on; ${needs("tableUnusedFilter")}`,
     },
-    "published-only": { type: "boolean", description: "Only tables published to the library" },
-    "can-query": { type: "boolean", description: "Only tables you can run queries against" },
-    "can-write": { type: "boolean", description: "Only tables whose metadata you can edit" },
+    "published-only": {
+      type: "boolean",
+      description: `Only tables published to the library; ${needs("tableListPublishedFilter")}`,
+    },
+    "can-query": {
+      type: "boolean",
+      description: `Only tables you can run queries against; ${ACCESS_FILTER_NEEDS}`,
+    },
+    "can-write": {
+      type: "boolean",
+      description: `Only tables whose metadata you can edit; ${ACCESS_FILTER_NEEDS}`,
+    },
     "include-transform-targets": {
       type: "boolean",
-      description: "Also list the inactive tables a transform writes to",
+      description: `Also list the inactive tables a transform writes to, which carry \`active: false\`; ${needs("tableListTransformTargets")}`,
     },
   },
   outputSchema: TableListEnvelope,

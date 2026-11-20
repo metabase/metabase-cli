@@ -24,6 +24,8 @@ export default defineMetabaseCommand({
   examples: [
     "cat patch.json | mb transform-test update 1",
     "mb transform-test update 1 --file patch.json",
+    'mb transform-test update 1 --body \'{"name":"renamed"}\'',
+    "mb transform-test get 1 --full --json | jq 'del(.id, .entity_id, .creator_id, .created_at, .updated_at)' | mb transform-test update 1",
   ],
   async run({ args, ctx, getClient, readBody }) {
     const id = parseId(args.id);

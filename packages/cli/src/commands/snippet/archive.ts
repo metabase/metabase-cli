@@ -7,6 +7,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "archive", description: "Archive (soft-delete) a native query snippet by id" },
+  details:
+    "Sets `archived: true`. `snippet list --archived` lists the snippet, and `mb snippet update <id> --body '{\"archived\":false}'` restores it.",
   requires: ["snippet.archive"],
   args: {
     ...outputFlags,

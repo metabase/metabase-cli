@@ -11,6 +11,8 @@ export default defineMetabaseCommand({
     name: "create-branch",
     description: "Create a new branch on the git remote and switch git-sync to it",
   },
+  details:
+    "The branch starts at the last synced commit, or at the tracked branch's tip when nothing has synced yet. Nothing is exported until the next `git-sync export`.",
   requires: ["gitSync.createBranch"],
   args: {
     ...outputFlags,

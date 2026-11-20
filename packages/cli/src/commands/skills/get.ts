@@ -45,7 +45,7 @@ export default defineMetabaseCommand({
   meta: {
     name: "get",
     description:
-      "Print one or more skills' SKILL.md content, as the profile's server can use it: a skill it lacks the features for is reported under `unavailable`, and a section it cannot use is left out. Pass comma-separated names, or --all for every non-hidden skill. A named skill prints whole unless --max-bytes is given; --all keeps the default cap. --unfiltered prints the selection as written, regardless of the server. --full includes references and templates.",
+      "Print one or more skills' SKILL.md content, as the profile's server can use it: a skill it lacks the features for is reported under `unavailable`, and a section it cannot use is left out. Pass comma-separated names, or --all for every non-hidden skill. A named skill prints whole unless --max-bytes is given; --all keeps the default cap, which one long skill can fill, so pass --max-bytes 0 to print every skill. --unfiltered prints the selection as written, regardless of the server. --full includes references and templates.",
   },
   requires: null,
   args: {
@@ -69,7 +69,7 @@ export default defineMetabaseCommand({
     "mb skills get core",
     "mb skills get core --full",
     "mb skills get git-sync,transform --json",
-    "mb skills get --all --json",
+    "mb skills get --all --json --max-bytes 0",
     "mb skills get transform --unfiltered",
   ],
   async run({ args, ctx }) {

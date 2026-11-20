@@ -11,6 +11,8 @@ export default defineMetabaseCommand({
     name: "update",
     description: "Update a field (description, semantic_type, FK target, visibility, etc.)",
   },
+  details:
+    "A `data_sensitivity` key (a label, or `null` to withdraw one; see `mb field set-sensitivity`) is refused before the request on a server older than Metabase 64 (exit 2), because such a server drops the key without a word.",
   requires: ["field.update"],
   args: {
     ...outputFlags,
@@ -22,7 +24,7 @@ export default defineMetabaseCommand({
   inputSchema: FieldUpdateInput,
   outputSchema: FieldDetail,
   examples: [
-    'mb field update 100 --body \'{"description":"customer email"}\'',
+    'mb field update 100 --body \'{"description":"customer email","semantic_type":"type/Email"}\'',
     "mb field update 100 --file patch.json",
     "cat patch.json | mb field update 100",
   ],

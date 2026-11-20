@@ -25,7 +25,7 @@ const SELECTOR_FLAGS: Record<keyof TableSelectors, keyof TableSelectorFlags> = {
 };
 
 export const SELECTION_DETAILS =
-  'Select with --table-ids, --db-ids, or --schemas (each schema id is "<db-id>:<schema>", e.g. 1:public, and 1: selects the tables of database 1 that have no schema); the selectors are unioned. Only an admin or a data analyst may call it; anyone else gets a 403. The server answers the same whether or not a selector matched a table, so the output restates the accepted request and cannot say which tables were affected.';
+  'Select with --table-ids, --db-ids, or --schemas (each schema id is "<db-id>:<schema>" with a positive database id, e.g. 1:public, and 1: selects the tables of database 1 that have no schema); the selectors are unioned. Only an admin or a data analyst may call it; anyone else gets a 403. The server answers the same whether or not a selector matched a table, so the output restates the accepted request, as `{ accepted: true, schema_ids: ["1:public"] }`, and cannot say which tables were affected.';
 
 export function selectionSummary(action: string, selectors: TableSelectors): string {
   const flags = TableSelectors.keyof()

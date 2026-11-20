@@ -27,7 +27,8 @@ export default defineMetabaseCommand({
     id: { type: "positional", description: "Database id", required: true },
     enabled: {
       type: "positional",
-      description: "true to enable data actions, false to disable",
+      description:
+        "true to enable data actions, false to disable; any other value is refused before the request (exit 2)",
       required: true,
     },
   },

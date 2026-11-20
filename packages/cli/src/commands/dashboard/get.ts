@@ -7,6 +7,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a dashboard by id" },
+  details:
+    "The compact view carries `id`, `name`, `description`, `archived`, `collection_id`, and the `dashcards` and `tabs` in compact form (each dashcard's id, card_id, tab, position, size and parameter_mappings). --full returns the whole hydrated dashboard, each dashcard with its card.",
   requires: ["dashboard.get"],
   args: {
     ...outputFlags,

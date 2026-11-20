@@ -92,6 +92,6 @@ Many commands take one or more of these flag sets. Each command names the sets i
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--url <value>` |  | Metabase URL. |
+| `--url <value>` |  | Metabase URL, including any subpath the instance is served under (https://example.com/metabase). |
 | `--api-key <value>` |  | API key. |
 | `--skip-preflight` |  | Skip the client's version and license checks made before a request, and let the server answer. |

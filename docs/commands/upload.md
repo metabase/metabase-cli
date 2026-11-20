@@ -11,7 +11,7 @@ Upload CSV files into Metabase.
 
 Upload a CSV file as a new table and model.
 
-Uploads the CSV to the server's configured uploads database, creating a new table plus a model over it, and prints the new model id and table id. Requires an uploads database to be configured on the server. Pass --collection to place the model in a specific collection (defaults to root).
+Uploads the CSV to the server's configured uploads database, creating a new table plus a model over it, and prints the new model id and table id. Requires an uploads database to be configured on the server (Admin → Settings → Uploads); the destination database and schema are set there, not per command. Pass --collection to place the model in a specific collection (defaults to root).
 
 ```sh
 mb upload csv [flags]
@@ -19,7 +19,7 @@ mb upload csv [flags]
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--file <value>` |  | Path to the CSV/TSV file to upload. |
+| `--file <value>` |  | Path to the CSV/TSV file to upload (required). |
 | `--collection <value>` |  | Target collection id, or 'root' (default: root). |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
@@ -50,7 +50,7 @@ mb upload append <id> [flags]
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--file <value>` |  | Path to the CSV/TSV file to upload. |
+| `--file <value>` |  | Path to the CSV/TSV file to upload (required). |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -79,7 +79,7 @@ mb upload replace <id> [flags]
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--file <value>` |  | Path to the CSV/TSV file to upload. |
+| `--file <value>` |  | Path to the CSV/TSV file to upload (required). |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 

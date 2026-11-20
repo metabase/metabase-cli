@@ -1,4 +1,4 @@
-import { Pulse, PulseUpdateInput } from "@metabase/client/domain/pulse";
+import { Pulse, PulseUpdateInput, SUBSCRIPTION_FILTERS_GATE } from "@metabase/client/domain/pulse";
 import { pulseView } from "../../output/views/pulse";
 import { renderSummary } from "../../output/render";
 import { bodyInputFlags } from "../body-flags";
@@ -13,6 +13,9 @@ export default defineMetabaseCommand({
     "`cards` and `channels` replace the whole list, so send every card and channel you want to keep —",
     "`mb subscription get <id> --full` prints the current ones.",
     "A subscription's `dashboard_id` and `collection_id` are fixed at creation and cannot be changed.",
+    "The update reads the subscription first and carries `archived` and `skip_if_empty` forward when the patch leaves them out:",
+    "the server resets each omitted one to false, so a name-only patch would otherwise un-archive the subscription and clear `skip_if_empty`.",
+    `Non-empty \`parameters\` need \`${SUBSCRIPTION_FILTERS_GATE.feature}\` and are refused before the request without it, as on \`mb subscription create\`.`,
   ].join(" "),
   requires: ["pulse.update"],
   args: {

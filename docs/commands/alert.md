@@ -12,6 +12,10 @@ Agent skills:
 - `mb skills get notification`: send conditions, cron schedules, handlers and recipients, testing a send
 - `mb skills get core`: the card an alert watches and how to find its id
 
+## Card alerts only
+
+Metabase keeps its internal system-event notifications in the same API as question alerts, with ids alongside theirs. `get`, `update`, `send` and `archive` refuse an id that names any notification other than a card alert (exit 2): reading one as an alert would mislead, and sending one would fire an internal Metabase email.
+
 ## mb alert list
 
 List question alerts.
@@ -24,7 +28,7 @@ mb alert list [flags]
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--card-id <value>` |  | Only alerts watching this card id. |
+| `--card-id <value>` |  | Only alerts watching this card id, as `mb card alerts <card-id>` lists them. |
 | `--creator-id <value>` |  | Only alerts created by this user id. |
 | `--recipient-id <value>` |  | Only alerts delivered to this user id. |
 | `--include-inactive` |  | Include archived (inactive) alerts. |
@@ -45,7 +49,7 @@ mb alert list --include-inactive --json
 
 Get a question alert by id.
 
-`--full` includes the hydrated card the alert watches, alongside its schedules and handlers.
+The compact view holds `id`, `payload_type`, `active`, `creator_id`, the `payload` (`card_id`, `send_condition`, `send_once`), the cron `subscriptions`, and the `handlers` with their recipients. `--full` adds the hydrated card the alert watches.
 
 ```sh
 mb alert get <id> [flags]
@@ -79,7 +83,7 @@ mb alert create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -97,7 +101,7 @@ mb alert create --file alert.json
 
 Update a question alert by id.
 
-Patches only the top-level fields you send: `payload`, `subscriptions`, `handlers`, `active`. Fields inside `payload` merge over the current ones, so `{"payload":{"send_condition":"goal_above"}}` keeps the card. `subscriptions` and `handlers` replace the whole list, so send every schedule and recipient you want to keep — `mb alert get <id>` prints the current ones. An alert's card cannot be moved to a different card.
+Patches only the top-level fields you send: `payload`, `subscriptions`, `handlers`, `active`. Fields inside `payload` merge over the current ones, so `{"payload":{"send_condition":"goal_above"}}` keeps the card. `subscriptions` and `handlers` replace the whole list, so send every schedule and recipient you want to keep — `mb alert get <id>` prints the current ones. An alert's card cannot be moved to a different card. The update reads the alert first and merges the patch over it, so the alert and its payload keep their ids: the server reads the body as the alert's whole new state, and a body whose `id` differs from the stored one deletes the alert and inserts a replacement under a fresh id.
 
 ```sh
 mb alert update <id> [flags]
@@ -110,7 +114,7 @@ mb alert update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 

@@ -34,7 +34,7 @@ export default defineMetabaseCommand({
     description: "Search Metabase content (cards, dashboards, collections, …)",
   },
   details:
-    "Ranks content against a query string. To simply enumerate a resource, prefer its `… list` verb.",
+    "Ranks content against a query string. To simply enumerate a resource, prefer its `… list` verb. The server applies the window: `--limit` and `--offset` travel with the request, and `--limit` defaults to 20, the one list command with a default of its own. `--verified` is refused before the request on a server without `content_verification` (exit 2), judged against a probe of the server taken in the same run, because a server with `official_collections` alone takes the filter without applying it; a server with neither refuses the filter itself, and the error names the feature. With `--collection`, tables match only once published to the Library, and a transforms collection is not searchable at all. With `--created-by`, collections, tables, databases, segments, transforms and indexed entities never match, since they record no creator.",
   skills: [{ skill: "core", purpose: "search vs. list" }],
   requires: ["search.query"],
   args: {
@@ -63,8 +63,7 @@ export default defineMetabaseCommand({
     },
     verified: {
       type: "boolean",
-      description:
-        "Only verified content. Needs the content_verification premium feature, and is refused without it: a server with official_collections alone takes the filter without applying it",
+      description: "Only verified content (needs the content_verification premium feature)",
     },
     collection: {
       type: "string",

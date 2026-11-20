@@ -10,7 +10,7 @@ import { DATA_ACTION_DATASET_QUERY, skipValidateFlag } from "../validate-query";
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a data action by id" },
   details:
-    "The JSON body carries only the fields to change. A new MBQL 5 `dataset_query` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass --skip-validate to bypass.",
+    "The JSON body carries only the fields to change: any of `name`, `parameters`, `collection_id`, `description`, `visualization_settings` and `archived`, plus a query action's `dataset_query` or a table action's `kind` and `table_id`, never both. A server before v65 ignores `collection_id` and `table_id` and answers as if it had applied them, so either key is refused there before the request is sent. A new MBQL 5 `dataset_query` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass --skip-validate to bypass.",
   skills: [{ skill: "data-action", purpose: "the fields of a data action" }],
   requires: ["dataAction.update"],
   args: {

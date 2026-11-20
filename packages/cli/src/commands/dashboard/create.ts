@@ -19,7 +19,7 @@ export default defineMetabaseCommand({
     description: "Create a dashboard from JSON",
   },
   details:
-    "Every dashcard must include card_id (a card id, or null for a virtual card). Any positive card_id is pre-flight-validated (exists and readable, not archived) before the dashboard is created.",
+    "Every dashcard must include card_id (a card id, or null for a virtual card), and a negative dashcard id creates a new dashcard. Any positive card_id is pre-flight-validated (exists and readable, not archived) before the dashboard is created. With dashcards or tabs in the body, a follow-up update applies them once the dashboard exists, and the command prints the dashboard as that update left it.",
   skills: [
     { skill: "dashboard", purpose: "wiring filters, cross-filtering, click behavior, tabs" },
     { skill: "visualization", purpose: "dashcard visualization_settings and the 24-column grid" },

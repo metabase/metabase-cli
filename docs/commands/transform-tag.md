@@ -11,6 +11,12 @@ Agent skills:
 
 - `mb skills get transform`: tags that drive job schedules
 
+## Tags, transforms and jobs
+
+Tags group transforms and jobs. A transform or a job names its tags by id in its `tag_ids` field (see [`mb transform update`](transform.md#mb-transform-update) and [`mb transform-job update`](transform-job.md#mb-transform-job-update)). The four built-in tags, `hourly`, `daily`, `weekly` and `monthly`, drive the four built-in jobs.
+
+There is no command to get one tag by id: read it from [`mb transform-tag list`](#mb-transform-tag-list).
+
 ## mb transform-tag list
 
 List transform tags.
@@ -43,7 +49,7 @@ mb transform-tag create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -74,7 +80,7 @@ mb transform-tag update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 

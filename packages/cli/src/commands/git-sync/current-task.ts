@@ -12,6 +12,7 @@ export default defineMetabaseCommand({
     name: "current-task",
     description: "Get the most recent git-sync task (or idle if none)",
   },
+  details: 'Answers `{ "status": "idle" }` when no task has ever run.',
   requires: ["gitSync.currentTask"],
   args: { ...outputFlags, ...profileFlag, ...connectionFlags },
   outputSchema: CurrentTaskResult,

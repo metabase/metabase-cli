@@ -5,6 +5,7 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "delete", description: "Delete an API key by id" },
+  details: "Only admins delete API keys. Requests made with the key fail from then on.",
   requires: ["apiKey.delete"],
   args: {
     ...outputFlags,

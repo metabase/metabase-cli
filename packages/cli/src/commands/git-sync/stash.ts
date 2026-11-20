@@ -17,6 +17,8 @@ export default defineMetabaseCommand({
     name: "stash",
     description: "Export current Metabase state to a new branch on the git remote",
   },
+  details:
+    "Creates the branch, exports Metabase's current state to it, and switches git-sync to it. The server refuses it unless `remote-sync-type` is `read-write`.",
   requires: ["gitSync.stash"],
   args: {
     ...outputFlags,

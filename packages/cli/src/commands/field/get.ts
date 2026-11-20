@@ -7,6 +7,8 @@ import { defineMetabaseCommand } from "../runtime";
 
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a field by id" },
+  details:
+    "`data_sensitivity` is the field's sensitivity label (see `mb field set-sensitivity`), or `null` when it has none. A server older than Metabase 64 has no such label, so the key and the Sensitivity column are left out.",
   requires: ["field.get"],
   args: {
     ...outputFlags,

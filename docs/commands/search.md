@@ -7,7 +7,7 @@ summary: "Search Metabase content (cards, dashboards, collections, …)."
 
 Search Metabase content (cards, dashboards, collections, …).
 
-Ranks content against a query string. To simply enumerate a resource, prefer its `… list` verb.
+Ranks content against a query string. To simply enumerate a resource, prefer its `… list` verb. The server applies the window: `--limit` and `--offset` travel with the request, and `--limit` defaults to 20, the one list command with a default of its own. `--verified` is refused before the request on a server without `content_verification` (exit 2), judged against a probe of the server taken in the same run, because a server with `official_collections` alone takes the filter without applying it; a server with neither refuses the filter itself, and the error names the feature. With `--collection`, tables match only once published to the Library, and a transforms collection is not searchable at all. With `--created-by`, collections, tables, databases, segments, transforms and indexed entities never match, since they record no creator.
 
 ```sh
 mb search [query] [flags]
@@ -24,7 +24,7 @@ mb search [query] [flags]
 | `-m, --models <value>` |  | Comma-separated model filter: card,dataset,metric,dashboard,collection,database,table,segment,measure,document,exploration,action,transform,indexed-entity. |
 | `--archived` | `false` | Search only archived items (instead of only active ones). |
 | `--db-id <value>` |  | Restrict to items on a given database id. |
-| `--verified` |  | Only verified content. Needs the content_verification premium feature, and is refused without it: a server with official_collections alone takes the filter without applying it. |
+| `--verified` |  | Only verified content (needs the content_verification premium feature). |
 | `--collection <value>` |  | Restrict to one collection by id: its own row, subcollections and the content filed under them, never segments, measures or transforms (dashboard questions need --include-dashboard-questions). |
 | `--created-by <value>` |  | Comma-separated user ids; matches items created by any of them (drops models with no creator). |
 | `--search-native-query` |  | Also match native query text; narrows to cards, models, metrics, actions and transforms. |

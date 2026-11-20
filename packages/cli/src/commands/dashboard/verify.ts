@@ -12,7 +12,7 @@ export default defineMetabaseCommand({
     description: "Mark a dashboard verified, or withdraw the mark with --remove",
   },
   details:
-    "Records a moderation review on the dashboard (admins only). Verified content carries a check mark in the product and ranks higher in search. Each call adds a review and makes it the dashboard's most recent one; `--remove` records a review with no status, which withdraws the verification. `--text` stores a note with the review. `dashboard get <id> --fields moderation_reviews` reads the reviews, newest first. Prints the review.",
+    "Records a moderation review on the dashboard (admins only). Verified content carries a check mark in the product and ranks higher in search; `mb search --verified` finds only verified content. Each call adds a review and makes it the dashboard's most recent one; `--remove` records a review with no status, which withdraws the verification. `dashboard get <id> --fields moderation_reviews` reads the reviews, newest first; the first one's `status` is the current state. Prints the review, whose `status` is `verified` or `null`; `--full` adds `moderator_id` and the timestamps.",
   requires: ["moderationReview.create"],
   args: {
     ...outputFlags,

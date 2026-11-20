@@ -12,7 +12,7 @@ The CLI consumes the client as `@metabase/client/<path>` and inlines it at build
 
 Root devDependencies hoist and are therefore reachable from the client's source tree. The client's dependency budget (`zod` + `node:` builtins) is a rule to uphold, not something the resolver rejects.
 
-The root `README.md` is the CLI's user-facing command reference rather than a workspace map, and `packages/client/README.md` is the client's own reference and the page npm renders for `@metabase/client`. npm renders a README only from the package root, so `packages/cli/README.md` is a pointer to the root one: install, `mb --help`, and the link. The reference itself has one home.
+The root `README.md` is the CLI's user-facing front page rather than a workspace map: install, supported versions, output, environment variables and exit codes, which no one command owns, and a link to the command reference generated into `docs/commands/`. `packages/client/README.md` is the client's own reference and the page npm renders for `@metabase/client`. npm renders a README only from the package root, so `packages/cli/README.md` is a pointer: install, `mb --help`, and the links. Each fact has one home.
 
 ## Resolution: source, not `dist`
 

@@ -190,8 +190,10 @@ async function postForm<T>(
   return readJson(response, schema, source, signal);
 }
 
-export const OAUTH_UNSUPPORTED_MESSAGE =
-  "this Metabase does not support OAuth login (requires Metabase v63 or newer)";
+// The release whose discovery first advertises the full-access scope; see `grantsFullAccessScope`.
+export const OAUTH_MINIMUM_RELEASE = "v62.3.3";
+
+export const OAUTH_UNSUPPORTED_MESSAGE = `this Metabase does not support OAuth login (requires Metabase ${OAUTH_MINIMUM_RELEASE} or newer)`;
 
 // Pre-v60 Metabase answers the discovery path with the SPA shell (200 text/html) or a 404, so "no
 // OAuth server" is any non-2xx or non-JSON response. Network-level failures still throw.

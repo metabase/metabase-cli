@@ -8,7 +8,7 @@ import { defineMetabaseCommand } from "../runtime";
 export default defineMetabaseCommand({
   meta: { name: "create", description: "Create a timeline from JSON" },
   details:
-    "The JSON body needs `name`; optional fields: `description`, `icon` (star|cake|mail|warning|bell|cloud, default star), `collection_id` (null = root collection), `default`.",
+    "The JSON body needs `name`; optional fields: `description`, `icon` (star|cake|mail|warning|bell|cloud, and from Metabase v64 mail_at|info|note|event; default star), `collection_id` (null = root collection), `default` (true marks the collection's default timeline).",
   requires: ["timeline.create"],
   args: {
     ...outputFlags,

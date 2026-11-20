@@ -11,6 +11,10 @@ Agent skills:
 
 - `mb skills get core`: native-SQL snippets and body input
 
+## Snippets
+
+A snippet is a named, reusable piece of native (SQL) query text. A native query includes one by name, as `{{snippet: Name}}`.
+
 ## mb snippet list
 
 List native query snippets.
@@ -62,6 +66,8 @@ mb snippet get 1 --json
 
 Create a native query snippet from a JSON spec.
 
+The JSON body needs `name` and `content`, the SQL text; `description` and `collection_id` are optional.
+
 ```sh
 mb snippet create [flags]
 ```
@@ -69,7 +75,7 @@ mb snippet create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -87,6 +93,8 @@ mb snippet create --body '{"name":"active","content":"WHERE active = true"}'
 
 Update a native query snippet by id.
 
+Patches only the fields you send: any of `name`, `content`, `description`, `collection_id` and `archived`.
+
 ```sh
 mb snippet update <id> [flags]
 ```
@@ -98,7 +106,7 @@ mb snippet update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -116,6 +124,8 @@ mb snippet update 1 --body '{"archived":true}'
 ## mb snippet archive
 
 Archive (soft-delete) a native query snippet by id.
+
+Sets `archived: true`. `snippet list --archived` lists the snippet, and `mb snippet update <id> --body '{"archived":false}'` restores it.
 
 ```sh
 mb snippet archive <id> [flags]

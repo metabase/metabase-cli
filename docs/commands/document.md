@@ -11,9 +11,19 @@ Agent skills:
 
 - `mb skills get document`: author the ProseMirror document body
 
+## Documents
+
+A document is a rich-text page that mixes prose with embedded saved questions (`cardEmbed` nodes) and inline links to Metabase entities (`smartLink` nodes). Its body is a [TipTap](https://tiptap.dev/) (ProseMirror) JSON tree, stored with `content_type` `application/json+vnd.prose-mirror`. Documents are a baseline open-source feature: they need no premium token.
+
+## Node ids
+
+For a document to open clean, with no spurious "unsaved changes" prompt, each `paragraph`, `heading`, `codeBlock`, `orderedList`, `bulletList`, `blockquote`, `cardEmbed` and `supportingText` node carries its own `_id`, a UUID. [mb document create](#mb-document-create) and [mb document update](#mb-document-update) refuse a body in which one of these nodes has none. Mint ids with [mb uuid](uuid.md). Other node types take no `_id`.
+
 ## mb document list
 
 List documents.
+
+Lists the documents you can see that are not archived. The compact row leaves out the document body, which can be large; read it with `document get <id> --full`.
 
 ```sh
 mb document list [flags]
@@ -57,6 +67,8 @@ mb document get 1 --full --json
 
 Create a document.
 
+Body keys: `name` (required), `document` (required, the TipTap `doc` tree), `collection_id` (`null` files it under "Our analytics") and `collection_position`. A `cardEmbed` node can create a card with the document: give it a negative id, and put the card's definition in a top-level `cards` map under that id.
+
 ```sh
 mb document create [flags]
 ```
@@ -64,7 +76,7 @@ mb document create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -82,6 +94,8 @@ mb document create --body '{"name":"Notes","document":{"type":"doc","content":[]
 
 Update a document by id.
 
+The body takes any of the `create` keys, plus `archived`, and changes only the keys you send. A `document` key replaces the whole body.
+
 ```sh
 mb document update <id> [flags]
 ```
@@ -93,7 +107,7 @@ mb document update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -144,6 +158,8 @@ mb document copy 1 --collection-id 4 --name "Notes (copy)" --json
 ## mb document archive
 
 Archive (soft-delete) a document by id.
+
+To restore it, run `mb document update <id> --body '{"archived":false}'`.
 
 ```sh
 mb document archive <id> [flags]

@@ -12,7 +12,7 @@ export const GlossaryListEnvelope = listEnvelopeSchema(GlossaryCompact);
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List glossary entries in term order" },
   details:
-    "`--search` matches the term or the definition as a case-insensitive substring. Some servers read `%` and `_` in the text as SQL LIKE wildcards rather than literal characters.",
+    "`--search` matches the term or the definition as a case-insensitive substring. Some servers read `%` and `_` in the text as SQL LIKE wildcards rather than literal characters. A blank `--search` is refused.",
   requires: ["glossary.list"],
   args: {
     ...outputFlags,

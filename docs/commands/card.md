@@ -23,7 +23,7 @@ mb card list [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--filter <value>` | `all` | Filter preset: all\|mine\|bookmarked\|database\|table\|archived\|using_model\|using_segment. |
-| `--model-id <value>` |  | Used by filter database\|table\|using_model\|using_segment. |
+| `--model-id <value>` |  | Required with --filter database\|table\|using_model\|using_segment: the id of that database, table, model or segment. |
 
 Shared flags: [output](README.md#output-flags), [list](README.md#list-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -64,6 +64,8 @@ mb card get 1 --json
 
 Run a saved card and return results (json envelope, or stream CSV/JSON/XLSX via --export-format).
 
+Without --export-format, prints Metabase's result envelope (`status`, `row_count`, `data: { rows, cols }`, …), whose rows stop at the server's row limit for an API run: when the server cut them, `data.rows_truncated` (`pivot_rows_truncated` for a pivot) carries the limit and the text summary says so. A result served from the cache carries the time it was computed in `cached`. With --export-format, the export bytes stream straight to stdout, capped at the server's download row limit; --full, --fields, --max-bytes and --limit are refused, since they shape only the JSON output, and --json and --format still pick the shape of an error. --format-rows, --pivot-results and --csv-include-bom are refused without --export-format.
+
 ```sh
 mb card query <id> [flags]
 ```
@@ -76,9 +78,9 @@ mb card query <id> [flags]
 | --- | --- | --- |
 | `--export-format <value>` |  | Bypass the JSON envelope and stream the raw export: csv \| json \| xlsx. |
 | `--format-rows` | `false` | Streamed exports only: format values as Metabase displays them, column settings included. |
-| `--pivot-results` | `false` | With --export-format csv or xlsx: lay a pivot table's rows out as the pivot, with its subtotals; refused when the server has pivoted exports turned off. |
-| `--csv-include-bom` | `false` | With --export-format csv: open the file with a UTF-8 byte order mark, so Excel reads it as UTF-8. |
-| `--parameters <value>` |  | JSON array of Metabase parameter objects to pass with the query. |
+| `--pivot-results` | `false` | With --export-format csv or xlsx: lay a pivot table's rows out as the pivot, with its subtotals; refused when the server has pivoted exports turned off (the enable-pivoted-exports setting). |
+| `--csv-include-bom` | `false` | With --export-format csv: open the file with a UTF-8 byte order mark, so Excel reads it as UTF-8. Needs exportCsvByteOrderMark (v63+): an older server drops the key and exports without the mark, so the CLI refuses it there before the request. |
+| `--parameters <value>` |  | JSON array of Metabase parameter objects to pass with the query, in the shape Metabase sends from a dashboard. |
 | `--limit <value>` |  | Cap rows kept in the JSON envelope; refused with --export-format. |
 | `--ignore-cache` | `false` | Run the query against the database even when a cached result would be served; refused with --export-format. |
 
@@ -93,6 +95,8 @@ mb card query 1
 mb card query 1 --json --limit 20
 mb card query 1 --ignore-cache
 mb card query 1 --export-format csv > results.csv
+mb card query 1 --export-format json > results.json
+mb card query 1 --export-format xlsx > results.xlsx
 mb card query 1 --parameters '[{"type":"category","value":"A","target":["variable",["template-tag","c"]]}]'
 ```
 
@@ -138,7 +142,7 @@ mb card create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 | `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
@@ -164,7 +168,7 @@ mb card create --file card.json --skip-validate
 
 Update a card by id (partial).
 
-Patches only the fields you send (any of `name`, `display`, `dataset_query`, `collection_id`, `archived`, …). When `dataset_query` is an MBQL 5 query it is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass --skip-validate to bypass.
+Patches only the fields you send (any of `name`, `display`, `dataset_query`, `visualization_settings`, `description`, `collection_id`, `dashboard_id`, `parameters`, `archived`, …). When `dataset_query` is an MBQL 5 query it is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass --skip-validate to bypass.
 
 ```sh
 mb card update <id> [flags]
@@ -177,7 +181,7 @@ mb card update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 | `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
@@ -204,7 +208,7 @@ mb card update 1 --file patch.json --skip-validate
 
 Mark a card verified, or withdraw the mark with --remove.
 
-Records a moderation review on the card (admins only). Verified content carries a check mark in the product and ranks higher in search. Each call adds a review and makes it the card's most recent one; `--remove` records a review with no status, which withdraws the verification, as does changing the card's query. `--text` stores a note with the review. `card get <id> --fields moderation_reviews` reads the reviews, newest first. Prints the review.
+Records a moderation review on the card (admins only). Verified content carries a check mark in the product and ranks higher in search; `mb search --verified` finds only verified content. Each call adds a review and makes it the card's most recent one; `--remove` records a review with no status, which withdraws the verification. Changing the card's query (an update with a new `dataset_query`, or a revision revert) withdraws it too: the server records a review with no status and a note that the edit unverified it. `card get <id> --fields moderation_reviews` reads the reviews, newest first; the first one's `status` is the current state. Prints the review, whose `status` is `verified` or `null`; `--full` adds `moderator_id` and the timestamps.
 
 ```sh
 mb card verify <id> [flags]
@@ -236,6 +240,8 @@ mb card verify 1 --remove
 ## mb card archive
 
 Archive (soft-delete) a card by id.
+
+Sets `archived: true`. The card stays readable through `card list --filter archived` and `card get <id>`; `mb card update <id> --body '{"archived":false}'` restores it.
 
 ```sh
 mb card archive <id> [flags]

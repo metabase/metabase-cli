@@ -14,6 +14,8 @@ const SettingValueInput = z
 
 export default defineMetabaseCommand({
   meta: { name: "set", description: "Set a setting value (parsed strictly as JSON)" },
+  details:
+    "Pass `'\"main\"'` for the string `main`, `true` or `42` for a boolean or a number, and `null` to delete the stored value, which resets the setting to its default. Give the value once: as the positional, with `--file`, or on stdin; a positional beside `--file` is refused. A value that is not JSON, or no value at all, is refused before any request (exit 2).",
   requires: ["setting.set"],
   args: {
     ...outputFlags,

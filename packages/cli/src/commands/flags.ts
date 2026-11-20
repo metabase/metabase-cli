@@ -71,7 +71,11 @@ export const profileFlag = {
 } as const;
 
 export const urlFlag = {
-  url: { type: "string", description: "Metabase URL" },
+  url: {
+    type: "string",
+    description:
+      "Metabase URL, including any subpath the instance is served under (https://example.com/metabase)",
+  },
 } as const;
 
 export const connectionFlags = {

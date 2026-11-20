@@ -32,7 +32,7 @@ mb api-key list --json
 
 Create an API key acting as a member of a group.
 
-The JSON body needs `name` and `group_id` (2 is Administrators). The key is printed once, as `unmasked_key` under --json, and no later read returns it: store it where it is needed and never paste it into chat.
+Only admins create API keys. The JSON body needs `name` and `group_id` (2 is Administrators). The key is printed once, as `unmasked_key` under --json, and no later read returns it: store it where it is needed and never paste it into chat.
 
 ```sh
 mb api-key create [flags]
@@ -41,7 +41,7 @@ mb api-key create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file. |
+| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -56,6 +56,8 @@ mb api-key create --body '{"name":"ci","group_id":2}' --json
 ## mb api-key delete
 
 Delete an API key by id.
+
+Only admins delete API keys. Requests made with the key fail from then on.
 
 ```sh
 mb api-key delete <id> [flags]
