@@ -2,6 +2,8 @@
 
 Command-line client for Metabase. Logs in to an instance in your browser (OAuth, Metabase v62.3.3+) or with an API key, and stores credentials securely on your machine.
 
+The command reference — every command's arguments, flags, examples and the Metabase features it needs — is generated from the command definitions into [`docs/commands`](docs/commands/README.md).
+
 ## Supported Metabase versions
 
 The CLI is built against Metabase majors **58 through 65** (the client's `KNOWN_RANGE`), the latest patch of each; a newer release runs as the major after the newest known one, with one stderr notice per run; a development build (master or a local build, reporting a tag such as `vUNKNOWN`) is treated as newer than every release, with every version-gated command available and no notice; and an older one keeps its real major and gets one stderr notice per run pointing at a Metabase upgrade; a command the server refuses for a feature it lacks names that feature and the version it needs.
@@ -2697,6 +2699,7 @@ bun run build
 bun run test           # unit tests
 bun run typecheck
 bun run lint
+bun run docs           # regenerate docs/commands from the command definitions
 ```
 
 `bin/mb-dev` runs the CLI straight from source against a scratch config directory, so a

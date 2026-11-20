@@ -26,7 +26,8 @@
     "lint:skills": "uvx skillsaw@0.17.0 lint packages/cli/skill-data/ --strict",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "sync:representations": "bun run scripts/sync-representations.ts"
+    "sync:representations": "bun run scripts/sync-representations.ts",
+    "docs": "bun scripts/generate-docs.ts"
   },
   "devDependencies": {
     "@clack/core": "^0.3.5",

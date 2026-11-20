@@ -1,0 +1,535 @@
+import type { ArgsDef, CommandDef } from "citty";
+
+import { ConfigError } from "@metabase/client/errors";
+import { featureAvailability } from "@metabase/client/version/features";
+
+import {
+  isShortAlias,
+  kebabFlagName,
+  LONG_PREFIX,
+  NEGATION_PREFIX,
+  resolveCitty,
+  SHORT_PREFIX,
+  toAliasArray,
+} from "../runtime/citty";
+import { getMetabaseAugment, type CommandRequirements } from "../runtime/command-augment";
+import {
+  buildHelpEntry,
+  buildHelpIndex,
+  CLI_NAME,
+  convertArgs,
+  OUTPUT_SCHEMA_FLAG,
+  schemaCommand,
+  skillCommand,
+  type CommandHelpArg,
+  type CommandHelpEntry,
+  type CommandHelpSkill,
+} from "../runtime/command-help";
+
+// Folders relative to the repository root: the generated reference, and the hand-written notes
+// each of its pages may open with.
+export const REFERENCE_DIR = "docs/commands";
+export const NOTES_DIR = "docs/command-notes";
+
+const INDEX_PAGE = "README.md";
+const PAGE_EXTENSION = ".md";
+const INDEX_TITLE = "Metabase CLI command reference";
+const INDEX_SUMMARY =
+  "Each mb command, with its arguments, flags, examples, and the Metabase features it needs.";
+const SHARED_FLAGS_INTRO =
+  "Many commands take one or more of these flag sets. Each command names the sets it takes.";
+
+const BLOCK_SEPARATOR = "\n\n";
+const VALUE_PLACEHOLDER = "<value>";
+const CODE_SPAN = /(`[^`]*`)/;
+const SENTENCE_END = /[.!?]$/;
+// GitHub's heading anchors, which kramdown and lychee read the same way for the plain-text
+// headings this reference writes: lowercase, punctuation other than `-` and `_` dropped, each
+// space a hyphen.
+const ANCHOR_DROPPED = /[^a-z0-9 _-]/g;
+const ANCHOR_SPACE = / /g;
+
+export interface SharedFlagSet {
+  name: string;
+  flags: ArgsDef;
+}
+
+interface ReferenceInput {
+  root: CommandDef;
+  // Largest first: a set is credited to a command only when no earlier set claimed its flags.
+  sharedFlagSets: readonly SharedFlagSet[];
+  // Notes by page file name (`transform.md`).
+  notes: ReadonlyMap<string, string>;
+}
+
+interface ReferenceCommand {
+  entry: CommandHelpEntry;
+  path: readonly string[];
+  aliases: readonly string[];
+  sharedSets: readonly SharedFlagSet[];
+  ownArgs: readonly CommandHelpArg[];
+  bodySchema: boolean;
+  outputSchema: boolean;
+}
+
+interface GroupPage {
+  kind: "group";
+  file: string;
+  name: string;
+  description: string | null;
+  aliases: readonly string[];
+  defaultCommand: string | null;
+  skills: readonly CommandHelpSkill[];
+  commands: readonly ReferenceCommand[];
+}
+
+interface LeafPage {
+  kind: "leaf";
+  file: string;
+  name: string;
+  command: ReferenceCommand;
+}
+
+type ReferencePage = GroupPage | LeafPage;
+
+interface CommandNode {
+  key: string;
+  command: CommandDef;
+}
+
+/**
+ * The command reference as Markdown pages by file name: an index, then one page per top-level
+ * command of `root`, each opening with the notes named after it.
+ */
+export async function renderCommandReference(
+  input: ReferenceInput,
+): Promise<ReadonlyMap<string, string>> {
+  const pages = await collectPages(input.root, input.sharedFlagSets);
+  assertNotesNamePages(input.notes, pages);
+  const rootIndex = await buildHelpIndex(input.root, []);
+  const files = new Map<string, string>([
+    [INDEX_PAGE, renderIndex(rootIndex.skills, pages, input.sharedFlagSets)],
+  ]);
+  for (const page of pages) {
+    files.set(page.file, renderPage(page, input.notes.get(page.file) ?? null));
+  }
+  return files;
+}
+
+export function anchorFor(heading: string): string {
+  return heading.toLowerCase().replace(ANCHOR_DROPPED, "").replace(ANCHOR_SPACE, "-");
+}
+
+async function collectPages(
+  root: CommandDef,
+  sets: readonly SharedFlagSet[],
+): Promise<ReferencePage[]> {
+  const pages: ReferencePage[] = [];
+  for (const node of await visibleSubCommands(root)) {
+    pages.push(await collectPage(node, sets));
+  }
+  return pages;
+}
+
+async function collectPage(
+  node: CommandNode,
+  sets: readonly SharedFlagSet[],
+): Promise<ReferencePage> {
+  const path = [node.key];
+  const file = `${node.key}${PAGE_EXTENSION}`;
+  if (!(await isGroup(node.command))) {
+    return {
+      kind: "leaf",
+      file,
+      name: node.key,
+      command: await collectCommand(node.command, path, sets),
+    };
+  }
+  const meta = await resolveCitty(node.command.meta);
+  const index = await buildHelpIndex(node.command, path);
+  const defaultCommand = await resolveCitty(node.command.default);
+  return {
+    kind: "group",
+    file,
+    name: node.key,
+    description: index.description,
+    aliases: toAliasArray(meta?.alias),
+    defaultCommand: defaultCommand ?? null,
+    skills: index.skills,
+    commands: await collectCommands(node.command, path, sets),
+  };
+}
+
+async function collectCommands(
+  group: CommandDef,
+  path: readonly string[],
+  sets: readonly SharedFlagSet[],
+): Promise<ReferenceCommand[]> {
+  const commands: ReferenceCommand[] = [];
+  for (const node of await visibleSubCommands(group)) {
+    const nodePath = [...path, node.key];
+    if (await isGroup(node.command)) {
+      commands.push(...(await collectCommands(node.command, nodePath, sets)));
+    } else {
+      commands.push(await collectCommand(node.command, nodePath, sets));
+    }
+  }
+  return commands;
+}
+
+async function collectCommand(
+  command: CommandDef,
+  path: readonly string[],
+  sets: readonly SharedFlagSet[],
+): Promise<ReferenceCommand> {
+  const entry = await buildHelpEntry(command, [...path]);
+  const meta = await resolveCitty(command.meta);
+  const argsDef = await resolveCitty(command.args);
+  const sharedSets = argsDef === undefined ? [] : takenSharedSets(argsDef, sets);
+  const sharedKeys = new Set(sharedSets.flatMap((set) => Object.keys(set.flags)));
+  const augment = getMetabaseAugment(command);
+  return {
+    entry,
+    path,
+    aliases: toAliasArray(meta?.alias),
+    sharedSets,
+    ownArgs: entry.args.filter((arg) => !sharedKeys.has(arg.name)),
+    bodySchema: augment !== null && augment.input !== null,
+    outputSchema: augment !== null && augment.outputSchema !== null,
+  };
+}
+
+// Commands spread a shared set into their args, which keeps each flag's definition the very
+// object the set holds; a command that redefines one of the set's flags holds its own object, and
+// documents that flag itself.
+function takenSharedSets(argsDef: ArgsDef, sets: readonly SharedFlagSet[]): SharedFlagSet[] {
+  const claimed = new Set<string>();
+  const taken: SharedFlagSet[] = [];
+  for (const set of sets) {
+    const keys = Object.keys(set.flags);
+    const takesSet = keys.every((key) => !claimed.has(key) && argsDef[key] === set.flags[key]);
+    if (takesSet) {
+      taken.push(set);
+      for (const key of keys) {
+        claimed.add(key);
+      }
+    }
+  }
+  return taken;
+}
+
+async function visibleSubCommands(cmd: CommandDef): Promise<CommandNode[]> {
+  const subCommands = await resolveCitty(cmd.subCommands);
+  if (subCommands === undefined) {
+    return [];
+  }
+  const nodes: CommandNode[] = [];
+  for (const [key, lazy] of Object.entries(subCommands)) {
+    const command = await resolveCitty(lazy);
+    if (command === undefined) {
+      continue;
+    }
+    const meta = await resolveCitty(command.meta);
+    if (meta?.hidden !== true) {
+      nodes.push({ key, command });
+    }
+  }
+  return nodes;
+}
+
+async function isGroup(cmd: CommandDef): Promise<boolean> {
+  const subCommands = await resolveCitty(cmd.subCommands);
+  return subCommands !== undefined && Object.keys(subCommands).length > 0;
+}
+
+function assertNotesNamePages(
+  notes: ReadonlyMap<string, string>,
+  pages: readonly ReferencePage[],
+): void {
+  const files = new Set(pages.map((page) => page.file));
+  for (const name of notes.keys()) {
+    if (!files.has(name)) {
+      throw new ConfigError(`${NOTES_DIR}/${name} names no top-level command`);
+    }
+  }
+}
+
+function renderIndex(
+  skills: readonly CommandHelpSkill[],
+  pages: readonly ReferencePage[],
+  sets: readonly SharedFlagSet[],
+): string {
+  return joinBlocks([
+    frontMatter(INDEX_TITLE, INDEX_SUMMARY),
+    `# ${INDEX_TITLE}`,
+    ...skillsBlocks(skills),
+    "## Commands",
+    commandTable(pages),
+    "## Shared flags",
+    SHARED_FLAGS_INTRO,
+    ...sets.flatMap((set) => [`### ${sharedSetHeading(set)}`, flagTable(convertArgs(set.flags))]),
+  ]);
+}
+
+function renderPage(page: ReferencePage, notes: string | null): string {
+  const title = commandName([page.name]);
+  if (page.kind === "leaf") {
+    const description = page.command.entry.description;
+    return joinBlocks([
+      frontMatter(title, description),
+      `# ${title}`,
+      ...descriptionBlocks(description),
+      ...notesBlocks(notes),
+      ...commandBlocks(page.command),
+    ]);
+  }
+  return joinBlocks([
+    frontMatter(title, page.description),
+    `# ${title}`,
+    ...descriptionBlocks(page.description),
+    ...aliasBlocks([], page.aliases),
+    ...defaultCommandBlocks(page.name, page.defaultCommand),
+    ...skillsBlocks(page.skills),
+    ...notesBlocks(notes),
+    ...page.commands.flatMap((command) => [
+      `## ${commandName(command.path)}`,
+      ...descriptionBlocks(command.entry.description),
+      ...commandBlocks(command),
+    ]),
+  ]);
+}
+
+function commandBlocks(command: ReferenceCommand): string[] {
+  const { entry } = command;
+  const positionals = command.ownArgs.filter((arg) => arg.type === "positional");
+  const flags = command.ownArgs.filter((arg) => arg.type !== "positional");
+  const takesFlags = flags.length > 0 || command.sharedSets.length > 0;
+  return [
+    ...aliasBlocks(command.path.slice(0, -1), command.aliases),
+    ...(entry.details === undefined ? [] : [escapeText(entry.details)]),
+    usageBlock(command.path, positionals, takesFlags),
+    ...(positionals.length === 0 ? [] : [positionalTable(positionals)]),
+    ...(flags.length === 0 ? [] : [flagTable(flags)]),
+    ...sharedSetBlocks(command.sharedSets),
+    ...requirementBlocks(entry.requires),
+    ...schemaBlocks(command),
+    ...skillsBlocks(entry.skills),
+    ...exampleBlocks(entry.examples),
+  ];
+}
+
+function frontMatter(title: string, summary: string | null): string {
+  // A JSON string is a YAML double-quoted scalar, so any text survives the round trip.
+  const lines = ["---", `title: ${JSON.stringify(title)}`];
+  if (summary !== null) {
+    lines.push(`summary: ${JSON.stringify(sentence(summary))}`);
+  }
+  lines.push("---");
+  return lines.join("\n");
+}
+
+function descriptionBlocks(description: string | null): string[] {
+  return description === null ? [] : [sentence(escapeText(description))];
+}
+
+function aliasBlocks(parent: readonly string[], aliases: readonly string[]): string[] {
+  if (aliases.length === 0) {
+    return [];
+  }
+  const label = aliases.length === 1 ? "Alias" : "Aliases";
+  const names = aliases.map((alias) => code(commandName([...parent, alias])));
+  return [`${label}: ${names.join(", ")}.`];
+}
+
+function defaultCommandBlocks(name: string, defaultCommand: string | null): string[] {
+  if (defaultCommand === null) {
+    return [];
+  }
+  const group = code(commandName([name]));
+  const runs = code(commandName([name, defaultCommand]));
+  return [`Without a command, ${group} runs ${runs}.`];
+}
+
+function notesBlocks(notes: string | null): string[] {
+  return notes === null ? [] : [notes.trim()];
+}
+
+function skillsBlocks(skills: readonly CommandHelpSkill[]): string[] {
+  if (skills.length === 0) {
+    return [];
+  }
+  const items = skills.map(
+    (pointer) => `- ${code(skillCommand(pointer.skill))}: ${escapeText(pointer.purpose)}`,
+  );
+  return ["Agent skills:", items.join("\n")];
+}
+
+function usageBlock(
+  path: readonly string[],
+  positionals: readonly CommandHelpArg[],
+  takesFlags: boolean,
+): string {
+  const tokens = [commandName(path), ...positionals.map(positionalToken)];
+  if (takesFlags) {
+    tokens.push("[flags]");
+  }
+  return shellBlock([tokens.join(" ")]);
+}
+
+function positionalToken(arg: CommandHelpArg): string {
+  return arg.required ? `<${arg.name}>` : `[${arg.name}]`;
+}
+
+function positionalTable(positionals: readonly CommandHelpArg[]): string {
+  return table(
+    ["Argument", "Description"],
+    positionals.map((arg) => [code(positionalToken(arg)), argDescription(arg)]),
+  );
+}
+
+function flagTable(flags: readonly CommandHelpArg[]): string {
+  return table(
+    ["Flag", "Default", "Description"],
+    flags.map((arg) => [
+      code(flagSpelling(arg)),
+      arg.default === undefined ? "" : code(String(arg.default)),
+      argDescription(arg),
+    ]),
+  );
+}
+
+// The spellings citty binds that a reader needs: the one-letter alias, the kebab-case name (and
+// any other long alias), the value it takes, and the negation a flag that defaults to on is
+// turned off with.
+function flagSpelling(arg: CommandHelpArg): string {
+  const aliases = toAliasArray(arg.alias);
+  const short = aliases.filter(isShortAlias).map((alias) => `${SHORT_PREFIX}${alias}`);
+  const longNames = new Set([
+    kebabFlagName(arg.name),
+    ...aliases.filter((alias) => !isShortAlias(alias)),
+  ]);
+  const long = [...longNames].map((name) => `${LONG_PREFIX}${name}`);
+  const spelling = [...short, ...long].join(", ");
+  if (arg.type === "string" || arg.type === "enum") {
+    return `${spelling} ${VALUE_PLACEHOLDER}`;
+  }
+  if (arg.default === true) {
+    return `${spelling}, ${NEGATION_PREFIX}${kebabFlagName(arg.name)}`;
+  }
+  return spelling;
+}
+
+function argDescription(arg: CommandHelpArg): string {
+  const parts: string[] = [];
+  if (arg.required && arg.type !== "positional") {
+    parts.push("Required.");
+  }
+  if (arg.description !== undefined) {
+    parts.push(sentence(escapeCell(arg.description)));
+  }
+  if (arg.options !== undefined) {
+    parts.push(`One of ${arg.options.map(code).join(", ")}.`);
+  }
+  return parts.join(" ");
+}
+
+function sharedSetBlocks(sets: readonly SharedFlagSet[]): string[] {
+  if (sets.length === 0) {
+    return [];
+  }
+  const links = sets.map(
+    (set) => `[${set.name}](${INDEX_PAGE}#${anchorFor(sharedSetHeading(set))})`,
+  );
+  return [`Shared flags: ${links.join(", ")}.`];
+}
+
+function sharedSetHeading(set: SharedFlagSet): string {
+  return `${set.name.charAt(0).toUpperCase()}${set.name.slice(1)} flags`;
+}
+
+function requirementBlocks(requires: CommandRequirements | null): string[] {
+  if (requires === null || requires.features.length === 0) {
+    return [];
+  }
+  const features = requires.features.map(
+    (feature) => `${code(feature)} (${featureAvailability(feature)})`,
+  );
+  return [`Needs: ${features.join(", ")}.`];
+}
+
+function schemaBlocks(command: ReferenceCommand): string[] {
+  const schema = schemaCommand(command.path.join(" "));
+  const lines: string[] = [];
+  if (command.bodySchema) {
+    lines.push(`Body schema: ${code(schema)}.`);
+  }
+  if (command.outputSchema) {
+    lines.push(`Output schema: ${code(`${schema} ${OUTPUT_SCHEMA_FLAG}`)}.`);
+  }
+  return lines.length === 0 ? [] : [lines.join(" ")];
+}
+
+function exampleBlocks(examples: readonly string[]): string[] {
+  return examples.length === 0 ? [] : ["Examples:", shellBlock(examples)];
+}
+
+function commandTable(pages: readonly ReferencePage[]): string {
+  return table(
+    ["Command", "Description"],
+    pages.map((page) => {
+      const description = page.kind === "leaf" ? page.command.entry.description : page.description;
+      const link = `[${commandName([page.name])}](${page.file})`;
+      return [link, description === null ? "" : escapeCell(description)];
+    }),
+  );
+}
+
+function table(header: readonly string[], rows: readonly (readonly string[])[]): string {
+  const lines = [header, header.map(() => "---"), ...rows].map(
+    (cells) => `| ${cells.map(escapePipes).join(" | ")} |`,
+  );
+  return lines.join("\n");
+}
+
+function shellBlock(lines: readonly string[]): string {
+  return ["```sh", ...lines, "```"].join("\n");
+}
+
+function commandName(path: readonly string[]): string {
+  return [CLI_NAME, ...path].join(" ");
+}
+
+function code(text: string): string {
+  return `\`${text}\``;
+}
+
+function sentence(text: string): string {
+  return SENTENCE_END.test(text) ? text : `${text}.`;
+}
+
+function joinBlocks(blocks: readonly string[]): string {
+  return `${blocks.join(BLOCK_SEPARATOR)}\n`;
+}
+
+// Markdown reads a `<` outside a code span as the start of an HTML tag, which GitHub then strips,
+// so `"<db-id>:<schema>"` would render as `":"`.
+function escapeText(text: string): string {
+  // Splitting on a capturing pattern alternates the text between code spans with the spans.
+  return text
+    .split(CODE_SPAN)
+    .map((part, index) => (isOdd(index) ? part : part.replaceAll("<", "&lt;")))
+    .join("");
+}
+
+function isOdd(index: number): boolean {
+  return index % 2 === 1;
+}
+
+function escapeCell(text: string): string {
+  return escapeText(text).replaceAll("\n", " ");
+}
+
+// A table cell ends at a bare `|`, inside a code span too, so every pipe in a cell is escaped.
+function escapePipes(cell: string): string {
+  return cell.replaceAll("|", "\\|");
+}

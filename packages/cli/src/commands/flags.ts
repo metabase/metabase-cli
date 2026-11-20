@@ -1,5 +1,6 @@
 import type { StringArgDef } from "citty";
 
+import type { SharedFlagSet } from "../output/command-reference";
 import { DEFAULT_MAX_BYTES } from "../output/types";
 import type { ListMarker } from "../runtime/citty";
 
@@ -83,3 +84,13 @@ export const connectionFlags = {
     alias: "skip-preflight",
   },
 } as const;
+
+// The sets the command reference documents once, on its index, instead of on every command.
+// `outputFlags` holds `formatFlags`, so it comes first.
+export const SHARED_FLAG_SETS: readonly SharedFlagSet[] = [
+  { name: "output", flags: outputFlags },
+  { name: "format", flags: formatFlags },
+  { name: "list", flags: listFlags },
+  { name: "profile", flags: profileFlag },
+  { name: "connection", flags: connectionFlags },
+];

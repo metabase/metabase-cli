@@ -3,7 +3,15 @@ import type { ArgsDef, CommandDef } from "citty";
 
 import { flagSpellings, readArgv, resolveCitty } from "../runtime/citty";
 import { getMetabaseAugment, type SkillPointer } from "../runtime/command-augment";
-import { buildHelpEntry, buildHelpIndex, CLI_NAME, findSubCommand } from "../runtime/command-help";
+import {
+  buildHelpEntry,
+  buildHelpIndex,
+  CLI_NAME,
+  findSubCommand,
+  OUTPUT_SCHEMA_FLAG,
+  schemaCommand,
+  skillCommand,
+} from "../runtime/command-help";
 import { jsonLine } from "./render";
 
 export const ANSI_ESC = String.fromCharCode(27);
@@ -134,15 +142,15 @@ function machineHelpHint(breadcrumb: string, target: MachineHelpTarget): string 
 }
 
 function schemaHint(command: string, schemas: DeclaredSchemas): string | null {
-  const schema = `${CLI_NAME} schema ${command}`;
+  const schema = schemaCommand(command);
   if (schemas.body && schemas.output) {
-    return `Body and output schemas: ${schema} [--output]`;
+    return `Body and output schemas: ${schema} [${OUTPUT_SCHEMA_FLAG}]`;
   }
   if (schemas.body) {
     return `Body schema: ${schema}`;
   }
   if (schemas.output) {
-    return `Output schema: ${schema} --output`;
+    return `Output schema: ${schema} ${OUTPUT_SCHEMA_FLAG}`;
   }
   return null;
 }
@@ -226,7 +234,7 @@ function optionLayout(row: string): OptionLayout | null {
 }
 
 function renderSkillsSection(skills: readonly SkillPointer[], includeListPointer: boolean): string {
-  const items = skills.map((p) => `${LINE_PREFIX}mb skills get ${p.skill} — ${p.purpose}`);
+  const items = skills.map((p) => `${LINE_PREFIX}${skillCommand(p.skill)} — ${p.purpose}`);
   if (includeListPointer) {
     items.push(`${LINE_PREFIX}${SKILLS_LIST_ITEM}`);
   }
