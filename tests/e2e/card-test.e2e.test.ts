@@ -135,6 +135,7 @@ describe.skipIf(skipReason !== null)("test e2e, card tests", () => {
       creator_id: expect.any(Number),
       name: "totals are never negative",
       description: null,
+      now: null,
       inputs: INPUTS,
       expectations: EXPECTATIONS,
       created_at: expect.any(String),
