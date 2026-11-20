@@ -52,7 +52,7 @@ mb data-app scaffold sales-overview
 
 Name the Embedding SDK tag that matches the instance's Metabase version.
 
-Reads the instance's version afresh and the npm dist-tags of @metabase/embedding-sdk-react, and answers the most mature tag published for that Metabase major: its stable tag (`65-stable` for v1.65.x), or while the major has none, its beta, then its alpha tag. Exits 2 on a development build (`vUNKNOWN`, `vLOCAL_DEV`, a `-SNAPSHOT` tag), which no published SDK matches, and on a major npm has no tag for. `--registry "$(npm config get registry)"` reads the registry `npm install` uses. JSON output carries `metabaseVersion`, `tag`, and the SDK `version` the tag points at; text output is the bare tag, so the install composes in a shell.
+Reads the instance's version afresh and the npm dist-tags of @metabase/embedding-sdk-react, and returns the most mature tag published for that Metabase major: its stable tag (`65-stable` for v1.65.x), or while the major has none, its beta, then its alpha tag. Exits 2 on a development build (`vUNKNOWN`, `vLOCAL_DEV`, a `-SNAPSHOT` tag), which no published SDK matches, and on a major npm has no tag for. `--registry "$(npm config get registry)"` reads the registry `npm install` uses. JSON output carries `metabaseVersion`, `tag`, and the SDK `version` the tag points at; text output is the bare tag, so the install composes in a shell.
 
 ```sh
 mb data-app sdk-version [flags]

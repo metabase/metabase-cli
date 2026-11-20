@@ -43,7 +43,7 @@ export default defineMetabaseCommand({
     ...profileFlag,
     yes: {
       type: "boolean",
-      description: "Skip confirmation; without a TTY there is no prompt",
+      description: "Skip confirmation; without a TTY there's no prompt",
       default: false,
     },
   },

@@ -13,7 +13,7 @@ export const TransformRunListEnvelope = listEnvelopeSchema(TransformRunCompact);
 export default defineMetabaseCommand({
   meta: { name: "runs", description: "List recent transform runs" },
   details:
-    "Lists runs across all transforms, or one transform's with --transform-id. The server pages the runs, so the CLI reads only as many pages as the output cap can show, then reports `has_more` / `next_offset` to continue.",
+    "Lists runs across all transforms, or one transform's with `--transform-id`. The server pages the runs, so the CLI reads only as many pages as the output cap can show, then reports `has_more` / `next_offset` to continue.",
   requires: ["transform.runPages"],
   args: {
     ...outputFlags,

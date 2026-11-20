@@ -49,7 +49,7 @@ mb transform-tag create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -80,7 +80,7 @@ mb transform-tag update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 

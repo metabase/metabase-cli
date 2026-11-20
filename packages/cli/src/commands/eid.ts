@@ -20,7 +20,7 @@ export default defineMetabaseCommand({
     description: "Translate Metabase entity ids (string EIDs) to numeric ids",
   },
   details:
-    'Entity ids are NanoIDs that can start with `-`, which the positional form reads as a flag; shell quoting does not help, because the leading `-` survives into argv. Pass such an id via `--body`, where it is a JSON string: `mb eid --body \'{"entity_ids":{"card":["-s3mHTaWs8T-VLPYEeraG"]}}\'`.',
+    'Entity IDs are NanoIDs that can start with `-`, which the positional form reads as a flag; shell quoting doesn\'t help, because the leading `-` survives into argv. Pass such an ID via `--body`, as a JSON string: `mb eid --body \'{"entity_ids":{"card":["-s3mHTaWs8T-VLPYEeraG"]}}\'`.',
   skills: [{ skill: "core", purpose: "entity-id translation and body input" }],
   requires: ["eidTranslation.translate"],
   args: {

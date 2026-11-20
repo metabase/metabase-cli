@@ -10,7 +10,7 @@ export default defineMetabaseCommand({
     description: "Show the Library and its Data / Metrics collection ids",
   },
   details:
-    "Reads the Library root and its child collections, and fails when the Library has not been created yet. Use the `library-data` child's id as the target for publishing tables (or just run `mb library publish`, which resolves it for you).",
+    "Reads the Library root and its child collections, and fails when the Library hasn't been created yet. Use the `library-data` child's ID as the target for publishing tables (or run `mb library publish`, which resolves it for you).",
   requires: ["library.get"],
   args: {
     ...outputFlags,

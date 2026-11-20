@@ -1,14 +1,20 @@
-import { FieldDetail, hasDataSensitivity } from "@metabase/client/domain/field";
+import {
+  DATA_SENSITIVITY_GATE,
+  FieldDetail,
+  hasDataSensitivity,
+} from "@metabase/client/domain/field";
+import { featureAvailability } from "@metabase/client/version/features";
 import { fieldView, fieldWithDataSensitivityView } from "../../output/views/field";
 import { renderItem } from "../../output/render";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 
+const SENSITIVITY_FEATURE = DATA_SENSITIVITY_GATE.feature;
+
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a field by id" },
-  details:
-    "`data_sensitivity` is the field's sensitivity label (see `mb field set-sensitivity`), or `null` when it has none. A server older than Metabase 64 has no such label, so the key and the Sensitivity column are left out.",
+  details: `\`data_sensitivity\` is the field's sensitivity label (see \`mb field set-sensitivity\`), or \`null\` when it has none. A server without \`${SENSITIVITY_FEATURE}\` (${featureAvailability(SENSITIVITY_FEATURE)}) has no such label, so the key and the Sensitivity column are left out.`,
   requires: ["field.get"],
   args: {
     ...outputFlags,

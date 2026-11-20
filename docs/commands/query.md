@@ -48,15 +48,15 @@ mb query [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 | `--dry-run` |  | Check the body and compile it on the server to native SQL without running it; prints {ok, errors, sql}. |
 | `--compile` |  | Print the native query the server compiles the body to, instead of running it. |
 | `--metadata` |  | Print the databases, tables, fields and snippets the body references, instead of running it. |
 | `--pretty` |  | With --compile: format the native query for reading, as the server does by default; --no-pretty compiles to one line. |
 | `--export-format <value>` |  | Bypass the JSON envelope and stream the raw export: csv \| json \| xlsx. |
 | `--format-rows` | `false` | Streamed exports only: format values as Metabase displays them, column settings included. |
-| `--pivot-results` | `false` | With --export-format csv or xlsx: lay a pivot table's rows out as the pivot, with its subtotals; refused when the server has pivoted exports turned off (the enable-pivoted-exports setting). |
-| `--csv-include-bom` | `false` | With --export-format csv: open the file with a UTF-8 byte order mark, so Excel reads it as UTF-8. Needs exportCsvByteOrderMark (v63+): an older server drops the key and exports without the mark, so the CLI refuses it there before the request. |
+| `--pivot-results` | `false` | With `--export-format` `csv` or `xlsx`: lay a pivot table's rows out as the pivot, with its subtotals; refused when the server has pivoted exports turned off (the `enable-pivoted-exports` setting). |
+| `--csv-include-bom` | `false` | With `--export-format csv`: open the file with a UTF-8 byte order mark, so Excel reads it as UTF-8. Needs `exportCsvByteOrderMark` (v63+): an older server drops the key and exports without the mark, so the CLI refuses it there before the request. |
 | `--visualization-settings <value>` |  | With --export-format: JSON object of visualization settings; column settings shape --format-rows, pivot_table.column_split the --pivot-results layout. |
 | `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 

@@ -12,7 +12,7 @@ export default defineMetabaseCommand({
     description: "Complete the initial Metabase setup wizard with a default user",
   },
   details:
-    "Bootstraps a fresh Metabase instance that is not set up yet. The body carries the setup token, the default user, and a `prefs` block with `site_name`.",
+    "Bootstraps a fresh Metabase instance that isn't set up yet. The body carries the setup token, the default user, and a `prefs` block with `site_name`.",
   requires: ["setup.create"],
   args: {
     ...outputFlags,

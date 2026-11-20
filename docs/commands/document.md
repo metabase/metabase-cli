@@ -23,7 +23,7 @@ For a document to open clean, with no spurious "unsaved changes" prompt, each `p
 
 List documents.
 
-Lists the documents you can see that are not archived. The compact row leaves out the document body, which can be large; read it with `document get <id> --full`.
+Lists the documents you can see, except archived ones. The compact row leaves out the document body, which can be large; read it with `document get <id> --full`.
 
 ```sh
 mb document list [flags]
@@ -67,7 +67,7 @@ mb document get 1 --full --json
 
 Create a document.
 
-Body keys: `name` (required), `document` (required, the TipTap `doc` tree), `collection_id` (`null` files it under "Our analytics") and `collection_position`. A `cardEmbed` node can create a card with the document: give it a negative id, and put the card's definition in a top-level `cards` map under that id.
+Body keys: `name` (required), `document` (required, the TipTap `doc` tree), `collection_id` (`null` files it under **Our analytics**) and `collection_position`. A `cardEmbed` node can create a card with the document: give it a negative ID, and put the card's definition in a top-level `cards` map under that ID.
 
 ```sh
 mb document create [flags]
@@ -76,7 +76,7 @@ mb document create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -107,7 +107,7 @@ mb document update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 

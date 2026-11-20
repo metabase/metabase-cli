@@ -108,7 +108,7 @@ mb db schemas 1 --json
 
 List tables in a database schema.
 
-Answers the schema's tables sorted by display name, as compact rows without fields. For the columns of a table you need, use `mb table get <id> --include fields` or `mb table fields <id>`.
+Returns the schema's tables sorted by display name, as compact rows without fields. For the columns of a table you need, use `mb table get <id> --include fields` or `mb table fields <id>`.
 
 ```sh
 mb db schema-tables <id> <schema> [flags]
@@ -134,7 +134,7 @@ mb db schema-tables 1 public --json
 
 Trigger a manual schema sync for a database.
 
-Queues an async schema sync and returns immediately, answering `{ id, status: "ok" }`. Pass --wait to poll the database until its initial_sync_status reports `complete` (a database that has already finished its initial sync returns at once); the answer then adds `initial_sync_status`. To wait for a specific newly-materialized transform table to register, prefer `mb transform run <id> --sync`.
+Queues an async schema sync and returns `{ id, status: "ok" }` immediately. Pass `--wait` to poll the database until its `initial_sync_status` reports `complete` (a database that has already finished its initial sync returns at once); the result then adds `initial_sync_status`. To wait for a specific newly-materialized transform table to register, prefer `mb transform run <id> --sync`.
 
 ```sh
 mb db sync-schema <id> [flags]
@@ -165,7 +165,7 @@ mb db sync-schema 1 --wait --json
 
 Trigger a rescan of cached field values for a database.
 
-Queues an async rescan and returns immediately, answering `{ id, status: "ok" }`.
+Queues an async rescan and returns `{ id, status: "ok" }` immediately.
 
 ```sh
 mb db rescan-values <id> [flags]
@@ -199,7 +199,7 @@ mb db set-data-actions <id> <enabled> [flags]
 | Argument | Description |
 | --- | --- |
 | `<id>` | Database id. |
-| `<enabled>` | true to enable data actions, false to disable; any other value is refused before the request (exit 2). |
+| `<enabled>` | `true` turns on data actions, `false` turns them off. Any other value exits 2 before a request is sent. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 

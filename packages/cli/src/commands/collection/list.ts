@@ -18,7 +18,7 @@ export const CollectionListEnvelope = listEnvelopeSchema(CollectionCompact);
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List collections" },
   details:
-    "`--filter archived` lists the archived collections and the Trash, and `--filter personal` only personal collections; neither includes the root collection. Every preset includes the Library collections that match it.",
+    "`--filter archived` lists the archived collections and the trash, and `--filter personal` only personal collections; neither includes the root collection. Every preset includes the Library collections that match it.",
   requires: ["collection.list"],
   args: {
     ...outputFlags,

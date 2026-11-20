@@ -63,7 +63,7 @@ mb dashboard list --filter archived --json
 
 Get a dashboard by id.
 
-The compact view carries `id`, `name`, `description`, `archived`, `collection_id`, and the `dashcards` and `tabs` in compact form (each dashcard's id, card_id, tab, position, size and parameter_mappings). --full returns the whole hydrated dashboard, each dashcard with its card.
+The compact view carries `id`, `name`, `description`, `archived`, `collection_id`, and the `dashcards` and `tabs` in compact form (each dashcard's `id`, `card_id`, tab, position, size and `parameter_mappings`). `--full` returns the whole hydrated dashboard, each dashcard with its card.
 
 ```sh
 mb dashboard get <id> [flags]
@@ -112,7 +112,7 @@ mb dashboard cards 1 --json
 
 Fetch the selectable values for a dashboard parameter.
 
-Answers `{values, has_more_values}` from the chain-filter value endpoint: the parameter's static list, its source card's values, or, for a parameter mapped to a field, the field's distinct values. With --query the server returns only values containing the substring, ignoring case (first 1000 matches). --constraints sets other parameters' values, by parameter id, which narrow the values of a parameter linked to them; an array sets several values.
+Returns `{ values, has_more_values }` from the chain-filter value endpoint: the parameter's static list, its source card's values, or, for a parameter mapped to a field, the field's distinct values. With `--query` the server returns only values containing the substring, ignoring case (first 1000 matches). `--constraints` sets other parameters' values, by parameter ID, which narrow the values of a parameter linked to them; an array sets several values.
 
 ```sh
 mb dashboard parameter-values <dashboard-id> <parameter-id> [flags]
@@ -177,7 +177,7 @@ mb dashboard subscriptions 10 --json
 
 Create a dashboard from JSON.
 
-Every dashcard must include card_id (a card id, or null for a virtual card), and a negative dashcard id creates a new dashcard. Any positive card_id is pre-flight-validated (exists and readable, not archived) before the dashboard is created. With dashcards or tabs in the body, a follow-up update applies them once the dashboard exists, and the command prints the dashboard as that update left it.
+Every dashcard must include `card_id` (a card ID, or `null` for a virtual card), and a negative dashcard `id` creates a new dashcard. Before the dashboard is created, each positive `card_id` is checked: the card must exist, be readable, and not be archived. With `dashcards` or `tabs` in the body, a follow-up update applies them once the dashboard exists, and the command prints the dashboard as that update left it.
 
 ```sh
 mb dashboard create [flags]
@@ -186,7 +186,7 @@ mb dashboard create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -210,7 +210,7 @@ mb dashboard create --body '{"name":"D","dashcards":[{"id":-1,"card_id":42,"row"
 
 Update a dashboard (and optionally its dashcards/tabs) by id.
 
-Every dashcard must include card_id (a card id, or null for a virtual card), existing dashcards included. Any positive card_id is pre-flight-validated (exists and readable, not archived) before the update is sent. dashcards and tabs each replace the whole list: a dashcard or tab the list leaves out is deleted, and a negative id creates a new one. A body with dashcards and no tabs keeps the current tabs, and on a dashboard with several tabs every dashcard then needs its dashboard_tab_id. Send tabs to change them, or [] with every dashboard_tab_id null to remove them all.
+Every dashcard must include `card_id` (a card ID, or `null` for a virtual card), existing dashcards included. Before the update is sent, each positive `card_id` is checked: the card must exist, be readable, and not be archived. `dashcards` and `tabs` each replace the whole list: a dashcard or tab the list leaves out is deleted, and a negative `id` creates a new one. A body with `dashcards` and no `tabs` keeps the current tabs, and on a dashboard with several tabs every dashcard then needs its `dashboard_tab_id`. Send `tabs` to change them, or `[]` with every `dashboard_tab_id` set to `null` to remove them all.
 
 ```sh
 mb dashboard update <id> [flags]
@@ -223,7 +223,7 @@ mb dashboard update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -261,7 +261,7 @@ mb dashboard update-dashcard <dashboard-id> <dashcard-id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -279,7 +279,7 @@ cat patch.json | mb dashboard update-dashcard 1 5
 
 Copy a dashboard, with its tabs and dashcards, into a collection.
 
-The copy references the source cards; --deep duplicates its questions and metrics into the target collection instead and keeps referencing its models. A dashboard holding dashboard questions (cards saved inside the dashboard) must be copied with --deep. Copied into the source dashboard's own collection, a duplicated card's name gets the suffix " - Duplicate", translated into your Metabase language. Without --collection-id the copy lands in the root collection. Archived cards, cards you cannot read, and every card on a dashcard whose main card you cannot read are left out and listed by id as `uncopied`, once per dashcard they sat on; the text summary names each once. A left-out main card takes its dashcard with it; a left-out series card stays on a dashcard whose main card is referenced and is dropped from one whose main card is duplicated. Action, link and placeholder dashcards are not copied. Prints the new dashboard.
+The copy references the source cards; `--deep` duplicates its questions and metrics into the target collection instead and keeps referencing its models. A dashboard holding dashboard questions (cards saved inside the dashboard) must be copied with `--deep`. Copied into the source dashboard's own collection, a duplicated card's name gets the suffix " - Duplicate", translated into your Metabase language. Without `--collection-id` the copy lands in the root collection. Archived cards, cards you can't read, and every card on a dashcard whose main card you can't read are left out and listed by ID as `uncopied`, once per dashcard they sat on; the text summary names each once. A left-out main card takes its dashcard with it; a left-out series card stays on a dashcard whose main card is referenced and is dropped from one whose main card is duplicated. Action, link and placeholder dashcards aren't copied. Prints the new dashboard.
 
 ```sh
 mb dashboard copy <id> [flags]

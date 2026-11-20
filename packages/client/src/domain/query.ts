@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { FeatureName } from "../version/features";
+
 // `dataset_query: {}` is accepted by the server's `::query` schema for historic
 // reasons but immediately trips the NOT NULL constraint on REPORT_CARD.DATABASE_ID
 // during INSERT, surfacing as a raw H2 stack trace. `dataset_query: null` is
@@ -22,6 +24,9 @@ export type ExportFormat = z.infer<typeof ExportFormat>;
 
 // The formats the server can lay out as a pivot; its JSON writer keeps only the ungrouped rows.
 export const PivotExportFormat = ExportFormat.exclude(["json"]);
+
+// A server without this feature drops `csv_include_bom` unread and exports without the mark.
+export const CSV_BYTE_ORDER_MARK_FEATURE = "exportCsvByteOrderMark" satisfies FeatureName;
 
 // Values stay open: a setting's shape depends on the display, and the server normalizes what it reads.
 export const VisualizationSettings = z.record(z.string(), z.unknown());

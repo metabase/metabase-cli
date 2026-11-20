@@ -9,7 +9,7 @@ import { parseSettingKey } from "./key";
 export default defineMetabaseCommand({
   meta: { name: "get", description: "Get a setting value by key" },
   details:
-    "Answers `{ key, value }`. `value` is `null` for a setting at its default, and for one set by an environment variable.",
+    "Returns `{ key, value }`. `value` is `null` for a setting at its default, and for one set by an environment variable.",
   requires: ["setting.get"],
   args: {
     ...outputFlags,

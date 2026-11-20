@@ -1,7 +1,11 @@
 import type { CommonContext } from "./context";
 import type { FlagValues } from "./flag-values";
 
-import { ExportFormat, PivotExportFormat } from "@metabase/client/domain/query";
+import {
+  CSV_BYTE_ORDER_MARK_FEATURE,
+  ExportFormat,
+  PivotExportFormat,
+} from "@metabase/client/domain/query";
 import { ConfigError } from "@metabase/client/errors";
 import type { CardExportParams } from "@metabase/client/resources/card";
 import { featureAvailability } from "@metabase/client/version/features";
@@ -9,7 +13,7 @@ import { featureAvailability } from "@metabase/client/version/features";
 import { parseEnumFlag } from "./parse-enum";
 
 const PIVOT_FORMATS = PivotExportFormat.options.join(" or ");
-const BOM_FEATURE = "exportCsvByteOrderMark";
+const PIVOT_FORMAT_VALUES = PivotExportFormat.options.map((format) => `\`${format}\``).join(" or ");
 
 const exportOnlyFlags = {
   "format-rows": {
@@ -20,12 +24,12 @@ const exportOnlyFlags = {
   },
   "pivot-results": {
     type: "boolean",
-    description: `With --export-format ${PIVOT_FORMATS}: lay a pivot table's rows out as the pivot, with its subtotals; refused when the server has pivoted exports turned off (the enable-pivoted-exports setting)`,
+    description: `With \`--export-format\` ${PIVOT_FORMAT_VALUES}: lay a pivot table's rows out as the pivot, with its subtotals; refused when the server has pivoted exports turned off (the \`enable-pivoted-exports\` setting)`,
     default: false,
   },
   "csv-include-bom": {
     type: "boolean",
-    description: `With --export-format csv: open the file with a UTF-8 byte order mark, so Excel reads it as UTF-8. Needs ${BOM_FEATURE} (${featureAvailability(BOM_FEATURE)}): an older server drops the key and exports without the mark, so the CLI refuses it there before the request`,
+    description: `With \`--export-format csv\`: open the file with a UTF-8 byte order mark, so Excel reads it as UTF-8. Needs \`${CSV_BYTE_ORDER_MARK_FEATURE}\` (${featureAvailability(CSV_BYTE_ORDER_MARK_FEATURE)}): an older server drops the key and exports without the mark, so the CLI refuses it there before the request`,
     default: false,
   },
 } as const;

@@ -58,7 +58,7 @@ mb data-action get 1 --json --full
 
 Create a data action from JSON.
 
-A data action writes to a database, filed in a collection, with no model (no `model_id`). A table action inserts, updates, or deletes one row of a table: the JSON body needs `name`, `type: "implicit"`, `kind` (`row/create`, `row/update`, or `row/delete`), and `table_id`, a table with exactly one primary key, and Metabase derives its parameters from the table's columns. A query action is a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`): the body needs `name`, `type: "query"`, a native `dataset_query` whose `{{tag}}` placeholders are its inputs and whose `database` the action writes to, and `parameters` targeting those tags. `collection_id` picks a collection in the `data-actions` or `data-apps` namespace (omit for the data actions root; a regular collection is refused, and a data app's collection takes a table action only on a table published to the Library). Data actions are off by default: an admin enables them on the database first (`mb db set-data-actions <id> true`). An MBQL 5 `dataset_query` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass --skip-validate to bypass.
+A data action writes to a database, filed in a collection, with no model (no `model_id`). A table action inserts, updates, or deletes one row of a table: the JSON body needs `name`, `type: "implicit"`, `kind` (`row/create`, `row/update`, or `row/delete`), and `table_id`, a table with exactly one primary key, and Metabase derives its parameters from the table's columns. A query action is a parameterized native SQL write (`INSERT`, `UPDATE`, `DELETE`): the body needs `name`, `type: "query"`, a native `dataset_query` whose `{{tag}}` placeholders are its inputs and whose `database` the action writes to, and `parameters` targeting those tags. `collection_id` picks a collection in the `data-actions` or `data-apps` namespace (omit for the data actions root; a regular collection is refused, and a data app's collection takes a table action only on a table published to the Library). Data actions are off by default: an admin enables them on the database first (`mb db set-data-actions <id> true`). An MBQL 5 `dataset_query` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass `--skip-validate` to bypass.
 
 ```sh
 mb data-action create [flags]
@@ -67,7 +67,7 @@ mb data-action create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 | `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
@@ -94,7 +94,7 @@ mb data-action create --body '{"name":"Add customer","type":"implicit","kind":"r
 
 Update a data action by id.
 
-The JSON body carries only the fields to change: any of `name`, `parameters`, `collection_id`, `description`, `visualization_settings` and `archived`, plus a query action's `dataset_query` or a table action's `kind` and `table_id`, never both. A server before v65 ignores `collection_id` and `table_id` and answers as if it had applied them, so either key is refused there before the request is sent. A new MBQL 5 `dataset_query` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass --skip-validate to bypass.
+The JSON body carries only the fields to change: any of `name`, `parameters`, `collection_id`, `description`, `visualization_settings` and `archived`, plus a query action's `dataset_query` or a table action's `kind` and `table_id`, never both. A server without `dataActionCollections` (v65+) ignores `collection_id`, and one without `dataActionsWithoutModel` (v65+) ignores `table_id`. Such a server responds as if it had applied the key, so the CLI refuses the key there before the request is sent. A new MBQL 5 `dataset_query` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass `--skip-validate` to bypass.
 
 ```sh
 mb data-action update <id> [flags]
@@ -107,7 +107,7 @@ mb data-action update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 | `--skip-validate` |  | Skip the local MBQL 5 pre-flight validation; let the server be the authority. Use only when the bundled schema disagrees with what the server accepts. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
@@ -194,7 +194,7 @@ mb data-action execute <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 

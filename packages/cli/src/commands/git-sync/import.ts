@@ -9,6 +9,7 @@ import { defineMetabaseCommand } from "../runtime";
 import { gitSyncWaitFlags, parseWaitFlags } from "../wait-flags";
 
 import { branchFlag } from "./branch-flag";
+import { mergeRefusal } from "./merge-refusal";
 import { formatSyncTask, taskPollOptions, throwIfFailedTask } from "./sync-task";
 
 export default defineMetabaseCommand({
@@ -16,8 +17,7 @@ export default defineMetabaseCommand({
     name: "import",
     description: "Import content from the configured git remote into Metabase",
   },
-  details:
-    "A plain import refuses while Metabase holds un-pushed changes; --force discards them, and --merge keeps them and folds the remote's changes in by a three-way merge. A merge ends the task in `conflict`, leaving local content untouched, when entities changed on both sides or when there is no merge base: the remote history was rewritten, or the instance has never synced. `--merge` needs Metabase 63 or newer, and is refused before the request on an older server (exit 2), judged against a probe of the server taken in the same run, because an older server ignores it and runs a plain import.",
+  details: `A plain import refuses while Metabase holds un-pushed changes; \`--force\` discards them, and \`--merge\` keeps them and folds the remote's changes in by a three-way merge. A merge ends the task in \`conflict\`, leaving local content untouched, when entities changed on both sides or when there's no merge base: the remote history was rewritten, or the instance has never synced. ${mergeRefusal("import")}`,
   requires: ["gitSync.import"],
   args: {
     ...outputFlags,
@@ -37,7 +37,7 @@ export default defineMetabaseCommand({
     merge: {
       type: "boolean",
       description:
-        "Keep un-pushed local changes and fold the remote's in by a three-way merge; not with --force",
+        "Keep un-pushed local changes and fold the remote's in by a three-way merge. Can't be used with `--force`",
       default: false,
     },
     ...gitSyncWaitFlags,

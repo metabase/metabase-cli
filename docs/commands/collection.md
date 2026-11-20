@@ -13,15 +13,15 @@ Agent skills:
 
 ## Collections
 
-Collections are the folders that hold cards, dashboards, and other collections. [mb collection list](#mb-collection-list) includes the virtual root collection, "Our analytics", whose id is the string `"root"`, beside the numeric ids of the others.
+Collections are the folders that hold cards, dashboards, and other collections. [mb collection list](#mb-collection-list) includes the virtual root collection, **Our analytics**, whose id is the string `"root"`, beside the numeric ids of the others.
 
 ## Moving, trashing, and restoring
 
-[mb collection update](#mb-collection-update) with `--archived false` (or `"archived": false` in a body) restores an archived collection to its old location, or, with `--parent-id`, under that parent. `--parent-id` alone moves an archived collection and leaves it in the Trash.
+[mb collection update](#mb-collection-update) with `--archived false` (or `"archived": false` in a body) restores an archived collection to its old location, or, with `--parent-id`, under that parent. `--parent-id` alone moves an archived collection and leaves it in the trash.
 
-The server ignores `parent_id` in a request that trashes a collection. So `--archived true` with `--parent-id` on a collection that is not in the Trash is sent as two requests: the move, with every other change, and then the trash. If the second one fails, the error says that the collection was moved but not trashed.
+The server ignores `parent_id` in a request that trashes a collection. So `--archived true` with `--parent-id` on a collection that is not in the trash is sent as two requests: the move, with every other change, and then the trash. If the second one fails, the error says that the collection was moved but not trashed.
 
-A collection enters the Trash only by being trashed. Whenever `--parent-id` is a collection id, the CLI looks up the Trash with one more request. A `--parent-id` that names the Trash is read as the trash alone with `--archived true`, and is refused otherwise.
+A collection enters the trash only by being trashed. Whenever `--parent-id` is a collection id, the CLI looks up the trash with one more request. A `--parent-id` that names the trash is read as the trash alone with `--archived true`, and is refused otherwise.
 
 ## Official collections
 
@@ -31,7 +31,7 @@ Setting or clearing `authority_level` (`"official"`) needs an admin and the Offi
 
 List collections.
 
-`--filter archived` lists the archived collections and the Trash, and `--filter personal` only personal collections; neither includes the root collection. Every preset includes the Library collections that match it.
+`--filter archived` lists the archived collections and the trash, and `--filter personal` only personal collections; neither includes the root collection. Every preset includes the Library collections that match it.
 
 ```sh
 mb collection list [flags]
@@ -59,7 +59,7 @@ mb collection list --namespace transforms --json
 
 Get a collection by id, 21-char entity id, or "root"/"trash".
 
-Any other reference is refused before any request. The root collection is virtual: its answer leaves out `archived`, `description`, `location` and `type` rather than sending them as `null`.
+Any other reference is refused before any request. The root collection is virtual: its response leaves out `archived`, `description`, `location` and `type` rather than sending them as `null`.
 
 ```sh
 mb collection get <id> [flags]
@@ -155,7 +155,7 @@ mb collection create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 | `--namespace <value>` |  | Collection namespace: transforms\|snippets\|analytics\|shared-tenant-collection\|tenant-specific\|data-apps\|data-actions (omit for a normal collection). |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
@@ -175,7 +175,7 @@ mb collection create --body '{"name":"ETL"}' --namespace transforms
 
 Rename, describe, move, trash, or restore a collection by id (partial).
 
-Patches only what you send, as flags or as a JSON body with any of `name`, `description` (`null` clears it), `parent_id` (`null` for the top level), `authority_level` and `archived`. The two forms are alternatives: a body beside a patch flag is refused (exit 2), and a body with no key, an unknown key, or a value of the wrong type fails validation (exit 1) before any request. The server reads an absent `archived` as false, so when the patch leaves it out the CLI reads the collection first and sends its current state: an archived collection stays archived unless you pass `--archived false`. Takes the integer id only; `root`, `trash`, and entity ids are refused.
+Patches only what you send, as flags or as a JSON body with any of `name`, `description` (`null` clears it), `parent_id` (`null` for the top level), `authority_level` and `archived`. Use one form or the other: a body together with a patch flag is refused (exit 2), and a body with no key, an unknown key, or a value of the wrong type fails validation (exit 1) before any request. The server reads an absent `archived` as `false`, so when the patch leaves it out the CLI reads the collection first and sends its current state: an archived collection stays archived unless you pass `--archived false`. Takes the integer ID only; `root`, `trash`, and entity IDs are refused.
 
 ```sh
 mb collection update <id> [flags]
@@ -188,10 +188,10 @@ mb collection update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 | `--name <value>` |  | New name; a blank one is refused. |
 | `--description <value>` |  | New description; a blank one is refused. |
-| `--clear-description` |  | Remove the description; refused beside --description. |
+| `--clear-description` |  | Remove the description. Can't be used with `--description`. |
 | `--parent-id <value>` |  | Collection to move it under, or 'root' for the top level. |
 | `--archived <value>` |  | true moves it to the trash, false restores it (default: leave as is). |
 
@@ -215,7 +215,7 @@ mb collection update 4 --file patch.json --json
 
 Archive (soft-delete) a collection by id.
 
-Moves the collection to the Trash, where `collection list --filter archived` lists it; `mb collection update <id> --archived false` restores it. Takes the integer id only.
+Moves the collection to the trash, where `collection list --filter archived` lists it; `mb collection update <id> --archived false` restores it. Takes the integer ID only.
 
 ```sh
 mb collection archive <id> [flags]

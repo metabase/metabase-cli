@@ -11,8 +11,7 @@ export const SubscriptionListEnvelope = listEnvelopeSchema(PulseCompact);
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List dashboard subscriptions" },
-  details:
-    "`--full` adds each card's `download_perms`, which `mb subscription get` does not carry.",
+  details: "`--full` adds each card's `download_perms`, which `mb subscription get` doesn't carry.",
   requires: ["pulse.list"],
   args: {
     ...outputFlags,
@@ -22,7 +21,7 @@ export default defineMetabaseCommand({
     dashboardId: {
       type: "string",
       description:
-        "Only subscriptions on this dashboard id, as `mb dashboard subscriptions <dashboard-id>` lists them",
+        "Only subscriptions on this dashboard ID, as `mb dashboard subscriptions <dashboard-id>` lists them",
       alias: "dashboard-id",
     },
     archived: {

@@ -38,7 +38,7 @@ In the table output, `login` and `status` show the probed user, and all three co
 
 Log in to a Metabase instance for a profile.
 
-Interactive login offers browser OAuth (recommended; Metabase v62.3.3+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a short-lived access token and a rotating refresh token, which it refreshes on its own; the API key choice prompts for a key from Admin settings → Authentication → API keys. For CI/non-interactive use, supply an API key via --api-key (`--api-key -` reads it from stdin), piped stdin, or $MB_API_KEY (first non-empty wins); any of these skips the browser flow, even on a TTY, and without one a non-TTY login fails rather than prompting. A key given as the --api-key value shows in shell history, so login warns about it. The URL comes from --url or $MB_URL, prompted when stdin is a TTY. Unless --skip-verify is given, login then probes the server and caches the result in the profile. If the probe fails, nothing is saved: an existing profile keeps its last good credential and records a `lastFailure`, and new browser tokens are revoked.
+Interactive login offers browser OAuth (recommended; Metabase v62.3.3+) or an API key — older servers fall back to the API key prompt automatically. Browser login opens Metabase, you sign in (password or SSO) and approve, and the CLI stores a short-lived access token and a rotating refresh token, which it refreshes on its own; the API key choice prompts for a key from **Admin** > **Settings** > **Authentication** > **API keys**. For CI and other non-interactive use, supply an API key via `--api-key` (`--api-key -` reads it from stdin), piped stdin, or `$MB_API_KEY` (first non-empty wins); any of these skips the browser flow, even on a TTY, and without one a non-TTY login fails rather than prompting. A key given as the `--api-key` value shows in shell history, so login warns about it. The URL comes from `--url` or `$MB_URL`, prompted when stdin is a TTY. Unless `--skip-verify` is given, login then probes the server and caches the result in the profile. If the probe fails, nothing is saved: an existing profile keeps its last good credential and records a `lastFailure`, and new browser tokens are revoked.
 
 ```sh
 mb auth login [flags]
@@ -88,7 +88,7 @@ mb auth status --profile staging
 
 List configured authentication profiles.
 
-Probes every listed profile again, one at a time: a probe can refresh and rewrite an expired OAuth token in the shared `profiles.json`. --limit and --offset choose the profiles before any probe. The table shows profile, URL, auth method, status, role, version, skew and last probe time; `status` is `ok`, `auth-failed`, `network-error`, `server-error` or `not-probed` (no stored credential). For an `auth-failed` row a warning names the `mb auth login --profile <name>` that updates its token.
+Probes every listed profile again, one at a time: a probe can refresh and rewrite an expired OAuth token in the shared `profiles.json`. `--limit` and `--offset` choose the profiles before any probe. The table shows profile, URL, auth method, status, role, version, skew and last probe time; `status` is `ok`, `auth-failed`, `network-error`, `server-error` or `not-probed` (no stored credential). For each `auth-failed` row, a warning gives the `mb auth login --profile <name>` command that renews its token.
 
 ```sh
 mb auth list [flags]
@@ -117,7 +117,7 @@ mb auth logout [flags]
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--yes` | `false` | Skip confirmation; without a TTY there is no prompt. |
+| `--yes` | `false` | Skip confirmation; without a TTY there's no prompt. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags).
 

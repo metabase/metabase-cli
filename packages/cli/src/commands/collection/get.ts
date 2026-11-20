@@ -12,7 +12,7 @@ export default defineMetabaseCommand({
     description: 'Get a collection by id, 21-char entity id, or "root"/"trash"',
   },
   details:
-    "Any other reference is refused before any request. The root collection is virtual: its answer leaves out `archived`, `description`, `location` and `type` rather than sending them as `null`.",
+    "Any other reference is refused before any request. The root collection is virtual: its response leaves out `archived`, `description`, `location` and `type` rather than sending them as `null`.",
   requires: ["collection.get"],
   args: {
     ...outputFlags,

@@ -28,7 +28,7 @@ export default defineMetabaseCommand({
     enabled: {
       type: "positional",
       description:
-        "true to enable data actions, false to disable; any other value is refused before the request (exit 2)",
+        "`true` turns on data actions, `false` turns them off. Any other value exits 2 before a request is sent",
       required: true,
     },
   },

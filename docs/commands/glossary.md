@@ -42,7 +42,7 @@ mb glossary list --search churn --json
 
 Create a glossary entry, a term and its definition.
 
-Pass `--term` and `--definition` together, or a JSON body with exactly those two keys. The flags are refused beside `--body` or `--file`, and a body piped on stdin is not read while they are given. Neither field may be blank. Terms are unique.
+Pass `--term` and `--definition` together, or a JSON body with exactly those two keys. You can't use the flags with `--body` or `--file`, and a body piped on stdin isn't read while they're given. Neither field may be blank. Terms are unique.
 
 ```sh
 mb glossary create [flags]
@@ -51,7 +51,7 @@ mb glossary create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 | `--term <value>` |  | The term (used with --definition). |
 | `--definition <value>` |  | The definition (used with --term). |
 
@@ -71,7 +71,7 @@ mb glossary create --file entry.json
 
 Replace the term and definition of a glossary entry.
 
-Both fields are replaced, so pass `--term` and `--definition` together, or a JSON body with exactly those two keys. The flags are refused beside `--body` or `--file`, and a body piped on stdin is not read while they are given. Neither field may be blank.
+Both fields are replaced, so pass `--term` and `--definition` together, or a JSON body with exactly those two keys. You can't use the flags with `--body` or `--file`, and a body piped on stdin isn't read while they're given. Neither field may be blank.
 
 ```sh
 mb glossary update <id> [flags]
@@ -84,7 +84,7 @@ mb glossary update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 | `--term <value>` |  | The term (used with --definition). |
 | `--definition <value>` |  | The definition (used with --term). |
 

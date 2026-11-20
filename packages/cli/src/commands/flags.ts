@@ -74,7 +74,7 @@ export const urlFlag = {
   url: {
     type: "string",
     description:
-      "Metabase URL, including any subpath the instance is served under (https://example.com/metabase)",
+      "Metabase URL, including any subpath the instance is served under (`https://example.com/metabase`)",
   },
 } as const;
 

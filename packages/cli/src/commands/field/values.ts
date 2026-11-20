@@ -11,7 +11,7 @@ export default defineMetabaseCommand({
     description: "Fetch the cached distinct values for a field (FieldValues list)",
   },
   details:
-    "Answers `{ values, field_id, has_more_values }`; `values` is empty on a field whose `has_field_values` is `none` or `search`.",
+    "Returns `{ values, field_id, has_more_values }`; `values` is empty on a field whose `has_field_values` is `none` or `search`.",
   requires: ["field.values"],
   args: {
     ...outputFlags,

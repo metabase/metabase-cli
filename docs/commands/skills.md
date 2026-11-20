@@ -51,7 +51,7 @@ mb skills list --unfiltered
 
 ## mb skills get
 
-Print one or more skills' SKILL.md content, as the profile's server can use it: a skill it lacks the features for is reported under `unavailable`, and a section it cannot use is left out. Pass comma-separated names, or --all for every non-hidden skill. A named skill prints whole unless --max-bytes is given; --all keeps the default cap, which one long skill can fill, so pass --max-bytes 0 to print every skill. --unfiltered prints the selection as written, regardless of the server. --full includes references and templates.
+Print one or more skills' `SKILL.md` content, as the profile's server can use it: a skill it lacks the features for is reported under `unavailable`, and a section it can't use is left out. Pass comma-separated names, or `--all` for every non-hidden skill. A named skill prints whole unless `--max-bytes` is given; `--all` keeps the default cap, which one long skill can fill, so pass `--max-bytes 0` to print every skill. `--unfiltered` prints the selection as written, regardless of the server. `--full` includes references and templates.
 
 ```sh
 mb skills get [names] [flags]

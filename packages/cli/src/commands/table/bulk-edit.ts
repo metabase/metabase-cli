@@ -1,15 +1,19 @@
 import {
+  DATA_AUTHORITY_WITHDRAWAL_GATE,
   TableBulkEditFields,
   TableBulkEditInput,
   TableBulkEditResult,
   TableSelectors,
 } from "@metabase/client/domain/table";
 import { ConfigError } from "@metabase/client/errors";
+import { featureAvailability } from "@metabase/client/version/features";
 import { renderSummary } from "../../output/render";
 import { tableBulkEditResultView } from "../../output/views/table";
 import { bodyInputFlags } from "../body-flags";
 import { connectionFlags, outputFlags, profileFlag } from "../flags";
 import { defineMetabaseCommand } from "../runtime";
+
+const WITHDRAWAL_FEATURE = DATA_AUTHORITY_WITHDRAWAL_GATE.feature;
 
 const SELECTOR_KEYS = TableSelectors.keyof().options;
 const EDIT_KEYS = TableBulkEditFields.keyof().options;
@@ -44,8 +48,7 @@ export default defineMetabaseCommand({
     name: "bulk-edit",
     description: "Set the same metadata on every table a selector picks out",
   },
-  details:
-    'The body selects tables with any of `table_ids`, `database_ids`, and `schema_ids` (each schema id is "<db-id>:<schema>", e.g. 1:public; the selectors are unioned) and sets any of `data_authority`, `data_source`, `data_layer`, `entity_type`, `owner_email`, `owner_user_id` on all of them. A configured `data_authority` cannot be set back to "unconfigured", and `data_source` never moves to or from "metabase-transform". A selected table that breaks either rule fails the call: before Metabase 64 no table is edited, while on 64 the selected tables Metabase held no user edits for may already carry the new values. Before Metabase 64, `null` clears a field, `null` for `data_authority` is refused before any request (exit 2), and the next scheduled analysis overwrites `entity_type` with the type it derives from the table name. On Metabase 64, `null` withdraws the edit: `data_source` and `data_layer` read back empty, while `entity_type`, `owner_email`, `owner_user_id`, and `data_authority` fall back to the values Metabase keeps for the table, which are the name-derived entity type and the owner and data authority from before the upgrade (no owner and "unconfigured" for a table published then or created since). A table leaving the `hidden` data layer is re-synced after the call returns. A body that selects nothing or sets nothing is refused before any request. The server answers the same whether or not a selector matched a table, so the output restates the accepted request as `{ accepted: true, ...body }` and cannot say which tables were edited. Metabase 58 serves a similar edit only on Enterprise, at another path and with the medallion layer names; the command does not reach it.',
+  details: `The body selects tables with any of \`table_ids\`, \`database_ids\`, and \`schema_ids\` (each schema ID is \`<db-id>:<schema>\`, e.g. \`1:public\`; the selectors are unioned) and sets any of \`data_authority\`, \`data_source\`, \`data_layer\`, \`entity_type\`, \`owner_email\`, \`owner_user_id\` on all of them. A configured \`data_authority\` can't be set back to \`unconfigured\`, and \`data_source\` never moves to or from \`metabase-transform\`. A selected table that breaks either rule fails the call: on a server without \`${WITHDRAWAL_FEATURE}\` (${featureAvailability(WITHDRAWAL_FEATURE)}) no table is edited, while on one with it the selected tables Metabase held no user edits for may already carry the new values. Without \`${WITHDRAWAL_FEATURE}\`, \`null\` clears a field, \`null\` for \`data_authority\` is refused before any request (exit 2), and the next scheduled analysis overwrites \`entity_type\` with the type it derives from the table name. With it, \`null\` withdraws the edit: \`data_source\` and \`data_layer\` read back empty, while \`entity_type\`, \`owner_email\`, \`owner_user_id\`, and \`data_authority\` fall back to the values Metabase keeps for the table, which are the name-derived entity type and the owner and data authority from before the upgrade (no owner and \`unconfigured\` for a table published then or created since). A table leaving the \`hidden\` data layer is re-synced after the call returns. A body that selects nothing or sets nothing is refused before any request. The server responds the same whether or not a selector matched a table, so the output restates the accepted request as \`{ accepted: true, ...body }\` and can't say which tables were edited. An older server serves a similar edit only on Enterprise, at another path and with the medallion layer names; the command doesn't reach it.`,
   requires: ["table.bulkEdit"],
   args: {
     ...outputFlags,

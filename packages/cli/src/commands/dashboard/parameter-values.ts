@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
     description: "Fetch the selectable values for a dashboard parameter",
   },
   details:
-    "Answers `{values, has_more_values}` from the chain-filter value endpoint: the parameter's static list, its source card's values, or, for a parameter mapped to a field, the field's distinct values. With --query the server returns only values containing the substring, ignoring case (first 1000 matches). --constraints sets other parameters' values, by parameter id, which narrow the values of a parameter linked to them; an array sets several values.",
+    "Returns `{ values, has_more_values }` from the chain-filter value endpoint: the parameter's static list, its source card's values, or, for a parameter mapped to a field, the field's distinct values. With `--query` the server returns only values containing the substring, ignoring case (first 1000 matches). `--constraints` sets other parameters' values, by parameter ID, which narrow the values of a parameter linked to them; an array sets several values.",
   skills: [{ skill: "dashboard", purpose: "dashboard parameters, mapping, value sources" }],
   requires: ["dashboard.parameterValues", "dashboard.searchParameterValues"],
   args: {

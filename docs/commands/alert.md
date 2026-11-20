@@ -28,7 +28,7 @@ mb alert list [flags]
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--card-id <value>` |  | Only alerts watching this card id, as `mb card alerts <card-id>` lists them. |
+| `--card-id <value>` |  | Only alerts watching this card ID, as `mb card alerts <card-id>` lists them. |
 | `--creator-id <value>` |  | Only alerts created by this user id. |
 | `--recipient-id <value>` |  | Only alerts delivered to this user id. |
 | `--include-inactive` |  | Include archived (inactive) alerts. |
@@ -83,7 +83,7 @@ mb alert create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -101,7 +101,7 @@ mb alert create --file alert.json
 
 Update a question alert by id.
 
-Patches only the top-level fields you send: `payload`, `subscriptions`, `handlers`, `active`. Fields inside `payload` merge over the current ones, so `{"payload":{"send_condition":"goal_above"}}` keeps the card. `subscriptions` and `handlers` replace the whole list, so send every schedule and recipient you want to keep — `mb alert get <id>` prints the current ones. An alert's card cannot be moved to a different card. The update reads the alert first and merges the patch over it, so the alert and its payload keep their ids: the server reads the body as the alert's whole new state, and a body whose `id` differs from the stored one deletes the alert and inserts a replacement under a fresh id.
+Patches only the top-level fields you send: `payload`, `subscriptions`, `handlers`, `active`. Fields inside `payload` merge over the current ones, so `{"payload":{"send_condition":"goal_above"}}` keeps the card. `subscriptions` and `handlers` replace the whole list, so send every schedule and recipient you want to keep — `mb alert get <id>` prints the current ones. An alert's card can't be moved to a different card. The update reads the alert first and merges the patch over it, so the alert and its payload keep their IDs: the server reads the body as the alert's whole new state, and a body whose `id` differs from the stored one deletes the alert and inserts a replacement under a new ID.
 
 ```sh
 mb alert update <id> [flags]
@@ -114,7 +114,7 @@ mb alert update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 

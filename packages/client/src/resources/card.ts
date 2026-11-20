@@ -9,7 +9,7 @@ import {
   type CardUpdateInput,
 } from "../domain/card";
 import { QueryMetadata } from "../domain/dataset";
-import type { ExportFormat } from "../domain/query";
+import { CSV_BYTE_ORDER_MARK_FEATURE, type ExportFormat } from "../domain/query";
 import type { RequestOptions, Transport } from "../http/transport";
 import type { ListResult } from "../list";
 import { assertPivotedExport } from "./pivot-export";
@@ -120,7 +120,7 @@ export function cardResource(transport: Transport) {
       await assertPivotedExport(transport, format, options);
     }
     await transport.requireFeatures(
-      params.csv_include_bom ? ["exportCsvByteOrderMark"] : [],
+      params.csv_include_bom ? [CSV_BYTE_ORDER_MARK_FEATURE] : [],
       options,
     );
     const body = new URLSearchParams({

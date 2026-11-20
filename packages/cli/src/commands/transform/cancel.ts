@@ -23,7 +23,7 @@ const transformCancelView: ResourceView<TransformCancelResultJson> = {
 export default defineMetabaseCommand({
   meta: { name: "cancel", description: "Cancel the current run for a transform" },
   details:
-    "Exits 0 with `{canceled: true, id}` once the server takes the cancel. A transform with no active run answers 404, and the command exits 1.",
+    "Exits 0 with `{ canceled: true, id }` once the server takes the cancel. A transform with no active run returns a 404, and the command exits 1.",
   requires: ["transform.cancel"],
   args: {
     ...outputFlags,

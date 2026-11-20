@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
     description: "Get a table by id; pass --include fields to bundle hydrated fields",
   },
   details:
-    "Without `--include`, answers the table record without its fields. `--include fields` reads the table's query metadata, so the answer carries its columns compact-projected as `fields`, with each field's FK `target` and `dimensions` under `--full`: the default path for field introspection. `mb table fields <id>` answers the fields alone, as a list envelope.",
+    "Without `--include`, returns the table record without its fields. `--include fields` reads the table's query metadata, so the result carries its columns compact-projected as `fields`, with each field's FK `target` and `dimensions` under `--full`: the default path for field introspection. `mb table fields <id>` returns the fields alone, as a list envelope.",
   requires: ["table.queryMetadata", "table.get"],
   args: {
     ...outputFlags,

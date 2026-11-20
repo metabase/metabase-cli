@@ -21,7 +21,7 @@ export const updateFlags = {
   description: { type: "string", description: "New description; a blank one is refused" },
   "clear-description": {
     type: "boolean",
-    description: "Remove the description; refused beside --description",
+    description: "Remove the description. Can't be used with `--description`",
   },
   "parent-id": {
     type: "string",

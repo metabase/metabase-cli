@@ -16,7 +16,7 @@ export default defineMetabaseCommand({
     description: "List the foreign keys pointing at a table",
   },
   details:
-    "Lists every active field whose `fk_target_field_id` is an active, unretired field of this table, the table's own self-references included. The server leaves out origin fields in inactive tables and in tables the caller cannot read, so a non-admin sees only the foreign keys from tables it can read. Each row carries the origin field with its table (`id`, `name`, `display_name`, `schema`, `db_id`), the destination field, and the relationship (`Mt1`); the text table names the origin as `<schema>.<table>.<field>`, or `<table>.<field>` on a database without schemas. A table nothing points at answers an empty list.",
+    "Lists every active field whose `fk_target_field_id` is an active, unretired field of this table, the table's own self-references included. The server leaves out origin fields in inactive tables and in tables the caller can't read, so a non-admin sees only the foreign keys from tables they can read. Each row carries the origin field with its table (`id`, `name`, `display_name`, `schema`, `db_id`), the destination field, and the relationship (`Mt1`); the text table names the origin as `<schema>.<table>.<field>`, or `<table>.<field>` on a database without schemas. A table nothing points at returns an empty list.",
   requires: ["table.fks"],
   args: {
     ...outputFlags,

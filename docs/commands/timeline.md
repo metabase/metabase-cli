@@ -89,7 +89,7 @@ mb timeline events 1 --archived --json
 
 Create a timeline from JSON.
 
-The JSON body needs `name`; optional fields: `description`, `icon` (star|cake|mail|warning|bell|cloud, and from Metabase v64 mail_at|info|note|event; default star), `collection_id` (null = root collection), `default` (true marks the collection's default timeline).
+The JSON body needs `name`; optional fields: `description`, `icon` (star|cake|mail|warning|bell|cloud, and from Metabase v64 mail_at|info|note|event; default star), `collection_id` (null = root collection), `default` (`true` marks the collection's default timeline).
 
 ```sh
 mb timeline create [flags]
@@ -98,7 +98,7 @@ mb timeline create [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -129,7 +129,7 @@ mb timeline update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -172,7 +172,7 @@ mb timeline archive 1 --json
 
 Permanently delete a timeline and all its events by id.
 
-This cannot be undone. To keep the timeline restorable, use `mb timeline archive`.
+You can't undo this. To keep the timeline restorable, use `mb timeline archive`.
 
 ```sh
 mb timeline delete <id> [flags]

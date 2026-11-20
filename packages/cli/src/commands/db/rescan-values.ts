@@ -10,7 +10,7 @@ export default defineMetabaseCommand({
     name: "rescan-values",
     description: "Trigger a rescan of cached field values for a database",
   },
-  details: 'Queues an async rescan and returns immediately, answering `{ id, status: "ok" }`.',
+  details: 'Queues an async rescan and returns `{ id, status: "ok" }` immediately.',
   requires: ["database.rescanValues"],
   args: {
     ...outputFlags,

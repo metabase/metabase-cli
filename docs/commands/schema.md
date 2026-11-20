@@ -42,7 +42,7 @@ mb schema <command> [subcommand] [flags]
 
 | Flag | Default | Description |
 | --- | --- | --- |
-| `--url <value>` |  | Metabase URL, including any subpath the instance is served under (https://example.com/metabase). |
+| `--url <value>` |  | Metabase URL, including any subpath the instance is served under (`https://example.com/metabase`). |
 | `--output` |  | Print the schema of the command's output instead of its body. |
 
 Shared flags: [format](README.md#format-flags), [profile](README.md#profile-flags).

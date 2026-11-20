@@ -21,7 +21,7 @@ export default defineMetabaseCommand({
     ...connectionFlags,
     cardId: {
       type: "string",
-      description: "Only alerts watching this card id, as `mb card alerts <card-id>` lists them",
+      description: "Only alerts watching this card ID, as `mb card alerts <card-id>` lists them",
       alias: "card-id",
     },
     creatorId: {

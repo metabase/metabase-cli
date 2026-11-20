@@ -47,7 +47,7 @@ mb dependency graph <type> <id> [flags]
 
 | Argument | Description |
 | --- | --- |
-| `<type>` | Entity kind (table \| card \| snippet \| transform \| dashboard \| document \| sandbox \| segment \| measure \| action). A measure needs Metabase v59+, an action v65+. |
+| `<type>` | Entity kind (table \| card \| snippet \| transform \| dashboard \| document \| sandbox \| segment \| measure \| action). A `measure` needs v59+, an `action` v65+. |
 | `<id>` | Entity id. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
@@ -76,7 +76,7 @@ mb dependency dependents <type> <id> [flags]
 
 | Argument | Description |
 | --- | --- |
-| `<type>` | Entity kind (table \| card \| snippet \| transform \| dashboard \| document \| sandbox \| segment \| measure \| action). A measure needs Metabase v59+, an action v65+. |
+| `<type>` | Entity kind (table \| card \| snippet \| transform \| dashboard \| document \| sandbox \| segment \| measure \| action). A `measure` needs v59+, an `action` v65+. |
 | `<id>` | Entity id. |
 
 | Flag | Default | Description |
@@ -116,7 +116,7 @@ mb dependency broken <type> <id> [flags]
 
 | Argument | Description |
 | --- | --- |
-| `<type>` | Entity kind (table \| card \| snippet \| transform \| dashboard \| document \| sandbox \| segment \| measure \| action). A measure needs Metabase v59+, an action v65+. |
+| `<type>` | Entity kind (table \| card \| snippet \| transform \| dashboard \| document \| sandbox \| segment \| measure \| action). A `measure` needs v59+, an `action` v65+. |
 | `<id>` | Entity id. |
 
 | Flag | Default | Description |

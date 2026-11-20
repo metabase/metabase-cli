@@ -7,7 +7,7 @@ summary: "Complete the initial Metabase setup wizard with a default user."
 
 Complete the initial Metabase setup wizard with a default user.
 
-Bootstraps a fresh Metabase instance that is not set up yet. The body carries the setup token, the default user, and a `prefs` block with `site_name`.
+Bootstraps a fresh Metabase instance that isn't set up yet. The body carries the setup token, the default user, and a `prefs` block with `site_name`.
 
 ```sh
 mb setup [flags]
@@ -16,7 +16,7 @@ mb setup [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 

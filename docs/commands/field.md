@@ -15,7 +15,7 @@ Agent skills:
 
 Get a field by id.
 
-`data_sensitivity` is the field's sensitivity label (see `mb field set-sensitivity`), or `null` when it has none. A server older than Metabase 64 has no such label, so the key and the Sensitivity column are left out.
+`data_sensitivity` is the field's sensitivity label (see `mb field set-sensitivity`), or `null` when it has none. A server without `fieldDataSensitivity` (v64+) has no such label, so the key and the Sensitivity column are left out.
 
 ```sh
 mb field get <id> [flags]
@@ -40,7 +40,7 @@ mb field get 100 --json
 
 Fetch the cached distinct values for a field (FieldValues list).
 
-Answers `{ values, field_id, has_more_values }`; `values` is empty on a field whose `has_field_values` is `none` or `search`.
+Returns `{ values, field_id, has_more_values }`; `values` is empty on a field whose `has_field_values` is `none` or `search`.
 
 ```sh
 mb field values <id> [flags]
@@ -65,7 +65,7 @@ mb field values 100 --json
 
 Get the row count and distinct count for a field.
 
-Metabase answers the two counts as an array of pairs; the command answers them as `{ field_id, count, distincts }`.
+Metabase returns the two counts as an array of pairs; the command returns them as `{ field_id, count, distincts }`.
 
 ```sh
 mb field summary <id> [flags]
@@ -90,7 +90,7 @@ mb field summary 100 --json
 
 Update a field (description, semantic_type, FK target, visibility, etc.).
 
-A `data_sensitivity` key (a label, or `null` to withdraw one; see `mb field set-sensitivity`) is refused before the request on a server older than Metabase 64 (exit 2), because such a server drops the key without a word.
+A `data_sensitivity` key (a label, or `null` to withdraw one; see `mb field set-sensitivity`) is refused before the request (exit 2) on a server without `fieldDataSensitivity` (v64+), because such a server drops the key without a word.
 
 ```sh
 mb field update <id> [flags]
@@ -103,7 +103,7 @@ mb field update <id> [flags]
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--body <value>` |  | Inline JSON body. |
-| `--file <value>` |  | Path to JSON body file, or - to read stdin. |
+| `--file <value>` |  | Path to JSON body file, or `-` to read stdin. |
 
 Shared flags: [output](README.md#output-flags), [profile](README.md#profile-flags), [connection](README.md#connection-flags).
 
@@ -182,7 +182,7 @@ NAME=$(mb field remapping 100 101 20 --format text)
 
 Label a field's data sensitivity by hand, or withdraw the label with `none`.
 
-A label set here is a person's call that the server's classifier never overwrites; `none` withdraws it, and the field then shows the label the classifier wrote, if it wrote one, else none. The classifier is off unless the server enables it, and a label it wrote stays after it is switched off. Answers the field with its `data_sensitivity`, which `mb field get <id>` reads back. On a server without `fieldDataSensitivity` the call is refused before the request (exit 2), because such a server drops the label and answers the field as if it had never been sent.
+A label set here is a person's call that the server's classifier never overwrites; `none` withdraws it, and the field then shows the label the classifier wrote, if it wrote one, else none. The classifier is off unless the server enables it, and a label it wrote stays after it is switched off. Returns the field with its `data_sensitivity`, which `mb field get <id>` reads back. On a server without `fieldDataSensitivity` the call is refused before the request (exit 2), because such a server drops the label and returns the field as if the label had never been sent.
 
 ```sh
 mb field set-sensitivity <id> <label> [flags]

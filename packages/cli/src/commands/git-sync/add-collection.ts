@@ -14,7 +14,7 @@ export default defineMetabaseCommand({
     description: "Mark a collection as git-synced; cascades to descendants by location prefix",
   },
   details:
-    "The server refuses the change while `remote-sync-type` is `read-only`, its default: switch first with `mb setting set remote-sync-type '\"read-write\"'`. Answers `{ success, task_id? }`, with `task_id` only when the change starts a follow-up task on the server.",
+    "The server refuses the change while `remote-sync-type` is `read-only`, its default: switch first with `mb setting set remote-sync-type '\"read-write\"'`. Returns `{ success, task_id? }`, with `task_id` only when the change starts a follow-up task on the server.",
   requires: ["gitSync.setCollectionSynced"],
   args: {
     ...outputFlags,

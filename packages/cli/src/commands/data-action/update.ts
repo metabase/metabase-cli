@@ -1,4 +1,10 @@
-import { DataAction, DataActionUpdateInput } from "@metabase/client/domain/data-action";
+import {
+  DATA_ACTION_COLLECTION_GATE,
+  DATA_ACTION_TABLE_GATE,
+  DataAction,
+  DataActionUpdateInput,
+} from "@metabase/client/domain/data-action";
+import { featureAvailability } from "@metabase/client/version/features";
 import { dataActionView } from "../../output/views/data-action";
 import { renderSummary } from "../../output/render";
 import { bodyInputFlags } from "../body-flags";
@@ -7,10 +13,12 @@ import { parseId } from "../parse-id";
 import { defineMetabaseCommand } from "../runtime";
 import { DATA_ACTION_DATASET_QUERY, skipValidateFlag } from "../validate-query";
 
+const COLLECTION_FEATURE = DATA_ACTION_COLLECTION_GATE.feature;
+const TABLE_FEATURE = DATA_ACTION_TABLE_GATE.feature;
+
 export default defineMetabaseCommand({
   meta: { name: "update", description: "Update a data action by id" },
-  details:
-    "The JSON body carries only the fields to change: any of `name`, `parameters`, `collection_id`, `description`, `visualization_settings` and `archived`, plus a query action's `dataset_query` or a table action's `kind` and `table_id`, never both. A server before v65 ignores `collection_id` and `table_id` and answers as if it had applied them, so either key is refused there before the request is sent. A new MBQL 5 `dataset_query` is checked against a bundled JSON Schema (print it with `mb schema query`) before sending; pass --skip-validate to bypass.",
+  details: `The JSON body carries only the fields to change: any of \`name\`, \`parameters\`, \`collection_id\`, \`description\`, \`visualization_settings\` and \`archived\`, plus a query action's \`dataset_query\` or a table action's \`kind\` and \`table_id\`, never both. A server without \`${COLLECTION_FEATURE}\` (${featureAvailability(COLLECTION_FEATURE)}) ignores \`collection_id\`, and one without \`${TABLE_FEATURE}\` (${featureAvailability(TABLE_FEATURE)}) ignores \`table_id\`. Such a server responds as if it had applied the key, so the CLI refuses the key there before the request is sent. A new MBQL 5 \`dataset_query\` is checked against a bundled JSON Schema (print it with \`mb schema query\`) before sending; pass \`--skip-validate\` to bypass.`,
   skills: [{ skill: "data-action", purpose: "the fields of a data action" }],
   requires: ["dataAction.update"],
   args: {

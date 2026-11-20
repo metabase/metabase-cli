@@ -11,7 +11,7 @@ export default defineMetabaseCommand({
     description: "Discard the cached field values of one table",
   },
   details:
-    "Deletes the cached distinct values behind this table's filter dropdowns, and with them any custom display values set on those values. No scan recreates a discarded set, neither `mb table rescan-values` nor the database's scheduled scan; Metabase rebuilds a set, without its display values, the next time it is read (a filter dropdown, `mb field values <id>`). Asks for confirmation on a terminal; pass --yes to skip it, which a non-interactive run must. Answers `{ id, discarded, aborted }`. To discard a set of tables use `mb table bulk-discard-values`.",
+    "Deletes the cached distinct values behind this table's filter dropdowns, and with them any custom display values set on those values. No scan recreates a discarded set, neither `mb table rescan-values` nor the database's scheduled scan; Metabase rebuilds a set, without its display values, the next time it is read (a filter dropdown, `mb field values <id>`). Asks for confirmation on a terminal; pass `--yes` to skip it, which a non-interactive run must. Returns `{ id, discarded, aborted }`. To discard a set of tables use `mb table bulk-discard-values`.",
   requires: ["table.discardValues"],
   args: {
     ...outputFlags,

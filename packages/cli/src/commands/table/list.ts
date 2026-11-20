@@ -1,5 +1,6 @@
 import {
   DATA_LAYER_TIER_GATE,
+  TABLE_LIST_FILTER_FEATURES,
   TableCompact,
   TableDataLayer,
   TableDataLayerMedallion,
@@ -7,7 +8,7 @@ import {
   TableDataSource,
   TableVisibilityType,
 } from "@metabase/client/domain/table";
-import { featureAvailability, type FeatureName } from "@metabase/client/version/features";
+import { featureAvailability } from "@metabase/client/version/features";
 import { tableView } from "../../output/views/table";
 import { renderList } from "../../output/render";
 import { listEnvelopeSchema } from "../../output/types";
@@ -19,16 +20,21 @@ import { defineMetabaseCommand } from "../runtime";
 
 export const TableListEnvelope = listEnvelopeSchema(TableCompact);
 
-function needs(feature: FeatureName): string {
-  return `needs ${feature} (${featureAvailability(feature)})`;
-}
+type TableListFilter = (typeof TABLE_LIST_FILTER_FEATURES)[number][0];
 
-const ACCESS_FILTER_NEEDS = needs("tableListAccessFilters");
+function filterNeeds(filter: TableListFilter): string {
+  const entry = TABLE_LIST_FILTER_FEATURES.find(([name]) => name === filter);
+  if (entry === undefined) {
+    throw new Error(`--${filter} names no gated table list filter`);
+  }
+  const [, feature] = entry;
+  return `needs \`${feature}\` (${featureAvailability(feature)})`;
+}
 
 export default defineMetabaseCommand({
   meta: { name: "list", description: "List tables, optionally filtered" },
   details:
-    "Answers a flat compact list without fields; when you know the schema, `mb db schema-tables <db-id> <schema>` is the better starting point. `--db-id` narrows the list on the client; every other filter is applied by the server. `--unused-only`, `--published-only`, `--can-query`, `--can-write` and `--include-transform-targets` are refused before the request (exit 2) on a server without the feature the flag needs, because such a server drops a filter it does not know without a word.",
+    "Returns a flat compact list without fields; when you know the schema, `mb db schema-tables <db-id> <schema>` is the better starting point. `--db-id` narrows the list on the client; every other filter is applied by the server. `--unused-only`, `--published-only`, `--can-query`, `--can-write` and `--include-transform-targets` are refused before the request (exit 2) on a server without the feature the flag needs, because such a server drops a filter it doesn't know without a word.",
   requires: ["table.list"],
   args: {
     ...outputFlags,
@@ -47,7 +53,7 @@ export default defineMetabaseCommand({
     },
     "data-layer": {
       type: "string",
-      description: `Only tables in this data layer: ${TableDataLayerTier.options.join("|")}; a server without ${DATA_LAYER_TIER_GATE.feature} (${featureAvailability(DATA_LAYER_TIER_GATE.feature)}) names them ${TableDataLayerMedallion.options.join("|")}`,
+      description: `Only tables in this data layer: ${TableDataLayerTier.options.join("|")}; a server without \`${DATA_LAYER_TIER_GATE.feature}\` (${featureAvailability(DATA_LAYER_TIER_GATE.feature)}) names them ${TableDataLayerMedallion.options.join("|")}`,
     },
     "data-source": {
       type: "string",
@@ -58,23 +64,23 @@ export default defineMetabaseCommand({
     "orphan-only": { type: "boolean", description: "Only tables with no owner" },
     "unused-only": {
       type: "boolean",
-      description: `Only tables nothing depends on; ${needs("tableUnusedFilter")}`,
+      description: `Only tables nothing depends on; ${filterNeeds("unused-only")}`,
     },
     "published-only": {
       type: "boolean",
-      description: `Only tables published to the library; ${needs("tableListPublishedFilter")}`,
+      description: `Only tables published to the library; ${filterNeeds("published-only")}`,
     },
     "can-query": {
       type: "boolean",
-      description: `Only tables you can run queries against; ${ACCESS_FILTER_NEEDS}`,
+      description: `Only tables you can run queries against; ${filterNeeds("can-query")}`,
     },
     "can-write": {
       type: "boolean",
-      description: `Only tables whose metadata you can edit; ${ACCESS_FILTER_NEEDS}`,
+      description: `Only tables whose metadata you can edit; ${filterNeeds("can-write")}`,
     },
     "include-transform-targets": {
       type: "boolean",
-      description: `Also list the inactive tables a transform writes to, which carry \`active: false\`; ${needs("tableListTransformTargets")}`,
+      description: `Also list the inactive tables a transform writes to, which carry \`active: false\`; ${filterNeeds("include-transform-targets")}`,
     },
   },
   outputSchema: TableListEnvelope,
